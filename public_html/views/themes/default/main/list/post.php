@@ -1,5 +1,5 @@
 <?php
-// lokasi file /views/themes/default/main/list/post.php
+// /adiwira/theme/adam/partials/posts/list.php
 // Expects:
 //   $posts   => array of post rows (id, title, slug, content, thumbnail, youtube, created_at, ...)
 //   $page    => current page number (int, optional)
@@ -110,7 +110,7 @@ if (!function_exists('_theme_posts_resolve_image')) {
               : '';
           $displayImage = _theme_posts_resolve_image($p);
       ?>
-        <article class="post-card">
+        <article style="border-radius:8px;padding:1rem;box-shadow:0 6px 18px rgba(0,0,0,.04);display:flex;gap:1rem;align-items:flex-start;">
           <?php if (!empty($displayImage)): ?>
             <div style="flex:0 0 160px;">
               <a href="/<?= $slug ?>/">

@@ -1,231 +1,121 @@
+<?php
+// main/homepage.php
+// Expect: $context, optionally $featured (post), $posts (array of posts)
+?>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap" rel="stylesheet">
+<?php
+// main/homepage.php
+// Expect: $context, optionally $featured (post), $posts (array of posts)
+?>
 <style>
-/* =========================
-   HERO SECTION
-========================= */
-.webdev-hero-section {
-    position: relative;
-    min-height: 100vh;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background: var(--bg);
-    overflow: visible; /* penting agar foto bisa keluar */
-}
+    /* Mengikuti Reset & Typography Default Kamu */
+    body {
+        font-family: "Comic Sans MS", "Comic Sans", Tahoma, "Times New Roman", Times, serif;
+        background-color: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        height: 100vh;
+        overflow: hidden;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
 
-/* =========================
-   CIRCLE
-========================= */
-.webdev-circle-bg {
-    position: absolute;
-    width: clamp(300px, 45vw, 650px);
-    height: clamp(300px, 45vw, 650px);
-    background: var(--let-accent);
-    border-radius: 50%;
-    z-index: 1;
-}
-
-/* =========================
-   SIDE TEXT
-========================= */
-.webdev-actors-layer {
-    position: absolute;
-    width: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    justify-content: space-between;
-    padding: 0 8%;
-    font-size: clamp(1rem, 2.5vw, 3rem);
-    font-weight: 900;
-    letter-spacing: 6px;
-    opacity: 0.12;
-    text-transform: uppercase;
-    z-index: 2;
-    pointer-events: none;
-    color: var(--text);
-}
-
-/* =========================
-   MAIN TITLE
-========================= */
-.webdev-main-title {
-    font-size: clamp(3rem, 10vw, 10rem);
-    font-weight: 950;
-    letter-spacing: -4px;
-    line-height: 0.9;
-    z-index: 3;
-    position: relative;
-    color: var(--text);
-}
-
-/* =========================
-   CHARACTER IMAGE
-========================= */
-.webdev-character-img {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: -35vh; /* ini bikin tembus ke section bawah */
-    height: clamp(600px, 110vh, 1200px);
-    z-index: 10;
-    pointer-events: none;
-
-    -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
-    mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
-}
-
-/* =========================
-   BOTTOM INFO
-========================= */
-.webdev-bottom-wrapper {
-    position: absolute;
-    bottom: 80px;
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 8%;
-    z-index: 20;
-}
-
-.webdev-info-box {
-    max-width: 450px;
-    text-align: left;
-}
-
-.webdev-subtitle {
-    color: var(--let-accent);
-    font-weight: bold;
-    font-size: 0.9rem;
-    letter-spacing: 2px;
-    margin-bottom: 10px;
-}
-
-.webdev-text-detail {
-    font-size: 0.9rem;
-    line-height: 1.6;
-    color: var(--text);
-}
-
-.webdev-action-group {
-    display: flex;
-    gap: 15px;
-}
-
-.webdev-btn {
-    padding: 12px 28px;
-    border-radius: 30px;
-    font-weight: bold;
-    font-size: 0.8rem;
-    border: 2px solid var(--text);
-    transition: 0.3s ease;
-    cursor: pointer;
-}
-
-.webdev-btn-primary {
-    background: var(--text);
-    color: var(--bg);
-}
-
-.webdev-btn-secondary {
-    background: transparent;
-    color: var(--text);
-}
-
-/* =========================
-   WAVE
-========================= */
-.webdev-wave-container {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    transform: rotate(180deg);
-    z-index: 5;
-}
-
-.webdev-wave-container svg {
-    width: 100%;
-    height: 100px;
-}
-
-.webdev-wave-fill {
-    fill: lightgray;
-}
-
-/* =========================
-   SECTION TWO
-========================= */
-.webdev-section-two {
-    position: relative;
-    background: lightgray;
-    padding-top: 50vh; /* kasih ruang untuk badan */
-    min-height: 100vh;
-    text-align: center;
-    z-index: 1;
-}
-
-/* =========================
-   RESPONSIVE
-========================= */
-@media (max-width: 768px) {
-
-    .webdev-bottom-wrapper {
-        flex-direction: column;
-        gap: 20px;
+    .container {
         text-align: center;
+        padding: 20px;
+        animation: fadeIn 1.5s ease-out;
+        z-index: 1;
     }
 
-    .webdev-info-box {
-        text-align: center;
+    h1 {
+        font-size: 3.5rem;
+        font-weight: 700;
+        letter-spacing: -1px;
+        margin-bottom: 10px;
     }
 
-    .webdev-character-img {
-        bottom: -25vh;
-        height: 90vh;
+    h1 span {
+        color: var(--accent); /* Mengikuti --accent tema */
     }
-}
+
+    p {
+        font-size: 1.2rem;
+        color: var(--muted); /* Mengikuti --muted tema */
+        margin-bottom: 30px;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 6px 16px;
+        border: 1px solid var(--accent);
+        border-radius: 20px;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--accent);
+        margin-bottom: 20px;
+        font-weight: bold;
+    }
+
+    .links {
+        display: flex;
+        justify-content: center;
+        gap: 25px;
+    }
+
+    .links a {
+        color: var(--link); /* Mengikuti --link tema */
+        text-decoration: none;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        padding-bottom: 2px;
+        border-bottom: 2px solid transparent;
+    }
+
+    .links a:hover {
+        color: var(--link-hover);
+        border-bottom: 2px solid var(--link-hover);
+    }
+
+    /* Glow Effect yang adaptif dengan warna accent */
+    .glow {
+        position: absolute;
+        width: 400px;
+        height: 400px;
+        /* Menggunakan warna accent dengan transparansi rendah */
+        background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+        opacity: 0.15;
+        z-index: 0;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 600px) {
+        h1 { font-size: 2.5rem; }
+        p { font-size: 1rem; }
+    }
 </style>
 
-<section class="webdev-hero-section">
+<div class="glow"></div>
 
-    <div class="webdev-circle-bg"></div>
-
-    <div class="webdev-actors-layer">
-        <span>FRONTEND</span>
-        <span>BACKEND</span>
+<div class="container">
+    <div class="status-badge">Segera Hadir</div>
+    <h1>Adam <span>Muiz</span></h1>
+    <p>Sedang membangun sesuatu yang luar biasa.</p>
+    
+    <div class="links">
+        <a href="#">LinkedIn</a>
+        <a href="#">GitHub</a>
+        <a href="mailto:email@example.com">Kontak</a>
     </div>
-
-    <h1 class="webdev-main-title">WEB DEV</h1>
-
-    <img src="https://jyavani.com/adam.png"
-         alt="Web Developer"
-         class="webdev-character-img">
-
-    <div class="webdev-wave-container">
-        <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
-            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z"
-                  class="webdev-wave-fill"></path>
-        </svg>
-    </div>
-
-    <div class="webdev-bottom-wrapper">
-        <div class="webdev-info-box">
-            <p class="webdev-subtitle">THE ULTIMATE WEB EXPERIENCE</p>
-            <p class="webdev-text-detail">
-                Membangun solusi digital yang modern, responsif, dan berperforma tinggi.
-                Membawa ide-ide brilian Anda ke dalam dunia realitas digital.
-            </p>
-        </div>
-
-        <div class="webdev-action-group">
-            <button class="webdev-btn webdev-btn-primary">HIRE</button>
-            <button class="webdev-btn webdev-btn-secondary">ABOUT</button>
-        </div>
-    </div>
-
-</section>
-
-<section class="webdev-section-two">
-    <h2>Layanan Kami</h2>
-</section>
+</div>

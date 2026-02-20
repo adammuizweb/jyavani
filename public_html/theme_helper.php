@@ -1,15 +1,13 @@
 <?php
 declare(strict_types=1);
 /**
- * theme_helper.php - updated with install_theme_from_zip and manifest validation
+ * theme_helper.php
  *
- * - Uses `themes` table as single source of truth (is_active).
- * - Reads theme.json for metadata and caches it into themes.manifest_json.
- * - New: install_theme_from_zip() enforces single top-level folder + manifest schema.
+ * - Simplified: removed 'hero' concept, added 'sidebar', 'main.search', 'main.404'.
+ * - Keeps install_theme_from_zip, manifest reading, registration, assignment helpers.
  *
  * Usage:
  *   require_once __DIR__ . '/theme_helper.php';
- *   $res = install_theme_from_zip($pdo, '/tmp/upload.zip', true, $user_id);
  */
 
 if (defined('THEME_HELPER_INCLUDED')) {
@@ -49,20 +47,31 @@ function slot_to_file(string $slot_key): string {
     $map = [
         'header' => 'header.php',
         'footer' => 'footer.php',
-        'hero' => 'hero.php',
+        'sidebar' => 'sidebar.php',
+
         'main.homepage' => 'main/homepage.php',
-        'list.post' => 'main/list/post.php',
-        'list.page' => 'main/list/page.php',
+        'main.search'   => 'main/search.php',
+        'main.404'      => 'main/404.php',
+
+        'list.post'     => 'main/list/post.php',
+        'list.page'     => 'main/list/page.php',
         'list.category' => 'main/list/category.php',
-        'list.archive' => 'main/list/archive.php',
-        'list.author' => 'main/list/author.php',
-        'single.post' => 'main/single/post.php',
-        'single.page' => 'main/single/page.php',
-        'index.category' => 'main/index/category.php',
-        'index.author' => 'main/index/author.php',
+        'list.archive'  => 'main/list/archive.php',
+        'list.author'   => 'main/list/author.php',
+
+        'single.post'   => 'main/single/post.php',
+        'single.page'   => 'main/single/page.php',
+
+        'index.category'=> 'main/index/category.php',
+        'index.author'  => 'main/index/author.php',
+
+        'index.gallery'  => 'main/index/gallery.php',
+        'list.gallery'   => 'main/list/gallery.php',
+        'single.gallery' => 'main/single/gallery.php',
     ];
     return $map[$slot_key] ?? (str_replace([':', '/'], '.', $slot_key) . '.php');
 }
+
 
 function get_pdo_from_global(): ?PDO {
     global $pdo;
@@ -147,10 +156,6 @@ function get_relevant_theme_folders($pdoOrNull, ?array $slot_keys = null): array
     return $folders;
 }
 
-/**
- * Given folder names, collect styles/scripts URLs declared in manifest or fallback candidates.
- * Returns ['styles' => [...], 'scripts' => [...]] (unique, ordered).
- */
 /**
  * Given folder names, collect styles/scripts URLs declared in manifest or fallback candidates.
  * Returns ['styles' => [...], 'scripts' => [...]] (unique, ordered).
@@ -409,14 +414,11 @@ function get_post_by_id($pdoOrNull, int $post_id) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Resolve template (unchanged semantics)
-// ... (keep the resolve_template, resolve_theme_file_path, include_template_file, render_custom_post_template, render_slot, render_page)
-// For brevity in this snippet, they are left identical to previous version.
-// You should preserve the earlier implementations for resolve_template, resolve_theme_file_path, include_template_file, render_slot, render_page.
-// (If you want the full copy-paste of these unchanged functions, let me know — I've kept them earlier.)
+// Resolve template (semantics preserved)
+// - resolve_template checks assignments -> custom_post -> theme_file
+// - resolve_theme_file_path attempts theme folder then default theme fallback
+// - include_template_file isolates include with extracted context
 ////////////////////////////////////////////////////////////////////////////////
-
-/* --- We'll re-add those functions verbatim from the prior helper to avoid breakage --- */
 
 function resolve_template($pdoOrNull, string $slot_key): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
@@ -525,6 +527,11 @@ function render_custom_post_template(array $post, array $context = []): string {
         }
         return '';
     }, $content);
+    
+if (function_exists('widget_expand_shortcodes')) {
+    $pdo = get_pdo_from_global();
+    $result = widget_expand_shortcodes((string)$result, $pdo, $ctx);
+}
 
     return $result;
 }
@@ -546,6 +553,12 @@ function render_slot($pdoOrNull, string $slot_key, array $context = []): string 
     return '';
 }
 
+/**
+ * render_page:
+ * - Chooses main slot based on context, including 'search' and '404' mappings.
+ * - Renders header, the resolved main slot, and footer.
+ * - Sidebar is intended to be rendered by the layout (layout.php) via render_slot('sidebar').
+ */
 function render_page($pdoOrNull = null, ?string $contextKey = 'home', array $data = []): void {
     $pdo = $pdoOrNull instanceof PDO ? $pdoOrNull : ($pdoOrNull ?: get_pdo_from_global());
     $ctx = $contextKey ?? 'home';
@@ -553,12 +566,13 @@ function render_page($pdoOrNull = null, ?string $contextKey = 'home', array $dat
 
     echo render_slot($pdo, 'header', $base_context);
 
-    $hero = trim(render_slot($pdo, 'hero', $base_context));
-    if ($hero !== '') {
-        echo '<section class="site-hero">' . $hero . '</section>';
-    }
-
-    if ($ctx === '' || $ctx === 'home' || $ctx === 'global' || $ctx === 'homepage') {
+    // Determine main slot
+    $ctxLower = strtolower((string)$ctx);
+    if ($ctxLower === '404' || $ctxLower === 'notfound' || $ctxLower === 'not-found') {
+        $main_slot = 'main.404';
+    } elseif ($ctxLower === 'search' || strpos($ctxLower, 'search') === 0) {
+        $main_slot = 'main.search';
+    } elseif ($ctx === '' || $ctx === 'home' || $ctx === 'global' || $ctx === 'homepage') {
         $main_slot = 'main.homepage';
     } elseif (strpos($ctx, ':') !== false) {
         $parts = explode(':', $ctx, 2);
@@ -655,6 +669,9 @@ function read_theme_manifest(string $folderPath): array {
             $manifest['screenshot'] = $j['screenshot'] ?? ($j['image'] ?? $manifest['screenshot']);
             // optionally include folder property if present
             if (isset($j['folder'])) $manifest['folder'] = $j['folder'];
+            // optional arrays for assets
+            if (!empty($j['styles']) && is_array($j['styles'])) $manifest['styles'] = $j['styles'];
+            if (!empty($j['scripts']) && is_array($j['scripts'])) $manifest['scripts'] = $j['scripts'];
         }
     }
     return $manifest;
@@ -746,7 +763,7 @@ function register_all_themes_from_fs($pdoOrNull = null): array {
                 try {
                     set_site_active_theme($pdo, $folder);
                 } catch (Throwable $e) {
-                    if (THEME_DEBUG) error_log("[THEME] set_site_active_theme failed: " . $e->getMessage());
+                    if (THEME_DEBUG) error_log("[THEME] set_site_active_theme failed for {$folder}: " . $e->getMessage());
                 }
             }
         } catch (Throwable $e) {
@@ -831,9 +848,10 @@ function bulk_assign_theme($pdoOrNull, string $theme_folder, ?array $slots = nul
         }
     }
 
+    // Default slots updated: remove 'hero', add 'sidebar', 'main.search', 'main.404'
     $default_slots = [
-        'header','footer','hero',
-        'main.homepage',
+        'header','footer','sidebar',
+        'main.homepage','main.search','main.404',
         'list.post','list.page','list.category','list.archive','list.author',
         'single.post','single.page',
         'index.category','index.author'
@@ -962,7 +980,7 @@ function theme_asset_url($pdoOrNull, string $assetRelative): ?string {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Install theme from zip (new)
+// Install theme from zip (unchanged; included for completeness)
 ////////////////////////////////////////////////////////////////////////////////
 
 /**
@@ -1023,15 +1041,11 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
     $zip->close();
 
     // Determine final folder name:
-    // Prefer: manifest.folder -> else sanitized topFolder if single -> else sanitized zip filename
     $zipBase = pathinfo($zipPath, PATHINFO_FILENAME);
 
-    // locate candidate root: if single topFolder exists and is dir, use it as extracted root,
-    // else treat extractDir as root contents and we'll wrap them into a new folder.
     $singleTop = (count($topFolders) === 1) ? $topFolders[0] : null;
     $extractedRootCandidate = $singleTop ? $extractDir . DIRECTORY_SEPARATOR . $singleTop : $extractDir;
 
-    // Read manifest if exists inside singleTop or inside extractDir root
     $manifestFsPath = null;
     if ($singleTop && is_dir($extractDir . DIRECTORY_SEPARATOR . $singleTop)) {
         $manifestFsPath = $extractDir . DIRECTORY_SEPARATOR . $singleTop . DIRECTORY_SEPARATOR . 'theme.json';
@@ -1046,7 +1060,6 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         if (is_array($tmp)) $manifestArray = $tmp;
     }
 
-    // decide final folder name:
     $finalFolder = null;
     if (!empty($manifestArray['folder'])) {
         $finalFolder = sanitize_folder_name((string)$manifestArray['folder']);
@@ -1056,7 +1069,6 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         $finalFolder = sanitize_folder_name($zipBase);
     }
 
-    // validate manifest if present
     if (is_array($manifestArray)) {
         $manifestErrors = validate_theme_manifest($manifestArray);
         if (!empty($manifestErrors)) {
@@ -1065,13 +1077,11 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
             return $ret;
         }
     } else {
-        // NOTE: original code REQUIRED theme.json. To be tolerant, we only warn here.
         if (defined('THEME_DEBUG') && THEME_DEBUG) {
             error_log("[THEME] install: no theme.json found inside uploaded zip (will continue).");
         }
     }
 
-    // destination
     $destFs = path_candidate(VIEWS_BASE, $finalFolder, '');
     if (is_dir($destFs)) {
         helper_rrmdir($extractDir);
@@ -1079,7 +1089,6 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         return $ret;
     }
 
-    // create destination folder parent if needed
     if (!is_dir(dirname($destFs))) {
         if (!@mkdir(dirname($destFs), 0755, true) && !is_dir(dirname($destFs))) {
             helper_rrmdir($extractDir);
@@ -1088,16 +1097,12 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         }
     }
 
-    // Move/copy:
     $moved = false;
     try {
-        // If singleTop present and rename works, prefer move that folder (preserve tree)
         if ($singleTop && @rename($extractDir . DIRECTORY_SEPARATOR . $singleTop, $destFs)) {
-            // remove leftover extractDir (if empty)
             @rmdir($extractDir);
             $moved = true;
         } else {
-            // else, create dest and copy contents of $extractedRootCandidate into it
             if (!helper_recurse_copy($extractedRootCandidate, $destFs)) {
                 helper_rrmdir($extractDir);
                 helper_rrmdir($destFs);
@@ -1121,7 +1126,6 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         return $ret;
     }
 
-    // register in DB (manifestForDb prefer manifestArray if exists)
     try {
         $manifestForDb = [
             'name' => $manifestArray['name'] ?? $finalFolder,
@@ -1134,10 +1138,8 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         ];
         register_theme_in_db($pdo, $finalFolder, $manifestForDb, !empty($manifestForDb['is_active']));
         if ($activate) {
-            // set as site active theme and attempt apply
             try {
                 set_site_active_theme($pdo, $finalFolder);
-                // attempt bulk assign; swallow errors but log
                 try {
                     $ok = bulk_assign_theme($pdo, $finalFolder, null, $by_user_id ?? 0);
                     if (!$ok && defined('THEME_DEBUG') && THEME_DEBUG) {
@@ -1147,13 +1149,10 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
                     if (defined('THEME_DEBUG') && THEME_DEBUG) error_log("[THEME] bulk_assign_theme error: " . $be->getMessage());
                 }
             } catch (Throwable $e) {
-                // Activation failed but install succeeded
                 if (defined('THEME_DEBUG') && THEME_DEBUG) error_log("[THEME] set_site_active_theme failed: " . $e->getMessage());
-                // not a fatal install error
             }
         }
     } catch (Throwable $e) {
-        // attempt cleanup target folder only if DB failed
         helper_rrmdir($destFs);
         $ret['message'] = 'DB register failed: ' . $e->getMessage();
         return $ret;

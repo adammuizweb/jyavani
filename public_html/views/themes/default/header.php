@@ -1,75 +1,36 @@
 <?php
-$siteTitle = $site['title'] ?? 'ABC';
+// header.php
+$siteTitle = $site['title'] ?? 'Jyavani';
 $baseUrl   = rtrim($site['url'] ?? '/', '/');
 $homeUrl   = $baseUrl ?: '/';
+
+// Ambil keyword search jika ada
 $searchQuery = $_GET['s'] ?? '';
 ?>
 <div id="overlay" class="overlay"></div>
 
-<header class="site-header moving-line ml-header onload"
-  data-anim-trigger="load"
-  data-ml-duration="980"
-  data-ml-delay="240"
->
-  <div class="header-inner"><!-- jangan kasih animasi di wrapper -->
-
+<header class="site-header">
+  <div class="header-inner">
     <!-- BRAND -->
-<a href="<?= htmlspecialchars($homeUrl) ?>" class="brand onload wave-span"
-   data-anim-trigger="load"
-   data-wave-target=".jyavani-logo"
-   data-wave-step="28">
+    <a href="<?= htmlspecialchars($homeUrl) ?>" class="brand">
+      <img src="<?= $homeUrl ?>/static/img/jyavani.svg" alt="<?= htmlspecialchars($siteTitle) ?>">
+      <span>UniHeader</span>
+    </a>
 
-  <img
-    src="<?= $homeUrl ?>/static/img/jyavani.svg"
-    alt="<?= htmlspecialchars($siteTitle) ?>"
-    class="flip-logo onload"
-    data-anim-trigger="load"
-    data-fl-duration="900"
-    data-fl-delay="120"
-  >
-
-  <span class="jyavani-logo" aria-label="Jyavani">
-    <span class="letter accent" data-word="Just">J</span>
-    <span class="letter base" data-word="Your">y</span>
-    <span class="letter accent" data-word="Visiting">v</span>
-    <span class="letter base" data-word="Always">a</span>
-    <span class="letter base" data-word="Nice">n</span>
-    <span class="letter base" data-word="Inspire">i</span>
-  </span>
-</a>
-
-
-    <!-- HAMBURGER -->
-    <button id="hamburger" class="hamburger pop onload"
-      data-anime-trigger="load"
-      data-duration="700"
-      data-delay="260"
-      aria-label="Menu"
-    >
+    <button id="hamburger" class="hamburger" aria-label="Menu">
       <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
 
     <nav id="navbar" class="navbar">
-      <div class="mobile-head">
+      
+      <div class="mobile-head"> 
         <span class="mobile-title">Menu Utama</span>
-        <button id="closeMenu" class="close-btn pop onload"
-          data-anime-trigger="load"
-          data-duration="700"
-          data-delay="320"
-          aria-label="Close Menu"
-        >
+        <button id="closeMenu" class="close-btn" aria-label="Close Menu">
           <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
       </div>
 
-      <!-- MENU (yang kamu bilang “paling waras”) -->
-      <ul class="menu expand-center-safe moving-line onload"
-        data-anime-trigger="load"
-        data-duration="2500"
-        data-delay="360"
-        data-ml-duration="1000"
-        data-ml-delay="520"
-      >
+      <ul class="menu">
         <li class="menu-item">
           <a href="<?= htmlspecialchars($homeUrl) ?>" class="menu-link" data-key="beranda">
             Beranda
@@ -124,40 +85,26 @@ $searchQuery = $_GET['s'] ?? '';
         </li>
       </ul>
 
-      <!-- CONTROLS (animasi per-item, jangan wrapper) -->
       <div class="controls">
-        <select id="themeSelect" class="ctrl-item blur-in onload"
-          data-anime-trigger="load"
-          data-duration="1700"
-          data-delay="760"
-        >
+        <select id="themeSelect" class="ctrl-item">
+          <option value="system">Tema: Auto</option>
           <option value="light">Terang</option>
           <option value="dark">Gelap</option>
         </select>
-
-        <select id="lang-switch" class="ctrl-item blur-in onload"
-          data-anime-trigger="load"
-          data-duration="700"
-          data-delay="860"
-        >
-          <option value="id">Indonesia</option>
-          <option value="en">English</option>
-        </select>
-
+        <select class="ctrl-item" id="lang-switch"><option value="id">Indonesia</option><option value="en">English</option></select>
+        
+                <!-- SEARCH FORM (WAJIB FORM + name="s") -->
         <form method="get" action="<?= htmlspecialchars($homeUrl) ?>">
           <input
             type="search"
             name="s"
-            class="ctrl-item pop"
-            data-anime-trigger="load"
-            data-duration="1000"
-            data-delay="1000"
+            class="ctrl-item"
             placeholder="Cari..."
             value="<?= htmlspecialchars($searchQuery) ?>"
           >
         </form>
+        
       </div>
     </nav>
-
   </div>
 </header>

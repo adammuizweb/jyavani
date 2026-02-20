@@ -28,7 +28,7 @@ $context_for_layout = $context_for_layout ?? 'global';
 // 4) Page title / meta (override in controllers)
 // Default dari DB (bisa dioverride controller via $page_title)
 $db_default_title = ($pdo instanceof PDO && function_exists('settings_get'))
-    ? (settings_get($pdo, 'site_title', 'Jyavani CMS v1') ?? 'Jyavani CMS v1')
+    ? (settings_get($pdo, 'site_title', 'Jyavani CMS') ?? 'Jyavani CMS')
     : 'Jyavani CMS';
 
 $page_title = $page_title ?? $db_default_title;
@@ -37,8 +37,8 @@ $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' :
 
 // Host: biasanya selalu ada dari HTTP_HOST; DB dipakai sebagai fallback/kanonikal default
 $db_default_host = ($pdo instanceof PDO && function_exists('settings_get'))
-    ? (settings_get($pdo, 'site_host', 'v1.jyavani.com') ?? 'v1.jyavani.com')
-    : 'v1.jyavani.com';
+    ? (settings_get($pdo, 'site_host', 'cms.jyavani.com') ?? 'cms.jyavani.com')
+    : 'cms.jyavani.com';
 
 $host = $_SERVER['HTTP_HOST'] ?? $db_default_host;
 
@@ -47,15 +47,14 @@ $host = preg_replace('/[^a-z0-9\.\-:]/i', '', (string)$host);
 $site_base_url = $scheme . '://' . $host;
 
 // 5) Theme class (light/dark/system) from cookie
-$themeClass = 'theme-light'; // default terang untuk first visit
-
+$themeClass = '';
 if (!empty($_COOKIE['site-theme'])) {
     $ct = (string)$_COOKIE['site-theme'];
     if ($ct === 'dark') $themeClass = 'theme-dark';
     elseif ($ct === 'light') $themeClass = 'theme-light';
 }
 
-// ends_with helper
+// small helpers (kept local)
 if (!function_exists('ends_with')) {
     function ends_with(string $haystack, string $needle): bool {
         if ($needle === '') return true;
@@ -63,11 +62,11 @@ if (!function_exists('ends_with')) {
     }
 }
 
-/**
- * Determine the main slot for the current context.
- */
+// Determine the main slot for the current context.
+// Note: we keep compatibility with existing conventions; controllers set $context_for_layout.
 $main_slot = (function($ctx) {
     $ctx = $ctx ?? 'home';
+    // common aliases for home
     if ($ctx === '' || $ctx === 'home' || $ctx === 'global' || $ctx === 'homepage') {
         return 'main.homepage';
     } elseif (strpos($ctx, ':') !== false) {
@@ -81,13 +80,26 @@ $main_slot = (function($ctx) {
         return 'main.' . $ctx;
     }
 })($context_for_layout);
+
+// ==============================
+// LAYOUT POLICY (NEW)
+// - homepage full-width (no container)
+// - homepage sidebar OFF
+// ==============================
+$is_homepage_context = ($main_slot === 'main.homepage');
+
+// Allow controller override if needed:
+$layout_full_width = isset($layout_full_width) ? (bool)$layout_full_width : $is_homepage_context;
+$enable_sidebar    = isset($enable_sidebar) ? (bool)$enable_sidebar : (!$is_homepage_context);
+
+$use_container = !$layout_full_width;
+
 ?><!doctype html>
 <html lang="id"<?= $themeClass ? ' class="'.htmlspecialchars($themeClass, ENT_QUOTES, 'UTF-8').'"' : '' ?>>
 <head>
   <meta charset="utf-8">
   <title><?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?></title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <script src="/static/assets/js/main.js"></script>
 
   <!-- Favicons -->
   <link rel="shortcut icon" href="/static/img/favicon/favicon.ico">
@@ -117,19 +129,20 @@ if (!empty($GLOBALS['rel_next'])) echo '<link rel="next" href="'.htmlspecialchar
 if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlspecialchars($GLOBALS['robots_meta'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 ?>
 
-<!-- CSS Global -->
-<link rel="stylesheet" href="/static/assets/css/anime.css?v=3212">
-<link rel="stylesheet" href="/static/vendor/quill/quill.snow.pub.css">
-
   <!-- Google Fonts (optional) -->
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Taviraj:wght@600&display=swap" rel="stylesheet">
 
 <?php
-// THEME STYLES: attempt to load only styles declared/used on this page (header, main_slot, footer)
+// THEME STYLES: request relevant slots including hero and sidebar so assets for them are included.
+$style_slots = ['header', $main_slot, 'footer'];
+if ($enable_sidebar) {
+    $style_slots[] = 'sidebar';
+}
+
 if (function_exists('echo_relevant_theme_styles')) {
     try {
-        echo_relevant_theme_styles($pdo, ['header', $main_slot, 'footer']);
+        echo_relevant_theme_styles($pdo, $style_slots);
     } catch (Throwable $e) {
         if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] echo_relevant_theme_styles error: ' . $e->getMessage());
         // fall through to fallback below
@@ -146,6 +159,7 @@ if (!function_exists('echo_relevant_theme_styles')) {
     $theme_css_candidates = [
         'assets/css/style.css',
         'assets/css/main.css',
+        'assets/css/site.css',
         'css/style.css', // legacy
     ];
     foreach ($theme_css_candidates as $c) {
@@ -164,6 +178,21 @@ if (!function_exists('echo_relevant_theme_styles')) {
 }
 ?>
 
+<!-- Minimal layout CSS to support sidebar positioning (themes should override) -->
+<style>
+/* layout helpers — themes should override with their own design */
+.container{max-width:1100px;margin:0 auto;padding:20px}
+.layout-grid{display:grid;gap:20px}
+.layout-grid.layout-sidebar-left{grid-template-columns: 280px 1fr;}
+.layout-grid.layout-sidebar-right{grid-template-columns: 1fr 280px;}
+.site-main-area{min-height:200px}
+@media (max-width:880px){
+  .layout-grid.layout-sidebar-left,
+  .layout-grid.layout-sidebar-right{grid-template-columns:1fr}
+}
+</style>
+
+<link rel="stylesheet" href="/quiz/style.css?v=1234">
 </head>
 <body>
 <?php
@@ -177,11 +206,39 @@ try {
 } catch (Throwable $e) {
     if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] render_slot(header) error: ' . $e->getMessage());
 }
+
+// Sidebar: OFF on homepage by default (enable_sidebar handles it)
+$sidebar_position = $sidebar_position ?? ($_COOKIE['sidebar_pos'] ?? 'right'); // 'left'|'right'
+$sidebar_html = '';
+if ($enable_sidebar) {
+    try {
+        $sidebar_html = trim((string)render_slot($pdo, 'sidebar', $base_context));
+    } catch (Throwable $e) {
+        if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] render_slot(sidebar) error: ' . $e->getMessage());
+        $sidebar_html = '';
+    }
+}
 ?>
 
 <main id="site-main" class="site-main" role="main">
+<?php if ($use_container): ?>
+  <div class="container">
+<?php endif; ?>
 
 <?php
+// If we have sidebar content, render a 2-column layout.
+// If sidebar is empty OR disabled, render single full-width main area.
+if ($enable_sidebar && $sidebar_html !== '') {
+    if ($sidebar_position === 'left') {
+        echo '<div class="layout-grid layout-sidebar-left">';
+        echo '<aside class="sidebar-col">' . $sidebar_html . '</aside>';
+        echo '<section class="main-col">';
+    } else {
+        echo '<div class="layout-grid layout-sidebar-right">';
+        echo '<section class="main-col">';
+    }
+}
+
 // Main/content
 if (!empty($content_html)) {
     echo $content_html;
@@ -195,8 +252,19 @@ if (!empty($content_html)) {
         }
     }
 }
+
+if ($enable_sidebar && $sidebar_html !== '') {
+    echo '</section>'; // close main-col
+    if ($sidebar_position !== 'left') {
+        echo '<aside class="sidebar-col">' . $sidebar_html . '</aside>';
+    }
+    echo '</div>'; // close layout-grid
+}
 ?>
 
+<?php if ($use_container): ?>
+  </div>
+<?php endif; ?>
 </main>
 
 <?php
@@ -209,13 +277,18 @@ try {
 ?>
 
 <!-- small footer script area -->
-<script src="/static/assets/js/anime.js?v=3212"></script>
+<script src="/static/assets/js/anime.js"></script>
 
 <?php
-// THEME SCRIPTS: load scripts for themes actually used on this page
+// THEME SCRIPTS: request relevant slots too
+$script_slots = ['header', $main_slot, 'footer'];
+if ($enable_sidebar) {
+    $script_slots[] = 'sidebar';
+}
+
 if (function_exists('echo_relevant_theme_scripts')) {
     try {
-        echo_relevant_theme_scripts($pdo, ['header', $main_slot, 'footer']);
+        echo_relevant_theme_scripts($pdo, $script_slots);
     } catch (Throwable $e) {
         if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] echo_relevant_theme_scripts error: ' . $e->getMessage());
     }
@@ -227,7 +300,8 @@ if (function_exists('echo_relevant_theme_scripts')) {
     $theme_js_candidates = [
         'assets/js/script.js',
         'assets/js/main.js',
-        'js/script.js' // legacy fallback
+        'assets/js/app.js',
+        'js/script.js'
     ];
     foreach ($theme_js_candidates as $c) {
         $url = function_exists('theme_asset_url') ? theme_asset_url($pdo, $c) : null;

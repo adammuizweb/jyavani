@@ -45,7 +45,7 @@ $authorLink = !empty($author['username']) ? '/author/' . rawurlencode($author['u
 $imgUrl = !empty($p['display_image']) ? $p['display_image'] : (!empty($p['thumbnail']) ? $p['thumbnail'] : null);
 $postUrl = '/' . rawurlencode($p['slug']) . '/';
       ?>
-        <article class="post-card">
+        <article class="author-post-item">
             
 <?php if ($imgUrl): ?>
   <a class="thumb-wrap" href="<?= $postUrl ?>">

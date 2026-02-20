@@ -46,6 +46,12 @@
     margin: 0 0 1.25rem 0;
     font-size: 2rem;
     line-height: 1.1;
+    color: #1f2937; /* dark slate */
+}
+
+/* Empty state */
+.empty-msg {
+    color: #6b7280;
 }
 
 /* Grid list for categories */
@@ -60,7 +66,8 @@
 
 /* Card-like items */
 .category-item {
-    border: 1px solid;
+    background: #ffffff;
+    border: 1px solid #eef2f6;
     border-radius: 8px;
     overflow: hidden;
     transition: transform .12s ease, box-shadow .12s ease;
@@ -70,13 +77,12 @@
 /* Link covers whole card */
 .category-link {
     display: flex;
-    color: var(--accent);
     justify-content: space-between;
     align-items: flex-start;
     text-decoration: none;
+    color: inherit;
     padding: 1rem 1.1rem;
     height: 100%;
-    text-decoration: none;
 }
 
 /* Hover / focus states */
@@ -84,7 +90,7 @@
 .category-item:focus-within {
     transform: translateY(-4px);
     box-shadow: 0 8px 20px rgba(31,41,55,0.06);
-    text-decoration: none;
+    border-color: #e6eefb;
 }
 
 /* Category content */
@@ -93,12 +99,14 @@
 .category-name {
     margin: 0 0 0.35rem 0;
     font-size: 1.05rem;
+    color: #0f172a;
     word-break: break-word;
 }
 
 /* description */
 .category-desc {
     margin: 0;
+    color: #6b7280;
     font-size: 0.95rem;
     line-height: 1.4;
     max-height: 3.6em; /* roughly 2 lines */
@@ -112,6 +120,7 @@
     display:flex;
     align-items:center;
     justify-content:center;
+    color: #60a5fa;
     font-size: 1.25rem;
 }
 
@@ -119,7 +128,6 @@
 .category-link:focus,
 .category-link:hover {
     outline: none;
-    text-decoration: none;
 }
 
 /* small screens: tighter spacing */

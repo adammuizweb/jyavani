@@ -115,57 +115,29 @@ $thumbUrl = !empty($post['display_image']) ? $post['display_image'] : (!empty($p
 </script>
 <?php endif; ?>
 
-<article class="adam-post-single fade-up onload" data-duration="1500">
-
-<?php
-// ===== Breadcrumb typewrite timings =====
-$bcStart   = 120;  // delay awal (ms)
-$bcGap     = 320;  // jarak antar item (ms) -> naikkan kalau mau lebih “beda”
-$bcDurLink = 420;  // durasi type link (ms)
-$bcDurSep  = 220;  // durasi type separator "/" (ms)
-
-$bcDelay = $bcStart;
-
-// helper render (biar rapi)
-$bcAttrs = function(int $dur, int $delay){
-  return ' class="typewrite onload" data-anim-trigger="load" data-duration="'.$dur.'" data-delay="'.$delay.'"';
-};
-?>
-
-<nav class="adam-breadcrumb" aria-label="Breadcrumb">
-  <a href="/"<?= $bcAttrs($bcDurLink, $bcDelay) ?>>Beranda</a>
-  <?php $bcDelay += $bcGap; ?>
-
-  <span class="sep"<?= $bcAttrs($bcDurSep, $bcDelay) ?>>/</span>
-  <?php $bcDelay += $bcGap; ?>
-
-  <?php if (!empty($categories)): ?>
-    <?php
-      $firstCat = $categories[0];
-      $fullPath = function_exists('build_category_full_path')
-        ? build_category_full_path($GLOBALS['pdo'] ?? null, $firstCat['slug'])
-        : $firstCat['slug'];
-
-      // encode per-segmen, keep slash
-      $segments = array_map('rawurlencode', explode('/', $fullPath));
-      $catHref = '/category/' . implode('/', $segments) . '/';
-    ?>
-    <a href="<?= htmlspecialchars($catHref, ENT_QUOTES, 'UTF-8') ?>"<?= $bcAttrs($bcDurLink, $bcDelay) ?>>
-      <?= htmlspecialchars($firstCat['name'], ENT_QUOTES, 'UTF-8') ?>
-    </a>
-    <?php $bcDelay += $bcGap; ?>
-
-    <span class="sep"<?= $bcAttrs($bcDurSep, $bcDelay) ?>>/</span>
-    <?php $bcDelay += $bcGap; ?>
-  <?php endif; ?>
-
-  <span class="current blur-in onload" data-duration="2400" aria-current="page"<?= $bcAttrs($bcDurLink, $bcDelay) ?>>Artikel</span>
-</nav>
-
+<article class="adam-post-single">
+  <nav class="adam-breadcrumb" aria-label="Breadcrumb">
+    <a href="/">Beranda</a>
+    <span class="sep">/</span>
+    <?php if (!empty($categories)): ?>
+      <?php
+        // build full path for first category for breadcrumb
+        $firstCat = $categories[0];
+        $catPath = '';
+        // use global $pdo if available
+        $catPath = function_exists('build_category_full_path') ? build_category_full_path($GLOBALS['pdo'] ?? null, $firstCat['slug']) : $firstCat['slug'];
+      ?>
+      <a href="/category/<?= rawurlencode($catPath) ?>/">
+        <?= htmlspecialchars($firstCat['name']) ?>
+      </a>
+      <span class="sep">/</span>
+    <?php endif; ?>
+    <span class="current" aria-current="page">Artikel</span>
+  </nav>
 
   <header class="adam-post-header">
     <?php if (!empty($categories)): ?>
-      <div class="adam-cat-badges slide-up onload" data-anim-trigger="load">
+      <div class="adam-cat-badges">
         <?php foreach ($categories as $cat): ?>
           <?php
             $fullPath = function_exists('build_category_full_path') ? build_category_full_path($GLOBALS['pdo'] ?? null, $cat['slug']) : $cat['slug'];
@@ -180,19 +152,15 @@ $bcAttrs = function(int $dur, int $delay){
       </div>
     <?php endif; ?>
 
-<?php $postTitle = trim((string)($post['title'] ?? '')); ?>
+    <h1 class="adam-post-title"><?= htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8') ?></h1>
 
-<h1 class="adam-post-title wave-span onload"
-    data-anim-trigger="load"
-    data-wave-step="22"><?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?></h1>
-
-    <div class="adam-post-meta-row fade-up onload" data-anim-trigger="load">
+    <div class="adam-post-meta-row">
       <div class="meta-author">
         <?php if (!empty($authorImg)): ?>
           <a href="<?= $authorUrl ?: '#' ?>"<?= $authorUrl ? '' : ' aria-disabled="true" tabindex="-1"' ?>>
             <img src="<?= htmlspecialchars($authorImg, ENT_QUOTES, 'UTF-8') ?>"
                  alt="<?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?>"
-                 class="author-avatar flip-logo onload" data-fl-duration="2400">
+                 class="author-avatar">
           </a>
         <?php else: ?>
           <div class="author-avatar-placeholder"><?= strtoupper(substr($authorName, 0, 1)) ?></div>
@@ -200,7 +168,7 @@ $bcAttrs = function(int $dur, int $delay){
         <div class="meta-text">
           <span class="by">Ditulis oleh</span>
           <?php if ($authorUrl): ?>
-            <a class="name typewrite" data-duration="400" href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>">
+            <a class="name" href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>">
               <?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?>
             </a>
           <?php else: ?>
@@ -209,131 +177,103 @@ $bcAttrs = function(int $dur, int $delay){
         </div>
       </div>
 
-<?php
-$gap = 400;
-$d0 = 0;
-$d1 = $gap;
-$d2 = $gap * 2;
-$readDelay = $d1; // default kalau updated tidak muncul
-?>
+      <div class="meta-details">
+        <div class="meta-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <time datetime="<?= htmlspecialchars($datePublished ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <?= htmlspecialchars($post['created_at'] ? date('d M Y', strtotime($post['created_at'])) : '', ENT_QUOTES, 'UTF-8') ?>
+          </time>
+        </div>
 
-<div class="meta-details">
+        <?php if (!empty($post['updated_at']) && $post['updated_at'] > $post['created_at']): ?>
+          <div class="meta-item updated" title="Terakhir diperbarui">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg>
+            Updated: <?= htmlspecialchars(date('d M Y', strtotime($post['updated_at'])), ENT_QUOTES, 'UTF-8') ?>
+          </div>
+        <?php endif; ?>
 
-    <div class="meta-item slide-up onload"
-       data-anim-trigger="load"
-       data-duration="300"
-       data-delay="200">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-    <time datetime="<?= htmlspecialchars($datePublished ?? '', ENT_QUOTES, 'UTF-8') ?>">
-      <?= htmlspecialchars($post['created_at'] ? date('d M Y', strtotime($post['created_at'])) : '', ENT_QUOTES, 'UTF-8') ?>
-    </time>
-  </div>
-
-  <?php if (!empty($post['updated_at']) && $post['updated_at'] > $post['created_at']): ?>
-    <div class="meta-item updated slide-up onload"
-         title="Terakhir diperbarui"
-         data-anim-trigger="load"
-         data-duration="300"
-         data-delay="<?= $d1 ?>">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg>
-      Updated: <?= htmlspecialchars(date('d M Y', strtotime($post['updated_at'])), ENT_QUOTES, 'UTF-8') ?>
-    </div>
-    <?php $readDelay = $d2; ?>
-  <?php endif; ?>
-
-    <div class="meta-item slide-up onload"
-       data-anim-trigger="load"
-       data-duration="300"
-       data-delay="<?= $readDelay ?>">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-    <?= (int)$readTime ?> menit baca
-  </div>
-
-</div>
-
+        <div class="meta-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <?= (int)$readTime ?> menit baca
+        </div>
+      </div>
     </div>
   </header>
 
-<?php
-// ===== Featured: YouTube > display_image > thumbnail =====
-$ytid = null;
-if (!empty($post['youtube'])) {
-  if (preg_match('#(?:youtu\.be/|[?&]v=|/embed/)([A-Za-z0-9_\-]+)#i', $post['youtube'], $m)) $ytid = $m[1];
-}
-
-$featDur   = 1100;  // ms
-$featDelay = 780;   // ms
-$featEase  = 'cubic-bezier(.16,1,.3,1)';
-
-// Animasi utk YouTube (iframe) — boleh flip/zoom
-$ytAnimClass = 'flip-y onload'; // atau 'zoom-in onload'
-
-// Animasi utk image (frag)
-$imgAnimClass = 'frag-reveal onload';
-
-// fallback image: display_image dulu, baru thumbnail
-$imgSrcRaw = !empty($post['display_image']) ? $post['display_image'] : (!empty($post['thumbnail']) ? $post['thumbnail'] : null);
+<?php if (!empty($post['youtube'])): 
+    // simple extractor (safest to use controller helper; ini fallback view-side)
+    if (preg_match('#(?:youtu\.be/|[?&]v=|/embed/)([A-Za-z0-9_\-]+)#i', $post['youtube'], $m)) {
+        $ytid = $m[1];
+    } else {
+        $ytid = null;
+    }
 ?>
+  <?php if ($ytid): ?>
+    <figure class="adam-post-thumb">
+      <div style="position:relative;padding-top:56.25%">
+        <iframe src="https://www.youtube.com/embed/<?= rawurlencode($ytid) ?>" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen loading="lazy"></iframe>
+      </div>
+    </figure>
+  <?php endif; ?>
 
-<?php if ($ytid): ?>
-
-  <figure class="adam-post-thumb <?= $ytAnimClass ?>"
-          data-anim-trigger="load"
-          data-duration="<?= (int)$featDur ?>"
-          data-delay="<?= (int)$featDelay ?>"
-          data-ease="<?= htmlspecialchars($featEase, ENT_QUOTES, 'UTF-8') ?>">
-    <div style="position:relative;padding-top:56.25%">
-      <iframe
-        src="https://www.youtube.com/embed/<?= rawurlencode($ytid) ?>"
-        style="position:absolute;inset:0;width:100%;height:100%;border:0"
-        allowfullscreen
-        loading="lazy"></iframe>
-    </div>
-  </figure>
-
-<?php elseif ($imgSrcRaw): ?>
+<?php elseif (!empty($post['display_image'])): ?>
 
   <?php
+    /**
+     * === START: FEATURED AREA (modified) ===
+     * - If controller has attached display_image_target_url/attribute, make the image clickable with visible CTAs.
+     * - Minimal scoped CSS included here so changes don't affect rest of theme.
+     */
+    $imgSrcRaw = $post['display_image'];
     $imgAltRaw = $post['title'] ?? '';
-    $turlRaw   = $post['display_image_target_url'] ?? null;
-    $tattrRaw  = $post['display_image_target_attribute'] ?? null;
+    $turlRaw  = $post['display_image_target_url'] ?? null;
+    $tattrRaw = $post['display_image_target_attribute'] ?? null;
+
+    // friendly label for badge (Drive/PDF/Slide/Materi)
+    $typeLabel = 'Materi';
+    if (!empty($turlRaw)) {
+        if (stripos($turlRaw, 'drive.google.com') !== false) {
+            $typeLabel = 'Materi';
+        } elseif (preg_match('/\.pdf($|\?)/i', $turlRaw)) {
+            $typeLabel = 'PDF';
+        } elseif (preg_match('/\.pptx?($|\?)/i', $turlRaw)) {
+            $typeLabel = 'Slide';
+        }
+    }
 
     $imgSrc = htmlspecialchars($imgSrcRaw, ENT_QUOTES, 'UTF-8');
     $imgAlt = htmlspecialchars($imgAltRaw, ENT_QUOTES, 'UTF-8');
-    $turl   = $turlRaw ? htmlspecialchars($turlRaw, ENT_QUOTES, 'UTF-8') : null;
-    $tattr  = $tattrRaw ? htmlspecialchars($tattrRaw, ENT_QUOTES, 'UTF-8') : null;
-
-    $targetAttr = $tattr ? ' target="' . $tattr . '"' : '';
-    $relAttr    = ($tattrRaw === '_blank') ? ' rel="noopener noreferrer"' : '';
+    $turl = $turlRaw ? htmlspecialchars($turlRaw, ENT_QUOTES, 'UTF-8') : null;
+    $tattr = $tattrRaw ? htmlspecialchars($tattrRaw, ENT_QUOTES, 'UTF-8') : null;
   ?>
+  <?php if ($turl): 
+        $targetAttr = $tattr ? ' target="' . $tattr . '"' : '';
+        $relAttr = ($tattrRaw === '_blank') ? ' rel="noopener noreferrer"' : '';
+  ?>
+    <figure class="adam-post-thumb">
+      <a href="<?= $turl ?>"<?= $targetAttr ?><?= $relAttr ?> class="adam-thumb--linked" aria-label="Buka materi: <?= $imgAlt ?>">
+        <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>">
 
-  <figure class="adam-post-thumb <?= $imgAnimClass ?>"
-          data-anim-trigger="load"
-          data-duration="<?= (int)$featDur ?>"
-          data-delay="<?= (int)$featDelay ?>"
-          data-ease="<?= htmlspecialchars($featEase, ENT_QUOTES, 'UTF-8') ?>"
-          data-frag-cols="14"
-          data-frag-rows="8"
-          data-frag-step="18"
-          data-frag-spread="160"
-          data-frag-rotate="16"
-          data-frag-cleanup="1">
+        <div class="adam-thumb-badge">📄 <?= htmlspecialchars($typeLabel, ENT_QUOTES, 'UTF-8') ?></div>
 
-    <?php if ($turl): ?>
-      <a href="<?= $turl ?>"<?= $targetAttr ?><?= $relAttr ?>
-         class="adam-thumb--linked"
-         aria-label="Buka materi: <?= $imgAlt ?>">
-        <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>" loading="lazy">
-        <!-- badge/overlay/bottom tetap aman -->
-        <div class="adam-thumb-badge">📄 <?= htmlspecialchars($typeLabel ?? 'Materi', ENT_QUOTES, 'UTF-8') ?></div>
-        <div class="adam-thumb-overlay" aria-hidden="true"><div class="adam-thumb-cta">Lihat Materi</div></div>
+        <div class="adam-thumb-overlay" aria-hidden="true">
+          <div class="adam-thumb-cta">Lihat Materi</div>
+        </div>
+
         <span class="adam-thumb-bottom" aria-hidden="false">Buka Materi</span>
       </a>
-    <?php else: ?>
-      <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>" loading="lazy">
-    <?php endif; ?>
+    </figure>
+  <?php else: ?>
+    <figure class="adam-post-thumb">
+      <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>">
+    </figure>
+  <?php endif; ?>
 
-  </figure>
+  <?php
+    /**
+     * === END: FEATURED AREA (modified) ===
+     */
+  ?>
 
 <?php endif; ?>
 
@@ -346,28 +286,11 @@ $imgSrcRaw = !empty($post['display_image']) ? $post['display_image'] : (!empty($
     <div class="footer-actions">
       <a href="/" class="btn-back">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-        Home
+        Kembali ke Beranda
       </a>
       <?php if ($authorUrl): ?>
         <a href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn-back" style="margin-left:.75rem">
-<!-- Inline SVG: akan mewarisi CSS variables dari halaman -->
-<span class="profa">
-  <svg xmlns="http://www.w3.org/2000/svg"
-       viewBox="0 0 64 64"
-       role="img"
-       aria-labelledby="avatarTitle avatarDesc">
-    <title id="avatarTitle">Avatar</title>
-    <desc id="avatarDesc">Simple user silhouette icon (head + shoulders)</desc>
-
-    <!-- Shapes fill menggunakan CSS variable --let-base; fallback disediakan -->
-    <g fill="var(--let-base, #1f2937)">
-      <!-- head -->
-      <circle cx="32" cy="18" r="10" />
-      <!-- shoulders / torso (rounded bottom shape) -->
-      <path d="M6 54c0-14 13-26 26-26s26 12 26 26H6z" />
-    </g>
-  </svg>
-</span>
+          Lihat profil penulis
         </a>
       <?php endif; ?>
     </div>

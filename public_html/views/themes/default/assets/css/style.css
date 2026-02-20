@@ -47,12 +47,41 @@ button, select, input {
    - @media(prefers-color-scheme: dark) provides a system fallback when
      no explicit class is present (i.e. user selected 'system').
    ============================ */
-/* ============================
-   THEME VARIABLES (LIGHT default)
-   ============================ */
 :root {
-  color-scheme: light;
+  --bg: #ffffff;
+  --text: #0b1220;
+  --muted: #6b7280;
+  --accent: #00A89E;
+  --border: #e6eef2;
+  --surface: #ffffff;
+  --surface-hover: #f7fafc;
+  --control-bg: #f3f4f6;
+  --shadow: 0 8px 24px rgba(2,6,23,0.08);
+  --guide-line: #d1d5db;
 
+  /* ADD: system defaults for links (light-ish) */
+  --link: #0000EE;
+  --link-hover: #00ab3e;
+}
+
+/* Explicit theme classes — higher specificity than :root, used when JS or server
+   has set user's preference. These must NOT be in a media block. */
+html.theme-dark {
+  --bg: #071022;
+  --text: #e6eef6;
+  --muted: #9ca3af;
+  --accent: #f5cb40;
+  --link: #1A73E8;
+  --link-hover: #00ab3e;
+  --border: #1f2a35;
+  --surface: #0e1620;
+  --surface-hover: #16202e;
+  --control-bg: #1f2a35;
+  --shadow: 0 8px 24px rgba(0,0,0,0.45);
+  --guide-line: #374151;
+}
+
+html.theme-light {
   --bg: #ffffff;
   --text: #0b1220;
   --muted: #6b7280;
@@ -65,58 +94,25 @@ button, select, input {
   --control-bg: #f3f4f6;
   --shadow: 0 8px 24px rgba(2,6,23,0.08);
   --guide-line: #d1d5db;
-  --crbg: #fff;
-  --crbgh: #effaff;
-  
-    /* Logo letters */
-  --let-base: #1f2937;     /* abu gelap, lebih soft dari #2B2B2B */
-  --let-accent: #b11226;  /* merah Jyavani, lebih refined */
-  --let-hover: #c9a227;   /* emas hangat (hover per huruf) */
-
-  /* Hover global swap */
-  --let-base-hover: var(--let-accent);
-  --let-accent-hover: var(--let-base);
-  
-    /* Menu pill (desktop) */
-  --nav-menu-bg: rgba(255,255,255,.62);
-  --nav-menu-bd: rgba(2,6,23,.08);
 }
 
-html.theme-dark {
-  color-scheme: dark;
+/* System preference fallback when no explicit class present */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #071022;
+    --text: #e6eef6;
+    --muted: #9ca3af;
+    --surface: #0e1620;
+    --surface-hover: #16202e;
+    --border: #1f2a35;
+    --control-bg: #1f2a35;
+    --guide-line: #374151;
 
-  --bg: #071022;
-  --text: #e6eef6;
-  --muted: #9ca3af;
-  --accent: #00A89E;
-  --link: #1A73E8;
-  --link-hover: #00ab3e;
-  --border: #1f2a35;
-  --surface: #0e1620;
-  --surface-hover: #16202e;
-  --control-bg: #1f2a35;
-  --shadow: 0 8px 24px rgba(0,0,0,0.45);
-  --guide-line: #374151;
-  --crbg: #0b1220;
-  --crbgh: #121a2a;
-  
-    /* Logo letters (dark) */
-  --let-base: #e5e7eb;     /* putih keabu, tidak silau */
-  --let-accent: #ff4d5e;  /* merah lebih terang supaya hidup di gelap */
-  --let-hover: #ffd166;   /* emas lebih cerah */
-
-  --let-base-hover: var(--let-accent);
-  --let-accent-hover: var(--let-base);
-  
-    /* Menu pill (desktop, dark) */
-  --nav-menu-bg: rgba(14,22,32,.55);
-  --nav-menu-bd: rgba(255,255,255,.08);
-
+    /* ADD: dark equivalents for system mode */
+    --link: #1A73E8;
+    --link-hover: #00ab3e;
+  }
 }
-
-/* opsional: kalau kamu mau explicit class light (tidak wajib) */
-html.theme-light { color-scheme: light; }
-html.theme-dark .adam-btn-open { box-shadow: 0 0 12px rgba(0,0,0,0.35); }
 
 /* ============================
    3) BODY & TYPOGRAPHY
@@ -142,6 +138,7 @@ a {
 a:hover,
 a:focus {
   color: var(--link-hover);
+  text-decoration: underline; /* opsional, untuk aksesibilitas */
 }
 h2 a {
   color: var(--accent);
@@ -158,7 +155,7 @@ h2 a:hover {
 .jyavani-logo {
   font-family: "Taviraj", serif;
   font-weight: 600;
-  font-size: 26px;
+  font-size: 36px;
   letter-spacing: 0.05em;
   display: inline-flex;
   gap: 0.02em;
@@ -174,11 +171,11 @@ h2 a:hover {
 }
 
 /* Default logo colors (explicit color choices, not theme variables) */
-.jyavani-logo .accent { color: var(--let-accent); }
-.jyavani-logo .base   { color: var(--let-base); }
+.jyavani-logo .accent { color: #C3002F; } /* Merah */
+.jyavani-logo .base   { color: #2B2B2B; } /* Hitam/Abu-abu gelap */
 
-.jyavani-logo:hover .accent { color: var(--let-accent-hover); }
-.jyavani-logo:hover .base   { color: var(--let-base-hover); }
+.jyavani-logo:hover .accent { color: #2B2B2B; }
+.jyavani-logo:hover .base   { color: #C3002F; }
 .jyavani-logo:hover .letter { transform: translateY(-6px); }
 
 /* Wave delay per letter */
@@ -190,7 +187,7 @@ h2 a:hover {
 .jyavani-logo .letter:nth-child(6) { transition-delay: 400ms; }
 
 .jyavani-logo .letter:hover {
-  color: var(--let-hover);
+  color: #DAA520;
   transform: translateY(-10px);
   transition-delay: 0ms;
 }
@@ -222,10 +219,12 @@ h2 a:hover {
   position: sticky;
   top: 0;
   z-index: 1000;
-  /* background: var(--surface);  border-bottom: 1px solid var(--border); */
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .header-inner {
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -238,17 +237,14 @@ h2 a:hover {
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 12px;
-  text-decoration: none;
+  gap: 10px;
 }
 .brand img {
+  width: 36px;
+  height: 36px;
   border-radius: 6px;
   background: #eee;
   object-fit: cover;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: var(--surface-hover);
 }
 
 .hamburger { display: none; padding: 8px; color: var(--text); }
@@ -346,12 +342,6 @@ h2 a:hover {
    ============================ */
 @media (max-width: 900px) {
   .hamburger { display: block; }
-  
-  .site-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  }
-  
   .navbar { margin-left: 0; }
 
   .navbar {
@@ -473,46 +463,6 @@ h2 a:hover {
   }
   .ctrl-item, .ctrl-input { width: 100%; padding: 12px; font-size: 15px; }
 }
-
-/* ============================
-   DESKTOP: 3 PARTS (Brand | Menu pill | Controls)
-   ============================ */
-@media (min-width: 901px) {
-  /* Brand - Menu - Controls jadi 3 blok yang rapi */
-  .header-inner{
-    justify-content: flex-start;   /* bukan space-between */
-    gap: 16px;                     /* jarak antar blok */
-    margin: 0 8%;
-  }
-  /* Navbar isi sisa ruang, jadi menu bisa “di tengah” */
-  .navbar{
-    flex: 1;
-    margin-left: 0;                /* ganti dari 40px agar benar-benar split 3 bagian */
-    gap: 12px;
-  }
-
-  /* Menu jadi pill semi transparan */
-  .menu{
-    margin-inline: auto;           /* ini yang bikin menu “bagian tengah” */
-    padding: 10px;                 /* sesuai request */
-    border-radius: 14px;           /* sesuai request */
-    background: var(--nav-menu-bg);
-    border: 1px solid var(--nav-menu-bd);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-
-  /* Controls tetap sesuai input file (jangan “auto push” lagi) */
-  .controls{
-    margin-left: 0;                /* sebelumnya auto, sekarang tidak perlu */
-  }
-
-  /* Brand dipastikan transparan */
-  .brand{
-    background: transparent;
-  }
-}
-
 
 /* -----------------------------
    8) OVERLAY / Z-INDEX (shared)
@@ -749,183 +699,6 @@ h2 a:hover {
   .adam-post-title { font-size: 1.8rem; }
   .adam-post-meta-row { flex-direction: column; align-items: flex-start; gap: 16px; }
   .meta-details { width: 100%; justify-content: flex-start; gap: 16px; }
-}
-
-/* post list punyacat */
-
-/* Container / layout */
-.container {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 10px;
-    box-sizing: border-box;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    line-height: 1.55;
-}
-
-/* Breadcrumb small */
-.category-header + .posts-list,
-.category-header + .no-posts {
-    margin-top: .75rem;
-}
-
-.category-header {
-    margin: .5rem 0 1rem;
-    padding-bottom: .75rem;
-    border-bottom: 1px;
-}
-
-.category-header h1 {
-    margin: 0;
-    font-size: 2rem;
-    line-height: 1.05;
-    font-weight: 700;
-    letter-spacing: -0.5px;
-}
-
-.category-description {
-    margin: .6rem 0 0;
-    font-size: .98rem;
-}
-
-/* Posts list grid */
-.posts-list {
-    display: grid;
-    gap: 1rem 1.25rem;
-}
-
-/* Post card */
-.post-card {
-    display: flex;
-    gap: 1rem;
-    padding: 1rem;
-    border-radius: 10px;
-    box-shadow: 0 0 0 1px rgba(14, 25, 30, 0.02);
-    align-items: flex-start;
-    transition: transform .12s ease, box-shadow .12s ease;
-    border-left: 4px solid transparent;
-    background-color: var(--crbg);
-}
-.post-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 18px rgba(20, 30, 40, 0.06);
-    border-left-color: rgba(11,122,107,0.12);
-    background-color: var(--crbgh);
-}
-
-/* Thumbnail */
-.post-card .thumb {
-    flex: 0 0 200px;
-    display: block;
-    overflow: hidden;
-    border-radius: 8px;
-}
-.post-card .thumb img {
-    width: 100%;
-    height: 120px;
-    object-fit: cover;
-    display: block;
-    border-radius: 8px;
-}
-
-/* When thumbnail is missing, shrink gap */
-.post-card:not(:has(.thumb)) {
-    padding-left: 1rem;
-}
-
-/* Body */
-.post-body {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-.post-body h2 {
-    margin: 0 0 .35rem 0;
-    font-size: 1.15rem;
-    line-height: 1.2;
-}
-.post-body h2 a {
-    text-decoration: none;
-    font-weight: 700;
-}
-.post-body h2 a:hover {
-    text-decoration: underline;
-}
-
-/* Meta */
-.meta {
-    font-size: .86rem;
-    margin-bottom: .6rem;
-}
-
-/* Excerpt */
-.excerpt {
-    margin: 0 0 .6rem 0;
-    font-size: .98rem;
-}
-
-/* Read more button */
-.post-actions {
-    margin-top: 0.25rem;
-}
-.read-more {
-    display: inline-block;
-    font-weight: 600;
-    text-decoration: none;
-    padding: .45rem .7rem;
-    border-radius: 6px;
-    border: 1px;
-    transition: background .12s ease, transform .08s ease;
-}
-.read-more:hover {
-    background: rgba(11,122,107,0.12);
-    transform: translateY(-1px);
-}
-
-/* Pagination */
-.pagination {
-    margin-top: 1.2rem;
-    display: flex;
-    gap: .8rem;
-    align-items: center;
-    justify-content: center;
-    padding-top: .5rem;
-}
-.page-link {
-    display: inline-block;
-    padding: .45rem .65rem;
-    border-radius: 6px;
-    border: 1px;
-    text-decoration: none;
-    font-weight: 600;
-}
-.page-info {
-    font-size: .95rem;
-}
-
-/* No posts */
-.no-posts {
-    padding: 1rem;
-    border-radius: 8px;
-}
-
-/* Responsive: small screens */
-@media (max-width: 720px) {
-    .container { padding: .9rem; }
-    .post-card {
-        flex-direction: column;
-        gap: .6rem;
-        padding: .9rem;
-    }
-    .post-card .thumb { width: 100%; flex: 0 0 auto; }
-    .post-card .thumb img { height: 180px; }
-    .post-body h2 { font-size: 1.05rem; }
-    .excerpt { font-size: .98rem; }
-}
-
-/* Responsive: larger screens adjust thumbnail size */
-@media (min-width: 1100px) {
-    .post-card .thumb { flex: 0 0 220px; }
-    .post-card .thumb img { height: 130px; }
 }
 
 /* ============================
@@ -1486,159 +1259,3 @@ a:focus {
       .adam-thumb-badge { font-size:12px; padding:6px 10px; }
       .adam-thumb-bottom { font-size:13px; padding:8px 10px; }
     }
-    
-    /* = arsip = */
-        /* Container Arsip */
-#adamz-arch-container {
-    max-width: 1000px;
-    margin: 2rem auto;
-    padding: 0 1.5rem;
-    font-family: 'Inter', -apple-system, sans-serif;
-}
-
-/* Header Arsip */
-.adamz-arch-header {
-    text-align: center;
-    margin-bottom: 3rem;
-    position: relative;
-}
-
-.adamz-arch-label {
-    display: inline-block;
-    padding: 0.4rem 1.2rem;
-    border-radius: 99px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 1rem;
-}
-
-.adamz-arch-title {
-    font-size: 2.5rem;
-    font-weight: 850;
-    margin: 0;
-    letter-spacing: -1.5px;
-}
-
-/* Grid 2 Kolom */
-.adamz-arch-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 2.5rem 2rem;
-}
-
-/* Card Arsip */
-.adamz-arch-card {
-    display: flex;
-    flex-direction: column;
-    group: hover;
-    background-color: var(--crbg);
-    padding: 10px;
-    border-radius: 20px;
-}
-
-.adamz-arch-img-link {
-    display: block;
-    position: relative;
-    border-radius: 20px;
-    overflow: hidden;
-    aspect-ratio: 4 / 3;
-    margin-bottom: 1.25rem;
-}
-
-.adamz-arch-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
-}
-
-/* Date Chip (Floating on Image) */
-.adamz-arch-date-tag {
-    position: absolute;
-    bottom: 15px;
-    left: 15px;
-    padding: 0.5rem 0.8rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 800;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-}
-
-.adamz-arch-card:hover .adamz-arch-img {
-    transform: scale(1.1);
-    background-color: var(--crbgh);
-}
-
-/* Typography Arsip */
-.adamz-arch-post-title {
-    font-size: 1.35rem;
-    line-height: 1.4;
-    font-weight: 700;
-    margin: 0 0 0.75rem 0;
-}
-
-.adamz-arch-post-title a {
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.adamz-arch-post-title a:hover {
-text-decoration: none;
-}
-
-.adamz-arch-excerpt {
-    font-size: 0.95rem;
-    line-height: 1.6;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-/* Pagination Style */
-.adamz-arch-pagination {
-    margin-top: 4rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 1rem;
-}
-
-.adamz-arch-nav-btn {
-    text-decoration: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    transition: opacity 0.2s;
-}
-
-.adamz-arch-nav-btn:hover {
-    opacity: 0.85;
-}
-
-.adamz-arch-page-info {
-    font-size: 0.9rem;
-    font-weight: 700;
-}
-
-/* Mobile */
-@media (max-width: 768px) {
-    .adamz-arch-grid {
-        grid-template-columns: 1fr;
-    }
-    .adamz-arch-title {
-        font-size: 1.8rem;
-    }
-}
-
-.profa { 
-  display: inline-block;
-  width: 14px;   /* ubah sesuai kebutuhan */
-  height: 20px;
-  line-height: 0; /* hilangkan gap */
-}
-.profa svg { width: 100%; height: 100%; display: block; }

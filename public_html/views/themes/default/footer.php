@@ -5,11 +5,11 @@ $year = date('Y');
 <!-- =========================
      FOOTER: Simple 2-rowSA test lokal
      ========================= -->
-<footer class="site-footer fade-up onload" data-duration="1000" data-anime-trigger="load" role="contentinfo">
+<footer class="site-footer" role="contentinfo">
   <div class="footer-container">
     <!-- Baris 1: Halaman (links) dan Social -->
     <div class="footer-row-top">
-      <div class="footer-col footer-pages slide-right" aria-label="Halaman" data-anime-trigger="load" data-delay="250">
+      <div class="footer-col footer-pages" aria-label="Halaman">
         <h3 class="visually-hidden">Halaman</h3>
         <ul class="footer-links" role="list">
           <li><a class="footer-link" href="/about" aria-label="Tentang"> 
@@ -28,7 +28,7 @@ $year = date('Y');
         </ul>
       </div>
 
-      <div class="footer-col footer-social slide-left" aria-label="Sosial media" data-anime-trigger="load" data-delay="250">
+      <div class="footer-col footer-social" aria-label="Sosial media">
         <h3 class="visually-hidden">Sosial</h3>
         <div class="social-icons" role="list">
           <a class="social-btn" href="https://twitter.com/" target="_blank" rel="noopener" aria-label="Twitter">
@@ -59,7 +59,7 @@ $year = date('Y');
 
     <!-- Baris 2: Copyright -->
     <div class="footer-row-bottom">
-      <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load">© <span id="year"></span> Adiwira Jyavani. All rights reserved.</div>
+      <div class="copyright-text">© <span id="year"></span> Adiwira Jyavani. All rights reserved.</div>
     </div>
   </div>
 </footer>
