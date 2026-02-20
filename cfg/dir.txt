@@ -1,0 +1,299 @@
+## DIREKTORI
+/home/u528279701/jyavani-cfg/.env
+/home/u528279701/jyavani-cfg/config.php
+/home/u528279701/jyavani-cfg/db.php
+/home/u528279701/jyavani-cfg/env.php
+/home/u528279701/jyavani-cfg/session.php
+/home/u528279701/jyavani-cfg/helpers/
+/home/u528279701/jyavani-cfg/helpers/auth_helpers.php
+/home/u528279701/jyavani-cfg/helpers/author_helpers.php
+/home/u528279701/jyavani-cfg/helpers/editor_helpers.php
+/home/u528279701/jyavani-cfg/helpers/role_helpers.php
+/home/u528279701/jyavani-cfg/helpers/success_redirect.php
+/home/u528279701/jyavani-cfg/helpers/theme_helpers.php
+/home/u528279701/jyavani-cfg/helpers/time_helpers.php
+/home/u528279701/domains/jyavani.com/public_html/index.php
+/home/u528279701/domains/jyavani.com/public_html/adiwira/
+/home/u528279701/domains/jyavani.com/public_html/artikel/
+/home/u528279701/domains/jyavani.com/public_html/controllers/
+/home/u528279701/domains/jyavani.com/public_html/halaman/
+/home/u528279701/domains/jyavani.com/public_html/sitemaps/
+/home/u528279701/domains/jyavani.com/public_html/static/
+/home/u528279701/domains/jyavani.com/public_html/views/
+/home/u528279701/domains/jyavani.com/public_html/adiwira/admin/
+/home/u528279701/domains/jyavani.com/public_html/adiwira/gerbank/
+/home/u528279701/domains/jyavani.com/public_html/adiwira/live/
+/home/u528279701/domains/jyavani.com/public_html/adiwira/static/
+/home/u528279701/domains/jyavani.com/public_html/adiwira/theme/
+/home/u528279701/domains/jyavani.com/public_html/adiwira/bootstrap.php
+/home/u528279701/domains/jyavani.com/public_html/adiwira/bootstrap_front.php
+/home/u528279701/domains/jyavani.com/public_html/adiwira/bootstrap_public.php
+/home/u528279701/domains/jyavani.com/public_html/adiwira/index.php (dashboard)
+/home/u528279701/domains/jyavani.com/public_html/adiwira/live.php
+
+## DATABASE
+
+CREATE TABLE `posts` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `title` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `slug` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `content` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` enum('article','page','theme') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'article',
+  `meta` longtext COLLATE utf8mb4_bin DEFAULT NULL,
+  `youtube` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `thumbnail` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `status` enum('draft','published','private') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'draft',
+  `created_by` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` datetime DEFAULT NULL,
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_posts_slug` (`slug`),
+  KEY `idx_type` (`type`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_by` (`created_by`),
+  FULLTEXT KEY `ft_title_content` (`title`,`content`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE posts
+  ADD COLUMN sort_order INT(10) UNSIGNED NOT NULL DEFAULT 0 AFTER thumbnail;
+
+CREATE INDEX idx_posts_type_sort ON posts (type, sort_order, id);
+
+CREATE TABLE post_media_items (
+  post_id INT(10) UNSIGNED NOT NULL,
+  media_id INT(10) UNSIGNED NOT NULL,
+  sort_order INT(10) UNSIGNED NOT NULL DEFAULT 0,
+  caption_override TEXT NULL,
+  alt_override VARCHAR(255) NULL,
+  link_url_override VARCHAR(2048) NULL,
+  link_target_override ENUM('_self','_blank','_parent','_top') NULL,
+  PRIMARY KEY (post_id, media_id),
+  KEY idx_post_order (post_id, sort_order),
+  KEY idx_media (media_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `categories` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `slug` varchar(191) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `parent_id` int(10) UNSIGNED DEFAULT NULL,
+  `meta` longtext COLLATE utf8mb4_bin DEFAULT NULL,
+  `created_by` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_categories_slug` (`slug`),
+  KEY `idx_parent` (`parent_id`),
+  KEY `idx_created_by` (`created_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `post_categories` (
+  `post_id` int(10) UNSIGNED NOT NULL,
+  `category_id` int(10) UNSIGNED NOT NULL,
+  `assigned_by` int(10) UNSIGNED DEFAULT NULL,
+  `assigned_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`post_id`, `category_id`),
+  KEY `idx_category` (`category_id`),
+  KEY `idx_assigned_by` (`assigned_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `users` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) COLLATE utf8mb4_uca1400_ai_ci NOT NULL,
+  `username` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `password` varchar(255) COLLATE utf8mb4_uca1400_ai_ci NOT NULL,
+  `name` varchar(100) COLLATE utf8mb4_uca1400_ai_ci DEFAULT NULL,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `role` enum('author','editor','admin') COLLATE utf8mb4_uca1400_ai_ci NOT NULL DEFAULT 'author',
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  `img` varchar(255) COLLATE utf8mb4_uca1400_ai_ci DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `uq_users_username` (`username`),
+  KEY `idx_users_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+ALTER TABLE users
+ADD COLUMN bio TEXT NULL AFTER name,
+ADD COLUMN phone VARCHAR(20) NULL AFTER bio;
+
+CREATE TABLE `media` (
+  `id` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `url` VARCHAR(512) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `filename` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `mime` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `ext` VARCHAR(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `size` INT(10) UNSIGNED DEFAULT 0,
+  `width` INT(10) UNSIGNED DEFAULT NULL,
+  `height` INT(10) UNSIGNED DEFAULT NULL,
+  `title` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `alt` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `caption` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `credit` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_id` INT(10) UNSIGNED DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE media
+  ADD COLUMN link_url VARCHAR(2048) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  ADD COLUMN link_target ENUM('_self','_blank','_parent','_top') DEFAULT NULL;
+
+CREATE TABLE `file` (
+  `id` INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `url` VARCHAR(512) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `filename` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `mime` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `ext` VARCHAR(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `size` INT(10) UNSIGNED DEFAULT 0,
+  `title` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `caption` TEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `credit` VARCHAR(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `user_id` INT(10) UNSIGNED DEFAULT NULL,
+  `media_type` VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'file', -- file|video|image
+  `duration` INT(10) UNSIGNED DEFAULT NULL, -- detik, untuk video jika ingin
+  `thumb_url` VARCHAR(512) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE themes (
+  id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  folder_name VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NOT NULL,
+  is_active TINYINT(1) NOT NULL,
+  name VARCHAR(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NOT NULL,
+  description TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NULL,
+  version VARCHAR(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NULL,
+  author VARCHAR(150) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NULL,
+  screenshot VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NULL,
+  manifest_json LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_theme_folder (folder_name),
+  KEY idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400;
+
+CREATE TABLE assignments (
+  id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  slot_key VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NOT NULL,
+  theme_id INT(10) UNSIGNED NULL,
+  theme_file VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400 NULL,
+  custom_post_id INT(10) UNSIGNED NULL,
+  created_by INT(10) UNSIGNED NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_assignment_slot (slot_key),
+  KEY idx_theme_id (theme_id),
+  KEY idx_custom_post_id (custom_post_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400;
+
+CREATE TABLE IF NOT EXISTS settings (
+  `key`        VARCHAR(64) NOT NULL,
+  `value`      TEXT NULL,
+  `autoload`   TINYINT(1) NOT NULL DEFAULT 1,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO settings (`key`,`value`,`autoload`) VALUES
+('site_title','Jyavani CMS',1),
+('site_host','cms.jyavani.com',1)
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
+
+======================== NOT USED =========================
+
+CREATE TABLE sessions (
+id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+session_id VARCHAR(128) NOT NULL UNIQUE, -- nilai cookie
+session_name ENUM('tmp','auth') NOT NULL DEFAULT 'tmp',
+user_id INT(10) UNSIGNED NULL, -- NULL = anonymous (ADWS_TMP)
+csrf_token VARCHAR(128) NOT NULL, -- token CSRF per-session
+ip_address VARCHAR(45) NULL,
+user_agent VARCHAR(255) NULL,
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+last_activity DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+expired TINYINT(1) DEFAULT 0,
+INDEX idx_user_id (user_id),
+INDEX idx_session_name (session_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE activity (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+  session_pk INT UNSIGNED NULL,
+  user_id INT(10) UNSIGNED NULL,
+
+  url VARCHAR(2048) NOT NULL,
+  ip_address VARCHAR(45) NULL,
+  user_agent VARCHAR(255) NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  INDEX idx_user_id (user_id),
+  INDEX idx_session_pk (session_pk),
+
+  CONSTRAINT fk_activity_session
+    FOREIGN KEY (session_pk)
+    REFERENCES sessions(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+-- translations untuk posts (konten panjang)
+CREATE TABLE post_translations (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  post_id INT UNSIGNED NOT NULL,
+  locale VARCHAR(10) NOT NULL,
+  title VARCHAR(191) NOT NULL,
+  slug VARCHAR(191) NOT NULL,
+  content LONGTEXT NOT NULL,
+  meta LONGTEXT DEFAULT NULL,
+  youtube VARCHAR(255) DEFAULT NULL,
+  thumbnail VARCHAR(255) DEFAULT NULL,
+  status ENUM('draft','published','private') NOT NULL DEFAULT 'draft',
+  translated_by INT UNSIGNED DEFAULT NULL,
+  translated_at DATETIME DEFAULT NULL,
+  is_machine TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY(id),
+  UNIQUE KEY uq_locale_slug (locale, slug),
+  KEY idx_post_locale (post_id, locale),
+  FULLTEXT KEY ft_title_content (title, content),
+  CONSTRAINT fk_pt_post FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- untuk teks UI (header/footer/menu/button labels)
+CREATE TABLE ui_translations (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  scope VARCHAR(50) NOT NULL,   -- mis. header, footer, menu.main
+  `key` VARCHAR(100) NOT NULL,  -- mis. title, login_btn
+  locale VARCHAR(10) NOT NULL,
+  value TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY(id),
+  UNIQUE KEY uq_ui (scope, `key`, locale)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 1) Supaya kita bisa upsert translation berdasarkan post_id+locale:
+ALTER TABLE post_translations
+  ADD UNIQUE KEY uq_post_locale (post_id, locale);
+
+-- 2) (Opsional tapi direkomendasikan) Hapus unique index slug di posts
+-- karena slug uniqueness sekarang dikontrol per-locale di post_translations.
+-- Pastikan kamu punya backup sebelum menjalankan ini.
+ALTER TABLE posts DROP INDEX IF EXISTS uq_posts_slug;
