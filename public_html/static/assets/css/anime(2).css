@@ -1,0 +1,355 @@
+/* /static/assets/css/anime.css
+   Koleksi animasi (scroll/onload) berbasis class .show
+   Kompatibel: .fade-up + .show seperti versi awal kamu
+*/
+
+:root{
+  --anim-duration: 800ms;
+  --anim-ease: cubic-bezier(.2,.8,.2,1);
+  --anim-delay: 0ms;
+
+  /* default transform params (akan dioverride oleh class) */
+  --anim-x: 0px;
+  --anim-y: 0px;
+  --anim-scale: 1;
+  --anim-rotate: 0deg;
+  --anim-blur: 0px;
+  --anim-origin: 50% 50%;
+}
+
+/* ===== Base anim (digunakan juga oleh semua class animasi di bawah) ===== */
+.anim,
+.fade-up, .fade-down, .fade-left, .fade-right,
+.zoom-in, .zoom-out,
+.blur-in,
+.rotate-in,
+.flip-x, .flip-y,
+.slide-up, .slide-down, .slide-left, .slide-right,
+.pop, .shake, .pulse
+{
+  opacity: 0;
+  transform-origin: var(--anim-origin);
+  transform:
+    translate3d(var(--anim-x), var(--anim-y), 0)
+    scale(var(--anim-scale))
+    rotate(var(--anim-rotate));
+  filter: blur(var(--anim-blur));
+  transition-property: opacity, transform, filter;
+  transition-duration: var(--anim-duration);
+  transition-timing-function: var(--anim-ease);
+  transition-delay: var(--anim-delay);
+  will-change: opacity, transform, filter;
+}
+
+/* ===== Saat tampil ===== */
+.anim.show,
+.fade-up.show, .fade-down.show, .fade-left.show, .fade-right.show,
+.zoom-in.show, .zoom-out.show,
+.blur-in.show,
+.rotate-in.show,
+.flip-x.show, .flip-y.show,
+.slide-up.show, .slide-down.show, .slide-left.show, .slide-right.show,
+.pop.show
+{
+  opacity: 1;
+  transform: translate3d(0,0,0) scale(1) rotate(0deg);
+  filter: blur(0);
+}
+
+/* ===== Variasi animasi (cukup tambahkan class-nya) ===== */
+
+/* Fade */
+.fade-up    { --anim-y: 40px; }
+.fade-down  { --anim-y: -40px; }
+.fade-left  { --anim-x: 40px; }
+.fade-right { --anim-x: -40px; }
+
+/* Slide (lebih jauh dari fade) */
+.slide-up    { --anim-y: 80px; }
+.slide-down  { --anim-y: -80px; }
+.slide-left  { --anim-x: 80px; }
+.slide-right { --anim-x: -80px; }
+
+/* Zoom */
+.zoom-in  { --anim-scale: .92; }
+.zoom-out { --anim-scale: 1.08; }
+
+/* Blur */
+.blur-in { --anim-blur: 10px; }
+
+/* Rotate */
+.rotate-in { --anim-rotate: -6deg; }
+
+/* Flip */
+.flip-x { --anim-rotate: 0deg; transform: perspective(900px) rotateX(65deg); }
+.flip-y { --anim-rotate: 0deg; transform: perspective(900px) rotateY(65deg); }
+.flip-x.show { transform: perspective(900px) rotateX(0deg); }
+.flip-y.show { transform: perspective(900px) rotateY(0deg); }
+
+/* Pop */
+.pop { --anim-scale: .85; }
+
+/* ===== Animasi loop (bukan .show) ===== */
+/* Dipakai untuk elemen yang memang ingin animasi terus-menerus */
+.pulse{
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: none;
+  animation: anim_pulse 1.6s var(--anim-ease) infinite;
+}
+@keyframes anim_pulse{
+  0%,100%{ transform: scale(1); }
+  50%{ transform: scale(1.03); }
+}
+
+.shake{
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: none;
+  animation: anim_shake 650ms ease-in-out;
+}
+@keyframes anim_shake{
+  0%{ transform: translateX(0); }
+  20%{ transform: translateX(-6px); }
+  40%{ transform: translateX(6px); }
+  60%{ transform: translateX(-4px); }
+  80%{ transform: translateX(4px); }
+  100%{ transform: translateX(0); }
+}
+
+/* ===== Utility: delay (pakai class) ===== */
+.delay-0   { --anim-delay: 0ms; }
+.delay-100 { --anim-delay: 100ms; }
+.delay-200 { --anim-delay: 200ms; }
+.delay-300 { --anim-delay: 300ms; }
+.delay-400 { --anim-delay: 400ms; }
+.delay-500 { --anim-delay: 500ms; }
+.delay-700 { --anim-delay: 700ms; }
+.delay-900 { --anim-delay: 900ms; }
+.delay-1200{ --anim-delay: 1200ms; }
+
+/* ===== Utility: durasi (pakai class) ===== */
+.dur-200  { --anim-duration: 200ms; }
+.dur-300  { --anim-duration: 300ms; }
+.dur-500  { --anim-duration: 500ms; }
+.dur-800  { --anim-duration: 800ms; }
+.dur-1200 { --anim-duration: 1200ms; }
+
+/* ===== Aksesibilitas: kurangi motion ===== */
+@media (prefers-reduced-motion: reduce){
+  .anim,
+  .fade-up, .fade-down, .fade-left, .fade-right,
+  .zoom-in, .zoom-out,
+  .blur-in,
+  .rotate-in,
+  .flip-x, .flip-y,
+  .slide-up, .slide-down, .slide-left, .slide-right,
+  .pop,
+  .pulse, .shake
+  {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+
+/* ==========================================================
+   NEW: Expand from center (2.5s) + Typewriter (3s)
+   Dipakai dengan class + .show dari anime.js
+   ========================================================== */
+
+/* ---------- Expand from center ---------- */
+.expand-center{
+  --anim-duration: 2500ms;
+  --anim-ease: cubic-bezier(.16, 1, .3, 1);
+  --anim-delay: 0ms;
+
+  /* reset supaya tidak bentrok kalau juga pakai .anim */
+  transition: none !important;
+
+  opacity: 0;
+  filter: blur(10px);
+  transform-origin: 50% 50%;
+  transform: translate3d(0,0,0) scaleX(.10) scaleY(.98);
+
+  /* futuristik: “buka dari tengah” pakai clip-path */
+  --exp-radius: 14px;
+  clip-path: inset(0 48% 0 48% round var(--exp-radius));
+  -webkit-clip-path: inset(0 48% 0 48% round var(--exp-radius));
+
+  will-change: transform, clip-path, filter, opacity;
+}
+
+.expand-center.show{
+  animation: anim_expand_center var(--anim-duration) var(--anim-ease) var(--anim-delay) both;
+}
+
+@supports not (clip-path: inset(0 40% 0 40% round 10px)){
+  .expand-center{
+    clip-path: none;
+    -webkit-clip-path: none;
+  }
+  .expand-center.show{
+    animation: anim_expand_center_fallback var(--anim-duration) var(--anim-ease) var(--anim-delay) both;
+  }
+}
+
+@keyframes anim_expand_center{
+  0%{
+    opacity: 0;
+    filter: blur(10px);
+    transform: translate3d(0,0,0) scaleX(.10) scaleY(.98);
+    clip-path: inset(0 48% 0 48% round var(--exp-radius));
+    -webkit-clip-path: inset(0 48% 0 48% round var(--exp-radius));
+  }
+  55%{
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0,0,0) scaleX(1.018) scaleY(1);
+    clip-path: inset(0 0 0 0 round var(--exp-radius));
+    -webkit-clip-path: inset(0 0 0 0 round var(--exp-radius));
+  }
+  78%{
+    transform: translate3d(0,0,0) scaleX(.996) scaleY(1);
+  }
+  100%{
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0,0,0) scaleX(1) scaleY(1);
+    clip-path: inset(0 0 0 0 round var(--exp-radius));
+    -webkit-clip-path: inset(0 0 0 0 round var(--exp-radius));
+  }
+}
+
+@keyframes anim_expand_center_fallback{
+  0%   { opacity:0; filter: blur(10px); transform: translate3d(0,0,0) scaleX(.10) scaleY(.98); }
+  55%  { opacity:1; filter: blur(0);  transform: translate3d(0,0,0) scaleX(1.02) scaleY(1); }
+  78%  { transform: translate3d(0,0,0) scaleX(.996) scaleY(1); }
+  100% { opacity:1; filter: blur(0);  transform: translate3d(0,0,0) scaleX(1) scaleY(1); }
+}
+
+/* ---------- Typewriter (menulis) ---------- */
+.typewrite{
+  --anim-duration: 3000ms; /* default 3 detik */
+  --anim-delay: 0ms;
+  --tw-duration: var(--anim-duration);
+  --tw-steps: 36;          /* akan di-auto-set dari JS */
+  --tw-px: 320;            /* akan di-auto-set dari JS */
+
+  /* reset supaya tidak bentrok kalau juga pakai .anim */
+  transition: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+
+  display: inline-block;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: bottom;
+
+  width: 0;
+}
+
+/* caret default: off */
+.typewrite::after{
+  content:"";
+  position:absolute;
+  top: 0.08em;
+  right: -0.12em;
+  width: 2px;
+  height: 1.05em;
+  background: currentColor;
+  opacity: 0;
+  animation: none;
+}
+
+.typewrite.show{
+  animation: anim_typewrite var(--tw-duration) steps(var(--tw-steps)) var(--anim-delay) both;
+}
+
+/* hanya tampil selama mengetik */
+.typewrite.show::after{
+  opacity: .65;
+  animation: anim_caret 750ms steps(1) infinite, anim_caret_hide var(--tw-duration) linear var(--anim-delay) both;
+}
+
+@keyframes anim_typewrite{
+  from { width: 0; }
+  to   { width: calc(var(--tw-px) * 1px); }
+}
+
+@keyframes anim_caret{
+  0%, 49% { opacity: 0; }
+  50%,100%{ opacity: .65; }
+}
+
+/* setelah durasi typewrite selesai => opacity 0 */
+@keyframes anim_caret_hide{
+  0%, 98% { opacity: .65; }
+  100%    { opacity: 0; }
+}
+
+/* reduced motion: tampilkan langsung */
+@media (prefers-reduced-motion: reduce){
+  .expand-center,
+  .typewrite{
+    animation: none !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    width: auto !important;
+  }
+  .typewrite::after{ display:none !important; }
+}
+/* ==========================================================
+   Expand center SAFE (dropdown-friendly) — 2.5s default
+   ========================================================== */
+.expand-center-safe{
+  --anim-duration: 2500ms;
+  --anim-ease: cubic-bezier(.16, 1, .3, 1);
+  --anim-delay: 0ms;
+
+  transition: none !important;
+
+  opacity: 0;
+  filter: blur(10px);
+  transform-origin: 50% 50%;
+  transform: translate3d(0,0,0) scaleX(.10) scaleY(.98);
+  will-change: transform, filter, opacity;
+
+  overflow: visible; /* penting: dropdown tidak kepotong */
+}
+
+.expand-center-safe.show{
+  animation: anim_expand_center_safe var(--anim-duration) var(--anim-ease) var(--anim-delay) both;
+}
+
+@keyframes anim_expand_center_safe{
+  0%   { opacity:0; filter: blur(10px); transform: translate3d(0,0,0) scaleX(.10) scaleY(.98); }
+  55%  { opacity:1; filter: blur(0);  transform: translate3d(0,0,0) scaleX(1.02) scaleY(1); }
+  78%  { transform: translate3d(0,0,0) scaleX(.996) scaleY(1); }
+  100% { opacity:1; filter: blur(0);  transform: translate3d(0,0,0) scaleX(1) scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .expand-center,
+  .expand-center-safe,
+  .typewrite{
+    animation: none !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
+    width: auto !important;
+  }
+  .typewrite::after{ display:none !important; }
+}

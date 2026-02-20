@@ -1,0 +1,114 @@
+<?php
+// /adiwira/admin/media/save.php
+
+// fungsi untuk menangani single
+if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
+require_once __DIR__ . '/../../bootstrap.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+header('Content-Type: application/json; charset=utf-8');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['ok'=>false,'error'=>'Method not allowed']); exit;
+}
+if (empty($_SESSION['user_id'])) {
+    http_response_code(403);
+    echo json_encode(['ok'=>false,'error'=>'Unauthorized']); exit;
+}
+
+$id = (int)($_POST['id'] ?? 0);
+if ($id <= 0) {
+    http_response_code(400);
+    echo json_encode(['ok'=>false,'error'=>'Missing id']); exit;
+}
+
+$title = isset($_POST['title']) ? trim($_POST['title']) : '';
+$alt = isset($_POST['alt']) ? trim($_POST['alt']) : '';
+$caption = isset($_POST['caption']) ? trim($_POST['caption']) : '';
+$credit = isset($_POST['credit']) ? trim($_POST['credit']) : '';
+
+// NEW: accept target fields
+$target_url_raw = isset($_POST['target_url']) ? trim($_POST['target_url']) : '';
+$target_attribute_raw = isset($_POST['target_attribute']) ? trim($_POST['target_attribute']) : '';
+
+// validation
+$errors = [];
+
+// validate target_url if provided (allow empty)
+$target_url = null;
+if ($target_url_raw !== '') {
+    if (!filter_var($target_url_raw, FILTER_VALIDATE_URL)) {
+        $errors[] = 'Invalid target URL. Use full URL starting with http:// or https://';
+    } else {
+        $parts = parse_url($target_url_raw);
+        $scheme = isset($parts['scheme']) ? strtolower($parts['scheme']) : '';
+        if (!in_array($scheme, ['http','https'], true)) {
+            $errors[] = 'Target URL must use http or https scheme';
+        } else {
+            $target_url = $target_url_raw;
+        }
+    }
+}
+
+// validate target_attribute (allow empty => NULL)
+$allowed = ['', '_self', '_blank', '_parent', '_top'];
+$target_attribute = null;
+if ($target_attribute_raw !== '') {
+    if (!in_array($target_attribute_raw, $allowed, true)) {
+        $errors[] = 'Invalid target attribute';
+    } else {
+        $target_attribute = $target_attribute_raw ?: null;
+    }
+}
+
+if (!empty($errors)) {
+    http_response_code(400);
+    echo json_encode(['ok'=>false,'error'=>'Validation failed','errors'=>$errors]);
+    exit;
+}
+
+try {
+    $stmt = $pdo->prepare(
+        "UPDATE media
+           SET title=:title,
+               alt=:alt,
+               caption=:caption,
+               credit=:credit,
+               target_url=:target_url,
+               target_attribute=:target_attribute,
+               updated_at=NOW()
+         WHERE id=:id"
+    );
+
+    $params = [
+        ':title' => $title,
+        ':alt' => $alt,
+        ':caption' => $caption,
+        ':credit' => $credit,
+        // PDO will bind null as SQL NULL if value is null
+        ':target_url' => $target_url,
+        ':target_attribute' => $target_attribute,
+        ':id' => $id,
+    ];
+
+    $stmt->execute($params);
+
+    echo json_encode([
+        'ok' => true,
+        'id' => $id,
+        'updated' => [
+            'title' => $title,
+            'alt' => $alt,
+            'caption' => $caption,
+            'credit' => $credit,
+            'target_url' => $target_url,
+            'target_attribute' => $target_attribute
+        ]
+    ]);
+    exit;
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['ok'=>false,'error'=>'DB error','detail'=>$e->getMessage()]);
+    exit;
+}

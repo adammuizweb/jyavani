@@ -1,0 +1,170 @@
+/* ==========================================================
+   NAV FUTURISTIC ONLOAD (ANIMATION-ONLY ADDON)
+   - Tidak mengubah layout/warna existing, hanya animasi saat load
+   - Aktif jika html punya class: nav-boot lalu nav-enter
+   ========================================================== */
+
+@media (prefers-reduced-motion: reduce){
+  html.nav-boot .site-header,
+  html.nav-boot .header-inner,
+  html.nav-boot .brand,
+  html.nav-boot #hamburger,
+  html.nav-boot #navbar .menu > .menu-item,
+  html.nav-boot #navbar .controls > * {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+  }
+}
+
+html.nav-boot .header-inner{
+  opacity: 0;
+  transform: translateY(-10px) scale(0.985);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+
+/* Brand & hamburger masuk setelah wrapper */
+html.nav-boot .brand{
+  opacity: 0;
+  transform: translateX(-12px) translateY(-4px) rotateX(18deg);
+  filter: blur(8px);
+  will-change: opacity, transform, filter;
+}
+html.nav-boot #hamburger{
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  filter: blur(6px);
+  will-change: opacity, transform, filter;
+}
+
+/* Menu items & controls hidden dulu */
+html.nav-boot #navbar .menu > .menu-item{
+  opacity: 0;
+  transform: translateY(-10px) rotateX(22deg);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+html.nav-boot #navbar .controls > *{
+  opacity: 0;
+  transform: translateY(-10px) rotateX(22deg);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+
+/* Beam tipis futuristik (hanya saat animasi) */
+.site-header{ position: sticky; } /* sudah ada, aman */
+.site-header::after{
+  content:"";
+  position:absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  pointer-events:none;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(0,168,158,0.0),
+    rgba(0,168,158,0.55),
+    rgba(0,168,158,0.0),
+    transparent
+  );
+}
+
+/* ====== Saat masuk (nav-enter) ====== */
+html.nav-enter .header-inner{
+  animation: nav_wrap_in 900ms cubic-bezier(.2,.9,.2,1) 40ms both;
+}
+
+html.nav-enter .brand{
+  animation: nav_item_in 760ms cubic-bezier(.2,.9,.2,1) 220ms both;
+}
+
+html.nav-enter #hamburger{
+  animation: nav_item_in 720ms cubic-bezier(.2,.9,.2,1) 280ms both;
+}
+
+/* Stagger menu item (desktop & mobile) */
+html.nav-enter #navbar .menu > .menu-item{
+  animation: nav_item_in 780ms cubic-bezier(.2,.9,.2,1) both;
+}
+html.nav-enter #navbar .menu > .menu-item:nth-child(1){ animation-delay: 320ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(2){ animation-delay: 400ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(3){ animation-delay: 480ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(4){ animation-delay: 560ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(5){ animation-delay: 640ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(6){ animation-delay: 720ms; }
+
+/* Stagger controls (theme, lang, search) */
+html.nav-enter #navbar .controls > *{
+  animation: nav_item_in 820ms cubic-bezier(.2,.9,.2,1) both;
+}
+html.nav-enter #navbar .controls > *:nth-child(1){ animation-delay: 760ms; }
+html.nav-enter #navbar .controls > *:nth-child(2){ animation-delay: 860ms; }
+html.nav-enter #navbar .controls > *:nth-child(3){ animation-delay: 960ms; }
+
+/* Beam sweep */
+html.nav-enter .site-header::after{
+  animation: nav_beam 980ms cubic-bezier(.2,.9,.2,1) 180ms both;
+}
+
+/* Micro “glide” pada arrow icon (tetap subtle) */
+html.nav-enter .arrow-icon{
+  animation: nav_icon_pop 700ms cubic-bezier(.2,.9,.2,1) 620ms both;
+}
+
+/* ===== Keyframes ===== */
+@keyframes nav_wrap_in{
+  0%{
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+    filter: blur(10px);
+  }
+  70%{
+    opacity: 1;
+    transform: translateY(0) scale(1.002);
+    filter: blur(0);
+  }
+  100%{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes nav_item_in{
+  0%{
+    opacity: 0;
+    transform: translateY(-10px) rotateX(22deg);
+    filter: blur(10px);
+  }
+  65%{
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+    filter: blur(0);
+  }
+  100%{
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+    filter: blur(0);
+  }
+}
+
+@keyframes nav_beam{
+  0%{ opacity: 0; transform: scaleX(0); }
+  20%{ opacity: .55; transform: scaleX(0.25); }
+  60%{ opacity: .55; transform: scaleX(1); }
+  100%{ opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes nav_icon_pop{
+  0%{ transform: translateY(-2px) scale(0.92); opacity: 0; }
+  60%{ transform: translateY(0) scale(1.06); opacity: 1; }
+  100%{ transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* = PATCH BRAND FINAL = */

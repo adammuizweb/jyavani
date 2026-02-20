@@ -1,0 +1,204 @@
+/* ==========================================================
+   NAV FUTURISTIC ONLOAD v3 (SMOOTH)
+   - Brand: subtle wave + soft bounce (2s)
+   - Menu: center reveal (clip-path) + micro overshoot
+   - Controls: fade up (0 -> 1)
+   - Search: soft pop (1.5s)
+   - Trigger: html.nav-boot + html.nav-enter (JS kamu sudah ada)
+   ========================================================== */
+
+.brand span{ display:inline-block; } /* supaya transform teks jalan */
+
+/* ---------- A11y: reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  html.nav-boot .header-inner,
+  html.nav-boot .brand img,
+  html.nav-boot .brand span,
+  html.nav-boot #navbar .menu,
+  html.nav-boot #navbar .controls,
+  html.nav-boot #navbar .controls input[type="search"]{
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---------- BOOT states (awal sebelum enter) ---------- */
+html.nav-boot .header-inner{
+  opacity: 0;
+  transform: translate3d(0,-10px,0) scale(.992);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+
+html.nav-boot .brand img{
+  opacity: 0;
+  transform: translate3d(-10px,-2px,0) scale(.96);
+  filter: blur(8px);
+  will-change: opacity, transform, filter;
+}
+html.nav-boot .brand span{
+  opacity: 0;
+  transform: translate3d(-8px,2px,0);
+  filter: blur(8px);
+  will-change: opacity, transform, filter;
+}
+
+/* Menu reveal paling cocok di desktop (menu pill) */
+@media (min-width: 901px){
+  html.nav-boot #navbar .menu{
+    opacity: 0;
+    filter: blur(10px);
+    transform: translate3d(0,-2px,0) scale(0.985);
+    transform-origin: 50% 50%;
+    /* center reveal (lebih futuristik & gak kaku dibanding scaleX) */
+    clip-path: inset(0 46% 0 46% round 14px);
+    -webkit-clip-path: inset(0 46% 0 46% round 14px);
+    will-change: opacity, transform, filter, clip-path;
+  }
+}
+
+/* Controls container */
+html.nav-boot #navbar .controls{
+  opacity: 0;
+  transform: translate3d(0,-8px,0);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+
+/* Search input (pop setelah controls muncul) */
+html.nav-boot #navbar .controls input[type="search"]{
+  opacity: 0;
+  transform: translate3d(0,8px,0) scale(.985);
+  will-change: opacity, transform;
+}
+
+/* ---------- ENTER animations ---------- */
+html.nav-enter .header-inner{
+  animation: nav_wrap_soft 820ms cubic-bezier(.22,.95,.25,1) 40ms both;
+}
+
+/* Brand wave+bounce 2s (smooth, damped) */
+html.nav-enter .brand img{
+  animation: nav_brand_icon 2000ms cubic-bezier(.2,.9,.2,1) 180ms both;
+}
+html.nav-enter .brand span{
+  animation: nav_brand_text 2000ms cubic-bezier(.2,.9,.2,1) 240ms both;
+}
+
+/* Menu center reveal */
+@media (min-width: 901px){
+  html.nav-enter #navbar .menu{
+    animation: nav_menu_reveal 980ms cubic-bezier(.22,.95,.25,1) 360ms both;
+  }
+}
+
+/* Controls fade (container aja, biar tidak “ramai”) */
+html.nav-enter #navbar .controls{
+  animation: nav_controls_soft 680ms cubic-bezier(.22,.95,.25,1) 560ms both;
+}
+
+/* Search pop 1.5s */
+html.nav-enter #navbar .controls input[type="search"]{
+  animation: nav_search_pop 1500ms cubic-bezier(.22,.95,.25,1) 720ms both;
+}
+
+/* ---------- Fallback kalau clip-path tidak support ---------- */
+@supports not (clip-path: inset(0 40% 0 40% round 10px)){
+  @media (min-width: 901px){
+    html.nav-boot #navbar .menu{
+      clip-path: none;
+      -webkit-clip-path: none;
+      opacity: 0;
+      transform: translate3d(0,-2px,0) scaleX(.18) scaleY(.985);
+      transform-origin: 50% 50%;
+    }
+    html.nav-enter #navbar .menu{
+      animation: nav_menu_expand_fallback 980ms cubic-bezier(.22,.95,.25,1) 360ms both;
+    }
+  }
+}
+
+/* ==========================================================
+   KEYFRAMES (smooth + futuristic, no stiff jumps)
+   ========================================================== */
+
+@keyframes nav_wrap_soft{
+  0%   { opacity:0; transform: translate3d(0,-10px,0) scale(.992); filter: blur(10px); }
+  65%  { opacity:1; transform: translate3d(0,0,0) scale(1.004); filter: blur(0); }
+  100% { opacity:1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
+}
+
+/* Icon: 2 oscillations, damped (wave feel), tiny rotation (tidak kaku) */
+@keyframes nav_brand_icon{
+  0%   { opacity:0; transform: translate3d(-10px,-2px,0) scale(.96) rotate(-6deg); filter: blur(8px); }
+  18%  { opacity:1; transform: translate3d(0,0,0) scale(1.02) rotate(2.8deg); filter: blur(0); }
+  38%  { transform: translate3d(0,-5px,0) scale(1.01) rotate(-2.2deg); }
+  58%  { transform: translate3d(0,2px,0) scale(1.00) rotate(1.4deg); }
+  78%  { transform: translate3d(0,-1px,0) scale(1.00) rotate(-0.7deg); }
+  100% { opacity:1; transform: translate3d(0,0,0) scale(1) rotate(0); filter: blur(0); }
+}
+
+/* Text: sedikit phase shift biar “wave”, tanpa skew kasar */
+@keyframes nav_brand_text{
+  0%   { opacity:0; transform: translate3d(-8px,2px,0); filter: blur(8px); }
+  20%  { opacity:1; transform: translate3d(0,0,0); filter: blur(0); }
+  40%  { transform: translate3d(0,-4px,0); }
+  60%  { transform: translate3d(0,2px,0); }
+  80%  { transform: translate3d(0,-1px,0); }
+  100% { opacity:1; transform: translate3d(0,0,0); filter: blur(0); }
+}
+
+/* Menu: center reveal (clip-path) + micro overshoot */
+@keyframes nav_menu_reveal{
+  0%{
+    opacity:0;
+    transform: translate3d(0,-2px,0) scale(0.985);
+    filter: blur(10px);
+    clip-path: inset(0 46% 0 46% round 14px);
+    -webkit-clip-path: inset(0 46% 0 46% round 14px);
+  }
+  60%{
+    opacity:1;
+    transform: translate3d(0,0,0) scale(1.015);
+    filter: blur(0);
+    clip-path: inset(0 0 0 0 round 14px);
+    -webkit-clip-path: inset(0 0 0 0 round 14px);
+  }
+  82%{
+    transform: translate3d(0,0,0) scale(.997);
+  }
+  100%{
+    opacity:1;
+    transform: translate3d(0,0,0) scale(1);
+    filter: blur(0);
+    clip-path: inset(0 0 0 0 round 14px);
+    -webkit-clip-path: inset(0 0 0 0 round 14px);
+  }
+}
+
+/* Fallback scaleX (kalau clip-path tidak ada) */
+@keyframes nav_menu_expand_fallback{
+  0%   { opacity:0; transform: translate3d(0,-2px,0) scaleX(.18) scaleY(.985); filter: blur(10px); }
+  60%  { opacity:1; transform: translate3d(0,0,0) scaleX(1.04) scaleY(1); filter: blur(0); }
+  82%  { transform: translate3d(0,0,0) scaleX(.995) scaleY(1); }
+  100% { opacity:1; transform: translate3d(0,0,0) scaleX(1) scaleY(1); filter: blur(0); }
+}
+
+/* Controls: simple smooth fade */
+@keyframes nav_controls_soft{
+  0%   { opacity:0; transform: translate3d(0,-8px,0); filter: blur(10px); }
+  70%  { opacity:1; transform: translate3d(0,0,0); filter: blur(0); }
+  100% { opacity:1; transform: translate3d(0,0,0); filter: blur(0); }
+}
+
+/* Search: soft pop (semi bounce, tidak “jelly”) */
+@keyframes nav_search_pop{
+  0%   { opacity:0; transform: translate3d(0,8px,0) scale(.985); }
+  48%  { opacity:1; transform: translate3d(0,-4px,0) scale(1.012); }
+  72%  { transform: translate3d(0,1px,0) scale(.998); }
+  100% { opacity:1; transform: translate3d(0,0,0) scale(1); }
+}

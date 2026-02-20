@@ -1,0 +1,61 @@
+HALAMAN
+- ABOUT
+- STUDY PROGRAM
+SB STUDY :
+Leading Undergraduate Program in Biotechnology
+(penjelasan dan deskripsi singkat)
+Top Undergraduate Program in Biomedical Sciences
+Bachelor of Management Study Program
+Bachelor of Communication Science Study Program
+Bachelor of Law Study Program
+Undergraduate Study Program & Midwifery Profession
+Diploma III Midwifery Study Program
+- DOSEN
+7 Prodi
+-
+
+HOMEPAGE
+Pre-University Excellence Track (Pre-U ET) 
+logo homepage
+Kenapa Harus Ikut PreUniv-APU? (acordion)
+
+
+homepage
+deskripsi
+foto
+detail
+apply
+video
+
+TEMA NAVY
+FINAL HOMEPAGE
+1. Judul
+sub judul
+2. FOTO
+3. DETAIL ganti / Pre-University Excellence Track (Pre-U ET) 
+4. APPLY tambah FREE mencolok
+5. VIDEO
+7. PROGRAM
+8. LOGO 60 univesritas luar (Kurikulum)
+LOGO 40 lokal
+9. Kenapa Harus Ikut PreUniv-APU? (acordion)
+10. SWIPER
+
+== MEDIA AJAX ==
+1. Index (include; a. add, b. List)
+2. add (drag & click)
+3. List (bulk select, delete_bulk | include; single)
+4. Single detail (include; a. save b. delete)
+5. Input [quill] (Modal 3 option; upload, media modal, insert from url)
+6. Media Modal (2 tab; a. add b. list onclick c. single)
+
+dir media have 
+1. index.php
+2. add.php 
+3. list.php 
+4. single.php 
+5. save.php
+6. delete.php
+7. input.php [integration Quill. use upload_image.php default endpoint.]
+8. media_modal.php
+9. delete_bulk.php

@@ -1,0 +1,11 @@
+{
+  "folder": "adam",
+  "name": "Adam Theme",
+  "description": "Copy of default for testing Adam changes",
+  "version": "0.1.0",
+  "author": "Adam",
+  "screenshot": "img.png",
+  "is_active": false,
+  "styles": ["assets/css/style.css", "assets/css/blocks.css"],
+  "scripts": ["assets/js/script.js"]
+}

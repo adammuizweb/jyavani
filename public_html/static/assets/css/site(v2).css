@@ -1,0 +1,339 @@
+/* ==========================================================
+   NAV FUTURISTIC ONLOAD (ANIMATION-ONLY ADDON)
+   - Tidak mengubah layout/warna existing, hanya animasi saat load
+   - Aktif jika html punya class: nav-boot lalu nav-enter
+   ========================================================== */
+
+@media (prefers-reduced-motion: reduce){
+  html.nav-boot .site-header,
+  html.nav-boot .header-inner,
+  html.nav-boot .brand,
+  html.nav-boot #hamburger,
+  html.nav-boot #navbar .menu > .menu-item,
+  html.nav-boot #navbar .controls > * {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+  }
+}
+
+html.nav-boot .header-inner{
+  opacity: 0;
+  transform: translateY(-10px) scale(0.985);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+
+/* Brand & hamburger masuk setelah wrapper */
+html.nav-boot .brand{
+  opacity: 0;
+  transform: translateX(-12px) translateY(-4px) rotateX(18deg);
+  filter: blur(8px);
+  will-change: opacity, transform, filter;
+}
+html.nav-boot #hamburger{
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  filter: blur(6px);
+  will-change: opacity, transform, filter;
+}
+
+/* Menu items & controls hidden dulu */
+html.nav-boot #navbar .menu > .menu-item{
+  opacity: 0;
+  transform: translateY(-10px) rotateX(22deg);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+html.nav-boot #navbar .controls > *{
+  opacity: 0;
+  transform: translateY(-10px) rotateX(22deg);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+
+/* Beam tipis futuristik (hanya saat animasi) */
+.site-header{ position: sticky; } /* sudah ada, aman */
+.site-header::after{
+  content:"";
+  position:absolute;
+  left: 12px;
+  right: 12px;
+  bottom: -1px;
+  height: 2px;
+  pointer-events:none;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(0,168,158,0.0),
+    rgba(0,168,158,0.55),
+    rgba(0,168,158,0.0),
+    transparent
+  );
+}
+
+/* ====== Saat masuk (nav-enter) ====== */
+html.nav-enter .header-inner{
+  animation: nav_wrap_in 900ms cubic-bezier(.2,.9,.2,1) 40ms both;
+}
+
+html.nav-enter .brand{
+  animation: nav_item_in 760ms cubic-bezier(.2,.9,.2,1) 220ms both;
+}
+
+html.nav-enter #hamburger{
+  animation: nav_item_in 720ms cubic-bezier(.2,.9,.2,1) 280ms both;
+}
+
+/* Stagger menu item (desktop & mobile) */
+html.nav-enter #navbar .menu > .menu-item{
+  animation: nav_item_in 780ms cubic-bezier(.2,.9,.2,1) both;
+}
+html.nav-enter #navbar .menu > .menu-item:nth-child(1){ animation-delay: 320ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(2){ animation-delay: 400ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(3){ animation-delay: 480ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(4){ animation-delay: 560ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(5){ animation-delay: 640ms; }
+html.nav-enter #navbar .menu > .menu-item:nth-child(6){ animation-delay: 720ms; }
+
+/* Stagger controls (theme, lang, search) */
+html.nav-enter #navbar .controls > *{
+  animation: nav_item_in 820ms cubic-bezier(.2,.9,.2,1) both;
+}
+html.nav-enter #navbar .controls > *:nth-child(1){ animation-delay: 760ms; }
+html.nav-enter #navbar .controls > *:nth-child(2){ animation-delay: 860ms; }
+html.nav-enter #navbar .controls > *:nth-child(3){ animation-delay: 960ms; }
+
+/* Beam sweep */
+html.nav-enter .site-header::after{
+  animation: nav_beam 980ms cubic-bezier(.2,.9,.2,1) 180ms both;
+}
+
+/* Micro “glide” pada arrow icon (tetap subtle) */
+html.nav-enter .arrow-icon{
+  animation: nav_icon_pop 700ms cubic-bezier(.2,.9,.2,1) 620ms both;
+}
+
+/* ===== Keyframes ===== */
+@keyframes nav_wrap_in{
+  0%{
+    opacity: 0;
+    transform: translateY(-10px) scale(0.985);
+    filter: blur(10px);
+  }
+  70%{
+    opacity: 1;
+    transform: translateY(0) scale(1.002);
+    filter: blur(0);
+  }
+  100%{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes nav_item_in{
+  0%{
+    opacity: 0;
+    transform: translateY(-10px) rotateX(22deg);
+    filter: blur(10px);
+  }
+  65%{
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+    filter: blur(0);
+  }
+  100%{
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+    filter: blur(0);
+  }
+}
+
+@keyframes nav_beam{
+  0%{ opacity: 0; transform: scaleX(0); }
+  20%{ opacity: .55; transform: scaleX(0.25); }
+  60%{ opacity: .55; transform: scaleX(1); }
+  100%{ opacity: 0; transform: scaleX(1); }
+}
+
+@keyframes nav_icon_pop{
+  0%{ transform: translateY(-2px) scale(0.92); opacity: 0; }
+  60%{ transform: translateY(0) scale(1.06); opacity: 1; }
+  100%{ transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* = PATCH BRAND FINAL = */
+
+/* ==========================================================
+   NAV ONLOAD v2 (Brand wave+bounce, Menu expand, Controls fade,
+   Search semi-bounce)
+   - pakai class html.nav-boot + html.nav-enter (JS kamu sudah ada)
+   ========================================================== */
+
+.brand span{ display:inline-block; } /* supaya transform di teks jalan */
+
+/* --- Reduced motion safety --- */
+@media (prefers-reduced-motion: reduce){
+  html.nav-boot .brand,
+  html.nav-boot .brand img,
+  html.nav-boot .brand span,
+  html.nav-boot #navbar .menu,
+  html.nav-boot #navbar .controls,
+  html.nav-boot #navbar .controls input[type="search"]{
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+  }
+}
+
+/* ==========================================================
+   OVERRIDE: Matikan animasi lama yang bikin item stagger,
+   karena sekarang kita animasikan per-bagian sesuai request.
+   (Kalau kamu mau stagger item tetap hidup, hapus blok ini.)
+   ========================================================== */
+html.nav-enter .brand,
+html.nav-enter #hamburger,
+html.nav-enter #navbar .menu > .menu-item,
+html.nav-enter #navbar .controls > *{
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* ==========================================================
+   1) ICON + LOGO TEXT: wave + bounce 2 detik
+   ========================================================== */
+/* jangan hide container brand (wrapper header-inner sudah hide) */
+html.nav-boot .brand{
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* state awal untuk icon & teks */
+html.nav-boot .brand img{
+  opacity: 0;
+  transform: translate3d(-12px,-6px,0) rotate(-14deg) scale(.86);
+  filter: blur(8px);
+  will-change: transform, opacity, filter;
+}
+html.nav-boot .brand span{
+  opacity: 0;
+  transform: translate3d(-10px,6px,0) skewX(-8deg) scale(.92);
+  filter: blur(8px);
+  will-change: transform, opacity, filter;
+}
+
+html.nav-enter .brand img{
+  animation: nav_logo_wave_bounce 2000ms cubic-bezier(.2,.9,.2,1) 220ms both;
+}
+html.nav-enter .brand span{
+  animation: nav_text_wave_bounce 2000ms cubic-bezier(.2,.9,.2,1) 280ms both;
+}
+
+/* ==========================================================
+   2) MENU: dari tengah sempit -> membuka melebar
+   ========================================================== */
+html.nav-boot #navbar .menu{
+  opacity: 0;
+  transform: scaleX(.18) scaleY(.96);
+  transform-origin: 50% 50%;
+  filter: blur(12px);
+  overflow: hidden; /* biar pill rapih saat mengecil */
+  will-change: transform, opacity, filter;
+}
+
+/* batalkan hide item lama (biar menu kosong nggak kejadian) */
+html.nav-boot #navbar .menu > .menu-item{
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+html.nav-enter #navbar .menu{
+  animation: nav_menu_expand 900ms cubic-bezier(.2,.9,.2,1) 420ms both;
+}
+
+/* ==========================================================
+   3) CONTROLLER: opacity 0 -> 100
+   ========================================================== */
+html.nav-boot #navbar .controls{
+  opacity: 0;
+  transform: translateY(-8px);
+  filter: blur(10px);
+  will-change: opacity, transform, filter;
+}
+
+/* batalkan hide children lama; cukup container yang fade */
+html.nav-boot #navbar .controls > *{
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+html.nav-enter #navbar .controls{
+  animation: nav_controls_fade 650ms cubic-bezier(.2,.9,.2,1) 620ms both;
+}
+
+/* ==========================================================
+   4) SEARCH: muncul semi-bounce 1.5 detik
+   ========================================================== */
+html.nav-boot #navbar .controls input[type="search"]{
+  opacity: 0;
+  transform: translateY(10px) scale(.96);
+  will-change: transform, opacity;
+}
+
+html.nav-enter #navbar .controls input[type="search"]{
+  animation: nav_search_semi_bounce 1500ms cubic-bezier(.2,.9,.2,1) 780ms both;
+}
+
+/* ==========================
+   KEYFRAMES
+   ========================== */
+@keyframes nav_logo_wave_bounce{
+  0%   { opacity:0; transform: translate3d(-12px,-6px,0) rotate(-14deg) scale(.86); filter: blur(8px); }
+  18%  { opacity:1; transform: translate3d(0,0,0) rotate(10deg) scale(1.10); filter: blur(0); }
+  34%  { transform: translate3d(0,-7px,0) rotate(-8deg) scale(1.03); }
+  50%  { transform: translate3d(0,2px,0) rotate(5deg) scale(1.00); }
+  66%  { transform: translate3d(0,-3px,0) rotate(-3deg) scale(1.01); }
+  82%  { transform: translate3d(0,1px,0) rotate(1.5deg) scale(1.00); }
+  100% { opacity:1; transform: translate3d(0,0,0) rotate(0) scale(1); filter: blur(0); }
+}
+
+@keyframes nav_text_wave_bounce{
+  0%   { opacity:0; transform: translate3d(-10px,6px,0) skewX(-8deg) scale(.92); filter: blur(8px); }
+  20%  { opacity:1; transform: translate3d(0,0,0) skewX(6deg) scale(1.03); filter: blur(0); }
+  40%  { transform: translate3d(0,-5px,0) skewX(-4deg) scale(1.01); }
+  58%  { transform: translate3d(0,2px,0) skewX(3deg) scale(1.00); }
+  76%  { transform: translate3d(0,-2px,0) skewX(-2deg) scale(1.00); }
+  100% { opacity:1; transform: translate3d(0,0,0) skewX(0) scale(1); filter: blur(0); }
+}
+
+@keyframes nav_menu_expand{
+  0%   { opacity:0; transform: scaleX(.18) scaleY(.96); filter: blur(12px); }
+  55%  { opacity:1; transform: scaleX(1.06) scaleY(1.00); filter: blur(0); }
+  75%  { transform: scaleX(.98) scaleY(1.00); }
+  100% { opacity:1; transform: scaleX(1.00) scaleY(1.00); filter: blur(0); }
+}
+
+@keyframes nav_controls_fade{
+  0%   { opacity:0; transform: translateY(-10px); filter: blur(10px); }
+  70%  { opacity:1; transform: translateY(0); filter: blur(0); }
+  100% { opacity:1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes nav_search_semi_bounce{
+  0%   { opacity:0; transform: translateY(10px) scale(.96); }
+  45%  { opacity:1; transform: translateY(-7px) scale(1.03); }
+  65%  { transform: translateY(2px) scale(.995); }
+  82%  { transform: translateY(-2px) scale(1.01); }
+  100% { opacity:1; transform: translateY(0) scale(1); }
+}
