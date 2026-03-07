@@ -1,0 +1,78 @@
+/* /adiwira/theme/adam/css/aside.css
+   Sidebar cosmetics ONLY.
+   Jangan taruh rules layout/overlay/fixed di sini (itu semua di style.css).
+*/
+
+/* Desktop: rapikan topbar ketika collapsed */
+@media (min-width: 901px) {
+  body.aside-collapsed .adam-collapse .label {
+    display: none !important;
+  }
+
+  body.aside-collapsed .adam-aside-top {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+
+  body.aside-collapsed .adam-collapse {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
+/* Submenu visual: expanded mode */
+.adam-nav-item.is-open > .adam-nav-sub {
+  padding-left: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+/* highlight active sublink in expanded sidebar */
+.adam-nav-item.is-open > .adam-nav-sub .adam-nav-sublink--active,
+.adam-nav-item.is-open > .adam-nav-sub .adam-nav-sublink[aria-current="page"] {
+  background-image: linear-gradient(
+    to right,
+    rgba(36,70,102,0.12) 0%,
+    rgba(36,70,102,0.08) 18%,
+    rgba(36,70,102,0.04) 36%,
+    rgba(36,70,102,0) 100%
+  );
+  font-weight: 600;
+  border-radius: 6px;
+  padding-left: 0.45rem;
+}
+
+/* hover for expanded sublinks */
+.adam-nav-item.is-open > .adam-nav-sub .adam-nav-sublink:hover {
+  background: rgba(36,70,102,0.06);
+}
+
+/* Collapsed mini sublinks cosmetics (desktop only) */
+@media (min-width: 901px) {
+  body.aside-collapsed .adam-nav-item.is-open > .adam-nav-sub-collapsed {
+    background-image: linear-gradient(
+      to right,
+      rgba(36,70,102,0.12) 0%,
+      rgba(36,70,102,0.08) 18%,
+      rgba(36,70,102,0.04) 36%,
+      rgba(36,70,102,0) 100%
+    );
+    border-radius: 10px;
+    padding: 6px 0;
+    margin-top: 6px;
+  }
+
+  body.aside-collapsed .adam-nav-sublink-mini {
+    background: transparent;
+  }
+
+  body.aside-collapsed .adam-nav-sublink-mini:hover {
+    background: rgba(36, 70, 102, 0.12);
+  }
+
+  body.aside-collapsed .adam-nav-sublink-mini[aria-current="page"] {
+    background: rgba(36, 70, 102, 0.18);
+    font-weight: 600;
+  }
+}

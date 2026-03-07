@@ -1,0 +1,10 @@
+{
+  "folder": "default",
+  "name": "Default Theme",
+  "description": "Tema bawaan Jyavani",
+  "version": "1.0.0",
+  "author": "Jyavani Team",
+  "screenshot": "img.png",
+  "styles": ["assets/css/style.css", "assets/css/blocks.css"],
+  "scripts": ["assets/js/script.js"]
+}

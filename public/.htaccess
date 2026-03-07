@@ -1,0 +1,16 @@
+RewriteEngine On
+RewriteBase /
+
+# Redirect jika ada trailing slash setelah file statis
+RewriteRule ^(.+\.(?:css|js|webp|avif|png|jpg|jpeg|gif|svg|ico|map|json|woff2?|woff|ttf|eot))/$ $1 [R=301,L]
+
+# Jangan rewrite jika file/dir nyata
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Jangan rewrite dot-files
+RewriteRule (^|/)\. - [F]
+
+# Fallback: kirim ke router.php
+RewriteRule ^(.*)$ /router.php [L,QSA]

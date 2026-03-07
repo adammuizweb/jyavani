@@ -1,0 +1,17 @@
+# Environment / secrets
+.env
+cfg/*.env
+
+# Session files (do not commit runtime sessions)
+cfg/var/sessions/
+cfg/var/sessions/**
+
+# If you want to ignore only session files but keep folder tracked, use:
+# cfg/var/sessions/*.sess
+
+# Sensitive PHP config / public bootstrap (optional - decide per project)
+# If those must stay out of remote, uncomment:
+# public/.htaccess
+# public/bootstrap_core.php
+# public/layout.php
+# public/adiwira/bootstrap.php

@@ -1,0 +1,629 @@
+/* /static/assets/css/anime.css
+   ==========================================================
+   AnimeFX — utility animation CSS (ROBUST)
+   Trigger via JS: add/remove .show
+   Supports: scroll/load/manual, stagger, wave-span, moving-line
+   Fix: NO var inheritance override from parent
+   ========================================================== */
+
+:root{
+  --anim-duration: 800ms;
+  --anim-delay: 0ms;
+  --anim-ease: cubic-bezier(.2,.8,.2,1);
+
+  --anim-x: 0px;
+  --anim-y: 0px;
+  --anim-scale: 1;
+  --anim-rotate: 0deg;
+  --anim-blur: 0px;
+  --anim-origin: 50% 50%;
+}
+
+/* ================================
+   1) BASE: transition-based reveals
+   ================================ */
+.anim,
+.fade-up, .fade-down, .fade-left, .fade-right,
+.slide-up, .slide-down, .slide-left, .slide-right,
+.zoom-in, .zoom-out,
+.blur-in,
+.rotate-in,
+.flip-x, .flip-y,
+.pop
+{
+  /* ✅ anti-inherit: reset per element */
+  --anim-x: 0px;
+  --anim-y: 0px;
+  --anim-scale: 1;
+  --anim-rotate: 0deg;
+  --anim-blur: 0px;
+  --anim-origin: 50% 50%;
+
+  opacity: 0;
+  transform-origin: var(--anim-origin);
+  transform:
+    translate3d(var(--anim-x), var(--anim-y), 0)
+    scale(var(--anim-scale))
+    rotate(var(--anim-rotate));
+  filter: blur(var(--anim-blur));
+  transition-property: opacity, transform, filter;
+  transition-duration: var(--anim-duration);
+  transition-timing-function: var(--anim-ease);
+  transition-delay: var(--anim-delay);
+  will-change: opacity, transform, filter;
+}
+
+.anim.show,
+.fade-up.show, .fade-down.show, .fade-left.show, .fade-right.show,
+.slide-up.show, .slide-down.show, .slide-left.show, .slide-right.show,
+.zoom-in.show, .zoom-out.show,
+.blur-in.show,
+.rotate-in.show,
+.flip-x.show, .flip-y.show,
+.pop.show
+{
+  opacity: 1;
+  transform: translate3d(0,0,0) scale(1) rotate(0deg);
+  filter: blur(0);
+}
+
+/* variants */
+.fade-up    { --anim-y:  28px; }
+.fade-down  { --anim-y: -28px; }
+.fade-left  { --anim-x:  28px; }
+.fade-right { --anim-x: -28px; }
+
+.slide-up    { --anim-y:  70px; }
+.slide-down  { --anim-y: -70px; }
+.slide-left  { --anim-x:  70px; }
+.slide-right { --anim-x: -70px; }
+
+.zoom-in  { --anim-scale: .92; }
+.zoom-out { --anim-scale: 1.08; }
+
+.blur-in { --anim-blur: 10px; }
+.rotate-in { --anim-rotate: -6deg; }
+
+.pop { --anim-scale: .85; }
+
+.flip-x{ transform: perspective(900px) rotateX(65deg); }
+.flip-y{ transform: perspective(900px) rotateY(65deg); }
+.flip-x.show{ transform: perspective(900px) rotateX(0deg); }
+.flip-y.show{ transform: perspective(900px) rotateY(0deg); }
+
+/* ================================
+   2) LOOP effects (no .show needed)
+   ================================ */
+.pulse{
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: none;
+  animation: fx_pulse 1.6s var(--anim-ease) infinite;
+}
+@keyframes fx_pulse{
+  0%,100%{ transform: scale(1); }
+  50%{ transform: scale(1.03); }
+}
+
+.shake{
+  opacity: 1;
+  transform: none;
+  filter: none;
+  transition: none;
+  animation: fx_shake 650ms ease-in-out;
+}
+@keyframes fx_shake{
+  0%{ transform: translateX(0); }
+  20%{ transform: translateX(-6px); }
+  40%{ transform: translateX(6px); }
+  60%{ transform: translateX(-4px); }
+  80%{ transform: translateX(4px); }
+  100%{ transform: translateX(0); }
+}
+
+/* ================================
+   3) Utilities
+   ================================ */
+.delay-0   { --anim-delay: 0ms; }
+.delay-100 { --anim-delay: 100ms; }
+.delay-200 { --anim-delay: 200ms; }
+.delay-300 { --anim-delay: 300ms; }
+.delay-400 { --anim-delay: 400ms; }
+.delay-500 { --anim-delay: 500ms; }
+.delay-700 { --anim-delay: 700ms; }
+.delay-900 { --anim-delay: 900ms; }
+.delay-1200{ --anim-delay: 1200ms; }
+
+.dur-200  { --anim-duration: 200ms; }
+.dur-300  { --anim-duration: 300ms; }
+.dur-500  { --anim-duration: 500ms; }
+.dur-800  { --anim-duration: 800ms; }
+.dur-1200 { --anim-duration: 1200ms; }
+
+/* ================================
+   4) Expand center SAFE
+   ================================ */
+.expand-center-safe{
+  --anim-duration: 1800ms;
+  --anim-ease: cubic-bezier(.16, 1, .3, 1);
+  --anim-delay: 0ms;
+
+  transition: none !important;
+  opacity: 0;
+  filter: blur(10px);
+  transform-origin: 50% 50%;
+  transform: translate3d(0,0,0) scaleX(.10) scaleY(.98);
+  will-change: transform, filter, opacity;
+  overflow: visible;
+}
+.expand-center-safe.show{
+  animation: fx_expand_center_safe var(--anim-duration) var(--anim-ease) var(--anim-delay) both;
+}
+@keyframes fx_expand_center_safe{
+  0%   { opacity:0; filter: blur(10px); transform: translate3d(0,0,0) scaleX(.10) scaleY(.98); }
+  55%  { opacity:1; filter: blur(0);  transform: translate3d(0,0,0) scaleX(1.02) scaleY(1); }
+  78%  { transform: translate3d(0,0,0) scaleX(.996) scaleY(1); }
+  100% { opacity:1; filter: blur(0);  transform: translate3d(0,0,0) scaleX(1) scaleY(1); }
+}
+
+/* ================================
+   5) Typewrite (optional)
+   ================================ */
+.typewrite{
+  --tw-duration: 2600ms;
+  --tw-steps: 36;
+  --tw-px: 320;
+  --anim-delay: 0ms;
+
+  transition: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+
+  display: inline-block;
+  position: relative;
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: bottom;
+  width: 0;
+}
+.typewrite::after{
+  content:"";
+  position:absolute;
+  top: 0.08em;
+  right: -0.12em;
+  width: 2px;
+  height: 1.05em;
+  background: currentColor;
+  opacity: 0;
+}
+.typewrite.show{
+  animation: fx_typewrite var(--tw-duration) steps(var(--tw-steps)) var(--anim-delay) both;
+}
+.typewrite.show::after{
+  opacity: .65;
+  animation: fx_caret 750ms steps(1) infinite, fx_caret_hide var(--tw-duration) linear var(--anim-delay) both;
+}
+.typewrite.no-caret::after,
+.typewrite.no-caret.show::after{
+  display:none !important;
+  opacity:0 !important;
+  animation:none !important;
+}
+@keyframes fx_typewrite{ from { width: 0; } to { width: calc(var(--tw-px) * 1px); } }
+@keyframes fx_caret{ 0%,49%{opacity:0} 50%,100%{opacity:.65} }
+@keyframes fx_caret_hide{ 0%,98%{opacity:.65} 100%{opacity:0} }
+
+/* ================================
+   6) Wave Span (per-letter) — FIXED
+   ================================ */
+.wave-span{
+  --ws-duration: 1200ms;
+  --ws-ease: cubic-bezier(.12,.85,.22,1);
+  --ws-step: 32ms;
+
+  display: inline-block;
+}
+
+.wave-span .ws-letter{
+  display: inline-block;
+  transform-origin: 50% 100%;
+  opacity: 0;
+  filter: blur(6px);
+  transform: translate3d(0,.55em,0) scale(.15) rotate(-6deg);
+  will-change: transform, opacity, filter;
+}
+
+.wave-span .ws-space{
+  display: inline-block;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+.wave-span.show .ws-letter{
+  animation-name: fx_wave_letter;
+  animation-duration: var(--ws-duration);
+  animation-timing-function: var(--ws-ease);
+  animation-fill-mode: none;
+
+  opacity: 1;
+  filter: none;
+  transform: translate3d(0,0,0) scale(1) rotate(0deg);
+}
+
+@keyframes fx_wave_letter{
+  0%{ opacity:0; filter: blur(6px); transform: translate3d(0,.55em,0) scale(.15) rotate(-6deg); }
+  60%{ opacity:1; filter: blur(0); transform: translate3d(0,-.06em,0) scale(1.06) rotate(2deg); }
+  100%{ opacity:1; filter: blur(0); transform: translate3d(0,0,0) scale(1) rotate(0deg); }
+}
+
+/* ================================
+   7) Moving Line / Beam (BEAM ONLY)
+   ================================ */
+.moving-line{
+  --ml-duration: 1000ms;
+  --ml-ease: cubic-bezier(.2,.9,.2,1);
+  --ml-delay: 0ms;
+
+  --ml-left: 0px;
+  --ml-right: 0px;
+  --ml-bottom: -0.35em;
+  --ml-height: 2px;
+
+  position: relative;
+}
+.moving-line::after{
+  content:"";
+  position:absolute;
+  left: var(--ml-left);
+  right: var(--ml-right);
+  bottom: var(--ml-bottom);
+  height: var(--ml-height);
+  pointer-events:none;
+
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+
+  background: linear-gradient(90deg,
+    transparent,
+    rgba(0,168,158,0.0),
+    rgba(0,168,158,0.55),
+    rgba(0,168,158,0.0),
+    transparent
+  );
+}
+.moving-line.show::after{
+  animation: fx_moving_line var(--ml-duration) var(--ml-ease) var(--ml-delay) both;
+}
+@keyframes fx_moving_line{
+  0%{ opacity: 0; transform: scaleX(0); }
+  20%{ opacity: .55; transform: scaleX(.25); }
+  60%{ opacity: .55; transform: scaleX(1); }
+  100%{ opacity: 0; transform: scaleX(1); }
+}
+
+.ml-header{
+  --ml-left: 12px;
+  --ml-right: 12px;
+  --ml-bottom: -1px;
+  --ml-height: 2px;
+}
+.ml-text{
+  --ml-bottom: -0.25em;
+  --ml-height: 2px;
+}
+
+/* ================================
+   8) Reduced motion safety
+   ================================ */
+@media (prefers-reduced-motion: reduce){
+  .anim,
+  .fade-up, .fade-down, .fade-left, .fade-right,
+  .slide-up, .slide-down, .slide-left, .slide-right,
+  .zoom-in, .zoom-out,
+  .blur-in,
+  .rotate-in,
+  .flip-x, .flip-y,
+  .pop,
+  .expand-center-safe,
+  .typewrite,
+  .wave-span,
+  .ws-letter,
+  .moving-line
+  {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    width: auto !important;
+  }
+  .typewrite::after,
+  .moving-line::after{ display:none !important; }
+}
+
+/* ================================
+   9) Flip Logo (khusus IMG brand)
+   ================================ */
+.flip-logo{
+  --fl-duration: 900ms;
+  --fl-delay: 200ms;
+  --fl-ease: cubic-bezier(.16, 1, .3, 1);
+
+  opacity: 0;
+  transform-origin: 50% 50%;
+  transform: perspective(900px) rotateY(70deg) translateY(-6px) scale(.96);
+  filter: blur(6px);
+  will-change: transform, opacity, filter;
+}
+
+.flip-logo.show{
+  animation: fx_flip_logo var(--fl-duration) var(--fl-ease) var(--fl-delay) both;
+}
+
+.flip-logo.fx-done{
+  animation: none !important;
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+.flip-logo.show,
+.flip-logo.fx-done{
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1), filter 260ms cubic-bezier(.2,.8,.2,1);
+}
+
+.brand:hover .flip-logo.show,
+.brand:hover .flip-logo.fx-done,
+.brand:focus-visible .flip-logo.show,
+.brand:focus-visible .flip-logo.fx-done{
+  transform: translateY(-2px) rotate(-4deg) scale(1.07);
+  filter: drop-shadow(0 10px 14px rgba(0,0,0,.18));
+}
+
+.brand:active .flip-logo.show,
+.brand:active .flip-logo.fx-done{
+  transform: translateY(-1px) rotate(-2deg) scale(1.03);
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.16));
+}
+
+@keyframes fx_flip_logo{
+  0%{
+    opacity: 0;
+    transform: perspective(900px) rotateY(70deg) translateY(-6px) scale(.96);
+    filter: blur(6px);
+  }
+  60%{
+    opacity: 1;
+    transform: perspective(900px) rotateY(-6deg) translateY(0) scale(1.03);
+    filter: blur(0);
+  }
+  100%{
+    opacity: 1;
+    transform: perspective(900px) rotateY(0deg) translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .flip-logo{
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
+/* ================================
+   10) Frag Reveal (simple fragments) — FIXED
+   - FIX: IMG sering dibungkus <a>, jadi jangan pakai > img
+   - FIX: layering aman untuk badge/overlay theme
+   ================================ */
+.frag-reveal{
+  position: relative;
+  overflow: hidden;
+}
+
+/* ✅ FIX: target IMG descendant (bisa di dalam <a>) */
+.frag-reveal img{
+  display:block;
+  width:100%;
+  height:auto;
+  transition: opacity 240ms ease;
+  position: relative;
+  z-index: 0;
+}
+
+/* hide image asli setelah prepared */
+.frag-reveal.fx-frag-prepared img{ opacity: 0; }
+
+/* show image asli ketika done (override prepared) */
+.frag-reveal.fx-frag-done img{ opacity: 1; }
+
+.frag-reveal .frag-overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index: 1;
+}
+
+/* optional: pastikan elemen CTA/badge di atas frag */
+.frag-reveal .adam-thumb-badge,
+.frag-reveal .adam-thumb-overlay,
+.frag-reveal .adam-thumb-bottom{
+  z-index: 3;
+}
+
+/* fragmen */
+.frag-reveal .frag-piece{
+  position:absolute;
+  width: calc(100% / var(--fr-cols));
+  height: calc(100% / var(--fr-rows));
+  left: calc(var(--fr-col) * (100% / var(--fr-cols)));
+  top:  calc(var(--fr-row) * (100% / var(--fr-rows)));
+
+  background-image: var(--fr-img);
+  background-size: calc(var(--fr-cols) * 100%) calc(var(--fr-rows) * 100%);
+  background-position: var(--fr-colp) var(--fr-rowp);
+
+  opacity: 0;
+  filter: blur(10px);
+  transform: translate3d(var(--fr-tx), var(--fr-ty), 0) rotate(var(--fr-rot)) scale(var(--fr-scale));
+  will-change: transform, opacity, filter;
+}
+
+/* mulai animasi ketika wrapper dapat .show dari AnimeFX */
+.frag-reveal.show .frag-piece{
+  animation: fx_frag_reveal var(--anim-duration) var(--anim-ease) both;
+  animation-delay: calc(var(--anim-delay) + var(--fr-delay));
+}
+
+@keyframes fx_frag_reveal{
+  0%{
+    opacity:0;
+    filter: blur(10px);
+    transform: translate3d(var(--fr-tx), var(--fr-ty), 0) rotate(var(--fr-rot)) scale(var(--fr-scale));
+  }
+  65%{
+    opacity:1;
+    filter: blur(0);
+    transform: translate3d(0,-2px,0) rotate(0deg) scale(1.02);
+  }
+  100%{
+    opacity:1;
+    filter: blur(0);
+    transform: translate3d(0,0,0) rotate(0deg) scale(1);
+  }
+}
+
+/* Reduced motion: jangan frag sama sekali */
+@media (prefers-reduced-motion: reduce){
+  .frag-reveal.fx-frag-prepared img{ opacity: 1 !important; }
+  .frag-reveal .frag-overlay{ display:none !important; }
+  .frag-reveal .frag-piece{ display:none !important; }
+}
+
+
+/* ================================
+   10) Frag Reveal (simple fragments) — NO FLICKER
+   - IMG bisa dibungkus <a>, jadi target descendant img
+   - FIX: image hide/show instant (no opacity transition) supaya tidak ada blank-frame
+   - FIX: overlay fade-out dulu sebelum cleanup remove
+   ================================ */
+
+.frag-reveal{
+  position: relative;
+  overflow: hidden;
+}
+
+/* target IMG descendant (bisa di dalam <a>) */
+.frag-reveal img{
+  display:block;
+  width:100%;
+  height:auto;
+
+  /* anti flicker GPU */
+  backface-visibility: hidden;
+  transform: translateZ(0);
+
+  /* default: boleh punya transition kalau kamu pakai di tempat lain,
+     TAPI untuk prepared/done akan kita override jadi none */
+  transition: opacity 240ms ease;
+
+  position: relative;
+  z-index: 0;
+}
+
+/* ✅ prepared: hide instant (NO transition) */
+.frag-reveal.fx-frag-prepared img{
+  opacity: 0;
+  transition: none !important;
+}
+
+/* ✅ done: show instant (NO transition) */
+.frag-reveal.fx-frag-done img{
+  opacity: 1;
+  transition: none !important;
+}
+
+/* overlay container */
+.frag-reveal .frag-overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index: 1;
+
+  /* ✅ overlay bisa di-fade out ketika selesai */
+  opacity: 1;
+  transition: opacity 180ms ease;
+  will-change: opacity;
+}
+
+/* ✅ ketika done, overlay turun opacity dulu (JS akan remove setelahnya) */
+.frag-reveal.fx-frag-done .frag-overlay{
+  opacity: 0;
+}
+
+/* optional: pastikan elemen CTA/badge theme di atas frag
+   (pastikan elemen-elemen ini memang positioned di CSS theme-mu) */
+.frag-reveal .adam-thumb-badge,
+.frag-reveal .adam-thumb-overlay,
+.frag-reveal .adam-thumb-bottom{
+  z-index: 3;
+}
+
+/* fragmen */
+.frag-reveal .frag-piece{
+  position:absolute;
+  width: calc(100% / var(--fr-cols));
+  height: calc(100% / var(--fr-rows));
+  left: calc(var(--fr-col) * (100% / var(--fr-cols)));
+  top:  calc(var(--fr-row) * (100% / var(--fr-rows)));
+
+  background-image: var(--fr-img);
+  background-size: calc(var(--fr-cols) * 100%) calc(var(--fr-rows) * 100%);
+  background-position: var(--fr-colp) var(--fr-rowp);
+
+  opacity: 0;
+  filter: blur(10px);
+  transform: translate3d(var(--fr-tx), var(--fr-ty), 0) rotate(var(--fr-rot)) scale(var(--fr-scale));
+  will-change: transform, opacity, filter;
+
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+/* mulai animasi ketika wrapper dapat .show dari AnimeFX */
+.frag-reveal.show .frag-piece{
+  animation: fx_frag_reveal var(--anim-duration) var(--anim-ease) both;
+  animation-delay: calc(var(--anim-delay) + var(--fr-delay));
+}
+
+@keyframes fx_frag_reveal{
+  0%{
+    opacity:0;
+    filter: blur(10px);
+    transform: translate3d(var(--fr-tx), var(--fr-ty), 0) rotate(var(--fr-rot)) scale(var(--fr-scale));
+  }
+  65%{
+    opacity:1;
+    filter: blur(0);
+    transform: translate3d(0,-2px,0) rotate(0deg) scale(1.02);
+  }
+  100%{
+    opacity:1;
+    filter: blur(0);
+    transform: translate3d(0,0,0) rotate(0deg) scale(1);
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .frag-reveal.fx-frag-prepared img{ opacity: 1 !important; transition:none !important; }
+  .frag-reveal .frag-overlay{ display:none !important; }
+  .frag-reveal .frag-piece{ display:none !important; }
+}
