@@ -5,8 +5,8 @@
   let suppress = false;
 
   // treat these tags as complex
-  const complexPattern =
-  /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta)[\s>]|on[a-z]+\s*=|style\s*=/i;
+const complexPattern =
+/<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|table|thead|tbody|tfoot|tr|th|td)[\s>]|on[a-z]+\s*=|style\s*=/i;
   const canonical = document.getElementById('content-textarea');
 
   const FULL_TOOLBAR = [
@@ -282,7 +282,7 @@ tb.addHandler('video', function () {
   function stripComplexBlocksAndReturn(html) {
     html = String(html || '');
     // remove heavy blocks (and their inner content)
-    html = html.replace(/<(script|style|iframe|embed|form|svg|canvas)[\s\S]*?<\/\1>/gi, '');
+    html = html.replace(/<(script|style|iframe|embed|form|svg|canvas|table)[\s\S]*?<\/\1>/gi, '');
     // remove php blocks
     html = html.replace(/<\?[\s\S]*?\?>/g, '');
     // remove wrapping tags div/section but keep children

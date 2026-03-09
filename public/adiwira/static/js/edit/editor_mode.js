@@ -2,8 +2,8 @@
 // plus use 'change' (not click+preventDefault) so radio remains clickable even when content complex.
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
-  const complexPattern =
-  /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta)[\s>]|on[a-z]+\s*=|style\s*=/i;
+const complexPattern =
+/<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|table|thead|tbody|tfoot|tr|th|td)[\s>]|on[a-z]+\s*=|style\s*=/i;
 
   // internal programmatic flag — modules should set/unset this to avoid races
   if (!window.ADIWIRA.editor) window.ADIWIRA.editor = {};
