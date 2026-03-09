@@ -115,7 +115,7 @@ $thumbUrl = !empty($post['display_image']) ? $post['display_image'] : (!empty($p
 </script>
 <?php endif; ?>
 
-<article class="adam-post-single fade-up onload" data-duration="1500">
+<article class="adam-post-single">
 
 <?php
 // ===== Breadcrumb typewrite timings =====

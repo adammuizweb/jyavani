@@ -50,7 +50,7 @@
   transition-duration: var(--anim-duration);
   transition-timing-function: var(--anim-ease);
   transition-delay: var(--anim-delay);
-  will-change: opacity, transform, filter;
+  will-change: transform, opacity;
 }
 
 .anim.show,
@@ -65,6 +65,7 @@
   opacity: 1;
   transform: translate3d(0,0,0) scale(1) rotate(0deg);
   filter: blur(0);
+  will-change: auto;
 }
 
 /* variants */
