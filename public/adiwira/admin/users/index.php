@@ -10,26 +10,6 @@ if (empty($_SESSION['user_id'])) {
     exit;
 }
 
-$errors = [];
-$messages = [];
-
-// flash success
-if (!empty($_SESSION['_flash_success'])) {
-    $messages[] = $_SESSION['_flash_success'];
-    unset($_SESSION['_flash_success']);
-}
-
-// flash error
-if (!empty($_SESSION['_flash_error'])) {
-    $errors[] = $_SESSION['_flash_error'];
-    unset($_SESSION['_flash_error']);
-}
-
-// backward compatibility: accept msg from older redirects
-if (!empty($_GET['msg'])) {
-    $messages[] = (string) $_GET['msg'];
-}
-
 $uid = (int)$_SESSION['user_id'];
 $sessionRole = $_SESSION['user_role'] ?? null;
 if (!$sessionRole) {
@@ -39,25 +19,81 @@ if (!$sessionRole) {
     $_SESSION['user_role'] = $sessionRole;
 }
 
-// --- params: filter, search, paging ---
-$filter_role = trim((string)($_GET['role'] ?? ''));
-$search      = trim((string)($_GET['q'] ?? ''));
+$sessionRole = strtolower(trim((string)$sessionRole));
+if ($sessionRole !== 'admin') {
+    http_response_code(403);
+    echo '<p>Akses ditolak: menu users hanya untuk admin.</p>';
+    exit;
+}
+
+$messages = [];
+$errors   = [];
+$flash_for_js = [];
+
+if (!empty($_SESSION['_flash_success'])) {
+    $msg = (string)$_SESSION['_flash_success'];
+    $messages[] = $msg;
+    $flash_for_js[] = ['type' => 'success', 'text' => $msg];
+    unset($_SESSION['_flash_success']);
+}
+if (!empty($_SESSION['_flash_error'])) {
+    $err = (string)$_SESSION['_flash_error'];
+    $errors[] = $err;
+    $flash_for_js[] = ['type' => 'error', 'text' => $err];
+    unset($_SESSION['_flash_error']);
+}
+
+$flash = $_SESSION['flash'] ?? [];
+unset($_SESSION['flash']);
+if (is_array($flash)) {
+    foreach ($flash as $f) {
+        $type = (string)($f['type'] ?? 'info');
+        $text = (string)($f['text'] ?? '');
+        if ($text === '') continue;
+
+        if ($type === 'success') $messages[] = $text;
+        else $errors[] = $text;
+
+        $flash_for_js[] = ['type' => $type, 'text' => $text];
+    }
+}
+
+if (!empty($_GET['msg'])) {
+    $m = (string)$_GET['msg'];
+    $messages[] = $m;
+    $flash_for_js[] = ['type' => 'success', 'text' => $m];
+}
+if (!empty($_GET['err'])) {
+    $e = (string)$_GET['err'];
+    $errors[] = $e;
+    $flash_for_js[] = ['type' => 'error', 'text' => $e];
+}
+
+$messages = array_values(array_unique($messages));
+$errors   = array_values(array_unique($errors));
+
+$filter_role   = trim((string)($_GET['role'] ?? ''));
+$filter_status = trim((string)($_GET['lock'] ?? ''));
+$search        = trim((string)($_GET['q'] ?? ''));
 
 $page = max(1, (int)($_GET['p'] ?? 1));
 $perPage = 10;
 $offset = ($page - 1) * $perPage;
 
-// build where
 $where = ["is_deleted = 0"];
 $params = [];
 
-// role filter
 if ($filter_role !== '') {
     $where[] = "role = :role";
     $params[':role'] = $filter_role;
 }
 
-// search (name / email / username)
+if ($filter_status === 'locked') {
+    $where[] = "is_locked = 1";
+} elseif ($filter_status === 'unlocked') {
+    $where[] = "is_locked = 0";
+}
+
 if ($search !== '') {
     $where[] = "(name LIKE :s OR email LIKE :s OR username LIKE :s)";
     $params[':s'] = '%' . $search . '%';
@@ -65,16 +101,14 @@ if ($search !== '') {
 
 $where_sql = implode(' AND ', $where);
 
-// total count
 $countSql = "SELECT COUNT(*) FROM users WHERE $where_sql";
 $countStmt = $pdo->prepare($countSql);
 $countStmt->execute($params);
 $total = (int)$countStmt->fetchColumn();
-$pages = max(1, (int)ceil($total / max(1,$perPage)));
+$pages = max(1, (int)ceil($total / max(1, $perPage)));
 if ($page > $pages) $page = $pages;
 
-// fetch users
-$sql = "SELECT id, email, username, name, role, img, bio, phone, created_at
+$sql = "SELECT id, email, username, name, role, img, bio, phone, created_at, is_locked
         FROM users
         WHERE $where_sql
         ORDER BY id DESC
@@ -86,36 +120,43 @@ $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
 $stmt->execute();
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// roles list (hardcoded or fetch from config)
 $allRoles = ['author','editor','admin'];
-
-// base url for links
 $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 
-$roleCurrent = $sessionRole;
-$canBulk = !in_array($roleCurrent, ['author'], true); // authors cannot bulk
+$currentQuery = $_GET;
+$currentQuery['page'] = 'admin/users/index';
+$returnTo = $base . '/index.php?' . http_build_query($currentQuery);
 
-// helper pagination function (compact, same as posts)
 function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
-    if ($total <= $max_visible) return range(1,$total);
+    if ($total <= $max_visible) return range(1, $total);
+
     $items = [];
     $reserved = 6;
     $middle_slots = max(1, $max_visible - $reserved);
-    $half = (int)floor($middle_slots/2);
+    $half = (int)floor($middle_slots / 2);
     $start = max(3, $current - $half);
     $end = min($total - 2, $current + $half);
-    if ($start === 3) $end = min($total-2, $start + $middle_slots -1);
-    if ($end === $total-2) $start = max(3, $end - $middle_slots +1);
-    $items[] = 1; $items[] = 2;
+
+    if ($start === 3) $end = min($total - 2, $start + $middle_slots - 1);
+    if ($end === $total - 2) $start = max(3, $end - $middle_slots + 1);
+
+    $items[] = 1;
+    $items[] = 2;
     if ($start > 3) $items[] = '...';
-    for ($i=$start;$i<=$end;$i++) $items[] = $i;
+    for ($i = $start; $i <= $end; $i++) $items[] = $i;
     if ($end < $total - 2) $items[] = '...';
-    $items[] = $total-1; $items[] = $total;
+    $items[] = $total - 1;
+    $items[] = $total;
+
     while (count($items) > $max_visible) {
-        for ($i=0;$i<count($items);$i++) {
-            if (is_int($items[$i]) && !in_array($items[$i],[1,2,$total-1,$total],true)) { array_splice($items,$i,1); break; }
+        for ($i = 0; $i < count($items); $i++) {
+            if (is_int($items[$i]) && !in_array($items[$i], [1, 2, $total - 1, $total], true)) {
+                array_splice($items, $i, 1);
+                break;
+            }
         }
     }
+
     return $items;
 }
 $paging_items = build_pagination_items($page, $pages, 9);
@@ -125,23 +166,38 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
   <form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
     <input type="hidden" name="page" value="admin/users/index">
-    <input type="text" name="q" placeholder="Cari nama, email atau username..." value="<?= htmlspecialchars($search, ENT_QUOTES) ?>" style="padding:.4rem;min-width:220px">
+
+    <input type="text" name="q" placeholder="Cari nama, email atau username..."
+           value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
+           style="padding:.4rem;min-width:220px">
+
     <select name="role" style="padding:.4rem;">
       <option value="">-- Semua Role --</option>
       <?php foreach ($allRoles as $r): ?>
-        <option value="<?= htmlspecialchars($r, ENT_QUOTES) ?>" <?= $filter_role === $r ? 'selected':'' ?>><?= htmlspecialchars(ucfirst($r), ENT_QUOTES) ?></option>
+        <option value="<?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?>" <?= $filter_role === $r ? 'selected' : '' ?>>
+          <?= htmlspecialchars(ucfirst($r), ENT_QUOTES, 'UTF-8') ?>
+        </option>
       <?php endforeach; ?>
     </select>
+
+    <select name="lock" style="padding:.4rem;">
+      <option value="">-- Semua Status --</option>
+      <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>>Locked / Pending</option>
+      <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>>Unlocked / Approved</option>
+    </select>
+
     <button class="adam-button" type="submit">Terapkan</button>
-    <a class="adam-cancle" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/index', ENT_QUOTES) ?>">Reset</a>
+    <a class="adam-cancle" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>">Reset</a>
+
     <div style="margin-left:auto">
-      <a class="adam-button" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save', ENT_QUOTES) ?>">+ Tambah User</a>
+      <a class="adam-button" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save', ENT_QUOTES, 'UTF-8') ?>">+ Tambah User</a>
     </div>
   </form>
 
-  <?php if ($canBulk): ?>
-  <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/index.php?page=admin/users/bulk_action', ENT_QUOTES) ?>">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES) ?>">
+  <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/index.php?page=admin/users/bulk_action', ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
+
     <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
         <input type="checkbox" id="selectAll"> Pilih semua di halaman
@@ -150,171 +206,197 @@ $paging_items = build_pagination_items($page, $pages, 9);
       <select id="bulkAction" name="action" style="padding:.4rem;">
         <option value="">-- Bulk action --</option>
         <option value="change_role">Ubah Role</option>
+        <option value="lock">Lock</option>
+        <option value="unlock">Unlock / Approve</option>
         <option value="delete">Hapus (soft)</option>
       </select>
 
       <select id="bulkRole" name="role" style="padding:.4rem;display:none;">
         <?php foreach ($allRoles as $r): ?>
-          <option value="<?= htmlspecialchars($r, ENT_QUOTES) ?>"><?= htmlspecialchars(ucfirst($r), ENT_QUOTES) ?></option>
+          <option value="<?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst($r), ENT_QUOTES, 'UTF-8') ?></option>
         <?php endforeach; ?>
       </select>
 
       <button type="submit" class="adam-button">Terapkan</button>
       <small style="color:#666;margin-left:.5rem;">(Aksi akan mempengaruhi user yang dicentang)</small>
     </div>
-  <?php else: ?>
-    <div style="margin-bottom:1rem;color:#666;">Bulk actions disembunyikan untuk role <strong>author</strong>.</div>
-  <?php endif; ?>
 
-  <div class="adam-table-wrapper">
-  <table class="adam-table" style="width:100%;border-collapse:collapse">
-      
-<?php if (!empty($messages)): ?>
-  <div class="adam-alert success auto-dismiss" data-dismiss-ms="3000" style="margin-bottom:1rem;padding:.8rem 1rem;background:#e8f7ec;border:1px solid #b6e2c2;border-radius:6px;color:#246;">
-    <?php foreach ($messages as $m): ?>
-      <div><?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?></div>
-    <?php endforeach; ?>
-  </div>
-<?php endif; ?>
+    <div class="adam-table-wrapper">
+      <table class="adam-table" style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid #e6e6e6">
+            <th style="width:44px"></th>
+            <th>Avatar</th>
+            <th>Nama</th>
+            <th>Email / Username</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Bio</th>
+            <th>Phone</th>
+            <th>Terdaftar</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($users)): ?>
+            <tr><td colspan="10" style="padding:1rem;">Belum ada user.</td></tr>
+          <?php else: ?>
+            <?php foreach ($users as $u):
+              $img = !empty($u['img']) ? $u['img'] : '/static/img/person.svg';
+              $isSelf = ((int)$u['id'] === $uid);
+              $isLocked = (int)($u['is_locked'] ?? 0) === 1;
+              $nameRaw = (string)($u['name'] ?? ($u['email'] ?? ''));
+              $name = htmlspecialchars($u['name'] ?? '-', ENT_QUOTES, 'UTF-8');
+              $username = $u['username'] ?? '';
+              $toggleFormId = 'toggle-lock-form-' . (int)$u['id'];
+            ?>
+            <tr style="border-bottom:1px solid #f3f3f3">
+              <td style="text-align:center">
+                <?php if (!$isSelf): ?>
+                  <input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$u['id'] ?>">
+                <?php else: ?>
+                  &mdash;
+                <?php endif; ?>
+              </td>
 
-<?php if (!empty($errors)): ?>
-  <div class="adam-alert error" style="margin-bottom:1rem;padding:.8rem 1rem;background:#fee;border:1px solid #fbb;color:#600;border-radius:6px;">
-    <?php foreach ($errors as $e): ?>
-      <div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div>
-    <?php endforeach; ?>
-  </div>
-<?php endif; ?>
-      
-    <thead>
-      <tr style="text-align:left;border-bottom:1px solid #e6e6e6">
-        <th style="width:44px"></th> <!-- checkbox column (ganti kolom ID) -->
-        <th>Avatar</th>
-        <th>Nama</th>
-        <th>Email / Username</th>
-        <th>Role</th>
-        <th>Bio</th>
-        <th>Phone</th>
-        <th>Terdaftar</th>
-        <th>Aksi</th>
-      </tr>
-    </thead>
-    <tbody>
-      <?php if (empty($users)): ?>
-        <tr><td colspan="9" style="padding:1rem;">Belum ada user.</td></tr>
-      <?php else: ?>
-        <?php foreach ($users as $u): 
-          $img = !empty($u['img']) ? $u['img'] : '/static/img/person.svg';
-          $isSelf = ((int)$u['id'] === $uid);
-        ?>
-        <tr style="border-bottom:1px solid #f3f3f3">
-          <td style="text-align:center">
-            <?php if ($canBulk): ?>
-              <?php if (!$isSelf): ?>
-                <input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$u['id'] ?>">
+              <td style="width:56px">
+                <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="" style="height:40px;width:40px;object-fit:cover;border-radius:6px">
+              </td>
+
+              <?php if (!empty($username)): ?>
+                <td>
+                  <a href="<?= htmlspecialchars('/author/' . rawurlencode($username), ENT_QUOTES, 'UTF-8') ?>"
+                     class="adam-link"
+                     title="Lihat profil <?= $name ?>"
+                     target="_blank"
+                     rel="noopener noreferrer"><?= $name ?></a>
+                </td>
               <?php else: ?>
-                &mdash; <!-- prevent selecting self to avoid accidental lockout -->
+                <td><?= $name ?></td>
               <?php endif; ?>
-            <?php else: ?>
-              &mdash;
-            <?php endif; ?>
-          </td>
 
-          <td style="width:56px">
-            <img src="<?= htmlspecialchars($img, ENT_QUOTES) ?>" alt="" style="height:40px;width:40px;object-fit:cover;border-radius:6px">
-          </td>
+              <td>
+                <?= htmlspecialchars($u['email'] ?? '-', ENT_QUOTES, 'UTF-8') ?><br>
+                <small style="color:#666"><?= htmlspecialchars($u['username'] ?? '-', ENT_QUOTES, 'UTF-8') ?></small>
+              </td>
 
-<?php
-// Nama (klik menuju /author/username jika username tersedia)
-$name = htmlspecialchars($u['name'] ?? '-', ENT_QUOTES);
-$username = $u['username'] ?? '';
+              <td><?= htmlspecialchars($u['role'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
 
-if (!empty($username)) {
-    $profileUrl = '/author/' . rawurlencode($username);
+              <td>
+                <?php if ($isLocked): ?>
+                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;">Locked / Pending</span>
+                <?php else: ?>
+                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;">Unlocked / Approved</span>
+                <?php endif; ?>
+              </td>
 
-    echo '<td>
-            <a href="' . htmlspecialchars($profileUrl, ENT_QUOTES) . '"
-               class="adam-link"
-               title="Lihat profil ' . $name . '"
-               target="_blank"
-               rel="noopener noreferrer">
-               ' . $name . '
-            </a>
-          </td>';
-} else {
-    echo '<td>' . $name . '</td>';
-}
-?>
-          <td>
-            <?= htmlspecialchars($u['email'] ?? '-', ENT_QUOTES) ?><br>
-            <small style="color:#666"><?= htmlspecialchars($u['username'] ?? '-', ENT_QUOTES) ?></small>
-          </td>
+              <td style="max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
+                <?= htmlspecialchars($u['bio'] ?? '-', ENT_QUOTES, 'UTF-8') ?>
+              </td>
 
-          <td><?= htmlspecialchars($u['role'], ENT_QUOTES) ?></td>
+              <td><?= htmlspecialchars($u['phone'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars($u['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
 
-          <td style="max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
-            <?= htmlspecialchars($u['bio'] ?? '-', ENT_QUOTES) ?>
-          </td>
+              <td>
+                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save&id=' . (int)$u['id'], ENT_QUOTES, 'UTF-8') ?>">Edit</a>
 
-          <td><?= htmlspecialchars($u['phone'] ?? '-', ENT_QUOTES) ?></td>
+                <?php if (!$isSelf): ?>
+                  &nbsp;|&nbsp;
+                  <button type="submit"
+                          form="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
+                          class="<?= $isLocked ? 'adam-ubah' : 'adam-att' ?>"
+                          style="background:none;border:0;padding:0;cursor:pointer;">
+                    <?= $isLocked ? 'Approve' : 'Lock' ?>
+                  </button>
 
-          <td><?= htmlspecialchars($u['created_at'], ENT_QUOTES) ?></td>
+                  &nbsp;|&nbsp;
+                  <button type="button"
+                          class="adam-hapus"
+                          onclick='openDeleteModal(<?= (int)$u["id"] ?>, <?= json_encode($nameRaw) ?>)'>Hapus</button>
+                <?php endif; ?>
+              </td>
+            </tr>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </form>
 
-          <td>
-            <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save&id=' . (int)$u['id'], ENT_QUOTES) ?>">Edit</a>
-            <?php if (!$isSelf && $canBulk): ?>
-              &nbsp;|&nbsp;
-              <!-- IMPORTANT: use single-quoted attribute so json_encode (double-quoted) is safe -->
-              <button type="button" class="adam-hapus" onclick='openDeleteModal(<?= (int)$u['id'] ?>, <?= json_encode($u['name'] ?? $u['email']) ?>)'>Hapus</button>
-            <?php endif; ?>
-          </td>
-        </tr>
-        <?php endforeach; ?>
-      <?php endif; ?>
-    </tbody>
-  </table>
-  </div>
-
-  <?php if ($canBulk): ?>
-    </form> <!-- end bulkForm -->
-  <?php endif; ?>
+  <?php foreach ($users as $u):
+    $isSelf = ((int)$u['id'] === $uid);
+    if ($isSelf) continue;
+    $isLocked = (int)($u['is_locked'] ?? 0) === 1;
+    $toggleFormId = 'toggle-lock-form-' . (int)$u['id'];
+  ?>
+    <form id="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
+          method="post"
+          action="<?= htmlspecialchars($base . '/index.php?page=admin/users/toggle_lock', ENT_QUOTES, 'UTF-8') ?>"
+          style="display:none;">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
+      <input type="hidden" name="mode" value="<?= $isLocked ? 'unlock' : 'lock' ?>">
+      <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
+    </form>
+  <?php endforeach; ?>
 
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination" style="margin-top:1rem;">
       <?php foreach ($paging_items as $item):
         if ($item === '...') { echo '<span class="dots">…</span> '; continue; }
         $i = (int)$item;
-        $q = $_GET; $q['p'] = $i;
+        $q = $_GET;
+        $q['p'] = $i;
         $link = $base . '/index.php?' . http_build_query($q);
       ?>
         <?php if ($i === $page): ?>
           <strong><?= $i ?></strong>
         <?php else: ?>
-          <a href="<?= htmlspecialchars($link, ENT_QUOTES) ?>"><?= $i ?></a>
+          <a href="<?= htmlspecialchars($link, ENT_QUOTES, 'UTF-8') ?>"><?= $i ?></a>
         <?php endif; ?>
       <?php endforeach; ?>
     </nav>
   <?php endif; ?>
 
-  <!-- delete confirm modal -->
-  <div id="deleteModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;z-index:3000;">
-    <div style="background:#fff;padding:1.25rem;border-radius:8px;max-width:420px;width:92%;box-shadow:0 4px 16px rgba(0,0,0,0.12);">
-      <h3 style="margin:0 0 .5rem 0">Konfirmasi Hapus</h3>
-      <p id="deleteText">Yakin ingin menghapus user ini?</p>
+  <div id="deleteModal" class="adam-modal" style="display:none;">
+    <div class="adam-modal__panel" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+      <h3 id="deleteModalTitle" class="adam-modal__title">Konfirmasi Hapus</h3>
+      <p id="deleteText" class="adam-modal__text">Yakin ingin menghapus user ini?</p>
+
       <div style="margin-top:1rem;text-align:right;">
-        <button type="button" onclick="closeDeleteModal()" style="padding:.4rem .8rem;background:#ccc;border:0;border-radius:6px;margin-right:.5rem;">Batal</button>
-        <form id="deleteForm" method="post" action="<?= htmlspecialchars($base . '/index.php?page=admin/users/delete', ENT_QUOTES) ?>" style="display:inline;">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES) ?>">
+        <button type="button"
+                onclick="closeDeleteModal()"
+                style="padding:.4rem .8rem;background:#ccc;border:0;border-radius:6px;margin-right:.5rem;">Batal</button>
+
+        <form id="deleteForm"
+              method="post"
+              action="<?= htmlspecialchars($base . '/index.php?page=admin/users/delete', ENT_QUOTES, 'UTF-8') ?>"
+              style="display:inline;">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="id" id="deleteId">
-          <button type="submit" style="padding:.4rem .8rem;background:#c33;color:#fff;border:0;border-radius:6px;">Hapus</button>
+          <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
+          <button type="submit"
+                  style="padding:.4rem .8rem;background:#c33;color:#fff;border:0;border-radius:6px;">Hapus</button>
         </form>
       </div>
     </div>
   </div>
 
+  <?php if (!empty($flash_for_js)): ?>
+  <script>
+  document.addEventListener('DOMContentLoaded', function(){
+    if (typeof showToast !== 'function') return;
+    const items = <?= json_encode($flash_for_js, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    items.forEach(function(it){
+      const type = (it.type === 'error') ? 'error' : (it.type === 'success' ? 'success' : 'info');
+      showToast(it.text, type, type === 'error' ? 6500 : 4200);
+    });
+  });
+  </script>
+  <?php endif; ?>
 </section>
 
 <script>
-// select all toggle
 const selectAll = document.getElementById('selectAll');
 if (selectAll) {
   selectAll.addEventListener('change', function(){
@@ -323,50 +405,11 @@ if (selectAll) {
   });
 }
 
-// bulk action controls
-const bulkActionEl = document.getElementById('bulkAction');
-if (bulkActionEl) {
-  bulkActionEl.addEventListener('change', function(){
-    const v = this.value;
-    const bulkRole = document.getElementById('bulkRole');
-    if (bulkRole) bulkRole.style.display = (v === 'change_role') ? 'inline-block' : 'none';
+const bulkAction = document.getElementById('bulkAction');
+const bulkRole = document.getElementById('bulkRole');
+if (bulkAction && bulkRole) {
+  bulkAction.addEventListener('change', function(){
+    bulkRole.style.display = (this.value === 'change_role') ? 'inline-block' : 'none';
   });
-}
-
-// confirm bulk form submit
-const bulkForm = document.getElementById('bulkForm');
-if (bulkForm) {
-  bulkForm.addEventListener('submit', function(ev){
-    const action = document.getElementById('bulkAction').value;
-    if (!action) { alert('Pilih bulk action terlebih dahulu.'); ev.preventDefault(); return false; }
-    const any = Array.from(document.querySelectorAll('.bulkCheckbox')).some(cb => cb.checked);
-    if (!any) { alert('Pilih minimal satu user.'); ev.preventDefault(); return false; }
-
-    if (action === 'delete') {
-      if (!confirm('Yakin ingin menghapus (soft-delete) semua user terpilih?')) { ev.preventDefault(); return false; }
-    }
-    if (action === 'change_role') {
-      const r = document.getElementById('bulkRole').value;
-      if (!r) { alert('Pilih role tujuan.'); ev.preventDefault(); return false; }
-      if (!confirm('Ubah role user terpilih menjadi "' + r + '"?')) { ev.preventDefault(); return false; }
-    }
-    return true;
-  });
-}
-
-// delete modal functions
-function openDeleteModal(id, name) {
-  const modal = document.getElementById('deleteModal');
-  if (!modal) return;
-  modal.style.display = 'flex';
-  const field = document.getElementById('deleteId');
-  if (field) field.value = id;
-  const txt = document.getElementById('deleteText');
-  if (txt) txt.innerText = 'Hapus user: ' + (name || id) + '?';
-}
-function closeDeleteModal() {
-  const modal = document.getElementById('deleteModal');
-  if (!modal) return;
-  modal.style.display = 'none';
 }
 </script>

@@ -21,11 +21,9 @@ if ($uid <= 0) {
 
 $role = $_SESSION['user_role'] ?? null;
 if (!$role) {
-  // pakai helper kalau ada
   if (function_exists('current_user_role')) {
     $role = current_user_role($pdo) ?: null;
   }
-  // fallback query DB
   if (!$role) {
     $st = $pdo->prepare("SELECT role FROM users WHERE id=:id AND is_deleted=0 LIMIT 1");
     $st->execute([':id' => $uid]);
@@ -34,6 +32,7 @@ if (!$role) {
   $_SESSION['user_role'] = $role;
 }
 
+$role = strtolower(trim((string)$role));
 if ($role !== 'admin') {
   http_response_code(403);
   exit('Akses ditolak: hanya admin.');
@@ -48,8 +47,14 @@ function count_posts_trash(PDO $pdo, string $type): int {
   $st->execute([':t' => $type]);
   return (int)$st->fetchColumn();
 }
+
 function count_categories_trash(PDO $pdo): int {
   $st = $pdo->query("SELECT COUNT(*) FROM categories WHERE is_deleted=1");
+  return (int)$st->fetchColumn();
+}
+
+function count_users_trash(PDO $pdo): int {
+  $st = $pdo->query("SELECT COUNT(*) FROM users WHERE is_deleted=1");
   return (int)$st->fetchColumn();
 }
 
@@ -58,11 +63,12 @@ try {
   $countArticle = count_posts_trash($pdo, 'article');
   $countPage    = count_posts_trash($pdo, 'page');
   $countTheme   = count_posts_trash($pdo, 'theme');
-  $countPhoto = count_posts_trash($pdo, 'photo');
+  $countPhoto   = count_posts_trash($pdo, 'photo');
   $countCat     = count_categories_trash($pdo);
+  $countUsers   = count_users_trash($pdo);
 } catch (Throwable $e) {
   $errors[] = 'Gagal mengambil statistik bin: ' . $e->getMessage();
-  $countArticle = $countPage = $countTheme = $countCat = 0;
+  $countArticle = $countPage = $countTheme = $countPhoto = $countCat = $countUsers = 0;
 }
 
 // cek apakah halaman bin sudah ada
@@ -72,6 +78,7 @@ $exists = [
   'category' => is_file(__DIR__ . '/category/index.php'),
   'theme'    => is_file(__DIR__ . '/theme/index.php'),
   'photo'    => is_file(__DIR__ . '/photo/index.php'),
+  'users'    => is_file(__DIR__ . '/users/index.php'),
 ];
 
 $items = [
@@ -110,6 +117,13 @@ $items = [
     'count' => $countPhoto,
     'href' => $base . '/index.php?page=admin/bin/photo/index',
   ],
+  [
+    'key' => 'users',
+    'title' => 'Bin Users',
+    'desc' => 'Trash untuk user yang sudah dihapus (soft delete).',
+    'count' => $countUsers,
+    'href' => $base . '/index.php?page=admin/bin/users/index',
+  ],
 ];
 ?>
 
@@ -120,19 +134,23 @@ $items = [
       <div style="color:#666;margin-top:.25rem;">Menu pengelolaan item yang dihapus (admin only).</div>
     </div>
     <div style="margin-left:auto;">
-      <a class="adam-link" href="<?= htmlspecialchars($base . '/index.php?page=admin/pengaturan/index', ENT_QUOTES, 'UTF-8') ?>">← Kembali ke Pengaturan</a>
+      <a class="adam-link" href="<?= htmlspecialchars($base . '/index.php?page=admin/settings/index', ENT_QUOTES, 'UTF-8') ?>">← Kembali ke Pengaturan</a>
     </div>
   </div>
 
   <?php if (!empty($messages)): ?>
     <div class="adam-alert success" style="margin-top:1rem;margin-bottom:1rem;padding:.8rem 1rem;background:#e8f7ec;border:1px solid #b6e2c2;border-radius:6px;color:#246;">
-      <?php foreach ($messages as $m): ?><div><?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?></div><?php endforeach; ?>
+      <?php foreach ($messages as $m): ?>
+        <div><?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?></div>
+      <?php endforeach; ?>
     </div>
   <?php endif; ?>
 
   <?php if (!empty($errors)): ?>
     <div class="adam-alert error" style="margin-top:1rem;margin-bottom:1rem;padding:.8rem 1rem;background:#fee;border:1px solid #fbb;border-radius:6px;color:#600;">
-      <?php foreach ($errors as $e): ?><div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div><?php endforeach; ?>
+      <?php foreach ($errors as $e): ?>
+        <div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div>
+      <?php endforeach; ?>
     </div>
   <?php endif; ?>
 
@@ -168,13 +186,11 @@ $items = [
 </section>
 
 <script>
-  // auto-hide alerts (konsisten dengan modul lain)
   setTimeout(() => {
-    const alert = document.querySelector('.adam-alert');
-    if (alert) {
+    document.querySelectorAll('.adam-alert').forEach((alert) => {
       alert.style.transition = 'opacity .5s ease';
       alert.style.opacity = '0';
       setTimeout(() => alert.remove(), 600);
-    }
+    });
   }, 3000);
 </script>
