@@ -3,12 +3,22 @@ declare(strict_types=1);
 
 // /adiwira/admin/media/add.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(404);
-    require __DIR__ . '/../../../frontend_404.php';
-    exit;
+    require_once __DIR__ . '/../_guard.php';
+
+    if (adiwira_is_navigate_request()) {
+        http_response_code(404);
+        require __DIR__ . '/../../../frontend_404.php';
+        exit;
+    }
+
+    adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 }
+
+$mediaCsrf = csrf_token();
 ?>
 <section class="media-uploader">
+  <input type="hidden" id="media-csrf-token" value="<?= htmlspecialchars($mediaCsrf, ENT_QUOTES, 'UTF-8') ?>">
+
   <div class="dropzone" id="dropzone">
     <p>Tarik gambar ke sini atau <button class="adam-btn" id="browse-btn" type="button">Pilih file</button></p>
     <div id="upload-progress" class="upload-progress"></div>
@@ -17,7 +27,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
   <div id="preview-container" class="preview-grid"></div>
 </section>
 
-<input type="file" id="file-input" accept="image/*" multiple hidden />
+<input type="file" id="file-input" accept="image/*" multiple hidden>
 
 <script>
 (() => {
@@ -27,14 +37,35 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
   const progressWrap = document.getElementById('upload-progress');
   const previewWrap = document.getElementById('preview-container');
 
+  if (!dz || !fileInput || !browseBtn || !progressWrap || !previewWrap) return;
+
+  function getCsrfToken() {
+    const local = document.getElementById('media-csrf-token');
+    if (local && local.value) return local.value;
+
+    const global = document.getElementById('csrf_token');
+    if (global && global.value) return global.value;
+
+    return '';
+  }
+
   browseBtn.onclick = () => fileInput.click();
-  fileInput.onchange = e => handleFiles(e.target.files);
+  fileInput.onchange = e => {
+    handleFiles(e.target.files);
+    fileInput.value = '';
+  };
 
   ['dragenter','dragover'].forEach(ev =>
-    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); })
+    dz.addEventListener(ev, e => {
+      e.preventDefault();
+      dz.classList.add('drag');
+    })
   );
   ['dragleave','drop'].forEach(ev =>
-    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); })
+    dz.addEventListener(ev, e => {
+      e.preventDefault();
+      dz.classList.remove('drag');
+    })
   );
   dz.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
 
@@ -62,13 +93,14 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     fd.append('auto_save', '1');
     fd.append('title', file.name);
 
-    const csrf = document.getElementById('csrf_token')?.value || '';
+    const csrf = getCsrfToken();
     if (csrf) fd.append('csrf_token', csrf);
 
     try {
       const res = await fetch('/adiwira/admin/upload_image.php', {
         method: 'POST',
         credentials: 'include',
+        cache: 'no-store',
         body: fd
       });
 
@@ -78,13 +110,19 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 
       if (!res.ok) {
         alert('Upload gagal: ' + (j?.error || txt || ('HTTP ' + res.status)));
-        setTimeout(() => { row.classList.add('fade'); setTimeout(()=>row.remove(), 400); }, 1200);
+        setTimeout(() => {
+          row.classList.add('fade');
+          setTimeout(() => row.remove(), 400);
+        }, 1200);
         return;
       }
 
       if (!j || !j.success) {
         alert('Upload gagal: ' + (j?.error || txt || 'unknown'));
-        setTimeout(() => { row.classList.add('fade'); setTimeout(()=>row.remove(), 400); }, 1200);
+        setTimeout(() => {
+          row.classList.add('fade');
+          setTimeout(() => row.remove(), 400);
+        }, 1200);
         return;
       }
 
@@ -95,12 +133,17 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 
       setTimeout(() => {
         row.classList.add('fade');
-        setTimeout(() => { row.parentNode && row.parentNode.removeChild(row); }, 420);
+        setTimeout(() => {
+          if (row.parentNode) row.parentNode.removeChild(row);
+        }, 420);
       }, 900);
 
     } catch (err) {
       alert('Upload gagal (network): ' + (err.message || err));
-      setTimeout(() => { row.classList.add('fade'); setTimeout(()=>row.remove(), 400); }, 1200);
+      setTimeout(() => {
+        row.classList.add('fade');
+        setTimeout(() => row.remove(), 400);
+      }, 1200);
     }
   }
 
@@ -110,7 +153,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     if (media && media.id) box.dataset.mediaId = media.id;
 
     box.innerHTML = `
-      <img src="${escapeHtml(url)}" />
+      <img src="${escapeHtml(url)}" alt="">
       <div class="meta">
         <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:86px">
           ${escapeHtml((media && (media.title || media.filename)) || '')}
@@ -124,53 +167,66 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     previewWrap.prepend(box);
     requestAnimationFrame(() => box.classList.add('show'));
 
-    box.querySelector('.edit-btn').onclick = () => {
-      const id = media && media.id ? media.id : '';
-      const link = "/adiwira/admin/media/single.php?id=" + encodeURIComponent(id);
-      if (window.adamModalOpen) window.adamModalOpen(link, {maxWidth:'800px'});
-      else window.open(link);
-    };
+    const editBtn = box.querySelector('.edit-btn');
+    const removeBtn = box.querySelector('.remove-btn');
 
-    box.querySelector('.remove-btn').onclick = async (e) => {
-      e.preventDefault();
-      if (!confirm('Hapus media ini secara permanen?')) return;
+    if (editBtn) {
+      editBtn.onclick = () => {
+        const id = media && media.id ? media.id : '';
+        const link = "/adiwira/admin/media/single.php?id=" + encodeURIComponent(id);
+        if (window.adamModalOpen) window.adamModalOpen(link, {maxWidth:'800px'});
+        else window.open(link);
+      };
+    }
 
-      const fd = new FormData();
-      if (media && media.id) fd.append('id', media.id);
-      else fd.append('url', url);
+    if (removeBtn) {
+      removeBtn.onclick = async (e) => {
+        e.preventDefault();
+        if (!confirm('Hapus media ini secara permanen?')) return;
 
-      const csrf = document.getElementById('csrf_token')?.value || '';
-      if (csrf) fd.append('csrf_token', csrf);
+        const fd = new FormData();
+        if (media && media.id) fd.append('id', media.id);
+        else fd.append('url', url);
 
-      try {
-        const res = await fetch('/adiwira/admin/media/delete.php', {
-          method: 'POST',
-          credentials: 'include',
-          body: fd
-        });
+        const csrf = getCsrfToken();
+        if (csrf) fd.append('csrf_token', csrf);
 
-        const txt = await res.text();
-        let j = null;
-        try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
+        try {
+          const res = await fetch('/adiwira/admin/media/delete.php', {
+            method: 'POST',
+            credentials: 'include',
+            body: fd
+          });
 
-        if (!res.ok) {
-          alert('Gagal hapus: ' + (j?.error || txt || ('HTTP ' + res.status)));
-          return;
+          const txt = await res.text();
+          let j = null;
+          try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
+
+          if (!res.ok) {
+            alert('Gagal hapus: ' + (j?.error || txt || ('HTTP ' + res.status)));
+            return;
+          }
+          if (j && j.ok) {
+            box.remove();
+            document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
+          } else {
+            alert('Gagal hapus: ' + (j?.error || txt || 'unknown'));
+          }
+        } catch (err) {
+          alert('Network error: ' + (err.message || err));
         }
-        if (j && j.ok) {
-          box.remove();
-          document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
-        } else {
-          alert('Gagal hapus: ' + (j?.error || txt || 'unknown'));
-        }
-      } catch (err) {
-        alert('Network error: ' + (err.message || err));
-      }
-    };
+      };
+    }
   }
 
   function escapeHtml(s) {
-    return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    return String(s || '').replace(/[&<>"']/g, m => ({
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      '"':'&quot;',
+      "'":'&#39;'
+    }[m]));
   }
 })();
 </script>

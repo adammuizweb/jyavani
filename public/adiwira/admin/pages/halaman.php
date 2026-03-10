@@ -1,34 +1,15 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/pages/halaman.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');
 }
 
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) {
-    http_response_code(403);
-    exit('Akses ditolak: belum login.');
-}
+require_once __DIR__ . '/../_guard.php';
 
-$role = 'guest';
-try {
-    $r = $pdo->prepare("SELECT role FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
-    $r->execute([':id' => $uid]);
-    $dbRole = $r->fetchColumn();
-    if (is_string($dbRole) && trim($dbRole) !== '') {
-        $role = strtolower(trim($dbRole));
-    }
-} catch (Throwable $e) {
-    $role = strtolower(trim((string)($_SESSION['user_role'] ?? 'guest')));
-}
-$_SESSION['user_role'] = $role;
-
-if (!in_array($role, ['author','editor','admin'], true)) {
-    http_response_code(403);
-    exit('Akses ditolak.');
-}
+[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -68,7 +49,7 @@ if (!function_exists('sanitize_author_html')) {
             '*'   => ['class'],
         ];
 
-        $blockTags = ['script','iframe','object','embed','link','meta','style'];
+        $blockTags = ['script','iframe','object','embed','link','meta','style','form','svg','canvas'];
 
         $prev = libxml_use_internal_errors(true);
         $doc = new DOMDocument('1.0', 'UTF-8');
@@ -163,18 +144,6 @@ if (!function_exists('sanitize_author_html')) {
     }
 }
 
-if (!function_exists('to_datetime_local')) {
-    function to_datetime_local(?string $mysqlDt): ?string {
-        if (!$mysqlDt) return null;
-        try {
-            $d = new DateTime($mysqlDt, new DateTimeZone('Asia/Jakarta'));
-            return $d->format('Y-m-d\TH:i');
-        } catch (Exception $e) {
-            return null;
-        }
-    }
-}
-
 if (!function_exists('parse_datetime_local')) {
     function parse_datetime_local(string $s): ?string {
         $s = trim($s);
@@ -193,8 +162,10 @@ if (!function_exists('parse_datetime_local')) {
 $errors = [];
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $token = $_POST['csrf_token'] ?? '';
-    if (!csrf_check($token)) $errors[] = 'CSRF token tidak valid.';
+    $token = (string)($_POST['csrf_token'] ?? '');
+    if (!adiwira_csrf_validate($token)) {
+        $errors[] = 'CSRF token tidak valid.';
+    }
 
     $title     = trim((string)($_POST['title'] ?? ''));
     $slug      = trim((string)($_POST['slug'] ?? ''));
@@ -207,20 +178,37 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
 
-    if ($title === '') $errors[] = 'Judul tidak boleh kosong.';
+    if ($title === '') {
+        $errors[] = 'Judul tidak boleh kosong.';
+    }
 
     if ($role === 'author') {
         $content = sanitize_author_html($content);
     }
 
-    if (trim(strip_tags($content)) === '') $errors[] = 'Konten tidak boleh kosong.';
+    if (function_exists('normalize_links_in_html')) {
+        $content = normalize_links_in_html($content);
+    }
+
+    if (trim(strip_tags($content)) === '') {
+        $errors[] = 'Konten tidak boleh kosong.';
+    }
 
     $slug = $slug === '' ? slugify($title) : slugify($slug);
 
     if (empty($errors)) {
-        $s = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type = 'page' AND is_deleted = 0 LIMIT 1");
+        $s = $pdo->prepare("
+            SELECT id
+            FROM posts
+            WHERE slug = :slug
+              AND type = 'page'
+              AND is_deleted = 0
+            LIMIT 1
+        ");
         $s->execute([':slug' => $slug]);
-        if ($s->fetch()) $errors[] = 'Slug sudah digunakan.';
+        if ($s->fetch()) {
+            $errors[] = 'Slug sudah digunakan.';
+        }
     }
 
     $created_at_parsed = null;
@@ -229,11 +217,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if ($role === 'admin') {
         if ($created_at_in !== '') {
             $created_at_parsed = parse_datetime_local($created_at_in);
-            if (!$created_at_parsed) $errors[] = 'Format Created At tidak valid.';
+            if ($created_at_parsed === null) {
+                $errors[] = 'Format Created At tidak valid.';
+            }
         }
         if ($updated_at_in !== '') {
             $updated_at_parsed = parse_datetime_local($updated_at_in);
-            if (!$updated_at_parsed) $errors[] = 'Format Updated At tidak valid.';
+            if ($updated_at_parsed === null) {
+                $errors[] = 'Format Updated At tidak valid.';
+            }
         }
     }
 
@@ -241,47 +233,48 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $final_created = $created_at_parsed ?? (new DateTime('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
         $final_updated = $updated_at_parsed ?? (new DateTime('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
 
-        if (function_exists('normalize_links_in_html')) {
-            $content = normalize_links_in_html($content);
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO posts
+                (title, slug, content, type, meta, thumbnail, status, created_by, created_at, updated_at)
+                VALUES
+                (:title, :slug, :content, 'page', NULL, :thumbnail, :status, :created_by, :created_at, :updated_at)
+            ");
+
+            $ok = $stmt->execute([
+                ':title'      => $title,
+                ':slug'       => $slug,
+                ':content'    => $content,
+                ':thumbnail'  => $thumbnail,
+                ':status'     => $status,
+                ':created_by' => $uid,
+                ':created_at' => $final_created,
+                ':updated_at' => $final_updated,
+            ]);
+
+            if ($ok) {
+                $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+                ?>
+                <div id="successModal" class="adam-modal" aria-hidden="false">
+                  <div class="adam-modal-card adam-modal--success" role="dialog" aria-modal="true" tabindex="-1">
+                    <h3 class="adam-modal-title">✅ Berhasil Menambahkan Halaman!</h3>
+                    <p class="adam-modal-desc">🥳 Akan diarahkan ke daftar halaman...</p>
+                  </div>
+                </div>
+                <script>
+                  setTimeout(() => {
+                    window.location.href = "<?= htmlspecialchars($base . '/index.php?page=admin/pages/index', ENT_QUOTES) ?>";
+                  }, 1200);
+                </script>
+                <?php
+                exit;
+            }
+
+            $errors[] = 'Gagal membuat halaman.';
+        } catch (Throwable $e) {
+            error_log('pages/halaman.php insert error: ' . $e->getMessage());
+            $errors[] = 'Gagal membuat halaman.';
         }
-
-        $stmt = $pdo->prepare("
-            INSERT INTO posts
-            (title, slug, content, type, meta, thumbnail, status, created_by, created_at, updated_at)
-            VALUES
-            (:title, :slug, :content, 'page', NULL, :thumbnail, :status, :created_by, :created_at, :updated_at)
-        ");
-
-        $ok = $stmt->execute([
-            ':title'      => $title,
-            ':slug'       => $slug,
-            ':content'    => $content,
-            ':thumbnail'  => $thumbnail,
-            ':status'     => $status,
-            ':created_by' => $uid,
-            ':created_at' => $final_created,
-            ':updated_at' => $final_updated,
-        ]);
-
-        if ($ok) {
-            $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-            ?>
-            <div id="successModal" class="adam-modal" aria-hidden="false">
-              <div class="adam-modal-card adam-modal--success" role="dialog" aria-modal="true" tabindex="-1">
-                <h3 class="adam-modal-title">✅ Berhasil Menambahkan Halaman!</h3>
-                <p class="adam-modal-desc">🥳 Akan diarahkan ke daftar halaman...</p>
-              </div>
-            </div>
-            <script>
-              setTimeout(() => {
-                window.location.href = "<?= htmlspecialchars($base . '/index.php?page=admin/pages/index', ENT_QUOTES) ?>";
-              }, 1200);
-            </script>
-            <?php
-            exit;
-        }
-
-        $errors[] = 'Gagal membuat halaman.';
     }
 }
 
@@ -300,41 +293,38 @@ $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
   <form id="page-add-form" method="post" novalidate>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
-<div class="adam-accordion"
-     id="theme-meta-accordion"
-     data-open="1">
+    <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
+      <button type="button"
+              class="adam-accordion-toggle"
+              aria-expanded="true"
+              aria-controls="theme-meta-body">
+        ⚙️ Pengaturan Halaman
+        <span class="chevron">▸</span>
+      </button>
 
-<button type="button"
-        class="adam-accordion-toggle"
-        aria-expanded="true"
-        aria-controls="theme-meta-body">
-    ⚙️ Pengaturan Halaman
-    <span class="chevron">▸</span>
-  </button>
+      <div class="adam-accordion-body" id="theme-meta-body">
+        <label>Judul<br>
+          <input type="text" name="title" value="<?= htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
+        </label>
 
-  <div class="adam-accordion-body" id="theme-meta-body">
-    <label>Judul<br>
-      <input type="text" name="title" value="<?= htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
-    </label>
+        <label>Slug (opsional)<br>
+          <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
+        </label>
 
-    <label>Slug (opsional)<br>
-      <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
-    </label>
-
-    <label>Thumbnail (URL) atau pilih dari Media<br>
-      <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
-        <input type="text" id="thumbnail-input" name="thumbnail" value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px" placeholder="URL thumbnail (atau pilih dari Media)">
-        <button type="button" id="btn-open-media-for-thumb" class="adam-button" style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd">Pilih dari Media</button>
-        <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
+        <label>Thumbnail (URL) atau pilih dari Media<br>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+            <input type="text" id="thumbnail-input" name="thumbnail" value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px" placeholder="URL thumbnail (atau pilih dari Media)">
+            <button type="button" id="btn-open-media-for-thumb" class="adam-button" style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd">Pilih dari Media</button>
+            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
+          </div>
+          <div id="thumbnail-preview" style="margin-top:.6rem;">
+            <?php if (!empty($_POST['thumbnail'])): ?>
+              <img src="<?= htmlspecialchars($_POST['thumbnail'], ENT_QUOTES, 'UTF-8') ?>" alt="preview" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
+            <?php endif; ?>
+          </div>
+        </label>
       </div>
-      <div id="thumbnail-preview" style="margin-top:.6rem;">
-        <?php if (!empty($_POST['thumbnail'])): ?>
-          <img src="<?= htmlspecialchars($_POST['thumbnail'], ENT_QUOTES, 'UTF-8') ?>" alt="preview" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
-        <?php endif; ?>
-      </div>
-    </label>
-  </div>
-</div>
+    </div>
 
     <label for="quill-editor">Konten (rich text)</label>
     <div id="quill-editor-box" class="adam-quill adam-quill--auto" style="margin-top:.4rem;">

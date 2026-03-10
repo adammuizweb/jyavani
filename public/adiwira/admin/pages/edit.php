@@ -1,9 +1,15 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/pages/edit.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');
 }
+
+require_once __DIR__ . '/../_guard.php';
+
+[$me, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -32,6 +38,7 @@ if (!function_exists('fetch_users_for_dropdown')) {
                     END AS label
                 FROM users
                 WHERE is_deleted = 0
+                  AND is_locked = 0
                 ORDER BY name ASC, email ASC
             ";
             $stmt = $pdo->query($sql);
@@ -46,7 +53,7 @@ if (!function_exists('to_datetime_local')) {
     function to_datetime_local(?string $mysqlDt): ?string {
         if (!$mysqlDt) return null;
         try {
-            $d = new DateTime($mysqlDt);
+            $d = new DateTime($mysqlDt, new DateTimeZone('Asia/Jakarta'));
             return $d->format('Y-m-d\TH:i');
         } catch (Exception $e) {
             return null;
@@ -81,36 +88,6 @@ if (!$post) {
     return;
 }
 
-// session + role
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-$me = (int)($_SESSION['user_id'] ?? 0);
-
-if ($me <= 0) {
-    http_response_code(403);
-    echo '<p>Akses ditolak: belum login.</p>';
-    return;
-}
-
-$role = 'guest';
-try {
-    $stRole = $pdo->prepare("SELECT role FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
-    $stRole->execute([':id' => $me]);
-    $dbRole = $stRole->fetchColumn();
-    if (is_string($dbRole) && trim($dbRole) !== '') {
-        $role = strtolower(trim($dbRole));
-    }
-} catch (Throwable $e) {
-    $role = strtolower(trim((string)($_SESSION['user_role'] ?? 'guest')));
-}
-
-$_SESSION['user_role'] = $role;
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    http_response_code(403);
-    echo '<p>Akses ditolak.</p>';
-    return;
-}
-
 // admin bebas, author/editor hanya miliknya sendiri
 if ($role !== 'admin' && (int)($post['created_by'] ?? 0) !== $me) {
     http_response_code(403);
@@ -135,7 +112,7 @@ $created_by = (int)$val('created_by', $post['created_by'] ?? 0);
 
 // mode editor default
 $chosenMode = (string)($_POST['editor_mode'] ?? '');
-$isComplex  = preg_match('/<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta)[\s>]|on[a-z]+\s*=|style\s*=/i', $content);
+$isComplex  = (bool)preg_match('/<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta)[\s>]|on[a-z]+\s*=|style\s*=/i', $content);
 
 if ($chosenMode === '') {
     $chosenMode = $isComplex ? 'codemirror' : 'quill';
@@ -239,7 +216,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
 
     <div id="quill-area" class="adam-quill adam-quill--auto" style="margin-top:.6rem;">
       <div id="quill-toolbar"></div>
-      <div id="quill-editor"></div>
+      <div id="quill-editor"><?= $content ? $content : '' ?></div>
     </div>
 
     <div id="codemirror-area" style="margin-top:.6rem;display:none;">

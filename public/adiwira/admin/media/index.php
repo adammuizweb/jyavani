@@ -1,61 +1,71 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/media/index.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(404);
-    require __DIR__ . '/../../../frontend_404.php';
-    exit;
+    http_response_code(403);
+    exit('Forbidden');
 }
-// index dapat dipanggil langsung sebagai halaman, atau dipakai dalam modal
+
+require_once __DIR__ . '/../_guard.php';
+
+[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+
+$csrf = csrf_token();
+$initialTab = strtolower(trim((string)($_GET['tab'] ?? 'add')));
+if (!in_array($initialTab, ['add', 'list'], true)) {
+    $initialTab = 'add';
+}
 ?>
-  <h2>Media Manager</h2>
-  
-  <?php $csrf = csrf_token(); ?>
-  <input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
+<h2>Media Manager</h2>
 
-  <div class="tabs">
-    <button class="tab-btn active" data-target="panel-add">Add</button>
-    <button class="tab-btn" data-target="panel-list">List</button>
-  </div>
+<input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 
-  <div id="panel-add" class="panel">
-    <?php include __DIR__ . '/add.php'; ?>
-  </div>
+<div class="tabs">
+  <button class="tab-btn <?= $initialTab === 'add' ? 'active' : '' ?>" data-target="panel-add">Add</button>
+  <button class="tab-btn <?= $initialTab === 'list' ? 'active' : '' ?>" data-target="panel-list">List</button>
+</div>
 
-  <div id="panel-list" class="panel" style="display:none;">
-    <?php include __DIR__ . '/list.php'; ?>
-  </div>
+<div id="panel-add" class="panel" style="<?= $initialTab === 'add' ? '' : 'display:none;' ?>">
+  <?php include __DIR__ . '/add.php'; ?>
+</div>
 
-  <div id="adam-modal-backdrop">
-    <div id="adam-modal"></div>
-  </div>
+<div id="panel-list" class="panel" style="<?= $initialTab === 'list' ? '' : 'display:none;' ?>">
+  <?php include __DIR__ . '/list.php'; ?>
+</div>
+
+<div id="adam-modal-backdrop" style="display:none;">
+  <div id="adam-modal"></div>
+</div>
 
 <script>
 (function(){
   const tabs = document.querySelectorAll('.tab-btn');
+  const modalBackdrop = document.getElementById('adam-modal-backdrop');
+  const modalBox = document.getElementById('adam-modal');
 
-  // Utility: open modal fallback
-  window.adamModalOpen = window.adamModalOpen || function(url, opts){
-    const bd = document.getElementById('adam-modal-backdrop');
-    const box = document.getElementById('adam-modal');
-    fetch(url, { credentials: 'include', cache:'no-store' })
-      .then(r => r.text())
-      .then(html => {
-        box.innerHTML = html;
-        bd.style.display = 'flex';
-        bd.onclick = (e) => { if (e.target === bd) { bd.style.display='none'; box.innerHTML=''; } };
-      })
-      .catch(err => alert('Modal load error: ' + err.message));
-  };
-
-  function getCurrentListState() {
-    const qEl = document.getElementById('media-search');
-    const q = qEl ? (qEl.value || '').trim() : '';
-    const pEl = document.querySelector('.media-pagination strong');
-    const p = pEl ? parseInt((pEl.textContent || '1'), 10) : 1;
-    return { q, p: (Number.isFinite(p) && p > 0 ? p : 1) };
+  function getCsrfToken() {
+    const el = document.getElementById('csrf_token');
+    return el && el.value ? el.value : '';
   }
 
-  // ✅ Refresh list: replace ONLY .media-list (biar handler JS list.php tetap hidup)
+  function activateTab(targetName) {
+    tabs.forEach(btn => {
+      const isActive = btn.dataset.target === 'panel-' + targetName;
+      btn.classList.toggle('active', isActive);
+    });
+
+    document.querySelectorAll('[id^="panel-"]').forEach(p => p.style.display = 'none');
+    const targetPanel = document.getElementById('panel-' + targetName);
+    if (targetPanel) targetPanel.style.display = 'block';
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', targetName);
+      history.replaceState(null, '', url.toString());
+    } catch(e){}
+  }
+
   async function refreshListPanel(opts = {}) {
     const silent = !!opts.silent;
     const forcePage1 = !!opts.forcePage1;
@@ -63,20 +73,25 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     const panel = document.getElementById('panel-list');
     if (!panel) return;
 
-    const st = getCurrentListState();
-    const q = st.q;
-    const p = forcePage1 ? 1 : st.p;
+    const qEl = document.getElementById('media-search');
+    const q = qEl ? (qEl.value || '').trim() : '';
 
-    const url = '/adiwira/admin/media/list.php'
-      + '?q=' + encodeURIComponent(q)
-      + '&p=' + encodeURIComponent(p)
-      + '&_ts=' + Date.now(); // ✅ cache buster
+    const activePageEl = panel.querySelector('.media-pagination strong');
+    const p = forcePage1 ? 1 : (activePageEl ? parseInt(activePageEl.textContent || '1', 10) : 1);
+
+    const url = '/adiwira/admin/media/list.php?q='
+      + encodeURIComponent(q)
+      + '&p=' + encodeURIComponent((Number.isFinite(p) && p > 0) ? p : 1)
+      + '&_ts=' + Date.now();
 
     try {
-      const res = await fetch(url, { credentials:'include', cache:'no-store' });
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store'
+      });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      const html = await res.text();
 
+      const html = await res.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       const fresh = doc.querySelector('.media-list');
@@ -88,52 +103,60 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
         panel.innerHTML = '';
         panel.appendChild(fresh);
       } else {
-        // fallback: tetap replace panel (rare)
         panel.innerHTML = html;
       }
     } catch (err) {
-      console.error('Gagal refresh list:', err);
-      if (!silent) alert('Gagal memuat daftar media: ' + err.message);
+      console.error('refreshListPanel error:', err);
+      if (!silent) alert('Gagal memuat daftar media: ' + (err.message || err));
     }
   }
 
-  // Tabs (klik list => paksa refresh supaya pasti terbaru)
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      tabs.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
+  window.adamModalOpen = window.adamModalOpen || async function(url){
+    try {
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache:'no-store'
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const html = await res.text();
 
-      document.querySelectorAll('[id^="panel-"]').forEach(p=>p.style.display='none');
-      const targetId = btn.dataset.target;
-      const targetPanel = document.getElementById(targetId);
-      if (targetPanel) targetPanel.style.display = 'block';
+      if (!modalBackdrop || !modalBox) {
+        window.open(url, '_blank');
+        return;
+      }
 
-      if (targetId === 'panel-list') {
-        // ✅ tiap buka tab list, refresh silent
-        refreshListPanel({ silent:true, forcePage1:false });
+      modalBox.innerHTML = html;
+      modalBackdrop.style.display = 'flex';
+      modalBackdrop.onclick = function(e){
+        if (e.target === modalBackdrop) {
+          modalBackdrop.style.display = 'none';
+          modalBox.innerHTML = '';
+        }
+      };
+    } catch (err) {
+      alert('Modal load error: ' + (err.message || err));
+    }
+  };
+
+  window.adamModalClose = function(){
+    if (!modalBackdrop || !modalBox) return;
+    modalBackdrop.style.display = 'none';
+    modalBox.innerHTML = '';
+  };
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', async function(){
+      const target = (btn.dataset.target || '').replace(/^panel-/, '');
+      activateTab(target);
+      if (target === 'list') {
+        await refreshListPanel({ silent:true, forcePage1:false });
       }
     });
   });
 
-  // ✅ auto refresh saat event dari add/save/delete
   document.addEventListener('media:updated', () => refreshListPanel({ silent:true, forcePage1:false }));
   document.addEventListener('media:deleted', () => refreshListPanel({ silent:true, forcePage1:false }));
-  document.addEventListener('media:added',   () => refreshListPanel({ silent:true, forcePage1:true })); // upload baru -> page 1
-
-  // expose kalau kamu butuh panggil manual
-  window.refreshListPanel = refreshListPanel;
-})();
-</script>
-
-
-<script>
-(function(){
-  const modalBackdrop = document.getElementById('adam-modal-backdrop');
-
-  function getCsrfToken() {
-    const el = document.getElementById('csrf_token');
-    return el && el.value ? el.value : '';
-  }
+  document.addEventListener('media:added',   () => refreshListPanel({ silent:true, forcePage1:true  }));
 
   async function readJsonSafe(res) {
     const txt = await res.text();
@@ -142,11 +165,21 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     return { txt, j };
   }
 
-  function closeModalFallback() {
-    if (typeof window.adamModalClose === 'function') {
-      try { window.adamModalClose(); return; } catch(e) {}
+  function fallbackCopy(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', 'readonly');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      alert('Copied: ' + text);
+    } catch (e) {
+      alert('Gagal menyalin');
     }
-    if (modalBackdrop) modalBackdrop.style.display = 'none';
+    document.body.removeChild(ta);
   }
 
   document.addEventListener('click', async function(ev){
@@ -154,6 +187,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 
     if (target && target.id === 'media-save-btn') {
       ev.preventDefault();
+
       const btn = target;
       const form = btn.closest('form');
       if (!form) return;
@@ -161,7 +195,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
       btn.disabled = true;
       const fd = new FormData(form);
       const csrf = getCsrfToken();
-      if (csrf) fd.append('csrf_token', csrf);
+      if (csrf && !fd.get('csrf_token')) fd.append('csrf_token', csrf);
 
       try {
         const res = await fetch('/adiwira/admin/media/save.php', {
@@ -184,7 +218,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
           alert('Error: ' + (j?.error || txt || 'unknown'));
         }
       } catch (err) {
-        alert('Network error: ' + err.message);
+        alert('Network error: ' + (err.message || err));
       } finally {
         btn.disabled = false;
       }
@@ -196,11 +230,8 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
       if (!confirm('Delete this media?')) return;
 
       const form = target.closest('form');
-      let id = null;
-      if (form) {
-        const el = form.querySelector('input[name="id"]');
-        if (el) id = el.value;
-      }
+      const idEl = form ? form.querySelector('input[name="id"]') : null;
+      const id = idEl ? idEl.value : '';
 
       const fd = new FormData();
       if (id) fd.append('id', id);
@@ -225,41 +256,37 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
         if (j && j.ok) {
           alert('Deleted ✔');
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
-          closeModalFallback();
+          window.adamModalClose();
         } else {
           alert('Error: ' + (j?.error || txt || 'unknown'));
         }
       } catch (err) {
-        alert('Network error: ' + err.message);
+        alert('Network error: ' + (err.message || err));
       }
       return;
     }
 
-        // ✅ COPY URL (works inside modal or page)
     const copyBtn = (target && target.closest) ? target.closest('[data-action="copy-url"], .copy-btn') : null;
     if (copyBtn) {
       ev.preventDefault();
 
-      // cari elemen di dalam form/modal yang sama dulu (biar tidak ketukar kalau ada id duplikat)
       const scope = copyBtn.closest('form') || copyBtn.closest('.media-single-wrap') || document;
-
       const prefixEl = scope.querySelector('#media-url-prefix') || document.getElementById('media-url-prefix');
-      const pathEl   = scope.querySelector('#media-url-path')   || document.getElementById('media-url-path');
+      const pathEl   = scope.querySelector('#media-url-path') || document.getElementById('media-url-path');
 
       const prefix = prefixEl ? (prefixEl.textContent || '').trim() : window.location.origin;
       const path   = pathEl ? (pathEl.value || '').trim() : '';
 
-      if (!path) { alert('URL tidak ditemukan'); return; }
+      if (!path) {
+        alert('URL tidak ditemukan');
+        return;
+      }
 
-      // kalau path sudah full URL, pakai apa adanya. kalau cuma "/static/..." gabungkan dengan prefix.
       let full = path;
       if (!/^https?:\/\//i.test(path)) {
         full = prefix.replace(/\/$/, '') + path;
-      } else {
-        try { full = new URL(path).href; } catch(e) {}
       }
 
-      // copy modern
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         navigator.clipboard.writeText(full).then(() => {
           alert('Copied: ' + full);
@@ -269,84 +296,8 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
       } else {
         fallbackCopy(full);
       }
-
-      function fallbackCopy(text) {
-        // fallback aman (tanpa tergantung input readonly)
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', 'readonly');
-        ta.style.position = 'fixed';
-        ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        try {
-          document.execCommand('copy');
-          alert('Copied: ' + text);
-        } catch (e) {
-          alert('Gagal menyalin');
-        }
-        document.body.removeChild(ta);
-      }
-
       return;
     }
   }, false);
-
-  if (!window.__mediaDelegationInstalled) {
-    window.__mediaDelegationInstalled = true;
-  }
-})();
-</script>
-
-
-<script>
-(function(){
-  const tabs = document.querySelectorAll('.tab-btn');
-  function activateTabBtn(btn) {
-    if (!btn) return;
-    tabs.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('[id^="panel-"]').forEach(p=>p.style.display='none');
-    const target = btn.dataset.target;
-    if (target) {
-      const panel = document.getElementById(target);
-      if (panel) panel.style.display = 'block';
-    }
-  }
-
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      activateTabBtn(btn);
-      try {
-        const name = (btn.dataset.target || '').replace(/^panel-/, '');
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', name);
-        history.replaceState(null, '', url.toString());
-      } catch(e){}
-    });
-  });
-
-  function pickInitialTab() {
-    const params = new URLSearchParams(window.location.search);
-    let tab = params.get('tab') || '';
-    if (!tab && window.location.hash) {
-      tab = window.location.hash.replace('#', '');
-      if (tab.indexOf('panel-') === 0) tab = tab.replace(/^panel-/, '');
-    }
-    tab = (tab || '').toLowerCase();
-
-    let targetName = 'add';
-    if (tab === 'list' || tab === 'panel-list') targetName = 'list';
-    if (tab === 'add' || tab === 'panel-add') targetName = 'add';
-
-    const desired = Array.from(tabs).find(b => {
-      const dt = b.dataset.target || '';
-      return dt === ('panel-' + targetName) || b.dataset.target === targetName;
-    });
-    if (desired) activateTabBtn(desired);
-    else activateTabBtn(tabs[0]);
-  }
-
-  pickInitialTab();
 })();
 </script>

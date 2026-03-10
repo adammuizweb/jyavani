@@ -1,41 +1,120 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/gerbank/melbu/index.php
-// DB-backed login (email-based) — uses stateless CSRF tokens (no session created until login_user())
+// DB-backed login (email-based) — stateless CSRF, session baru dibuat hanya saat login_user()
 
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', '1');
 
-require_once __DIR__ . '/../../../bootstrap_core.php'; // provides $pdo and already includes session.php and defines BACKEND_PATH
+require_once __DIR__ . '/../../../bootstrap_core.php';
+require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 
-// Use stateless CSRF (csrf_token() wraps stateless implementation)
-$csrf_value = csrf_token();
+// ---------- helper ----------
+if (!function_exists('melbu_verify_recaptcha')) {
+    function melbu_verify_recaptcha(string $secret, string $response, string $ip): bool
+    {
+        $secret = trim($secret);
+        $response = trim($response);
+        $ip = trim($ip);
 
-// 🚧 Guard: jika sudah login, langsung ke dashboard
-if (is_logged_in()) {
-    header('Location: /adiwira/');
-    exit;
+        if ($secret === '' || $response === '') {
+            return false;
+        }
+
+        $url = 'https://www.google.com/recaptcha/api/siteverify'
+            . '?secret=' . urlencode($secret)
+            . '&response=' . urlencode($response)
+            . '&remoteip=' . urlencode($ip);
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method'  => 'GET',
+                'timeout' => 8,
+                'header'  => "Accept: application/json\r\n",
+            ],
+        ]);
+
+        $raw = @file_get_contents($url, false, $ctx);
+        if ($raw === false) {
+            return false;
+        }
+
+        $json = json_decode($raw, true);
+        return !empty($json['success']);
+    }
 }
 
-require_once BACKEND_PATH . '/helpers/auth_helpers.php'; // get_login_attempt(), record_failed_attempt(), reset_login_attempts(), is_blocked()
+if (!function_exists('melbu_fetch_user_by_email')) {
+    function melbu_fetch_user_by_email(PDO $pdo, string $email): ?array
+    {
+        $stmt = $pdo->prepare("
+            SELECT id, email, password, name, role, is_deleted, is_locked
+            FROM users
+            WHERE email = :email
+            LIMIT 1
+        ");
+        $stmt->execute([':email' => $email]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+}
 
-// Config / keys (from .env)
+// ---------- config ----------
 $RECAPTCHA_SITEKEY = (string)(getenv('RECAPTCHA_SITEKEY') ?: '');
 $RECAPTCHA_SECRET  = (string)(getenv('RECAPTCHA_SECRET') ?: '');
 $WHATSAPP_HELP_URL = 'https://wa.me/6289514787832';
 
-$ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+// stateless csrf token untuk public form
+$csrf_value = csrf_token();
+
+$ip = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
 $errors = [];
 $info = null;
 $show_captcha = false;
 $show_help = false;
 $attempts = 0;
 
-// Use POST values if present
-$email = trim((string)($_POST['email'] ?? ''));
+// input
+$email = mb_strtolower(trim((string)($_POST['email'] ?? '')), 'UTF-8');
 $password = (string)($_POST['password'] ?? '');
-$captcha_response = (string)($_POST['g-recaptcha-response'] ?? '');
+$captcha_response = trim((string)($_POST['g-recaptcha-response'] ?? ''));
 
-// Get current attempt record (if email provided)
+// ---------- guard jika sudah login ----------
+if (is_logged_in()) {
+    $activeUser = null;
+
+    try {
+        $uid = (int)($_SESSION['user_id'] ?? 0);
+        if ($uid > 0) {
+            $stmt = $pdo->prepare("
+                SELECT id, email, role, is_deleted, is_locked
+                FROM users
+                WHERE id = :id
+                LIMIT 1
+            ");
+            $stmt->execute([':id' => $uid]);
+            $activeUser = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+    } catch (Throwable $e) {
+        $activeUser = null;
+    }
+
+    if (
+        $activeUser &&
+        (int)($activeUser['is_deleted'] ?? 0) === 0 &&
+        (int)($activeUser['is_locked'] ?? 0) === 0
+    ) {
+        header('Location: /adiwira/');
+        exit;
+    }
+
+    // session ada tapi user sudah tidak aktif / invalid → paksa logout
+    logout_user();
+    $info = 'Sesi sebelumnya sudah tidak valid. Silakan login kembali.';
+}
+
+// ---------- ambil record attempt ----------
 $attempt = null;
 if ($email !== '') {
     $attempt = get_login_attempt($pdo, $email, $ip);
@@ -48,55 +127,61 @@ if ($email !== '') {
     }
 }
 
-// Handle POST
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    // validate CSRF using stateless checker
-    if (!isset($_POST['csrf_token']) || !csrf_check($_POST['csrf_token'])) {
+// ---------- handle POST ----------
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    // csrf
+    $postedCsrf = (string)($_POST['csrf_token'] ?? '');
+    if ($postedCsrf === '' || !csrf_check($postedCsrf)) {
         $errors[] = 'Form tidak valid (CSRF check gagal).';
     }
 
-    // Basic validation
+    // basic validation
     if ($email === '') {
         $errors[] = 'Email wajib diisi.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Format email tidak valid.';
     }
+
     if ($password === '') {
         $errors[] = 'Password wajib diisi.';
     }
 
-    // Re-evaluate attempt record
+    // refresh attempt state
     $attempt = ($email !== '') ? get_login_attempt($pdo, $email, $ip) : null;
     $attempts = (int)($attempt['attempts'] ?? 0);
+
     if ($attempts >= 3) {
         $show_captcha = true;
         $show_help = true;
     }
 
-    // If blocked, stop early
+    // blocked?
     if ($attempt && is_blocked($attempt)) {
-        $remain_seconds = max(0, strtotime($attempt['blocked_until']) - time());
-        $remain_min = ceil($remain_seconds / 60);
+        $blockedUntil = (string)($attempt['blocked_until'] ?? '');
+        $remain_seconds = 0;
+
+        if ($blockedUntil !== '') {
+            $ts = strtotime($blockedUntil);
+            if ($ts !== false) {
+                $remain_seconds = max(0, $ts - time());
+            }
+        }
+
+        $remain_min = max(1, (int)ceil($remain_seconds / 60));
         $errors[] = "Terlalu banyak percobaan. Akun/IP diblokir sementara. Coba lagi dalam {$remain_min} menit.";
     }
 
-    // If captcha is required, validate it
+    // captcha jika diperlukan
     if (empty($errors) && $show_captcha) {
-        if ($captcha_response === '') {
+        if ($RECAPTCHA_SITEKEY === '' || $RECAPTCHA_SECRET === '') {
+            $errors[] = 'CAPTCHA belum dikonfigurasi. Hubungi admin.';
+            $show_help = true;
+        } elseif ($captcha_response === '') {
             $errors[] = 'Silakan isi CAPTCHA.';
         } else {
-            // verify remote (handle network failure conservatively)
-            $verify_payload = @file_get_contents(
-                "https://www.google.com/recaptcha/api/siteverify?secret=" . urlencode($RECAPTCHA_SECRET)
-                . "&response=" . urlencode($captcha_response)
-                . "&remoteip=" . urlencode($ip)
-            );
-            $verified = false;
-            if ($verify_payload !== false) {
-                $json = json_decode($verify_payload, true);
-                $verified = !empty($json['success']);
-            }
+            $verified = melbu_verify_recaptcha($RECAPTCHA_SECRET, $captcha_response, $ip);
+
             if (!$verified) {
-                // count as failed attempt
                 if ($email !== '') {
                     $attempts = record_failed_attempt($pdo, $email, $ip);
                 }
@@ -105,23 +190,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // If still no errors, check credentials
+    // credentials
     if (empty($errors)) {
-        // Fetch user by email and not deleted
-        $stmt = $pdo->prepare("SELECT id, email, password, name, is_deleted FROM users WHERE email = ? LIMIT 1");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user = melbu_fetch_user_by_email($pdo, $email);
 
-        $password_ok = false;
-        if ($user && (int)($user['is_deleted'] ?? 0) === 0) {
-            $hash = $user['password'] ?? null;
-            if ($hash && password_verify($password, $hash)) {
-                $password_ok = true;
+        $userExists = is_array($user);
+        $passwordOk = false;
+
+        if ($userExists) {
+            $hash = (string)($user['password'] ?? '');
+            if ($hash !== '' && password_verify($password, $hash)) {
+                $passwordOk = true;
             }
         }
 
-        if (!$password_ok) {
-            // record failed attempt (only if email provided)
+        if (!$userExists || !$passwordOk) {
             if ($email !== '') {
                 $attempts = record_failed_attempt($pdo, $email, $ip);
             } else {
@@ -131,26 +214,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($attempts >= 5) {
                 $errors[] = 'Terlalu banyak percobaan. Akun diblokir selama 15 menit.';
             } else {
-                $remaining = 5 - $attempts;
+                $remaining = max(0, 5 - $attempts);
                 $errors[] = 'Email atau password salah. Sisa percobaan sebelum blokir: ' . $remaining . '.';
             }
-
         } else {
-            // success: reset attempts and call login_user() to create session & send cookie
-            if ($email !== '') reset_login_attempts($pdo, $email, $ip);
+            // password benar, cek status akun
+            if ((int)($user['is_deleted'] ?? 0) === 1) {
+                $errors[] = 'Akun tidak tersedia.';
+                $show_help = true;
+            } elseif ((int)($user['is_locked'] ?? 0) === 1) {
+                $errors[] = 'Akun belum aktif atau sedang dikunci.';
+                $show_help = true;
+            } else {
+                if ($email !== '') {
+                    reset_login_attempts($pdo, $email, $ip);
+                }
 
-            // call login_user($user_id, $email) — session.php will create session server-side and send cookie
-            $uid = (int)$user['id'];
-            login_user($uid, $user['email'] ?? null);
-
-            // Redirect to dashboard
-            header('Location: /adiwira/');
-            exit;
+                login_user((int)$user['id'], (string)$user['email']);
+                header('Location: /adiwira/');
+                exit;
+            }
         }
     }
 }
 
-// Recompute UI flags for rendering (in case attempts changed)
+// refresh flags after POST
 $attempt = ($email !== '') ? get_login_attempt($pdo, $email, $ip) : $attempt;
 $attempts = (int)($attempt['attempts'] ?? $attempts);
 $show_captcha = $show_captcha || ($attempts >= 3);
@@ -162,7 +250,9 @@ $show_help = $show_help || ($attempts >= 3);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Login</title>
+<?php if ($RECAPTCHA_SITEKEY !== ''): ?>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<?php endif; ?>
 <style>
   body { font-family: system-ui, -apple-system, Roboto, 'Segoe UI', Arial; background:#f6f8fa; }
   .card { width:360px; margin:60px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 8px 30px rgba(20,30,50,0.06); }
@@ -181,24 +271,39 @@ $show_help = $show_help || ($attempts >= 3);
     <h2 id="login-title" style="margin:0 0 10px 0;">Masuk</h2>
 
     <?php if (!empty($errors)): ?>
-      <div class="error" role="alert"><?php echo implode('<br>', array_map('htmlspecialchars', $errors)); ?></div>
+      <div class="error" role="alert"><?php echo implode('<br>', array_map(static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'), $errors)); ?></div>
     <?php endif; ?>
 
     <?php if (!empty($info)): ?>
-      <div class="info"><?php echo htmlspecialchars($info); ?></div>
+      <div class="info"><?php echo htmlspecialchars($info, ENT_QUOTES, 'UTF-8'); ?></div>
     <?php endif; ?>
 
     <form method="post" action="">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_value); ?>">
+      <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_value, ENT_QUOTES, 'UTF-8'); ?>">
+
       <label for="email">Email</label>
-      <input id="email" name="email" type="email" value="<?php echo htmlspecialchars($email); ?>" required autocomplete="email" autofocus>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>"
+        required
+        autocomplete="email"
+        autofocus
+      >
 
       <label for="password">Password</label>
-      <input id="password" name="password" type="password" required autocomplete="current-password">
+      <input
+        id="password"
+        name="password"
+        type="password"
+        required
+        autocomplete="current-password"
+      >
 
-      <?php if ($show_captcha): ?>
+      <?php if ($show_captcha && $RECAPTCHA_SITEKEY !== ''): ?>
         <div style="margin-top:12px;">
-          <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($RECAPTCHA_SITEKEY); ?>"></div>
+          <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($RECAPTCHA_SITEKEY, ENT_QUOTES, 'UTF-8'); ?>"></div>
         </div>
       <?php endif; ?>
 
@@ -208,7 +313,7 @@ $show_help = $show_help || ($attempts >= 3);
     <?php if ($show_help): ?>
       <div class="help">
         <small class="muted">Butuh bantuan setelah beberapa kali percobaan?</small>
-        <a href="<?php echo htmlspecialchars($WHATSAPP_HELP_URL); ?>" target="_blank" rel="noopener">Hubungi Admin via WhatsApp</a>
+        <a href="<?php echo htmlspecialchars($WHATSAPP_HELP_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Hubungi Admin via WhatsApp</a>
       </div>
     <?php endif; ?>
 

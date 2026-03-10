@@ -1,16 +1,27 @@
 <?php
-// /adiwira/admin/modal_img/add_modal.php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../_guard.php';
-adiwira_require_admin(false);
+// /adiwira/admin/modal_img/add_modal.php
+if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
+    require_once __DIR__ . '/../_guard.php';
 
-header('Content-Type: text/html; charset=utf-8');
+    if (function_exists('adiwira_is_navigate_request') && adiwira_is_navigate_request()) {
+        http_response_code(404);
+        require __DIR__ . '/../../../frontend_404.php';
+        exit;
+    }
+
+    [$uid, $role] = adiwira_require_editorial($pdo, false);
+}
 
 $csrfToken = '';
-try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } catch (Throwable $e) { $csrfToken = ''; }
-
-// Note: Upload endpoint expected: /adiwira/admin/upload_image.php
+try {
+    if (function_exists('csrf_token')) {
+        $csrfToken = (string) csrf_token();
+    }
+} catch (Throwable $e) {
+    $csrfToken = '';
+}
 ?>
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -18,7 +29,8 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
   <div class="uploader-top">
     <div style="display:flex;gap:8px;align-items:center;flex:1">
       <div id="dropzone" class="dropzone" role="button" tabindex="0">
-        Tarik gambar ke sini atau klik <button id="browse-btn" class="adam-btn ghost" type="button">Pilih file</button>
+        Tarik gambar ke sini atau klik
+        <button id="browse-btn" class="adam-btn ghost" type="button">Pilih file</button>
         <div class="note small">Mendukung webp/png/jpg/jpeg. Upload otomatis setelah pilih.</div>
       </div>
     </div>
@@ -29,7 +41,6 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
   </div>
 
   <div id="upload-progress" class="upload-progress" aria-live="polite"></div>
-
   <div id="preview-container" class="preview-grid" aria-live="polite"></div>
 </div>
 
@@ -47,15 +58,30 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
   const previewWrap = document.getElementById('preview-container');
   const clearBtn = document.getElementById('btn-upload-clear');
 
+  if (!dropzone || !fileInput || !browseBtn || !progressWrap || !previewWrap || !clearBtn) return;
+
   browseBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', e => handleFiles(e.target.files));
+  fileInput.addEventListener('change', e => {
+    handleFiles(e.target.files);
+    fileInput.value = '';
+  });
 
   ['dragenter','dragover'].forEach(ev => {
-    dropzone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('drag'); });
+    dropzone.addEventListener(ev, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('drag');
+    });
   });
+
   ['dragleave','drop'].forEach(ev => {
-    dropzone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('drag'); });
+    dropzone.addEventListener(ev, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('drag');
+    });
   });
+
   dropzone.addEventListener('drop', e => {
     const dt = e.dataTransfer;
     if (!dt) return;
@@ -63,37 +89,53 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
   });
 
   dropzone.addEventListener('keydown', function(e){
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput.click();
+    }
   });
 
-  clearBtn.addEventListener('click', function(){ progressWrap.innerHTML=''; previewWrap.innerHTML=''; });
+  clearBtn.addEventListener('click', function(){
+    progressWrap.innerHTML = '';
+    previewWrap.innerHTML = '';
+  });
 
   function broadcast(name, detail) {
     try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
-    try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: name, detail }, '*'); } catch(e){}
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: name, detail }, '*');
+      }
+    } catch(e){}
   }
 
   function findCsrfToken() {
     let t = null;
+
     try {
       const el = document.querySelector('input[name="csrf_token"]');
       if (el && el.value) t = el.value;
     } catch(e){}
+
     if (!t) {
       try {
-        const pel = window.parent && window.parent.document && window.parent.document.querySelector('input[name="csrf_token"], #csrf_token');
+        const pel = window.parent && window.parent.document
+          ? window.parent.document.querySelector('input[name="csrf_token"], #csrf_token')
+          : null;
+
         if (pel && pel.value) t = pel.value;
         if (pel && pel.textContent && !t) t = pel.textContent;
       } catch(e){}
     }
+
     return t;
   }
 
   function handleFiles(files) {
     if (!files || files.length === 0) return;
     Array.from(files).forEach(f => {
-      if (!f.type || !f.type.match(/^image\//)) return;
+      if (!f.type || !/^image\//.test(f.type)) return;
       uploadFile(f);
     });
   }
@@ -116,6 +158,7 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const fd = new FormData();
+
       fd.append('image', file);
       fd.append('auto_save', '1');
       fd.append('title', file.name);
@@ -134,36 +177,51 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
 
       xhr.addEventListener('readystatechange', function(){
         if (xhr.readyState !== 4) return;
+
         setTimeout(() => {
           row.classList.add('fade');
-          setTimeout(()=>{ if (row.parentNode) row.parentNode.removeChild(row); }, 420);
+          setTimeout(() => {
+            if (row.parentNode) row.parentNode.removeChild(row);
+          }, 420);
         }, 800);
 
         if (xhr.status >= 200 && xhr.status < 300) {
           let data = null;
-          try { data = xhr.responseText ? JSON.parse(xhr.responseText) : null; }
-          catch (e) { return reject(new Error('Invalid JSON response')); }
-
-          if (!data || (!data.success && !data.url && !data.media)) {
-            return reject(new Error(data && data.error ? data.error : 'Upload failed'));
+          try {
+            data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+          } catch (e) {
+            reject(new Error('Invalid JSON response'));
+            return;
           }
 
-          const media = data.media || { id: data.id || null, url: data.url || '', title: data.title || '' };
+          if (!data || (!data.success && !data.url && !data.media)) {
+            reject(new Error(data && data.error ? data.error : 'Upload failed'));
+            return;
+          }
+
+          const media = data.media || {
+            id: data.id || null,
+            url: data.url || '',
+            title: data.title || ''
+          };
+
           bar.style.width = '100%';
           showThumb(media.url || data.url || '', media);
 
-          try { broadcast('media:added', media); } catch(e){}
-          try { broadcast('media:insert', media); } catch(e){}
-          return resolve(media);
+          broadcast('media:added', media);
+          broadcast('media:insert', media);
+          resolve(media);
         } else {
-          return reject(new Error('HTTP ' + xhr.status));
+          reject(new Error('HTTP ' + xhr.status));
         }
       });
 
-      xhr.addEventListener('error', function(){ reject(new Error('Network error')); });
+      xhr.addEventListener('error', function(){
+        reject(new Error('Network error'));
+      });
+
       xhr.send(fd);
-    })
-    .catch(err => {
+    }).catch(err => {
       console.error('Upload error', err);
       alert('Upload gagal: ' + (err.message || 'Unknown'));
     });
@@ -179,8 +237,8 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
       <div class="meta">
         <div class="title">${escapeHtml(media && (media.title || media.filename || '') || '')}</div>
         <div class="actions">
-          <button class="edit-btn" title="Edit">Edit</button>
-          <button class="del-btn" title="Hapus">Del</button>
+          <button class="edit-btn" type="button">Edit</button>
+          <button class="del-btn" type="button">Del</button>
         </div>
       </div>
     `;
@@ -190,29 +248,44 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
 
     box.querySelector('.edit-btn').addEventListener('click', function(){
       const id = box.dataset.mediaId || (media && media.id);
+      if (!id) return;
+
       const link = '/adiwira/admin/modal_img/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1';
+
       try {
         if (window.parent && window.parent !== window && typeof window.parent.adamModalOpen === 'function') {
           window.parent.adamModalOpen(link, { maxWidth: '820px' });
           return;
         }
       } catch(e){}
-      if (typeof window.adamModalOpen === 'function') { try { window.adamModalOpen(link, { maxWidth: '820px' }); return; } catch(e){} }
+
+      if (typeof window.adamModalOpen === 'function') {
+        try {
+          window.adamModalOpen(link, { maxWidth: '820px' });
+          return;
+        } catch(e){}
+      }
+
       window.open(link, '_blank');
     });
 
     box.querySelector('.del-btn').addEventListener('click', async function(){
       if (!confirm('Hapus media ini secara permanen?')) return;
+
       const fd = new FormData();
       if (media && media.id) fd.append('id', media.id);
       else fd.append('url', url);
 
-      // ✅ CSRF wajib (media/delete.php butuh)
       const token = findCsrfToken();
       if (token) fd.append('csrf_token', token);
 
       try {
-        const res = await fetch(deleteUrl, { method:'POST', credentials:'include', body: fd });
+        const res = await fetch(deleteUrl, {
+          method: 'POST',
+          credentials: 'include',
+          body: fd
+        });
+
         const txt = await res.text();
         let j = null;
         try { j = txt ? JSON.parse(txt) : null; } catch(e){}
@@ -224,7 +297,7 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
 
         if (j && j.ok) {
           box.remove();
-          try { broadcast('media:deleted', j); } catch(e){}
+          broadcast('media:deleted', j);
         } else {
           alert('Gagal hapus: ' + (j && j.error ? j.error : 'unknown'));
         }
@@ -237,24 +310,32 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
 
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, function(m){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+      return {
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[m];
     });
   }
 
   document.addEventListener('media:deleted', function(e){
     const d = (e && e.detail) ? e.detail : null;
     if (!d) return;
+
     let ids = [];
-    if (Array.isArray(d)) ids = d.map(x=>parseInt(x,10)).filter(Boolean);
-    else if (d.deleted_ids && Array.isArray(d.deleted_ids)) ids = d.deleted_ids.map(x=>parseInt(x,10)).filter(Boolean);
-    else if (d.id) ids = [parseInt(d.id,10)].filter(Boolean);
-    else if (d.ids && Array.isArray(d.ids)) ids = d.ids.map(x=>parseInt(x,10)).filter(Boolean);
+    if (Array.isArray(d)) ids = d.map(x => parseInt(x, 10)).filter(Boolean);
+    else if (d.deleted_ids && Array.isArray(d.deleted_ids)) ids = d.deleted_ids.map(x => parseInt(x, 10)).filter(Boolean);
+    else if (d.id) ids = [parseInt(d.id, 10)].filter(Boolean);
+    else if (d.ids && Array.isArray(d.ids)) ids = d.ids.map(x => parseInt(x, 10)).filter(Boolean);
+
     if (!ids.length) return;
+
     ids.forEach(id => {
-      const th = previewWrap.querySelector('.thumb[data-media-id="'+id+'"]');
+      const th = previewWrap.querySelector('.thumb[data-media-id="' + id + '"]');
       if (th) th.remove();
     });
   });
-
 })();
 </script>

@@ -1,20 +1,21 @@
 <?php
- http_response_code(404);
- require __DIR__ . '/../../../frontend_404.php';
- exit;
- 
+declare(strict_types=1);
+
+ // http_response_code(404);
+ // require __DIR__ . '/../../../frontend_404.php';
+ // exit;
+
 // /adiwira/signup.php
-require_once __DIR__ . '/../../bootstrap.php'; // memuat session helper, $pdo, env()
+require_once __DIR__ . '/../../bootstrap.php';
 
 if (is_logged_in()) {
     header('Location: /adiwira/');
     exit;
 }
 
-// Pastikan ada session server-side dan kirim cookie agar token bisa divalidasi pada POST
+// Pastikan ada session untuk CSRF public form
 ensure_session_started(true);
 if (empty($_COOKIE[session_name()]) && session_status() === PHP_SESSION_ACTIVE && !headers_sent()) {
-    // gunakan cookie_options yang sudah tersedia di session.php (global)
     global $cookie_options;
     $setCookieOptions = [
         'path' => $cookie_options['path'] ?? '/',
@@ -31,20 +32,19 @@ if (empty($_COOKIE[session_name()]) && session_status() === PHP_SESSION_ACTIVE &
     sess_dbg("signup.php: sent session cookie for CSRF");
 }
 
-
 $errors = [];
 $success = null;
 
-// daftar username terlarang (opsional)
+// daftar username terlarang
 $reservedUsernames = ['admin','administrator','root','support','help','system','moderator'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
-    $name  = trim($_POST['name'] ?? '');
-    $pw    = $_POST['password'] ?? '';
-    $pw2   = $_POST['password_confirm'] ?? '';
-    $uname = trim($_POST['username'] ?? '');
-    $token = $_POST['csrf_token'] ?? '';
+    $email = trim((string)($_POST['email'] ?? ''));
+    $name  = trim((string)($_POST['name'] ?? ''));
+    $pw    = (string)($_POST['password'] ?? '');
+    $pw2   = (string)($_POST['password_confirm'] ?? '');
+    $uname = trim((string)($_POST['username'] ?? ''));
+    $token = (string)($_POST['csrf_token'] ?? '');
 
     // CSRF
     if (!csrf_check($token)) {
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Email tidak valid';
     }
 
-    // Username: wajib, 3–100, karakter valid, unik
+    // Username
     if ($uname === '') {
         $errors[] = 'Username wajib diisi';
     } else {
@@ -65,17 +65,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (mb_strlen($unameLower, 'UTF-8') < 3 || mb_strlen($unameLower, 'UTF-8') > 100) {
             $errors[] = 'Username harus 3–100 karakter';
         }
+
         if (!preg_match('/^[a-z0-9._-]+$/', $unameLower)) {
             $errors[] = 'Username hanya boleh huruf, angka, titik, underscore, dan minus';
         }
+
         if (preg_match('/^[0-9]+$/', $unameLower)) {
             $errors[] = 'Username tidak boleh hanya angka';
         }
+
         if (in_array($unameLower, $reservedUsernames, true)) {
             $errors[] = 'Username tersebut tidak diperbolehkan';
         }
 
-        // Cek keunikan
         if (empty($errors)) {
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :u LIMIT 1");
             $stmt->execute([':u' => $unameLower]);
@@ -89,15 +91,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($pw === '' || $pw !== $pw2) {
         $errors[] = 'Password kosong atau tidak cocok';
     }
+
     if (strlen($pw) < 8) {
         $errors[] = 'Password harus minimal 8 karakter';
     }
 
     if (empty($errors)) {
-        // Normalize email (lowercase)
         $email_norm = mb_strtolower($email, 'UTF-8');
+        $username_norm = mb_strtolower($uname, 'UTF-8');
 
-        // Periksa apakah email sudah ada
+        // cek email unik
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
         $stmt->execute([':email' => $email_norm]);
         if ($stmt->fetch()) {
@@ -105,32 +108,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $hash = password_hash($pw, PASSWORD_DEFAULT);
 
-            // Insert dengan username
+            // user baru default author + locked
             $insert = $pdo->prepare("
-                INSERT INTO users (email, username, password, name, created_at, updated_at)
-                VALUES (:email, :username, :password, :name, NOW(), NOW())
+                INSERT INTO users (
+                    email, username, password, name,
+                    role, is_deleted, is_locked,
+                    created_at, updated_at
+                )
+                VALUES (
+                    :email, :username, :password, :name,
+                    'author', 0, 1,
+                    NOW(), NOW()
+                )
             ");
+
             $ok = $insert->execute([
                 ':email'    => $email_norm,
-                ':username' => mb_strtolower($uname, 'UTF-8'),
+                ':username' => $username_norm,
                 ':password' => $hash,
-                ':name'     => ($name !== '' ? $name : null)
+                ':name'     => ($name !== '' ? $name : null),
             ]);
-if ($ok) {
-    $userId = (int)$pdo->lastInsertId();
 
-    // login user
-    login_user($userId, $email_norm);
-
-    // set flash via helper (helper harus memastikan session terbuka & menutupnya kembali)
-    flash_set('success', 'Akun berhasil dibuat. Selamat datang!');
-
-    // redirect
-    header('Location: /adiwira/');
-    exit;
-} else {
-    $errors[] = 'Gagal menyimpan pengguna';
-}
+            if ($ok) {
+                $success = 'Pendaftaran berhasil. Akun Anda sudah dibuat dan sedang menunggu persetujuan admin.';
+                $_POST = []; // bersihkan form
+            } else {
+                $errors[] = 'Gagal menyimpan pengguna';
+            }
         }
     }
 }

@@ -9,7 +9,9 @@ $errors = [];
 $messages = [];
 
 // pastikan session hidup (flash ada di session)
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+require_once __DIR__ . '/../_guard.php';
+
+[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
 // dukung err dari redirect (delete.php pakai err)
 if (!empty($_GET['err'])) {
@@ -50,19 +52,6 @@ $search          = trim($_GET['q'] ?? '');
 $page_num = max(1, (int)($_GET['p'] ?? 1));
 $per_page = 15;
 $offset   = ($page_num - 1) * $per_page;
-
-// =========================
-// ROLE ENGINEERING (posts/index)
-// =========================
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) {
-  http_response_code(403);
-  exit('Akses ditolak: belum login.');
-}
-
-$role = current_user_role($pdo) ?: ($_SESSION['user_role'] ?? 'guest');
-$role = is_string($role) ? strtolower(trim($role)) : 'guest';
-$_SESSION['user_role'] = $role; // sync biar konsisten
 
 // base query
 $where = ["p.is_deleted = 0", "p.type = 'article'"];

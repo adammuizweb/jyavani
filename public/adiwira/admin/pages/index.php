@@ -1,15 +1,25 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/pages/index.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');
 }
 
+require_once __DIR__ . '/../_guard.php';
+
+[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+
 $errors = [];
 $messages = [];
 
-// pastikan session hidup
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+// pastikan session aktif untuk flash
+if (function_exists('ensure_session_started')) {
+    ensure_session_started(false);
+} elseif (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 // legacy query fallback
 if (!empty($_GET['err'])) {
@@ -30,8 +40,11 @@ if (is_array($flash)) {
         $text = isset($f['text']) ? (string)$f['text'] : '';
         if ($text === '') continue;
 
-        if ($type === 'success') $messages[] = $text;
-        else $errors[] = $text;
+        if ($type === 'success') {
+            $messages[] = $text;
+        } else {
+            $errors[] = $text;
+        }
 
         $flash_for_js[] = ['type' => $type, 'text' => $text];
     }
@@ -41,8 +54,8 @@ $messages = array_values(array_unique($messages));
 $errors   = array_values(array_unique($errors));
 
 // filter
-$filter_status = $_GET['status'] ?? '';
-$filter_author = $_GET['author'] ?? '';
+$filter_status = (string)($_GET['status'] ?? '');
+$filter_author = (string)($_GET['author'] ?? '');
 $search        = trim((string)($_GET['q'] ?? ''));
 
 // pagination
@@ -50,31 +63,12 @@ $page_num = max(1, (int)($_GET['p'] ?? 1));
 $per_page = 10;
 $offset   = ($page_num - 1) * $per_page;
 
-// =========================
-// ROLE ENGINEERING (pages/index)
-// =========================
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) {
-    http_response_code(403);
-    exit('Akses ditolak: belum login.');
-}
-
-$role = function_exists('current_user_role') ? (current_user_role($pdo) ?: null) : null;
-$role = $role ?: ($_SESSION['user_role'] ?? 'guest');
-$role = is_string($role) ? strtolower(trim($role)) : 'guest';
-$_SESSION['user_role'] = $role;
-
-if (!in_array($role, ['author','editor','admin'], true)) {
-    http_response_code(403);
-    exit('Akses ditolak.');
-}
-
 // base where
 $where = ["p.is_deleted = 0", "p.type = 'page'"];
 $params = [];
 
 // author + editor hanya boleh lihat page miliknya sendiri
-if (in_array($role, ['author','editor'], true)) {
+if (in_array($role, ['author', 'editor'], true)) {
     $where[] = "p.created_by = :uid";
     $params[':uid'] = $uid;
 }
@@ -136,6 +130,7 @@ $authorsStmt = $pdo->query("
     SELECT id, name, username
     FROM users
     WHERE is_deleted = 0
+      AND is_locked = 0
     ORDER BY name ASC, username ASC
 ");
 $authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -143,8 +138,8 @@ $authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC);
 // base
 $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 
-// samakan perilaku posts: bulk tersedia untuk semua role yang diizinkan
-$canBulk = in_array($role, ['admin','editor','author'], true);
+// bulk tersedia untuk semua role yang diizinkan
+$canBulk = in_array($role, ['admin', 'editor', 'author'], true);
 
 /** helper pagination */
 if (!function_exists('build_pagination_items')) {
@@ -207,9 +202,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <select name="status" style="padding:.4rem;">
       <option value="">-- Semua Status --</option>
-      <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>>Draft</option>
-      <option value="published" <?= $filter_status==='published'?'selected':'' ?>>Published</option>
-      <option value="private" <?= $filter_status==='private'?'selected':'' ?>>Private</option>
+      <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
+      <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
+      <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
     </select>
 
     <select name="author" style="padding:.4rem;">

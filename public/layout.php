@@ -138,6 +138,10 @@ if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlsp
   <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Taviraj:wght@600&display=swap" rel="stylesheet">
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <?php
 // THEME STYLES: request relevant slots including hero and sidebar so assets for them are included.
 $style_slots = ['header', $main_slot, 'footer'];

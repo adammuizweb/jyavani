@@ -1,85 +1,138 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/file/index.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(404);
-    require __DIR__ . '/../../../frontend_404.php';
-    exit;
+    http_response_code(403);
+    exit('Forbidden');
+}
+
+require_once __DIR__ . '/../_guard.php';
+
+[$uid, $role] = adiwira_require_editorial($pdo, false);
+
+$csrf = csrf_token();
+$initialTab = strtolower(trim((string)($_GET['tab'] ?? 'add')));
+if (!in_array($initialTab, ['add', 'list'], true)) {
+    $initialTab = 'add';
 }
 ?>
+<div id="file-manager-root">
   <h2>File Manager</h2>
 
-  <?php $csrf = function_exists('csrf_token') ? csrf_token() : ''; ?>
-  <input type="hidden" id="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
+  <input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 
   <div class="tabs">
-    <button class="tab-btn active" data-target="panel-add">Add</button>
-    <button class="tab-btn" data-target="panel-list">List</button>
+    <button type="button" class="tab-btn <?= $initialTab === 'add' ? 'active' : '' ?>" data-target="add">Add</button>
+    <button type="button" class="tab-btn <?= $initialTab === 'list' ? 'active' : '' ?>" data-target="list">List</button>
   </div>
 
-  <div id="panel-add" class="panel">
+  <div id="file-panel-add" class="panel" style="<?= $initialTab === 'add' ? '' : 'display:none;' ?>">
     <?php include __DIR__ . '/add.php'; ?>
   </div>
 
-  <div id="panel-list" class="panel" style="display:none;">
+  <div id="file-panel-list" class="panel" style="<?= $initialTab === 'list' ? '' : 'display:none;' ?>">
     <?php include __DIR__ . '/list.php'; ?>
   </div>
 
-  <div id="adam-modal-backdrop">
+  <div id="adam-modal-backdrop" style="display:none;">
     <div id="adam-modal"></div>
   </div>
+</div>
 
 <script>
 (function(){
-  // Tabs
-  const tabs = document.querySelectorAll('.tab-btn');
-  tabs.forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      tabs.forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelectorAll('[id^="panel-"]').forEach(p=>p.style.display='none');
-      const target = document.getElementById(btn.dataset.target);
-      if (target) target.style.display = 'block';
+  if (window.__ADIWIRA_FILE_INDEX_INIT__) return;
+  window.__ADIWIRA_FILE_INDEX_INIT__ = true;
 
-      // ✅ kalau buka tab list, refresh supaya selalu latest
-      if (btn.dataset.target === 'panel-list') {
-        refreshListPanel({ silent:true, forcePage1:false });
-      }
-    });
-  });
+  const root = document.getElementById('file-manager-root');
+  if (!root) return;
 
-  // fallback modal open
-  window.adamModalOpen = window.adamModalOpen || function(url, opts){
-    const bd = document.getElementById('adam-modal-backdrop');
-    const box = document.getElementById('adam-modal');
-    fetch(url, { credentials: 'include', cache:'no-store' })
-      .then(r => r.text())
-      .then(html => {
-        box.innerHTML = html;
-        bd.style.display = 'flex';
-        bd.onclick = (e) => { if (e.target === bd) { bd.style.display='none'; box.innerHTML=''; } };
-      })
-      .catch(err => alert('Modal load error: ' + err.message));
-  };
+  const tabs = root.querySelectorAll('.tab-btn');
+  const panelAdd = document.getElementById('file-panel-add');
+  const panelList = document.getElementById('file-panel-list');
+  const modalBackdrop = document.getElementById('adam-modal-backdrop');
+  const modalBox = document.getElementById('adam-modal');
 
-  function getCurrentListState() {
-    const qEl = document.getElementById('media-search');
-    const q = qEl ? (qEl.value || '').trim() : '';
-    const pEl = document.querySelector('.media-pagination strong');
-    const p = pEl ? parseInt((pEl.textContent || '1'), 10) : 1;
-    return { q, p: (isFinite(p) && p > 0 ? p : 1) };
+  function notify(message, type = 'info', duration = 4000) {
+    if (typeof window.showToast === 'function') {
+      window.showToast(message, type, duration);
+      return;
+    }
+    alert(message);
   }
 
-  // ✅ refresh list: replace ONLY .media-list
-  async function refreshListPanel(opts = {}) {
+  function getCsrfToken() {
+    const el = document.getElementById('csrf_token');
+    return el && el.value ? el.value : '';
+  }
+
+  async function readJsonSafe(res) {
+    const txt = await res.text();
+    let j = null;
+    try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
+    return { txt, j };
+  }
+
+  function activateTab(name) {
+    tabs.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.target === name);
+    });
+
+    if (panelAdd) panelAdd.style.display = (name === 'add') ? '' : 'none';
+    if (panelList) panelList.style.display = (name === 'list') ? '' : 'none';
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', name);
+      history.replaceState(null, '', url.toString());
+    } catch (e) {}
+  }
+
+  function getCurrentQuery() {
+    const qEl = panelList ? panelList.querySelector('#media-search') : null;
+    return qEl ? (qEl.value || '').trim() : '';
+  }
+
+  function getCurrentPage() {
+    const activeEl = panelList ? panelList.querySelector('.media-pagination strong[data-page]') : null;
+    if (!activeEl) return 1;
+    const p = parseInt(activeEl.getAttribute('data-page') || activeEl.textContent || '1', 10);
+    return (Number.isFinite(p) && p > 0) ? p : 1;
+  }
+
+  function injectHtmlWithScripts(container, html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    let bodyHtml = '';
+    Array.from(doc.body.childNodes).forEach(node => {
+      if (node.nodeName && node.nodeName.toLowerCase() === 'script') return;
+      bodyHtml += node.outerHTML || node.textContent || '';
+    });
+
+    container.innerHTML = bodyHtml;
+
+    Array.from(doc.querySelectorAll('script')).forEach(oldScript => {
+      const s = document.createElement('script');
+      if (oldScript.src) {
+        s.src = oldScript.src;
+        s.async = false;
+      } else {
+        s.textContent = oldScript.textContent || '';
+      }
+      document.body.appendChild(s);
+    });
+  }
+
+  async function refreshFileListPanel(opts = {}) {
+    if (!panelList) return;
+
     const silent = !!opts.silent;
     const forcePage1 = !!opts.forcePage1;
 
-    const panel = document.getElementById('panel-list');
-    if (!panel) return;
-
-    const st = getCurrentListState();
-    const q = st.q;
-    const p = forcePage1 ? 1 : st.p;
+    const q = getCurrentQuery();
+    const p = forcePage1 ? 1 : getCurrentPage();
 
     const url = '/adiwira/admin/file/list.php'
       + '?q=' + encodeURIComponent(q)
@@ -87,239 +140,345 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
       + '&_ts=' + Date.now();
 
     try {
-      const res = await fetch(url, { credentials:'include', cache:'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const html = await res.text();
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store'
+      });
 
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const html = await res.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       const fresh = doc.querySelector('.media-list');
-      const cur = panel.querySelector('.media-list');
 
-      if (fresh && cur) {
-        cur.replaceWith(fresh);
-      } else if (fresh && !cur) {
-        panel.innerHTML = '';
-        panel.appendChild(fresh);
+      if (fresh) {
+        panelList.innerHTML = '';
+        panelList.appendChild(fresh);
       } else {
-        panel.innerHTML = html;
+        panelList.innerHTML = html;
       }
     } catch (err) {
-      console.error('Gagal refresh list:', err);
-      if (!silent) alert('Gagal memuat daftar file: ' + err.message);
+      console.error('refreshFileListPanel error:', err);
+      if (!silent) notify('Gagal memuat daftar file: ' + (err.message || err), 'error', 6000);
     }
   }
 
-  // listen for events to refresh
-  document.addEventListener('file:updated', () => refreshListPanel({ silent:true, forcePage1:false }));
-  document.addEventListener('file:deleted', () => refreshListPanel({ silent:true, forcePage1:false }));
-  document.addEventListener('file:added',   () => refreshListPanel({ silent:true, forcePage1:true }));
+  window.refreshFileListPanel = refreshFileListPanel;
 
-  // legacy compatibility
-  document.addEventListener('media:updated', () => refreshListPanel({ silent:true, forcePage1:false }));
-  document.addEventListener('media:deleted', () => refreshListPanel({ silent:true, forcePage1:false }));
-  document.addEventListener('media:added',   () => refreshListPanel({ silent:true, forcePage1:true }));
+  window.adamModalOpen = window.adamModalOpen || async function(url){
+    try {
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store'
+      });
 
-  // expose
-  window.refreshFileListPanel = refreshListPanel;
-})();
-</script>
+      if (!res.ok) throw new Error('HTTP ' + res.status);
 
-<script>
-(function(){
-  // try close modal (works with existing adamModalClose or fallback)
-  function closeModalFallback() {
-    if (typeof window.adamModalClose === 'function') {
-      try { window.adamModalClose(); return; } catch(e){}
+      const html = await res.text();
+
+      if (!modalBackdrop || !modalBox) {
+        window.open(url, '_blank');
+        return;
+      }
+
+      injectHtmlWithScripts(modalBox, html);
+      modalBackdrop.style.display = 'flex';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+    } catch (err) {
+      notify('Modal load error: ' + (err.message || err), 'error', 6000);
     }
-    const bd = document.getElementById('adam-modal-backdrop');
-    if (bd) bd.style.display = 'none';
+  };
+
+  window.adamModalClose = function(){
+    if (!modalBackdrop || !modalBox) return;
+    modalBackdrop.style.display = 'none';
+    modalBox.innerHTML = '';
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+  };
+
+  if (modalBackdrop) {
+    modalBackdrop.addEventListener('click', function(e){
+      if (e.target === modalBackdrop) {
+        window.adamModalClose();
+      }
+    });
   }
 
-  function showError(err) {
-    console.error(err);
-    try { alert(typeof err === 'string' ? err : (err.message || JSON.stringify(err))); } catch(e){}
-  }
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && modalBackdrop && modalBackdrop.style.display === 'flex') {
+      window.adamModalClose();
+    }
+  });
 
-  // Delegated click handler (handles Save / Delete / Copy / Remove)
+  tabs.forEach(btn => {
+    btn.addEventListener('click', async function(){
+      const target = btn.dataset.target || 'add';
+      activateTab(target);
+
+      if (target === 'list') {
+        await refreshFileListPanel({ silent: true, forcePage1: false });
+      }
+    });
+  });
+
   document.addEventListener('click', async function(ev){
     const target = ev.target;
 
-    // ---- FILE SAVE (button id="file-save-btn") ----
+    const openBtn = target.closest('.btn-open');
+    if (openBtn) {
+      ev.preventDefault();
+      const id = openBtn.getAttribute('data-id') || '';
+      if (!id) return;
+      window.adamModalOpen('/adiwira/admin/file/single.php?id=' + encodeURIComponent(id));
+      return;
+    }
+
+    const searchBtn = target.closest('#media-search-btn');
+    if (searchBtn) {
+      ev.preventDefault();
+      activateTab('list');
+      await refreshFileListPanel({ silent: false, forcePage1: true });
+      return;
+    }
+
+    const pageLink = target.closest('.media-page-link');
+    if (pageLink) {
+      ev.preventDefault();
+
+      const q = pageLink.getAttribute('data-q') || getCurrentQuery();
+      const p = parseInt(pageLink.getAttribute('data-page') || '1', 10) || 1;
+
+      try {
+        const url = '/adiwira/admin/file/list.php'
+          + '?q=' + encodeURIComponent(q)
+          + '&p=' + encodeURIComponent(p)
+          + '&_ts=' + Date.now();
+
+        const res = await fetch(url, {
+          credentials: 'include',
+          cache: 'no-store'
+        });
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        const html = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const fresh = doc.querySelector('.media-list');
+
+        if (fresh && panelList) {
+          panelList.innerHTML = '';
+          panelList.appendChild(fresh);
+        }
+      } catch (err) {
+        notify('Gagal memuat halaman file: ' + (err.message || err), 'error', 6000);
+      }
+      return;
+    }
+
     const saveBtn = target.closest('#file-save-btn');
     if (saveBtn) {
       ev.preventDefault();
-      const btn = saveBtn;
-      const form = btn.closest('form');
-      if (!form) { return showError('Form not found for save'); }
 
-      btn.disabled = true;
+      const form = saveBtn.closest('form');
+      if (!form) return;
+
+      saveBtn.disabled = true;
+
       const fd = new FormData(form);
-
-      // (opsional) kirim csrf kalau ada
-      const csrf = document.getElementById('csrf_token') && document.getElementById('csrf_token').value ? document.getElementById('csrf_token').value : '';
+      const csrf = getCsrfToken();
       if (csrf && !fd.get('csrf_token')) fd.append('csrf_token', csrf);
 
       try {
         const res = await fetch('/adiwira/admin/file/save.php', {
           method: 'POST',
           credentials: 'include',
+          cache: 'no-store',
           body: fd
         });
-        const j = await res.json();
+
+        const { txt, j } = await readJsonSafe(res);
+
+        if (!res.ok) {
+          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          return;
+        }
+
         if (j && j.ok) {
-          try { document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j })); } catch(e){}
-          try { document.dispatchEvent(new CustomEvent('media:updated', { detail: j.file || j })); } catch(e){}
-          alert('Saved ✔');
-          closeModalFallback();
+          notify('Saved ✔', 'success', 3500);
+          document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
-          showError(j && (j.error || (j.errors && j.errors.join ? j.errors.join(', ') : JSON.stringify(j))) || 'Save failed');
+          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
         }
       } catch (err) {
-        showError(err);
+        notify('Network error: ' + (err.message || err), 'error', 6000);
       } finally {
-        btn.disabled = false;
+        saveBtn.disabled = false;
       }
       return;
     }
 
-    // ---- FILE DELETE (button id="file-delete-btn" or preview .remove-btn) ----
-    const deleteBtn = target.closest('#file-delete-btn, .remove-btn');
+    const deleteBtn = target.closest('#file-delete-btn');
     if (deleteBtn) {
       ev.preventDefault();
+
       if (!confirm('Hapus file ini secara permanen?')) return;
 
-      let id = null;
       const form = deleteBtn.closest('form');
-      if (form) {
-        const idEl = form.querySelector('input[name="id"]');
-        if (idEl) id = idEl.value;
-      }
-      if (!id && deleteBtn.dataset && deleteBtn.dataset.id) id = deleteBtn.dataset.id;
+      if (!form) return;
 
+      deleteBtn.disabled = true;
+
+      const idEl = form.querySelector('input[name="id"]');
       const fd = new FormData();
-      if (id) fd.append('id', id);
-      else {
-        const url = deleteBtn.dataset.url || (form ? (form.querySelector('input[name="url"]') ? form.querySelector('input[name="url"]').value : '') : '');
-        if (url) fd.append('url', url);
-      }
+      if (idEl && idEl.value) fd.append('id', idEl.value);
 
-      const csrf = document.getElementById('csrf_token') && document.getElementById('csrf_token').value ? document.getElementById('csrf_token').value : '';
-      if (csrf && !fd.get('csrf_token')) fd.append('csrf_token', csrf);
+      const csrf = getCsrfToken();
+      if (csrf) fd.append('csrf_token', csrf);
 
       try {
         const res = await fetch('/adiwira/admin/file/delete.php', {
           method: 'POST',
           credentials: 'include',
+          cache: 'no-store',
           body: fd
         });
-        const j = await res.json();
+
+        const { txt, j } = await readJsonSafe(res);
+
+        if (!res.ok) {
+          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          return;
+        }
+
         if (j && j.ok) {
-          try { document.dispatchEvent(new CustomEvent('file:deleted', { detail: j })); } catch(e){}
-          try { document.dispatchEvent(new CustomEvent('media:deleted', { detail: j })); } catch(e){}
-          alert('Deleted ✔');
-          if (deleteBtn.closest('.thumb')) deleteBtn.closest('.thumb').remove();
-          closeModalFallback();
+          notify('Deleted ✔', 'success', 3500);
+          document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
+          window.adamModalClose();
         } else {
-          showError(j && (j.error || (j.errors && j.errors.join ? j.errors.join(', ') : JSON.stringify(j))) || 'Delete failed');
+          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
         }
       } catch (err) {
-        showError(err);
+        notify('Network error: ' + (err.message || err), 'error', 6000);
+      } finally {
+        deleteBtn.disabled = false;
       }
       return;
     }
 
-    // ---- COPY URL (data-action="copy-url") ----
     const copyBtn = target.closest('[data-action="copy-url"], .copy-btn');
     if (copyBtn) {
       ev.preventDefault();
-      const form = copyBtn.closest('form');
-      let prefixEl = form ? form.querySelector('#media-url-prefix') : document.getElementById('media-url-prefix');
-      let pathEl   = form ? form.querySelector('#media-url-path')   : document.getElementById('media-url-path');
-      const prefix = prefixEl ? prefixEl.textContent.trim() : '';
-      const path = pathEl ? pathEl.value.trim() : '';
 
-      let full = path;
-      try {
-        const u = new URL(path, window.location.origin);
-        full = u.href;
-        if (prefix && !path.match(/^https?:\/\//i)) full = prefix.replace(/\/$/, '') + path;
-      } catch (e) {
-        if (prefix && path) full = prefix.replace(/\/$/, '') + path;
+      const scope = copyBtn.closest('form') || copyBtn.closest('.single-file') || document;
+      const prefixEl = scope.querySelector('#file-url-prefix') || document.getElementById('file-url-prefix');
+      const pathEl = scope.querySelector('#file-url-path') || document.getElementById('file-url-path');
+
+      const prefix = prefixEl ? (prefixEl.textContent || '').trim() : window.location.origin;
+      const path = pathEl ? (pathEl.value || '').trim() : '';
+
+      if (!path) {
+        notify('URL tidak ditemukan', 'error', 5000);
+        return;
       }
 
-      if (!full) return alert('URL tidak ditemukan');
+      let full = path;
+      if (!/^https?:\/\//i.test(path)) {
+        full = prefix.replace(/\/$/, '') + path;
+      }
 
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(full).then(()=> alert('Copied: ' + full)).catch(err => showError(err));
+      const fallbackCopy = (text) => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', 'readonly');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          notify('Copied: ' + text, 'success', 3000);
+        } catch (e) {
+          notify('Gagal menyalin', 'error', 5000);
+        }
+        document.body.removeChild(ta);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+        navigator.clipboard.writeText(full).then(() => {
+          notify('Copied: ' + full, 'success', 3000);
+        }).catch(() => fallbackCopy(full));
       } else {
-        if (pathEl && pathEl.select) { pathEl.select(); try { document.execCommand('copy'); alert('Copied: ' + full); } catch(e){ showError(e); } }
-        else alert('Clipboard tidak tersedia');
+        fallbackCopy(full);
       }
       return;
     }
 
+    const bulkBtn = target.closest('#delete-bulk-btn');
+    if (bulkBtn) {
+      ev.preventDefault();
+
+      const checked = Array.from(root.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+      if (checked.length < 1) {
+        notify('Pilih minimal satu file untuk dihapus.', 'error', 5000);
+        return;
+      }
+
+      if (!confirm('Hapus ' + checked.length + ' file?')) return;
+
+      const fd = new FormData();
+      checked.forEach(id => fd.append('ids[]', id));
+
+      const csrf = getCsrfToken();
+      if (csrf) fd.append('csrf_token', csrf);
+
+      try {
+        const res = await fetch('/adiwira/admin/file/delete_bulk.php', {
+          method: 'POST',
+          credentials: 'include',
+          cache: 'no-store',
+          body: fd
+        });
+
+        const { txt, j } = await readJsonSafe(res);
+
+        if (!res.ok) {
+          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          return;
+        }
+
+        if (j && j.ok) {
+          notify('Deleted: ' + (j.deleted_count || checked.length), 'success', 3500);
+          document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
+        } else {
+          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
+        }
+      } catch (err) {
+        notify('Network error: ' + (err.message || err), 'error', 6000);
+      }
+      return;
+    }
   }, false);
 
-  if (!window.__fileDelegationInstalled) {
-    console.log('File manager delegation installed (save/delete/copy).');
-    window.__fileDelegationInstalled = true;
-  }
-})();
-</script>
-
-<script>
-(function(){
-  // Tabs (enhanced): activate tab by ?tab=add|list or #panel-add / #add
-  const tabs = document.querySelectorAll('.tab-btn');
-
-  function activateTabBtn(btn) {
-    if (!btn) return;
-    tabs.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('[id^="panel-"]').forEach(p => p.style.display = 'none');
-    const target = btn.dataset.target;
-    if (target) {
-      const panel = document.getElementById(target);
-      if (panel) panel.style.display = 'block';
+  document.addEventListener('change', function(ev){
+    const target = ev.target;
+    if (target && target.id === 'select-all') {
+      const checked = !!target.checked;
+      root.querySelectorAll('.row-checkbox').forEach(cb => {
+        cb.checked = checked;
+      });
     }
-    try {
-      const name = (btn.dataset.target || '').replace(/^panel-/, '');
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', name);
-      history.replaceState(null, '', url.toString());
-    } catch (e) {}
-  }
-
-  tabs.forEach(btn => {
-    btn.addEventListener('click', () => activateTabBtn(btn));
   });
 
-  function pickInitialTab() {
-    const params = new URLSearchParams(window.location.search);
-    let tab = params.get('tab') || '';
-    if (!tab && window.location.hash) {
-      tab = window.location.hash.replace('#', '');
-      if (tab.indexOf('panel-') === 0) tab = tab.replace(/^panel-/, '');
-    }
-    tab = (tab || '').toLowerCase();
-    let targetName = 'add';
-    if (tab === 'list' || tab === 'panel-list') targetName = 'list';
-    if (tab === 'add' || tab === 'panel-add') targetName = 'add';
+  document.addEventListener('file:updated', () => refreshFileListPanel({ silent: true, forcePage1: false }));
+  document.addEventListener('file:deleted', () => refreshFileListPanel({ silent: true, forcePage1: false }));
+  document.addEventListener('file:added',   () => refreshFileListPanel({ silent: true, forcePage1: true }));
 
-    const desired = Array.from(tabs).find(b => {
-      const dt = b.dataset.target || '';
-      return dt === ('panel-' + targetName) || b.dataset.target === targetName;
-    });
-    if (desired) activateTabBtn(desired);
-    else activateTabBtn(tabs[0]);
-  }
-
-  pickInitialTab();
-
-  if (!window.__fileTabsInstalled) {
-    console.log('File tabs: enhanced tab handling installed.');
-    window.__fileTabsInstalled = true;
+  if ('<?= $initialTab ?>' === 'list') {
+    refreshFileListPanel({ silent: true, forcePage1: false });
   }
 })();
 </script>

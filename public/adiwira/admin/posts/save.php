@@ -264,7 +264,14 @@ $final_updated = $pu ?: $now;
 
 $final_creator = (int)($existing['created_by'] ?? $uid);
 if ($role === 'admin' && $created_by_in > 0) {
-    $chk = $pdo->prepare("SELECT id FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+    $chk = $pdo->prepare("
+    SELECT id
+    FROM users
+    WHERE id = :id
+      AND is_deleted = 0
+      AND is_locked = 0
+    LIMIT 1
+");
     $chk->execute([':id' => $created_by_in]);
     if ($chk->fetchColumn()) {
         $final_creator = $created_by_in;

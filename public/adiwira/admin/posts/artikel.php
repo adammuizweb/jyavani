@@ -5,22 +5,9 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     exit('Forbidden');
 }
 
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) {
-    http_response_code(403);
-    exit('Akses ditolak: belum login.');
-}
+require_once __DIR__ . '/../_guard.php';
 
-$role = function_exists('current_user_role') ? (current_user_role($pdo) ?: null) : null;
-$role = $role ?: ($_SESSION['user_role'] ?? 'guest');
-$role = is_string($role) ? strtolower(trim($role)) : 'guest';
-$_SESSION['user_role'] = $role;
-
-if (!in_array($role, ['author','editor','admin'], true)) {
-    http_response_code(403);
-    exit('Akses ditolak.');
-}
+[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {

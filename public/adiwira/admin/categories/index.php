@@ -1,21 +1,24 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/categories/index.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
   http_response_code(403);
   exit('Forbidden');
 }
 
+require_once __DIR__ . '/../_guard.php';
+
+[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+
 $messages = [];
 $errors   = [];
 
-// session flash
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-
-// legacy fallback (kalau ada endpoint lama masih pakai query)
+// legacy fallback
 if (!empty($_GET['msg'])) $messages[] = urldecode((string)$_GET['msg']);
 if (!empty($_GET['err'])) $errors[]   = urldecode((string)$_GET['err']);
 
-// ===== ambil flash dari endpoint baru (bulk/delete) =====
+// flash session
 $flash = $_SESSION['flash'] ?? [];
 unset($_SESSION['flash']);
 
@@ -36,8 +39,8 @@ if (is_array($flash)) {
 $messages = array_values(array_unique($messages));
 $errors   = array_values(array_unique($errors));
 
-// filters / search
-$search        = trim($_GET['q'] ?? '');
+// filters
+$search        = trim((string)($_GET['q'] ?? ''));
 $filter_parent = (int)($_GET['parent'] ?? 0);
 $filter_author = (int)($_GET['author'] ?? 0);
 
@@ -46,7 +49,7 @@ $page_num = max(1, (int)($_GET['p'] ?? 1));
 $per_page = 20;
 $offset   = ($page_num - 1) * $per_page;
 
-// build where + params
+// query builder
 $where  = ["c.is_deleted = 0"];
 $params = [];
 
@@ -65,19 +68,17 @@ if ($filter_author > 0) {
 
 $where_sql = implode(' AND ', $where);
 
-// total count (awal, akan di-recompute setelah flatten)
-$count_sql  = "SELECT COUNT(*) FROM categories c WHERE $where_sql";
-$countStmt  = $pdo->prepare($count_sql);
-$countStmt->execute($params);
-$total = (int)$countStmt->fetchColumn();
-$pages = max(1, (int)ceil($total / $per_page));
-
-// ============================================================================
-// Ambil semua kategori yang match filter (tanpa LIMIT/OFFSET) -> flatten tree
-// ============================================================================
+// ambil kategori yang match filter
 $sql = "
   SELECT 
-    c.id, c.name, c.slug, c.description, c.parent_id, c.created_at, c.updated_at,
+    c.id,
+    c.name,
+    c.slug,
+    c.description,
+    c.parent_id,
+    c.created_at,
+    c.updated_at,
+    c.created_by,
     COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS created_by_label,
     SUM(
       CASE 
@@ -96,9 +97,9 @@ $sql = "
 $stmt = $pdo->prepare($sql);
 foreach ($params as $k => $v) $stmt->bindValue($k, $v);
 $stmt->execute();
-$allCategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$allCategories = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-// jika search, ambil semua ancestor agar tree dari root tidak putus
+// jika search aktif, ambil semua ancestor agar tree tidak putus
 if ($search !== '' && !empty($allCategories)) {
   $existingIds = array_map(fn($r) => (int)$r['id'], $allCategories);
   $needParents = [];
@@ -115,7 +116,14 @@ if ($search !== '' && !empty($allCategories)) {
     $placeholders = implode(',', array_fill(0, count($needParents), '?'));
     $ancestorSql = "
       SELECT 
-        c.id, c.name, c.slug, c.description, c.parent_id, c.created_at, c.updated_at,
+        c.id,
+        c.name,
+        c.slug,
+        c.description,
+        c.parent_id,
+        c.created_at,
+        c.updated_at,
+        c.created_by,
         COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS created_by_label,
         SUM(
           CASE 
@@ -132,7 +140,7 @@ if ($search !== '' && !empty($allCategories)) {
     ";
     $stmt2 = $pdo->prepare($ancestorSql);
     $stmt2->execute($needParents);
-    $rows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    $rows = $stmt2->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     $nextMissing = [];
     foreach ($rows as $r) {
@@ -161,11 +169,14 @@ foreach ($allCategories as $r) {
   $children[$pid][] = $id;
 }
 
-// helper path: parent/child/grandchild
+// helper path
 $categoryPathCache = [];
-function build_category_path(array $catsById, int $catId, array &$cache): ?string {
-  if (isset($cache[$catId])) return $cache[$catId];
-  if (!isset($catsById[$catId])) { $cache[$catId] = null; return null; }
+$buildCategoryPath = function(int $catId) use (&$catsById, &$categoryPathCache): ?string {
+  if (isset($categoryPathCache[$catId])) return $categoryPathCache[$catId];
+  if (!isset($catsById[$catId])) {
+    $categoryPathCache[$catId] = null;
+    return null;
+  }
 
   $segments = [];
   $cur = $catId;
@@ -173,22 +184,26 @@ function build_category_path(array $catsById, int $catId, array &$cache): ?strin
 
   while ($cur && isset($catsById[$cur]) && !in_array($cur, $seen, true)) {
     $seen[] = $cur;
-    $slug = $catsById[$cur]['slug'] ?? '';
+    $slug = (string)($catsById[$cur]['slug'] ?? '');
     if ($slug !== '') array_unshift($segments, $slug);
-    $cur = $catsById[$cur]['parent_id'] ?? 0;
+    $cur = (int)($catsById[$cur]['parent_id'] ?? 0);
     if ($cur === 0) break;
   }
 
-  if (empty($segments)) { $cache[$catId] = null; return null; }
+  if (empty($segments)) {
+    $categoryPathCache[$catId] = null;
+    return null;
+  }
+
   $path = implode('/', $segments);
-  $cache[$catId] = $path;
+  $categoryPathCache[$catId] = $path;
   return $path;
-}
+};
 
 // flatten tree
 $flatCats = [];
 $visited = [];
-function traverse_categories(array $children, array $catsById, array &$flatCats, array &$visited, int $parentId = 0, int $depth = 0) {
+$traverseCategories = function(int $parentId = 0, int $depth = 0) use (&$children, &$catsById, &$flatCats, &$visited, &$traverseCategories): void {
   if (empty($children[$parentId])) return;
   foreach ($children[$parentId] as $cid) {
     if (isset($visited[$cid])) continue;
@@ -196,12 +211,12 @@ function traverse_categories(array $children, array $catsById, array &$flatCats,
     $item = $catsById[$cid];
     $item['depth'] = $depth;
     $flatCats[] = $item;
-    traverse_categories($children, $catsById, $flatCats, $visited, $cid, $depth + 1);
+    $traverseCategories($cid, $depth + 1);
   }
-}
-traverse_categories($children, $catsById, $flatCats, $visited, 0, 0);
+};
+$traverseCategories(0, 0);
 
-// recompute pagination based on flattened list
+// pagination after flatten
 $total = count($flatCats);
 $pages = max(1, (int)ceil($total / $per_page));
 if ($page_num > $pages) $page_num = $pages;
@@ -209,61 +224,69 @@ $offset = ($page_num - 1) * $per_page;
 
 $categories_list = array_slice($flatCats, $offset, $per_page);
 
-// build parent options (hierarchical) for filter and bulk dropdowns
+// build parent options
 $parentOptions = [];
 $visitedOptions = [];
-function build_parent_options(array $children, array $catsById, array &$parentOptions, array &$visitedOptions, int $parentId = 0, int $depth = 0) {
+$buildParentOptions = function(int $parentId = 0, int $depth = 0) use (&$children, &$catsById, &$parentOptions, &$visitedOptions, &$buildParentOptions): void {
   if (empty($children[$parentId])) return;
   foreach ($children[$parentId] as $cid) {
     if (isset($visitedOptions[$cid])) continue;
     $visitedOptions[$cid] = true;
-    $label = str_repeat('— ', $depth) . ($catsById[$cid]['name'] ?? '');
+    $label = str_repeat('— ', $depth) . (string)($catsById[$cid]['name'] ?? '');
     $parentOptions[] = ['id' => $cid, 'label' => $label];
-    build_parent_options($children, $catsById, $parentOptions, $visitedOptions, $cid, $depth + 1);
+    $buildParentOptions($cid, $depth + 1);
   }
-}
-build_parent_options($children, $catsById, $parentOptions, $visitedOptions, 0, 0);
+};
+$buildParentOptions(0, 0);
 
 // authors for filter
-$authorsStmt = $pdo->query("SELECT id, name, username FROM users WHERE is_deleted = 0 ORDER BY name ASC, username ASC");
-$authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC);
+$authorsStmt = $pdo->query("
+  SELECT id, name, username
+  FROM users
+  WHERE is_deleted = 0
+    AND is_locked = 0
+  ORDER BY name ASC, username ASC
+");
+$authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // base
 $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 
-$role = current_user_role($pdo) ?: 'guest';
-$canBulk = !in_array($role, ['author'], true);
+$canBulk   = in_array($role, ['editor', 'admin'], true);
+$canDelete = in_array($role, ['editor', 'admin'], true);
 
-// pagination helper
-function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
-  if ($total <= $max_visible) return range(1, $total);
+if (!function_exists('build_pagination_items')) {
+  function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
+    if ($total <= $max_visible) return range(1, $total);
 
-  $items = [];
-  $reserved = 6;
-  $middle_slots = max(1, $max_visible - $reserved);
-  $half = (int)floor($middle_slots / 2);
-  $start = max(3, $current - $half);
-  $end = min($total - 2, $current + $half);
+    $items = [];
+    $reserved = 6;
+    $middle_slots = max(1, $max_visible - $reserved);
+    $half = (int)floor($middle_slots / 2);
+    $start = max(3, $current - $half);
+    $end = min($total - 2, $current + $half);
 
-  if ($start === 3) $end = min($total - 2, $start + $middle_slots - 1);
-  if ($end === $total - 2) $start = max(3, $end - $middle_slots + 1);
+    if ($start === 3) $end = min($total - 2, $start + $middle_slots - 1);
+    if ($end === $total - 2) $start = max(3, $end - $middle_slots + 1);
 
-  $items[] = 1; $items[] = 2;
-  if ($start > 3) $items[] = '...';
-  for ($i = $start; $i <= $end; $i++) $items[] = $i;
-  if ($end < $total - 2) $items[] = '...';
-  $items[] = $total - 1;
-  $items[] = $total;
+    $items[] = 1;
+    $items[] = 2;
+    if ($start > 3) $items[] = '...';
+    for ($i = $start; $i <= $end; $i++) $items[] = $i;
+    if ($end < $total - 2) $items[] = '...';
+    $items[] = $total - 1;
+    $items[] = $total;
 
-  while (count($items) > $max_visible) {
-    for ($i = 0; $i < count($items); $i++) {
-      if (is_int($items[$i]) && !in_array($items[$i], [1,2,$total-1,$total], true)) {
-        array_splice($items, $i, 1);
-        break;
+    while (count($items) > $max_visible) {
+      for ($i = 0; $i < count($items); $i++) {
+        if (is_int($items[$i]) && !in_array($items[$i], [1,2,$total-1,$total], true)) {
+          array_splice($items, $i, 1);
+          break;
+        }
       }
     }
+    return $items;
   }
-  return $items;
 }
 $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
@@ -293,7 +316,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         $label = $a['name'] ?: ($a['username'] ?: $a['id']);
       ?>
         <option value="<?= (int)$a['id'] ?>" <?= $filter_author === (int)$a['id'] ? 'selected' : '' ?>>
-          <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+          <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
         </option>
       <?php endforeach; ?>
     </select>
@@ -398,13 +421,13 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             };
             $indentHtml = '<span class="cat-indent ' . $levelClass . '">' . $icon . '</span>';
 
-            $catPath = build_category_path($catsById, $catId, $categoryPathCache);
+            $catPath = $buildCategoryPath($catId);
             if ($catPath !== null && $catPath !== '') {
               $segments = array_map('rawurlencode', explode('/', $catPath));
               $href = '/category/' . implode('/', $segments) . '/';
-              $nameHtml = '<a class="adam-link" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') . '</a>';
+              $nameHtml = '<a class="adam-link" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8') . '</a>';
             } else {
-              $nameHtml = htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8');
+              $nameHtml = htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8');
             }
           ?>
             <tr>
@@ -428,14 +451,16 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
               <td>
                 <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/categories/edit&id=' . $catId, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
-                <button type="button"
-                        class="adam-hapus"
-                        data-id="<?= $catId ?>"
-                        data-name="<?= htmlspecialchars($cat['name'] ?? '', ENT_QUOTES) ?>"
-                        onclick="muizCategoriesOpenDeleteModal(this)">
-                  Hapus
-                </button>
+                <?php if ($canDelete): ?>
+                  &nbsp;<span class="muted-divider">|</span>&nbsp;
+                  <button type="button"
+                          class="adam-hapus"
+                          data-id="<?= $catId ?>"
+                          data-name="<?= htmlspecialchars((string)($cat['name'] ?? ''), ENT_QUOTES) ?>"
+                          onclick="muizCategoriesOpenDeleteModal(this)">
+                    Hapus
+                  </button>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -445,7 +470,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </div>
 
   <?php if ($canBulk): ?>
-    </form> <!-- end bulk form -->
+    </form>
   <?php endif; ?>
 
   <?php if ($pages > 1): ?>
@@ -466,7 +491,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <!-- 🧱 MODAL KONFIRMASI DELETE CATEGORY -->
   <div id="categoriesDeleteModal" class="adam-modal" role="dialog" aria-modal="true" aria-labelledby="categoriesDeleteModalTitle" style="display:none;">
     <div class="adam-modal__panel" role="document">
       <h3 id="categoriesDeleteModalTitle" class="adam-modal__title">Konfirmasi Hapus</h3>
@@ -484,7 +508,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </div>
   </div>
 
-  <!-- 🧱 MODAL KONFIRMASI BULK CATEGORY -->
   <div id="categoriesBulkConfirmModal" class="adam-modal" role="dialog" aria-modal="true" aria-labelledby="categoriesBulkConfirmTitle" style="display:none;">
     <div class="adam-modal__panel" role="document">
       <h3 id="categoriesBulkConfirmTitle" class="adam-modal__title">Konfirmasi Bulk Action</h3>
@@ -498,7 +521,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </div>
 
   <script>
-  // select all
   const selectAllCategories = document.getElementById('selectAllCategories');
   if (selectAllCategories) {
     selectAllCategories.addEventListener('change', function(){
@@ -507,7 +529,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     });
   }
 
-  // show/hide parent dropdown
   const bulkActionCategories = document.getElementById('bulkActionCategories');
   if (bulkActionCategories) {
     bulkActionCategories.addEventListener('change', function(){
@@ -516,9 +537,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     });
   }
 
-  // =========================================================
-  // Single delete modal
-  // =========================================================
   function muizCategoriesOpenDeleteModal(btn){
     const modal = document.getElementById('categoriesDeleteModal');
     if (!modal) return;
@@ -559,9 +577,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     if (e.key === 'Escape') muizCategoriesCloseDeleteModal();
   }
 
-  // =========================================================
-  // Bulk confirm modal
-  // =========================================================
   let _catBulkFormRef = null;
 
   function muizCategoriesGetBulkSummary(){

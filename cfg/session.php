@@ -297,6 +297,44 @@ if (!function_exists('current_user_global')) {
     }
 }
 
+if (!function_exists('current_user_status')) {
+    function current_user_status(PDO $pdo): array {
+        if (!is_logged_in()) {
+            return ['ok' => false, 'reason' => 'guest', 'user' => null];
+        }
+
+        $uid = (int)($_SESSION['user_id'] ?? 0);
+        if ($uid <= 0) {
+            return ['ok' => false, 'reason' => 'guest', 'user' => null];
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id LIMIT 1");
+        $stmt->execute([':id' => $uid]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return ['ok' => false, 'reason' => 'missing', 'user' => null];
+        }
+
+        if ((int)($row['is_deleted'] ?? 0) === 1) {
+            return ['ok' => false, 'reason' => 'deleted', 'user' => $row];
+        }
+
+        if ((int)($row['is_locked'] ?? 0) === 1) {
+            return ['ok' => false, 'reason' => 'locked', 'user' => $row];
+        }
+
+        return ['ok' => true, 'reason' => 'active', 'user' => $row];
+    }
+}
+
+if (!function_exists('current_user_active')) {
+    function current_user_active(PDO $pdo): ?array {
+        $status = current_user_status($pdo);
+        return ($status['ok'] === true) ? $status['user'] : null;
+    }
+}
+
 // ------------------------------------------------------------------
 // Stateless CSRF: HMAC signed tokens (no server state required)
 // ------------------------------------------------------------------

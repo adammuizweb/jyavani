@@ -5,86 +5,103 @@ declare(strict_types=1);
 ob_start();
 require_once __DIR__ . '/../_guard.php';
 
-// 1) Kalau orang buka URL ini langsung di browser: samarkan total sebagai 404 HTML
-if (adiwira_is_navigate_request()) {
-  http_response_code(404);
-  require __DIR__ . '/../../../frontend_404.php';
-  exit;
-}
+adiwira_cosmetic_404_on_direct_open();
 
-// 2) Untuk request programmatic (AJAX/fetch): pakai JSON
-adiwira_require_admin(true);
+[$uid, $role] = adiwira_require_editorial($pdo, true);
+$isAdmin = ($role === 'admin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok'=>false,'error'=>'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
 }
 
-$csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-if (!adiwira_csrf_validate(is_string($csrf) ? $csrf : '')) {
-    adiwira_json(['ok'=>false,'error'=>'CSRF invalid'], 419);
+$csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+if (!adiwira_csrf_validate($csrf)) {
+    adiwira_json(['ok' => false, 'error' => 'CSRF invalid'], 419);
 }
 
 $id  = (int)($_POST['id'] ?? 0);
 $url = trim((string)($_POST['url'] ?? ''));
 
 if ($id <= 0 && $url === '') {
-    adiwira_json(['ok'=>false,'error'=>'Missing id or url'], 400);
+    adiwira_json(['ok' => false, 'error' => 'Missing id or url'], 400);
 }
 
-// fetch row
-$row = null;
+if (!function_exists('file_static_root')) {
+    function file_static_root(): ?string {
+        $root = realpath(rtrim((string)PUBLIC_PATH, '/\\') . '/static');
+        return ($root && is_dir($root)) ? $root : null;
+    }
+}
+
+if (!function_exists('file_local_path_from_url')) {
+    function file_local_path_from_url(string $url): ?string {
+        $path = parse_url($url, PHP_URL_PATH) ?: '';
+        if (!is_string($path) || !str_starts_with($path, '/static/files/')) {
+            return null;
+        }
+
+        $static_root = file_static_root();
+        if (!$static_root) return null;
+
+        $rel = substr($path, strlen('/static'));
+        $local = $static_root . $rel;
+        $realLocal = realpath($local);
+
+        if ($realLocal && str_starts_with($realLocal, $static_root) && is_file($realLocal)) {
+            return $realLocal;
+        }
+
+        return null;
+    }
+}
+
 try {
     if ($id > 0) {
-        $stmt = $pdo->prepare("SELECT * FROM `file` WHERE id = :id LIMIT 1");
-        $stmt->execute([':id'=>$id]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $sql = "SELECT id, url FROM `file` WHERE id = :id";
+        $params = [':id' => $id];
     } else {
-        $stmt = $pdo->prepare("SELECT * FROM `file` WHERE url = :url LIMIT 1");
-        $stmt->execute([':url'=>$url]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $sql = "SELECT id, url FROM `file` WHERE url = :url";
+        $params = [':url' => $url];
     }
-} catch (Throwable $e) {
-    adiwira_json(['ok'=>false,'error'=>'DB error','detail'=>$e->getMessage()], 500);
-}
 
-// decide final values
-$deleted_id = 0;
-$final_url = $url;
+    if (!$isAdmin) {
+        $sql .= " AND user_id = :uid";
+        $params[':uid'] = $uid;
+    }
 
-if ($row) {
+    $sql .= " LIMIT 1";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row) {
+        adiwira_json(['ok' => false, 'error' => 'File not found'], 404);
+    }
+
     $deleted_id = (int)($row['id'] ?? 0);
-    $final_url = (string)($row['url'] ?? $url);
-}
+    $final_url = (string)($row['url'] ?? '');
 
-// delete physical file safely only under /static/files/
-$path = parse_url((string)$final_url, PHP_URL_PATH) ?: '';
-if (is_string($path) && strpos($path, '/static/files/') === 0) {
-    $static_root = realpath(rtrim((string)PUBLIC_PATH, '/\\') . '/static');
-    if ($static_root) {
-        $rel = substr($path, strlen('/static')); // begins with '/files/...'
-        $local = $static_root . $rel;
-        $real_local = realpath($local);
-        if ($real_local && strpos($real_local, $static_root) === 0 && is_file($real_local)) {
-            @unlink($real_local);
+    $warning = null;
+    $localFile = file_local_path_from_url($final_url);
+
+    if ($localFile && is_file($localFile)) {
+        if (!@unlink($localFile)) {
+            $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
         }
     }
-}
 
-// delete db row
-try {
-    if ($deleted_id > 0) {
-        $pdo->prepare("DELETE FROM `file` WHERE id = :id")->execute([':id'=>$deleted_id]);
-    } elseif ($final_url !== '') {
-        $pdo->prepare("DELETE FROM `file` WHERE url = :url")->execute([':url'=>$final_url]);
-    }
+    $pdo->prepare("DELETE FROM `file` WHERE id = :id LIMIT 1")->execute([':id' => $deleted_id]);
 
     adiwira_json([
-        'ok' => true,
-        'id' => $deleted_id,
-        'deleted_ids' => ($deleted_id > 0 ? [$deleted_id] : []),
-        'deleted_count' => ($deleted_id > 0 ? 1 : 0)
+        'ok'            => true,
+        'id'            => $deleted_id,
+        'deleted_ids'   => [$deleted_id],
+        'deleted_count' => 1,
+        'warning'       => $warning,
     ], 200);
 
 } catch (Throwable $e) {
-    adiwira_json(['ok'=>false,'error'=>'DB error','detail'=>$e->getMessage()], 500);
+    error_log('file/delete.php error: ' . $e->getMessage());
+    adiwira_json(['ok' => false, 'error' => 'Server error'], 500);
 }

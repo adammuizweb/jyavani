@@ -8,22 +8,21 @@ ini_set('display_startup_errors', '1');
 
 require_once __DIR__ . '/bootstrap.php';
 
-// ✅ Start/resume session sedini mungkin (hindari “kadang belum kebaca role”)
+// Resume session yang sudah ada saja.
+// Jangan create session baru untuk guest di halaman dashboard.
 if (!headers_sent()) {
     if (function_exists('ensure_session_started')) {
-        // true = “pastikan sesi aktif” (sesuai pemakaianmu sebelumnya)
-        ensure_session_started(true);
+        ensure_session_started(false);
     } elseif (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
 }
 
-// Optional debug
 if (function_exists('sess_dbg')) {
     sess_dbg("adiwira/index.php: request start");
 }
 
-// Auth gate
+// Gate 1: session valid?
 try {
     if (!is_logged_in()) {
         http_response_code(404);
@@ -39,33 +38,36 @@ try {
     exit;
 }
 
-// Logged in → dashboard context
-define('DASHBOARD_CONTEXT', true);
-
-// ✅ Ensure session still active (safe)
-if (!headers_sent()) {
-    if (function_exists('ensure_session_started')) {
-        ensure_session_started(true);
-    } elseif (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-}
-
-// Load user
-$user = null;
+// Gate 2: user masih aktif di DB?
 try {
-    $user = current_user($pdo);
+    $status = current_user_status($pdo);
+
+    if (($status['ok'] ?? false) !== true) {
+        if (function_exists('sess_dbg')) {
+            sess_dbg("adiwira/index.php: blocked user reason=" . ($status['reason'] ?? 'unknown'));
+        }
+
+        logout_user();
+
+        http_response_code(404);
+        require __DIR__ . '/../frontend_404.php';
+        exit;
+    }
+
+    $user = $status['user'];
 } catch (Throwable $e) {
     if (function_exists('sess_dbg')) {
-        sess_dbg("adiwira/index.php: current_user exception: " . $e->getMessage());
+        sess_dbg("adiwira/index.php: current_user_status exception: " . $e->getMessage());
     }
-    // kalau user gagal dimuat, ini serius, karena dashboard butuh identity
     http_response_code(500);
     echo "Internal error (user load failed).";
     exit;
 }
 
-// ✅ FIX: sinkronkan role dari DB → session (agar aside.php stabil)
+// dashboard context
+define('DASHBOARD_CONTEXT', true);
+
+// sinkronkan role dari DB -> session
 if (is_array($user)) {
     $role = $user['role'] ?? $user['user_role'] ?? null;
     if (is_string($role) && $role !== '') {
@@ -73,12 +75,12 @@ if (is_array($user)) {
     }
 }
 
-// Flash
+// flash
 $flash_success = null;
 if (!empty($_SESSION['flash_success'])) {
     $flash_success = $_SESSION['flash_success'];
     unset($_SESSION['flash_success']);
 }
 
-// Render
+// render
 require_once DASH_PATH . '/theme/adam/layout.php';

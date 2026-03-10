@@ -10,6 +10,7 @@
    -------------------------------------------------------------------------- */
 body {
   font-family:
+  "Poppins", sans-serif,
     "Comic Sans MS",
     "Comic Sans",
     Tahoma,
@@ -122,7 +123,7 @@ html.theme-dark .adam-btn-open { box-shadow: 0 0 12px rgba(0,0,0,0.35); }
    3) BODY & TYPOGRAPHY
    ============================ */
 body {
-  font-family: "Comic Sans MS", "Comic Sans", Tahoma, "Times New Roman", Times, serif;
+  font-family: "Poppins", sans-serif, "Comic Sans MS", "Comic Sans", Tahoma, "Times New Roman", Times, serif;
   background: var(--surface-hover);
   color: var(--text);
   min-height: 100vh; /* Penting untuk footer */
@@ -513,6 +514,229 @@ h2 a:hover {
   }
 }
 
+/* ============================
+   TABEL GLOBAL 
+   ============================ */
+/* =========================================================
+   GLOBAL TABLE STYLE
+   - langsung target tag table (tanpa class)
+   - zebra row
+   - hover row
+   - gradient header
+   - compatible light / dark theme
+========================================================= */
+
+/* turunan warna tabel dari sistem tema yang sudah ada */
+:root{
+  --table-bg: var(--surface);
+  --table-text: var(--text);
+  --table-border: var(--border);
+  --table-head-text: #ffffff;
+
+  --table-zebra: #f8fbfd;
+  --table-hover: #eef8fb;
+
+  --table-grad-1: #00A89E;
+  --table-grad-2: #1A73E8;
+  --table-grad-3: #7c3aed;
+
+  --table-shadow: 0 10px 26px rgba(2, 6, 23, 0.08);
+  --table-radius: 16px;
+}
+
+html.theme-dark{
+  --table-bg: var(--surface);
+  --table-text: var(--text);
+  --table-border: var(--border);
+  --table-head-text: #f8fbff;
+
+  --table-zebra: #111b2a;
+  --table-hover: #162334;
+
+  --table-grad-1: #00A89E;
+  --table-grad-2: #1A73E8;
+  --table-grad-3: #8b5cf6;
+
+  --table-shadow: 0 12px 28px rgba(0, 0, 0, 0.34);
+}
+
+/* tabel global */
+table{
+  width: 100%;
+  margin: 1.25rem 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--table-bg);
+  color: var(--table-text);
+  border: 1px solid var(--table-border);
+  border-radius: var(--table-radius);
+  box-shadow: var(--table-shadow);
+  overflow: hidden;
+}
+
+/* caption opsional */
+table caption{
+  caption-side: top;
+  text-align: left;
+  padding: 0 0 .75rem 0;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* header gradient */
+table thead{
+  position: relative;
+  isolation: isolate;
+  color: var(--table-head-text);
+}
+
+table thead::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    var(--table-grad-1) 0%,
+    var(--table-grad-2) 55%,
+    var(--table-grad-3) 100%
+  );
+}
+
+/* cell umum */
+table th,
+table td{
+  padding: .9rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+/* header cell */
+table thead th{
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: var(--table-head-text);
+  font-size: .82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid rgba(255,255,255,.18);
+  white-space: nowrap;
+}
+
+table thead th + th{
+  border-left: 1px solid rgba(255,255,255,.18);
+}
+
+/* body cell */
+table tbody td{
+  background: var(--table-bg);
+  border-bottom: 1px solid var(--table-border);
+}
+
+table tbody td + td{
+  border-left: 1px solid var(--table-border);
+}
+
+/* zebra */
+table tbody tr:nth-child(even) td{
+  background: var(--table-zebra);
+}
+
+/* hover */
+table tbody tr:hover td{
+  background: var(--table-hover);
+  transition: background-color .18s ease;
+}
+
+/* baris terakhir rapih */
+table tbody tr:last-child td{
+  border-bottom: 0;
+}
+
+/* sudut membulat */
+table thead tr:first-child th:first-child{
+  border-top-left-radius: var(--table-radius);
+}
+table thead tr:first-child th:last-child{
+  border-top-right-radius: var(--table-radius);
+}
+table tbody tr:last-child td:first-child{
+  border-bottom-left-radius: var(--table-radius);
+}
+table tbody tr:last-child td:last-child{
+  border-bottom-right-radius: var(--table-radius);
+}
+
+/* footer kalau ada */
+table tfoot td,
+table tfoot th{
+  background: var(--control-bg);
+  color: var(--table-text);
+  font-weight: 700;
+  border-top: 1px solid var(--table-border);
+}
+
+/* link di dalam tabel */
+table a{
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+table a:hover{
+  color: var(--link-hover);
+}
+
+/* teks kuat di tabel */
+table strong{
+  color: var(--table-text);
+}
+
+/* responsive dasar */
+@media (max-width: 768px){
+  table{
+    font-size: .95rem;
+  }
+
+  table th,
+  table td{
+    padding: .78rem .85rem;
+  }
+
+  table thead th{
+    font-size: .76rem;
+  }
+  
+  table thead{
+  background: linear-gradient(
+    90deg,
+    var(--table-grad-1) 0%,
+    var(--table-grad-2) 55%,
+    var(--table-grad-3) 100%
+  );
+  color: var(--table-head-text);
+}
+
+table thead th{
+  background: transparent;
+  color: var(--table-head-text);
+  font-size: .82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid rgba(255,255,255,.18);
+}
+}
+
+.adam-post-single table{
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
 
 /* -----------------------------
    8) OVERLAY / Z-INDEX (shared)
@@ -731,7 +955,7 @@ h2 a:hover {
 .footer-actions { display: flex; align-items: center; gap: 0.75rem; /* menggantikan margin-left inline */ flex-wrap: wrap; /* jika butuh responsif */ }
 
 .btn-back {
-  font-size: 10px;
+  font-size: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1651,6 +1875,8 @@ text-decoration: none;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin: 2.25rem 0px;
+  min-width: 420px;
 }
 
 .w-box {

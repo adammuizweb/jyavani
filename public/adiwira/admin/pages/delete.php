@@ -1,21 +1,36 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/pages/delete.php
 
 if (!defined('DASHBOARD_CONTEXT')) {
     define('DASHBOARD_CONTEXT', true);
 }
 
-require_once __DIR__ . '/../../bootstrap.php';
+require_once __DIR__ . '/../_guard.php';
 
-function redirect_pages_index(string $msg = '', string $err = ''): void {
-    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!function_exists('redirect_pages_index')) {
+    function redirect_pages_index(string $msg = '', string $err = ''): void
+    {
+        if (function_exists('ensure_session_started')) {
+            ensure_session_started(true);
+        } elseif (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
 
-    $_SESSION['flash'] = $_SESSION['flash'] ?? [];
-    if ($msg !== '') $_SESSION['flash'][] = ['type' => 'success', 'text' => $msg];
-    if ($err !== '') $_SESSION['flash'][] = ['type' => 'error', 'text' => $err];
+        $_SESSION['flash'] = $_SESSION['flash'] ?? [];
 
-    header('Location: /adiwira/index.php?page=admin/pages/index');
-    exit;
+        if ($msg !== '') {
+            $_SESSION['flash'][] = ['type' => 'success', 'text' => $msg];
+        }
+
+        if ($err !== '') {
+            $_SESSION['flash'][] = ['type' => 'error', 'text' => $err];
+        }
+
+        header('Location: /adiwira/index.php?page=admin/pages/index');
+        exit;
+    }
 }
 
 // hanya POST
@@ -23,11 +38,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     redirect_pages_index();
 }
 
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+// identitas aktif
+$identity = adiwira_fetch_identity($pdo);
+if (($identity['ok'] ?? false) !== true) {
+    redirect_pages_index('', 'Akses ditolak.');
+}
+
+$uid  = (int)($identity['uid'] ?? 0);
+$role = (string)($identity['role'] ?? 'guest');
+
+if (!in_array($role, ['author', 'editor', 'admin'], true)) {
+    redirect_pages_index('', 'Akses ditolak.');
+}
 
 // CSRF
-$token = $_POST['csrf_token'] ?? '';
-if (!csrf_check($token)) {
+$token = (string)($_POST['csrf_token'] ?? '');
+if (!adiwira_csrf_validate($token)) {
     redirect_pages_index('', 'CSRF token tidak valid.');
 }
 
@@ -35,22 +61,6 @@ if (!csrf_check($token)) {
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
     redirect_pages_index('', 'ID tidak valid.');
-}
-
-// login
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) {
-    redirect_pages_index('', 'Akses ditolak: belum login.');
-}
-
-// role
-$role = function_exists('current_user_role') ? (current_user_role($pdo) ?: null) : null;
-$role = $role ?: ($_SESSION['user_role'] ?? 'guest');
-$role = is_string($role) ? strtolower(trim($role)) : 'guest';
-$_SESSION['user_role'] = $role;
-
-if (!in_array($role, ['author','editor','admin'], true)) {
-    redirect_pages_index('', 'Akses ditolak.');
 }
 
 // fetch page
@@ -69,10 +79,9 @@ if (!$page) {
     redirect_pages_index('', 'Halaman tidak ditemukan.');
 }
 
-// ROLE ENGINEERING:
-// - admin: boleh hapus semua
-// - editor/author: hanya boleh hapus miliknya sendiri
-if (in_array($role, ['author','editor'], true) && (int)$page['created_by'] !== $uid) {
+// admin: boleh hapus semua
+// editor/author: hanya boleh hapus miliknya sendiri
+if (in_array($role, ['author', 'editor'], true) && (int)($page['created_by'] ?? 0) !== $uid) {
     redirect_pages_index('', 'Akses ditolak: kamu hanya boleh menghapus halaman milikmu sendiri.');
 }
 
@@ -89,13 +98,18 @@ try {
     ");
     $stmt->execute([':id' => $id]);
 
-    $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")->execute([':id' => $id]);
+    $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")
+        ->execute([':id' => $id]);
 
     $pdo->commit();
 
     redirect_pages_index('Halaman berhasil dihapus 🚮');
 
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    redirect_pages_index('', 'Gagal menghapus halaman: ' . $e->getMessage());
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    error_log('pages/delete.php error: ' . $e->getMessage());
+    redirect_pages_index('', 'Gagal menghapus halaman.');
 }

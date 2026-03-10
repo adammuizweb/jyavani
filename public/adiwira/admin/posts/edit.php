@@ -5,6 +5,10 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     exit('Forbidden');
 }
 
+require_once __DIR__ . '/../_guard.php';
+
+[$me, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
         $text = mb_strtolower($text, 'UTF-8');
@@ -26,6 +30,8 @@ if (!function_exists('fetch_users_for_dropdown')) {
                   ELSE CONCAT('user-', id)
                 END AS label
                 FROM users
+                WHERE is_deleted = 0
+                  AND is_locked = 0
                 ORDER BY name ASC, email ASC
             ";
             $stmt = $pdo->query($sql);
@@ -40,7 +46,7 @@ if (!function_exists('to_datetime_local')) {
     function to_datetime_local(?string $mysqlDt): ?string {
         if (!$mysqlDt) return null;
         try {
-            $d = new DateTime($mysqlDt);
+            $d = new DateTime($mysqlDt, new DateTimeZone('Asia/Jakarta'));
             return $d->format('Y-m-d\TH:i');
         } catch (Exception $e) {
             return null;
@@ -57,33 +63,20 @@ if ($id <= 0) {
     return;
 }
 
-$stmt = $pdo->prepare("SELECT * FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 LIMIT 1");
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM posts
+    WHERE id = :id
+      AND type = 'article'
+      AND is_deleted = 0
+    LIMIT 1
+");
 $stmt->execute([':id' => $id]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
+
 if (!$post) {
     http_response_code(404);
     echo '<p>Post tidak ditemukan atau bukan artikel.</p>';
-    return;
-}
-
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-$me = (int)($_SESSION['user_id'] ?? 0);
-
-$role = 'guest';
-try {
-    $stRole = $pdo->prepare("SELECT role FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
-    $stRole->execute([':id' => $me]);
-    $dbRole = $stRole->fetchColumn();
-    if (is_string($dbRole) && trim($dbRole) !== '') {
-        $role = strtolower(trim($dbRole));
-    }
-} catch (Throwable $e) {
-    $role = strtolower(trim((string)($_SESSION['user_role'] ?? 'guest')));
-}
-
-if (!in_array($role, ['author','editor','admin'], true)) {
-    http_response_code(403);
-    echo '<p>Akses ditolak.</p>';
     return;
 }
 
@@ -93,7 +86,12 @@ if ($role !== 'admin' && (int)($post['created_by'] ?? 0) !== $me) {
     return;
 }
 
-$stmt = $pdo->prepare("SELECT id, name, parent_id FROM categories WHERE is_deleted = 0 ORDER BY parent_id ASC, name ASC");
+$stmt = $pdo->prepare("
+    SELECT id, name, parent_id
+    FROM categories
+    WHERE is_deleted = 0
+    ORDER BY parent_id ASC, name ASC
+");
 $stmt->execute();
 $all_categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -314,6 +312,3 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 <script src="/adiwira/static/js/edit/youtube_preview.js"></script>
 <script src="/adiwira/static/js/edit/ajax_save.js"></script>
 <script src="/adiwira/static/js/edit/main-init.js"></script>
-
-</body>
-</html>

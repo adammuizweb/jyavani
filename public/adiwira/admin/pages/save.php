@@ -192,10 +192,10 @@ if ($title === '') {
 // hanya author yang disanitasi
 if ($role === 'author') {
     $content = sanitize_author_html($content);
+}
 
-    if (function_exists('normalize_links_in_html')) {
-        $content = normalize_links_in_html($content);
-    }
+if (function_exists('normalize_links_in_html')) {
+    $content = normalize_links_in_html($content);
 }
 
 // editor/admin raw
@@ -283,7 +283,14 @@ if ($role === 'admin') {
 // hanya admin boleh ganti creator
 $final_creator = (int)($existing['created_by'] ?? $uid);
 if ($role === 'admin' && $created_by_in > 0) {
-    $chk = $pdo->prepare("SELECT id FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+    $chk = $pdo->prepare("
+        SELECT id
+        FROM users
+        WHERE id = :id
+          AND is_deleted = 0
+          AND is_locked = 0
+        LIMIT 1
+    ");
     $chk->execute([':id' => $created_by_in]);
     if ($chk->fetchColumn()) {
         $final_creator = $created_by_in;

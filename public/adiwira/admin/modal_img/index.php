@@ -3,10 +3,15 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../_guard.php';
-adiwira_require_admin(false);
 
-// This page is a convenience standalone wrapper for the modal fragments.
-// When embedding into your modal, prefer to fetch list_modal.php?embedded=1 etc.
+if (function_exists('adiwira_is_navigate_request') && adiwira_is_navigate_request()) {
+    http_response_code(404);
+    require __DIR__ . '/../../../frontend_404.php';
+    exit;
+}
+
+[$uid, $role] = adiwira_require_editorial($pdo, false);
+
 $embedded = isset($_GET['embedded']) && (($_GET['embedded'] === '1') || ($_GET['embedded'] === 'true'));
 
 $csrfToken = '';
@@ -20,13 +25,12 @@ if (!$embedded):
 <title>Media Modal</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  body{font-family:system-ui, -apple-system, "Segoe UI", Roboto; margin:12px; color:#222}
+  body{font-family:system-ui,-apple-system,"Segoe UI",Roboto;margin:12px;color:#222}
   .tabs{display:flex;gap:8px;margin-bottom:10px}
   .tab{padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:#f7f8fa;cursor:pointer}
   .tab.active{background:#0b80ff;color:#fff;border-color:#0b80ff}
   .panel{min-height:200px;padding:8px;border:1px solid #eee;border-radius:8px;background:#fff}
   .small{font-size:.9rem;color:#666}
-  /* gallery thumb helpers (if list_modal outputs table, we don't override their styles) */
   .gallery-thumb{width:120px;border:1px solid #eee;border-radius:8px;overflow:hidden;box-shadow:0 3px 8px rgba(0,0,0,.05);position:relative}
   .gallery-thumb img{width:100%;height:90px;object-fit:cover;display:block}
   .thumb-actions{position:absolute;right:6px;bottom:6px;display:flex;gap:6px}
@@ -39,7 +43,6 @@ if (!$embedded):
 <?php endif; ?>
 
 <div id="modal-root-wrapper">
-  <!-- ✅ CSRF token source for all embedded fragments -->
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
   <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px">
@@ -87,7 +90,6 @@ function injectHtmlWithScriptsTo(container, html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // build inner html excluding <script>
     let bodyHtml = '';
     Array.from(doc.body.childNodes).forEach(n => {
       if (n.nodeName && n.nodeName.toLowerCase() === 'script') return;
@@ -95,33 +97,32 @@ function injectHtmlWithScriptsTo(container, html) {
     });
     container.innerHTML = bodyHtml;
 
-    // execute scripts preserving order: external (append to head), inline (append to body)
     const scripts = doc.querySelectorAll('script');
-    // We'll append external scripts sequentially to preserve order
     const externals = [];
     scripts.forEach(s => { if (s.src) externals.push(s.src); });
 
-    // Append externals synchronously (not awaiting load to avoid blocking UI heavily)
     externals.forEach(src => {
       try {
-        // avoid duplicate loads
         if (!document.querySelector('script[src="' + src + '"]')) {
           const el = document.createElement('script');
           el.src = src;
           el.async = false;
           document.head.appendChild(el);
         }
-      } catch (e) { console.error('inject external script', e); }
+      } catch (e) {
+        console.error('inject external script', e);
+      }
     });
 
-    // Append inline scripts
     scripts.forEach(s => {
       if (!s.src) {
         try {
           const el = document.createElement('script');
           el.text = s.textContent;
           document.body.appendChild(el);
-        } catch (e) { console.error('inject inline script', e); }
+        } catch (e) {
+          console.error('inject inline script', e);
+        }
       }
     });
 
@@ -136,11 +137,18 @@ function openSingleDetailInModal(id) {
   if (!id) return;
   const url = '/adiwira/admin/modal_img/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1';
 
-  // prefer to inject into parent modal container if present
-  const modalContent = document.getElementById('adam-modal-content') || (window.parent && window.parent.document && window.parent.document.getElementById && window.parent.document.getElementById('adam-modal-content') ? window.parent.document.getElementById('adam-modal-content') : null);
+  const modalContent =
+    document.getElementById('adam-modal-content') ||
+    (
+      window.parent &&
+      window.parent.document &&
+      window.parent.document.getElementById &&
+      window.parent.document.getElementById('adam-modal-content')
+        ? window.parent.document.getElementById('adam-modal-content')
+        : null
+    );
 
   if (modalContent) {
-    // show loading state
     modalContent.innerHTML = '<div style="padding:18px;color:#666;font-style:italic">Memuat detail…</div>';
     fetch(url, { credentials: 'include' })
       .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
@@ -152,7 +160,6 @@ function openSingleDetailInModal(id) {
     return;
   }
 
-  // else try to inject into our local panel-gallery (replace contents)
   const panel = document.getElementById('panel-gallery');
   if (panel) {
     panel.innerHTML = '<div style="padding:18px;color:#666;font-style:italic">Memuat detail…</div>';
@@ -166,12 +173,15 @@ function openSingleDetailInModal(id) {
     return;
   }
 
-  // fallback: open via adamModalOpen if available
   if (typeof window.adamModalOpen === 'function') {
-    try { window.adamModalOpen(url, { maxWidth: '800px' }); return; } catch(e){ console.warn('adamModalOpen failed', e); }
+    try {
+      window.adamModalOpen(url, { maxWidth: '800px' });
+      return;
+    } catch(e) {
+      console.warn('adamModalOpen failed', e);
+    }
   }
 
-  // last fallback: open in new tab
   window.open(url, '_blank');
 }
 
@@ -182,10 +192,8 @@ document.addEventListener('click', function(ev){
   ev.preventDefault();
   ev.stopPropagation();
 
-  // try to read data-id or data-media-id or data-id
   let id = btn.getAttribute('data-id') || btn.getAttribute('data-media-id') || (btn.dataset ? btn.dataset.id : null);
   if (!id) {
-    // maybe the button sits in a <tr data-id>
     const tr = btn.closest && btn.closest('tr[data-id]');
     if (tr) id = tr.getAttribute('data-id');
   }
@@ -194,31 +202,35 @@ document.addEventListener('click', function(ev){
     return;
   }
 
-  // open single in modal/panel
   openSingleDetailInModal(id);
 }, false);
 
 // Enhance gallery visuals: convert table rows into thumb cards with Insert & Detail buttons
-// (Optional helper — if list_modal already contains markup with .btn-insert/.btn-detail this will be skipped)
 (function tryEnhanceGallery(){
   try {
     const panel = document.getElementById('panel-gallery');
     if (!panel) return;
+
     const rows = panel.querySelectorAll('tr[data-id]');
     if (!rows || rows.length === 0) return;
+
     rows.forEach(tr=>{
       if (tr.__enhanced) return;
       tr.__enhanced = true;
+
       const id = tr.getAttribute('data-id');
       const img = tr.querySelector('img');
       if (!img) return;
+
       const wrapper = document.createElement('div');
       wrapper.className = 'gallery-thumb';
+
       const cloned = img.cloneNode(true);
       wrapper.appendChild(cloned);
 
       const actions = document.createElement('div');
       actions.className = 'thumb-actions';
+
       const detailBtn = document.createElement('button');
       detailBtn.className = 'btn-detail';
       detailBtn.type = 'button';
@@ -229,6 +241,7 @@ document.addEventListener('click', function(ev){
       insertBtn.className = 'btn-insert';
       insertBtn.type = 'button';
       insertBtn.textContent = 'Insert';
+
       const src = cloned.src || '';
       insertBtn.setAttribute('data-url', src);
 
@@ -257,12 +270,13 @@ document.addEventListener('click', function(ev){
       }
     });
 
-    // delegated handler for Insert (dispatch media:insert)
     panel.addEventListener('click', function(ev){
       const ins = ev.target.closest && ev.target.closest('.btn-insert');
       if (!ins) return;
+
       ev.preventDefault();
       ev.stopPropagation();
+
       const thumb = ins.closest && ins.closest('.gallery-thumb');
       const tr = ins.closest && ins.closest('tr[data-id]');
       const id = ins.getAttribute('data-id') || (tr && tr.getAttribute('data-id')) || (thumb && thumb.getAttribute('data-id')) || null;
@@ -272,12 +286,24 @@ document.addEventListener('click', function(ev){
       const caption = (ins.getAttribute('data-caption') || (thumb && thumb.getAttribute('data-caption')) || (tr && tr.getAttribute('data-caption')) || '').trim();
       const credit = (ins.getAttribute('data-credit') || (thumb && thumb.getAttribute('data-credit')) || (tr && tr.getAttribute('data-credit')) || '').trim();
 
-      const detail = { id: id ? parseInt(id,10) : null, url, title, alt, caption, credit };
+      const detail = {
+        id: id ? parseInt(id, 10) : null,
+        url,
+        title,
+        alt,
+        caption,
+        credit
+      };
+
       try { document.dispatchEvent(new CustomEvent('media:insert', { detail })); } catch(e){}
-      try { if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'media:insert', detail }, '*'); } catch(e){}
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'media:insert', detail }, '*');
+        }
+      } catch(e){}
     }, false);
 
-  } catch(e) { /* ignore */ }
+  } catch(e) {}
 })();
 </script>
 
