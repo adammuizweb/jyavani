@@ -22,6 +22,7 @@ class AuthorController
             $sql = "SELECT id, username, name, email, img, role, bio, phone
                     FROM users
                     WHERE (is_deleted = 0 OR is_deleted IS NULL)
+                      AND (is_locked = 0 OR is_locked IS NULL)
                     ORDER BY name ASC";
             $stmt = $pdo->prepare($sql);
             $stmt->execute();
@@ -47,7 +48,11 @@ class AuthorController
         if (!$isCleared && function_exists('render_assigned_slot')) {
             try {
                 ob_start();
-                render_assigned_slot($pdo, 'content', 'authors_list', ['authors' => $authors, 'site_context' => 'authors_list', 'page_title' => $page_title]);
+                render_assigned_slot($pdo, 'content', 'authors_list', [
+                    'authors' => $authors,
+                    'site_context' => 'authors_list',
+                    'page_title' => $page_title
+                ]);
                 $assigned_html = ob_get_clean();
                 if (trim($assigned_html) !== '') {
                     $content_html = $assigned_html;
@@ -60,12 +65,22 @@ class AuthorController
         // 2) theme engine slots (index.author then list.author)
         if (trim($content_html) === '' && !$isCleared && function_exists('render_slot')) {
             try {
-                $slotHtml = render_slot($pdo, 'index.author', ['authors' => $authors, 'site_context' => 'authors_list', 'page_title' => $page_title]);
+                $slotHtml = render_slot($pdo, 'index.author', [
+                    'authors' => $authors,
+                    'site_context' => 'authors_list',
+                    'page_title' => $page_title
+                ]);
                 if (trim((string)$slotHtml) !== '') {
                     $content_html = $slotHtml;
                 } else {
-                    $slotHtml2 = render_slot($pdo, 'list.author', ['authors' => $authors, 'site_context' => 'authors_list', 'page_title' => $page_title]);
-                    if (trim((string)$slotHtml2) !== '') $content_html = $slotHtml2;
+                    $slotHtml2 = render_slot($pdo, 'list.author', [
+                        'authors' => $authors,
+                        'site_context' => 'authors_list',
+                        'page_title' => $page_title
+                    ]);
+                    if (trim((string)$slotHtml2) !== '') {
+                        $content_html = $slotHtml2;
+                    }
                 }
             } catch (Throwable $e) {
                 error_log("[AuthorController::listAuthors] render_slot(index.author/list.author) error: " . $e->getMessage());
@@ -75,7 +90,11 @@ class AuthorController
         // 3) Explicit: try DEFAULT_THEME_FOLDER (index.author then list.author)
         if (trim($content_html) === '') {
             try {
-                $authorVars = ['authors' => $authors, 'site_context' => 'authors_list', 'page_title' => $page_title];
+                $authorVars = [
+                    'authors' => $authors,
+                    'site_context' => 'authors_list',
+                    'page_title' => $page_title
+                ];
 
                 $themeFile = slot_to_file('index.author');
                 $resolved = [
@@ -130,11 +149,11 @@ class AuthorController
 
                                     <div>
                                         <?php
-                                          if (!empty($a['username'])) {
-                                              $authorLink = '/author/' . rawurlencode($a['username']) . '/';
-                                          } else {
-                                              $authorLink = '/author/' . rawurlencode($a['id']) . '/';
-                                          }
+                                        if (!empty($a['username'])) {
+                                            $authorLink = '/author/' . rawurlencode($a['username']) . '/';
+                                        } else {
+                                            $authorLink = '/author/' . rawurlencode($a['id']) . '/';
+                                        }
                                         ?>
                                         <h3 style="margin:0;font-size:1.05rem">
                                             <a href="<?= htmlspecialchars($authorLink, ENT_QUOTES, 'UTF-8') ?>">
@@ -160,12 +179,12 @@ class AuthorController
         $pdo = $layout_pdo;
 
         $context_for_layout = 'authors'; // layout context — concise & distinct from slot names
-        
+
         // START SIDEBAR
 
         $layout_full_width = false;   // paksa pakai container (jadi tidak full width)
-        $enable_sidebar    = false;    // paksa sidebar aktif
-        $sidebar_position  = 'right';  // 'left' atau 'right'
+        $enable_sidebar    = false;   // paksa sidebar aktif
+        $sidebar_position  = 'right'; // 'left' atau 'right'
 
         // (Opsional) kalau mau bisa diatur dari meta JSON pada post theme:
         // meta contoh: {"layout_full_width":true,"enable_sidebar":false,"sidebar_position":"right"}
@@ -180,7 +199,7 @@ class AuthorController
                 }
             }
         }
-        
+
         // END SIDEBAR
         require __DIR__ . '/../layout.php';
         exit;
@@ -219,7 +238,8 @@ class AuthorController
                     $stm = $pdo->prepare(
                         "SELECT * FROM users
                          WHERE (is_deleted = 0 OR is_deleted IS NULL)
-                         AND (id = :id OR username = :u)
+                           AND (is_locked = 0 OR is_locked IS NULL)
+                           AND (id = :id OR username = :u)
                          LIMIT 1"
                     );
                     $stm->execute([':id' => (int)$ident, ':u' => $ident]);
@@ -227,7 +247,9 @@ class AuthorController
                     $stm = $pdo->prepare(
                         "SELECT * FROM users
                          WHERE (is_deleted = 0 OR is_deleted IS NULL)
-                         AND username = :u LIMIT 1"
+                           AND (is_locked = 0 OR is_locked IS NULL)
+                           AND username = :u
+                         LIMIT 1"
                     );
                     $stm->execute([':u' => $ident]);
                 }
@@ -238,7 +260,9 @@ class AuthorController
                 $stm = $pdo->prepare(
                     "SELECT * FROM users
                      WHERE (is_deleted = 0 OR is_deleted IS NULL)
-                     AND id = :id LIMIT 1"
+                       AND (is_locked = 0 OR is_locked IS NULL)
+                       AND id = :id
+                     LIMIT 1"
                 );
                 $stm->execute([':id' => (int)$ident]);
                 $user = $stm->fetch(PDO::FETCH_ASSOC);
@@ -248,7 +272,9 @@ class AuthorController
                 $stm = $pdo->prepare(
                     "SELECT * FROM users
                      WHERE (is_deleted = 0 OR is_deleted IS NULL)
-                     AND email = :e LIMIT 1"
+                       AND (is_locked = 0 OR is_locked IS NULL)
+                       AND email = :e
+                     LIMIT 1"
                 );
                 $stm->execute([':e' => $ident]);
                 $user = $stm->fetch(PDO::FETCH_ASSOC);
@@ -259,7 +285,9 @@ class AuthorController
                 $stm = $pdo->prepare(
                     "SELECT * FROM users
                      WHERE (is_deleted = 0 OR is_deleted IS NULL)
-                     AND name = :n LIMIT 1"
+                       AND (is_locked = 0 OR is_locked IS NULL)
+                       AND name = :n
+                     LIMIT 1"
                 );
                 $stm->execute([':n' => $nameTry]);
                 $user = $stm->fetch(PDO::FETCH_ASSOC);
@@ -545,12 +573,12 @@ $postUrl = '/' . rawurlencode($p['slug']) . '/';
         $pdo = $layout_pdo;
 
         $context_for_layout = 'posts'; // layout context for author posts
-        
+
         // START SIDEBAR
 
         $layout_full_width = false;   // paksa pakai container (jadi tidak full width)
         $enable_sidebar    = true;    // paksa sidebar aktif
-        $sidebar_position  = 'right';  // 'left' atau 'right'
+        $sidebar_position  = 'right'; // 'left' atau 'right'
 
         // (Opsional) kalau mau bisa diatur dari meta JSON pada post theme:
         // meta contoh: {"layout_full_width":true,"enable_sidebar":false,"sidebar_position":"right"}
@@ -565,7 +593,7 @@ $postUrl = '/' . rawurlencode($p['slug']) . '/';
                 }
             }
         }
-        
+
         // END SIDEBAR
         require __DIR__ . '/../layout.php';
         exit;
