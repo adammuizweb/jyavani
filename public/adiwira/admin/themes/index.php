@@ -1,98 +1,77 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/themes/index.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');
 }
 
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-
-// ===== ADMIN ONLY GUARD =====
-if (empty($_SESSION['user_id'])) {
-    http_response_code(403);
-    echo '<section class="adam-card"><h2>Themes / Partials</h2><div class="adam-alert error" style="margin-top:.8rem;">Akses ditolak: belum login.</div></section>';
-    return;
-}
-
-$uid  = (int)$_SESSION['user_id'];
-$role = $_SESSION['user_role'] ?? '';
-
-if ($role === '' || $role === null) {
-    $r = $pdo->prepare("SELECT role FROM users WHERE id=:id AND is_deleted=0 LIMIT 1");
-    $r->execute([':id' => $uid]);
-    $role = (string)$r->fetchColumn();
-    $_SESSION['user_role'] = $role;
-}
-$role = strtolower(trim($role ?: 'guest'));
-
-if ($role !== 'admin') {
-    http_response_code(403);
-    echo '<section class="adam-card"><h2>Themes / Partials</h2><div class="adam-alert error" style="margin-top:.8rem;">Akses ditolak: menu Themes hanya untuk <strong>admin</strong>.</div></section>';
-    return;
-}
-// ===== END ADMIN ONLY GUARD =====
-
+require_once __DIR__ . '/../_guard.php';
+[$uid, $role] = adiwira_require_editorial($pdo, false);
+$isAdmin = ($role === 'admin');
 
 $messages = [];
 $errors   = [];
 
-// fallback legacy query (kalau masih ada endpoint lama)
 if (!empty($_GET['msg'])) $messages[] = urldecode((string)$_GET['msg']);
 if (!empty($_GET['err'])) $errors[]   = urldecode((string)$_GET['err']);
 
-// ===== ambil flash dari bulk_action/delete endpoint =====
 $flash = $_SESSION['flash'] ?? [];
 unset($_SESSION['flash']);
 
 $flash_for_js = [];
 if (is_array($flash)) {
-  foreach ($flash as $f) {
-    $type = isset($f['type']) ? (string)$f['type'] : 'info';
-    $text = isset($f['text']) ? (string)$f['text'] : '';
-    if ($text === '') continue;
+    foreach ($flash as $f) {
+        $type = isset($f['type']) ? (string)$f['type'] : 'info';
+        $text = isset($f['text']) ? (string)$f['text'] : '';
+        if ($text === '') continue;
 
-    if ($type === 'success') $messages[] = $text;
-    else $errors[] = $text;
+        if ($type === 'success') $messages[] = $text;
+        else $errors[] = $text;
 
-    $flash_for_js[] = ['type'=>$type, 'text'=>$text];
-  }
+        $flash_for_js[] = ['type' => $type, 'text' => $text];
+    }
 }
 $messages = array_values(array_unique($messages));
 $errors   = array_values(array_unique($errors));
 
-// filter
 $filter_status = (string)($_GET['status'] ?? '');
 $search        = trim((string)($_GET['q'] ?? ''));
 
-// pagination
 $page_num = max(1, (int)($_GET['p'] ?? 1));
 $per_page = 10;
 $offset   = ($page_num - 1) * $per_page;
 
-// base where & params
 $where  = ["p.is_deleted = 0", "p.type = 'theme'"];
 $params = [];
 
+if (!$isAdmin) {
+    $where[] = "p.created_by = :uid";
+    $params[':uid'] = $uid;
+}
+
 if ($filter_status !== '') {
-  $where[] = "p.status = :status";
-  $params[':status'] = $filter_status;
+    $where[] = "p.status = :status";
+    $params[':status'] = $filter_status;
 }
+
 if ($search !== '') {
-  $where[] = "(p.title LIKE :search OR p.slug LIKE :search)";
-  $params[':search'] = '%' . $search . '%';
+    $where[] = "(p.title LIKE :search OR p.slug LIKE :search)";
+    $params[':search'] = '%' . $search . '%';
 }
+
 $where_sql = implode(' AND ', $where);
 
-// count
 $count_sql = "SELECT COUNT(*) FROM posts p WHERE $where_sql";
 $countStmt = $pdo->prepare($count_sql);
-$countStmt->execute($params);
+foreach ($params as $k => $v) $countStmt->bindValue($k, $v);
+$countStmt->execute();
 $total = (int)$countStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
 
-// list
 $sql = "
-  SELECT p.id, p.title, p.slug, p.status, p.created_at, p.updated_at
+  SELECT p.id, p.title, p.slug, p.status, p.created_at, p.updated_at, p.created_by
   FROM posts p
   WHERE $where_sql
   ORDER BY p.created_at DESC
@@ -107,36 +86,38 @@ $themes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 
-// pagination helper (tetap)
 function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
-  if ($total <= $max_visible) return range(1, $total);
-  $items = [];
-  $reserved = 6;
-  $middle_slots = max(1, $max_visible - $reserved);
-  $half = (int)floor($middle_slots / 2);
+    if ($total <= $max_visible) return range(1, $total);
 
-  $start = max(3, $current - $half);
-  $end   = min($total - 2, $current + $half);
+    $items = [];
+    $reserved = 6;
+    $middle_slots = max(1, $max_visible - $reserved);
+    $half = (int)floor($middle_slots / 2);
 
-  if ($start === 3) $end = min($total - 2, $start + $middle_slots - 1);
-  if ($end === $total - 2) $start = max(3, $end - $middle_slots + 1);
+    $start = max(3, $current - $half);
+    $end   = min($total - 2, $current + $half);
 
-  $items[] = 1; $items[] = 2;
-  if ($start > 3) $items[] = '...';
-  for ($i = $start; $i <= $end; $i++) $items[] = $i;
-  if ($end < $total - 2) $items[] = '...';
-  $items[] = $total - 1;
-  $items[] = $total;
+    if ($start === 3) $end = min($total - 2, $start + $middle_slots - 1);
+    if ($end === $total - 2) $start = max(3, $end - $middle_slots + 1);
 
-  while (count($items) > $max_visible) {
-    for ($i = 0; $i < count($items); $i++) {
-      if (is_int($items[$i]) && !in_array($items[$i], [1,2,$total-1,$total], true)) {
-        array_splice($items, $i, 1);
-        break;
-      }
+    $items[] = 1;
+    $items[] = 2;
+    if ($start > 3) $items[] = '...';
+    for ($i = $start; $i <= $end; $i++) $items[] = $i;
+    if ($end < $total - 2) $items[] = '...';
+    $items[] = $total - 1;
+    $items[] = $total;
+
+    while (count($items) > $max_visible) {
+        for ($i = 0; $i < count($items); $i++) {
+            if (is_int($items[$i]) && !in_array($items[$i], [1, 2, $total - 1, $total], true)) {
+                array_splice($items, $i, 1);
+                break;
+            }
+        }
     }
-  }
-  return $items;
+
+    return $items;
 }
 $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
@@ -151,9 +132,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <span>Status:</span>
       <select name="status" style="padding:.4rem;">
         <option value="">-- Semua Status --</option>
-        <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>>Draft</option>
-        <option value="published" <?= $filter_status==='published'?'selected':'' ?>>Published</option>
-        <option value="private" <?= $filter_status==='private'?'selected':'' ?>>Private</option>
+        <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
+        <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
+        <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
       </select>
     </label>
     <button type="submit" class="adam-button">Terapkan</button>
@@ -162,110 +143,121 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
   <p style="margin-bottom:1rem">
     <a class="adam-button" href="<?= htmlspecialchars($base . '/index.php?page=admin/themes/add', ENT_QUOTES, 'UTF-8') ?>">+ Tambah Theme Partial</a>
-    &nbsp;&nbsp;
-    <a class="adam-att" href="<?= htmlspecialchars($base . '/index.php?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
+
+    <?php if ($isAdmin): ?>
+      &nbsp;&nbsp;
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/index.php?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
+    <?php endif; ?>
   </p>
 
-  <!-- Bulk controls (admin only anyway) -->
-  <form id="themesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/themes/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>" onsubmit="return muizThemesOpenBulkConfirmModal(event,this)">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
-      <label style="display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="selectAllThemes"> Pilih semua di halaman
-      </label>
+  <?php if ($isAdmin): ?>
+    <form id="themesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/themes/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>" onsubmit="return muizThemesOpenBulkConfirmModal(event,this)">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
-      <select id="bulkActionThemes" name="action" style="padding:.4rem;">
-        <option value="">-- Bulk action --</option>
-        <option value="delete">Hapus</option>
-        <option value="change_status">Ubah Status</option>
-      </select>
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:.4rem;">
+          <input type="checkbox" id="selectAllThemes"> Pilih semua di halaman
+        </label>
 
-      <select id="bulkStatusThemes" name="status" style="padding:.4rem;display:none;">
-        <option value="draft">Draft</option>
-        <option value="published">Published</option>
-        <option value="private">Private</option>
-      </select>
+        <select id="bulkActionThemes" name="action" style="padding:.4rem;">
+          <option value="">-- Bulk action --</option>
+          <option value="delete">Hapus</option>
+          <option value="change_status">Ubah Status</option>
+        </select>
 
-      <button type="submit" class="adam-button">Terapkan</button>
-      <small style="color:#666;margin-left:.5rem;">(Bulk akan mempengaruhi item yang dicentang)</small>
+        <select id="bulkStatusThemes" name="status" style="padding:.4rem;display:none;">
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="private">Private</option>
+        </select>
+
+        <button type="submit" class="adam-button">Terapkan</button>
+      </div>
+  <?php endif; ?>
+
+  <?php if (!empty($messages)): ?>
+    <div class="adam-alert success auto-dismiss" data-dismiss-ms="3000" style="margin-bottom:1rem;padding:.8rem 1rem;background:#e8f7ec;border:1px solid #b6e2c2;border-radius:6px;color:#246;">
+      <?php foreach ($messages as $m): ?><div><?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?></div><?php endforeach; ?>
     </div>
+  <?php endif; ?>
 
-    <?php if (!empty($messages)): ?>
-      <div class="adam-alert success auto-dismiss" data-dismiss-ms="3000"
-           style="margin-bottom:1rem;padding:.8rem 1rem;background:#e8f7ec;border:1px solid #b6e2c2;border-radius:6px;color:#246;">
-        <?php foreach ($messages as $m): ?><div><?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?></div><?php endforeach; ?>
-      </div>
-    <?php endif; ?>
+  <?php if (!empty($errors)): ?>
+    <div class="adam-alert error" style="margin-bottom:1rem;padding:.8rem 1rem;background:#fee;border:1px solid #fbb;color:#600;border-radius:6px;">
+      <?php foreach ($errors as $e): ?><div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div><?php endforeach; ?>
+    </div>
+  <?php endif; ?>
 
-    <?php if (!empty($errors)): ?>
-      <div class="adam-alert error" style="margin-bottom:1rem;padding:.8rem 1rem;background:#fee;border:1px solid #fbb;color:#600;border-radius:6px;">
-        <?php foreach ($errors as $e): ?><div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div><?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-
-    <?php if (!empty($flash_for_js)): ?>
-    <script>
-    document.addEventListener('DOMContentLoaded', function(){
-      if (typeof showToast !== 'function') return;
-      const items = <?= json_encode($flash_for_js, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
-      items.forEach(it => {
-        const t = (it.type === 'error') ? 'error' : (it.type === 'success' ? 'success' : 'info');
-        showToast(it.text, t, t === 'error' ? 6500 : 4200);
-      });
+  <?php if (!empty($flash_for_js)): ?>
+  <script>
+  document.addEventListener('DOMContentLoaded', function(){
+    if (typeof showToast !== 'function') return;
+    const items = <?= json_encode($flash_for_js, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    items.forEach(it => {
+      const t = (it.type === 'error') ? 'error' : (it.type === 'success' ? 'success' : 'info');
+      showToast(it.text, t, t === 'error' ? 6500 : 4200);
     });
-    </script>
-    <?php endif; ?>
+  });
+  </script>
+  <?php endif; ?>
 
-    <div class="adam-table-wrapper">
-      <table class="adam-table" style="margin-top:.5rem;">
-        <thead>
-          <tr>
-            <th style="width:40px"></th>
-            <th>Nama</th>
-            <th>Slug</th>
-            <th>Status</th>
-            <th>Dibuat</th>
-            <th style="width:160px">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php if (empty($themes)): ?>
-            <tr><td colspan="6" style="padding:1rem;">Belum ada theme partial.</td></tr>
-          <?php else: ?>
-            <?php foreach ($themes as $t): ?>
-              <tr>
+  <div class="adam-table-wrapper">
+    <table class="adam-table" style="margin-top:.5rem;">
+      <thead>
+        <tr>
+          <?php if ($isAdmin): ?><th style="width:40px"></th><?php endif; ?>
+          <th>Nama</th>
+          <th>Slug</th>
+          <th>Status</th>
+          <th>Dibuat</th>
+          <th style="width:160px">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (empty($themes)): ?>
+          <tr><td colspan="<?= $isAdmin ? 6 : 5 ?>" style="padding:1rem;">Belum ada theme partial.</td></tr>
+        <?php else: ?>
+          <?php foreach ($themes as $t): ?>
+            <tr>
+              <?php if ($isAdmin): ?>
                 <td style="text-align:center;">
                   <input type="checkbox" class="bulkCheckboxTheme" name="ids[]" value="<?= (int)$t['id'] ?>">
                 </td>
+              <?php endif; ?>
 
-                <td>
-                  <a class="adam-link" href="<?= htmlspecialchars('/' . rawurlencode((string)$t['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>">
-                    <?= htmlspecialchars($t['title'] ?? '-', ENT_QUOTES, 'UTF-8') ?>
-                  </a>
-                </td>
+              <td>
+                <a class="adam-link" href="<?= htmlspecialchars('/' . rawurlencode((string)$t['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>">
+                  <?= htmlspecialchars((string)($t['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                </a>
+              </td>
 
-                <td><?= htmlspecialchars($t['slug'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars($t['status'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars($t['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars((string)($t['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars((string)($t['status'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars((string)($t['created_at'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
 
-                <td>
-                  <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/themes/edit&id=' . (int)$t['id'], ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+              <td>
+                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/themes/edit&id=' . (int)$t['id'], ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+
+                <?php if ($isAdmin): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button"
                           class="adam-hapus"
                           data-id="<?= (int)$t['id'] ?>"
-                          data-title="<?= htmlspecialchars($t['title'] ?? '', ENT_QUOTES) ?>"
+                          data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           onclick="muizThemesOpenDeleteModal(this)">
                     Hapus
                   </button>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-  </form>
+                <?php endif; ?>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <?php if ($isAdmin): ?>
+    </form>
+  <?php endif; ?>
 
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination" style="margin-top:1rem;">
@@ -282,7 +274,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <!-- 🧱 MODAL KONFIRMASI DELETE THEME -->
+  <?php if ($isAdmin): ?>
   <div id="muizThemeDeleteModal" class="adam-modal" role="dialog" aria-modal="true" aria-labelledby="muizThemeDeleteTitle" style="display:none;">
     <div class="adam-modal__panel" role="document">
       <h3 id="muizThemeDeleteTitle" class="adam-modal__title">Konfirmasi Hapus</h3>
@@ -300,7 +292,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </div>
   </div>
 
-  <!-- 🧱 MODAL KONFIRMASI BULK -->
   <div id="muizThemeBulkConfirmModal" class="adam-modal" role="dialog" aria-modal="true" aria-labelledby="muizThemeBulkTitle" style="display:none;">
     <div class="adam-modal__panel" role="document">
       <h3 id="muizThemeBulkTitle" class="adam-modal__title">Konfirmasi Bulk Action</h3>
@@ -314,7 +305,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </div>
 
   <script>
-  // select all
   const selectAllThemes = document.getElementById('selectAllThemes');
   if (selectAllThemes) {
     selectAllThemes.addEventListener('change', function(){
@@ -323,7 +313,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     });
   }
 
-  // show/hide status
   const bulkActionThemes = document.getElementById('bulkActionThemes');
   if (bulkActionThemes) {
     bulkActionThemes.addEventListener('change', function(){
@@ -332,9 +321,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     });
   }
 
-  // ============================
-  // Single delete modal
-  // ============================
   function muizThemesOpenDeleteModal(btn){
     const modal = document.getElementById('muizThemeDeleteModal');
     if (!modal) return;
@@ -345,7 +331,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     const title = btn?.dataset?.title || '';
 
     const idInput = document.getElementById('muizThemeDeleteId');
-    const txt     = document.getElementById('muizThemeDeleteText');
+    const txt = document.getElementById('muizThemeDeleteText');
     if (idInput) idInput.value = id;
     if (txt) txt.innerText = `Hapus theme partial "${title}"?`;
 
@@ -375,9 +361,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     if (e.key === 'Escape') muizThemesCloseDeleteModal();
   }
 
-  // ============================
-  // Bulk confirm modal
-  // ============================
   let _themesBulkFormRef = null;
 
   function muizThemesGetBulkSummary(){
@@ -421,7 +404,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     }
 
     const modal   = document.getElementById('muizThemeBulkConfirmModal');
-    const panel   = modal?.querySelector('.adam-modal__panel');
     const titleEl = document.getElementById('muizThemeBulkTitle');
     const textEl  = document.getElementById('muizThemeBulkText');
     const yesBtn  = document.getElementById('muizThemeBulkYes');
@@ -432,7 +414,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     if (yesBtn) {
       yesBtn.classList.remove('adam-btn--danger');
       if (sum.type === 'danger') yesBtn.classList.add('adam-btn--danger');
-
       yesBtn.onclick = function(){
         muizThemesCloseBulkConfirmModal();
         if (_themesBulkFormRef) _themesBulkFormRef.submit();
@@ -440,8 +421,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     }
 
     if (modal.parentNode !== document.body) document.body.appendChild(modal);
-
-    if (panel) panel.addEventListener('click', (e)=>e.stopPropagation(), { once:true });
     modal.onclick = function(e){ if (e.target === modal) muizThemesCloseBulkConfirmModal(); };
 
     document.addEventListener('keydown', muizThemesBulkEsc);
@@ -450,8 +429,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     modal.style.display = 'flex';
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
-
-    setTimeout(()=>{ try{ yesBtn && yesBtn.focus(); }catch(e){} }, 0);
     return false;
   }
 
@@ -469,4 +446,5 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     if (e.key === 'Escape') muizThemesCloseBulkConfirmModal();
   }
   </script>
+  <?php endif; ?>
 </section>

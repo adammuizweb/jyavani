@@ -146,14 +146,18 @@ $userRole = is_string($userRole) ? strtolower(trim($userRole)) : null;
         [$base . '/index.php?page=admin/photos/index','Daftar','📋']
       ]);
 
-      // ✅ THEMES (pakai $userRole hasil prioritas $user lalu session)
-      if ($userRole === 'admin') {
-        echo nav_item($base, $requested, 'admin/themes', '🎨', 'Themes (Dev)', [
-          [$base . '/index.php?page=admin/themes/index','Daftar','📋'],
-          [$base . '/index.php?page=admin/themes/add','Tambah (Dev)','➕'],
-          [$base . '/index.php?page=admin/themes/assign','Assign (Dev)','🔗']
-        ]);
-      }
+// THEMES
+$themeLinks = [
+  [$base . '/index.php?page=admin/themes/index','Daftar','📋'],
+  [$base . '/index.php?page=admin/themes/add','Tambah','➕']
+];
+
+// hanya admin boleh lihat Assign
+if ($userRole === 'admin') {
+  $themeLinks[] = [$base . '/index.php?page=admin/themes/assign','Assign (Dev)','🔗'];
+}
+
+echo nav_item($base, $requested, 'admin/themes', '🎨', 'Themes', $themeLinks);
 
       echo '<li class="adam-nav-heading">Sistem</li>';
 
