@@ -2,9 +2,6 @@
 // layout.php (public) — sidebar + search/404 support
 declare(strict_types=1);
 
-ini_set('display_errors', '1');
-error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING);
-
 // basic safety flag
 if (!defined('APP_PUBLIC_LOADED')) {
     define('APP_PUBLIC_LOADED', true);

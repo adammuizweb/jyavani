@@ -5,7 +5,11 @@
  * - $category_path : string "parent/child/grandchild"
  */
 
-$parts = explode('/', $category_path);
+// safe defaults
+$category = (isset($category) && is_array($category)) ? $category : [];
+$category_path = isset($category_path) && is_string($category_path) ? trim($category_path, '/') : '';
+
+$parts = ($category_path !== '') ? explode('/', $category_path) : [];
 $accum = [];
 ?>
 
@@ -14,6 +18,9 @@ $accum = [];
 
     <?php foreach ($parts as $slug): ?>
         <?php
+            $slug = trim((string)$slug);
+            if ($slug === '') continue;
+
             $accum[] = $slug;
             $url = '/category/' . implode('/', array_map('rawurlencode', $accum)) . '/';
         ?>

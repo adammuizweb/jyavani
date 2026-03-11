@@ -1,5 +1,14 @@
 <?php
 declare(strict_types=1);
+
+if (
+    PHP_SAPI !== 'cli' &&
+    realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__
+) {
+    http_response_code(404);
+    exit('Not found');
+}
+
 /**
  * theme_helper.php
  *
@@ -41,35 +50,36 @@ if (!defined('DEFAULT_THEME_FOLDER')) {
 // Utilities
 ////////////////////////////////////////////////////////////////////////////////
 
-function slot_to_file(string $slot_key): string {
-    $map = [
-        'header' => 'header.php',
-        'footer' => 'footer.php',
-        'sidebar' => 'sidebar.php',
+if (!function_exists('slot_to_file')) {
+    function slot_to_file(string $slot_key): string {
+        $map = [
+            'header' => 'header.php',
+            'footer' => 'footer.php',
+            'sidebar' => 'sidebar.php',
 
-        'main.homepage' => 'main/homepage.php',
-        'main.search'   => 'main/search.php',
-        'main.404'      => 'main/404.php',
+            'main.homepage' => 'main/homepage.php',
+            'main.search'   => 'main/search.php',
+            'main.404'      => 'main/404.php',
 
-        'list.post'     => 'main/list/post.php',
-        'list.page'     => 'main/list/page.php',
-        'list.category' => 'main/list/category.php',
-        'list.archive'  => 'main/list/archive.php',
-        'list.author'   => 'main/list/author.php',
+            'list.post'     => 'main/list/post.php',
+            'list.page'     => 'main/list/page.php',
+            'list.category' => 'main/list/category.php',
+            'list.archive'  => 'main/list/archive.php',
+            'list.author'   => 'main/list/author.php',
 
-        'single.post'   => 'main/single/post.php',
-        'single.page'   => 'main/single/page.php',
+            'single.post'   => 'main/single/post.php',
+            'single.page'   => 'main/single/page.php',
 
-        'index.category'=> 'main/index/category.php',
-        'index.author'  => 'main/index/author.php',
+            'index.category'=> 'main/index/category.php',
+            'index.author'  => 'main/index/author.php',
 
-        'index.gallery'  => 'main/index/gallery.php',
-        'list.gallery'   => 'main/list/gallery.php',
-        'single.gallery' => 'main/single/gallery.php',
-    ];
-    return $map[$slot_key] ?? (str_replace([':', '/'], '.', $slot_key) . '.php');
+            'index.gallery'  => 'main/index/gallery.php',
+            'list.gallery'   => 'main/list/gallery.php',
+            'single.gallery' => 'main/single/gallery.php',
+        ];
+        return $map[$slot_key] ?? (str_replace([':', '/'], '.', $slot_key) . '.php');
+    }
 }
-
 
 function get_pdo_from_global(): ?PDO {
     global $pdo;

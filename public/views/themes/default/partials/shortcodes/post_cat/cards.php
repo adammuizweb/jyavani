@@ -1,20 +1,36 @@
 <?php
-// cards layout (carousel cards)
+// /views/themes/default/partials/shortcodes/post_cat/cards.php
 // vars: $items, $kicker, $class_prefix, $wrap, $esc (callable)
-$extra = $class_prefix ? ' ' . $esc($class_prefix) : '';
+
+// safe defaults
+$items = (isset($items) && is_array($items)) ? $items : [];
+$kicker = isset($kicker) ? (string)$kicker : '';
+$class_prefix = isset($class_prefix) ? (string)$class_prefix : '';
+$wrap = !empty($wrap);
+
+// safe esc fallback
+if (!isset($esc) || !is_callable($esc)) {
+    $esc = static function ($value): string {
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    };
+}
+
+$extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
 ?>
 
-<?php if (!empty($wrap)): ?>
+<?php if ($wrap): ?>
 <div class="pcat pcat--cards<?= $extra ?>" data-pcat-layout="cards">
 <?php endif; ?>
 
   <div class="pcat__track">
     <?php foreach ($items as $it): ?>
       <?php
+        if (!is_array($it)) continue;
+
         $title = $esc($it['title'] ?? '');
-        $url   = $esc($it['url'] ?? '#');
+        $url = $esc($it['url'] ?? '#');
         $thumb = trim((string)($it['thumb'] ?? ''));
-        $desc  = $esc($it['desc'] ?? '');
+        $desc = $esc($it['desc'] ?? '');
         $dateIso = $esc($it['date_iso'] ?? '');
         $dateLabel = $esc($it['date_label'] ?? '');
       ?>
@@ -45,7 +61,7 @@ $extra = $class_prefix ? ' ' . $esc($class_prefix) : '';
     <?php endforeach; ?>
   </div>
 
-<?php if (!empty($wrap)): ?>
+<?php if ($wrap): ?>
 </div>
 <?php endif; ?>
 

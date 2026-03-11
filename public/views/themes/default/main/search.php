@@ -1,37 +1,73 @@
 <?php
-// /views/themes/<active>/main/search.php
-// variabel tersedia: $results, $total, $page, $totalPages, $qEsc
-// controller SearchController juga menyediakan aliases: posts, pages, base, perPage (jika ada)
+declare(strict_types=1);
 
-// make local-safe defaults
+// /views/themes/default/main/search.php
+
+if (
+    PHP_SAPI !== 'cli' &&
+    realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__
+) {
+    http_response_code(404);
+    exit('Not found');
+}
+
+// local-safe defaults
 $results = $results ?? [];
-$posts   = $posts   ?? $results;
-$page    = isset($page) ? (int)$page : 1;
-$perPage = isset($perPage) ? (int)$perPage : 10;
-$total   = isset($total) ? (int)$total : count($posts);
-$pages   = isset($pages) ? (int)$pages : (isset($totalPages) ? (int)$totalPages : max(1, (int)ceil($total / max(1, $perPage))));
-$base    = $base ?? ('/?s=' . urlencode($q ?? ''));
+$posts   = $posts ?? $results;
 
-// prepare vars for list.post (component)
+$q       = isset($q) ? (string)$q : '';
+$qEsc    = isset($qEsc) ? (string)$qEsc : htmlspecialchars($q, ENT_QUOTES, 'UTF-8');
+
+$page    = isset($page) ? max(1, (int)$page) : 1;
+$perPage = isset($perPage) ? max(1, (int)$perPage) : 10;
+$total   = isset($total) ? (int)$total : count($posts);
+
+$pages = isset($pages)
+    ? max(1, (int)$pages)
+    : (isset($totalPages)
+        ? max(1, (int)$totalPages)
+        : max(1, (int)ceil($total / max(1, $perPage)))
+      );
+
+$base = isset($base) && trim((string)$base) !== ''
+    ? (string)$base
+    : ('/?s=' . urlencode($q));
+
+// prepare vars for list.post
 $listVars = [
-  'posts' => $posts,
-  'page' => $page,
-  'perPage' => $perPage,
-  'total' => $total,
-  'pages' => $pages,
-  'base' => $base,
-  'site_context' => 'posts_list',
+    'posts'        => $posts,
+    'results'      => $posts,
+    'page'         => $page,
+    'perPage'      => $perPage,
+    'total'        => $total,
+    'pages'        => $pages,
+    'totalPages'   => $pages,
+    'base'         => $base,
+    'q'            => $q,
+    'qEsc'         => $qEsc,
+    'site_context' => 'posts_list',
 ];
 
-// pdo used by render_slot (if needed)
+// pdo used by render_slot if needed
 $pdoForRender = $GLOBALS['pdo'] ?? null;
 
-// track whether list was rendered by theme engine
+// track whether list rendered by theme engine
 $didRenderList = false;
+
+if (!function_exists('search_theme_build_page_url')) {
+    function search_theme_build_page_url(string $base, int $targetPage): string
+    {
+        $base = trim($base);
+        if ($base === '') {
+            return '/?page=' . $targetPage;
+        }
+
+        return $base . (strpos($base, '?') === false ? '?' : '&') . 'page=' . $targetPage;
+    }
+}
 ?>
 <section class="search-results">
 <style>
-/* your existing styles (kept as-is) */
 .search-results {
   max-width: 860px;
   margin: 2.5rem auto;
@@ -78,7 +114,6 @@ $didRenderList = false;
   color: inherit;
   font-size: .9rem;
 }
-
 .search-results .pagination {
   margin: 2rem 0;
   display: flex;
@@ -105,16 +140,14 @@ $didRenderList = false;
 }
 </style>
 
-<h1>Hasil pencarian untuk (DEFAULT): “<?= $qEsc ?>”</h1>
+<h1>Hasil pencarian untuk: “<?= $qEsc ?>”</h1>
 <p class="summary"><?= (int)$total ?> hasil ditemukan.</p>
 
 <?php if (empty($posts)): ?>
   <p>Tidak ada hasil. Coba kata kunci lain.</p>
-
 <?php else: ?>
 
   <?php
-  // 1) Prefer theme engine component 'list.post' if available
   if (function_exists('render_slot')) {
       try {
           $slotHtml = render_slot($pdoForRender, 'list.post', $listVars);
@@ -123,57 +156,54 @@ $didRenderList = false;
               $didRenderList = true;
           }
       } catch (Throwable $e) {
-          // log and continue to fallback
           error_log('[theme/main.search] render_slot(list.post) error: ' . $e->getMessage());
       }
   }
   ?>
 
-  <?php if (!$didRenderList): // fallback to inline list presentation ?>
+  <?php if (!$didRenderList): ?>
     <?php foreach ($posts as $p): ?>
       <article class="card">
         <h2>
-          <a href="/<?= htmlspecialchars($p['slug'] ?? '', ENT_QUOTES) ?>/">
-            <?= htmlspecialchars($p['title'] ?? '(untitled)', ENT_QUOTES) ?>
+          <a href="/<?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>/">
+            <?= htmlspecialchars((string)($p['title'] ?? '(untitled)'), ENT_QUOTES, 'UTF-8') ?>
           </a>
         </h2>
+
         <?php if (!empty($p['created_at'])): ?>
-        <time datetime="<?= htmlspecialchars($p['created_at'], ENT_QUOTES) ?>">
-          <?= htmlspecialchars(date('d M Y', strtotime($p['created_at'])), ENT_QUOTES) ?>
-        </time>
+          <time datetime="<?= htmlspecialchars((string)$p['created_at'], ENT_QUOTES, 'UTF-8') ?>">
+            <?= htmlspecialchars(date('d M Y', strtotime((string)$p['created_at'])), ENT_QUOTES, 'UTF-8') ?>
+          </time>
         <?php endif; ?>
 
         <?php if (!empty($p['display_image'])): ?>
           <div style="margin-top:.6rem;margin-bottom:.4rem">
-            <img src="<?= htmlspecialchars($p['display_image'], ENT_QUOTES) ?>" alt="" style="max-width:220px;display:block">
+            <img
+              src="<?= htmlspecialchars((string)$p['display_image'], ENT_QUOTES, 'UTF-8') ?>"
+              alt=""
+              style="max-width:220px;display:block"
+            >
           </div>
         <?php endif; ?>
 
-        <p><?= htmlspecialchars(mb_strimwidth(strip_tags($p['content'] ?? ''), 0, 240, '…'), ENT_QUOTES) ?></p>
+        <p><?= htmlspecialchars(mb_strimwidth(strip_tags((string)($p['content'] ?? '')), 0, 240, '…'), ENT_QUOTES, 'UTF-8') ?></p>
       </article>
     <?php endforeach; ?>
 
     <?php if ($pages > 1): ?>
       <nav class="pagination" aria-label="Pagination">
-        <?php for ($i = 1; $i <= $pages; $i++): 
-            $link = $base . (strpos($base, '?') === false ? '&' : '&') . 'page=' . $i;
-            // normalize (base probably contains ?s=...)
-            if (strpos($base, '?') === false) {
-                $link = $base . '?page=' . $i;
-            } else {
-                // ensure only one ? present; base already contains ?s=...
-                $link = $base . '&page=' . $i;
-            }
-        ?>
-          <a href="<?= htmlspecialchars($link, ENT_QUOTES) ?>" <?= $i == $page ? 'aria-current="page"' : '' ?>>
+        <?php for ($i = 1; $i <= $pages; $i++): ?>
+          <?php $link = search_theme_build_page_url($base, $i); ?>
+          <a
+            href="<?= htmlspecialchars($link, ENT_QUOTES, 'UTF-8') ?>"
+            <?= $i === $page ? 'aria-current="page"' : '' ?>
+          >
             <?= $i ?>
           </a>
         <?php endfor; ?>
       </nav>
     <?php endif; ?>
+  <?php endif; ?>
 
-  <?php endif; // end fallback ?>
-
-<?php endif; // end if empty posts ?>
-
+<?php endif; ?>
 </section>

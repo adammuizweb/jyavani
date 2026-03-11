@@ -2,20 +2,6 @@
 // router.php
 // define('DEV_LOCK_ENABLED', true);
 // require_once __DIR__ . '/dev_lock.php';
-// PRODUCTION SAFE MODE
-// DEBUG: tampilkan fatal error sementara (letakkan di paling atas router.php)
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
-error_reporting(E_ALL);
-
-register_shutdown_function(function() {
-    $err = error_get_last();
-    if ($err) {
-        http_response_code(500);
-        echo "<pre>FATAL: {$err['message']}\nFile: {$err['file']} : line {$err['line']}</pre>";
-    }
-});
-
 
 // BOOTSTRAP
 require_once __DIR__ . '/bootstrap_core.php';

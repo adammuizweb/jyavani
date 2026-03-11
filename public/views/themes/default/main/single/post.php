@@ -12,7 +12,7 @@ if (!isset($post) || !is_array($post)) { return; }
  * Requires $pdo to be available in scope. If $pdo is not available, it returns the slug unchanged.
  */
 if (!function_exists('build_category_full_path')) {
-    function build_category_full_path(PDO $pdo = null, string $slug): string
+    function build_category_full_path(?PDO $pdo = null, string $slug): string
     {
         $slug = trim((string)$slug);
         if ($slug === '') return '';

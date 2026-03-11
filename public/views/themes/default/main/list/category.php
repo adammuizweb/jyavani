@@ -1,14 +1,26 @@
 <?php
-// lokasi file /views/themes/default/main/list/category.php
+// /views/themes/default/main/list/category.php
 /**
- * vars:
+ * vars expected:
  * - $category
  * - $posts
  * - $page
  * - $totalPages
  * - $category_path
  */
+
+// safe defaults
+$category = (isset($category) && is_array($category)) ? $category : [];
+$posts = (isset($posts) && is_array($posts)) ? $posts : [];
+$page = isset($page) ? max(1, (int)$page) : 1;
+$totalPages = isset($totalPages) ? max(1, (int)$totalPages) : 1;
+$category_path = isset($category_path) && is_string($category_path) ? trim($category_path, '/') : '';
+
+// derived safe values
+$categoryName = (string)($category['name'] ?? 'Kategori');
+$categoryDescription = (string)($category['description'] ?? '');
 ?>
+
 <div class="container category-posts">
 
     <?php
@@ -20,11 +32,11 @@
     ?>
 
     <header class="category-header">
-        <h1><?= htmlspecialchars($category['name'], ENT_QUOTES, 'UTF-8') ?></h1>
+        <h1><?= htmlspecialchars($categoryName, ENT_QUOTES, 'UTF-8') ?></h1>
 
-        <?php if (!empty($category['description'])): ?>
+        <?php if ($categoryDescription !== ''): ?>
             <p class="category-description">
-                <?= nl2br(htmlspecialchars($category['description'], ENT_QUOTES, 'UTF-8')) ?>
+                <?= nl2br(htmlspecialchars($categoryDescription, ENT_QUOTES, 'UTF-8')) ?>
             </p>
         <?php endif; ?>
     </header>
@@ -34,35 +46,47 @@
     <?php else: ?>
         <div class="posts-list">
             <?php foreach ($posts as $p): ?>
-                <article class="post-card" aria-labelledby="post-title-<?= (int)$p['id'] ?>">
-<?php
-  // prefer display_image (set oleh PostController::attach_display_images), fallback to thumbnail or embed thumbnail
-  $imgToShow = $p['display_image'] ?? ($p['thumbnail'] ?? '');
-?>
-<?php if (!empty($imgToShow)): ?>
-  <img src="<?= htmlspecialchars($imgToShow, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($p['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="max-width:220px;display:block;margin-bottom:.6rem">
-<?php endif; ?>
+                <?php
+                    if (!is_array($p)) continue;
 
+                    $postId = (int)($p['id'] ?? 0);
+                    $postSlug = (string)($p['slug'] ?? '');
+                    $postTitle = (string)($p['title'] ?? 'Tanpa Judul');
+                    $postContent = (string)($p['content'] ?? '');
+                    $postCreatedAt = !empty($p['created_at']) ? strtotime((string)$p['created_at']) : false;
+
+                    $imgToShow = $p['display_image'] ?? ($p['thumbnail'] ?? '');
+                ?>
+                <article class="post-card" aria-labelledby="post-title-<?= $postId ?>">
+                    <?php if (!empty($imgToShow)): ?>
+                        <img
+                            src="<?= htmlspecialchars((string)$imgToShow, ENT_QUOTES, 'UTF-8') ?>"
+                            alt="<?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?>"
+                            style="max-width:220px;display:block;margin-bottom:.6rem"
+                        >
+                    <?php endif; ?>
 
                     <div class="post-body">
-                        <h2 id="post-title-<?= (int)$p['id'] ?>">
-                            <a href="/<?= rawurlencode($p['slug']) ?>/">
-                                <?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>
+                        <h2 id="post-title-<?= $postId ?>">
+                            <a href="/<?= rawurlencode($postSlug) ?>/">
+                                <?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?>
                             </a>
                         </h2>
 
                         <div class="meta">
-                            <time datetime="<?= htmlspecialchars(date('c', strtotime($p['created_at'])), ENT_QUOTES, 'UTF-8') ?>">
-                                <?= htmlspecialchars(date('Y-m-d H:i', strtotime($p['created_at'])), ENT_QUOTES, 'UTF-8') ?>
-                            </time>
+                            <?php if ($postCreatedAt): ?>
+                                <time datetime="<?= htmlspecialchars(date('c', $postCreatedAt), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?= htmlspecialchars(date('Y-m-d H:i', $postCreatedAt), ENT_QUOTES, 'UTF-8') ?>
+                                </time>
+                            <?php endif; ?>
                         </div>
 
                         <p class="excerpt">
-                            <?= htmlspecialchars(mb_strimwidth(strip_tags($p['content']), 0, 240, '…'), ENT_QUOTES, 'UTF-8') ?>
+                            <?= htmlspecialchars(mb_strimwidth(strip_tags($postContent), 0, 240, '…'), ENT_QUOTES, 'UTF-8') ?>
                         </p>
 
                         <div class="post-actions">
-                            <a class="read-more" href="/<?= rawurlencode($p['slug']) ?>/">Baca selengkapnya →</a>
+                            <a class="read-more" href="/<?= rawurlencode($postSlug) ?>/">Baca selengkapnya →</a>
                         </div>
                     </div>
                 </article>
@@ -70,7 +94,9 @@
         </div>
 
         <?php
-            $base = '/category/' . implode('/', array_map('rawurlencode', explode('/', $category_path))) . '/';
+            $base = $category_path !== ''
+                ? '/category/' . implode('/', array_map('rawurlencode', explode('/', $category_path))) . '/'
+                : '/category/';
         ?>
         <nav class="pagination" aria-label="Pagination">
             <?php if ($page > 1): ?>

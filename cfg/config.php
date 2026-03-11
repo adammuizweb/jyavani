@@ -7,6 +7,10 @@ require_once __DIR__ . '/env.php';
 // 2. Load isi .env
 load_env(__DIR__ . '/.env');
 
+require_once __DIR__ . '/helpers/debug_helpers.php';
+app_configure_error_reporting();
+app_register_shutdown_handler();
+
 // set timezone dan locale global (Indonesia, GMT+7)
 date_default_timezone_set('Asia/Jakarta'); // GMT+7
 // coba beberapa variasi locale untuk kompatibilitas server

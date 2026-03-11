@@ -1,6 +1,26 @@
 <?php
-// lokasi file /views/search_results.php
-// variabel yang tersedia: $results, $total, $page, $totalPages, $qEsc
+declare(strict_types=1);
+
+// /public/views/search_results.php
+// Variabel yang diharapkan:
+// $results, $posts, $total, $page, $totalPages, $pages, $q, $qEsc, $base
+
+if (
+    PHP_SAPI !== 'cli' &&
+    realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__
+) {
+    http_response_code(404);
+    exit('Not found');
+}
+
+$results = $results ?? [];
+$posts = $posts ?? $results;
+$total = isset($total) ? (int)$total : count($posts);
+$page = isset($page) ? max(1, (int)$page) : 1;
+$totalPages = isset($totalPages) ? max(1, (int)$totalPages) : (isset($pages) ? max(1, (int)$pages) : 1);
+$q = isset($q) ? (string)$q : '';
+$qEsc = isset($qEsc) ? (string)$qEsc : htmlspecialchars($q, ENT_QUOTES, 'UTF-8');
+$base = isset($base) && $base !== '' ? (string)$base : ('/?s=' . urlencode($q));
 ?>
 
 <section class="search-results">
@@ -51,7 +71,6 @@
   color: inherit;
   font-size: .9rem;
 }
-
 .search-results .pagination {
   margin: 2rem 0;
   display: flex;
@@ -67,46 +86,53 @@
   color: inherit;
   font-size: .85rem;
   text-decoration: none;
+  border: 1px solid #e5e7eb;
 }
 .search-results .pagination a:hover {
   background: #e5e7eb;
 }
 .search-results .pagination a[aria-current="page"] {
-  background: inherit;
-  color: inherit;
-  font-weight: 600;
+  font-weight: 700;
 }
 </style>
 
-<h1>(View RLV) Hasil pencarian untuk: “<?= $qEsc ?>”</h1>
+<h1>Hasil pencarian untuk: “<?= $qEsc ?>”</h1>
 <p class="summary"><?= $total ?> hasil ditemukan.</p>
 
-<?php if (empty($results)): ?>
+<?php if (empty($posts)): ?>
   <p>Tidak ada hasil. Coba kata kunci lain.</p>
-
 <?php else: ?>
-  <?php foreach ($results as $p): ?>
+  <?php foreach ($posts as $p): ?>
     <article class="card">
       <h2>
-        <a href="/<?= htmlspecialchars($p['slug'], ENT_QUOTES) ?>/">
-          <?= htmlspecialchars($p['title'], ENT_QUOTES) ?>
+        <a href="/<?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>/">
+          <?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
         </a>
       </h2>
-      <time datetime="<?= htmlspecialchars($p['created_at'], ENT_QUOTES) ?>">
-        <?= htmlspecialchars(date('d M Y', strtotime($p['created_at'])), ENT_QUOTES) ?>
-      </time>
+
+      <?php if (!empty($p['created_at'])): ?>
+        <time datetime="<?= htmlspecialchars((string)$p['created_at'], ENT_QUOTES, 'UTF-8') ?>">
+          <?= htmlspecialchars(date('d M Y', strtotime((string)$p['created_at'])), ENT_QUOTES, 'UTF-8') ?>
+        </time>
+      <?php endif; ?>
+
+      <?php if (!empty($p['content'])): ?>
+        <p><?= htmlspecialchars(mb_strimwidth(strip_tags((string)$p['content']), 0, 220, '…'), ENT_QUOTES, 'UTF-8') ?></p>
+      <?php endif; ?>
     </article>
   <?php endforeach; ?>
 
   <?php if ($totalPages > 1): ?>
-  <nav class="pagination" aria-label="Pagination">
-    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-      <a href="?s=<?= urlencode($qEsc) ?>&page=<?= $i ?>" <?= $i == $page ? 'aria-current="page"' : '' ?>>
-        <?= $i ?>
-      </a>
-    <?php endfor; ?>
-  </nav>
+    <nav class="pagination" aria-label="Pagination">
+      <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+        <?php
+          $link = $base . (strpos($base, '?') !== false ? '&' : '?') . 'page=' . $i;
+        ?>
+        <a href="<?= htmlspecialchars($link, ENT_QUOTES, 'UTF-8') ?>" <?= $i === $page ? 'aria-current="page"' : '' ?>>
+          <?= $i ?>
+        </a>
+      <?php endfor; ?>
+    </nav>
   <?php endif; ?>
-
 <?php endif; ?>
 </section>

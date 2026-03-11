@@ -169,7 +169,7 @@ class SearchController
 
         // 3) fallback local view (opsional)
         if (trim($content_html) === '') {
-            $local = self::render_local_view('search_results.php', $vars);
+            $local = self::render_local_view('search.php', $vars);
             if (trim($local) !== '') $content_html = $local;
         }
         if (trim($content_html) === '') {

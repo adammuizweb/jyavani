@@ -14,12 +14,27 @@
  * - $cat_key (string)
  */
 
-$extra = $class_prefix ? ' ' . $esc($class_prefix) : '';
+// safe defaults
+$items = (isset($items) && is_array($items)) ? $items : [];
+$kicker = isset($kicker) ? (string)$kicker : '';
+$class_prefix = isset($class_prefix) ? (string)$class_prefix : '';
+$wrap = !empty($wrap);
+$attrs = (isset($attrs) && is_array($attrs)) ? $attrs : [];
+$cat_key = isset($cat_key) ? (string)$cat_key : '';
+
+// safe esc fallback
+if (!isset($esc) || !is_callable($esc)) {
+    $esc = static function ($value): string {
+        return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+    };
+}
+
+$extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
 
 // Title
 $sectionTitle = trim((string)($attrs['section_title'] ?? $attrs['title'] ?? ''));
 if ($sectionTitle === '') {
-  $sectionTitle = ucwords(str_replace(['-','_'], ' ', (string)($cat_key ?? 'News')));
+    $sectionTitle = ucwords(str_replace(['-', '_'], ' ', $cat_key !== '' ? $cat_key : 'News'));
 }
 
 // Link label + desc toggle
@@ -30,10 +45,10 @@ $showDesc  = !isset($attrs['show_desc']) ? true : ((string)$attrs['show_desc'] !
 $colsDesktop = (int)($attrs['show'] ?? 3);
 if ($colsDesktop < 1) $colsDesktop = 3;
 
-$colsTablet  = (int)($attrs['show_tablet'] ?? 2);
+$colsTablet = (int)($attrs['show_tablet'] ?? 2);
 if ($colsTablet < 1) $colsTablet = 2;
 
-$colsMobile  = (int)($attrs['show_mobile'] ?? 1);
+$colsMobile = (int)($attrs['show_mobile'] ?? 1);
 if ($colsMobile < 1) $colsMobile = 1;
 
 // icons (rotate)
@@ -61,8 +76,8 @@ $icons = [
 ];
 
 // Always output a root wrapper (so JS works even if wrap=0)
-$rootTag = (!empty($wrap)) ? 'section' : 'div';
-$bareCls = (!empty($wrap)) ? '' : ' sliderpage-sec--bare';
+$rootTag = $wrap ? 'section' : 'div';
+$bareCls = $wrap ? '' : ' sliderpage-sec--bare';
 
 // root style vars
 $rootStyle = sprintf(
@@ -86,6 +101,8 @@ $rootStyle = sprintf(
         <div class="sliderpage-track">
           <?php foreach ($items as $i => $it): ?>
             <?php
+              if (!is_array($it)) continue;
+
               $title = $esc($it['title'] ?? '');
               $url   = $esc($it['url'] ?? '#');
               $desc  = $esc($it['desc'] ?? '');
@@ -116,11 +133,6 @@ $rootStyle = sprintf(
 
 <?php if (!defined('SLIDERPAGE_PCAT_ASSETS')): define('SLIDERPAGE_PCAT_ASSETS', true); ?>
 <style id="sliderpage-styles">
-  /* ==========================
-     Slider Page (News-like)
-     Prefix: sliderpage-
-  ========================== */
-
   .sliderpage-sec{
     --sliderpage-bg: #f3eee8;
     --sliderpage-ink: #062b3e;
@@ -129,18 +141,13 @@ $rootStyle = sprintf(
     --sliderpage-icon-bg: #062b3e;
     --sliderpage-card-bg: #ffffff;
     --sliderpage-maxw: 1220px;
-
     --sliderpage-gap: 26px;
-
-    /* cols default by CSS var (filled by inline style on root) */
     --sliderpage-cols: var(--sliderpage-cols-desktop, 3);
-
     background: var(--sliderpage-bg);
     padding: clamp(28px, 5vw, 64px) 0;
   }
   .sliderpage-sec *{ box-sizing: border-box; }
 
-  /* when wrap=0 */
   .sliderpage-sec--bare{
     background: transparent;
     padding: 0;
@@ -183,7 +190,6 @@ $rootStyle = sprintf(
     gap: 14px;
   }
 
-  /* arrows */
   .sliderpage-arrow{
     width: 56px;
     height: 56px;
@@ -213,7 +219,6 @@ $rootStyle = sprintf(
     .sliderpage-arrow{ width: 44px; height: 44px; font-size: 34px; }
   }
 
-  /* viewport & track */
   .sliderpage-viewport{
     overflow: hidden;
     width: 100%;
@@ -233,7 +238,6 @@ $rootStyle = sprintf(
     will-change: transform;
   }
 
-  /* card */
   .sliderpage-card{
     background: var(--sliderpage-card-bg);
     border: 2px solid var(--sliderpage-line);
@@ -335,7 +339,6 @@ $rootStyle = sprintf(
     prev.addEventListener('click', () => { index -= 1; render(); });
     next.addEventListener('click', () => { index += 1; render(); });
 
-    // swipe (mobile)
     let sx = 0, dx = 0, isDown = false, pid = null;
 
     viewport.addEventListener('pointerdown', (e) => {
