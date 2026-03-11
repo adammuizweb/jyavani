@@ -57,7 +57,7 @@ class PostController
  * Resolve display images for an array of posts and (optionally) attach target metadata.
  * Backward-compatible: $pdo is optional.
  */
-public static function attach_display_images(array &$posts, PDO $pdo = null): void
+public static function attach_display_images(array &$posts, ?PDO $pdo = null): void
 {
     if (empty($posts) || !is_array($posts)) return;
 
