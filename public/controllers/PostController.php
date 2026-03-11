@@ -78,7 +78,6 @@ public static function attach_display_images(array &$posts, ?PDO $pdo = null): v
                 $p['display_image_target_attribute'] = null;
             }
         } else {
-            // ensure keys exist
             $p['display_image_target_url'] = $p['display_image_target_url'] ?? null;
             $p['display_image_target_attribute'] = $p['display_image_target_attribute'] ?? null;
         }
