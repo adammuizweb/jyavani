@@ -1,84 +1,66 @@
 <?php
 // /adiwira/admin/users/delete.php
-if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
-require_once __DIR__ . '/../../bootstrap.php';
+declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) session_start();
-if (empty($_SESSION['user_id'])) {
-    http_response_code(403);
-    echo '<p>Akses ditolak: belum login.</p>';
-    exit;
+if (!defined('DASHBOARD_CONTEXT')) {
+    define('DASHBOARD_CONTEXT', true);
 }
 
-$uid = (int)$_SESSION['user_id'];
-$role = $_SESSION['user_role'] ?? null;
-if (!$role) {
-    $stmtRole = $pdo->prepare("SELECT role FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
-    $stmtRole->execute([':id' => $uid]);
-    $role = $stmtRole->fetchColumn() ?: 'author';
-    $_SESSION['user_role'] = $role;
-}
+require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
-$role = strtolower(trim((string)$role));
-if ($role !== 'admin') {
-    http_response_code(403);
-    echo '<p>Akses ditolak: hanya admin yang boleh menghapus user.</p>';
-    exit;
-}
+$defaultReturnTo = '/adiwira/index.php?page=admin/users/index';
+$returnTo = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    http_response_code(405);
-    echo '<p>Method tidak diijinkan.</p>';
-    exit;
+    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+}
+
+$identity = adiwira_fetch_identity($pdo);
+if (($identity['ok'] ?? false) !== true) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: belum login.');
+}
+
+$uid  = (int)($identity['uid'] ?? 0);
+$role = (string)($identity['role'] ?? 'guest');
+
+if ($role !== 'admin') {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: hanya admin yang boleh menghapus user.');
+}
+
+$token = (string)($_POST['csrf_token'] ?? '');
+if (!adiwira_csrf_validate($token)) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Token CSRF tidak valid.');
 }
 
 $id = (int)($_POST['id'] ?? 0);
-$token = $_POST['csrf_token'] ?? '';
-
-$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-$redirectUrl = $base . '/index.php?page=admin/users/index';
-
-function safe_redirect(string $url): void {
-    if (!headers_sent()) {
-        header('Location: ' . $url);
-        exit;
-    }
-    echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
-    echo '<script>window.location.href=' . json_encode($url) . ';</script>';
-    echo '<noscript><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"></noscript>';
-    echo '</head><body></body></html>';
-    exit;
-}
-
 if ($id <= 0) {
-    $_SESSION['_flash_error'] = 'ID tidak valid.';
-    safe_redirect($redirectUrl);
-}
-
-if (!csrf_check($token)) {
-    $_SESSION['_flash_error'] = 'Token CSRF tidak valid.';
-    safe_redirect($redirectUrl);
+    adiwira_redirect_with_flash($returnTo, 'error', 'ID tidak valid.');
 }
 
 if ($id === $uid) {
-    $_SESSION['_flash_error'] = 'Tidak dapat menghapus user sendiri.';
-    safe_redirect($redirectUrl);
+    adiwira_redirect_with_flash($returnTo, 'error', 'Tidak dapat menghapus user sendiri.');
 }
 
 $stmt = $pdo->prepare("SELECT id FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
 $stmt->execute([':id' => $id]);
 if (!$stmt->fetch()) {
-    $_SESSION['_flash_error'] = 'User tidak ditemukan atau sudah dihapus.';
-    safe_redirect($redirectUrl);
+    adiwira_redirect_with_flash($returnTo, 'error', 'User tidak ditemukan atau sudah dihapus.');
 }
 
 $stmtDel = $pdo->prepare("UPDATE users SET is_deleted = 1, updated_at = NOW() WHERE id = :id LIMIT 1");
-$ok = $stmtDel->execute([':id' => $id]);
 
-if ($ok) {
-    $_SESSION['_flash_success'] = 'User berhasil dihapus.';
-    safe_redirect($redirectUrl);
+try {
+    $ok = $stmtDel->execute([':id' => $id]);
+
+    if ($ok) {
+        adiwira_redirect_with_flash($returnTo, 'success', 'User berhasil dihapus.');
+    }
+
+    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus user.');
+} catch (Throwable $e) {
+    error_log('[users/delete] ' . $e->getMessage());
+    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus user.');
 }
-
-$_SESSION['_flash_error'] = 'Gagal menghapus user.';
-safe_redirect($redirectUrl);

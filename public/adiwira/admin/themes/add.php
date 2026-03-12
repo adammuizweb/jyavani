@@ -8,7 +8,15 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
+
 [$user_id, $user_role] = adiwira_require_editorial($pdo, false);
+
+if (function_exists('ensure_session_started')) {
+    ensure_session_started(false);
+} elseif (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -21,6 +29,9 @@ if (!function_exists('slugify')) {
 }
 
 $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+$return_to = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/index.php?page=admin/themes/index')
+    : ($base . '/index.php?page=admin/themes/index');
 
 /* ---------- SAVE NONCE (anti double insert) ---------- */
 $nonce_key = 'theme_add_nonce';
@@ -51,7 +62,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $errors[] = 'Judul tidak boleh kosong.';
     }
 
-    if ($content === '') {
+    if (trim($content) === '') {
         $errors[] = 'Konten tidak boleh kosong.';
     }
 
@@ -66,7 +77,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 
     if (empty($errors)) {
-        unset($_SESSION[$nonce_key]); // invalidate nonce once used
+        unset($_SESSION[$nonce_key]); // invalidate once used
 
         try {
             $stmt = $pdo->prepare("
@@ -85,13 +96,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
-                $_SESSION['flash'][] = [
-                    'type' => 'success',
-                    'text' => 'Tema berhasil ditambahkan.',
-                ];
-
-                header('Location: ' . $base . '/index.php?page=admin/themes/index');
-                exit;
+                adiwira_redirect_with_flash($return_to, 'success', 'Theme partial berhasil disimpan.');
             }
 
             $errors[] = 'Gagal menyimpan ke database.';
@@ -111,21 +116,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <section class="adam-card">
   <h2>Tambah Theme / Partial</h2>
 
-  <?php if ($errors): ?>
-    <div class="adam-alert error" style="margin-bottom:1rem;">
-      <?php foreach ($errors as $e): ?>
-        <div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
-
   <form method="post" id="theme-add-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="save_nonce" value="<?= htmlspecialchars($save_nonce, ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="form-toolbar" style="display:flex;gap:.5rem;margin-bottom:.8rem;">
       <button type="submit" class="adam-button">💾 Simpan</button>
-      <a href="<?= htmlspecialchars($base . '/index.php?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Batal</a>
+      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Batal</a>
     </div>
 
     <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
@@ -181,7 +179,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   </form>
 </section>
 
+<?php
+if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
+    $items = array_map(static fn($msg) => ['type' => 'error', 'message' => (string)$msg], $errors);
+    echo adiwira_bootstrap_toasts_script($items);
+}
+?>
+
 <input type="hidden" id="editor-codemirror" checked>
+
+<script>
+  window.ADIWIRA = window.ADIWIRA || {};
+  window.ADIWIRA_FORM_ID = 'theme-add-form';
+</script>
 
 <script src="/adiwira/static/js/edit/codemirror.js"></script>
 <script src="/adiwira/static/js/edit/main-init.js"></script>
@@ -191,6 +201,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   const form = document.getElementById('theme-add-form');
   const btn = form ? form.querySelector('button[type="submit"]') : null;
   let saving = false;
+
+  function getCMValue(){
+    if (window.ADIWIRA && window.ADIWIRA.cm && typeof window.ADIWIRA.cm.getValue === 'function') {
+      return window.ADIWIRA.cm.getValue();
+    }
+    const cmHelper = window.ADIWIRA && window.ADIWIRA.codemirror;
+    if (cmHelper && typeof cmHelper.getInstance === 'function') {
+      const cm = cmHelper.getInstance();
+      if (cm && typeof cm.getValue === 'function') return cm.getValue();
+    }
+    const ta = document.getElementById('cm-textarea');
+    return ta ? ta.value : '';
+  }
 
   if (form) {
     form.addEventListener('submit', function(e){
@@ -202,11 +225,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       saving = true;
       if (btn) btn.disabled = true;
 
-      const cm = window.ADIWIRA?.codemirror?.getInstance?.();
-      if (cm) {
-        const canonical = document.getElementById('content-textarea');
-        if (canonical) canonical.value = cm.getValue();
-      }
+      const canonical = document.getElementById('content-textarea');
+      if (canonical) canonical.value = getCMValue();
     });
   }
 
@@ -215,14 +235,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       e.preventDefault();
       if (!saving && form) form.requestSubmit();
     }
-  });
-
-  window.ADIWIRA?.codemirror?.whenCMReady?.(() => {
-    const cm = window.ADIWIRA.codemirror.getInstance();
-    cm.addKeyMap({
-      'Ctrl-S': () => form && form.requestSubmit(),
-      'Cmd-S':  () => form && form.requestSubmit()
-    });
   });
 })();
 </script>

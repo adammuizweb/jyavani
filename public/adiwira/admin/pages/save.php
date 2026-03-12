@@ -5,21 +5,60 @@ declare(strict_types=1);
 ob_start();
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
-// masking 404 kalau endpoint dibuka langsung di browser
 adiwira_cosmetic_404_on_direct_open();
 
-// login + role dari guard
 [$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], true);
+
+if (!function_exists('adiwira_request_wants_json')) {
+    function adiwira_request_wants_json(): bool {
+        $xrw = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+        return ($xrw === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
+    }
+}
+
+if (!function_exists('save_success_response')) {
+    function save_success_response(string $message, string $redirect, array $extra = []): void {
+        if (adiwira_request_wants_json()) {
+            adiwira_json(array_merge([
+                'ok' => true,
+                'message' => $message,
+            ], $extra), 200);
+        }
+
+        adiwira_flash_push('success', $message);
+        header('Location: ' . $redirect, true, 302);
+        exit;
+    }
+}
+
+if (!function_exists('save_error_response')) {
+    function save_error_response(array $errors, string $redirect, int $httpCode = 400): void {
+        $errors = array_values(array_filter(array_map('strval', $errors)));
+        if (!$errors) {
+            $errors = ['Gagal menyimpan perubahan.'];
+        }
+
+        if (adiwira_request_wants_json()) {
+            adiwira_json([
+                'ok' => false,
+                'errors' => $errors,
+            ], $httpCode);
+        }
+
+        adiwira_redirect_with_flash($redirect, 'error', $errors[0]);
+    }
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
 }
 
-// CSRF
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 if (!adiwira_csrf_validate($csrf)) {
-    adiwira_json(['ok' => false, 'errors' => ['CSRF invalid']], 419);
+    save_error_response(['CSRF invalid'], '/adiwira/index.php?page=admin/pages/index', 419);
 }
 
 // Sanitizer khusus author saja
@@ -154,7 +193,7 @@ if (!function_exists('parse_dt_jkt')) {
         $s = trim($s);
         if ($s === '') return null;
 
-        $d = DateTime::createFromFormat('Y-m-d\TH:i', $s, new DateTimeZone('Asia/Jakarta'));
+        $d = DateTime::createFromFormat('Y-m-d\\TH:i', $s, new DateTimeZone('Asia/Jakarta'));
         if ($d !== false) return $d->format('Y-m-d H:i:s');
 
         try {
@@ -179,6 +218,14 @@ $thumbnail     = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
 $created_at_in = trim((string)($_POST['created_at'] ?? ''));
 $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 $created_by_in = (int)($_POST['created_by'] ?? 0);
+$return_to     = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), '/adiwira/index.php?page=admin/pages/index')
+    : '/adiwira/index.php?page=admin/pages/index';
+$edit_return   = '/adiwira/index.php?' . http_build_query([
+    'page'      => 'admin/pages/edit',
+    'id'        => $id,
+    'return_to' => $return_to,
+]);
 
 if ($id <= 0) {
     $errors[] = 'ID tidak valid.';
@@ -198,7 +245,6 @@ if (function_exists('normalize_links_in_html')) {
     $content = normalize_links_in_html($content);
 }
 
-// editor/admin raw
 if (trim(strip_tags($content)) === '') {
     $errors[] = 'Konten tidak boleh kosong.';
 }
@@ -257,7 +303,7 @@ if (empty($errors)) {
 }
 
 if (!empty($errors)) {
-    adiwira_json(['ok' => false, 'errors' => array_values($errors)], 400);
+    save_error_response($errors, $edit_return, 400);
 }
 
 // default admin fields
@@ -270,10 +316,10 @@ if ($role === 'admin') {
     $pu = parse_dt_jkt($updated_at_in);
 
     if ($created_at_in !== '' && $pc === null) {
-        adiwira_json(['ok' => false, 'errors' => ['Format Created At tidak valid.']], 400);
+        save_error_response(['Format Created At tidak valid.'], $edit_return, 400);
     }
     if ($updated_at_in !== '' && $pu === null) {
-        adiwira_json(['ok' => false, 'errors' => ['Format Updated At tidak valid.']], 400);
+        save_error_response(['Format Updated At tidak valid.'], $edit_return, 400);
     }
 
     if ($pc) $final_created = $pc;
@@ -330,9 +376,7 @@ try {
         throw new RuntimeException('DB update failed.');
     }
 
-    adiwira_json([
-        'ok' => true,
-        'message' => 'Halaman diperbarui.',
+    save_success_response('Halaman berhasil diperbarui.', $return_to, [
         'page' => [
             'id'         => $id,
             'slug'       => $slug,
@@ -341,9 +385,9 @@ try {
             'updated_at' => $final_updated,
         ],
         'updated_at' => $final_updated,
-    ], 200);
+    ]);
 
 } catch (Throwable $e) {
     error_log('pages/save.php error: ' . $e->getMessage());
-    adiwira_json(['ok' => false, 'errors' => ['Gagal menyimpan halaman']], 500);
+    save_error_response(['Gagal menyimpan halaman.'], $edit_return, 500);
 }

@@ -8,50 +8,14 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 [$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
-$errors = [];
-$messages = [];
-
-// pastikan session aktif untuk flash
-if (function_exists('ensure_session_started')) {
-    ensure_session_started(false);
-} elseif (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-// legacy query fallback
-if (!empty($_GET['err'])) {
-    $errors[] = urldecode((string)$_GET['err']);
-}
-if (!empty($_GET['msg'])) {
-    $messages[] = urldecode((string)$_GET['msg']);
-}
-
-// flash session
-$flash = $_SESSION['flash'] ?? [];
-unset($_SESSION['flash']);
-
-$flash_for_js = [];
-if (is_array($flash)) {
-    foreach ($flash as $f) {
-        $type = isset($f['type']) ? (string)$f['type'] : 'info';
-        $text = isset($f['text']) ? (string)$f['text'] : '';
-        if ($text === '') continue;
-
-        if ($type === 'success') {
-            $messages[] = $text;
-        } else {
-            $errors[] = $text;
-        }
-
-        $flash_for_js[] = ['type' => $type, 'text' => $text];
-    }
-}
-
-$messages = array_values(array_unique($messages));
-$errors   = array_values(array_unique($errors));
+// dukung query toast lama bila masih ada route lama yang kirim ?msg= / ?err=
+$page_toasts = function_exists('adiwira_collect_query_toasts')
+    ? adiwira_collect_query_toasts()
+    : [];
 
 // filter
 $filter_status = (string)($_GET['status'] ?? '');
@@ -141,6 +105,15 @@ $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 // bulk tersedia untuk semua role yang diizinkan
 $canBulk = in_array($role, ['admin', 'editor', 'author'], true);
 
+$currentQuery = $_GET;
+$currentQuery['page'] = 'admin/pages/index';
+$currentReturnTo = $base . '/index.php?' . http_build_query($currentQuery);
+
+$addHref = $base . '/index.php?' . http_build_query([
+    'page'      => 'admin/pages/halaman',
+    'return_to' => $currentReturnTo,
+]);
+
 /** helper pagination */
 if (!function_exists('build_pagination_items')) {
     function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
@@ -223,7 +196,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </form>
 
   <p style="margin-bottom:1rem">
-    <a class="adam-button" href="<?= htmlspecialchars($base . '/index.php?page=admin/pages/halaman', ENT_QUOTES, 'UTF-8') ?>">+ Tambah Page</a>
+    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>">+ Tambah Page</a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
       <a class="adam-att" href="<?= htmlspecialchars($base . '/index.php?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
@@ -231,13 +204,11 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </p>
 
   <?php if ($canBulk): ?>
-  <form id="pagesBulkForm"
-        method="post"
-        action="<?= htmlspecialchars($base . '/admin/pages/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>"
-        onsubmit="return muizPagesOpenBulkConfirmModal(event,this)">
+  <form id="pagesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/pages/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
+    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
         <input type="checkbox" id="selectAllPages"> Pilih semua di halaman
       </label>
@@ -269,140 +240,103 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <?php endif; ?>
 
       <button type="submit" class="adam-button">Terapkan</button>
-      <small style="color:#666;margin-left:.5rem;">(Bulk akan mempengaruhi item yang dicentang)</small>
+      <small style="color:var(--adam-muted);margin-left:.5rem;">Bulk hanya mempengaruhi item yang dicentang.</small>
     </div>
-  <?php else: ?>
-    <div style="margin-bottom:1rem;color:#666;">
-      Bulk actions disembunyikan.
-    </div>
-  <?php endif; ?>
 
-  <?php if (!empty($messages)): ?>
-    <div class="adam-alert success auto-dismiss"
-         data-dismiss-ms="3000"
-         style="margin-bottom:1rem;padding:.8rem 1rem;background:#e8f7ec;border:1px solid #b6e2c2;border-radius:6px;color:#246;">
-      <?php foreach ($messages as $m): ?>
-        <div><?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?></div>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
+    <div class="adam-table-wrapper">
+      <table class="adam-table" style="margin-top:.5rem;">
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th>Judul</th>
+            <th>Slug</th>
+            <th>Status</th>
+            <th>Dibuat</th>
+            <th>Penulis</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php if (empty($pages_list)): ?>
+            <tr><td colspan="7" style="padding:1rem;">Tidak ada page ditemukan.</td></tr>
+          <?php else: ?>
+            <?php foreach ($pages_list as $p): ?>
+              <?php
+                $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
+                $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
 
-  <?php if (!empty($errors)): ?>
-    <div class="adam-alert error"
-         style="margin-bottom:1rem;padding:.8rem 1rem;background:#fee;border:1px solid #fbb;color:#600;border-radius:6px;">
-      <?php foreach ($errors as $e): ?>
-        <div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
+                $icons = [
+                  'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+                  'draft'     => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+                  'private'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+                  'unknown'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9a2.5 2.5 0 1 1 5 1c0 1.5-1.5 1.75-1.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor"/></svg>',
+                ];
+                $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
 
-  <?php if (!empty($flash_for_js)): ?>
-  <script>
-  document.addEventListener('DOMContentLoaded', function(){
-    if (typeof showToast !== 'function') return;
-    const items = <?= json_encode($flash_for_js, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
-    items.forEach(it => {
-      const t = (it.type === 'error') ? 'error' : (it.type === 'success' ? 'success' : 'info');
-      showToast(it.text, t, t === 'error' ? 6500 : 4200);
-    });
-  });
-  </script>
-  <?php endif; ?>
+                $pageSlug = trim((string)($p['slug'] ?? ''));
+                $titleHref = $pageSlug !== '' ? '/' . rawurlencode($pageSlug) . '/' : '#';
 
-  <div class="adam-table-wrapper">
-    <table class="adam-table" style="margin-top:.5rem;">
-      <thead>
-        <tr>
-          <th style="width:40px"></th>
-          <th>Judul</th>
-          <th>Slug</th>
-          <th>Status</th>
-          <th>Dibuat</th>
-          <th>Penulis</th>
-          <th>Aksi</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if (empty($pages_list)): ?>
-          <tr><td colspan="7" style="padding:1rem;">Tidak ada page ditemukan.</td></tr>
-        <?php else: ?>
-          <?php foreach ($pages_list as $p): ?>
-            <?php
-              $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
-              $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
-
-              $icons = [
-                'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-                'draft'     => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-                'private'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-                'unknown'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9a2.5 2.5 0 1 1 5 1c0 1.5-1.5 1.75-1.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor"/></svg>',
-              ];
-              $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
-
-              $postSlug = trim((string)($p['slug'] ?? ''));
-              $titleHref = $postSlug !== '' ? '/' . rawurlencode($postSlug) . '/' : '#';
-            ?>
-            <tr class="adam-row">
-              <td style="text-align:center;">
-                <?php if ($canBulk): ?>
+                $editHref = $base . '/index.php?' . http_build_query([
+                    'page'      => 'admin/pages/edit',
+                    'id'        => (int)$p['id'],
+                    'return_to' => $currentReturnTo,
+                ]);
+              ?>
+              <tr class="adam-row">
+                <td style="text-align:center;">
                   <input type="checkbox" class="bulkCheckboxPage" name="ids[]" value="<?= (int)$p['id'] ?>">
-                <?php else: ?>
-                  &mdash;
-                <?php endif; ?>
-              </td>
+                </td>
 
-              <td>
-                <a class="adam-link" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
-                   title="<?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>">
-                  <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
-                </a>
-              </td>
+                <td>
+                  <a class="adam-link" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
+                     title="<?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                  </a>
+                </td>
 
-              <td><?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
 
-              <td>
-                <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
-                      role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
-                  <span class="adam-status-icon"><?= $iconSvg ?></span>
-                  <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
-                </span>
-              </td>
+                <td>
+                  <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
+                        role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
+                    <span class="adam-status-icon"><?= $iconSvg ?></span>
+                    <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
+                  </span>
+                </td>
 
-              <td><?= htmlspecialchars(format_date_ddmmyyyy_time_bracket($p['created_at']), ENT_QUOTES, 'UTF-8') ?></td>
+                <td><?= htmlspecialchars(format_date_ddmmyyyy_time_bracket($p['created_at']), ENT_QUOTES, 'UTF-8') ?></td>
 
-              <td>
-                <?php
-                  $authorName = $p['author_name'] ?? '-';
-                  $authorUsername = trim((string)($p['author_username'] ?? ''));
-                  if ($authorUsername !== '') {
-                    $authorHref = '/author/' . rawurlencode($authorUsername) . '/';
-                    echo '<a class="adam-penulis" href="' . htmlspecialchars($authorHref, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8') . '</a>';
-                  } else {
-                    echo htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8');
-                  }
-                ?>
-              </td>
+                <td>
+                  <?php
+                    $authorName = $p['author_name'] ?? '-';
+                    $authorUsername = trim((string)($p['author_username'] ?? ''));
+                    if ($authorUsername !== '') {
+                      $authorHref = '/author/' . rawurlencode($authorUsername) . '/';
+                      echo '<a class="adam-penulis" href="' . htmlspecialchars($authorHref, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8') . '</a>';
+                    } else {
+                      echo htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8');
+                    }
+                  ?>
+                </td>
 
-              <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/pages/edit&id=' . (int)$p['id'], ENT_QUOTES, 'UTF-8') ?>">Edit</a>
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
-                <button type="button"
-                        class="adam-hapus"
-                        data-id="<?= (int)$p['id'] ?>"
-                        data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES) ?>"
-                        onclick="muizPagesOpenDeleteModal(this)">
-                  Hapus
-                </button>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
-
-  <?php if ($canBulk): ?>
-    </form>
+                <td>
+                  <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                  &nbsp;<span class="muted-divider">|</span>&nbsp;
+                  <button type="button"
+                          class="adam-hapus js-page-delete"
+                          data-id="<?= (int)$p['id'] ?>"
+                          data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                          data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                    Hapus
+                  </button>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </form>
   <?php endif; ?>
 
   <?php if ($pages > 1): ?>
@@ -426,193 +360,184 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <div id="pagesDeleteModal" class="adam-modal" role="dialog" aria-modal="true" aria-labelledby="pagesDeleteModalTitle" style="display:none;">
-    <div class="adam-modal__panel" role="document">
-      <h3 id="pagesDeleteModalTitle" class="adam-modal__title">Konfirmasi Hapus</h3>
-      <p id="pagesDeleteText" class="adam-modal__text">Apakah kamu yakin?</p>
+  <form id="newnotif-pages-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/pages/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="id" id="newnotif-pages-delete-id">
+    <input type="hidden" name="return_to" id="newnotif-pages-delete-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+  </form>
+</section>
 
-      <div class="adam-modal__actions">
-        <button type="button" class="adam-btn adam-btn--ghost" onclick="muizPagesCloseDeleteModal()">Batal</button>
-
-        <form id="pagesDeleteForm" method="post" action="<?= htmlspecialchars($base . '/admin/pages/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-          <input type="hidden" name="id" id="pagesDeleteId" value="">
-          <button type="submit" class="adam-btn adam-btn--danger">Hapus</button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div id="pagesBulkConfirmModal" class="adam-modal" role="dialog" aria-modal="true" aria-labelledby="pagesBulkConfirmTitle" style="display:none;">
-    <div class="adam-modal__panel" role="document">
-      <h3 id="pagesBulkConfirmTitle" class="adam-modal__title">Konfirmasi Bulk Action</h3>
-      <p id="pagesBulkConfirmText" class="adam-modal__text">...</p>
-
-      <div class="adam-modal__actions">
-        <button type="button" class="adam-btn adam-btn--ghost" onclick="muizPagesCloseBulkConfirmModal()">Batal</button>
-        <button type="button" class="adam-btn adam-btn--danger" id="pagesBulkConfirmYes">Lanjutkan</button>
-      </div>
-    </div>
-  </div>
+<?php
+if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
+    echo adiwira_bootstrap_toasts_script($page_toasts);
+}
+?>
 
 <script>
-const selectAllPages = document.getElementById('selectAllPages');
-if (selectAllPages) {
-  selectAllPages.addEventListener('change', function(){
-    const checked = this.checked;
-    document.querySelectorAll('.bulkCheckboxPage').forEach(cb => cb.checked = checked);
-  });
-}
+(function(){
+  const selectAll = document.getElementById('selectAllPages');
+  const bulkForm = document.getElementById('pagesBulkForm');
+  const bulkAction = document.getElementById('bulkActionPages');
+  const bulkStatus = document.getElementById('bulkStatusPages');
+  const bulkAuthor = document.getElementById('bulkAuthorPages');
+  const deleteForm = document.getElementById('newnotif-pages-delete-form');
+  const deleteIdInput = document.getElementById('newnotif-pages-delete-id');
+  const deleteReturnTo = document.getElementById('newnotif-pages-delete-return-to');
 
-const bulkActionPages = document.getElementById('bulkActionPages');
-if (bulkActionPages) {
-  bulkActionPages.addEventListener('change', function(){
-    const bulkStatusPages = document.getElementById('bulkStatusPages');
-    const bulkAuthorPages = document.getElementById('bulkAuthorPages');
-
-    if (bulkStatusPages) bulkStatusPages.style.display = (this.value === 'change_status') ? 'inline-block' : 'none';
-    if (bulkAuthorPages) bulkAuthorPages.style.display = (this.value === 'change_author') ? 'inline-block' : 'none';
-  });
-}
-
-function muizPagesOpenDeleteModal(btn){
-  const modal = document.getElementById('pagesDeleteModal');
-  if (!modal) return;
-
-  if (modal.parentNode !== document.body) document.body.appendChild(modal);
-
-  const id = btn?.dataset?.id || '';
-  const title = btn?.dataset?.title || '';
-
-  const idInput = document.getElementById('pagesDeleteId');
-  const txt = document.getElementById('pagesDeleteText');
-  if (idInput) idInput.value = id;
-  if (txt) txt.innerText = `Hapus halaman "${title}"?`;
-
-  modal.onclick = function(e){ if (e.target === modal) muizPagesCloseDeleteModal(); };
-
-  const panel = modal.querySelector('.adam-modal__panel');
-  if (panel) panel.addEventListener('click', (e)=>e.stopPropagation(), { once:true });
-
-  document.addEventListener('keydown', muizPagesDeleteEsc);
-
-  modal.classList.add('show');
-  modal.style.display = 'flex';
-  document.documentElement.style.overflow = 'hidden';
-  document.body.style.overflow = 'hidden';
-}
-
-function muizPagesCloseDeleteModal(){
-  const modal = document.getElementById('pagesDeleteModal');
-  if (!modal) return;
-  modal.classList.remove('show');
-  modal.style.display = 'none';
-  document.documentElement.style.overflow = '';
-  document.body.style.overflow = '';
-  document.removeEventListener('keydown', muizPagesDeleteEsc);
-}
-
-function muizPagesDeleteEsc(e){
-  if (e.key === 'Escape') muizPagesCloseDeleteModal();
-}
-
-let _pagesBulkFormRef = null;
-
-function muizPagesGetBulkSummary(){
-  const action = document.getElementById('bulkActionPages')?.value || '';
-  const checked = Array.from(document.querySelectorAll('.bulkCheckboxPage:checked'));
-  const count = checked.length;
-
-  const actionLabel = (() => {
-    const sel = document.getElementById('bulkActionPages');
-    if (!sel) return action;
-    const opt = sel.options[sel.selectedIndex];
-    return opt ? (opt.textContent || action) : action;
-  })();
-
-  if (!action) return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
-  if (count < 1) return { ok:false, message:'Pilih minimal satu halaman.' };
-
-  if (action === 'delete') {
-    return { ok:true, type:'danger', title:`Konfirmasi: ${actionLabel}`, message:`Kamu akan menghapus (soft delete) ${count} halaman. Lanjutkan?` };
+  function toast(type, message, title){
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
+      return;
+    }
+    alert(message);
   }
 
-  if (action === 'change_status') {
-    const st = document.getElementById('bulkStatusPages')?.value || '';
-    return { ok:true, type:'info', title:`Konfirmasi: ${actionLabel}`, message:`Kamu akan mengubah status ${count} halaman menjadi "${st}". Lanjutkan?` };
+  function ask(variant, opts){
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts);
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts);
+      }
+    }
+    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
   }
 
-  if (action === 'change_author') {
-    const authorEl = document.getElementById('bulkAuthorPages');
-    const authorId = authorEl?.value || '';
-    const authorLabel = authorEl && authorEl.selectedIndex >= 0 ? (authorEl.options[authorEl.selectedIndex].textContent || '') : '';
-    if (!authorId) return { ok:false, message:'Pilih author terlebih dahulu.' };
-    return { ok:true, type:'info', title:`Konfirmasi: ${actionLabel}`, message:`Kamu akan mengubah author ${count} halaman menjadi "${authorLabel}". Lanjutkan?` };
+  function toggleBulkExtras(){
+    const v = bulkAction ? bulkAction.value : '';
+    if (bulkStatus) bulkStatus.style.display = (v === 'change_status') ? 'inline-block' : 'none';
+    if (bulkAuthor) bulkAuthor.style.display = (v === 'change_author') ? 'inline-block' : 'none';
   }
 
-  return { ok:true, type:'info', title:'Konfirmasi', message:`Jalankan "${actionLabel}" untuk ${count} halaman?` };
-}
-
-function muizPagesOpenBulkConfirmModal(ev, form){
-  ev.preventDefault();
-  _pagesBulkFormRef = form;
-
-  const sum = muizPagesGetBulkSummary();
-  if (!sum.ok) {
-    if (typeof showToast === 'function') showToast(sum.message, 'error', 4500);
-    else alert(sum.message);
-    return false;
+  function checkedCount(){
+    return document.querySelectorAll('.bulkCheckboxPage:checked').length;
   }
 
-  const modal = document.getElementById('pagesBulkConfirmModal');
-  const panel = modal?.querySelector('.adam-modal__panel');
-  const titleEl = document.getElementById('pagesBulkConfirmTitle');
-  const textEl  = document.getElementById('pagesBulkConfirmText');
-  const yesBtn  = document.getElementById('pagesBulkConfirmYes');
+  function getBulkSummary(){
+    const action = bulkAction ? bulkAction.value : '';
+    const count = checkedCount();
 
-  if (titleEl) titleEl.textContent = sum.title || 'Konfirmasi Bulk Action';
-  if (textEl)  textEl.textContent  = sum.message || 'Lanjutkan?';
+    if (!action) {
+      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+    }
 
-  if (yesBtn) {
-    yesBtn.classList.remove('adam-btn--danger');
-    if (sum.type === 'danger') yesBtn.classList.add('adam-btn--danger');
+    if (count < 1) {
+      return { ok:false, message:'Pilih minimal satu halaman.' };
+    }
 
-    yesBtn.onclick = function(){
-      muizPagesCloseBulkConfirmModal();
-      if (_pagesBulkFormRef) _pagesBulkFormRef.submit();
+    if (action === 'delete') {
+      return {
+        ok: true,
+        variant: 'danger',
+        title: 'Hapus halaman terpilih',
+        message: 'Sebanyak ' + count + ' halaman akan dipindahkan ke trash. Lanjutkan?',
+        confirmText: 'Ya, hapus'
+      };
+    }
+
+    if (action === 'change_status') {
+      const status = bulkStatus ? bulkStatus.value : 'draft';
+      return {
+        ok: true,
+        variant: 'warning',
+        title: 'Ubah status halaman',
+        message: 'Ubah status ' + count + ' halaman menjadi "' + status + '"?',
+        confirmText: 'Ya, ubah'
+      };
+    }
+
+    if (action === 'change_author') {
+      const authorId = bulkAuthor ? bulkAuthor.value : '';
+      const authorLabel = bulkAuthor && bulkAuthor.selectedIndex >= 0
+        ? (bulkAuthor.options[bulkAuthor.selectedIndex].textContent || '').trim()
+        : '';
+
+      if (!authorId) {
+        return { ok:false, message:'Pilih author terlebih dahulu.' };
+      }
+
+      return {
+        ok: true,
+        variant: 'warning',
+        title: 'Ubah author halaman',
+        message: 'Ubah author ' + count + ' halaman menjadi "' + authorLabel + '"?',
+        confirmText: 'Ya, ubah'
+      };
+    }
+
+    return {
+      ok: true,
+      variant: 'warning',
+      title: 'Konfirmasi bulk action',
+      message: 'Jalankan aksi untuk ' + count + ' halaman?',
+      confirmText: 'Lanjutkan'
     };
   }
 
-  if (modal.parentNode !== document.body) document.body.appendChild(modal);
+  if (selectAll) {
+    selectAll.addEventListener('change', function(){
+      const checked = !!this.checked;
+      document.querySelectorAll('.bulkCheckboxPage').forEach(function(cb){
+        cb.checked = checked;
+      });
+    });
+  }
 
-  if (panel) panel.addEventListener('click', (e)=>e.stopPropagation(), { once:true });
+  if (bulkAction) {
+    bulkAction.addEventListener('change', toggleBulkExtras);
+    toggleBulkExtras();
+  }
 
-  modal.onclick = function(e){ if (e.target === modal) muizPagesCloseBulkConfirmModal(); };
+  document.querySelectorAll('.js-page-delete').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const id = this.getAttribute('data-id') || '';
+      const title = this.getAttribute('data-title') || 'halaman ini';
+      const returnTo = this.getAttribute('data-return-to') || '';
 
-  document.addEventListener('keydown', muizPagesBulkEsc);
+      ask('danger', {
+        title: 'Konfirmasi hapus',
+        message: 'Hapus halaman "' + title + '"? Halaman akan dipindahkan ke trash.',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        if (!deleteForm || !deleteIdInput) return;
+        deleteIdInput.value = id;
+        if (deleteReturnTo) deleteReturnTo.value = returnTo;
+        deleteForm.submit();
+      });
+    });
+  });
 
-  modal.classList.add('show');
-  modal.style.display = 'flex';
-  document.documentElement.style.overflow = 'hidden';
-  document.body.style.overflow = 'hidden';
+  if (bulkForm) {
+    let bulkConfirmed = false;
 
-  setTimeout(()=>{ try{ yesBtn && yesBtn.focus(); }catch(e){} }, 0);
-  return false;
-}
+    bulkForm.addEventListener('submit', function(ev){
+      if (bulkConfirmed) {
+        bulkConfirmed = false;
+        return;
+      }
 
-function muizPagesCloseBulkConfirmModal(){
-  const modal = document.getElementById('pagesBulkConfirmModal');
-  if (!modal) return;
-  modal.classList.remove('show');
-  modal.style.display = 'none';
-  document.documentElement.style.overflow = '';
-  document.body.style.overflow = '';
-  document.removeEventListener('keydown', muizPagesBulkEsc);
-}
+      ev.preventDefault();
+      const summary = getBulkSummary();
 
-function muizPagesBulkEsc(e){
-  if (e.key === 'Escape') muizPagesCloseBulkConfirmModal();
-}
+      if (!summary.ok) {
+        toast('error', summary.message, 'Bulk action gagal');
+        return;
+      }
+
+      ask(summary.variant || 'warning', {
+        title: summary.title,
+        message: summary.message,
+        confirmText: summary.confirmText || 'Lanjutkan',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        bulkConfirmed = true;
+        bulkForm.submit();
+      });
+    });
+  }
+})();
 </script>
-
-</section>

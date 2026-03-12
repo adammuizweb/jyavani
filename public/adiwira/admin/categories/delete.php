@@ -7,46 +7,35 @@ if (!defined('DASHBOARD_CONTEXT')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
-function adiwira_categories_root(): string {
-    $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-    $pos  = strpos($base, '/admin');
-    return ($pos !== false) ? substr($base, 0, $pos) : $base;
-}
-
-function redirect_categories_index(string $msg = '', string $err = ''): void {
-    $_SESSION['flash'] = $_SESSION['flash'] ?? [];
-    if ($msg !== '') $_SESSION['flash'][] = ['type'=>'success','text'=>$msg];
-    if ($err !== '') $_SESSION['flash'][] = ['type'=>'error','text'=>$err];
-
-    header('Location: ' . adiwira_categories_root() . '/index.php?page=admin/categories/index');
-    exit;
-}
+$defaultReturnTo = '/adiwira/index.php?page=admin/categories/index';
+$returnTo = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    redirect_categories_index();
+    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
 }
 
-adiwira_cosmetic_404_on_direct_open();
-
-[$uid, $role] = adiwira_user($pdo);
-
-if ($uid <= 0) {
-    redirect_categories_index('', 'Akses ditolak: belum login.');
+$identity = adiwira_fetch_identity($pdo);
+if (($identity['ok'] ?? false) !== true) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
 }
 
-if (!in_array($role, ['editor','admin'], true)) {
-    redirect_categories_index('', 'Role kamu tidak memiliki akses untuk hapus kategori ini.');
+$role = (string)($identity['role'] ?? 'guest');
+if (!in_array($role, ['editor', 'admin'], true)) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Role kamu tidak memiliki akses untuk hapus kategori ini.');
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    redirect_categories_index('', 'CSRF token tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', 'CSRF token tidak valid.');
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    redirect_categories_index('', 'ID tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', 'ID tidak valid.');
 }
 
 $stmt = $pdo->prepare("
@@ -58,10 +47,9 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([':id' => $id]);
 if (!$stmt->fetchColumn()) {
-    redirect_categories_index('', 'Kategori tidak ditemukan.');
+    adiwira_redirect_with_flash($returnTo, 'error', 'Kategori tidak ditemukan.');
 }
 
-// jangan hapus parent yang masih punya child aktif
 $child = $pdo->prepare("
     SELECT COUNT(*)
     FROM categories
@@ -70,7 +58,7 @@ $child = $pdo->prepare("
 ");
 $child->execute([':id' => $id]);
 if ((int)$child->fetchColumn() > 0) {
-    redirect_categories_index('', 'Kategori masih punya subkategori aktif. Pindahkan/hapus subkategori dulu.');
+    adiwira_redirect_with_flash($returnTo, 'error', 'Kategori masih punya subkategori aktif. Pindahkan/hapus subkategori dulu.');
 }
 
 try {
@@ -86,12 +74,13 @@ try {
         LIMIT 1
     ")->execute([':id' => $id]);
 
-    // IMPORTANT: soft delete jangan hapus post_categories
     $pdo->commit();
-
-    redirect_categories_index('Kategori berhasil masuk Trash 🚮');
+    adiwira_redirect_with_flash($returnTo, 'success', 'Kategori berhasil dipindahkan ke trash.');
 
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    redirect_categories_index('', 'Gagal menghapus kategori: ' . $e->getMessage());
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('categories/delete.php error: ' . $e->getMessage());
+    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus kategori.');
 }

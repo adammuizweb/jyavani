@@ -1,76 +1,18 @@
 <?php
 // /adiwira/admin/users/index.php
-if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
-require_once __DIR__ . '/../../bootstrap.php';
-
-if (session_status() === PHP_SESSION_NONE) session_start();
-if (empty($_SESSION['user_id'])) {
+if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     http_response_code(403);
-    echo '<p>Akses ditolak: belum login.</p>';
-    exit;
+    exit('Forbidden');
 }
 
-$uid = (int)$_SESSION['user_id'];
-$sessionRole = $_SESSION['user_role'] ?? null;
-if (!$sessionRole) {
-    $stmtRole = $pdo->prepare("SELECT role FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
-    $stmtRole->execute([':id' => $uid]);
-    $sessionRole = $stmtRole->fetchColumn() ?: 'author';
-    $_SESSION['user_role'] = $sessionRole;
-}
+require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
-$sessionRole = strtolower(trim((string)$sessionRole));
-if ($sessionRole !== 'admin') {
-    http_response_code(403);
-    echo '<p>Akses ditolak: menu users hanya untuk admin.</p>';
-    exit;
-}
+[$uid, $sessionRole] = adiwira_require_role($pdo, ['admin'], false);
 
-$messages = [];
-$errors   = [];
-$flash_for_js = [];
-
-if (!empty($_SESSION['_flash_success'])) {
-    $msg = (string)$_SESSION['_flash_success'];
-    $messages[] = $msg;
-    $flash_for_js[] = ['type' => 'success', 'text' => $msg];
-    unset($_SESSION['_flash_success']);
-}
-if (!empty($_SESSION['_flash_error'])) {
-    $err = (string)$_SESSION['_flash_error'];
-    $errors[] = $err;
-    $flash_for_js[] = ['type' => 'error', 'text' => $err];
-    unset($_SESSION['_flash_error']);
-}
-
-$flash = $_SESSION['flash'] ?? [];
-unset($_SESSION['flash']);
-if (is_array($flash)) {
-    foreach ($flash as $f) {
-        $type = (string)($f['type'] ?? 'info');
-        $text = (string)($f['text'] ?? '');
-        if ($text === '') continue;
-
-        if ($type === 'success') $messages[] = $text;
-        else $errors[] = $text;
-
-        $flash_for_js[] = ['type' => $type, 'text' => $text];
-    }
-}
-
-if (!empty($_GET['msg'])) {
-    $m = (string)$_GET['msg'];
-    $messages[] = $m;
-    $flash_for_js[] = ['type' => 'success', 'text' => $m];
-}
-if (!empty($_GET['err'])) {
-    $e = (string)$_GET['err'];
-    $errors[] = $e;
-    $flash_for_js[] = ['type' => 'error', 'text' => $e];
-}
-
-$messages = array_values(array_unique($messages));
-$errors   = array_values(array_unique($errors));
+$page_toasts = function_exists('adiwira_collect_query_toasts')
+    ? adiwira_collect_query_toasts()
+    : [];
 
 $filter_role   = trim((string)($_GET['role'] ?? ''));
 $filter_status = trim((string)($_GET['lock'] ?? ''));
@@ -114,7 +56,9 @@ $sql = "SELECT id, email, username, name, role, img, bio, phone, created_at, is_
         ORDER BY id DESC
         LIMIT :limit OFFSET :offset";
 $stmt = $pdo->prepare($sql);
-foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+foreach ($params as $k => $v) {
+    $stmt->bindValue($k, $v);
+}
 $stmt->bindValue(':limit', (int)$perPage, PDO::PARAM_INT);
 $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
 $stmt->execute();
@@ -190,11 +134,11 @@ $paging_items = build_pagination_items($page, $pages, 9);
     <a class="adam-cancle" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>">Reset</a>
 
     <div style="margin-left:auto">
-      <a class="adam-button" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save', ENT_QUOTES, 'UTF-8') ?>">+ Tambah User</a>
+      <a class="adam-button" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">+ Tambah User</a>
     </div>
   </form>
 
-  <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/index.php?page=admin/users/bulk_action', ENT_QUOTES, 'UTF-8') ?>">
+  <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/users/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -218,7 +162,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
       </select>
 
       <button type="submit" class="adam-button">Terapkan</button>
-      <small style="color:#666;margin-left:.5rem;">(Aksi akan mempengaruhi user yang dicentang)</small>
+      <small style="color:var(--adam-muted);margin-left:.5rem;">Bulk hanya mempengaruhi user yang dicentang.</small>
     </div>
 
     <div class="adam-table-wrapper">
@@ -298,21 +242,27 @@ $paging_items = build_pagination_items($page, $pages, 9);
               <td><?= htmlspecialchars($u['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save&id=' . (int)$u['id'], ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/index.php?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">Edit</a>
 
                 <?php if (!$isSelf): ?>
                   &nbsp;|&nbsp;
-                  <button type="submit"
-                          form="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
-                          class="<?= $isLocked ? 'adam-ubah' : 'adam-att' ?>"
+                  <button type="button"
+                          class="<?= $isLocked ? 'adam-ubah' : 'adam-att' ?> js-user-toggle-lock"
+                          data-form-id="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
+                          data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
+                          data-mode="<?= $isLocked ? 'unlock' : 'lock' ?>"
                           style="background:none;border:0;padding:0;cursor:pointer;">
                     <?= $isLocked ? 'Approve' : 'Lock' ?>
                   </button>
 
                   &nbsp;|&nbsp;
                   <button type="button"
-                          class="adam-hapus"
-                          onclick='openDeleteModal(<?= (int)$u["id"] ?>, <?= json_encode($nameRaw) ?>)'>Hapus</button>
+                          class="adam-hapus js-user-delete"
+                          data-id="<?= (int)$u['id'] ?>"
+                          data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
+                          data-return-to="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
+                    Hapus
+                  </button>
                 <?php endif; ?>
               </td>
             </tr>
@@ -331,7 +281,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
   ?>
     <form id="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
           method="post"
-          action="<?= htmlspecialchars($base . '/index.php?page=admin/users/toggle_lock', ENT_QUOTES, 'UTF-8') ?>"
+          action="<?= htmlspecialchars($base . '/admin/users/toggle_lock.php', ENT_QUOTES, 'UTF-8') ?>"
           style="display:none;">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
@@ -358,58 +308,209 @@ $paging_items = build_pagination_items($page, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <div id="deleteModal" class="adam-modal" style="display:none;">
-    <div class="adam-modal__panel" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
-      <h3 id="deleteModalTitle" class="adam-modal__title">Konfirmasi Hapus</h3>
-      <p id="deleteText" class="adam-modal__text">Yakin ingin menghapus user ini?</p>
-
-      <div style="margin-top:1rem;text-align:right;">
-        <button type="button"
-                onclick="closeDeleteModal()"
-                style="padding:.4rem .8rem;background:#ccc;border:0;border-radius:6px;margin-right:.5rem;">Batal</button>
-
-        <form id="deleteForm"
-              method="post"
-              action="<?= htmlspecialchars($base . '/index.php?page=admin/users/delete', ENT_QUOTES, 'UTF-8') ?>"
-              style="display:inline;">
-          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-          <input type="hidden" name="id" id="deleteId">
-          <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
-          <button type="submit"
-                  style="padding:.4rem .8rem;background:#c33;color:#fff;border:0;border-radius:6px;">Hapus</button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <?php if (!empty($flash_for_js)): ?>
-  <script>
-  document.addEventListener('DOMContentLoaded', function(){
-    if (typeof showToast !== 'function') return;
-    const items = <?= json_encode($flash_for_js, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-    items.forEach(function(it){
-      const type = (it.type === 'error') ? 'error' : (it.type === 'success' ? 'success' : 'info');
-      showToast(it.text, type, type === 'error' ? 6500 : 4200);
-    });
-  });
-  </script>
-  <?php endif; ?>
+  <form id="newnotif-user-delete-form"
+        method="post"
+        action="<?= htmlspecialchars($base . '/admin/users/delete.php', ENT_QUOTES, 'UTF-8') ?>"
+        style="display:none;">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="id" id="newnotif-user-delete-id">
+    <input type="hidden" name="return_to" id="newnotif-user-delete-return-to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
+  </form>
 </section>
 
-<script>
-const selectAll = document.getElementById('selectAll');
-if (selectAll) {
-  selectAll.addEventListener('change', function(){
-    const checked = this.checked;
-    document.querySelectorAll('.bulkCheckbox').forEach(cb => cb.checked = checked);
-  });
+<?php
+if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
+    echo adiwira_bootstrap_toasts_script($page_toasts);
 }
+?>
 
-const bulkAction = document.getElementById('bulkAction');
-const bulkRole = document.getElementById('bulkRole');
-if (bulkAction && bulkRole) {
-  bulkAction.addEventListener('change', function(){
-    bulkRole.style.display = (this.value === 'change_role') ? 'inline-block' : 'none';
+<script>
+(function(){
+  const selectAll = document.getElementById('selectAll');
+  const bulkForm = document.getElementById('bulkForm');
+  const bulkAction = document.getElementById('bulkAction');
+  const bulkRole = document.getElementById('bulkRole');
+  const deleteForm = document.getElementById('newnotif-user-delete-form');
+  const deleteIdInput = document.getElementById('newnotif-user-delete-id');
+  const deleteReturnTo = document.getElementById('newnotif-user-delete-return-to');
+
+  function toast(type, message, title){
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
+      return;
+    }
+    alert(message);
+  }
+
+  function ask(variant, opts){
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts);
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts);
+      }
+    }
+    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+  }
+
+  function toggleBulkExtras(){
+    const v = bulkAction ? bulkAction.value : '';
+    if (bulkRole) bulkRole.style.display = (v === 'change_role') ? 'inline-block' : 'none';
+  }
+
+  function checkedCount(){
+    return document.querySelectorAll('.bulkCheckbox:checked').length;
+  }
+
+  function getBulkSummary(){
+    const action = bulkAction ? bulkAction.value : '';
+    const count = checkedCount();
+
+    if (!action) {
+      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+    }
+
+    if (count < 1) {
+      return { ok:false, message:'Pilih minimal satu user.' };
+    }
+
+    if (action === 'delete') {
+      return {
+        ok:true,
+        variant:'danger',
+        title:'Hapus user terpilih',
+        message:'Sebanyak ' + count + ' user akan dipindahkan ke trash. Lanjutkan?',
+        confirmText:'Ya, hapus'
+      };
+    }
+
+    if (action === 'change_role') {
+      const role = bulkRole ? bulkRole.value : 'author';
+      return {
+        ok:true,
+        variant:'warning',
+        title:'Ubah role user',
+        message:'Ubah role ' + count + ' user menjadi "' + role + '"?',
+        confirmText:'Ya, ubah'
+      };
+    }
+
+    if (action === 'lock') {
+      return {
+        ok:true,
+        variant:'warning',
+        title:'Lock user',
+        message:'Lock ' + count + ' user terpilih?',
+        confirmText:'Ya, lock'
+      };
+    }
+
+    if (action === 'unlock') {
+      return {
+        ok:true,
+        variant:'warning',
+        title:'Approve / unlock user',
+        message:'Approve / unlock ' + count + ' user terpilih?',
+        confirmText:'Ya, unlock'
+      };
+    }
+
+    return {
+      ok:true,
+      variant:'warning',
+      title:'Konfirmasi bulk action',
+      message:'Jalankan aksi untuk ' + count + ' user?',
+      confirmText:'Lanjutkan'
+    };
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function(){
+      const checked = !!this.checked;
+      document.querySelectorAll('.bulkCheckbox').forEach(function(cb){
+        cb.checked = checked;
+      });
+    });
+  }
+
+  if (bulkAction) {
+    bulkAction.addEventListener('change', toggleBulkExtras);
+    toggleBulkExtras();
+  }
+
+  document.querySelectorAll('.js-user-delete').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const id = this.getAttribute('data-id') || '';
+      const name = this.getAttribute('data-name') || 'user ini';
+      const returnTo = this.getAttribute('data-return-to') || '';
+
+      ask('danger', {
+        title: 'Konfirmasi hapus',
+        message: 'Hapus user "' + name + '"? User akan dipindahkan ke trash.',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        if (!deleteForm || !deleteIdInput) return;
+        deleteIdInput.value = id;
+        if (deleteReturnTo) deleteReturnTo.value = returnTo;
+        deleteForm.submit();
+      });
+    });
   });
-}
+
+  document.querySelectorAll('.js-user-toggle-lock').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const formId = this.getAttribute('data-form-id') || '';
+      const mode = this.getAttribute('data-mode') || 'lock';
+      const name = this.getAttribute('data-name') || 'user ini';
+      const form = formId ? document.getElementById(formId) : null;
+      if (!form) return;
+
+      const isUnlock = mode === 'unlock';
+      ask('warning', {
+        title: isUnlock ? 'Approve / unlock user' : 'Lock user',
+        message: isUnlock
+          ? 'Approve / unlock user "' + name + '"?'
+          : 'Lock user "' + name + '"?',
+        confirmText: isUnlock ? 'Ya, unlock' : 'Ya, lock',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        form.submit();
+      });
+    });
+  });
+
+  if (bulkForm) {
+    let bulkConfirmed = false;
+
+    bulkForm.addEventListener('submit', function(ev){
+      if (bulkConfirmed) {
+        bulkConfirmed = false;
+        return;
+      }
+
+      ev.preventDefault();
+      const summary = getBulkSummary();
+
+      if (!summary.ok) {
+        toast('error', summary.message, 'Bulk action gagal');
+        return;
+      }
+
+      ask(summary.variant || 'warning', {
+        title: summary.title,
+        message: summary.message,
+        confirmText: summary.confirmText || 'Lanjutkan',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        bulkConfirmed = true;
+        bulkForm.submit();
+      });
+    });
+  }
+})();
 </script>

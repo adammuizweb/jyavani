@@ -8,6 +8,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 [$me, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
@@ -54,7 +55,7 @@ if (!function_exists('to_datetime_local')) {
         if (!$mysqlDt) return null;
         try {
             $d = new DateTime($mysqlDt, new DateTimeZone('Asia/Jakarta'));
-            return $d->format('Y-m-d\TH:i');
+            return $d->format('Y-m-d\\TH:i');
         } catch (Exception $e) {
             return null;
         }
@@ -62,6 +63,9 @@ if (!function_exists('to_datetime_local')) {
 }
 
 $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$return_to = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/index.php?page=admin/pages/index')
+    : ($base . '/index.php?page=admin/pages/index');
 
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) {
@@ -131,6 +135,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
         novalidate>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" value="<?= (int)$post['id'] ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="adam-accordion" id="page-meta-accordion" data-open="1">
       <button type="button"
@@ -243,8 +248,10 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                 foreach ($users as $u) {
                     $uidOpt = (int)$u['id'];
                     $label  = htmlspecialchars($u['label'], ENT_QUOTES, 'UTF-8');
-                    $sel    = ($uidOpt === $created_by) ? 'selected' : '';
-                    echo "<option value=\"{$uidOpt}\" {$sel}>{$label}</option>";
+                    $username = htmlspecialchars($u['username'] ?? '', ENT_QUOTES, 'UTF-8');
+                    $img = htmlspecialchars($u['img'] ?? '', ENT_QUOTES, 'UTF-8');
+                    $sel = ($uidOpt === $created_by) ? 'selected' : '';
+                    echo "<option value=\"{$uidOpt}\" data-username=\"{$username}\" data-img=\"{$img}\" {$sel}>{$label}</option>";
                 }
             } else {
                 echo '<option value="' . (int)$created_by . '" selected>User ID ' . (int)$created_by . '</option>';
@@ -260,6 +267,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                name="created_at"
                value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>"
                style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+        <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk mempertahankan nilai semula (<?= htmlspecialchars((string)$post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
       </label>
 
       <label style="display:block;margin-top:.6rem">
@@ -268,44 +276,168 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                name="updated_at"
                value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>"
                style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+        <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang.</div>
       </label>
     <?php else: ?>
       <div style="margin-top:.8rem;color:#666;font-size:12px">
-        Creator & tanggal dibuat tidak bisa diubah (khusus admin).
+        Creator tidak bisa diubah. Timestamp hanya bisa diubah admin.
       </div>
     <?php endif; ?>
 
     <p style="margin-top:.8rem">
       <button type="submit" class="adam-button" id="btn-save">Simpan Perubahan</button>
-      <a class="adam-cancle"
-         href="<?= htmlspecialchars($base . '/index.php?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>">
-         Batal
-      </a>
+      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
     </p>
   </form>
 </section>
 
-<div id="notif-modal" class="adam-modal">
-  <div class="adam-modal-card">
-    <div id="notif-title" class="adam-modal-title">Data sukses diperbarui!</div>
-    <div id="notif-body" class="adam-modal-desc">Perubahan berhasil disimpan.</div>
-    <button onclick="hideNotif()" class="adam-button">Tutup</button>
-  </div>
-</div>
-
 <script>
   window.ADIWIRA = window.ADIWIRA || {};
-  window.ADIWIRA_SAVE_URL = <?= json_encode($base . '/admin/pages/save.php') ?>;
   window.ADIWIRA_FORM_ID = 'page-edit-form';
 </script>
 
 <script src="/adiwira/static/js/edit/utils.js"></script>
-<script src="/adiwira/static/js/edit/modal.js"></script>
-<script src="/adiwira/static/js/edit/media_selector.js"></script>
-<script src="/adiwira/static/js/edit/codemirror.js"></script>
+
+<!-- pakai helper modal + selector yang sudah terbukti jalan di halaman add -->
+<script src="/adiwira/static/js/add/modal-helpers.js"></script>
+<script src="/adiwira/static/js/add/media-selector.js"></script>
 <script src="/adiwira/static/js/add/file-selector.js"></script>
+
+<!-- editor spesifik edit tetap -->
+<script src="/adiwira/static/js/edit/codemirror.js"></script>
 <script src="/adiwira/static/js/edit/quill.js"></script>
 <script src="/adiwira/static/js/edit/editor_mode.js"></script>
 <script src="/adiwira/static/js/edit/thumbnail.js"></script>
 <script src="/adiwira/static/js/edit/ajax_save.js"></script>
 <script src="/adiwira/static/js/edit/main-init.js"></script>
+
+<script>
+(function(){
+  const form = document.getElementById('page-edit-form');
+  const saveBtn = document.getElementById('btn-save');
+  const contentField = document.getElementById('content-textarea');
+
+  if (!form || !contentField) return;
+
+  function notify(type, message, title){
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
+      return;
+    }
+    alert(message);
+  }
+
+  function askWarning(opts){
+    if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
+      return window.NewNotifConfirm.warning(opts);
+    }
+    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+  }
+
+  function currentEditorMode(){
+    const checked = document.querySelector('input[name="editor_mode"]:checked');
+    return checked ? checked.value : 'quill';
+  }
+
+  function getCodeMirrorValue(){
+    const direct = window.ADIWIRA && window.ADIWIRA.cm;
+    if (direct && typeof direct.getValue === 'function') {
+      return direct.getValue();
+    }
+
+    const wrapper = document.querySelector('#codemirror-area .CodeMirror');
+    if (wrapper && wrapper.CodeMirror && typeof wrapper.CodeMirror.getValue === 'function') {
+      return wrapper.CodeMirror.getValue();
+    }
+
+    const textarea = document.getElementById('cm-textarea');
+    return textarea ? textarea.value : '';
+  }
+
+  function getQuillValue(){
+    const direct = window.ADIWIRA && window.ADIWIRA.quill;
+    if (direct && direct.root) {
+      return direct.root.innerHTML;
+    }
+
+    if (window.quill && window.quill.root) {
+      return window.quill.root.innerHTML;
+    }
+
+    const editor = document.querySelector('#quill-editor .ql-editor');
+    return editor ? editor.innerHTML : '';
+  }
+
+  function syncContent(){
+    contentField.value = currentEditorMode() === 'codemirror'
+      ? getCodeMirrorValue()
+      : getQuillValue();
+  }
+
+  async function submitAjax(){
+    syncContent();
+
+    const oldLabel = saveBtn ? saveBtn.textContent : '';
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Menyimpan...';
+    }
+
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await res.json().catch(function(){
+        return { ok:false, errors:['Respons server tidak valid.'] };
+      });
+
+      if (!res.ok || !data.ok) {
+        const errors = Array.isArray(data.errors) && data.errors.length
+          ? data.errors
+          : [data.error || data.message || 'Gagal menyimpan perubahan.'];
+
+        errors.filter(Boolean).forEach(function(msg, idx){
+          notify('error', String(msg), idx === 0 ? 'Gagal menyimpan' : 'Detail error');
+        });
+        return;
+      }
+
+      if (data.redirect) {
+        window.location.href = data.redirect;
+        return;
+      }
+
+      notify('success', data.message || 'Perubahan berhasil disimpan.', 'Berhasil');
+
+    } catch (err) {
+      notify('error', 'Terjadi gangguan jaringan saat menyimpan.', 'Jaringan');
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = oldLabel || 'Simpan Perubahan';
+      }
+    }
+  }
+
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    syncContent();
+
+    askWarning({
+      title: 'Simpan perubahan',
+      message: 'Perubahan halaman ini akan disimpan. Lanjutkan?',
+      confirmText: 'Ya, simpan',
+      cancelText: 'Batal'
+    }).then(function(ok){
+      if (!ok) return;
+      submitAjax();
+    });
+  });
+})();
+</script>

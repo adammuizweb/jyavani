@@ -7,78 +7,74 @@ if (!defined('DASHBOARD_CONTEXT')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-function adiwira_categories_root(): string {
-    $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-    $pos  = strpos($base, '/admin');
-    return ($pos !== false) ? substr($base, 0, $pos) : $base;
-}
+[$uid, $role] = adiwira_require_role($pdo, ['editor', 'admin'], true);
 
-function is_ajax_request(): bool {
-    $xrw = $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
-    $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-    return (strtolower($xrw) === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
-}
-
-function respond(bool $ok, string $message, int $httpCode = 200, array $extra = [], ?string $redirect = null): void {
-    $isAjax = is_ajax_request();
-
-    if ($isAjax) {
-        http_response_code($httpCode);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(array_merge(['ok'=>$ok,'message'=>$message], $extra), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-        exit;
+if (!function_exists('is_ajax_request')) {
+    function is_ajax_request(): bool {
+        $xrw = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+        return ($xrw === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
     }
-
-    $_SESSION['flash'] = $_SESSION['flash'] ?? [];
-    $_SESSION['flash'][] = ['type' => $ok ? 'success' : 'error', 'text' => $message];
-
-    $to = $redirect ?? (adiwira_categories_root() . '/index.php?page=admin/categories/index');
-    header('Location: ' . $to);
-    exit;
 }
 
-[$uid, $role] = adiwira_user($pdo);
+$defaultReturnTo = '/adiwira/index.php?page=admin/categories/index';
+$returnTo = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    : $defaultReturnTo;
 
-if ($uid <= 0) {
-    respond(false, 'Akses ditolak: belum login.', 403);
-}
+if (!function_exists('respond_categories_bulk')) {
+    function respond_categories_bulk(bool $ok, string $message = '', int $httpCode = 200, array $extra = [], ?string $redirect = null): void {
+        $redirect = $redirect ?: '/adiwira/index.php?page=admin/categories/index';
 
-if (!in_array($role, ['editor','admin'], true)) {
-    respond(false, 'Akses ditolak: Anda tidak memiliki izin untuk melakukan bulk action.', 403);
+        if (is_ajax_request()) {
+            http_response_code($httpCode);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(array_merge([
+                'ok' => $ok,
+                'message' => $message,
+                'redirect' => $redirect,
+            ], $extra), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+
+        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message);
+    }
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    respond(false, 'Method Not Allowed', 405);
+    respond_categories_bulk(false, 'Method Not Allowed', 405, [], $returnTo);
 }
-
-$back = adiwira_categories_root() . '/index.php?page=admin/categories/index';
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond(false, 'CSRF token tidak valid.', 419, [], $back);
+    respond_categories_bulk(false, 'CSRF token tidak valid.', 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond(false, 'Tidak ada kategori dipilih.', 400, [], $back);
+    respond_categories_bulk(false, 'Tidak ada kategori dipilih.', 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 if (empty($ids)) {
-    respond(false, 'ID kategori tidak valid.', 400, [], $back);
+    respond_categories_bulk(false, 'ID kategori tidak valid.', 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
+if ($action === '') {
+    respond_categories_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+}
+
 $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
     $pdo->beginTransaction();
 
     if ($action === 'delete') {
-        // disallow delete jika masih punya subkategori aktif
         $chk = $pdo->prepare("
             SELECT DISTINCT parent_id
             FROM categories
@@ -90,7 +86,13 @@ try {
 
         if (!empty($badParents)) {
             $pdo->rollBack();
-            respond(false, 'Gagal: ada kategori yang masih punya subkategori aktif. IDs: ' . implode(',', array_slice(array_map('intval', $badParents), 0, 30)), 400, [], $back);
+            respond_categories_bulk(
+                false,
+                'Gagal: ada kategori yang masih punya subkategori aktif. IDs: ' . implode(',', array_slice(array_map('intval', $badParents), 0, 30)),
+                400,
+                [],
+                $returnTo
+            );
         }
 
         $stmt = $pdo->prepare("
@@ -104,23 +106,22 @@ try {
         $stmt->execute($ids);
         $affected = $stmt->rowCount();
 
-        // soft delete jangan hapus relasi post_categories
         $pdo->commit();
-        respond(true, "Berhasil memindahkan {$affected} kategori ke Trash.", 200, ['count'=>$affected], $back);
+        respond_categories_bulk(true, "Berhasil memindahkan {$affected} kategori ke trash.", 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_parent') {
         $parentRaw = $_POST['parent_id'] ?? null;
         if ($parentRaw === null || $parentRaw === '') {
             $pdo->rollBack();
-            respond(false, 'Parent wajib dipilih (atau pilih Tanpa Parent).', 400, [], $back);
+            respond_categories_bulk(false, 'Parent wajib dipilih (atau pilih Tanpa Parent).', 400, [], $returnTo);
         }
 
         $parent = (int)$parentRaw;
 
         if ($parent > 0 && in_array($parent, $ids, true)) {
             $pdo->rollBack();
-            respond(false, 'Parent tidak boleh termasuk kategori yang dipilih.', 400, [], $back);
+            respond_categories_bulk(false, 'Parent tidak boleh termasuk kategori yang dipilih.', 400, [], $returnTo);
         }
 
         if ($parent !== 0) {
@@ -134,10 +135,9 @@ try {
             $v->execute([$parent]);
             if (!$v->fetchColumn()) {
                 $pdo->rollBack();
-                respond(false, 'Parent kategori tidak ditemukan.', 400, [], $back);
+                respond_categories_bulk(false, 'Parent kategori tidak ditemukan.', 400, [], $returnTo);
             }
 
-            // cegah cycle: parent baru tidak boleh descendant dari salah satu kategori terpilih
             $allStmt = $pdo->prepare("
                 SELECT id, parent_id
                 FROM categories
@@ -167,7 +167,7 @@ try {
                 $desc = $collectDesc($cid);
                 if (isset($desc[$parent])) {
                     $pdo->rollBack();
-                    respond(false, 'Parent tidak valid: akan membentuk loop hirarki kategori.', 400, [], $back);
+                    respond_categories_bulk(false, 'Parent tidak valid: akan membentuk loop hirarki kategori.', 400, [], $returnTo);
                 }
             }
         }
@@ -194,14 +194,16 @@ try {
 
         $affected = $stmt->rowCount();
         $pdo->commit();
-        respond(true, "Parent berhasil diubah untuk {$affected} kategori.", 200, ['count'=>$affected], $back);
+        respond_categories_bulk(true, "Parent berhasil diubah untuk {$affected} kategori.", 200, ['count' => $affected], $returnTo);
     }
 
     $pdo->rollBack();
-    respond(false, 'Aksi bulk tidak dikenal.', 400, [], $back);
+    respond_categories_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
 
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    error_log('categories/bulk_action.php error: '.$e->getMessage());
-    respond(false, 'Terjadi kesalahan saat proses bulk.', 500, [], $back);
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('categories/bulk_action.php error: ' . $e->getMessage());
+    respond_categories_bulk(false, 'Terjadi kesalahan saat proses bulk.', 500, [], $returnTo);
 }

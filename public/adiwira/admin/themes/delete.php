@@ -1,67 +1,66 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/themes/delete.php
-if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
-
-require_once __DIR__ . '/../../bootstrap.php';
-
-function adiwira_root(): string {
-  $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-  $pos  = strpos($base, '/admin');
-  return ($pos !== false) ? substr($base, 0, $pos) : $base; // => /adiwira
+if (!defined('DASHBOARD_CONTEXT')) {
+    define('DASHBOARD_CONTEXT', true);
 }
 
-function redirect_themes_index(string $msg = '', string $err = ''): void {
-  if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-  $_SESSION['flash'] = $_SESSION['flash'] ?? [];
-  if ($msg !== '') $_SESSION['flash'][] = ['type'=>'success','text'=>$msg];
-  if ($err !== '') $_SESSION['flash'][] = ['type'=>'error','text'=>$err];
-  header('Location: ' . adiwira_root() . '/index.php?page=admin/themes/index');
-  exit;
+require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
+
+$defaultReturnTo = '/adiwira/index.php?page=admin/themes/index';
+$returnTo = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    : $defaultReturnTo;
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
 }
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') redirect_themes_index();
-if (session_status() === PHP_SESSION_NONE) session_start();
-
-// ===== ADMIN ONLY GUARD =====
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) redirect_themes_index('', 'Akses ditolak: belum login.');
-
-$role = $_SESSION['user_role'] ?? '';
-if ($role === '' || $role === null) {
-  $r = $pdo->prepare("SELECT role FROM users WHERE id=:id AND is_deleted=0 LIMIT 1");
-  $r->execute([':id'=>$uid]);
-  $role = (string)$r->fetchColumn();
-  $_SESSION['user_role'] = $role;
+$identity = adiwira_fetch_identity($pdo);
+if (($identity['ok'] ?? false) !== true) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
 }
-$role = strtolower(trim($role ?: 'guest'));
 
-if ($role !== 'admin') redirect_themes_index('', 'Akses ditolak: menu Themes hanya untuk admin.');
-// ===== END ADMIN ONLY GUARD =====
+$role = strtolower(trim((string)($identity['role'] ?? 'guest')));
+if ($role !== 'admin') {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: menu Themes hanya untuk admin.');
+}
 
-$token = $_POST['csrf_token'] ?? '';
-if (!csrf_check($token)) redirect_themes_index('', 'CSRF token tidak valid.');
+$token = (string)($_POST['csrf_token'] ?? '');
+if (!adiwira_csrf_validate($token)) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'CSRF token tidak valid.');
+}
 
 $id = (int)($_POST['id'] ?? 0);
-if ($id <= 0) redirect_themes_index('', 'ID tidak valid.');
+if ($id <= 0) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'ID tidak valid.');
+}
 
-$stmt = $pdo->prepare("SELECT id FROM posts WHERE id=:id AND type='theme' AND is_deleted=0 LIMIT 1");
+$stmt = $pdo->prepare("SELECT id FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 LIMIT 1");
 $stmt->execute([':id' => $id]);
-if (!$stmt->fetchColumn()) redirect_themes_index('', 'Theme partial tidak ditemukan.');
+if (!$stmt->fetchColumn()) {
+    adiwira_redirect_with_flash($returnTo, 'error', 'Theme partial tidak ditemukan.');
+}
 
 try {
-  $pdo->beginTransaction();
+    $pdo->beginTransaction();
 
-  $pdo->prepare("
-    UPDATE posts
-    SET is_deleted=1, deleted_at=NOW(), updated_at=NOW()
-    WHERE id=:id AND type='theme' AND is_deleted=0
-    LIMIT 1
-  ")->execute([':id'=>$id]);
+    $pdo->prepare("
+        UPDATE posts
+        SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW()
+        WHERE id = :id AND type = 'theme' AND is_deleted = 0
+        LIMIT 1
+    ")->execute([':id' => $id]);
 
-  $pdo->commit();
-  redirect_themes_index('Theme partial berhasil dihapus 🚮');
+    $pdo->commit();
+    adiwira_redirect_with_flash($returnTo, 'success', 'Theme partial berhasil dipindahkan ke trash.');
 
 } catch (Throwable $e) {
-  if ($pdo->inTransaction()) $pdo->rollBack();
-  redirect_themes_index('', 'Gagal menghapus theme: ' . $e->getMessage());
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('themes/delete.php error: ' . $e->getMessage());
+    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus theme partial.');
 }
