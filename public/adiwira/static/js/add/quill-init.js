@@ -1,4 +1,4 @@
-/* quill-init.js */
+/* public/adiwira/static/js/add/quill-init.js */
 (function(){
   function loadScript(src){ return new Promise(function(res,rej){ if (document.querySelector('script[src="'+src+'"]')) return res(); var s=document.createElement('script'); s.src=src; s.async=true; s.onload=res; s.onerror=function(){rej(new Error('Failed load '+src))}; document.head.appendChild(s); }); }
   function loadCss(href){ return new Promise(function(res,rej){ if (document.querySelector('link[href="'+href+'"]')) return res(); var l=document.createElement('link'); l.rel='stylesheet'; l.href=href; l.onload=res; l.onerror=function(){rej(new Error('Failed load css '+href))}; document.head.appendChild(l); }); }

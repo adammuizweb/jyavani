@@ -7,6 +7,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
@@ -14,80 +15,70 @@ adiwira_cosmetic_404_on_direct_open();
 
 if (!function_exists('is_ajax_request')) {
     function is_ajax_request(): bool {
-        $xrw = $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
-        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
-        return (strtolower($xrw) === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
+        $xrw = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+        return ($xrw === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
     }
 }
 
-if (!function_exists('respond')) {
-    function respond($ok, $message = '', $httpCode = 200, array $extra = [], $redirect = null) {
-        $isAjax = is_ajax_request();
+$defaultReturnTo = '/adiwira/index.php?page=admin/posts/index';
+$returnTo = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    : $defaultReturnTo;
 
-        if ($isAjax) {
+if (!function_exists('respond')) {
+    function respond(bool $ok, string $message = '', int $httpCode = 200, array $extra = [], ?string $redirect = null): void {
+        $redirect = $redirect ?: '/adiwira/index.php?page=admin/posts/index';
+
+        if (is_ajax_request()) {
             http_response_code($httpCode);
             header('Content-Type: application/json; charset=utf-8');
-            $payload = array_merge(['ok' => (bool)$ok, 'message' => $message], $extra);
-            echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            echo json_encode(array_merge([
+                'ok' => $ok,
+                'message' => $message,
+                'redirect' => $redirect,
+            ], $extra), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             exit;
         }
 
-        if (function_exists('ensure_session_started')) {
-            ensure_session_started(true);
-        } elseif (session_status() !== PHP_SESSION_ACTIVE) {
-            session_start();
-        }
-
-        $_SESSION['flash'] = $_SESSION['flash'] ?? [];
-        $_SESSION['flash'][] = ['type' => $ok ? 'success' : 'error', 'text' => $message];
-
-        $base = $redirect ?? (rtrim(str_replace('\\', '/', dirname(dirname(dirname($_SERVER['SCRIPT_NAME'])))), '/')) . '/index.php?page=admin/posts/index';
-        header('Location: ' . $base);
-        exit;
+        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message);
     }
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    respond(false, 'Method Not Allowed', 405);
+    respond(false, 'Method Not Allowed', 405, [], $returnTo);
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond(false, 'CSRF token tidak valid.', 419);
+    respond(false, 'CSRF token tidak valid.', 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond(false, 'Tidak ada artikel dipilih.', 400);
+    respond(false, 'Tidak ada artikel dipilih.', 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 if (empty($ids)) {
-    respond(false, 'ID artikel tidak valid.', 400);
+    respond(false, 'ID artikel tidak valid.', 400, [], $returnTo);
 }
 
 if ($role !== 'admin') {
     $in = implode(',', array_fill(0, count($ids), '?'));
-    $stmtOwn = $pdo->prepare("
-        SELECT id
-        FROM posts
-        WHERE id IN ($in)
-          AND type = 'article'
-          AND is_deleted = 0
-          AND created_by = ?
-    ");
+    $stmtOwn = $pdo->prepare("\n        SELECT id\n        FROM posts\n        WHERE id IN ($in)\n          AND type = 'article'\n          AND is_deleted = 0\n          AND created_by = ?\n    ");
     $stmtOwn->execute(array_merge($ids, [$uid]));
     $ownIds = $stmtOwn->fetchAll(PDO::FETCH_COLUMN, 0);
     $ids = array_values(array_filter(array_map('intval', $ownIds), fn($v) => $v > 0));
 
     if (empty($ids)) {
-        respond(false, 'Tidak ada artikel yang boleh kamu ubah (bukan milikmu atau sudah dihapus).', 403);
+        respond(false, 'Tidak ada artikel yang boleh kamu ubah.', 403, [], $returnTo);
     }
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    respond(false, 'Aksi bulk tidak dikenal.', 400);
+    respond(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
 }
 
 try {
@@ -106,7 +97,7 @@ try {
         $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
 
         $pdo->commit();
-        respond(true, "Berhasil menghapus {$affected} artikel.", 200, ['count' => $affected]);
+        respond(true, "Berhasil menghapus {$affected} artikel.", 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_status') {
@@ -115,7 +106,7 @@ try {
 
         if (!in_array($new_status, $allowed, true)) {
             $pdo->rollBack();
-            respond(false, 'Status tidak valid.', 400);
+            respond(false, 'Status tidak valid.', 400, [], $returnTo);
         }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -129,7 +120,7 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond(true, "Berhasil mengubah status {$affected} artikel menjadi {$new_status}.", 200, ['count' => $affected]);
+        respond(true, "Berhasil mengubah status {$affected} artikel menjadi {$new_status}.", 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_categories') {
@@ -138,7 +129,7 @@ try {
 
         if (empty($cat_ids)) {
             $pdo->rollBack();
-            respond(false, 'Pilih minimal satu kategori.', 400);
+            respond(false, 'Pilih minimal satu kategori.', 400, [], $returnTo);
         }
 
         $inCats = implode(',', array_fill(0, count($cat_ids), '?'));
@@ -149,7 +140,7 @@ try {
 
         if (empty($cat_ids)) {
             $pdo->rollBack();
-            respond(false, 'Kategori tidak valid.', 400);
+            respond(false, 'Kategori tidak valid.', 400, [], $returnTo);
         }
 
         $mode = (string)($_POST['cat_mode'] ?? 'add');
@@ -187,7 +178,7 @@ try {
                     $values[] = $pid;
                     $values[] = $cid;
                     $values[] = $assigned_by;
-                    $holders[] = "(?, ?, ?)";
+                    $holders[] = '(?, ?, ?)';
                 }
             }
 
@@ -200,7 +191,7 @@ try {
                 ->execute($post_ids);
 
             $pdo->commit();
-            respond(true, 'Kategori berhasil ditambahkan ke ' . count($post_ids) . ' artikel (jika belum ada).', 200, ['count' => count($post_ids)]);
+            respond(true, 'Kategori berhasil ditambahkan ke ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)], $returnTo);
         }
 
         if ($mode === 'remove') {
@@ -211,7 +202,7 @@ try {
                 ->execute($post_ids);
 
             $pdo->commit();
-            respond(true, 'Kategori yang dipilih berhasil dihapus dari ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)]);
+            respond(true, 'Kategori yang dipilih berhasil dihapus dari ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)], $returnTo);
         }
 
         if ($mode === 'toggle') {
@@ -224,7 +215,7 @@ try {
                         $toInsert[] = $pid;
                         $toInsert[] = $cid;
                         $toInsert[] = $assigned_by;
-                        $holders[] = "(?, ?, ?)";
+                        $holders[] = '(?, ?, ?)';
                     }
                 }
             }
@@ -241,20 +232,20 @@ try {
                 ->execute($post_ids);
 
             $pdo->commit();
-            respond(true, 'Operasi toggle kategori selesai untuk ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)]);
+            respond(true, 'Operasi toggle kategori selesai untuk ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)], $returnTo);
         }
 
         $pdo->rollBack();
-        respond(false, 'Mode kategori tidak dikenal.', 400);
+        respond(false, 'Mode kategori tidak dikenal.', 400, [], $returnTo);
     }
 
     $pdo->rollBack();
-    respond(false, 'Aksi bulk tidak dikenal.', 400);
+    respond(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('posts/bulk_action error: ' . $e->getMessage());
-    respond(false, 'Terjadi kesalahan saat proses bulk action.', 500);
+    respond(false, 'Terjadi kesalahan saat proses bulk action.', 500, [], $returnTo);
 }

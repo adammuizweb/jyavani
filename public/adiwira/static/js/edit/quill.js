@@ -1,4 +1,4 @@
-// quill.js — Quill init + toolbar handlers + ensure inserted image gets media attributes
+// public/adiwira/static/js/edit/quill.js — Quill init + toolbar handlers + ensure inserted image gets media attributes
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
   let quill = null;

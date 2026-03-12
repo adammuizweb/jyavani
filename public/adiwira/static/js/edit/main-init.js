@@ -4,16 +4,21 @@
 
   function boot(){
     safe(()=> {
-      // 1) init CodeMirror selalu (aman)
       if (window.ADIWIRA?.codemirror?.initCM) window.ADIWIRA.codemirror.initCM();
 
-      // 2) init editor mode (yang menentukan area mana tampil)
       if (window.ADIWIRA?.editor?.initEditorMode) window.ADIWIRA.editor.initEditorMode();
 
-      // 3) IMPORTANT: Quill hanya init kalau radio Quill sedang dipilih
       const quillRadio = document.getElementById('editor-quill');
       if (quillRadio && quillRadio.checked) {
         if (window.ADIWIRA?.quill?.initQuill) window.ADIWIRA.quill.initQuill();
+      }
+
+      if (window.ADIWIRA?.thumbnail?.initThumbnail) {
+        window.ADIWIRA.thumbnail.initThumbnail();
+      }
+
+      if (window.ADIWIRA?.youtube?.initYouTubePreview) {
+        window.ADIWIRA.youtube.initYouTubePreview();
       }
     });
   }

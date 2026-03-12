@@ -5,10 +5,52 @@ declare(strict_types=1);
 ob_start();
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
 [$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], true);
+
+if (!function_exists('adiwira_request_wants_json')) {
+    function adiwira_request_wants_json(): bool {
+        $xrw = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+        return ($xrw === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
+    }
+}
+
+if (!function_exists('save_success_response')) {
+    function save_success_response(string $message, string $redirect, array $extra = []): void {
+        if (adiwira_request_wants_json()) {
+            adiwira_json(array_merge([
+                'ok' => true,
+                'message' => $message,
+            ], $extra), 200);
+        }
+
+        adiwira_flash_push('success', $message);
+        header('Location: ' . $redirect, true, 302);
+        exit;
+    }
+}
+
+if (!function_exists('save_error_response')) {
+    function save_error_response(array $errors, string $redirect, int $httpCode = 400): void {
+        $errors = array_values(array_filter(array_map('strval', $errors)));
+        if (!$errors) {
+            $errors = ['Gagal menyimpan perubahan.'];
+        }
+
+        if (adiwira_request_wants_json()) {
+            adiwira_json([
+                'ok' => false,
+                'errors' => $errors,
+            ], $httpCode);
+        }
+
+        adiwira_redirect_with_flash($redirect, 'error', $errors[0]);
+    }
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
@@ -16,7 +58,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 if (!adiwira_csrf_validate($csrf)) {
-    adiwira_json(['ok' => false, 'errors' => ['CSRF invalid']], 419);
+    save_error_response(['CSRF invalid'], '/adiwira/index.php?page=admin/posts/index', 419);
 }
 
 if (!function_exists('sanitize_author_html')) {
@@ -147,7 +189,7 @@ if (!function_exists('parse_dt_jkt')) {
         $s = trim($s);
         if ($s === '') return null;
 
-        $d = DateTime::createFromFormat('Y-m-d\TH:i', $s, new DateTimeZone('Asia/Jakarta'));
+        $d = DateTime::createFromFormat('Y-m-d\\TH:i', $s, new DateTimeZone('Asia/Jakarta'));
         if ($d !== false) return $d->format('Y-m-d H:i:s');
 
         try {
@@ -174,6 +216,14 @@ $created_at_in = trim((string)($_POST['created_at'] ?? ''));
 $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 $created_by_in = (int)($_POST['created_by'] ?? 0);
 $categories    = (array)($_POST['categories'] ?? []);
+$return_to     = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), '/adiwira/index.php?page=admin/posts/index')
+    : '/adiwira/index.php?page=admin/posts/index';
+$edit_return   = '/adiwira/index.php?' . http_build_query([
+    'page' => 'admin/posts/edit',
+    'id' => $id,
+    'return_to' => $return_to,
+]);
 
 if ($id <= 0) $errors[] = 'ID tidak valid.';
 
@@ -202,14 +252,7 @@ $slug = preg_replace('/[-]{2,}/', '-', (string)$slug);
 $slug = trim((string)$slug, '-');
 if ($slug === '') $slug = bin2hex(random_bytes(4));
 
-$st = $pdo->prepare("
-    SELECT id, slug, created_by, created_at
-    FROM posts
-    WHERE id = :id
-      AND type = 'article'
-      AND is_deleted = 0
-    LIMIT 1
-");
+$st = $pdo->prepare("\n    SELECT id, slug, created_by, created_at\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
 $st->execute([':id' => $id]);
 $existing = $st->fetch(PDO::FETCH_ASSOC);
 
@@ -222,15 +265,7 @@ if (empty($errors) && $role !== 'admin') {
 }
 
 if (empty($errors)) {
-    $q = $pdo->prepare("
-        SELECT id
-        FROM posts
-        WHERE slug = :slug
-          AND id != :id
-          AND type = 'article'
-          AND is_deleted = 0
-        LIMIT 1
-    ");
+    $q = $pdo->prepare("\n        SELECT id\n        FROM posts\n        WHERE slug = :slug\n          AND id != :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
     $q->execute([
         ':slug' => $slug,
         ':id'   => $id,
@@ -239,7 +274,7 @@ if (empty($errors)) {
 }
 
 if (!empty($errors)) {
-    adiwira_json(['ok' => false, 'errors' => array_values($errors)], 400);
+    save_error_response($errors, $edit_return, 400);
 }
 
 $pc = null;
@@ -248,14 +283,14 @@ $pu = null;
 if ($created_at_in !== '') {
     $pc = parse_dt_jkt($created_at_in);
     if ($pc === null) {
-        adiwira_json(['ok' => false, 'errors' => ['Format Created At tidak valid.']], 400);
+        save_error_response(['Format Created At tidak valid.'], $edit_return, 400);
     }
 }
 
 if ($updated_at_in !== '') {
     $pu = parse_dt_jkt($updated_at_in);
     if ($pu === null) {
-        adiwira_json(['ok' => false, 'errors' => ['Format Updated At tidak valid.']], 400);
+        save_error_response(['Format Updated At tidak valid.'], $edit_return, 400);
     }
 }
 
@@ -264,14 +299,7 @@ $final_updated = $pu ?: $now;
 
 $final_creator = (int)($existing['created_by'] ?? $uid);
 if ($role === 'admin' && $created_by_in > 0) {
-    $chk = $pdo->prepare("
-    SELECT id
-    FROM users
-    WHERE id = :id
-      AND is_deleted = 0
-      AND is_locked = 0
-    LIMIT 1
-");
+    $chk = $pdo->prepare("\n        SELECT id\n        FROM users\n        WHERE id = :id\n          AND is_deleted = 0\n          AND is_locked = 0\n        LIMIT 1\n    ");
     $chk->execute([':id' => $created_by_in]);
     if ($chk->fetchColumn()) {
         $final_creator = $created_by_in;
@@ -281,22 +309,7 @@ if ($role === 'admin' && $created_by_in > 0) {
 try {
     $pdo->beginTransaction();
 
-    $upd = $pdo->prepare("
-        UPDATE posts
-        SET title      = :title,
-            slug       = :slug,
-            content    = :content,
-            youtube    = :youtube,
-            thumbnail  = :thumbnail,
-            status     = :status,
-            created_by = :created_by,
-            created_at = :created_at,
-            updated_at = :updated_at
-        WHERE id = :id
-          AND type = 'article'
-          AND is_deleted = 0
-        LIMIT 1
-    ");
+    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status     = :status,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
 
     $ok = $upd->execute([
         ':title'      => $title,
@@ -325,10 +338,7 @@ try {
     $pdo->prepare("DELETE FROM post_categories WHERE post_id = :pid")->execute([':pid' => $id]);
 
     if (!empty($cats)) {
-        $insC = $pdo->prepare("
-            INSERT INTO post_categories (post_id, category_id, assigned_by)
-            VALUES (:pid, :cid, :by)
-        ");
+        $insC = $pdo->prepare("\n            INSERT INTO post_categories (post_id, category_id, assigned_by)\n            VALUES (:pid, :cid, :by)\n        ");
         foreach ($cats as $cid) {
             $insC->execute([
                 ':pid' => $id,
@@ -340,9 +350,7 @@ try {
 
     $pdo->commit();
 
-    adiwira_json([
-        'ok' => true,
-        'message' => 'Posting diperbarui.',
+    save_success_response('Artikel berhasil diperbarui.', $return_to, [
         'post' => [
             'id'         => $id,
             'slug'       => $slug,
@@ -352,10 +360,10 @@ try {
             'youtube'    => $youtube,
         ],
         'updated_at' => $final_updated,
-    ], 200);
+    ]);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('posts/save.php error: ' . $e->getMessage());
-    adiwira_json(['ok' => false, 'errors' => ['Gagal menyimpan posting']], 500);
+    save_error_response(['Gagal menyimpan posting.'], $edit_return, 500);
 }

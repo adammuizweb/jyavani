@@ -14,11 +14,25 @@
   function log(...args){ try { console.debug('[ajax_save]', ...args); } catch(e){} }
   function warn(...args){ try { console.warn('[ajax_save]', ...args); } catch(e){} }
 
-  function showNotif(title, msg, ms){
-    const u = window.ADIWIRA && window.ADIWIRA.utils;
-    if (u && typeof u.showNotif === 'function') return u.showNotif(title, msg, ms);
-    try { window.alert((title ? (title + ': ') : '') + (msg || '')); } catch(e){}
+function showNotif(title, msg, ms, forcedType){
+  const type =
+    forcedType ||
+    (/gagal|error/i.test(String(title || '')) ? 'error' : 'success');
+
+  if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+    return window.NewNotifToast.show({
+      type: type,
+      title: title || 'Informasi',
+      message: msg || '',
+      duration: (typeof ms === 'number' && ms > 0) ? ms : 2000
+    });
   }
+
+  const u = window.ADIWIRA && window.ADIWIRA.utils;
+  if (u && typeof u.showNotif === 'function') return u.showNotif(title, msg, ms || 2000);
+
+  try { window.alert((title ? (title + ': ') : '') + (msg || '')); } catch(e){}
+}
 
   function getCanonicalTextarea() {
     return document.getElementById('content-textarea');
@@ -244,21 +258,21 @@
         return;
       }
 
-      if (j.ok) {
-        updateSlugIfAny(formEl, j);
-        updateUpdatedAtIfAny(j);
-        updateNonceIfAny(j);
+if (j.ok) {
+  updateSlugIfAny(formEl, j);
+  updateUpdatedAtIfAny(j);
+  updateNonceIfAny(j);
 
-        showNotif('Berhasil', j.message || 'Perubahan berhasil disimpan.');
-      } else {
-        const msg =
-          (j.errors && Array.isArray(j.errors)) ? j.errors.join('\n') :
-          (j.message || j.error || 'Gagal menyimpan.');
-        showNotif('Gagal', msg, 6000);
-      }
+  showNotif('Berhasil', j.message || 'Perubahan berhasil disimpan.', 2000, 'success');
+} else {
+  const msg =
+    (j.errors && Array.isArray(j.errors)) ? j.errors.join('\n') :
+    (j.message || j.error || 'Gagal menyimpan.');
+  showNotif('Gagal', msg, 2000, 'error');
+}
     } catch (err) {
       console.error('[ajax_save] save error', err);
-      showNotif('Error', 'Error saat menyimpan: ' + (err && err.message ? err.message : err), 7000);
+      showNotif('Error', 'Error saat menyimpan: ' + (err && err.message ? err.message : err), 2000, 'error');
     } finally {
       saving = false;
       if (btnSave) {

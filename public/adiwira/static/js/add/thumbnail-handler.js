@@ -1,4 +1,4 @@
-/* thumbnail-handler.js */
+/* public/adiwira/static/js/add/thumbnail-handler.js */
 (function(){
   const btn = document.getElementById('btn-open-media-for-thumb');
   const thumbInput = document.getElementById('thumbnail-input');

@@ -1,4 +1,4 @@
-// editor_mode.js — improved: programmatic suppression + safe CM canonical guards + ensure CM init/refresh
+// public/adiwira/static/js/edit/editor_mode.js — improved: programmatic suppression + safe CM canonical guards + ensure CM init/refresh
 // plus use 'change' (not click+preventDefault) so radio remains clickable even when content complex.
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};

@@ -1,4 +1,4 @@
-/* media-selector.js */
+/* public/adiwira/static/js/add/media-selector.js */
 (function(){
   function normalizeMedia(detail) {
     if (!detail) return null;

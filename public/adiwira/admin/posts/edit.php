@@ -6,6 +6,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 [$me, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
@@ -47,7 +48,7 @@ if (!function_exists('to_datetime_local')) {
         if (!$mysqlDt) return null;
         try {
             $d = new DateTime($mysqlDt, new DateTimeZone('Asia/Jakarta'));
-            return $d->format('Y-m-d\TH:i');
+            return $d->format('Y-m-d\\TH:i');
         } catch (Exception $e) {
             return null;
         }
@@ -55,6 +56,9 @@ if (!function_exists('to_datetime_local')) {
 }
 
 $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+$return_to = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/index.php?page=admin/posts/index')
+    : ($base . '/index.php?page=admin/posts/index');
 
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) {
@@ -63,14 +67,7 @@ if ($id <= 0) {
     return;
 }
 
-$stmt = $pdo->prepare("
-    SELECT *
-    FROM posts
-    WHERE id = :id
-      AND type = 'article'
-      AND is_deleted = 0
-    LIMIT 1
-");
+$stmt = $pdo->prepare("\n    SELECT *\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
 $stmt->execute([':id' => $id]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -86,12 +83,7 @@ if ($role !== 'admin' && (int)($post['created_by'] ?? 0) !== $me) {
     return;
 }
 
-$stmt = $pdo->prepare("
-    SELECT id, name, parent_id
-    FROM categories
-    WHERE is_deleted = 0
-    ORDER BY parent_id ASC, name ASC
-");
+$stmt = $pdo->prepare("\n    SELECT id, name, parent_id\n    FROM categories\n    WHERE is_deleted = 0\n    ORDER BY parent_id ASC, name ASC\n");
 $stmt->execute();
 $all_categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -139,176 +131,292 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
         novalidate>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" value="<?= (int)$post['id'] ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
-<div class="adam-accordion"
-     id="theme-meta-accordion"
-     data-open="1">
+    <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
+      <button type="button"
+              class="adam-accordion-toggle"
+              aria-expanded="true"
+              aria-controls="theme-meta-body">
+          ⚙️ Pengaturan Post
+          <span class="chevron">▸</span>
+      </button>
 
-<button type="button"
-        class="adam-accordion-toggle"
-        aria-expanded="true"
-        aria-controls="theme-meta-body">
-    ⚙️ Pengaturan Post
-    <span class="chevron">▸</span>
-  </button>
+      <div class="adam-accordion-body" id="theme-meta-body">
+        <label>Judul<br>
+          <input type="text" name="title" value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>" class="inpud">
+        </label>
 
-  <div class="adam-accordion-body" id="theme-meta-body">
-    <label>Judul<br>
-      <input type="text" name="title" value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>" class="inpud">
+        <label>Slug (opsional)<br>
+          <input type="text" name="slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="inpud">
+        </label>
+
+        <label>Kategori (centang untuk memilih)<br>
+          <div style="padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;max-height:calc(1.6em * 6 + .9rem);overflow-y:auto;">
+            <?php
+              $selected = isset($_POST['categories']) ? array_map('intval', (array)$_POST['categories']) : $current_cats;
+              render_category_tree($all_categories, $selected);
+            ?>
+          </div>
+        </label>
+
+        <div class="form-group" style="margin-top:.6rem">
+          <label for="youtube-input">YouTube link</label>
+          <input
+            type="text"
+            id="youtube-input"
+            name="youtube"
+            class="form-control inpud"
+            style="max-width: 700px;"
+            placeholder="https://www.youtube.com/watch?v=xxxxxx atau https://youtu.be/xxxxxx"
+            value="<?= htmlspecialchars($youtube, ENT_QUOTES, 'UTF-8') ?>"
+          >
+          <small id="youtube-help" style="color:#556;"><i>Masukkan URL watch atau short link.</i></small>
+        </div>
+        <div id="youtube-preview" style="margin-top:8px"></div>
+
+        <label>Thumbnail (URL) atau pilih dari Media<br>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+            <input type="text" id="thumbnail-input" name="thumbnail"
+                   value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
+                   style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
+                   placeholder="URL thumbnail (atau pilih dari Media)">
+            <button type="button" id="btn-open-media-for-thumb" class="adam-button"
+                    style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd">Pilih dari Media</button>
+            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
+          </div>
+          <div id="thumbnail-preview" style="margin-top:.6rem;">
+            <?php if (!empty($thumbnail)): ?>
+              <img src="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>" alt="preview" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
+            <?php endif; ?>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <label style="display:block;margin-top:.6rem">
+      Pilih Editor<br>
+      <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
+        <label><input type="radio" name="editor_mode" value="quill" id="editor-quill" <?= ((($_POST['editor_mode'] ?? '') === 'codemirror') ? '' : 'checked') ?>> Quill (rich)</label>
+        <label><input type="radio" name="editor_mode" value="codemirror" id="editor-codemirror" <?= (($_POST['editor_mode'] ?? '') === 'codemirror') ? 'checked' : '' ?>> CodeMirror (HTML)</label>
+      </div>
     </label>
 
-    <label>Slug (opsional)<br>
-      <input type="text" name="slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="inpud">
-    </label>
+    <textarea name="content" id="content-textarea" style="display:none"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
 
-<label>Kategori (centang untuk memilih)<br>
-  <div style="padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;max-height:calc(1.6em * 6 + .9rem);overflow-y:auto;">
-    <?php
-      $selected = isset($_POST['categories']) ? array_map('intval', (array)$_POST['categories']) : $current_cats;
-      render_category_tree($all_categories, $selected);
-    ?>
-  </div>
-</label>
+    <div id="quill-area" class="adam-quill adam-quill--auto" style="margin-top:.6rem;">
+      <div id="quill-toolbar"></div>
+      <div id="quill-editor"><?= $content ? $content : '' ?></div>
+    </div>
 
-<div class="form-group" style="margin-top:.6rem">
-  <label for="youtube-input">YouTube link</label>
-  <input
-    type="text"
-    id="youtube-input"
-    name="youtube"
-    class="form-control inpud"
-    style="max-width: 700px;"
-    placeholder="https://www.youtube.com/watch?v=xxxxxx atau https://youtu.be/xxxxxx"
-    value="<?= htmlspecialchars($youtube, ENT_QUOTES, 'UTF-8') ?>"
-  >
-  <small id="youtube-help" style="color:#556;"><i>Masukkan URL watch atau short link.</i></small>
-</div>
-<div id="youtube-preview" style="margin-top:8px"></div>
+    <div id="codemirror-area" style="margin-top:.6rem;display:none;">
+      <div id="cm-wrap" style="border:1px solid #333;border-radius:6px;overflow:hidden">
+        <textarea id="cm-textarea" style="width:100%;min-height:300px;"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
+      </div>
+    </div>
 
-<label>Thumbnail (URL) atau pilih dari Media<br>
-  <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
-    <input type="text" id="thumbnail-input" name="thumbnail"
-           value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
-           style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
-           placeholder="URL thumbnail (atau pilih dari Media)">
-    <button type="button" id="btn-open-media-for-thumb" class="adam-button"
-            style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd">Pilih dari Media</button>
-    <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
-  </div>
-  <div id="thumbnail-preview" style="margin-top:.6rem;">
-    <?php if (!empty($thumbnail)): ?>
-      <img src="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>" alt="preview" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
-    <?php endif; ?>
-  </div>
-</label>
-  </div>
-</div>
+    <div class="form-row" style="margin-top:.6rem">
+      <label for="status">Status</label>
+      <?php $currentStatus = $status; ?>
+      <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+        <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>>Draft</option>
+        <option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>>Published</option>
+        <option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>>Private</option>
+      </select>
+    </div>
 
-<label style="display:block;margin-top:.6rem">
-  Pilih Editor<br>
-  <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
-    <label><input type="radio" name="editor_mode" value="quill" id="editor-quill" <?= ((($_POST['editor_mode'] ?? '') === 'codemirror') ? '' : 'checked') ?>> Quill (rich)</label>
-    <label><input type="radio" name="editor_mode" value="codemirror" id="editor-codemirror" <?= (($_POST['editor_mode'] ?? '') === 'codemirror') ? 'checked' : '' ?>> CodeMirror (HTML)</label>
-  </div>
-</label>
-
-<textarea name="content" id="content-textarea" style="display:none"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
-
-<div id="quill-area" class="adam-quill adam-quill--auto" style="margin-top:.6rem;">
-  <div id="quill-toolbar"></div>
-  <div id="quill-editor"><?= $content ? $content : '' ?></div>
-</div>
-
-<div id="codemirror-area" style="margin-top:.6rem;display:none;">
-  <div id="cm-wrap" style="border:1px solid #333;border-radius:6px;overflow:hidden">
-    <textarea id="cm-textarea" style="width:100%;min-height:300px;"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
-  </div>
-</div>
-
-<div class="form-row" style="margin-top:.6rem">
-  <label for="status">Status</label>
-  <?php $currentStatus = $status; ?>
-  <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-    <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>>Draft</option>
-    <option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>>Published</option>
-    <option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>>Private</option>
-  </select>
-</div>
-
-<?php if ($role === 'admin'): ?>
-<label style="display:block;margin-top:.6rem">
-  Created By<br>
-  <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
-    <?php
-    if (!empty($users)) {
-        foreach ($users as $u) {
-            $uidOpt = (int)$u['id'];
-            $label = htmlspecialchars($u['label'], ENT_QUOTES, 'UTF-8');
-            $username = htmlspecialchars($u['username'] ?? '', ENT_QUOTES, 'UTF-8');
-            $img = htmlspecialchars($u['img'] ?? '', ENT_QUOTES, 'UTF-8');
-            $sel = ($uidOpt === $created_by) ? 'selected' : '';
-            echo "<option value=\"{$uidOpt}\" data-username=\"{$username}\" data-img=\"{$img}\" {$sel}>{$label}</option>";
+    <?php if ($role === 'admin'): ?>
+    <label style="display:block;margin-top:.6rem">
+      Created By<br>
+      <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
+        <?php
+        if (!empty($users)) {
+            foreach ($users as $u) {
+                $uidOpt = (int)$u['id'];
+                $label = htmlspecialchars($u['label'], ENT_QUOTES, 'UTF-8');
+                $username = htmlspecialchars($u['username'] ?? '', ENT_QUOTES, 'UTF-8');
+                $img = htmlspecialchars($u['img'] ?? '', ENT_QUOTES, 'UTF-8');
+                $sel = ($uidOpt === $created_by) ? 'selected' : '';
+                echo "<option value=\"{$uidOpt}\" data-username=\"{$username}\" data-img=\"{$img}\" {$sel}>{$label}</option>";
+            }
+        } else {
+            $cb = (int)($post['created_by'] ?? 0);
+            $sel = ($cb === $created_by) ? 'selected' : '';
+            echo "<option value=\"{$cb}\" {$sel}>User ID {$cb}</option>";
         }
-    } else {
-        $cb = (int)($post['created_by'] ?? 0);
-        $sel = ($cb === $created_by) ? 'selected' : '';
-        echo "<option value=\"{$cb}\" {$sel}>User ID {$cb}</option>";
-    }
-    ?>
-  </select>
-  <div style="font-size:12px;color:#666;margin-top:6px">Admin-only.</div>
-</label>
-<?php else: ?>
-  <div style="font-size:12px;color:#666;margin-top:.6rem">Creator tidak bisa diubah. Timestamp boleh diubah.</div>
-<?php endif; ?>
+        ?>
+      </select>
+      <div style="font-size:12px;color:#666;margin-top:6px">Admin-only.</div>
+    </label>
+    <?php else: ?>
+      <div style="font-size:12px;color:#666;margin-top:.6rem">Creator tidak bisa diubah. Timestamp boleh diubah.</div>
+    <?php endif; ?>
 
-<label style="display:block;margin-top:.6rem">Created At<br>
-  <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-  <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk mempertahankan nilai semula (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
-</label>
+    <label style="display:block;margin-top:.6rem">Created At<br>
+      <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+      <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk mempertahankan nilai semula (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
+    </label>
 
-<label style="display:block;margin-top:.6rem">Updated At<br>
-  <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-  <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang.</div>
-</label>
+    <label style="display:block;margin-top:.6rem">Updated At<br>
+      <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+      <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang.</div>
+    </label>
 
-<p style="margin-top:.8rem">
-  <button type="submit" class="adam-button" id="btn-save">Simpan Perubahan</button>
-  <a class="adam-cancle" href="<?= htmlspecialchars($base . '/index.php?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>">Batal</a>
-</p>
-</form>
+    <p style="margin-top:.8rem">
+      <button type="submit" class="adam-button" id="btn-save">Simpan Perubahan</button>
+      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
+    </p>
+  </form>
 </section>
-
-<div id="notif-modal" class="adam-modal">
-  <div class="adam-modal-card">
-    <div id="notif-title" class="adam-modal-title">
-      Data sukses diperbarui!
-    </div>
-
-    <div id="notif-body" class="adam-modal-desc">
-      Perubahan berhasil disimpan.
-    </div>
-
-    <button onclick="hideNotif()" class="adam-button">
-      Tutup
-    </button>
-  </div>
-</div>
 
 <script>
   window.ADIWIRA = window.ADIWIRA || {};
-  window.ADIWIRA_SAVE_URL = <?= json_encode($base . '/admin/posts/save.php') ?>;
   window.ADIWIRA_FORM_ID = 'post-edit-form';
 </script>
 
 <script src="/adiwira/static/js/edit/utils.js"></script>
-<script src="/adiwira/static/js/edit/modal.js"></script>
-<script src="/adiwira/static/js/edit/media_selector.js"></script>
-<script src="/adiwira/static/js/edit/codemirror.js"></script>
+
+<!-- pakai helper modal + selector yang sudah terbukti jalan di halaman add -->
+<script src="/adiwira/static/js/add/modal-helpers.js"></script>
+<script src="/adiwira/static/js/add/media-selector.js"></script>
 <script src="/adiwira/static/js/add/file-selector.js"></script>
+
+<!-- editor spesifik edit tetap -->
+<script src="/adiwira/static/js/edit/codemirror.js"></script>
 <script src="/adiwira/static/js/edit/quill.js"></script>
 <script src="/adiwira/static/js/edit/editor_mode.js"></script>
 <script src="/adiwira/static/js/edit/thumbnail.js"></script>
 <script src="/adiwira/static/js/edit/youtube_preview.js"></script>
 <script src="/adiwira/static/js/edit/ajax_save.js"></script>
 <script src="/adiwira/static/js/edit/main-init.js"></script>
+
+<script>
+(function(){
+  const form = document.getElementById('post-edit-form');
+  const saveBtn = document.getElementById('btn-save');
+  const contentField = document.getElementById('content-textarea');
+
+  if (!form || !contentField) return;
+
+  function notify(type, message, title){
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
+      return;
+    }
+    alert(message);
+  }
+
+  function askWarning(opts){
+    if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
+      return window.NewNotifConfirm.warning(opts);
+    }
+    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+  }
+
+  function currentEditorMode(){
+    const checked = document.querySelector('input[name="editor_mode"]:checked');
+    return checked ? checked.value : 'quill';
+  }
+
+  function getCodeMirrorValue(){
+    const direct = window.ADIWIRA && window.ADIWIRA.cm;
+    if (direct && typeof direct.getValue === 'function') {
+      return direct.getValue();
+    }
+
+    const wrapper = document.querySelector('#codemirror-area .CodeMirror');
+    if (wrapper && wrapper.CodeMirror && typeof wrapper.CodeMirror.getValue === 'function') {
+      return wrapper.CodeMirror.getValue();
+    }
+
+    const textarea = document.getElementById('cm-textarea');
+    return textarea ? textarea.value : '';
+  }
+
+  function getQuillValue(){
+    const direct = window.ADIWIRA && window.ADIWIRA.quill;
+    if (direct && direct.root) {
+      return direct.root.innerHTML;
+    }
+
+    if (window.quill && window.quill.root) {
+      return window.quill.root.innerHTML;
+    }
+
+    const editor = document.querySelector('#quill-editor .ql-editor');
+    return editor ? editor.innerHTML : '';
+  }
+
+  function syncContent(){
+    contentField.value = currentEditorMode() === 'codemirror'
+      ? getCodeMirrorValue()
+      : getQuillValue();
+  }
+
+  async function submitAjax(){
+    syncContent();
+
+    const oldLabel = saveBtn ? saveBtn.textContent : '';
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Menyimpan...';
+    }
+
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await res.json().catch(function(){
+        return { ok:false, errors:['Respons server tidak valid.'] };
+      });
+
+      if (!res.ok || !data.ok) {
+        const errors = Array.isArray(data.errors) && data.errors.length
+          ? data.errors
+          : [data.error || data.message || 'Gagal menyimpan perubahan.'];
+
+        errors.filter(Boolean).forEach(function(msg, idx){
+          notify('error', String(msg), idx === 0 ? 'Gagal menyimpan' : 'Detail error');
+        });
+        return;
+      }
+
+      if (data.redirect) {
+        window.location.href = data.redirect;
+        return;
+      }
+
+      notify('success', data.message || 'Perubahan berhasil disimpan.', 'Berhasil');
+
+    } catch (err) {
+      notify('error', 'Terjadi gangguan jaringan saat menyimpan.', 'Jaringan');
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = oldLabel || 'Simpan Perubahan';
+      }
+    }
+  }
+
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    syncContent();
+
+    askWarning({
+      title: 'Simpan perubahan',
+      message: 'Perubahan artikel ini akan disimpan. Lanjutkan?',
+      confirmText: 'Ya, simpan',
+      cancelText: 'Batal'
+    }).then(function(ok){
+      if (!ok) return;
+      submitAjax();
+    });
+  });
+})();
+</script>

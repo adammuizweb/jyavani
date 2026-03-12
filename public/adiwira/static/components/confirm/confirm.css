@@ -1,0 +1,166 @@
+#newnotif-confirm-root{
+  position:fixed;
+  inset:0;
+  z-index:150000;
+  pointer-events:none;
+}
+
+.newnotif-confirm{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(7, 16, 34, .52);
+  backdrop-filter:blur(6px);
+  opacity:0;
+  visibility:hidden;
+  transition:opacity 180ms ease, visibility 180ms ease;
+  pointer-events:none;
+}
+
+.newnotif-confirm.is-open{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+}
+
+.newnotif-confirm__panel{
+  width:min(100%, 520px);
+  background:var(--adam-card);
+  color:var(--adam-text);
+  border:1px solid var(--adam-border);
+  border-radius:18px;
+  box-shadow:0 24px 72px rgba(0,0,0,.24), var(--adam-shadow);
+  overflow:hidden;
+  transform:translateY(10px) scale(.985);
+  transition:transform 180ms ease;
+  position:relative;
+}
+
+.newnotif-confirm.is-open .newnotif-confirm__panel{
+  transform:translateY(0) scale(1);
+}
+
+.newnotif-confirm__panel::before{
+  content:"";
+  display:block;
+  height:4px;
+  width:100%;
+  background:var(--newnotif-accent, var(--adam-warning));
+}
+
+.newnotif-confirm[data-variant="danger"] .newnotif-confirm__panel{
+  --newnotif-accent: var(--adam-danger);
+}
+
+.newnotif-confirm[data-variant="warning"] .newnotif-confirm__panel{
+  --newnotif-accent: var(--adam-warning);
+}
+
+.newnotif-confirm__body{
+  padding:22px 22px 18px;
+}
+
+.newnotif-confirm__badge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.02em;
+  background:color-mix(in srgb, var(--newnotif-accent, var(--adam-warning)) 12%, transparent);
+  color:var(--newnotif-accent, var(--adam-warning));
+  border:1px solid color-mix(in srgb, var(--newnotif-accent, var(--adam-warning)) 26%, transparent);
+}
+
+.newnotif-confirm__title{
+  margin:14px 0 8px;
+  font-size:1.12rem;
+  line-height:1.35;
+  color:var(--adam-text);
+}
+
+.newnotif-confirm__message{
+  margin:0;
+  color:var(--adam-text-3);
+  line-height:1.65;
+  font-size:.96rem;
+  white-space:pre-line;
+}
+
+.newnotif-confirm__actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:18px;
+  padding-top:16px;
+  border-top:1px solid var(--adam-border);
+}
+
+.newnotif-btn{
+  appearance:none;
+  border:none;
+  outline:none;
+  cursor:pointer;
+  min-height:42px;
+  padding:0 16px;
+  border-radius:12px;
+  font-weight:700;
+  font-size:.94rem;
+  transition:transform 140ms ease, background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.newnotif-btn:hover{
+  transform:translateY(-1px);
+}
+
+.newnotif-btn:focus-visible{
+  box-shadow:0 0 0 4px var(--adam-focus);
+}
+
+.newnotif-btn--ghost{
+  background:var(--adam-surface-3);
+  color:var(--adam-text);
+  border:1px solid var(--adam-border);
+}
+
+.newnotif-btn--ghost:hover{
+  background:var(--adam-hover);
+}
+
+.newnotif-btn--confirm{
+  background:var(--adam-warning);
+  color:#fff;
+}
+
+.newnotif-confirm[data-variant="danger"] .newnotif-btn--confirm{
+  background:var(--adam-danger);
+}
+
+.newnotif-btn--confirm:hover{
+  opacity:.94;
+}
+
+@media (max-width: 640px){
+  .newnotif-confirm{
+    padding:16px;
+    align-items:flex-end;
+  }
+
+  .newnotif-confirm__panel{
+    width:100%;
+    border-radius:18px 18px 14px 14px;
+  }
+
+  .newnotif-confirm__actions{
+    flex-direction:column-reverse;
+  }
+
+  .newnotif-btn{
+    width:100%;
+  }
+}

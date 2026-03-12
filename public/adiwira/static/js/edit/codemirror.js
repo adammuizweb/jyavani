@@ -1,4 +1,4 @@
-// codemirror.js — init early, setValueSilent, visibility observer, safe canonical writes
+// public/adiwira/static/js/edit/codemirror.js — init early, setValueSilent, visibility observer, safe canonical writes
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
   let cm = null;
@@ -56,12 +56,27 @@
         }
       });
 
-      try {
-        cm.addKeyMap({
-          'Ctrl-S': () => (window.ADIWIRA.save && window.ADIWIRA.save.ajaxSave && window.ADIWIRA.save.ajaxSave()),
-          'Cmd-S':  () => (window.ADIWIRA.save && window.ADIWIRA.save.ajaxSave && window.ADIWIRA.save.ajaxSave())
-        });
-      } catch(e){}
+try {
+  cm.addKeyMap({
+    'Ctrl-S': function() {
+      if (window.ADIWIRA && window.ADIWIRA.save && typeof window.ADIWIRA.save.ajaxSave === 'function') {
+        window.ADIWIRA.save.ajaxSave();
+      }
+    },
+    'Cmd-S': function() {
+      if (window.ADIWIRA && window.ADIWIRA.save && typeof window.ADIWIRA.save.ajaxSave === 'function') {
+        window.ADIWIRA.save.ajaxSave();
+      }
+    },
+
+    'Ctrl-Z': function(cm) { cm.undo(); },
+    'Cmd-Z': function(cm) { cm.undo(); },
+
+    'Shift-Ctrl-Z': function(cm) { cm.redo(); },
+    'Cmd-Shift-Z': function(cm) { cm.redo(); },
+    'Ctrl-Y': function(cm) { cm.redo(); }
+  });
+} catch(e){}
     } catch(e){ console.warn('[initCM]', e); }
   }
 

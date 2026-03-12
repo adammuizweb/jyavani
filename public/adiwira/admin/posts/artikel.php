@@ -6,6 +6,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 [$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
@@ -19,12 +20,6 @@ if (!function_exists('slugify')) {
     }
 }
 
-/**
- * Sanitasi HTML untuk AUTHOR:
- * - buang script/iframe/object/embed/style/link/meta
- * - buang atribut on* dan style
- * - whitelist tag dasar rich text + img + table sederhana
- */
 if (!function_exists('sanitize_author_html')) {
     function sanitize_author_html(string $html): string {
         $html = trim($html);
@@ -151,7 +146,6 @@ if (!function_exists('sanitize_author_html')) {
     }
 }
 
-// categories
 $stmt = $pdo->prepare("SELECT id, name, parent_id FROM categories WHERE is_deleted = 0 ORDER BY parent_id ASC, name ASC");
 $stmt->execute();
 $all_categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -176,7 +170,7 @@ if (!function_exists('to_datetime_local')) {
         if (!$mysqlDt) return null;
         try {
             $d = new DateTime($mysqlDt, new DateTimeZone('Asia/Jakarta'));
-            return $d->format('Y-m-d\TH:i');
+            return $d->format('Y-m-d\\TH:i');
         } catch (Exception $e) {
             return null;
         }
@@ -187,7 +181,7 @@ if (!function_exists('parse_datetime_local')) {
     function parse_datetime_local(string $s): ?string {
         $s = trim($s);
         if ($s === '') return null;
-        $d = DateTime::createFromFormat('Y-m-d\TH:i', $s, new DateTimeZone('Asia/Jakarta'));
+        $d = DateTime::createFromFormat('Y-m-d\\TH:i', $s, new DateTimeZone('Asia/Jakarta'));
         if ($d !== false) return $d->format('Y-m-d H:i:s');
         try {
             $d2 = new DateTime($s, new DateTimeZone('Asia/Jakarta'));
@@ -197,6 +191,11 @@ if (!function_exists('parse_datetime_local')) {
         }
     }
 }
+
+$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+$return_to = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/index.php?page=admin/posts/index')
+    : ($base . '/index.php?page=admin/posts/index');
 
 $errors = [];
 
@@ -303,39 +302,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
             }
 
-            $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-            ?>
-            <div id="successModal" class="adam-modal" aria-hidden="false">
-              <div class="adam-modal-card adam-modal--success" role="dialog" aria-modal="true" tabindex="-1">
-                <h3 class="adam-modal-title">✅ Artikel Berhasil Disimpan!</h3>
-                <p class="adam-modal-desc">🥳 Akan diarahkan ke daftar artikel...</p>
-              </div>
-            </div>
-            <script>
-              setTimeout(() => {
-                window.location.href = "<?= htmlspecialchars($base . '/index.php?page=admin/posts/index', ENT_QUOTES) ?>";
-              }, 1200);
-            </script>
-            <?php
-            exit;
+            adiwira_redirect_with_flash($return_to, 'success', 'Artikel berhasil disimpan.');
         }
 
         $errors[] = 'Gagal menyimpan post.';
     }
 }
-
-$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 ?>
 
 <section class="adam-card">
   <h2>Tambah Article</h2>
 
-  <?php if ($errors): ?>
-    <div class="adam-error"><ul><?php foreach($errors as $e): ?><li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li><?php endforeach; ?></ul></div>
-  <?php endif; ?>
-
   <form id="post-add-form" method="post" novalidate>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="theme-meta-body">
@@ -419,7 +399,7 @@ $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 
     <p style="margin-top:.8rem">
       <button type="submit" class="adam-button">Simpan</button>
-      <a class="adam-cancle" href="<?= htmlspecialchars($base . '/index.php?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>">Batal</a>
+      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
     </p>
 
     <div id="media-single-panel" style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:480px">
@@ -427,6 +407,13 @@ $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
     </div>
   </form>
 </section>
+
+<?php
+if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
+    $items = array_map(static fn($msg) => ['type' => 'error', 'message' => (string)$msg], $errors);
+    echo adiwira_bootstrap_toasts_script($items);
+}
+?>
 
 <script>
   window.ADIWIRA = window.ADIWIRA || {};

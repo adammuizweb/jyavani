@@ -9,8 +9,11 @@ if (!defined('DASHBOARD_CONTEXT')) {
 
 define('ADAM_THEME', true);
 
+require_once __DIR__ . '/../../admin/_notify.php';
+
 $base_url = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/'); // ex: /adiwira
 $themePath = DASH_PATH . '/theme/adam';
+$dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull() : [];
 ?>
 <!doctype html>
 <html lang="id">
@@ -34,15 +37,14 @@ $themePath = DASH_PATH . '/theme/adam';
 
     if (saved === 'dark') root.classList.add('theme-dark');
     else if (saved === 'light') root.classList.add('theme-light');
-    // kalau belum pernah set, biarkan CSS @media prefers-color-scheme yang menentukan
   }catch(e){}
 })();
 </script>
 
   <!-- stylesheet tema -->
   <link rel="stylesheet" href="<?= htmlspecialchars($base_url . '/theme/adam/css/style.css', ENT_QUOTES, 'UTF-8') ?>">
-  <!-- aside cosmetics (no layout behavior) -->
-  <link rel="stylesheet" href="<?= htmlspecialchars($base_url . '/theme/adam/css/aside.css', ENT_QUOTES, 'UTF-8') ?>">
+  <link rel="stylesheet" href="<?= htmlspecialchars($base_url . '/static/components/confirm/confirm.css', ENT_QUOTES, 'UTF-8') ?>">
+  <link rel="stylesheet" href="<?= htmlspecialchars($base_url . '/static/components/toast/toast.css', ENT_QUOTES, 'UTF-8') ?>">
 
   <!-- quill -->
   <link href="<?= htmlspecialchars($base_url . '/static/vendor/quill/quill.snow.css', ENT_QUOTES) ?>" rel="stylesheet">
@@ -82,15 +84,28 @@ $themePath = DASH_PATH . '/theme/adam';
     </div>
 
     <?php require_once $themePath . '/part/footer.php'; ?>
-<div id="adam-toast-root" aria-live="polite" aria-atomic="true" style="position:fixed;right:16px;bottom:20px;z-index:120000;pointer-events:none;"></div>
+
+    <div id="newnotif-confirm-root"></div>
+    <div id="newnotif-toast-root" aria-live="polite" aria-atomic="true"></div>
+
+    <?php
+      if (!empty($dashboard_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
+          echo adiwira_bootstrap_toasts_script($dashboard_toasts);
+      }
+    ?>
+
+    <!-- root lama dibiarkan sementara agar halaman lain tidak langsung rusak -->
+    <div id="adam-toast-root" aria-live="polite" aria-atomic="true" style="position:fixed;right:16px;bottom:20px;z-index:120000;pointer-events:none;"></div>
   </div>
+
+  <script src="<?= htmlspecialchars($base_url . '/static/components/toast/toast.js', ENT_QUOTES) ?>" defer></script>
+  <script src="<?= htmlspecialchars($base_url . '/static/components/confirm/confirm.js', ENT_QUOTES) ?>" defer></script>
 
   <script src="<?= htmlspecialchars($base_url . '/theme/adam/js/index-list.js', ENT_QUOTES) ?>" defer></script>
   <script src="<?= htmlspecialchars($base_url . '/theme/adam/js/aside.js', ENT_QUOTES) ?>" defer></script>
   <script src="<?= htmlspecialchars($base_url . '/theme/adam/js/panel.js', ENT_QUOTES) ?>" defer></script>
-  <script src="<?= htmlspecialchars($base_url . '/theme/adam/js/alerts.js', ENT_QUOTES) ?>" defer></script>
   <script src="<?= htmlspecialchars($base_url . '/theme/adam/js/accordion.js', ENT_QUOTES) ?>" defer></script>
   <script src="<?= htmlspecialchars($base_url . '/theme/adam/js/theme-toggle.js', ENT_QUOTES) ?>" defer></script>
-  <script src="<?= htmlspecialchars($base_url . '/theme/adam/js/muiz-notify.js', ENT_QUOTES) ?>" defer></script>
+
 </body>
 </html>

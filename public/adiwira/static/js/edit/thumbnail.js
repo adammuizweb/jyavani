@@ -1,4 +1,4 @@
-// thumbnail.js
+// /adiwira/static/js/edit/thumbnail.js
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
 
@@ -8,42 +8,75 @@
     const thumbnailPreview = document.getElementById('thumbnail-preview');
     const thumbnailClear = document.getElementById('thumbnail-clear');
 
-    if (thumbBtn) {
+    if (thumbBtn && !thumbBtn.__adiwiraThumbBound) {
+      thumbBtn.__adiwiraThumbBound = true;
+
       thumbBtn.addEventListener('click', function(){
         if (typeof window.openMediaSelector !== 'function') {
           console.warn('openMediaSelector not available - fallback to modal page');
-          try { if (typeof window.adamModalOpen === 'function') window.adamModalOpen('/adiwira/admin/modal_img/index.php?embedded=1'); else window.open('/adiwira/admin/modal_img/index.php?embedded=1','_blank'); } catch(e){ window.open('/adiwira/admin/modal_img/index.php?embedded=1','_blank'); }
+          try {
+            if (typeof window.adamModalOpen === 'function') {
+              window.adamModalOpen('/adiwira/admin/modal_img/index.php?embedded=1');
+            } else {
+              window.open('/adiwira/admin/modal_img/index.php?embedded=1', '_blank');
+            }
+          } catch(e) {
+            window.open('/adiwira/admin/modal_img/index.php?embedded=1', '_blank');
+          }
           return;
         }
 
         window.openMediaSelector({ url: '/adiwira/admin/modal_img/index.php?embedded=1' })
           .then(function(detail){
-            const m = (typeof window.normalizeMedia === 'function') ? window.normalizeMedia(detail) : (detail || null);
+            const m = (typeof window.normalizeMedia === 'function')
+              ? window.normalizeMedia(detail)
+              : (detail || null);
+
             if (!m || !m.url) return;
 
-            if (thumbnailInput) thumbnailInput.value = m.url;
-            if (thumbnailPreview) thumbnailPreview.innerHTML = '<img src="'+String(m.url).replace(/"/g,"&quot;")+'" alt="'+(m.alt || m.title || '')+'" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem;background:#fff">';
-            try { thumbnailInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(e){}
-            try { thumbnailInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(e){}
-            try { if (typeof window.ADIWIRA.live !== 'undefined' && typeof window.ADIWIRA.live.debSend === 'function') window.ADIWIRA.live.debSend(); } catch(e){}
+            if (thumbnailInput) {
+              thumbnailInput.value = m.url;
+              try { thumbnailInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(e){}
+              try { thumbnailInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(e){}
+            }
+
+            if (thumbnailPreview) {
+              thumbnailPreview.innerHTML =
+                '<img src="' + String(m.url).replace(/"/g, '&quot;') + '"' +
+                ' alt="' + String(m.alt || m.title || '').replace(/"/g, '&quot;') + '"' +
+                ' style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem;background:#fff">';
+            }
           })
           .catch(function(err){
             console.error('thumbnail selector error', err);
-            alert('Gagal memilih thumbnail: ' + (err && err.message ? err.message : err));
           });
       });
     }
 
-    if (thumbnailClear) thumbnailClear.addEventListener('click', function(){
-      if (thumbnailInput) {
-        thumbnailInput.value = '';
-        try { thumbnailInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(e){}
-        try { thumbnailInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(e){}
-      }
-      if (thumbnailPreview) thumbnailPreview.innerHTML = '';
-      try { if (typeof window.ADIWIRA.live !== 'undefined' && typeof window.ADIWIRA.live.debSend === 'function') window.ADIWIRA.live.debSend(); } catch(e){}
-    });
+    if (thumbnailClear && !thumbnailClear.__adiwiraThumbBound) {
+      thumbnailClear.__adiwiraThumbBound = true;
+
+      thumbnailClear.addEventListener('click', function(){
+        if (thumbnailInput) {
+          thumbnailInput.value = '';
+          try { thumbnailInput.dispatchEvent(new Event('input', { bubbles: true })); } catch(e){}
+          try { thumbnailInput.dispatchEvent(new Event('change', { bubbles: true })); } catch(e){}
+        }
+
+        if (thumbnailPreview) {
+          thumbnailPreview.innerHTML = '';
+        }
+      });
+    }
   }
 
-  window.ADIWIRA.thumbnail = { initThumbnail };
+  window.ADIWIRA.thumbnail = Object.assign({}, window.ADIWIRA.thumbnail || {}, {
+    initThumbnail: initThumbnail
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initThumbnail);
+  } else {
+    initThumbnail();
+  }
 })();

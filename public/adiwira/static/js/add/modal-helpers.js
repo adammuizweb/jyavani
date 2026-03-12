@@ -1,4 +1,4 @@
-/* modal-helpers.js */
+/* public/adiwira/static/js/add/modal-helpers.js */
 (function(){
   function injectHtmlWithScriptsTo(container, html) {
     try {

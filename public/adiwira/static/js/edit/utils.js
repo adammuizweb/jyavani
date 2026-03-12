@@ -1,4 +1,4 @@
-// utils.js
+// public/adiwira/static/js/edit/utils.js
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
 
