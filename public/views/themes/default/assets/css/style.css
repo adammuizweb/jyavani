@@ -1875,8 +1875,11 @@ text-decoration: none;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  margin: 2.25rem 0px;
-  min-width: 420px;
+  margin: 2.25rem 0;
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .w-box {
@@ -1886,6 +1889,8 @@ text-decoration: none;
   padding: 14px;
   box-shadow: var(--shadow);
   transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .w-box:hover {
@@ -1916,6 +1921,7 @@ text-decoration: none;
   text-decoration: none;
   color: var(--link);
   transition: color .2s ease;
+  overflow-wrap: anywhere;
 }
 
 .w-list a:hover {
@@ -1926,10 +1932,12 @@ text-decoration: none;
 .w-search-form {
   display: flex;
   gap: 8px;
+  min-width: 0;
 }
 
 .w-search-form input {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
@@ -1937,6 +1945,7 @@ text-decoration: none;
   background: var(--control-bg);
   color: var(--text);
   transition: border-color .2s ease, background .2s ease;
+  box-sizing: border-box;
 }
 
 .w-search-form input:focus {
@@ -1944,6 +1953,7 @@ text-decoration: none;
 }
 
 .w-search-form button {
+  flex: 0 0 auto;
   border: 1px solid var(--border);
   background: var(--control-bg);
   border-radius: 10px;
@@ -1951,9 +1961,16 @@ text-decoration: none;
   cursor: pointer;
   color: var(--text);
   transition: background .2s ease, border-color .2s ease;
+  box-sizing: border-box;
 }
 
 .w-search-form button:hover {
   background: var(--surface-hover);
   border-color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  .sidebar-wrap {
+    max-width: 100%;
+  }
 }
