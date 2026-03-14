@@ -1,65 +1,119 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/bin/theme/bulk_action.php
-if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
-
-require_once __DIR__ . '/../../../bootstrap.php';
-if (session_status() === PHP_SESSION_NONE) session_start();
-
-function adiwira_root(): string {
-  $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-  $pos = strpos($base, '/admin');
-  return ($pos !== false) ? substr($base, 0, $pos) : $base;
+if (!defined('DASHBOARD_CONTEXT')) {
+    define('DASHBOARD_CONTEXT', true);
 }
 
-$root = adiwira_root();
-$back = $root . '/index.php?page=admin/bin/theme/index';
+require_once __DIR__ . '/../../_guard.php';
+require_once __DIR__ . '/../../_notify.php';
 
-$role = current_user_role($pdo) ?: 'guest';
-if ($role === 'author') {
-  http_response_code(403);
-  exit('Akses ditolak: role author tidak boleh bulk.');
+adiwira_cosmetic_404_on_direct_open();
+
+// bulk trash theme hanya untuk editor + admin
+[$uid, $role] = adiwira_require_role($pdo, ['editor', 'admin'], true);
+
+if (!function_exists('is_ajax_request')) {
+    function is_ajax_request(): bool {
+        $xrw = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+        return ($xrw === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
+    }
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') qz_redirect($back);
+$defaultReturnTo = '/adiwira/index.php?page=admin/bin/theme/index';
+$returnTo = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    : $defaultReturnTo;
 
-$token = $_POST['csrf_token'] ?? '';
-if (!csrf_check($token)) qz_redirect($back . '&err=' . urlencode('CSRF token tidak valid.'));
+if (!function_exists('respond_theme_bin_bulk')) {
+    function respond_theme_bin_bulk(bool $ok, string $message = '', int $httpCode = 200, array $extra = [], ?string $redirect = null): void {
+        $redirect = $redirect ?: '/adiwira/index.php?page=admin/bin/theme/index';
+
+        if (is_ajax_request()) {
+            http_response_code($httpCode);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(array_merge([
+                'ok' => $ok,
+                'message' => $message,
+                'redirect' => $redirect,
+            ], $extra), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+
+        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message);
+    }
+}
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    respond_theme_bin_bulk(false, 'Method Not Allowed', 405, [], $returnTo);
+}
+
+$token = (string)($_POST['csrf_token'] ?? '');
+if (!adiwira_csrf_validate($token)) {
+    respond_theme_bin_bulk(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+}
 
 $ids = $_POST['ids'] ?? [];
-if (!is_array($ids) || empty($ids)) qz_redirect($back . '&err=' . urlencode('Tidak ada theme dipilih.'));
+if (!is_array($ids) || empty($ids)) {
+    respond_theme_bin_bulk(false, 'Tidak ada theme dipilih.', 400, [], $returnTo);
+}
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
-if (empty($ids)) qz_redirect($back . '&err=' . urlencode('ID theme tidak valid.'));
+if (empty($ids)) {
+    respond_theme_bin_bulk(false, 'ID theme tidak valid.', 400, [], $returnTo);
+}
 
-$action = $_POST['action'] ?? '';
+$action = (string)($_POST['action'] ?? '');
+if ($action === '') {
+    respond_theme_bin_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+}
+
 $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
-  $pdo->beginTransaction();
+    $pdo->beginTransaction();
 
-  if ($action === 'restore') {
-    $sql = "UPDATE posts SET is_deleted=0, deleted_at=NULL, updated_at=NOW()
-            WHERE id IN ($in) AND type='theme' AND is_deleted=1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($ids);
-    $pdo->commit();
-    qz_redirect($back . '&msg=' . urlencode('Berhasil restore ' . $stmt->rowCount() . ' theme.'));
-  }
+    if ($action === 'restore') {
+        $sql = "UPDATE posts
+                SET is_deleted = 0,
+                    deleted_at = NULL,
+                    updated_at = NOW()
+                WHERE id IN ($in)
+                  AND type = 'theme'
+                  AND is_deleted = 1";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($ids);
+        $affected = $stmt->rowCount();
 
-  if ($action === 'delete_permanent') {
-    $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
+        $pdo->commit();
+        respond_theme_bin_bulk(true, "Berhasil restore {$affected} theme.", 200, ['count' => $affected], $returnTo);
+    }
 
-    $sql = "DELETE FROM posts WHERE id IN ($in) AND type='theme' AND is_deleted=1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($ids);
+    if ($action === 'delete_permanent') {
+        $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
 
-    $pdo->commit();
-    qz_redirect($back . '&msg=' . urlencode('Berhasil hapus permanen ' . $stmt->rowCount() . ' theme.'));
-  }
+        $sql = "DELETE FROM posts
+                WHERE id IN ($in)
+                  AND type = 'theme'
+                  AND is_deleted = 1";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($ids);
+        $affected = $stmt->rowCount();
 
-  $pdo->rollBack();
-  qz_redirect($back . '&err=' . urlencode('Aksi bulk tidak dikenal.'));
+        $pdo->commit();
+        respond_theme_bin_bulk(true, "Berhasil hapus permanen {$affected} theme.", 200, ['count' => $affected], $returnTo);
+    }
+
+    $pdo->rollBack();
+    respond_theme_bin_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+
 } catch (Throwable $e) {
-  if ($pdo->inTransaction()) $pdo->rollBack();
-  qz_redirect($back . '&err=' . urlencode('Terjadi kesalahan: ' . $e->getMessage()));
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    error_log('bin/theme/bulk_action.php error: ' . $e->getMessage());
+    respond_theme_bin_bulk(false, 'Terjadi kesalahan saat proses bulk action.', 500, [], $returnTo);
 }
