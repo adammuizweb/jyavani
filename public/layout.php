@@ -183,21 +183,6 @@ if (!function_exists('echo_relevant_theme_styles')) {
     }
 }
 ?>
-
-<!-- Minimal layout CSS to support sidebar positioning (themes should override) -->
-<style>
-/* layout helpers — themes should override with their own design */
-.container{max-width:1100px;margin:0 auto;padding:20px}
-.layout-grid{display:grid;gap:20px}
-.layout-grid.layout-sidebar-left{grid-template-columns: 280px 1fr;}
-.layout-grid.layout-sidebar-right{grid-template-columns: 1fr 280px;}
-.site-main-area{min-height:200px}
-@media (max-width:880px){
-  .layout-grid.layout-sidebar-left,
-  .layout-grid.layout-sidebar-right{grid-template-columns:1fr}
-}
-</style>
-
 </head>
 <body>
 <?php
