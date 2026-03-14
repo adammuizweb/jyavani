@@ -781,6 +781,35 @@ class PhotoController
         $layout_pdo = $GLOBALS['pdo'] ?? $pdo;
         $pdo = $layout_pdo;
 
+        // ==============================
+        // LAYOUT OVERRIDE (INI TEMPATNYA)
+        // ==============================
+        // Default layout policy di layout.php:
+        // - homepage: full width + sidebar off
+        // - selain homepage: container + sidebar on
+        //
+        // Kalau theme-page kamu mau beda, set di sini:
+
+        $layout_full_width = false;   // paksa pakai container (jadi tidak full width)
+        $enable_sidebar    = false;    // paksa sidebar aktif
+        $sidebar_position  = 'right';  // 'left' atau 'right'
+
+        // (Opsional) kalau mau bisa diatur dari meta JSON pada post theme:
+        // meta contoh: {"layout_full_width":true,"enable_sidebar":false,"sidebar_position":"right"}
+        if (!empty($themeData['meta'])) {
+            $meta = json_decode((string)$themeData['meta'], true);
+            if (is_array($meta)) {
+                if (array_key_exists('layout_full_width', $meta)) $layout_full_width = (bool)$meta['layout_full_width'];
+                if (array_key_exists('enable_sidebar', $meta))    $enable_sidebar    = (bool)$meta['enable_sidebar'];
+                if (!empty($meta['sidebar_position'])) {
+                    $pos = strtolower(trim((string)$meta['sidebar_position']));
+                    if (in_array($pos, ['left','right'], true)) $sidebar_position = $pos;
+                }
+            }
+        }
+        
+        // END SIDEBAR
+
         require __DIR__ . '/../layout.php';
         exit;
     }

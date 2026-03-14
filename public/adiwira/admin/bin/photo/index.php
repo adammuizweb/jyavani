@@ -1,626 +1,473 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/bin/photo/index.php
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-  http_response_code(403);
-  exit('Forbidden');
+    http_response_code(403);
+    exit('Forbidden');
 }
 
-if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../../_guard.php';
+require_once __DIR__ . '/../../_notify.php';
 
-if (!function_exists('e')) {
-  function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+// bin photo tetap admin-only
+[$uid, $role] = adiwira_require_role($pdo, ['admin'], false);
+
+// fallback bila masih ada route lama kirim ?msg= / ?err=
+$page_toasts = function_exists('adiwira_collect_query_toasts')
+    ? adiwira_collect_query_toasts()
+    : [];
+
+// filters
+$filter_status = (string)($_GET['status'] ?? '');
+$search        = trim((string)($_GET['q'] ?? ''));
+
+// pagination
+$page_num = max(1, (int)($_GET['p'] ?? 1));
+$per_page = 20;
+$offset   = ($page_num - 1) * $per_page;
+
+// where
+$where = ["p.is_deleted = 1", "p.type = 'photo'"];
+$params = [];
+
+if ($filter_status !== '') {
+    $where[] = "p.status = :status";
+    $params[':status'] = $filter_status;
 }
 
-$messages = [];
-$errors = [];
-if (!empty($_GET['msg'])) $messages[] = urldecode($_GET['msg']);
-if (!empty($_GET['err'])) $errors[] = urldecode($_GET['err']);
-
-function adiwira_root(): string {
-  $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-  $pos  = strpos($base, '/admin');
-  return ($pos !== false) ? substr($base, 0, $pos) : $base; // => /adiwira
-}
-$root = adiwira_root();
-$base = $root; // router utama pakai /adiwira/index.php?page=...
-
-// auth: admin-only
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) {
-  http_response_code(403);
-  exit('Akses ditolak: belum login.');
+if ($search !== '') {
+    $where[] = "(p.title LIKE :search OR p.slug LIKE :search)";
+    $params[':search'] = '%' . $search . '%';
 }
 
-$role = $_SESSION['user_role'] ?? null;
-if (!$role) {
-  if (function_exists('current_user_role')) {
-    $role = current_user_role($pdo) ?: null;
-  }
-  if (!$role) {
-    $st = $pdo->prepare("SELECT role FROM users WHERE id=:id AND is_deleted=0 LIMIT 1");
-    $st->execute([':id' => $uid]);
-    $role = $st->fetchColumn() ?: null;
-  }
-  $_SESSION['user_role'] = $role;
+$where_sql = implode(' AND ', $where);
+
+// count
+$count_sql = "SELECT COUNT(*) FROM posts p WHERE $where_sql";
+$totalStmt = $pdo->prepare($count_sql);
+$totalStmt->execute($params);
+$total = (int)$totalStmt->fetchColumn();
+$pages = max(1, (int)ceil($total / $per_page));
+
+// data
+$sql = "
+SELECT
+  p.id, p.title, p.slug, p.status, p.thumbnail, p.created_at, p.deleted_at,
+  u.name AS created_by,
+  u.username AS author_username,
+  (
+    SELECT COUNT(*)
+    FROM post_media_items pm
+    WHERE pm.post_id = p.id
+  ) AS media_count
+FROM posts p
+LEFT JOIN users u ON u.id = p.created_by
+WHERE $where_sql
+ORDER BY p.deleted_at DESC, p.id DESC
+LIMIT :limit OFFSET :offset
+";
+$stmt = $pdo->prepare($sql);
+foreach ($params as $k => $v) {
+    $stmt->bindValue($k, $v);
 }
-if ($role !== 'admin') {
-  http_response_code(403);
-  exit('Akses ditolak: hanya admin.');
+$stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
+$photos = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+if (!function_exists('build_pagination_items')) {
+    function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
+        if ($total <= $max_visible) return range(1, $total);
+
+        $items = [];
+        $reserved = 6;
+        $middle_slots = max(1, $max_visible - $reserved);
+        $half = (int)floor($middle_slots / 2);
+
+        $start = max(3, $current - $half);
+        $end   = min($total - 2, $current + $half);
+
+        if ($start === 3) $end = min($total - 2, $start + $middle_slots - 1);
+        if ($end === $total - 2) $start = max(3, $end - $middle_slots + 1);
+
+        $items[] = 1;
+        $items[] = 2;
+        if ($start > 3) $items[] = '...';
+        for ($i = $start; $i <= $end; $i++) $items[] = $i;
+        if ($end < $total - 2) $items[] = '...';
+        $items[] = $total - 1;
+        $items[] = $total;
+
+        while (count($items) > $max_visible) {
+            for ($i = 0; $i < count($items); $i++) {
+                if (is_int($items[$i]) && !in_array($items[$i], [1,2,$total-1,$total], true)) {
+                    array_splice($items, $i, 1);
+                    break;
+                }
+            }
+        }
+        return $items;
+    }
 }
+$paging_items = build_pagination_items($page_num, $pages, 9);
 
-$csrf = csrf_token();
+$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$canBulk = true;
 
-// categories map (untuk tampil chip di detail)
-$catsStmt = $pdo->query("SELECT id, name, parent_id FROM categories WHERE is_deleted=0 ORDER BY parent_id ASC, name ASC");
-$allCats = $catsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
-// API endpoints (trash)
-$api = [
-  'list'    => $root . '/admin/bin/photo/api/photos_list.php',
-  'get'     => $root . '/admin/bin/photo/api/photo_get.php',
-  'restore' => $root . '/admin/bin/photo/api/photo_restore.php',
-  'delp'    => $root . '/admin/bin/photo/api/photo_delete_permanent.php',
-  'bulk'    => $root . '/admin/bin/photo/api/photo_bulk_action.php',
-];
+$currentQuery = $_GET;
+$currentQuery['page'] = 'admin/bin/photo/index';
+$currentReturnTo = $base . '/index.php?' . http_build_query($currentQuery);
 ?>
 
 <section class="adam-card">
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
-    <div>
-      <h2 style="margin:0">Bin / Trash — Photo Posts</h2>
-      <div style="margin-top:6px;color:#64748b;font-size:12px">
-        Kelola Photo Post yang sudah dihapus: restore atau hapus permanen. (Admin only)
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <a class="adam-link" href="<?= e($base) ?>/index.php?page=admin/bin/index">← Kembali ke Bin</a>
-    </div>
-  </div>
+  <h2>Bin / Trash — Photo Posts</h2>
 
-  <?php if (!empty($messages)): ?>
-    <div class="adam-alert success" style="margin-top:12px;margin-bottom:12px;padding:.8rem 1rem;background:#e8f7ec;border:1px solid #b6e2c2;border-radius:6px;color:#246;">
-      <?php foreach ($messages as $m): ?><div><?= e($m) ?></div><?php endforeach; ?>
+  <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+    <input type="hidden" name="page" value="admin/bin/photo/index">
+
+    <input type="text" name="q" placeholder="Cari judul atau slug..."
+      value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
+      style="padding:.4rem;min-width:220px">
+
+    <select name="status" style="padding:.4rem;">
+      <option value="">-- Semua Status --</option>
+      <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
+      <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
+      <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
+    </select>
+
+    <button type="submit" class="adam-button">Terapkan</button>
+    <a href="<?= htmlspecialchars($base . '/index.php?page=admin/bin/photo/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+
+    <span style="margin-left:auto;color:var(--adam-muted);">
+      Total trash: <strong><?= (int)$total ?></strong>
+    </span>
+  </form>
+
+  <form id="binPhotoBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/bin/photo/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+
+    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:.4rem;">
+        <input type="checkbox" id="selectAllBinPhoto"> Pilih semua di halaman
+      </label>
+
+      <select id="bulkActionBinPhoto" name="action" style="padding:.4rem;">
+        <option value="">-- Bulk action --</option>
+        <option value="restore">Restore</option>
+        <option value="delete_permanent">Hapus Permanen</option>
+      </select>
+
+      <button type="submit" class="adam-button">Terapkan</button>
+      <small style="color:var(--adam-muted);">Bulk hanya mempengaruhi item yang dicentang.</small>
     </div>
+
+    <div class="adam-table-wrapper">
+      <table class="adam-table" style="margin-top:.5rem;">
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th>Foto</th>
+            <th>Judul</th>
+            <th>Status</th>
+            <th>Jumlah Foto</th>
+            <th>Deleted</th>
+            <th>Penulis</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+        <?php if (empty($photos)): ?>
+          <tr><td colspan="8" style="padding:1rem;">Trash photo post kosong.</td></tr>
+        <?php else: ?>
+          <?php foreach ($photos as $p): ?>
+            <?php
+              $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
+              $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
+
+              $icons = [
+                'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+                'draft'     => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+                'private'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+                'unknown'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9a2.5 2.5 0 1 1 5 1c0 1.5-1.5 1.75-1.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor"/></svg>',
+              ];
+              $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
+              $thumb = trim((string)($p['thumbnail'] ?? ''));
+            ?>
+            <tr class="adam-row">
+              <td style="text-align:center;">
+                <input type="checkbox" class="bulkCheckboxBinPhoto" name="ids[]" value="<?= (int)$p['id'] ?>">
+              </td>
+
+              <td style="width:72px;">
+                <?php if ($thumb !== ''): ?>
+                  <img src="<?= htmlspecialchars($thumb, ENT_QUOTES, 'UTF-8') ?>"
+                       alt=""
+                       style="width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--adam-border);display:block;">
+                <?php else: ?>
+                  <div style="width:56px;height:56px;border-radius:10px;border:1px solid var(--adam-border);background:var(--adam-surface-3);"></div>
+                <?php endif; ?>
+              </td>
+
+              <td>
+                <div style="font-weight:600;">
+                  <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                </div>
+                <div style="color:var(--adam-muted);font-size:.85rem;">
+                  /<?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>/
+                </div>
+              </td>
+
+              <td>
+                <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
+                      role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
+                  <span class="adam-status-icon"><?= $iconSvg ?></span>
+                  <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
+                </span>
+              </td>
+
+              <td><?= (int)($p['media_count'] ?? 0) ?></td>
+
+              <td><?= htmlspecialchars(!empty($p['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
+
+              <td>
+                <?php
+                  $authorName = $p['created_by'] ?? '-';
+                  $authorUsername = $p['author_username'] ?? '';
+                  if ($authorUsername !== '') {
+                    $authorHref = '/author/' . rawurlencode($authorUsername) . '/';
+                    echo '<a class="adam-penulis" href="' . htmlspecialchars($authorHref, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8') . '</a>';
+                  } else {
+                    echo htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8');
+                  }
+                ?>
+              </td>
+
+              <td>
+                <button type="button"
+                        class="adam-link-button js-bin-photo-restore"
+                        data-id="<?= (int)$p['id'] ?>"
+                        data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                  Restore
+                </button>
+
+                &nbsp;<span class="muted-divider">|</span>&nbsp;
+
+                <button type="button"
+                        class="adam-link-button js-bin-photo-delete-permanent"
+                        data-id="<?= (int)$p['id'] ?>"
+                        data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                  Hapus Permanen
+                </button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </form>
+
+  <?php if ($pages > 1): ?>
+    <nav class="adam-pagination" style="margin-top:1rem;">
+      <?php foreach ($paging_items as $item):
+        if ($item === '...') {
+          echo '<span class="dots">…</span> ';
+          continue;
+        }
+        $i = (int)$item;
+        $query = $_GET;
+        $query['p'] = $i;
+        $query['page'] = 'admin/bin/photo/index';
+        $link = $base . '/index.php?' . http_build_query($query);
+      ?>
+        <?php if ($i === $page_num): ?>
+          <strong><?= $i ?></strong>
+        <?php else: ?>
+          <a href="<?= htmlspecialchars($link, ENT_QUOTES, 'UTF-8') ?>"><?= $i ?></a>
+        <?php endif; ?>
+      <?php endforeach; ?>
+    </nav>
   <?php endif; ?>
 
-  <?php if (!empty($errors)): ?>
-    <div class="adam-alert error" style="margin-top:12px;margin-bottom:12px;padding:.8rem 1rem;background:#fee;border:1px solid #fbb;border-radius:6px;color:#600;">
-      <?php foreach ($errors as $er): ?><div><?= e($er) ?></div><?php endforeach; ?>
-    </div>
-  <?php endif; ?>
+  <form id="bin-photo-restore-form" method="post" action="<?= htmlspecialchars($base . '/admin/bin/photo/restore.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="id" id="bin-photo-restore-id">
+    <input type="hidden" name="return_to" id="bin-photo-restore-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+  </form>
 
-  <div style="display:grid;grid-template-columns:380px 1fr;gap:14px;min-height:72vh;margin-top:14px">
-
-    <!-- LEFT -->
-    <div style="background:#fff;border-radius:14px;border:1px solid #e5e7eb;overflow:hidden">
-      <div style="padding:14px 14px 12px;border-bottom:1px solid #eef2f7;background:linear-gradient(180deg,#fff,#fbfdff)">
-        <h3 style="margin:0;font-size:14px;font-weight:800;color:#0f172a">Trash Photo Post</h3>
-
-        <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-          <input id="pSearch" style="width:100%;border:1px solid #e5e7eb;border-radius:10px;padding:10px 10px;outline:none;background:#fff"
-                 placeholder="Cari judul / slug / id...">
-        </div>
-
-        <div style="margin-top:8px;color:#64748b;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px">
-          <div>
-            Klik item untuk lihat detail.
-          </div>
-          <span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;padding:3px 9px;border-radius:999px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;font-weight:800;font-size:12px" id="pCount">0</span>
-        </div>
-
-        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b">
-            <input type="checkbox" id="selectAll">
-            Pilih semua (halaman)
-          </label>
-
-          <select id="bulkAction" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;font-size:12px">
-            <option value="">-- Bulk action --</option>
-            <option value="restore">Restore</option>
-            <option value="delete_permanent">Hapus Permanen</option>
-          </select>
-
-          <button type="button" id="btnBulk"
-            style="border:1px solid #e5e7eb;background:#0f172a;color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:800;font-size:12px">
-            Terapkan
-          </button>
-
-          <small style="color:#64748b;font-size:12px">(Bulk untuk item yang dicentang)</small>
-        </div>
-      </div>
-
-      <div id="pList" style="max-height:calc(72vh - 72px);overflow:auto"></div>
-
-      <div id="pPager" style="padding:10px 12px;border-top:1px solid #eef2f7;display:flex;gap:8px;align-items:center;justify-content:space-between">
-        <div style="display:flex;gap:6px;align-items:center">
-          <button type="button" id="pPrev">Prev</button>
-          <button type="button" id="pNext">Next</button>
-          <span id="pPageInfo" style="font-size:12px;color:#64748b"></span>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <span style="font-size:12px;color:#64748b">Per page</span>
-          <select id="pPer">
-            <option value="20">20</option>
-            <option value="30" selected>30</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <!-- RIGHT -->
-    <div style="background:#fff;border-radius:14px;border:1px solid #e5e7eb;overflow:hidden">
-      <div style="padding:14px 14px 12px;border-bottom:1px solid #eef2f7;background:linear-gradient(180deg,#fff,#fbfdff)">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">
-          <div>
-            <h3 id="editorTitle" style="margin:0;font-size:14px;font-weight:800;color:#0f172a">Pilih photo post</h3>
-            <div id="editorMeta" style="margin-top:4px;color:#64748b;font-size:12px">Klik salah satu item di kiri.</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <button type="button" id="btnRestore"
-              style="display:none;border:0;background:#0ea5e9;color:#fff;padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:800">
-              Restore
-            </button>
-            <button type="button" id="btnDeletePermanent"
-              style="display:none;border:0;background:#ef4444;color:#fff;padding:9px 12px;border-radius:10px;cursor:pointer;font-weight:800">
-              Hapus Permanen
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div style="padding:14px">
-        <div id="emptyState" style="color:#64748b;font-size:12px">Belum ada item dipilih.</div>
-
-        <div id="editor" style="display:none">
-          <div style="display:grid;grid-template-columns:1fr 260px;gap:12px">
-
-            <div>
-              <div style="display:grid;gap:6px;margin-bottom:10px">
-                <div style="font-size:12px;font-weight:800;color:#0f172a">Judul</div>
-                <div id="vTitle" style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc"></div>
-              </div>
-
-              <div style="display:grid;gap:6px;margin-bottom:10px">
-                <div style="font-size:12px;font-weight:800;color:#0f172a">Slug</div>
-                <div id="vSlug" style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc"></div>
-              </div>
-
-              <div style="display:grid;gap:6px;margin-bottom:10px">
-                <div style="font-size:12px;font-weight:800;color:#0f172a">Kategori</div>
-                <div id="vCats" style="border:1px solid #e5e7eb;border-radius:12px;padding:10px;min-height:44px;background:#fff"></div>
-              </div>
-            </div>
-
-            <div>
-              <div style="display:grid;gap:6px;margin-bottom:10px">
-                <div style="font-size:12px;font-weight:800;color:#0f172a">Status</div>
-                <div id="vStatus" style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc"></div>
-              </div>
-
-              <div style="display:grid;gap:6px;margin-bottom:10px">
-                <div style="font-size:12px;font-weight:800;color:#0f172a">Info</div>
-                <div id="vInfo" style="color:#64748b;font-size:12px">—</div>
-              </div>
-
-              <div style="display:grid;gap:6px;margin-bottom:10px">
-                <div style="font-size:12px;font-weight:800;color:#0f172a">Deleted at</div>
-                <div id="vDeletedAt" style="padding:10px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc"></div>
-              </div>
-            </div>
-
-          </div>
-
-          <div style="height:1px;background:#eef2f7;margin:12px 0"></div>
-
-          <div style="border:1px solid #eef2f7;border-radius:12px;padding:12px">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-              <div>
-                <div style="font-weight:800;color:#0f172a">Foto</div>
-                <div style="font-size:12px;color:#64748b;margin-top:2px">Preview foto (read-only). Foto pertama adalah cover.</div>
-              </div>
-              <span id="vCount" style="display:inline-flex;min-width:28px;justify-content:center;align-items:center;padding:4px 10px;border-radius:999px;background:#0ea5e9;color:#fff;font-weight:800;font-size:12px">0</span>
-            </div>
-
-            <div id="vEmptyMedia" style="margin-top:10px;color:#64748b;font-size:12px">Tidak ada foto.</div>
-            <div id="vGrid" style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px"></div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
-  </div>
+  <form id="bin-photo-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/bin/photo/delete_permanent.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="id" id="bin-photo-delete-id">
+    <input type="hidden" name="return_to" id="bin-photo-delete-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+  </form>
 </section>
 
-<div id="toast" style="position:fixed;right:16px;bottom:16px;background:#0f172a;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.18);font-size:13px;opacity:0;transform:translateY(10px);transition:all .18s ease;z-index:99999"></div>
+<?php
+if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
+    echo adiwira_bootstrap_toasts_script($page_toasts);
+}
+?>
 
 <script>
 (function(){
-  const CSRF = <?= json_encode($csrf) ?>;
-  const API  = <?= json_encode($api) ?>;
-  const ALL_CATS = <?= json_encode($allCats, JSON_UNESCAPED_UNICODE) ?>;
+  const selectAll = document.getElementById('selectAllBinPhoto');
+  const bulkForm = document.getElementById('binPhotoBulkForm');
+  const bulkAction = document.getElementById('bulkActionBinPhoto');
 
-  const el = (id)=>document.getElementById(id);
+  const restoreForm = document.getElementById('bin-photo-restore-form');
+  const restoreId = document.getElementById('bin-photo-restore-id');
+  const restoreReturnTo = document.getElementById('bin-photo-restore-return-to');
 
-  // toast
-  const toast = el('toast');
-  let toastTimer = null;
-  function showToast(msg){
-    toast.textContent = msg;
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0)';
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>{
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(10px)';
-    }, 1400);
-  }
+  const deleteForm = document.getElementById('bin-photo-delete-form');
+  const deleteId = document.getElementById('bin-photo-delete-id');
+  const deleteReturnTo = document.getElementById('bin-photo-delete-return-to');
 
-  function escapeHTML(s){
-    return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-  }
-  function cutText(s, n){
-    s = String(s ?? '').replace(/\s+/g,' ').trim();
-    return s.length <= n ? s : (s.slice(0,n-1) + '…');
-  }
-
-  async function fetchJSON(url, payload=null){
-    const opt = payload ? {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload),
-      credentials: 'same-origin'
-    } : { method:'GET', credentials:'same-origin' };
-
-    const res = await fetch(url, opt);
-    const txt = await res.text();
-    let data = null;
-    try { data = JSON.parse(txt); } catch(e){ throw new Error('Response bukan JSON: ' + txt.slice(0,200)); }
-    if (!res.ok || !data || data.ok !== true) {
-      throw new Error((data && data.error) ? data.error : ('HTTP ' + res.status));
-    }
-    return data;
-  }
-
-  // cat map
-  const catMap = new Map();
-  (ALL_CATS || []).forEach(c => catMap.set(Number(c.id), String(c.name)));
-
-  // state
-  let rows = [];
-  let active = null;
-  let q = '';
-  let page = 1;
-  let per  = 30;
-  let total = 0;
-
-  // els
-  const pList = el('pList');
-  const pCount = el('pCount');
-  const pSearch = el('pSearch');
-  const pPrev = el('pPrev');
-  const pNext = el('pNext');
-  const pPer = el('pPer');
-  const pPageInfo = el('pPageInfo');
-
-  const selectAll = el('selectAll');
-  const bulkAction = el('bulkAction');
-  const btnBulk = el('btnBulk');
-
-  const emptyState = el('emptyState');
-  const editor = el('editor');
-  const editorTitle = el('editorTitle');
-  const editorMeta = el('editorMeta');
-
-  const btnRestore = el('btnRestore');
-  const btnDeletePermanent = el('btnDeletePermanent');
-
-  const vTitle = el('vTitle');
-  const vSlug  = el('vSlug');
-  const vCats  = el('vCats');
-  const vStatus = el('vStatus');
-  const vInfo  = el('vInfo');
-  const vDeletedAt = el('vDeletedAt');
-  const vGrid  = el('vGrid');
-  const vEmptyMedia = el('vEmptyMedia');
-  const vCount = el('vCount');
-
-  function renderPager(){
-    const pages = Math.max(1, Math.ceil(total / Math.max(1, per)));
-    pPrev.disabled = (page <= 1);
-    pNext.disabled = (page >= pages);
-    pPageInfo.textContent = `Page ${page} / ${pages} • ${total} item`;
-  }
-
-  function statusChip(status){
-    status = String(status || 'draft');
-    const style = (status === 'published')
-      ? 'background:#ecfeff;border-color:#a5f3fc;color:#155e75'
-      : (status === 'private')
-        ? 'background:#f1f5f9;border-color:#cbd5e1;color:#0f172a'
-        : 'background:#fff7ed;border-color:#fed7aa;color:#9a3412';
-    return `<span style="font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid #e5e7eb;${style}">${escapeHTML(status)}</span>`;
-  }
-
-  function renderList(){
-    pList.innerHTML = '';
-    pCount.textContent = String(total || 0);
-
-    if (!rows.length){
-      pList.innerHTML = '<div style="padding:12px;color:#64748b;font-size:12px">Trash kosong.</div>';
+  function toast(type, message, title){
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
       return;
     }
+    alert(message);
+  }
 
-    rows.forEach(r => {
-      const row = document.createElement('div');
-      row.className = 'binp-row' + (active && Number(active.id) === Number(r.id) ? ' binp-row-active' : '');
-      row.dataset.id = r.id;
-
-      row.style.display = 'flex';
-      row.style.gap = '10px';
-      row.style.padding = '11px 12px';
-      row.style.borderBottom = '1px solid #f1f5f9';
-      row.style.cursor = 'pointer';
-      row.style.alignItems = 'center';
-
-      if (active && Number(active.id) === Number(r.id)){
-        row.style.background = '#fff1f2';
-        row.style.outline = '2px solid rgba(239,68,68,.22)';
+  function ask(variant, opts){
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts);
       }
-
-      const thumb = r.thumbnail
-        ? `<div style="width:46px;height:46px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;background:#f8fafc;flex:0 0 auto">
-             <img src="${escapeHTML(r.thumbnail)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">
-           </div>`
-        : `<div style="width:46px;height:46px;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;background:#f8fafc;flex:0 0 auto"></div>`;
-
-      row.innerHTML = `
-        <div style="flex:0 0 auto;width:26px;display:flex;justify-content:center">
-          <input type="checkbox" class="chk" data-id="${Number(r.id)}">
-        </div>
-        ${thumb}
-        <div style="min-width:0;flex:1">
-          <div style="font-weight:900;color:#0f172a;font-size:13px;line-height:1.2">#${Number(r.id)} · ${escapeHTML(cutText(r.title || '(tanpa judul)', 80))}</div>
-          <div style="margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            ${statusChip(r.status)}
-            <span style="font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;color:#0f172a">${Number(r.media_count||0)} foto</span>
-            <span style="font-size:11px;color:#64748b">deleted: ${escapeHTML(r.deleted_at || '-')}</span>
-          </div>
-        </div>
-        <button type="button" class="btn-restore"
-          style="border:1px solid #bae6fd;background:#ecfeff;color:#075985;border-radius:10px;width:40px;height:38px;cursor:pointer;flex:0 0 auto"
-          title="Restore">↩</button>
-        <button type="button" class="btn-del"
-          style="border:1px solid #fecaca;background:#fff;color:#dc2626;border-radius:10px;width:40px;height:38px;cursor:pointer;flex:0 0 auto"
-          title="Hapus permanen">🗑</button>
-      `;
-
-      // select row
-      row.addEventListener('click', (ev)=>{
-        if (ev.target && (ev.target.closest('.btn-restore') || ev.target.closest('.btn-del') || ev.target.closest('.chk'))) return;
-        selectPhoto(r.id);
-      });
-
-      // restore single
-      row.querySelector('.btn-restore').addEventListener('click', async (ev)=>{
-        ev.stopPropagation();
-        await restoreOne(r.id);
-      });
-
-      // delete permanent single
-      row.querySelector('.btn-del').addEventListener('click', async (ev)=>{
-        ev.stopPropagation();
-        await deletePermanentOne(r.id);
-      });
-
-      pList.appendChild(row);
-    });
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts);
+      }
+    }
+    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
   }
 
-  async function loadList(){
-    const url = API.list + '?q=' + encodeURIComponent(q) + '&p=' + encodeURIComponent(page) + '&per=' + encodeURIComponent(per);
-    const data = await fetchJSON(url);
-    rows = data.rows || [];
-    total = Number(data.total || 0);
-    renderList();
-    renderPager();
-    if (selectAll) selectAll.checked = false;
+  function checkedCount(){
+    return document.querySelectorAll('.bulkCheckboxBinPhoto:checked').length;
   }
 
-  function renderActive(photo){
-    active = photo;
+  function getBulkSummary(){
+    const action = bulkAction ? bulkAction.value : '';
+    const count = checkedCount();
 
-    emptyState.style.display = 'none';
-    editor.style.display = 'block';
-    btnRestore.style.display = 'inline-block';
-    btnDeletePermanent.style.display = 'inline-block';
-
-    editorTitle.textContent = 'Detail Photo #' + Number(photo.id);
-    editorMeta.textContent  = 'Trash mode • Restore atau hapus permanen';
-
-    vTitle.textContent = photo.title || '(tanpa judul)';
-    vSlug.textContent  = photo.slug || '-';
-    vStatus.textContent = photo.status || '-';
-
-    vDeletedAt.textContent = photo.deleted_at || '-';
-    vInfo.textContent = `Items: ${(photo.items||[]).length} • Updated: ${photo.updated_at || '-'} • Created: ${photo.created_at || '-'}`;
-
-    // categories chips
-    const ids = (photo.category_ids || []).map(Number).filter(Boolean);
-    if (!ids.length){
-      vCats.innerHTML = '<span style="color:#64748b;font-size:12px">—</span>';
-    } else {
-      vCats.innerHTML = ids.map(id => {
-        const name = catMap.get(id) || ('#' + id);
-        return `<span style="display:inline-flex;align-items:center;gap:6px;margin:4px 6px 0 0;padding:4px 10px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;font-size:12px">${escapeHTML(name)}</span>`;
-      }).join('');
+    if (!action) {
+      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
     }
 
-    // grid items
-    const items = Array.isArray(photo.items) ? photo.items : [];
-    vCount.textContent = String(items.length);
-
-    vGrid.innerHTML = '';
-    if (!items.length){
-      vEmptyMedia.style.display = 'block';
-      return;
+    if (count < 1) {
+      return { ok:false, message:'Pilih minimal satu photo post.' };
     }
-    vEmptyMedia.style.display = 'none';
 
-    items.forEach((it, idx)=>{
-      const url = it.thumb || it.url || it.src || '';
-      const card = document.createElement('div');
-      card.className = 'g-item';
-      card.style.position = 'relative';
-      card.style.border = '1px solid #e5e7eb';
-      card.style.borderRadius = '12px';
-      card.style.overflow = 'hidden';
-      card.style.background = '#fff';
-
-      const badge = (idx === 0)
-        ? `<div style="position:absolute;left:8px;top:8px;background:rgba(14,165,233,.92);color:#fff;font-size:11px;font-weight:800;border-radius:999px;padding:4px 8px">Cover</div>`
-        : '';
-
-      card.innerHTML = `
-        ${badge}
-        <div style="height:120px;background:#f8fafc">
-          ${url ? `<img src="${escapeHTML(url)}" alt="" style="width:100%;height:120px;object-fit:cover;display:block">` : ''}
-        </div>
-      `;
-      vGrid.appendChild(card);
-    });
-
-    // re-highlight active in list
-    renderList();
-  }
-
-  async function selectPhoto(id){
-    const data = await fetchJSON(API.get + '?id=' + encodeURIComponent(id));
-    renderActive(data.photo);
-  }
-
-  function getCheckedIds(){
-    return Array.from(document.querySelectorAll('.chk:checked'))
-      .map(cb => Number(cb.getAttribute('data-id')))
-      .filter(Boolean);
-  }
-
-  async function restoreOne(id){
-    if (!confirm('Restore photo post ini?')) return;
-    await fetchJSON(API.restore, { csrf_token: CSRF, id: Number(id) });
-    showToast('Direstore');
-    if (active && Number(active.id) === Number(id)) {
-      active = null;
-      editor.style.display = 'none';
-      emptyState.style.display = 'block';
-      btnRestore.style.display = 'none';
-      btnDeletePermanent.style.display = 'none';
-      editorTitle.textContent = 'Pilih photo post';
-      editorMeta.textContent  = 'Klik salah satu item di kiri.';
+    if (action === 'restore') {
+      return {
+        ok: true,
+        variant: 'warning',
+        title: 'Restore photo post terpilih',
+        message: 'Sebanyak ' + count + ' photo post akan direstore dari trash. Lanjutkan?',
+        confirmText: 'Ya, restore'
+      };
     }
-    await loadList();
-  }
-
-  async function deletePermanentOne(id){
-    if (!confirm('Hapus permanen photo post ini? Ini tidak bisa dibatalkan.')) return;
-    await fetchJSON(API.delp, { csrf_token: CSRF, id: Number(id) });
-    showToast('Dihapus permanen');
-    if (active && Number(active.id) === Number(id)) {
-      active = null;
-      editor.style.display = 'none';
-      emptyState.style.display = 'block';
-      btnRestore.style.display = 'none';
-      btnDeletePermanent.style.display = 'none';
-      editorTitle.textContent = 'Pilih photo post';
-      editorMeta.textContent  = 'Klik salah satu item di kiri.';
-    }
-    await loadList();
-  }
-
-  async function runBulk(){
-    const action = bulkAction.value;
-    if (!action) { alert('Pilih bulk action terlebih dahulu.'); return; }
-    const ids = getCheckedIds();
-    if (!ids.length) { alert('Pilih minimal satu item.'); return; }
 
     if (action === 'delete_permanent') {
-      if (!confirm('Yakin ingin menghapus permanen semua item terpilih?')) return;
-    } else {
-      if (!confirm('Jalankan bulk "' + action + '" untuk ' + ids.length + ' item?')) return;
+      return {
+        ok: true,
+        variant: 'danger',
+        title: 'Hapus permanen photo post',
+        message: 'Sebanyak ' + count + ' photo post akan dihapus permanen. Relasi kategori dan item medianya juga akan dibersihkan.',
+        confirmText: 'Ya, hapus permanen'
+      };
     }
 
-    await fetchJSON(API.bulk, { csrf_token: CSRF, action, ids });
-    showToast('Bulk sukses');
-    // reset UI
-    active = null;
-    editor.style.display = 'none';
-    emptyState.style.display = 'block';
-    btnRestore.style.display = 'none';
-    btnDeletePermanent.style.display = 'none';
-    await loadList();
+    return {
+      ok: false,
+      message: 'Aksi bulk tidak dikenal.'
+    };
   }
-
-  // events
-  let t = null;
-  pSearch.addEventListener('input', ()=>{
-    clearTimeout(t);
-    t = setTimeout(async ()=>{
-      q = pSearch.value.trim();
-      page = 1;
-      await loadList();
-    }, 180);
-  });
-
-  pPer.addEventListener('change', async ()=>{
-    per = Number(pPer.value || 30);
-    page = 1;
-    await loadList();
-  });
-
-  pPrev.addEventListener('click', async ()=>{
-    if (page > 1) { page--; await loadList(); }
-  });
-  pNext.addEventListener('click', async ()=>{
-    const pages = Math.max(1, Math.ceil(total / Math.max(1, per)));
-    if (page < pages) { page++; await loadList(); }
-  });
 
   if (selectAll) {
     selectAll.addEventListener('change', function(){
-      const checked = this.checked;
-      document.querySelectorAll('.chk').forEach(cb => cb.checked = checked);
+      const checked = !!this.checked;
+      document.querySelectorAll('.bulkCheckboxBinPhoto').forEach(function(cb){
+        cb.checked = checked;
+      });
     });
   }
 
-  btnBulk.addEventListener('click', runBulk);
+  document.querySelectorAll('.js-bin-photo-restore').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const id = this.getAttribute('data-id') || '';
+      const title = this.getAttribute('data-title') || 'photo post ini';
+      const returnTo = this.getAttribute('data-return-to') || '';
 
-  btnRestore.addEventListener('click', async ()=>{
-    if (!active) return;
-    await restoreOne(active.id);
+      ask('warning', {
+        title: 'Restore photo post',
+        message: 'Restore photo post "' + title + '" dari trash?',
+        confirmText: 'Ya, restore',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        if (!restoreForm || !restoreId) return;
+        restoreId.value = id;
+        if (restoreReturnTo) restoreReturnTo.value = returnTo;
+        restoreForm.submit();
+      });
+    });
   });
 
-  btnDeletePermanent.addEventListener('click', async ()=>{
-    if (!active) return;
-    await deletePermanentOne(active.id);
+  document.querySelectorAll('.js-bin-photo-delete-permanent').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const id = this.getAttribute('data-id') || '';
+      const title = this.getAttribute('data-title') || 'photo post ini';
+      const returnTo = this.getAttribute('data-return-to') || '';
+
+      ask('danger', {
+        title: 'Hapus permanen',
+        message: 'Hapus permanen photo post "' + title + '"? Relasi kategori dan item medianya akan ikut dibersihkan. Aksi ini tidak bisa dibatalkan.',
+        confirmText: 'Ya, hapus permanen',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        if (!deleteForm || !deleteId) return;
+        deleteId.value = id;
+        if (deleteReturnTo) deleteReturnTo.value = returnTo;
+        deleteForm.submit();
+      });
+    });
   });
 
-  // auto-hide alerts
-  setTimeout(() => {
-    const alert = document.querySelector('.adam-alert');
-    if (alert) {
-      alert.style.transition = 'opacity 0.5s ease';
-      alert.style.opacity = '0';
-      setTimeout(() => alert.remove(), 600);
-    }
-  }, 3000);
+  if (bulkForm) {
+    let bulkConfirmed = false;
 
-  // init
-  loadList().catch(err=>{
-    console.error(err);
-    alert('Gagal load bin photo: ' + err.message);
-  });
+    bulkForm.addEventListener('submit', function(ev){
+      if (bulkConfirmed) {
+        bulkConfirmed = false;
+        return;
+      }
 
+      ev.preventDefault();
+      const summary = getBulkSummary();
+
+      if (!summary.ok) {
+        toast('error', summary.message, 'Bulk action gagal');
+        return;
+      }
+
+      ask(summary.variant || 'warning', {
+        title: summary.title,
+        message: summary.message,
+        confirmText: summary.confirmText || 'Lanjutkan',
+        cancelText: 'Batal'
+      }).then(function(ok){
+        if (!ok) return;
+        bulkConfirmed = true;
+        bulkForm.submit();
+      });
+    });
+  }
 })();
 </script>
