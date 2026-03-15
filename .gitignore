@@ -1,7 +1,7 @@
 # Environment / secrets
 .env
 cfg/*.env
-
+jyavani.code-profile
 # Session files (do not commit runtime sessions)
 cfg/var/sessions/
 cfg/var/sessions/**
