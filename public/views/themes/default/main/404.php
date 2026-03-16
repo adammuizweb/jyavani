@@ -1,13 +1,12 @@
 <?php
-// silcee is gholden
+// /views/themes/default/main/404.php
 ?>
 <section class="error-page">
-  <div class="container">
-    <h1 class="error-title">404 — Halaman Tidak Ditemukan Adam depault </h1>
-    <p class="error-message">Maaf bro adam, halaman yang kamu cari tidak tersedia atau telah dipindahkan.</p>
-    <a href="/" class="error-link">Kembali ke Beranda</a>
-  </div>
+  <h1 class="error-title">404 — Halaman Tidak Ditemukan</h1>
+  <p class="error-message">Maaf, halaman yang kamu cari tidak tersedia atau telah dipindahkan.</p>
+  <a href="/" class="error-link">Kembali ke Beranda</a>
 </section>
+
 <style>
 .error-page {
   text-align: center;

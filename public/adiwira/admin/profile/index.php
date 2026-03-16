@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../_deny.php';
+
+if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
+    adiwira_admin_404();
+}
+
 // /adiwira/admin/profile/index.php
 if (!defined('DASHBOARD_CONTEXT')) {
     define('DASHBOARD_CONTEXT', true);

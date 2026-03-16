@@ -6,7 +6,8 @@ if (
     realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__
 ) {
     http_response_code(404);
-    exit('Not found');
+    require __DIR__ . '/frontend_404.php';
+    exit;
 }
 
 /**
