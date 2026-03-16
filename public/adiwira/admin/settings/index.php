@@ -1,50 +1,240 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/pengaturan/index.php
+require_once __DIR__ . '/../_deny.php';
+
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(403);
-    exit('Forbidden');
+    adiwira_admin_404();
 }
 
-$uid  = (int)($_SESSION['user_id'] ?? 0);
-$role = $_SESSION['user_role'] ?? null;
+require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
-if (!$role && $uid > 0) {
-    $stmt = $pdo->prepare("SELECT role FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
-    $stmt->execute([':id' => $uid]);
-    $role = $stmt->fetchColumn() ?: null;
-    $_SESSION['user_role'] = $role;
+[$uid, $role] = adiwira_require_login($pdo, false);
+
+$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$isAdmin = ($role === 'admin');
+
+$items = [];
+
+// urutan sinkron dengan aside:
+// Website (admin), Profile, Users (admin), Bin (admin)
+if ($isAdmin) {
+    $items[] = [
+        'label' => 'Website',
+        'href'  => $base . '/index.php?page=admin/settings/site',
+        'icon'  => '🌐',
+        'desc'  => 'Atur site title dan host default website.',
+        'badge' => 'Admin',
+    ];
 }
 
-$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-
-$links = [
-    ['label' => 'Profile', 'href' => $base . '/index.php?page=admin/profile/index'],
+$items[] = [
+    'label' => 'Profile',
+    'href'  => $base . '/index.php?page=admin/profile/index',
+    'icon'  => '🧑',
+    'desc'  => 'Kelola profil, foto, bio, dan password akunmu.',
+    'badge' => null,
 ];
 
-if ($role === 'admin') {
-    $links[] = ['label' => 'Bin / Trash', 'href' => $base . '/index.php?page=admin/bin/index']; // <-- tambah ini
-    $links[] = ['label' => 'Users', 'href' => $base . '/index.php?page=admin/users/index'];
-//    $links[] = ['label' => 'Website', 'href' => $base . '/index.php?page=admin/settings/site'];
+if ($isAdmin) {
+    $items[] = [
+        'label' => 'Users',
+        'href'  => $base . '/index.php?page=admin/users/index',
+        'icon'  => '👥',
+        'desc'  => 'Kelola akun pengguna dan peran akses dashboard.',
+        'badge' => 'Admin',
+    ];
+
+    $items[] = [
+        'label' => 'Bin',
+        'href'  => $base . '/index.php?page=admin/bin/index',
+        'icon'  => '🗑️',
+        'desc'  => 'Lihat item yang dihapus dan kelola trash system.',
+        'badge' => 'Admin',
+    ];
+}
+?>
+
+<style>
+.settingshub-wrap{
+  max-width: 980px;
+  margin: 18px auto;
 }
 
-?>
-<section style="max-width:820px;margin:18px auto;padding:0 12px">
-  <header style="margin-bottom:14px">
-    <h1 style="margin:0">Pengaturan</h1>
-    <p style="margin:.25rem 0 0;color:#666">Pilih bagian untuk mengelola pengaturan. (Hanya menampilkan item yang relevan.)</p>
+.settingshub-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-bottom:16px;
+}
+
+.settingshub-title{
+  margin:0;
+  color:var(--adam-text);
+}
+
+.settingshub-sub{
+  margin:.4rem 0 0;
+  color:var(--adam-muted);
+  line-height:1.55;
+}
+
+.settingshub-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:14px;
+}
+
+.settingshub-card{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-height:190px;
+  padding:16px;
+  border-radius:14px;
+  border:1px solid var(--adam-border);
+  background:linear-gradient(
+    180deg,
+    var(--adam-card) 0%,
+    var(--adam-surface-2) 100%
+  );
+  box-shadow:var(--adam-shadow);
+  text-decoration:none;
+  transition:
+    transform var(--transition-fast) ease,
+    border-color var(--transition-fast) ease,
+    background var(--transition-fast) ease,
+    box-shadow var(--transition-fast) ease;
+}
+
+.settingshub-card:hover{
+  transform:translateY(-2px);
+  border-color:var(--adam-border-2);
+  background:linear-gradient(
+    180deg,
+    var(--adam-surface-2) 0%,
+    var(--adam-surface-3) 100%
+  );
+}
+
+.settingshub-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.settingshub-icon{
+  width:42px;
+  height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  background:var(--adam-primary-soft);
+  color:var(--adam-primary);
+  font-size:1.15rem;
+  flex:0 0 auto;
+}
+
+.settingshub-label{
+  font-weight:700;
+  color:var(--adam-text);
+  line-height:1.25;
+}
+
+.settingshub-badge{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding:0 .6rem;
+  border-radius:999px;
+  background:var(--adam-badge-bg);
+  color:var(--adam-badge-text);
+  border:1px solid var(--adam-badge-bd);
+  font-size:.8rem;
+  font-weight:700;
+}
+
+.settingshub-desc{
+  color:var(--adam-text-3);
+  line-height:1.55;
+  font-size:.93rem;
+  margin-top:2px;
+}
+
+.settingshub-arrow{
+  margin-top:auto;
+  color:var(--adam-link);
+  font-weight:700;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+
+.settingshub-note{
+  margin-top:16px;
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid var(--adam-border);
+  background:var(--adam-surface-3);
+  color:var(--adam-text-3);
+  line-height:1.55;
+  font-size:.92rem;
+}
+
+@media (max-width: 640px){
+  .settingshub-wrap{
+    margin:14px auto;
+  }
+
+  .settingshub-card{
+    min-height:unset;
+  }
+}
+</style>
+
+<section class="adam-card settingshub-wrap">
+  <header class="settingshub-head">
+    <div>
+      <h1 class="settingshub-title">Pengaturan</h1>
+      <p class="settingshub-sub">
+        Kelola pengaturan akun dan sistem dari satu tempat.
+        Menu yang tampil mengikuti hak akses akunmu.
+      </p>
+    </div>
   </header>
 
-  <nav aria-label="Pengaturan utama" style="border:1px;border-radius:8px;padding:12px">
-    <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
-      <?php foreach ($links as $ln): ?>
-        <li>
-          <a class="adam-link"
-             href="<?= htmlspecialchars($ln['href'], ENT_QUOTES, 'UTF-8') ?>"
-             style="display:block;padding:.6rem .8rem;border-radius:6px;border:1px solid transparent;">
-             <?= htmlspecialchars($ln['label'], ENT_QUOTES, 'UTF-8') ?>
-          </a>
-        </li>
-      <?php endforeach; ?>
-    </ul>
+  <nav aria-label="Pengaturan utama" class="settingshub-grid">
+    <?php foreach ($items as $it): ?>
+      <a class="settingshub-card"
+         href="<?= htmlspecialchars($it['href'], ENT_QUOTES, 'UTF-8') ?>">
+        <div class="settingshub-row">
+          <div class="settingshub-icon"><?= htmlspecialchars($it['icon'], ENT_QUOTES, 'UTF-8') ?></div>
+          <div class="settingshub-label"><?= htmlspecialchars($it['label'], ENT_QUOTES, 'UTF-8') ?></div>
+          <?php if (!empty($it['badge'])): ?>
+            <span class="settingshub-badge"><?= htmlspecialchars($it['badge'], ENT_QUOTES, 'UTF-8') ?></span>
+          <?php endif; ?>
+        </div>
+
+        <div class="settingshub-desc">
+          <?= htmlspecialchars($it['desc'], ENT_QUOTES, 'UTF-8') ?>
+        </div>
+
+        <div class="settingshub-arrow">
+          Buka menu <span aria-hidden="true">→</span>
+        </div>
+      </a>
+    <?php endforeach; ?>
   </nav>
+
+  <div class="settingshub-note">
+    Beberapa menu hanya tersedia untuk admin. Susunan menu di halaman ini sudah disamakan dengan grup
+    <strong>Settings</strong> pada sidebar agar navigasi lebih konsisten.
+  </div>
 </section>

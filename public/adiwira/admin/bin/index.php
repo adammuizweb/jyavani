@@ -1,196 +1,372 @@
 <?php
+declare(strict_types=1);
+
 // /adiwira/admin/bin/index.php
+require_once __DIR__ . '/../_deny.php';
+
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-  http_response_code(403);
-  exit('Forbidden');
+    adiwira_admin_404();
 }
 
-if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
-$messages = [];
+[$uid, $role] = adiwira_require_admin($pdo, false);
+
 $errors = [];
-if (!empty($_GET['msg'])) $messages[] = urldecode($_GET['msg']);
-if (!empty($_GET['err'])) $errors[] = urldecode($_GET['err']);
 
-// auth
-$uid = (int)($_SESSION['user_id'] ?? 0);
-if ($uid <= 0) {
-  http_response_code(403);
-  exit('Akses ditolak: belum login.');
-}
+// kompatibel dengan query toast lama
+$page_toasts = function_exists('adiwira_collect_query_toasts')
+    ? adiwira_collect_query_toasts()
+    : [];
 
-$role = $_SESSION['user_role'] ?? null;
-if (!$role) {
-  if (function_exists('current_user_role')) {
-    $role = current_user_role($pdo) ?: null;
-  }
-  if (!$role) {
-    $st = $pdo->prepare("SELECT role FROM users WHERE id=:id AND is_deleted=0 LIMIT 1");
-    $st->execute([':id' => $uid]);
-    $role = $st->fetchColumn() ?: null;
-  }
-  $_SESSION['user_role'] = $role;
-}
-
-$role = strtolower(trim((string)$role));
-if ($role !== 'admin') {
-  http_response_code(403);
-  exit('Akses ditolak: hanya admin.');
+// ambil flash toast dari session bila ada
+if (function_exists('adiwira_flash_pull')) {
+    $flash = adiwira_flash_pull();
+    if (is_array($flash)) {
+        foreach ($flash as $f) {
+            $type = isset($f['type']) ? (string)$f['type'] : 'info';
+            $text = isset($f['message']) ? (string)$f['message'] : (isset($f['text']) ? (string)$f['text'] : '');
+            if ($text !== '') {
+                $page_toasts[] = [
+                    'type' => $type,
+                    'message' => $text,
+                ];
+            }
+        }
+    }
 }
 
 // base url router
-$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
 
 // helper count
-function count_posts_trash(PDO $pdo, string $type): int {
-  $st = $pdo->prepare("SELECT COUNT(*) FROM posts WHERE type=:t AND is_deleted=1");
-  $st->execute([':t' => $type]);
-  return (int)$st->fetchColumn();
+if (!function_exists('count_posts_trash')) {
+    function count_posts_trash(PDO $pdo, string $type): int
+    {
+        $st = $pdo->prepare("SELECT COUNT(*) FROM posts WHERE type = :t AND is_deleted = 1");
+        $st->execute([':t' => $type]);
+        return (int)$st->fetchColumn();
+    }
 }
 
-function count_categories_trash(PDO $pdo): int {
-  $st = $pdo->query("SELECT COUNT(*) FROM categories WHERE is_deleted=1");
-  return (int)$st->fetchColumn();
+if (!function_exists('count_categories_trash')) {
+    function count_categories_trash(PDO $pdo): int
+    {
+        $st = $pdo->query("SELECT COUNT(*) FROM categories WHERE is_deleted = 1");
+        return (int)$st->fetchColumn();
+    }
 }
 
-function count_users_trash(PDO $pdo): int {
-  $st = $pdo->query("SELECT COUNT(*) FROM users WHERE is_deleted=1");
-  return (int)$st->fetchColumn();
+if (!function_exists('count_users_trash')) {
+    function count_users_trash(PDO $pdo): int
+    {
+        $st = $pdo->query("SELECT COUNT(*) FROM users WHERE is_deleted = 1");
+        return (int)$st->fetchColumn();
+    }
 }
 
-// counts (safe)
+// counts
 try {
-  $countArticle = count_posts_trash($pdo, 'article');
-  $countPage    = count_posts_trash($pdo, 'page');
-  $countTheme   = count_posts_trash($pdo, 'theme');
-  $countPhoto   = count_posts_trash($pdo, 'photo');
-  $countCat     = count_categories_trash($pdo);
-  $countUsers   = count_users_trash($pdo);
+    $countArticle = count_posts_trash($pdo, 'article');
+    $countPage    = count_posts_trash($pdo, 'page');
+    $countTheme   = count_posts_trash($pdo, 'theme');
+    $countPhoto   = count_posts_trash($pdo, 'photo');
+    $countCat     = count_categories_trash($pdo);
+    $countUsers   = count_users_trash($pdo);
 } catch (Throwable $e) {
-  $errors[] = 'Gagal mengambil statistik bin: ' . $e->getMessage();
-  $countArticle = $countPage = $countTheme = $countPhoto = $countCat = $countUsers = 0;
+    error_log('admin/bin/index.php stats error: ' . $e->getMessage());
+    $errors[] = 'Gagal mengambil statistik bin.';
+    $countArticle = $countPage = $countTheme = $countPhoto = $countCat = $countUsers = 0;
 }
 
 // cek apakah halaman bin sudah ada
 $exists = [
-  'article'  => is_file(__DIR__ . '/article/index.php'),
-  'page'     => is_file(__DIR__ . '/page/index.php'),
-  'category' => is_file(__DIR__ . '/category/index.php'),
-  'theme'    => is_file(__DIR__ . '/theme/index.php'),
-  'photo'    => is_file(__DIR__ . '/photo/index.php'),
-  'users'    => is_file(__DIR__ . '/users/index.php'),
+    'article'  => is_file(__DIR__ . '/article/index.php'),
+    'page'     => is_file(__DIR__ . '/page/index.php'),
+    'category' => is_file(__DIR__ . '/category/index.php'),
+    'theme'    => is_file(__DIR__ . '/theme/index.php'),
+    'photo'    => is_file(__DIR__ . '/photo/index.php'),
+    'users'    => is_file(__DIR__ . '/users/index.php'),
 ];
 
 $items = [
-  [
-    'key' => 'article',
-    'title' => 'Bin Articles',
-    'desc' => 'Trash untuk artikel (posts type=article).',
-    'count' => $countArticle,
-    'href' => $base . '/index.php?page=admin/bin/article/index',
-  ],
-  [
-    'key' => 'page',
-    'title' => 'Bin Pages',
-    'desc' => 'Trash untuk halaman (posts type=page).',
-    'count' => $countPage,
-    'href' => $base . '/index.php?page=admin/bin/page/index',
-  ],
-  [
-    'key' => 'category',
-    'title' => 'Bin Categories',
-    'desc' => 'Trash untuk kategori (categories).',
-    'count' => $countCat,
-    'href' => $base . '/index.php?page=admin/bin/category/index',
-  ],
-  [
-    'key' => 'theme',
-    'title' => 'Bin Themes',
-    'desc' => 'Trash untuk theme/partials (posts type=theme).',
-    'count' => $countTheme,
-    'href' => $base . '/index.php?page=admin/bin/theme/index',
-  ],
-  [
-    'key' => 'photo',
-    'title' => 'Bin Photo',
-    'desc' => 'Trash untuk Photo Post (posts type=photo).',
-    'count' => $countPhoto,
-    'href' => $base . '/index.php?page=admin/bin/photo/index',
-  ],
-  [
-    'key' => 'users',
-    'title' => 'Bin Users',
-    'desc' => 'Trash untuk user yang sudah dihapus (soft delete).',
-    'count' => $countUsers,
-    'href' => $base . '/index.php?page=admin/bin/users/index',
-  ],
+    [
+        'key' => 'article',
+        'title' => 'Bin Articles',
+        'desc' => 'Trash untuk artikel (posts type=article).',
+        'count' => $countArticle,
+        'href' => $base . '/index.php?page=admin/bin/article/index',
+        'emoji' => '📝',
+    ],
+    [
+        'key' => 'page',
+        'title' => 'Bin Pages',
+        'desc' => 'Trash untuk halaman (posts type=page).',
+        'count' => $countPage,
+        'href' => $base . '/index.php?page=admin/bin/page/index',
+        'emoji' => '📄',
+    ],
+    [
+        'key' => 'category',
+        'title' => 'Bin Categories',
+        'desc' => 'Trash untuk kategori (categories).',
+        'count' => $countCat,
+        'href' => $base . '/index.php?page=admin/bin/category/index',
+        'emoji' => '🏷️',
+    ],
+    [
+        'key' => 'theme',
+        'title' => 'Bin Themes',
+        'desc' => 'Trash untuk theme/partials (posts type=theme).',
+        'count' => $countTheme,
+        'href' => $base . '/index.php?page=admin/bin/theme/index',
+        'emoji' => '🎨',
+    ],
+    [
+        'key' => 'photo',
+        'title' => 'Bin Photo',
+        'desc' => 'Trash untuk Photo Post (posts type=photo).',
+        'count' => $countPhoto,
+        'href' => $base . '/index.php?page=admin/bin/photo/index',
+        'emoji' => '🖼️',
+    ],
+    [
+        'key' => 'users',
+        'title' => 'Bin Users',
+        'desc' => 'Trash untuk user yang sudah dihapus (soft delete).',
+        'count' => $countUsers,
+        'href' => $base . '/index.php?page=admin/bin/users/index',
+        'emoji' => '👤',
+    ],
 ];
+
+$show_inline_errors = !empty($errors) && !function_exists('adiwira_bootstrap_toasts_script');
 ?>
 
-<section class="adam-card" style="max-width:980px;margin:16px auto;">
-  <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+<style>
+.binhub-wrap{
+  max-width: 980px;
+  margin: 16px auto;
+}
+
+.binhub-head{
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.binhub-head h2{
+  margin: 0;
+  color: var(--adam-text);
+}
+
+.binhub-sub{
+  color: var(--adam-muted);
+  margin-top: .35rem;
+}
+
+.binhub-back{
+  margin-left: auto;
+}
+
+.binhub-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.binhub-card{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 180px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--adam-border);
+  background: var(--adam-card);
+  box-shadow: var(--adam-shadow);
+  transition: transform var(--transition-fast) ease, border-color var(--transition-fast) ease, background var(--transition-fast) ease;
+}
+
+.binhub-card:hover{
+  transform: translateY(-2px);
+  border-color: var(--adam-border-2);
+  background: var(--adam-surface-2);
+}
+
+.binhub-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.binhub-icon{
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--adam-primary-soft);
+  color: var(--adam-primary);
+  font-size: 1.1rem;
+  flex: 0 0 auto;
+}
+
+.binhub-title{
+  font-weight: 700;
+  color: var(--adam-text);
+  line-height: 1.25;
+}
+
+.binhub-count{
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 30px;
+  padding: 0 .65rem;
+  border-radius: 999px;
+  background: var(--adam-badge-bg);
+  color: var(--adam-badge-text);
+  border: 1px solid var(--adam-badge-bd);
+  font-weight: 700;
+  font-size: .92rem;
+}
+
+.binhub-desc{
+  color: var(--adam-muted);
+  font-size: .92rem;
+  line-height: 1.5;
+  min-height: 2.8em;
+}
+
+.binhub-actions{
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.binhub-disabled{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: .45rem .85rem;
+  border-radius: 10px;
+  background: var(--adam-surface-3);
+  color: var(--adam-muted);
+  border: 1px solid var(--adam-border);
+  font-weight: 600;
+}
+
+.binhub-note{
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--adam-surface-3);
+  border: 1px solid var(--adam-border);
+  color: var(--adam-text-3);
+  font-size: .92rem;
+  line-height: 1.55;
+}
+
+.binhub-inline-error{
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--adam-danger) 10%, var(--adam-card));
+  border: 1px solid color-mix(in srgb, var(--adam-danger) 28%, var(--adam-border));
+  color: var(--adam-text);
+}
+
+.binhub-inline-error ul{
+  margin: 0;
+  padding-left: 18px;
+}
+
+@media (max-width: 640px){
+  .binhub-wrap{
+    margin: 12px auto;
+  }
+
+  .binhub-card{
+    min-height: unset;
+  }
+}
+</style>
+
+<section class="adam-card binhub-wrap">
+  <div class="binhub-head">
     <div>
-      <h2 style="margin:0">Bin / Trash</h2>
-      <div style="color:#666;margin-top:.25rem;">Menu pengelolaan item yang dihapus (admin only).</div>
+      <h2>Bin / Trash</h2>
+      <div class="binhub-sub">Menu pengelolaan item yang dihapus (admin only).</div>
     </div>
-    <div style="margin-left:auto;">
+    <div class="binhub-back">
       <a class="adam-link" href="<?= htmlspecialchars($base . '/index.php?page=admin/settings/index', ENT_QUOTES, 'UTF-8') ?>">← Kembali ke Pengaturan</a>
     </div>
   </div>
 
-  <?php if (!empty($messages)): ?>
-    <div class="adam-alert success" style="margin-top:1rem;margin-bottom:1rem;padding:.8rem 1rem;background:#e8f7ec;border:1px solid #b6e2c2;border-radius:6px;color:#246;">
-      <?php foreach ($messages as $m): ?>
-        <div><?= htmlspecialchars($m, ENT_QUOTES, 'UTF-8') ?></div>
-      <?php endforeach; ?>
+  <?php if ($show_inline_errors): ?>
+    <div class="binhub-inline-error">
+      <ul>
+        <?php foreach ($errors as $e): ?>
+          <li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li>
+        <?php endforeach; ?>
+      </ul>
     </div>
   <?php endif; ?>
 
-  <?php if (!empty($errors)): ?>
-    <div class="adam-alert error" style="margin-top:1rem;margin-bottom:1rem;padding:.8rem 1rem;background:#fee;border:1px solid #fbb;border-radius:6px;color:#600;">
-      <?php foreach ($errors as $e): ?>
-        <div><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></div>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
+  <div class="binhub-grid">
     <?php foreach ($items as $it):
       $ok = $exists[$it['key']] ?? false;
       $href = $it['href'];
     ?>
-      <div style="border:1px solid #eee;border-radius:10px;background:#fff;padding:14px;display:flex;flex-direction:column;gap:8px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="font-weight:700;"><?= htmlspecialchars($it['title'], ENT_QUOTES, 'UTF-8') ?></div>
-          <span style="margin-left:auto;display:inline-block;min-width:34px;text-align:center;padding:.15rem .55rem;border-radius:999px;border:1px solid rgba(30,100,200,.15);background:rgba(30,100,200,.06);color:#1e64c8;">
-            <?= (int)$it['count'] ?>
-          </span>
+      <article class="binhub-card">
+        <div class="binhub-row">
+          <div class="binhub-icon"><?= htmlspecialchars($it['emoji'], ENT_QUOTES, 'UTF-8') ?></div>
+          <div class="binhub-title"><?= htmlspecialchars($it['title'], ENT_QUOTES, 'UTF-8') ?></div>
+          <span class="binhub-count"><?= (int)$it['count'] ?></span>
         </div>
 
-        <div style="color:#666;font-size:.9rem;line-height:1.35;">
+        <div class="binhub-desc">
           <?= htmlspecialchars($it['desc'], ENT_QUOTES, 'UTF-8') ?>
         </div>
 
-        <div style="margin-top:auto;">
+        <div class="binhub-actions">
           <?php if ($ok): ?>
-            <a class="adam-button" href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" style="display:inline-block;">Buka</a>
+            <a class="adam-button" href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>">Buka</a>
           <?php else: ?>
-            <span style="display:inline-block;padding:.45rem .75rem;border-radius:8px;background:#f5f5f5;color:#777;border:1px solid #eee;">
-              Belum tersedia
-            </span>
+            <span class="binhub-disabled">Belum tersedia</span>
           <?php endif; ?>
         </div>
-      </div>
+      </article>
     <?php endforeach; ?>
+  </div>
+
+  <div class="binhub-note">
+    Halaman ini menampilkan ringkasan item yang sudah di-soft delete. Masuk ke masing-masing menu untuk restore atau hapus permanen jika fiturnya tersedia.
   </div>
 </section>
 
-<script>
-  setTimeout(() => {
-    document.querySelectorAll('.adam-alert').forEach((alert) => {
-      alert.style.transition = 'opacity .5s ease';
-      alert.style.opacity = '0';
-      setTimeout(() => alert.remove(), 600);
-    });
-  }, 3000);
-</script>
+<?php
+if (function_exists('adiwira_bootstrap_toasts_script')) {
+    $toast_items = $page_toasts;
+
+    foreach ($errors as $msg) {
+        $toast_items[] = [
+            'type' => 'error',
+            'message' => (string)$msg,
+        ];
+    }
+
+    if (!empty($toast_items)) {
+        echo adiwira_bootstrap_toasts_script($toast_items);
+    }
+}
+?>

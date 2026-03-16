@@ -159,6 +159,45 @@ if (!function_exists('modalimg_human_filesize')) {
 
 <script>
 (function(){
+  function getToastApi(){
+    try {
+      if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') return window.NewNotifToast;
+      if (window.parent && window.parent !== window && window.parent.NewNotifToast && typeof window.parent.NewNotifToast.show === 'function') return window.parent.NewNotifToast;
+    } catch(e){}
+    return null;
+  }
+
+  function getConfirmApi(){
+    try {
+      if (window.NewNotifConfirm) return window.NewNotifConfirm;
+      if (window.parent && window.parent !== window && window.parent.NewNotifConfirm) return window.parent.NewNotifConfirm;
+    } catch(e){}
+    return null;
+  }
+
+  function uiToast(type, title, message, duration){
+    const api = getToastApi();
+    if (api) {
+      api.show({
+        type: type || 'info',
+        title: title || null,
+        message: message || '',
+        duration: duration
+      });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts){
+    const api = getConfirmApi();
+    if (api) {
+      if (variant === 'danger' && typeof api.danger === 'function') return api.danger(opts || {});
+      if (typeof api.warning === 'function') return api.warning(opts || {});
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
+
   function broadcast(name, detail){
     try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
@@ -174,7 +213,15 @@ if (!function_exists('modalimg_human_filesize')) {
     return el && el.value ? el.value : '';
   }
 
-  document.getElementById('media-save-btn')?.addEventListener('click', function(){
+  document.getElementById('media-save-btn')?.addEventListener('click', async function(){
+    const ok = await uiAsk('warning', {
+      title: 'Simpan perubahan media',
+      message: 'Perubahan metadata media akan disimpan. Lanjutkan?',
+      confirmText: 'Ya, simpan',
+      cancelText: 'Batal'
+    });
+    if (!ok) return;
+
     const btn = this;
     const form = document.getElementById('media-edit-form');
     if (!form) return;
@@ -202,20 +249,26 @@ if (!function_exists('modalimg_human_filesize')) {
         }
 
         const j = resp.json || {};
-        alert('Updated ✔');
+        uiToast('success', 'Gallery', 'Media berhasil diperbarui.', 2500);
         broadcast('media:updated', j);
       })
       .catch(err => {
         console.error('Save error', err);
-        alert('Save error: ' + (err.message || 'Gagal'));
+        uiToast('error', 'Gallery', 'Save error: ' + (err.message || 'Gagal'), 6000);
       })
       .finally(() => {
         btn.disabled = false;
       });
   });
 
-  document.getElementById('media-delete-btn')?.addEventListener('click', function(){
-    if (!confirm('Delete this media?')) return;
+  document.getElementById('media-delete-btn')?.addEventListener('click', async function(){
+    const ok = await uiAsk('danger', {
+      title: 'Hapus media',
+      message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
+      confirmText: 'Ya, hapus',
+      cancelText: 'Batal'
+    });
+    if (!ok) return;
 
     const btn = this;
     btn.disabled = true;
@@ -250,8 +303,19 @@ if (!function_exists('modalimg_human_filesize')) {
         }
 
         const j = resp.json || {};
-        alert('Deleted ✔');
-        broadcast('media:deleted', j);
+        const finalUrl = urlEl ? String(urlEl.value || '') : '';
+
+        uiToast('success', 'Gallery', 'Media berhasil dihapus.', 2500);
+        if (j.warning) uiToast('warning', 'Gallery', j.warning, 6000);
+
+        const payload = Object.assign({}, j || {}, {
+          id: idEl ? parseInt(idEl.value || '0', 10) || null : (j.id || null),
+          url: finalUrl,
+          deleted_ids: (j && Array.isArray(j.deleted_ids)) ? j.deleted_ids : (idEl ? [parseInt(idEl.value || '0', 10)].filter(Boolean) : []),
+          deleted_urls: finalUrl ? [finalUrl] : []
+        });
+
+        broadcast('media:deleted', payload);
 
         try {
           if (window.parent && window.parent.adamModalClose) window.parent.adamModalClose();
@@ -263,7 +327,7 @@ if (!function_exists('modalimg_human_filesize')) {
       })
       .catch(err => {
         console.error('Delete error', err);
-        alert('Delete error: ' + (err.message || 'Gagal'));
+        uiToast('error', 'Gallery', 'Delete error: ' + (err.message || 'Gagal'), 6000);
       })
       .finally(() => {
         btn.disabled = false;
@@ -279,7 +343,7 @@ if (!function_exists('modalimg_human_filesize')) {
     const path = pathEl ? (pathEl.value || '').trim() : '';
 
     if (!path) {
-      alert('URL tidak ditemukan');
+      uiToast('warning', 'Gallery', 'URL tidak ditemukan.', 4000);
       return;
     }
 
@@ -290,7 +354,7 @@ if (!function_exists('modalimg_human_filesize')) {
 
     if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
       navigator.clipboard.writeText(full)
-        .then(() => alert('Copied: ' + full))
+        .then(() => uiToast('success', 'Gallery', 'URL berhasil disalin.', 2000))
         .catch(() => fallbackCopy(full));
     } else {
       fallbackCopy(full);
@@ -306,9 +370,9 @@ if (!function_exists('modalimg_human_filesize')) {
       ta.select();
       try {
         document.execCommand('copy');
-        alert('Copied: ' + text);
+        uiToast('success', 'Gallery', 'URL berhasil disalin.', 2000);
       } catch(e){
-        alert('Gagal menyalin');
+        uiToast('error', 'Gallery', 'Gagal menyalin URL.', 4000);
       }
       document.body.removeChild(ta);
     }

@@ -3355,3 +3355,47 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 @media (prefers-reduced-motion: reduce){
   .muiz-toast{ transition: none; }
 }
+
+/* =========================================================
+   Quill image size limiter
+   Berlaku untuk add + edit article
+========================================================= */
+.adam-quill .ql-editor img{
+  display: block;
+  max-width: min(100%, 560px);
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  margin: 14px auto;
+  border-radius: 8px;
+}
+
+.adam-quill .ql-editor figure{
+  max-width: min(100%, 560px);
+  margin: 14px auto;
+}
+
+.adam-quill .ql-editor figure > img{
+  max-width: 100%;
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+}
+
+.adam-quill .ql-editor figcaption{
+  margin-top: 8px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--adam-muted, #888);
+}
+
+.adam-quill .ql-editor img[data-media-removed="1"]{
+  display: block;
+  max-width: min(100%, 560px);
+  max-height: 460px;
+  width: auto;
+  height: auto;
+  margin: 14px auto;
+}

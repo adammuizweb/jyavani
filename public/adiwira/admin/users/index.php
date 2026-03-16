@@ -1,8 +1,9 @@
 <?php
 // /adiwira/admin/users/index.php
+require_once __DIR__ . '/../_deny.php';
+
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(403);
-    exit('Forbidden');
+    adiwira_admin_404();
 }
 
 require_once __DIR__ . '/../_guard.php';

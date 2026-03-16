@@ -110,7 +110,6 @@ if ($ext === '') $ext = 'FILE';
 
 <script>
 (function(){
-  // Kalau dibuka dari File Manager, handler sudah ditangani oleh /admin/file/index.php
   if (window.__ADIWIRA_FILE_INDEX_INIT__) {
     return;
   }
@@ -120,12 +119,29 @@ if ($ext === '') $ext = 'FILE';
   }
   window.__ADIWIRA_FILE_SINGLE_FALLBACK_INIT__ = true;
 
-  function notify(message, type = 'info', duration = 4000) {
-    if (typeof window.showToast === 'function') {
-      window.showToast(message, type, duration);
+  function uiToast(type, title, message, duration) {
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({
+        type: type || 'info',
+        title: title || null,
+        message: message || '',
+        duration: duration
+      });
       return;
     }
-    alert(message);
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts || {});
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts || {});
+      }
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
   }
 
   function getCsrfToken() {
@@ -154,6 +170,14 @@ if ($ext === '') $ext = 'FILE';
 
   if (saveBtn) {
     saveBtn.addEventListener('click', async function(){
+      const ok = await uiAsk('warning', {
+        title: 'Simpan perubahan file',
+        message: 'Perubahan metadata file akan disimpan. Lanjutkan?',
+        confirmText: 'Ya, simpan',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
+
       saveBtn.disabled = true;
 
       const fd = new FormData(form);
@@ -171,18 +195,18 @@ if ($ext === '') $ext = 'FILE';
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
-          notify('Saved ✔', 'success', 3000);
+          uiToast('success', 'File', 'File berhasil diperbarui.', 3000);
           document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }
       } catch (err) {
-        notify('Network error: ' + (err.message || err), 'error', 6000);
+        uiToast('error', 'File', 'Network error: ' + (err.message || err), 6000);
       } finally {
         saveBtn.disabled = false;
       }
@@ -191,7 +215,13 @@ if ($ext === '') $ext = 'FILE';
 
   if (deleteBtn) {
     deleteBtn.addEventListener('click', async function(){
-      if (!confirm('Hapus file ini secara permanen?')) return;
+      const ok = await uiAsk('danger', {
+        title: 'Hapus file',
+        message: 'File ini akan dihapus permanen. Lanjutkan?',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       deleteBtn.disabled = true;
 
@@ -213,19 +243,22 @@ if ($ext === '') $ext = 'FILE';
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
-          notify('Deleted ✔', 'success', 3000);
+          uiToast('success', 'File', 'File berhasil dihapus.', 3000);
+          if (j.warning) {
+            uiToast('warning', 'File', j.warning, 6000);
+          }
           document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
           closeModalFallback();
         } else {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }
       } catch (err) {
-        notify('Network error: ' + (err.message || err), 'error', 6000);
+        uiToast('error', 'File', 'Network error: ' + (err.message || err), 6000);
       } finally {
         deleteBtn.disabled = false;
       }

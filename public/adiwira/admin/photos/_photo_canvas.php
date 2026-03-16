@@ -1,8 +1,9 @@
 <?php
 // /adiwira/admin/photos/_photo_canvas.php
+require_once __DIR__ . '/../_deny.php';
+
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-  http_response_code(403);
-  exit('Forbidden');
+    adiwira_admin_404();
 }
 if (!function_exists('e')) {
   function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }

@@ -188,6 +188,14 @@ try {
 
 <script>
 (function(){
+  function uiToast(type, title, message, duration){
+    if (typeof window.modalImgToast === 'function') {
+      window.modalImgToast(type, title, message, duration);
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
   function broadcast(name, detail) {
     try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
@@ -217,6 +225,7 @@ try {
       })
       .catch(function(err){
         console.error('fetchAndReplace failed', err);
+        uiToast('error', 'Gallery', 'Gagal memuat gallery: ' + (err.message || err), 6000);
       });
   }
 
@@ -236,7 +245,10 @@ try {
     if (detailBtn) {
       ev.preventDefault();
       var id = detailBtn.getAttribute('data-id');
-      if (!id) return;
+      if (!id) {
+        uiToast('warning', 'Gallery', 'ID media tidak ditemukan.', 4000);
+        return;
+      }
 
       var url = '/adiwira/admin/modal_img/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1';
 

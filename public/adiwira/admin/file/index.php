@@ -2,12 +2,14 @@
 declare(strict_types=1);
 
 // /adiwira/admin/file/index.php
+require_once __DIR__ . '/../_deny.php';
+
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(403);
-    exit('Forbidden');
+    adiwira_admin_404();
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 
@@ -15,6 +17,26 @@ $csrf = csrf_token();
 $initialTab = strtolower(trim((string)($_GET['tab'] ?? 'add')));
 if (!in_array($initialTab, ['add', 'list'], true)) {
     $initialTab = 'add';
+}
+
+$page_toasts = function_exists('adiwira_collect_query_toasts')
+    ? adiwira_collect_query_toasts()
+    : [];
+
+if (function_exists('adiwira_flash_pull')) {
+    $flash = adiwira_flash_pull();
+    if (is_array($flash)) {
+        foreach ($flash as $f) {
+            $type = isset($f['type']) ? (string)$f['type'] : 'info';
+            $text = isset($f['message']) ? (string)$f['message'] : (isset($f['text']) ? (string)$f['text'] : '');
+            if ($text !== '') {
+                $page_toasts[] = [
+                    'type' => $type,
+                    'message' => $text,
+                ];
+            }
+        }
+    }
 }
 ?>
 <div id="file-manager-root">
@@ -40,6 +62,12 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
   </div>
 </div>
 
+<?php
+if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
+    echo adiwira_bootstrap_toasts_script($page_toasts);
+}
+?>
+
 <script>
 (function(){
   if (window.__ADIWIRA_FILE_INDEX_INIT__) return;
@@ -54,12 +82,29 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
   const modalBackdrop = document.getElementById('adam-modal-backdrop');
   const modalBox = document.getElementById('adam-modal');
 
-  function notify(message, type = 'info', duration = 4000) {
-    if (typeof window.showToast === 'function') {
-      window.showToast(message, type, duration);
+  function uiToast(type, title, message, duration) {
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({
+        type: type || 'info',
+        title: title || null,
+        message: message || '',
+        duration: duration
+      });
       return;
     }
-    alert(message);
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts || {});
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts || {});
+      }
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
   }
 
   function getCsrfToken() {
@@ -160,9 +205,17 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
       }
     } catch (err) {
       console.error('refreshFileListPanel error:', err);
-      if (!silent) notify('Gagal memuat daftar file: ' + (err.message || err), 'error', 6000);
+      if (!silent) uiToast('error', 'File', 'Gagal memuat daftar file: ' + (err.message || err), 6000);
     }
   }
+
+  window.fileUi = {
+    toast: uiToast,
+    ask: uiAsk,
+    getCsrfToken: getCsrfToken,
+    readJsonSafe: readJsonSafe,
+    refreshFileListPanel: refreshFileListPanel
+  };
 
   window.refreshFileListPanel = refreshFileListPanel;
 
@@ -187,7 +240,7 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
     } catch (err) {
-      notify('Modal load error: ' + (err.message || err), 'error', 6000);
+      uiToast('error', 'File', 'Gagal memuat modal: ' + (err.message || err), 6000);
     }
   };
 
@@ -274,7 +327,7 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
           panelList.appendChild(fresh);
         }
       } catch (err) {
-        notify('Gagal memuat halaman file: ' + (err.message || err), 'error', 6000);
+        uiToast('error', 'File', 'Gagal memuat halaman file: ' + (err.message || err), 6000);
       }
       return;
     }
@@ -282,6 +335,14 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
     const saveBtn = target.closest('#file-save-btn');
     if (saveBtn) {
       ev.preventDefault();
+
+      const ok = await uiAsk('warning', {
+        title: 'Simpan perubahan file',
+        message: 'Perubahan metadata file akan disimpan. Lanjutkan?',
+        confirmText: 'Ya, simpan',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       const form = saveBtn.closest('form');
       if (!form) return;
@@ -303,18 +364,18 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
-          notify('Saved ✔', 'success', 3500);
+          uiToast('success', 'File', 'File berhasil diperbarui.', 3000);
           document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }
       } catch (err) {
-        notify('Network error: ' + (err.message || err), 'error', 6000);
+        uiToast('error', 'File', 'Network error: ' + (err.message || err), 6000);
       } finally {
         saveBtn.disabled = false;
       }
@@ -325,7 +386,13 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
     if (deleteBtn) {
       ev.preventDefault();
 
-      if (!confirm('Hapus file ini secara permanen?')) return;
+      const ok = await uiAsk('danger', {
+        title: 'Hapus file',
+        message: 'File ini akan dihapus permanen. Lanjutkan?',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       const form = deleteBtn.closest('form');
       if (!form) return;
@@ -350,19 +417,22 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
-          notify('Deleted ✔', 'success', 3500);
+          uiToast('success', 'File', 'File berhasil dihapus.', 3000);
+          if (j.warning) {
+            uiToast('warning', 'File', j.warning, 6000);
+          }
           document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
           window.adamModalClose();
         } else {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }
       } catch (err) {
-        notify('Network error: ' + (err.message || err), 'error', 6000);
+        uiToast('error', 'File', 'Network error: ' + (err.message || err), 6000);
       } finally {
         deleteBtn.disabled = false;
       }
@@ -381,7 +451,7 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
       const path = pathEl ? (pathEl.value || '').trim() : '';
 
       if (!path) {
-        notify('URL tidak ditemukan', 'error', 5000);
+        uiToast('warning', 'File', 'URL tidak ditemukan.', 5000);
         return;
       }
 
@@ -400,16 +470,16 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
         ta.select();
         try {
           document.execCommand('copy');
-          notify('Copied: ' + text, 'success', 3000);
+          uiToast('success', 'File', 'URL berhasil disalin.', 2500);
         } catch (e) {
-          notify('Gagal menyalin', 'error', 5000);
+          uiToast('error', 'File', 'Gagal menyalin URL.', 5000);
         }
         document.body.removeChild(ta);
       };
 
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         navigator.clipboard.writeText(full).then(() => {
-          notify('Copied: ' + full, 'success', 3000);
+          uiToast('success', 'File', 'URL berhasil disalin.', 2500);
         }).catch(() => fallbackCopy(full));
       } else {
         fallbackCopy(full);
@@ -423,11 +493,17 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
 
       const checked = Array.from(root.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
       if (checked.length < 1) {
-        notify('Pilih minimal satu file untuk dihapus.', 'error', 5000);
+        uiToast('warning', 'File', 'Pilih minimal satu file untuk dihapus.', 5000);
         return;
       }
 
-      if (!confirm('Hapus ' + checked.length + ' file?')) return;
+      const ok = await uiAsk('danger', {
+        title: 'Hapus file terpilih',
+        message: 'Sebanyak ' + checked.length + ' file akan dihapus permanen. Lanjutkan?',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       const fd = new FormData();
       checked.forEach(id => fd.append('ids[]', id));
@@ -446,18 +522,21 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
-          notify('Deleted: ' + (j.deleted_count || checked.length), 'success', 3500);
+          uiToast('success', 'File', 'Berhasil menghapus ' + (j.deleted_count || checked.length) + ' file.', 3000);
+          if (Array.isArray(j.warnings) && j.warnings.length) {
+            uiToast('warning', 'File', j.warnings.join('\n'), 6000);
+          }
           document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
         } else {
-          notify('Error: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 'error', 6000);
+          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }
       } catch (err) {
-        notify('Network error: ' + (err.message || err), 'error', 6000);
+        uiToast('error', 'File', 'Network error: ' + (err.message || err), 6000);
       }
       return;
     }

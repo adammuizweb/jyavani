@@ -1,28 +1,21 @@
 <?php
 declare(strict_types=1);
 
+// lokasi file: /adiwira/admin/profile/index.php
 require_once __DIR__ . '/../_deny.php';
 
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     adiwira_admin_404();
 }
 
-// /adiwira/admin/profile/index.php
-if (!defined('DASHBOARD_CONTEXT')) {
-    define('DASHBOARD_CONTEXT', true);
-}
-require_once __DIR__ . '/../../bootstrap.php';
+require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-if (session_status() === PHP_SESSION_NONE) session_start();
-if (empty($_SESSION['user_id'])) {
-    http_response_code(403);
-    echo '<p>Akses ditolak: belum login.</p>';
-    exit;
-}
+[$uid, $role] = adiwira_require_login($pdo, false);
 
 if (!function_exists('profile_safe_redirect')) {
-    function profile_safe_redirect(string $url): void {
+    function profile_safe_redirect(string $url): void
+    {
         if (!headers_sent()) {
             header('Location: ' . $url);
             exit;
@@ -38,7 +31,8 @@ if (!function_exists('profile_safe_redirect')) {
 }
 
 if (!function_exists('profile_redirect_with_flash')) {
-    function profile_redirect_with_flash(string $type, string $message, string $url): void {
+    function profile_redirect_with_flash(string $type, string $message, string $url): void
+    {
         if (function_exists('adiwira_redirect_with_flash')) {
             adiwira_redirect_with_flash($url, $type, $message);
             exit;
@@ -54,34 +48,48 @@ if (!function_exists('profile_redirect_with_flash')) {
     }
 }
 
-$uid = (int)$_SESSION['user_id'];
 $errors = [];
 
-$stmtUser = $pdo->prepare("SELECT * FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
+$stmtUser = $pdo->prepare("
+    SELECT *
+    FROM users
+    WHERE id = :id
+      AND is_deleted = 0
+    LIMIT 1
+");
 $stmtUser->execute([':id' => $uid]);
-$user = $stmtUser->fetch(PDO::FETCH_ASSOC);
+$user = $stmtUser->fetch(PDO::FETCH_ASSOC) ?: null;
 
 if (!$user) {
-    session_destroy();
+    if (function_exists('logout_user')) {
+        logout_user();
+    } else {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
+    }
     profile_safe_redirect('/login.php');
 }
 
-$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
 $self_url = $base . '/index.php?page=admin/profile/index';
-$dashboard_url = $base . '/dashboard.php';
+$dashboard_url = $base . '/index.php?page=admin/settings/index';
 
-$displayImg = $user['img'] ?? '';
-if (empty($displayImg)) {
+$initialBio = (string)($user['bio'] ?? '');
+$initialPhone = (string)($user['phone'] ?? '');
+
+$postedImg = trim((string)($_POST['img_url'] ?? ''));
+$displayImg = $postedImg !== '' ? $postedImg : (string)($user['img'] ?? '');
+
+if ($displayImg === '') {
     $initials = urlencode((string)($user['name'] ?? 'User'));
     $displayImg = "https://ui-avatars.com/api/?name={$initials}&background=random&color=fff";
 }
 
-$initial_bio = $user['bio'] ?? '';
-$initial_phone = $user['phone'] ?? '';
-
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
-    if (!csrf_check($token)) {
+    if (!adiwira_csrf_validate($token)) {
         $errors[] = 'CSRF token tidak valid.';
     }
 
@@ -92,7 +100,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         if ($password_confirm === '') {
             $errors[] = 'Password wajib diisi untuk menghapus akun.';
-        } elseif (!password_verify($password_confirm, (string)$user['password'])) {
+        } elseif (!password_verify($password_confirm, (string)($user['password'] ?? ''))) {
             $errors[] = 'Password salah, akun gagal dihapus.';
         } else {
             $stmtDel = $pdo->prepare("
@@ -104,12 +112,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ");
             $stmtDel->execute([':id' => $uid]);
 
-            session_destroy();
+            if (function_exists('logout_user')) {
+                logout_user();
+            } else {
+                $_SESSION = [];
+                if (session_status() === PHP_SESSION_ACTIVE) {
+                    session_destroy();
+                }
+            }
+
             profile_safe_redirect('/index.php?msg=account_deleted');
         }
-    }
-
-    elseif ($action === 'save_profile' && empty($errors)) {
+    } elseif ($action === 'save_profile' && empty($errors)) {
         $name   = trim((string)($_POST['name'] ?? ''));
         $email  = trim((string)($_POST['email'] ?? ''));
         $imgUrl = trim((string)($_POST['img_url'] ?? ''));
@@ -118,11 +132,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $bio    = trim((string)($_POST['bio'] ?? ''));
         $phone  = trim((string)($_POST['phone'] ?? ''));
 
-        $bio_db   = $bio !== '' ? $bio : null;
-        $phone_db = $phone !== '' ? $phone : null;
+        $bioDb   = $bio !== '' ? $bio : null;
+        $phoneDb = $phone !== '' ? $phone : null;
 
-        $initial_bio = $_POST['bio'] ?? $initial_bio;
-        $initial_phone = $_POST['phone'] ?? $initial_phone;
+        $initialBio = (string)($_POST['bio'] ?? $initialBio);
+        $initialPhone = (string)($_POST['phone'] ?? $initialPhone);
 
         if ($name === '') {
             $errors[] = 'Nama tidak boleh kosong.';
@@ -134,10 +148,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $errors[] = 'Format email tidak valid.';
         }
 
-        if ($phone_db !== null && $phone_db !== '') {
-            if (!preg_match('/^[0-9+\-\s]{6,20}$/', $phone_db)) {
-                $errors[] = 'Format nomor telepon tidak valid.';
-            }
+        if ($phoneDb !== null && !preg_match('/^[0-9+\-\s]{6,20}$/', $phoneDb)) {
+            $errors[] = 'Format nomor telepon tidak valid.';
         }
 
         if ($pass !== '') {
@@ -149,7 +161,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
         }
 
-        if ($email !== (string)$user['email'] && empty($errors)) {
+        if ($email !== (string)($user['email'] ?? '') && empty($errors)) {
             $stmtCheck = $pdo->prepare("
                 SELECT id
                 FROM users
@@ -162,6 +174,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ':email' => $email,
                 ':id'    => $uid,
             ]);
+
             if ($stmtCheck->fetch()) {
                 $errors[] = 'Email sudah digunakan pengguna lain.';
             }
@@ -179,11 +192,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ";
 
             $params = [
-                ':name'  => $name ?: null,
+                ':name'  => $name,
                 ':email' => $email,
                 ':img'   => $imgUrl !== '' ? $imgUrl : null,
-                ':bio'   => $bio_db,
-                ':phone' => $phone_db,
+                ':bio'   => $bioDb,
+                ':phone' => $phoneDb,
                 ':id'    => $uid,
             ];
 
@@ -197,11 +210,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $stmtUpd = $pdo->prepare($sql);
             if ($stmtUpd->execute($params)) {
                 $_SESSION['user_name'] = $name;
+                $_SESSION['user_email'] = $email;
+
                 $user['name']  = $name;
                 $user['email'] = $email;
                 $user['img']   = $imgUrl;
-                $user['bio']   = $bio_db ?? '';
-                $user['phone'] = $phone_db ?? '';
+                $user['bio']   = $bioDb ?? '';
+                $user['phone'] = $phoneDb ?? '';
 
                 profile_redirect_with_flash('success', 'Profil berhasil diperbarui.', $self_url);
             } else {
@@ -269,7 +284,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <input type="text"
                  name="name"
                  id="profile-name-input"
-                 value="<?= htmlspecialchars($_POST['name'] ?? $user['name'], ENT_QUOTES, 'UTF-8') ?>"
+                 value="<?= htmlspecialchars($_POST['name'] ?? ($user['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
@@ -278,7 +293,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <label>Email (Login)<br>
           <input type="email"
                  name="email"
-                 value="<?= htmlspecialchars($_POST['email'] ?? $user['email'], ENT_QUOTES, 'UTF-8') ?>"
+                 value="<?= htmlspecialchars($_POST['email'] ?? ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
@@ -293,7 +308,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <label style="margin-top:1rem;">Telepon<br>
           <input type="text"
                  name="phone"
-                 value="<?= htmlspecialchars($_POST['phone'] ?? $user['phone'] ?? $initial_phone, ENT_QUOTES, 'UTF-8') ?>"
+                 value="<?= htmlspecialchars($_POST['phone'] ?? ($user['phone'] ?? $initialPhone), ENT_QUOTES, 'UTF-8') ?>"
                  placeholder="+62xxxxxxxxx"
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
@@ -301,7 +316,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <label style="margin-top:1rem;">Bio / Tentang Saya<br>
           <textarea name="bio"
                     rows="4"
-                    style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? $user['bio'] ?? $initial_bio, ENT_QUOTES, 'UTF-8') ?></textarea>
+                    style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? ($user['bio'] ?? $initialBio), ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
 
         <hr style="margin:1.5rem 0; border:0; border-top:1px solid #eee;">
@@ -466,7 +481,6 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     });
   }
 
-  /* ---------- modal + media selector helpers ---------- */
   if (!window.injectHtmlWithScriptsTo) {
     window.injectHtmlWithScriptsTo = function(container, html) {
       try {

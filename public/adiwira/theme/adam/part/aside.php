@@ -25,7 +25,6 @@ if (!function_exists('adam_nav_active')) {
         if ($requested === $prefix) return true;
         if ($prefix !== '' && strpos($requested, $prefix . '/') === 0) return true;
 
-        // fallback long-shot (keep compatible)
         return $prefix !== '' && mb_strpos($requested, $prefix) !== false;
     }
 }
@@ -50,7 +49,6 @@ if (!function_exists('nav_item')) {
                 $slabel = (string)($sl[1] ?? '');
                 $sicon  = (string)($sl[2] ?? '');
 
-                // Deteksi active sublink: ambil nilai page=... dari href lalu bandingkan
                 $isSubActive = false;
                 $qs = parse_url($href, PHP_URL_QUERY);
                 if (is_string($qs)) {
@@ -75,13 +73,6 @@ if (!function_exists('nav_item')) {
     }
 }
 
-/**
- * ✅ FIX UTAMA:
- * Role jangan mengandalkan session saja.
- * Prioritas:
- * 1) $user['role'] (hasil current_user di index.php)
- * 2) $_SESSION['user_role']
- */
 $userRole = null;
 if (isset($user) && is_array($user)) {
     $userRole = $user['role'] ?? $user['user_role'] ?? null;
@@ -119,10 +110,10 @@ $userRole = is_string($userRole) ? strtolower(trim($userRole)) : null;
       ]);
 
       if (in_array($userRole, ['admin','editor'], true)) {
-      echo nav_item($base, $requested, 'admin/categories', '🏷️', 'Categories', [
-        [$base . '/index.php?page=admin/categories/index','Daftar','📋'],
-        [$base . '/index.php?page=admin/categories/add','Tambah','➕']
-      ]);
+        echo nav_item($base, $requested, 'admin/categories', '🏷️', 'Categories', [
+          [$base . '/index.php?page=admin/categories/index','Daftar','📋'],
+          [$base . '/index.php?page=admin/categories/add','Tambah','➕']
+        ]);
       }
 
       echo nav_item($base, $requested, 'admin/pages', '📄', 'Pages', [
@@ -135,50 +126,57 @@ $userRole = is_string($userRole) ? strtolower(trim($userRole)) : null;
         [$base . '/index.php?page=admin/media/index&tab=add','Tambah','➕']
       ]);
 
-      
       echo nav_item($base, $requested, 'admin/file', '📁', 'File', [
         [$base . '/index.php?page=admin/file/index&tab=list','Daftar','📋'],
         [$base . '/index.php?page=admin/file/index&tab=add','Tambah','➕']
       ]);
-      
 
       echo nav_item($base, $requested, 'admin/photos', '📷', 'Albums', [
         [$base . '/index.php?page=admin/photos/index','Daftar','📋']
       ]);
 
-// THEMES
-$themeLinks = [
-  [$base . '/index.php?page=admin/themes/index','Daftar','📋'],
-  [$base . '/index.php?page=admin/themes/add','Tambah','➕']
-];
+      $themeLinks = [
+        [$base . '/index.php?page=admin/themes/index','Daftar','📋'],
+        [$base . '/index.php?page=admin/themes/add','Tambah','➕']
+      ];
 
-// hanya admin boleh lihat Assign
-if ($userRole === 'admin') {
-  $themeLinks[] = [$base . '/index.php?page=admin/themes/assign','Assign (Dev)','🔗'];
-}
+      if ($userRole === 'admin') {
+        $themeLinks[] = [$base . '/index.php?page=admin/themes/assign','Assign (Dev)','🔗'];
+      }
 
-echo nav_item($base, $requested, 'admin/themes', '🎨', 'Themes', $themeLinks);
+      echo nav_item($base, $requested, 'admin/themes', '🎨', 'Themes', $themeLinks);
 
       echo '<li class="adam-nav-heading">Sistem</li>';
 
       $isPengaturanActive =
+        adam_nav_active($requested, 'admin/settings') ||
         adam_nav_active($requested, 'admin/profile') ||
         adam_nav_active($requested, 'admin/users') ||
-        adam_nav_active($requested, 'admin/settings');
+        adam_nav_active($requested, 'admin/bin');
 
-      echo '<li class="adam-nav-item' . ($isPengaturanActive ? ' is-open' : '') . '" data-prefix="admin/pengaturan">';
+      echo '<li class="adam-nav-item' . ($isPengaturanActive ? ' is-open' : '') . '" data-prefix="admin/settings">';
       echo '<a class="adam-nav-link' . ($isPengaturanActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/index') . '">';
       echo '<span class="adam-nav-icon">⚙️</span><span class="adam-nav-text">Settings</span>';
       echo '</a>';
 
       echo '<div class="adam-nav-sub" aria-hidden="' . ($isPengaturanActive ? 'false' : 'true') . '">';
-      echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/profile/index') . '">🧑 Profile</a>';
+
+      // Urutan sinkron:
+      // Website (admin) -> Profile -> Users (admin) -> Bin (admin)
+      if ($userRole === 'admin') {
+          echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/site') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/site') . '">';
+          echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🌐</span><span class="adam-nav-sublink-text">Website</span></a>';
+      }
+
+      echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/profile/index') . '">';
+      echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🧑</span><span class="adam-nav-sublink-text">Profile</span></a>';
 
       if ($userRole === 'admin') {
-          echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/users') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/users/index') . '">👥 Users</a>';
-          echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/pengaturan/site') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/site') . '">🌐 Website</a>';
-      } else {
-          echo '<div style="opacity:.6;padding:.4rem .6rem">👥 Users (admin)</div>';
+          echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/users') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/users/index') . '">';
+          echo '<span class="adam-nav-sublink-icon" aria-hidden="true">👥</span><span class="adam-nav-sublink-text">Users</span></a>';
+
+          echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/bin') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/bin/index') . '">';
+          echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🗑️</span><span class="adam-nav-sublink-text">Bin</span></a>';
       }
 
       echo '</div>';

@@ -34,10 +34,6 @@ try {
         <div class="note small">Mendukung webp/png/jpg/jpeg. Upload otomatis setelah pilih.</div>
       </div>
     </div>
-
-    <div class="uploader-controls" style="min-width:150px;justify-content:flex-end">
-      <button id="btn-upload-clear" class="adam-btn" type="button">Bersihkan</button>
-    </div>
   </div>
 
   <div id="upload-progress" class="upload-progress" aria-live="polite"></div>
@@ -56,9 +52,47 @@ try {
   const browseBtn = document.getElementById('browse-btn');
   const progressWrap = document.getElementById('upload-progress');
   const previewWrap = document.getElementById('preview-container');
-  const clearBtn = document.getElementById('btn-upload-clear');
 
-  if (!dropzone || !fileInput || !browseBtn || !progressWrap || !previewWrap || !clearBtn) return;
+  if (!dropzone || !fileInput || !browseBtn || !progressWrap || !previewWrap) return;
+
+  function getToastApi(){
+    try {
+      if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') return window.NewNotifToast;
+      if (window.parent && window.parent !== window && window.parent.NewNotifToast && typeof window.parent.NewNotifToast.show === 'function') return window.parent.NewNotifToast;
+    } catch(e){}
+    return null;
+  }
+
+  function getConfirmApi(){
+    try {
+      if (window.NewNotifConfirm) return window.NewNotifConfirm;
+      if (window.parent && window.parent !== window && window.parent.NewNotifConfirm) return window.parent.NewNotifConfirm;
+    } catch(e){}
+    return null;
+  }
+
+  function uiToast(type, title, message, duration){
+    const api = getToastApi();
+    if (api) {
+      api.show({
+        type: type || 'info',
+        title: title || null,
+        message: message || '',
+        duration: duration
+      });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts){
+    const api = getConfirmApi();
+    if (api) {
+      if (variant === 'danger' && typeof api.danger === 'function') return api.danger(opts || {});
+      if (typeof api.warning === 'function') return api.warning(opts || {});
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
 
   browseBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', e => {
@@ -93,11 +127,6 @@ try {
       e.preventDefault();
       fileInput.click();
     }
-  });
-
-  clearBtn.addEventListener('click', function(){
-    progressWrap.innerHTML = '';
-    previewWrap.innerHTML = '';
   });
 
   function broadcast(name, detail) {
@@ -202,12 +231,16 @@ try {
           const media = data.media || {
             id: data.id || null,
             url: data.url || '',
-            title: data.title || ''
+            title: data.title || '',
+            alt: data.alt || '',
+            caption: data.caption || '',
+            credit: data.credit || ''
           };
 
           bar.style.width = '100%';
           showThumb(media.url || data.url || '', media);
 
+          uiToast('success', 'Gallery', 'Upload berhasil: ' + file.name, 1800);
           broadcast('media:added', media);
           broadcast('media:insert', media);
           resolve(media);
@@ -223,14 +256,15 @@ try {
       xhr.send(fd);
     }).catch(err => {
       console.error('Upload error', err);
-      alert('Upload gagal: ' + (err.message || 'Unknown'));
+      uiToast('error', 'Gallery', 'Upload gagal: ' + (err.message || 'Unknown'), 5000);
     });
   }
 
   function showThumb(url, media) {
     const box = document.createElement('div');
     box.className = 'thumb';
-    if (media && media.id) box.dataset.mediaId = media.id;
+    if (media && media.id) box.dataset.mediaId = String(media.id);
+    if (url) box.dataset.mediaUrl = String(url);
 
     box.innerHTML = `
       <img src="${escapeHtml(url)}" alt="${escapeHtml(media && (media.alt || media.title) || '')}">
@@ -270,7 +304,13 @@ try {
     });
 
     box.querySelector('.del-btn').addEventListener('click', async function(){
-      if (!confirm('Hapus media ini secara permanen?')) return;
+      const ok = await uiAsk('danger', {
+        title: 'Hapus media',
+        message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       const fd = new FormData();
       if (media && media.id) fd.append('id', media.id);
@@ -291,19 +331,30 @@ try {
         try { j = txt ? JSON.parse(txt) : null; } catch(e){}
 
         if (!res.ok) {
-          alert('Gagal hapus: ' + (j && j.error ? j.error : (txt || ('HTTP ' + res.status))));
+          uiToast('error', 'Gallery', 'Gagal hapus: ' + (j && j.error ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
           box.remove();
-          broadcast('media:deleted', j);
+
+          const payload = Object.assign({}, j || {}, {
+            id: media && media.id ? media.id : (j && j.id ? j.id : null),
+            url: url || '',
+            deleted_ids: (j && Array.isArray(j.deleted_ids)) ? j.deleted_ids : (media && media.id ? [media.id] : []),
+            deleted_urls: url ? [url] : []
+          });
+
+          uiToast('success', 'Gallery', 'Media berhasil dihapus.', 2500);
+          if (j.warning) uiToast('warning', 'Gallery', j.warning, 6000);
+
+          broadcast('media:deleted', payload);
         } else {
-          alert('Gagal hapus: ' + (j && j.error ? j.error : 'unknown'));
+          uiToast('error', 'Gallery', 'Gagal hapus: ' + (j && j.error ? j.error : 'unknown'), 6000);
         }
       } catch (err) {
         console.error('Delete error', err);
-        alert('Network error: ' + (err.message || ''));
+        uiToast('error', 'Gallery', 'Network error: ' + (err.message || ''), 6000);
       }
     });
   }
@@ -330,12 +381,17 @@ try {
     else if (d.id) ids = [parseInt(d.id, 10)].filter(Boolean);
     else if (d.ids && Array.isArray(d.ids)) ids = d.ids.map(x => parseInt(x, 10)).filter(Boolean);
 
-    if (!ids.length) return;
-
     ids.forEach(id => {
       const th = previewWrap.querySelector('.thumb[data-media-id="' + id + '"]');
       if (th) th.remove();
     });
+
+    if (Array.isArray(d.deleted_urls)) {
+      d.deleted_urls.forEach(function(u){
+        const th = previewWrap.querySelector('.thumb[data-media-url="' + CSS.escape(String(u)) + '"]');
+        if (th) th.remove();
+      });
+    }
   });
 })();
 </script>

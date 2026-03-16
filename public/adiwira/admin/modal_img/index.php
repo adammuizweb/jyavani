@@ -63,15 +63,33 @@ if (!$embedded):
 </div>
 
 <script>
-/**
- * modal_img/index.js (inline)
- *
- * - injectHtmlWithScriptsTo(container, html): inject & execute scripts from fetched HTML
- * - openSingleDetailInModal(id): fetch single_modal.php and inject into modal content (best effort)
- * - delegated click handler: .btn-detail now opens single modal using the helper
- */
+(function(){
+  function getToastApi(){
+    try {
+      if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') return window.NewNotifToast;
+      if (window.parent && window.parent !== window && window.parent.NewNotifToast && typeof window.parent.NewNotifToast.show === 'function') return window.parent.NewNotifToast;
+    } catch(e){}
+    return null;
+  }
 
-// simple tabs for standalone index.php
+  function modalToast(type, title, message, duration){
+    const api = getToastApi();
+    if (api) {
+      api.show({
+        type: type || 'info',
+        title: title || null,
+        message: message || '',
+        duration: duration
+      });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  window.modalImgToast = window.modalImgToast || modalToast;
+})();
+
+/* tabs */
 (function(){
   const tabs = document.querySelectorAll('.tab');
   tabs.forEach(t=>{
@@ -84,7 +102,6 @@ if (!$embedded):
   });
 })();
 
-// helper: inject HTML fragment into a container and execute scripts (external & inline)
 function injectHtmlWithScriptsTo(container, html) {
   try {
     const parser = new DOMParser();
@@ -132,7 +149,6 @@ function injectHtmlWithScriptsTo(container, html) {
   }
 }
 
-// helper: open single detail inside existing modal-content (if available) or inside our panel
 function openSingleDetailInModal(id) {
   if (!id) return;
   const url = '/adiwira/admin/modal_img/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1';
@@ -156,6 +172,9 @@ function openSingleDetailInModal(id) {
       .catch(err => {
         console.error('Failed to load single_modal:', err);
         modalContent.innerHTML = '<div style="color:#c00;padding:12px">Gagal memuat detail</div>';
+        if (typeof window.modalImgToast === 'function') {
+          window.modalImgToast('error', 'Gallery', 'Gagal memuat detail media.');
+        }
       });
     return;
   }
@@ -169,6 +188,9 @@ function openSingleDetailInModal(id) {
       .catch(err => {
         console.error('Failed to load single_modal into gallery panel:', err);
         panel.innerHTML = '<div style="color:#c00;padding:12px">Gagal memuat detail</div>';
+        if (typeof window.modalImgToast === 'function') {
+          window.modalImgToast('error', 'Gallery', 'Gagal memuat detail media.');
+        }
       });
     return;
   }
@@ -185,7 +207,6 @@ function openSingleDetailInModal(id) {
   window.open(url, '_blank');
 }
 
-// Delegated click handler: intercept .btn-detail anywhere inside this injected fragment
 document.addEventListener('click', function(ev){
   const btn = ev.target.closest && ev.target.closest('.btn-detail');
   if (!btn) return;
@@ -198,14 +219,15 @@ document.addEventListener('click', function(ev){
     if (tr) id = tr.getAttribute('data-id');
   }
   if (!id) {
-    console.warn('Detail button clicked but no id found');
+    if (typeof window.modalImgToast === 'function') {
+      window.modalImgToast('warning', 'Gallery', 'ID media tidak ditemukan.');
+    }
     return;
   }
 
   openSingleDetailInModal(id);
 }, false);
 
-// Enhance gallery visuals: convert table rows into thumb cards with Insert & Detail buttons
 (function tryEnhanceGallery(){
   try {
     const panel = document.getElementById('panel-gallery');

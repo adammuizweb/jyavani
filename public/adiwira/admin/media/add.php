@@ -39,6 +39,33 @@ $mediaCsrf = csrf_token();
 
   if (!dz || !fileInput || !browseBtn || !progressWrap || !previewWrap) return;
 
+  function uiToast(type, title, message, duration) {
+    if (window.mediaUi && typeof window.mediaUi.toast === 'function') {
+      window.mediaUi.toast(type, title, message, duration);
+      return;
+    }
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message, duration: duration });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.mediaUi && typeof window.mediaUi.ask === 'function') {
+      return window.mediaUi.ask(variant, opts || {});
+    }
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts || {});
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts || {});
+      }
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
+
   function getCsrfToken() {
     const local = document.getElementById('media-csrf-token');
     if (local && local.value) return local.value;
@@ -109,7 +136,7 @@ $mediaCsrf = csrf_token();
       try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
 
       if (!res.ok) {
-        alert('Upload gagal: ' + (j?.error || txt || ('HTTP ' + res.status)));
+        uiToast('error', 'Media', 'Upload gagal: ' + (j?.error || txt || ('HTTP ' + res.status)));
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 400);
@@ -118,7 +145,7 @@ $mediaCsrf = csrf_token();
       }
 
       if (!j || !j.success) {
-        alert('Upload gagal: ' + (j?.error || txt || 'unknown'));
+        uiToast('error', 'Media', 'Upload gagal: ' + (j?.error || txt || 'unknown'));
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 400);
@@ -129,6 +156,7 @@ $mediaCsrf = csrf_token();
       bar.style.width = '100%';
       showThumb(j.url, j.media);
 
+      uiToast('success', 'Media', 'Upload berhasil: ' + file.name, 1800);
       document.dispatchEvent(new CustomEvent('media:added', { detail: j.media }));
 
       setTimeout(() => {
@@ -139,7 +167,7 @@ $mediaCsrf = csrf_token();
       }, 900);
 
     } catch (err) {
-      alert('Upload gagal (network): ' + (err.message || err));
+      uiToast('error', 'Media', 'Upload gagal (network): ' + (err.message || err));
       setTimeout(() => {
         row.classList.add('fade');
         setTimeout(() => row.remove(), 400);
@@ -150,12 +178,14 @@ $mediaCsrf = csrf_token();
   function showThumb(url, media) {
     const box = document.createElement('div');
     box.className = 'thumb';
-    if (media && media.id) box.dataset.mediaId = media.id;
+
+    const mediaId = media && media.id ? String(media.id) : '';
+    if (mediaId) box.dataset.mediaId = mediaId;
 
     box.innerHTML = `
       <img src="${escapeHtml(url)}" alt="">
       <div class="meta">
-        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:86px">
+        <div class="thumb-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:86px">
           ${escapeHtml((media && (media.title || media.filename)) || '')}
         </div>
         <div style="display:flex;gap:6px;align-items:center">
@@ -182,7 +212,14 @@ $mediaCsrf = csrf_token();
     if (removeBtn) {
       removeBtn.onclick = async (e) => {
         e.preventDefault();
-        if (!confirm('Hapus media ini secara permanen?')) return;
+
+        const ok = await uiAsk('danger', {
+          title: 'Hapus media',
+          message: 'Media ini akan dihapus permanen dari server. Lanjutkan?',
+          confirmText: 'Ya, hapus',
+          cancelText: 'Batal'
+        });
+        if (!ok) return;
 
         const fd = new FormData();
         if (media && media.id) fd.append('id', media.id);
@@ -203,21 +240,107 @@ $mediaCsrf = csrf_token();
           try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
 
           if (!res.ok) {
-            alert('Gagal hapus: ' + (j?.error || txt || ('HTTP ' + res.status)));
+            uiToast('error', 'Media', 'Gagal hapus: ' + (j?.error || txt || ('HTTP ' + res.status)));
             return;
           }
+
           if (j && j.ok) {
             box.remove();
+            uiToast('success', 'Media', 'Media berhasil dihapus.');
+            if (j.warning) {
+              uiToast('warning', 'Media', j.warning);
+            }
             document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
           } else {
-            alert('Gagal hapus: ' + (j?.error || txt || 'unknown'));
+            uiToast('error', 'Media', 'Gagal hapus: ' + (j?.error || txt || 'unknown'));
           }
         } catch (err) {
-          alert('Network error: ' + (err.message || err));
+          uiToast('error', 'Media', 'Network error: ' + (err.message || err));
         }
       };
     }
   }
+
+  function extractDeletedMediaIds(detail) {
+    const ids = new Set();
+
+    if (!detail || typeof detail !== 'object') {
+      return [];
+    }
+
+    if (detail.id != null) {
+      const n = parseInt(detail.id, 10);
+      if (Number.isFinite(n) && n > 0) ids.add(String(n));
+    }
+
+    if (Array.isArray(detail.ids)) {
+      detail.ids.forEach(function(id){
+        const n = parseInt(id, 10);
+        if (Number.isFinite(n) && n > 0) ids.add(String(n));
+      });
+    }
+
+    if (Array.isArray(detail.deleted_ids)) {
+      detail.deleted_ids.forEach(function(id){
+        const n = parseInt(id, 10);
+        if (Number.isFinite(n) && n > 0) ids.add(String(n));
+      });
+    }
+
+    if (detail.result && typeof detail.result === 'object') {
+      if (detail.result.id != null) {
+        const n = parseInt(detail.result.id, 10);
+        if (Number.isFinite(n) && n > 0) ids.add(String(n));
+      }
+
+      if (Array.isArray(detail.result.deleted_ids)) {
+        detail.result.deleted_ids.forEach(function(id){
+          const n = parseInt(id, 10);
+          if (Number.isFinite(n) && n > 0) ids.add(String(n));
+        });
+      }
+    }
+
+    return Array.from(ids);
+  }
+
+  function removePreviewByIds(ids) {
+    if (!Array.isArray(ids) || !ids.length) return;
+
+    ids.forEach(function(id){
+      const box = previewWrap.querySelector('.thumb[data-media-id="' + CSS.escape(String(id)) + '"]');
+      if (!box) return;
+
+      box.classList.add('fade');
+      setTimeout(function(){
+        if (box.parentNode) box.parentNode.removeChild(box);
+      }, 220);
+    });
+  }
+
+  function syncUpdatedPreview(detail) {
+    if (!detail || typeof detail !== 'object' || detail.id == null) return;
+
+    const mediaId = String(detail.id);
+    const box = previewWrap.querySelector('.thumb[data-media-id="' + CSS.escape(mediaId) + '"]');
+    if (!box) return;
+
+    const titleEl = box.querySelector('.thumb-title');
+    if (titleEl && detail.updated && typeof detail.updated === 'object') {
+      if (detail.updated.title !== undefined && String(detail.updated.title).trim() !== '') {
+        titleEl.textContent = String(detail.updated.title);
+      }
+    }
+  }
+
+  document.addEventListener('media:deleted', function(ev){
+    const ids = extractDeletedMediaIds(ev.detail);
+    removePreviewByIds(ids);
+  });
+
+  document.addEventListener('media:updated', function(ev){
+    syncUpdatedPreview(ev.detail);
+  });
 
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, m => ({

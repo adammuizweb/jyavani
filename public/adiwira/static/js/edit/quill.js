@@ -1,13 +1,15 @@
-// public/adiwira/static/js/edit/quill.js — Quill init + toolbar handlers + ensure inserted image gets media attributes
+// public/adiwira/static/js/edit/quill.js
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
   let quill = null;
   let suppress = false;
 
-  // treat these tags as complex
-const complexPattern =
-/<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|table|thead|tbody|tfoot|tr|th|td)[\s>]|on[a-z]+\s*=|style\s*=/i;
+  const complexPattern =
+    /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|table|thead|tbody|tfoot|tr|th|td)[\s>]|on[a-z]+\s*=|style\s*=/i;
+
   const canonical = document.getElementById('content-textarea');
+  const EDITOR_IMG_MAX_WIDTH = 560;
+  const EDITOR_IMG_MAX_HEIGHT = 460;
 
   const FULL_TOOLBAR = [
     [{ header: [1,2,3,4,5,6, false] }],
@@ -23,9 +25,25 @@ const complexPattern =
     ['clean']
   ];
 
+  function uiToast(type, title, message, duration) {
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({
+        type: type || 'info',
+        title: title || null,
+        message: message || '',
+        duration: duration
+      });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
   function isContentComplex() {
-    try { return complexPattern.test((canonical && canonical.value || '').trim()); }
-    catch (e) { return false; }
+    try {
+      return complexPattern.test((canonical && canonical.value || '').trim());
+    } catch (e) {
+      return false;
+    }
   }
 
   function normalizeHtmlForCompare(html) {
@@ -35,28 +53,101 @@ const complexPattern =
     return html;
   }
 
-  // helper: get selector function if available
+  function escapeXml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function createRemovedMediaSvgDataUrl(opts) {
+    opts = opts || {};
+    const width = Math.max(320, parseInt(opts.width, 10) || 1200);
+    const height = Math.max(180, parseInt(opts.height, 10) || 675);
+    const title = String(opts.title || 'Media telah dihapus');
+    const subtitle = String(opts.subtitle || 'dari gallery');
+
+    const svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '" role="img" aria-label="' + title + ' ' + subtitle + '">'
+      + '<defs>'
+      + '<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">'
+      + '<stop offset="0%" stop-color="#fff7f7"/>'
+      + '<stop offset="100%" stop-color="#ffe9e9"/>'
+      + '</linearGradient>'
+      + '</defs>'
+      + '<rect width="100%" height="100%" rx="28" fill="url(#bg)"/>'
+      + '<rect x="14" y="14" width="' + (width - 28) + '" height="' + (height - 28) + '" rx="22" fill="none" stroke="#f1b5b5" stroke-width="4" stroke-dasharray="16 12"/>'
+      + '<g transform="translate(' + (width / 2) + ' ' + (height / 2 - 70) + ')">'
+      + '<rect x="-130" y="-82" width="260" height="164" rx="22" fill="#ffffff" stroke="#ef4444" stroke-width="10"/>'
+      + '<circle cx="-42" cy="-26" r="22" fill="#fecaca"/>'
+      + '<path d="M-98 42l54-54 36 36 28-28 72 72H-98z" fill="#fca5a5"/>'
+      + '<path d="M-160 122L160-122" stroke="#dc2626" stroke-width="20" stroke-linecap="round"/>'
+      + '</g>'
+      + '<text x="50%" y="' + (height - 108) + '" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="700" fill="#991b1b">' + escapeXml(title) + '</text>'
+      + '<text x="50%" y="' + (height - 56) + '" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#7f1d1d">' + escapeXml(subtitle) + '</text>'
+      + '</svg>';
+
+    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  }
+
+  function buildUrlSignature(input) {
+    const sig = new Set();
+    const raw = String(input || '').trim();
+    if (!raw) return sig;
+
+    sig.add(raw);
+
+    try {
+      const abs = new URL(raw, window.location.origin).href;
+      const urlObj = new URL(abs);
+
+      sig.add(abs);
+      sig.add(urlObj.pathname);
+      sig.add(urlObj.pathname.replace(/\/+$/, '') || '/');
+    } catch (e) {
+      if (raw.charAt(0) === '/') {
+        sig.add(raw.replace(/\/+$/, '') || '/');
+      }
+    }
+
+    return sig;
+  }
+
+  function hasSignatureMatch(a, b) {
+    if (!(a instanceof Set) || !(b instanceof Set) || a.size < 1 || b.size < 1) {
+      return false;
+    }
+    for (const v of a) {
+      if (b.has(v)) return true;
+    }
+    return false;
+  }
+
   function getMediaSelector() {
     if (typeof window.openMediaSelector === 'function') return window.openMediaSelector;
-    if (window.ADIWIRA && window.ADIWIRA.media && typeof window.ADIWIRA.media.openMediaSelector === 'function') return window.ADIWIRA.media.openMediaSelector;
+    if (window.ADIWIRA && window.ADIWIRA.media && typeof window.ADIWIRA.media.openMediaSelector === 'function') {
+      return window.ADIWIRA.media.openMediaSelector;
+    }
     return null;
   }
-  
-  function getFileSelector() {
-  if (typeof window.openFileSelector === 'function') return window.openFileSelector;
-  if (window.ADIWIRA && window.ADIWIRA.file && typeof window.ADIWIRA.file.openFileSelector === 'function') {
-    return window.ADIWIRA.file.openFileSelector;
-  }
-  return null;
-}
 
-  // helper: normalize media object (if not already)
+  function getFileSelector() {
+    if (typeof window.openFileSelector === 'function') return window.openFileSelector;
+    if (window.ADIWIRA && window.ADIWIRA.file && typeof window.ADIWIRA.file.openFileSelector === 'function') {
+      return window.ADIWIRA.file.openFileSelector;
+    }
+    return null;
+  }
+
   function normalizeMedia(detail) {
     if (typeof window.normalizeMedia === 'function') return window.normalizeMedia(detail);
     if (!detail) return null;
+
     const m = detail.media && typeof detail.media === 'object' ? detail.media : detail;
     return {
-      id: (m.id != null) ? (parseInt(m.id,10) || null) : null,
+      id: (m.id != null) ? (parseInt(m.id, 10) || null) : null,
       url: (m.url != null) ? String(m.url || '') : '',
       title: (m.title != null) ? String(m.title || '') : '',
       alt: (m.alt != null) ? String(m.alt || '') : '',
@@ -65,48 +156,199 @@ const complexPattern =
     };
   }
 
-  // apply attributes to the most-recently inserted image matching src
+  function applyEditorImageDisplay(img) {
+    if (!img) return;
+
+    img.style.display = 'block';
+    img.style.maxWidth = 'min(100%, ' + EDITOR_IMG_MAX_WIDTH + 'px)';
+    img.style.maxHeight = EDITOR_IMG_MAX_HEIGHT + 'px';
+    img.style.width = 'auto';
+    img.style.height = 'auto';
+    img.style.margin = '14px auto';
+
+    if (!img.style.borderRadius) {
+      img.style.borderRadius = '8px';
+    }
+
+    const figure = img.closest && img.closest('figure');
+    if (figure) {
+      figure.style.maxWidth = 'min(100%, ' + EDITOR_IMG_MAX_WIDTH + 'px)';
+      figure.style.margin = '14px auto';
+    }
+  }
+
+  function normalizeEditorImages(rootEl) {
+    if (!rootEl) return;
+    const imgs = Array.from(rootEl.querySelectorAll('img'));
+    imgs.forEach(function(img){
+      applyEditorImageDisplay(img);
+    });
+  }
+
   function applyAttributesToInsertedImage(m) {
     try {
       if (!m || !m.url) return;
       const editorEl = document.getElementById('quill-editor');
       if (!editorEl) return;
 
-      // find candidate imgs with matching src
-      const imgs = Array.from(editorEl.querySelectorAll('img')).filter(i => {
-        try { return i.getAttribute && (i.getAttribute('src') === m.url); } catch(e){ return false; }
+      const imgs = Array.from(editorEl.querySelectorAll('img')).filter(function(i){
+        try {
+          return i.getAttribute && (i.getAttribute('src') === m.url);
+        } catch (e) {
+          return false;
+        }
       });
 
       if (!imgs.length) {
-        // no direct match — try matching by src endpoint (in case querystrings normalized)
         const srcEnds = m.url.split('/').slice(-1)[0];
-        const altc = Array.from(editorEl.querySelectorAll('img')).filter(i => {
-          try { return i.getAttribute && String(i.getAttribute('src') || '').endsWith(srcEnds) && !i.dataset.adiwiraApplied; } catch(e){ return false; }
+        const altc = Array.from(editorEl.querySelectorAll('img')).filter(function(i){
+          try {
+            return i.getAttribute
+              && String(i.getAttribute('src') || '').endsWith(srcEnds)
+              && !i.dataset.adiwiraApplied;
+          } catch (e) {
+            return false;
+          }
         });
-        if (altc.length) imgs.push(...altc);
+        if (altc.length) imgs.push.apply(imgs, altc);
       }
 
-      // pick last (most recently inserted) that hasn't been marked
       let target = null;
       for (let i = imgs.length - 1; i >= 0; i--) {
         const img = imgs[i];
-        if (!img.dataset || !img.dataset.adiwiraApplied) { target = img; break; }
+        if (!img.dataset || !img.dataset.adiwiraApplied) {
+          target = img;
+          break;
+        }
       }
       if (!target && imgs.length) target = imgs[imgs.length - 1];
-
       if (!target) return;
 
-      // set attributes (only if provided)
       if (m.alt) target.setAttribute('alt', m.alt);
       if (m.title) target.setAttribute('title', m.title);
       if (m.id != null) target.setAttribute('data-media-id', String(m.id));
+      if (m.url) target.setAttribute('data-media-url', String(m.url));
       if (m.caption) target.setAttribute('data-caption', m.caption);
       if (m.credit) target.setAttribute('data-credit', m.credit);
 
-      // add a marker to prevent double-processing
       target.dataset.adiwiraApplied = '1';
-    } catch(e){
+      applyEditorImageDisplay(target);
+    } catch (e) {
       console.warn('[quill] applyAttributesToInsertedImage error', e);
+    }
+  }
+
+  function applyRemovedPlaceholderToImage(img, mediaId) {
+    if (!img) return;
+
+    const removedSrc = createRemovedMediaSvgDataUrl({
+      width: 1200,
+      height: 675,
+      title: 'Media telah dihapus',
+      subtitle: 'dari gallery'
+    });
+
+    img.setAttribute('src', removedSrc);
+    img.setAttribute('alt', 'Media telah dihapus dari gallery');
+    img.setAttribute('title', 'Media telah dihapus dari gallery');
+    img.setAttribute('data-media-removed', '1');
+
+    if (mediaId) {
+      img.setAttribute('data-removed-media-id', String(mediaId));
+    }
+
+    img.removeAttribute('data-media-id');
+    img.removeAttribute('data-media-url');
+    img.removeAttribute('data-caption');
+    img.removeAttribute('data-credit');
+    img.removeAttribute('srcset');
+
+    img.style.background = '#fff7f7';
+    img.style.border = '1px solid #f1b5b5';
+    img.style.borderRadius = '8px';
+
+    applyEditorImageDisplay(img);
+
+    const figure = img.closest && img.closest('figure');
+    if (figure) {
+      const cap = figure.querySelector('figcaption');
+      if (cap) {
+        cap.textContent = 'Media telah dihapus dari gallery';
+      }
+    }
+  }
+
+  function handleDeletedMedia(detail) {
+    if (!detail || !quill || !quill.root) return;
+
+    const ids = new Set();
+    const deletedUrlSig = new Set();
+
+    if (detail.id != null) {
+      const n = parseInt(detail.id, 10);
+      if (Number.isFinite(n) && n > 0) ids.add(String(n));
+    }
+
+    if (Array.isArray(detail.deleted_ids)) {
+      detail.deleted_ids.forEach(function(v){
+        const n = parseInt(v, 10);
+        if (Number.isFinite(n) && n > 0) ids.add(String(n));
+      });
+    }
+
+    const rawUrls = [];
+    if (detail.url) rawUrls.push(detail.url);
+    if (Array.isArray(detail.deleted_urls)) rawUrls.push.apply(rawUrls, detail.deleted_urls);
+
+    rawUrls.forEach(function(u){
+      const sig = buildUrlSignature(u);
+      sig.forEach(function(v){ deletedUrlSig.add(v); });
+    });
+
+    if (ids.size < 1 && deletedUrlSig.size < 1) return;
+
+    const editorEl = document.getElementById('quill-editor');
+    if (!editorEl) return;
+
+    const imgs = Array.from(editorEl.querySelectorAll('img'));
+    let changed = false;
+
+    imgs.forEach(function(img){
+      if (img.getAttribute('data-media-removed') === '1') return;
+
+      const mediaId = String(img.getAttribute('data-media-id') || '').trim();
+      const mediaUrl = String(img.getAttribute('data-media-url') || '').trim();
+      const srcRaw = String(img.getAttribute('src') || img.src || '').trim();
+
+      const sigA = buildUrlSignature(mediaUrl || srcRaw);
+      const sigB = buildUrlSignature(srcRaw);
+
+      const matchById = mediaId !== '' && ids.has(mediaId);
+      const matchByUrl = hasSignatureMatch(sigA, deletedUrlSig) || hasSignatureMatch(sigB, deletedUrlSig);
+
+      if (!matchById && !matchByUrl) return;
+
+      changed = true;
+      applyRemovedPlaceholderToImage(img, mediaId || '');
+    });
+
+    if (changed) {
+      normalizeEditorImages(editorEl);
+
+      try {
+        quill.update('silent');
+      } catch (e) {}
+
+      if (canonical) {
+        canonical.value = quill.root.innerHTML;
+      }
+
+      uiToast(
+        'warning',
+        'Editor',
+        'Gambar yang dihapus dari gallery diubah ke placeholder pada editor.',
+        3200
+      );
     }
   }
 
@@ -115,19 +357,24 @@ const complexPattern =
       const tb = localQuill.getModule && localQuill.getModule('toolbar');
       if (!tb || typeof tb.addHandler !== 'function') return;
 
-      // Image handler
       tb.addHandler('image', function() {
         const selector = getMediaSelector();
+
         if (!selector) {
-          // fallback: ask for URL
           const url = prompt('Masukkan URL gambar:');
           if (url) {
-            const range = localQuill.getSelection(true) || { index: localQuill.getLength(), length: 0 };
+            const range = localQuill.getSelection(true) || {
+              index: localQuill.getLength(),
+              length: 0
+            };
+
             localQuill.insertEmbed(range.index, 'image', url, 'user');
-            // small delay to let Quill render DOM, then attempt to set alt/title if user provided
-            setTimeout(()=> {
+
+            setTimeout(function(){
               applyAttributesToInsertedImage({ url: url });
+              normalizeEditorImages(document.getElementById('quill-editor'));
             }, 40);
+
             localQuill.setSelection(range.index + 1, 0);
           }
           return;
@@ -137,13 +384,19 @@ const complexPattern =
           .then(function(detail){
             const m = normalizeMedia(detail);
             if (!m || !m.url) return;
-            const range = localQuill.getSelection(true) || { index: localQuill.getLength(), length: 0 };
-            // insert embed
+
+            const range = localQuill.getSelection(true) || {
+              index: localQuill.getLength(),
+              length: 0
+            };
+
             localQuill.insertEmbed(range.index, 'image', m.url, 'user');
-            // ensure DOM is updated then attach attributes
-            setTimeout(()=> {
+
+            setTimeout(function(){
               applyAttributesToInsertedImage(m);
+              normalizeEditorImages(document.getElementById('quill-editor'));
             }, 40);
+
             localQuill.setSelection(range.index + 1, 0);
           })
           .catch(function(err){
@@ -151,62 +404,66 @@ const complexPattern =
           });
       });
 
-tb.addHandler('video', function () {
-  const pickFile = getFileSelector();
-  if (!pickFile) {
-    alert('File selector belum dimuat. Pastikan /adiwira/static/js/add/file-selector.js di-include di edit.php');
-    return;
-  }
+      tb.addHandler('video', function () {
+        const pickFile = getFileSelector();
+        if (!pickFile) {
+          alert('File selector belum dimuat. Pastikan /adiwira/static/js/add/file-selector.js di-include di edit.php');
+          return;
+        }
 
-  const range = localQuill.getSelection(true) || { index: localQuill.getLength() - 1, length: 0 };
+        const range = localQuill.getSelection(true) || {
+          index: localQuill.getLength() - 1,
+          length: 0
+        };
 
-  pickFile({
-    url: '/adiwira/admin/modal_file/index.php?embedded=1',
-    maxWidth: '980px'
-  }).then(function (picked) {
-    const f = (typeof window.normalizeFile === 'function') ? window.normalizeFile(picked) : picked;
-    if (!f || !f.url) return;
+        pickFile({
+          url: '/adiwira/admin/modal_file/index.php?embedded=1',
+          maxWidth: '980px'
+        }).then(function (picked) {
+          const f = (typeof window.normalizeFile === 'function') ? window.normalizeFile(picked) : picked;
+          if (!f || !f.url) return;
 
-    const label = (f.filename && String(f.filename).trim() !== '')
-      ? String(f.filename).trim()
-      : (f.id ? ('File #' + f.id) : f.url);
+          const label = (f.filename && String(f.filename).trim() !== '')
+            ? String(f.filename).trim()
+            : (f.id ? ('File #' + f.id) : f.url);
 
-    function esc(s){
-      return String(s || '')
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#39;');
-    }
+          function esc(s){
+            return String(s || '')
+              .replace(/&/g,'&amp;')
+              .replace(/</g,'&lt;')
+              .replace(/>/g,'&gt;')
+              .replace(/"/g,'&quot;')
+              .replace(/'/g,'&#39;');
+          }
 
-    const attrs = [];
-    if (f.id)   attrs.push('data-file-id="' + esc(f.id) + '"');
-    if (f.mime) attrs.push('data-mime="' + esc(f.mime) + '"');
-    if (f.size) attrs.push('data-size="' + esc(f.size) + '"');
+          const attrs = [];
+          if (f.id) attrs.push('data-file-id="' + esc(f.id) + '"');
+          if (f.mime) attrs.push('data-mime="' + esc(f.mime) + '"');
+          if (f.size) attrs.push('data-size="' + esc(f.size) + '"');
 
-    const aHtml =
-      '<a href="' + esc(f.url) + '" target="_blank" rel="noopener"' +
-      (attrs.length ? ' ' + attrs.join(' ') : '') +
-      '>' + esc(label) + '</a>';
+          const aHtml =
+            '<a href="' + esc(f.url) + '" target="_blank" rel="noopener"'
+            + (attrs.length ? ' ' + attrs.join(' ') : '')
+            + '>' + esc(label) + '</a>';
 
-    const htmlToInsert = '<p>📎 ' + aHtml + '</p>';
+          const htmlToInsert = '<p>📎 ' + aHtml + '</p>';
 
-    localQuill.clipboard.dangerouslyPasteHTML(range.index, htmlToInsert);
-    localQuill.setSelection(range.index + 2, 0);
-  }).catch(function (err) {
-    console.warn('[file selector] error', err);
-  });
-});
+          localQuill.clipboard.dangerouslyPasteHTML(range.index, htmlToInsert);
+          localQuill.setSelection(range.index + 2, 0);
+        }).catch(function (err) {
+          console.warn('[file selector] error', err);
+        });
+      });
 
       console.debug('[quill] toolbar handlers attached');
-    } catch(e){ console.warn('[quill] attachToolbarHandlers failed', e); }
+    } catch (e) {
+      console.warn('[quill] attachToolbarHandlers failed', e);
+    }
   }
 
   function initQuill() {
     if (quill) return;
 
-    // If content is complex, do NOT initialize Quill.
     if (isContentComplex()) {
       window.ADIWIRA.quillDisabled = true;
       const qRadio = document.getElementById('editor-quill');
@@ -214,20 +471,30 @@ tb.addHandler('video', function () {
         qRadio.setAttribute('data-quill-disabled', '1');
         qRadio.title = 'Konten mengandung blok kompleks — klik untuk tindakan (Hapus kode lama atau Batalkan).';
       }
-      console.info('[quill] init skipped (complex content). radio remains clickable for modal.');
+      console.info('[quill] init skipped (complex content).');
       return;
     }
 
-    if (typeof window.Quill !== 'function') { console.warn('[quill] Quill not loaded'); return; }
+    if (typeof window.Quill !== 'function') {
+      console.warn('[quill] Quill not loaded');
+      return;
+    }
 
     const editorEl = document.getElementById('quill-editor');
     const toolbarEl = document.getElementById('quill-toolbar');
-    if (!editorEl) { console.warn('[quill] #quill-editor missing'); return; }
+    if (!editorEl) {
+      console.warn('[quill] #quill-editor missing');
+      return;
+    }
 
     let toolbarOption = FULL_TOOLBAR;
     try {
-      if (toolbarEl && toolbarEl.innerHTML && toolbarEl.innerHTML.trim().length > 8) toolbarOption = '#quill-toolbar';
-    } catch(e){ toolbarOption = FULL_TOOLBAR; }
+      if (toolbarEl && toolbarEl.innerHTML && toolbarEl.innerHTML.trim().length > 8) {
+        toolbarOption = '#quill-toolbar';
+      }
+    } catch (e) {
+      toolbarOption = FULL_TOOLBAR;
+    }
 
     quill = new Quill(editorEl, {
       theme: 'snow',
@@ -235,118 +502,179 @@ tb.addHandler('video', function () {
       placeholder: 'Tulis konten artikel di sini...'
     });
 
-    // attach toolbar handlers immediately
     attachToolbarHandlers(quill);
+
+    if (!window.ADIWIRA.__editQuillMediaDeletedBound) {
+      window.ADIWIRA.__editQuillMediaDeletedBound = true;
+
+      document.addEventListener('media:deleted', function(e){
+        handleDeletedMedia(e && e.detail ? e.detail : null);
+      });
+
+      window.addEventListener('media:deleted', function(e){
+        handleDeletedMedia(e && e.detail ? e.detail : null);
+      });
+
+      window.addEventListener('message', function(ev){
+        try {
+          if (!ev.data || ev.data.type !== 'media:deleted') return;
+          handleDeletedMedia(ev.data.detail || null);
+        } catch (err) {
+          console.error('[quill] media:deleted message error', err);
+        }
+      });
+    }
 
     window.__adiwira_quill_for_preview = quill;
 
-    // set initial content via delta (silent)
     suppress = true;
     try {
       const initial = canonical ? (canonical.value || '') : '';
       const delta = quill.clipboard.convert(initial || '');
       quill.setContents(delta, 'silent');
-    } catch(e) {
-      try { quill.root.innerHTML = canonical ? (canonical.value || '') : ''; } catch(_) {}
+    } catch (e) {
+      try {
+        quill.root.innerHTML = canonical ? (canonical.value || '') : '';
+      } catch (_) {}
     }
-    setTimeout(()=> suppress = false, 40);
+
+    setTimeout(function(){
+      suppress = false;
+      normalizeEditorImages(editorEl);
+    }, 60);
 
     quill.on('text-change', function() {
       if (suppress) return;
       try {
         if (canonical) canonical.value = quill.root.innerHTML;
-      } catch(e){}
+      } catch (e) {}
     });
 
-    console.debug('[quill] initialized (toolbarOption=', (toolbarOption === '#quill-toolbar' ? '#quill-toolbar' : 'FULL_TOOLBAR'), ')');
+    console.debug(
+      '[quill] initialized (toolbarOption=',
+      (toolbarOption === '#quill-toolbar' ? '#quill-toolbar' : 'FULL_TOOLBAR'),
+      ')'
+    );
   }
 
   function setHTMLIfDifferent(html) {
     if (!quill) return;
     html = html || '';
+
     try {
       const cur = quill.root ? (quill.root.innerHTML || '') : '';
       if (normalizeHtmlForCompare(cur) === normalizeHtmlForCompare(html)) return;
+
       const delta = quill.clipboard.convert(html || '');
-      // perform programmatic update in suppress mode
       suppress = true;
       quill.setContents(delta, 'silent');
+
       if (canonical) canonical.value = quill.root.innerHTML;
-      setTimeout(()=> suppress = false, 30);
+
+      setTimeout(function(){
+        suppress = false;
+        normalizeEditorImages(document.getElementById('quill-editor'));
+      }, 40);
     } catch (e) {
-      try { quill.root.innerHTML = html; if (canonical) canonical.value = quill.root.innerHTML; } catch(_) {}
+      try {
+        quill.root.innerHTML = html;
+        if (canonical) canonical.value = quill.root.innerHTML;
+        normalizeEditorImages(document.getElementById('quill-editor'));
+      } catch (_) {}
     }
   }
 
-  // remove dangerous/complex blocks, but KEEP inner HTML of <div>/<section>
   function stripComplexBlocksAndReturn(html) {
     html = String(html || '');
-    // remove heavy blocks (and their inner content)
     html = html.replace(/<(script|style|iframe|embed|form|svg|canvas|table)[\s\S]*?<\/\1>/gi, '');
-    // remove php blocks
     html = html.replace(/<\?[\s\S]*?\?>/g, '');
-    // remove wrapping tags div/section but keep children
     html = html.replace(/<\/?(div|section)[^>]*>/gi, '');
     return html;
   }
 
   function forceEnableQuillAfterStrip() {
     if (!canonical) return;
+
     try {
       const original = canonical.value || '';
       const stripped = stripComplexBlocksAndReturn(original);
-      if (window.ADIWIRA && window.ADIWIRA.editor) window.ADIWIRA.editor._programmatic = true;
+
+      if (window.ADIWIRA && window.ADIWIRA.editor) {
+        window.ADIWIRA.editor._programmatic = true;
+      }
 
       canonical.value = stripped;
 
-      // update CodeMirror if present so UI is consistent; use silent setter if available
       try {
         const cmApi = window.ADIWIRA.codemirror;
         const cm = cmApi && cmApi.getInstance && cmApi.getInstance();
+
         if (cm && typeof cmApi.setValueSilent === 'function') {
           cmApi.setValueSilent(stripped);
         } else if (cm && typeof cm.setValue === 'function') {
           cm.setValue(stripped);
-          try { if (typeof cm.refresh === 'function') cm.refresh(); } catch(e){}
+          try {
+            if (typeof cm.refresh === 'function') cm.refresh();
+          } catch (e) {}
         }
-      } catch(e){ console.warn('[quill] update CM failed', e); }
+      } catch (e) {
+        console.warn('[quill] update CM failed', e);
+      }
 
       window.ADIWIRA.quillDisabled = false;
+
       const qRadio = document.getElementById('editor-quill');
       if (qRadio) {
         qRadio.removeAttribute('data-quill-disabled');
         qRadio.title = '';
       }
 
-      // ensure Quill is initialized then set content safely
       initQuill();
+
       if (quill) {
         suppress = true;
         try {
           const delta = quill.clipboard.convert(stripped || '');
           quill.setContents(delta, 'silent');
-        } catch(e) {
-          try { quill.root.innerHTML = stripped; } catch(_) {}
+          normalizeEditorImages(document.getElementById('quill-editor'));
+        } catch (e) {
+          try {
+            quill.root.innerHTML = stripped;
+            normalizeEditorImages(document.getElementById('quill-editor'));
+          } catch (_) {}
         }
-        setTimeout(()=> suppress = false, 40);
+        setTimeout(function(){ suppress = false; }, 40);
       }
 
-      // set radios and switch UI (ask editor.applyEditorMode to honor it)
       try {
         if (qRadio) qRadio.checked = true;
-        const cmRadio = document.getElementById('editor-codemirror'); if (cmRadio) cmRadio.checked = false;
+
+        const cmRadio = document.getElementById('editor-codemirror');
+        if (cmRadio) cmRadio.checked = false;
+
         if (window.ADIWIRA.editor && typeof window.ADIWIRA.editor.applyEditorMode === 'function') {
-          setTimeout(()=> {
+          setTimeout(function(){
             window.ADIWIRA.editor.applyEditorMode();
-            setTimeout(()=> { if (window.ADIWIRA && window.ADIWIRA.editor) window.ADIWIRA.editor._programmatic = false; }, 120);
+            setTimeout(function(){
+              if (window.ADIWIRA && window.ADIWIRA.editor) {
+                window.ADIWIRA.editor._programmatic = false;
+              }
+            }, 120);
           }, 80);
         } else {
-          setTimeout(()=> { if (window.ADIWIRA && window.ADIWIRA.editor) window.ADIWIRA.editor._programmatic = false; }, 120);
+          setTimeout(function(){
+            if (window.ADIWIRA && window.ADIWIRA.editor) {
+              window.ADIWIRA.editor._programmatic = false;
+            }
+          }, 120);
         }
-      } catch(e){ console.warn('[quill] post-strip UI switch failed', e); }
-
+      } catch (e) {
+        console.warn('[quill] post-strip UI switch failed', e);
+      }
     } catch (e) {
-      if (window.ADIWIRA && window.ADIWIRA.editor) window.ADIWIRA.editor._programmatic = false;
+      if (window.ADIWIRA && window.ADIWIRA.editor) {
+        window.ADIWIRA.editor._programmatic = false;
+      }
       console.error('[quill] forceEnableQuillAfterStrip error', e);
     }
   }
@@ -356,6 +684,6 @@ tb.addHandler('video', function () {
     isContentComplex,
     forceEnableQuillAfterStrip,
     setHTMLIfDifferent,
-    getInstance: () => quill
+    getInstance: function(){ return quill; }
   };
 })();

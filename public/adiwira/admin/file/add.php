@@ -51,6 +51,33 @@ $fileCsrf = csrf_token();
 
   if (!dz || !fileInput || !browseBtn || !progressWrap || !previewWrap) return;
 
+  function uiToast(type, title, message, duration) {
+    if (window.fileUi && typeof window.fileUi.toast === 'function') {
+      window.fileUi.toast(type, title, message, duration);
+      return;
+    }
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type, title, message, duration });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.fileUi && typeof window.fileUi.ask === 'function') {
+      return window.fileUi.ask(variant, opts || {});
+    }
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts || {});
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts || {});
+      }
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
+
   function getCsrf() {
     const local = document.getElementById('file-csrf-token');
     if (local && local.value) return local.value;
@@ -72,6 +99,9 @@ $fileCsrf = csrf_token();
   }
 
   async function readJsonSafe(res) {
+    if (window.fileUi && typeof window.fileUi.readJsonSafe === 'function') {
+      return window.fileUi.readJsonSafe(res);
+    }
     const txt = await res.text();
     let j = null;
     try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
@@ -143,7 +173,7 @@ $fileCsrf = csrf_token();
       const { txt, j } = await readJsonSafe(up);
 
       if (!up.ok) {
-        alert('Upload gagal: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + up.status))));
+        uiToast('error', 'File', 'Upload gagal: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + up.status))), 6000);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 420);
@@ -152,7 +182,7 @@ $fileCsrf = csrf_token();
       }
 
       if (!j || !j.success) {
-        alert('Upload gagal: ' + ((j && j.error) ? j.error : (txt || 'unknown')));
+        uiToast('error', 'File', 'Upload gagal: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 420);
@@ -172,6 +202,7 @@ $fileCsrf = csrf_token();
 
       showThumb(j.url, meta);
 
+      uiToast('success', 'File', 'Upload berhasil: ' + file.name, 1800);
       document.dispatchEvent(new CustomEvent('file:added', { detail: meta }));
 
       setTimeout(() => {
@@ -179,7 +210,7 @@ $fileCsrf = csrf_token();
         setTimeout(() => row.remove(), 420);
       }, 900);
     } catch (err) {
-      alert('Upload gagal (network): ' + (err && err.message ? err.message : err));
+      uiToast('error', 'File', 'Upload gagal (network): ' + (err && err.message ? err.message : err), 6000);
       setTimeout(() => {
         row.classList.add('fade');
         setTimeout(() => row.remove(), 420);
@@ -190,7 +221,7 @@ $fileCsrf = csrf_token();
   function showThumb(url, fileObj) {
     const box = document.createElement('div');
     box.className = 'thumb';
-    if (fileObj && fileObj.id) box.dataset.fileId = fileObj.id;
+    if (fileObj && fileObj.id) box.dataset.fileId = String(fileObj.id);
 
     const kind = detectKind(fileObj);
     const ext = (fileObj && fileObj.ext)
@@ -210,7 +241,7 @@ $fileCsrf = csrf_token();
       ${inner}
       <div class="meta">
         <div style="min-width:0">
-          <div style="font-weight:700;max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <div class="thumb-title" style="font-weight:700;max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${escapeHtml(fileObj.title || fileObj.filename || '')}
           </div>
           <div class="badge">${escapeHtml(kind)}</div>
@@ -242,7 +273,14 @@ $fileCsrf = csrf_token();
     if (removeBtn) {
       removeBtn.onclick = async (e) => {
         e.preventDefault();
-        if (!confirm('Hapus file ini secara permanen?')) return;
+
+        const ok = await uiAsk('danger', {
+          title: 'Hapus file',
+          message: 'File ini akan dihapus permanen dari server. Lanjutkan?',
+          confirmText: 'Ya, hapus',
+          cancelText: 'Batal'
+        });
+        if (!ok) return;
 
         const fd = new FormData();
         if (fileObj && fileObj.id) fd.append('id', fileObj.id);
@@ -262,32 +300,55 @@ $fileCsrf = csrf_token();
           const { txt, j } = await readJsonSafe(res);
 
           if (!res.ok) {
-            alert('Gagal hapus: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))));
+            uiToast('error', 'File', 'Gagal hapus: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
             return;
           }
 
           if (j && j.ok) {
             box.remove();
+            uiToast('success', 'File', 'File berhasil dihapus.', 3000);
+            if (j.warning) {
+              uiToast('warning', 'File', j.warning, 6000);
+            }
             document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
           } else {
-            alert('Gagal hapus: ' + ((j && j.error) ? j.error : (txt || 'unknown')));
+            uiToast('error', 'File', 'Gagal hapus: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
           }
         } catch (err) {
-          alert('Network error: ' + (err && err.message ? err.message : err));
+          uiToast('error', 'File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
         }
       };
     }
   }
 
+  function extractDeletedFileIds(detail) {
+    const ids = new Set();
+    if (!detail || typeof detail !== 'object') return [];
+
+    if (detail.id != null) {
+      const n = parseInt(detail.id, 10);
+      if (Number.isFinite(n) && n > 0) ids.add(String(n));
+    }
+
+    if (Array.isArray(detail.deleted_ids)) {
+      detail.deleted_ids.forEach(function(id){
+        const n = parseInt(id, 10);
+        if (Number.isFinite(n) && n > 0) ids.add(String(n));
+      });
+    }
+
+    if (Array.isArray(detail.ids)) {
+      detail.ids.forEach(function(id){
+        const n = parseInt(id, 10);
+        if (Number.isFinite(n) && n > 0) ids.add(String(n));
+      });
+    }
+
+    return Array.from(ids);
+  }
+
   document.addEventListener('file:deleted', function(e){
-    const d = e && e.detail ? e.detail : null;
-    if (!d) return;
-
-    let ids = [];
-    if (Array.isArray(d)) ids = d.map(x => parseInt(x, 10)).filter(Boolean);
-    else if (d.deleted_ids && Array.isArray(d.deleted_ids)) ids = d.deleted_ids.map(x => parseInt(x, 10)).filter(Boolean);
-    else if (d.id) ids = [parseInt(d.id, 10)].filter(Boolean);
-
+    const ids = extractDeletedFileIds(e && e.detail ? e.detail : null);
     ids.forEach(id => {
       const thumb = previewWrap.querySelector('.thumb[data-file-id="' + id + '"]');
       if (thumb) thumb.remove();
@@ -295,13 +356,12 @@ $fileCsrf = csrf_token();
   });
 
   document.addEventListener('file:updated', function(e){
-    const d = e && e.detail ? e.detail : null;
-    const file = d && d.file ? d.file : d;
+    const file = e && e.detail ? e.detail : null;
     if (!file || !file.id) return;
 
-    const thumb = previewWrap.querySelector('.thumb[data-file-id="' + file.id + '"]');
+    const thumb = previewWrap.querySelector('.thumb[data-file-id="' + String(file.id) + '"]');
     if (thumb) {
-      const titleEl = thumb.querySelector('.meta > div > div');
+      const titleEl = thumb.querySelector('.thumb-title');
       if (titleEl && file.title) titleEl.textContent = file.title;
     }
   });

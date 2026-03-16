@@ -200,15 +200,47 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     <?php endif; ?>
   <?php endif; ?>
 </div>
-
 <script>
 (function(){
+  function uiToast(type, title, message) {
+    if (window.mediaUi && typeof window.mediaUi.toast === 'function') {
+      window.mediaUi.toast(type, title, message);
+      return;
+    }
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.mediaUi && typeof window.mediaUi.ask === 'function') {
+      return window.mediaUi.ask(variant, opts || {});
+    }
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts || {});
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts || {});
+      }
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
+
   function getCsrfToken(){
+    if (window.mediaUi && typeof window.mediaUi.getCsrfToken === 'function') {
+      return window.mediaUi.getCsrfToken();
+    }
     const el = document.getElementById('csrf_token');
     return el && el.value ? el.value : '';
   }
 
   async function readJsonSafe(res){
+    if (window.mediaUi && typeof window.mediaUi.readJsonSafe === 'function') {
+      return window.mediaUi.readJsonSafe(res);
+    }
     const txt = await res.text();
     let j = null;
     try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
@@ -241,7 +273,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       }
     } catch (err) {
       console.error('Gagal load list.php:', err);
-      if (!silent) alert('Gagal memuat daftar media: ' + (err.message || err));
+      if (!silent) uiToast('error', 'Media', 'Gagal memuat daftar media: ' + (err.message || err));
     }
   }
 
@@ -277,10 +309,17 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 
       const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
       if (checked.length === 0) {
-        alert('Pilih minimal satu media untuk dihapus.');
+        uiToast('warning', 'Media', 'Pilih minimal satu media untuk dihapus.');
         return;
       }
-      if (!confirm('Hapus ' + checked.length + ' item?')) return;
+
+      const ok = await uiAsk('danger', {
+        title: 'Hapus media terpilih',
+        message: 'Sebanyak ' + checked.length + ' media akan dihapus permanen. Lanjutkan?',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       const fd = new FormData();
       checked.forEach(id => fd.append('ids[]', id));
@@ -298,12 +337,16 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          alert('Error: ' + (j?.error || txt || ('HTTP ' + res.status)));
+          uiToast('error', 'Media', j?.error || txt || ('HTTP ' + res.status));
           return;
         }
 
         if (j && j.ok) {
-          alert('Deleted: ' + (j.deleted_count || checked.length));
+          uiToast('success', 'Media', 'Berhasil menghapus ' + (j.deleted_count || checked.length) + ' media.');
+          if (Array.isArray(j.warnings) && j.warnings.length) {
+            uiToast('warning', 'Media', j.warnings.join('\n'));
+          }
+
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: { ids: checked, result: j } }));
 
           const currentQ = document.getElementById('media-search') ? document.getElementById('media-search').value.trim() : '';
@@ -311,10 +354,10 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
           const currentPage = currentPageEl ? parseInt(currentPageEl.textContent, 10) : 1;
           await reloadListFragment(currentQ, currentPage, true);
         } else {
-          alert('Error: ' + (j?.error || txt || 'unknown'));
+          uiToast('error', 'Media', j?.error || txt || 'Terjadi kesalahan.');
         }
       } catch (err) {
-        alert('Network error: ' + (err.message || err));
+        uiToast('error', 'Media', 'Network error: ' + (err.message || err));
       }
       return;
     }

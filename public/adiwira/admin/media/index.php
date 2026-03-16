@@ -2,12 +2,14 @@
 declare(strict_types=1);
 
 // /adiwira/admin/media/index.php
+require_once __DIR__ . '/../_deny.php';
+
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(403);
-    exit('Forbidden');
+    adiwira_admin_404();
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 
 [$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
 
@@ -15,6 +17,26 @@ $csrf = csrf_token();
 $initialTab = strtolower(trim((string)($_GET['tab'] ?? 'add')));
 if (!in_array($initialTab, ['add', 'list'], true)) {
     $initialTab = 'add';
+}
+
+$page_toasts = function_exists('adiwira_collect_query_toasts')
+    ? adiwira_collect_query_toasts()
+    : [];
+
+if (function_exists('adiwira_flash_pull')) {
+    $flash = adiwira_flash_pull();
+    if (is_array($flash)) {
+        foreach ($flash as $f) {
+            $type = isset($f['type']) ? (string)$f['type'] : 'info';
+            $text = isset($f['message']) ? (string)$f['message'] : (isset($f['text']) ? (string)$f['text'] : '');
+            if ($text !== '') {
+                $page_toasts[] = [
+                    'type' => $type,
+                    'message' => $text,
+                ];
+            }
+        }
+    }
 }
 ?>
 <h2>Media Manager</h2>
@@ -38,15 +60,53 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
   <div id="adam-modal"></div>
 </div>
 
+<?php
+if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
+    echo adiwira_bootstrap_toasts_script($page_toasts);
+}
+?>
+
 <script>
 (function(){
   const tabs = document.querySelectorAll('.tab-btn');
   const modalBackdrop = document.getElementById('adam-modal-backdrop');
   const modalBox = document.getElementById('adam-modal');
 
+  function uiToast(type, title, message, duration) {
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({
+        type: type || 'info',
+        title: title || null,
+        message: message || '',
+        duration: duration
+      });
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts || {});
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts || {});
+      }
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
+
   function getCsrfToken() {
     const el = document.getElementById('csrf_token');
     return el && el.value ? el.value : '';
+  }
+
+  async function readJsonSafe(res) {
+    const txt = await res.text();
+    let j = null;
+    try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
+    return { txt, j };
   }
 
   function activateTab(targetName) {
@@ -107,7 +167,9 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
       }
     } catch (err) {
       console.error('refreshListPanel error:', err);
-      if (!silent) alert('Gagal memuat daftar media: ' + (err.message || err));
+      if (!silent) {
+        uiToast('error', 'Media', 'Gagal memuat daftar media: ' + (err.message || err));
+      }
     }
   }
 
@@ -134,7 +196,7 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
         }
       };
     } catch (err) {
-      alert('Modal load error: ' + (err.message || err));
+      uiToast('error', 'Media', 'Gagal memuat modal: ' + (err.message || err));
     }
   };
 
@@ -142,6 +204,14 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
     if (!modalBackdrop || !modalBox) return;
     modalBackdrop.style.display = 'none';
     modalBox.innerHTML = '';
+  };
+
+  window.mediaUi = {
+    toast: uiToast,
+    ask: uiAsk,
+    getCsrfToken: getCsrfToken,
+    readJsonSafe: readJsonSafe,
+    refreshListPanel: refreshListPanel
   };
 
   tabs.forEach(btn => {
@@ -158,13 +228,6 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
   document.addEventListener('media:deleted', () => refreshListPanel({ silent:true, forcePage1:false }));
   document.addEventListener('media:added',   () => refreshListPanel({ silent:true, forcePage1:true  }));
 
-  async function readJsonSafe(res) {
-    const txt = await res.text();
-    let j = null;
-    try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
-    return { txt, j };
-  }
-
   function fallbackCopy(text) {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -175,9 +238,9 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
     ta.select();
     try {
       document.execCommand('copy');
-      alert('Copied: ' + text);
+      uiToast('success', 'Media', 'URL berhasil disalin.');
     } catch (e) {
-      alert('Gagal menyalin');
+      uiToast('error', 'Media', 'Gagal menyalin URL.');
     }
     document.body.removeChild(ta);
   }
@@ -187,6 +250,14 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
 
     if (target && target.id === 'media-save-btn') {
       ev.preventDefault();
+
+      const ok = await uiAsk('warning', {
+        title: 'Simpan perubahan media',
+        message: 'Perubahan metadata media akan disimpan. Lanjutkan?',
+        confirmText: 'Ya, simpan',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       const btn = target;
       const form = btn.closest('form');
@@ -207,18 +278,21 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          alert('Error: ' + (j?.error || txt || ('HTTP ' + res.status)));
+          const msg = (j?.errors && Array.isArray(j.errors) && j.errors.length)
+            ? j.errors.join('\n')
+            : (j?.error || txt || ('HTTP ' + res.status));
+          uiToast('error', 'Media', msg);
           return;
         }
 
         if (j && j.ok) {
-          alert('Updated ✔');
+          uiToast('success', 'Media', 'Media berhasil diperbarui.');
           document.dispatchEvent(new CustomEvent('media:updated', { detail: j }));
         } else {
-          alert('Error: ' + (j?.error || txt || 'unknown'));
+          uiToast('error', 'Media', j?.error || txt || 'Terjadi kesalahan.');
         }
       } catch (err) {
-        alert('Network error: ' + (err.message || err));
+        uiToast('error', 'Media', 'Network error: ' + (err.message || err));
       } finally {
         btn.disabled = false;
       }
@@ -227,7 +301,14 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
 
     if (target && target.id === 'media-delete-btn') {
       ev.preventDefault();
-      if (!confirm('Delete this media?')) return;
+
+      const ok = await uiAsk('danger', {
+        title: 'Hapus media',
+        message: 'Media ini akan dihapus permanen. Lanjutkan?',
+        confirmText: 'Ya, hapus',
+        cancelText: 'Batal'
+      });
+      if (!ok) return;
 
       const form = target.closest('form');
       const idEl = form ? form.querySelector('input[name="id"]') : null;
@@ -249,19 +330,22 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          alert('Error: ' + (j?.error || txt || ('HTTP ' + res.status)));
+          uiToast('error', 'Media', j?.error || txt || ('HTTP ' + res.status));
           return;
         }
 
         if (j && j.ok) {
-          alert('Deleted ✔');
+          uiToast('success', 'Media', 'Media berhasil dihapus.');
+          if (j.warning) {
+            uiToast('warning', 'Media', j.warning);
+          }
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
           window.adamModalClose();
         } else {
-          alert('Error: ' + (j?.error || txt || 'unknown'));
+          uiToast('error', 'Media', j?.error || txt || 'Terjadi kesalahan.');
         }
       } catch (err) {
-        alert('Network error: ' + (err.message || err));
+        uiToast('error', 'Media', 'Network error: ' + (err.message || err));
       }
       return;
     }
@@ -278,7 +362,7 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
       const path   = pathEl ? (pathEl.value || '').trim() : '';
 
       if (!path) {
-        alert('URL tidak ditemukan');
+        uiToast('warning', 'Media', 'URL tidak ditemukan.');
         return;
       }
 
@@ -289,7 +373,7 @@ if (!in_array($initialTab, ['add', 'list'], true)) {
 
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         navigator.clipboard.writeText(full).then(() => {
-          alert('Copied: ' + full);
+          uiToast('success', 'Media', 'URL berhasil disalin.');
         }).catch(() => {
           fallbackCopy(full);
         });
