@@ -159,6 +159,29 @@ if (!$embedded):
   const form = document.getElementById('modalfilez-file-edit-form');
   if (!form) return;
 
+  function uiToast(type, title, message, duration) {
+    if (window.modalfilezUi && typeof window.modalfilezUi.toast === 'function') {
+      window.modalfilezUi.toast(type, title, message, duration);
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.modalfilezUi && typeof window.modalfilezUi.ask === 'function') {
+      return window.modalfilezUi.ask(variant, opts || {});
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
+
+  function readJsonSafe(txt) {
+    if (window.modalfilezUi && typeof window.modalfilezUi.readJsonSafe === 'function') {
+      return window.modalfilezUi.readJsonSafe(txt);
+    }
+    try { return txt ? JSON.parse(txt) : null; }
+    catch(e) { return null; }
+  }
+
   function broadcast(name, detail) {
     try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
@@ -167,11 +190,6 @@ if (!$embedded):
         window.parent.postMessage({ type: name, detail: detail }, '*');
       }
     } catch(e){}
-  }
-
-  function readJsonSafe(txt) {
-    try { return txt ? JSON.parse(txt) : null; }
-    catch(e) { return null; }
   }
 
   function getDetailPayload() {
@@ -207,6 +225,14 @@ if (!$embedded):
   });
 
   document.getElementById('modalfilez-file-save')?.addEventListener('click', async function(){
+    const ok = await uiAsk('warning', {
+      title: 'Simpan perubahan file',
+      message: 'Perubahan metadata file akan disimpan. Lanjutkan?',
+      confirmText: 'Ya, simpan',
+      cancelText: 'Batal'
+    });
+    if (!ok) return;
+
     const btn = this;
     btn.disabled = true;
 
@@ -223,12 +249,12 @@ if (!$embedded):
       const j = readJsonSafe(txt);
 
       if (!res.ok) {
-        alert('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))));
+        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
         return;
       }
 
       if (!j || !j.ok) {
-        alert('Error: ' + ((j && j.error) ? j.error : 'Save failed'));
+        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : 'Save failed'), 6000);
         return;
       }
 
@@ -240,16 +266,22 @@ if (!$embedded):
       }
 
       broadcast('file:updated', j.file || j);
-      alert('Saved ✔');
+      uiToast('success', 'Library File', 'File berhasil diperbarui.', 2200);
     } catch (err) {
-      alert('Network error: ' + (err && err.message ? err.message : err));
+      uiToast('error', 'Library File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
     } finally {
       btn.disabled = false;
     }
   });
 
   document.getElementById('modalfilez-file-delete')?.addEventListener('click', async function(){
-    if (!confirm('Hapus file ini secara permanen?')) return;
+    const ok = await uiAsk('danger', {
+      title: 'Hapus file',
+      message: 'File ini akan dihapus permanen. Lanjutkan?',
+      confirmText: 'Ya, hapus',
+      cancelText: 'Batal'
+    });
+    if (!ok) return;
 
     const btn = this;
     btn.disabled = true;
@@ -269,25 +301,39 @@ if (!$embedded):
       const j = readJsonSafe(txt);
 
       if (!res.ok) {
-        alert('Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))));
+        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
         return;
       }
 
       if (!j || !j.ok) {
-        alert('Error: ' + ((j && j.error) ? j.error : 'Delete failed'));
+        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : 'Delete failed'), 6000);
         return;
       }
 
-      broadcast('file:deleted', j);
+      const payload = Object.assign({}, j || {}, {
+        id: form.dataset.id ? parseInt(form.dataset.id, 10) : (j.id || null),
+        url: form.dataset.url || '',
+        deleted_ids: (j && Array.isArray(j.deleted_ids))
+          ? j.deleted_ids
+          : (form.dataset.id ? [parseInt(form.dataset.id, 10)].filter(Boolean) : []),
+        deleted_urls: (j && Array.isArray(j.deleted_urls))
+          ? j.deleted_urls
+          : (form.dataset.url ? [form.dataset.url] : [])
+      });
+
+      broadcast('file:deleted', payload);
+
+      uiToast('success', 'Library File', 'File berhasil dihapus.', 2200);
+      if (j.warning) {
+        uiToast('warning', 'Library File', j.warning, 6000);
+      }
 
       if (typeof window.modalfilezBackToLibrary === 'function') {
         window.modalfilezBackToLibrary();
         return;
       }
-
-      alert('Deleted ✔');
     } catch (err) {
-      alert('Network error: ' + (err && err.message ? err.message : err));
+      uiToast('error', 'Library File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
     } finally {
       btn.disabled = false;
     }
@@ -297,14 +343,14 @@ if (!$embedded):
     const input = document.getElementById('modalfilez-file-url');
     const value = input ? (input.value || '').trim() : '';
     if (!value) {
-      alert('URL tidak ditemukan');
+      uiToast('warning', 'Library File', 'URL tidak ditemukan.', 4000);
       return;
     }
 
     try {
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         await navigator.clipboard.writeText(value);
-        alert('Copied: ' + value);
+        uiToast('success', 'Library File', 'URL berhasil disalin.', 1800);
         return;
       }
     } catch(e){}
@@ -313,9 +359,9 @@ if (!$embedded):
       input.select();
       try {
         document.execCommand('copy');
-        alert('Copied: ' + value);
+        uiToast('success', 'Library File', 'URL berhasil disalin.', 1800);
       } catch (e) {
-        alert('Gagal menyalin');
+        uiToast('error', 'Library File', 'Gagal menyalin URL.', 4000);
       }
     }
   });

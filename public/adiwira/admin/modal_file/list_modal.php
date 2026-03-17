@@ -199,6 +199,14 @@ try {
   const wrap = document.getElementById('modalfilez-lib-wrap');
   if (!wrap) return;
 
+  function uiToast(type, title, message, duration) {
+    if (window.modalfilezUi && typeof window.modalfilezUi.toast === 'function') {
+      window.modalfilezUi.toast(type, title, message, duration);
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
   function broadcast(name, detail) {
     try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
@@ -228,7 +236,8 @@ try {
         inject(html);
       })
       .catch(function(err){
-        alert('Gagal memuat daftar file: ' + String(err.message || err));
+        console.error('modalfilez list fetch error', err);
+        uiToast('error', 'Library File', 'Gagal memuat daftar file: ' + String(err.message || err), 6000);
       });
   }
 
@@ -248,7 +257,10 @@ try {
       ev.preventDefault();
       const card = btn.closest('.modalfilez-card');
       const id = card ? card.getAttribute('data-id') : '';
-      if (!id) return;
+      if (!id) {
+        uiToast('warning', 'Library File', 'ID file tidak ditemukan.', 4000);
+        return;
+      }
 
       if (typeof window.modalfilezOpenSingle === 'function') {
         window.modalfilezOpenSingle(id);

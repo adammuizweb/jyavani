@@ -63,6 +63,36 @@ try {
 
   if (!dropzone || !fileInput || !browseBtn || !clearBtn || !progressWrap || !previewWrap) return;
 
+  function uiToast(type, title, message, duration) {
+    if (window.modalfilezUi && typeof window.modalfilezUi.toast === 'function') {
+      window.modalfilezUi.toast(type, title, message, duration);
+      return;
+    }
+    alert(message || title || 'Terjadi sesuatu.');
+  }
+
+  function uiAsk(variant, opts) {
+    if (window.modalfilezUi && typeof window.modalfilezUi.ask === 'function') {
+      return window.modalfilezUi.ask(variant, opts || {});
+    }
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+  }
+
+  function getCsrfToken() {
+    if (window.modalfilezUi && typeof window.modalfilezUi.getCsrfToken === 'function') {
+      return window.modalfilezUi.getCsrfToken();
+    }
+    return '';
+  }
+
+  function readJsonSafe(txt) {
+    if (window.modalfilezUi && typeof window.modalfilezUi.readJsonSafe === 'function') {
+      return window.modalfilezUi.readJsonSafe(txt);
+    }
+    try { return txt ? JSON.parse(txt) : null; }
+    catch(e) { return null; }
+  }
+
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, function(m){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
@@ -77,38 +107,6 @@ try {
         window.parent.postMessage({ type: name, detail: detail }, '*');
       }
     } catch(e){}
-  }
-
-  function getCsrfToken() {
-    let token = '';
-
-    try {
-      const local = document.querySelector('input[name="csrf_token"]');
-      if (local && local.value) token = local.value;
-    } catch(e){}
-
-    if (!token) {
-      try {
-        const el = document.getElementById('modalfilez-csrf');
-        if (el && el.value) token = el.value;
-      } catch(e){}
-    }
-
-    if (!token) {
-      try {
-        const parentEl = window.parent && window.parent.document
-          ? window.parent.document.querySelector('input[name="csrf_token"], #csrf_token')
-          : null;
-        if (parentEl) token = parentEl.value || parentEl.textContent || '';
-      } catch(e){}
-    }
-
-    return token;
-  }
-
-  function readJsonSafe(txt) {
-    try { return txt ? JSON.parse(txt) : null; }
-    catch(e) { return null; }
   }
 
   function detectKind(fileObj) {
@@ -222,7 +220,13 @@ try {
 
     if (deleteBtn) {
       deleteBtn.addEventListener('click', async function(){
-        if (!confirm('Hapus file ini secara permanen?')) return;
+        const ok = await uiAsk('danger', {
+          title: 'Hapus file',
+          message: 'File ini akan dihapus permanen. Lanjutkan?',
+          confirmText: 'Ya, hapus',
+          cancelText: 'Batal'
+        });
+        if (!ok) return;
 
         const fd = new FormData();
         if (fileObj && fileObj.id) fd.append('id', String(fileObj.id));
@@ -242,19 +246,30 @@ try {
           const j = readJsonSafe(txt);
 
           if (!res.ok) {
-            alert('Gagal hapus: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))));
+            uiToast('error', 'Library File', 'Gagal hapus file: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
             return;
           }
 
           if (j && j.ok) {
             box.remove();
             updateClearButton();
-            broadcast('file:deleted', j);
+            uiToast('success', 'Library File', 'File berhasil dihapus.', 2200);
+            if (j.warning) {
+              uiToast('warning', 'Library File', j.warning, 6000);
+            }
+
+            const payload = Object.assign({}, j || {}, {
+              deleted_urls: (j && Array.isArray(j.deleted_urls))
+                ? j.deleted_urls
+                : (url ? [String(url)] : [])
+            });
+
+            broadcast('file:deleted', payload);
           } else {
-            alert('Gagal hapus: ' + ((j && j.error) ? j.error : 'unknown'));
+            uiToast('error', 'Library File', 'Gagal hapus file: ' + ((j && j.error) ? j.error : 'unknown'), 6000);
           }
         } catch (err) {
-          alert('Network error: ' + (err && err.message ? err.message : err));
+          uiToast('error', 'Library File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
         }
       });
     }
@@ -283,14 +298,14 @@ try {
       const j = readJsonSafe(txt);
 
       if (!res.ok) {
-        alert('Upload gagal: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))));
+        uiToast('error', 'Library File', 'Upload gagal: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
         progress.row.remove();
         updateClearButton();
         return;
       }
 
       if (!j || !j.success) {
-        alert('Upload gagal: ' + ((j && j.error) ? j.error : (txt || 'unknown')));
+        uiToast('error', 'Library File', 'Upload gagal: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         progress.row.remove();
         updateClearButton();
         return;
@@ -308,6 +323,7 @@ try {
 
       showPreview(j.url || '', fileMeta);
       broadcast('file:added', fileMeta);
+      uiToast('success', 'Library File', 'Upload berhasil: ' + file.name, 1800);
 
       setTimeout(function(){
         if (progress.row.parentNode) {
@@ -316,7 +332,7 @@ try {
         updateClearButton();
       }, 700);
     } catch (err) {
-      alert('Upload gagal (network): ' + (err && err.message ? err.message : err));
+      uiToast('error', 'Library File', 'Upload gagal (network): ' + (err && err.message ? err.message : err), 6000);
       if (progress.row.parentNode) {
         progress.row.parentNode.removeChild(progress.row);
       }
@@ -395,8 +411,9 @@ try {
 
     const titleEl = thumb.querySelector('.modalfilez-preview-title');
     if (titleEl) {
-      titleEl.textContent = file.title || file.filename || titleEl.textContent;
-      titleEl.setAttribute('title', file.title || file.filename || '');
+      const newTitle = file.title || file.filename || titleEl.textContent;
+      titleEl.textContent = newTitle;
+      titleEl.setAttribute('title', newTitle);
     }
   });
 

@@ -65,13 +65,98 @@ if (!$embedded):
 
 <script>
 (function(){
-  if (window.__modalfilez_index_installed) return;
-  window.__modalfilez_index_installed = true;
+  if (!window.modalfilezUi) {
+    window.modalfilezUi = (function(){
+      function getToastApi(){
+        try {
+          if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') return window.NewNotifToast;
+          if (window.parent && window.parent !== window && window.parent.NewNotifToast && typeof window.parent.NewNotifToast.show === 'function') {
+            return window.parent.NewNotifToast;
+          }
+        } catch(e){}
+        return null;
+      }
 
-  var lastListUrl = '/adiwira/admin/modal_file/list_modal.php';
+      function getConfirmApi(){
+        try {
+          if (window.NewNotifConfirm) return window.NewNotifConfirm;
+          if (window.parent && window.parent !== window && window.parent.NewNotifConfirm) {
+            return window.parent.NewNotifConfirm;
+          }
+        } catch(e){}
+        return null;
+      }
 
-  function getRoot() {
-    return document.getElementById('modalfilez-root');
+      function toast(type, title, message, duration){
+        const api = getToastApi();
+        if (api) {
+          api.show({
+            type: type || 'info',
+            title: title || null,
+            message: message || '',
+            duration: duration
+          });
+          return;
+        }
+        alert(message || title || 'Terjadi sesuatu.');
+      }
+
+      function ask(variant, opts){
+        const api = getConfirmApi();
+        if (api) {
+          if (variant === 'danger' && typeof api.danger === 'function') {
+            return api.danger(opts || {});
+          }
+          if (typeof api.warning === 'function') {
+            return api.warning(opts || {});
+          }
+        }
+        return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+      }
+
+      function readJsonSafe(txt){
+        try { return txt ? JSON.parse(txt) : null; }
+        catch(e){ return null; }
+      }
+
+      function getCsrfToken(){
+        try {
+          const local = document.getElementById('modalfilez-csrf');
+          if (local && local.value) return local.value;
+        } catch(e){}
+
+        try {
+          const local2 = document.querySelector('input[name="csrf_token"]');
+          if (local2 && local2.value) return local2.value;
+        } catch(e){}
+
+        try {
+          const parentEl = window.parent && window.parent.document
+            ? window.parent.document.querySelector('input[name="csrf_token"], #csrf_token')
+            : null;
+          if (parentEl) return parentEl.value || parentEl.textContent || '';
+        } catch(e){}
+
+        return '';
+      }
+
+      return {
+        toast: toast,
+        ask: ask,
+        readJsonSafe: readJsonSafe,
+        getCsrfToken: getCsrfToken
+      };
+    })();
+  }
+
+  const root = document.getElementById('modalfilez-root');
+  if (!root || root.dataset.modalfilezReady === '1') return;
+  root.dataset.modalfilezReady = '1';
+
+  let lastListUrl = '/adiwira/admin/modal_file/list_modal.php';
+
+  function uiToast(type, title, message, duration){
+    window.modalfilezUi.toast(type, title, message, duration);
   }
 
   function getHost() {
@@ -79,43 +164,24 @@ if (!$embedded):
   }
 
   function getInitialTab() {
-    var root = getRoot();
-    if (!root) return 'upload';
-    var t = (root.getAttribute('data-initial-tab') || 'upload').toLowerCase();
+    const t = (root.getAttribute('data-initial-tab') || 'upload').toLowerCase();
     return (t === 'library') ? 'library' : 'upload';
-  }
-
-  function flash(msg, ok) {
-    var hint = document.getElementById('modalfilez-hint');
-    if (!hint) {
-      try { alert(msg); } catch(e){}
-      return;
-    }
-
-    if (!hint.dataset.orig) hint.dataset.orig = hint.innerHTML;
-    hint.innerHTML = msg;
-    hint.style.color = ok ? '#059669' : '#dc2626';
-
-    setTimeout(function(){
-      hint.style.color = '';
-      hint.innerHTML = hint.dataset.orig || 'Klik <b>Insert</b> untuk memilih file';
-    }, 1600);
   }
 
   function injectHtmlWithScripts(container, html) {
     try {
-      var parser = new DOMParser();
-      var doc = parser.parseFromString(html, 'text/html');
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
 
-      var bodyHtml = '';
+      let bodyHtml = '';
       Array.from(doc.body.childNodes).forEach(function(n){
         if (n.nodeName && n.nodeName.toLowerCase() === 'script') return;
         bodyHtml += n.outerHTML || n.textContent || '';
       });
       container.innerHTML = bodyHtml;
 
-      var scripts = doc.querySelectorAll('script');
-      var externals = [];
+      const scripts = doc.querySelectorAll('script');
+      const externals = [];
 
       scripts.forEach(function(s){
         if (s.src) externals.push(s.src);
@@ -123,7 +189,7 @@ if (!$embedded):
 
       externals.forEach(function(src){
         if (!document.querySelector('script[src="' + src + '"]')) {
-          var el = document.createElement('script');
+          const el = document.createElement('script');
           el.src = src;
           el.async = false;
           document.head.appendChild(el);
@@ -132,7 +198,7 @@ if (!$embedded):
 
       scripts.forEach(function(s){
         if (!s.src) {
-          var el = document.createElement('script');
+          const el = document.createElement('script');
           el.text = s.textContent || '';
           document.body.appendChild(el);
         }
@@ -140,19 +206,17 @@ if (!$embedded):
     } catch (err) {
       console.error('modalfilez inject error', err);
       container.innerHTML = '<div style="color:#c00">Gagal memuat konten.</div>';
+      uiToast('error', 'Library File', 'Gagal memuat konten modal.', 5000);
     }
   }
 
   window.modalfilezInjectHtmlWithScripts = injectHtmlWithScripts;
 
   function setActive(tab) {
-    var root = getRoot();
-    if (!root) return;
-
-    var btnUpload = root.querySelector('[data-modalfilez-tab="upload"]');
-    var btnLibrary = root.querySelector('[data-modalfilez-tab="library"]');
-    var panelUpload = document.getElementById('modalfilez-panel-upload');
-    var panelLibrary = document.getElementById('modalfilez-panel-library');
+    const btnUpload = root.querySelector('[data-modalfilez-tab="upload"]');
+    const btnLibrary = root.querySelector('[data-modalfilez-tab="library"]');
+    const panelUpload = document.getElementById('modalfilez-panel-upload');
+    const panelLibrary = document.getElementById('modalfilez-panel-library');
 
     if (btnUpload) btnUpload.classList.toggle('modalfilez-tab-active', tab === 'upload');
     if (btnLibrary) btnLibrary.classList.toggle('modalfilez-tab-active', tab === 'library');
@@ -166,19 +230,19 @@ if (!$embedded):
   }
 
   async function fetchIntoLibrary(url, loadingText) {
-    var host = getHost();
+    const host = getHost();
     if (!host) return;
 
     host.innerHTML = '<div class="modalfilez-loading">' + (loadingText || 'Memuat…') + '</div>';
 
-    var finalUrl = String(url || '');
+    let finalUrl = String(url || '');
     if (!finalUrl) return;
 
     if (finalUrl.indexOf('_ts=') === -1) {
       finalUrl += (finalUrl.indexOf('?') >= 0 ? '&' : '?') + '_ts=' + Date.now();
     }
 
-    var res = await fetch(finalUrl, {
+    const res = await fetch(finalUrl, {
       credentials: 'include',
       cache: 'no-store'
     });
@@ -187,22 +251,29 @@ if (!$embedded):
       throw new Error('HTTP ' + res.status);
     }
 
-    var html = await res.text();
+    const html = await res.text();
     injectHtmlWithScripts(host, html);
   }
 
   async function loadList(force, url) {
-    var host = getHost();
+    const host = getHost();
     if (!host) return;
 
     if (url) lastListUrl = url;
 
-    var loaded = host.getAttribute('data-loaded') === '1';
+    const loaded = host.getAttribute('data-loaded') === '1';
     if (!force && loaded && host.getAttribute('data-view') === 'list' && !url) return;
 
     host.setAttribute('data-view', 'list');
-    await fetchIntoLibrary(lastListUrl, 'Memuat daftar file…');
-    host.setAttribute('data-loaded', '1');
+
+    try {
+      await fetchIntoLibrary(lastListUrl, 'Memuat daftar file…');
+      host.setAttribute('data-loaded', '1');
+    } catch (err) {
+      console.error('modalfilez loadList error', err);
+      host.innerHTML = '<div class="modalfilez-loading" style="color:#dc2626">Gagal memuat library file.</div>';
+      uiToast('error', 'Library File', 'Gagal memuat daftar file: ' + (err.message || err), 6000);
+    }
   }
 
   async function openSingle(id) {
@@ -210,7 +281,7 @@ if (!$embedded):
 
     setActive('library');
 
-    var host = getHost();
+    const host = getHost();
     if (!host) return;
 
     host.setAttribute('data-view', 'single');
@@ -221,38 +292,49 @@ if (!$embedded):
       '</div>' +
       '<div class="modalfilez-loading">Memuat detail…</div>';
 
-    var url = '/adiwira/admin/modal_file/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1&_ts=' + Date.now();
-    var res = await fetch(url, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
+    try {
+      const url = '/adiwira/admin/modal_file/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1&_ts=' + Date.now();
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store'
+      });
 
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status);
-    }
-
-    var html = await res.text();
-    var doc = new DOMParser().parseFromString(html, 'text/html');
-    var body = doc.body;
-    var single = body.querySelector('#modalfilez-single-wrap') || body;
-
-    var clone = single.cloneNode(true);
-    Array.from(clone.querySelectorAll('script')).forEach(function(s){ s.remove(); });
-
-    host.innerHTML =
-      '<div class="modalfilez-singlehead">' +
-        '<div class="modalfilez-back" data-modalfilez-action="back">← Kembali</div>' +
-        '<div class="modalfilez-singletitle">Detail File</div>' +
-      '</div>' +
-      (clone.outerHTML || clone.innerHTML || '');
-
-    Array.from(body.querySelectorAll('script')).forEach(function(s){
-      if (!s.src) {
-        var el = document.createElement('script');
-        el.text = s.textContent || '';
-        document.body.appendChild(el);
+      if (!res.ok) {
+        throw new Error('HTTP ' + res.status);
       }
-    });
+
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const body = doc.body;
+      const single = body.querySelector('#modalfilez-single-wrap') || body;
+
+      const clone = single.cloneNode(true);
+      Array.from(clone.querySelectorAll('script')).forEach(function(s){ s.remove(); });
+
+      host.innerHTML =
+        '<div class="modalfilez-singlehead">' +
+          '<div class="modalfilez-back" data-modalfilez-action="back">← Kembali</div>' +
+          '<div class="modalfilez-singletitle">Detail File</div>' +
+        '</div>' +
+        (clone.outerHTML || clone.innerHTML || '');
+
+      Array.from(body.querySelectorAll('script')).forEach(function(s){
+        if (!s.src) {
+          const el = document.createElement('script');
+          el.text = s.textContent || '';
+          document.body.appendChild(el);
+        }
+      });
+    } catch (err) {
+      console.error('modalfilez openSingle error', err);
+      host.innerHTML =
+        '<div class="modalfilez-singlehead">' +
+          '<div class="modalfilez-back" data-modalfilez-action="back">← Kembali</div>' +
+          '<div class="modalfilez-singletitle">Detail File</div>' +
+        '</div>' +
+        '<div class="modalfilez-loading" style="color:#dc2626">Gagal memuat detail file.</div>';
+      uiToast('error', 'Library File', 'Gagal memuat detail file: ' + (err.message || err), 6000);
+    }
   }
 
   window.modalfilezActivate = setActive;
@@ -271,32 +353,28 @@ if (!$embedded):
   };
   window.modalfilezLoadIntoRoot = function(url){
     setActive('library');
-    return fetchIntoLibrary(url, 'Memuat…');
+    return fetchIntoLibrary(url, 'Memuat…').catch(function(err){
+      uiToast('error', 'Library File', 'Gagal memuat konten: ' + (err.message || err), 6000);
+    });
   };
 
-  document.addEventListener('click', function(ev){
-    var root = getRoot();
-    if (!root) return;
-
-    var tabBtn = ev.target.closest('[data-modalfilez-tab]');
+  root.addEventListener('click', function(ev){
+    const tabBtn = ev.target.closest('[data-modalfilez-tab]');
     if (tabBtn && root.contains(tabBtn)) {
       ev.preventDefault();
       setActive(tabBtn.getAttribute('data-modalfilez-tab') || 'upload');
       return;
     }
 
-    var backBtn = ev.target.closest('[data-modalfilez-action="back"]');
+    const backBtn = ev.target.closest('[data-modalfilez-action="back"]');
     if (backBtn && root.contains(backBtn)) {
       ev.preventDefault();
       window.modalfilezBackToLibrary();
     }
   }, true);
 
-  document.addEventListener('keydown', function(ev){
-    var root = getRoot();
-    if (!root) return;
-
-    var a = document.activeElement;
+  root.addEventListener('keydown', function(ev){
+    const a = document.activeElement;
     if (!a || !root.contains(a)) return;
 
     if (a.getAttribute && a.getAttribute('data-modalfilez-tab') && (ev.key === 'Enter' || ev.key === ' ')) {
@@ -305,22 +383,24 @@ if (!$embedded):
     }
   }, true);
 
-  function safeRefresh() {
-    var host = getHost();
-    if (!host) return;
-    if (host.getAttribute('data-view') !== 'list') return;
-    loadList(true, lastListUrl);
+  if (!window.__modalfilez_refresh_bound) {
+    window.__modalfilez_refresh_bound = true;
+
+    const safeRefresh = function(){
+      const host = document.getElementById('modalfilez-library-host');
+      if (!host) return;
+      if (host.getAttribute('data-view') !== 'list') return;
+      if (typeof window.modalfilezLoadList === 'function') {
+        window.modalfilezLoadList(true);
+      }
+    };
+
+    document.addEventListener('file:added', safeRefresh);
+    document.addEventListener('file:updated', safeRefresh);
+    document.addEventListener('file:deleted', safeRefresh);
   }
 
-  document.addEventListener('file:added', safeRefresh);
-  document.addEventListener('file:updated', safeRefresh);
-  document.addEventListener('file:deleted', safeRefresh);
-
-  try {
-    setActive(getInitialTab());
-  } catch (e) {
-    setActive('upload');
-  }
+  setActive(getInitialTab());
 })();
 </script>
 
