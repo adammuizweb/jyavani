@@ -228,9 +228,12 @@ $bcDataAttrs = function (int $dur, int $delay): string {
 
 <?php $postTitle = trim((string)($post['title'] ?? '')); ?>
 
-<h1 class="adam-post-title wave-span onload"
+<h1 class="adam-post-title fade-up blur-in onload moving-line ml-text"
     data-anim-trigger="load"
-    data-wave-step="22"><?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?></h1>
+    data-duration="700"
+    data-delay="120">
+  <?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?>
+</h1>
 
 <div class="adam-post-meta-row fade-up onload" data-anim-trigger="load">
   <div class="meta-author">

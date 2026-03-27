@@ -51,6 +51,7 @@
   --space-8: 2.5rem;
 
   --content-max: 820px;
+  --page-max: 1000px;
   --container-max: 1100px;
   --ease: .2s ease;
 }
@@ -825,6 +826,17 @@ pre code{
 
 .adam-post-single{
   max-width: var(--content-max);
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+.adam-page-single{
+  max-width: var(--page-max);
   margin: 2rem auto;
   padding: 1.5rem;
   background: var(--surface);

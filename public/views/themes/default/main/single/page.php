@@ -33,7 +33,7 @@ $displayUpdated = $updatedTs ? date('d M Y', $updatedTs) : '';
 $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
 ?>
 
-<article class="adam-post-single" itemscope itemtype="https://schema.org/Article">
+<article class="adam-page-single" itemscope itemtype="https://schema.org/Article">
 
   <!-- Baris 1: Title -->
   <header class="post-header">

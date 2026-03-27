@@ -91,6 +91,7 @@ if (!is_dir($upload_base_dir) && !mkdir($upload_base_dir, 0755, true)) {
  * - exif_imagetype
  * - finfo
  * - mime_content_type
+ * - signature sniffing untuk AVIF
  */
 $tmp = (string)$file['tmp_name'];
 $det = [
@@ -98,6 +99,7 @@ $det = [
     'exif'              => null,
     'finfo'             => null,
     'mime_content_type' => null,
+    'signature'         => null,
 ];
 
 $mime = '';
@@ -117,8 +119,12 @@ if ($mime === '' && function_exists('exif_imagetype')) {
             IMAGETYPE_JPEG => 'image/jpeg',
             IMAGETYPE_PNG  => 'image/png',
         ];
+
         if (defined('IMAGETYPE_WEBP')) {
             $map[IMAGETYPE_WEBP] = 'image/webp';
+        }
+        if (defined('IMAGETYPE_AVIF')) {
+            $map[IMAGETYPE_AVIF] = 'image/avif';
         }
 
         if (isset($map[$t])) {
@@ -141,7 +147,7 @@ if ($mime === '' && class_exists('finfo')) {
 }
 
 // 4) mime_content_type
-if ($mime === '' && function_exists('mime_content_type')) {
+if (($mime === '' || $mime === 'application/octet-stream') && function_exists('mime_content_type')) {
     $m = @mime_content_type($tmp);
     if (is_string($m) && $m !== '') {
         $det['mime_content_type'] = $m;
@@ -149,19 +155,30 @@ if ($mime === '' && function_exists('mime_content_type')) {
     }
 }
 
+// 5) signature sniffing AVIF fallback
+if ($mime === '' || $mime === 'application/octet-stream') {
+    $head = @file_get_contents($tmp, false, null, 0, 64);
+    if (is_string($head) && preg_match('/ftyp(?:avif|avis)/i', $head)) {
+        $det['signature'] = 'image/avif';
+        $mime = 'image/avif';
+    }
+}
+
 $mime = strtolower(trim((string)$mime));
 
 // normalisasi
 $normalize = [
-    'image/pjpeg' => 'image/jpeg',
-    'image/jpg'   => 'image/jpeg',
-    'image/x-png' => 'image/png',
+    'image/pjpeg'         => 'image/jpeg',
+    'image/jpg'           => 'image/jpeg',
+    'image/x-png'         => 'image/png',
+    'image/avif-sequence' => 'image/avif',
 ];
 if (isset($normalize[$mime])) {
     $mime = $normalize[$mime];
 }
 
 $allowed = [
+    'image/avif' => 'avif',
     'image/webp' => 'webp',
     'image/png'  => 'png',
     'image/jpeg' => 'jpg',
@@ -171,7 +188,7 @@ if (!isset($allowed[$mime])) {
     adiwira_json([
         'success'       => false,
         'ok'            => false,
-        'error'         => 'Only webp/png/jpg/jpeg allowed',
+        'error'         => 'Only avif/webp/png/jpg/jpeg allowed',
         'detected_mime' => $mime,
         'detectors'     => $det,
     ], 415);
