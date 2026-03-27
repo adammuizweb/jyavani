@@ -1,5 +1,7 @@
 # Environment / secrets
 .env
+.lampz.pid
+.lampz-php.log
 cfg/*.env
 jyavani.code-profile
 # Session files (do not commit runtime sessions)
@@ -15,3 +17,8 @@ cfg/var/sessions/**
 # public/bootstrap_core.php
 # public/layout.php
 # public/adiwira/bootstrap.php
+
+
+# noteloc runtime share files
+public/noteloc/
+var/noteloc-share/
