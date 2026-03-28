@@ -3,6 +3,7 @@
 .lampz.pid
 .lampz-php.log
 cfg/*.env
+cfg/php-noteloc.ini
 jyavani.code-profile
 # Session files (do not commit runtime sessions)
 cfg/var/sessions/
