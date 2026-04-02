@@ -1,5 +1,5 @@
 <?php
-// /adiwira/theme/adam/partials/pages/single.php
+// lokasi /views/themes/default/main/single/page.php
 // Layout: Baris1 title | Baris2 author username + updated_at | Baris3 content | Baris4 published-by (author img+username) + created_at
 
 if (!isset($post)) {
