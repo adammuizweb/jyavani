@@ -241,7 +241,7 @@ if ($role === 'author') {
     $content = sanitize_author_html($content);
 }
 
-if (function_exists('normalize_links_in_html')) {
+if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
     $content = normalize_links_in_html($content);
 }
 

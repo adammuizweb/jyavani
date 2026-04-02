@@ -193,9 +193,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $content = sanitize_author_html($content);
     }
 
-    if (function_exists('normalize_links_in_html')) {
-        $content = normalize_links_in_html($content);
-    }
+if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
+    $content = normalize_links_in_html($content);
+}
 
     if (trim(strip_tags($content)) === '') {
         $errors[] = 'Konten tidak boleh kosong.';
