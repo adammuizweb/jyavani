@@ -77,7 +77,7 @@ try {
 }
 ?>
 
-<div>
+<div id="modalimg-list-root">
   <div class="search-row">
     <input id="modal-search" placeholder="Cari title/filename/caption..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px">
     <button id="modal-search-btn" style="padding:8px;border-radius:6px">Cari</button>
@@ -188,6 +188,14 @@ try {
 
 <script>
 (function(){
+  var root = document.getElementById('modalimg-list-root');
+  if (!root) return;
+
+  if (root.dataset.modalimgBound === '1') {
+    return;
+  }
+  root.dataset.modalimgBound = '1';
+
   function uiToast(type, title, message, duration){
     if (typeof window.modalImgToast === 'function') {
       window.modalImgToast(type, title, message, duration);
@@ -197,53 +205,63 @@ try {
   }
 
   function broadcast(name, detail) {
-    try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
-    try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
+    try { document.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch(e){}
+    try { window.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch(e){}
     try {
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ type: name, detail }, '*');
+        window.parent.postMessage({ type: name, detail: detail }, '*');
       }
     } catch(e){}
   }
 
-  function fetchAndReplace(url) {
-    fetch(url, { credentials: 'include', cache: 'no-store' })
+  function withTs(url) {
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + '_ts=' + Date.now();
+  }
+
+  function replaceRootOnly(html) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(String(html || ''), 'text/html');
+    var nextRoot = doc.getElementById('modalimg-list-root');
+    if (!nextRoot) return;
+
+    root.innerHTML = nextRoot.innerHTML;
+  }
+
+  function requestList(url) {
+    return fetch(withTs(url), {
+      credentials: 'include',
+      cache: 'no-store'
+    })
       .then(function(res){
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.text();
       })
       .then(function(html){
-        var parser = new DOMParser();
-        var doc = parser.parseFromString(html, 'text/html');
-        var newContainer = doc.getElementById('gallery-container');
-        var cur = document.getElementById('gallery-container');
-
-        if (newContainer && cur) {
-          cur.parentNode.replaceChild(newContainer, cur);
-          broadcast('modal:gallery:updated', {});
-        }
+        replaceRootOnly(html);
+        broadcast('modal:gallery:updated', {});
       })
       .catch(function(err){
-        console.error('fetchAndReplace failed', err);
+        console.error('modal_img list fetch error', err);
         uiToast('error', 'Gallery', 'Gagal memuat gallery: ' + (err.message || err), 6000);
       });
   }
 
-  document.addEventListener('click', function(ev){
-    var a = ev.target;
+  root.addEventListener('click', function(ev){
+    var target = ev.target;
 
-    var pag = a.closest && a.closest('#pagination a');
+    var pag = target.closest && target.closest('#pagination a');
     if (pag) {
       ev.preventDefault();
       var href = pag.getAttribute('href');
       if (!href) return;
-      fetchAndReplace(href);
+      requestList(href);
       return;
     }
 
-    var detailBtn = a.closest && a.closest('.btn-detail');
+    var detailBtn = target.closest && target.closest('.btn-detail');
     if (detailBtn) {
       ev.preventDefault();
+
       var id = detailBtn.getAttribute('data-id');
       if (!id) {
         uiToast('warning', 'Gallery', 'ID media tidak ditemukan.', 4000);
@@ -253,14 +271,14 @@ try {
       var url = '/adiwira/admin/modal_img/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1';
 
       try {
-        if (window.parent && window.parent.adamModalOpen) {
+        if (window.parent && window.parent !== window && typeof window.parent.adamModalOpen === 'function') {
           window.parent.adamModalOpen(url, { maxWidth: '820px' });
           return;
         }
       } catch(e){}
 
       try {
-        if (window.adamModalOpen) {
+        if (typeof window.adamModalOpen === 'function') {
           window.adamModalOpen(url, { maxWidth: '820px' });
           return;
         }
@@ -270,11 +288,11 @@ try {
       return;
     }
 
-    var ins = a.closest && a.closest('.btn-insert');
-    if (ins) {
+    var insertBtn = target.closest && target.closest('.btn-insert');
+    if (insertBtn) {
       ev.preventDefault();
 
-      var thumb = ins.closest && ins.closest('.gallery-thumb');
+      var thumb = insertBtn.closest && insertBtn.closest('.gallery-thumb');
       if (!thumb) return;
 
       var id = thumb.getAttribute('data-id');
@@ -298,6 +316,7 @@ try {
       try {
         if (window.parent && window.parent !== window && typeof window.parent.adamModalClose === 'function') {
           window.parent.adamModalClose();
+          return;
         }
       } catch(e){}
 
@@ -306,20 +325,29 @@ try {
           window.adamModalClose();
         }
       } catch(e){}
+      return;
+    }
+
+    var searchBtn = target.closest && target.closest('#modal-search-btn');
+    if (searchBtn) {
+      ev.preventDefault();
+      var q = '';
+      var input = root.querySelector('#modal-search');
+      if (input) q = input.value || '';
+      requestList('/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>');
+      return;
     }
   }, false);
 
-  document.getElementById('modal-search-btn')?.addEventListener('click', function(){
-    var q = document.getElementById('modal-search')?.value || '';
-    var url = '/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>';
-    fetchAndReplace(url);
-  });
+  root.addEventListener('keydown', function(ev){
+    var target = ev.target;
+    if (!target || target.id !== 'modal-search') return;
 
-  document.getElementById('modal-search')?.addEventListener('keydown', function(ev){
     if (ev.key === 'Enter') {
       ev.preventDefault();
-      document.getElementById('modal-search-btn')?.click();
+      var q = target.value || '';
+      requestList('/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>');
     }
-  });
+  }, false);
 })();
 </script>

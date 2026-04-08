@@ -14,7 +14,7 @@ if (!defined('BACKEND_PATH')) {
         if ($guess !== false) {
             define('BACKEND_PATH', $guess);
         } else {
-            define('BACKEND_PATH', '/home/adam/cms/jyavani/cfg');
+            define('BACKEND_PATH', 'C:/Users/adamm/Downloads/windows/jyavani/cfg');
         }
     }
 }
