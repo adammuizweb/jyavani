@@ -1,0 +1,58 @@
+/* Comic Neue */
+@font-face {
+  font-family: 'Comic Neue';
+  src: url('/static/assets/fonts/comic-neue/comic-neue-300.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Comic Neue';
+  src: url('/static/assets/fonts/comic-neue/comic-neue-400.woff2') format('woff2');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Comic Neue';
+  src: url('/static/assets/fonts/comic-neue/comic-neue-700.woff2') format('woff2');
+  font-weight: 700;
+}
+
+/* Taviraj */
+@font-face {
+  font-family: 'Taviraj';
+  src: url('/static/assets/fonts/taviraj/taviraj-600.woff2') format('woff2');
+  font-weight: 600;
+}
+
+/* Poppins */
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/poppins-300.woff2') format('woff2');
+  font-weight: 300;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/poppins-400.woff2') format('woff2');
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/poppins-500.woff2') format('woff2');
+  font-weight: 500;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/poppins-600.woff2') format('woff2');
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/static/assets/fonts/poppins/poppins-700.woff2') format('woff2');
+  font-weight: 700;
+}

@@ -130,14 +130,7 @@ if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlsp
 <!-- CSS Global -->
 <link rel="stylesheet" href="/static/assets/css/anime.css">
 <link rel="stylesheet" href="/static/vendor/quill/quill.snow.pub.css">
-
-  <!-- Google Fonts (optional) -->
-  <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Taviraj:wght@600&display=swap" rel="stylesheet">
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/assets/css/fonts.css">
 
 <?php
 // THEME STYLES: request relevant slots including hero and sidebar so assets for them are included.
@@ -183,6 +176,9 @@ if (!function_exists('echo_relevant_theme_styles')) {
     }
 }
 ?>
+
+<link rel="stylesheet" href="/static/vendor/swiper/swiper-bundle.min.css">
+<script src="/static/vendor/swiper/swiper-bundle.min.js"></script>
 </head>
 <body>
 <?php
