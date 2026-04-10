@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-
+// lokasi file cfg\helpers\cms_content.php
 if (defined('CMS_CONTENT_INCLUDED')) return;
 define('CMS_CONTENT_INCLUDED', true);
 

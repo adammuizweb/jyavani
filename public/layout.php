@@ -1,5 +1,5 @@
 <?php
-// layout.php (public) — sidebar + search/404 support
+// layout.php (public) (lokasi project di public\layout.php) — sidebar + search/404 support
 declare(strict_types=1);
 
 // basic safety flag

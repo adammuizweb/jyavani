@@ -5,7 +5,7 @@ declare(strict_types=1);
  * widget_helper.php
  * - Widget rendering (view include) + data fetcher sederhana
  * - Shortcode expander: [[widget:recent_posts limit=5 title="Artikel Terbaru"]]
- *
+ * - helper milik sidebar 
  * Konvensi lokasi widget view:
  * 1) /views/themes/{active_theme}/widget/{name}.php
  * 2) /views/themes/{DEFAULT_THEME_FOLDER}/widget/{name}.php
