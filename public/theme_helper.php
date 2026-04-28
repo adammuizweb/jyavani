@@ -191,7 +191,7 @@ function collect_theme_asset_urls($pdoOrNull, array $folders): array {
         $webPath = str_replace('\\', '/', substr($fsReal, strlen($publicReal)));
         if ($webPath === '' || $webPath[0] !== '/') $webPath = '/' . ltrim($webPath, '/');
         $v = @filemtime($fsReal) ?: time();
-        return $webPath . '?v=' . $v;
+        return $webPath;
     };
 
     foreach ($folders as $folder) {
@@ -1004,7 +1004,7 @@ function theme_asset_url($pdoOrNull, string $assetRelative): ?string {
     $webPath = str_replace('\\', '/', substr($fsReal, strlen($publicReal)));
     if ($webPath === '' || $webPath[0] !== '/') $webPath = '/' . ltrim($webPath, '/');
     $v = @filemtime($fsReal) ?: time();
-    return $webPath . '?v=' . $v;
+    return $webPath;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

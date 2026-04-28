@@ -99,7 +99,6 @@ $use_container = !$layout_full_width;
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="/static/assets/js/main.js"></script>
 
-  <!-- Favicons -->
   <link rel="shortcut icon" href="/static/img/favicon/favicon.ico">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon/favicon-32x32.png">
@@ -127,7 +126,6 @@ if (!empty($GLOBALS['rel_next'])) echo '<link rel="next" href="'.htmlspecialchar
 if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlspecialchars($GLOBALS['robots_meta'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 ?>
 
-<!-- CSS Global -->
 <link rel="stylesheet" href="/static/assets/css/anime.css">
 <link rel="stylesheet" href="/static/vendor/quill/quill.snow.pub.css">
 <link rel="stylesheet" href="/static/assets/css/fonts.css">
@@ -279,7 +277,6 @@ try {
 }
 ?>
 
-<!-- small footer script area -->
 <script src="/static/assets/js/anime.js"></script>
 
 <?php

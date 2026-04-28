@@ -8,6 +8,7 @@ jyavani.code-profile
 # Session files (do not commit runtime sessions)
 cfg/var/sessions/
 cfg/var/sessions/**
+/var/sessions/**
 
 # If you want to ignore only session files but keep folder tracked, use:
 # cfg/var/sessions/*.sess

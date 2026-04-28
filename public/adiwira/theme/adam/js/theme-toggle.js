@@ -58,19 +58,18 @@
     syncUI();
   }
 
-  function syncUI(){
-    var mode = getMode();
-    var btn = document.getElementById('btn-theme-toggle');
-    if (!btn) return;
+function syncUI(){
+  var mode = getMode();
+  var btn = document.getElementById('btn-theme-toggle');
+  if (!btn) return;
 
-    var icon = document.getElementById('adamThemeIcon');
-    var label = document.getElementById('adamThemeLabel');
+  var label = document.getElementById('adamThemeLabel');
 
-    btn.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+  btn.setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+  btn.setAttribute('data-mode', mode);
 
-    if (icon) icon.textContent = (mode === 'dark') ? '🌙' : '☀️';
-    if (label) label.textContent = (mode === 'dark') ? 'Dark' : 'Light';
-  }
+  if (label) label.textContent = (mode === 'dark') ? 'Dark' : 'Light';
+}
 
   document.addEventListener('click', function(e){
     var btn = e.target.closest('#btn-theme-toggle');

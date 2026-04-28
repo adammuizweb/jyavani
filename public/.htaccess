@@ -1,16 +1,34 @@
+Options -Indexes
+
 RewriteEngine On
 RewriteBase /
 
-# Redirect jika ada trailing slash setelah file statis
-RewriteRule ^(.+\.(?:css|js|webp|avif|png|jpg|jpeg|gif|svg|ico|map|json|woff2?|woff|ttf|eot))/$ $1 [R=301,L]
+# Hilangkan trailing slash pada file statis
+RewriteRule ^(.+\.(?:css|js|mjs|map|webp|avif|png|jpg|jpeg|gif|svg|ico|json|webmanifest|woff2?|woff|ttf|eot|xml|txt))/$ $1 [R=302,L,NE]
 
-# Jangan rewrite jika file/dir nyata
+# Blokir dot-files
+RewriteRule (^|/)\. - [F,L]
+
+# Jika file / folder nyata, jangan rewrite
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Jangan rewrite dot-files
-RewriteRule (^|/)\. - [F]
+# Router fallback
+RewriteRule ^ router.php [L,QSA]
 
-# Fallback: kirim ke router.php
-RewriteRule ^(.*)$ /router.php [L,QSA]
+# MIME yang sering bikin alert
+AddType application/manifest+json .webmanifest
+AddType image/svg+xml .svg
+AddType application/xml .xml
+AddType text/plain .txt
+
+# Blokir file sensitif
+<FilesMatch "\.(env|ini|log|sh|sql|bak|dist|yml|yaml|md)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+    Header unset ETag
+</IfModule>

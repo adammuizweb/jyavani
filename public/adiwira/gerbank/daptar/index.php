@@ -1,9 +1,9 @@
 <?php
 declare(strict_types=1);
 
- // http_response_code(404);
- // require __DIR__ . '/../../../frontend_404.php';
- // exit;
+  http_response_code(404);
+  require __DIR__ . '/../../../frontend_404.php';
+  exit;
 
 // /adiwira/signup.php
 require_once __DIR__ . '/../../bootstrap.php';
