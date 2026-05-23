@@ -64,7 +64,7 @@ $authorLink = !empty($author['username']) ? '/author/' . rawurlencode($author['u
                             <a href="<?= $postUrl ?>"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a>
                         </h2>
                         <p class="adamz-post-excerpt">
-                            <?= htmlspecialchars(mb_strimwidth(strip_tags($p['content'] ?? ''), 0, 180, '…'), ENT_QUOTES, 'UTF-8') ?>
+                            <?= htmlspecialchars(mb_strimwidth(safe_strip_tags($p['content'] ?? ''), 0, 180, '…'), ENT_QUOTES, 'UTF-8') ?>
                         </p>
                     </div>
                 </article>

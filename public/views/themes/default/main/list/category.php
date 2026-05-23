@@ -82,7 +82,7 @@ $categoryDescription = (string)($category['description'] ?? '');
                         </div>
 
                         <p class="excerpt">
-                            <?= htmlspecialchars(mb_strimwidth(strip_tags($postContent), 0, 240, '…'), ENT_QUOTES, 'UTF-8') ?>
+                            <?= htmlspecialchars(mb_strimwidth(safe_strip_tags($postContent), 0, 240, '…'), ENT_QUOTES, 'UTF-8') ?>
                         </p>
 
                         <div class="post-actions">

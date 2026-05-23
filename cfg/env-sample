@@ -1,0 +1,41 @@
+# Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=
+DB_USER=
+DB_PASS=
+
+# reCAPTCHA (v2 checkbox)
+RECAPTCHA_SITEKEY=
+RECAPTCHA_SECRET=
+
+# Web Debug 1 for activate
+APP_DEBUG=1
+
+# Session / Cookie
+SESSION_SAVE_PATH=
+SESSION_LIFETIME=604800
+SESSION_IDLE_TIMEOUT=0
+SESSION_COOKIE_SAMESITE=Lax
+
+# Session cookie name (set sesuai proyek)
+SESSION_NAME=app_session
+
+# Cookie domain (kosongkan untuk host-only)
+SESSION_COOKIE_DOMAIN=
+
+# Paths where cookies are valid (use root)
+SESSION_COOKIE_PATH=/
+
+# Disable PHP automatic session cookie (we manage auth cookie manually on login)
+SESSION_PHP_COOKIE_DISABLED=1
+
+# Security / Debug
+SESSION_DEBUG=0
+FORCE_HTTPS=0
+
+# Allow insecure cookies even if FORCE_HTTPS=1 (dev only)
+SESSION_ALLOW_INSECURE_COOKIES=1
+
+# Strong random secret for stateless CSRF; generate sendiri
+SESSION_SECRET=

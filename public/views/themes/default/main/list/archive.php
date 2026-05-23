@@ -74,7 +74,7 @@ if ($archive_label !== '') {
                             <a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>"><?= $title ?></a>
                         </h2>
                         <p class="adamz-arch-excerpt">
-                            <?= htmlspecialchars(mb_strimwidth(strip_tags($content), 0, 150, '…'), ENT_QUOTES, 'UTF-8') ?>
+                            <?= htmlspecialchars(mb_strimwidth(safe_strip_tags($content), 0, 150, '…'), ENT_QUOTES, 'UTF-8') ?>
                         </p>
                     </div>
                 </article>

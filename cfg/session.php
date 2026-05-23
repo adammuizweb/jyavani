@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // --- Read & normalize environment
-$SESSION_NAME = getenv('SESSION_NAME') ?: 'jyavani';
+$SESSION_NAME = getenv('SESSION_NAME') ?: 'app_session';
 $SESSION_LIFETIME = (int)(getenv('SESSION_LIFETIME') ?: 7 * 24 * 60 * 60);
 $SESSION_IDLE_TIMEOUT = (int)(getenv('SESSION_IDLE_TIMEOUT') ?: 30 * 60);
 

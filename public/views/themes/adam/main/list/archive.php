@@ -45,7 +45,7 @@ $posts = $posts ?? [];
                             <a href="<?= $postUrl ?>"><?= $title ?></a>
                         </h2>
                         <p class="adamz-arch-excerpt">
-                            <?= htmlspecialchars(mb_strimwidth(strip_tags($p['content']), 0, 150, '…'), ENT_QUOTES, 'UTF-8') ?>
+                            <?= htmlspecialchars(mb_strimwidth(safe_strip_tags($p['content']), 0, 150, '…'), ENT_QUOTES, 'UTF-8') ?>
                         </p>
                     </div>
                 </article>

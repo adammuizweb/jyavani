@@ -53,7 +53,7 @@
                         </h2>
 
                         <p class="adamz-cat-excerpt">
-                            <?= htmlspecialchars(mb_strimwidth(strip_tags($p['content']), 0, 220, '…'), ENT_QUOTES, 'UTF-8') ?>
+                            <?= htmlspecialchars(mb_strimwidth(safe_strip_tags($p['content']), 0, 220, '…'), ENT_QUOTES, 'UTF-8') ?>
                         </p>
 
                         <a class="adamz-cat-btn" href="<?= $postUrl ?>">

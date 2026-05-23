@@ -215,7 +215,7 @@ if (trim($content_html) === '') {
                   <article style="margin-bottom:1.25rem">
                     <h2><a href="/<?= rawurlencode($p['slug']) ?>/"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
                     <div style="color:#666;font-size:.9rem"><?= htmlspecialchars($p['created_at'], ENT_QUOTES, 'UTF-8') ?> — <?= htmlspecialchars($p['status'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
-                    <p><?= htmlspecialchars(mb_strimwidth(strip_tags($p['content']), 0, 360, '…'), ENT_QUOTES, 'UTF-8') ?></p>
+                    <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags($p['content']), 0, 360, '…'), ENT_QUOTES, 'UTF-8') ?></p>
                   </article>
                 <?php endforeach; ?>
 

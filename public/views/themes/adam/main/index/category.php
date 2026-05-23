@@ -23,7 +23,7 @@ $categories = $categories ?? [];
 
                         <?php if (!empty($cat['description'])): ?>
                             <p class="adamz-catidx-desc">
-                                <?= htmlspecialchars(strip_tags($cat['description']), ENT_QUOTES, 'UTF-8') ?>
+                                <?= htmlspecialchars(safe_strip_tags($cat['description']), ENT_QUOTES, 'UTF-8') ?>
                             </p>
                         <?php else: ?>
                             <p class="adamz-catidx-desc">Jelajahi kumpulan artikel menarik dalam topik <?= $catName ?>.</p>

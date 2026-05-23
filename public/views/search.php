@@ -117,7 +117,7 @@ $base = isset($base) && $base !== '' ? (string)$base : ('/?s=' . urlencode($q));
       <?php endif; ?>
 
       <?php if (!empty($p['content'])): ?>
-        <p><?= htmlspecialchars(mb_strimwidth(strip_tags((string)$p['content']), 0, 220, '…'), ENT_QUOTES, 'UTF-8') ?></p>
+        <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags((string)$p['content']), 0, 220, '…'), ENT_QUOTES, 'UTF-8') ?></p>
       <?php endif; ?>
     </article>
   <?php endforeach; ?>

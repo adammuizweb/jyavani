@@ -112,7 +112,7 @@ if (!empty($post['category_names']) && !empty($post['category_slugs'])) {
 }
 
 // Estimasi waktu baca
-$wordCount = str_word_count(strip_tags((string)($post['content'] ?? '')));
+$wordCount = str_word_count(safe_strip_tags((string)($post['content'] ?? '')));
 $readTime  = max(1, (int)ceil($wordCount / 200)); // minimal 1 menit
 
 // Tanggal ISO 8601
@@ -152,7 +152,7 @@ $thumbUrl = !empty($post['display_image'])
   ],
   'datePublished' => $datePublished,
   'dateModified' => $dateModified ?: $datePublished,
-  'description' => mb_strimwidth(strip_tags((string)($post['content'] ?? '')), 0, 160, '...')
+  'description' => mb_strimwidth(safe_strip_tags((string)($post['content'] ?? '')), 0, 160, '...')
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>
 </script>
 <?php endif; ?>

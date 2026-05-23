@@ -14,7 +14,8 @@ if (!defined('BACKEND_PATH')) {
         if ($guess !== false) {
             define('BACKEND_PATH', $guess);
         } else {
-            define('BACKEND_PATH', 'C:/Users/adamm/Downloads/windows/jyavani/cfg');
+            http_response_code(500);
+            die('Backend path not configured.');
         }
     }
 }

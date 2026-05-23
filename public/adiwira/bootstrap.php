@@ -15,8 +15,18 @@
 
 // Prevent repeated defines if this file is included more than once
 if (!defined('BACKEND_PATH')) {
-    // define backend path only if not already set by earlier bootstrap (bootstrap_core.php)
-    define('BACKEND_PATH', 'C:/Users/adam/Downloads/web/jyavani/cfg');
+    $env_backend = getenv('BACKEND_PATH') ?: '';
+    if ($env_backend !== '') {
+        define('BACKEND_PATH', $env_backend);
+    } else {
+        $guess = realpath(__DIR__ . '/../../cfg');
+        if ($guess !== false) {
+            define('BACKEND_PATH', $guess);
+        } else {
+            http_response_code(500);
+            die('Backend path not configured.');
+        }
+    }
 }
 
 // Load core config (env + db + helpers). Use require_once to avoid re-including.

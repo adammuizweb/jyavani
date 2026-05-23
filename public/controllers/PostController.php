@@ -443,7 +443,7 @@ class PostController
                       >
                     <?php endif; ?>
 
-                    <p><?= htmlspecialchars(mb_strimwidth(strip_tags((string)($p['content'] ?? '')), 0, 360, '…'), ENT_QUOTES, 'UTF-8') ?></p>
+                    <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags((string)($p['content'] ?? '')), 0, 360, '…'), ENT_QUOTES, 'UTF-8') ?></p>
 
                     <p>
                       <a href="/<?= rawurlencode((string)($p['slug'] ?? '')) ?>/">Baca selengkapnya →</a>
