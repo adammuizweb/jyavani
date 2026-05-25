@@ -116,7 +116,7 @@ if (!function_exists('render_menu_items_admin')) {
     <div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
         <label style="font-weight:600;">Pilih Menu:</label>
-        <select id="menuSelect" onchange="if(this.value) window.location.href='?page=admin/menus/index&menu_id='+this.value" class="pht-select" style="min-width:200px;">
+        <select id="menuSelect" onchange="if(this.value) window.location.href='<?= htmlspecialchars($base . '/index.php?page=admin/menus/index&menu_id=', ENT_QUOTES, 'UTF-8') ?>'+this.value" class="pht-select" style="min-width:200px;">
           <option value="">-- Pilih Menu --</option>
           <?php foreach ($allMenus as $m): ?>
             <option value="<?= (int)$m['id'] ?>" <?= $selectedMenuId === (int)$m['id'] ? 'selected' : '' ?>>
