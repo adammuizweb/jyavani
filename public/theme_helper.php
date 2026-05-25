@@ -532,6 +532,12 @@ if ($pdo instanceof PDO) {
     if (function_exists('post_cat_shortcode_expand')) {
         $html = post_cat_shortcode_expand((string)$html, $pdo, $context);
     }
+    if (function_exists('private_file_shortcode_expand')) {
+        $html = private_file_shortcode_expand((string)$html, $pdo, $context);
+    }
+    if (function_exists('video_shortcode_expand')) {
+        $html = video_shortcode_expand((string)$html, $pdo);
+    }
 }
 
     return (string)$html;
@@ -570,6 +576,20 @@ if (function_exists('post_cat_shortcode_expand')) {
     $pdo = get_pdo_from_global();
     if ($pdo instanceof PDO) {
         $result = post_cat_shortcode_expand((string)$result, $pdo, $ctx);
+    }
+}
+
+if (function_exists('private_file_shortcode_expand')) {
+    $pdo = get_pdo_from_global();
+    if ($pdo instanceof PDO) {
+        $result = private_file_shortcode_expand((string)$result, $pdo, $ctx);
+    }
+}
+
+if (function_exists('video_shortcode_expand')) {
+    $pdo = get_pdo_from_global();
+    if ($pdo instanceof PDO) {
+        $result = video_shortcode_expand((string)$result, $pdo);
     }
 }
 

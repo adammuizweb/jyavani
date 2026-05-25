@@ -2,20 +2,20 @@
 declare(strict_types=1);
 
 // /adiwira/admin/upload_file.php
+// Upload endpoint untuk File Library.
+// v1 private file: mendukung public storage dan private storage di luar public_html.
 ob_start();
 @ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
 require_once __DIR__ . '/_guard.php';
 
-// kalau dibuka langsung via browser/tab, samarkan jadi 404 HTML
 if (adiwira_is_navigate_request()) {
     http_response_code(404);
     require __DIR__ . '/../../frontend_404.php';
     exit;
 }
 
-// shutdown handler: kalau fatal error, balikin JSON
 register_shutdown_function(function () {
     $sent = (bool)($GLOBALS['__ADIWIRA_JSON_SENT'] ?? false);
     if ($sent) return;
@@ -45,21 +45,18 @@ register_shutdown_function(function () {
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 });
 
-// author, editor, admin boleh upload file
 [$uid, $role] = adiwira_require_editorial($pdo, true);
+$isAdmin = ((string)$role === 'admin');
 
-// lebih “sunyi”: kalau bukan POST, balikin 404
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Not found'], 404);
 }
 
-// CSRF wajib
 $csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!is_string($csrf) || $csrf === '' || !adiwira_csrf_validate($csrf)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'CSRF required'], 419);
 }
 
-// expected input name: "file"
 if (empty($_FILES['file']) || !is_array($_FILES['file'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'File not found'], 400);
 }
@@ -78,28 +75,77 @@ if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Invalid upload'], 400);
 }
 
-// limits: 30 MB
+$auto_save = !empty($_POST['auto_save']) && in_array((string)$_POST['auto_save'], ['1', 'true', 'on'], true);
+
 $maxBytes = 30 * 1024 * 1024;
 if ((int)($file['size'] ?? 0) > $maxBytes) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'File too large (max 30MB)'], 413);
 }
 
-// resolve /static root using PUBLIC_PATH
-$publicPath = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
-$static_root = rtrim($publicPath, '/\\') . '/static';
-$upload_base_dir = $static_root . '/files';
-$upload_base_url = '/static/files';
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(PDO $pdo, string $column): bool
+    {
+        try {
+            $st = $pdo->prepare("SELECT {$column} FROM `file` LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasPrivateCols = isset($pdo) ? mdlib_has_column($pdo, 'visibility') : false;
 
-if (!is_dir($upload_base_dir) && !@mkdir($upload_base_dir, 0755, true)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed to create files dir'], 500);
+if (!function_exists('adiwira_file_private_base_dir')) {
+    function adiwira_file_private_base_dir(): string
+    {
+        $env = trim((string)(getenv('PRIVATE_FILES_PATH') ?: ''));
+        if ($env !== '') {
+            return rtrim(str_replace('\\', '/', $env), '/');
+        }
+
+        // /public_html/adiwira/admin -> app root
+        $appRoot = realpath(__DIR__ . '/../../..');
+        if ($appRoot === false) {
+            $appRoot = dirname(__DIR__, 3);
+        }
+
+        return rtrim(str_replace('\\', '/', $appRoot), '/') . '/private_files';
+    }
 }
 
-/**
- * MIME detect robust:
- * - finfo
- * - mime_content_type
- * fallback: if octet-stream, use extension allowlist
- */
+if (!function_exists('adiwira_file_normalize_choice')) {
+    function adiwira_file_normalize_choice(string $value, array $allowed, string $fallback): string
+    {
+        $value = strtolower(trim($value));
+        return in_array($value, $allowed, true) ? $value : $fallback;
+    }
+}
+
+if (!function_exists('adiwira_file_slug')) {
+    function adiwira_file_slug(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') return '';
+
+        if (function_exists('mb_strtolower')) {
+            $value = mb_strtolower($value, 'UTF-8');
+        } else {
+            $value = strtolower($value);
+        }
+
+        $slug = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', $value);
+        $slug = trim((string)$slug, '-');
+        return $slug;
+    }
+}
+
+$publicPath = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
+$static_root = rtrim($publicPath, '/\\') . '/static';
+$public_upload_base_dir = $static_root . '/files';
+$public_upload_base_url = '/static/files';
+$private_upload_base_dir = adiwira_file_private_base_dir();
+
 $tmp = (string)$file['tmp_name'];
 $det = [
     'finfo'             => null,
@@ -128,7 +174,6 @@ if ($mime === '' && function_exists('mime_content_type')) {
 
 $mime = strtolower(trim((string)$mime));
 
-// normalisasi beberapa varian umum
 $normalize = [
     'application/x-zip-compressed' => 'application/zip',
     'audio/x-wav'                  => 'audio/wav',
@@ -141,43 +186,29 @@ if (isset($normalize[$mime])) {
     $mime = $normalize[$mime];
 }
 
-// allowed mimes -> ext
 $allowed_mimes = [
-    // documents
     'application/pdf'                                                               => 'pdf',
     'application/msword'                                                            => 'doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document'       => 'docx',
     'text/plain'                                                                    => 'txt',
     'application/rtf'                                                               => 'rtf',
-
-    // excel
     'application/vnd.ms-excel'                                                      => 'xls',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'             => 'xlsx',
-
-    // powerpoint
     'application/vnd.ms-powerpoint'                                                 => 'ppt',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation'     => 'pptx',
-
-    // archives
     'application/zip'                                                               => 'zip',
-
-    // videos
     'video/mp4'                                                                     => 'mp4',
     'video/webm'                                                                    => 'webm',
     'video/quicktime'                                                               => 'mov',
-
-    // audio
     'audio/mpeg'                                                                    => 'mp3',
     'audio/wav'                                                                     => 'wav',
     'audio/ogg'                                                                     => 'ogg',
 ];
 
-// extension fallback allowlist
 $allowed_ext_fallback = [
     'pdf','doc','docx','txt','rtf','xls','xlsx','ppt','pptx','zip','mp4','webm','mov','mp3','wav','ogg'
 ];
 
-// pick ext from mime if possible
 $ext = null;
 
 if (isset($allowed_mimes[$mime])) {
@@ -223,19 +254,62 @@ if ($ext === null) {
     ], 415);
 }
 
-// create year/month dir
+$visibilityInput = $hasPrivateCols
+    ? adiwira_file_normalize_choice((string)($_POST['visibility'] ?? 'auto'), ['auto','public','private'], 'auto')
+    : 'public';
+$accessScopeInput = $hasPrivateCols
+    ? adiwira_file_normalize_choice((string)($_POST['access_scope'] ?? 'editorial'), ['public','editorial','admin'], 'editorial')
+    : 'public';
+
+// Default paling aman: PDF otomatis private employee. File lain tetap public.
+$visibility = $visibilityInput === 'auto'
+    ? ($ext === 'pdf' ? 'private' : 'public')
+    : $visibilityInput;
+
+if (!$hasPrivateCols) {
+    $visibility = 'public';
+}
+
+$storage_disk = $visibility === 'private' ? 'private' : 'public';
+$access_scope = $visibility === 'private' ? $accessScopeInput : 'public';
+if ($access_scope === 'public' && $visibility === 'private') {
+    $access_scope = 'editorial';
+}
+
+if (array_key_exists('is_downloadable', $_POST)) {
+    $is_downloadable = in_array((string)$_POST['is_downloadable'], ['1','true','on','yes'], true) ? 1 : 0;
+} else {
+    $is_downloadable = ($visibility === 'private') ? 0 : 1;
+}
+
+if ($visibility === 'private' && !$auto_save) {
+    adiwira_json([
+        'success' => false,
+        'ok'      => false,
+        'error'   => 'Private file requires auto_save=1 so a protected URL can be generated.',
+    ], 400);
+}
+
 $year = date('Y');
 $month = date('m');
-$target_dir = $upload_base_dir . '/' . $year . '/' . $month;
+$relative_storage_path = $year . '/' . $month;
 
-if (!is_dir($target_dir) && !@mkdir($target_dir, 0755, true)) {
+if ($storage_disk === 'private') {
+    $target_base_dir = rtrim($private_upload_base_dir, '/\\') . '/files';
+    $target_dir = $target_base_dir . '/' . $relative_storage_path;
+    $dirMode = 0750;
+} else {
+    $target_base_dir = $public_upload_base_dir;
+    $target_dir = $target_base_dir . '/' . $relative_storage_path;
+    $dirMode = 0755;
+}
+
+if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed make upload folder'], 500);
 }
 
-// unique filename (slug + random)
 $original_name = (string)pathinfo((string)$file['name'], PATHINFO_FILENAME);
-$slug = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', mb_strtolower($original_name, 'UTF-8'));
-$slug = trim((string)$slug, '-');
+$slug = adiwira_file_slug($original_name);
 if ($slug === '') {
     $slug = bin2hex(random_bytes(4));
 }
@@ -247,18 +321,23 @@ $target_path = $target_dir . '/' . $filename;
 if (!move_uploaded_file($file['tmp_name'], $target_path)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed to save file'], 500);
 }
-@chmod($target_path, 0644);
 
-$public_url = rtrim($upload_base_url, '/') . '/' . $year . '/' . $month . '/' . $filename;
+@chmod($target_path, $storage_disk === 'private' ? 0640 : 0644);
+
+$storage_path = $relative_storage_path . '/' . $filename;
+$public_url = rtrim($public_upload_base_url, '/') . '/' . $storage_path;
+$client_url = $storage_disk === 'private' ? '' : $public_url;
 
 $response = [
-    'success' => true,
-    'ok'      => true,
-    'url'     => $public_url,
+    'success'       => true,
+    'ok'            => true,
+    'url'           => $client_url,
+    'visibility'    => $visibility,
+    'storage_disk'  => $storage_disk,
+    'access_scope'  => $access_scope,
+    'is_downloadable' => $is_downloadable,
 ];
 
-// Optional auto-save metadata to table `file`
-$auto_save = !empty($_POST['auto_save']) && in_array((string)$_POST['auto_save'], ['1', 'true', 'on'], true);
 if ($auto_save) {
     $title = trim((string)($_POST['title'] ?? $original_name));
     $caption = trim((string)($_POST['caption'] ?? ''));
@@ -273,45 +352,78 @@ if ($auto_save) {
     $duration = null;
     $thumb_url = null;
 
+    $db_url = $storage_disk === 'private' ? '/private/file/view/?id=0' : $public_url;
+
     try {
-        $stmt = $pdo->prepare("
-            INSERT INTO `file`
-            (url, filename, mime, ext, size, title, caption, credit, user_id, media_type, duration, thumb_url, created_at)
-            VALUES
-            (:url, :filename, :mime, :ext, :size, :title, :caption, :credit, :user_id, :media_type, :duration, :thumb_url, NOW())
-        ");
-        $stmt->execute([
-            ':url'        => $public_url,
-            ':filename'   => $filename,
-            ':mime'       => $mime,
-            ':ext'        => $ext,
-            ':size'       => $file_size,
-            ':title'      => ($title !== '' ? $title : null),
-            ':caption'    => ($caption !== '' ? $caption : null),
-            ':credit'     => ($credit !== '' ? $credit : null),
-            ':user_id'    => $uid,
-            ':media_type' => $media_type,
-            ':duration'   => $duration,
-            ':thumb_url'  => $thumb_url,
-        ]);
+        $commonCols = 'url, filename, mime, ext, size, title, caption, credit, user_id, media_type, duration, thumb_url, created_at';
+        $commonVals = ':url, :filename, :mime, :ext, :size, :title, :caption, :credit, :user_id, :media_type, :duration, :thumb_url, NOW()';
+
+        $extraCols = '';
+        $extraVals = '';
+        $extraParams = [];
+        if ($hasPrivateCols) {
+            $extraCols = ', visibility, storage_disk, storage_path, access_scope, is_downloadable';
+            $extraVals = ', :visibility, :storage_disk, :storage_path, :access_scope, :is_downloadable';
+            $extraParams = [
+                ':visibility'      => $visibility,
+                ':storage_disk'    => $storage_disk,
+                ':storage_path'    => $storage_path,
+                ':access_scope'    => $access_scope,
+                ':is_downloadable' => $is_downloadable,
+            ];
+        }
+
+        $sql = "INSERT INTO `file` ({$commonCols}{$extraCols}) VALUES ({$commonVals}{$extraVals})";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_merge([
+            ':url'             => $db_url,
+            ':filename'        => $filename,
+            ':mime'            => $mime,
+            ':ext'             => $ext,
+            ':size'            => $file_size,
+            ':title'           => ($title !== '' ? $title : null),
+            ':caption'         => ($caption !== '' ? $caption : null),
+            ':credit'          => ($credit !== '' ? $credit : null),
+            ':user_id'         => $uid,
+            ':media_type'      => $media_type,
+            ':duration'        => $duration,
+            ':thumb_url'       => $thumb_url,
+        ], $extraParams));
 
         $file_id = (int)$pdo->lastInsertId();
 
+        if ($storage_disk === 'private') {
+            $client_url = '/private/file/view/?id=' . $file_id;
+            $up = $pdo->prepare("UPDATE `file` SET url = :url WHERE id = :id LIMIT 1");
+            $up->execute([':url' => $client_url, ':id' => $file_id]);
+            $response['url'] = $client_url;
+        }
+
         $response['file'] = [
-            'id'         => $file_id,
-            'url'        => $public_url,
-            'filename'   => $filename,
-            'mime'       => $mime,
-            'ext'        => $ext,
-            'size'       => $file_size,
-            'title'      => $title,
-            'media_type' => $media_type,
-            'user_id'    => $uid,
+            'id'              => $file_id,
+            'url'             => $client_url,
+            'filename'        => $filename,
+            'mime'            => $mime,
+            'ext'             => $ext,
+            'size'            => $file_size,
+            'size_label'      => null,
+            'title'           => $title,
+            'media_type'      => $media_type,
+            'user_id'         => $uid,
+            'visibility'      => $visibility,
+            'storage_disk'    => $storage_disk,
+            'storage_path'    => $storage_path,
+            'access_scope'    => $access_scope,
+            'is_downloadable' => $is_downloadable,
         ];
     } catch (Throwable $e) {
         error_log('upload_file.php insert error: ' . $e->getMessage());
+        @unlink($target_path);
+        $response['success'] = false;
         $response['ok'] = false;
         $response['errors'] = ['DB insert failed'];
+        $response['error'] = 'DB insert failed';
+        adiwira_json($response, 500);
     }
 }
 

@@ -57,3 +57,9 @@ require_once __DIR__ . '/helpers/cms_content.php';
 
 // 16. helpers untuk Widget
 require_once __DIR__ . '/helpers/widget_shortcodes_p.php';
+
+// 17. helpers untuk private file shortcodes
+require_once __DIR__ . '/helpers/private_file_shortcodes.php';
+
+// 18. helpers untuk video shortcodes
+require_once __DIR__ . '/helpers/video_shortcodes.php';

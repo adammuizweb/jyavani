@@ -62,10 +62,19 @@ if (!function_exists('file_local_path_from_url')) {
     }
 }
 
+if (!function_exists('file_private_path')) {
+    function file_private_path(): ?string {
+        $path = defined('PRIVATE_FILES_PATH') ? PRIVATE_FILES_PATH : '';
+        if ($path === '') return null;
+        $real = realpath(rtrim($path, '/\\'));
+        return ($real && is_dir($real)) ? $real : null;
+    }
+}
+
 try {
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-    $sql = "SELECT id, url FROM `file` WHERE id IN ($placeholders)";
+    $sql = "SELECT id, url, storage_path, storage_disk FROM `file` WHERE id IN ($placeholders)";
     $params = $ids;
 
     if (!$isAdmin) {
@@ -87,12 +96,26 @@ try {
     foreach ($rows as $row) {
         $id = (int)($row['id'] ?? 0);
         $url = (string)($row['url'] ?? '');
+        $storageDisk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        $storagePath = (string)($row['storage_path'] ?? '');
         if ($id <= 0) continue;
 
-        $localFile = file_local_path_from_url($url);
-        if ($localFile && is_file($localFile)) {
-            if (!@unlink($localFile)) {
-                $warnings[] = "Failed to unlink file for id {$id}";
+        if ($storageDisk === 'private' && $storagePath !== '') {
+            $privateRoot = file_private_path();
+            if ($privateRoot) {
+                $privateFile = realpath($privateRoot . '/' . ltrim($storagePath, '/\\'));
+                if ($privateFile && str_starts_with($privateFile, $privateRoot) && is_file($privateFile)) {
+                    if (!@unlink($privateFile)) {
+                        $warnings[] = "Failed to unlink private file for id {$id}";
+                    }
+                }
+            }
+        } else {
+            $localFile = file_local_path_from_url($url);
+            if ($localFile && is_file($localFile)) {
+                if (!@unlink($localFile)) {
+                    $warnings[] = "Failed to unlink file for id {$id}";
+                }
             }
         }
 

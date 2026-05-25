@@ -136,12 +136,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const qEl = document.getElementById('media-search');
     const q = qEl ? (qEl.value || '').trim() : '';
 
+    const vEl = document.getElementById('visibility-filter');
+    const v = vEl ? vEl.value : '';
+
     const activePageEl = panel.querySelector('.media-pagination strong');
     const p = forcePage1 ? 1 : (activePageEl ? parseInt(activePageEl.textContent || '1', 10) : 1);
 
     const url = '/adiwira/admin/media/list.php?q='
       + encodeURIComponent(q)
       + '&p=' + encodeURIComponent((Number.isFinite(p) && p > 0) ? p : 1)
+      + (v ? '&v=' + encodeURIComponent(v) : '')
       + '&_ts=' + Date.now();
 
     try {

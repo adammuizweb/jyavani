@@ -84,11 +84,15 @@ class PostController
         }
 
         if (!empty($post['display_image'])) {
-            return (string)$post['display_image'];
+            $url = (string)$post['display_image'];
+            if (str_starts_with($url, '/private/')) return null;
+            return $url;
         }
 
         if (!empty($post['thumbnail'])) {
-            return (string)$post['thumbnail'];
+            $url = (string)$post['thumbnail'];
+            if (str_starts_with($url, '/private/')) return null;
+            return $url;
         }
 
         return null;
@@ -113,6 +117,10 @@ class PostController
             }
 
             $p['display_image'] = self::resolve_post_display_image($p);
+
+            if (!empty($p['thumbnail']) && str_starts_with((string)$p['thumbnail'], '/private/')) {
+                $p['thumbnail'] = null;
+            }
 
             // only attach target info if we have a PDO connection
             if ($pdoToUse instanceof PDO) {

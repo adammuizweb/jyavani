@@ -39,3 +39,9 @@ SESSION_ALLOW_INSECURE_COOKIES=1
 
 # Strong random secret for stateless CSRF; generate sendiri
 SESSION_SECRET=
+
+# Private Files (optional — for protected file storage outside public/)
+PRIVATE_FILES_PATH=
+
+# Token secret for private file signed URLs (optional — falls back to APP_KEY)
+PRIVATE_FILE_TOKEN_SECRET=

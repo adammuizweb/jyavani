@@ -55,12 +55,21 @@ if (!function_exists('file_local_path_from_url')) {
     }
 }
 
+if (!function_exists('file_private_path')) {
+    function file_private_path(): ?string {
+        $path = defined('PRIVATE_FILES_PATH') ? PRIVATE_FILES_PATH : '';
+        if ($path === '') return null;
+        $real = realpath(rtrim($path, '/\\'));
+        return ($real && is_dir($real)) ? $real : null;
+    }
+}
+
 try {
     if ($id > 0) {
-        $sql = "SELECT id, url FROM `file` WHERE id = :id";
+        $sql = "SELECT id, url, storage_path, storage_disk FROM `file` WHERE id = :id";
         $params = [':id' => $id];
     } else {
-        $sql = "SELECT id, url FROM `file` WHERE url = :url";
+        $sql = "SELECT id, url, storage_path, storage_disk FROM `file` WHERE url = :url";
         $params = [':url' => $url];
     }
 
@@ -81,13 +90,27 @@ try {
 
     $deleted_id = (int)($row['id'] ?? 0);
     $final_url = (string)($row['url'] ?? '');
+    $storageDisk = strtolower((string)($row['storage_disk'] ?? 'public'));
+    $storagePath = (string)($row['storage_path'] ?? '');
 
     $warning = null;
-    $localFile = file_local_path_from_url($final_url);
 
-    if ($localFile && is_file($localFile)) {
-        if (!@unlink($localFile)) {
-            $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+    if ($storageDisk === 'private' && $storagePath !== '') {
+        $privateRoot = file_private_path();
+        if ($privateRoot) {
+            $privateFile = realpath($privateRoot . '/' . ltrim($storagePath, '/\\'));
+            if ($privateFile && str_starts_with($privateFile, $privateRoot) && is_file($privateFile)) {
+                if (!@unlink($privateFile)) {
+                    $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+                }
+            }
+        }
+    } else {
+        $localFile = file_local_path_from_url($final_url);
+        if ($localFile && is_file($localFile)) {
+            if (!@unlink($localFile)) {
+                $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+            }
         }
     }
 

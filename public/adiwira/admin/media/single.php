@@ -66,12 +66,43 @@ if (!function_exists('human_filesize')) {
 }
 
 $csrf = csrf_token();
+
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(string $col): bool {
+        try {
+            $st = $GLOBALS['pdo']->prepare("SELECT {$col} FROM media LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasVisibility = mdlib_has_column('visibility');
+
+$visibility = $hasVisibility ? (strtolower((string)($r['visibility'] ?? 'public')) ?: 'public') : 'public';
+$accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
+$isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
+$isPrivate = ($visibility === 'private');
+if (!function_exists('modalfilez_client_url')) {
+    function modalfilez_client_url(array $row): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
+            return '/private/media/view/?id=' . $id;
+        }
+        return (string)($row['url'] ?? '');
+    }
+}
+$displayClientUrl = modalfilez_client_url($r);
 ?>
 <div class="media-single-wrap">
   <div class="media-grid">
     <div class="media-left">
       <div class="img-frame" title="<?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?>">
-        <img src="<?= htmlspecialchars((string)$r['url'], ENT_QUOTES, 'UTF-8') ?>"
+        <img src="<?= htmlspecialchars($displayClientUrl, ENT_QUOTES, 'UTF-8') ?>"
              alt="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
@@ -81,6 +112,15 @@ $csrf = csrf_token();
         <div><strong>Size:</strong> <?= htmlspecialchars(human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></div>
         <?php if (!empty($r['width']) || !empty($r['height'])): ?>
           <div><strong>Dim:</strong> <?= (int)$r['width'] ?> × <?= (int)$r['height'] ?></div>
+        <?php endif; ?>
+        <?php if ($hasVisibility): ?>
+        <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
+          <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
+          <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+          <?php if (!$isDownloadable): ?>
+            <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800">NO DOWNLOAD</span>
+          <?php endif; ?>
+        </div>
         <?php endif; ?>
         <div style="margin-top:6px; color:#777; font-size:12px;">
           Uploaded: <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
@@ -104,6 +144,23 @@ $csrf = csrf_token();
 
         <label for="field-credit">Credit <span class="small">(Optional — contoh: "Nama Photographer / Agency")</span></label>
         <input id="field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Nama Photographer — Sumber / Lisensi">
+
+        <?php if ($hasVisibility): ?>
+        <div style="margin-top:12px">
+          <label for="field-access-scope">Access Scope</label>
+          <select id="field-access-scope" name="access_scope">
+            <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>>Admin Only</option>
+          </select>
+        </div>
+        <div style="margin-top:8px">
+          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+            Downloadable
+          </label>
+        </div>
+        <?php endif; ?>
 
         <label for="field-target-url">Target URL <span class="small">(Optional — full URL, http/https)</span></label>
         <input id="field-target-url"

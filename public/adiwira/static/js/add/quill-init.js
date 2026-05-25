@@ -175,33 +175,23 @@
         });
 
         const f = (typeof normalizeFile === 'function') ? normalizeFile(picked) : picked;
-        if (!f || !f.url) return;
+        if (!f) return;
 
         const insertAt = (lastRange && typeof lastRange.index === 'number')
           ? lastRange.index
           : (quill.getLength() - 1);
 
-        const label = (f.filename && String(f.filename).trim() !== '')
-          ? String(f.filename).trim()
-          : (f.id ? ('File #' + f.id) : f.url);
+        const htmlToInsert = (typeof generateFileShortcode === 'function')
+          ? generateFileShortcode(f)
+          : '';
 
-        const attrs = [];
-        if (f.id) attrs.push('data-file-id="' + escapeAttr(f.id) + '"');
-        if (f.mime) attrs.push('data-mime="' + escapeAttr(f.mime) + '"');
-        if (f.size) attrs.push('data-size="' + escapeAttr(f.size) + '"');
-
-        const aHtml =
-          '<a href="' + escapeAttr(f.url) + '" target="_blank" rel="noopener"' +
-          (attrs.length ? ' ' + attrs.join(' ') : '') +
-          '>' + escapeAttr(label) + '</a>';
-
-        const htmlToInsert = '<p>📎 ' + aHtml + '</p>';
+        if (!htmlToInsert) return;
 
         try{
           quill.clipboard.dangerouslyPasteHTML(insertAt, htmlToInsert);
           quill.setSelection(insertAt + 2, 0);
         }catch(e){
-          console.error('Insert file link failed', e);
+          console.error('Insert file shortcode failed', e);
         }
       }
 

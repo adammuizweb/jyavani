@@ -139,6 +139,11 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     return qEl ? (qEl.value || '').trim() : '';
   }
 
+  function getCurrentVisibility() {
+    const vEl = panelList ? panelList.querySelector('#visibility-filter') : null;
+    return vEl ? vEl.value : '';
+  }
+
   function getCurrentPage() {
     const activeEl = panelList ? panelList.querySelector('.media-pagination strong[data-page]') : null;
     if (!activeEl) return 1;
@@ -179,9 +184,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const q = getCurrentQuery();
     const p = forcePage1 ? 1 : getCurrentPage();
 
+    const v = getCurrentVisibility();
+
     const url = '/adiwira/admin/file/list.php'
       + '?q=' + encodeURIComponent(q)
       + '&p=' + encodeURIComponent(p)
+      + (v ? '&v=' + encodeURIComponent(v) : '')
       + '&_ts=' + Date.now();
 
     try {
@@ -303,11 +311,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       const q = pageLink.getAttribute('data-q') || getCurrentQuery();
       const p = parseInt(pageLink.getAttribute('data-page') || '1', 10) || 1;
+      const v = pageLink.getAttribute('data-v') || getCurrentVisibility();
 
       try {
         const url = '/adiwira/admin/file/list.php'
           + '?q=' + encodeURIComponent(q)
           + '&p=' + encodeURIComponent(p)
+          + (v ? '&v=' + encodeURIComponent(v) : '')
           + '&_ts=' + Date.now();
 
         const res = await fetch(url, {
@@ -549,6 +559,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       root.querySelectorAll('.row-checkbox').forEach(cb => {
         cb.checked = checked;
       });
+    }
+    if (target && target.id === 'visibility-filter') {
+      activateTab('list');
+      refreshFileListPanel({ silent: false, forcePage1: true });
     }
   });
 

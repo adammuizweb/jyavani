@@ -13,7 +13,7 @@ if (realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
 $embedded = isset($_GET['embedded']) && (($_GET['embedded'] === '1') || ($_GET['embedded'] === 'true'));
 $initialTab = strtolower(trim((string)($_GET['tab'] ?? 'upload')));
 if (!in_array($initialTab, ['upload', 'library'], true)) {
-    $initialTab = 'upload';
+    $initialTab = 'library';
 }
 
 $csrfToken = '';
@@ -37,36 +37,37 @@ if (!$embedded):
 <?php endif; ?>
 
 <div
-  id="modalfilez-root"
-  data-modalfilez-mounted="1"
+  id="mdlib-root"
+  data-mdlib-mounted="1"
   data-role="<?= htmlspecialchars($role, ENT_QUOTES, 'UTF-8') ?>"
   data-initial-tab="<?= htmlspecialchars($initialTab, ENT_QUOTES, 'UTF-8') ?>"
 >
-  <input type="hidden" id="modalfilez-csrf" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+  <input type="hidden" id="mdlib-csrf" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
-  <div id="modalfilez-topbar">
-    <div class="modalfilez-toprow">
-      <div id="modalfilez-tabs">
-        <div data-modalfilez-tab="upload" role="button" tabindex="0" class="modalfilez-tab">Upload</div>
-        <div data-modalfilez-tab="library" role="button" tabindex="0" class="modalfilez-tab">Library</div>
+  <div id="mdlib-topbar">
+    <div class="mdlib-toprow">
+      <div id="mdlib-tabs">
+        <div data-mdlib-tab="upload" role="button" tabindex="0" class="mdlib-tab">Upload</div>
+        <div data-mdlib-tab="library" role="button" tabindex="0" class="mdlib-tab">Library</div>
       </div>
-      <div id="modalfilez-hint">Klik <b>Insert</b> untuk memilih file</div>
+      <div id="mdlib-hint">Klik <b>Insert</b> untuk memilih file</div>
+      <button id="mdlib-close-btn" class="mdlib-btn mdlib-close-btn" title="Tutup">&times;</button>
     </div>
   </div>
 
-  <div id="modalfilez-panel-upload" class="modalfilez-panel" style="display:none;">
+  <div id="mdlib-panel-upload" class="mdlib-panel" style="display:none;">
     <?php include __DIR__ . '/add_modal.php'; ?>
   </div>
 
-  <div id="modalfilez-panel-library" class="modalfilez-panel" style="display:none;">
-    <div id="modalfilez-library-host" class="modalfilez-loading">Memuat library…</div>
+  <div id="mdlib-panel-library" class="mdlib-panel" style="display:none;">
+    <div id="mdlib-library-host" class="mdlib-loading">Memuat library…</div>
   </div>
 </div>
 
 <script>
 (function(){
-  if (!window.modalfilezUi) {
-    window.modalfilezUi = (function(){
+  if (!window.mdlibUi) {
+    window.mdlibUi = (function(){
       function getToastApi(){
         try {
           if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') return window.NewNotifToast;
@@ -121,7 +122,7 @@ if (!$embedded):
 
       function getCsrfToken(){
         try {
-          const local = document.getElementById('modalfilez-csrf');
+          const local = document.getElementById('mdlib-csrf');
           if (local && local.value) return local.value;
         } catch(e){}
 
@@ -149,18 +150,18 @@ if (!$embedded):
     })();
   }
 
-  const root = document.getElementById('modalfilez-root');
-  if (!root || root.dataset.modalfilezReady === '1') return;
-  root.dataset.modalfilezReady = '1';
+  const root = document.getElementById('mdlib-root');
+  if (!root || root.dataset.mdlibReady === '1') return;
+  root.dataset.mdlibReady = '1';
 
   let lastListUrl = '/adiwira/admin/modal_file/list_modal.php';
 
   function uiToast(type, title, message, duration){
-    window.modalfilezUi.toast(type, title, message, duration);
+    window.mdlibUi.toast(type, title, message, duration);
   }
 
   function getHost() {
-    return document.getElementById('modalfilez-library-host');
+    return document.getElementById('mdlib-library-host');
   }
 
   function getInitialTab() {
@@ -204,28 +205,28 @@ if (!$embedded):
         }
       });
     } catch (err) {
-      console.error('modalfilez inject error', err);
+      console.error('mdlib inject error', err);
       container.innerHTML = '<div style="color:#c00">Gagal memuat konten.</div>';
       uiToast('error', 'Library File', 'Gagal memuat konten modal.', 5000);
     }
   }
 
-  window.modalfilezInjectHtmlWithScripts = injectHtmlWithScripts;
+  window.mdlibInjectHtmlWithScripts = injectHtmlWithScripts;
 
   function setActive(tab) {
-    const btnUpload = root.querySelector('[data-modalfilez-tab="upload"]');
-    const btnLibrary = root.querySelector('[data-modalfilez-tab="library"]');
-    const panelUpload = document.getElementById('modalfilez-panel-upload');
-    const panelLibrary = document.getElementById('modalfilez-panel-library');
+    const btnUpload = root.querySelector('[data-mdlib-tab="upload"]');
+    const btnLibrary = root.querySelector('[data-mdlib-tab="library"]');
+    const panelUpload = document.getElementById('mdlib-panel-upload');
+    const panelLibrary = document.getElementById('mdlib-panel-library');
 
-    if (btnUpload) btnUpload.classList.toggle('modalfilez-tab-active', tab === 'upload');
-    if (btnLibrary) btnLibrary.classList.toggle('modalfilez-tab-active', tab === 'library');
+    if (btnUpload) btnUpload.classList.toggle('mdlib-tab-active', tab === 'upload');
+    if (btnLibrary) btnLibrary.classList.toggle('mdlib-tab-active', tab === 'library');
 
     if (panelUpload) panelUpload.style.display = (tab === 'upload') ? 'block' : 'none';
     if (panelLibrary) panelLibrary.style.display = (tab === 'library') ? 'block' : 'none';
 
     if (tab === 'library') {
-      window.modalfilezLoadList(false);
+      window.mdlibLoadList(false);
     }
   }
 
@@ -233,7 +234,7 @@ if (!$embedded):
     const host = getHost();
     if (!host) return;
 
-    host.innerHTML = '<div class="modalfilez-loading">' + (loadingText || 'Memuat…') + '</div>';
+    host.innerHTML = '<div class="mdlib-loading">' + (loadingText || 'Memuat…') + '</div>';
 
     let finalUrl = String(url || '');
     if (!finalUrl) return;
@@ -270,8 +271,8 @@ if (!$embedded):
       await fetchIntoLibrary(lastListUrl, 'Memuat daftar file…');
       host.setAttribute('data-loaded', '1');
     } catch (err) {
-      console.error('modalfilez loadList error', err);
-      host.innerHTML = '<div class="modalfilez-loading" style="color:#dc2626">Gagal memuat library file.</div>';
+      console.error('mdlib loadList error', err);
+      host.innerHTML = '<div class="mdlib-loading" style="color:#dc2626">Gagal memuat library file.</div>';
       uiToast('error', 'Library File', 'Gagal memuat daftar file: ' + (err.message || err), 6000);
     }
   }
@@ -286,11 +287,11 @@ if (!$embedded):
 
     host.setAttribute('data-view', 'single');
     host.innerHTML =
-      '<div class="modalfilez-singlehead">' +
-        '<div class="modalfilez-back" data-modalfilez-action="back">← Kembali</div>' +
-        '<div class="modalfilez-singletitle">Detail File</div>' +
+      '<div class="mdlib-singlehead">' +
+        '<div class="mdlib-back" data-mdlib-action="back">← Kembali</div>' +
+        '<div class="mdlib-singletitle">Detail File</div>' +
       '</div>' +
-      '<div class="modalfilez-loading">Memuat detail…</div>';
+      '<div class="mdlib-loading">Memuat detail…</div>';
 
     try {
       const url = '/adiwira/admin/modal_file/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1&_ts=' + Date.now();
@@ -306,15 +307,15 @@ if (!$embedded):
       const html = await res.text();
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const body = doc.body;
-      const single = body.querySelector('#modalfilez-single-wrap') || body;
+      const single = body.querySelector('#mdlib-single-wrap') || body;
 
       const clone = single.cloneNode(true);
       Array.from(clone.querySelectorAll('script')).forEach(function(s){ s.remove(); });
 
       host.innerHTML =
-        '<div class="modalfilez-singlehead">' +
-          '<div class="modalfilez-back" data-modalfilez-action="back">← Kembali</div>' +
-          '<div class="modalfilez-singletitle">Detail File</div>' +
+        '<div class="mdlib-singlehead">' +
+          '<div class="mdlib-back" data-mdlib-action="back">← Kembali</div>' +
+          '<div class="mdlib-singletitle">Detail File</div>' +
         '</div>' +
         (clone.outerHTML || clone.innerHTML || '');
 
@@ -326,32 +327,32 @@ if (!$embedded):
         }
       });
     } catch (err) {
-      console.error('modalfilez openSingle error', err);
+      console.error('mdlib openSingle error', err);
       host.innerHTML =
-        '<div class="modalfilez-singlehead">' +
-          '<div class="modalfilez-back" data-modalfilez-action="back">← Kembali</div>' +
-          '<div class="modalfilez-singletitle">Detail File</div>' +
+        '<div class="mdlib-singlehead">' +
+          '<div class="mdlib-back" data-mdlib-action="back">← Kembali</div>' +
+          '<div class="mdlib-singletitle">Detail File</div>' +
         '</div>' +
-        '<div class="modalfilez-loading" style="color:#dc2626">Gagal memuat detail file.</div>';
+        '<div class="mdlib-loading" style="color:#dc2626">Gagal memuat detail file.</div>';
       uiToast('error', 'Library File', 'Gagal memuat detail file: ' + (err.message || err), 6000);
     }
   }
 
-  window.modalfilezActivate = setActive;
-  window.modalfilezLoadList = function(force, url){
+  window.mdlibActivate = setActive;
+  window.mdlibLoadList = function(force, url){
     return loadList(!!force, url || '');
   };
-  window.modalfilezOpenSingle = function(id){
+  window.mdlibOpenSingle = function(id){
     return openSingle(id);
   };
-  window.modalfilezBackToList = function(){
+  window.mdlibBackToList = function(){
     return loadList(true, lastListUrl);
   };
-  window.modalfilezBackToLibrary = function(){
+  window.mdlibBackToLibrary = function(){
     setActive('library');
     return loadList(true, lastListUrl);
   };
-  window.modalfilezLoadIntoRoot = function(url){
+  window.mdlibLoadIntoRoot = function(url){
     setActive('library');
     return fetchIntoLibrary(url, 'Memuat…').catch(function(err){
       uiToast('error', 'Library File', 'Gagal memuat konten: ' + (err.message || err), 6000);
@@ -359,17 +360,27 @@ if (!$embedded):
   };
 
   root.addEventListener('click', function(ev){
-    const tabBtn = ev.target.closest('[data-modalfilez-tab]');
+    const tabBtn = ev.target.closest('[data-mdlib-tab]');
     if (tabBtn && root.contains(tabBtn)) {
       ev.preventDefault();
-      setActive(tabBtn.getAttribute('data-modalfilez-tab') || 'upload');
+      setActive(tabBtn.getAttribute('data-mdlib-tab') || 'upload');
       return;
     }
 
-    const backBtn = ev.target.closest('[data-modalfilez-action="back"]');
+    const backBtn = ev.target.closest('[data-mdlib-action="back"]');
     if (backBtn && root.contains(backBtn)) {
       ev.preventDefault();
-      window.modalfilezBackToLibrary();
+      window.mdlibBackToLibrary();
+      return;
+    }
+
+    const closeBtn = ev.target.closest('#mdlib-close-btn');
+    if (closeBtn) {
+      ev.preventDefault();
+      try { if (window.parent && window.parent !== window && typeof window.parent.adamModalClose === 'function') { window.parent.adamModalClose(); return; } } catch(e){}
+      try { if (typeof window.adamModalClose === 'function') { window.adamModalClose(); return; } } catch(e){}
+      window.close();
+      return;
     }
   }, true);
 
@@ -377,21 +388,21 @@ if (!$embedded):
     const a = document.activeElement;
     if (!a || !root.contains(a)) return;
 
-    if (a.getAttribute && a.getAttribute('data-modalfilez-tab') && (ev.key === 'Enter' || ev.key === ' ')) {
+    if (a.getAttribute && a.getAttribute('data-mdlib-tab') && (ev.key === 'Enter' || ev.key === ' ')) {
       ev.preventDefault();
-      setActive(a.getAttribute('data-modalfilez-tab') || 'upload');
+      setActive(a.getAttribute('data-mdlib-tab') || 'upload');
     }
   }, true);
 
-  if (!window.__modalfilez_refresh_bound) {
-    window.__modalfilez_refresh_bound = true;
+  if (!window.__mdlib_refresh_bound) {
+    window.__mdlib_refresh_bound = true;
 
     const safeRefresh = function(){
-      const host = document.getElementById('modalfilez-library-host');
+      const host = document.getElementById('mdlib-library-host');
       if (!host) return;
       if (host.getAttribute('data-view') !== 'list') return;
-      if (typeof window.modalfilezLoadList === 'function') {
-        window.modalfilezLoadList(true);
+      if (typeof window.mdlibLoadList === 'function') {
+        window.mdlibLoadList(true);
       }
     };
 

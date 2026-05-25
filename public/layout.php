@@ -239,6 +239,12 @@ if (!empty($content_html)) {
         if (function_exists('post_cat_shortcode_expand')) {
             $content_html = post_cat_shortcode_expand((string)$content_html, $pdo, $base_context);
         }
+        if (function_exists('private_file_shortcode_expand')) {
+            $content_html = private_file_shortcode_expand((string)$content_html, $pdo, $base_context);
+        }
+        if (function_exists('video_shortcode_expand')) {
+            $content_html = video_shortcode_expand((string)$content_html, $pdo);
+        }
     }
 
     echo $content_html;

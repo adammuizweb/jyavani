@@ -29,6 +29,35 @@ $baseUrl = rtrim($proto . '://' . $host, '/');
 $search   = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $page     = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $per_page = isset($_GET['per_page']) ? max(1, min(200, (int)$_GET['per_page'])) : 10;
+$filterVisibility = isset($_GET['visibility']) ? strtolower(trim((string)$_GET['visibility'])) : '';
+if (!in_array($filterVisibility, ['public','private'], true)) $filterVisibility = '';
+
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(PDO $pdo, string $column): bool
+    {
+        try {
+            $st = $pdo->prepare("SELECT {$column} FROM media LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasVisibility = mdlib_has_column($pdo, 'visibility');
+
+if (!function_exists('mdlib_media_client_url')) {
+    function mdlib_media_client_url(array $row): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
+            return '/private/media/view/?id=' . $id;
+        }
+        return (string)($row['url'] ?? '');
+    }
+}
 
 $where = [];
 $params = [];
@@ -41,6 +70,11 @@ if (!$isAdmin) {
 if ($search !== '') {
     $where[] = '(title LIKE :q OR filename LIKE :q OR caption LIKE :q)';
     $params[':q'] = '%' . $search . '%';
+}
+
+if ($filterVisibility !== '') {
+    $where[] = 'visibility = :visibility';
+    $params[':visibility'] = $filterVisibility;
 }
 
 $whereSql = $where ? (' WHERE ' . implode(' AND ', $where)) : '';
@@ -76,22 +110,34 @@ try {
     $offset = 0;
 }
 ?>
-
-<div id="modalimg-list-root">
-  <div class="search-row">
-    <input id="modal-search" placeholder="Cari title/filename/caption..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px">
-    <button id="modal-search-btn" style="padding:8px;border-radius:6px">Cari</button>
+<div id="mdlib-list-root">
+  <div class="mdlib-bar">
+    <input id="mdlib-search" class="mdlib-input" placeholder="Cari title/filename/caption..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
+    <select id="mdlib-visibility-filter" class="mdlib-select">
+      <option value="" <?= $filterVisibility === '' ? 'selected' : '' ?>>Semua</option>
+      <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>>Public</option>
+      <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>>Private</option>
+    </select>
+    <button id="mdlib-search-btn" class="mdlib-btn" type="button">Cari</button>
   </div>
 
-  <div id="gallery-container">
+  <div id="mdlib-gallery-container">
     <?php if (count($rows) === 0): ?>
-      <div class="small">Tidak ada media</div>
+      <div class="mdlib-note">Tidak ada media</div>
     <?php else: ?>
-      <div class="gallery-grid" id="gallery-grid">
+      <div class="mdlib-pic-grid" id="mdlib-pic-grid">
         <?php foreach ($rows as $r): ?>
           <?php
             $id = (int)$r['id'];
-            $url = (string)($r['url'] ?? '');
+            $rawUrl = (string)($r['url'] ?? '');
+
+            $visibility = $hasVisibility ? (strtolower((string)($r['visibility'] ?? 'public')) ?: 'public') : 'public';
+            $storageDisk = $hasVisibility ? (strtolower((string)($r['storage_disk'] ?? 'public')) ?: 'public') : 'public';
+            $accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
+            $isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
+
+            $clientUrl = mdlib_media_client_url($r);
+            $url = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $rawUrl;
 
             if ($url !== '' && !preg_match('#^https?://#i', $url)) {
                 if (substr($url, 0, 1) === '/') $url = $baseUrl . $url;
@@ -103,31 +149,43 @@ try {
             $alt = (string)($r['alt'] ?? '');
             $credit = (string)($r['credit'] ?? '');
             $filename = (string)($r['filename'] ?? '');
+            $mime = (string)($r['mime'] ?? '');
+            $size = (string)($r['size'] ?? '');
           ?>
-          <div class="gallery-thumb"
+          <div class="mdlib-pic"
                data-id="<?= $id ?>"
                data-url="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>"
+               data-protected-url="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>"
                data-title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"
                data-alt="<?= htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') ?>"
                data-caption="<?= htmlspecialchars($caption, ENT_QUOTES, 'UTF-8') ?>"
-               data-credit="<?= htmlspecialchars($credit, ENT_QUOTES, 'UTF-8') ?>">
+               data-credit="<?= htmlspecialchars($credit, ENT_QUOTES, 'UTF-8') ?>"
+               data-filename="<?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?>"
+               data-mime="<?= htmlspecialchars($mime, ENT_QUOTES, 'UTF-8') ?>"
+               data-size="<?= htmlspecialchars($size, ENT_QUOTES, 'UTF-8') ?>"
+               data-visibility="<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"
+               data-storage-disk="<?= htmlspecialchars($storageDisk, ENT_QUOTES, 'UTF-8') ?>"
+               data-access-scope="<?= htmlspecialchars($accessScope, ENT_QUOTES, 'UTF-8') ?>"
+               data-is-downloadable="<?= (int)$isDownloadable ?>">
             <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($alt ?: $title, ENT_QUOTES, 'UTF-8') ?>">
-            <div class="thumb-info">
-              <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-                <?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>
+            <div class="mdlib-pic-info">
+              <div class="mdlib-pic-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></div>
+              <div class="mdlib-pic-sub"><?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?></div>
+              <div class="mdlib-badges" style="margin-top:4px">
+                <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="mdlib-pill"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
               </div>
-              <div class="small"><?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?></div>
             </div>
-            <div class="thumb-actions">
-              <button class="btn-detail" type="button" data-id="<?= $id ?>">Detail</button>
-              <button class="btn-insert" type="button" data-id="<?= $id ?>" data-url="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>">Insert</button>
+            <div class="mdlib-pic-actions">
+              <button class="mdlib-btn-detail" type="button" data-id="<?= $id ?>">Detail</button>
+              <button class="mdlib-btn-insert" type="button" data-id="<?= $id ?>" data-url="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>">Insert</button>
             </div>
           </div>
         <?php endforeach; ?>
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px">
-        <div class="pagination" id="pagination">
+      <div class="mdlib-flex-between">
+        <div class="mdlib-pager" id="mdlib-pager">
           <?php
           $max_links = 7;
           $half = (int) floor($max_links / 2);
@@ -137,22 +195,23 @@ try {
               $start = max(1, $end - $max_links + 1);
           }
 
-          $pageUrl = function(int $p, string $q, int $perPage): string {
+          $pageUrl = function(int $p, string $q, int $perPage, string $vf): string {
               $parts = [];
               if ($q !== '') $parts[] = 'q=' . urlencode($q);
               $parts[] = 'page=' . $p;
               $parts[] = 'per_page=' . $perPage;
+              if ($vf !== '') $parts[] = 'visibility=' . urlencode($vf);
               return '/adiwira/admin/modal_img/list_modal.php?' . implode('&', $parts);
           };
 
           if ($page <= 1) {
               echo '<span class="disabled">Prev</span>';
           } else {
-              echo '<a href="' . htmlspecialchars($pageUrl($page - 1, $search, $per_page), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page - 1) . '">Prev</a>';
+              echo '<a href="' . htmlspecialchars($pageUrl($page - 1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page - 1) . '">Prev</a>';
           }
 
           if ($start > 1) {
-              echo '<a href="' . htmlspecialchars($pageUrl(1, $search, $per_page), ENT_QUOTES, 'UTF-8') . '" data-page="1">1</a>';
+              echo '<a href="' . htmlspecialchars($pageUrl(1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="1">1</a>';
               if ($start > 2) echo '<span class="disabled">…</span>';
           }
 
@@ -160,27 +219,26 @@ try {
               if ($i === $page) {
                   echo '<span class="current" data-page="' . $i . '">' . $i . '</span>';
               } else {
-                  echo '<a href="' . htmlspecialchars($pageUrl($i, $search, $per_page), ENT_QUOTES, 'UTF-8') . '" data-page="' . $i . '">' . $i . '</a>';
+                  echo '<a href="' . htmlspecialchars($pageUrl($i, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . $i . '">' . $i . '</a>';
               }
           }
 
           if ($end < $total_pages) {
               if ($end < $total_pages - 1) echo '<span class="disabled">…</span>';
-              echo '<a href="' . htmlspecialchars($pageUrl($total_pages, $search, $per_page), ENT_QUOTES, 'UTF-8') . '" data-page="' . $total_pages . '">' . $total_pages . '</a>';
+              echo '<a href="' . htmlspecialchars($pageUrl($total_pages, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . $total_pages . '">' . $total_pages . '</a>';
           }
 
           if ($page >= $total_pages) {
               echo '<span class="disabled">Next</span>';
           } else {
-              echo '<a href="' . htmlspecialchars($pageUrl($page + 1, $search, $per_page), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page + 1) . '">Next</a>';
+              echo '<a href="' . htmlspecialchars($pageUrl($page + 1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page + 1) . '">Next</a>';
           }
           ?>
         </div>
 
-        <div class="pagination-info">
-          Menampilkan <?= $total === 0 ? 0 : ($offset + 1) ?> -
-          <?= min($offset + $per_page, $total) ?> dari <?= $total ?> hasil
-        </div>
+        <span class="disabled" style="border:0;background:transparent;cursor:default">
+          <?= $total === 0 ? 0 : ($offset + 1) ?>–<?= min($offset + $per_page, $total) ?> / <?= $total ?>
+        </span>
       </div>
     <?php endif; ?>
   </div>
@@ -188,7 +246,7 @@ try {
 
 <script>
 (function(){
-  var root = document.getElementById('modalimg-list-root');
+  var root = document.getElementById('mdlib-list-root');
   if (!root) return;
 
   if (root.dataset.modalimgBound === '1') {
@@ -221,7 +279,7 @@ try {
   function replaceRootOnly(html) {
     var parser = new DOMParser();
     var doc = parser.parseFromString(String(html || ''), 'text/html');
-    var nextRoot = doc.getElementById('modalimg-list-root');
+    var nextRoot = doc.getElementById('mdlib-list-root');
     if (!nextRoot) return;
 
     root.innerHTML = nextRoot.innerHTML;
@@ -249,7 +307,7 @@ try {
   root.addEventListener('click', function(ev){
     var target = ev.target;
 
-    var pag = target.closest && target.closest('#pagination a');
+    var pag = target.closest && target.closest('#mdlib-pager a');
     if (pag) {
       ev.preventDefault();
       var href = pag.getAttribute('href');
@@ -258,7 +316,7 @@ try {
       return;
     }
 
-    var detailBtn = target.closest && target.closest('.btn-detail');
+    var detailBtn = target.closest && target.closest('.mdlib-btn-detail');
     if (detailBtn) {
       ev.preventDefault();
 
@@ -288,30 +346,47 @@ try {
       return;
     }
 
-    var insertBtn = target.closest && target.closest('.btn-insert');
+    var insertBtn = target.closest && target.closest('.mdlib-btn-insert');
     if (insertBtn) {
       ev.preventDefault();
 
-      var thumb = insertBtn.closest && insertBtn.closest('.gallery-thumb');
+      var thumb = insertBtn.closest && insertBtn.closest('.mdlib-pic');
       if (!thumb) return;
 
       var id = thumb.getAttribute('data-id');
       var url = thumb.getAttribute('data-url') || '';
+      var protectedUrl = thumb.getAttribute('data-protected-url') || '';
       var title = (thumb.getAttribute('data-title') || '').trim();
       var alt = (thumb.getAttribute('data-alt') || '').trim();
       var caption = (thumb.getAttribute('data-caption') || '').trim();
       var credit = (thumb.getAttribute('data-credit') || '').trim();
+      var filename = thumb.getAttribute('data-filename') || '';
+      var mime = thumb.getAttribute('data-mime') || '';
+      var size = thumb.getAttribute('data-size') || '';
+      var visibility = thumb.getAttribute('data-visibility') || 'public';
+      var storageDisk = thumb.getAttribute('data-storage-disk') || 'public';
+      var accessScope = thumb.getAttribute('data-access-scope') || 'public';
+      var isDownloadable = thumb.getAttribute('data-is-downloadable') || '1';
 
       var detail = {
         id: id ? parseInt(id, 10) : null,
         url: url,
+        protected_url: protectedUrl,
         title: title,
         alt: alt,
         caption: caption,
-        credit: credit
+        credit: credit,
+        filename: filename,
+        mime: mime,
+        size: size,
+        visibility: visibility,
+        storage_disk: storageDisk,
+        access_scope: accessScope,
+        is_downloadable: isDownloadable
       };
 
       broadcast('media:insert', detail);
+      broadcast('file:insert', detail);
 
       try {
         if (window.parent && window.parent !== window && typeof window.parent.adamModalClose === 'function') {
@@ -328,25 +403,48 @@ try {
       return;
     }
 
-    var searchBtn = target.closest && target.closest('#modal-search-btn');
+    var searchBtn = target.closest && target.closest('#mdlib-search-btn');
     if (searchBtn) {
       ev.preventDefault();
       var q = '';
-      var input = root.querySelector('#modal-search');
+      var input = root.querySelector('#mdlib-search');
       if (input) q = input.value || '';
-      requestList('/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>');
+      var vf = '';
+      var vfEl = root.querySelector('#mdlib-visibility-filter');
+      if (vfEl) vf = vfEl.value || '';
+      var url = '/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>';
+      if (vf) url += '&visibility=' + encodeURIComponent(vf);
+      requestList(url);
       return;
     }
   }, false);
 
+  root.addEventListener('change', function(ev){
+    var target = ev.target;
+    if (target && target.id === 'mdlib-visibility-filter') {
+      var q = '';
+      var input = root.querySelector('#mdlib-search');
+      if (input) q = input.value || '';
+      var vf = target.value || '';
+      var url = '/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>';
+      if (vf) url += '&visibility=' + encodeURIComponent(vf);
+      requestList(url);
+    }
+  });
+
   root.addEventListener('keydown', function(ev){
     var target = ev.target;
-    if (!target || target.id !== 'modal-search') return;
+    if (!target || target.id !== 'mdlib-search') return;
 
     if (ev.key === 'Enter') {
       ev.preventDefault();
       var q = target.value || '';
-      requestList('/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>');
+      var vf = '';
+      var vfEl = root.querySelector('#mdlib-visibility-filter');
+      if (vfEl) vf = vfEl.value || '';
+      var url = '/adiwira/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>';
+      if (vf) url += '&visibility=' + encodeURIComponent(vf);
+      requestList(url);
     }
   }, false);
 })();

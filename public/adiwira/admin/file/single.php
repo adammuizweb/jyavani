@@ -9,6 +9,24 @@ $isAdmin = ($role === 'admin');
 
 header('Content-Type: text/html; charset=utf-8');
 
+if (!function_exists('modalfilez_client_url')) {
+    function modalfilez_client_url(array $row): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
+            $mime = strtolower((string)($row['mime'] ?? ''));
+            $ext = strtolower((string)($row['ext'] ?? pathinfo((string)($row['filename'] ?? ''), PATHINFO_EXTENSION)));
+            if ($mime === 'application/pdf' || $ext === 'pdf') {
+                return '/private/pdf/view/?id=' . $id;
+            }
+            return '/private/file/view/?id=' . $id;
+        }
+        return (string)($row['url'] ?? '');
+    }
+}
+
 $id  = (int)($_GET['id'] ?? 0);
 $url = trim((string)($_GET['url'] ?? ''));
 
@@ -50,12 +68,17 @@ if (!$row) {
 $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
 $baseUrl = rtrim($proto . '://' . $host, '/');
-$path = parse_url((string)$row['url'], PHP_URL_PATH) ?: (string)$row['url'];
+$clientUrl = modalfilez_client_url($row);
 
 $csrf = csrf_token();
 $ext  = strtoupper((string)($row['ext'] ?? ''));
 if ($ext === '') $ext = strtoupper((string)pathinfo((string)($row['filename'] ?? ''), PATHINFO_EXTENSION));
 if ($ext === '') $ext = 'FILE';
+
+$visibility = strtolower((string)($row['visibility'] ?? 'public')) ?: 'public';
+$accessScope = strtolower((string)($row['access_scope'] ?? 'public')) ?: 'public';
+$isDownloadable = (int)($row['is_downloadable'] ?? 1);
+$isPrivate = ($visibility === 'private');
 ?>
 <div class="single-file">
   <form id="file-edit-form">
@@ -70,8 +93,8 @@ if ($ext === '') $ext = 'FILE';
       <div style="flex:1; min-width:240px">
         <div style="font-weight:800; margin-bottom:6px">URL</div>
         <div class="small" style="margin-bottom:8px">
-          <a href="<?= htmlspecialchars((string)$row['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">
-            <?= htmlspecialchars((string)$row['url'], ENT_QUOTES, 'UTF-8') ?>
+          <a href="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">
+            <?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>
           </a>
         </div>
 
@@ -81,13 +104,12 @@ if ($ext === '') $ext = 'FILE';
           — Size: <?= (int)($row['size'] ?? 0) ?> bytes
         </div>
 
-        <div style="margin-top:10px">
-          <div style="font-weight:800;">File URL (read-only)</div>
-          <div class="url-row">
-            <span class="url-prefix" id="file-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-            <input type="text" id="file-url-path" class="url-path" readonly value="<?= htmlspecialchars((string)$path, ENT_QUOTES, 'UTF-8') ?>">
-            <button type="button" class="copy-btn" data-action="copy-url">Copy</button>
-          </div>
+        <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
+          <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
+          <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+          <?php if (!$isDownloadable): ?>
+            <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800">NO DOWNLOAD</span>
+          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -100,6 +122,22 @@ if ($ext === '') $ext = 'FILE';
 
     <label>Credit</label>
     <input type="text" name="credit" value="<?= htmlspecialchars((string)($row['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+
+    <div style="margin-top:12px">
+      <label>Access Scope</label>
+      <select name="access_scope">
+        <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
+        <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
+        <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>>Admin Only</option>
+      </select>
+    </div>
+
+    <div style="margin-top:8px">
+      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+        Downloadable
+      </label>
+    </div>
 
     <div style="margin-top:12px; display:flex; gap:10px;">
       <button id="file-save-btn" class="btn" type="button">Save</button>

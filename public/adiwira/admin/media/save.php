@@ -32,6 +32,10 @@ $credit  = trim((string)($_POST['credit'] ?? ''));
 $target_url_raw       = trim((string)($_POST['target_url'] ?? ''));
 $target_attribute_raw = trim((string)($_POST['target_attribute'] ?? ''));
 
+$accessScope = strtolower(trim((string)($_POST['access_scope'] ?? '')));
+if (!in_array($accessScope, ['public','editorial','admin'], true)) $accessScope = 'editorial';
+$isDownloadable = !empty($_POST['is_downloadable']) ? 1 : 0;
+
 $errors = [];
 
 $link_url = null;
@@ -141,6 +145,26 @@ try {
         ':credit'  => $credit,
         ':id'      => $id,
     ];
+
+    $checkMediaCol = function (string $col) use ($pdo): bool {
+        try { $st = $pdo->prepare("SELECT {$col} FROM media LIMIT 0"); $st->execute(); return true; }
+        catch (Throwable $e) { return false; }
+    };
+
+    if ($checkMediaCol('access_scope') && $checkMediaCol('is_downloadable')) {
+        $q = $pdo->prepare("SELECT visibility FROM media WHERE id = :id LIMIT 1");
+        $q->execute([':id' => $id]);
+        $mediaRow = $q->fetch(PDO::FETCH_ASSOC);
+        $visibility = $mediaRow ? strtolower((string)($mediaRow['visibility'] ?? 'public')) : 'public';
+
+        if ($visibility === 'public') $accessScope = 'public';
+        if ($visibility === 'private' && $accessScope === 'public') $accessScope = 'editorial';
+
+        $setParts[] = 'access_scope = :access_scope';
+        $setParts[] = 'is_downloadable = :is_downloadable';
+        $exec[':access_scope'] = $accessScope;
+        $exec[':is_downloadable'] = $isDownloadable;
+    }
 
     if ($urlColumn !== null) {
         $setParts[] = $urlColumn . ' = :link_url';

@@ -51,9 +51,40 @@ function media_local_path_from_url(string $url): ?string {
     return null;
 }
 
+function media_private_base_dir(): string {
+    $env = trim((string)(getenv('PRIVATE_FILES_PATH') ?: ''));
+    if ($env !== '') return rtrim(str_replace('\\', '/', $env), '/');
+    $appRoot = realpath(__DIR__ . '/../../..');
+    if ($appRoot === false) $appRoot = dirname(__DIR__, 3);
+    return rtrim(str_replace('\\', '/', $appRoot), '/') . '/private_files';
+}
+
+function media_safe_unlink(?string $base, ?string $path): bool {
+    $base = is_string($base) ? rtrim($base, '/\\') : '';
+    $path = is_string($path) ? $path : '';
+    if ($base === '' || $path === '') return false;
+    $realBase = realpath($base);
+    $realPath = realpath($path);
+    if ($realBase === false || $realPath === false) return false;
+    $realBase = rtrim(str_replace('\\', '/', $realBase), '/') . '/';
+    $realPathNorm = str_replace('\\', '/', $realPath);
+    if (strpos($realPathNorm, $realBase) !== 0) return false;
+    return @unlink($realPath);
+}
+
+function media_has_private_cols(PDO $pdo): bool {
+    try {
+        $st = $pdo->prepare("SELECT storage_disk, storage_path FROM media LIMIT 0");
+        $st->execute();
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 try {
     if ($id > 0) {
-        $sql = "SELECT id, url FROM media WHERE id = :id";
+        $sql = "SELECT * FROM media WHERE id = :id";
         $params = [':id' => $id];
 
         if (!$isAdmin) {
@@ -67,7 +98,7 @@ try {
         $q->execute($params);
         $row = $q->fetch(PDO::FETCH_ASSOC);
     } else {
-        $sql = "SELECT id, url FROM media WHERE url = :url";
+        $sql = "SELECT * FROM media WHERE url = :url";
         $params = [':url' => $url];
 
         if (!$isAdmin) {
@@ -88,22 +119,39 @@ try {
 
     $deleted_id = (int)$row['id'];
     $url = (string)($row['url'] ?? '');
-
-    $localFile = media_local_path_from_url($url);
     $warning = null;
+    $deletedPhysical = false;
 
-    if ($localFile && is_file($localFile)) {
-        if (!@unlink($localFile)) {
-            $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+    if (media_has_private_cols($pdo)) {
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        $storagePath = trim((string)($row['storage_path'] ?? ''));
+        if (($disk === 'private') && $storagePath !== '') {
+            $base = media_private_base_dir() . '/media';
+            $fullPath = $base . '/' . ltrim($storagePath, '/\\');
+            $deletedPhysical = media_safe_unlink($base, $fullPath);
+            if (!$deletedPhysical) {
+                $warning = 'File private gagal dihapus, tetapi record database tetap dihapus.';
+            }
+        }
+    }
+
+    if (!$deletedPhysical) {
+        $localFile = media_local_path_from_url($url);
+        if ($localFile && is_file($localFile)) {
+            if (!@unlink($localFile)) {
+                $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+            }
         }
     }
 
     $pdo->prepare("DELETE FROM media WHERE id = :id LIMIT 1")->execute([':id' => $deleted_id]);
 
     adiwira_json([
-        'ok'      => true,
-        'id'      => $deleted_id,
-        'warning' => $warning,
+        'ok'               => true,
+        'id'               => $deleted_id,
+        'url'              => $url,
+        'warning'          => $warning,
+        'physical_deleted' => $deletedPhysical,
     ], 200);
 
 } catch (Throwable $e) {

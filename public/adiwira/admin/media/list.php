@@ -38,7 +38,34 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(string $col): bool {
+        try {
+            $st = $GLOBALS['pdo']->prepare("SELECT {$col} FROM media LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasVisibility = mdlib_has_column('visibility');
+
+if (!function_exists('modalfilez_client_url')) {
+    function modalfilez_client_url(array $row): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
+            return '/private/media/view/?id=' . $id;
+        }
+        return (string)($row['url'] ?? '');
+    }
+}
+
 $search   = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
+$visFilter = $hasVisibility ? trim((string)($_GET['v'] ?? '')) : '';
 $page     = max(1, (int)($_GET['p'] ?? 1));
 $per_page = 20;
 $offset   = ($page - 1) * $per_page;
@@ -54,6 +81,11 @@ if (!$isAdmin) {
 if ($search !== '') {
     $where[] = '(title LIKE :q OR filename LIKE :q OR caption LIKE :q)';
     $params[':q'] = '%' . $search . '%';
+}
+
+if ($hasVisibility && $visFilter !== '' && in_array($visFilter, ['public','private','auto'], true)) {
+    $where[] = 'visibility = :vis';
+    $params[':vis'] = $visFilter;
 }
 
 $where_sql = !empty($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
@@ -134,6 +166,15 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 
     <button id="delete-bulk-btn" class="btn danger">Delete Selected</button>
 
+    <?php if ($hasVisibility): ?>
+    <select id="visibility-filter" style="margin-left:12px;padding:3px 6px;font-size:12px">
+      <option value="">Semua</option>
+      <option value="public" <?= $visFilter === 'public' ? 'selected' : '' ?>>Public</option>
+      <option value="private" <?= $visFilter === 'private' ? 'selected' : '' ?>>Private</option>
+      <option value="auto" <?= $visFilter === 'auto' ? 'selected' : '' ?>>Auto</option>
+    </select>
+    <?php endif; ?>
+
     <input type="text" id="media-search" class="search" placeholder="Cari title / filename / caption" value="<?= e($search) ?>" style="margin-left:12px;">
     <button id="media-search-btn" class="btn">Cari</button>
 
@@ -155,14 +196,30 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       </thead>
       <tbody>
         <?php foreach ($rows as $r): ?>
-          <tr data-id="<?= (int)$r['id'] ?>">
+          <?php
+            $visibility = strtolower((string)($r['visibility'] ?? 'public')) ?: 'public';
+            $accessScope = strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public';
+            $isDownloadable = (int)($r['is_downloadable'] ?? 1);
+            $isPrivate = ($visibility === 'private');
+            $clientUrl = $hasVisibility ? modalfilez_client_url($r) : $r['url'];
+          ?>
+          <tr data-id="<?= (int)$r['id'] ?>" data-visibility="<?= e($visibility) ?>" data-access-scope="<?= e($accessScope) ?>">
             <td><input type="checkbox" class="row-checkbox" value="<?= (int)$r['id'] ?>"></td>
             <td>
-              <img src="<?= e($r['url']) ?>" alt="<?= e($r['alt']) ?>" class="media-thumb">
+              <img src="<?= e($clientUrl) ?>" alt="<?= e($r['alt']) ?>" class="media-thumb">
             </td>
             <td>
               <div style="font-weight:600"><?= e($r['title']) ?></div>
               <div class="small"><?= e($r['filename']) ?></div>
+              <?php if ($hasVisibility): ?>
+              <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
+                <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($visibility)) ?></span>
+                <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($accessScope)) ?></span>
+                <?php if (!$isDownloadable): ?>
+                  <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800">NO DOWNLOAD</span>
+                <?php endif; ?>
+              </div>
+              <?php endif; ?>
             </td>
             <td>
               <div class="small">MIME: <?= e($r['mime']) ?> — Size: <?= e(human_filesize((int)($r['size'] ?? 0))) ?></div>
@@ -192,7 +249,8 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
               <a href="#"
                  class="media-page-link"
                  data-page="<?= $i ?>"
-                 data-q="<?= e($search) ?>"><?= $i ?></a>
+                 data-q="<?= e($search) ?>"
+                 data-v="<?= e($visFilter) ?>"><?= $i ?></a>
             <?php endif; ?>
           <?php endif; ?>
         <?php endforeach; ?>
@@ -255,7 +313,9 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 
   async function reloadListFragment(q = '', p = 1, silent = false) {
     try {
-      const url = '/adiwira/admin/media/list.php?q=' + encodeURIComponent(q) + '&p=' + encodeURIComponent(p) + '&_ts=' + Date.now();
+      const vEl = document.getElementById('visibility-filter');
+      const v = vEl ? vEl.value : '';
+      const url = '/adiwira/admin/media/list.php?q=' + encodeURIComponent(q) + '&p=' + encodeURIComponent(p) + (v ? '&v=' + encodeURIComponent(v) : '') + '&_ts=' + Date.now();
       const res = await fetch(url, { credentials: 'include', cache:'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
 
@@ -368,6 +428,9 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     if (t.matches('#select-all')) {
       const checked = t.checked;
       document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
+    }
+    if (t.matches('#visibility-filter')) {
+      reloadListFragment(currentQ(), 1, false);
     }
   }, false);
 

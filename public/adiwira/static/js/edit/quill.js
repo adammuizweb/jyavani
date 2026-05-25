@@ -5,7 +5,7 @@
   let suppress = false;
 
   const complexPattern =
-    /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|table|thead|tbody|tfoot|tr|th|td)[\s>]|on[a-z]+\s*=|style\s*=/i;
+    /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|table|thead|tbody|tfoot|tr|th|td)[\s>]|on[a-z]+\s*=/i;
 
   const canonical = document.getElementById('content-textarea');
   const EDITOR_IMG_MAX_WIDTH = 560;
@@ -157,24 +157,7 @@
   }
 
   function applyEditorImageDisplay(img) {
-    if (!img) return;
-
-    img.style.display = 'block';
-    img.style.maxWidth = 'min(100%, ' + EDITOR_IMG_MAX_WIDTH + 'px)';
-    img.style.maxHeight = EDITOR_IMG_MAX_HEIGHT + 'px';
-    img.style.width = 'auto';
-    img.style.height = 'auto';
-    img.style.margin = '14px auto';
-
-    if (!img.style.borderRadius) {
-      img.style.borderRadius = '8px';
-    }
-
-    const figure = img.closest && img.closest('figure');
-    if (figure) {
-      figure.style.maxWidth = 'min(100%, ' + EDITOR_IMG_MAX_WIDTH + 'px)';
-      figure.style.margin = '14px auto';
-    }
+    // no-op: display is handled by CSS (.adam-quill .ql-editor img)
   }
 
   function normalizeEditorImages(rootEl) {
@@ -421,32 +404,13 @@
           maxWidth: '980px'
         }).then(function (picked) {
           const f = (typeof window.normalizeFile === 'function') ? window.normalizeFile(picked) : picked;
-          if (!f || !f.url) return;
+          if (!f) return;
 
-          const label = (f.filename && String(f.filename).trim() !== '')
-            ? String(f.filename).trim()
-            : (f.id ? ('File #' + f.id) : f.url);
+          const htmlToInsert = (typeof window.generateFileShortcode === 'function')
+            ? window.generateFileShortcode(f)
+            : '';
 
-          function esc(s){
-            return String(s || '')
-              .replace(/&/g,'&amp;')
-              .replace(/</g,'&lt;')
-              .replace(/>/g,'&gt;')
-              .replace(/"/g,'&quot;')
-              .replace(/'/g,'&#39;');
-          }
-
-          const attrs = [];
-          if (f.id) attrs.push('data-file-id="' + esc(f.id) + '"');
-          if (f.mime) attrs.push('data-mime="' + esc(f.mime) + '"');
-          if (f.size) attrs.push('data-size="' + esc(f.size) + '"');
-
-          const aHtml =
-            '<a href="' + esc(f.url) + '" target="_blank" rel="noopener"'
-            + (attrs.length ? ' ' + attrs.join(' ') : '')
-            + '>' + esc(label) + '</a>';
-
-          const htmlToInsert = '<p>📎 ' + aHtml + '</p>';
+          if (!htmlToInsert) return;
 
           localQuill.clipboard.dangerouslyPasteHTML(range.index, htmlToInsert);
           localQuill.setSelection(range.index + 2, 0);
@@ -532,9 +496,11 @@
       const initial = canonical ? (canonical.value || '') : '';
       const delta = quill.clipboard.convert(initial || '');
       quill.setContents(delta, 'silent');
+      restoreImageDataAttributes(initial);
     } catch (e) {
       try {
         quill.root.innerHTML = canonical ? (canonical.value || '') : '';
+        restoreImageDataAttributes(canonical ? canonical.value : '');
       } catch (_) {}
     }
 
@@ -568,6 +534,7 @@
       const delta = quill.clipboard.convert(html || '');
       suppress = true;
       quill.setContents(delta, 'silent');
+      restoreImageDataAttributes(html);
 
       if (canonical) canonical.value = quill.root.innerHTML;
 
@@ -578,9 +545,48 @@
     } catch (e) {
       try {
         quill.root.innerHTML = html;
+        restoreImageDataAttributes(html);
         if (canonical) canonical.value = quill.root.innerHTML;
         normalizeEditorImages(document.getElementById('quill-editor'));
       } catch (_) {}
+    }
+  }
+
+  function restoreImageDataAttributes(originalHtml) {
+    if (!originalHtml || !quill || !quill.root) return;
+    try {
+      var div = document.createElement('div');
+      div.innerHTML = originalHtml;
+      var originals = div.querySelectorAll('img[data-media-id]');
+      if (!originals.length) return;
+
+      var attrMap = {};
+      Array.from(originals).forEach(function(img){
+        var src = img.getAttribute('src');
+        if (!src) return;
+        attrMap[src] = {
+          'data-media-id': img.getAttribute('data-media-id'),
+          'data-media-url': img.getAttribute('data-media-url'),
+          'data-caption': img.getAttribute('data-caption'),
+          'data-credit': img.getAttribute('data-credit'),
+          'data-adiwira-applied': img.getAttribute('data-adiwira-applied')
+        };
+      });
+
+      if (Object.keys(attrMap).length === 0) return;
+
+      Array.from(quill.root.querySelectorAll('img')).forEach(function(img){
+        var src = img.getAttribute('src');
+        if (!src) return;
+        var data = attrMap[src];
+        if (!data) return;
+        Object.keys(data).forEach(function(attr){
+          var val = data[attr];
+          if (val != null) img.setAttribute(attr, val);
+        });
+      });
+    } catch(e) {
+      console.warn('[quill] restoreImageDataAttributes', e);
     }
   }
 
@@ -589,6 +595,7 @@
     html = html.replace(/<(script|style|iframe|embed|form|svg|canvas|table)[\s\S]*?<\/\1>/gi, '');
     html = html.replace(/<\?[\s\S]*?\?>/g, '');
     html = html.replace(/<\/?(div|section)[^>]*>/gi, '');
+    html = html.replace(/\sstyle\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
     return html;
   }
 
@@ -636,10 +643,12 @@
         try {
           const delta = quill.clipboard.convert(stripped || '');
           quill.setContents(delta, 'silent');
+          restoreImageDataAttributes(stripped);
           normalizeEditorImages(document.getElementById('quill-editor'));
         } catch (e) {
           try {
             quill.root.innerHTML = stripped;
+            restoreImageDataAttributes(stripped);
             normalizeEditorImages(document.getElementById('quill-editor'));
           } catch (_) {}
         }

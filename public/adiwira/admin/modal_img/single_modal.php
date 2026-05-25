@@ -47,11 +47,46 @@ if (!$r) {
     exit;
 }
 
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(PDO $pdo, string $column): bool
+    {
+        try {
+            $st = $pdo->prepare("SELECT {$column} FROM media LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasVisibility = mdlib_has_column($pdo, 'visibility');
+
+if (!function_exists('mdlib_media_client_url')) {
+    function mdlib_media_client_url(array $row): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
+            return '/private/media/view/?id=' . $id;
+        }
+        return (string)($row['url'] ?? '');
+    }
+}
+
 $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
 $baseUrl = rtrim($proto . '://' . $host, '/');
 
-$url = (string)($r['url'] ?? '');
+$rawUrl = (string)($r['url'] ?? '');
+$visibility = $hasVisibility ? (strtolower((string)($r['visibility'] ?? 'public')) ?: 'public') : 'public';
+$storageDisk = $hasVisibility ? (strtolower((string)($r['storage_disk'] ?? 'public')) ?: 'public') : 'public';
+$accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
+$isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
+
+$clientUrl = mdlib_media_client_url($r);
+$url = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $rawUrl;
+
 if ($url !== '' && !preg_match('#^https?://#i', $url)) {
     if (substr($url, 0, 1) === '/') $url = $baseUrl . $url;
     else $url = $baseUrl . '/' . ltrim($url, '/');
@@ -80,56 +115,60 @@ if (!function_exists('modalimg_human_filesize')) {
     }
 }
 ?>
-<div class="media-wrap">
-  <div class="media-left">
-    <div class="img-frame" title="<?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+<div class="mdlib-media-wrap">
+  <div class="mdlib-media-left">
+    <div class="mdlib-img-frame" title="<?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     </div>
 
-    <div class="meta-row">
+    <div class="mdlib-meta-row">
       <div><strong>Filename:</strong> <?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
       <div><strong>MIME:</strong> <?= htmlspecialchars((string)($r['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
       <div><strong>Size:</strong> <?= htmlspecialchars(modalimg_human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></div>
       <?php if (!empty($r['width']) || !empty($r['height'])): ?>
         <div><strong>Dim:</strong> <?= (int)$r['width'] ?> × <?= (int)$r['height'] ?></div>
       <?php endif; ?>
-      <div style="margin-top:6px" class="small">Uploaded: <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+      <?php if ($hasVisibility): ?>
+        <div><strong>Visibility:</strong> <?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></div>
+        <div><strong>Scope:</strong> <?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></div>
+      <?php endif; ?>
+      <div class="mdlib-meta-time">Uploaded: <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
     </div>
   </div>
 
-  <div class="media-right">
-    <form id="media-edit-form">
+  <div class="mdlib-media-right">
+    <form id="mdlib-media-edit-form">
       <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
-      <div class="field">
-        <label for="field-title">Title</label>
-        <input id="field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+      <div class="mdlib-field">
+        <label for="mdlib-field-title">Title</label>
+        <input id="mdlib-field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
-      <div class="field">
-        <label for="field-alt">Alt</label>
-        <input id="field-alt" type="text" name="alt" value="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+      <div class="mdlib-field">
+        <label for="mdlib-field-alt">Alt</label>
+        <input id="mdlib-field-alt" type="text" name="alt" value="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
-      <div class="field">
-        <label for="field-caption">Caption</label>
-        <textarea id="field-caption" name="caption"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+      <div class="mdlib-field">
+        <label for="mdlib-field-caption">Caption</label>
+        <textarea id="mdlib-field-caption" name="caption"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
 
-      <div class="field">
-        <label for="field-credit">Credit <span class="small">(Optional)</span></label>
-        <input id="field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Nama Photographer — Sumber / Lisensi">
+      <div class="mdlib-field">
+        <label for="mdlib-field-credit">Credit</label>
+        <input id="mdlib-field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Nama Photographer — Sumber / Lisensi">
       </div>
 
-      <div class="field">
-        <label for="field-target-url">Target URL <span class="small">(Optional — full URL, http/https)</span></label>
-        <input id="field-target-url" type="text" name="target_url" value="<?= htmlspecialchars($linkUrlValue, ENT_QUOTES, 'UTF-8') ?>" placeholder="https://example.com/page">
+      <div class="mdlib-field">
+        <label for="mdlib-field-target-url">Target URL</label>
+        <input id="mdlib-field-target-url" type="text" name="target_url" value="<?= htmlspecialchars($linkUrlValue, ENT_QUOTES, 'UTF-8') ?>" placeholder="https://example.com/page">
       </div>
 
-      <div class="field">
-        <label for="field-target-attr">Open behavior</label>
-        <select id="field-target-attr" name="target_attribute">
+      <div class="mdlib-field">
+        <label for="mdlib-field-target-attr">Open behavior</label>
+        <select id="mdlib-field-target-attr" name="target_attribute">
           <option value="" <?= $linkTargetValue === '' ? 'selected' : '' ?>>Default</option>
           <option value="_self" <?= $linkTargetValue === '_self' ? 'selected' : '' ?>>Open in same tab (_self)</option>
           <option value="_blank" <?= $linkTargetValue === '_blank' ? 'selected' : '' ?>>Open in new tab (_blank)</option>
@@ -138,20 +177,40 @@ if (!function_exists('modalimg_human_filesize')) {
         </select>
       </div>
 
-      <div class="field">
+      <?php if ($hasVisibility): ?>
+      <div class="mdlib-field">
+        <label for="mdlib-field-access-scope">Access Scope</label>
+        <select id="mdlib-field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
+          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
+            <option value="admin">Admin Only</option>
+        </select>
+        <?php if ($visibility === 'public'): ?><div class="mdlib-note">Public media selalu access_scope public. Untuk private, upload ulang dengan mode Private.</div><?php endif; ?>
+      </div>
+
+      <div class="mdlib-field">
+        <label class="mdlib-checkline" style="display:flex;gap:8px;align-items:center;font-weight:700">
+          <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+          Downloadable
+        </label>
+      </div>
+      <?php endif; ?>
+
+      <div class="mdlib-field">
         <label>File URL (read-only)</label>
-        <div class="media-url-row">
-          <span class="media-url-prefix" id="media-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-          <input type="text" id="media-url-path" class="media-url-path" readonly value="<?= htmlspecialchars((string)(parse_url((string)($r['url'] ?? ''), PHP_URL_PATH) ?: ($r['url'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
-          <button type="button" class="copy-btn" data-action="copy-url">Copy</button>
+        <div class="mdlib-urlrow">
+          <span class="mdlib-url-prefix" id="mdlib-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
+          <input type="text" id="mdlib-url-path" class="mdlib-url" readonly value="<?= htmlspecialchars((string)(parse_url((string)($r['url'] ?? ''), PHP_URL_PATH) ?: ($r['url'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
+          <button type="button" class="mdlib-btn-copy" data-action="copy-url">Copy</button>
         </div>
       </div>
 
       <input type="hidden" name="url" value="<?= htmlspecialchars((string)($r['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
-      <div class="actions">
-        <button type="button" class="btn btn-save" id="media-save-btn">Save</button>
-        <button type="button" class="btn btn-delete" id="media-delete-btn">Delete</button>
+      <div class="mdlib-actions">
+        <button type="button" class="mdlib-btn" id="mdlib-back-btn">← Kembali ke Gallery</button>
+        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-media-save-btn">Save</button>
+        <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-media-delete-btn">Delete</button>
       </div>
     </form>
   </div>
@@ -213,7 +272,7 @@ if (!function_exists('modalimg_human_filesize')) {
     return el && el.value ? el.value : '';
   }
 
-  document.getElementById('media-save-btn')?.addEventListener('click', async function(){
+  document.getElementById('mdlib-media-save-btn')?.addEventListener('click', async function(){
     const ok = await uiAsk('warning', {
       title: 'Simpan perubahan media',
       message: 'Perubahan metadata media akan disimpan. Lanjutkan?',
@@ -223,7 +282,7 @@ if (!function_exists('modalimg_human_filesize')) {
     if (!ok) return;
 
     const btn = this;
-    const form = document.getElementById('media-edit-form');
+    const form = document.getElementById('mdlib-media-edit-form');
     if (!form) return;
 
     btn.disabled = true;
@@ -261,7 +320,7 @@ if (!function_exists('modalimg_human_filesize')) {
       });
   });
 
-  document.getElementById('media-delete-btn')?.addEventListener('click', async function(){
+  document.getElementById('mdlib-media-delete-btn')?.addEventListener('click', async function(){
     const ok = await uiAsk('danger', {
       title: 'Hapus media',
       message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
@@ -273,7 +332,7 @@ if (!function_exists('modalimg_human_filesize')) {
     const btn = this;
     btn.disabled = true;
 
-    const form = document.getElementById('media-edit-form');
+    const form = document.getElementById('mdlib-media-edit-form');
     const fd = new FormData();
     const idEl = form.querySelector('input[name="id"]');
     const urlEl = form.querySelector('input[name="url"]');
@@ -334,11 +393,37 @@ if (!function_exists('modalimg_human_filesize')) {
       });
   });
 
+  document.getElementById('mdlib-back-btn')?.addEventListener('click', function(){
+    var listUrl = '/adiwira/admin/modal_img/list_modal.php?embedded=1';
+
+    var content = null;
+    try { content = document.getElementById('adam-modal-content'); } catch(e){}
+    if (!content) {
+      try { content = window.parent.document.getElementById('adam-modal-content'); } catch(e){}
+    }
+
+    if (content && typeof window.injectHtmlWithScriptsTo === 'function') {
+      fetch(listUrl, { credentials: 'include', cache: 'no-store' })
+        .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+        .then(function(html){ return window.injectHtmlWithScriptsTo(content, html); })
+        .catch(function(err){
+          console.error('back-to-list error', err);
+          uiToast('error', 'Gallery', 'Gagal memuat daftar media.', 4000);
+        });
+    } else {
+      try {
+        if (window.parent && window.parent.adamModalOpen) {
+          window.parent.adamModalOpen(listUrl, { maxWidth: '980px' });
+        }
+      } catch(e){}
+    }
+  });
+
   document.querySelector('[data-action="copy-url"]')?.addEventListener('click', function(ev){
     ev.preventDefault();
 
-    const prefixEl = document.getElementById('media-url-prefix');
-    const pathEl = document.getElementById('media-url-path');
+    const prefixEl = document.getElementById('mdlib-url-prefix');
+    const pathEl = document.getElementById('mdlib-url-path');
     const prefix = prefixEl ? (prefixEl.textContent || '').trim() : window.location.origin;
     const path = pathEl ? (pathEl.value || '').trim() : '';
 

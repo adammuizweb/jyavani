@@ -22,38 +22,80 @@ try {
 } catch (Throwable $e) {
     $csrfToken = '';
 }
+
 ?>
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
-<div class="media-uploader">
-  <div class="uploader-top">
-    <div style="display:flex;gap:8px;align-items:center;flex:1">
-      <div id="dropzone" class="dropzone" role="button" tabindex="0">
-        Tarik gambar ke sini atau klik
-        <button id="browse-btn" class="adam-btn ghost" type="button">Pilih file</button>
-        <div class="note small">Mendukung webp/png/jpg/jpeg. Upload otomatis setelah pilih.</div>
+<div class="mdlib-uploader mdlib-uploader--split">
+  <div class="mdlib-uploader-left">
+    <div class="mdlib-upload-config">
+      <label class="mdlib-config-label">Mode penyimpanan media</label>
+      <select id="mdlib-visibility-select" class="mdlib-select">
+        <option value="auto" selected>Auto — gambar public</option>
+        <option value="public">Public — akses URL langsung</option>
+        <option value="private">Private internal — via protected URL</option>
+      </select>
+
+      <div class="mdlib-private-options" id="mdlib-private-options">
+        <label>
+          Akses private
+          <select id="mdlib-access-scope">
+            <option value="editorial" selected>Editorial</option>
+            <option value="admin">Admin saja</option>
+          </select>
+        </label>
+        <label class="mdlib-checkline">
+          <input type="checkbox" id="mdlib-is-downloadable" value="1" checked>
+          Izinkan download langsung
+        </label>
       </div>
     </div>
   </div>
 
-  <div id="upload-progress" class="upload-progress" aria-live="polite"></div>
-  <div id="preview-container" class="preview-grid" aria-live="polite"></div>
+  <div class="mdlib-uploader-right">
+    <div id="mdlib-dropzone" class="mdlib-dropzone" role="button" tabindex="0">
+      Tarik gambar ke sini atau klik
+      <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button">Pilih file</button>
+      <div class="mdlib-note">Mendukung webp/png/jpg/avif.</div>
+    </div>
+
+    <div id="mdlib-upload-progress" class="mdlib-upload-progress" aria-live="polite"></div>
+    <div id="mdlib-preview-container" class="mdlib-preview-grid" aria-live="polite"></div>
+  </div>
 </div>
 
-<input id="file-input" type="file" accept="image/webp,image/png,image/jpg,image/jpeg" multiple style="display:none">
+<input id="mdlib-file-input" type="file" accept="image/webp,image/png,image/jpg,image/jpeg" multiple style="display:none">
 
 <script>
 (function(){
   const uploadUrl = '/adiwira/admin/upload_image.php';
   const deleteUrl = '/adiwira/admin/media/delete.php';
 
-  const dropzone = document.getElementById('dropzone');
-  const fileInput = document.getElementById('file-input');
-  const browseBtn = document.getElementById('browse-btn');
-  const progressWrap = document.getElementById('upload-progress');
-  const previewWrap = document.getElementById('preview-container');
+  const dropzone = document.getElementById('mdlib-dropzone');
+  const fileInput = document.getElementById('mdlib-file-input');
+  const browseBtn = document.getElementById('mdlib-browse-btn');
+  const progressWrap = document.getElementById('mdlib-upload-progress');
+  const previewWrap = document.getElementById('mdlib-preview-container');
+  const accessScopeEl = document.getElementById('mdlib-access-scope');
+  const downloadableEl = document.getElementById('mdlib-is-downloadable');
 
   if (!dropzone || !fileInput || !browseBtn || !progressWrap || !previewWrap) return;
+
+  function getVisibilityChoice() {
+    const el = document.getElementById('mdlib-visibility-select');
+    return el ? el.value : 'auto';
+  }
+
+  function updatePrivateOptions() {
+    const choice = getVisibilityChoice();
+    const box = document.getElementById('mdlib-private-options');
+    if (!box) return;
+    box.style.display = choice === 'private' ? '' : 'none';
+  }
+
+  const visSelect = document.getElementById('mdlib-visibility-select');
+  if (visSelect) visSelect.addEventListener('change', updatePrivateOptions);
+  updatePrivateOptions();
 
   function getToastApi(){
     try {
@@ -141,23 +183,19 @@ try {
 
   function findCsrfToken() {
     let t = null;
-
     try {
       const el = document.querySelector('input[name="csrf_token"]');
       if (el && el.value) t = el.value;
     } catch(e){}
-
     if (!t) {
       try {
         const pel = window.parent && window.parent.document
           ? window.parent.document.querySelector('input[name="csrf_token"], #csrf_token')
           : null;
-
         if (pel && pel.value) t = pel.value;
         if (pel && pel.textContent && !t) t = pel.textContent;
       } catch(e){}
     }
-
     return t;
   }
 
@@ -169,20 +207,22 @@ try {
     });
   }
 
-  function addProgressRow(filename) {
+  function addProgressRow(filename, modeLabel) {
     const row = document.createElement('div');
-    row.className = 'progress-row';
+    row.className = 'mdlib-progress-row';
     row.innerHTML = `
-      <div style="font-size:.9rem;font-weight:600;min-width:120px">${escapeHtml(filename)}</div>
-      <div class="bar-wrap"><div class="bar"></div></div>
+      <div class="mdlib-progress-name">${escapeHtml(filename)}${modeLabel ? ' <span class="mdlib-pill">' + escapeHtml(modeLabel) + '</span>' : ''}</div>
+      <div class="mdlib-barwrap"><div class="mdlib-bar"></div></div>
     `;
     progressWrap.appendChild(row);
-    const bar = row.querySelector('.bar');
+    const bar = row.querySelector('.mdlib-bar');
     return { row, bar };
   }
 
   function uploadFile(file) {
-    const { row, bar } = addProgressRow(file.name);
+    const visibility = getVisibilityChoice();
+    const modeLabel = visibility === 'private' ? 'PRIVATE' : 'PUBLIC';
+    const { row, bar } = addProgressRow(file.name, modeLabel);
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -191,6 +231,9 @@ try {
       fd.append('image', file);
       fd.append('auto_save', '1');
       fd.append('title', file.name);
+      fd.append('visibility', visibility);
+      if (accessScopeEl) fd.append('access_scope', accessScopeEl.value);
+      if (downloadableEl) fd.append('is_downloadable', downloadableEl && downloadableEl.checked ? '1' : '0');
 
       const token = findCsrfToken();
       if (token) fd.append('csrf_token', token);
@@ -234,7 +277,11 @@ try {
             title: data.title || '',
             alt: data.alt || '',
             caption: data.caption || '',
-            credit: data.credit || ''
+            credit: data.credit || '',
+            visibility: data.visibility || 'public',
+            storage_disk: data.storage_disk || 'public',
+            access_scope: data.access_scope || 'public',
+            is_downloadable: data.is_downloadable != null ? data.is_downloadable : '1'
           };
 
           bar.style.width = '100%';
@@ -262,25 +309,32 @@ try {
 
   function showThumb(url, media) {
     const box = document.createElement('div');
-    box.className = 'thumb';
+    box.className = 'mdlib-preview-card';
     if (media && media.id) box.dataset.mediaId = String(media.id);
     if (url) box.dataset.mediaUrl = String(url);
 
+    const visibility = (media && media.visibility) || 'public';
+    const scope = (media && media.access_scope) || 'public';
+
     box.innerHTML = `
       <img src="${escapeHtml(url)}" alt="${escapeHtml(media && (media.alt || media.title) || '')}">
-      <div class="meta">
-        <div class="title">${escapeHtml(media && (media.title || media.filename || '') || '')}</div>
-        <div class="actions">
-          <button class="edit-btn" type="button">Edit</button>
-          <button class="del-btn" type="button">Del</button>
+      <div class="mdlib-preview-meta">
+        <div class="mdlib-preview-title">${escapeHtml(media && (media.title || media.filename || '') || '')}</div>
+        <div class="mdlib-badges">
+          <span class="mdlib-pill mdlib-pill-${escapeHtml(visibility)}">${escapeHtml(visibility.toUpperCase())}</span>
+          <span class="mdlib-pill">${escapeHtml(scope.toUpperCase())}</span>
+        </div>
+        <div class="mdlib-preview-actions">
+          <button class="mdlib-btn-edit" type="button">Edit</button>
+          <button class="mdlib-btn-danger" type="button">Del</button>
         </div>
       </div>
     `;
 
     previewWrap.prepend(box);
-    requestAnimationFrame(() => box.classList.add('show'));
+    requestAnimationFrame(() => box.classList.add('mdlib-is-show'));
 
-    box.querySelector('.edit-btn').addEventListener('click', function(){
+    box.querySelector('.mdlib-btn-edit').addEventListener('click', function(){
       const id = box.dataset.mediaId || (media && media.id);
       if (!id) return;
 
@@ -303,7 +357,7 @@ try {
       window.open(link, '_blank');
     });
 
-    box.querySelector('.del-btn').addEventListener('click', async function(){
+    box.querySelector('.mdlib-btn-danger').addEventListener('click', async function(){
       const ok = await uiAsk('danger', {
         title: 'Hapus media',
         message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
@@ -382,13 +436,13 @@ try {
     else if (d.ids && Array.isArray(d.ids)) ids = d.ids.map(x => parseInt(x, 10)).filter(Boolean);
 
     ids.forEach(id => {
-      const th = previewWrap.querySelector('.thumb[data-media-id="' + id + '"]');
+      const th = previewWrap.querySelector('.mdlib-preview-card[data-media-id="' + id + '"]');
       if (th) th.remove();
     });
 
     if (Array.isArray(d.deleted_urls)) {
       d.deleted_urls.forEach(function(u){
-        const th = previewWrap.querySelector('.thumb[data-media-url="' + CSS.escape(String(u)) + '"]');
+        const th = previewWrap.querySelector('.mdlib-preview-card[data-media-url="' + CSS.escape(String(u)) + '"]');
         if (th) th.remove();
       });
     }

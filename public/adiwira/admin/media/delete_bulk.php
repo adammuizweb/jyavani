@@ -58,14 +58,29 @@ function media_local_path_from_url(string $url): ?string {
     return null;
 }
 
+if (!function_exists('media_private_base_dir')) {
+    function media_private_base_dir(): ?string {
+        $path = defined('PRIVATE_FILES_PATH') ? PRIVATE_FILES_PATH : '';
+        if ($path === '') return null;
+        $real = realpath(rtrim($path, '/\\'));
+        return ($real && is_dir($real)) ? $real : null;
+    }
+}
+
+if (!function_exists('media_safe_unlink')) {
+    function media_safe_unlink(string $file): bool {
+        return @unlink($file);
+    }
+}
+
 try {
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
     if ($isAdmin) {
-        $stmt = $pdo->prepare("SELECT id, url FROM media WHERE id IN ($placeholders)");
+        $stmt = $pdo->prepare("SELECT id, url, storage_disk, storage_path FROM media WHERE id IN ($placeholders)");
         $stmt->execute($ids);
     } else {
-        $stmt = $pdo->prepare("SELECT id, url FROM media WHERE id IN ($placeholders) AND user_id = ?");
+        $stmt = $pdo->prepare("SELECT id, url, storage_disk, storage_path FROM media WHERE id IN ($placeholders) AND user_id = ?");
         $stmt->execute(array_merge($ids, [$uid]));
     }
 
@@ -81,11 +96,25 @@ try {
     foreach ($rows as $row) {
         $id = (int)$row['id'];
         $url = (string)($row['url'] ?? '');
+        $storageDisk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        $storagePath = (string)($row['storage_path'] ?? '');
 
-        $localFile = media_local_path_from_url($url);
-        if ($localFile && is_file($localFile)) {
-            if (!@unlink($localFile)) {
-                $warnings[] = "Failed to unlink file for id {$id}";
+        if ($storageDisk === 'private' && $storagePath !== '') {
+            $privateRoot = media_private_base_dir();
+            if ($privateRoot) {
+                $privateFile = realpath($privateRoot . '/' . ltrim($storagePath, '/\\'));
+                if ($privateFile && str_starts_with($privateFile, $privateRoot) && is_file($privateFile)) {
+                    if (!media_safe_unlink($privateFile)) {
+                        $warnings[] = "Failed to unlink private file for id {$id}";
+                    }
+                }
+            }
+        } else {
+            $localFile = media_local_path_from_url($url);
+            if ($localFile && is_file($localFile)) {
+                if (!@unlink($localFile)) {
+                    $warnings[] = "Failed to unlink file for id {$id}";
+                }
             }
         }
 

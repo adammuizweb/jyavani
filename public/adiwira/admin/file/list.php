@@ -40,6 +40,24 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('modalfilez_client_url')) {
+    function modalfilez_client_url(array $row): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
+            $mime = strtolower((string)($row['mime'] ?? ''));
+            $ext = strtolower((string)($row['ext'] ?? pathinfo((string)($row['filename'] ?? ''), PATHINFO_EXTENSION)));
+            if ($mime === 'application/pdf' || $ext === 'pdf') {
+                return '/private/pdf/view/?id=' . $id;
+            }
+            return '/private/file/view/?id=' . $id;
+        }
+        return (string)($row['url'] ?? '');
+    }
+}
+
 if (!function_exists('build_pagination_items')) {
     function build_pagination_items(int $current, int $total_pages, int $max_visible = 9): array {
         if ($total_pages <= $max_visible) return range(1, $total_pages);
@@ -81,7 +99,21 @@ if (!function_exists('build_pagination_items')) {
     }
 }
 
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(string $col): bool {
+        try {
+            $st = $GLOBALS['pdo']->prepare("SELECT {$col} FROM `file` LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasVisibility = mdlib_has_column('visibility');
+
 $search   = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
+$visFilter = $hasVisibility ? trim((string)($_GET['v'] ?? '')) : '';
 $page     = max(1, (int)($_GET['p'] ?? 1));
 $per_page = 10;
 $offset   = ($page - 1) * $per_page;
@@ -97,6 +129,11 @@ if (!$isAdmin) {
 if ($search !== '') {
     $where[] = "(title LIKE :q OR filename LIKE :q OR caption LIKE :q OR mime LIKE :q OR ext LIKE :q)";
     $params[':q'] = '%' . $search . '%';
+}
+
+if ($hasVisibility && $visFilter !== '' && in_array($visFilter, ['public','private','auto'], true)) {
+    $where[] = "visibility = :vis";
+    $params[':vis'] = $visFilter;
 }
 
 $where_sql = '';
@@ -142,6 +179,15 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 
     <button id="delete-bulk-btn" class="btn danger" type="button">Delete Selected</button>
 
+    <?php if ($hasVisibility): ?>
+    <select id="visibility-filter" style="margin-left:12px;padding:3px 6px;font-size:12px">
+      <option value="">Semua</option>
+      <option value="public" <?= $visFilter === 'public' ? 'selected' : '' ?>>Public</option>
+      <option value="private" <?= $visFilter === 'private' ? 'selected' : '' ?>>Private</option>
+      <option value="auto" <?= $visFilter === 'auto' ? 'selected' : '' ?>>Auto</option>
+    </select>
+    <?php endif; ?>
+
     <input
       type="text"
       id="media-search"
@@ -176,6 +222,12 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
                 $ext = strtoupper((string) pathinfo((string)($r['filename'] ?? ''), PATHINFO_EXTENSION));
             }
             if ($ext === '') $ext = 'FILE';
+
+            $visibility = strtolower((string)($r['visibility'] ?? 'public')) ?: 'public';
+            $accessScope = strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public';
+            $isDownloadable = (int)($r['is_downloadable'] ?? 1);
+            $clientUrl = modalfilez_client_url($r);
+            $isPrivate = ($visibility === 'private');
           ?>
           <tr data-id="<?= (int)$r['id'] ?>">
             <td><input type="checkbox" class="row-checkbox" value="<?= (int)$r['id'] ?>"></td>
@@ -186,6 +238,13 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
               <?php if (!empty($r['media_type'])): ?>
                 <div class="badge"><?= e((string)$r['media_type']) ?></div>
               <?php endif; ?>
+              <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
+                <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($visibility)) ?></span>
+                <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($accessScope)) ?></span>
+                <?php if (!$isDownloadable): ?>
+                  <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800">NO DOWNLOAD</span>
+                <?php endif; ?>
+              </div>
             </td>
             <td>
               <div class="small">
@@ -199,7 +258,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
             </td>
             <td>
               <button class="btn btn-open" type="button" data-id="<?= (int)$r['id'] ?>">Open</button>
-              <a class="btn" href="<?= e((string)$r['url']) ?>" target="_blank" rel="noopener">Download</a>
+              <a class="btn" href="<?= e($clientUrl) ?>" target="_blank" rel="noopener"><?= $isPrivate ? 'View' : 'Download' ?></a>
             </td>
           </tr>
         <?php endforeach; ?>
@@ -219,7 +278,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
           <?php if ($i === $page): ?>
             <strong data-page="<?= $i ?>"><?= $i ?></strong>
           <?php else: ?>
-            <a href="#" class="media-page-link" data-page="<?= $i ?>" data-q="<?= e($search) ?>"><?= $i ?></a>
+            <a href="#" class="media-page-link" data-page="<?= $i ?>" data-q="<?= e($search) ?>" data-v="<?= e($visFilter) ?>"><?= $i ?></a>
           <?php endif; ?>
         <?php endforeach; ?>
       </div>

@@ -11,10 +11,6 @@ require_once __DIR__ . '/_guard.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-/**
- * Jika fatal error terjadi sebelum sempat output JSON,
- * paksa balikin JSON supaya frontend tidak dapat body kosong.
- */
 register_shutdown_function(function () {
     $sent = (bool)($GLOBALS['__ADIWIRA_JSON_SENT'] ?? false);
     if ($sent) return;
@@ -46,18 +42,15 @@ register_shutdown_function(function () {
 
 [$uid, $role] = adiwira_require_editorial($pdo, true);
 
-// lebih sunyi
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Not found'], 404);
 }
 
-// CSRF
 $csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!adiwira_csrf_validate(is_string($csrf) ? $csrf : '')) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'CSRF invalid'], 419);
 }
 
-// file guard
 if (empty($_FILES['image']) || !is_array($_FILES['image'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'File not found'], 400);
 }
@@ -70,29 +63,65 @@ if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Invalid upload'], 400);
 }
 
-// limits
 $maxBytes = 5 * 1024 * 1024;
 if (($file['size'] ?? 0) > $maxBytes) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'File too large (max 5MB)'], 413);
 }
 
-// lokasi /static/img
-$static_root = rtrim((string)PUBLIC_PATH, '/\\') . '/static';
+$auto_save = !empty($_POST['auto_save']) && in_array((string)$_POST['auto_save'], ['1', 'true', 'on'], true);
+
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(PDO $pdo, string $column): bool
+    {
+        try {
+            $st = $pdo->prepare("SELECT {$column} FROM media LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasPrivateCols = isset($pdo) ? mdlib_has_column($pdo, 'visibility') : false;
+
+if (!function_exists('adiwira_media_private_base_dir')) {
+    function adiwira_media_private_base_dir(): string
+    {
+        $env = trim((string)(getenv('PRIVATE_FILES_PATH') ?: ''));
+        if ($env !== '') {
+            return rtrim(str_replace('\\', '/', $env), '/');
+        }
+
+        $appRoot = realpath(__DIR__ . '/../../..');
+        if ($appRoot === false) {
+            $appRoot = dirname(__DIR__, 3);
+        }
+
+        return rtrim(str_replace('\\', '/', $appRoot), '/') . '/private_files';
+    }
+}
+
+if (!function_exists('adiwira_media_normalize_choice')) {
+    function adiwira_media_normalize_choice(string $value, array $allowed, string $fallback): string
+    {
+        $value = strtolower(trim($value));
+        return in_array($value, $allowed, true) ? $value : $fallback;
+    }
+}
+
+// public
+$publicPath = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
+$static_root = rtrim($publicPath, '/\\') . '/static';
 $upload_base_dir = $static_root . '/img';
 $upload_base_url = '/static/img';
+
+// private
+$private_upload_base_dir = adiwira_media_private_base_dir();
 
 if (!is_dir($upload_base_dir) && !mkdir($upload_base_dir, 0755, true)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed to create img dir'], 500);
 }
 
-/**
- * MIME detection yang lebih robust:
- * - getimagesize
- * - exif_imagetype
- * - finfo
- * - mime_content_type
- * - signature sniffing untuk AVIF
- */
 $tmp = (string)$file['tmp_name'];
 $det = [
     'getimagesize'      => null,
@@ -104,14 +133,12 @@ $det = [
 
 $mime = '';
 
-// 1) getimagesize
 $g = @getimagesize($tmp);
 if (is_array($g) && !empty($g['mime'])) {
     $det['getimagesize'] = (string)$g['mime'];
     $mime = (string)$g['mime'];
 }
 
-// 2) exif_imagetype
 if ($mime === '' && function_exists('exif_imagetype')) {
     $t = @exif_imagetype($tmp);
     if ($t) {
@@ -119,14 +146,8 @@ if ($mime === '' && function_exists('exif_imagetype')) {
             IMAGETYPE_JPEG => 'image/jpeg',
             IMAGETYPE_PNG  => 'image/png',
         ];
-
-        if (defined('IMAGETYPE_WEBP')) {
-            $map[IMAGETYPE_WEBP] = 'image/webp';
-        }
-        if (defined('IMAGETYPE_AVIF')) {
-            $map[IMAGETYPE_AVIF] = 'image/avif';
-        }
-
+        if (defined('IMAGETYPE_WEBP')) $map[IMAGETYPE_WEBP] = 'image/webp';
+        if (defined('IMAGETYPE_AVIF')) $map[IMAGETYPE_AVIF] = 'image/avif';
         if (isset($map[$t])) {
             $det['exif'] = $map[$t];
             $mime = $map[$t];
@@ -136,7 +157,6 @@ if ($mime === '' && function_exists('exif_imagetype')) {
     }
 }
 
-// 3) finfo
 if ($mime === '' && class_exists('finfo')) {
     $fi = new finfo(FILEINFO_MIME_TYPE);
     $m = $fi->file($tmp);
@@ -146,7 +166,6 @@ if ($mime === '' && class_exists('finfo')) {
     }
 }
 
-// 4) mime_content_type
 if (($mime === '' || $mime === 'application/octet-stream') && function_exists('mime_content_type')) {
     $m = @mime_content_type($tmp);
     if (is_string($m) && $m !== '') {
@@ -155,7 +174,6 @@ if (($mime === '' || $mime === 'application/octet-stream') && function_exists('m
     }
 }
 
-// 5) signature sniffing AVIF fallback
 if ($mime === '' || $mime === 'application/octet-stream') {
     $head = @file_get_contents($tmp, false, null, 0, 64);
     if (is_string($head) && preg_match('/ftyp(?:avif|avis)/i', $head)) {
@@ -166,7 +184,6 @@ if ($mime === '' || $mime === 'application/octet-stream') {
 
 $mime = strtolower(trim((string)$mime));
 
-// normalisasi
 $normalize = [
     'image/pjpeg'         => 'image/jpeg',
     'image/jpg'           => 'image/jpeg',
@@ -196,16 +213,48 @@ if (!isset($allowed[$mime])) {
 
 $ext = $allowed[$mime];
 
-// folder per tahun/bulan
+// visibility logic
+$visibilityInput = $hasPrivateCols
+    ? adiwira_media_normalize_choice((string)($_POST['visibility'] ?? 'auto'), ['auto','public','private'], 'auto')
+    : 'public';
+$accessScopeInput = $hasPrivateCols
+    ? adiwira_media_normalize_choice((string)($_POST['access_scope'] ?? 'editorial'), ['public','editorial','admin'], 'editorial')
+    : 'public';
+
+$visibility = $visibilityInput === 'auto' ? 'public' : $visibilityInput;
+if (!$hasPrivateCols) {
+    $visibility = 'public';
+}
+
+$storage_disk = $visibility === 'private' ? 'private' : 'public';
+$access_scope = $visibility === 'private' ? $accessScopeInput : 'public';
+if ($access_scope === 'public' && $visibility === 'private') {
+    $access_scope = 'editorial';
+}
+
+if (array_key_exists('is_downloadable', $_POST)) {
+    $is_downloadable = in_array((string)$_POST['is_downloadable'], ['1','true','on','yes'], true) ? 1 : 0;
+} else {
+    $is_downloadable = ($visibility === 'private') ? 0 : 1;
+}
+
 $year = date('Y');
 $month = date('m');
+$relative_storage_path = $year . '/' . $month;
 
-$target_dir = $upload_base_dir . '/' . $year . '/' . $month;
-if (!is_dir($target_dir) && !mkdir($target_dir, 0755, true)) {
+if ($storage_disk === 'private') {
+    $target_base_dir = rtrim($private_upload_base_dir, '/\\') . '/media';
+    $target_dir = $target_base_dir . '/' . $relative_storage_path;
+    $dirMode = 0750;
+} else {
+    $target_dir = $upload_base_dir . '/' . $relative_storage_path;
+    $dirMode = 0755;
+}
+
+if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed make upload folder'], 500);
 }
 
-// unique filename
 $original_name = pathinfo((string)$file['name'], PATHINFO_FILENAME);
 $slug = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', mb_strtolower($original_name, 'UTF-8'));
 $slug = trim((string)$slug, '-');
@@ -220,18 +269,23 @@ $target_path = $target_dir . '/' . $filename;
 if (!move_uploaded_file($file['tmp_name'], $target_path)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed to save file'], 500);
 }
-@chmod($target_path, 0644);
 
-$public_url = rtrim($upload_base_url, '/') . '/' . $year . '/' . $month . '/' . $filename;
+@chmod($target_path, $storage_disk === 'private' ? 0640 : 0644);
+
+$storage_path = $relative_storage_path . '/' . $filename;
+$public_url = rtrim($upload_base_url, '/') . '/' . $storage_path;
+$client_url = $storage_disk === 'private' ? '' : $public_url;
 
 $response = [
-    'success' => true,
-    'ok'      => true,
-    'url'     => $public_url,
+    'success'       => true,
+    'ok'            => true,
+    'url'           => $client_url,
+    'visibility'    => $visibility,
+    'storage_disk'  => $storage_disk,
+    'access_scope'  => $access_scope,
+    'is_downloadable' => $is_downloadable,
 ];
 
-// auto-save metadata
-$auto_save = !empty($_POST['auto_save']) && in_array((string)$_POST['auto_save'], ['1', 'true', 'on'], true);
 if ($auto_save) {
     $title   = trim((string)($_POST['title'] ?? $original_name));
     $alt     = trim((string)($_POST['alt'] ?? ''));
@@ -247,13 +301,27 @@ if ($auto_save) {
     }
 
     try {
-        $stmt = $pdo->prepare("
-            INSERT INTO media
-                (url, filename, mime, ext, size, width, height, title, alt, caption, credit, user_id, created_at)
-            VALUES
-                (:url, :filename, :mime, :ext, :size, :width, :height, :title, :alt, :caption, :credit, :user_id, NOW())
-        ");
-        $stmt->execute([
+        $commonCols = 'url, filename, mime, ext, size, width, height, title, alt, caption, credit, user_id, created_at';
+        $commonVals = ':url, :filename, :mime, :ext, :size, :width, :height, :title, :alt, :caption, :credit, :user_id, NOW()';
+
+        $extraCols = '';
+        $extraVals = '';
+        $extraParams = [];
+        if ($hasPrivateCols) {
+            $extraCols = ', visibility, storage_disk, storage_path, access_scope, is_downloadable';
+            $extraVals = ', :visibility, :storage_disk, :storage_path, :access_scope, :is_downloadable';
+            $extraParams = [
+                ':visibility'      => $visibility,
+                ':storage_disk'    => $storage_disk,
+                ':storage_path'    => $storage_path,
+                ':access_scope'    => $access_scope,
+                ':is_downloadable' => $is_downloadable,
+            ];
+        }
+
+        $sql = "INSERT INTO media ({$commonCols}{$extraCols}) VALUES ({$commonVals}{$extraVals})";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(array_merge([
             ':url'      => $public_url,
             ':filename' => $filename,
             ':mime'     => $mime,
@@ -266,19 +334,32 @@ if ($auto_save) {
             ':caption'  => $caption ?: null,
             ':credit'   => $credit ?: null,
             ':user_id'  => $uid,
-        ]);
+        ], $extraParams));
 
         $media_id = (int)$pdo->lastInsertId();
+
+        if ($storage_disk === 'private') {
+            $client_url = '/private/media/view/?id=' . $media_id;
+            $up = $pdo->prepare("UPDATE media SET url = :url WHERE id = :id LIMIT 1");
+            $up->execute([':url' => $client_url, ':id' => $media_id]);
+            $response['url'] = $client_url;
+        }
+
         $response['media'] = [
-            'id'       => $media_id,
-            'url'      => $public_url,
-            'filename' => $filename,
-            'mime'     => $mime,
-            'ext'      => $ext,
-            'size'     => $size,
-            'width'    => $width,
-            'height'   => $height,
-            'title'    => $title,
+            'id'             => $media_id,
+            'url'            => $client_url,
+            'filename'       => $filename,
+            'mime'           => $mime,
+            'ext'            => $ext,
+            'size'           => $size,
+            'width'          => $width,
+            'height'         => $height,
+            'title'          => $title,
+            'visibility'     => $visibility,
+            'storage_disk'   => $storage_disk,
+            'storage_path'   => $storage_path,
+            'access_scope'   => $access_scope,
+            'is_downloadable'=> $is_downloadable,
         ];
     } catch (Throwable $e) {
         @unlink($target_path);

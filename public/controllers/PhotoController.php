@@ -198,8 +198,14 @@ class PhotoController
     private static function fetchPhotoItems(PDO $pdo, int $postId): array
     {
         try {
-            $it = $pdo->prepare("
-                SELECT
+            $hasVisibility = false;
+            try {
+                $chk = $pdo->prepare("SELECT visibility FROM media LIMIT 0");
+                $chk->execute();
+                $hasVisibility = true;
+            } catch (Throwable $e) {}
+
+            $selectCols = "
                     pmi.media_id AS id,
                     m.url,
                     COALESCE(pmi.caption_override, '') AS caption,
@@ -207,13 +213,29 @@ class PhotoController
                     COALESCE(pmi.link_url_override, '') AS link_url,
                     COALESCE(pmi.link_target_override, '') AS link_target,
                     pmi.sort_order
+            ";
+            if ($hasVisibility) {
+                $selectCols .= ", m.visibility";
+            }
+
+            $it = $pdo->prepare("
+                SELECT {$selectCols}
                 FROM post_media_items pmi
                 JOIN media m ON m.id = pmi.media_id
                 WHERE pmi.post_id = :pid
                 ORDER BY pmi.sort_order ASC, pmi.media_id ASC
             ");
             $it->execute([':pid' => $postId]);
-            return $it->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $rows = $it->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+            if ($hasVisibility) {
+                $rows = array_values(array_filter($rows, function ($r) {
+                    $vis = strtolower((string)($r['visibility'] ?? 'public'));
+                    return $vis !== 'private';
+                }));
+            }
+
+            return $rows;
         } catch (Throwable $e) {
             error_log("[PhotoController::fetchPhotoItems] " . $e->getMessage());
             return [];

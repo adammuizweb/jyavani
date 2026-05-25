@@ -15,9 +15,50 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 $fileCsrf = csrf_token();
+if (!function_exists('mdlib_has_column')) {
+    function mdlib_has_column(string $col): bool {
+        try {
+            $st = $GLOBALS['pdo']->prepare("SELECT {$col} FROM `file` LIMIT 0");
+            $st->execute();
+            return true;
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+$hasVisibility = mdlib_has_column('visibility');
 ?>
 <section class="media-uploader">
   <input type="hidden" id="file-csrf-token" value="<?= htmlspecialchars($fileCsrf, ENT_QUOTES, 'UTF-8') ?>">
+
+  <?php if ($hasVisibility): ?>
+  <div style="margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:4px 0">
+    <div>
+      <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px">Visibility</label>
+      <select id="file-visibility" style="padding:3px 6px;font-size:12px">
+        <option value="auto">Auto</option>
+        <option value="public">Public</option>
+        <option value="private">Private</option>
+      </select>
+    </div>
+    <div id="file-private-options" style="display:none">
+      <div style="display:inline-block;margin-right:8px">
+        <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px">Access Scope</label>
+        <select id="file-access-scope" style="padding:3px 6px;font-size:12px">
+          <option value="editorial">Editorial</option>
+          <option value="admin">Admin Only</option>
+        </select>
+      </div>
+      <div style="display:inline-block">
+        <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600">
+          <input type="checkbox" id="file-is-downloadable" value="1" checked>
+          Downloadable
+        </label>
+      </div>
+    </div>
+    <div style="align-self:flex-end" class="small" style="color:#888">Private files stored outside public_html</div>
+  </div>
+  <?php endif; ?>
 
   <div class="dropzone" id="dropzone">
     <p>Tarik file (dokumen / excel / powerpoint / video / audio) ke sini atau
@@ -50,6 +91,16 @@ $fileCsrf = csrf_token();
   const previewWrap = document.getElementById('preview-container');
 
   if (!dz || !fileInput || !browseBtn || !progressWrap || !previewWrap) return;
+
+  (function(){
+    const visEl = document.getElementById('file-visibility');
+    const privOpts = document.getElementById('file-private-options');
+    if (visEl && privOpts) {
+      visEl.addEventListener('change', function(){
+        privOpts.style.display = this.value === 'private' ? '' : 'none';
+      });
+    }
+  })();
 
   function uiToast(type, title, message, duration) {
     if (window.fileUi && typeof window.fileUi.toast === 'function') {
@@ -158,6 +209,13 @@ $fileCsrf = csrf_token();
     fd.append('file', file);
     fd.append('auto_save', '1');
     fd.append('title', file.name);
+
+    const visEl = document.getElementById('file-visibility');
+    const scopeEl = document.getElementById('file-access-scope');
+    const dlEl = document.getElementById('file-is-downloadable');
+    if (visEl) fd.append('visibility', visEl.value);
+    if (scopeEl) fd.append('access_scope', scopeEl.value);
+    if (dlEl) fd.append('is_downloadable', dlEl.checked ? '1' : '0');
 
     const csrf = getCsrf();
     if (csrf) fd.append('csrf_token', csrf);

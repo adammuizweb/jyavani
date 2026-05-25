@@ -19,30 +19,54 @@ try {
     $csrfToken = '';
 }
 ?>
-
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
-<div class="modalfilez-uploader">
-  <div class="modalfilez-upload-top">
-    <div id="modalfilez-dropzone" class="modalfilez-dropzone" role="button" tabindex="0">
-      Tarik file ke sini atau klik
-      <button id="modalfilez-browse-btn" class="modalfilez-btn modalfilez-btn-primary" type="button">Pilih file</button>
-      <div class="modalfilez-note">
-        Mendukung pdf, doc/docx, xls/xlsx, ppt/pptx, zip, mp4, webm, mov, txt, rtf, mp3, wav, ogg.
-      </div>
-    </div>
+<div class="mdlib-uploader mdlib-uploader--split">
+  <div class="mdlib-uploader-left">
+    <div class="mdlib-upload-config">
+      <label class="mdlib-config-label">Mode penyimpanan file</label>
+      <select id="mdlib-visibility-select" class="mdlib-select">
+        <option value="auto" selected>Auto — PDF private, lainnya public</option>
+        <option value="public">Public — akses URL langsung</option>
+        <option value="private">Private internal — via protected URL</option>
+      </select>
 
-    <div class="modalfilez-upload-actions">
-      <button id="modalfilez-clear-btn" class="modalfilez-btn" type="button" style="display:none;">Bersihkan</button>
+      <div class="mdlib-private-options" id="mdlib-private-options">
+        <label>
+          Akses private
+          <select id="mdlib-access-scope">
+            <option value="editorial" selected>Editorial</option>
+            <option value="admin">Admin saja</option>
+          </select>
+        </label>
+        <label class="mdlib-checkline">
+          <input type="checkbox" id="mdlib-is-downloadable" value="1">
+          Izinkan download langsung
+        </label>
+      </div>
     </div>
   </div>
 
-  <div id="modalfilez-upload-progress" class="modalfilez-upload-progress" aria-live="polite"></div>
-  <div id="modalfilez-preview-wrap" class="modalfilez-preview-grid" aria-live="polite"></div>
+  <div class="mdlib-uploader-right">
+    <div id="mdlib-dropzone" class="mdlib-dropzone" role="button" tabindex="0">
+      Tarik file ke sini atau klik
+      <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button">Pilih file</button>
+      <div class="mdlib-note">
+        pdf, doc/docx, xls/xlsx, ppt/pptx, zip, mp4, webm, mov, txt, rtf, mp3, wav, ogg
+      </div>
+    </div>
+
+    <div id="mdlib-upload-progress" class="mdlib-upload-progress" aria-live="polite"></div>
+    <div id="mdlib-preview-wrap" class="mdlib-preview-grid" aria-live="polite"></div>
+
+    <div class="mdlib-upload-actions" style="margin-top:8px">
+      <button id="mdlib-clear-btn" class="mdlib-btn" type="button" style="display:none;">Bersihkan</button>
+    </div>
+  </div>
 </div>
 
 <input
-  id="modalfilez-file-input"
+  id="mdlib-file-input"
   type="file"
   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.mp4,.webm,.mov,.txt,.rtf,.mp3,.wav,.ogg"
   multiple
@@ -54,40 +78,66 @@ try {
   const uploadUrl = '/adiwira/admin/upload_file.php';
   const deleteUrl = '/adiwira/admin/modal_file/delete.php';
 
-  const dropzone = document.getElementById('modalfilez-dropzone');
-  const fileInput = document.getElementById('modalfilez-file-input');
-  const browseBtn = document.getElementById('modalfilez-browse-btn');
-  const clearBtn = document.getElementById('modalfilez-clear-btn');
-  const progressWrap = document.getElementById('modalfilez-upload-progress');
-  const previewWrap = document.getElementById('modalfilez-preview-wrap');
+  const dropzone = document.getElementById('mdlib-dropzone');
+  const fileInput = document.getElementById('mdlib-file-input');
+  const browseBtn = document.getElementById('mdlib-browse-btn');
+  const clearBtn = document.getElementById('mdlib-clear-btn');
+  const progressWrap = document.getElementById('mdlib-upload-progress');
+  const previewWrap = document.getElementById('mdlib-preview-wrap');
+  const accessScopeEl = document.getElementById('mdlib-access-scope');
+  const downloadableEl = document.getElementById('mdlib-is-downloadable');
 
   if (!dropzone || !fileInput || !browseBtn || !clearBtn || !progressWrap || !previewWrap) return;
 
+  function getVisibilityChoice() {
+    const el = document.getElementById('mdlib-visibility-select');
+    return el ? el.value : 'auto';
+  }
+
+  function detectFinalVisibility(file) {
+    const choice = getVisibilityChoice();
+    if (choice !== 'auto') return choice;
+    const name = String(file && file.name || '').toLowerCase();
+    const type = String(file && file.type || '').toLowerCase();
+    return (type === 'application/pdf' || name.endsWith('.pdf')) ? 'private' : 'public';
+  }
+
+  function updatePrivateOptions() {
+    const choice = getVisibilityChoice();
+    const box = document.getElementById('mdlib-private-options');
+    if (!box) return;
+    box.style.display = choice === 'private' ? '' : 'none';
+  }
+
+  const visSelect = document.getElementById('mdlib-visibility-select');
+  if (visSelect) visSelect.addEventListener('change', updatePrivateOptions);
+  updatePrivateOptions();
+
   function uiToast(type, title, message, duration) {
-    if (window.modalfilezUi && typeof window.modalfilezUi.toast === 'function') {
-      window.modalfilezUi.toast(type, title, message, duration);
+    if (window.mdlibUi && typeof window.mdlibUi.toast === 'function') {
+      window.mdlibUi.toast(type, title, message, duration);
       return;
     }
     alert(message || title || 'Terjadi sesuatu.');
   }
 
   function uiAsk(variant, opts) {
-    if (window.modalfilezUi && typeof window.modalfilezUi.ask === 'function') {
-      return window.modalfilezUi.ask(variant, opts || {});
+    if (window.mdlibUi && typeof window.mdlibUi.ask === 'function') {
+      return window.mdlibUi.ask(variant, opts || {});
     }
     return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
   }
 
   function getCsrfToken() {
-    if (window.modalfilezUi && typeof window.modalfilezUi.getCsrfToken === 'function') {
-      return window.modalfilezUi.getCsrfToken();
+    if (window.mdlibUi && typeof window.mdlibUi.getCsrfToken === 'function') {
+      return window.mdlibUi.getCsrfToken();
     }
     return '';
   }
 
   function readJsonSafe(txt) {
-    if (window.modalfilezUi && typeof window.modalfilezUi.readJsonSafe === 'function') {
-      return window.modalfilezUi.readJsonSafe(txt);
+    if (window.mdlibUi && typeof window.mdlibUi.readJsonSafe === 'function') {
+      return window.mdlibUi.readJsonSafe(txt);
     }
     try { return txt ? JSON.parse(txt) : null; }
     catch(e) { return null; }
@@ -122,19 +172,19 @@ try {
     clearBtn.style.display = (hasProgress || hasPreview) ? 'inline-flex' : 'none';
   }
 
-  function addProgressRow(filename) {
+  function addProgressRow(filename, modeLabel) {
     const row = document.createElement('div');
-    row.className = 'modalfilez-progress-row';
+    row.className = 'mdlib-progress-row';
     row.innerHTML = `
-      <div class="modalfilez-progress-name">${escapeHtml(filename)}</div>
-      <div class="modalfilez-progress-barwrap"><div class="modalfilez-progress-bar"></div></div>
+      <div class="mdlib-progress-name">${escapeHtml(filename)}${modeLabel ? ' <span class="mdlib-pill">' + escapeHtml(modeLabel) + '</span>' : ''}</div>
+      <div class="mdlib-progress-barwrap"><div class="mdlib-progress-bar"></div></div>
     `;
     progressWrap.appendChild(row);
     updateClearButton();
 
     return {
       row: row,
-      bar: row.querySelector('.modalfilez-progress-bar')
+      bar: row.querySelector('.mdlib-progress-bar')
     };
   }
 
@@ -144,8 +194,8 @@ try {
   }
 
   function openDetail(id, url) {
-    if (id && typeof window.modalfilezOpenSingle === 'function') {
-      window.modalfilezOpenSingle(id);
+    if (id && typeof window.mdlibOpenSingle === 'function') {
+      window.mdlibOpenSingle(id);
       return;
     }
 
@@ -153,8 +203,8 @@ try {
       ? '/adiwira/admin/modal_file/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1'
       : '/adiwira/admin/modal_file/single_modal.php?url=' + encodeURIComponent(url) + '&embedded=1';
 
-    if (typeof window.modalfilezLoadIntoRoot === 'function') {
-      window.modalfilezLoadIntoRoot(link);
+    if (typeof window.mdlibLoadIntoRoot === 'function') {
+      window.mdlibLoadIntoRoot(link);
       return;
     }
 
@@ -173,18 +223,36 @@ try {
     window.open(link, '_blank');
   }
 
-  function previewCardText(fileObj) {
-    const kind = detectKind(fileObj);
-    const ext = String((fileObj && fileObj.ext) || '').toUpperCase() || 'FILE';
+  function fileSvgIcon(ext) {
+    const e = (ext || '').toLowerCase();
+    const doc = '<path d="M17 18a2 2 0 012-2h12l8 8v18a2 2 0 01-2 2H19a2 2 0 01-2-2V18z" fill="#fff" opacity=".9"/><path d="M31 16v8h8M23 30h14M23 35h10" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>';
+    if (e === 'pdf') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#ef4444"/>' + doc + '</svg>';
+    if (e === 'doc' || e === 'docx') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#3b82f6"/>' + doc + '</svg>';
+    if (e === 'xls' || e === 'xlsx') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#22c55e"/><path d="M17 18a2 2 0 012-2h12l8 8v18a2 2 0 01-2 2H19a2 2 0 01-2-2V18z" fill="#fff" opacity=".9"/><path d="M31 16v8h8M22 34l6-6M28 34l-6-6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>';
+    if (e === 'ppt' || e === 'pptx') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#f97316"/>' + doc + '</svg>';
+    if (e === 'zip') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#a855f7"/><path d="M17 18a2 2 0 012-2h12l8 8v18a2 2 0 01-2 2H19a2 2 0 01-2-2V18z" fill="#fff" opacity=".9"/><path d="M31 16v8h8M23 30l-2 6h6l-2 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (e === 'mp4' || e === 'webm' || e === 'mov') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#14b8a6"/><circle cx="29" cy="29" r="11" fill="#fff"/><path d="M25 24l8 5-8 5V24z" fill="#14b8a6"/></svg>';
+    if (e === 'mp3' || e === 'wav' || e === 'ogg') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#ec4899"/><path d="M24 20v14a4 4 0 01-4 4v0a4 4 0 01-4-4v-2" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M24 20l12-2v16" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="30" cy="32" r="4" fill="#fff"/></svg>';
+    if (e === 'txt' || e === 'rtf') return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#64748b"/>' + doc + '</svg>';
+    return '<svg viewBox="0 0 58 58" fill="none"><rect width="58" height="58" rx="16" fill="#2563eb"/>' + doc + '</svg>';
+  }
 
-    if (kind === 'video') return 'VIDEO';
-    if (kind === 'audio') return 'AUDIO';
-    return ext.substring(0, 4);
+  function previewCardIconHtml(fileObj) {
+    const kind = detectKind(fileObj);
+    let ext = String((fileObj && fileObj.ext) || '').toLowerCase();
+    if (!ext) {
+      const fn = String((fileObj && (fileObj.filename || fileObj.name)) || '');
+      const p = fn.lastIndexOf('.');
+      if (p > 0) ext = fn.substring(p + 1).toLowerCase();
+    }
+    if (kind === 'video') ext = 'mp4';
+    if (kind === 'audio') ext = 'mp3';
+    return fileSvgIcon(ext);
   }
 
   function showPreview(url, fileObj) {
     const box = document.createElement('div');
-    box.className = 'modalfilez-preview-card';
+    box.className = 'mdlib-preview-card';
 
     if (fileObj && fileObj.id) {
       box.dataset.fileId = String(fileObj.id);
@@ -192,21 +260,28 @@ try {
 
     const title = (fileObj && (fileObj.title || fileObj.filename)) || '';
     const mime = (fileObj && fileObj.mime) || '';
-    const size = (fileObj && fileObj.size_label) || '';
+    const size = (fileObj && (fileObj.size_label || fileObj.size)) || '';
+    const visibility = (fileObj && fileObj.visibility) || 'public';
+    const scope = (fileObj && fileObj.access_scope) || 'public';
 
     box.innerHTML = `
-      <div class="modalfilez-preview-ico">${escapeHtml(previewCardText(fileObj))}</div>
-      <div class="modalfilez-preview-meta">
-        <div class="modalfilez-preview-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
-        <div class="modalfilez-preview-sub">${escapeHtml(mime)}${size ? ' • ' + escapeHtml(size) : ''}</div>
-        <div class="modalfilez-preview-actions">
-          <button class="modalfilez-btn modalfilez-btn-primary" type="button" data-action="edit">Edit</button>
-          <button class="modalfilez-btn modalfilez-btn-danger" type="button" data-action="delete">Del</button>
+      <div class="mdlib-preview-ico">${previewCardIconHtml(fileObj)}</div>
+      <div class="mdlib-preview-meta">
+        <div class="mdlib-preview-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
+        <div class="mdlib-preview-sub">${escapeHtml(mime)}${size ? ' • ' + escapeHtml(size) : ''}</div>
+        <div class="mdlib-badges">
+          <span class="mdlib-pill mdlib-pill-${escapeHtml(visibility)}">${escapeHtml(visibility.toUpperCase())}</span>
+          <span class="mdlib-pill">${escapeHtml(scope.toUpperCase())}</span>
+        </div>
+        <div class="mdlib-preview-actions">
+          <button class="mdlib-btn mdlib-btn-primary" type="button" data-action="edit">Edit</button>
+          <button class="mdlib-btn mdlib-btn-danger" type="button" data-action="delete">Del</button>
         </div>
       </div>
     `;
 
     previewWrap.prepend(box);
+    requestAnimationFrame(function(){ box.classList.add('mdlib-is-show'); });
     updateClearButton();
 
     const editBtn = box.querySelector('[data-action="edit"]');
@@ -276,12 +351,17 @@ try {
   }
 
   async function uploadFile(file) {
-    const progress = addProgressRow(file.name);
+    const finalVisibility = detectFinalVisibility(file);
+    const modeLabel = finalVisibility === 'private' ? 'PRIVATE' : 'PUBLIC';
+    const progress = addProgressRow(file.name, modeLabel);
     const fd = new FormData();
 
     fd.append('file', file);
     fd.append('auto_save', '1');
     fd.append('title', file.name);
+    fd.append('visibility', getVisibilityChoice());
+    if (accessScopeEl) fd.append('access_scope', accessScopeEl.value);
+    if (downloadableEl) fd.append('is_downloadable', downloadableEl && downloadableEl.checked ? '1' : '0');
 
     const csrf = getCsrfToken();
     if (csrf) fd.append('csrf_token', csrf);
@@ -318,10 +398,13 @@ try {
         title: file.name,
         filename: file.name,
         mime: file.type || '',
-        ext: (file.name.split('.').pop() || '').toLowerCase()
+        ext: (file.name.split('.').pop() || '').toLowerCase(),
+        visibility: j.visibility || finalVisibility,
+        access_scope: j.access_scope || 'public',
+        storage_disk: j.storage_disk || finalVisibility
       };
 
-      showPreview(j.url || '', fileMeta);
+      showPreview(j.url || fileMeta.url || '', fileMeta);
       broadcast('file:added', fileMeta);
       uiToast('success', 'Library File', 'Upload berhasil: ' + file.name, 1800);
 
@@ -394,7 +477,7 @@ try {
     else if (d.id) ids = [parseInt(d.id, 10)].filter(Boolean);
 
     ids.forEach(function(id){
-      const thumb = previewWrap.querySelector('.modalfilez-preview-card[data-file-id="' + id + '"]');
+      const thumb = previewWrap.querySelector('.mdlib-preview-card[data-file-id="' + id + '"]');
       if (thumb) thumb.remove();
     });
 
@@ -406,10 +489,10 @@ try {
     const file = d && d.file ? d.file : d;
     if (!file || !file.id) return;
 
-    const thumb = previewWrap.querySelector('.modalfilez-preview-card[data-file-id="' + file.id + '"]');
+    const thumb = previewWrap.querySelector('.mdlib-preview-card[data-file-id="' + file.id + '"]');
     if (!thumb) return;
 
-    const titleEl = thumb.querySelector('.modalfilez-preview-title');
+    const titleEl = thumb.querySelector('.mdlib-preview-title');
     if (titleEl) {
       const newTitle = file.title || file.filename || titleEl.textContent;
       titleEl.textContent = newTitle;

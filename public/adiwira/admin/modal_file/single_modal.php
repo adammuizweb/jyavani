@@ -60,15 +60,33 @@ try {
     $csrfToken = '';
 }
 
-if (!function_exists('modalfilez_single_human_filesize')) {
-    function modalfilez_single_human_filesize($bytes, int $decimals = 1): string
+if (!function_exists('mdlib_single_human_filesize')) {
+    function mdlib_single_human_filesize($bytes, int $decimals = 1): string
     {
         $bytes = (int)$bytes;
         if ($bytes <= 0) return '0 B';
         $units = ['B','KB','MB','GB','TB'];
-        $i = (int)floor(log($bytes, 1024));
+        $i = (int)floor(log(max(1, $bytes), 1024));
         $i = min($i, count($units) - 1);
         return sprintf("%.{$decimals}f %s", $bytes / pow(1024, $i), $units[$i]);
+    }
+}
+
+if (!function_exists('mdlib_client_url')) {
+    function mdlib_client_url(array $row): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
+        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
+            $mime = strtolower((string)($row['mime'] ?? ''));
+            $ext = strtolower((string)($row['ext'] ?? pathinfo((string)($row['filename'] ?? ''), PATHINFO_EXTENSION)));
+            if ($mime === 'application/pdf' || $ext === 'pdf') {
+                return '/private/pdf/view/?id=' . $id;
+            }
+            return '/private/file/view/?id=' . $id;
+        }
+        return (string)($row['url'] ?? '');
     }
 }
 
@@ -80,6 +98,12 @@ if ($ext === '' && $filename !== '' && strpos($filename, '.') !== false) {
 $ico  = $ext ? strtoupper(substr($ext, 0, 4)) : 'FILE';
 $mime = (string)($r['mime'] ?? '');
 $size = (string)($r['size'] ?? '');
+$visibility = strtolower((string)($r['visibility'] ?? 'public')) ?: 'public';
+$storageDisk = strtolower((string)($r['storage_disk'] ?? 'public')) ?: 'public';
+$accessScope = strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public';
+$isDownloadable = (int)($r['is_downloadable'] ?? 1);
+$clientUrl = mdlib_client_url($r);
+$displayUrl = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $url;
 
 if (!$embedded):
 ?><!doctype html>
@@ -92,63 +116,91 @@ if (!$embedded):
 <body>
 <?php endif; ?>
 
-<div id="modalfilez-single-wrap">
-  <div class="modalfilez-single">
+<div id="mdlib-single-wrap">
+  <div class="mdlib-single">
     <form
-      id="modalfilez-file-edit-form"
+      id="mdlib-file-edit-form"
       data-id="<?= (int)$r['id'] ?>"
       data-filename="<?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?>"
-      data-url="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>"
+      data-url="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>"
       data-mime="<?= htmlspecialchars($mime, ENT_QUOTES, 'UTF-8') ?>"
       data-size="<?= htmlspecialchars($size, ENT_QUOTES, 'UTF-8') ?>"
+      data-visibility="<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"
+      data-storage-disk="<?= htmlspecialchars($storageDisk, ENT_QUOTES, 'UTF-8') ?>"
+      data-access-scope="<?= htmlspecialchars($accessScope, ENT_QUOTES, 'UTF-8') ?>"
+      data-is-downloadable="<?= (int)$isDownloadable ?>"
     >
       <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
-      <div class="modalfilez-s-top">
-        <div class="modalfilez-s-ico"><?= htmlspecialchars($ico, ENT_QUOTES, 'UTF-8') ?></div>
-        <div class="modalfilez-s-meta">
-          <div class="modalfilez-name" title="<?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?>">
+      <div class="mdlib-s-top">
+        <div class="mdlib-s-ico"><?= htmlspecialchars($ico, ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="mdlib-s-meta">
+          <div class="mdlib-name" title="<?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?>">
             <?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?>
           </div>
-          <div class="modalfilez-s-sub">
-            <?= htmlspecialchars($mime ?: '—', ENT_QUOTES, 'UTF-8') ?>
-            • <?= htmlspecialchars(modalfilez_single_human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?>
+          <div class="mdlib-s-sub">
+            <?= htmlspecialchars($mime ?: '�', ENT_QUOTES, 'UTF-8') ?>
+            � <?= htmlspecialchars(mdlib_single_human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?>
           </div>
-          <div class="modalfilez-note" style="margin-top:6px">
-            <a href="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Open/Download</a>
+          <div class="mdlib-badges" style="margin-top:6px">
+            <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="mdlib-pill"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+            <?php if (!$isDownloadable): ?><span class="mdlib-pill">NO DOWNLOAD</span><?php endif; ?>
+            <?php if ($storageDisk !== 'public'): ?><span class="mdlib-pill">STORAGE: <?= htmlspecialchars(strtoupper($storageDisk), ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
+          </div>
+          <div class="mdlib-note" style="margin-top:6px">
+            <a href="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $visibility === 'private' ? 'View (Protected)' : 'Open/Download' ?></a>
           </div>
         </div>
       </div>
 
-      <div class="modalfilez-row">
-        <label class="modalfilez-label">Title</label>
-        <input class="modalfilez-input" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+      <div class="mdlib-row">
+        <label class="mdlib-label">Title</label>
+        <input class="mdlib-input" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
-      <div class="modalfilez-row">
-        <label class="modalfilez-label">Caption</label>
-        <textarea class="modalfilez-textarea" name="caption"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+      <div class="mdlib-row">
+        <label class="mdlib-label">Caption</label>
+        <textarea class="mdlib-textarea" name="caption"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
 
-      <div class="modalfilez-row">
-        <label class="modalfilez-label">Credit</label>
-        <input class="modalfilez-input" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+      <div class="mdlib-row">
+        <label class="mdlib-label">Credit</label>
+        <input class="mdlib-input" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
-      <div class="modalfilez-row">
-        <label class="modalfilez-label">File URL (read-only)</label>
-        <div class="modalfilez-urlrow">
-          <input class="modalfilez-input modalfilez-url" id="modalfilez-file-url" type="text" readonly value="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>">
-          <button type="button" class="modalfilez-btn" data-modalfilez-action="copy-url">Copy</button>
+      <div class="mdlib-row">
+        <label class="mdlib-label">Access Scope</label>
+        <select class="mdlib-input" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
+          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
+            <option value="admin">Admin Only</option>
+        </select>
+        <?php if ($visibility === 'public'): ?><div class="mdlib-note">Public file selalu access_scope public. Untuk private, upload ulang dengan mode Private.</div><?php endif; ?>
+      </div>
+
+      <div class="mdlib-row">
+        <label class="mdlib-checkline" style="display:flex;gap:8px;align-items:center;font-weight:700">
+          <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+          Downloadable
+        </label>
+      </div>
+
+      <div class="mdlib-row">
+        <label class="mdlib-label">File URL (read-only)</label>
+        <div class="mdlib-urlrow">
+          <input class="mdlib-input mdlib-url" id="mdlib-file-url" type="text" readonly value="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>">
+          <button type="button" class="mdlib-btn" data-mdlib-action="copy-url">Copy</button>
         </div>
-        <div class="modalfilez-note">URL ini yang akan dipakai saat Insert.</div>
+        <div class="mdlib-note">URL ini yang akan dipakai saat Insert.</div>
       </div>
 
-      <div class="modalfilez-actions">
-        <button type="button" class="modalfilez-btn modalfilez-btn-primary" id="modalfilez-file-insert">Insert</button>
-        <button type="button" class="modalfilez-btn modalfilez-btn-primary" id="modalfilez-file-save">Save</button>
-        <button type="button" class="modalfilez-btn modalfilez-btn-danger" id="modalfilez-file-delete">Delete</button>
+      <div class="mdlib-actions">
+        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-file-insert">Insert</button>
+        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-file-save">Save</button>
+        <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-file-delete">Delete</button>
+        <button type="button" class="mdlib-btn" id="mdlib-back-btn">Back</button>
       </div>
     </form>
   </div>
@@ -156,27 +208,27 @@ if (!$embedded):
 
 <script>
 (function(){
-  const form = document.getElementById('modalfilez-file-edit-form');
+  const form = document.getElementById('mdlib-file-edit-form');
   if (!form) return;
 
   function uiToast(type, title, message, duration) {
-    if (window.modalfilezUi && typeof window.modalfilezUi.toast === 'function') {
-      window.modalfilezUi.toast(type, title, message, duration);
+    if (window.mdlibUi && typeof window.mdlibUi.toast === 'function') {
+      window.mdlibUi.toast(type, title, message, duration);
       return;
     }
     alert(message || title || 'Terjadi sesuatu.');
   }
 
   function uiAsk(variant, opts) {
-    if (window.modalfilezUi && typeof window.modalfilezUi.ask === 'function') {
-      return window.modalfilezUi.ask(variant, opts || {});
+    if (window.mdlibUi && typeof window.mdlibUi.ask === 'function') {
+      return window.mdlibUi.ask(variant, opts || {});
     }
     return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
   }
 
   function readJsonSafe(txt) {
-    if (window.modalfilezUi && typeof window.modalfilezUi.readJsonSafe === 'function') {
-      return window.modalfilezUi.readJsonSafe(txt);
+    if (window.mdlibUi && typeof window.mdlibUi.readJsonSafe === 'function') {
+      return window.mdlibUi.readJsonSafe(txt);
     }
     try { return txt ? JSON.parse(txt) : null; }
     catch(e) { return null; }
@@ -201,11 +253,15 @@ if (!$embedded):
       size: form.dataset.size || '',
       title: (form.querySelector('input[name="title"]')?.value || '').trim(),
       caption: (form.querySelector('textarea[name="caption"]')?.value || '').trim(),
-      credit: (form.querySelector('input[name="credit"]')?.value || '').trim()
+      credit: (form.querySelector('input[name="credit"]')?.value || '').trim(),
+      visibility: form.dataset.visibility || 'public',
+      storage_disk: form.dataset.storageDisk || 'public',
+      access_scope: form.dataset.accessScope || 'public',
+      is_downloadable: form.dataset.isDownloadable || '1'
     };
   }
 
-  document.getElementById('modalfilez-file-insert')?.addEventListener('click', function(){
+  document.getElementById('mdlib-file-insert')?.addEventListener('click', function(){
     const detail = getDetailPayload();
     broadcast('file:insert', detail);
     broadcast('media:insert', detail);
@@ -224,7 +280,7 @@ if (!$embedded):
     } catch(e){}
   });
 
-  document.getElementById('modalfilez-file-save')?.addEventListener('click', async function(){
+  document.getElementById('mdlib-file-save')?.addEventListener('click', async function(){
     const ok = await uiAsk('warning', {
       title: 'Simpan perubahan file',
       message: 'Perubahan metadata file akan disimpan. Lanjutkan?',
@@ -274,7 +330,7 @@ if (!$embedded):
     }
   });
 
-  document.getElementById('modalfilez-file-delete')?.addEventListener('click', async function(){
+  document.getElementById('mdlib-file-delete')?.addEventListener('click', async function(){
     const ok = await uiAsk('danger', {
       title: 'Hapus file',
       message: 'File ini akan dihapus permanen. Lanjutkan?',
@@ -328,8 +384,8 @@ if (!$embedded):
         uiToast('warning', 'Library File', j.warning, 6000);
       }
 
-      if (typeof window.modalfilezBackToLibrary === 'function') {
-        window.modalfilezBackToLibrary();
+      if (typeof window.mdlibBackToLibrary === 'function') {
+        window.mdlibBackToLibrary();
         return;
       }
     } catch (err) {
@@ -339,8 +395,14 @@ if (!$embedded):
     }
   });
 
-  form.querySelector('[data-modalfilez-action="copy-url"]')?.addEventListener('click', async function(){
-    const input = document.getElementById('modalfilez-file-url');
+  document.getElementById('mdlib-back-btn')?.addEventListener('click', function(){
+    if (typeof window.mdlibBackToLibrary === 'function') {
+      window.mdlibBackToLibrary();
+    }
+  });
+
+  form.querySelector('[data-mdlib-action="copy-url"]')?.addEventListener('click', async function(){
+    const input = document.getElementById('mdlib-file-url');
     const value = input ? (input.value || '').trim() : '';
     if (!value) {
       uiToast('warning', 'Library File', 'URL tidak ditemukan.', 4000);

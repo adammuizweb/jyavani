@@ -27,9 +27,17 @@ if ($id <= 0) {
 $title   = trim((string)($_POST['title'] ?? ''));
 $caption = trim((string)($_POST['caption'] ?? ''));
 $credit  = trim((string)($_POST['credit'] ?? ''));
+$accessScope = strtolower(trim((string)($_POST['access_scope'] ?? '')));
+if (!in_array($accessScope, ['public','editorial','admin'], true)) $accessScope = 'editorial';
+$isDownloadable = !empty($_POST['is_downloadable']) ? 1 : 0;
+
+function _filesave_has_col(PDO $pdo, string $col): bool {
+    try { $st = $pdo->prepare("SELECT {$col} FROM `file` LIMIT 0"); $st->execute(); return true; }
+    catch (Throwable $e) { return false; }
+}
 
 try {
-    $checkSql = "SELECT id FROM `file` WHERE id = :id";
+    $checkSql = "SELECT * FROM `file` WHERE id = :id";
     $checkParams = [':id' => $id];
 
     if (!$isAdmin) {
@@ -41,26 +49,32 @@ try {
 
     $check = $pdo->prepare($checkSql);
     $check->execute($checkParams);
+    $row = $check->fetch(PDO::FETCH_ASSOC);
 
-    if (!$check->fetchColumn()) {
+    if (!$row) {
         adiwira_json(['ok' => false, 'error' => 'File not found'], 404);
     }
 
-    $stmt = $pdo->prepare("
-        UPDATE `file`
-           SET title      = :title,
-               caption    = :caption,
-               credit     = :credit,
-               updated_at = NOW()
-         WHERE id = :id
-         LIMIT 1
-    ");
-    $stmt->execute([
+    $setClause = "title = :title, caption = :caption, credit = :credit, updated_at = NOW()";
+    $execParams = [
         ':title'   => ($title !== '' ? $title : null),
         ':caption' => ($caption !== '' ? $caption : null),
         ':credit'  => ($credit !== '' ? $credit : null),
-        ':id'      => $id
-    ]);
+        ':id'      => $id,
+    ];
+
+    if (_filesave_has_col($pdo, 'access_scope') && _filesave_has_col($pdo, 'is_downloadable')) {
+        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
+        if ($visibility === 'public') $accessScope = 'public';
+        if ($visibility === 'private' && $accessScope === 'public') $accessScope = 'editorial';
+
+        $setClause .= ", access_scope = :access_scope, is_downloadable = :is_downloadable";
+        $execParams[':access_scope'] = $accessScope;
+        $execParams[':is_downloadable'] = $isDownloadable;
+    }
+
+    $stmt = $pdo->prepare("UPDATE `file` SET {$setClause} WHERE id = :id LIMIT 1");
+    $stmt->execute($execParams);
 
     $rowSql = "SELECT * FROM `file` WHERE id = :id";
     $rowParams = [':id' => $id];

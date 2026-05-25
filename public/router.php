@@ -73,6 +73,50 @@ if (substr($rawPath, -1) !== '/') {
 $segments = $pathTrimmed === '' ? [] : explode('/', $pathTrimmed);
 $prefix = $segments[0] ?? '';
 
+// PRIVATE FILE STREAM + PDF VIEWER
+if ($prefix === 'private') {
+    require_once __DIR__ . '/controllers/PrivateFileController.php';
+
+    $action = $segments[1] ?? '';
+
+    if ($action === 'file') {
+        $subAction = $segments[2] ?? 'view';
+        if ($subAction === '' || $subAction === 'view' || $subAction === 'stream') {
+            PrivateFileController::stream($pdo);
+            exit;
+        }
+        if ($subAction === 'preview') {
+            PrivateFileController::pdfViewer($pdo);
+            exit;
+        }
+    }
+
+    if ($action === 'media') {
+        $subAction = $segments[2] ?? 'view';
+        if ($subAction === '' || $subAction === 'view' || $subAction === 'stream') {
+            require_once __DIR__ . '/controllers/PrivateMediaController.php';
+            PrivateMediaController::view($pdo);
+            exit;
+        }
+    }
+
+    if ($action === 'pdf') {
+        $subAction = $segments[2] ?? 'view';
+        if ($subAction === '' || $subAction === 'view') {
+            PrivateFileController::pdfViewer($pdo);
+            exit;
+        }
+        if ($subAction === 'raw' || $subAction === 'stream') {
+            PrivateFileController::stream($pdo);
+            exit;
+        }
+    }
+
+    http_response_code(404);
+    require __DIR__ . '/frontend_404.php';
+    exit;
+}
+
 // AUTHOR
 if ($prefix === 'author') {
     require_once __DIR__ . '/controllers/AuthorController.php';
