@@ -9,11 +9,9 @@ if (isset($_GET['nosidebar']) && $_GET['nosidebar'] === '1') {
 // bootstrap_theme biasanya sudah meload ini,
 // tapi blok ini aman sebagai backup.
 if (!function_exists('widget') && !function_exists('render_widget')) {
-    if (defined('PUBLIC_PATH')) {
-        $helper = rtrim(PUBLIC_PATH, '/\\') . DIRECTORY_SEPARATOR . 'widget_helper.php';
-        if (is_file($helper)) {
-            require_once $helper;
-        }
+    $helper = __DIR__ . '/../../../../cfg/helpers/widget_helper.php';
+    if (is_file($helper)) {
+        require_once $helper;
     }
 }
 

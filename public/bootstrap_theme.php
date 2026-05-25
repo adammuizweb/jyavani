@@ -23,7 +23,7 @@ if (!function_exists('theme_dbg')) {
 
 theme_dbg("PUBLIC_PATH=" . PUBLIC_PATH);
 
-$theme_helper_path = rtrim(PUBLIC_PATH, '/\\') . DIRECTORY_SEPARATOR . 'theme_helper.php';
+$theme_helper_path = realpath(__DIR__ . '/../cfg/helpers/theme_helper.php') ?: (__DIR__ . '/../cfg/helpers/theme_helper.php');
 if (is_file($theme_helper_path)) {
     require_once $theme_helper_path;
     theme_dbg("theme_helper loaded from {$theme_helper_path}");
@@ -31,7 +31,7 @@ if (is_file($theme_helper_path)) {
     theme_dbg("theme_helper NOT FOUND at {$theme_helper_path} (continuing)");
 }
 
-$widget_helper_path = rtrim(PUBLIC_PATH, '/\\') . DIRECTORY_SEPARATOR . 'widget_helper.php';
+$widget_helper_path = realpath(__DIR__ . '/../cfg/helpers/widget_helper.php') ?: (__DIR__ . '/../cfg/helpers/widget_helper.php');
 if (is_file($widget_helper_path)) {
     require_once $widget_helper_path;
     theme_dbg("widget_helper loaded from {$widget_helper_path}");

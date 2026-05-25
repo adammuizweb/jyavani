@@ -10,7 +10,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
-require_once __DIR__ . '/../../../theme_helper.php';
+require_once __DIR__ . '/../../../cfg/helpers/theme_helper.php';
 
 [$user_id, $user_role] = adiwira_require_role($pdo, ['admin'], false);
 $user_role = strtolower(trim((string)$user_role));

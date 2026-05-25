@@ -39,7 +39,7 @@ class SearchController
             if (is_file($btTheme)) {
                 require_once $btTheme;
             }
-            $helper = $root . '/theme_helper.php';
+            $helper = $root . '/../cfg/helpers/theme_helper.php';
             if (!function_exists('render_slot') && is_file($helper)) {
                 require_once $helper;
             }

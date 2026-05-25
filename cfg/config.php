@@ -22,47 +22,63 @@ require_once __DIR__ . '/db.php';
 // 4. Definisikan konstanta global (opsional)
 define('cfg_PATH', __DIR__);
 
-// 5. Gunakan helper ini jika ingin gunakan waktu indo
+// 5. Konstanta path untuk public (dibutuhkan oleh theme_helper & widget_helper)
+if (!defined('PUBLIC_PATH')) {
+    $publicGuess = realpath(__DIR__ . '/../public');
+    define('PUBLIC_PATH', $publicGuess ?: (__DIR__ . '/../public'));
+}
+if (!defined('VIEWS_BASE')) {
+    define('VIEWS_BASE', realpath(PUBLIC_PATH . '/views/themes') ?: (PUBLIC_PATH . '/views/themes'));
+}
+if (!defined('DEFAULT_THEME_FOLDER')) {
+    define('DEFAULT_THEME_FOLDER', 'default');
+}
+
+// 6. Frontend helpers (widget sebelum theme, karena theme_helper bisa depend)
+require_once __DIR__ . '/helpers/widget_helper.php';
+require_once __DIR__ . '/helpers/theme_helper.php';
+
+// 8. Gunakan helper ini jika ingin gunakan waktu indo
 require_once __DIR__ . '/helpers/time_helpers.php';
 
-// 6. Gunakan helper ini jika ingin gunakan sukses post
+// 9. helpers Redirect
 require_once __DIR__ . '/helpers/success_redirect.php';
 
-// 7. Gunakan helper ini batasi author
+// 10. helpers batasi author
 require_once __DIR__ . '/helpers/author_helpers.php';
 
-// 8. Gunakan helper ini globL ROLE
+// 11. helpers globL ROLE
 require_once __DIR__ . '/helpers/role_helpers.php';
 
-// 9. Gunakan helper ini Editor
+// 12. helpers Editor
 require_once __DIR__ . '/helpers/editor_helpers.php';
 
-// 10. Backend helpers (admin only)
+// 13. Backend helpers (admin only)
 require_once __DIR__ . '/helpers/null_helpers.php';
 
-// 11. Backend helpers (admin only)
+// 14. Backend helpers (admin only)
 require_once __DIR__ . '/helpers/lang_helpers.php';
 
-// 12. Backend helpers (admin only)
+// 15. Backend helpers (admin only)
 require_once __DIR__ . '/helpers/url_helpers.php';
 
-// 13. helpers untuk konfigurasi setting
+// 16. helpers untuk konfigurasi setting
 require_once __DIR__ . '/helpers/settings_helpers.php';
 
-// 14. helpers untuk Redirect
+// 17. helpers untuk Redirect
 require_once __DIR__ . '/helpers/redirct_helpers.php';
 
-// 16. helpers untuk Content 
+// 18. helpers untuk Content
 require_once __DIR__ . '/helpers/cms_content.php';
 
-// 16. helpers untuk Widget
+// 19. helpers untuk Widget
 require_once __DIR__ . '/helpers/widget_shortcodes_p.php';
 
-// 17. helpers untuk private file shortcodes
+// 20. helpers untuk private file shortcodes
 require_once __DIR__ . '/helpers/private_file_shortcodes.php';
 
-// 18. helpers untuk video shortcodes
+// 21. helpers untuk video shortcodes
 require_once __DIR__ . '/helpers/video_shortcodes.php';
 
-// 19. helpers untuk menu system
+// 22. helpers untuk menu system
 require_once __DIR__ . '/helpers/menu_helper.php';

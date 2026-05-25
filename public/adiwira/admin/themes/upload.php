@@ -8,7 +8,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
-require_once __DIR__ . '/../../../theme_helper.php';
+require_once __DIR__ . '/../../../cfg/helpers/theme_helper.php';
 
 adiwira_cosmetic_404_on_direct_open();
 

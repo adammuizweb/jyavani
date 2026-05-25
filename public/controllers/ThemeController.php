@@ -22,10 +22,10 @@ class ThemeController
             $btTheme = $root . '/bootstrap_theme.php';
             if (is_file($btTheme)) require_once $btTheme;
 
-            $th = $root . '/theme_helper.php';
+            $th = $root . '/../cfg/helpers/theme_helper.php';
             if (!function_exists('render_custom_post_template') && is_file($th)) require_once $th;
 
-            $wh = $root . '/widget_helper.php';
+            $wh = $root . '/../cfg/helpers/widget_helper.php';
             if (!function_exists('render_widget') && is_file($wh)) require_once $wh;
         }
 
