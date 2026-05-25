@@ -74,14 +74,19 @@ if (!function_exists('render_menu_items_admin')) {
             $id = (int)$item['id'];
             $label = htmlspecialchars((string)($item['label'] ?? ''), ENT_QUOTES, 'UTF-8');
             $type = htmlspecialchars((string)($item['type'] ?? 'custom'), ENT_QUOTES, 'UTF-8');
+            $url = htmlspecialchars((string)($item['url'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $targetId = (int)($item['target_id'] ?? 0);
+            $targetBlank = !empty($item['target_blank']) ? '1' : '0';
             $hasChildren = !empty($item['children']);
-            $html .= '<li class="menu-item-admin" data-id="' . $id . '">';
+            $html .= '<li class="menu-item-admin" data-id="' . $id . '" data-type="' . $type . '" data-label="' . $label . '" data-target="' . $targetId . '" data-url="' . $url . '" data-target-blank="' . $targetBlank . '">';
             $html .= '<div class="menu-item-bar">';
             $html .= '<span class="menu-item-handle">&#9776;</span>';
             $html .= '<span class="menu-item-label">' . $label . '</span>';
             $html .= '<span class="menu-item-type">' . $type . '</span>';
-            $html .= '<button type="button" class="menu-item-edit adam-ubah" data-id="' . $id . '">Edit</button>';
-            $html .= '<button type="button" class="menu-item-remove adam-hapus" data-id="' . $id . '">Hapus</button>';
+            $html .= '<button type="button" class="menu-item-indent adam-ubah" title="Jadikan sub-menu">&#8594;</button>';
+            $html .= '<button type="button" class="menu-item-outdent adam-ubah" title="Naikkan level">&#8592;</button>';
+            $html .= '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>';
+            $html .= '<button type="button" class="menu-item-remove adam-hapus" title="Hapus">&#10005;</button>';
             $html .= '</div>';
             if ($hasChildren) {
                 $html .= render_menu_items_admin($item['children'], $depth + 1);
@@ -316,7 +321,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   </div>
 </div>
 
-<script src="/adiwira/static/js/add/modal-helpers.js"></script>
 <script>
 (function(){
   const CSRF = <?= json_encode($csrf) ?>;
@@ -327,6 +331,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const saveBtn = document.getElementById('btnSaveItems');
   const saveStatus = document.getElementById('saveItemsStatus');
 
+  // =============== Helpers ===============
+
   function toast(type, message, title){
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
       window.NewNotifToast.show({ type: type, title: title, message: message });
@@ -335,50 +341,108 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     alert(message);
   }
 
-  // Tab switching for add-item panels
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(m){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m];
+    });
+  }
+
+  function getItemData(li){
+    return {
+      id: li.getAttribute('data-id') ? parseInt(li.getAttribute('data-id')) : null,
+      type: li.getAttribute('data-type') || 'custom',
+      label: li.getAttribute('data-label') || '',
+      targetId: parseInt(li.getAttribute('data-target') || '0'),
+      url: li.getAttribute('data-url') || '',
+      targetBlank: li.getAttribute('data-target-blank') === '1'
+    };
+  }
+
+  function setItemData(li, data){
+    if (data.id) li.setAttribute('data-id', data.id);
+    li.setAttribute('data-type', data.type || 'custom');
+    li.setAttribute('data-label', data.label || '');
+    li.setAttribute('data-target', String(data.targetId || 0));
+    li.setAttribute('data-url', data.url || '');
+    li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
+    // Update display
+    const labelEl = li.querySelector('.menu-item-label');
+    const typeEl = li.querySelector('.menu-item-type');
+    if (labelEl) labelEl.textContent = data.label || '';
+    if (typeEl) typeEl.textContent = data.type || 'custom';
+  }
+
+  function buildListItemHTML(data){
+    return '<div class="menu-item-bar">'
+      + '<span class="menu-item-handle">&#9776;</span>'
+      + '<span class="menu-item-label">' + escapeHtml(data.label) + '</span>'
+      + '<span class="menu-item-type">' + escapeHtml(data.type) + '</span>'
+      + '<button type="button" class="menu-item-indent adam-ubah" title="Jadikan sub-menu">&#8594;</button>'
+      + '<button type="button" class="menu-item-outdent adam-ubah" title="Naikkan level">&#8592;</button>'
+      + '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>'
+      + '<button type="button" class="menu-item-remove adam-hapus" title="Hapus">&#10005;</button>'
+      + '</div>';
+  }
+
+  function showEmptyState(){
+    container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--adam-muted);font-size:13px;">'
+      + 'Belum ada item menu. Tambah item dari panel sebelah kanan.'
+      + '</div>';
+  }
+
+  // =============== Tab switching ===============
+
   document.querySelectorAll('.add-item-tab').forEach(function(btn){
     btn.addEventListener('click', function(){
       const tab = this.getAttribute('data-tab');
       document.querySelectorAll('.add-item-panel').forEach(function(p){ p.style.display = 'none'; });
-      document.getElementById('panel-' + tab).style.display = '';
+      var panel = document.getElementById('panel-' + tab);
+      if (panel) panel.style.display = '';
     });
   });
 
-  // Source item click to add to menu
+  // =============== Source item click ===============
+
   document.querySelectorAll('.source-item').forEach(function(item){
     item.addEventListener('click', function(){
-      const id = this.getAttribute('data-id');
-      const type = this.getAttribute('data-type');
-      const label = this.getAttribute('data-label');
-
-      addItemToMenu(type, label, id, '');
+      addItemToMenu({
+        type: this.getAttribute('data-type'),
+        label: this.getAttribute('data-label'),
+        targetId: parseInt(this.getAttribute('data-id') || '0'),
+        url: ''
+      });
     });
   });
 
-  // Custom link add
-  document.querySelector('.add-item-btn') && document.querySelector('.add-item-btn').addEventListener('click', function(){
-    const label = document.getElementById('customLabel').value.trim();
-    const url = document.getElementById('customUrl').value.trim();
-    const targetBlank = document.getElementById('customTargetBlank').checked;
+  // =============== Custom link add ===============
 
-    if (!label || !url) {
-      toast('error', 'Label dan URL harus diisi');
-      return;
-    }
+  var addBtn = document.querySelector('.add-item-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', function(){
+      var label = document.getElementById('customLabel').value.trim();
+      var url = document.getElementById('customUrl').value.trim();
+      var targetBlank = document.getElementById('customTargetBlank').checked;
 
-    addItemToMenu('custom', label, '0', url, targetBlank);
-    document.getElementById('customLabel').value = '';
-    document.getElementById('customUrl').value = '';
-    document.getElementById('customTargetBlank').checked = false;
-  });
+      if (!label || !url) {
+        toast('error', 'Label dan URL harus diisi');
+        return;
+      }
 
-  // Search filtering
+      addItemToMenu({ type: 'custom', label: label, targetId: 0, url: url, targetBlank: targetBlank });
+      document.getElementById('customLabel').value = '';
+      document.getElementById('customUrl').value = '';
+      document.getElementById('customTargetBlank').checked = false;
+    });
+  }
+
+  // =============== Search filtering ===============
+
   function setupSearch(inputId, listId) {
-    const input = document.getElementById(inputId);
-    const list = document.getElementById(listId);
+    var input = document.getElementById(inputId);
+    var list = document.getElementById(listId);
     if (!input || !list) return;
     input.addEventListener('input', function(){
-      const q = this.value.toLowerCase();
+      var q = this.value.toLowerCase();
       list.querySelectorAll('.source-item').forEach(function(el){
         el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
       });
@@ -388,148 +452,306 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   setupSearch('pageSearch', 'pageList');
   setupSearch('categorySearch', 'categoryList');
 
-  // Add item to menu structure
-  function addItemToMenu(type, label, targetId, url, targetBlank){
-    const emptyMsg = container.querySelector('div[style*="text-align:center"]');
+  // =============== Add item to menu ===============
+
+  function addItemToMenu(data){
+    var emptyMsg = container.querySelector('div[style*="text-align:center"]');
     if (emptyMsg) emptyMsg.remove();
 
-    let ul = container.querySelector('ul.menu-sortable');
+    var ul = container.querySelector('ul.menu-sortable');
     if (!ul) {
       ul = document.createElement('ul');
       ul.className = 'menu-sortable';
       container.appendChild(ul);
     }
 
-    const li = document.createElement('li');
+    var li = document.createElement('li');
     li.className = 'menu-item-admin';
-    li.setAttribute('data-new-item', '1');
-    li.innerHTML = '<div class="menu-item-bar">'
-      + '<span class="menu-item-handle">&#9776;</span>'
-      + '<span class="menu-item-label">' + escapeHtml(label) + '</span>'
-      + '<span class="menu-item-type">' + escapeHtml(type) + '</span>'
-      + '<button type="button" class="menu-item-remove adam-hapus" title="Hapus">Hapus</button>'
-      + '</div>'
-      + '<input type="hidden" class="item-type" value="' + escapeHtml(type) + '">'
-      + '<input type="hidden" class="item-label" value="' + escapeHtml(label) + '">'
-      + '<input type="hidden" class="item-target" value="' + escapeHtml(targetId) + '">'
-      + '<input type="hidden" class="item-url" value="' + escapeHtml(url || '') + '">'
-      + '<input type="hidden" class="item-target-blank" value="' + (targetBlank ? '1' : '0') + '">';
+    li.innerHTML = buildListItemHTML(data);
+    li.setAttribute('data-id', '');
+    li.setAttribute('data-type', data.type || 'custom');
+    li.setAttribute('data-label', data.label || '');
+    li.setAttribute('data-target', String(data.targetId || 0));
+    li.setAttribute('data-url', data.url || '');
+    li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
 
     ul.appendChild(li);
-
-    toast('success', 'Item "' + label + '" ditambahkan ke menu');
+    toast('success', 'Item "' + data.label + '" ditambahkan ke menu');
   }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, function(m){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m];
-    });
-  }
+  // =============== Remove item ===============
 
-  // Remove item from menu structure
   container.addEventListener('click', function(e){
-    const btn = e.target.closest('.menu-item-remove');
+    var btn = e.target.closest('.menu-item-remove');
     if (!btn) return;
 
-    const li = btn.closest('.menu-item-admin');
+    var li = btn.closest('.menu-item-admin');
     if (li && confirm('Hapus item ini dari menu?')) {
       li.remove();
-      // Show empty state if no items left
       if (!container.querySelector('ul.menu-sortable') || !container.querySelector('ul.menu-sortable').querySelector('li')) {
-        container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--adam-muted);font-size:13px;">Belum ada item menu. Tambah item dari panel sebelah kanan.</div>';
+        showEmptyState();
       }
     }
   });
 
-  // Save all items via AJAX
-  saveBtn && saveBtn.addEventListener('click', function(){
-    const items = collectItems();
-    saveBtn.disabled = true;
-    saveStatus.textContent = 'Menyimpan...';
+  // =============== Edit item ===============
 
-    fetch(SAVE_URL, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        csrf_token: CSRF,
-        menu_id: MENU_ID,
-        items: items
-      }),
-      credentials: 'same-origin'
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (data && data.ok) {
-        toast('success', 'Menu berhasil disimpan');
-        // Reload page to reflect changes properly
-        setTimeout(function(){ window.location.reload(); }, 600);
-      } else {
-        toast('error', (data && data.error) ? data.error : 'Gagal menyimpan');
-        saveBtn.disabled = false;
-        saveStatus.textContent = '';
-      }
-    })
-    .catch(function(err){
-      toast('error', 'Error: ' + err.message);
-      saveBtn.disabled = false;
-      saveStatus.textContent = '';
+  container.addEventListener('click', function(e){
+    var btn = e.target.closest('.menu-item-edit');
+    if (!btn) return;
+    var li = btn.closest('.menu-item-admin');
+    if (!li) return;
+
+    var data = getItemData(li);
+    document.getElementById('editItemId').value = data.id || '';
+    document.getElementById('editItemLabel').value = data.label;
+    document.getElementById('editItemUrl').value = data.url;
+    document.getElementById('editItemTargetBlank').checked = data.targetBlank;
+
+    var form = document.getElementById('menuItemEditForm');
+    form.style.display = '';
+    form._targetLi = li;
+  });
+
+  document.getElementById('saveItemEdit').addEventListener('click', function(){
+    var form = document.getElementById('menuItemEditForm');
+    var li = form._targetLi;
+    if (!li) return;
+
+    var data = getItemData(li);
+    data.label = document.getElementById('editItemLabel').value.trim() || data.label;
+    data.url = document.getElementById('editItemUrl').value.trim();
+    data.targetBlank = document.getElementById('editItemTargetBlank').checked;
+
+    setItemData(li, data);
+    form.style.display = 'none';
+    toast('success', 'Item diupdate');
+  });
+
+  document.getElementById('cancelItemEdit').addEventListener('click', function(){
+    document.getElementById('menuItemEditForm').style.display = 'none';
+  });
+
+  // =============== Indent / Outdent ===============
+
+  container.addEventListener('click', function(e){
+    var btn = e.target.closest('.menu-item-indent');
+    if (!btn) return;
+    var li = btn.closest('.menu-item-admin');
+    if (!li) return;
+
+    var prevLi = li.previousElementSibling;
+    if (!prevLi || prevLi.tagName !== 'LI') return;
+
+    var childUl = prevLi.querySelector(':scope > ul.menu-sortable');
+    if (!childUl) {
+      childUl = document.createElement('ul');
+      childUl.className = 'menu-sortable';
+      childUl.style.marginLeft = '20px';
+      prevLi.appendChild(childUl);
+    }
+    childUl.appendChild(li);
+  });
+
+  container.addEventListener('click', function(e){
+    var btn = e.target.closest('.menu-item-outdent');
+    if (!btn) return;
+    var li = btn.closest('.menu-item-admin');
+    if (!li) return;
+
+    var parentUl = li.closest('ul.menu-sortable');
+    var grandParentLi = parentUl ? parentUl.closest('.menu-item-admin') : null;
+    if (!grandParentLi) return;
+
+    var grandParentUl = grandParentLi.parentNode;
+    if (!grandParentUl || grandParentUl.tagName !== 'UL') return;
+
+    // Move li after grandParentLi
+    var nextSibling = grandParentLi.nextElementSibling;
+    if (nextSibling) {
+      grandParentUl.insertBefore(li, nextSibling);
+    } else {
+      grandParentUl.appendChild(li);
+    }
+
+    // Clean up empty child ul
+    if (parentUl && !parentUl.querySelector('li')) {
+      parentUl.remove();
+    }
+  });
+
+  // =============== Drag and Drop ===============
+
+  var dragSrcLi = null;
+
+  container.addEventListener('dragstart', function(e){
+    var li = e.target.closest('.menu-item-admin');
+    if (!li) return;
+    dragSrcLi = li;
+    e.dataTransfer.effectAllowed = 'move';
+    li.style.opacity = '0.4';
+  });
+
+  container.addEventListener('dragend', function(e){
+    var li = e.target.closest('.menu-item-admin');
+    if (li) li.style.opacity = '';
+    dragSrcLi = null;
+    document.querySelectorAll('.menu-item-admin').forEach(function(el){
+      el.classList.remove('drag-over');
     });
   });
 
+  container.addEventListener('dragover', function(e){
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    var li = e.target.closest('.menu-item-admin');
+    if (!li || li === dragSrcLi) return;
+    document.querySelectorAll('.menu-item-admin').forEach(function(el){
+      el.classList.remove('drag-over');
+    });
+    li.classList.add('drag-over');
+  });
+
+  container.addEventListener('dragleave', function(e){
+    var li = e.target.closest('.menu-item-admin');
+    if (li) li.classList.remove('drag-over');
+  });
+
+  container.addEventListener('drop', function(e){
+    e.preventDefault();
+    if (!dragSrcLi) return;
+
+    var targetLi = e.target.closest('.menu-item-admin');
+    if (!targetLi || targetLi === dragSrcLi) return;
+
+    // Determine drop position based on mouse Y within target
+    var rect = targetLi.getBoundingClientRect();
+    var offsetY = e.clientY - rect.top;
+    var parentUl = targetLi.parentNode;
+
+    var dropPosition = offsetY < rect.height * 0.25 ? 'before' :
+                       offsetY > rect.height * 0.75 ? 'after' : 'inside';
+
+    if (dropPosition === 'inside') {
+      // Drop as child
+      var childUl = targetLi.querySelector(':scope > ul.menu-sortable');
+      if (!childUl) {
+        childUl = document.createElement('ul');
+        childUl.className = 'menu-sortable';
+        childUl.style.marginLeft = '20px';
+        targetLi.appendChild(childUl);
+      }
+      childUl.appendChild(dragSrcLi);
+    } else if (dropPosition === 'before') {
+      parentUl.insertBefore(dragSrcLi, targetLi);
+    } else {
+      var nextSibling = targetLi.nextElementSibling;
+      if (nextSibling) {
+        parentUl.insertBefore(dragSrcLi, nextSibling);
+      } else {
+        parentUl.appendChild(dragSrcLi);
+      }
+    }
+
+    document.querySelectorAll('.menu-item-admin').forEach(function(el){
+      el.classList.remove('drag-over');
+    });
+  });
+
+  // Make all items draggable
+  function initDraggable(){
+    container.querySelectorAll('.menu-item-admin').forEach(function(li){
+      li.setAttribute('draggable', 'true');
+    });
+  }
+  initDraggable();
+
+  // Re-init draggable when new items added
+  var observer = new MutationObserver(function(){
+    container.querySelectorAll('.menu-item-admin:not([draggable])').forEach(function(li){
+      li.setAttribute('draggable', 'true');
+    });
+  });
+  observer.observe(container, { childList: true, subtree: true });
+
+  // =============== Collect items (recursive) ===============
+
   function collectItems(){
-    const items = [];
-    const uls = container.querySelectorAll('ul.menu-sortable');
-    uls.forEach(function(ul){
-      const parentLi = ul.closest('.menu-item-admin');
-      const parentId = parentLi ? (parentLi.getAttribute('data-id') || 'new') : '0';
+    var items = [];
 
-      ul.querySelectorAll(':scope > li.menu-item-admin').forEach(function(li, idx){
-        const isNew = li.getAttribute('data-new-item') === '1';
-        const id = isNew ? null : (li.getAttribute('data-id') || null);
-        const typeEl = li.querySelector('.item-type');
-        const labelEl = li.querySelector('.item-label');
-        const targetEl = li.querySelector('.item-target');
-        const urlEl = li.querySelector('.item-url');
-        const targetBlankEl = li.querySelector('.item-target-blank');
-
-        const item = {
-          id: id ? parseInt(id) : null,
-          parent_id: parentId !== '0' ? parseInt(parentId) : null,
+    function walk(ul, parentId){
+      var lis = ul.querySelectorAll(':scope > li.menu-item-admin');
+      lis.forEach(function(li, idx){
+        var data = getItemData(li);
+        items.push({
+          id: data.id,
+          parent_id: parentId,
           sort_order: idx,
-          type: typeEl ? typeEl.value : 'custom',
-          label: labelEl ? labelEl.value : '',
-          target_id: targetEl ? parseInt(targetEl.value) : 0,
-          url: urlEl ? urlEl.value : '',
-          target_blank: targetBlankEl ? parseInt(targetBlankEl.value) : 0
-        };
-        items.push(item);
-
-        // Process children
-        const childUl = li.querySelector(':scope > ul.menu-sortable');
+          type: data.type,
+          label: data.label,
+          target_id: data.targetId,
+          url: data.url,
+          target_blank: data.targetBlank ? 1 : 0
+        });
+        var childUl = li.querySelector(':scope > ul.menu-sortable');
         if (childUl) {
-          childUl.querySelectorAll(':scope > li.menu-item-admin').forEach(function(childLi, childIdx){
-            const childIsNew = childLi.getAttribute('data-new-item') === '1';
-            items.push({
-              id: childIsNew ? null : (childLi.getAttribute('data-id') ? parseInt(childLi.getAttribute('data-id')) : null),
-              parent_id: id ? parseInt(id) : null,
-              sort_order: childIdx,
-              type: childLi.querySelector('.item-type') ? childLi.querySelector('.item-type').value : 'custom',
-              label: childLi.querySelector('.item-label') ? childLi.querySelector('.item-label').value : '',
-              target_id: childLi.querySelector('.item-target') ? parseInt(childLi.querySelector('.item-target').value) : 0,
-              url: childLi.querySelector('.item-url') ? childLi.querySelector('.item-url').value : '',
-              target_blank: childLi.querySelector('.item-target-blank') ? parseInt(childLi.querySelector('.item-target-blank').value) : 0
-            });
-          });
+          walk(childUl, data.id);
         }
       });
-    });
+    }
+
+    var rootUl = container.querySelector(':scope > ul.menu-sortable');
+    if (rootUl) walk(rootUl, null);
+
     return items;
   }
 
-  // Rename menu button
-  document.getElementById('btnRenameMenu') && document.getElementById('btnRenameMenu').addEventListener('click', function(){
-    document.getElementById('renameModal').style.display = 'flex';
-  });
+  // =============== Save ===============
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function(){
+      var items = collectItems();
+      saveBtn.disabled = true;
+      saveStatus.textContent = 'Menyimpan...';
+
+      fetch(SAVE_URL, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          csrf_token: CSRF,
+          menu_id: MENU_ID,
+          items: items
+        }),
+        credentials: 'same-origin'
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data && data.ok) {
+          toast('success', 'Menu berhasil disimpan');
+          setTimeout(function(){ window.location.reload(); }, 600);
+        } else {
+          toast('error', (data && data.error) ? data.error : 'Gagal menyimpan');
+          saveBtn.disabled = false;
+          saveStatus.textContent = '';
+        }
+      })
+      .catch(function(err){
+        toast('error', 'Error: ' + err.message);
+        saveBtn.disabled = false;
+        saveStatus.textContent = '';
+      });
+    });
+  }
+
+  // =============== Rename menu ===============
+
+  var renameBtn = document.getElementById('btnRenameMenu');
+  if (renameBtn) {
+    renameBtn.addEventListener('click', function(){
+      document.getElementById('renameModal').style.display = 'flex';
+    });
+  }
 })();
 </script>
 
@@ -546,8 +768,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 .menu-item-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 6px;
+  padding: 6px 10px;
   background: var(--adam-card);
   border: 1px solid var(--adam-border);
   border-radius: 8px;
@@ -566,18 +788,35 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 .menu-item-label {
   flex: 1;
   font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .menu-item-type {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--adam-muted);
   background: var(--adam-surface-4);
-  padding: 2px 6px;
+  padding: 1px 5px;
   border-radius: 4px;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+.menu-item-admin.drag-over > .menu-item-bar {
+  border-color: #3b82f6;
+  background: rgba(59,130,246,0.08);
+}
+.menu-item-indent,
+.menu-item-outdent,
+.menu-item-edit {
+  font-size: 12px;
+  padding: 2px 6px;
+  cursor: pointer;
 }
 .menu-item-remove {
   font-size: 12px;
-  padding: 2px 8px;
+  padding: 2px 6px;
+  cursor: pointer;
 }
 .source-item:hover {
   background: var(--adam-surface-3);
@@ -586,6 +825,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   background: var(--adam-border-2);
 }
 @media (max-width:768px){
-  .menu-layout{ grid-template-columns:1fr; }
+  div[style*="grid-template-columns: 1fr 320px"] {
+    grid-template-columns: 1fr !important;
+  }
 }
 </style>

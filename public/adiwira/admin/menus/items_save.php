@@ -2,25 +2,31 @@
 declare(strict_types=1);
 
 // /adiwira/admin/menus/items_save.php — AJAX endpoint to save menu items
-header('Content-Type: application/json; charset=utf-8');
-
-require_once __DIR__ . '/../_deny.php';
-
-if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
-    http_response_code(404);
-    echo json_encode(['ok' => false, 'error' => 'Not found']);
-    exit;
+if (!defined('DASHBOARD_CONTEXT')) {
+    define('DASHBOARD_CONTEXT', true);
 }
 
 require_once __DIR__ . '/../_guard.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['editor', 'admin'], true);
+header('Content-Type: application/json; charset=utf-8');
 
-$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'Method not allowed']);
+    exit;
+}
+
+$identity = adiwira_fetch_identity($pdo);
+if (($identity['ok'] ?? false) !== true) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'Access denied']);
+    exit;
+}
+
+$role = (string)($identity['role'] ?? 'guest');
+if (!in_array($role, ['editor', 'admin'], true)) {
+    http_response_code(403);
+    echo json_encode(['ok' => false, 'error' => 'Forbidden']);
     exit;
 }
 
@@ -53,7 +59,6 @@ if (!is_array($items)) {
 try {
     $pdo->beginTransaction();
 
-    // Track which items we keep
     $keepIds = [];
 
     foreach ($items as $item) {
@@ -69,7 +74,6 @@ try {
         if ($label === '') continue;
 
         if ($itemId && $itemId > 0) {
-            // Update existing item
             $st = $pdo->prepare("UPDATE menu_items SET parent_id = :pid, sort_order = :so, type = :typ, label = :lbl, url = :url, target_id = :tid, target_blank = :tb WHERE id = :id AND menu_id = :mid");
             $st->execute([
                 ':pid' => $parentId,
@@ -84,7 +88,6 @@ try {
             ]);
             $keepIds[] = $itemId;
         } else {
-            // Insert new item
             $st = $pdo->prepare("INSERT INTO menu_items (menu_id, parent_id, sort_order, type, label, url, target_id, target_blank) VALUES (:mid, :pid, :so, :typ, :lbl, :url, :tid, :tb)");
             $st->execute([
                 ':mid' => $menuId,
@@ -100,20 +103,18 @@ try {
         }
     }
 
-    // Delete items that are no longer in the list
     if (!empty($keepIds)) {
         $placeholders = implode(',', array_fill(0, count($keepIds), '?'));
         $st = $pdo->prepare("DELETE FROM menu_items WHERE menu_id = ? AND id NOT IN ($placeholders)");
         $st->execute(array_merge([$menuId], $keepIds));
     } else {
-        // No items, delete all for this menu
         $st = $pdo->prepare("DELETE FROM menu_items WHERE menu_id = ?");
         $st->execute([$menuId]);
     }
 
     $pdo->commit();
-
     echo json_encode(['ok' => true, 'message' => 'Menu items saved']);
+
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
