@@ -62,67 +62,17 @@ $searchQuery = $_GET['s'] ?? '';
         </button>
       </div>
 
-      <!-- MENU (yang kamu bilang “paling waras”) -->
-      <ul class="menu expand-center-safe moving-line onload"
-        data-anime-trigger="load"
-        data-duration="2500"
-        data-delay="360"
-        data-ml-duration="1000"
-        data-ml-delay="520"
-      >
-        <li class="menu-item">
-          <a href="<?= htmlspecialchars($homeUrl) ?>" class="menu-link" data-key="beranda">
-            Beranda
-          </a>
-        </li>
-
-        <li class="menu-item has-child">
-          <div class="mobile-row">
-            <a href="#" class="menu-link" data-key="tentang">
-              Tentang Kami 
-              <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>
-            <button class="mobile-toggle-btn">
-              <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          </div>
-          
-          <ul class="submenu">
-            <li><a href="#" data-key="sekilas">Sekilas</a></li>
-            <li class="has-child">
-               <div class="mobile-row">
-                 <a href="#" class="menu-link" data-key="tim">
-                   Tim Kami 
-                   <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                 </a>
-                 <button class="mobile-toggle-btn">
-                    <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                 </button>
-               </div>
-               <ul class="submenu">
-                 <li><a href="#" data-key="manajemen">Manajemen</a></li>
-                 <li><a href="#" data-key="staff">Staff Ahli</a></li>
-               </ul>
-            </li>
-          </ul>
-        </li>
-
-        <li class="menu-item has-child">
-          <div class="mobile-row">
-            <a href="#" class="menu-link" data-key="layanan">
-              Layanan 
-              <svg class="arrow-icon" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>
-            <button class="mobile-toggle-btn">
-               <svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-          </div>
-          <ul class="submenu">
-            <li><a href="#" data-key="web">Web Dev</a></li>
-            <li><a href="#" data-key="mobile">Mobile App</a></li>
-          </ul>
-        </li>
-      </ul>
+      <!-- Dynamic Menu dari Menu Manager -->
+      <?php
+      if (function_exists('menu_render')) {
+          echo menu_render($pdo, 'primary', [
+              'menu_class' => 'menu expand-center-safe moving-line onload',
+              'submenu_class' => 'submenu',
+              'ul_attr' => 'data-anime-trigger="load" data-duration="2500" data-delay="360" data-ml-duration="1000" data-ml-delay="520"',
+              'depth' => 0,
+          ]);
+      }
+      ?>
 
       <!-- CONTROLS (animasi per-item, jangan wrapper) -->
       <div class="controls">

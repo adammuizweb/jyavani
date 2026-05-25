@@ -63,3 +63,6 @@ require_once __DIR__ . '/helpers/private_file_shortcodes.php';
 
 // 18. helpers untuk video shortcodes
 require_once __DIR__ . '/helpers/video_shortcodes.php';
+
+// 19. helpers untuk menu system
+require_once __DIR__ . '/helpers/menu_helper.php';

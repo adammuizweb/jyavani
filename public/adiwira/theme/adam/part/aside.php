@@ -129,6 +129,14 @@ if (!function_exists('adam_icon')) {
                 <path d="M14 11v6"></path>';
                 break;
 
+            case 'menu':
+                $svg = '
+                <path d="M4 6h16"></path>
+                <path d="M4 12h16"></path>
+                <path d="M4 18h16"></path>
+                <path d="M9 6v12"></path>';
+                break;
+
             case 'link':
                 $svg = '
                 <path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 1 0-7.07-7.07L10.8 5.12"></path>
@@ -288,6 +296,10 @@ echo nav_item($base, $requested, 'admin/file', adam_icon('folder'), 'File', [
 
 echo nav_item($base, $requested, 'admin/photos', adam_icon('camera'), 'Albums', [
   [$base . '/index.php?page=admin/photos/index','Daftar', adam_icon('list','adam-svg-icon--sm')]
+]);
+
+echo nav_item($base, $requested, 'admin/menus', adam_icon('menu'), 'Menus', [
+  [$base . '/index.php?page=admin/menus/index','Kelola', adam_icon('list','adam-svg-icon--sm')]
 ]);
 
 $themeLinks = [
