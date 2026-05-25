@@ -22,7 +22,9 @@ try {
 
   // cleanup relations (opsional tapi rapi)
   $pdo->prepare("DELETE FROM post_categories WHERE post_id=:pid")->execute([':pid'=>$id]);
-  $pdo->prepare("DELETE FROM post_media_items WHERE post_id=:pid")->execute([':pid'=>$id]);
+  if ($PHOTO_HAS_MEDIA_ITEMS) {
+    $pdo->prepare("DELETE FROM post_media_items WHERE post_id=:pid")->execute([':pid'=>$id]);
+  }
 
   out_json(['ok'=>true]);
 

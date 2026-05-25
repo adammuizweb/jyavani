@@ -52,6 +52,13 @@ $category_ids = array_values(array_filter($category_ids, fn($v)=>$v>0));
 
 $now = (new DateTime('now'))->format('Y-m-d H:i:s');
 
+$hasSortOrder = $PHOTO_HAS_SORT_ORDER;
+$hasPostMediaItems = $PHOTO_HAS_MEDIA_ITEMS;
+
+if (!$PHOTO_TYPE_OK) {
+  out_json(['ok'=>false,'error'=>'Schema kolom type tidak mendukung photo. Jalankan schema/migration_003_photos_schema.sql'], 500);
+}
+
 try {
   // ===== upsert post (photo)
   if ($id > 0) {
@@ -62,7 +69,6 @@ try {
     if (!$row) out_json(['ok'=>false,'error'=>'Photo post not found'], 404);
     if (!$isAdmin && (int)$row['created_by'] !== (int)$uid) out_json(['ok'=>false,'error'=>'Forbidden'], 403);
 
-    // untuk UPDATE: kalau slug bentrok, error (biar user sadar)
     $u = $pdo->prepare("SELECT id FROM posts WHERE slug=:slug AND id!=:id LIMIT 1");
     $u->execute([':slug'=>$slug, ':id'=>$id]);
     if ($u->fetch()) out_json(['ok'=>false,'error'=>'Slug sudah dipakai'], 400);
@@ -79,28 +85,32 @@ try {
     ]);
 
   } else {
-    // untuk INSERT: auto-unique slug
     $slug = make_unique_slug($pdo, $slug, 0);
 
-    // sort_order baru taruh paling bawah
-    $mx = $pdo->query("SELECT COALESCE(MAX(sort_order),0) FROM posts WHERE type='photo' AND is_deleted=0");
-    $maxSort = (int)($mx ? $mx->fetchColumn() : 0);
-    $newSort = $maxSort + 10;
+    if ($hasSortOrder) {
+      $mx = $pdo->query("SELECT COALESCE(MAX(sort_order),0) FROM posts WHERE type='photo' AND is_deleted=0");
+      $maxSort = (int)($mx ? $mx->fetchColumn() : 0);
+      $newSort = $maxSort + 10;
 
-    $ins = $pdo->prepare("
-      INSERT INTO posts (title, slug, content, type, meta, youtube, thumbnail, status, created_by, created_at, updated_at, sort_order)
-      VALUES (:title, :slug, :content, 'photo', NULL, NULL, NULL, :status, :by, :c, :u, :sort)
-    ");
-    $ins->execute([
-      ':title'=>$title,
-      ':slug'=>$slug,
-      ':content'=>'',
-      ':status'=>$status,
-      ':by'=>$uid,
-      ':c'=>$now,
-      ':u'=>$now,
-      ':sort'=>$newSort
-    ]);
+      $ins = $pdo->prepare("
+        INSERT INTO posts (title, slug, content, type, meta, youtube, thumbnail, status, created_by, created_at, updated_at, sort_order)
+        VALUES (:title, :slug, :content, 'photo', NULL, NULL, NULL, :status, :by, :c, :u, :sort)
+      ");
+      $ins->execute([
+        ':title'=>$title, ':slug'=>$slug, ':content'=>'',
+        ':status'=>$status, ':by'=>$uid, ':c'=>$now, ':u'=>$now,
+        ':sort'=>$newSort
+      ]);
+    } else {
+      $ins = $pdo->prepare("
+        INSERT INTO posts (title, slug, content, type, meta, youtube, thumbnail, status, created_by, created_at, updated_at)
+        VALUES (:title, :slug, :content, 'photo', NULL, NULL, NULL, :status, :by, :c, :u)
+      ");
+      $ins->execute([
+        ':title'=>$title, ':slug'=>$slug, ':content'=>'',
+        ':status'=>$status, ':by'=>$uid, ':c'=>$now, ':u'=>$now
+      ]);
+    }
     $id = (int)$pdo->lastInsertId();
   }
 
@@ -113,8 +123,8 @@ try {
     }
   }
 
-  // ===== sync items (order = index array)
-  if (is_array($items)) {
+  // ===== sync items (only if post_media_items table exists)
+  if ($hasPostMediaItems && is_array($items)) {
     $norm = [];
     $seen = [];
 
@@ -177,23 +187,31 @@ try {
   }
 
   // ===== update cover thumbnail from first item
-  $cover = $pdo->prepare("
-    SELECT m.url
-    FROM post_media_items pmi
-    JOIN media m ON m.id = pmi.media_id
-    WHERE pmi.post_id = :pid
-    ORDER BY pmi.sort_order ASC, pmi.media_id ASC
-    LIMIT 1
-  ");
-  $cover->execute([':pid'=>$id]);
-  $coverUrl = (string)($cover->fetchColumn() ?: '');
+  if ($hasPostMediaItems) {
+    $cover = $pdo->prepare("
+      SELECT m.url
+      FROM post_media_items pmi
+      JOIN media m ON m.id = pmi.media_id
+      WHERE pmi.post_id = :pid
+      ORDER BY pmi.sort_order ASC, pmi.media_id ASC
+      LIMIT 1
+    ");
+    $cover->execute([':pid'=>$id]);
+    $coverUrl = (string)($cover->fetchColumn() ?: '');
+  } else {
+    $coverUrl = '';
+  }
 
   $pdo->prepare("UPDATE posts SET thumbnail=:t, updated_at=:u WHERE id=:id LIMIT 1")
       ->execute([':t'=>($coverUrl!==''?$coverUrl:null), ':u'=>$now, ':id'=>$id]);
 
-  $cnt = $pdo->prepare("SELECT COUNT(*) FROM post_media_items WHERE post_id=:pid");
-  $cnt->execute([':pid'=>$id]);
-  $itemsCount = (int)$cnt->fetchColumn();
+  if ($hasPostMediaItems) {
+    $cnt = $pdo->prepare("SELECT COUNT(*) FROM post_media_items WHERE post_id=:pid");
+    $cnt->execute([':pid'=>$id]);
+    $itemsCount = (int)$cnt->fetchColumn();
+  } else {
+    $itemsCount = 0;
+  }
 
   out_json([
     'ok'=>true,

@@ -33,24 +33,26 @@ try {
     out_json(['ok'=>false,'error'=>'Some ids not found / forbidden'], 403);
   }
 
-  $pdo->beginTransaction();
+  if ($PHOTO_HAS_SORT_ORDER) {
+    $pdo->beginTransaction();
 
-  $updSql = "UPDATE posts SET sort_order=:ord WHERE id=:id AND type='photo' AND is_deleted=0";
-  if (!$isAdmin) $updSql .= " AND created_by=:uid";
-  $updSql .= " LIMIT 1";
+    $updSql = "UPDATE posts SET sort_order=:ord WHERE id=:id AND type='photo' AND is_deleted=0";
+    if (!$isAdmin) $updSql .= " AND created_by=:uid";
+    $updSql .= " LIMIT 1";
 
-  $upd = $pdo->prepare($updSql);
+    $upd = $pdo->prepare($updSql);
 
-  $step = 10;
-  $ord  = 10;
-  foreach ($ids as $id) {
-    $bind = [':ord'=>$ord, ':id'=>$id];
-    if (!$isAdmin) $bind[':uid'] = $uid;
-    $upd->execute($bind);
-    $ord += $step;
+    $step = 10;
+    $ord  = 10;
+    foreach ($ids as $id) {
+      $bind = [':ord'=>$ord, ':id'=>$id];
+      if (!$isAdmin) $bind[':uid'] = $uid;
+      $upd->execute($bind);
+      $ord += $step;
+    }
+
+    $pdo->commit();
   }
-
-  $pdo->commit();
 
   out_json(['ok'=>true, 'count'=>count($ids)]);
 

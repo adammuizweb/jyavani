@@ -148,6 +148,8 @@ $modal_url  = '/adiwira/admin/modal_img/index.php?embedded=1';
 
 <div id="toast" class="pht-toast"></div>
 
+<script src="/adiwira/static/js/add/modal-helpers.js"></script>
+<script src="/adiwira/static/js/add/media-selector.js"></script>
 <script>
   window.PHOTO_CANVAS_BOOT = window.PHOTO_CANVAS_BOOT || [];
   window.PHOTO_CANVAS_BOOT.push({

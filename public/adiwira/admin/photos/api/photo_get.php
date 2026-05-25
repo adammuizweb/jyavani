@@ -23,22 +23,25 @@ try {
   $cs->execute([':pid'=>$id]);
   $cat_ids = array_map('intval', $cs->fetchAll(PDO::FETCH_COLUMN, 0) ?: []);
 
-  $it = $pdo->prepare("
-    SELECT
-      pmi.media_id AS id,
-      m.url,
-      COALESCE(pmi.caption_override, '') AS caption,
-      COALESCE(pmi.alt_override, '') AS alt,
-      COALESCE(pmi.link_url_override, '') AS link_url,
-      COALESCE(pmi.link_target_override, '') AS link_target,
-      pmi.sort_order
-    FROM post_media_items pmi
-    JOIN media m ON m.id = pmi.media_id
-    WHERE pmi.post_id = :pid
-    ORDER BY pmi.sort_order ASC, pmi.media_id ASC
-  ");
-  $it->execute([':pid'=>$id]);
-  $items = $it->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  $items = [];
+  if ($PHOTO_HAS_MEDIA_ITEMS) {
+    $it = $pdo->prepare("
+      SELECT
+        pmi.media_id AS id,
+        m.url,
+        COALESCE(pmi.caption_override, '') AS caption,
+        COALESCE(pmi.alt_override, '') AS alt,
+        COALESCE(pmi.link_url_override, '') AS link_url,
+        COALESCE(pmi.link_target_override, '') AS link_target,
+        pmi.sort_order
+      FROM post_media_items pmi
+      JOIN media m ON m.id = pmi.media_id
+      WHERE pmi.post_id = :pid
+      ORDER BY pmi.sort_order ASC, pmi.media_id ASC
+    ");
+    $it->execute([':pid'=>$id]);
+    $items = $it->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  }
 
   out_json([
     'ok'=>true,
