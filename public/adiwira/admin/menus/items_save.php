@@ -59,11 +59,13 @@ if (!is_array($items)) {
 try {
     $pdo->beginTransaction();
 
+    // Map temp negative client IDs → real DB IDs (for new items that are parents)
+    $idMap = [];
     $keepIds = [];
 
     foreach ($items as $item) {
-        $itemId = isset($item['id']) && $item['id'] !== null ? (int)$item['id'] : null;
-        $parentId = isset($item['parent_id']) && $item['parent_id'] !== null ? (int)$item['parent_id'] : null;
+        $itemId = isset($item['id']) && $item['id'] !== null ? $item['id'] : null;
+        $parentId = isset($item['parent_id']) && $item['parent_id'] !== null ? $item['parent_id'] : null;
         $sortOrder = (int)($item['sort_order'] ?? 0);
         $type = (string)($item['type'] ?? 'custom');
         $label = (string)($item['label'] ?? '');
@@ -73,25 +75,39 @@ try {
 
         if ($label === '') continue;
 
-        if ($itemId && $itemId > 0) {
+        // Resolve parent_id: temp negative IDs reference other new items
+        $resolvedParentId = null;
+        if ($parentId !== null) {
+            $parentIdInt = (int)$parentId;
+            if ($parentIdInt < 0) {
+                // Temp negative reference → look up in idMap
+                $resolvedParentId = isset($idMap[$parentIdInt]) ? $idMap[$parentIdInt] : null;
+            } else {
+                $resolvedParentId = $parentIdInt;
+            }
+        }
+
+        if ($itemId !== null && (int)$itemId > 0) {
+            // Update existing item
             $st = $pdo->prepare("UPDATE menu_items SET parent_id = :pid, sort_order = :so, type = :typ, label = :lbl, url = :url, target_id = :tid, target_blank = :tb WHERE id = :id AND menu_id = :mid");
             $st->execute([
-                ':pid' => $parentId,
+                ':pid' => $resolvedParentId,
                 ':so' => $sortOrder,
                 ':typ' => $type,
                 ':lbl' => $label,
                 ':url' => $url,
                 ':tid' => $targetId ?: null,
                 ':tb' => $targetBlank,
-                ':id' => $itemId,
+                ':id' => (int)$itemId,
                 ':mid' => $menuId,
             ]);
-            $keepIds[] = $itemId;
+            $keepIds[] = (int)$itemId;
         } else {
+            // Insert new item
             $st = $pdo->prepare("INSERT INTO menu_items (menu_id, parent_id, sort_order, type, label, url, target_id, target_blank) VALUES (:mid, :pid, :so, :typ, :lbl, :url, :tid, :tb)");
             $st->execute([
                 ':mid' => $menuId,
-                ':pid' => $parentId,
+                ':pid' => $resolvedParentId,
                 ':so' => $sortOrder,
                 ':typ' => $type,
                 ':lbl' => $label,
@@ -99,7 +115,13 @@ try {
                 ':tid' => $targetId ?: null,
                 ':tb' => $targetBlank,
             ]);
-            $keepIds[] = (int)$pdo->lastInsertId();
+            $newId = (int)$pdo->lastInsertId();
+            $keepIds[] = $newId;
+
+            // If this item had a temp negative ID, remember mapping for child references
+            if ($itemId !== null && (int)$itemId < 0) {
+                $idMap[(int)$itemId] = $newId;
+            }
         }
     }
 

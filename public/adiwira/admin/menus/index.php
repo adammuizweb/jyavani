@@ -335,6 +335,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const saveBtn = document.getElementById('btnSaveItems');
   const saveStatus = document.getElementById('saveItemsStatus');
 
+  // Temporary ID counter for new items (negative numbers avoid DB ID conflicts)
+  var tempIdCounter = 0;
+
   // =============== Helpers ===============
 
   function toast(type, message, title){
@@ -352,8 +355,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   }
 
   function getItemData(li){
+    var rawId = li.getAttribute('data-id') || '';
+    var id = rawId === '' ? null : parseInt(rawId, 10);
     return {
-      id: li.getAttribute('data-id') ? parseInt(li.getAttribute('data-id')) : null,
+      id: id,
       type: li.getAttribute('data-type') || 'custom',
       label: li.getAttribute('data-label') || '',
       targetId: parseInt(li.getAttribute('data-target') || '0'),
@@ -472,7 +477,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var li = document.createElement('li');
     li.className = 'menu-item-admin';
     li.innerHTML = buildListItemHTML(data);
-    li.setAttribute('data-id', '');
+    tempIdCounter--;
+    li.setAttribute('data-id', String(tempIdCounter));
     li.setAttribute('data-type', data.type || 'custom');
     li.setAttribute('data-label', data.label || '');
     li.setAttribute('data-target', String(data.targetId || 0));
@@ -688,8 +694,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       var lis = ul.querySelectorAll(':scope > li.menu-item-admin');
       lis.forEach(function(li, idx){
         var data = getItemData(li);
+        var itemId = data.id; // null for new items (insert), negative for new items with children, positive for existing
         items.push({
-          id: data.id,
+          id: itemId,
           parent_id: parentId,
           sort_order: idx,
           type: data.type,
@@ -700,7 +707,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         });
         var childUl = li.querySelector(':scope > ul.menu-sortable');
         if (childUl) {
-          walk(childUl, data.id);
+          // Use temp negative ID as parent reference so children know their parent
+          walk(childUl, itemId !== null ? itemId : parentId);
         }
       });
     }
