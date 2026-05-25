@@ -25,7 +25,7 @@ if (defined('THEME_HELPER_INCLUDED')) {
 }
 define('THEME_HELPER_INCLUDED', true);
 
-if (!defined('THEME_DEBUG')) define('THEME_DEBUG', false);
+if (!defined('THEME_DEBUG')) define('THEME_DEBUG', true);
 if (THEME_DEBUG) {
     @ini_set('display_errors', '1');
     @error_reporting(E_ALL);
@@ -511,12 +511,13 @@ function resolve_theme_file_path(array $resolved): ?string {
 
 function include_template_file(string $path, array $context = []): string {
     if (!is_file($path)) return '';
+    global $pdo;
+    $__ctx = $context;
+    $__ctx['pdo'] = $pdo;
     ob_start();
     try {
-        (function($__path, $__context) {
-            extract($__context, EXTR_SKIP);
-            include $__path;
-        })($path, $context);
+        extract($__ctx, EXTR_SKIP);
+        include $path;
     } catch (Throwable $e) {
         ob_end_clean();
         error_log('[THEME] include_template_file error: ' . $e->getMessage());
@@ -524,7 +525,6 @@ function include_template_file(string $path, array $context = []): string {
     }
     $html = ob_get_clean();
 
-$pdo = function_exists('get_pdo_from_global') ? get_pdo_from_global() : ($GLOBALS['pdo'] ?? null);
 if ($pdo instanceof PDO) {
     if (function_exists('widget_expand_shortcodes')) {
         $html = widget_expand_shortcodes((string)$html, $pdo, $context);
