@@ -131,6 +131,7 @@ if (!function_exists('render_menu_items_admin')) {
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="set_default">
             <input type="hidden" name="menu_id" value="<?= (int)$selectedMenu['id'] ?>">
+            <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/index.php?page=admin/menus/index&menu_id=' . $selectedMenuId, ENT_QUOTES, 'UTF-8') ?>">
             <button type="submit" class="adam-button" style="padding:6px 12px;font-size:12px;">Set Default</button>
           </form>
         <?php endif; ?>
@@ -148,6 +149,7 @@ if (!function_exists('render_menu_items_admin')) {
               <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;" onsubmit="return confirm('Hapus menu &quot;<?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>&quot;? Semua item akan ikut terhapus.');">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="menu_id" value="<?= (int)$selectedMenu['id'] ?>">
+                <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/index.php?page=admin/menus/index', ENT_QUOTES, 'UTF-8') ?>">
                 <button type="submit" class="adam-hapus" style="font-size:12px;">Hapus Menu</button>
               </form>
             </span>
@@ -209,6 +211,7 @@ if (!function_exists('render_menu_items_admin')) {
         <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="action" value="create">
+          <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/index.php?page=admin/menus/index', ENT_QUOTES, 'UTF-8') ?>">
           <div style="display:flex;gap:8px;flex-direction:column;">
             <input type="text" name="name" class="pht-input" placeholder="Nama menu (contoh: Primary)" required>
             <input type="text" name="slug" class="pht-input" placeholder="Slug (contoh: primary)" required>
@@ -307,6 +310,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="rename">
       <input type="hidden" name="menu_id" value="<?= $selectedMenuId ?>">
+      <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/index.php?page=admin/menus/index&menu_id=' . $selectedMenuId, ENT_QUOTES, 'UTF-8') ?>">
       <div style="display:grid;gap:8px;">
         <label style="font-size:12px;">Nama Baru</label>
         <input type="text" name="name" class="pht-input" value="<?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required>

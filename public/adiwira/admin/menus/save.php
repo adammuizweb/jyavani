@@ -9,8 +9,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-$defaultReturnTo = $base . '/index.php?page=admin/menus/index';
+$defaultReturnTo = '/adiwira/index.php?page=admin/menus/index';
 
 $returnTo = function_exists('adiwira_safe_return_to')
     ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
@@ -55,7 +54,7 @@ if ($action === 'create') {
     $st->execute([':name' => $name, ':slug' => $slug]);
     $menuId = (int)$pdo->lastInsertId();
 
-    $returnTo = $base . '/index.php?page=admin/menus/index&menu_id=' . $menuId;
+    $returnTo = '/adiwira/index.php?page=admin/menus/index&menu_id=' . $menuId;
     adiwira_redirect_with_flash($returnTo, 'success', 'Menu "' . htmlspecialchars($name) . '" berhasil dibuat.');
 }
 

@@ -9,8 +9,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-$base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-$defaultReturnTo = $base . '/index.php?page=admin/menus/index';
+$defaultReturnTo = '/adiwira/index.php?page=admin/menus/index';
 
 $returnTo = function_exists('adiwira_safe_return_to')
     ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
