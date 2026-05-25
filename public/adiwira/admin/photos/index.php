@@ -9,6 +9,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 
 if (!function_exists('e')) {
@@ -17,6 +18,9 @@ if (!function_exists('e')) {
 
 $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'])), '/');
 $csrf = csrf_token();
+$page_toasts = function_exists('adiwira_collect_query_toasts')
+    ? adiwira_collect_query_toasts()
+    : [];
 
 // categories for checkbox tree
 $catsStmt = $pdo->query("SELECT id, name, parent_id FROM categories WHERE is_deleted=0 ORDER BY parent_id ASC, name ASC");
@@ -146,7 +150,11 @@ $modal_url  = '/adiwira/admin/modal_img/index.php?embedded=1';
   </div>
 </section>
 
-<div id="toast" class="pht-toast"></div>
+<?php
+if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
+    echo adiwira_bootstrap_toasts_script($page_toasts);
+}
+?>
 
 <script src="/adiwira/static/js/add/modal-helpers.js"></script>
 <script src="/adiwira/static/js/add/media-selector.js"></script>
@@ -169,18 +177,24 @@ $modal_url  = '/adiwira/admin/modal_img/index.php?embedded=1';
 
   const el = (id)=>document.getElementById(id);
 
-  const toast = el('toast');
-  let toastTimer = null;
+  function toast(type, message, title){
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
+      return;
+    }
+    alert(message);
+  }
 
-  function showToast(msg){
-    toast.textContent = msg;
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0)';
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=>{
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateY(10px)';
-    }, 1400);
+  function ask(variant, opts){
+    if (window.NewNotifConfirm) {
+      if (variant === 'danger' && typeof window.NewNotifConfirm.danger === 'function') {
+        return window.NewNotifConfirm.danger(opts);
+      }
+      if (typeof window.NewNotifConfirm.warning === 'function') {
+        return window.NewNotifConfirm.warning(opts);
+      }
+    }
+    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
   }
 
   async function fetchJSON(url, payload=null){
@@ -406,7 +420,7 @@ $modal_url  = '/adiwira/admin/modal_img/index.php?embedded=1';
 
     if (data.thumbnail !== undefined) active.thumbnail = data.thumbnail;
 
-    showToast('Tersimpan');
+    toast('success', 'Tersimpan');
     await loadList();
   }
 
@@ -448,17 +462,23 @@ $modal_url  = '/adiwira/admin/modal_img/index.php?embedded=1';
     };
 
     const data = await fetchJSON(API.save, payload);
-    showToast('Photo dibuat');
+    toast('success', 'Photo dibuat');
     currentPage = 1;
     await loadList();
     await selectPhoto(data.id);
   }
 
   async function delById(id){
-    if (!confirm('Hapus photo post ini?')) return;
+    const ok = await ask('danger', {
+      title: 'Konfirmasi hapus',
+      message: 'Hapus photo post ini?',
+      confirmText: 'Ya, hapus',
+      cancelText: 'Batal'
+    });
+    if (!ok) return;
 
     await fetchJSON(API.del, { csrf_token: CSRF, id: Number(id) });
-    showToast('Dihapus');
+    toast('success', 'Photo post berhasil dihapus');
 
     if (active && Number(active.id) === Number(id)){
       active = null;
@@ -483,7 +503,7 @@ $modal_url  = '/adiwira/admin/modal_img/index.php?embedded=1';
     if (ids.length < 2) return;
 
     await fetchJSON(API.reorder, { csrf_token: CSRF, ids });
-    showToast('Urutan disimpan');
+    toast('success', 'Urutan disimpan');
   }
 
   function moveById(arr, fromId, toId){

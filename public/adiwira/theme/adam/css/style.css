@@ -2965,21 +2965,6 @@ body.aside-collapsed .adam-collapse .label-show{ display:inline; }
 }
 .pht-help{ color: var(--adam-muted); font-size:12px; }
 
-.pht-toast{
-  position:fixed;
-  right:16px;
-  bottom:16px;
-  background: var(--adam-text-2);
-  color:#fff;
-  padding:10px 12px;
-  border-radius:12px;
-  box-shadow: var(--adam-shadow);
-  font-size:13px;
-  opacity:0;
-  transform:translateY(10px);
-  transition:all .18s ease;
-  z-index:99999;
-}
 /* extra helpers */
 .pht-muted{ color: var(--adam-muted); }
 .pht-divider{ height:1px; background: var(--adam-border-softer); margin:12px 0; }
@@ -3003,12 +2988,7 @@ body.aside-collapsed .adam-collapse .label-show{ display:inline; }
   color: var(--adam-text);
 }
 
-/* toast: jangan pakai adam-text-2 sebagai background */
-.pht-toast{
-  background: var(--adam-surface-3);
-  color: var(--adam-text);
-  border: 1px solid var(--adam-border);
-}
+
 
 /* =========================================================
    Theme Manager & Assignments — ADAM theme-aware (Light/Dark)
