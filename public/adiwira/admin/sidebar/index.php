@@ -324,26 +324,36 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="_action" value="add">
       <strong style="font-size:14px;white-space:nowrap;">+ Tambah Widget</strong>
-      <select name="new_type" required style="padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+      <select name="new_type" id="sw-add-type" onchange="swTogglePresetField()" style="padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
         <option value="">- Pilih tipe -</option>
         <?php foreach ($widget_types as $wt => $wi): ?>
           <option value="<?= h($wt) ?>"><?= h($wi['label']) ?></option>
         <?php endforeach; ?>
       </select>
       <input type="text" name="new_title" placeholder="Judul widget (opsional)" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
-      <?php if (!empty($presets)): ?>
-      <select name="new_preset_slug" style="padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;min-width:180px;">
-        <option value="">- Pilih preset -</option>
-        <?php foreach ($presets as $p): ?>
-          <option value="<?= h($p['slug']) ?>"><?= h($p['title']) ?></option>
-        <?php endforeach; ?>
-      </select>
-      <?php else: ?>
-      <input type="text" name="new_preset_slug" placeholder="Slug preset (manual)" style="width:180px;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
-      <?php endif; ?>
+      <span id="sw-preset-field" style="display:none;">
+        <?php if (!empty($presets)): ?>
+        <select name="new_preset_slug" style="padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;min-width:180px;">
+          <option value="">- Pilih preset -</option>
+          <?php foreach ($presets as $p): ?>
+            <option value="<?= h($p['slug']) ?>"><?= h($p['title']) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <?php else: ?>
+        <input type="text" name="new_preset_slug" placeholder="Slug preset (manual)" style="width:180px;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+        <?php endif; ?>
+      </span>
       <button type="submit" class="adam-button" style="padding:6px 16px;white-space:nowrap;">Tambah</button>
     </form>
   </div>
+  <script>
+  function swTogglePresetField() {
+    var t = document.getElementById('sw-add-type');
+    var w = document.getElementById('sw-preset-field');
+    if (t && w) w.style.display = t.value === 'shortcode_preset' ? 'inline' : 'none';
+  }
+  document.addEventListener('DOMContentLoaded', swTogglePresetField);
+  </script>
 
   <!-- Widget Items List -->
   <form method="post" id="sidebar-widgets-form">
