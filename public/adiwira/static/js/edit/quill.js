@@ -187,8 +187,7 @@
         const altc = Array.from(editorEl.querySelectorAll('img')).filter(function(i){
           try {
             return i.getAttribute
-              && String(i.getAttribute('src') || '').endsWith(srcEnds)
-              && !i.dataset.adiwiraApplied;
+              && String(i.getAttribute('src') || '').endsWith(srcEnds);
           } catch (e) {
             return false;
           }
@@ -197,24 +196,12 @@
       }
 
       let target = null;
-      for (let i = imgs.length - 1; i >= 0; i--) {
-        const img = imgs[i];
-        if (!img.dataset || !img.dataset.adiwiraApplied) {
-          target = img;
-          break;
-        }
-      }
-      if (!target && imgs.length) target = imgs[imgs.length - 1];
+      if (imgs.length) target = imgs[imgs.length - 1];
       if (!target) return;
 
       if (m.alt) target.setAttribute('alt', m.alt);
       if (m.title) target.setAttribute('title', m.title);
-      if (m.id != null) target.setAttribute('data-media-id', String(m.id));
-      if (m.url) target.setAttribute('data-media-url', String(m.url));
       if (m.caption) target.setAttribute('data-caption', m.caption);
-      if (m.credit) target.setAttribute('data-credit', m.credit);
-
-      target.dataset.adiwiraApplied = '1';
       applyEditorImageDisplay(target);
     } catch (e) {
       console.warn('[quill] applyAttributesToInsertedImage error', e);
@@ -236,14 +223,7 @@
     img.setAttribute('title', 'Media telah dihapus dari gallery');
     img.setAttribute('data-media-removed', '1');
 
-    if (mediaId) {
-      img.setAttribute('data-removed-media-id', String(mediaId));
-    }
-
-    img.removeAttribute('data-media-id');
-    img.removeAttribute('data-media-url');
     img.removeAttribute('data-caption');
-    img.removeAttribute('data-credit');
     img.removeAttribute('srcset');
 
     img.style.background = '#fff7f7';
@@ -264,20 +244,7 @@
   function handleDeletedMedia(detail) {
     if (!detail || !quill || !quill.root) return;
 
-    const ids = new Set();
     const deletedUrlSig = new Set();
-
-    if (detail.id != null) {
-      const n = parseInt(detail.id, 10);
-      if (Number.isFinite(n) && n > 0) ids.add(String(n));
-    }
-
-    if (Array.isArray(detail.deleted_ids)) {
-      detail.deleted_ids.forEach(function(v){
-        const n = parseInt(v, 10);
-        if (Number.isFinite(n) && n > 0) ids.add(String(n));
-      });
-    }
 
     const rawUrls = [];
     if (detail.url) rawUrls.push(detail.url);
@@ -288,7 +255,7 @@
       sig.forEach(function(v){ deletedUrlSig.add(v); });
     });
 
-    if (ids.size < 1 && deletedUrlSig.size < 1) return;
+    if (deletedUrlSig.size < 1) return;
 
     const editorEl = document.getElementById('quill-editor');
     if (!editorEl) return;
@@ -299,20 +266,15 @@
     imgs.forEach(function(img){
       if (img.getAttribute('data-media-removed') === '1') return;
 
-      const mediaId = String(img.getAttribute('data-media-id') || '').trim();
-      const mediaUrl = String(img.getAttribute('data-media-url') || '').trim();
       const srcRaw = String(img.getAttribute('src') || img.src || '').trim();
+      const sig = buildUrlSignature(srcRaw);
 
-      const sigA = buildUrlSignature(mediaUrl || srcRaw);
-      const sigB = buildUrlSignature(srcRaw);
+      const matchByUrl = hasSignatureMatch(sig, deletedUrlSig);
 
-      const matchById = mediaId !== '' && ids.has(mediaId);
-      const matchByUrl = hasSignatureMatch(sigA, deletedUrlSig) || hasSignatureMatch(sigB, deletedUrlSig);
-
-      if (!matchById && !matchByUrl) return;
+      if (!matchByUrl) return;
 
       changed = true;
-      applyRemovedPlaceholderToImage(img, mediaId || '');
+      applyRemovedPlaceholderToImage(img, '');
     });
 
     if (changed) {
@@ -557,7 +519,7 @@
     try {
       var div = document.createElement('div');
       div.innerHTML = originalHtml;
-      var originals = div.querySelectorAll('img[data-media-id]');
+      var originals = div.querySelectorAll('img[data-caption]');
       if (!originals.length) return;
 
       var attrMap = {};
@@ -565,11 +527,7 @@
         var src = img.getAttribute('src');
         if (!src) return;
         attrMap[src] = {
-          'data-media-id': img.getAttribute('data-media-id'),
-          'data-media-url': img.getAttribute('data-media-url'),
-          'data-caption': img.getAttribute('data-caption'),
-          'data-credit': img.getAttribute('data-credit'),
-          'data-adiwira-applied': img.getAttribute('data-adiwira-applied')
+          'data-caption': img.getAttribute('data-caption')
         };
       });
 

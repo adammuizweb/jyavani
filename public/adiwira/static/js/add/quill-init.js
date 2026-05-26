@@ -233,13 +233,7 @@
       img.setAttribute('title', 'Media telah dihapus dari gallery');
       img.setAttribute('data-media-removed', '1');
 
-      if (mediaId) {
-        img.setAttribute('data-removed-media-id', String(mediaId));
-      }
-
-      img.removeAttribute('data-media-id');
       img.removeAttribute('data-caption');
-      img.removeAttribute('data-credit');
       img.removeAttribute('srcset');
       img.style.background = '#fff7f7';
       img.style.border = '1px solid #f1b5b5';
@@ -249,20 +243,7 @@
     function handleDeletedMedia(detail) {
       if (!detail || !quill || !quill.root) return;
 
-      const ids = new Set();
       const deletedUrlSig = new Set();
-
-      if (detail.id != null) {
-        const n = parseInt(detail.id, 10);
-        if (Number.isFinite(n) && n > 0) ids.add(String(n));
-      }
-
-      if (Array.isArray(detail.deleted_ids)) {
-        detail.deleted_ids.forEach(function(v){
-          const n = parseInt(v, 10);
-          if (Number.isFinite(n) && n > 0) ids.add(String(n));
-        });
-      }
 
       const rawUrls = [];
       if (detail.url) rawUrls.push(detail.url);
@@ -273,7 +254,7 @@
         sig.forEach(function(v){ deletedUrlSig.add(v); });
       });
 
-      if (ids.size < 1 && deletedUrlSig.size < 1) return;
+      if (deletedUrlSig.size < 1) return;
 
       const imgs = Array.from(quill.root.querySelectorAll('img'));
       let changed = false;
@@ -281,17 +262,13 @@
       imgs.forEach(function(img){
         if (img.getAttribute('data-media-removed') === '1') return;
 
-        const mediaId = String(img.getAttribute('data-media-id') || '').trim();
         const srcRaw = String(img.getAttribute('src') || img.src || '').trim();
         const srcSig = buildUrlSignature(srcRaw);
 
-        const matchById = mediaId !== '' && ids.has(mediaId);
-        const matchByUrl = hasSignatureMatch(srcSig, deletedUrlSig);
-
-        if (!matchById && !matchByUrl) return;
+        if (!hasSignatureMatch(srcSig, deletedUrlSig)) return;
 
         changed = true;
-        applyRemovedPlaceholderToImage(img, mediaId || '');
+        applyRemovedPlaceholderToImage(img, '');
       });
 
       if (changed) {
@@ -328,9 +305,7 @@
         function _escapeAttr(s) { return escapeAttr(s); }
 
         const attrs = [];
-        if (m.id) attrs.push('data-media-id="' + _escapeAttr(m.id) + '"');
         if (m.caption) attrs.push('data-caption="' + _escapeAttr(m.caption) + '"');
-        if (m.credit) attrs.push('data-credit="' + _escapeAttr(m.credit) + '"');
 
         const altVal = (m.alt && String(m.alt).trim() !== '') ? String(m.alt) : (m.title ? String(m.title) : '');
         const titleVal = m.title ? String(m.title) : '';
@@ -365,25 +340,20 @@
               const targetSig = buildUrlSignature(m.url);
 
               if (hasSignatureMatch(imgSig, targetSig)) {
-                if (!img.dataset.adamMediaAnnotated) {
-                  target = img;
-                  break;
-                }
+                target = img;
+                break;
               }
             }
 
             if (!target) {
               const rev = Array.from(quill.root.querySelectorAll('img')).reverse();
-              target = rev.find(im => !im.dataset.adamMediaAnnotated) || rev[0] || null;
+              target = rev[0] || null;
             }
 
             if (target) {
-              if (m.id) target.setAttribute('data-media-id', String(m.id));
               if (m.title) target.setAttribute('title', String(m.title));
               if (altVal) target.setAttribute('alt', altVal);
-              if (m.credit) target.setAttribute('data-credit', String(m.credit));
               if (m.caption) target.setAttribute('data-caption', String(m.caption));
-              target.dataset.adamMediaAnnotated = '1';
             }
           } catch (err) {
             console.error('annotate image node error', err);

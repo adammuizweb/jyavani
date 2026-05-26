@@ -123,15 +123,12 @@
     if (thumbPreview) {
       thumbPreview.innerHTML =
         '<img src="' + escapeAttr(media.url) + '"'
-        + ' data-media-id="' + escapeAttr(media.id || '') + '"'
-        + ' data-media-url="' + escapeAttr(media.url) + '"'
         + ' alt="' + escapeAttr(media.alt || media.title || '') + '"'
         + ' style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem;background:#fff">';
     }
   }
 
   function setRemovedThumbPlaceholder(detail) {
-    const removedId = detail && detail.id != null ? (parseInt(detail.id, 10) || null) : null;
     const svgUrl = createRemovedMediaSvgDataUrl({
       width: 440,
       height: 280,
@@ -146,7 +143,6 @@
       thumbPreview.innerHTML =
         '<img src="' + escapeAttr(svgUrl) + '"'
         + ' data-removed-media="1"'
-        + (removedId ? ' data-removed-media-id="' + escapeAttr(removedId) + '"' : '')
         + ' alt="Media telah dihapus dari gallery"'
         + ' style="max-width:220px;max-height:140px;border:1px solid #f1b5b5;padding:.3rem;background:#fff7f7">';
     }
