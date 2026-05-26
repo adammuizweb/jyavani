@@ -70,7 +70,9 @@ function post_cat__safe_source(string $source): string {
 }
 
 function post_cat__excerpt(string $html, int $maxLen): string {
-  $txt = trim((string)preg_replace('/\s+/', ' ', strip_tags($html)));
+  $noBlock = (string)preg_replace('/<script[^>]*>.*?<\/script>/si', '', $html);
+  $noBlock = (string)preg_replace('/<style[^>]*>.*?<\/style>/si', '', $noBlock);
+  $txt = trim((string)preg_replace('/\s+/', ' ', strip_tags($noBlock)));
   if ($maxLen < 10) $maxLen = 10;
 
   if (function_exists('mb_strlen')) {
