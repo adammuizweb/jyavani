@@ -200,7 +200,7 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
 
   $sql = "
     SELECT DISTINCT p.id, p.title, p.slug, p.content, p.type, p.meta, p.youtube, p.thumbnail,
-           p.sort_order, p.status, p.created_by, p.created_at, p.updated_at
+           p.status, p.created_by, p.created_at, p.updated_at
     FROM $from
     WHERE " . implode(' AND ', $where) . "
     ORDER BY $orderClause
