@@ -1,5 +1,5 @@
 <?php
-// /views/themes/default/partials/shortcodes/post_cat/cards.php
+// /views/partials/shortcodes/post_cat/cards.php
 // vars: $items, $kicker, $class_prefix, $wrap, $esc (callable)
 
 // safe defaults

@@ -2,7 +2,7 @@
 /**
  * Shortcode layout template: sliderpage.php
  * Location:
- *   views/themes/<theme>/partials/shortcodes/post_cat/sliderpage.php
+ *   views/partials/shortcodes/post_cat/sliderpage.php
  *
  * Vars from shortcode engine:
  * - $items (array)

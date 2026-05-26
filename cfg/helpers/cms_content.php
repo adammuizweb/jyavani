@@ -124,11 +124,7 @@ function cms_category_descendant_ids(PDO $pdo, $rootId, $includeSelf = true) {
   return $out;
 }
 
-function cms_posts_by_category(PDO $pdo, $categoryKey, array $opt = []) {
-  $rootId = cms_category_id($pdo, $categoryKey);
-  if (!$rootId) return [];
-
-  $includeChildren = isset($opt['include_children']) ? (bool)$opt['include_children'] : true;
+function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   $type   = isset($opt['type']) ? (string)$opt['type'] : 'article';
   $status = isset($opt['status']) ? (string)$opt['status'] : 'published';
 
@@ -141,40 +137,82 @@ function cms_posts_by_category(PDO $pdo, $categoryKey, array $opt = []) {
   $orderDir = isset($opt['order_dir']) ? strtoupper((string)$opt['order_dir']) : 'DESC';
   if ($orderDir !== 'ASC' && $orderDir !== 'DESC') $orderDir = 'DESC';
 
-  $allowedOrder = [
-    'sort_order' => 'p.sort_order',
-    'created_at' => 'p.created_at',
-    'id' => 'p.id',
-  ];
-  $orderSql = isset($allowedOrder[$orderBy]) ? $allowedOrder[$orderBy] : $allowedOrder['created_at'];
+  $isRandom = strtoupper($orderBy) === 'RAND()';
+  if ($isRandom) {
+    $orderSql = 'RAND()';
+    $orderDir = ''; // RAND() takes no direction
+  } else {
+    $allowedOrder = [
+      'sort_order' => 'p.sort_order',
+      'created_at' => 'p.created_at',
+      'id' => 'p.id',
+      'updated_at' => 'p.updated_at',
+      'title' => 'p.title',
+    ];
+    $orderSql = isset($allowedOrder[$orderBy]) ? $allowedOrder[$orderBy] : $allowedOrder['created_at'];
+  }
 
-  $catIds = $includeChildren
-    ? cms_category_descendant_ids($pdo, (int)$rootId, true)
-    : [(int)$rootId];
+  $tables = ['posts p'];
+  $where = ["p.is_deleted = 0", "p.status = ?", "p.type = ?"];
+  $params = [$status, $type];
 
-  if (!$catIds) return [];
+  // Category filter
+  $catKey = $opt['category'] ?? null;
+  if ($catKey !== null && $catKey !== '') {
+    $rootId = cms_category_id($pdo, $catKey);
+    if ($rootId) {
+      $includeChildren = isset($opt['include_children']) ? (bool)$opt['include_children'] : true;
+      $catIds = $includeChildren
+        ? cms_category_descendant_ids($pdo, (int)$rootId, true)
+        : [(int)$rootId];
+      if ($catIds) {
+        $tables[] = 'post_categories pc';
+        $in = implode(',', array_fill(0, count($catIds), '?'));
+        $where[] = "pc.post_id = p.id AND pc.category_id IN ($in)";
+        foreach ($catIds as $cid) $params[] = (int)$cid;
+      }
+    }
+  }
 
-  $in = implode(',', array_fill(0, count($catIds), '?'));
+  // Author filter
+  if (array_key_exists('created_by', $opt) && $opt['created_by'] !== null) {
+    $where[] = "p.created_by = ?";
+    $params[] = (int)$opt['created_by'];
+  }
 
-  // LIMIT/OFFSET di-inject sebagai integer yang sudah di-cast (lebih kompatibel PDO MySQL)
+  // Date range filters
+  if (!empty($opt['date_from'])) {
+    $where[] = "p.created_at >= ?";
+    $params[] = (string)$opt['date_from'];
+  }
+  if (!empty($opt['date_to'])) {
+    $where[] = "p.created_at <= ?";
+    $params[] = (string)$opt['date_to'];
+  }
+
+  $from = implode(' JOIN ', $tables);
+
+  if ($isRandom) {
+    $orderClause = 'RAND()';
+  } else {
+    $orderClause = "$orderSql $orderDir, p.id $orderDir";
+  }
+
   $sql = "
-    SELECT DISTINCT
-      p.id, p.title, p.slug, p.content, p.type, p.meta, p.youtube, p.thumbnail,
-      p.sort_order, p.status, p.created_by, p.created_at, p.updated_at
-    FROM posts p
-    JOIN post_categories pc ON pc.post_id = p.id
-    WHERE p.is_deleted = 0
-      AND p.status = ?
-      AND p.type = ?
-      AND pc.category_id IN ($in)
-    ORDER BY $orderSql $orderDir, p.id $orderDir
+    SELECT DISTINCT p.id, p.title, p.slug, p.content, p.type, p.meta, p.youtube, p.thumbnail,
+           p.sort_order, p.status, p.created_by, p.created_at, p.updated_at
+    FROM $from
+    WHERE " . implode(' AND ', $where) . "
+    ORDER BY $orderClause
     LIMIT $limit OFFSET $offset
   ";
-
-  $params = [$status, $type];
-  foreach ($catIds as $cid) $params[] = (int)$cid;
 
   $stmt = $pdo->prepare($sql);
   $stmt->execute($params);
   return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function cms_posts_by_category(PDO $pdo, $categoryKey, array $opt = []) {
+  $opt['category'] = $categoryKey;
+  return cms_posts_fetch($pdo, $opt);
 }

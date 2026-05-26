@@ -112,28 +112,51 @@ if (!function_exists('render_widget')) {
         $pdo = $pdo ?: widget_get_pdo();
 
         $path = widget_find_view($name, $pdo);
-        if (!$path) {
-            return '';
+        if ($path) {
+            $vars = array_merge([
+                '__pdo' => $pdo,
+                '__widget_name' => $name,
+            ], $vars);
+
+            ob_start();
+            try {
+                (function ($__path, $__vars) {
+                    extract($__vars, EXTR_SKIP);
+                    include $__path;
+                })($path, $vars);
+            } catch (Throwable $e) {
+                ob_end_clean();
+                error_log('[widget_helper] render_widget error: ' . $e->getMessage());
+                return '';
+            }
+
+            return (string)ob_get_clean();
         }
 
-        $vars = array_merge([
-            '__pdo' => $pdo,
-            '__widget_name' => $name,
-        ], $vars);
-
-        ob_start();
-        try {
-            (function ($__path, $__vars) {
-                extract($__vars, EXTR_SKIP);
-                include $__path;
-            })($path, $vars);
-        } catch (Throwable $e) {
-            ob_end_clean();
-            error_log('[widget_helper] render_widget error: ' . $e->getMessage());
-            return '';
+        // Fallback: registered shortcode-based handler
+        if (
+            isset($GLOBALS['_widget_shortcode_handlers'][$name])
+            && $pdo instanceof PDO
+        ) {
+            $handler = $GLOBALS['_widget_shortcode_handlers'][$name];
+            $attrs = array_merge($handler['defaults'], $vars);
+            return ($handler['fn'])($pdo, $attrs, $vars);
         }
 
-        return (string)ob_get_clean();
+        return '';
+    }
+}
+
+if (!function_exists('register_widget_shortcode_handler')) {
+    function register_widget_shortcode_handler(
+        string   $widgetName,
+        callable $renderFn,
+        array    $defaults = []
+    ): void {
+        $GLOBALS['_widget_shortcode_handlers'][$widgetName] = [
+            'fn'       => $renderFn,
+            'defaults' => $defaults,
+        ];
     }
 }
 
@@ -248,3 +271,10 @@ if (!function_exists('widget_fetch_categories')) {
         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 }
+
+// Lazy-load shortcode-based widget handlers (post_cat_shortcode, post_list, etc.)
+$___shortcodeHelper = __DIR__ . '/widget_shortcodes_p.php';
+if (is_file($___shortcodeHelper)) {
+    require_once $___shortcodeHelper;
+}
+unset($___shortcodeHelper);

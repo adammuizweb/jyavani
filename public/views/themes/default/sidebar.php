@@ -5,25 +5,12 @@ if (isset($_GET['nosidebar']) && $_GET['nosidebar'] === '1') {
     return;
 }
 
-// Pastikan helper widget tersedia dari root public.
-// bootstrap_theme biasanya sudah meload ini,
-// tapi blok ini aman sebagai backup.
-if (!function_exists('widget') && !function_exists('render_widget')) {
-    $helper = __DIR__ . '/../../../../cfg/helpers/widget_helper.php';
-    if (is_file($helper)) {
-        require_once $helper;
-    }
+$helperPath = __DIR__ . '/../../../../cfg/helpers/widget_helper.php';
+if (is_file($helperPath)) {
+    require_once $helperPath;
 }
 
-// Adapter agar kompatibel dengan helper lama/baru
-$widgetFn = null;
-if (function_exists('widget')) {
-    $widgetFn = 'widget';
-} elseif (function_exists('render_widget')) {
-    $widgetFn = 'render_widget';
-}
-
-if (!$widgetFn) {
+if (!function_exists('widget')) {
     ?>
     <div class="sidebar-wrap">
       <div class="w-box">
@@ -34,14 +21,45 @@ if (!$widgetFn) {
     <?php
     return;
 }
+
+// --- Auto-load published presets dari database ---
+global $pdo;
+if (isset($pdo) && $pdo instanceof PDO && function_exists('load_preset_widgets')) {
+    load_preset_widgets($pdo);
+}
+
+// --- Daftarkan widget preset via ShortcodeQuery builder ---
+if (class_exists('ShortcodeQuery') && !defined('SIDEBAR_PRESETS_REGISTERED')) {
+    define('SIDEBAR_PRESETS_REGISTERED', true);
+
+    ShortcodeQuery::posts()->type('article')->category('news')
+        ->limit(5)->latest()->layout('list')
+        ->registerWidget('last_news');
+
+    ShortcodeQuery::posts()->type('page')
+        ->limit(8)->random()
+        ->registerWidget('random_pages');
+
+    ShortcodeQuery::posts()->type('article')
+        ->limit(3)->random()->layout('cards')
+        ->registerWidget('random_articles');
+}
 ?>
 <div class="sidebar-wrap">
   <?php
-  // Kalau mau “matikan widget” satu blok, tinggal comment blok ini pakai /* ... */
+  echo widget('last_news');
+  ?>
+</div>
+<div class="sidebar-wrap">
+  <?php
   echo widget('search_form', ['placeholder' => 'Cari artikel...']);
-  echo widget('recent_posts', ['title' => 'Artikel Terbaru', 'limit' => 6]);
   echo widget('categories_list', ['title' => 'Kategori', 'limit' => 30, 'only_parents' => true]);
 /*  echo widget('pages_list', ['title' => 'Halaman', 'limit' => 20]); */
   echo widget('author_posts', ['title' => 'Artikel Saya', 'limit' => 8]);
+  ?>
+</div>
+<div class="sidebar-wrap">
+  <?php
+  echo widget('random_articles');
   ?>
 </div>

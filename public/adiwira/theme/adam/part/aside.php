@@ -143,6 +143,12 @@ if (!function_exists('adam_icon')) {
                 <path d="M14 11a5 5 0 0 0-7.07 0L4.8 13.12a5 5 0 1 0 7.07 7.07L13.2 18.8"></path>';
                 break;
 
+            case 'code':
+                $svg = '
+                <polyline points="16 18 22 12 16 6"></polyline>
+                <polyline points="8 6 2 12 8 18"></polyline>';
+                break;
+
             default:
                 $svg = '<circle cx="12" cy="12" r="8"></circle>';
         }
@@ -298,10 +304,6 @@ echo nav_item($base, $requested, 'admin/photos', adam_icon('camera'), 'Albums', 
   [$base . '/index.php?page=admin/photos/index','Daftar', adam_icon('list','adam-svg-icon--sm')]
 ]);
 
-echo nav_item($base, $requested, 'admin/menus', adam_icon('menu'), 'Menus', [
-  [$base . '/index.php?page=admin/menus/index','Kelola', adam_icon('list','adam-svg-icon--sm')]
-]);
-
 $themeLinks = [
   [$base . '/index.php?page=admin/themes/index','Daftar', adam_icon('list','adam-svg-icon--sm')],
   [$base . '/index.php?page=admin/themes/add','Tambah', adam_icon('plus','adam-svg-icon--sm')]
@@ -319,7 +321,9 @@ echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes',
         adam_nav_active($requested, 'admin/settings') ||
         adam_nav_active($requested, 'admin/profile') ||
         adam_nav_active($requested, 'admin/users') ||
-        adam_nav_active($requested, 'admin/bin');
+        adam_nav_active($requested, 'admin/bin') ||
+        adam_nav_active($requested, 'admin/menus') ||
+        adam_nav_active($requested, 'admin/shortcodes');
 
 echo '<li class="adam-nav-item' . ($isPengaturanActive ? ' is-open' : '') . '" data-prefix="admin/settings">';
 echo '<a class="adam-nav-link' . ($isPengaturanActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/index') . '">';
@@ -330,21 +334,27 @@ echo '<div class="adam-nav-sub" aria-hidden="' . ($isPengaturanActive ? 'false' 
 
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/site') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/site') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('globe','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">Website</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🌐</span><span class="adam-nav-sublink-text">Website</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/sidebar') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📐</span><span class="adam-nav-sublink-text">Sidebar</span></a>';
+
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/menus') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/menus/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📋</span><span class="adam-nav-sublink-text">Menus</span></a>';
+
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/shortcodes/index&tab=presets') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔌</span><span class="adam-nav-sublink-text">Shortcodes</span></a>';
 }
 
 echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/profile/index') . '">';
-echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('user','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">Profile</span></a>';
+echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🧑</span><span class="adam-nav-sublink-text">Profile</span></a>';
 
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/users') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/users/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('users','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">Users</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">👥</span><span class="adam-nav-sublink-text">Users</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/bin') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/bin/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('trash','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">Bin</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🗑️</span><span class="adam-nav-sublink-text">Bin</span></a>';
 }
 
 echo '</div>';
