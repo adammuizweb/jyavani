@@ -28,7 +28,7 @@ if (isset($pdo) && $pdo instanceof PDO && function_exists('load_preset_widgets')
     load_preset_widgets($pdo);
 }
 
-// --- Cek managed sidebar widgets dari settings ---
+// --- Cek managed sidebar widgets dari DB zones ---
 if (function_exists('render_sidebar_widgets')) {
     $managed = render_sidebar_widgets($pdo);
     if ($managed !== '') {

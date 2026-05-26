@@ -41,7 +41,7 @@ if ($isAdmin) {
         'label' => 'Sidebar Widgets',
         'href'  => $base . '/index.php?page=admin/sidebar/index',
         'icon'  => '🧩',
-        'desc'  => 'Atur konten sidebar — tambah, hapus, urutkan widget.',
+        'desc'  => 'Buat beberapa zone sidebar, atur widget tiap zone, pilih primary zone.',
         'badge' => 'Admin',
     ];
 
