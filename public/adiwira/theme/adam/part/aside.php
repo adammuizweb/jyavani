@@ -323,7 +323,8 @@ echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes',
         adam_nav_active($requested, 'admin/users') ||
         adam_nav_active($requested, 'admin/bin') ||
         adam_nav_active($requested, 'admin/menus') ||
-        adam_nav_active($requested, 'admin/shortcodes');
+        adam_nav_active($requested, 'admin/shortcodes') ||
+        adam_nav_active($requested, 'admin/sidebar');
 
 echo '<li class="adam-nav-item' . ($isPengaturanActive ? ' is-open' : '') . '" data-prefix="admin/settings">';
 echo '<a class="adam-nav-link' . ($isPengaturanActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/index') . '">';
@@ -338,6 +339,9 @@ if ($userRole === 'admin') {
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/sidebar') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📐</span><span class="adam-nav-sublink-text">Sidebar</span></a>';
+
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/sidebar/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🧩</span><span class="adam-nav-sublink-text">Sidebar Widgets</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/menus') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/menus/index') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📋</span><span class="adam-nav-sublink-text">Menus</span></a>';

@@ -28,7 +28,16 @@ if (isset($pdo) && $pdo instanceof PDO && function_exists('load_preset_widgets')
     load_preset_widgets($pdo);
 }
 
-// --- Daftarkan widget preset via ShortcodeQuery builder ---
+// --- Cek managed sidebar widgets dari settings ---
+if (function_exists('render_sidebar_widgets')) {
+    $managed = render_sidebar_widgets($pdo);
+    if ($managed !== '') {
+        echo '<div class="sidebar-wrap">' . $managed . '</div>';
+        return;
+    }
+}
+
+// --- Fallback: hardcoded widgets (sebelum konfigurasi via admin) ---
 if (class_exists('ShortcodeQuery') && !defined('SIDEBAR_PRESETS_REGISTERED')) {
     define('SIDEBAR_PRESETS_REGISTERED', true);
 
@@ -54,7 +63,6 @@ if (class_exists('ShortcodeQuery') && !defined('SIDEBAR_PRESETS_REGISTERED')) {
   <?php
   echo widget('search_form', ['placeholder' => 'Cari artikel...']);
   echo widget('categories_list', ['title' => 'Kategori', 'limit' => 30, 'only_parents' => true]);
-/*  echo widget('pages_list', ['title' => 'Halaman', 'limit' => 20]); */
   echo widget('author_posts', ['title' => 'Artikel Saya', 'limit' => 8]);
   ?>
 </div>

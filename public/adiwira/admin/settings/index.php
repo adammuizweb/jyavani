@@ -19,7 +19,7 @@ $isAdmin = ($role === 'admin');
 $items = [];
 
 // urutan sinkron dengan aside:
-// Website (admin), Sidebar (admin), Menus (admin), Shortcodes (admin), Profile, Users (admin), Bin (admin)
+// Website (admin), Sidebar (admin), Sidebar Widgets (admin), Menus (admin), Shortcodes (admin), Profile, Users (admin), Bin (admin)
 if ($isAdmin) {
     $items[] = [
         'label' => 'Website',
@@ -34,6 +34,14 @@ if ($isAdmin) {
         'href'  => $base . '/index.php?page=admin/settings/sidebar',
         'icon'  => '📐',
         'desc'  => 'Atur enable/disable sidebar global dan posisi default.',
+        'badge' => 'Admin',
+    ];
+
+    $items[] = [
+        'label' => 'Sidebar Widgets',
+        'href'  => $base . '/index.php?page=admin/sidebar/index',
+        'icon'  => '🧩',
+        'desc'  => 'Atur konten sidebar — tambah, hapus, urutkan widget.',
         'badge' => 'Admin',
     ];
 

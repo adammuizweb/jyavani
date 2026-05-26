@@ -272,6 +272,91 @@ if (!function_exists('widget_fetch_categories')) {
     }
 }
 
+if (!function_exists('render_sidebar_widgets')) {
+    function render_sidebar_widgets(PDO $pdo): string
+    {
+        $stored = function_exists('settings_get') ? settings_get($pdo, 'sidebar_widgets') : null;
+        if ($stored === null || $stored === '') {
+            return '';
+        }
+
+        $widgets = json_decode($stored, true);
+        if (!is_array($widgets)) {
+            return '';
+        }
+
+        usort($widgets, fn($a, $b) => ($a['order'] ?? 0) <=> ($b['order'] ?? 0));
+
+        $html = '';
+        foreach ($widgets as $w) {
+            if (empty($w['active'])) continue;
+
+            $type = (string)($w['type'] ?? '');
+            $config = (array)($w['config'] ?? []);
+
+            switch ($type) {
+                case 'search':
+                    $html .= render_widget('search_form', [
+                        'placeholder' => (string)($config['placeholder'] ?? 'Cari...'),
+                    ], $pdo);
+                    break;
+
+                case 'last_posts':
+                    $html .= render_widget('recent_posts', [
+                        'title' => (string)($config['title'] ?? 'Artikel Terbaru'),
+                        'limit' => max(1, min(50, (int)($config['limit'] ?? 5))),
+                        'type'  => in_array($config['type'] ?? '', ['article', 'page'], true) ? (string)$config['type'] : 'article',
+                    ], $pdo);
+                    break;
+
+                case 'editor_pick':
+                    $attrs = [
+                        'title'  => (string)($config['title'] ?? 'Pilihan Editor'),
+                        'limit'  => max(1, min(20, (int)($config['limit'] ?? 3))),
+                        'layout' => in_array($config['layout'] ?? '', ['cards', 'list', 'card2', 'sliderpage'], true) ? (string)$config['layout'] : 'cards',
+                        'source' => 'posts',
+                        'type'   => in_array($config['type'] ?? '', ['article', 'page'], true) ? (string)$config['type'] : 'article',
+                    ];
+                    if (!empty($config['category'])) {
+                        $attrs['category'] = (string)$config['category'];
+                    }
+                    if (!empty($config['random'])) {
+                        $attrs['random'] = '1';
+                    }
+                    $html .= render_widget('post_cat_shortcode', $attrs, $pdo);
+                    break;
+
+                case 'html':
+                    $html .= '<div class="w-box w-custom-html">';
+                    $titleText = (string)($config['title'] ?? '');
+                    if ($titleText !== '') {
+                        $html .= '<div class="w-title">' . widget_h($titleText) . '</div>';
+                    }
+                    $html .= '<div class="w-html-content">' . ((string)($config['html'] ?? '')) . '</div>';
+                    $html .= '</div>';
+                    break;
+
+                case 'categories':
+                    $html .= render_widget('categories_list', [
+                        'title'       => (string)($config['title'] ?? 'Kategori'),
+                        'limit'       => max(1, min(200, (int)($config['limit'] ?? 30))),
+                        'only_parents' => !empty($config['only_parents']),
+                    ], $pdo);
+                    break;
+
+                case 'shortcode_preset':
+                    $slug = (string)($config['preset_slug'] ?? '');
+                    if ($slug !== '') {
+                        $html .= render_widget($slug, [], $pdo);
+                    }
+                    break;
+            }
+        }
+
+        return $html;
+    }
+}
+
 // Lazy-load shortcode-based widget handlers (post_cat_shortcode, post_list, etc.)
 $___shortcodeHelper = __DIR__ . '/widget_shortcodes_p.php';
 if (is_file($___shortcodeHelper)) {
