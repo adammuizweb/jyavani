@@ -1,0 +1,251 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../_deny.php';
+
+if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
+    adiwira_admin_404();
+}
+
+require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
+
+[$uid, $role] = adiwira_require_admin($pdo, false);
+
+$errors = [];
+$success_msg = '';
+
+$current_enabled = function_exists('settings_get')
+    ? (settings_get($pdo, 'sidebar_enabled', '1') ?? '1')
+    : '1';
+$current_position = function_exists('settings_get')
+    ? (settings_get($pdo, 'sidebar_position', 'right') ?? 'right')
+    : 'right';
+
+$controller_contexts = [
+    'home'          => 'Homepage',
+    '404'           => '404 Halaman',
+    'search'        => 'Hasil Pencarian',
+    'theme'         => 'Theme Pages',
+    'archive'       => 'Arsip Tanggal',
+    'authors'       => 'Daftar Penulis',
+    'posts'         => 'Posting Penulis',
+    'single.post'   => 'Artikel Detail',
+    'single.page'   => 'Halaman Detail',
+    'list.post'     => 'Daftar Artikel',
+    'list.page'     => 'Daftar Halaman',
+    'list.category' => 'Kategori — Artikel',
+    'list.gallery'  => 'Kategori — Galeri',
+    'index.category'=> 'Indeks Kategori',
+    'index.gallery' => 'Indeks Galeri',
+];
+
+$current_overrides = [];
+$stored_overrides = function_exists('settings_get')
+    ? settings_get($pdo, 'sidebar_controller_overrides')
+    : null;
+if ($stored_overrides !== null) {
+    $decoded = json_decode($stored_overrides, true);
+    if (is_array($decoded)) $current_overrides = $decoded;
+}
+
+$base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+$self_url = $base . '/index.php?page=admin/settings/sidebar';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = (string)($_POST['csrf_token'] ?? '');
+    if (!adiwira_csrf_validate($token)) {
+        $errors[] = 'CSRF token tidak valid.';
+    }
+
+    $enabled = (string)($_POST['sidebar_enabled'] ?? '0');
+    $position = (string)($_POST['sidebar_position'] ?? 'right');
+
+    if (!in_array($enabled, ['0', '1'], true)) {
+        $errors[] = 'Nilai enable tidak valid.';
+    }
+    if (!in_array($position, ['left', 'right'], true)) {
+        $errors[] = 'Nilai posisi tidak valid.';
+    }
+
+    if (!$errors) {
+        $ok1 = settings_set($pdo, 'sidebar_enabled', $enabled, 1);
+        $ok2 = settings_set($pdo, 'sidebar_position', $position, 1);
+        if (!($ok1 && $ok2)) {
+            $errors[] = 'Gagal menyimpan pengaturan global.';
+        }
+    }
+
+    if (!$errors) {
+        $new_overrides = [];
+        $submitted_ctx = (array)($_POST['ctx'] ?? []);
+        foreach ($submitted_ctx as $ctx_key => $val) {
+            $ctx_key = (string)$ctx_key;
+            if ($ctx_key === '' || !isset($controller_contexts[$ctx_key])) continue;
+
+            $pos = trim((string)($val['position'] ?? ''));
+            $hide = !empty($val['hide']);
+
+            if ($pos !== '' && $pos !== 'left' && $pos !== 'right') {
+                $pos = '';
+            }
+
+            if ($hide || $pos !== '') {
+                $entry = [];
+                if ($hide) $entry['hide'] = true;
+                if ($pos !== '') $entry['position'] = $pos;
+                $new_overrides[$ctx_key] = $entry;
+            }
+        }
+
+        $encoded = !empty($new_overrides) ? json_encode($new_overrides, JSON_UNESCAPED_UNICODE) : '';
+        $ok3 = settings_set($pdo, 'sidebar_controller_overrides', $encoded, 1);
+
+        if ($ok3 === false) {
+            $errors[] = 'Gagal menyimpan override per-controller.';
+        }
+    }
+
+    if (!$errors) {
+        if (function_exists('adiwira_redirect_with_flash')) {
+            adiwira_redirect_with_flash($self_url, 'success', 'Pengaturan sidebar berhasil disimpan.');
+            exit;
+        }
+        $success_msg = 'Pengaturan sidebar berhasil disimpan.';
+    }
+}
+
+$show_inline_success = ($success_msg !== '' && !function_exists('adiwira_bootstrap_toasts_script'));
+$show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_toasts_script'));
+?>
+<div class="panel" style="max-width:820px;margin:20px auto;">
+
+  <div style="margin-bottom:20px;">
+    <h2 style="margin:0 0 4px;">Sidebar</h2>
+    <div class="muted" style="font-size:13px;">Atur tampilan sidebar website — enable/disable, posisi, dan override per halaman.</div>
+  </div>
+
+  <?php if ($show_inline_success): ?>
+    <div style="background:var(--adam-success);color:#fff;padding:10px 14px;border-radius:var(--adam-radius);margin-bottom:14px;font-size:14px;">
+      ✅ <?= htmlspecialchars($success_msg, ENT_QUOTES, 'UTF-8') ?>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($show_inline_errors): ?>
+    <div style="background:var(--adam-danger);color:#fff;padding:10px 14px;border-radius:var(--adam-radius);margin-bottom:14px;font-size:14px;">
+      <ul style="margin:0;padding-left:18px">
+        <?php foreach ($errors as $e): ?>
+          <li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+  <?php endif; ?>
+
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+
+    <!-- Priority Z & A -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+      <div style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);padding:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span class="badge" style="background:var(--adam-primary);color:#fff;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;">Z</span>
+          <strong style="font-size:14px;">Master Enable/Disable</strong>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:14px;">
+          <input type="checkbox" name="sidebar_enabled" value="1" <?= $current_enabled === '1' ? 'checked' : '' ?> style="width:17px;height:17px;accent-color:var(--adam-primary);">
+          Aktifkan Sidebar
+        </label>
+        <div class="muted" style="font-size:12px;margin-top:6px;">Matikan untuk menyembunyikan sidebar di <strong>seluruh</strong> halaman. Prioritas tertinggi, override lain tidak berlaku.</div>
+      </div>
+
+      <div style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);padding:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span class="badge" style="background:var(--adam-text-3);color:var(--adam-card);padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;">A</span>
+          <strong style="font-size:14px;">Posisi Default Global</strong>
+        </div>
+        <div style="display:flex;gap:18px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
+            <input type="radio" name="sidebar_position" value="left" <?= $current_position === 'left' ? 'checked' : '' ?> style="accent-color:var(--adam-primary);">
+            Kiri
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
+            <input type="radio" name="sidebar_position" value="right" <?= $current_position === 'right' ? 'checked' : '' ?> style="accent-color:var(--adam-primary);">
+            Kanan
+          </label>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:6px;">Posisi default saat tidak ada override dari controller (B) atau konten (C).</div>
+      </div>
+    </div>
+
+    <!-- Priority B -->
+    <div style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);padding:16px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span class="badge" style="background:var(--adam-warning);color:#fff;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;">B</span>
+        <strong style="font-size:14px;">Override Per Controller</strong>
+      </div>
+      <div class="muted" style="font-size:12px;margin-bottom:14px;">Atur posisi atau sembunyikan sidebar untuk jenis halaman tertentu (arsip, kategori, dll). Prioritas lebih rendah dari override per konten (C), tapi lebih tinggi dari posisi default (A).</div>
+
+      <table class="adam-table" style="width:100%;font-size:13px;">
+        <thead>
+          <tr>
+            <th style="padding:8px 10px;text-align:left;white-space:nowrap;">Halaman</th>
+            <th style="padding:8px 10px;text-align:left;width:130px;">Posisi</th>
+            <th style="padding:8px 10px;text-align:center;width:80px;">Sembunyikan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($controller_contexts as $ctx_key_raw => $ctx_label):
+            $ctx_key = (string)$ctx_key_raw;
+            $override = $current_overrides[$ctx_key] ?? [];
+            $ov_position = (string)($override['position'] ?? '');
+            $ov_hide = !empty($override['hide']);
+          ?>
+            <tr>
+              <td style="padding:7px 10px;white-space:nowrap;"><?= htmlspecialchars($ctx_label, ENT_QUOTES, 'UTF-8') ?></td>
+              <td style="padding:7px 10px;">
+                <select name="ctx[<?= htmlspecialchars($ctx_key, ENT_QUOTES, 'UTF-8') ?>][position]" style="padding:3px 6px;border:1px solid var(--adam-border-2);border-radius:5px;background:var(--adam-bg);color:var(--adam-text);font-size:12px;width:100%;max-width:120px;">
+                  <option value="">— Default —</option>
+                  <option value="left" <?= $ov_position === 'left' ? 'selected' : '' ?>>Kiri</option>
+                  <option value="right" <?= $ov_position === 'right' ? 'selected' : '' ?>>Kanan</option>
+                </select>
+              </td>
+              <td style="padding:7px 10px;text-align:center;">
+                <input type="checkbox" name="ctx[<?= htmlspecialchars($ctx_key, ENT_QUOTES, 'UTF-8') ?>][hide]" value="1" <?= $ov_hide ? 'checked' : '' ?> style="width:16px;height:16px;accent-color:var(--adam-danger);cursor:pointer;">
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
+      <button type="submit" class="adam-button" style="padding:8px 20px;">Simpan Semua Pengaturan</button>
+      <a class="adam-cancle" href="<?= htmlspecialchars($base . '/index.php?page=admin/settings/index', ENT_QUOTES, 'UTF-8') ?>">Kembali</a>
+    </div>
+  </form>
+
+  <div style="background:var(--adam-surface-3);border-radius:var(--adam-radius);padding:14px 16px;font-size:12px;color:var(--adam-muted);line-height:1.7;">
+    <strong style="font-size:13px;">📋 Prioritas Override (tertinggi → terendah)</strong>
+    <ol style="margin:6px 0 0;padding-left:20px;">
+      <li><strong>Z — Master</strong> — enable/disable global. Matikan untuk nonaktifkan sidebar di semua halaman.</li>
+      <li><strong>C — Per Konten</strong> — atur posisi atau sembunyikan sidebar untuk artikel/halaman tertentu (dari editor).</li>
+      <li><strong>B — Per Controller</strong> — atur posisi atau sembunyikan per jenis halaman (tabel di atas).</li>
+      <li><strong>A — Global</strong> — posisi default kiri/kanan (dipakai saat tidak ada override lain).</li>
+    </ol>
+  </div>
+</div>
+
+<?php
+if (function_exists('adiwira_bootstrap_toasts_script')) {
+    $toast_items = $page_toasts ?? [];
+    if ($success_msg !== '') {
+        $toast_items[] = ['type' => 'success', 'message' => $success_msg];
+    }
+    foreach ($errors as $msg) {
+        $toast_items[] = ['type' => 'error', 'message' => (string)$msg];
+    }
+    if (!empty($toast_items)) {
+        echo adiwira_bootstrap_toasts_script($toast_items);
+    }
+}
+?>

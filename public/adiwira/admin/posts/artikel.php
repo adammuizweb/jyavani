@@ -271,16 +271,23 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $final_created = $created_at_parsed ?? (new DateTime('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
         $final_updated = $updated_at_parsed ?? (new DateTime('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
 
+        $sidebarOverride = (string)($_POST['sidebar_override'] ?? '');
+        if ($sidebarOverride !== '' && !in_array($sidebarOverride, ['right', 'left', 'hide'], true)) {
+            $sidebarOverride = '';
+        }
+        $metaVal = $sidebarOverride !== '' ? json_encode(['sidebar' => $sidebarOverride], JSON_UNESCAPED_UNICODE) : null;
+
         $insertSql = "INSERT INTO posts
             (title, slug, content, type, meta, youtube, thumbnail, status, created_by, created_at, updated_at)
             VALUES
-            (:title, :slug, :content, 'article', NULL, :youtube, :thumbnail, :status, :created_by, :created_at, :updated_at)";
+            (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :status, :created_by, :created_at, :updated_at)";
         $stmt = $pdo->prepare($insertSql);
 
         $ok = $stmt->execute([
             ':title'      => $title,
             ':slug'       => $slug,
             ':content'    => $content,
+            ':meta'       => $metaVal,
             ':youtube'    => $youtube,
             ':thumbnail'  => $thumbnail,
             ':status'     => $status,
@@ -397,6 +404,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars((string)$updated_val, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang (GMT+7).</div>
     </label>
+
+    <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 Posisi Sidebar</div>
+      <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
+        <option value="">Default (ikuti hierarki global)</option>
+        <option value="right">Kanan</option>
+        <option value="left">Kiri</option>
+        <option value="hide">Sembunyikan</option>
+      </select>
+    </div>
 
     <p style="margin-top:.8rem">
       <button type="submit" class="adam-button">Simpan</button>

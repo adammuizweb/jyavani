@@ -331,6 +331,9 @@ echo '<div class="adam-nav-sub" aria-hidden="' . ($isPengaturanActive ? 'false' 
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/site') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/site') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('globe','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">Website</span></a>';
+
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/sidebar') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📐</span><span class="adam-nav-sublink-text">Sidebar</span></a>';
 }
 
 echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/profile/index') . '">';

@@ -79,17 +79,66 @@ $main_slot = (function($ctx) {
 })($context_for_layout);
 
 // ==============================
-// LAYOUT POLICY (NEW)
+// LAYOUT POLICY
 // - homepage full-width (no container)
 // - homepage sidebar OFF
 // ==============================
 $is_homepage_context = ($main_slot === 'main.homepage');
 
-// Allow controller override if needed:
 $layout_full_width = isset($layout_full_width) ? (bool)$layout_full_width : $is_homepage_context;
 $enable_sidebar    = isset($enable_sidebar) ? (bool)$enable_sidebar : (!$is_homepage_context);
 
 $use_container = !$layout_full_width;
+
+// ==============================
+// SIDEBAR HIERARCHY: Z > C > B > A
+// Z = Master enable/disable (settings)
+// C = Per-content override (post meta)
+// B = Per-controller override (settings)
+// A = Global position default (settings)
+// ==============================
+if ($pdo instanceof PDO && function_exists('settings_get')) {
+    $sidebar_enabled_setting = settings_get($pdo, 'sidebar_enabled', '1');
+    $sidebar_position_setting = settings_get($pdo, 'sidebar_position', 'right');
+
+    // B: Per-controller override
+    $sidebar_ctrl_overrides = [];
+    $stored_ctrl = settings_get($pdo, 'sidebar_controller_overrides');
+    if ($stored_ctrl !== null) {
+        $decoded = json_decode($stored_ctrl, true);
+        if (is_array($decoded)) $sidebar_ctrl_overrides = $decoded;
+    }
+    $ctx_override = $sidebar_ctrl_overrides[$context_for_layout] ?? null;
+
+    // C: Per-content override from post meta
+    $post_sidebar_override = null;
+    if (isset($post) && is_array($post) && !empty($post['meta'])) {
+        $pm = is_string($post['meta']) ? json_decode($post['meta'], true) : $post['meta'];
+        if (is_array($pm) && isset($pm['sidebar'])) {
+            $post_sidebar_override = $pm['sidebar'];
+        }
+    }
+
+    // Resolve enable/disable — Z is master switch (highest priority)
+    if ($sidebar_enabled_setting === '0') {
+        $enable_sidebar = false;
+    }
+    if ($enable_sidebar && $post_sidebar_override === 'hide') {
+        $enable_sidebar = false;
+    }
+    if ($enable_sidebar && $ctx_override && !empty($ctx_override['hide'])) {
+        $enable_sidebar = false;
+    }
+
+    // Resolve position: C (highest) > B > A (lowest)
+    $sidebar_position = $sidebar_position_setting ?? 'right'; // A
+    if ($ctx_override && !empty($ctx_override['position'])) {
+        $sidebar_position = $ctx_override['position']; // B
+    }
+    if ($post_sidebar_override && in_array($post_sidebar_override, ['left', 'right'], true)) {
+        $sidebar_position = $post_sidebar_override; // C
+    }
+}
 
 ?><!doctype html>
 <html lang="id"<?= $themeClass ? ' class="'.htmlspecialchars($themeClass, ENT_QUOTES, 'UTF-8').'"' : '' ?>>

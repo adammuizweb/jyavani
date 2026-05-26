@@ -692,6 +692,8 @@ class PostController
         $enable_sidebar    = $layoutOptions['enable_sidebar'];
         $sidebar_position  = $layoutOptions['sidebar_position'];
 
+        $post = $postData;
+
         // layout.php expected to use $content_html, $page_title, $context_for_layout, $canonical_url
         require __DIR__ . '/../layout.php';
     }

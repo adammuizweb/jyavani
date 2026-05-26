@@ -28,6 +28,14 @@ if ($isAdmin) {
         'desc'  => 'Atur site title dan host default website.',
         'badge' => 'Admin',
     ];
+
+    $items[] = [
+        'label' => 'Sidebar',
+        'href'  => $base . '/index.php?page=admin/settings/sidebar',
+        'icon'  => '📐',
+        'desc'  => 'Atur enable/disable sidebar global dan posisi default.',
+        'badge' => 'Admin',
+    ];
 }
 
 $items[] = [

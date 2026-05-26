@@ -252,7 +252,7 @@ $slug = preg_replace('/[-]{2,}/', '-', (string)$slug);
 $slug = trim((string)$slug, '-');
 if ($slug === '') $slug = bin2hex(random_bytes(4));
 
-$st = $pdo->prepare("\n    SELECT id, slug, created_by, created_at\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
+$st = $pdo->prepare("\n    SELECT id, slug, created_by, created_at, meta\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
 $st->execute([':id' => $id]);
 $existing = $st->fetch(PDO::FETCH_ASSOC);
 
@@ -306,10 +306,23 @@ if ($role === 'admin' && $created_by_in > 0) {
     }
 }
 
+$sidebarOverride = (string)($_POST['sidebar_override'] ?? '');
+if ($sidebarOverride !== '' && !in_array($sidebarOverride, ['right', 'left', 'hide'], true)) {
+    $sidebarOverride = '';
+}
+$currentMeta = !empty($existing['meta']) ? json_decode($existing['meta'], true) : [];
+if (!is_array($currentMeta)) $currentMeta = [];
+if ($sidebarOverride !== '') {
+    $currentMeta['sidebar'] = $sidebarOverride;
+} else {
+    unset($currentMeta['sidebar']);
+}
+$finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNICODE) : null;
+
 try {
     $pdo->beginTransaction();
 
-    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status     = :status,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
+    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
 
     $ok = $upd->execute([
         ':title'      => $title,
@@ -318,6 +331,7 @@ try {
         ':youtube'    => $youtube,
         ':thumbnail'  => $thumbnail,
         ':status'     => $status,
+        ':meta'       => $finalMeta,
         ':created_by' => $final_creator,
         ':created_at' => $final_created,
         ':updated_at' => $final_updated,

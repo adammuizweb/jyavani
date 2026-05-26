@@ -424,6 +424,8 @@ if (trim($content_html) === '') {
         
         // END SIDEBAR
 
+        $post = $pageData;
+
         require __DIR__ . '/../layout.php';
         exit;
     }

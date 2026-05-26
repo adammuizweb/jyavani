@@ -285,6 +285,25 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
       </div>
     <?php endif; ?>
 
+    <?php
+    $current_sidebar = '';
+    if (!empty($post['meta'])) {
+        $pm = is_string($post['meta']) ? json_decode($post['meta'], true) : $post['meta'];
+        if (is_array($pm) && isset($pm['sidebar'])) {
+            $current_sidebar = $pm['sidebar'];
+        }
+    }
+    ?>
+    <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 Posisi Sidebar</div>
+      <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
+        <option value="">Default (ikuti hierarki global)</option>
+        <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>>Kanan</option>
+        <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>>Kiri</option>
+        <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>>Sembunyikan</option>
+      </select>
+    </div>
+
     <p style="margin-top:.8rem">
       <button type="submit" class="adam-button" id="btn-save">Simpan Perubahan</button>
       <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>

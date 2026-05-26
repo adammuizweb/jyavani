@@ -260,7 +260,7 @@ if ($slug === '') {
 
 // existing page
 $st = $pdo->prepare("
-    SELECT id, slug, created_by, created_at
+    SELECT id, slug, created_by, created_at, meta
     FROM posts
     WHERE id = :id
       AND type = 'page'
@@ -343,6 +343,19 @@ if ($role === 'admin' && $created_by_in > 0) {
     }
 }
 
+$sidebarOverride = (string)($_POST['sidebar_override'] ?? '');
+if ($sidebarOverride !== '' && !in_array($sidebarOverride, ['right', 'left', 'hide'], true)) {
+    $sidebarOverride = '';
+}
+$currentMeta = !empty($existing['meta']) ? json_decode($existing['meta'], true) : [];
+if (!is_array($currentMeta)) $currentMeta = [];
+if ($sidebarOverride !== '') {
+    $currentMeta['sidebar'] = $sidebarOverride;
+} else {
+    unset($currentMeta['sidebar']);
+}
+$finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNICODE) : null;
+
 try {
     $upd = $pdo->prepare("
         UPDATE posts
@@ -351,6 +364,7 @@ try {
             content    = :content,
             thumbnail  = :thumbnail,
             status     = :status,
+            meta       = :meta,
             created_by = :created_by,
             created_at = :created_at,
             updated_at = :updated_at
@@ -366,6 +380,7 @@ try {
         ':content'    => $content,
         ':thumbnail'  => $thumbnail,
         ':status'     => $status,
+        ':meta'       => $finalMeta,
         ':created_by' => $final_creator,
         ':created_at' => $final_created,
         ':updated_at' => $final_updated,
