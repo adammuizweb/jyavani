@@ -140,7 +140,12 @@ if (!function_exists('render_widget')) {
         ) {
             $handler = $GLOBALS['_widget_shortcode_handlers'][$name];
             $attrs = array_merge($handler['defaults'], $vars);
-            return ($handler['fn'])($pdo, $attrs, $vars);
+            try {
+                return ($handler['fn'])($pdo, $attrs, $vars);
+            } catch (Throwable $e) {
+                error_log('[widget_helper] render_widget shortcode handler error: ' . $e->getMessage());
+                return '';
+            }
         }
 
         return '';
@@ -352,7 +357,11 @@ if (!function_exists('render_sidebar_widgets')) {
                     $html = '';
                     foreach ($oldWidgets as $w) {
                         if (empty($w['active'])) continue;
-                        $html .= _render_single_widget($pdo, (string)($w['type'] ?? ''), (array)($w['config'] ?? []));
+                        try {
+                            $html .= _render_single_widget($pdo, (string)($w['type'] ?? ''), (array)($w['config'] ?? []));
+                        } catch (Throwable $e) {
+                            error_log('[widget_helper] render_sidebar_widgets old item error: ' . $e->getMessage());
+                        }
                     }
                     return $html;
                 }
@@ -375,7 +384,11 @@ if (!function_exists('render_sidebar_widgets')) {
         foreach ($items as $item) {
             if (empty($item['active'])) continue;
             $config = is_array($item['config']) ? $item['config'] : [];
-            $html .= _render_single_widget($pdo, (string)$item['type'], $config);
+            try {
+                $html .= _render_single_widget($pdo, (string)$item['type'], $config);
+            } catch (Throwable $e) {
+                error_log('[widget_helper] render_sidebar_widgets item error: ' . $e->getMessage());
+            }
         }
 
         return $html;
