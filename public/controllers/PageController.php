@@ -405,7 +405,7 @@ if (trim($content_html) === '') {
         // Kalau theme-page kamu mau beda, set di sini:
 
         $layout_full_width = false;   // paksa pakai container (jadi tidak full width)
-        $enable_sidebar    = false;    // paksa sidebar aktif
+        $enable_sidebar    = true;     // sidebar aktif default (bisa diatur via Settings > Sidebar)
         $sidebar_position  = 'right';  // 'left' atau 'right'
 
         // (Opsional) kalau mau bisa diatur dari meta JSON pada post theme:
