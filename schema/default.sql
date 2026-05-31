@@ -299,29 +299,10 @@ CREATE TABLE IF NOT EXISTS `sidebar_zone_items` (
   CONSTRAINT `fk_szi_zone` FOREIGN KEY (`zone_id`) REFERENCES `sidebar_zones` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ──────────────────────────────────────────────────────────────
--- Seed Data (idempotent)
--- ──────────────────────────────────────────────────────────────
-
--- Default admin user (password: admin123)
-INSERT INTO `users` (`id`, `email`, `username`, `password`, `name`, `role`)
-VALUES (
-  1,
-  'admin@example.com',
-  'admin',
-  '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-  'Administrator',
-  'admin'
-)
-ON DUPLICATE KEY UPDATE `email` = VALUES(`email`);
-
--- Core settings
+-- Core settings (installed overrides title/desc/url via installer)
 INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
-  ('site_title',       'Adiwira CMS',          1),
-  ('site_description', 'Just another Adiwira site.', 1),
-  ('site_url',         'https://adammuiz.com',    1),
-  ('posts_per_page',   '10',                   1),
-  ('active_theme',     'default',              1)
+  ('posts_per_page',   '10',  1),
+  ('active_theme',     'default', 1)
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
 
 -- Default theme
@@ -338,7 +319,7 @@ INSERT INTO `assignments` (`slot_key`, `theme_id`, `theme_file`) VALUES
 ON DUPLICATE KEY UPDATE `theme_id` = VALUES(`theme_id`);
 
 -- Default "Primary" menu
-INSERT IGNORE INTO `menus` (`name`, `slug`, `is_default`) VALUES ('Primary', 'primary', 1);
+INSERT IGNORE INTO `menus` (`id`, `name`, `slug`, `is_default`) VALUES (1, 'Primary', 'primary', 1);
 
 -- Default "Main" sidebar zone
 INSERT IGNORE INTO `sidebar_zones` (`name`, `slug`, `description`, `is_primary`) VALUES ('Main Sidebar', 'main', 'Sidebar utama website', 1);
@@ -361,5 +342,25 @@ SELECT sz.id, 'categories', 'Kategori', '{"title":"Kategori","limit":30,"only_pa
 FROM sidebar_zones sz WHERE sz.slug = 'main' AND NOT EXISTS (
   SELECT 1 FROM sidebar_zone_items WHERE zone_id = sz.id AND type = 'categories'
 );
+
+-- Default categories
+INSERT IGNORE INTO `categories` (`id`, `name`, `slug`, `description`, `created_by`)
+VALUES
+  (1, 'Blog',        'blog',           'Tulisan dan artikel blog', NULL),
+  (2, 'Services',    'services',       'Layanan yang kami tawarkan', NULL),
+  (3, 'Web Development', 'web-development', 'Jasa pembuatan dan pengembangan website', NULL),
+  (4, 'Tutorial',    'tutorial',       'Tutorial dan panduan', NULL);
+
+-- Web Development is sub-category of Services
+UPDATE `categories` SET `parent_id` = 2 WHERE `id` = 3;
+
+-- Default menu items
+INSERT IGNORE INTO `menu_items` (`id`, `menu_id`, `parent_id`, `sort_order`, `type`, `label`, `url`, `target_id`, `target_blank`)
+VALUES
+  (1, 1, NULL, 0, 'custom',   'Home',           '/',    NULL, 0),
+  (2, 1, NULL, 1, 'category', 'Blog',           NULL,   1,    0),
+  (3, 1, NULL, 2, 'category', 'Services',       NULL,   2,    0),
+  (4, 1, 3,     0, 'category', 'Web Development', NULL,  3,    0),
+  (5, 1, NULL, 3, 'category', 'Tutorial',       NULL,   4,    0);
 
 SET FOREIGN_KEY_CHECKS=1;

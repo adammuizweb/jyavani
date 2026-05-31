@@ -196,10 +196,6 @@ ul,ol{
   padding-left: 1.25rem;
 }
 
-li + li{
-  margin-top: .35rem;
-}
-
 blockquote{
   margin: 1.25rem 0;
   padding: .9rem 1rem;

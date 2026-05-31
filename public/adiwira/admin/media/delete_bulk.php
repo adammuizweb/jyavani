@@ -59,11 +59,10 @@ function media_local_path_from_url(string $url): ?string {
 }
 
 if (!function_exists('media_private_base_dir')) {
-    function media_private_base_dir(): ?string {
-        $path = defined('PRIVATE_FILES_PATH') ? PRIVATE_FILES_PATH : '';
-        if ($path === '') return null;
-        $real = realpath(rtrim($path, '/\\'));
-        return ($real && is_dir($real)) ? $real : null;
+    function media_private_base_dir(): string {
+        $appRoot = realpath(__DIR__ . '/../../..');
+        if ($appRoot === false) $appRoot = dirname(__DIR__, 3);
+        return rtrim(str_replace('\\', '/', $appRoot), '/') . '/private_files';
     }
 }
 

@@ -1,6 +1,30 @@
 <?php
 declare(strict_types=1);
 
+// ---- Fresh-install welcome guard ----
+$envFile = realpath(__DIR__ . '/../cfg') . '/.env';
+if (!is_file($envFile)) {
+    http_response_code(200);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!doctype html><html lang="id"><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<title>Jyavani CMS</title>'
+        . '<style>'
+        . 'body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;'
+        . 'max-width:520px;margin:4rem auto;padding:0 1rem;line-height:1.7;text-align:center}'
+        . 'h1{font-size:2rem;color:#111;margin-bottom:.25rem}'
+        . 'p{color:#555}'
+        . 'a{display:inline-block;margin-top:1.5rem;padding:.75rem 2rem;'
+        . 'background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;font-weight:600}'
+        . 'a:hover{background:#1d4ed8}'
+        . '</style>'
+        . '<h1>Jyavani CMS</h1>'
+        . '<p>Selamat datang! Website ini menggunakan Jyavani CMS.</p>'
+        . '<p>Silakan lanjutkan proses instalasi melalui tautan di bawah ini.</p>'
+        . '<a href="/pondasi/">Mulai Instalasi →</a></html>';
+    exit;
+}
+
 /**
  * bootstrap_core.php
  */

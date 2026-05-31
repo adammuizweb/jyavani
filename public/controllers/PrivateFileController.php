@@ -35,11 +35,6 @@ class PrivateFileController
 
     private static function privateBaseDir(): string
     {
-        $env = trim((string)(getenv('PRIVATE_FILES_PATH') ?: ''));
-        if ($env !== '') {
-            return rtrim(str_replace('\\', '/', $env), '/');
-        }
-
         $appRoot = realpath(__DIR__ . '/../..');
         if ($appRoot === false) {
             $appRoot = dirname(__DIR__, 2);
@@ -141,9 +136,10 @@ class PrivateFileController
 
     private static function tokenSecret(): string
     {
-        $secret = trim((string)(getenv('PRIVATE_FILE_TOKEN_SECRET') ?: getenv('APP_KEY') ?: ''));
+        $secret = trim((string)(getenv('PRIVATE_FILE_TOKEN_SECRET') ?: getenv('APP_KEY') ?: getenv('SESSION_SECRET') ?: ''));
         if ($secret !== '') return $secret;
 
+        error_log('[PrivateFileController] WARNING: No token secret configured. Using fallback.');
         return hash('sha256', __FILE__ . '|jyavani-private-file-token');
     }
 

@@ -1,0 +1,111 @@
+# AGENTS.md — Jyavani CMS
+
+Native PHP CMS by Adam Muiz. Dashboard is named "Adiwira". No framework, no Composer, no build tools, no tests.
+
+## Entrypoints
+
+- **Frontend:** `public/router.php` (front controller, bootstraps everything)
+- **Admin:** `public/adiwira/index.php` (direct access, separate bootstrap)
+- **Layout:** `public/layout.php` (slot-based theme rendering)
+
+## Boot order
+
+`router.php` → `bootstrap_core.php` → `cfg/config.php` (loads `.env` via `env.php`, DB via `db.php` → `$pdo`, all 22 helpers in `cfg/helpers/`, session via `session.php`) → `bootstrap_theme.php` → route matching.
+
+**Welcome guard:** If `cfg/.env` doesn't exist (fresh install), `bootstrap_core.php` shows a standalone HTML welcome page with a link to `/pondasi/` — no 500 error.
+
+`$pdo` is created in `cfg/db.php` and is available as `$pdo` global + `$GLOBALS['pdo']`. All controllers receive it as parameter.
+
+## Routing (`public/router.php`)
+
+| Prefix | Controller | Notes |
+|---|---|---|
+| (empty) | `index.php` | Homepage |
+| `/private/media/` | `PrivateMediaController` | Private image serving via PHP stream |
+| `/private/file/`, `/private/pdf/` | `PrivateFileController` | Private file serving + PDF.js viewer |
+| `/author/` | `AuthorController` | |  
+| `/category/` | `CategoryController` | Nested category paths |
+| `/YYYY/` | `ArchiveController` | Year/month archive |
+| `sitemap*.xml` | `SitemapController` | XML sitemaps |
+| `/artikel/` or `/posts/` | `PostController::listArticles()` | |
+| `/halaman/` | `PageController::listPages()` | |
+| `/gallery/` | `PhotoController` | Gallery with categories |
+| fallback slug | `PostController::dispatchBySlug()` | Single post/page by slug |
+
+All controllers are in `public/controllers/`, all are static methods.
+
+## Admin (`/adiwira/`)
+
+- Entry: `public/adiwira/index.php` — checks `is_logged_in()` + `current_user_status($pdo)` (DB check for deleted/locked)
+- Admin pages: `public/adiwira/admin/` — each requires `_guard.php` which calls `adiwira_require_editorial($pdo)` (author/editor/admin) or `adiwira_require_admin($pdo)` (admin only)
+- Admin layout: `public/adiwira/theme/adam/layout.php` (requires `DASHBOARD_CONTEXT` defined)
+- Admin pages can be loaded via AJAX (no layout) or navigation (with layout); `adiwira_is_navigate_request()` detects this
+
+## Auth & Session (`cfg/session.php`)
+
+- `is_logged_in()` — checks `$_SESSION['user_id']` + fingerprint (UA hash)
+- `ensure_session_started(false)` — resume only, no auto-create
+- `login_user($id, $email)` — creates session, regenerates ID, sets cookie
+- `logout_user()` — clears + destroys session on multiple paths
+- Roles: `author` < `editor` < `admin` (enum in `users.role`)
+- Session cookie config is in `.env`: `SESSION_NAME`, `SESSION_COOKIE_DOMAIN`, `FORCE_HTTPS`, `SESSION_ALLOW_INSECURE_COOKIES`
+- With `FORCE_HTTPS=1` + nginx `fastcgi_param HTTPS on` (see `SERVER_SETUP.md`)
+- CSRF: stateless HMAC for public endpoints, session-backed for admin; `csrf_token()` / `csrf_check()`
+
+## Theme system
+
+- Themes in `public/views/themes/{default, adam}/` with same file structure
+- Slot-based rendering: `assignments` table maps `slot_key` → theme_id or custom_post_id
+- `render_slot($pdo, 'slot_key', ...)` → `resolve_template()` → slot-to-file mapping + variable interpolation
+- Slots: `header`, `footer`, `sidebar`, `main.homepage`, `list.post`, `single.post`, etc.
+- `$context_for_layout` variable determines which main slot renders
+- Fallback chain: assigned theme → active theme → `default` theme
+- Widgets search: active theme → default theme → global `views/widget/`
+
+## Content & Shortcodes
+
+- Posts/pages share `posts` table; `type` column: `article`, `page`, `theme`, `sc_preset`
+- Status: `draft`, `published`, `private`
+- Hierarchical categories via `categories.parent_id`
+- Shortcodes in post content are expanded at render time:
+  - `[[widget:name key=val]]` → `widget_expand_shortcodes()`
+  - `[post_cat_shortcode category="..." layout="cards"]` → `post_cat_shortcode_expand()`
+  - `[private_pdf id="123"]` → `private_file_shortcode_expand()`
+  - `[video id="789"]` → `video_shortcode_expand()`
+
+## Private files
+
+- Media images: `private_files/media/{year}/{month}/{file}` served by `PrivateMediaController`
+- Other files: `private_files/files/{path}` served by `PrivateFileController`
+- Both stream via PHP (`fopen`/`fread`), not nginx static serving
+- Access: if `visibility=public` AND `storage_disk=public` AND `access_scope=public` → public; otherwise requires login
+- Private PDFs require signed time-limited token (`t` param) for raw streaming
+- Uploads go through `public/adiwira/admin/upload_image.php` and `upload_file.php`
+
+## Database
+
+- Schema file: `schema/default.sql` (single file, no migration files — merged into one)
+- Tables: `users`, `posts`, `categories`, `post_categories`, `media`, `post_media_items`, `file`, `themes`, `assignments`, `menus`, `menu_items`, `settings`, `sidebar_zones`, `sidebar_zone_items`, `login_attempts`, `post_translations`, `ui_translations`
+- Soft-delete pattern: `is_deleted` column on most tables
+- `users` has `is_locked` for manual ban
+
+## Development
+
+- No test suite — manual testing only
+- Error display controlled by `APP_DEBUG=1` in `.env`
+- `dev_lock.php` can lockdown the site
+- `.env` file is `cfg/.env`; template at `cfg/env-sample`
+- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Run it on a fresh install, then delete the `pondasi/` folder.
+- Server setup guide at `SERVER_SETUP.md`
+- `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
+- Timezone: `Asia/Jakarta`
+- `.gitignore` excludes: `.env`, `private_files/`, `cfg/var/sessions/`, `public/static/img/{year}/`
+
+## Conventions
+
+- Controllers: static methods receiving `PDO $pdo`
+- Helpers: loose functions in `cfg/helpers/`, loaded automatically
+- Views: plain PHP templates with inline echo, no template engine
+- No namespaces — all code in global namespace
+- Strict types: `declare(strict_types=1);` on most files
+- Admin AJAX endpoints return JSON via `adiwira_json()`

@@ -11,5 +11,16 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
     ]);
 } catch (PDOException $e) {
-    die("Koneksi database gagal: " . $e->getMessage());
+    error_log("[DB] Connection failed: " . $e->getMessage());
+
+    $detail = function_exists('app_debug_enabled') && app_debug_enabled()
+        ? htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8')
+        : '';
+
+    $msg = $detail !== ''
+        ? "Koneksi database gagal: {$detail}"
+        : 'Gagal terhubung ke database.';
+
+    http_response_code(500);
+    exit($msg);
 }

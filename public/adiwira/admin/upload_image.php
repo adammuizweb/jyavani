@@ -63,7 +63,7 @@ if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'Invalid upload'], 400);
 }
 
-$maxBytes = 5 * 1024 * 1024;
+$maxBytes = 20 * 1024 * 1024;
 if (($file['size'] ?? 0) > $maxBytes) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => 'File too large (max 5MB)'], 413);
 }
@@ -87,11 +87,6 @@ $hasPrivateCols = isset($pdo) ? mdlib_has_column($pdo, 'visibility') : false;
 if (!function_exists('adiwira_media_private_base_dir')) {
     function adiwira_media_private_base_dir(): string
     {
-        $env = trim((string)(getenv('PRIVATE_FILES_PATH') ?: ''));
-        if ($env !== '') {
-            return rtrim(str_replace('\\', '/', $env), '/');
-        }
-
         $appRoot = realpath(__DIR__ . '/../../..');
         if ($appRoot === false) {
             $appRoot = dirname(__DIR__, 3);
@@ -202,13 +197,16 @@ $allowed = [
 ];
 
 if (!isset($allowed[$mime])) {
-    adiwira_json([
-        'success'       => false,
-        'ok'            => false,
-        'error'         => 'Only avif/webp/png/jpg/jpeg allowed',
-        'detected_mime' => $mime,
-        'detectors'     => $det,
-    ], 415);
+    $response = [
+        'success' => false,
+        'ok'      => false,
+        'error'   => 'Only avif/webp/png/jpg/jpeg allowed',
+    ];
+    if (function_exists('app_debug_enabled') && app_debug_enabled()) {
+        $response['detected_mime'] = $mime;
+        $response['detectors'] = $det;
+    }
+    adiwira_json($response, 415);
 }
 
 $ext = $allowed[$mime];

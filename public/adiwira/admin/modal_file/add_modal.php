@@ -26,7 +26,7 @@ try {
     <div class="mdlib-upload-config">
       <label class="mdlib-config-label">Mode penyimpanan file</label>
       <select id="mdlib-visibility-select" class="mdlib-select">
-        <option value="auto" selected>Auto — PDF private, lainnya public</option>
+        <option value="auto" selected>Auto — public</option>
         <option value="public">Public — akses URL langsung</option>
         <option value="private">Private internal — via protected URL</option>
       </select>
@@ -97,9 +97,7 @@ try {
   function detectFinalVisibility(file) {
     const choice = getVisibilityChoice();
     if (choice !== 'auto') return choice;
-    const name = String(file && file.name || '').toLowerCase();
-    const type = String(file && file.type || '').toLowerCase();
-    return (type === 'application/pdf' || name.endsWith('.pdf')) ? 'private' : 'public';
+    return 'public';
   }
 
   function updatePrivateOptions() {

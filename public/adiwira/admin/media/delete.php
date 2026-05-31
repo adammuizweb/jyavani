@@ -52,8 +52,6 @@ function media_local_path_from_url(string $url): ?string {
 }
 
 function media_private_base_dir(): string {
-    $env = trim((string)(getenv('PRIVATE_FILES_PATH') ?: ''));
-    if ($env !== '') return rtrim(str_replace('\\', '/', $env), '/');
     $appRoot = realpath(__DIR__ . '/../../..');
     if ($appRoot === false) $appRoot = dirname(__DIR__, 3);
     return rtrim(str_replace('\\', '/', $appRoot), '/') . '/private_files';

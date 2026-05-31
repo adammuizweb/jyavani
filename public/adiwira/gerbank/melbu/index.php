@@ -4,9 +4,6 @@ declare(strict_types=1);
 // /adiwira/gerbank/melbu/index.php
 // DB-backed login (email-based) — stateless CSRF, session baru dibuat hanya saat login_user()
 
-error_reporting(E_ALL);
-ini_set('display_errors', '1');
-
 require_once __DIR__ . '/../../../bootstrap_core.php';
 require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 

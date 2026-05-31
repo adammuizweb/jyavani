@@ -228,10 +228,12 @@ $hasVisibility = mdlib_has_column('visibility');
         cache: 'no-store'
       });
 
-      const { txt, j } = await readJsonSafe(up);
+        const { txt, j } = await readJsonSafe(up);
 
       if (!up.ok) {
-        uiToast('error', 'File', 'Upload gagal: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + up.status))), 6000);
+        const httpMap = { 413: 'File terlalu besar. Maksimal 20MB.' };
+        const msg = (j && j.error) ? j.error : (httpMap[up.status] || txt?.replace(/<[^>]+>/g, '').trim() || ('HTTP ' + up.status));
+        uiToast('error', 'File', 'Upload gagal: ' + msg, 6000);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 420);

@@ -99,12 +99,6 @@ $hasPrivateCols = isset($pdo) ? mdlib_has_column($pdo, 'visibility') : false;
 if (!function_exists('adiwira_file_private_base_dir')) {
     function adiwira_file_private_base_dir(): string
     {
-        $env = trim((string)(getenv('PRIVATE_FILES_PATH') ?: ''));
-        if ($env !== '') {
-            return rtrim(str_replace('\\', '/', $env), '/');
-        }
-
-        // /public_html/adiwira/admin -> app root
         $appRoot = realpath(__DIR__ . '/../../..');
         if ($appRoot === false) {
             $appRoot = dirname(__DIR__, 3);
@@ -205,53 +199,23 @@ $allowed_mimes = [
     'audio/ogg'                                                                     => 'ogg',
 ];
 
-$allowed_ext_fallback = [
-    'pdf','doc','docx','txt','rtf','xls','xlsx','ppt','pptx','zip','mp4','webm','mov','mp3','wav','ogg'
-];
-
 $ext = null;
 
 if (isset($allowed_mimes[$mime])) {
     $ext = $allowed_mimes[$mime];
-} else {
-    $origExt = strtolower((string)pathinfo((string)($file['name'] ?? ''), PATHINFO_EXTENSION));
-    if ($origExt !== '' && in_array($origExt, $allowed_ext_fallback, true)) {
-        $det['fallback_ext'] = $origExt;
-        $ext = $origExt;
-
-        $rev = [
-            'mp3'  => 'audio/mpeg',
-            'wav'  => 'audio/wav',
-            'ogg'  => 'audio/ogg',
-            'zip'  => 'application/zip',
-            'pdf'  => 'application/pdf',
-            'txt'  => 'text/plain',
-            'rtf'  => 'application/rtf',
-            'mp4'  => 'video/mp4',
-            'webm' => 'video/webm',
-            'mov'  => 'video/quicktime',
-            'doc'  => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'xls'  => 'application/vnd.ms-excel',
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'ppt'  => 'application/vnd.ms-powerpoint',
-            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        ];
-
-        if (!isset($allowed_mimes[$mime]) && isset($rev[$origExt])) {
-            $mime = $rev[$origExt];
-        }
-    }
 }
 
 if ($ext === null) {
-    adiwira_json([
-        'success'       => false,
-        'ok'            => false,
-        'error'         => 'File type not allowed',
-        'detected_mime' => $mime,
-        'detectors'     => $det,
-    ], 415);
+    $response = [
+        'success' => false,
+        'ok'      => false,
+        'error'   => 'File type not allowed',
+    ];
+    if (function_exists('app_debug_enabled') && app_debug_enabled()) {
+        $response['detected_mime'] = $mime;
+        $response['detectors']     = $det;
+    }
+    adiwira_json($response, 415);
 }
 
 $visibilityInput = $hasPrivateCols
@@ -261,10 +225,7 @@ $accessScopeInput = $hasPrivateCols
     ? adiwira_file_normalize_choice((string)($_POST['access_scope'] ?? 'editorial'), ['public','editorial','admin'], 'editorial')
     : 'public';
 
-// Default paling aman: PDF otomatis private employee. File lain tetap public.
-$visibility = $visibilityInput === 'auto'
-    ? ($ext === 'pdf' ? 'private' : 'public')
-    : $visibilityInput;
+$visibility = $visibilityInput === 'auto' ? 'public' : $visibilityInput;
 
 if (!$hasPrivateCols) {
     $visibility = 'public';

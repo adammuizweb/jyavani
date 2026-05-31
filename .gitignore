@@ -20,14 +20,10 @@ cfg/var/sessions/**
 # public/layout.php
 # public/adiwira/bootstrap.php
 
-
-# noteloc runtime share files
-public/noteloc/
-var/noteloc-share/
-
 public/static/img/2025
 public/static/img/2026
 
 # Uploaded / private files (runtime data)
 private_files/
-public/static/files/**
+public/static/files/2025
+public/static/files/2026

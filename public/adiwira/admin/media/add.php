@@ -194,7 +194,11 @@ $hasVisibility = mdlib_has_column('visibility');
       try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
 
       if (!res.ok) {
-        uiToast('error', 'Media', 'Upload gagal: ' + (j?.error || txt || ('HTTP ' + res.status)));
+        const httpMap = {
+          413: 'File terlalu besar. Maksimal 20MB.'
+        };
+        const msg = j?.error || httpMap[res.status] || txt?.replace(/<[^>]+>/g, '').trim() || ('HTTP ' + res.status);
+        uiToast('error', 'Media', 'Upload gagal: ' + msg);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 400);

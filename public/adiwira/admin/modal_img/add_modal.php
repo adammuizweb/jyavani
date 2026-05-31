@@ -257,14 +257,13 @@ try {
           }, 420);
         }, 800);
 
+        let responseData = null;
+        try {
+          responseData = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch (e) {}
+
         if (xhr.status >= 200 && xhr.status < 300) {
-          let data = null;
-          try {
-            data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
-          } catch (e) {
-            reject(new Error('Invalid JSON response'));
-            return;
-          }
+          const data = responseData;
 
           if (!data || (!data.success && !data.url && !data.media)) {
             reject(new Error(data && data.error ? data.error : 'Upload failed'));
@@ -292,7 +291,14 @@ try {
           broadcast('media:insert', media);
           resolve(media);
         } else {
-          reject(new Error('HTTP ' + xhr.status));
+          const httpMap = {
+            413: 'File terlalu besar. Maksimal 20MB.',
+            500: 'Server error' + (responseData?.error ? ': ' + responseData.error : '')
+          };
+          const errMsg = (responseData && responseData.error)
+            ? responseData.error
+            : (httpMap[xhr.status] || ('HTTP ' + xhr.status));
+          reject(new Error(errMsg));
         }
       });
 
