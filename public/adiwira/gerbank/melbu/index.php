@@ -7,6 +7,19 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../../bootstrap_core.php';
 require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 
+// ---------- config from DB settings ----------
+$loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'adiwira/gerbank/melbu';
+$recaptchaEnabled = function_exists('settings_get') ? (settings_get($pdo, 'recaptcha_enabled', '0') ?? '0') === '1' : false;
+$bfMaxAttempts = (int)(function_exists('settings_get') ? (settings_get($pdo, 'bruteforce_max_attempts', '5') ?? '5') : '5');
+$bfBlockMinutes = (int)(function_exists('settings_get') ? (settings_get($pdo, 'bruteforce_block_minutes', '15') ?? '15') : '15');
+
+// ---------- path guard: 404 jika path tidak cocok ----------
+if (!function_exists('auth_path_matches') || !auth_path_matches($loginPath)) {
+    http_response_code(404);
+    require __DIR__ . '/../../../frontend_404.php';
+    exit;
+}
+
 // ---------- helper ----------
 if (!function_exists('melbu_verify_recaptcha')) {
     function melbu_verify_recaptcha(string $secret, string $response, string $ip): bool
@@ -57,10 +70,37 @@ if (!function_exists('melbu_fetch_user_by_email')) {
     }
 }
 
-// ---------- config ----------
-$RECAPTCHA_SITEKEY = (string)(getenv('RECAPTCHA_SITEKEY') ?: '');
-$RECAPTCHA_SECRET  = (string)(getenv('RECAPTCHA_SECRET') ?: '');
+// ---------- config: DB settings with env fallback ----------
+$RECAPTCHA_SITEKEY = (string)(settings_get($pdo, 'recaptcha_sitekey', '') ?? '');
+if ($RECAPTCHA_SITEKEY === '') {
+    $RECAPTCHA_SITEKEY = (string)(getenv('RECAPTCHA_SITEKEY') ?: '');
+}
+$RECAPTCHA_SECRET = (string)(settings_get($pdo, 'recaptcha_secret', '') ?? '');
+if ($RECAPTCHA_SECRET === '') {
+    $RECAPTCHA_SECRET = (string)(getenv('RECAPTCHA_SECRET') ?: '');
+}
 $WHATSAPP_HELP_URL = 'https://wa.me/6289514787832';
+
+// helper: record failed attempt with configurable block
+if (!function_exists('melbu_record_failed')) {
+    function melbu_record_failed(PDO $pdo, string $email, string $ip, int $maxAttempts, int $blockMinutes): int {
+        $stmt = $pdo->prepare("SELECT id, attempts FROM login_attempts WHERE email = ? AND ip_address = ? LIMIT 1");
+        $stmt->execute([$email, $ip]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $attempts = (int)$row['attempts'] + 1;
+            $blocked_until = $attempts >= $maxAttempts
+                ? date("Y-m-d H:i:s", time() + $blockMinutes * 60)
+                : null;
+            $upd = $pdo->prepare("UPDATE login_attempts SET attempts = ?, last_attempt = NOW(), blocked_until = ? WHERE id = ?");
+            $upd->execute([$attempts, $blocked_until, $row['id']]);
+            return $attempts;
+        }
+        $ins = $pdo->prepare("INSERT INTO login_attempts (email, ip_address, attempts, last_attempt, blocked_until) VALUES (?, ?, 1, NOW(), NULL)");
+        $ins->execute([$email, $ip]);
+        return 1;
+    }
+}
 
 // stateless csrf token untuk public form
 $csrf_value = csrf_token();
@@ -71,6 +111,7 @@ $info = null;
 $show_captcha = false;
 $show_help = false;
 $attempts = 0;
+$captcha_threshold = max(1, (int)ceil($bfMaxAttempts * 0.6)); // captcha muncul setelah 60% dari max
 
 // input
 $email = mb_strtolower(trim((string)($_POST['email'] ?? '')), 'UTF-8');
@@ -117,7 +158,7 @@ if ($email !== '') {
     $attempt = get_login_attempt($pdo, $email, $ip);
     if ($attempt) {
         $attempts = (int)($attempt['attempts'] ?? 0);
-        if ($attempts >= 3) {
+        if ($attempts >= $captcha_threshold) {
             $show_captcha = true;
             $show_help = true;
         }
@@ -147,7 +188,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $attempt = ($email !== '') ? get_login_attempt($pdo, $email, $ip) : null;
     $attempts = (int)($attempt['attempts'] ?? 0);
 
-    if ($attempts >= 3) {
+    if ($attempts >= $captcha_threshold) {
         $show_captcha = true;
         $show_help = true;
     }
@@ -169,7 +210,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     // captcha jika diperlukan
-    if (empty($errors) && $show_captcha) {
+    if (empty($errors) && $show_captcha && $recaptchaEnabled) {
         if ($RECAPTCHA_SITEKEY === '' || $RECAPTCHA_SECRET === '') {
             $errors[] = 'CAPTCHA belum dikonfigurasi. Hubungi admin.';
             $show_help = true;
@@ -180,7 +221,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
             if (!$verified) {
                 if ($email !== '') {
-                    $attempts = record_failed_attempt($pdo, $email, $ip);
+                    $attempts = melbu_record_failed($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
                 }
                 $errors[] = 'CAPTCHA tidak valid.';
             }
@@ -203,15 +244,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         if (!$userExists || !$passwordOk) {
             if ($email !== '') {
-                $attempts = record_failed_attempt($pdo, $email, $ip);
+                $attempts = melbu_record_failed($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
             } else {
                 $attempts = 0;
             }
 
-            if ($attempts >= 5) {
-                $errors[] = 'Terlalu banyak percobaan. Akun diblokir selama 15 menit.';
+            if ($attempts >= $bfMaxAttempts) {
+                $errors[] = 'Terlalu banyak percobaan. Akun/IP diblokir sementara selama ' . $bfBlockMinutes . ' menit.';
             } else {
-                $remaining = max(0, 5 - $attempts);
+                $remaining = max(0, $bfMaxAttempts - $attempts);
                 $errors[] = 'Email atau password salah. Sisa percobaan sebelum blokir: ' . $remaining . '.';
             }
         } else {
@@ -238,8 +279,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 // refresh flags after POST
 $attempt = ($email !== '') ? get_login_attempt($pdo, $email, $ip) : $attempt;
 $attempts = (int)($attempt['attempts'] ?? $attempts);
-$show_captcha = $show_captcha || ($attempts >= 3);
-$show_help = $show_help || ($attempts >= 3);
+$show_captcha = $show_captcha || ($attempts >= $captcha_threshold);
+$show_help = $show_help || ($attempts >= $captcha_threshold);
 ?>
 <!doctype html>
 <html lang="id">
@@ -247,7 +288,7 @@ $show_help = $show_help || ($attempts >= 3);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Login</title>
-<?php if ($RECAPTCHA_SITEKEY !== ''): ?>
+<?php if ($recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <?php endif; ?>
 <style>
@@ -298,7 +339,7 @@ $show_help = $show_help || ($attempts >= 3);
         autocomplete="current-password"
       >
 
-      <?php if ($show_captcha && $RECAPTCHA_SITEKEY !== ''): ?>
+      <?php if ($show_captcha && $recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
         <div style="margin-top:12px;">
           <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($RECAPTCHA_SITEKEY, ENT_QUOTES, 'UTF-8'); ?>"></div>
         </div>

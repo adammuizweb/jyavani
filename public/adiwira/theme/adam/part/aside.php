@@ -319,6 +319,7 @@ echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes',
 
       $isPengaturanActive =
         adam_nav_active($requested, 'admin/settings') ||
+        adam_nav_active($requested, 'admin/settings/auth') ||
         adam_nav_active($requested, 'admin/profile') ||
         adam_nav_active($requested, 'admin/users') ||
         adam_nav_active($requested, 'admin/bin') ||
@@ -348,6 +349,9 @@ if ($userRole === 'admin') {
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/shortcodes/index&tab=presets') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔌</span><span class="adam-nav-sublink-text">Shortcodes</span></a>';
+
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/settings/auth') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔐</span><span class="adam-nav-sublink-text">Sign Up &amp; Sign In</span></a>';
 }
 
 echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/index.php?page=admin/profile/index') . '">';

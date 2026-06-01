@@ -21,6 +21,8 @@ Native PHP CMS by Adam Muiz. Dashboard is named "Adiwira". No framework, no Comp
 | Prefix | Controller | Notes |
 |---|---|---|
 | (empty) | `index.php` | Homepage |
+| `{login_path}` | `melbu/index.php` | Custom login path (configurable in settings) |
+| `{register_path}` | `daptar/index.php` | Custom register path (configurable in settings) |
 | `/private/media/` | `PrivateMediaController` | Private image serving via PHP stream |
 | `/private/file/`, `/private/pdf/` | `PrivateFileController` | Private file serving + PDF.js viewer |
 | `/author/` | `AuthorController` | |  
@@ -33,6 +35,8 @@ Native PHP CMS by Adam Muiz. Dashboard is named "Adiwira". No framework, no Comp
 | fallback slug | `PostController::dispatchBySlug()` | Single post/page by slug |
 
 All controllers are in `public/controllers/`, all are static methods.
+
+**Login/register path matching:** The router uses `auth_path_matches()` from `cfg/helpers/auth_helpers.php` which compares the normalized request URI against the configured path. Paths can be anything like `masuk`, `login`, `pintu/rahasia/masuk`. If the path matches a real directory (e.g. `adiwira/gerbank/melbu`), nginx serves the index.php directly and the guard inside validates. If not, the router catches the fallback.
 
 ## Admin (`/adiwira/`)
 
@@ -51,6 +55,20 @@ All controllers are in `public/controllers/`, all are static methods.
 - Session cookie config is in `.env`: `SESSION_NAME`, `SESSION_COOKIE_DOMAIN`, `FORCE_HTTPS`, `SESSION_ALLOW_INSECURE_COOKIES`
 - With `FORCE_HTTPS=1` + nginx `fastcgi_param HTTPS on` (see `SERVER_SETUP.md`)
 - CSRF: stateless HMAC for public endpoints, session-backed for admin; `csrf_token()` / `csrf_check()`
+
+### Login/Register pages
+
+- **Login:** `public/adiwira/gerbank/melbu/index.php` — standalone HTML page, configurable brute-force protection, reCAPTCHA toggle, blocked IP/email detection. Guard checks `login_path` setting against request URI.
+- **Register:** `public/adiwira/gerbank/daptar/index.php` — standalone HTML page, can be disabled entirely (`registration_enabled`), optional admin approval (`is_locked`), reCAPTCHA toggle. Guard checks `register_path` setting.
+
+### Settings (`settings/auth.php`)
+
+- Registration on/off, approval required, reCAPTCHA toggle
+- reCAPTCHA sitekey/secret stored in DB (fallback to `.env` if empty)
+- Brute-force: max attempts + block duration
+- `login_path` and `register_path` — fully custom relative paths (default: `adiwira/gerbank/melbu` and `adiwira/gerbank/daptar`)
+- Migration from old `login_slug` setting runs on page load if detected
+- Login attempts table with pagination and delete (modal, admin only)
 
 ## Theme system
 
@@ -95,7 +113,7 @@ All controllers are in `public/controllers/`, all are static methods.
 - Error display controlled by `APP_DEBUG=1` in `.env`
 - `dev_lock.php` can lockdown the site
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
-- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Run it on a fresh install, then delete the `pondasi/` folder.
+- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder.
 - Server setup guide at `SERVER_SETUP.md`
 - `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
 - Timezone: `Asia/Jakarta`
@@ -109,3 +127,13 @@ All controllers are in `public/controllers/`, all are static methods.
 - No namespaces — all code in global namespace
 - Strict types: `declare(strict_types=1);` on most files
 - Admin AJAX endpoints return JSON via `adiwira_json()`
+
+## Key auth helpers (`cfg/helpers/auth_helpers.php`)
+
+- `auth_path_matches(string $path): bool` — compares request URI against configured path
+- `get_login_path(PDO $pdo): string` — reads `login_path` with fallback to old `login_slug`
+- `get_register_path(PDO $pdo): string` — reads `register_path` with fallback to old `login_slug`
+- `is_blocked($attempt): bool` — checks if IP/email is blocked
+- `get_login_attempt(PDO $pdo, $email, $ip): ?array`
+- `record_failed_attempt(PDO $pdo, $email, $ip): int` — hardcoded 5 attempts / 15 min (legacy default; login page uses `melbu_record_failed()` with configurable params)
+- `reset_login_attempts(PDO $pdo, $email, $ip): void`

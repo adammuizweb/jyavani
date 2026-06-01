@@ -71,6 +71,17 @@ if (is_array($user)) {
     }
 }
 
+// AJAX handler: page actions that return JSON (must run before layout)
+$ajaxAction = (string)($_GET['action'] ?? $_POST['action'] ?? '');
+$ajaxPage = (string)($_GET['page'] ?? '');
+if ($ajaxAction !== '' && $ajaxPage !== '') {
+    $ajaxFile = DASH_PATH . '/' . $ajaxPage . '.php';
+    if (is_file($ajaxFile)) {
+        require $ajaxFile;
+    }
+    exit;
+}
+
 // flash
 $flash_success = null;
 if (!empty($_SESSION['flash_success'])) {

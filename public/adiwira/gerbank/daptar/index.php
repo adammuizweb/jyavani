@@ -1,12 +1,37 @@
 <?php
 declare(strict_types=1);
 
-  http_response_code(404);
-  require __DIR__ . '/../../../frontend_404.php';
-  exit;
+require_once __DIR__ . '/../../../bootstrap_core.php';
+require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 
-// /adiwira/signup.php
-require_once __DIR__ . '/../../bootstrap.php';
+// ---------- config from DB settings ----------
+$registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'adiwira/gerbank/daptar';
+$registrationEnabled = function_exists('settings_get') ? (settings_get($pdo, 'registration_enabled', '0') ?? '0') === '1' : false;
+$registrationApproval = function_exists('settings_get') ? (settings_get($pdo, 'registration_approval_required', '1') ?? '1') === '1' : true;
+$recaptchaEnabled = function_exists('settings_get') ? (settings_get($pdo, 'recaptcha_enabled', '0') ?? '0') === '1' : false;
+
+// ---------- path guard ----------
+if (!function_exists('auth_path_matches') || !auth_path_matches($registerPath)) {
+    http_response_code(404);
+    require __DIR__ . '/../../../frontend_404.php';
+    exit;
+}
+
+// ---------- guard: registration disabled ----------
+if (!$registrationEnabled) {
+    http_response_code(404);
+    require __DIR__ . '/../../../frontend_404.php';
+    exit;
+}
+
+$RECAPTCHA_SITEKEY = (string)(settings_get($pdo, 'recaptcha_sitekey', '') ?? '');
+if ($RECAPTCHA_SITEKEY === '') {
+    $RECAPTCHA_SITEKEY = (string)(getenv('RECAPTCHA_SITEKEY') ?: '');
+}
+$RECAPTCHA_SECRET = (string)(settings_get($pdo, 'recaptcha_secret', '') ?? '');
+if ($RECAPTCHA_SECRET === '') {
+    $RECAPTCHA_SECRET = (string)(getenv('RECAPTCHA_SECRET') ?: '');
+}
 
 if (is_logged_in()) {
     header('Location: /adiwira/');
@@ -45,10 +70,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pw2   = (string)($_POST['password_confirm'] ?? '');
     $uname = trim((string)($_POST['username'] ?? ''));
     $token = (string)($_POST['csrf_token'] ?? '');
+    $captcha_response = trim((string)($_POST['g-recaptcha-response'] ?? ''));
 
     // CSRF
     if (!csrf_check($token)) {
         $errors[] = 'CSRF token tidak valid';
+    }
+
+    // reCAPTCHA (jika enabled)
+    if ($recaptchaEnabled && $RECAPTCHA_SECRET !== '') {
+        if ($captcha_response === '') {
+            $errors[] = 'Silakan isi CAPTCHA.';
+        } else {
+            $url = 'https://www.google.com/recaptcha/api/siteverify'
+                . '?secret=' . urlencode($RECAPTCHA_SECRET)
+                . '&response=' . urlencode($captcha_response)
+                . '&remoteip=' . urlencode($_SERVER['REMOTE_ADDR'] ?? '');
+            $raw = @file_get_contents($url);
+            $json = $raw ? json_decode($raw, true) : null;
+            if (empty($json['success'])) {
+                $errors[] = 'CAPTCHA tidak valid.';
+            }
+        }
     }
 
     // Email
@@ -108,7 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $hash = password_hash($pw, PASSWORD_DEFAULT);
 
-            // user baru default author + locked
+            $isLocked = $registrationApproval ? 1 : 0;
+
             $insert = $pdo->prepare("
                 INSERT INTO users (
                     email, username, password, name,
@@ -117,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 )
                 VALUES (
                     :email, :username, :password, :name,
-                    'author', 0, 1,
+                    'author', 0, :is_locked,
                     NOW(), NOW()
                 )
             ");
@@ -127,10 +171,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':username' => $username_norm,
                 ':password' => $hash,
                 ':name'     => ($name !== '' ? $name : null),
+                ':is_locked' => $isLocked,
             ]);
 
             if ($ok) {
-                $success = 'Pendaftaran berhasil. Akun Anda sudah dibuat dan sedang menunggu persetujuan admin.';
+                $success = $registrationApproval
+                    ? 'Pendaftaran berhasil. Akun Anda sudah dibuat dan sedang menunggu persetujuan admin.'
+                    : 'Pendaftaran berhasil. Silakan login.';
                 $_POST = []; // bersihkan form
             } else {
                 $errors[] = 'Gagal menyimpan pengguna';
@@ -145,6 +192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Signup — Adiwira</title>
+<?php if ($recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<?php endif; ?>
 <style>
 body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;background:#f4f6f8;padding:2rem}
 .container{max-width:520px;margin:0 auto;background:#fff;padding:1.5rem;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
@@ -194,6 +244,10 @@ button{margin-top:1rem;padding:.6rem 1rem;border:0;background:#246;color:#fff;bo
         <input id="password_confirm" name="password_confirm" type="password" required>
 
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+
+        <?php if ($recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
+        <div class="g-recaptcha" data-sitekey="<?= htmlspecialchars($RECAPTCHA_SITEKEY, ENT_QUOTES, 'UTF-8') ?>" style="margin-top:12px;"></div>
+        <?php endif; ?>
 
         <button type="submit">Daftar</button>
     </form>

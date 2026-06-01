@@ -66,3 +66,42 @@ function reset_login_attempts(PDO $pdo, string $email, string $ip): void {
     $stmt = $pdo->prepare("DELETE FROM login_attempts WHERE email = ? AND ip_address = ?");
     $stmt->execute([$email, $ip]);
 }
+
+/**
+ * auth_path_matches — check if current request URI matches a configured path
+ * Used for customizable login/register paths
+ */
+function auth_path_matches(string $configuredPath): bool {
+    $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+    $uri = trim($uri, '/');
+    $configuredPath = trim($configuredPath, '/');
+    return $uri === $configuredPath;
+}
+
+/**
+ * get_login_path — read login_path with fallback to old login_slug
+ */
+function get_login_path(PDO $pdo): string {
+    $path = settings_get($pdo, 'login_path', 'adiwira/gerbank/melbu') ?? 'adiwira/gerbank/melbu';
+    if ($path === 'adiwira/gerbank/melbu') {
+        $oldSlug = settings_get($pdo, 'login_slug', '');
+        if ($oldSlug !== '' && $oldSlug !== 'gerbank') {
+            $path = 'adiwira/' . $oldSlug . '/melbu';
+        }
+    }
+    return $path;
+}
+
+/**
+ * get_register_path — read register_path with fallback to old login_slug
+ */
+function get_register_path(PDO $pdo): string {
+    $path = settings_get($pdo, 'register_path', 'adiwira/gerbank/daptar') ?? 'adiwira/gerbank/daptar';
+    if ($path === 'adiwira/gerbank/daptar') {
+        $oldSlug = settings_get($pdo, 'login_slug', '');
+        if ($oldSlug !== '' && $oldSlug !== 'gerbank') {
+            $path = 'adiwira/' . $oldSlug . '/daptar';
+        }
+    }
+    return $path;
+}

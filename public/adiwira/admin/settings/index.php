@@ -60,6 +60,14 @@ if ($isAdmin) {
         'desc'  => 'Buat dan kelola preset shortcode untuk widget.',
         'badge' => 'Admin',
     ];
+
+    $items[] = [
+        'label' => 'Sign Up & Sign In',
+        'href'  => $base . '/index.php?page=admin/settings/auth',
+        'icon'  => '🔐',
+        'desc'  => 'Atur registrasi, login slug, reCAPTCHA, dan anti brute-force.',
+        'badge' => 'Admin',
+    ];
 }
 
 $items[] = [

@@ -73,6 +73,22 @@ if (substr($rawPath, -1) !== '/') {
 $segments = $pathTrimmed === '' ? [] : explode('/', $pathTrimmed);
 $prefix = $segments[0] ?? '';
 
+// CUSTOM LOGIN / REGISTER PATHS
+$loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'adiwira/gerbank/melbu';
+$registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'adiwira/gerbank/daptar';
+
+if (function_exists('auth_path_matches')) {
+    if (auth_path_matches($loginPath)) {
+        require __DIR__ . '/adiwira/gerbank/melbu/index.php';
+        exit;
+    }
+
+    if (auth_path_matches($registerPath)) {
+        require __DIR__ . '/adiwira/gerbank/daptar/index.php';
+        exit;
+    }
+}
+
 // PRIVATE FILE STREAM + PDF VIEWER
 if ($prefix === 'private') {
     require_once __DIR__ . '/controllers/PrivateFileController.php';
