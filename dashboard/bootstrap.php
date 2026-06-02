@@ -59,8 +59,8 @@ if (!defined('PUBLIC_PATH')) {
     define('PUBLIC_PATH', rtrim($publicPath, '/\\'));
 }
 
-if (!defined('FRONTEND_404_PATH') && defined('PUBLIC_PATH')) {
-    define('FRONTEND_404_PATH', PUBLIC_PATH . '/frontend_404.php');
+if (!defined('FRONTEND_404_PATH')) {
+    define('FRONTEND_404_PATH', dirname(__DIR__) . '/app/frontend_404.php');
 }
 
 // Define admin base URL path for internal links

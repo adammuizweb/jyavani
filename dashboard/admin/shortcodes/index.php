@@ -33,7 +33,7 @@ $presets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // --- Layouts ---
 $layoutFiles = [];
-$layoutDir = realpath(__DIR__ . '/../../../views/partials/shortcodes/post_cat');
+$layoutDir = realpath(__DIR__ . '/../../../app/views/partials/shortcodes/post_cat');
 if ($layoutDir && is_dir($layoutDir)) {
     $files = scandir($layoutDir);
     foreach ($files as $f) {

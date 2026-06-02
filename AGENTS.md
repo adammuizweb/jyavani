@@ -4,7 +4,7 @@ Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework, n
 
 ## v2.0 — Hidden Admin (Admin PHP Outside `public/`)
 
-The admin PHP files live at `dashboard/` (project root, alongside `cfg/`, `public/`, `schema/`), completely outside the web root. No `/dashboard/` or `/adiwira/` directory exists in `public/` — the admin directory name is server-side only and never exposed.
+The admin PHP files live at `dashboard/` (project root, alongside `app/`, `cfg/`, `public/`, `schema/`), completely outside the web root. No `/dashboard/` or `/adiwira/` directory exists in `public/`. Controllers, layout, and bootstrap files are in `app/` — also outside web root. Theme files (PHP + CSS/JS) are in `public/views/` so static assets are web-servable.
 
 **How it works:**
 - Admin PHP files at `dashboard/` (project root, outside web root)
@@ -14,18 +14,18 @@ The admin PHP files live at `dashboard/` (project root, alongside `cfg/`, `publi
 - `get_admin_path($pdo)` helper in `auth_helpers.php` — reads `admin_path` setting
 - Router catch in `router.php` — catches custom admin paths and serves from `dashboard/`
 - Path guard in `dashboard/index.php` — 404s if request URI doesn't match configured admin_path
-- `FRONTEND_404_PATH` constant — all admin 404s render `public/frontend_404.php`
-- JS global `window.ADMIN_PATH` (set in `layout.php`) — used by static JS files for AJAX calls
+- `FRONTEND_404_PATH` constant — all admin 404s render `app/frontend_404.php`
+- JS global `window.ADMIN_PATH` (set in `app/layout.php`) — used by static JS files for AJAX calls
 
 ## Entrypoints
 
 - **Frontend:** `public/router.php` (front controller, bootstraps everything)
 - **Admin:** `dashboard/index.php` (via router catch only — no physical path in web root)
-- **Layout:** `public/layout.php` (slot-based theme rendering)
+- **Layout:** `app/layout.php` (slot-based theme rendering)
 
 ## Boot order
 
-`router.php` → `bootstrap_core.php` → `cfg/config.php` (loads `.env` via `env.php`, DB via `db.php` → `$pdo`, all 22 helpers in `cfg/helpers/`, session via `session.php`) → `bootstrap_theme.php` → route matching.
+`public/router.php` → `app/bootstrap_core.php` → `cfg/config.php` (loads `.env` via `env.php`, DB via `db.php` → `$pdo`, all 22 helpers in `cfg/helpers/`, session via `session.php`) → `app/bootstrap_theme.php` → route matching.
 
 **Welcome guard:** If `cfg/.env` doesn't exist (fresh install), `bootstrap_core.php` shows a standalone HTML welcome page with a link to `/pondasi/` — no 500 error.
 
@@ -50,7 +50,7 @@ The admin PHP files live at `dashboard/` (project root, alongside `cfg/`, `publi
 | `/gallery/` | `PhotoController` | Gallery with categories |
 | fallback slug | `PostController::dispatchBySlug()` | Single post/page by slug |
 
-All controllers are in `public/controllers/`, all are static methods.
+All controllers are in `app/controllers/`, all are static methods.
 
 **Login/register path matching:** The router uses `auth_path_matches()` from `cfg/helpers/auth_helpers.php` which compares the normalized request URI against the configured path. Paths can be anything like `masuk`, `login`, `pintu/rahasia/masuk`. Since admin files are outside `public/`, nginx/Apache always falls through to the router, which includes the correct file from `dashboard/gerbank/*/`.
 
@@ -62,7 +62,7 @@ All controllers are in `public/controllers/`, all are static methods.
 - Admin pages can be loaded via AJAX (no layout) or navigation (with layout); `adiwira_is_navigate_request()` detects this
 - `ADMIN_BASE_PATH` constant — used for all internal navigation links (`$base = ADMIN_BASE_PATH;` replaces old `dirname(SCRIPT_NAME)`)
 - `get_admin_path($pdo)` helper — reads `admin_path` setting, used in login/register pages for redirects
-- `FRONTEND_404_PATH` constant — resolves to `public/frontend_404.php` for all admin 404s
+- `FRONTEND_404_PATH` constant — resolves to `app/frontend_404.php` for all admin 404s
 - Static assets at `/static/dashboard/` + `/static/` (absolute paths, no `$base_url` prefix)
 
 ## Auth & Session (`cfg/session.php`)
@@ -99,7 +99,7 @@ All controllers are in `public/controllers/`, all are static methods.
 - Slots: `header`, `footer`, `sidebar`, `main.homepage`, `list.post`, `single.post`, etc.
 - `$context_for_layout` variable determines which main slot renders
 - Fallback chain: assigned theme → active theme → `default` theme
-- Widgets search: active theme → default theme → global `views/widget/`
+- Widgets search: active theme → default theme → `public/views/widget/`
 
 ## Content & Shortcodes
 
@@ -128,6 +128,15 @@ All controllers are in `public/controllers/`, all are static methods.
 - Soft-delete pattern: `is_deleted` column on most tables
 - `users` has `is_locked` for manual ban
 
+## Project structure
+
+- `app/` — controllers, layout, bootstrap, frontend 404 (outside web root)
+- `cfg/` — config, helpers, sessions, .env (outside web root)
+- `dashboard/` — admin PHP files (outside web root)
+- `public/` — web root (entrypoints + static assets + `views/` with themes)
+- `private_files/` — user uploads (outside web root)
+- `schema/` — SQL schema
+
 ## Development
 
 - No test suite — manual testing only
@@ -135,7 +144,7 @@ All controllers are in `public/controllers/`, all are static methods.
 - `dev_lock.php` can lockdown the site
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
 - **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. Link to dashboard uses URL `/adiwira/gerbank/melbu/` (default login path, router serves from `dashboard/`).
-- **Project structure:** `dashboard/` (admin PHP, outside web root), `cfg/` (config), `public/` (web root), `schema/` (SQL), `private_files/` (user uploads)
+- **Project structure:** `app/` (controllers, layout, bootstrap), `dashboard/` (admin PHP), `cfg/` (config), `public/` (web root + theme views), `schema/` (SQL), `private_files/` (user uploads)
 - Server setup guide at `SERVER_SETUP.md`
 - `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
 - Timezone: `Asia/Jakarta`

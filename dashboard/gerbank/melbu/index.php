@@ -4,7 +4,7 @@ declare(strict_types=1);
 // /adiwira/gerbank/melbu/?
 // DB-backed login (email-based) — stateless CSRF, session baru dibuat hanya saat login_user()
 
-require_once dirname(__DIR__, 3) . '/public/bootstrap_core.php';
+require_once dirname(__DIR__, 3) . '/app/bootstrap_core.php';
 require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 
 // ---------- config from DB settings ----------
@@ -16,7 +16,7 @@ $bfBlockMinutes = (int)(function_exists('settings_get') ? (settings_get($pdo, 'b
 // ---------- path guard: 404 jika path tidak cocok ----------
 if (!function_exists('auth_path_matches') || !auth_path_matches($loginPath)) {
     http_response_code(404);
-    require dirname(__DIR__, 3) . '/public/frontend_404.php';
+    require dirname(__DIR__, 3) . '/app/frontend_404.php';
     exit;
 }
 

@@ -9,9 +9,9 @@ class ArchiveController
     private static function render_local_view(string $filename, array $vars = []): string
     {
         $paths = [
-            __DIR__ . '/../views/archive/' . $filename,
-            __DIR__ . '/../views/' . $filename,
-            __DIR__ . '/../views/posts/' . $filename,
+            PUBLIC_PATH . '/views/archive/' . $filename,
+            PUBLIC_PATH . '/views/' . $filename,
+            PUBLIC_PATH . '/views/posts/' . $filename,
         ];
 
         foreach ($paths as $path) {

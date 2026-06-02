@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 3) . '/public/bootstrap_core.php';
+require_once dirname(__DIR__, 3) . '/app/bootstrap_core.php';
 require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 
 // ---------- config from DB settings ----------
@@ -13,14 +13,14 @@ $recaptchaEnabled = function_exists('settings_get') ? (settings_get($pdo, 'recap
 // ---------- path guard ----------
 if (!function_exists('auth_path_matches') || !auth_path_matches($registerPath)) {
     http_response_code(404);
-    require dirname(__DIR__, 3) . '/public/frontend_404.php';
+    require dirname(__DIR__, 3) . '/app/frontend_404.php';
     exit;
 }
 
 // ---------- guard: registration disabled ----------
 if (!$registrationEnabled) {
     http_response_code(404);
-    require dirname(__DIR__, 3) . '/public/frontend_404.php';
+    require dirname(__DIR__, 3) . '/app/frontend_404.php';
     exit;
 }
 

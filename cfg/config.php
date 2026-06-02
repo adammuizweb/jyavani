@@ -28,7 +28,8 @@ if (!defined('PUBLIC_PATH')) {
     define('PUBLIC_PATH', $publicGuess ?: (__DIR__ . '/../public'));
 }
 if (!defined('VIEWS_BASE')) {
-    define('VIEWS_BASE', realpath(PUBLIC_PATH . '/views/themes') ?: (PUBLIC_PATH . '/views/themes'));
+    $appViews = realpath(PUBLIC_PATH . '/views/themes');
+    define('VIEWS_BASE', $appViews ?: (PUBLIC_PATH . '/views/themes'));
 }
 if (!defined('DEFAULT_THEME_FOLDER')) {
     define('DEFAULT_THEME_FOLDER', 'default');

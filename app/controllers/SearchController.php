@@ -6,10 +6,10 @@ class SearchController
     protected static function render_local_view(string $filename, array $vars = []): string
     {
         $paths = [
-            __DIR__ . '/../views/' . $filename,
-            __DIR__ . '/../views/search/' . $filename,
-            __DIR__ . '/../views/posts/' . $filename,
-            __DIR__ . '/../views/main/list/' . $filename,
+            PUBLIC_PATH . '/views/' . $filename,
+            PUBLIC_PATH . '/views/search/' . $filename,
+            PUBLIC_PATH . '/views/posts/' . $filename,
+            PUBLIC_PATH . '/views/main/list/' . $filename,
         ];
         foreach ($paths as $p) {
             if (is_file($p)) {

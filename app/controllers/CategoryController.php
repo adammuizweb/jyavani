@@ -13,8 +13,8 @@ class CategoryController
     private static function render_local_view(string $filename, array $vars = []): string
     {
         $paths = [
-            __DIR__ . '/../views/category/' . $filename,
-            __DIR__ . '/../views/' . $filename,
+            PUBLIC_PATH . '/views/category/' . $filename,
+            PUBLIC_PATH . '/views/' . $filename,
         ];
 
         foreach ($paths as $path) {

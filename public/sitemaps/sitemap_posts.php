@@ -1,7 +1,7 @@
 <?php
 header("Content-Type: application/xml; charset=utf-8");
 
-require_once __DIR__ . '/../bootstrap_core.php';
+require_once __DIR__ . '/../../app/bootstrap_core.php';
 
 $domain = (
     (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http'

@@ -24,7 +24,7 @@ $return_to = function_exists('adiwira_safe_return_to')
     ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $base . '/?page=admin/shortcodes/index&tab=layouts')
     : ($base . '/?page=admin/shortcodes/index&tab=layouts');
 
-$layoutDir = realpath(__DIR__ . '/../../../views/partials/shortcodes/post_cat');
+$layoutDir = realpath(__DIR__ . '/../../../app/views/partials/shortcodes/post_cat');
 if (!$layoutDir || !is_dir($layoutDir)) {
     adiwira_redirect_with_flash($return_to, 'error', 'Direktori layout tidak ditemukan.');
 }

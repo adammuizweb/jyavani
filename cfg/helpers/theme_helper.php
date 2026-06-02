@@ -6,7 +6,7 @@ if (
     realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__
 ) {
     http_response_code(404);
-    require __DIR__ . '/../../public/frontend_404.php';
+    require __DIR__ . '/../../app/frontend_404.php';
     exit;
 }
 

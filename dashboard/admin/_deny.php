@@ -6,7 +6,7 @@ if (!function_exists('adiwira_admin_404')) {
     {
         http_response_code(404);
 
-        $file = dirname(__DIR__, 2) . '/public/frontend_404.php';
+        $file = dirname(__DIR__, 2) . '/app/frontend_404.php';
         require $file;
         exit;
     }

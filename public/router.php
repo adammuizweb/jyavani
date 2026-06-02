@@ -4,8 +4,8 @@
 // require_once __DIR__ . '/dev_lock.php';
 
 // BOOTSTRAP
-require_once __DIR__ . '/bootstrap_core.php';
-require_once __DIR__ . '/bootstrap_theme.php';
+require_once __DIR__ . '/../app/bootstrap_core.php';
+require_once __DIR__ . '/../app/bootstrap_theme.php';
 
 // normalize path
 $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
@@ -48,7 +48,7 @@ if (php_sapi_name() === 'cli-server') {
 if (is_file($absFile) || is_dir($absFile)) {
     http_response_code(404);
     $context_for_layout = '404';
-    require __DIR__ . '/layout.php';
+    require __DIR__ . '/../app/layout.php';
     exit;
 }
 
@@ -99,7 +99,7 @@ if ($pathWithSlash === $adminPath || strpos($pathWithSlash, $adminPath . '/') ==
 
 // PRIVATE FILE STREAM + PDF VIEWER
 if ($prefix === 'private') {
-    require_once __DIR__ . '/controllers/PrivateFileController.php';
+    require_once __DIR__ . '/../app/controllers/PrivateFileController.php';
 
     $action = $segments[1] ?? '';
 
@@ -118,7 +118,7 @@ if ($prefix === 'private') {
     if ($action === 'media') {
         $subAction = $segments[2] ?? 'view';
         if ($subAction === '' || $subAction === 'view' || $subAction === 'stream') {
-            require_once __DIR__ . '/controllers/PrivateMediaController.php';
+            require_once __DIR__ . '/../app/controllers/PrivateMediaController.php';
             PrivateMediaController::view($pdo);
             exit;
         }
@@ -137,13 +137,13 @@ if ($prefix === 'private') {
     }
 
     http_response_code(404);
-    require __DIR__ . '/frontend_404.php';
+    require __DIR__ . '/../app/frontend_404.php';
     exit;
 }
 
 // AUTHOR
 if ($prefix === 'author') {
-    require_once __DIR__ . '/controllers/AuthorController.php';
+    require_once __DIR__ . '/../app/controllers/AuthorController.php';
 
     $ident = $segments[1] ?? '';
     $page = (isset($segments[2], $segments[3]) && $segments[2] === 'page') ? (int)$segments[3] : 1;    
@@ -160,7 +160,7 @@ if ($prefix === 'author') {
 // CATEGORY — dynamic prefix from settings
 $categoryRoutes = function_exists('get_category_routes') ? get_category_routes($pdo) : ['category'];
 if (in_array($prefix, $categoryRoutes, true)) {
-    require_once __DIR__ . '/controllers/CategoryController.php';
+    require_once __DIR__ . '/../app/controllers/CategoryController.php';
 
     // collect segments after category prefix
     $segmentsAfter = array_slice($segments, 1);
@@ -205,7 +205,7 @@ if (preg_match('/^\d{4}$/', $prefix)) {
         $fallbackToArchive = true;
     } else {
         $fallbackToArchive = false;
-        require_once __DIR__ . '/controllers/ArchiveController.php';
+        require_once __DIR__ . '/../app/controllers/ArchiveController.php';
 
         $year = (int)$segments[0];
         $month = isset($segments[1]) && preg_match('/^\d{1,2}$/', $segments[1]) ? (int)$segments[1] : null;
@@ -229,7 +229,7 @@ if (preg_match('/^\d{4}$/', $prefix)) {
 // /sitemap_posts_1.xml
 // /sitemap_pages_2.xml
 if (preg_match('#^sitemap(?:_(posts|pages)_(\d+))?\.xml$#', $pathTrimmed, $m)) {
-    require_once __DIR__ . '/controllers/SitemapController.php';
+    require_once __DIR__ . '/../app/controllers/SitemapController.php';
     // matches:
     // m[0] full, m[1] = 'posts' or 'pages' or null, m[2] = number or null
     if (empty($m[1])) {
@@ -245,7 +245,7 @@ if (preg_match('#^sitemap(?:_(posts|pages)_(\d+))?\.xml$#', $pathTrimmed, $m)) {
 // LIST ARTICLES — dynamic prefix from settings
 $postsListRoutes = function_exists('get_posts_list_routes') ? get_posts_list_routes($pdo) : ['artikel'];
 if (in_array($prefix, $postsListRoutes, true)) {
-    require_once __DIR__ . '/controllers/PostController.php';
+    require_once __DIR__ . '/../app/controllers/PostController.php';
 
     $page = 1;
     if (!empty($_GET['page'])) {
@@ -268,7 +268,7 @@ if (in_array($prefix, $postsListRoutes, true)) {
 // PAGES LIST — dynamic prefix from settings
 $pagesListRoutes = function_exists('get_pages_list_routes') ? get_pages_list_routes($pdo) : ['halaman'];
 if (in_array($prefix, $pagesListRoutes, true)) {
-    require_once __DIR__ . '/controllers/PageController.php';
+    require_once __DIR__ . '/../app/controllers/PageController.php';
 
     $page = 1;
     $segmentsAfter = array_slice($segments, 1);
@@ -289,7 +289,7 @@ if (in_array($prefix, $pagesListRoutes, true)) {
 
 // GALLERY (PHOTO)
 if ($prefix === 'gallery') {
-    require_once __DIR__ . '/controllers/PhotoController.php';
+    require_once __DIR__ . '/../app/controllers/PhotoController.php';
 
     // ambil semua segmen setelah 'gallery'
     $pathSegs = array_slice($segments, 1);
@@ -318,7 +318,7 @@ if ($prefix === 'gallery') {
 }
 
 // FALLBACK POST — try permalink resolver first, then direct slug lookup
-require_once __DIR__ . '/controllers/PostController.php';
+require_once __DIR__ . '/../app/controllers/PostController.php';
 
 $isLoggedIn = (function_exists('is_logged_in') && is_logged_in());
 
@@ -328,11 +328,11 @@ if (function_exists('permalink_resolve')) {
         $type = $resolved['type'] ?? 'article';
         switch ($type) {
             case 'theme':
-                require_once __DIR__ . '/controllers/ThemeController.php';
+                require_once __DIR__ . '/../app/controllers/ThemeController.php';
                 ThemeController::renderTheme($resolved);
                 break;
             case 'page':
-                require_once __DIR__ . '/controllers/PageController.php';
+                require_once __DIR__ . '/../app/controllers/PageController.php';
                 PageController::renderPage($pdo, (string)($resolved['slug'] ?? ''));
                 break;
             default:
@@ -345,7 +345,7 @@ if (function_exists('permalink_resolve')) {
 
 // If we fell through from a date-based year prefix, try archive as fallback
 if (!empty($fallbackToArchive)) {
-    require_once __DIR__ . '/controllers/ArchiveController.php';
+    require_once __DIR__ . '/../app/controllers/ArchiveController.php';
 
     $year = (int)$segments[0];
     $month = isset($segments[1]) && preg_match('/^\d{1,2}$/', $segments[1]) ? (int)$segments[1] : null;
@@ -367,7 +367,7 @@ $catEnabled = function_exists('is_category_enabled') ? is_category_enabled($pdo)
 if (!$catEnabled && function_exists('resolve_category_from_path')) {
     $catSlug = resolve_category_from_path($pdo, $pathTrimmed);
     if ($catSlug !== null) {
-        require_once __DIR__ . '/controllers/CategoryController.php';
+        require_once __DIR__ . '/../app/controllers/CategoryController.php';
         $page = (int)($_GET['page'] ?? 1);
         $q = trim((string)($_GET['q'] ?? ''));
         CategoryController::showCategory($pdo, $catSlug, $page, $q);

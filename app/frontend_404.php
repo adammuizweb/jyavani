@@ -46,7 +46,7 @@ if (($pdo ?? null) instanceof PDO && function_exists('render_slot')) {
 
 // 2) Fallback langsung ke file theme default
 if (trim($content_html) === '' && defined('DEFAULT_THEME_FOLDER')) {
-    $file = __DIR__ . '/views/themes/' . DEFAULT_THEME_FOLDER . '/main/404.php';
+    $file = PUBLIC_PATH . '/views/themes/' . DEFAULT_THEME_FOLDER . '/main/404.php';
     if (is_file($file)) {
         try {
             ob_start();

@@ -40,7 +40,7 @@ if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce
     exit;
 }
 
-$layoutDir = realpath(__DIR__ . '/../../../views/partials/shortcodes/post_cat');
+$layoutDir = realpath(__DIR__ . '/../../../app/views/partials/shortcodes/post_cat');
 if (!$layoutDir || !is_dir($layoutDir)) {
     adiwira_json(['ok' => false, 'errors' => ['Direktori layout tidak ditemukan.']], 500);
     exit;

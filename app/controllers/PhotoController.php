@@ -32,7 +32,7 @@ class PhotoController
     
     private static function tryLocalPhotoView(string $file, array $vars): string
 {
-    $path = __DIR__ . '/../views/photo/' . ltrim($file, '/');
+    $path = PUBLIC_PATH . '/views/photo/' . ltrim($file, '/');
     if (!is_file($path)) return '';
 
     ob_start();
@@ -472,7 +472,7 @@ class PhotoController
 
         // 3) controller fallback
         if (trim($content_html) === '') {
-            $local_view = __DIR__ . '/../views/photo/photo-index.php';
+            $local_view = PUBLIC_PATH . '/views/photo/photo-index.php';
             if (is_file($local_view)) {
                 ob_start();
                 extract($vars, EXTR_SKIP);
@@ -617,7 +617,7 @@ class PhotoController
 
             // 3) controller fallback
             if (trim($content_html) === '') {
-                $local_view = __DIR__ . '/../views/photo/photo-categories.php';
+                $local_view = PUBLIC_PATH . '/views/photo/photo-categories.php';
                 if (is_file($local_view)) {
                     ob_start();
                     extract($vars, EXTR_SKIP);
@@ -771,7 +771,7 @@ class PhotoController
 
         // 3) fallback
         if (trim($content_html) === '') {
-            $local_view = __DIR__ . '/../views/photo/photo-list.php';
+            $local_view = PUBLIC_PATH . '/views/photo/photo-list.php';
             if (is_file($local_view)) {
                 ob_start();
                 extract($vars, EXTR_SKIP);
@@ -877,7 +877,7 @@ class PhotoController
 
         // 3) fallback controller
         if (trim($content_html) === '') {
-            $local_view = __DIR__ . '/../views/photo/photo-single.php';
+            $local_view = PUBLIC_PATH . '/views/photo/photo-single.php';
             if (is_file($local_view)) {
                 ob_start();
                 extract($vars, EXTR_SKIP);
