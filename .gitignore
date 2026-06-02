@@ -5,9 +5,11 @@
 cfg/*.env
 cfg/php-noteloc.ini
 jyavani.code-profile
-# Session files (do not commit runtime sessions)
+# Runtime data (do not commit)
 cfg/var/sessions/
 cfg/var/sessions/**
+cfg/var/terminal-tokens/
+cfg/var/plugins-disabled.json
 /var/sessions/**
 
 # If you want to ignore only session files but keep folder tracked, use:

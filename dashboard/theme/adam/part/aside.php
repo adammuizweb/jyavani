@@ -149,6 +149,13 @@ if (!function_exists('adam_icon')) {
                 <polyline points="8 6 2 12 8 18"></polyline>';
                 break;
 
+            case 'box':
+                $svg = '
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>';
+                break;
+
             default:
                 $svg = '<circle cx="12" cy="12" r="8"></circle>';
         }
@@ -325,7 +332,8 @@ echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes',
         adam_nav_active($requested, 'admin/bin') ||
         adam_nav_active($requested, 'admin/menus') ||
         adam_nav_active($requested, 'admin/shortcodes') ||
-        adam_nav_active($requested, 'admin/sidebar');
+        adam_nav_active($requested, 'admin/sidebar') ||
+        adam_nav_active($requested, 'admin/plugins');
 
 echo '<li class="adam-nav-item' . ($isPengaturanActive ? ' is-open' : '') . '" data-prefix="admin/settings">';
 echo '<a class="adam-nav-link' . ($isPengaturanActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/?page=admin/settings/index') . '">';
@@ -365,8 +373,72 @@ if ($userRole === 'admin') {
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🗑️</span><span class="adam-nav-sublink-text">Bin</span></a>';
 }
 
+if ($userRole === 'admin') {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/plugins') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/plugins/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📦</span><span class="adam-nav-sublink-text">Plugins</span></a>';
+}
+
 echo '</div>';
 echo '</li>';
+
+// ===== PLUGIN NAV ITEMS =====
+if (function_exists('plugin_nav_items')) {
+    $pluginNavs = plugin_nav_items();
+    $pluginNavGroups = [];
+    foreach ($pluginNavs as $n) {
+        $parent = $n['parent'] ?? '';
+        if (!isset($pluginNavGroups[$parent])) $pluginNavGroups[$parent] = [];
+        $pluginNavGroups[$parent][] = $n;
+    }
+
+    // Items under Settings (parent=settings) — rendered as sublinks
+    $settingsItems = $pluginNavGroups['settings'] ?? [];
+    foreach ($settingsItems as $n) {
+        $label = $n['label'] ?? 'Plugin';
+        $icon = $n['icon'] ?? 'code';
+        $page = $n['page'] ?? '';
+        $roles = $n['roles'] ?? ['admin'];
+        if ($userRole !== null && !in_array($userRole, $roles, true)) continue;
+
+        $isActive = adam_nav_active($requested, $page);
+        echo '<a class="adam-nav-sublink' . ($isActive ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=' . $page) . '">';
+        echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon($icon, 'adam-svg-icon--sm') . '</span>';
+        echo '<span class="adam-nav-sublink-text">' . h($label) . '</span></a>';
+    }
+
+    // Items under Tools (parent=tools) — rendered as a collapsible Tools menu
+    $toolsItems = $pluginNavGroups['tools'] ?? [];
+    if (!empty($toolsItems)) {
+        $isToolsActive = false;
+        $toolsSublinksHtml = '';
+        foreach ($toolsItems as $n) {
+            $label = $n['label'] ?? 'Plugin';
+            $icon = $n['icon'] ?? 'code';
+            $page = $n['page'] ?? '';
+            $roles = $n['roles'] ?? ['admin'];
+            if ($userRole !== null && !in_array($userRole, $roles, true)) continue;
+
+            $isActive = adam_nav_active($requested, $page);
+            if ($isActive) $isToolsActive = true;
+
+            $toolsSublinksHtml .= '<a class="adam-nav-sublink' . ($isActive ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=' . $page) . '">';
+            $toolsSublinksHtml .= '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon($icon, 'adam-svg-icon--sm') . '</span>';
+            $toolsSublinksHtml .= '<span class="adam-nav-sublink-text">' . h($label) . '</span></a>';
+        }
+
+        if ($toolsSublinksHtml !== '') {
+            echo '<li class="adam-nav-item' . ($isToolsActive ? ' is-open' : '') . '" data-prefix="admin/tools">';
+            echo '<a class="adam-nav-link' . ($isToolsActive ? ' adam-nav-link--active' : '') . '" href="#">';
+            echo '<span class="adam-nav-icon">' . adam_icon('box') . '</span><span class="adam-nav-text">Tools</span>';
+            echo '</a>';
+            echo '<div class="adam-nav-sub" aria-hidden="' . ($isToolsActive ? 'false' : 'true') . '">';
+            echo $toolsSublinksHtml;
+            echo '</div>';
+            echo '</li>';
+        }
+    }
+}
+// ===== END PLUGIN NAV ITEMS =====
 
 echo '<li class="adam-nav-item"><a class="adam-nav-link" href="' . h($base . '/logout.php') . '"><span class="adam-nav-icon">' . adam_icon('logout') . '</span><span class="adam-nav-text">Logout</span></a></li>';
       ?>

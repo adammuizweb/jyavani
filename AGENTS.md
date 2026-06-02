@@ -137,6 +137,61 @@ All controllers are in `app/controllers/`, all are static methods.
 - `private_files/` — user uploads (outside web root)
 - `schema/` — SQL schema
 
+## Plugin System (v1.0)
+
+Third-party features installed as removable plugins via `plugins/{name}/plugin.json`.
+
+### Registry API (`plugins/index.php`)
+
+| Function | Returns | Description |
+|---|---|---|
+| `plugin_manifest(string $name)` | `?array` | Read a single plugin's `plugin.json` |
+| `plugins_all()` | `array` | All plugins (enabled & disabled) |
+| `plugins_active()` | `array` | Only enabled plugins (cached per-request) |
+| `plugin_enable(string $name)` | `bool` | Enable a plugin |
+| `plugin_disable(string $name)` | `bool` | Disable a plugin |
+| `plugin_is_active(string $name)` | `bool` | Check if plugin is enabled |
+| `plugin_admin_routes()` | `array` | Routes from active plugins |
+| `plugin_nav_items()` | `array` | Nav items from active plugins |
+| `plugin_assets()` | `array` | CSS/JS assets from active plugins |
+| `plugin_resolve_route(string $route)` | `?array` | Find a specific route |
+| `plugin_include_file(string $file)` | `bool` | `require` a plugin file |
+
+### Plugin Manifest (`plugin.json`) — Key Fields
+
+- `name` (req): unique identifier, alphanumeric + dash/underscore
+- `admin.pages[]` (req): `route`, `file`, `title`, `roles`, `hidden`
+- `admin.nav[]`: `label`, `icon`, `page`, `parent` (`"settings"` / `"tools"`), `roles`
+- `static.copy[]`: `from` (relative to plugin dir), `to` (relative to `public/`) — files copied on upload
+- `assets.css` / `assets.js`: URLs loaded on admin pages
+
+### Plugin Uploader
+
+Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugins/upload` or the "+ Upload Plugin" button on the Plugin Manager page.
+
+**Upload flow:**
+1. Drop or select `.zip` file (max 50MB)
+2. Server validates `plugin.json` exists with valid `name`
+3. Extracts to `plugins/{name}/`
+4. Copies files declared in `static.copy[]` to `public/` (e.g., xterm JS/CSS → `public/static/vendor/xterm/`)
+5. Runs `install.sh` if present and executable
+6. Enables the plugin automatically
+7. Redirects to Plugin Manager with success toast
+
+### Integration Points
+
+- `dashboard/index.php` — loads `plugins/index.php` after bootstrap; plugin routes checked before direct file router
+- `dashboard/theme/adam/part/main.php` — plugin pages resolved before DASH_PATH file lookup via `plugin_resolve_route()`
+- `dashboard/theme/adam/part/aside.php` — renders plugin nav items: `parent: "settings"` as sublinks under Settings, `parent: "tools"` under collapsible Tools menu
+- Plugin Manager at `dashboard/admin/plugins/index.php` (core admin page, not a plugin)
+
+### Example: Terminal Plugin
+
+`plugins/terminal/` — multi-tab WebSocket PTY terminal:
+- `plugin.json` declares `static.copy` for xterm assets, `parent: "tools"` for nav
+- `install.sh` handles npm install + systemd service
+- `uninstall.sh` removes service + files
+
 ## Development
 
 - No test suite — manual testing only

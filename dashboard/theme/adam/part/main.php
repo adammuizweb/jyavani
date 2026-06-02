@@ -37,6 +37,17 @@ if ($page === 'home') {
     // jika tidak ada theme view, kita akan coba fallback ke file di DASH_PATH bawah
 }
 
+// ===== PLUGIN PAGE LOADER =====
+// Cek plugin dulu sebelum fallback ke DASH_PATH
+if (function_exists('plugin_resolve_route')) {
+    $pluginPage = plugin_resolve_route($page);
+    if ($pluginPage && isset($pluginPage['file']) && is_file($pluginPage['file'])) {
+        require $pluginPage['file'];
+        echo '</main>';
+        return;
+    }
+}
+
 // bentuk path file target di dalam DASH_PATH
 $targetRelative = $page . '.php';
 $targetFull = realpath(DASH_PATH . '/' . $targetRelative);

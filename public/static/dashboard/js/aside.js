@@ -87,6 +87,21 @@
       saveState();
     }
 
+    // Nav item toggle: expand/collapse submenu on heading click
+    aside.addEventListener('click', function (e) {
+      var link = e.target.closest('.adam-nav-item > .adam-nav-link');
+      if (!link) return;
+      var item = link.parentElement;
+      if (!item) return;
+      var sub = item.querySelector('.adam-nav-sub');
+      if (!sub) return;
+      if (sub.children.length === 0) return;
+      e.preventDefault();
+      var isOpen = item.classList.contains('is-open');
+      item.classList.toggle('is-open');
+      sub.setAttribute('aria-hidden', isOpen ? 'true' : 'false');
+    });
+
     // click handlers
     if (collapseBtn) {
       collapseBtn.addEventListener('click', function (e) {

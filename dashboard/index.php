@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
+// Load plugin registry
+$pluginLoader = __DIR__ . '/../plugins/index.php';
+if (is_file($pluginLoader)) {
+    require_once $pluginLoader;
+}
+
 // Path guard: 404 if request URI doesn't match configured admin path
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $requestPath = '/' . trim($requestPath, '/');
@@ -84,6 +90,15 @@ if (is_array($user)) {
 $ajaxAction = (string)($_GET['action'] ?? $_POST['action'] ?? '');
 $ajaxPage = (string)($_GET['page'] ?? '');
 if ($ajaxAction !== '' && $ajaxPage !== '') {
+    // Check plugin AJAX routes first
+    if (function_exists('plugin_resolve_route')) {
+        $resolved = plugin_resolve_route($ajaxPage);
+        if ($resolved && isset($resolved['file']) && is_file($resolved['file'])) {
+            require $resolved['file'];
+            exit;
+        }
+    }
+    // Then check normal dashboard file
     $ajaxFile = DASH_PATH . '/' . $ajaxPage . '.php';
     if (is_file($ajaxFile)) {
         require $ajaxFile;
@@ -91,14 +106,23 @@ if ($ajaxAction !== '' && $ajaxPage !== '') {
     exit;
 }
 
-// Direct file router: map request URI path to dashboard files
-// Handles URLs like /admin/modal_img/list_modal.php that were
-// previously served directly from public/adiwira/
+// Direct file router: map request URI path to dashboard/plugin files
+// Handles URLs like /admin/modal_img/list_modal.php or plugin routes
 $uriPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $adminPrefix = ADMIN_BASE_PATH . '/';
 if (strncmp($uriPath, $adminPrefix, strlen($adminPrefix)) === 0) {
     $relative = substr($uriPath, strlen($adminPrefix));
     if (is_string($relative) && $relative !== '' && preg_match('/\.php$/', $relative)) {
+        // Check plugin routes first (plugins override dashboard files)
+        if (function_exists('plugin_resolve_route')) {
+            $route = preg_replace('/\.php$/', '', $relative);
+            $resolved = plugin_resolve_route($route);
+            if ($resolved && isset($resolved['file']) && is_file($resolved['file'])) {
+                require $resolved['file'];
+                exit;
+            }
+        }
+        // Then check normal dashboard file
         $targetFile = DASH_PATH . '/' . $relative;
         if (is_file($targetFile)) {
             require $targetFile;
