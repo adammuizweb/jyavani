@@ -13,7 +13,12 @@ if (!function_exists('_rmdir_recursive')) {
         if (!is_dir($dir)) return;
         $it = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
         foreach (new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST) as $file) {
-            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+            $path = $file->getPathname();
+            if ($file->isLink() || !$file->isDir()) {
+                @unlink($path);
+            } else {
+                @rmdir($path);
+            }
         }
         @rmdir($dir);
     }
@@ -30,7 +35,7 @@ $success = '';
 // --- Process upload ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $csrf = (string)($_POST['csrf_token'] ?? '');
-    if (!adiwira_csrf_validate($csrf)) {
+    if (!csrf_check($csrf)) {
         adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
     }
 
@@ -130,6 +135,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         _rmdir_recursive($tmpExtract);
         adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal memindahkan plugin ke ' . htmlspecialchars($pluginDir) . '.');
     }
+
+    // Set permissions so www-data (PHP-FPM) can manage plugin files
+    $chmodIt = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+    foreach ($chmodIt as $item) {
+        $item->isDir()
+            ? @chmod($item->getPathname(), 0775)
+            : @chmod($item->getPathname(), 0664);
+    }
+    @chgrp($pluginDir, 'www-data');
+    // Use shell to propagate group recursively (PHP chgrp doesn't support recursion)
+    @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
 
     $flashMessages = [];
     $flashType = 'success';
@@ -234,31 +253,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
 </form>
 
 <style>
-.pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; }
-.pg-subtitle { color:#6b7280; font-size:.9rem; margin:0 0 1.5rem; }
+.pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; color:var(--adam-text); }
+.pg-subtitle { color:var(--adam-muted); font-size:.9rem; margin:0 0 1.5rem; }
 .alert { padding:.75rem 1rem; border-radius:6px; font-size:.875rem; margin-bottom:1rem; }
 .alert-error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
 
 .upload-form { max-width:480px; }
-.drop-zone { border:2px dashed #d1d5db; border-radius:12px; padding:2rem; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; background:#fafafa; position:relative; }
-.drop-zone:hover { border-color:#2563eb; background:#f0f5ff; }
-.drop-zone.dragover { border-color:#2563eb; background:#eff6ff; }
-.drop-zone-icon { color:#9ca3af; margin-bottom:.5rem; }
-.drop-zone.dragover .drop-zone-icon { color:#2563eb; }
-.drop-zone-text { font-size:.95rem; color:#374151; margin:0 0 .25rem; }
-.drop-zone-hint { font-size:.8rem; color:#9ca3af; margin:0; }
-.drop-zone-hint code { background:#f3f4f6; padding:.1rem .3rem; border-radius:3px; font-size:.78rem; }
+.drop-zone { border:2px dashed var(--adam-border-2); border-radius:12px; padding:2rem; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; background:var(--adam-surface-4); position:relative; }
+.drop-zone:hover { border-color:var(--adam-primary); background:var(--adam-primary-soft); }
+.drop-zone.dragover { border-color:var(--adam-primary); background:var(--adam-primary-soft); }
+.drop-zone-icon { color:var(--adam-muted-2); margin-bottom:.5rem; }
+.drop-zone.dragover .drop-zone-icon { color:var(--adam-primary); }
+.drop-zone-text { font-size:.95rem; color:var(--adam-text-2); margin:0 0 .25rem; }
+.drop-zone-hint { font-size:.8rem; color:var(--adam-muted-2); margin:0; }
+.drop-zone-hint code { background:var(--adam-surface-3); padding:.1rem .3rem; border-radius:3px; font-size:.78rem; }
 .file-input { position:absolute; inset:0; opacity:0; cursor:pointer; }
 
-.file-info { display:flex; align-items:center; gap:.5rem; margin-top:.75rem; padding:.5rem .75rem; background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px; font-size:.875rem; }
-.file-info span { flex:1; color:#374151; }
+.file-info { display:flex; align-items:center; gap:.5rem; margin-top:.75rem; padding:.5rem .75rem; background:var(--adam-surface-3); border:1px solid var(--adam-border); border-radius:6px; font-size:.875rem; }
+.file-info span { flex:1; color:var(--adam-text-2); }
 .btn { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .75rem; font-size:.8rem; font-weight:500; border-radius:6px; cursor:pointer; border:1px solid transparent; font-family:inherit; line-height:1; text-decoration:none; }
 .btn-sm { padding:.3rem .6rem; font-size:.75rem; }
-.btn-primary { background:#2563eb; color:#fff; border-color:#2563eb; }
-.btn-primary:hover { background:#1d4ed8; }
+.btn-primary { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
+.btn-primary:hover { background:var(--adam-primary-600); }
 .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
-.btn-outline { background:transparent; color:#6b7280; border-color:#d1d5db; }
-.btn-outline:hover { background:#f3f4f6; color:#374151; }
+.btn-outline { background:transparent; color:var(--adam-muted); border-color:var(--adam-border-2); }
+.btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
 .form-actions { display:flex; gap:.5rem; margin-top:1.25rem; justify-content:flex-start; }
 </style>
 

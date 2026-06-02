@@ -147,7 +147,7 @@ function plugin_delete(string $name): bool {
     // Remove static.copy files first
     if ($manifest && isset($manifest['static']['copy'])) {
         foreach ($manifest['static']['copy'] as $entry) {
-            $dest = $entry['dest'] ?? '';
+            $dest = $entry['to'] ?? $entry['dest'] ?? '';
             if ($dest !== '') {
                 $abs = (defined('PROJECT_ROOT') ? PROJECT_ROOT : dirname(PLUGIN_PATH)) . '/' . ltrim($dest, '/');
                 if (is_file($abs) && !@unlink($abs)) {
@@ -168,7 +168,12 @@ function plugin_delete(string $name): bool {
         RecursiveIteratorIterator::CHILD_FIRST
     );
     foreach ($it as $f) {
-        $f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+        $path = $f->getPathname();
+        if ($f->isLink() || !$f->isDir()) {
+            @unlink($path);
+        } else {
+            @rmdir($path);
+        }
     }
     if (!@rmdir($pluginDir)) {
         $errors[] = 'Failed to remove plugin directory';
