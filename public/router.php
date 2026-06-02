@@ -24,7 +24,7 @@ $absFile = $docRoot . $rawPath;
 
 // If running under PHP built-in web server, prefer to let it serve existing static files.
 // Additionally, if the request is for a directory that contains an index.php, include it
-// so directory-based admin pages like /adiwira/gerbank/melbu/ work under dev server.
+// so directory-based admin pages like /melbu/ work under dev server.
 if (php_sapi_name() === 'cli-server') {
 
     // 1) If exact file exists, let the built-in server serve it.
@@ -35,7 +35,7 @@ if (php_sapi_name() === 'cli-server') {
     // 2) If requested path is a directory and contains index.php, execute that index.
     if (is_dir($absFile) && is_file($absFile . '/index.php')) {
         // Execute the directory's index.php as a separate request.
-        // This ensures admin pages placed under public/adiwira/.../index.php work.
+        // This ensures admin pages placed under dashboard/.../index.php work.
         require $absFile . '/index.php';
         exit;
     }
@@ -79,14 +79,22 @@ $registerPath = function_exists('get_register_path') ? get_register_path($pdo) :
 
 if (function_exists('auth_path_matches')) {
     if (auth_path_matches($loginPath)) {
-        require __DIR__ . '/adiwira/gerbank/melbu/index.php';
+        require __DIR__ . '/../dashboard/gerbank/melbu/index.php';
         exit;
     }
 
     if (auth_path_matches($registerPath)) {
-        require __DIR__ . '/adiwira/gerbank/daptar/index.php';
+        require __DIR__ . '/../dashboard/gerbank/daptar/index.php';
         exit;
     }
+}
+
+// CUSTOM ADMIN PATH
+$adminPath = function_exists('get_admin_path') ? get_admin_path($pdo) : '/adiwira';
+$pathWithSlash = '/' . $pathTrimmed;
+if ($pathWithSlash === $adminPath || strpos($pathWithSlash, $adminPath . '/') === 0) {
+    require __DIR__ . '/../dashboard/index.php';
+    exit;
 }
 
 // PRIVATE FILE STREAM + PDF VIEWER

@@ -1,11 +1,26 @@
 # AGENTS.md — Jyavani CMS
 
-Native PHP CMS by Adam Muiz. Dashboard is named "Adiwira". No framework, no Composer, no build tools, no tests.
+Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework, no Composer, no build tools, no tests.
+
+## v2.0 — Hidden Admin (Admin PHP Outside `public/`)
+
+The admin PHP files live at `dashboard/` (project root, alongside `cfg/`, `public/`, `schema/`), completely outside the web root. No `/dashboard/` or `/adiwira/` directory exists in `public/` — the admin directory name is server-side only and never exposed.
+
+**How it works:**
+- Admin PHP files at `dashboard/` (project root, outside web root)
+- `ADMIN_BASE_PATH` constant (defined in `dashboard/bootstrap.php`) — used for all internal URLs
+- `/static/dashboard/css/` + `/static/dashboard/js/` — served from `public/static/dashboard/`
+- `/static/components/`, `/static/vendor/`, `/static/js/` — served from `public/static/`
+- `get_admin_path($pdo)` helper in `auth_helpers.php` — reads `admin_path` setting
+- Router catch in `router.php` — catches custom admin paths and serves from `dashboard/`
+- Path guard in `dashboard/index.php` — 404s if request URI doesn't match configured admin_path
+- `FRONTEND_404_PATH` constant — all admin 404s render `public/frontend_404.php`
+- JS global `window.ADMIN_PATH` (set in `layout.php`) — used by static JS files for AJAX calls
 
 ## Entrypoints
 
 - **Frontend:** `public/router.php` (front controller, bootstraps everything)
-- **Admin:** `public/adiwira/index.php` (direct access, separate bootstrap)
+- **Admin:** `dashboard/index.php` (via router catch only — no physical path in web root)
 - **Layout:** `public/layout.php` (slot-based theme rendering)
 
 ## Boot order
@@ -23,6 +38,7 @@ Native PHP CMS by Adam Muiz. Dashboard is named "Adiwira". No framework, no Comp
 | (empty) | `index.php` | Homepage |
 | `{login_path}` | `melbu/index.php` | Custom login path (configurable in settings) |
 | `{register_path}` | `daptar/index.php` | Custom register path (configurable in settings) |
+| `{admin_path}` | `dashboard/index.php` (via router) | Custom admin path (configurable in settings; default: `adiwira`) |
 | `/private/media/` | `PrivateMediaController` | Private image serving via PHP stream |
 | `/private/file/`, `/private/pdf/` | `PrivateFileController` | Private file serving + PDF.js viewer |
 | `/author/` | `AuthorController` | |  
@@ -36,14 +52,18 @@ Native PHP CMS by Adam Muiz. Dashboard is named "Adiwira". No framework, no Comp
 
 All controllers are in `public/controllers/`, all are static methods.
 
-**Login/register path matching:** The router uses `auth_path_matches()` from `cfg/helpers/auth_helpers.php` which compares the normalized request URI against the configured path. Paths can be anything like `masuk`, `login`, `pintu/rahasia/masuk`. If the path matches a real directory (e.g. `adiwira/gerbank/melbu`), nginx serves the index.php directly and the guard inside validates. If not, the router catches the fallback.
+**Login/register path matching:** The router uses `auth_path_matches()` from `cfg/helpers/auth_helpers.php` which compares the normalized request URI against the configured path. Paths can be anything like `masuk`, `login`, `pintu/rahasia/masuk`. Since admin files are outside `public/`, nginx/Apache always falls through to the router, which includes the correct file from `dashboard/gerbank/*/`.
 
-## Admin (`/adiwira/`)
+## Admin (`dashboard/` — outside web root)
 
-- Entry: `public/adiwira/index.php` — checks `is_logged_in()` + `current_user_status($pdo)` (DB check for deleted/locked)
-- Admin pages: `public/adiwira/admin/` — each requires `_guard.php` which calls `adiwira_require_editorial($pdo)` (author/editor/admin) or `adiwira_require_admin($pdo)` (admin only)
-- Admin layout: `public/adiwira/theme/adam/layout.php` (requires `DASHBOARD_CONTEXT` defined)
+- Entry: `dashboard/index.php` — path guard (matches `admin_path` setting) + session check + DB status check
+- Admin pages: `dashboard/admin/` — each requires `_guard.php` which calls `adiwira_require_editorial($pdo)` (author/editor/admin) or `adiwira_require_admin($pdo)` (admin only)
+- Admin layout: `dashboard/theme/adam/layout.php` (requires `DASHBOARD_CONTEXT` defined)
 - Admin pages can be loaded via AJAX (no layout) or navigation (with layout); `adiwira_is_navigate_request()` detects this
+- `ADMIN_BASE_PATH` constant — used for all internal navigation links (`$base = ADMIN_BASE_PATH;` replaces old `dirname(SCRIPT_NAME)`)
+- `get_admin_path($pdo)` helper — reads `admin_path` setting, used in login/register pages for redirects
+- `FRONTEND_404_PATH` constant — resolves to `public/frontend_404.php` for all admin 404s
+- Static assets at `/static/dashboard/` + `/static/` (absolute paths, no `$base_url` prefix)
 
 ## Auth & Session (`cfg/session.php`)
 
@@ -58,15 +78,16 @@ All controllers are in `public/controllers/`, all are static methods.
 
 ### Login/Register pages
 
-- **Login:** `public/adiwira/gerbank/melbu/index.php` — standalone HTML page, configurable brute-force protection, reCAPTCHA toggle, blocked IP/email detection. Guard checks `login_path` setting against request URI.
-- **Register:** `public/adiwira/gerbank/daptar/index.php` — standalone HTML page, can be disabled entirely (`registration_enabled`), optional admin approval (`is_locked`), reCAPTCHA toggle. Guard checks `register_path` setting.
+- **Login:** `dashboard/gerbank/melbu/index.php` (outside web root) — standalone HTML page, configurable brute-force protection, reCAPTCHA toggle, blocked IP/email detection. Guard checks `login_path` setting against request URI.
+- **Register:** `dashboard/gerbank/daptar/index.php` (outside web root) — standalone HTML page, can be disabled entirely (`registration_enabled`), optional admin approval (`is_locked`), reCAPTCHA toggle. Guard checks `register_path` setting.
+- Both use `get_admin_path($pdo)` for redirects after login/register.
 
 ### Settings (`settings/auth.php`)
 
 - Registration on/off, approval required, reCAPTCHA toggle
 - reCAPTCHA sitekey/secret stored in DB (fallback to `.env` if empty)
 - Brute-force: max attempts + block duration
-- `login_path` and `register_path` — fully custom relative paths (default: `adiwira/gerbank/melbu` and `adiwira/gerbank/daptar`)
+- `login_path`, `register_path`, `admin_path` — fully custom relative paths
 - Migration from old `login_slug` setting runs on page load if detected
 - Login attempts table with pagination and delete (modal, admin only)
 
@@ -98,7 +119,7 @@ All controllers are in `public/controllers/`, all are static methods.
 - Both stream via PHP (`fopen`/`fread`), not nginx static serving
 - Access: if `visibility=public` AND `storage_disk=public` AND `access_scope=public` → public; otherwise requires login
 - Private PDFs require signed time-limited token (`t` param) for raw streaming
-- Uploads go through `public/adiwira/admin/upload_image.php` and `upload_file.php`
+- Uploads go through `dashboard/admin/upload_image.php` and `upload_file.php`
 
 ## Database
 
@@ -113,7 +134,8 @@ All controllers are in `public/controllers/`, all are static methods.
 - Error display controlled by `APP_DEBUG=1` in `.env`
 - `dev_lock.php` can lockdown the site
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
-- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder.
+- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. Link to dashboard uses URL `/adiwira/gerbank/melbu/` (default login path, router serves from `dashboard/`).
+- **Project structure:** `dashboard/` (admin PHP, outside web root), `cfg/` (config), `public/` (web root), `schema/` (SQL), `private_files/` (user uploads)
 - Server setup guide at `SERVER_SETUP.md`
 - `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
 - Timezone: `Asia/Jakarta`
@@ -133,6 +155,7 @@ All controllers are in `public/controllers/`, all are static methods.
 - `auth_path_matches(string $path): bool` — compares request URI against configured path
 - `get_login_path(PDO $pdo): string` — reads `login_path` with fallback to old `login_slug`
 - `get_register_path(PDO $pdo): string` — reads `register_path` with fallback to old `login_slug`
+- `get_admin_path(PDO $pdo): string` — reads `admin_path` with fallback to `adiwira`
 - `is_blocked($attempt): bool` — checks if IP/email is blocked
 - `get_login_attempt(PDO $pdo, $email, $ip): ?array`
 - `record_failed_attempt(PDO $pdo, $email, $ip): int` — hardcoded 5 attempts / 15 min (legacy default; login page uses `melbu_record_failed()` with configurable params)

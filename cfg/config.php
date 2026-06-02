@@ -82,3 +82,6 @@ require_once __DIR__ . '/helpers/video_shortcodes.php';
 
 // 22. helpers untuk menu system
 require_once __DIR__ . '/helpers/menu_helper.php';
+
+// 23. helpers untuk auth (login/register path, admin path, brute-force)
+require_once __DIR__ . '/helpers/auth_helpers.php';

@@ -34,8 +34,11 @@ if (!function_exists('current_user_role')) {
 }
 
 if (!function_exists('require_login')) {
-    function require_login(string $redirect = '/adiwira/login.php'): void
+    function require_login(?string $redirect = null): void
     {
+        if ($redirect === null) {
+            $redirect = (defined('ADMIN_BASE_PATH') ? ADMIN_BASE_PATH : '/adiwira') . '/index.php';
+        }
         if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }

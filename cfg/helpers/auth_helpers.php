@@ -93,15 +93,9 @@ function get_login_path(PDO $pdo): string {
 }
 
 /**
- * get_register_path — read register_path with fallback to old login_slug
+ * get_admin_path — read admin_path setting (default: 'adiwira')
  */
-function get_register_path(PDO $pdo): string {
-    $path = settings_get($pdo, 'register_path', 'adiwira/gerbank/daptar') ?? 'adiwira/gerbank/daptar';
-    if ($path === 'adiwira/gerbank/daptar') {
-        $oldSlug = settings_get($pdo, 'login_slug', '');
-        if ($oldSlug !== '' && $oldSlug !== 'gerbank') {
-            $path = 'adiwira/' . $oldSlug . '/daptar';
-        }
-    }
-    return $path;
+function get_admin_path(PDO $pdo): string {
+    $path = settings_get($pdo, 'admin_path', 'adiwira') ?? 'adiwira';
+    return '/' . trim($path, '/');
 }
