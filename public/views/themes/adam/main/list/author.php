@@ -46,7 +46,7 @@ $authorLink = !empty($author['username']) ? '/author/' . rawurlencode($author['u
         <div class="adamz-author-posts-stack">
             <?php foreach ($posts as $p):
                 $imgUrl = !empty($p['display_image']) ? $p['display_image'] : (!empty($p['thumbnail']) ? $p['thumbnail'] : null);
-                $postUrl = '/' . rawurlencode($p['slug']) . '/';
+                $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/';
                 $date = !empty($p['created_at']) ? date('M d, Y', strtotime($p['created_at'])) : 'Recent';
             ?>
                 <article class="adamz-author-post-card">

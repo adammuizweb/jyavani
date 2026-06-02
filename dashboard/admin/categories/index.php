@@ -231,6 +231,8 @@ $authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // base
 $base = ADMIN_BASE_PATH;
+$_catPath = function_exists('get_category_path') ? get_category_path($pdo) : 'category';
+$catBase = $_catPath !== '' ? '/' . $_catPath . '/' : '/';
 
 $canBulk   = in_array($role, ['editor', 'admin'], true);
 $canDelete = in_array($role, ['editor', 'admin'], true);
@@ -385,7 +387,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             $catPath = $buildCategoryPath($catId);
             if ($catPath !== null && $catPath !== '') {
               $segments = array_map('rawurlencode', explode('/', $catPath));
-              $href = '/category/' . implode('/', $segments) . '/';
+              $href = $catBase . implode('/', $segments) . '/';
               $nameHtml = '<a class="adam-link" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8') . '</a>';
             } else {
               $nameHtml = htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8');

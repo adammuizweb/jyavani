@@ -181,6 +181,7 @@ $bcDataAttrs = function (int $dur, int $delay): string {
   <span class="sep typewrite onload"<?= $bcDataAttrs($bcDurSep, $bcDelay) ?>>/</span>
   <?php $bcDelay += $bcGap; ?>
 
+  <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
   <?php if (!empty($categories)): ?>
     <?php
       $firstCat = $categories[0];
@@ -190,7 +191,7 @@ $bcDataAttrs = function (int $dur, int $delay): string {
 
       // encode per-segmen, keep slash
       $segments = array_map('rawurlencode', explode('/', $fullPath));
-      $catHref  = '/category/' . implode('/', $segments) . '/';
+      $catHref  = $catBase . implode('/', $segments) . '/';
     ?>
     <a href="<?= htmlspecialchars($catHref, ENT_QUOTES, 'UTF-8') ?>"
        class="typewrite onload"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>>
@@ -217,7 +218,7 @@ $bcDataAttrs = function (int $dur, int $delay): string {
 
           // ensure encoding of each segment but keep slashes
           $segments = array_map('rawurlencode', explode('/', $fullPath));
-          $href     = '/category/' . implode('/', $segments) . '/';
+          $href     = $catBase . implode('/', $segments) . '/';
         ?>
         <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" class="cat-badge">
           <?= htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8') ?>

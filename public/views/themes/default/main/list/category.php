@@ -68,7 +68,7 @@ $categoryDescription = (string)($category['description'] ?? '');
 
                     <div class="post-body">
                         <h2 id="post-title-<?= $postId ?>">
-                            <a href="/<?= rawurlencode($postSlug) ?>/">
+                            <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($postSlug) . '/', ENT_QUOTES, 'UTF-8') ?>">
                                 <?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?>
                             </a>
                         </h2>
@@ -94,9 +94,12 @@ $categoryDescription = (string)($category['description'] ?? '');
         </div>
 
         <?php
+            $_cp = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? get_category_path($GLOBALS['pdo']) : 'category';
+            $catBase = $_cp !== '' ? '/' . $_cp . '/' : '/';
+            unset($_cp);
             $base = $category_path !== ''
-                ? '/category/' . implode('/', array_map('rawurlencode', explode('/', $category_path))) . '/'
-                : '/category/';
+                ? $catBase . implode('/', array_map('rawurlencode', explode('/', $category_path))) . '/'
+                : $catBase;
         ?>
         <nav class="pagination" aria-label="Pagination">
             <?php if ($page > 1): ?>

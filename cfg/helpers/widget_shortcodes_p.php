@@ -252,7 +252,9 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
     foreach ($posts as $p) {
       $titleRaw = (string)($p['title'] ?? '');
       $slug = (string)($p['slug'] ?? '');
-      $url = $slug !== '' ? post_cat__join_url($baseUrl, $postPath, $slug) : '#';
+      $url = $slug !== ''
+          ? (function_exists('get_post_permalink') ? $baseUrl . get_post_permalink($p) : post_cat__join_url($baseUrl, $postPath, $slug))
+          : '#';
 
       $thumb = trim((string)($p['thumbnail'] ?? ''));
       if ($thumb !== '' && $baseUrl !== '' && isset($thumb[0]) && $thumb[0] === '/') {

@@ -32,7 +32,7 @@ class CategoryController
      * Ambil slug path dari REQUEST_URI (bagian setelah /category/)
      * Contoh: /category/news/photo/?page=2 -> "news/photo"
      */
-    private static function slugFromRequestUri(): string
+    private static function slugFromRequestUri(string $prefix = 'category'): string
     {
         $path = '/';
         if (!empty($_SERVER['REQUEST_URI'])) {
@@ -40,7 +40,7 @@ class CategoryController
         }
         $path = trim((string)$path);
 
-        $needle = '/category';
+        $needle = '/' . trim($prefix, '/');
         $pos = strpos($path, $needle);
         if ($pos === false) return '';
 
@@ -194,17 +194,23 @@ class CategoryController
         $slug = trim((string)$slug, " \t\n\r\0\x0B/");
         $q = trim((string)$q);
 
+        $catPrefix = function_exists('get_category_path') ? get_category_path($pdo) : 'category';
+        $hasPrefix = $catPrefix !== '';
+        $catBase = $hasPrefix ? '/' . $catPrefix . '/' : '/';
+
         // Paksa slug dari REQUEST_URI agar /category/news/photo/ selalu akurat
         $reqPath = '/';
         if (!empty($_SERVER['REQUEST_URI'])) {
             $reqPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
         }
         $reqPathTrim = rtrim((string)$reqPath, '/');
-        $isCategoryIndex = ($reqPathTrim === '/category');
+        $isCategoryIndex = $hasPrefix && ($reqPathTrim === '/' . $catPrefix);
 
-        if (!$isCategoryIndex) {
-            $uriSlug = self::slugFromRequestUri();
+        if ($hasPrefix && !$isCategoryIndex) {
+            $uriSlug = self::slugFromRequestUri($catPrefix);
             if ($uriSlug !== '') $slug = $uriSlug;
+        } elseif (!$hasPrefix && $slug === '') {
+            // Root-level categories: slug must come from the parameter (already resolved)
         }
 
         // Helper: attach display images
@@ -213,6 +219,16 @@ class CategoryController
                 try { PostController::attach_display_images($posts); } catch (Throwable $e) {}
             }
         };
+
+        // Root-level categories with empty prefix have no index page
+        if (!$hasPrefix && $slug === '') {
+            http_response_code(404);
+            $page_title = '404';
+            $context_for_layout = '404';
+            $content_html = '';
+            require __DIR__ . '/../layout.php';
+            exit;
+        }
 
         // =========================
         // INDEX /category (parents)
@@ -240,6 +256,7 @@ class CategoryController
                 'site_context' => 'categories_parents_list',
                 'page_title'   => $page_title,
                 'q'            => $q,
+                'cat_base'     => $catBase,
             ];
 
             $content_html = '';
@@ -269,7 +286,7 @@ class CategoryController
                   <?php else: ?>
                     <ul>
                       <?php foreach ($cats as $c): ?>
-                        <li><a href="/category/<?= rawurlencode($c['slug']) ?>/"><?= htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8') ?></a></li>
+                        <li><a href="<?= htmlspecialchars($catBase . rawurlencode($c['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8') ?></a></li>
                       <?php endforeach; ?>
                     </ul>
                   <?php endif; ?>
@@ -476,7 +493,7 @@ class CategoryController
                   <?php else: ?>
                     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
                       <?php foreach ($posts as $p): if (empty($p['thumbnail'])) continue; ?>
-                        <a href="/<?= rawurlencode($p['slug']) ?>/" style="display:block;aspect-ratio:1/1;overflow:hidden;border-radius:10px;background:#eee">
+                        <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>" style="display:block;aspect-ratio:1/1;overflow:hidden;border-radius:10px;background:#eee">
                           <img src="<?= htmlspecialchars($p['thumbnail'], ENT_QUOTES, 'UTF-8') ?>" alt=""
                                style="width:100%;height:100%;object-fit:cover;display:block">
                         </a>
@@ -484,7 +501,7 @@ class CategoryController
                     </div>
 
                     <nav aria-label="Pagination" style="margin-top:14px;">
-                      <?php $base = '/category/' . implode('/', array_map('rawurlencode', $parts)) . '/'; ?>
+                      <?php $base = $catBase . implode('/', array_map('rawurlencode', $parts)) . '/'; ?>
                       <?php if ($page > 1): ?>
                         <a href="<?= htmlspecialchars($base . '?page=' . ($page - 1) . ($q !== '' ? '&q=' . rawurlencode($q) : ''), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
                       <?php endif; ?>
@@ -547,13 +564,13 @@ class CategoryController
               <?php else: ?>
                 <?php foreach ($posts as $p): ?>
                   <article style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid #eee">
-                    <h2><a href="/<?= rawurlencode($p['slug']) ?>/"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
+                    <h2><a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
                     <div style="color:#666;font-size:13px"><?= htmlspecialchars((string)$p['created_at'], ENT_QUOTES, 'UTF-8') ?></div>
                   </article>
                 <?php endforeach; ?>
 
                 <nav aria-label="Pagination" style="margin-top:1rem;">
-                  <?php $base = '/category/' . implode('/', array_map('rawurlencode', $parts)) . '/'; ?>
+                  <?php $base = $catBase . implode('/', array_map('rawurlencode', $parts)) . '/'; ?>
                   <?php if ($page > 1): ?>
                     <a href="<?= htmlspecialchars($base . '?page=' . ($page - 1) . ($q !== '' ? '&q=' . rawurlencode($q) : ''), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
                   <?php endif; ?>

@@ -137,6 +137,8 @@ $catStmt = $pdo->query("SELECT id, name FROM categories WHERE is_deleted = 0 ORD
 $categories = $catStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $base = ADMIN_BASE_PATH;
+$_catPath = function_exists('get_category_path') ? get_category_path($pdo) : 'category';
+$catBase = $_catPath !== '' ? '/' . $_catPath . '/' : '/';
 $canBulk = in_array($role, ['admin','editor','author'], true);
 
 $currentQuery = $_GET;
@@ -319,8 +321,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
               <td>
                 <?php
-                  $postSlug = trim((string)$p['slug']);
-                  $titleHref = $postSlug !== '' ? '/' . rawurlencode($postSlug) . '/' : '#';
+                  $titleHref = (function_exists('get_post_permalink') && !empty($p['slug']))
+                    ? get_post_permalink($p)
+                    : (($p['slug'] ?? '') !== '' ? '/' . rawurlencode((string)$p['slug']) . '/' : '#');
                 ?>
                 <a class="adam-link" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
                    title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>">
@@ -347,7 +350,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                       $catPath = build_category_path($catsMap, $cid, $categoryPathCache);
 
                       if ($catPath !== null && $catPath !== '') {
-                        $catHref = '/category/' . implode('/', array_map('rawurlencode', explode('/', $catPath))) . '/';
+                        $catHref = $catBase . implode('/', array_map('rawurlencode', explode('/', $catPath))) . '/';
                       } else {
                         $catHref = '/admin/categories/view.php?id=' . $cid;
                       }

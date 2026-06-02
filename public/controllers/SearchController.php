@@ -189,7 +189,7 @@ class SearchController
                 <?php else: foreach ($posts as $p): ?>
                     <article style="margin-bottom:1rem;padding:1rem;border:1px solid #eee;border-radius:8px">
                         <h2>
-                            <a href="/<?= rawurlencode((string)($p['slug'] ?? '')) ?>/">
+                            <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode((string)($p['slug'] ?? '')) . '/', ENT_QUOTES, 'UTF-8') ?>">
                                 <?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                             </a>
                         </h2>

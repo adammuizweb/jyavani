@@ -32,7 +32,7 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
     <ul class="adam-pages-list__grid" aria-live="polite">
       <?php foreach ($pages as $p):
          $title = htmlspecialchars($p['title'] ?? 'Untitled', ENT_QUOTES, 'UTF-8');
-         $slug  = rawurlencode($p['slug'] ?? '');
+         $slug  = function_exists('get_page_permalink') ? get_page_permalink($p) : '/' . rawurlencode($p['slug'] ?? '') . '/';
          $date  = isset($p['created_at']) && $p['created_at']
              ? htmlspecialchars(date('Y-m-d', strtotime($p['created_at'])), ENT_QUOTES, 'UTF-8')
              : '';
@@ -40,7 +40,7 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
       ?>
         <li class="adam-pages-list__item">
           <div class="adam-pages-list__item-main">
-            <a href="/<?= $slug ?>/" class="adam-page-link" title="<?= $title ?>">
+            <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="adam-page-link" title="<?= $title ?>">
               <?= $title ?>
             </a>
 
@@ -52,7 +52,7 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
           </div>
 
           <div class="adam-pages-list__item-actions">
-            <a href="/<?= $slug ?>/" class="adam-btn-open" aria-label="Buka <?= $title ?>">Buka →</a>
+            <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="adam-btn-open" aria-label="Buka <?= $title ?>">Buka →</a>
           </div>
         </li>
       <?php endforeach; ?>
@@ -62,13 +62,13 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
       <nav class="adam-pagination" role="navigation" aria-label="Pagination">
         <div class="adam-pagination__inner">
           <?php if ($page > 1): ?>
-            <a class="adam-pagination__link" href="/halaman/?page=<?= $page-1 ?>" rel="prev">← Sebelumnya</a>
+            <a class="adam-pagination__link" href="<?= $base ?>?page=<?= $page-1 ?>" rel="prev">← Sebelumnya</a>
           <?php endif; ?>
 
           <span class="adam-pagination__info">Halaman <?= $page ?> dari <?= $pagesCount ?></span>
 
           <?php if ($page < $pagesCount): ?>
-            <a class="adam-pagination__link" href="/halaman/?page=<?= $page+1 ?>" rel="next">Berikutnya →</a>
+            <a class="adam-pagination__link" href="<?= $base ?>?page=<?= $page+1 ?>" rel="next">Berikutnya →</a>
           <?php endif; ?>
         </div>
       </nav>

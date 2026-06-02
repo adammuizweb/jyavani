@@ -518,7 +518,7 @@ class AuthorController
                             <article class="post-card" style="display:flex;gap:1rem;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid #eee;align-items:flex-start">
 <?php
 $imgUrl = !empty($p['display_image']) ? $p['display_image'] : (!empty($p['thumbnail']) ? $p['thumbnail'] : null);
-$postUrl = '/' . rawurlencode($p['slug']) . '/';
+$postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/';
 ?>
 <?php if ($imgUrl): ?>
   <a href="<?= $postUrl ?>" class="post-thumb" style="flex:0 0 180px;">
@@ -530,7 +530,7 @@ $postUrl = '/' . rawurlencode($p['slug']) . '/';
 
                                 <div style="flex:1">
                                     <h2 style="margin:0 0 .4rem 0;font-size:1.15rem">
-                                        <a href="/<?= rawurlencode($p['slug']) ?>/" style="color:inherit;text-decoration:none">
+                                        <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>" style="color:inherit;text-decoration:none">
                                             <?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>
                                         </a>
                                     </h2>
@@ -544,7 +544,7 @@ $postUrl = '/' . rawurlencode($p['slug']) . '/';
                                     </p>
 
                                     <p style="margin:0">
-                                        <a href="/<?= rawurlencode($p['slug']) ?>/">Baca selengkapnya →</a>
+                                        <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>">Baca selengkapnya →</a>
                                     </p>
                                 </div>
                             </article>

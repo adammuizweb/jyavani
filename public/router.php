@@ -157,11 +157,12 @@ if ($prefix === 'author') {
     exit;
 }
 
-// CATEGORY
-if ($prefix === 'category') {
+// CATEGORY — dynamic prefix from settings
+$categoryRoutes = function_exists('get_category_routes') ? get_category_routes($pdo) : ['category'];
+if (in_array($prefix, $categoryRoutes, true)) {
     require_once __DIR__ . '/controllers/CategoryController.php';
 
-    // collect segments after 'category'
+    // collect segments after category prefix
     $segmentsAfter = array_slice($segments, 1);
     $q = trim((string)($_GET['q'] ?? ''));
 
@@ -170,7 +171,6 @@ if ($prefix === 'category') {
     foreach ($segmentsAfter as $idx => $seg) {
         if ($seg === 'page' && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
             $page = (int)$segmentsAfter[$idx + 1];
-            // remove the page segments so they are not part of slug
             array_splice($segmentsAfter, $idx, 2);
             break;
         }
@@ -186,26 +186,42 @@ if ($prefix === 'category') {
 
 // --- Year/month archive routing (e.g. /2025/ or /2025/11/ or /2025/11/page/2/) ---
 if (preg_match('/^\d{4}$/', $prefix)) {
-    // first segment is a 4-digit year
-    require_once __DIR__ . '/controllers/ArchiveController.php';
+    $segCount = count($segments);
+    $tryResolver = false;
 
-    $year = (int)$segments[0];
-    $month = isset($segments[1]) && preg_match('/^\d{1,2}$/', $segments[1]) ? (int)$segments[1] : null;
-
-    // detect /page/2/ after month or year
-    $page = 1;
-    // possible positions for 'page' segment:
-    // /2025/page/2/ -> segments[1] === 'page'
-    // /2025/11/page/2/ -> segments[2] === 'page'
-    $pageIndex = $month ? 2 : 1;
-    if (isset($segments[$pageIndex]) && $segments[$pageIndex] === 'page' && isset($segments[$pageIndex + 1])) {
-        $page = (int)$segments[$pageIndex + 1];
-    } elseif (!empty($_GET['page'])) {
-        $page = max(1, (int)$_GET['page']);
+    if (function_exists('permalink_is_date_based') && permalink_is_date_based($pdo)) {
+        $postStruct = get_permalink_structure($pdo, 'post');
+        $structSegs = function_exists('permalink_structure_segment_count')
+            ? permalink_structure_segment_count($postStruct)
+            : 2;
+        // If path segments match the structure's segment count, try the permalink resolver for a single post.
+        // Otherwise it's an archive page (fewer segs -> year/month archive).
+        $tryResolver = ($segCount === $structSegs);
     }
 
-    ArchiveController::show($pdo, $year, $month, $page, /*$basePathPrefix*/ null);
-    exit;
+    if ($tryResolver) {
+        // fall through to permalink_resolve in the fallback section
+        // if resolver returns null, try archive as fallback
+        $fallbackToArchive = true;
+    } else {
+        $fallbackToArchive = false;
+        require_once __DIR__ . '/controllers/ArchiveController.php';
+
+        $year = (int)$segments[0];
+        $month = isset($segments[1]) && preg_match('/^\d{1,2}$/', $segments[1]) ? (int)$segments[1] : null;
+
+        // detect /page/2/ after month or year
+        $page = 1;
+        $pageIndex = $month ? 2 : 1;
+        if (isset($segments[$pageIndex]) && $segments[$pageIndex] === 'page' && isset($segments[$pageIndex + 1])) {
+            $page = (int)$segments[$pageIndex + 1];
+        } elseif (!empty($_GET['page'])) {
+            $page = max(1, (int)$_GET['page']);
+        }
+
+        ArchiveController::show($pdo, $year, $month, $page, null);
+        exit;
+    }
 }
 
 // SITEMAP routes (no htaccess needed)
@@ -226,16 +242,15 @@ if (preg_match('#^sitemap(?:_(posts|pages)_(\d+))?\.xml$#', $pathTrimmed, $m)) {
     exit;
 }
 
-// LIST ARTICLES (legacy /artikel/ or /posts/)
-if ($prefix === 'artikel' || $prefix === 'posts') {
+// LIST ARTICLES — dynamic prefix from settings
+$postsListRoutes = function_exists('get_posts_list_routes') ? get_posts_list_routes($pdo) : ['artikel'];
+if (in_array($prefix, $postsListRoutes, true)) {
     require_once __DIR__ . '/controllers/PostController.php';
 
-    // prefer query param ?page= but also support /artikel/page/2/ if present
     $page = 1;
     if (!empty($_GET['page'])) {
         $page = max(1, (int)$_GET['page']);
     } else {
-        // detect /page/2/ in path segments: segments after prefix start at index 1
         $segmentsAfter = array_slice($segments, 1);
         foreach ($segmentsAfter as $idx => $seg) {
             if ($seg === 'page' && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
@@ -250,13 +265,11 @@ if ($prefix === 'artikel' || $prefix === 'posts') {
     exit;
 }
 
-// PAGES (list & single)
-// /halaman/  -> listPages
-// /halaman/page/2/ -> pagination
-if ($prefix === 'halaman') {
+// PAGES LIST — dynamic prefix from settings
+$pagesListRoutes = function_exists('get_pages_list_routes') ? get_pages_list_routes($pdo) : ['halaman'];
+if (in_array($prefix, $pagesListRoutes, true)) {
     require_once __DIR__ . '/controllers/PageController.php';
 
-    // detect page via /halaman/page/2/ or ?page=
     $page = 1;
     $segmentsAfter = array_slice($segments, 1);
     foreach ($segmentsAfter as $idx => $seg) {
@@ -270,8 +283,6 @@ if ($prefix === 'halaman') {
     }
 
     $q = trim((string)($_GET['q'] ?? ''));
-
-    // show list of pages
     PageController::listPages($pdo, $page, $q);
     exit;
 }
@@ -306,8 +317,63 @@ if ($prefix === 'gallery') {
     exit;
 }
 
-// FALLBACK POST
+// FALLBACK POST — try permalink resolver first, then direct slug lookup
 require_once __DIR__ . '/controllers/PostController.php';
 
 $isLoggedIn = (function_exists('is_logged_in') && is_logged_in());
+
+if (function_exists('permalink_resolve')) {
+    $resolved = permalink_resolve($pdo, $pathTrimmed);
+    if ($resolved) {
+        $type = $resolved['type'] ?? 'article';
+        switch ($type) {
+            case 'theme':
+                require_once __DIR__ . '/controllers/ThemeController.php';
+                ThemeController::renderTheme($resolved);
+                break;
+            case 'page':
+                require_once __DIR__ . '/controllers/PageController.php';
+                PageController::renderPage($pdo, (string)($resolved['slug'] ?? ''));
+                break;
+            default:
+                PostController::renderArticle($resolved, $pdo);
+                break;
+        }
+        exit;
+    }
+}
+
+// If we fell through from a date-based year prefix, try archive as fallback
+if (!empty($fallbackToArchive)) {
+    require_once __DIR__ . '/controllers/ArchiveController.php';
+
+    $year = (int)$segments[0];
+    $month = isset($segments[1]) && preg_match('/^\d{1,2}$/', $segments[1]) ? (int)$segments[1] : null;
+
+    $page = 1;
+    $pageIndex = $month ? 2 : 1;
+    if (isset($segments[$pageIndex]) && $segments[$pageIndex] === 'page' && isset($segments[$pageIndex + 1])) {
+        $page = (int)$segments[$pageIndex + 1];
+    } elseif (!empty($_GET['page'])) {
+        $page = max(1, (int)$_GET['page']);
+    }
+
+    ArchiveController::show($pdo, $year, $month, $page, null);
+    exit;
+}
+
+// If category prefix is empty, try resolving path as root-level category
+$catEnabled = function_exists('is_category_enabled') ? is_category_enabled($pdo) : true;
+if (!$catEnabled && function_exists('resolve_category_from_path')) {
+    $catSlug = resolve_category_from_path($pdo, $pathTrimmed);
+    if ($catSlug !== null) {
+        require_once __DIR__ . '/controllers/CategoryController.php';
+        $page = (int)($_GET['page'] ?? 1);
+        $q = trim((string)($_GET['q'] ?? ''));
+        CategoryController::showCategory($pdo, $catSlug, $page, $q);
+        exit;
+    }
+}
+
+// Fallback to direct slug lookup (backward compat)
 PostController::dispatchBySlug($pathTrimmed, $pdo, $isLoggedIn);

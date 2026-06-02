@@ -53,7 +53,7 @@ class SitemapController
         $dbType = $type === 'posts' ? 'article' : 'page';
 
         $stmt = $pdo->prepare("
-            SELECT slug, COALESCE(updated_at, created_at) AS changed_at
+            SELECT slug, created_at, COALESCE(updated_at, created_at) AS changed_at
             FROM posts
             WHERE type = :type
               AND is_deleted = 0
@@ -73,7 +73,13 @@ class SitemapController
         foreach ($rows as $r) {
             $slug = trim($r['slug'], '/');
             if ($slug === '') continue;
-            $loc = $domain . '/' . rawurlencode($slug) . '/';
+            if (function_exists('get_post_permalink') && $dbType === 'article') {
+                $loc = $domain . get_post_permalink($r);
+            } elseif (function_exists('get_page_permalink') && $dbType === 'page') {
+                $loc = $domain . get_page_permalink($r);
+            } else {
+                $loc = $domain . '/' . rawurlencode($slug) . '/';
+            }
             // lastmod: use ISO 8601 (W3C Datetime)
             $lastmod = !empty($r['changed_at']) ? date('c', strtotime($r['changed_at'])) : date('c');
             echo "  <url>\n";

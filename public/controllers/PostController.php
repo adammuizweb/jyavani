@@ -342,7 +342,7 @@ class PostController
             'total'       => $total,
             'pages'       => $pages,
             'totalPages'  => $pages,
-            'base'        => '/artikel/',
+            'base'        => function_exists('get_posts_list_base') ? get_posts_list_base($pdo) : '/artikel/',
             'q'           => $q,
             'site_context'=> 'posts_list',
             'page_title'  => 'Artikel',
@@ -434,7 +434,7 @@ class PostController
                 <?php foreach ($posts as $p): ?>
                   <article class="post-item" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid #eee">
                     <h2>
-                      <a href="/<?= rawurlencode((string)($p['slug'] ?? '')) ?>/">
+                      <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode((string)($p['slug'] ?? '')) . '/', ENT_QUOTES, 'UTF-8') ?>">
                         <?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                       </a>
                     </h2>
@@ -454,7 +454,7 @@ class PostController
                     <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags((string)($p['content'] ?? '')), 0, 360, '…'), ENT_QUOTES, 'UTF-8') ?></p>
 
                     <p>
-                      <a href="/<?= rawurlencode((string)($p['slug'] ?? '')) ?>/">Baca selengkapnya →</a>
+                      <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode((string)($p['slug'] ?? '')) . '/', ENT_QUOTES, 'UTF-8') ?>">Baca selengkapnya →</a>
                     </p>
                   </article>
                 <?php endforeach; ?>
@@ -564,7 +564,7 @@ class PostController
     // Single article renderer
     // ---------------------
 
-    protected static function renderArticle(array $row, PDO $pdo)
+    public static function renderArticle(array $row, PDO $pdo)
     {
         $postData = $row;
 
@@ -674,10 +674,10 @@ class PostController
             $content_html = ob_get_clean();
         }
 
-        // canonical (optional)
+        // canonical
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        $canonical_url = $scheme . '://' . $host . '/' . rawurlencode((string)($postData['slug'] ?? '')) . '/';
+        $canonical_url = $scheme . '://' . $host . (function_exists('get_post_permalink') ? get_post_permalink($postData) : '/' . rawurlencode((string)($postData['slug'] ?? '')) . '/');
 
         // expose to layout
         $page_title = $vars['page_title'] ?? 'Article';

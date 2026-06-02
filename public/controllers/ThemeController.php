@@ -62,7 +62,7 @@ class ThemeController
         // canonical (optional but consistent)
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host   = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        $canonical_url = $scheme . '://' . $host . '/' . rawurlencode($themeData['slug'] ?? '') . '/';
+        $canonical_url = $scheme . '://' . $host . (function_exists('get_post_permalink') ? get_post_permalink($themeData) : '/' . rawurlencode($themeData['slug'] ?? '') . '/');
 
         // expose to layout
         $page_title = $vars['page_title'];

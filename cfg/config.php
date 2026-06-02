@@ -85,3 +85,6 @@ require_once __DIR__ . '/helpers/menu_helper.php';
 
 // 23. helpers untuk auth (login/register path, admin path, brute-force)
 require_once __DIR__ . '/helpers/auth_helpers.php';
+
+// 24. helpers untuk custom permalink structure
+require_once __DIR__ . '/helpers/permalink_helpers.php';

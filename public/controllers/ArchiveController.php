@@ -282,7 +282,7 @@ class ArchiveController
               <?php else: ?>
                 <?php foreach ($posts as $p): ?>
                   <article style="margin-bottom:1.2rem">
-                    <h2><a href="/<?= rawurlencode($p['slug']) ?>/"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
+                    <h2><a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
                     <div style="color:#666"><?= htmlspecialchars($p['created_at'], ENT_QUOTES, 'UTF-8') ?></div>
                     <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags($p['content']), 0, 360, '…'), ENT_QUOTES, 'UTF-8') ?></p>
                   </article>

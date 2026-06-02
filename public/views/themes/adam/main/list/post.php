@@ -57,13 +57,13 @@ if (!function_exists('_theme_posts_resolve_image')) {
         <div class="adamz-posts-grid">
             <?php foreach ($posts as $p):
                 $title = htmlspecialchars($p['title'] ?? 'Untitled', ENT_QUOTES, 'UTF-8');
-                $slug  = rawurlencode($p['slug'] ?? '');
+                $slug  = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug'] ?? '') . '/';
                 $date  = isset($p['created_at']) ? date('d M Y', strtotime($p['created_at'])) : '';
                 $img   = _theme_posts_resolve_image($p) ?? 'https://via.placeholder.com/600x400?text=No+Image';
             ?>
                 <article class="adamz-post-card">
                     <div class="adamz-img-wrapper">
-                        <a href="/<?= $slug ?>/">
+                        <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
                             <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" 
                                  alt="<?= $title ?>" 
                                  class="adamz-thumbnail">
@@ -73,13 +73,13 @@ if (!function_exists('_theme_posts_resolve_image')) {
                     <div class="adamz-post-content">
                         <div class="adamz-entry-meta"><?= $date ?></div>
                         <h2 class="adamz-entry-title">
-                            <a href="/<?= $slug ?>/"><?= $title ?></a>
+                            <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"><?= $title ?></a>
                         </h2>
                         <p class="adamz-entry-excerpt">
                             <?= htmlspecialchars(_theme_posts_excerpt($p['content'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
                         </p>
                         <div class="adamz-read-more-wrapper">
-                            <a href="/<?= $slug ?>/" class="adamz-btn-link">Baca Selengkapnya →</a>
+                            <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="adamz-btn-link">Baca Selengkapnya →</a>
                         </div>
                     </div>
                 </article>

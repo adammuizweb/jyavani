@@ -24,7 +24,7 @@ $posts = $posts ?? [];
     <?php else: ?>
         <div class="adamz-arch-grid">
             <?php foreach ($posts as $p): 
-                $postUrl = "/" . rawurlencode($p['slug']) . "/";
+                $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : "/" . rawurlencode($p['slug']) . "/";
                 $title = htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8');
                 $date = date('d M Y', strtotime($p['created_at']));
                 

@@ -15,8 +15,9 @@ $items = widget_fetch_categories($pdo, $limit, $only_parents);
     <div class="w-empty">Belum ada kategori.</div>
   <?php else: ?>
     <ul class="w-list">
+      <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
       <?php foreach ($items as $c): ?>
-        <li><a href="/category/<?= widget_h($c['slug']) ?>/"><?= widget_h($c['name']) ?></a></li>
+        <li><a href="<?= htmlspecialchars($catBase . rawurlencode($c['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>"><?= widget_h($c['name']) ?></a></li>
       <?php endforeach; ?>
     </ul>
   <?php endif; ?>

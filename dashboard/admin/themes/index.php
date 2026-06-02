@@ -219,7 +219,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               <?php endif; ?>
 
               <td>
-                <a class="adam-link" href="<?= htmlspecialchars('/' . rawurlencode((string)$t['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>">
+                <a class="adam-link" href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($t) : '/' . rawurlencode((string)$t['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>">
                   <?= htmlspecialchars((string)($t['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
                 </a>
               </td>

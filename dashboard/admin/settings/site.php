@@ -70,6 +70,26 @@ $current_host = function_exists('settings_get')
     ? (settings_get($pdo, 'site_host', 'pre-univapu.kmb.ac.id') ?? 'pre-univapu.kmb.ac.id')
     : 'pre-univapu.kmb.ac.id';
 
+$current_posts_permalink = function_exists('get_permalink_structure')
+    ? get_permalink_structure($pdo, 'post')
+    : '/%slug%/';
+
+$current_pages_permalink = function_exists('get_permalink_structure')
+    ? get_permalink_structure($pdo, 'page')
+    : '/%slug%/';
+
+$current_posts_list_path = function_exists('get_posts_list_path')
+    ? get_posts_list_path($pdo)
+    : 'artikel';
+
+$current_pages_list_path = function_exists('get_pages_list_path')
+    ? get_pages_list_path($pdo)
+    : 'halaman';
+
+$current_category_path = function_exists('get_category_path')
+    ? get_category_path($pdo)
+    : 'category';
+
 $base = ADMIN_BASE_PATH;
 $self_url = $base . '/?page=admin/settings/site';
 
@@ -81,10 +101,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $site_title = trim((string)($_POST['site_title'] ?? ''));
     $site_host  = trim((string)($_POST['site_host'] ?? ''));
+    $posts_permalink = trim((string)($_POST['permalink_posts'] ?? '/%slug%/'));
+    $pages_permalink = trim((string)($_POST['permalink_pages'] ?? '/%slug%/'));
+    $posts_list_path = trim((string)($_POST['posts_list_path'] ?? 'artikel'));
+    $pages_list_path = trim((string)($_POST['pages_list_path'] ?? 'halaman'));
+    $category_path = trim((string)($_POST['category_path'] ?? 'category'));
 
     // pertahankan nilai input saat validasi gagal
     $current_title = $site_title;
     $current_host  = $site_host;
+    $current_posts_permalink = $posts_permalink;
+    $current_pages_permalink = $pages_permalink;
+    $current_posts_list_path = $posts_list_path;
+    $current_pages_list_path = $pages_list_path;
+    $current_category_path = $category_path;
 
     if ($site_title === '') {
         $errors[] = 'Site title tidak boleh kosong.';
@@ -96,11 +126,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Format host tidak valid. Contoh: pre-univapu.kmb.ac.id atau localhost:8000';
     }
 
+    if ($posts_permalink === '') {
+        $errors[] = 'Permalink post tidak boleh kosong.';
+    } elseif (!function_exists('validate_permalink_structure') || !validate_permalink_structure($posts_permalink)) {
+        $errors[] = 'Permalink post harus mengandung %slug% dan hanya boleh menggunakan token: %year%, %monthnum%, %day%, %slug%, %cat%.';
+    }
+
+    if ($pages_permalink === '') {
+        $errors[] = 'Permalink page tidak boleh kosong.';
+    } elseif (!function_exists('validate_permalink_structure') || !validate_permalink_structure($pages_permalink)) {
+        $errors[] = 'Permalink page harus mengandung %slug% dan hanya boleh menggunakan token: %year%, %monthnum%, %day%, %slug%, %cat%.';
+    }
+
+    if ($posts_list_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $posts_list_path)) {
+        $errors[] = 'Path daftar post hanya boleh huruf kecil, angka, garis miring, underscore, dan strip.';
+    }
+
+    if ($pages_list_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $pages_list_path)) {
+        $errors[] = 'Path daftar halaman hanya boleh huruf kecil, angka, garis miring, underscore, dan strip.';
+    }
+
+    if ($category_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $category_path)) {
+        $errors[] = 'Path kategori hanya boleh huruf kecil, angka, garis miring, underscore, dan strip.';
+    }
+
     if (!$errors) {
         $ok1 = settings_set($pdo, 'site_title', $site_title, 1);
         $ok2 = settings_set($pdo, 'site_host',  $site_host,  1);
+        $ok3 = function_exists('set_permalink_structure')
+            ? (set_permalink_structure($pdo, 'post', $posts_permalink) && set_permalink_structure($pdo, 'page', $pages_permalink))
+            : true;
+        $ok4 = settings_set($pdo, 'posts_list_path', $posts_list_path, 1);
+        $ok5 = settings_set($pdo, 'pages_list_path', $pages_list_path, 1);
+        $ok6 = settings_set($pdo, 'category_path', $category_path, 1);
 
-        if ($ok1 && $ok2) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6) {
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', 'Pengaturan website berhasil disimpan.');
                 exit;
@@ -153,6 +213,113 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
         value="<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?>"
         placeholder="jyavani.com atau localhost:8000"
         style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;">
+    </label>
+
+    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
+
+    <h3 style="margin:0 0 .6rem;">Custom Permalink</h3>
+
+    <details style="margin:0 0 1rem;font-size:.85rem;color:#555;background:#f9f9fb;border-radius:8px;padding:.4rem .8rem;cursor:pointer;">
+      <summary style="font-weight:600;color:#333;outline:none;">Bagaimana cara kerja slug? (klik untuk penjelasan)</summary>
+      <div style="margin-top:.6rem;line-height:1.7;padding-left:.4rem;">
+
+        <p><strong>Token yang tersedia untuk Post:</strong></p>
+        <table style="width:100%;border-collapse:collapse;margin:.3rem 0 .8rem;">
+          <tr><td style="padding:2px 8px;font-family:monospace;">%slug%</td><td style="padding:2px 8px;">Slug post itu sendiri (wajib ada)</td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">%year%</td><td style="padding:2px 8px;">Tahun publikasi (4 digit, misal 2026)</td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">%monthnum%</td><td style="padding:2px 8px;">Bulan publikasi (2 digit, misal 06)</td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">%day%</td><td style="padding:2px 8px;">Hari publikasi (2 digit, misal 02)</td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">%cat%</td><td style="padding:2px 8px;">Slug <strong>parent category</strong> (top-level ancestor, bukan full path child). Kosong jika tidak punya kategori.</td></tr>
+        </table>
+
+        <p><strong>Contoh struktur Post:</strong></p>
+        <table style="width:100%;border-collapse:collapse;margin:.3rem 0 .8rem;">
+          <tr><td style="padding:2px 8px;font-family:monospace;">/%slug%/</td><td style="padding:2px 8px;">Standard &mdash; <code>/los-geht/</code></td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">/%year%/%slug%/</td><td style="padding:2px 8px;">Date-based &mdash; <code>/2026/los-geht/</code></td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">/%year%/%monthnum%/%slug%/</td><td style="padding:2px 8px;">Date + month &mdash; <code>/2026/06/los-geht/</code></td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">/%cat%/%slug%/</td><td style="padding:2px 8px;">Category + slug &mdash; <code>/berita/los-geht/</code></td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">/%cat%/%year%/%slug%/</td><td style="padding:2px 8px;">Category + date &mdash; <code>/berita/2026/los-geht/</code></td></tr>
+          <tr><td style="padding:2px 8px;font-family:monospace;">/blog/%slug%/</td><td style="padding:2px 8px;">Static prefix &mdash; <code>/blog/los-geht/</code></td></tr>
+        </table>
+
+        <p><strong>Catatan penting:</strong></p>
+        <ul style="margin:.3rem 0 .8rem;padding-left:1.2rem;">
+          <li>Struktur <strong>arus diawali <code>/</code></strong> dan mengandung <code>%slug%</code>.</li>
+          <li>Jika struktur mengandung <code>%year%</code>, maka path dengan tahun di segmen pertama (misal <code>/2026/</code>) otomatis dianggap <strong>archive year</strong>, bukan category.</li>
+          <li>Token <code>%cat%</code> hanya untuk Post, tidak untuk Page.</li>
+          <li>Jika <code>%cat%</code> dipakai tapi post tidak memiliki kategori, token akan dihilangkan (URL jadi <code>//slug/</code> &rarr; normal ke <code>/slug/</code>).</li>
+          <li>Jika ada konflik slug antara post dan category, <strong>post menang</strong> (post selalu diperiksa lebih dulu).</li>
+        </ul>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:.6rem 0;">
+
+        <p><strong>Daftar Post &amp; Halaman:</strong></p>
+        <p style="margin:.2rem 0 .4rem;">Path prefix untuk halaman daftar (index). Jika dikosongkan, halaman daftar tidak tersedia (404). Contoh: <code>artikel</code> &rarr; <code>/artikel/</code>, <code>blog</code> &rarr; <code>/blog/</code>.</p>
+
+        <hr style="border:none;border-top:1px solid #e0e0e0;margin:.6rem 0;">
+
+        <p><strong>Category path:</strong></p>
+        <p style="margin:.2rem 0 .4rem;">
+          Prefix untuk semua halaman kategori. Default <code>category</code> &rarr; <code>/category/slug/</code>.
+          Jika dikosongkan, kategori bisa diakses <strong>langsung di root</strong> &rarr; <code>/slug/</code> (tanpa prefix).
+          Category index (daftar semua kategori) tidak tersedia saat prefix kosong. Untuk mengatur ini bersama token <code>%cat%</code> di post, pastikan category path dikosongkan agar URL post seperti <code>/kategori-slug/post-slug/</code> bisa berfungsi.
+        </p>
+
+      </div>
+    </details>
+
+    <label style="display:block;margin:.6rem 0;">
+      Post permalink structure
+      <input type="text" name="permalink_posts"
+        value="<?= htmlspecialchars($current_posts_permalink, ENT_QUOTES, 'UTF-8') ?>"
+        placeholder="/%slug%/"
+        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
+    </label>
+
+    <label style="display:block;margin:.6rem 0;">
+      Page permalink structure
+      <input type="text" name="permalink_pages"
+        value="<?= htmlspecialchars($current_pages_permalink, ENT_QUOTES, 'UTF-8') ?>"
+        placeholder="/%slug%/"
+        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
+    </label>
+
+    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
+
+    <h3 style="margin:0 0 .6rem;">Daftar Post & Halaman</h3>
+    <p style="color:#666;font-size:.85rem;margin:0 0 1rem;">
+      Path prefix untuk halaman daftar post dan halaman. Kosongkan untuk menonaktifkan.
+    </p>
+
+    <label style="display:block;margin:.6rem 0;">
+      Posts list path
+      <input type="text" name="posts_list_path"
+        value="<?= htmlspecialchars($current_posts_list_path, ENT_QUOTES, 'UTF-8') ?>"
+        placeholder="artikel"
+        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
+      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;">Kosongkan untuk menonaktifkan halaman daftar post.</span>
+    </label>
+
+    <label style="display:block;margin:.6rem 0;">
+      Pages list path
+      <input type="text" name="pages_list_path"
+        value="<?= htmlspecialchars($current_pages_list_path, ENT_QUOTES, 'UTF-8') ?>"
+        placeholder="halaman"
+        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
+      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;">Kosongkan untuk menonaktifkan halaman daftar halaman.</span>
+    </label>
+
+    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
+
+    <h3 style="margin:0 0 .6rem;">Kategori</h3>
+
+    <label style="display:block;margin:.6rem 0;">
+      Category path
+      <input type="text" name="category_path"
+        value="<?= htmlspecialchars($current_category_path, ENT_QUOTES, 'UTF-8') ?>"
+        placeholder="category"
+        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
+      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;">Kosongkan untuk menonaktifkan kategori sepenuhnya.</span>
     </label>
 
     <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">

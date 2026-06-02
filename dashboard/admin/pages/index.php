@@ -274,8 +274,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 ];
                 $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
 
-                $pageSlug = trim((string)($p['slug'] ?? ''));
-                $titleHref = $pageSlug !== '' ? '/' . rawurlencode($pageSlug) . '/' : '#';
+                $titleHref = (function_exists('get_page_permalink') && !empty($p['slug']))
+                    ? get_page_permalink($p)
+                    : (($p['slug'] ?? '') !== '' ? '/' . rawurlencode((string)$p['slug']) . '/' : '#');
 
                 $editHref = $base . '/?' . http_build_query([
                     'page'      => 'admin/pages/edit',

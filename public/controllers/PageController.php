@@ -140,7 +140,7 @@ class PageController
             'perPage' => $perPage,
             'total' => $total,
             'pages_total' => $pages,
-            'base' => '/halaman/',
+            'base' => function_exists('get_pages_list_base') ? get_pages_list_base($pdo) : '/halaman/',
             'site_context' => 'pages_list',
             'q' => $q,
         ];
@@ -213,7 +213,7 @@ if (trim($content_html) === '') {
               <?php else: ?>
                 <?php foreach ($pagesRows as $p): ?>
                   <article style="margin-bottom:1.25rem">
-                    <h2><a href="/<?= rawurlencode($p['slug']) ?>/"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
+                    <h2><a href="<?= htmlspecialchars(function_exists('get_page_permalink') ? get_page_permalink($p) : '/' . rawurlencode($p['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?></a></h2>
                     <div style="color:#666;font-size:.9rem"><?= htmlspecialchars($p['created_at'], ENT_QUOTES, 'UTF-8') ?> — <?= htmlspecialchars($p['status'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
                     <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags($p['content']), 0, 360, '…'), ENT_QUOTES, 'UTF-8') ?></p>
                   </article>
@@ -391,7 +391,7 @@ if (trim($content_html) === '') {
         $context_for_layout = 'single.page';
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        $canonical_url = $scheme . '://' . $host . '/' . rawurlencode($pageData['slug'] ?? '') . '/';
+        $canonical_url = $scheme . '://' . $host . (function_exists('get_page_permalink') ? get_page_permalink($pageData) : '/' . rawurlencode($pageData['slug'] ?? '') . '/');
         $layout_pdo = $GLOBALS['pdo'] ?? $pdo;
         $pdo = $layout_pdo;
         

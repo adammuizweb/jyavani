@@ -29,7 +29,7 @@
     <?php else: ?>
         <div class="adamz-cat-list">
             <?php foreach ($posts as $p): 
-                $postUrl = "/" . rawurlencode($p['slug']) . "/";
+                $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : "/" . rawurlencode($p['slug']) . "/";
                 $postTitle = htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8');
                 $postDate = date('d M Y', strtotime($p['created_at']));
             ?>
@@ -65,7 +65,10 @@
         </div>
 
         <?php
-            $base = '/category/' . implode('/', array_map('rawurlencode', explode('/', $category_path))) . '/';
+            $_cp = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? get_category_path($GLOBALS['pdo']) : 'category';
+            $catBase = $_cp !== '' ? '/' . $_cp . '/' : '/';
+            unset($_cp);
+            $base = $catBase . implode('/', array_map('rawurlencode', explode('/', $category_path))) . '/';
         ?>
         
         <?php if ($totalPages > 1): ?>

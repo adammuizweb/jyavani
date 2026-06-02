@@ -71,7 +71,9 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
             ? (string)$p['display_image']
             : (!empty($p['thumbnail']) ? (string)$p['thumbnail'] : '');
 
-          $postUrl = $slug !== '' ? '/' . rawurlencode($slug) . '/' : '#';
+          $postUrl = $slug !== ''
+              ? (function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($slug) . '/')
+              : '#';
           $title   = htmlspecialchars($titleRaw, ENT_QUOTES, 'UTF-8');
         ?>
         <article class="post-card">

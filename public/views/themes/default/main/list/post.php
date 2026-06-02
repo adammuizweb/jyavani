@@ -104,7 +104,7 @@ if (!function_exists('_theme_posts_resolve_image')) {
     <div style="display:grid;grid-template-columns: 1fr;gap:1rem;">
       <?php foreach ($posts as $p):
           $title = htmlspecialchars($p['title'] ?? 'Untitled', ENT_QUOTES, 'UTF-8');
-          $slug  = rawurlencode($p['slug'] ?? '');
+          $slug  = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug'] ?? '') . '/';
           $date  = isset($p['created_at'])
               ? htmlspecialchars(function_exists('format_datetime_id') ? format_datetime_id($p['created_at']) : $p['created_at'], ENT_QUOTES, 'UTF-8')
               : '';
@@ -113,7 +113,7 @@ if (!function_exists('_theme_posts_resolve_image')) {
         <article class="post-card">
           <?php if (!empty($displayImage)): ?>
             <div style="flex:0 0 160px;">
-              <a href="/<?= $slug ?>/">
+              <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
                 <img src="<?= htmlspecialchars($displayImage, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $title ?>" style="width:100%;height:auto;border-radius:6px;display:block;object-fit:cover;">
               </a>
             </div>
@@ -121,12 +121,12 @@ if (!function_exists('_theme_posts_resolve_image')) {
 
           <div style="flex:1;">
             <h2 style="margin:0 0 .35rem;font-size:1.15rem;color: var(--accent);">
-              <a href="/<?= $slug ?>/" style="text-decoration:none;"><?= $title ?></a>
+              <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;"><?= $title ?></a>
             </h2>
             <div style="font-size:.85rem;margin-bottom:.5rem;"><?= $date ?></div>
             <p style="margin:0;line-height:1.6;font-size:.98rem;"><?= htmlspecialchars(_theme_posts_excerpt($p['content'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
             <p style="margin-top:.6rem">
-              <a href="/<?= $slug ?>/" style="text-decoration:none;font-weight:600">Baca selengkapnya →</a>
+              <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;font-weight:600">Baca selengkapnya →</a>
             </p>
           </div>
         </article>

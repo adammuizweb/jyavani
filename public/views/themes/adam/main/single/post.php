@@ -118,6 +118,7 @@ $thumbUrl = !empty($post['display_image']) ? $post['display_image'] : (!empty($p
   <nav class="adam-breadcrumb" aria-label="Breadcrumb">
     <a href="/">Beranda</a>
     <span class="sep">/</span>
+    <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
     <?php if (!empty($categories)): ?>
       <?php
         // build full path for first category for breadcrumb
@@ -126,7 +127,7 @@ $thumbUrl = !empty($post['display_image']) ? $post['display_image'] : (!empty($p
         // use global $pdo if available
         $catPath = function_exists('build_category_full_path') ? build_category_full_path($GLOBALS['pdo'] ?? null, $firstCat['slug']) : $firstCat['slug'];
       ?>
-      <a href="/category/<?= rawurlencode($catPath) ?>/">
+      <a href="<?= htmlspecialchars($catBase . rawurlencode($catPath) . '/', ENT_QUOTES, 'UTF-8') ?>">
         <?= htmlspecialchars($firstCat['name']) ?>
       </a>
       <span class="sep">/</span>
@@ -142,7 +143,7 @@ $thumbUrl = !empty($post['display_image']) ? $post['display_image'] : (!empty($p
             $fullPath = function_exists('build_category_full_path') ? build_category_full_path($GLOBALS['pdo'] ?? null, $cat['slug']) : $cat['slug'];
             // ensure encoding of each segment but keep slashes
             $segments = array_map('rawurlencode', explode('/', $fullPath));
-            $href = '/category/' . implode('/', $segments) . '/';
+            $href = $catBase . implode('/', $segments) . '/';
           ?>
           <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" class="cat-badge">
             <?= htmlspecialchars($cat['name']) ?>

@@ -13,8 +13,9 @@ $categories = $categories ?? [];
         </div>
     <?php else: ?>
         <ul class="adamz-catidx-grid">
+            <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
             <?php foreach ($categories as $cat): 
-                $catUrl = "/category/" . rawurlencode($cat['slug']) . "/";
+                $catUrl = $catBase . rawurlencode($cat['slug']) . "/";
                 $catName = htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8');
             ?>
                 <li class="adamz-catidx-item">

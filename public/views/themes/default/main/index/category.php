@@ -10,10 +10,11 @@
     <?php if (empty($categories)): ?>
         <p class="empty-msg">Tidak ada kategori.</p>
     <?php else: ?>
+        <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
         <ul class="category-list">
             <?php foreach ($categories as $cat): ?>
                 <li class="category-item">
-                    <a class="category-link" href="/category/<?= rawurlencode($cat['slug']) ?>/">
+                    <a class="category-link" href="<?= htmlspecialchars($catBase . rawurlencode($cat['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>">
                         <div class="category-body">
                             <h3 class="category-name"><?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?></h3>
 

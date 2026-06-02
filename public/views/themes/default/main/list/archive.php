@@ -51,7 +51,7 @@ if ($archive_label !== '') {
                     $content   = (string)($p['content'] ?? '');
                     $createdAt = !empty($p['created_at']) ? strtotime((string)$p['created_at']) : false;
 
-                    $postUrl = '/' . rawurlencode($slug) . '/';
+                    $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($slug) . '/';
                     $title   = htmlspecialchars($titleRaw, ENT_QUOTES, 'UTF-8');
                     $date    = $createdAt ? date('d M Y', $createdAt) : '-';
 

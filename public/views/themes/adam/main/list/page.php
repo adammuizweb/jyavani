@@ -27,7 +27,7 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
         <ul class="adamz-pages-grid">
             <?php foreach ($pages as $index => $p):
                 $title = htmlspecialchars($p['title'] ?? 'Untitled', ENT_QUOTES, 'UTF-8');
-                $slug  = rawurlencode($p['slug'] ?? '');
+                $slug  = function_exists('get_page_permalink') ? get_page_permalink($p) : '/' . rawurlencode($p['slug'] ?? '') . '/';
                 $dateRaw = isset($p['created_at']) ? $p['created_at'] : '';
                 $dateLabel = $dateRaw ? date('d M Y', strtotime($dateRaw)) : 'Arsip';
                 
@@ -40,7 +40,7 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
                             ITEM #<?= $orderNumber ?>
                         </span>
                         
-                        <a href="/<?= $slug ?>/" class="adamz-page-link">
+                        <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="adamz-page-link">
                             <?= $title ?>
                         </a>
 
@@ -53,7 +53,7 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
                     </div>
 
                     <div class="adamz-pages-item-actions">
-                        <a href="/<?= $slug ?>/" class="adamz-btn-open">
+                        <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="adamz-btn-open">
                             Lihat Detail →
                         </a>
                     </div>
@@ -65,13 +65,13 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
             <nav class="adamz-pagination">
                 <div class="adamz-pagination-inner">
                     <?php if ($page > 1): ?>
-                        <a class="adamz-pagination-link" href="/halaman/?page=<?= $page-1 ?>">← Prev</a>
+                        <a class="adamz-pagination-link" href="<?= $base ?>?page=<?= $page-1 ?>">← Prev</a>
                     <?php endif; ?>
 
                     <span class="adamz-pagination-info"><?= $page ?> / <?= $pagesCount ?></span>
 
                     <?php if ($page < $pagesCount): ?>
-                        <a class="adamz-pagination-link" href="/halaman/?page=<?= $page+1 ?>">Next →</a>
+                        <a class="adamz-pagination-link" href="<?= $base ?>?page=<?= $page+1 ?>">Next →</a>
                     <?php endif; ?>
                 </div>
             </nav>
