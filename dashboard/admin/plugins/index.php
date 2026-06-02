@@ -18,7 +18,7 @@ $action = (string)($_POST['action'] ?? '');
 $pluginName = (string)($_POST['plugin'] ?? '');
 if ($action === 'toggle' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
-    if (!adiwira_csrf_validate($csrf)) {
+    if (!csrf_check($csrf)) {
         adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
     }
 
@@ -38,6 +38,24 @@ if ($action === 'toggle' && $pluginName !== '') {
         }
         adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengaktifkan plugin.');
     }
+}
+
+// --- Handle delete action ---
+if ($action === 'delete' && $pluginName !== '') {
+    $csrf = (string)($_POST['csrf_token'] ?? '');
+    if (!csrf_check($csrf)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+    }
+
+    $manifest = plugin_manifest($pluginName);
+    if (!$manifest) {
+        adiwira_redirect_with_flash($selfUrl, 'error', 'Plugin "' . h($pluginName) . '" tidak ditemukan.');
+    }
+
+    if (plugin_delete($pluginName)) {
+        adiwira_redirect_with_flash($selfUrl, 'success', 'Plugin "' . h($manifest['title'] ?? $pluginName) . '" berhasil dihapus.');
+    }
+    adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal menghapus plugin.');
 }
 
 // --- Collect plugin data ---
@@ -90,6 +108,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
         <?php endif; ?>
       </td>
       <td>
+        <div style="display:flex;gap:.35rem;flex-wrap:wrap">
         <form method="post" style="display:inline">
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="toggle">
@@ -100,6 +119,13 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
             <button type="submit" class="btn btn-sm btn-primary">Aktifkan</button>
           <?php endif; ?>
         </form>
+        <form method="post" style="display:inline" onsubmit="return confirm('Hapus plugin &quot;<?= h($title) ?>&quot; beserta semua filenya?')">
+          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="plugin" value="<?= h($name) ?>">
+          <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+        </form>
+        </div>
       </td>
     </tr>
     <?php endforeach; ?>
@@ -109,23 +135,25 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 <?php endif; ?>
 
 <style>
-.pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; }
-.pg-subtitle { color:#6b7280; font-size:.9rem; margin:0 0 1.5rem; }
-.text-muted { color:#6b7280; }
-.empty-state { padding:2rem; text-align:center; color:#6b7280; }
+.pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; color:var(--adam-text); }
+.pg-subtitle { color:var(--adam-muted); font-size:.9rem; margin:0 0 1.5rem; }
+.text-muted { color:var(--adam-muted); }
+.empty-state { padding:2rem; text-align:center; color:var(--adam-muted); }
 .table-wrap { overflow-x:auto; }
 .data-table { width:100%; border-collapse:collapse; }
 .data-table th,
-.data-table td { text-align:left; padding:.6rem .75rem; border-bottom:1px solid #e5e7eb; vertical-align:middle; }
-.data-table th { font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:#6b7280; background:#f9fafb; }
+.data-table td { text-align:left; padding:.6rem .75rem; border-bottom:1px solid var(--adam-border); vertical-align:middle; color:var(--adam-text); }
+.data-table th { font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--adam-muted); background:var(--adam-surface-3); }
 .badge { display:inline-block; padding:.15rem .5rem; font-size:.75rem; font-weight:600; border-radius:999px; }
 .badge-success { background:#d1fae5; color:#065f46; }
-.badge-muted { background:#f3f4f6; color:#6b7280; }
-.btn { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .75rem; font-size:.8rem; font-weight:500; border-radius:6px; cursor:pointer; border:1px solid transparent; font-family:inherit; line-height:1; }
+.badge-muted { background:var(--adam-surface-3); color:var(--adam-muted); }
+.btn { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .75rem; font-size:.8rem; font-weight:500; border-radius:6px; cursor:pointer; border:1px solid transparent; font-family:inherit; line-height:1; text-decoration:none; }
 .btn-sm { padding:.3rem .6rem; font-size:.75rem; }
-.btn-primary { background:#2563eb; color:#fff; border-color:#2563eb; }
-.btn-primary:hover { background:#1d4ed8; }
-.btn-outline { background:transparent; color:#6b7280; border-color:#d1d5db; }
-.btn-outline:hover { background:#f3f4f6; color:#374151; }
+.btn-primary { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
+.btn-primary:hover { background:var(--adam-primary-600); }
+.btn-outline { background:transparent; color:var(--adam-muted); border-color:var(--adam-border-2); }
+.btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
+.btn-danger { background:var(--adam-danger); color:#fff; border-color:var(--adam-danger); }
+.btn-danger:hover { background:var(--adam-danger-600); }
 </style>
 </parameter>

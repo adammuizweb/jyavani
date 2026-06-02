@@ -127,3 +127,59 @@ function plugin_include_file(string $file): bool {
     }
     return false;
 }
+
+// --- HTML escape helper (used by plugin admin pages) ---
+if (!function_exists('h')) {
+    function h(string $s): string {
+        return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+// --- Delete plugin from disk ---
+function plugin_delete(string $name): bool {
+    $pluginDir = PLUGIN_PATH . '/' . $name;
+    if (!is_dir($pluginDir)) return false;
+
+    // Load manifest for static.copy paths
+    $manifest = plugin_manifest($name);
+    $errors = [];
+
+    // Remove static.copy files first
+    if ($manifest && isset($manifest['static']['copy'])) {
+        foreach ($manifest['static']['copy'] as $entry) {
+            $dest = $entry['dest'] ?? '';
+            if ($dest !== '') {
+                $abs = (defined('PROJECT_ROOT') ? PROJECT_ROOT : dirname(PLUGIN_PATH)) . '/' . ltrim($dest, '/');
+                if (is_file($abs) && !@unlink($abs)) {
+                    $errors[] = 'Failed to remove ' . $dest;
+                }
+                // Remove empty parent dirs
+                $parent = dirname($abs);
+                if (is_dir($parent) && count(scandir($parent)) <= 2) {
+                    @rmdir($parent);
+                }
+            }
+        }
+    }
+
+    // Remove plugin directory recursively
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($it as $f) {
+        $f->isDir() ? @rmdir($f->getRealPath()) : @unlink($f->getRealPath());
+    }
+    if (!@rmdir($pluginDir)) {
+        $errors[] = 'Failed to remove plugin directory';
+    }
+
+    // Clean up disabled state
+    if (is_file(PLUGIN_DISABLED_JSON)) {
+        $disabled = json_decode(file_get_contents(PLUGIN_DISABLED_JSON), true) ?? [];
+        $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
+        file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX);
+    }
+
+    return empty($errors);
+}
