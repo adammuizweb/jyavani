@@ -2,10 +2,10 @@
     "name": "Jyavani CMS",
     "version": "2.0.2",
     "build": "2026-06-02",
-    "generated": "2026-06-02T15:03:29+00:00",
+    "generated": "2026-06-02T15:09:47+00:00",
     "php_required": "8.1",
     "mysql_required": "5.7",
-    "total_files": 301,
+    "total_files": 297,
     "files": {
         "app/bootstrap_core.php": "57e9c0bf866323c508f500a51c5e85c7c5e8c7849081c87a6b5822bdf97eff97",
         "app/bootstrap_theme.php": "ccd0aee7c42bf4f85437e7b898ccec1d1656b1b2df51b2cebad1954ead4d288a",
@@ -159,7 +159,7 @@
         "dashboard/admin/themes/index.php": "d5091128c4ea8a4f4447fb165ea244a92cd3e6d2250c6a2215402b6d1a6fa02a",
         "dashboard/admin/themes/save.php": "af4ecf49361bfc7e62a5978ddb4747f364b1ece3bce0b56484583722cd9ecfa4",
         "dashboard/admin/themes/upload.php": "f25b401c05efca10b0a4b0301307e3460c9f92d5ea901b4fae45e33d48998729",
-        "dashboard/admin/update/index.php": "bc70228ebf066d6feed9fa8e60b60e0f2a4757331b6626839732ca89fb859ea8",
+        "dashboard/admin/update/index.php": "71a92de225e8a4fbf3d8fa3ecec436b6f2d7c4715ecf988fafe93b61f6e1f7e3",
         "dashboard/admin/upload_file.php": "186a9f1733d8f6903b3b4579caf694c9dde7140609b394969ffc1f932a5454c8",
         "dashboard/admin/upload_image.php": "7833a75eec27a213ec03f7c27ec81938096f8ced4c375f6c1a9a2293b3a6ced0",
         "dashboard/admin/users/bulk_action.php": "04b26494d00807c2a8104435205b8a75fb6dfdf07f56f06a0eeed8a345c364f3",
@@ -286,10 +286,6 @@
         "public/static/vendor/quill/quill.snow.pub.css": "a71d4389b44338c29d38b358f21f2265a923af72ead365081753d18edab00a86",
         "public/static/vendor/swiper/swiper-bundle.min.css": "74ca6aae5468dbc924790c3b4d219a089b90a34bad53a0f7ca3a73e73b6f5ab8",
         "public/static/vendor/swiper/swiper-bundle.min.js": "985f1224c0eeec99d367a9db35e58e44b21e7eb9ce45831b15b4c108e41fd97f",
-        "public/static/vendor/xterm/addon-fit.min.js": "bdaefa370b1bfc42ee88d46fe6072400902a4d4b2d45cd93438dda9b23c97089",
-        "public/static/vendor/xterm/addon-web-links.min.js": "f230a6c8211ce4614dda5441f27b603c7c1ca95151a655bc0efac6377ee643f0",
-        "public/static/vendor/xterm/xterm.min.css": "ba8e6985669488981ccf40c0cefe3aba80722cb6c92de7ad628b0bd717faf2b6",
-        "public/static/vendor/xterm/xterm.min.js": "1f991ac3b4b283ebf96e60ae23a00a52765dd3a2e46fa6fdda9f1aab032f7495",
         "public/views/.htaccess": "29aee3eaf6069b576533459203c9499d5b200176262ae5f374be38f6a183c902",
         "public/views/partials/shortcodes/post_cat/card2.php": "f7eac9aaaec33c0575107a5ab0de33e915877864dd56dd1c0cc2c93a179ed864",
         "public/views/partials/shortcodes/post_cat/cards.php": "5d1b768ca97b3ee8bee7378ad0efc971b7a629dbfaa707a4403f6a8a3bb24846",
@@ -307,6 +303,6 @@
         "public/views/widget/search_form.php": "fc54bc3193a2fa4faa651f2f6ca07b6a643cfa8f5f7488b8fc818a4d4fb9d6ff",
         "schema/default.sql": "0c5136a378218ba740402937fa9a16584ad90f1987a4a069941ef134aa53803b",
         "tools/build-package.php": "72533f29953335144be292935860a55d91a2b3558ad1970084b8154b0341c05a",
-        "tools/generate-manifest.php": "b9c12abf503cfed5ae6a672fa12fc3018d6d8532a035f9ca1733d2d2020d9f62"
+        "tools/generate-manifest.php": "7bf7b5db923539207b32488e4cdcb03004119b0dade638c6a6880956f33aff38"
     }
 }

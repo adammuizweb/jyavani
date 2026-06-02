@@ -50,6 +50,9 @@ const PRESERVE_PATTERNS = [
     // Plugins
     '#^plugins/[^/]+/.+#',
 
+    // Plugin-installed vendor assets
+    '#^public/static/vendor/xterm/#',
+
     // Node modules
     '#node_modules/#',
 

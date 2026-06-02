@@ -22,6 +22,12 @@ cfg/var/plugins-disabled.json
 # public/layout.php
 # public/adiwira/bootstrap.php
 
+# Plugin-installed assets (copied by Plugin Uploader)
+public/static/vendor/xterm/
+
+# Ignore all plugin subdirectories — install via Plugin Uploader only
+plugins/*/
+
 public/static/img/2025
 public/static/img/2026
 
