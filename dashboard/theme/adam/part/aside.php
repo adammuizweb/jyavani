@@ -333,7 +333,8 @@ echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes',
         adam_nav_active($requested, 'admin/menus') ||
         adam_nav_active($requested, 'admin/shortcodes') ||
         adam_nav_active($requested, 'admin/sidebar') ||
-        adam_nav_active($requested, 'admin/plugins');
+        adam_nav_active($requested, 'admin/plugins') ||
+        adam_nav_active($requested, 'admin/update');
 
 echo '<li class="adam-nav-item' . ($isPengaturanActive ? ' is-open' : '') . '" data-prefix="admin/settings">';
 echo '<a class="adam-nav-link' . ($isPengaturanActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/?page=admin/settings/index') . '">';
@@ -376,6 +377,11 @@ if ($userRole === 'admin') {
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/plugins') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/plugins/index') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📦</span><span class="adam-nav-sublink-text">Plugins</span></a>';
+}
+
+if ($userRole === 'admin') {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/update') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/update/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔄</span><span class="adam-nav-sublink-text">Update</span></a>';
 }
 
 echo '</div>';

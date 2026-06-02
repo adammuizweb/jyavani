@@ -1,0 +1,10 @@
+{
+  "name": "Jyavani CMS",
+  "version": "2.0.2",
+  "build": "2026-06-02",
+  "edition": "Hidden Admin",
+  "php_required": "8.1",
+  "mysql_required": "5.7",
+  "author": "Adam Muiz",
+  "homepage": "https://jyavani.com"
+}
