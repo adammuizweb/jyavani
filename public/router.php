@@ -97,6 +97,18 @@ if ($pathWithSlash === $adminPath || strpos($pathWithSlash, $adminPath . '/') ==
     exit;
 }
 
+// DOWNLOAD — intro page + latest zip
+if ($prefix === 'download') {
+    require_once __DIR__ . '/../app/controllers/DownloadController.php';
+    $action = $segments[1] ?? 'intro';
+    if ($action === 'latest') {
+        DownloadController::latest($pdo);
+    } else {
+        DownloadController::intro($pdo);
+    }
+    exit;
+}
+
 // PRIVATE FILE STREAM + PDF VIEWER
 if ($prefix === 'private') {
     require_once __DIR__ . '/../app/controllers/PrivateFileController.php';

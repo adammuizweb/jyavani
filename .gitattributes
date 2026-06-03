@@ -1,0 +1,6 @@
+/.env          export-ignore
+/private_files  export-ignore
+/cfg/var/sessions export-ignore
+/cfg/var/terminal-tokens export-ignore
+/plugins/*/    export-ignore
+/.gitignore    export-ignore
