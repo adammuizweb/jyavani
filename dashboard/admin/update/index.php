@@ -184,6 +184,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // --- Clear pending update ---
+    if ($action === 'clear_pending') {
+        ensure_session_started(true);
+        unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url'], $_SESSION['cms_update_package'], $_SESSION['cms_update_remote_url']);
+        adiwira_redirect_with_flash($selfUrl, 'info', 'Pending update dibatalkan.');
+    }
+
+    // --- Reinstall CMS (force overwrite same version) ---
+    if ($action === 'reinstall') {
+        $url = trim((string)($_POST['reinstall_url'] ?? ''));
+        if ($url === '') {
+            adiwira_redirect_with_flash($selfUrl, 'error', 'URL reinstall tidak boleh kosong.');
+        }
+
+        $tmpZip = sys_get_temp_dir() . '/cms-reinstall-' . bin2hex(random_bytes(8)) . '.zip';
+        $ctx = stream_context_create([
+            'http' => [
+                'timeout' => 120,
+                'user_agent' => 'JyavaniCMS-Reinstall/' . ($currentVersion['version'] ?? '0.0.0'),
+            ],
+        ]);
+
+        $zipData = @file_get_contents($url, false, $ctx);
+        if ($zipData === false) {
+            @unlink($tmpZip);
+            adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal download package reinstall.');
+        }
+        file_put_contents($tmpZip, $zipData);
+
+        $dummyManifest = [
+            'name' => $currentVersion['name'] ?? 'Jyavani CMS',
+            'version' => $currentVersion['version'] ?? '0.0.0',
+            'build' => date('Y-m-d'),
+        ];
+        $result = _apply_cms_update_from_zip($tmpZip, $dummyManifest, $currentVersion['version'] ?? '0.0.0');
+        @unlink($tmpZip);
+
+        if ($result['success']) {
+            adiwira_redirect_with_flash($base . '/?page=admin/update/index', 'success', 'Reinstall selesai! ' . $result['message']);
+        } else {
+            adiwira_redirect_with_flash($selfUrl, 'error', $result['message']);
+        }
+    }
+
     adiwira_redirect_with_flash($selfUrl, 'error', 'Aksi tidak dikenal.');
 }
 
@@ -476,6 +520,21 @@ $totalCore = $localManifest['total_files'] ?? 0;
     </form>
 </div>
 
+<div class="up-card" style="margin-top:1.25rem;border-color:var(--adam-danger)">
+    <div class="up-card-header" style="color:var(--adam-danger)">Reinstall CMS</div>
+    <p class="up-hint">Timpa semua file inti CMS dengan versi original. Cocok jika ada file yang rusak. Data (<code>cfg/.env</code>, tema, plugin, upload) tetap aman.</p>
+
+    <form method="post" class="up-form" onsubmit="return confirm('Yakin reinstall? Semua file inti CMS akan ditimpa dengan versi original. Backup otomatis dibuat.')">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+        <input type="hidden" name="action" value="reinstall">
+        <label class="up-label">Download URL</label>
+        <input type="url" name="reinstall_url" class="up-input"
+               value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
+               placeholder="https://example.com/download/latest/">
+        <button type="submit" class="btn btn-danger">Reinstall Now</button>
+    </form>
+</div>
+
 <div class="up-card" style="margin-top:1.25rem">
     <div class="up-card-header">What Gets Updated</div>
     <p class="up-hint">Update hanya memengaruhi file inti CMS. Data berikut TIDAK akan disentuh:</p>
@@ -500,6 +559,9 @@ $totalCore = $localManifest['total_files'] ?? 0;
 .up-card { border:1px solid var(--adam-border); border-radius:var(--adam-radius); padding:1rem; background:var(--adam-card); }
 .up-card-warning { border-color:#f59e0b; background:#fffbeb; }
 html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .up-card-warning { border-color:#d97706; background:#1a1500; }
+}
 .up-card-header { font-size:.9rem; font-weight:600; margin-bottom:.75rem; text-transform:uppercase; letter-spacing:.03em; color:var(--adam-muted); }
 .up-table { width:100%; border-collapse:collapse; font-size:.875rem; }
 .up-table td { padding:.35rem .5rem; border-bottom:1px solid var(--adam-surface-3); color:var(--adam-text); }
@@ -520,6 +582,8 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
 .btn-primary:hover { background:var(--adam-primary-600); }
 .btn-outline { background:transparent; color:var(--adam-muted); border-color:var(--adam-border-2); }
 .btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
+.btn-danger { background:var(--adam-danger); color:#fff; border-color:var(--adam-danger); }
+.btn-danger:hover { background:var(--adam-danger-600); }
 </style>
 
 <script>
