@@ -198,6 +198,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             adiwira_redirect_with_flash($selfUrl, 'error', 'URL reinstall tidak boleh kosong.');
         }
 
+        $hardReset = !empty($_POST['hard_reset']);
+
         $tmpZip = sys_get_temp_dir() . '/cms-reinstall-' . bin2hex(random_bytes(8)) . '.zip';
         $ctx = stream_context_create([
             'http' => [
@@ -221,8 +223,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = _apply_cms_update_from_zip($tmpZip, $dummyManifest, $currentVersion['version'] ?? '0.0.0');
         @unlink($tmpZip);
 
+        if ($hardReset) {
+            $resetMessages = _reinstall_hard_reset($pdo);
+        }
+
         if ($result['success']) {
-            adiwira_redirect_with_flash($base . '/?page=admin/update/index', 'success', 'Reinstall selesai! ' . $result['message']);
+            $msg = 'Reinstall selesai! ' . $result['message'];
+            if (!empty($resetMessages)) {
+                $msg .= ' ' . implode(' ', $resetMessages);
+            }
+            adiwira_redirect_with_flash($base . '/?page=admin/update/index', 'success', $msg);
         } else {
             adiwira_redirect_with_flash($selfUrl, 'error', $result['message']);
         }
@@ -433,6 +443,53 @@ function _get_local_manifest(): ?array {
     return is_array($d) ? $d : null;
 }
 
+// --- Helper: hard reset DB settings ---
+function _reinstall_hard_reset(PDO $pdo): array {
+    $msgs = [];
+
+    // 1. Reset active theme in settings
+    $pdo->exec("UPDATE settings SET value = 'default' WHERE key = 'active_theme'");
+    $msgs[] = 'Tema direset ke default.';
+
+    // 2. Reset theme active flag + slot assignments
+    $pdo->exec("UPDATE themes SET is_active = 0");
+    $pdo->exec("UPDATE themes SET is_active = 1 WHERE id = 1 OR folder_name = 'default'");
+    $pdo->exec("DELETE FROM assignments");
+    $pdo->exec("INSERT INTO assignments (slot_key, theme_id, theme_file) VALUES
+        ('header', 1, 'header.php'),
+        ('footer', 1, 'footer.php'),
+        ('sidebar', 1, 'sidebar.php'),
+        ('main.homepage', 1, 'main/homepage.php')");
+    $msgs[] = 'Slot assignments direset.';
+
+    // 3. Reset sidebar zone items
+    $pdo->exec("DELETE FROM sidebar_zone_items");
+    $zoneId = $pdo->query("SELECT id FROM sidebar_zones WHERE slug = 'main'")->fetchColumn();
+    if ($zoneId) {
+        $pdo->prepare("INSERT IGNORE INTO sidebar_zone_items (zone_id, type, title, config, ordering, active) VALUES
+            (?, 'search', 'Cari', '{\"title\":\"Cari\",\"placeholder\":\"Cari artikel...\"}', 0, 1),
+            (?, 'last_posts', 'Artikel Terbaru', '{\"title\":\"Artikel Terbaru\",\"limit\":5,\"type\":\"article\"}', 1, 1),
+            (?, 'categories', 'Kategori', '{\"title\":\"Kategori\",\"limit\":30,\"only_parents\":true}', 2, 1)")->execute([$zoneId, $zoneId, $zoneId]);
+        $msgs[] = 'Sidebar items direset.';
+    }
+
+    // 4. Reset menu items
+    $menuId = $pdo->query("SELECT id FROM menus WHERE slug = 'primary'")->fetchColumn();
+    if ($menuId) {
+        $pdo->exec("DELETE FROM menu_items WHERE menu_id = " . (int)$menuId);
+        $pdo->prepare("INSERT INTO menu_items (menu_id, parent_id, sort_order, type, label, url, target_id, target_blank) VALUES
+            (?, NULL, 0, 'custom', 'Home', '/', NULL, 0),
+            (?, NULL, 1, 'category', 'Blog', NULL, 1, 0),
+            (?, NULL, 2, 'category', 'Services', NULL, 2, 0)")->execute([$menuId, $menuId, $menuId]);
+        $msgs[] = 'Menu items direset.';
+    }
+
+    // 5. Reset general settings
+    $pdo->exec("UPDATE settings SET value = '10' WHERE key = 'posts_per_page'");
+
+    return $msgs;
+}
+
 // --- Helper: version info from session ---
 ensure_session_started(false);
 $pendingUpdate = $_SESSION['cms_update_remote'] ?? null;
@@ -531,9 +588,29 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <input type="url" name="reinstall_url" class="up-input"
                value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
                placeholder="https://example.com/download/latest/">
+        <label class="up-checkline">
+            <input type="checkbox" name="hard_reset" value="1" id="chkHard">
+            Hard reset &mdash; reset tema, slot, sidebar, dan menu ke default
+        </label>
+        <div class="up-hint" id="hintHard" style="display:none;margin-top:-.3rem;margin-bottom:.3rem;border-left:3px solid var(--adam-danger);padding-left:.6rem">
+            Tema akan direset ke default, semua kustomisasi slot/sidebar/menu akan hilang.
+            Konten (postingan, halaman, media, user) TIDAK terpengaruh.
+        </div>
         <button type="submit" class="btn btn-danger">Reinstall Now</button>
     </form>
 </div>
+
+<script>
+(function(){
+    var chk = document.getElementById('chkHard');
+    var hint = document.getElementById('hintHard');
+    if (chk && hint) {
+        chk.addEventListener('change', function(){
+            hint.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+})();
+</script>
 
 <div class="up-card" style="margin-top:1.25rem">
     <div class="up-card-header">What Gets Updated</div>
@@ -577,6 +654,8 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
 .up-list { margin:.5rem 0; padding-left:1.25rem; font-size:.85rem; color:var(--adam-text-2); }
 .up-list li { margin-bottom:.3rem; }
 .up-list code { background:var(--adam-surface-3); padding:.1rem .3rem; border-radius:3px; font-size:.8rem; }
+.up-checkline { display:flex; gap:.5rem; align-items:center; font-size:.85rem; color:var(--adam-text-2); cursor:pointer; padding:.3rem 0; }
+.up-checkline input[type=checkbox] { accent-color:var(--adam-danger); width:16px; height:16px; }
 .btn { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .75rem; font-size:.8rem; font-weight:500; border-radius:6px; cursor:pointer; border:1px solid transparent; font-family:inherit; line-height:1; text-decoration:none; }
 .btn-primary { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
 .btn-primary:hover { background:var(--adam-primary-600); }
