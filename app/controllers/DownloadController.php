@@ -3,13 +3,14 @@ declare(strict_types=1);
 
 class DownloadController
 {
-    private const VERSION_FILE = __DIR__ . '/../../VERSION';
+    private const VERSION_JSON = __DIR__ . '/../../version.json';
+    private const MANIFEST_JSON = __DIR__ . '/../../tools/cms-manifest.json';
     private const GIT_DIR = __DIR__ . '/../../.git';
-    // Files to exclude are defined in .gitattributes (export-ignore)
 
     public static function intro(PDO $pdo): void
     {
-        $version = self::readVersion();
+        $info = self::readVersionInfo();
+        $version = $info['version'] ?? 'dev';
 
         $page_title = 'Download Jyavani CMS';
         $context_for_layout = 'download';
@@ -26,7 +27,7 @@ class DownloadController
         } else {
             echo '<section class="page-content" style="max-width:720px;margin:2rem auto;padding:0 1rem">';
             echo '<h1>Jyavani CMS</h1>';
-            echo '<p>CMS native PHP tanpa framework. Cepat, ringan, dan mudah dikustomisasi.</p>';
+            echo '<p>CMS native PHP tanpa framework.</p>';
             echo '<p><a href="/download/latest/" class="btn">Download v' . e($version) . '</a></p>';
             echo '</section>';
         }
@@ -38,30 +39,50 @@ class DownloadController
 
     public static function latest(PDO $pdo): void
     {
-        $version = self::readVersion();
+        $info = self::readVersionInfo();
 
         if (isset($_GET['format']) && $_GET['format'] === 'json') {
-            self::serveVersionJson($version);
+            self::serveVersionJson($info);
             return;
         }
 
-        self::serveZip($version);
+        self::serveZip($info['version']);
     }
 
-    private static function readVersion(): string
+    private static function readVersionInfo(): array
     {
-        $file = realpath(self::VERSION_FILE);
+        $default = [
+            'name'           => 'Jyavani CMS',
+            'version'        => 'dev',
+            'build'          => '',
+            'edition'        => 'Hidden Admin',
+            'php_required'   => '8.1',
+            'mysql_required' => '5.7',
+            'author'         => 'Adam Muiz',
+            'homepage'       => 'https://jyavani.com',
+        ];
+
+        $file = realpath(self::VERSION_JSON);
         if ($file && is_file($file)) {
-            $v = trim(file_get_contents($file));
-            if ($v !== '') {
-                return $v;
+            $data = json_decode(file_get_contents($file), true);
+            if (is_array($data)) {
+                return array_merge($default, $data);
             }
         }
-        return 'dev';
+        return $default;
     }
 
-    private static function serveVersionJson(string $version): void
+    private static function serveVersionJson(array $info): void
     {
+        $totalFiles = 0;
+        $manifestFile = realpath(self::MANIFEST_JSON);
+        if ($manifestFile && is_file($manifestFile)) {
+            $m = json_decode(file_get_contents($manifestFile), true);
+            if (is_array($m) && isset($m['total_files'])) {
+                $totalFiles = (int)$m['total_files'];
+            }
+        }
+
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? 'jyavani.com';
         $base = $scheme . '://' . $host;
@@ -70,34 +91,16 @@ class DownloadController
         header('Cache-Control: no-cache');
 
         echo json_encode([
-            'version'      => $version,
-            'download_url' => $base . '/download/latest/',
-            'release_date' => self::getReleaseDate(),
-            'name'         => 'Jyavani CMS',
+            'name'           => $info['name'] ?? 'Jyavani CMS',
+            'version'        => $info['version'] ?? 'dev',
+            'build'          => $info['build'] ?? '',
+            'edition'        => $info['edition'] ?? 'Hidden Admin',
+            'php_required'   => $info['php_required'] ?? '8.1',
+            'mysql_required' => $info['mysql_required'] ?? '5.7',
+            'total_files'    => $totalFiles,
+            'download_url'   => $base . '/download/latest/',
         ], JSON_UNESCAPED_SLASHES);
         exit;
-    }
-
-    private static function getReleaseDate(): string
-    {
-        $gitDir = realpath(self::GIT_DIR);
-        if ($gitDir && is_dir($gitDir)) {
-            $head = @file_get_contents($gitDir . '/HEAD');
-            if ($head && preg_match('#^ref:\s+(refs/heads/\S+)#m', $head, $m)) {
-                $refPath = $gitDir . '/' . $m[1];
-                if (is_file($refPath)) {
-                    $log = $gitDir . '/logs/' . $m[1];
-                    if (is_file($log)) {
-                        $lines = file($log);
-                        $last = trim(end($lines));
-                        if ($last && preg_match('/^[\d]+\s+[\d]+\s+([\d.+\-: ]+)/', $last, $dm)) {
-                            return date('c', (int)strtotime($dm[1]));
-                        }
-                    }
-                }
-            }
-        }
-        return date('c');
     }
 
     private static function serveZip(string $version): void

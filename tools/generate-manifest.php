@@ -93,7 +93,7 @@ foreach ($it as $fileinfo) {
     $topDir = $parts[0];
 
     $allowedDirs = ['app', 'cfg', 'dashboard', 'public', 'schema', 'tools'];
-    $allowedRootFiles = ['version.json', 'router.php'];
+    $allowedRootFiles = ['version.json', 'router.php', 'VERSION', '.gitattributes'];
 
     if (!in_array($topDir, $allowedDirs, true)) {
         continue; // Skip random root-level files

@@ -37,9 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- Check remote update ---
     if ($action === 'check_remote') {
-        $remoteUrl = trim((string)($_POST['update_url'] ?? ''));
-        if ($remoteUrl === '') {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'URL update manifest tidak boleh kosong.');
+        $inputUrl = trim((string)($_POST['update_url'] ?? ''));
+        if ($inputUrl === '') {
+            adiwira_redirect_with_flash($selfUrl, 'error', 'URL update tidak boleh kosong.');
         }
 
         $ctx = stream_context_create([
@@ -49,20 +49,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ],
         ]);
 
-        $remoteJson = @file_get_contents($remoteUrl, false, $ctx);
+        // If URL ends with .json, treat as manifest URL (backward compat).
+        // Otherwise, auto-append ?format=json for version check.
+        if (preg_match('/\.json$/i', $inputUrl)) {
+            $checkUrl = $inputUrl;
+            $_SESSION['cms_update_base_url'] = dirname($inputUrl);
+        } else {
+            $sep = (str_contains($inputUrl, '?')) ? '&' : '?';
+            $checkUrl = $inputUrl . $sep . 'format=json';
+            $_SESSION['cms_update_base_url'] = $inputUrl;
+        }
+
+        $remoteJson = @file_get_contents($checkUrl, false, $ctx);
         if ($remoteJson === false) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengambil update manifest dari URL: ' . htmlspecialchars($remoteUrl));
+            adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengambil info update dari URL: ' . htmlspecialchars($inputUrl));
         }
 
         $remote = json_decode($remoteJson, true);
         if (!is_array($remote) || !isset($remote['version'])) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Format manifest remote tidak valid.');
+            adiwira_redirect_with_flash($selfUrl, 'error', 'Format respons remote tidak valid (dibutuhkan: version).');
         }
 
         // Store in session for the apply step
         ensure_session_started(true);
         $_SESSION['cms_update_remote'] = $remote;
-        $_SESSION['cms_update_remote_url'] = $remoteUrl;
 
         $localVer = $currentVersion['version'] ?? '0.0.0';
         $remoteVer = $remote['version'] ?? '0.0.0';
@@ -81,14 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'apply_update') {
         ensure_session_started(true);
         $remote = $_SESSION['cms_update_remote'] ?? null;
-        $remoteUrl = $_SESSION['cms_update_remote_url'] ?? '';
+        $baseUrl = $_SESSION['cms_update_base_url'] ?? '';
 
         if (!$remote) {
             adiwira_redirect_with_flash($selfUrl, 'error', 'Tidak ada data update di session. Lakukan "Check for Updates" dulu.');
         }
 
-        $result = _apply_cms_update($remote, $remoteUrl, $currentVersion['version'] ?? '0.0.0');
-        unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_remote_url']);
+        $result = _apply_cms_update($remote, $baseUrl, $currentVersion['version'] ?? '0.0.0');
+        unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url']);
 
         if ($result['success']) {
             adiwira_redirect_with_flash($base . '/?page=admin/update/index', 'success', $result['message']);
@@ -226,8 +236,11 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         return ['success' => false, 'message' => 'Package update kosong.'];
     }
 
-    // Build list of remote files from manifest
-    $remoteFiles = $remoteManifest['files'] ?? [];
+    // Build list of remote files from manifest (null = no file-level filtering)
+    $remoteFiles = null;
+    if (isset($remoteManifest['files']) && is_array($remoteManifest['files'])) {
+        $remoteFiles = $remoteManifest['files'];
+    }
     $preservePatterns = _get_preserve_patterns();
 
     // Create backup dir
@@ -257,8 +270,8 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         }
         if ($isPreserved) continue;
 
-        // Check if this file is in the remote manifest
-        if (!isset($remoteFiles[$filename])) continue;
+        // If manifest provides a file list, only update files listed in it
+        if ($remoteFiles !== null && !isset($remoteFiles[$filename])) continue;
 
         $targetPath = $projectRoot . '/' . $filename;
 
@@ -292,36 +305,31 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     $zip->close();
 
     // Delete files that exist locally but not in remote manifest
-    $localManifest = _get_local_manifest();
-    if ($localManifest) {
-        $localFiles = $localManifest['files'] ?? [];
-        $remoteFileKeys = array_keys($remoteFiles);
-        $deleted = 0;
-
-        foreach ($localFiles as $localRelPath => $hash) {
-            // Skip if still in remote
-            if (isset($remoteFiles[$localRelPath])) continue;
-
-            // Skip preserved paths
-            $isPreserved = false;
-            foreach ($preservePatterns as $pattern) {
-                if (preg_match($pattern, $localRelPath)) {
-                    $isPreserved = true;
-                    break;
+    // (only when remote manifest provides a file list)
+    $deleted = 0;
+    if ($remoteFiles !== null) {
+        $localManifest = _get_local_manifest();
+        if ($localManifest) {
+            $localFiles = $localManifest['files'] ?? [];
+            foreach ($localFiles as $localRelPath => $hash) {
+                if (isset($remoteFiles[$localRelPath])) continue;
+                $isPreserved = false;
+                foreach ($preservePatterns as $pattern) {
+                    if (preg_match($pattern, $localRelPath)) {
+                        $isPreserved = true;
+                        break;
+                    }
                 }
-            }
-            if ($isPreserved) continue;
-
-            $localPath = $projectRoot . '/' . $localRelPath;
-            if (is_file($localPath)) {
-                // Backup first
-                $backupPath = $backupDir . '/' . $localRelPath;
-                $backupParent = dirname($backupPath);
-                if (!is_dir($backupParent)) @mkdir($backupParent, 0755, true);
-                @copy($localPath, $backupPath);
-
-                @unlink($localPath);
-                $deleted++;
+                if ($isPreserved) continue;
+                $localPath = $projectRoot . '/' . $localRelPath;
+                if (is_file($localPath)) {
+                    $backupPath = $backupDir . '/' . $localRelPath;
+                    $backupParent = dirname($backupPath);
+                    if (!is_dir($backupParent)) @mkdir($backupParent, 0755, true);
+                    @copy($localPath, $backupPath);
+                    @unlink($localPath);
+                    $deleted++;
+                }
             }
         }
     }
@@ -385,10 +393,10 @@ function _get_local_manifest(): ?array {
 ensure_session_started(false);
 $pendingUpdate = $_SESSION['cms_update_remote'] ?? null;
 $pendingPackage = $_SESSION['cms_update_package'] ?? null;
-$pendingUrl = $_SESSION['cms_update_remote_url'] ?? '';
+$pendingUrl = $_SESSION['cms_update_remote_url'] ?? $_SESSION['cms_update_base_url'] ?? '';
 
 // Suggest default update URL
-$defaultUpdateUrl = 'https://raw.githubusercontent.com/adammuiz/jyavani-cms/main/tools/cms-manifest.json';
+$defaultUpdateUrl = 'https://jyavani.com/download/latest/';
 
 // Compute file stats
 $totalCore = $localManifest['total_files'] ?? 0;
@@ -415,12 +423,12 @@ $totalCore = $localManifest['total_files'] ?? 0;
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
             <input type="hidden" name="action" value="check_remote">
 
-            <label class="up-label">Update Manifest URL</label>
+            <label class="up-label">Update URL</label>
             <input type="url" name="update_url" class="up-input"
                    value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
-                   placeholder="https://example.com/cms-manifest.json">
+                   placeholder="https://example.com/download/latest/">
 
-            <div class="up-hint">URL ke file <code>cms-manifest.json</code> dari versi terbaru. Bisa dari GitHub, CDN, atau server sendiri.</div>
+            <div class="up-hint">URL ke download endpoint versi terbaru. Secara otomatis ditambahi <code>?format=json</code> untuk pengecekan versi.</div>
 
             <button type="submit" class="btn btn-primary">Check for Updates</button>
         </form>
