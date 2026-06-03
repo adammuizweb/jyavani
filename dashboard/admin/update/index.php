@@ -715,6 +715,8 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
 .reset-cb label { display:flex; gap:.5rem; align-items:center; cursor:pointer; padding:.25rem .4rem; border-radius:6px; transition:background .12s; }
 .reset-cb label:hover { background:var(--adam-hover); }
 .reset-cb input[type=checkbox] { accent-color:var(--adam-danger); width:15px; height:15px; }
+#resetApplyBtn:disabled { background:var(--adam-muted); border-color:var(--adam-border-2); color:#fff; cursor:not-allowed; opacity:1; }
+#resetApplyBtn:disabled:hover { background:var(--adam-muted); }
 </style>
 
 <script>
