@@ -75,7 +75,7 @@ $prefix = $segments[0] ?? '';
 
 // CUSTOM LOGIN / REGISTER PATHS
 $loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'adiwira/gerbank/melbu';
-$registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'adiwira/gerbank/daptar';
+$registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'register';
 
 if (function_exists('auth_path_matches')) {
     if (auth_path_matches($loginPath)) {

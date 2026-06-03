@@ -79,23 +79,23 @@ function auth_path_matches(string $configuredPath): bool {
 }
 
 /**
- * get_login_path — read login_path with fallback to old login_slug
+ * get_login_path — read login_path setting (default: 'login')
  */
 function get_login_path(PDO $pdo): string {
-    $path = settings_get($pdo, 'login_path', 'adiwira/gerbank/melbu') ?? 'adiwira/gerbank/melbu';
-    if ($path === 'adiwira/gerbank/melbu') {
-        $oldSlug = settings_get($pdo, 'login_slug', '');
-        if ($oldSlug !== '' && $oldSlug !== 'gerbank') {
-            $path = 'adiwira/' . $oldSlug . '/melbu';
-        }
-    }
-    return $path;
+    return settings_get($pdo, 'login_path', 'login') ?? 'login';
 }
 
 /**
- * get_admin_path — read admin_path setting (default: 'adiwira')
+ * get_admin_path — read admin_path setting (default: 'dashboard')
  */
 function get_admin_path(PDO $pdo): string {
-    $path = settings_get($pdo, 'admin_path', 'adiwira') ?? 'adiwira';
+    $path = settings_get($pdo, 'admin_path', 'dashboard') ?? 'dashboard';
     return '/' . trim($path, '/');
+}
+
+/**
+ * get_register_path — read register_path setting (default: 'register')
+ */
+function get_register_path(PDO $pdo): string {
+    return settings_get($pdo, 'register_path', 'register') ?? 'register';
 }

@@ -125,6 +125,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->execute(['site_title', $siteTitle]);
                 $st->execute(['site_description', $siteDesc]);
                 $st->execute(['site_url', $siteUrl]);
+                $st->execute(['admin_path', 'dashboard']);
+                $st->execute(['login_path', 'login']);
+                $st->execute(['register_path', 'register']);
 
                 // write .env
                 $sessionName = 'sess_' . bin2hex(random_bytes(4));
@@ -261,7 +264,11 @@ if ($step === 1) {
         . '<div class="fin">&#10004;</div>'
         . '<p style="text-align:center;font-size:1.125rem;font-weight:600;margin-bottom:4px;">Instalasi Selesai!</p>'
         . '<p style="text-align:center;color:#64748b;font-size:.875rem;margin-bottom:20px;">Hapus folder <code>pondasi/</code> dari server.</p>'
-        . '<a class="btn" href="/adiwira/gerbank/melbu/" style="text-decoration:none;text-align:center;">Masuk ke Dashboard</a>';
+        . '<p style="text-align:center;font-size:.8125rem;color:#475569;margin-bottom:16px;">'
+        . '<a href="/login/" style="color:#6366f1;">Login</a> &middot; '
+        . '<a href="/dashboard/" style="color:#6366f1;">Dashboard</a>'
+        . '</p>'
+        . '<a class="btn" href="/login/" style="text-decoration:none;text-align:center;">Masuk ke Dashboard</a>';
     render('Instalasi Selesai', $s);
 
 } else {

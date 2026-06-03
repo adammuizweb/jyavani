@@ -188,3 +188,45 @@ function plugin_delete(string $name): bool {
 
     return empty($errors);
 }
+
+// --- Setup checks (for plugin detail page) ---
+function plugin_checks(string $name): array {
+    $manifest = plugin_manifest($name);
+    if (!$manifest || !isset($manifest['setup']['checks'])) return [];
+
+    $results = [];
+    $pluginDir = PLUGIN_PATH . '/' . $name;
+    $projectRoot = defined('PROJECT_ROOT') ? PROJECT_ROOT : dirname(PLUGIN_PATH);
+
+    foreach ($manifest['setup']['checks'] as $i => $check) {
+        $label = $check['label'] ?? 'Check ' . ($i + 1);
+        $cmd = $check['check'] ?? '';
+        $tip = $check['doc'] ?? '';
+        $runCmd = $check['command'] ?? '';
+
+        // Replace placeholders
+        $expanded = str_replace(
+            ['{plugin_dir}', '{project_root}'],
+            [$pluginDir, $projectRoot],
+            $cmd
+        );
+
+        // Evaluate check
+        $passed = false;
+        $output = null;
+        if ($expanded !== '') {
+            exec($expanded . ' 2>&1', $output, $exitCode);
+            $passed = $exitCode === 0;
+        }
+
+        $results[] = [
+            'label' => $label,
+            'passed' => $passed,
+            'command' => $runCmd,
+            'doc' => $tip,
+            'raw_output' => $output ? implode("\n", $output) : '',
+        ];
+    }
+
+    return $results;
+}

@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     }
 
     // Extract to temp dir first
-    $tmpExtract = sys_get_temp_dir() . '/plugin-extract-' . bin2hex(random_bytes(8));
+    $tmpExtract = PLUGIN_PATH . '/.extract-' . bin2hex(random_bytes(8));
     if (!mkdir($tmpExtract, 0755, true)) {
         $zip->close();
         adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal membuat temporary directory.');
@@ -142,9 +142,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         RecursiveIteratorIterator::SELF_FIRST
     );
     foreach ($chmodIt as $item) {
-        $item->isDir()
-            ? @chmod($item->getPathname(), 0775)
-            : @chmod($item->getPathname(), 0664);
+        if ($item->isDir()) {
+            @chmod($item->getPathname(), 0775);
+        } else {
+            $ext = pathinfo($item->getFilename(), PATHINFO_EXTENSION);
+            $mode = ($ext === 'sh') ? 0775 : 0664;
+            @chmod($item->getPathname(), $mode);
+        }
     }
     @chgrp($pluginDir, 'www-data');
     // Use shell to propagate group recursively (PHP chgrp doesn't support recursion)
@@ -191,22 +195,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         }
     }
 
-    // --- Run install.sh if present ---
-    $installScript = $pluginDir . '/install.sh';
-    if (is_file($installScript) && is_executable($installScript)) {
-        $outputLines = [];
-        $returnCode = -1;
-        exec('bash ' . escapeshellarg($installScript) . ' 2>&1', $outputLines, $returnCode);
-        if ($returnCode === 0) {
-            $flashMessages[] = 'install.sh berhasil dijalankan.';
-        } else {
-            $flashType = 'warning';
-            $flashMessages[] = 'install.sh selesai dengan kode ' . $returnCode . '. Output: ' . implode("\n", array_slice($outputLines, -5));
-        }
-    } elseif (is_file($installScript)) {
-        $flashMessages[] = 'install.sh ditemukan tapi tidak executable. Jalankan manual: chmod +x ' . htmlspecialchars($pluginDir . '/install.sh');
-    }
-
     // --- Enable plugin ---
     if (function_exists('plugin_enable')) {
         plugin_enable($pluginName);
@@ -248,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
 
     <div class="form-actions">
         <a href="<?= htmlspecialchars($listUrl) ?>" class="btn btn-outline">Kembali</a>
-        <button type="submit" class="btn btn-primary" id="submitBtn">Upload & Install</button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">Upload Plugin</button>
     </div>
 </form>
 

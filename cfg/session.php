@@ -87,7 +87,7 @@ if (!is_dir($session_save_path)) {
     }
 }
 if (is_dir($session_save_path)) {
-    @chmod($session_save_path, 0700);
+    @chmod($session_save_path, 02770);
     $save_user = getenv('SESSION_SAVE_USER') ?: null;
     if ($save_user) {
         @chown($session_save_path, $save_user);

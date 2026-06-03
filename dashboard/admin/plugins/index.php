@@ -95,7 +95,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
     ?>
     <tr>
       <td>
-        <strong><?= h($title) ?></strong>
+        <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="plugin-name-link"><?= h($title) ?></a>
         <?php if ($desc): ?><br><span class="text-muted" style="font-size:0.85rem"><?= h($desc) ?></span><?php endif; ?>
         <?php if ($author): ?><br><span class="text-muted" style="font-size:0.8rem">oleh <?= h($author) ?></span><?php endif; ?>
       </td>
@@ -109,6 +109,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
       </td>
       <td>
         <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+        <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="btn btn-sm btn-outline">Detail</a>
         <form method="post" style="display:inline">
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="toggle">
@@ -155,5 +156,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 .btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
 .btn-danger { background:var(--adam-danger); color:#fff; border-color:var(--adam-danger); }
 .btn-danger:hover { background:var(--adam-danger-600); }
+.plugin-name-link { color:var(--adam-text); font-weight:600; text-decoration:none; }
+.plugin-name-link:hover { color:var(--adam-primary); text-decoration:underline; }
 </style>
 </parameter>
