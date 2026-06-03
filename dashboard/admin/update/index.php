@@ -601,7 +601,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
     <div class="up-card-header" style="color:var(--adam-danger)">Reinstall CMS</div>
     <p class="up-hint">Timpa semua file inti CMS dengan versi original. Cocok jika ada file yang rusak. Data (<code>cfg/.env</code>, tema, plugin, upload) tetap aman.</p>
 
-    <form method="post" class="up-form" onsubmit="return confirm('Yakin reinstall? Semua file inti CMS akan ditimpa dengan versi original. Backup otomatis dibuat.')">
+    <form method="post" class="up-form" onsubmit="return confirmReinstall(event)">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <input type="hidden" name="action" value="reinstall">
         <label class="up-label">Download URL</label>
@@ -620,17 +620,32 @@ $totalCore = $localManifest['total_files'] ?? 0;
     </form>
 </div>
 
-<script>
-(function(){
-    var chk = document.getElementById('chkHard');
-    var hint = document.getElementById('hintHard');
-    if (chk && hint) {
-        chk.addEventListener('change', function(){
-            hint.style.display = this.checked ? 'block' : 'none';
-        });
-    }
-})();
-</script>
+<!-- Hard reset confirmation modal -->
+<div class="adam-modal" id="resetModal">
+    <div class="adam-modal__panel" style="max-width:480px">
+        <div class="adam-modal__title">Konfirmasi Hard Reset</div>
+        <div class="adam-modal__text">
+            <p style="margin-bottom:.75rem;font-weight:600">Hard reset akan melakukan perubahan berikut:</p>
+            <ul class="reset-checklist">
+                <li class="reset-warn">File inti CMS ditimpa dengan versi original</li>
+                <li class="reset-warn">Tema direset ke <strong>default</strong></li>
+                <li class="reset-warn">Auth paths: admin → <code>/dashboard/</code>, login → <code>/login/</code>, register → <code>/register/</code></li>
+                <li class="reset-warn">Semua plugin <strong>dinonaktifkan</strong> (file tetap ada)</li>
+                <li class="reset-warn">Kustomisasi slot, sidebar, dan menu direset ke bawaan</li>
+                <li class="reset-safe">Konten (postingan, halaman, media, user) <strong>AMAN</strong></li>
+                <li class="reset-safe">Konfigurasi database &amp; file upload <strong>AMAN</strong></li>
+            </ul>
+            <label class="reset-ack">
+                <input type="checkbox" id="resetAck">
+                Saya mengerti dan ingin melanjutkan hard reset
+            </label>
+        </div>
+        <div class="adam-modal__actions">
+            <button class="adam-btn adam-btn--ghost" onclick="closeResetModal()">Batal</button>
+            <button class="adam-btn adam-btn--danger" id="resetApplyBtn" disabled>Apply Hard Reset</button>
+        </div>
+    </div>
+</div>
 
 <div class="up-card" style="margin-top:1.25rem">
     <div class="up-card-header">What Gets Updated</div>
@@ -683,9 +698,61 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
 .btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
 .btn-danger { background:var(--adam-danger); color:#fff; border-color:var(--adam-danger); }
 .btn-danger:hover { background:var(--adam-danger-600); }
+.reset-checklist { list-style:none; padding:0; margin:0 0 1rem; font-size:.88rem; }
+.reset-checklist li { padding:.35rem .5rem .35rem 1.6rem; position:relative; line-height:1.4; }
+.reset-checklist li::before { position:absolute; left:0; font-weight:700; }
+.reset-warn::before { content:"\2716"; color:var(--adam-danger); }
+.reset-safe::before { content:"\2714"; color:var(--adam-success); }
+.reset-ack { display:flex; gap:.5rem; align-items:center; padding:.5rem .6rem; margin-top:.25rem; border:1px solid var(--adam-border); border-radius:8px; cursor:pointer; font-size:.85rem; color:var(--adam-text-2); background:var(--adam-surface-4); }
+.reset-ack input[type=checkbox] { accent-color:var(--adam-danger); width:16px; height:16px; }
 </style>
 
 <script>
+(function(){
+    var chk = document.getElementById('chkHard');
+    var hint = document.getElementById('hintHard');
+    if (chk && hint) {
+        chk.addEventListener('change', function(){
+            hint.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+})();
+
+function confirmReinstall(e){
+    var hard = document.getElementById('chkHard');
+    if (!hard || !hard.checked) {
+        return confirm('Yakin reinstall? Semua file inti CMS akan ditimpa. Backup otomatis dibuat.');
+    }
+    e.preventDefault();
+    var modal = document.getElementById('resetModal');
+    var ack = document.getElementById('resetAck');
+    var btn = document.getElementById('resetApplyBtn');
+    if (!modal || !ack || !btn) return true;
+    ack.checked = false;
+    btn.disabled = true;
+    modal.style.display = 'flex';
+    return false;
+}
+
+function closeResetModal(){
+    var modal = document.getElementById('resetModal');
+    if (modal) modal.style.display = 'none';
+}
+
+(function(){
+    var ack = document.getElementById('resetAck');
+    var btn = document.getElementById('resetApplyBtn');
+    if (ack && btn) {
+        ack.addEventListener('change', function(){
+            btn.disabled = !this.checked;
+        });
+        btn.addEventListener('click', function(){
+            var form = document.querySelector('.up-card[style*="border-color:var(--adam-danger)"] form');
+            if (form) form.submit();
+        });
+    }
+})();
+
 (function(){
     var fileInput = document.getElementById('upFile');
     var upBtn = document.getElementById('upBtn');
