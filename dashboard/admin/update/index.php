@@ -429,6 +429,7 @@ function _get_preserve_patterns(): array {
         '#^public/pdf/#',
         '#^public/views/themes/[^/]+/.+#',
         '#^plugins/[^/]+/.+#',
+        '#^plugin-store/#',
         '#node_modules/#',
         '#\.git/#',
         '#^\.gitignore$#',
