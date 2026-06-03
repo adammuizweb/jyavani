@@ -484,8 +484,28 @@ function _reinstall_hard_reset(PDO $pdo): array {
         $msgs[] = 'Menu items direset.';
     }
 
-    // 5. Reset general settings
-    $pdo->exec("UPDATE settings SET value = '10' WHERE key = 'posts_per_page'");
+    // 5. Reset auth paths to defaults
+    $pdo->exec("REPLACE INTO settings (`key`, `value`, `autoload`) VALUES
+        ('admin_path', 'dashboard', 1),
+        ('login_path', 'login', 1),
+        ('register_path', 'register', 1)");
+    $msgs[] = 'Auth paths direset (admin: /dashboard/, login: /login/).';
+
+    // 6. Disable all plugins (not deleted)
+    $pluginDir = dirname(DASH_PATH) . '/plugins';
+    $pluginNames = [];
+    foreach (glob($pluginDir . '/*/plugin.json') as $manifestFile) {
+        $name = basename(dirname($manifestFile));
+        if ($name !== '') $pluginNames[] = $name;
+    }
+    if (!empty($pluginNames)) {
+        $disabledFile = dirname(DASH_PATH) . '/cfg/var/plugins-disabled.json';
+        file_put_contents($disabledFile, json_encode($pluginNames), LOCK_EX);
+        $msgs[] = count($pluginNames) . ' plugin dinonaktifkan.';
+    }
+
+    // 7. Reset general settings
+    $pdo->exec("REPLACE INTO settings (`key`, `value`, `autoload`) VALUES ('posts_per_page', '10', 1)");
 
     return $msgs;
 }
@@ -590,11 +610,11 @@ $totalCore = $localManifest['total_files'] ?? 0;
                placeholder="https://example.com/download/latest/">
         <label class="up-checkline">
             <input type="checkbox" name="hard_reset" value="1" id="chkHard">
-            Hard reset &mdash; reset tema, slot, sidebar, dan menu ke default
+            Hard reset &mdash; reset tema, auth paths, plugin, slot, sidebar, dan menu ke default
         </label>
         <div class="up-hint" id="hintHard" style="display:none;margin-top:-.3rem;margin-bottom:.3rem;border-left:3px solid var(--adam-danger);padding-left:.6rem">
-            Tema akan direset ke default, semua kustomisasi slot/sidebar/menu akan hilang.
-            Konten (postingan, halaman, media, user) TIDAK terpengaruh.
+            Tema → default, Auth paths → /dashboard/ /login/ /register/, semua plugin dinonaktifkan.
+            Kustomisasi slot/sidebar/menu akan hilang. Konten (postingan, halaman, media, user) TIDAK terpengaruh.
         </div>
         <button type="submit" class="btn btn-danger">Reinstall Now</button>
     </form>
