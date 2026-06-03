@@ -120,38 +120,6 @@ if ($prefix === 'plugin-store') {
     exit;
 }
 
-// PLUGIN MARKETPLACE — browse + detail + submit
-if ($prefix === 'plugins') {
-    require_once __DIR__ . '/../app/controllers/PluginsController.php';
-    $slug = $segments[1] ?? '';
-    if ($slug === 'submit') {
-        PluginsController::submit($pdo);
-    } elseif ($slug !== '') {
-        PluginsController::detail($pdo, $slug);
-    } else {
-        PluginsController::index($pdo);
-    }
-    exit;
-}
-
-// MEMBER PROFILE — public community profile
-if ($prefix === 'member') {
-    require_once __DIR__ . '/../app/controllers/MemberController.php';
-    $username = $segments[1] ?? '';
-    $subPage = $segments[2] ?? '';
-    if ($username === '') {
-        http_response_code(404);
-        require __DIR__ . '/../app/frontend_404.php';
-        exit;
-    }
-    if ($subPage === 'plugins') {
-        MemberController::plugins($pdo, $username);
-    } else {
-        MemberController::profile($pdo, $username);
-    }
-    exit;
-}
-
 // PRIVATE FILE STREAM + PDF VIEWER
 if ($prefix === 'private') {
     require_once __DIR__ . '/../app/controllers/PrivateFileController.php';
