@@ -626,19 +626,16 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <div class="adam-modal__title">Konfirmasi Hard Reset</div>
         <div class="adam-modal__text">
             <p style="margin-bottom:.75rem;font-weight:600">Hard reset akan melakukan perubahan berikut:</p>
+            <p style="margin-bottom:.6rem;font-weight:600">Centang semua untuk melanjutkan:</p>
             <ul class="reset-checklist">
-                <li class="reset-warn">File inti CMS ditimpa dengan versi original</li>
-                <li class="reset-warn">Tema direset ke <strong>default</strong></li>
-                <li class="reset-warn">Auth paths: admin → <code>/dashboard/</code>, login → <code>/login/</code>, register → <code>/register/</code></li>
-                <li class="reset-warn">Semua plugin <strong>dinonaktifkan</strong> (file tetap ada)</li>
-                <li class="reset-warn">Kustomisasi slot, sidebar, dan menu direset ke bawaan</li>
-                <li class="reset-safe">Konten (postingan, halaman, media, user) <strong>AMAN</strong></li>
-                <li class="reset-safe">Konfigurasi database &amp; file upload <strong>AMAN</strong></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> File inti CMS ditimpa dengan versi original</label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Tema direset ke <strong>default</strong></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Auth paths: admin → <code>/dashboard/</code>, login → <code>/login/</code>, register → <code>/register/</code></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Semua plugin <strong>dinonaktifkan</strong> (file tetap ada)</label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Kustomisasi slot, sidebar, dan menu direset ke bawaan</label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Konten (postingan, halaman, media, user) <strong>AMAN</strong></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Konfigurasi database &amp; file upload <strong>AMAN</strong></label></li>
             </ul>
-            <label class="reset-ack">
-                <input type="checkbox" id="resetAck">
-                Saya mengerti dan ingin melanjutkan hard reset
-            </label>
         </div>
         <div class="adam-modal__actions">
             <button class="adam-btn adam-btn--ghost" onclick="closeResetModal()">Batal</button>
@@ -698,13 +695,11 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
 .btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
 .btn-danger { background:var(--adam-danger); color:#fff; border-color:var(--adam-danger); }
 .btn-danger:hover { background:var(--adam-danger-600); }
-.reset-checklist { list-style:none; padding:0; margin:0 0 1rem; font-size:.88rem; }
-.reset-checklist li { padding:.35rem .5rem .35rem 1.6rem; position:relative; line-height:1.4; }
-.reset-checklist li::before { position:absolute; left:0; font-weight:700; }
-.reset-warn::before { content:"\2716"; color:var(--adam-danger); }
-.reset-safe::before { content:"\2714"; color:var(--adam-success); }
-.reset-ack { display:flex; gap:.5rem; align-items:center; padding:.5rem .6rem; margin-top:.25rem; border:1px solid var(--adam-border); border-radius:8px; cursor:pointer; font-size:.85rem; color:var(--adam-text-2); background:var(--adam-surface-4); }
-.reset-ack input[type=checkbox] { accent-color:var(--adam-danger); width:16px; height:16px; }
+.reset-checklist { list-style:none; padding:0; margin:0 0 .5rem; font-size:.88rem; }
+.reset-checklist li { padding:.2rem 0; line-height:1.4; }
+.reset-cb label { display:flex; gap:.5rem; align-items:center; cursor:pointer; padding:.25rem .4rem; border-radius:6px; transition:background .12s; }
+.reset-cb label:hover { background:var(--adam-hover); }
+.reset-cb input[type=checkbox] { accent-color:var(--adam-danger); width:15px; height:15px; }
 </style>
 
 <script>
@@ -725,10 +720,12 @@ function confirmReinstall(e){
     }
     e.preventDefault();
     var modal = document.getElementById('resetModal');
-    var ack = document.getElementById('resetAck');
     var btn = document.getElementById('resetApplyBtn');
-    if (!modal || !ack || !btn) return true;
-    ack.checked = false;
+    if (!modal || !btn) return true;
+
+    // Reset all checkboxes
+    var boxes = document.querySelectorAll('.reset-cbox');
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = false;
     btn.disabled = true;
     modal.style.display = 'flex';
     return false;
@@ -740,12 +737,18 @@ function closeResetModal(){
 }
 
 (function(){
-    var ack = document.getElementById('resetAck');
     var btn = document.getElementById('resetApplyBtn');
-    if (ack && btn) {
-        ack.addEventListener('change', function(){
-            btn.disabled = !this.checked;
-        });
+    var boxes = document.querySelectorAll('.reset-cbox');
+    if (btn && boxes.length) {
+        function checkAll(){
+            for (var i = 0; i < boxes.length; i++) {
+                if (!boxes[i].checked) { btn.disabled = true; return; }
+            }
+            btn.disabled = false;
+        }
+        for (var i = 0; i < boxes.length; i++) {
+            boxes[i].addEventListener('change', checkAll);
+        }
         btn.addEventListener('click', function(){
             var form = document.querySelector('.up-card[style*="border-color:var(--adam-danger)"] form');
             if (form) form.submit();
