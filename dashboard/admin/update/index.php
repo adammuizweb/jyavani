@@ -620,6 +620,21 @@ $totalCore = $localManifest['total_files'] ?? 0;
     </form>
 </div>
 
+<!-- Simple reinstall confirmation modal -->
+<div class="adam-modal" id="reinstallModal">
+    <div class="adam-modal__panel">
+        <div class="adam-modal__title">Konfirmasi Reinstall</div>
+        <div class="adam-modal__text">
+            <p>Yakin reinstall? Semua file inti CMS akan ditimpa dengan versi original. Backup otomatis dibuat.</p>
+            <p class="up-hint" style="margin-top:.5rem">Data (<code>cfg/.env</code>, tema, plugin, upload) tetap aman.</p>
+        </div>
+        <div class="adam-modal__actions">
+            <button class="adam-btn adam-btn--ghost" onclick="closeReinstallModal()">Batal</button>
+            <button class="adam-btn adam-btn--danger" id="reinstallApplyBtn">Ya, Reinstall</button>
+        </div>
+    </div>
+</div>
+
 <!-- Hard reset confirmation modal -->
 <div class="adam-modal" id="resetModal">
     <div class="adam-modal__panel" style="max-width:480px">
@@ -714,21 +729,34 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
 })();
 
 function confirmReinstall(e){
-    var hard = document.getElementById('chkHard');
-    if (!hard || !hard.checked) {
-        return confirm('Yakin reinstall? Semua file inti CMS akan ditimpa. Backup otomatis dibuat.');
-    }
     e.preventDefault();
+    var hard = document.getElementById('chkHard');
+    if (hard && hard.checked) {
+        showResetModal();
+    } else {
+        showReinstallModal();
+    }
+    return false;
+}
+
+function showReinstallModal(){
+    var modal = document.getElementById('reinstallModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeReinstallModal(){
+    var modal = document.getElementById('reinstallModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function showResetModal(){
     var modal = document.getElementById('resetModal');
     var btn = document.getElementById('resetApplyBtn');
-    if (!modal || !btn) return true;
-
-    // Reset all checkboxes
+    if (!modal || !btn) return;
     var boxes = document.querySelectorAll('.reset-cbox');
     for (var i = 0; i < boxes.length; i++) boxes[i].checked = false;
     btn.disabled = true;
     modal.style.display = 'flex';
-    return false;
 }
 
 function closeResetModal(){
@@ -749,6 +777,16 @@ function closeResetModal(){
         for (var i = 0; i < boxes.length; i++) {
             boxes[i].addEventListener('change', checkAll);
         }
+        btn.addEventListener('click', function(){
+            var form = document.querySelector('.up-card[style*="border-color:var(--adam-danger)"] form');
+            if (form) form.submit();
+        });
+    }
+})();
+
+(function(){
+    var btn = document.getElementById('reinstallApplyBtn');
+    if (btn) {
         btn.addEventListener('click', function(){
             var form = document.querySelector('.up-card[style*="border-color:var(--adam-danger)"] form');
             if (form) form.submit();
