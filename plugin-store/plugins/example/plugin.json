@@ -1,0 +1,12 @@
+{
+  "name": "example",
+  "title": "Example Plugin",
+  "version": "1.0.0",
+  "description": "Contoh plugin untuk testing plugin-store.",
+  "author": "Adam Muiz",
+  "php_required": "8.1",
+  "admin": {
+    "pages": [],
+    "nav": []
+  }
+}

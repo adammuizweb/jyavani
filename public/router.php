@@ -109,6 +109,17 @@ if ($prefix === 'download') {
     exit;
 }
 
+// PLUGIN STORE — JSON manifest + plugin zip download
+if ($prefix === 'plugin-store') {
+    require_once __DIR__ . '/../app/controllers/PluginStoreController.php';
+    if (($segments[1] ?? '') === 'download' && isset($segments[2])) {
+        PluginStoreController::download($pdo, $segments[2]);
+    } else {
+        PluginStoreController::list($pdo);
+    }
+    exit;
+}
+
 // PRIVATE FILE STREAM + PDF VIEWER
 if ($prefix === 'private') {
     require_once __DIR__ . '/../app/controllers/PrivateFileController.php';

@@ -375,8 +375,11 @@ if ($userRole === 'admin') {
 }
 
 if ($userRole === 'admin') {
-    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/plugins') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/plugins/index') . '">';
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/plugins/index') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/plugins/index') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📦</span><span class="adam-nav-sublink-text">Plugins</span></a>';
+
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/plugins/update') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/plugins/update') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔄</span><span class="adam-nav-sublink-text">Plugin Updater</span></a>';
 }
 
 if ($userRole === 'admin') {
