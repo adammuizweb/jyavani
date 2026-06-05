@@ -1,11 +1,15 @@
 {
   "folder": "adam",
-  "name": "Adam Theme",
-  "description": "Copy of default for testing Adam changes",
-  "version": "0.1.0",
-  "author": "Adam",
+  "name": "adam",
+  "description": "Tema Adam — tema dashboard Adiwira",
+  "version": "1.0.0",
+  "author": "adammuiz",
   "screenshot": "img.png",
   "is_active": false,
   "styles": ["assets/css/style.css", "assets/css/blocks.css"],
-  "scripts": ["assets/js/script.js"]
+  "scripts": ["assets/js/script.js"],
+  "store": {
+    "url": "https://jyavani.com/theme-store/",
+    "slug": "adam"
+  }
 }

@@ -10,14 +10,18 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/../../../app/controllers/ThemeStoreClient.php';
 [$user_id, $user_role] = adiwira_require_role($pdo, ['admin'], false);
 $user_role = strtolower(trim((string)$user_role));
+
+$themeUpdates = ThemeStoreClient::getCachedUpdates();
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
     : [];
 
 $selfUrl = ADMIN_BASE_PATH . '/?page=admin/themes/assign';
+$browseUrl = ADMIN_BASE_PATH . '/?page=admin/themes/browse';
 $scriptBase = ADMIN_BASE_PATH;
 
 /** Helpers (kept) */
@@ -242,6 +246,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if (($th['folder_name'] ?? '') === (defined('DEFAULT_THEME_FOLDER') ? DEFAULT_THEME_FOLDER : 'default')) {
                     throw new RuntimeException('Tema default tidak boleh dihapus.');
                 }
+                if (!empty($th['is_system'])) {
+                    throw new RuntimeException('System theme tidak boleh dihapus.');
+                }
 
                 $pdo->beginTransaction();
                 try {
@@ -335,6 +342,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) $pdo->rollBack();
                     throw $e;
+                }
+
+            } elseif ($action === 'check_updates') {
+                $count = count(ThemeStoreClient::checkUpdates($pdo));
+                if ($count > 0) {
+                    $messages[] = "{$count} update theme tersedia.";
+                } else {
+                    $messages[] = 'Semua theme sudah versi terbaru.';
+                }
+
+            } elseif ($action === 'apply_theme_update') {
+                $folder = trim((string)($_POST['theme_folder'] ?? ''));
+                $themeName = $folder;
+                $token = (string)($_POST['token'] ?? '');
+                if ($folder === '') throw new RuntimeException('Folder theme tidak disebutkan.');
+                if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
+                    throw new RuntimeException('Invalid progress token.');
+                }
+                session_write_close();
+                $result = ThemeStoreClient::applyUpdate($pdo, $folder, $token);
+                if ($result['success']) {
+                    $messages[] = "Theme '{$folder}' berhasil diupdate ke v{$result['new_version']}.";
+                } else {
+                    $errors[] = (string)($result['error'] ?? 'Gagal update theme.');
                 }
 
             } elseif ($action === 'upload_theme') {
@@ -431,6 +462,15 @@ foreach ($themes as $t) {
   <h2 class="tm-title">Theme Manager & Assignments</h2>
 
   <div class="tm-row" role="region" aria-label="Theme management controls">
+    <div class="tm-scan" aria-hidden="false" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <a href="<?= h($browseUrl) ?>" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:6px;font-size:.82rem">🌐 Browse Themes</a>
+
+      <form method="post" style="margin:0;display:inline-flex">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="action" value="check_updates">
+        <button class="btn btn-sm btn-outline" type="submit" style="padding:6px 14px;border-radius:6px;font-size:.82rem">↻ Check Updates</button>
+      </form>
+    </div>
     <div class="tm-scan" aria-hidden="false">
       <form id="theme-scan-form" method="post" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -503,13 +543,16 @@ foreach ($themes as $t) {
         catch (Throwable $e) { $previewUrl = null; }
 
         $isDefault = (defined('DEFAULT_THEME_FOLDER') && $folder === DEFAULT_THEME_FOLDER);
+        $isSystem = !empty($th['is_system']);
+        $storeSlug = $th['store_slug'] ?? '';
+        $updateInfo = ($storeSlug !== '' && isset($themeUpdates[$storeSlug])) ? $themeUpdates[$storeSlug] : null;
       ?>
-        <div class="tm-theme <?= $isActive ? 'active' : '' ?>">
+        <div class="tm-theme <?= $isActive ? 'active' : '' ?> <?= $updateInfo ? 'has-update' : '' ?>">
           <div class="tm-delrow">
             <div class="tm-pill"><?= $isActive ? 'Activated' : 'Inactive' ?></div>
 
-            <?php if ($isDefault): ?>
-              <span class="tm-protected">Default</span>
+            <?php if ($isDefault || $isSystem): ?>
+              <span class="tm-protected">System</span>
 
             <?php else: ?>
               <form method="post" class="js-theme-manager-delete" style="display:flex;gap:8px;align-items:center;margin:0" data-folder="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
@@ -546,6 +589,13 @@ foreach ($themes as $t) {
             Version: <?= htmlspecialchars($displayVersion ?: '-', ENT_QUOTES, 'UTF-8') ?>
             — Author: <?= htmlspecialchars($displayAuthor ?: '-', ENT_QUOTES, 'UTF-8') ?>
           </div>
+
+          <?php if ($updateInfo): ?>
+            <div class="tm-update-banner">
+              <span>Update v<?= h($updateInfo['new_version']) ?> tersedia</span>
+              <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>">Update</button>
+            </div>
+          <?php endif; ?>
 
           <div class="tm-actions">
             <?php if (!$isActive): ?>
@@ -691,6 +741,15 @@ if (!empty($all_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
     echo adiwira_bootstrap_toasts_script($all_toasts);
 }
 ?>
+
+<div id="themeProgressOverlay" class="progress-overlay" style="display:none">
+  <div class="progress-box">
+    <div class="progress-spinner"></div>
+    <div class="progress-status" id="themeProgressStatus">Memulai update...</div>
+    <div class="progress-bar-track"><div class="progress-bar-fill" id="themeProgressFill" style="width:0%"></div></div>
+    <div class="progress-pct" id="themeProgressPct">0%</div>
+  </div>
+</div>
 
 <script>
 window.ADIWIRA = window.ADIWIRA || {};
@@ -995,6 +1054,90 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachWarnings);
     else attachWarnings();
+  })();
+
+  // ─── Theme Update Progress ───
+  (function(){
+    var overlay = document.getElementById('themeProgressOverlay');
+    var statusEl = document.getElementById('themeProgressStatus');
+    var fillEl = document.getElementById('themeProgressFill');
+    var pctEl = document.getElementById('themeProgressPct');
+
+    function showOverlay(){ if (overlay) overlay.style.display = 'flex'; }
+    function hideOverlay(){ if (overlay) overlay.style.display = 'none'; }
+    function setProgress(pct, status){
+      if (fillEl) fillEl.style.width = pct + '%';
+      if (pctEl) pctEl.textContent = pct + '%';
+      if (statusEl) statusEl.textContent = status;
+    }
+
+    function makeProgressToken(){
+      var h = '';
+      for (var i = 0; i < 32; i++) h += '0123456789abcdef'[Math.floor(Math.random()*16)];
+      return h;
+    }
+
+    function pollProgress(token){
+      var interval = setInterval(function(){
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '<?= h($scriptBase) ?>/admin/themes/update_progress.php?token=' + token, true);
+        xhr.onload = function(){
+          if (xhr.status === 200) {
+            try {
+              var data = JSON.parse(xhr.responseText);
+              setProgress(data.percentage, data.status);
+              if (data.done) {
+                clearInterval(interval);
+                if (data.error) {
+                  setTimeout(function(){ hideOverlay(); toast('error', data.error, 'Update Gagal'); }, 1000);
+                } else {
+                  setTimeout(function(){ hideOverlay(); window.location.reload(); }, 1500);
+                }
+              }
+            } catch(e){}
+          }
+        };
+        xhr.send();
+      }, 1500);
+    }
+
+    function startThemeUpdate(folderName){
+      var token = makeProgressToken();
+      showOverlay();
+      setProgress(2, 'Mempersiapkan...');
+      pollProgress(token);
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '<?= h($scriptBase) ?>/admin/themes/update_apply.php', true);
+      xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      xhr.onload = function(){
+        if (xhr.status !== 200) {
+          clearInterval();
+          hideOverlay();
+          toast('error', 'Gagal memulai update.', 'Error');
+        }
+      };
+      xhr.send('csrf_token=<?= h(csrf_token()) ?>&action=apply_theme_update&theme=' + encodeURIComponent(folderName) + '&token=' + token);
+    }
+
+    document.querySelectorAll('.btn-update-theme').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var folder = btn.getAttribute('data-folder');
+        if (!folder) return;
+        if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
+          window.NewNotifConfirm.warning({
+            title: 'Update Theme',
+            message: 'Update theme "' + folder + '" ke versi terbaru?',
+            confirmText: 'Ya, update',
+            cancelText: 'Batal'
+          }).then(function(ok){
+            if (ok) startThemeUpdate(folder);
+          });
+        } else if (confirm('Update theme "' + folder + '" ke versi terbaru?')) {
+          startThemeUpdate(folder);
+        }
+      });
+    });
   })();
 })();
 </script>

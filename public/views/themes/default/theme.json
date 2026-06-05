@@ -1,10 +1,14 @@
 {
   "folder": "default",
-  "name": "Default Theme",
+  "name": "default",
   "description": "Tema bawaan Jyavani",
   "version": "1.0.0",
-  "author": "Jyavani Team",
+  "author": "adammuiz",
   "screenshot": "img.png",
   "styles": ["assets/css/style.css", "assets/css/blocks.css"],
-  "scripts": ["assets/js/script.js"]
+  "scripts": ["assets/js/script.js"],
+  "store": {
+    "url": "https://jyavani.com/theme-store/",
+    "slug": "default"
+  }
 }

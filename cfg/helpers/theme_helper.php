@@ -778,8 +778,29 @@ function register_theme_in_db($pdoOrNull, string $folderName, array $manifest = 
     $screenshot = $manifest['screenshot'] ?? null;
     $manifest_json = json_encode($manifest, JSON_UNESCAPED_UNICODE);
 
-    $sql = "INSERT INTO themes (folder_name, name, description, version, author, screenshot, manifest_json, is_active, scanned_at)
-            VALUES (:folder, :name, :desc, :version, :author, :screenshot, :manifest_json, :active, CURRENT_TIMESTAMP)
+    $storeUrl = $manifest['store']['url'] ?? '';
+    $storeSlug = $manifest['store']['slug'] ?? '';
+
+    // Don't override is_system from manifest — it's a CMS-admin flag only
+    $isSystemVal = 0;
+    $prevActive = null;
+    try {
+        $existing = $pdo->prepare("SELECT is_system, is_active FROM themes WHERE folder_name = ? LIMIT 1");
+        $existing->execute([$folderName]);
+        $row = $existing->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $isSystemVal = (int)$row['is_system'];
+            $prevActive = (int)$row['is_active'];
+        }
+    } catch (Throwable $e) {}
+
+    // Preserve existing is_active unless manifest explicitly sets it
+    if ($prevActive !== null && empty($manifest['is_active'])) {
+        $is_active = (bool)$prevActive;
+    }
+
+    $sql = "INSERT INTO themes (folder_name, name, description, version, author, screenshot, manifest_json, is_active, store_url, store_slug, scanned_at)
+            VALUES (:folder, :name, :desc, :version, :author, :screenshot, :manifest_json, :active, :storeUrl, :storeSlug, CURRENT_TIMESTAMP)
             ON DUPLICATE KEY UPDATE
               name = VALUES(name),
               description = VALUES(description),
@@ -787,6 +808,8 @@ function register_theme_in_db($pdoOrNull, string $folderName, array $manifest = 
               author = VALUES(author),
               screenshot = VALUES(screenshot),
               manifest_json = VALUES(manifest_json),
+              store_url = VALUES(store_url),
+              store_slug = VALUES(store_slug),
               scanned_at = CURRENT_TIMESTAMP,
               is_active = VALUES(is_active),
               updated_at = CURRENT_TIMESTAMP";
@@ -800,7 +823,14 @@ function register_theme_in_db($pdoOrNull, string $folderName, array $manifest = 
         ':screenshot' => $screenshot,
         ':manifest_json' => $manifest_json,
         ':active' => $is_active ? 1 : 0,
+        ':storeUrl' => $storeUrl,
+        ':storeSlug' => $storeSlug,
     ]);
+
+    // Preserve is_system across re-registrations
+    if ($isSystemVal) {
+        $pdo->prepare("UPDATE themes SET is_system = 1 WHERE folder_name = ? LIMIT 1")->execute([$folderName]);
+    }
 
     db_cache_set('themes_by_folder', $folderName, null);
     return (bool)$ok;

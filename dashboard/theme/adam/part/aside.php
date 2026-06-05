@@ -314,6 +314,7 @@ $themeLinks = [
 
 if ($userRole === 'admin') {
   $themeLinks[] = [$base . '/?page=admin/themes/assign','Assign (Dev)', adam_icon('link','adam-svg-icon--sm')];
+  $themeLinks[] = [$base . '/?page=admin/themes/browse','Cari Theme', adam_icon('search','adam-svg-icon--sm')];
 }
 
 echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes', $themeLinks);
