@@ -361,6 +361,20 @@ VALUES
   (2, 1, NULL, 1, 'category', 'Blog',           NULL,   1,    0),
   (3, 1, NULL, 2, 'category', 'Services',       NULL,   2,    0),
   (4, 1, 3,     0, 'category', 'Web Development', NULL,  3,    0),
-  (5, 1, NULL, 3, 'category', 'Tutorial',       NULL,   4,    0);
+   (5, 1, NULL, 3, 'category', 'Tutorial',       NULL,   4,    0);
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 16. ui_translations
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~
+CREATE TABLE IF NOT EXISTS `ui_translations` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `scope` VARCHAR(50) NOT NULL DEFAULT 'default',
+  `source` TEXT NOT NULL COMMENT 'English source text',
+  `value` TEXT NOT NULL COMMENT 'Translated text',
+  `locale` CHAR(5) NOT NULL DEFAULT 'en',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `source_lookup` (`scope`, `source`(191), `locale`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS=1;

@@ -22,7 +22,7 @@ $page = trim((string)($_GET['page'] ?? 'home'), " \t\n\r\0\x0B/");
 if ($page === '') $page = 'home';
 if (!preg_match('#^[a-z0-9_\-\/]+$#', $page)) {
     if (!headers_sent()) http_response_code(400);
-    echo '<h2>Halaman tidak valid</h2>';
+    echo '<h2>' . __('Invalid page') . '</h2>';
     echo '</main>';
     return;
 }
@@ -107,13 +107,13 @@ if ($safe) {
     if ($page === 'home') {
         // fallback markup jika baik theme/home.php maupun DASH_PATH/home.php tidak tersedia
         echo '<section class="adam-welcome">';
-        echo '<h2>Halo, selamat datang!</h2>';
-        echo '<p>Ini adalah dashboard Adiwira dengan tema <strong>adam</strong>.</p>';
+        echo '<h2>' . __('Hello, welcome!') . '</h2>';
+        echo '<p>' . __('This is the Adiwira dashboard with the <strong>adam</strong> theme.') . '</p>';
         echo '</section>';
     } else {
         if (!headers_sent()) http_response_code(404);
-        echo '<h2>Halaman tidak ditemukan</h2>';
-        echo '<p>Permintaan: ' . htmlspecialchars($page, ENT_QUOTES, 'UTF-8') . '</p>';
+        echo '<h2>' . __('Page not found') . '</h2>';
+        echo '<p>' . __('Request:') . ' ' . htmlspecialchars($page, ENT_QUOTES, 'UTF-8') . '</p>';
     }
 }
 

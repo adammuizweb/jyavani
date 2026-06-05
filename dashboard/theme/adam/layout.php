@@ -23,7 +23,7 @@ $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull()
   <!-- apply state early -->
   <script src="/static/dashboard/js/aside-state.js"></script>
 
-  <title>Dashboard — CMS Adiwira</title>
+  <title><?= _e('Dashboard — CMS Adiwira') ?></title>
   <script>window.ADMIN_PATH = '<?= ADMIN_BASE_PATH ?>';</script>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">

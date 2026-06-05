@@ -61,6 +61,18 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 
 $GLOBALS['pdo'] = $pdo;
 
+// Initialize locale from site_language setting
+if (function_exists('settings_get')) {
+    $siteLang = settings_get($pdo, 'site_language', 'en');
+    if (!in_array($siteLang, get_supported_locales(), true)) {
+        $siteLang = 'en';
+    }
+    set_locale($siteLang);
+    if ($siteLang !== 'en') {
+        setlocale(LC_TIME, 'id_ID.UTF-8', 'id_ID', 'indonesian', 'Indonesia');
+    }
+}
+
 $session_path = rtrim(BACKEND_PATH, '/\\') . DIRECTORY_SEPARATOR . 'session.php';
 if (is_file($session_path)) {
     require_once $session_path;

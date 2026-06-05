@@ -90,13 +90,15 @@ $current_category_path = function_exists('get_category_path')
     ? get_category_path($pdo)
     : 'category';
 
+$current_site_language = settings_get($pdo, 'site_language', 'en') ?? 'en';
+
 $base = ADMIN_BASE_PATH;
 $self_url = $base . '/?page=admin/settings/site';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $site_title = trim((string)($_POST['site_title'] ?? ''));
@@ -106,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $posts_list_path = trim((string)($_POST['posts_list_path'] ?? 'artikel'));
     $pages_list_path = trim((string)($_POST['pages_list_path'] ?? 'halaman'));
     $category_path = trim((string)($_POST['category_path'] ?? 'category'));
+    $current_site_language = trim((string)($_POST['site_language'] ?? 'en'));
 
     // pertahankan nilai input saat validasi gagal
     $current_title = $site_title;
@@ -117,37 +120,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $current_category_path = $category_path;
 
     if ($site_title === '') {
-        $errors[] = 'Site title tidak boleh kosong.';
+        $errors[] = __('Site title cannot be empty.');
     }
 
     if ($site_host === '') {
-        $errors[] = 'Site host tidak boleh kosong.';
+        $errors[] = __('Site host cannot be empty.');
     } elseif (!site_settings_valid_host($site_host)) {
-        $errors[] = 'Format host tidak valid. Contoh: pre-univapu.kmb.ac.id atau localhost:8000';
+        $errors[] = __('Invalid host format. Example: jyavani.com or localhost:8000');
     }
 
     if ($posts_permalink === '') {
-        $errors[] = 'Permalink post tidak boleh kosong.';
+        $errors[] = __('Post permalink cannot be empty.');
     } elseif (!function_exists('validate_permalink_structure') || !validate_permalink_structure($posts_permalink)) {
-        $errors[] = 'Permalink post harus mengandung %slug% dan hanya boleh menggunakan token: %year%, %monthnum%, %day%, %slug%, %cat%.';
+        $errors[] = __('Post permalink must contain %slug% and may only use tokens: %year%, %monthnum%, %day%, %slug%, %cat%.');
     }
 
     if ($pages_permalink === '') {
-        $errors[] = 'Permalink page tidak boleh kosong.';
+        $errors[] = __('Page permalink cannot be empty.');
     } elseif (!function_exists('validate_permalink_structure') || !validate_permalink_structure($pages_permalink)) {
-        $errors[] = 'Permalink page harus mengandung %slug% dan hanya boleh menggunakan token: %year%, %monthnum%, %day%, %slug%, %cat%.';
+        $errors[] = __('Page permalink must contain %slug% and may only use tokens: %year%, %monthnum%, %day%, %slug%, %cat%.');
     }
 
     if ($posts_list_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $posts_list_path)) {
-        $errors[] = 'Path daftar post hanya boleh huruf kecil, angka, garis miring, underscore, dan strip.';
+        $errors[] = __('Posts list path may only contain lowercase letters, numbers, slashes, underscores, and hyphens.');
     }
 
     if ($pages_list_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $pages_list_path)) {
-        $errors[] = 'Path daftar halaman hanya boleh huruf kecil, angka, garis miring, underscore, dan strip.';
+        $errors[] = __('Pages list path may only contain lowercase letters, numbers, slashes, underscores, and hyphens.');
     }
 
     if ($category_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $category_path)) {
-        $errors[] = 'Path kategori hanya boleh huruf kecil, angka, garis miring, underscore, dan strip.';
+        $errors[] = __('Category path may only contain lowercase letters, numbers, slashes, underscores, and hyphens.');
     }
 
     if (!$errors) {
@@ -159,16 +162,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok4 = settings_set($pdo, 'posts_list_path', $posts_list_path, 1);
         $ok5 = settings_set($pdo, 'pages_list_path', $pages_list_path, 1);
         $ok6 = settings_set($pdo, 'category_path', $category_path, 1);
+        $ok7 = settings_set($pdo, 'site_language', $current_site_language, 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7) {
             if (function_exists('adiwira_redirect_with_flash')) {
-                adiwira_redirect_with_flash($self_url, 'success', 'Pengaturan website berhasil disimpan.');
+                adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
                 exit;
             }
 
-            $success_msg = 'Pengaturan website berhasil disimpan.';
+            $success_msg = __('Site settings saved successfully.');
         } else {
-            $errors[] = 'Gagal menyimpan pengaturan.';
+            $errors[] = __('Failed to save settings.');
         }
     }
 }
@@ -179,7 +183,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
 ?>
 
 <section class="adam-card" style="max-width:820px;margin:18px auto;">
-  <h2>Pengaturan Website</h2>
+  <h2><?=_e('Site Settings')?></h2>
 
   <?php if ($show_inline_success): ?>
     <div class="adam-success" style="margin:10px 0;">
@@ -217,10 +221,10 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
 
     <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
 
-    <h3 style="margin:0 0 .6rem;">Custom Permalink</h3>
+    <h3 style="margin:0 0 .6rem;"><?=_e('Custom Permalink')?></h3>
 
     <details style="margin:0 0 1rem;font-size:.85rem;color:#555;background:#f9f9fb;border-radius:8px;padding:.4rem .8rem;cursor:pointer;">
-      <summary style="font-weight:600;color:#333;outline:none;">Bagaimana cara kerja slug? (klik untuk penjelasan)</summary>
+      <summary style="font-weight:600;color:#333;outline:none;"><?=_e('How permalinks work? (click for details)')?></summary>
       <div style="margin-top:.6rem;line-height:1.7;padding-left:.4rem;">
 
         <p><strong>Token yang tersedia untuk Post:</strong></p>
@@ -319,12 +323,24 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
         value="<?= htmlspecialchars($current_category_path, ENT_QUOTES, 'UTF-8') ?>"
         placeholder="category"
         style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
-      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;">Kosongkan untuk menonaktifkan kategori sepenuhnya.</span>
+      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;"><?=_e('Leave empty to disable categories entirely.')?></span>
+    </label>
+
+    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
+
+    <h3 style="margin:0 0 .6rem;"><?=_e('Language')?></h3>
+
+    <label style="display:block;margin:.6rem 0;">
+      <?=_e('Site Language')?>
+      <select name="site_language" style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;">
+        <option value="en" <?=$current_site_language==='en'?'selected':''?>><?=_e('English')?></option>
+        <option value="id" <?=$current_site_language==='id'?'selected':''?>><?=_e('Indonesian')?></option>
+      </select>
     </label>
 
     <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
-      <button type="submit" class="adam-button">Simpan</button>
-      <a class="adam-cancle" href="<?= ADMIN_BASE_PATH ?>/?page=admin/settings/index">Kembali</a>
+      <button type="submit" class="adam-button"><?=_e('Save')?></button>
+      <a class="adam-cancle" href="<?= ADMIN_BASE_PATH ?>/?page=admin/settings/index"><?=_e('Back')?></a>
     </div>
   </form>
 </section>

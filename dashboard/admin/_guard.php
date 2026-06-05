@@ -165,7 +165,7 @@ if (!function_exists('adiwira_require_login')) {
             }
 
             if ($asJson) {
-                adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+                adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
             }
 
             adiwira_render_404();
@@ -190,7 +190,7 @@ if (!function_exists('adiwira_require_role')) {
 
         if (!in_array($role, $roles, true)) {
             if ($asJson) {
-                adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+                adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
             }
 
             adiwira_render_404();

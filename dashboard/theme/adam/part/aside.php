@@ -262,64 +262,64 @@ $userRole = is_string($userRole) ? strtolower(trim($userRole)) : null;
 ?>
 <aside id="adam-aside" class="adam-aside" aria-hidden="false">
   <div class="adam-aside-top">
-    <button id="adam-collapse" class="adam-collapse" aria-label="Toggle sidebar" title="Sembunyikan / Tampilkan sidebar">
+    <button id="adam-collapse" class="adam-collapse" aria-label="Toggle sidebar" title="<?= __('Hide / Show sidebar') ?>">
       <span class="arrow">◀</span>
-      <span class="label">Sembunyikan</span>
+      <span class="label"><?= _e('Hide') ?></span>
     </button>
   </div>
 
   <nav class="adam-nav" aria-label="Main navigation">
     <ul class="adam-nav-list">
       <?php
-echo '<li class="adam-nav-item"><a class="adam-nav-link ' . (adam_nav_active($requested,'home') ? 'adam-nav-link--active' : '') . '" href="' . h($base . '/?') . '"><span class="adam-nav-icon">' . adam_icon('home') . '</span><span class="adam-nav-text">Beranda</span></a></li>';
+echo '<li class="adam-nav-item"><a class="adam-nav-link ' . (adam_nav_active($requested,'home') ? 'adam-nav-link--active' : '') . '" href="' . h($base . '/?') . '"><span class="adam-nav-icon">' . adam_icon('home') . '</span><span class="adam-nav-text">' . __('Dashboard') . '</span></a></li>';
 
 echo '<li class="adam-nav-item">
   <a class="adam-nav-link" href="' . h($rootweb) . '">
     <span class="adam-nav-icon">' . adam_icon('globe') . '</span>
-    <span class="adam-nav-text">View Web</span>
+    <span class="adam-nav-text">' . __('View Web') . '</span>
   </a>
 </li>';
 
-echo nav_item($base, $requested, 'admin/posts', adam_icon('pen'), 'Posts', [
-  [$base . '/?page=admin/posts/index','Daftar', adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/posts/artikel','Tambah', adam_icon('plus','adam-svg-icon--sm')]
+echo nav_item($base, $requested, 'admin/posts', adam_icon('pen'), __('Posts'), [
+  [$base . '/?page=admin/posts/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
+  [$base . '/?page=admin/posts/artikel',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
 if (in_array($userRole, ['admin','editor'], true)) {
-  echo nav_item($base, $requested, 'admin/categories', adam_icon('tag'), 'Categories', [
-    [$base . '/?page=admin/categories/index','Daftar', adam_icon('list','adam-svg-icon--sm')],
-    [$base . '/?page=admin/categories/add','Tambah', adam_icon('plus','adam-svg-icon--sm')]
+  echo nav_item($base, $requested, 'admin/categories', adam_icon('tag'), __('Categories'), [
+    [$base . '/?page=admin/categories/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
+    [$base . '/?page=admin/categories/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
   ]);
 }
 
-echo nav_item($base, $requested, 'admin/pages', adam_icon('file'), 'Pages', [
-  [$base . '/?page=admin/pages/index','Daftar', adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/pages/halaman','Tambah', adam_icon('plus','adam-svg-icon--sm')]
+echo nav_item($base, $requested, 'admin/pages', adam_icon('file'), __('Pages'), [
+  [$base . '/?page=admin/pages/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
+  [$base . '/?page=admin/pages/halaman',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
-echo nav_item($base, $requested, 'admin/media', adam_icon('image'), 'Media', [
-  [$base . '/?page=admin/media/index&tab=list','Daftar', adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/media/index&tab=add','Tambah', adam_icon('plus','adam-svg-icon--sm')]
+echo nav_item($base, $requested, 'admin/media', adam_icon('image'), __('Media'), [
+  [$base . '/?page=admin/media/index&tab=list',__('List'), adam_icon('list','adam-svg-icon--sm')],
+  [$base . '/?page=admin/media/index&tab=add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
-echo nav_item($base, $requested, 'admin/file', adam_icon('folder'), 'File', [
-  [$base . '/?page=admin/file/index&tab=list','Daftar', adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/file/index&tab=add','Tambah', adam_icon('plus','adam-svg-icon--sm')]
+echo nav_item($base, $requested, 'admin/file', adam_icon('folder'), __('File'), [
+  [$base . '/?page=admin/file/index&tab=list',__('List'), adam_icon('list','adam-svg-icon--sm')],
+  [$base . '/?page=admin/file/index&tab=add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
 $themeLinks = [
-  [$base . '/?page=admin/themes/index','Daftar', adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/themes/add','Tambah', adam_icon('plus','adam-svg-icon--sm')]
+  [$base . '/?page=admin/themes/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
+  [$base . '/?page=admin/themes/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ];
 
 if ($userRole === 'admin') {
-  $themeLinks[] = [$base . '/?page=admin/themes/assign','Assign (Dev)', adam_icon('link','adam-svg-icon--sm')];
-  $themeLinks[] = [$base . '/?page=admin/themes/browse','Cari Theme', adam_icon('search','adam-svg-icon--sm')];
+  $themeLinks[] = [$base . '/?page=admin/themes/assign',__('Assign (Dev)'), adam_icon('link','adam-svg-icon--sm')];
+  $themeLinks[] = [$base . '/?page=admin/themes/browse',__('Browse Themes'), adam_icon('search','adam-svg-icon--sm')];
 }
 
-echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes', $themeLinks);
+echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), __('Themes'), $themeLinks);
 
-      echo '<li class="adam-nav-heading">Sistem</li>';
+      echo '<li class="adam-nav-heading">' . __('System') . '</li>';
 
       $isPengaturanActive =
         adam_nav_active($requested, 'admin/settings') ||
@@ -335,51 +335,51 @@ echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), 'Themes',
 
 echo '<li class="adam-nav-item' . ($isPengaturanActive ? ' is-open' : '') . '" data-prefix="admin/settings">';
 echo '<a class="adam-nav-link' . ($isPengaturanActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/?page=admin/settings/index') . '">';
-echo '<span class="adam-nav-icon">' . adam_icon('settings') . '</span><span class="adam-nav-text">Settings</span>';
+echo '<span class="adam-nav-icon">' . adam_icon('settings') . '</span><span class="adam-nav-text">' . __('Settings') . '</span>';
 echo '</a>';
 
 echo '<div class="adam-nav-sub" aria-hidden="' . ($isPengaturanActive ? 'false' : 'true') . '">';
 
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/site') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/site') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🌐</span><span class="adam-nav-sublink-text">Website</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🌐</span><span class="adam-nav-sublink-text">' . __('Website') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/sidebar') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📐</span><span class="adam-nav-sublink-text">Sidebar</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📐</span><span class="adam-nav-sublink-text">' . __('Sidebar') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/sidebar/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🧩</span><span class="adam-nav-sublink-text">Sidebar Widgets</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🧩</span><span class="adam-nav-sublink-text">' . __('Sidebar Widgets') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/menus') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/menus/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📋</span><span class="adam-nav-sublink-text">Menus</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📋</span><span class="adam-nav-sublink-text">' . __('Menus') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/shortcodes/index&tab=presets') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔌</span><span class="adam-nav-sublink-text">Shortcodes</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔌</span><span class="adam-nav-sublink-text">' . __('Shortcodes') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/auth') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔐</span><span class="adam-nav-sublink-text">Sign Up &amp; Sign In</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔐</span><span class="adam-nav-sublink-text">' . __('Sign Up &amp; Sign In') . '</span></a>';
 }
 
 echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/profile/index') . '">';
-echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🧑</span><span class="adam-nav-sublink-text">Profile</span></a>';
+echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🧑</span><span class="adam-nav-sublink-text">' . __('Profile') . '</span></a>';
 
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/users') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/users/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">👥</span><span class="adam-nav-sublink-text">Users</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">👥</span><span class="adam-nav-sublink-text">' . __('Users') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/bin') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/bin/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🗑️</span><span class="adam-nav-sublink-text">Bin</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🗑️</span><span class="adam-nav-sublink-text">' . __('Bin') . '</span></a>';
 }
 
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/plugins/index') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/plugins/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📦</span><span class="adam-nav-sublink-text">Plugins</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">📦</span><span class="adam-nav-sublink-text">' . __('Plugins') . '</span></a>';
 
 }
 
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/update') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/update/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔄</span><span class="adam-nav-sublink-text">Update</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">🔄</span><span class="adam-nav-sublink-text">' . __('Update') . '</span></a>';
 }
 
 echo '</div>';
@@ -398,7 +398,7 @@ if (function_exists('plugin_nav_items')) {
     // Items under Settings (parent=settings) — rendered as sublinks
     $settingsItems = $pluginNavGroups['settings'] ?? [];
     foreach ($settingsItems as $n) {
-        $label = $n['label'] ?? 'Plugin';
+        $label = $n['label'] ?? __('Plugin');
         $icon = $n['icon'] ?? 'code';
         $page = $n['page'] ?? '';
         $roles = $n['roles'] ?? ['admin'];
@@ -416,7 +416,7 @@ if (function_exists('plugin_nav_items')) {
         $isToolsActive = false;
         $toolsSublinksHtml = '';
         foreach ($toolsItems as $n) {
-            $label = $n['label'] ?? 'Plugin';
+            $label = $n['label'] ?? __('Plugin');
             $icon = $n['icon'] ?? 'code';
             $page = $n['page'] ?? '';
             $roles = $n['roles'] ?? ['admin'];
@@ -433,7 +433,7 @@ if (function_exists('plugin_nav_items')) {
         if ($toolsSublinksHtml !== '') {
             echo '<li class="adam-nav-item' . ($isToolsActive ? ' is-open' : '') . '" data-prefix="admin/tools">';
             echo '<a class="adam-nav-link' . ($isToolsActive ? ' adam-nav-link--active' : '') . '" href="#">';
-            echo '<span class="adam-nav-icon">' . adam_icon('box') . '</span><span class="adam-nav-text">Tools</span>';
+            echo '<span class="adam-nav-icon">' . adam_icon('box') . '</span><span class="adam-nav-text">' . __('Tools') . '</span>';
             echo '</a>';
             echo '<div class="adam-nav-sub" aria-hidden="' . ($isToolsActive ? 'false' : 'true') . '">';
             echo $toolsSublinksHtml;
@@ -447,7 +447,7 @@ if (function_exists('plugin_nav_items')) {
 // Hook for plugins to add nav items dynamically
 do_action('admin_menu');
 
-echo '<li class="adam-nav-item"><a class="adam-nav-link" href="' . h($base . '/logout.php') . '"><span class="adam-nav-icon">' . adam_icon('logout') . '</span><span class="adam-nav-text">Logout</span></a></li>';
+echo '<li class="adam-nav-item"><a class="adam-nav-link" href="' . h($base . '/logout.php') . '"><span class="adam-nav-icon">' . adam_icon('logout') . '</span><span class="adam-nav-text">' . __('Logout') . '</span></a></li>';
       ?>
     </ul>
   </nav>
@@ -457,9 +457,9 @@ echo '<li class="adam-nav-item"><a class="adam-nav-link" href="' . h($base . '/l
             id="btn-theme-toggle"
             class="adam-theme-toggle"
             aria-pressed="false"
-            title="Toggle theme">
+            title="<?= __('Toggle theme') ?>">
       <span class="adam-nav-icon" id="adamThemeIcon" aria-hidden="true"><?= adam_theme_icon(); ?></span>
-      <span class="adam-nav-text" id="adamThemeLabel">Dark</span>
+      <span class="adam-nav-text" id="adamThemeLabel"><?= __('Dark') ?></span>
     </button>
   </div>
 </aside>

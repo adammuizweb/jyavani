@@ -74,13 +74,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // CSRF
     if (!csrf_check($token)) {
-        $errors[] = 'CSRF token tidak valid';
+        $errors[] = __('Invalid CSRF token');
     }
 
     // reCAPTCHA (jika enabled)
     if ($recaptchaEnabled && $RECAPTCHA_SECRET !== '') {
         if ($captcha_response === '') {
-            $errors[] = 'Silakan isi CAPTCHA.';
+            $errors[] = __('Please fill in the CAPTCHA.');
         } else {
             $url = 'https://www.google.com/recaptcha/api/siteverify'
                 . '?secret=' . urlencode($RECAPTCHA_SECRET)
@@ -89,54 +89,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $raw = @file_get_contents($url);
             $json = $raw ? json_decode($raw, true) : null;
             if (empty($json['success'])) {
-                $errors[] = 'CAPTCHA tidak valid.';
+                $errors[] = __('Invalid CAPTCHA.');
             }
         }
     }
 
     // Email
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Email tidak valid';
+        $errors[] = __('Invalid email');
     }
 
     // Username
     if ($uname === '') {
-        $errors[] = 'Username wajib diisi';
+        $errors[] = __('Username is required');
     } else {
         $unameLower = mb_strtolower($uname, 'UTF-8');
 
         if (mb_strlen($unameLower, 'UTF-8') < 3 || mb_strlen($unameLower, 'UTF-8') > 100) {
-            $errors[] = 'Username harus 3–100 karakter';
+            $errors[] = __('Username must be 3–100 characters');
         }
 
         if (!preg_match('/^[a-z0-9._-]+$/', $unameLower)) {
-            $errors[] = 'Username hanya boleh huruf, angka, titik, underscore, dan minus';
+            $errors[] = __('Username can only contain letters, numbers, dots, underscores, and hyphens');
         }
 
         if (preg_match('/^[0-9]+$/', $unameLower)) {
-            $errors[] = 'Username tidak boleh hanya angka';
+            $errors[] = __('Username cannot be only numbers');
         }
 
         if (in_array($unameLower, $reservedUsernames, true)) {
-            $errors[] = 'Username tersebut tidak diperbolehkan';
+            $errors[] = __('That username is not allowed');
         }
 
         if (empty($errors)) {
             $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :u LIMIT 1");
             $stmt->execute([':u' => $unameLower]);
             if ($stmt->fetch()) {
-                $errors[] = 'Username sudah dipakai';
+                $errors[] = __('Username already taken');
             }
         }
     }
 
     // Password
     if ($pw === '' || $pw !== $pw2) {
-        $errors[] = 'Password kosong atau tidak cocok';
+        $errors[] = __('Password is empty or does not match');
     }
 
     if (strlen($pw) < 8) {
-        $errors[] = 'Password harus minimal 8 karakter';
+        $errors[] = __('Password must be at least 8 characters');
     }
 
     if (empty($errors)) {
@@ -147,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
         $stmt->execute([':email' => $email_norm]);
         if ($stmt->fetch()) {
-            $errors[] = 'Email sudah terdaftar';
+            $errors[] = __('Email already registered');
         } else {
             $hash = password_hash($pw, PASSWORD_DEFAULT);
 
@@ -176,11 +176,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($ok) {
                 $success = $registrationApproval
-                    ? 'Pendaftaran berhasil. Akun Anda sudah dibuat dan sedang menunggu persetujuan admin.'
-                    : 'Pendaftaran berhasil. Silakan login.';
+                    ? __('Registration successful. Your account has been created and is awaiting admin approval.')
+                    : __('Registration successful. Please log in.');
                 $_POST = []; // bersihkan form
             } else {
-                $errors[] = 'Gagal menyimpan pengguna';
+                $errors[] = __('Failed to save user');
             }
         }
     }
@@ -191,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Signup — Adiwira</title>
+<title><?php _e('Sign Up — Adiwira'); ?></title>
 <?php if ($recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <?php endif; ?>
@@ -208,7 +208,7 @@ button{margin-top:1rem;padding:.6rem 1rem;border:0;background:#246;color:#fff;bo
 </head>
 <body>
 <div class="container">
-    <h1>Buat akun</h1>
+    <h1><?php _e('Create Account'); ?></h1>
 
     <?php if (!empty($errors)): ?>
         <div class="error">
@@ -225,22 +225,22 @@ button{margin-top:1rem;padding:.6rem 1rem;border:0;background:#246;color:#fff;bo
     <?php endif; ?>
 
     <form method="post" novalidate>
-        <label for="email">Email</label>
+        <label for="email"><?php _e('Email'); ?></label>
         <input id="email" name="email" type="email" required value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
-        <label for="username">Username</label>
+        <label for="username"><?php _e('Username'); ?></label>
         <input id="username" name="username" type="text" required
-               placeholder="mis. adam_wira"
+               placeholder="<?php echo __('e.g. adam_wira'); ?>"
                value="<?= htmlspecialchars($_POST['username'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
-        <div class="small">3–100 karakter; huruf/angka/titik/underscore/minus; tidak boleh hanya angka.</div>
+        <div class="small"><?php _e('3–100 characters; letters/numbers/dots/underscores/hyphens; cannot be only numbers.'); ?></div>
 
-        <label for="name">Nama (opsional)</label>
+        <label for="name"><?php _e('Name (optional)'); ?></label>
         <input id="name" name="name" type="text" value="<?= htmlspecialchars($_POST['name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
 
-        <label for="password">Password</label>
+        <label for="password"><?php _e('Password'); ?></label>
         <input id="password" name="password" type="password" required>
 
-        <label for="password_confirm">Konfirmasi Password</label>
+        <label for="password_confirm"><?php _e('Confirm Password'); ?></label>
         <input id="password_confirm" name="password_confirm" type="password" required>
 
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -249,7 +249,7 @@ button{margin-top:1rem;padding:.6rem 1rem;border:0;background:#246;color:#fff;bo
         <div class="g-recaptcha" data-sitekey="<?= htmlspecialchars($RECAPTCHA_SITEKEY, ENT_QUOTES, 'UTF-8') ?>" style="margin-top:12px;"></div>
         <?php endif; ?>
 
-        <button type="submit">Daftar</button>
+        <button type="submit"><?php _e('Register'); ?></button>
     </form>
 </div>
 </body>

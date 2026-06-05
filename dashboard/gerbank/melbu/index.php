@@ -149,7 +149,7 @@ if (is_logged_in()) {
 
     // session ada tapi user sudah tidak aktif / invalid → paksa logout
     logout_user();
-    $info = 'Sesi sebelumnya sudah tidak valid. Silakan login kembali.';
+    $info = __('Previous session invalid. Please log in again.');
 }
 
 // ---------- ambil record attempt ----------
@@ -170,18 +170,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     // csrf
     $postedCsrf = (string)($_POST['csrf_token'] ?? '');
     if ($postedCsrf === '' || !csrf_check($postedCsrf)) {
-        $errors[] = 'Form tidak valid (CSRF check gagal).';
+        $errors[] = __('Invalid form (CSRF check failed).');
     }
 
     // basic validation
     if ($email === '') {
-        $errors[] = 'Email wajib diisi.';
+        $errors[] = __('Email is required.');
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Format email tidak valid.';
+        $errors[] = __('Invalid email format.');
     }
 
     if ($password === '') {
-        $errors[] = 'Password wajib diisi.';
+        $errors[] = __('Password is required.');
     }
 
     // refresh attempt state
@@ -206,16 +206,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
 
         $remain_min = max(1, (int)ceil($remain_seconds / 60));
-        $errors[] = "Terlalu banyak percobaan. Akun/IP diblokir sementara. Coba lagi dalam {$remain_min} menit.";
+        $errors[] = __("Too many attempts. Account/IP temporarily blocked. Try again in {$remain_min} minutes.");
     }
 
     // captcha jika diperlukan
     if (empty($errors) && $show_captcha && $recaptchaEnabled) {
         if ($RECAPTCHA_SITEKEY === '' || $RECAPTCHA_SECRET === '') {
-            $errors[] = 'CAPTCHA belum dikonfigurasi. Hubungi admin.';
+            $errors[] = __('CAPTCHA not configured. Contact admin.');
             $show_help = true;
         } elseif ($captcha_response === '') {
-            $errors[] = 'Silakan isi CAPTCHA.';
+            $errors[] = __('Please fill in the CAPTCHA.');
         } else {
             $verified = melbu_verify_recaptcha($RECAPTCHA_SECRET, $captcha_response, $ip);
 
@@ -223,7 +223,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 if ($email !== '') {
                     $attempts = melbu_record_failed($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
                 }
-                $errors[] = 'CAPTCHA tidak valid.';
+                $errors[] = __('Invalid CAPTCHA.');
             }
         }
     }
@@ -250,18 +250,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
 
             if ($attempts >= $bfMaxAttempts) {
-                $errors[] = 'Terlalu banyak percobaan. Akun/IP diblokir sementara selama ' . $bfBlockMinutes . ' menit.';
+                $errors[] = __('Too many attempts. Account/IP temporarily blocked for ') . $bfBlockMinutes . __(' minutes.');
             } else {
                 $remaining = max(0, $bfMaxAttempts - $attempts);
-                $errors[] = 'Email atau password salah. Sisa percobaan sebelum blokir: ' . $remaining . '.';
+                $errors[] = __('Incorrect email or password. Remaining attempts before block: ') . $remaining . '.';
             }
         } else {
             // password benar, cek status akun
             if ((int)($user['is_deleted'] ?? 0) === 1) {
-                $errors[] = 'Akun tidak tersedia.';
+                $errors[] = __('Account unavailable.');
                 $show_help = true;
             } elseif ((int)($user['is_locked'] ?? 0) === 1) {
-                $errors[] = 'Akun belum aktif atau sedang dikunci.';
+                $errors[] = __('Account not yet active or is locked.');
                 $show_help = true;
             } else {
                 if ($email !== '') {
@@ -287,7 +287,7 @@ $show_help = $show_help || ($attempts >= $captcha_threshold);
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Login</title>
+<title><?php _e('Login'); ?></title>
 <?php if ($recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <?php endif; ?>
@@ -306,7 +306,7 @@ $show_help = $show_help || ($attempts >= $captcha_threshold);
 </head>
 <body>
   <main class="card" role="main" aria-labelledby="login-title">
-    <h2 id="login-title" style="margin:0 0 10px 0;">Masuk</h2>
+    <h2 id="login-title" style="margin:0 0 10px 0;"><?php _e('Sign In'); ?></h2>
 
     <?php if (!empty($errors)): ?>
       <div class="error" role="alert"><?php echo implode('<br>', array_map(static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'), $errors)); ?></div>
@@ -319,7 +319,7 @@ $show_help = $show_help || ($attempts >= $captcha_threshold);
     <form method="post" action="">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_value, ENT_QUOTES, 'UTF-8'); ?>">
 
-      <label for="email">Email</label>
+      <label for="email"><?php _e('Email'); ?></label>
       <input
         id="email"
         name="email"
@@ -330,7 +330,7 @@ $show_help = $show_help || ($attempts >= $captcha_threshold);
         autofocus
       >
 
-      <label for="password">Password</label>
+      <label for="password"><?php _e('Password'); ?></label>
       <input
         id="password"
         name="password"
@@ -345,13 +345,13 @@ $show_help = $show_help || ($attempts >= $captcha_threshold);
         </div>
       <?php endif; ?>
 
-      <button type="submit">Login</button>
+      <button type="submit"><?php _e('Login'); ?></button>
     </form>
 
     <?php if ($show_help): ?>
       <div class="help">
-        <small class="muted">Butuh bantuan setelah beberapa kali percobaan?</small>
-        <a href="<?php echo htmlspecialchars($WHATSAPP_HELP_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Hubungi Admin via WhatsApp</a>
+        <small class="muted"><?php _e('Need help after several attempts?'); ?></small>
+        <a href="<?php echo htmlspecialchars($WHATSAPP_HELP_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php _e('Contact Admin via WhatsApp'); ?></a>
       </div>
     <?php endif; ?>
 
