@@ -171,7 +171,7 @@ $errors = [];
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $title     = trim((string)($_POST['title'] ?? ''));
@@ -186,7 +186,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
 
     if ($title === '') {
-        $errors[] = 'Judul tidak boleh kosong.';
+        $errors[] = __('Title is required.');
     }
 
     if ($role === 'author') {
@@ -198,7 +198,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 }
 
     if (trim(strip_tags($content)) === '') {
-        $errors[] = 'Konten tidak boleh kosong.';
+        $errors[] = __('Content is required.');
     }
 
     $slug = $slug === '' ? slugify($title) : slugify($slug);
@@ -214,7 +214,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
         ");
         $s->execute([':slug' => $slug]);
         if ($s->fetch()) {
-            $errors[] = 'Slug sudah digunakan.';
+            $errors[] = __('Slug already used.');
         }
     }
 
@@ -225,13 +225,13 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
         if ($created_at_in !== '') {
             $created_at_parsed = parse_datetime_local($created_at_in);
             if ($created_at_parsed === null) {
-                $errors[] = 'Format Created At tidak valid.';
+                $errors[] = __('Invalid Created At format.');
             }
         }
         if ($updated_at_in !== '') {
             $updated_at_parsed = parse_datetime_local($updated_at_in);
             if ($updated_at_parsed === null) {
-                $errors[] = 'Format Updated At tidak valid.';
+                $errors[] = __('Invalid Updated At format.');
             }
         }
     }
@@ -267,13 +267,13 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
             ]);
 
             if ($ok) {
-                adiwira_redirect_with_flash($return_to, 'success', 'Halaman berhasil disimpan.');
+                adiwira_redirect_with_flash($return_to, 'success', __('Page saved successfully.'));
             }
 
-            $errors[] = 'Gagal membuat halaman.';
+            $errors[] = __('Failed to create page.');
         } catch (Throwable $e) {
             error_log('pages/halaman.php insert error: ' . $e->getMessage());
-            $errors[] = 'Gagal membuat halaman.';
+            $errors[] = __('Failed to create page.');
         }
     }
 }

@@ -16,19 +16,19 @@ if (adiwira_is_navigate_request()) {
 $isAdmin = ($role === 'admin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
 }
 
 $csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!adiwira_csrf_validate(is_string($csrf) ? $csrf : '')) {
-    adiwira_json(['ok' => false, 'error' => 'CSRF invalid'], 419);
+    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 $id  = (int)($_POST['id'] ?? 0);
 $url = trim((string)($_POST['url'] ?? ''));
 
 if ($id <= 0 && $url === '') {
-    adiwira_json(['ok' => false, 'error' => 'Missing id or url'], 400);
+    adiwira_json(['ok' => false, 'error' => __('Missing id or url')], 400);
 }
 
 if (!function_exists('mdlib_starts_with')) {
@@ -111,7 +111,7 @@ try {
     $row = $q->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
-        adiwira_json(['ok' => false, 'error' => 'File not found'], 404);
+        adiwira_json(['ok' => false, 'error' => __('File not found')], 404);
     }
 
     $fileId = (int)$row['id'];
@@ -149,6 +149,6 @@ try {
     error_log('modal_file/delete.php error: ' . $e->getMessage());
     adiwira_json([
         'ok'    => false,
-        'error' => 'DB error',
+        'error' => __('DB error'),
     ], 500);
 }

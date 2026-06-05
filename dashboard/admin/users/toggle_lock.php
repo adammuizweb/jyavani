@@ -15,39 +15,39 @@ $returnTo = function_exists('adiwira_safe_return_to')
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: belum login.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: belum login.'));
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
 $role = (string)($identity['role'] ?? 'guest');
 
 if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: hanya admin.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: hanya admin.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Token CSRF tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Token CSRF tidak valid.'));
 }
 
 $id = (int)($_POST['id'] ?? 0);
 $mode = strtolower(trim((string)($_POST['mode'] ?? '')));
 
 if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'ID user tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('ID user tidak valid.'));
 }
 
 if ($id === $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Tidak dapat lock/unlock akun sendiri.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Tidak dapat lock/unlock akun sendiri.'));
 }
 
 if (!in_array($mode, ['lock', 'unlock'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Mode tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Mode tidak valid.'));
 }
 
 $stmt = $pdo->prepare("
@@ -61,7 +61,7 @@ $stmt->execute([':id' => $id]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$user) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'User tidak ditemukan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('User tidak ditemukan.'));
 }
 
 $newLock = ($mode === 'lock') ? 1 : 0;
@@ -90,8 +90,8 @@ try {
         );
     }
 
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal memperbarui status user.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal memperbarui status user.'));
 } catch (Throwable $e) {
     error_log('[users/toggle_lock] ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal memperbarui status user.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal memperbarui status user.'));
 }

@@ -55,24 +55,24 @@ $self_url = $base . '/?page=admin/settings/sidebar';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $enabled = (string)($_POST['sidebar_enabled'] ?? '0');
     $position = (string)($_POST['sidebar_position'] ?? 'right');
 
     if (!in_array($enabled, ['0', '1'], true)) {
-        $errors[] = 'Nilai enable tidak valid.';
+        $errors[] = __('Invalid enable value.');
     }
     if (!in_array($position, ['left', 'right'], true)) {
-        $errors[] = 'Nilai posisi tidak valid.';
+        $errors[] = __('Invalid position value.');
     }
 
     if (!$errors) {
         $ok1 = settings_set($pdo, 'sidebar_enabled', $enabled, 1);
         $ok2 = settings_set($pdo, 'sidebar_position', $position, 1);
         if (!($ok1 && $ok2)) {
-            $errors[] = 'Gagal menyimpan pengaturan global.';
+            $errors[] = __('Failed to save global settings.');
         }
     }
 
@@ -102,13 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok3 = settings_set($pdo, 'sidebar_controller_overrides', $encoded, 1);
 
         if ($ok3 === false) {
-            $errors[] = 'Gagal menyimpan override per-controller.';
+            $errors[] = __('Failed to save per-controller override.');
         }
     }
 
     if (!$errors) {
         if (function_exists('adiwira_redirect_with_flash')) {
-            adiwira_redirect_with_flash($self_url, 'success', 'Pengaturan sidebar berhasil disimpan.');
+            adiwira_redirect_with_flash($self_url, 'success', __('Sidebar settings saved successfully.'));
             exit;
         }
         $success_msg = 'Pengaturan sidebar berhasil disimpan.';

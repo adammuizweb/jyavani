@@ -53,7 +53,7 @@ if (!function_exists('save_error_response')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
@@ -228,12 +228,12 @@ $edit_return   = '/adiwira/??' . http_build_query([
 ]);
 
 if ($id <= 0) {
-    $errors[] = 'ID tidak valid.';
+    $errors[] = __('Invalid ID.');
 }
 
 $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
 if ($title === '') {
-    $errors[] = 'Judul tidak boleh kosong.';
+    $errors[] = __('Title is required.');
 }
 
 // hanya author yang disanitasi
@@ -246,7 +246,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 }
 
 if (trim(strip_tags($content)) === '') {
-    $errors[] = 'Konten tidak boleh kosong.';
+    $errors[] = __('Content is required.');
 }
 
 // slug
@@ -271,13 +271,13 @@ $st->execute([':id' => $id]);
 $existing = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$existing) {
-    $errors[] = 'Halaman tidak ditemukan.';
+    $errors[] = __('Page not found.');
 }
 
 // admin bebas, author/editor hanya miliknya sendiri
 if (empty($errors) && $role !== 'admin') {
     if ((int)($existing['created_by'] ?? 0) !== $uid) {
-        $errors[] = 'Akses ditolak: kamu hanya boleh menyimpan halaman milikmu sendiri.';
+        $errors[] = __('Access denied: you can only save your own pages.');
     }
 }
 
@@ -298,7 +298,7 @@ if (empty($errors)) {
     ]);
 
     if ($q->fetch()) {
-        $errors[] = 'Slug sudah dipakai oleh halaman lain.';
+        $errors[] = __('Slug already used by another page.');
     }
 }
 
@@ -391,7 +391,7 @@ try {
         throw new RuntimeException('DB update failed.');
     }
 
-    save_success_response('Halaman berhasil diperbarui.', $return_to, [
+    save_success_response(__('Page updated successfully.'), $return_to, [
         'page' => [
             'id'         => $id,
             'slug'       => $slug,

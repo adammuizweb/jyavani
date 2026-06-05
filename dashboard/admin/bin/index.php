@@ -76,7 +76,7 @@ try {
     $countUsers   = count_users_trash($pdo);
 } catch (Throwable $e) {
     error_log('admin/bin/? stats error: ' . $e->getMessage());
-    $errors[] = 'Gagal mengambil statistik bin.';
+    $errors[] = __('Gagal mengambil statistik bin.');
     $countArticle = $countPage = $countTheme = $countPhoto = $countCat = $countUsers = 0;
 }
 

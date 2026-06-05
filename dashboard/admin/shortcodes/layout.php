@@ -179,7 +179,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
       }
 
       if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-        window.NewNotifToast.show({ type: 'success', title: 'Berhasil', message: data.message || 'Layout berhasil disimpan.' });
+        window.NewNotifToast.show({ type: 'success', title: <?= json_encode(__('Success')) ?>, message: data.message || 'Layout berhasil disimpan.' });
       }
 
       if (data.redirect) {
@@ -187,7 +187,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
       }
     } catch (err) {
       if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-        window.NewNotifToast.show({ type: 'error', title: 'Jaringan', message: 'Terjadi gangguan jaringan.' });
+        window.NewNotifToast.show({ type: 'error', title: <?= json_encode(__('Network')) ?>, message: 'Terjadi gangguan jaringan.' });
       } else { alert('Gagal: ' + err.message); }
     } finally {
       if (btn) {
@@ -205,8 +205,8 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
         window.NewNotifConfirm.warning({
           title: 'Simpan layout',
           message: 'Perubahan akan disimpan. Lanjutkan?',
-          confirmText: 'Ya, simpan',
-          cancelText: 'Batal'
+          confirmText: <?= json_encode(__('Yes, save')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
           submitAjax();

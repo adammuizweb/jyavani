@@ -94,7 +94,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts || {});
       }
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function getCsrfToken() {
@@ -256,10 +256,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const ok = await uiAsk('warning', {
-        title: 'Simpan perubahan media',
+        title: <?= json_encode(__('Save media changes')) ?>,
         message: 'Perubahan metadata media akan disimpan. Lanjutkan?',
-        confirmText: 'Ya, simpan',
-        cancelText: 'Batal'
+        confirmText: <?= json_encode(__('Yes, save')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 
@@ -307,10 +307,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const ok = await uiAsk('danger', {
-        title: 'Hapus media',
-        message: 'Media ini akan dihapus permanen. Lanjutkan?',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete media')) ?>,
+        message: <?= json_encode(__('This media will be permanently deleted. Proceed?')) ?>,
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 

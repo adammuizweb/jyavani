@@ -132,12 +132,12 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/bin/users/index">
 
-    <input type="text" name="q" placeholder="Cari nama, email atau username..."
+    <input type="text" name="q" placeholder="<?= _e('Search name, email or username...') ?>"
       value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
       style="padding:.4rem;min-width:220px">
 
     <select name="role" style="padding:.4rem;">
-      <option value="">-- Semua Role --</option>
+      <option value=""><?= _e('-- All Roles --') ?></option>
       <?php foreach ($allRoles as $r): ?>
         <option value="<?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?>" <?= $filter_role === $r ? 'selected' : '' ?>>
           <?= htmlspecialchars(ucfirst($r), ENT_QUOTES, 'UTF-8') ?>
@@ -146,12 +146,12 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     </select>
 
     <select name="lock" style="padding:.4rem;">
-      <option value="">-- Semua Status --</option>
+      <option value=""><?= _e('-- All Status --') ?></option>
       <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>>Locked / Pending</option>
       <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>>Unlocked / Approved</option>
     </select>
 
-    <button type="submit" class="adam-button">Terapkan</button>
+    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/bin/users/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
 
     <span style="margin-left:auto;color:var(--adam-muted);">
@@ -174,7 +174,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         <option value="delete_permanent">Hapus Permanen</option>
       </select>
 
-      <button type="submit" class="adam-button">Terapkan</button>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <small style="color:var(--adam-muted);">Bulk mempengaruhi user yang dicentang.</small>
     </div>
 
@@ -184,13 +184,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           <tr>
             <th style="width:40px"></th>
             <th>Avatar</th>
-            <th>Nama</th>
+            <th><?= _e('Name') ?></th>
             <th>Email / Username</th>
             <th>Role</th>
             <th>Status</th>
             <th>Phone</th>
             <th>Dihapus</th>
-            <th>Aksi</th>
+            <th><?= _e('Actions') ?></th>
           </tr>
         </thead>
         <tbody>
@@ -355,11 +355,11 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const count = checkedCount();
 
     if (!action) {
-      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu user.' };
+      return { ok:false, message: <?= json_encode(__('Select at least one user.')) ?> };
     }
 
     if (action === 'restore') {
@@ -367,7 +367,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: 'Restore user terpilih',
-        message: 'Sebanyak ' + count + ' user akan direstore dari trash. Lanjutkan?',
+        message: <?= json_encode(__('')) ?> + count + ' user akan direstore dari trash. Lanjutkan?',
         confirmText: 'Ya, restore'
       };
     }
@@ -377,14 +377,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'danger',
         title: 'Hapus permanen user',
-        message: 'Sebanyak ' + count + ' user akan dihapus permanen. Aksi ini tidak bisa dibatalkan.',
+        message: <?= json_encode(__('')) ?> + count + ' user akan dihapus permanen. Aksi ini tidak bisa dibatalkan.',
         confirmText: 'Ya, hapus permanen'
       };
     }
 
     return {
       ok: false,
-      message: 'Aksi bulk tidak dikenal.'
+      message: <?= json_encode(__('Unknown bulk action.')) ?>
     };
   }
 
@@ -407,7 +407,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: 'Restore user',
         message: 'Restore user "' + title + '" dari trash?',
         confirmText: 'Ya, restore',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!restoreForm || !restoreId) return;
@@ -428,7 +428,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: 'Hapus permanen',
         message: 'Hapus permanen user "' + title + '"? Aksi ini tidak bisa dibatalkan.',
         confirmText: 'Ya, hapus permanen',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteId) return;
@@ -452,7 +452,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -460,7 +460,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

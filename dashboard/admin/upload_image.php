@@ -38,36 +38,36 @@ register_shutdown_function(function () {
     echo json_encode([
         'success' => false,
         'ok'      => false,
-        'error'   => 'Server error',
+        'error'   => __('Server error'),
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 });
 
 [$uid, $role] = adiwira_require_editorial($pdo, true);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!adiwira_csrf_validate(is_string($csrf) ? $csrf : '')) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'CSRF invalid'], 419);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 if (empty($_FILES['image']) || !is_array($_FILES['image'])) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'File not found'], 400);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('File not found')], 400);
 }
 
 $file = $_FILES['image'];
 if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Upload error code: ' . (int)$file['error']], 400);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => sprintf(__('Upload error code: %d'), (int)$file['error'])], 400);
 }
 if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Invalid upload'], 400);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Invalid upload')], 400);
 }
 
 $maxBytes = 20 * 1024 * 1024;
 if (($file['size'] ?? 0) > $maxBytes) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'File too large (max 5MB)'], 413);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('File too large (max 5MB)')], 413);
 }
 
 $auto_save = !empty($_POST['auto_save']) && in_array((string)$_POST['auto_save'], ['1', 'true', 'on'], true);
@@ -116,7 +116,7 @@ $upload_base_url = '/static/img';
 $private_upload_base_dir = adiwira_media_private_base_dir();
 
 if (!is_dir($upload_base_dir) && !mkdir($upload_base_dir, 0755, true)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed to create img dir'], 500);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to create image directory')], 500);
 }
 
 $tmp = (string)$file['tmp_name'];
@@ -202,7 +202,7 @@ if (!isset($allowed[$mime])) {
     $response = [
         'success' => false,
         'ok'      => false,
-        'error'   => 'Only avif/webp/png/jpg/jpeg allowed',
+        'error'   => __('Only avif/webp/png/jpg/jpeg allowed'),
     ];
     if (function_exists('app_debug_enabled') && app_debug_enabled()) {
         $response['detected_mime'] = $mime;
@@ -252,7 +252,7 @@ if ($storage_disk === 'private') {
 }
 
 if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed make upload folder'], 500);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to create upload folder')], 500);
 }
 
 $original_name = pathinfo((string)$file['name'], PATHINFO_FILENAME);
@@ -267,7 +267,7 @@ $filename = $slug . '-' . $rand . '.' . $ext;
 $target_path = $target_dir . '/' . $filename;
 
 if (!move_uploaded_file($file['tmp_name'], $target_path)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed to save file'], 500);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to save file')], 500);
 }
 
 file_put_contents('/tmp/upload_debug.log', date('H:i:s') . ' file moved OK' . PHP_EOL, FILE_APPEND);
@@ -369,7 +369,7 @@ if ($auto_save) {
         adiwira_json([
             'success' => false,
             'ok'      => false,
-            'error'   => 'DB insert failed',
+            'error'   => __('Database insert failed'),
         ], 500);
     }
 }

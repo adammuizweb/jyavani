@@ -68,8 +68,8 @@ if ($layoutDir && is_dir($layoutDir)) {
           <th>Nama Preset</th>
           <th>Widget Name</th>
           <th>Status</th>
-          <th>Dibuat</th>
-          <th style="width:140px">Aksi</th>
+          <th><?= _e('Created') ?></th>
+          <th style="width:140px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
@@ -117,7 +117,7 @@ if ($layoutDir && is_dir($layoutDir)) {
           <th>Nama File</th>
           <th>Layout Name</th>
           <th>Ukuran</th>
-          <th style="width:140px">Aksi</th>
+          <th style="width:140px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
@@ -178,8 +178,8 @@ if ($layoutDir && is_dir($layoutDir)) {
         ask('danger', {
           title: 'Hapus preset',
           message: 'Hapus preset "' + title + '"? Item akan dipindahkan ke trash.',
-          confirmText: 'Ya, hapus',
-          cancelText: 'Batal'
+          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
           document.getElementById('preset-delete-id').value = id;
@@ -198,8 +198,8 @@ if ($layoutDir && is_dir($layoutDir)) {
         ask('danger', {
           title: 'Hapus layout',
           message: 'Hapus file layout "' + name + '"? File akan dihapus permanen.',
-          confirmText: 'Ya, hapus',
-          cancelText: 'Batal'
+          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
           document.getElementById('layout-delete-file').value = file;

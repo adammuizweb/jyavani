@@ -11,17 +11,17 @@ adiwira_cosmetic_404_on_direct_open();
 $isAdmin = ($role === 'admin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 if (!adiwira_csrf_validate($csrf)) {
-    adiwira_json(['ok' => false, 'error' => 'CSRF invalid'], 419);
+    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || count($ids) === 0) {
-    adiwira_json(['ok' => false, 'error' => 'No ids provided'], 400);
+    adiwira_json(['ok' => false, 'error' => __('No ids provided')], 400);
 }
 
 $ids = array_values(array_unique(array_map('intval', $ids)));
@@ -30,7 +30,7 @@ $ids = array_values(array_filter($ids, function($x){
 }));
 
 if (count($ids) === 0) {
-    adiwira_json(['ok' => false, 'error' => 'Invalid ids'], 400);
+    adiwira_json(['ok' => false, 'error' => __('Invalid ids')], 400);
 }
 
 function media_static_root(): ?string {
@@ -86,7 +86,7 @@ try {
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     if (empty($rows)) {
-        adiwira_json(['ok' => false, 'error' => 'Media not found'], 404);
+        adiwira_json(['ok' => false, 'error' => __('Media not found')], 404);
     }
 
     $deleted_ids = [];
@@ -130,5 +130,5 @@ try {
 
 } catch (Throwable $e) {
     error_log('media/delete_bulk.php error: ' . $e->getMessage());
-    adiwira_json(['ok' => false, 'error' => 'Server error'], 500);
+    adiwira_json(['ok' => false, 'error' => __('Server error')], 500);
 }

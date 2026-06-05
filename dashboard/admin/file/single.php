@@ -179,7 +179,7 @@ $isPrivate = ($visibility === 'private');
         return window.NewNotifConfirm.warning(opts || {});
       }
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function getCsrfToken() {
@@ -209,10 +209,10 @@ $isPrivate = ($visibility === 'private');
   if (saveBtn) {
     saveBtn.addEventListener('click', async function(){
       const ok = await uiAsk('warning', {
-        title: 'Simpan perubahan file',
+        title: <?= json_encode(__('Save file changes')) ?>,
         message: 'Perubahan metadata file akan disimpan. Lanjutkan?',
-        confirmText: 'Ya, simpan',
-        cancelText: 'Batal'
+        confirmText: <?= json_encode(__('Yes, save')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 
@@ -254,10 +254,10 @@ $isPrivate = ($visibility === 'private');
   if (deleteBtn) {
     deleteBtn.addEventListener('click', async function(){
       const ok = await uiAsk('danger', {
-        title: 'Hapus file',
-        message: 'File ini akan dihapus permanen. Lanjutkan?',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete file')) ?>,
+        message: <?= json_encode(__('This file will be permanently deleted. Proceed?')) ?>,
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 

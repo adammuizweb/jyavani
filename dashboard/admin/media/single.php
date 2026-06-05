@@ -11,7 +11,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) {
-    echo '<div>Invalid ID</div>';
+    echo '<div>' . __('Invalid ID') . '</div>';
     exit;
 }
 
@@ -30,7 +30,7 @@ $stmt->execute($params);
 $r = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$r) {
-    echo '<div>Media not found</div>';
+    echo '<div>' . __('Media not found') . '</div>';
     exit;
 }
 

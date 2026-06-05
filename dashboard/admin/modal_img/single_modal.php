@@ -254,7 +254,7 @@ if (!function_exists('modalimg_human_filesize')) {
       if (variant === 'danger' && typeof api.danger === 'function') return api.danger(opts || {});
       if (typeof api.warning === 'function') return api.warning(opts || {});
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function broadcast(name, detail){
@@ -274,10 +274,10 @@ if (!function_exists('modalimg_human_filesize')) {
 
   document.getElementById('mdlib-media-save-btn')?.addEventListener('click', async function(){
     const ok = await uiAsk('warning', {
-      title: 'Simpan perubahan media',
+      title: <?= json_encode(__('Save media changes')) ?>,
       message: 'Perubahan metadata media akan disimpan. Lanjutkan?',
-      confirmText: 'Ya, simpan',
-      cancelText: 'Batal'
+      confirmText: <?= json_encode(__('Yes, save')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
     });
     if (!ok) return;
 
@@ -322,10 +322,10 @@ if (!function_exists('modalimg_human_filesize')) {
 
   document.getElementById('mdlib-media-delete-btn')?.addEventListener('click', async function(){
     const ok = await uiAsk('danger', {
-      title: 'Hapus media',
+      title: <?= json_encode(__('Delete media')) ?>,
       message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
-      confirmText: 'Ya, hapus',
-      cancelText: 'Batal'
+      confirmText: <?= json_encode(__('Yes, delete')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
     });
     if (!ok) return;
 

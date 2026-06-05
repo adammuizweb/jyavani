@@ -190,7 +190,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     <input type="text" name="q" placeholder="Cari nama/slug..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:220px">
 
     <select name="parent" style="padding:.4rem;">
-      <option value="0">-- Semua Parent --</option>
+      <option value="0"><?= _e('-- All Parents --') ?></option>
       <?php foreach ($parentOptions as $opt): ?>
         <option value="<?= (int)$opt['id'] ?>" <?= $filter_parent === (int)$opt['id'] ? 'selected' : '' ?>>
           <?= htmlspecialchars((string)$opt['label'], ENT_QUOTES, 'UTF-8') ?>
@@ -200,7 +200,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
     <?php if ($role !== 'author'): ?>
       <select name="author" style="padding:.4rem;">
-        <option value="0">-- Semua Creator --</option>
+        <option value="0"><?= _e('-- All Creators --') ?></option>
         <?php foreach ($authors as $a):
           $label = $a['name'] ?: ($a['username'] ?: $a['id']);
         ?>
@@ -211,7 +211,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
       </select>
     <?php endif; ?>
 
-    <button type="submit" class="adam-button">Terapkan</button>
+    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
 
     <span style="margin-left:auto;color:var(--adam-muted);">
@@ -235,8 +235,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           <option value="delete_permanent">Hapus Permanen</option>
         </select>
 
-        <button type="submit" class="adam-button">Terapkan</button>
-        <small style="color:var(--adam-muted);">Bulk hanya mempengaruhi item yang dicentang.</small>
+        <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+        <small style="color:var(--adam-muted);"><?= _e('Bulk only affects checked items.') ?></small>
       </div>
 
       <div class="adam-table-wrapper">
@@ -244,13 +244,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           <thead>
             <tr>
               <th style="width:40px"></th>
-              <th>Nama</th>
+              <th><?= _e('Name') ?></th>
               <th>Slug</th>
               <th>Parent</th>
               <th>Posts</th>
               <th>Deleted</th>
               <th>Creator</th>
-              <th>Aksi</th>
+              <th><?= _e('Actions') ?></th>
             </tr>
           </thead>
           <tbody>
@@ -302,13 +302,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         <thead>
           <tr>
             <th style="width:40px"></th>
-            <th>Nama</th>
+            <th><?= _e('Name') ?></th>
             <th>Slug</th>
             <th>Parent</th>
             <th>Posts</th>
             <th>Deleted</th>
             <th>Creator</th>
-            <th>Aksi</th>
+            <th><?= _e('Actions') ?></th>
           </tr>
         </thead>
         <tbody>
@@ -433,11 +433,11 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const count = checkedCount();
 
     if (!action) {
-      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu kategori.' };
+      return { ok:false, message: <?= json_encode(__('Select at least one category.')) ?> };
     }
 
     if (action === 'restore') {
@@ -445,7 +445,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: 'Restore kategori terpilih',
-        message: 'Sebanyak ' + count + ' kategori akan direstore dari trash. Parent yang masih trash akan diputus otomatis.',
+        message: <?= json_encode(__('')) ?> + count + ' kategori akan direstore dari trash. Parent yang masih trash akan diputus otomatis.',
         confirmText: 'Ya, restore'
       };
     }
@@ -455,14 +455,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'danger',
         title: 'Hapus permanen kategori',
-        message: 'Sebanyak ' + count + ' kategori akan dihapus permanen. Aksi ini akan gagal jika ada kategori yang masih punya subkategori.',
+        message: <?= json_encode(__('')) ?> + count + ' kategori akan dihapus permanen. Aksi ini akan gagal jika ada kategori yang masih punya subkategori.',
         confirmText: 'Ya, hapus permanen'
       };
     }
 
     return {
       ok: false,
-      message: 'Aksi bulk tidak dikenal.'
+      message: <?= json_encode(__('Unknown bulk action.')) ?>
     };
   }
 
@@ -485,7 +485,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: 'Restore kategori',
         message: 'Restore kategori "' + title + '"? Jika parent-nya masih trash, parent akan diputus otomatis.',
         confirmText: 'Ya, restore',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!restoreForm || !restoreId) return;
@@ -506,7 +506,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: 'Hapus permanen',
         message: 'Hapus permanen kategori "' + title + '"? Aksi ini tidak bisa dibatalkan dan akan ditolak jika masih punya subkategori.',
         confirmText: 'Ya, hapus permanen',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteId) return;
@@ -530,7 +530,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -538,7 +538,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

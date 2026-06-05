@@ -76,12 +76,12 @@ if ($cached !== null) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'install') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
 
     $pluginName = (string)($_POST['plugin'] ?? '');
     if (!preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Nama plugin tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Nama plugin tidak valid.'));
     }
 
     // Cari data plugin dari API list
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $dlCtx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS/2.0']]);
     $zipContent = @file_get_contents($downloadUrl, false, $dlCtx);
     if ($zipContent === false) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengunduh plugin dari jyavani.com.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengunduh plugin dari jyavani.com.'));
     }
 
     $tmpZip = tempnam(sys_get_temp_dir(), 'install-') . '.zip';
@@ -120,20 +120,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $pluginJsonRaw = $zip->getFromName('plugin.json');
     if ($pluginJsonRaw === false) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json tidak ditemukan di dalam ZIP.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak ditemukan di dalam ZIP.'));
     }
 
     $manifest = json_decode($pluginJsonRaw, true);
     if (!is_array($manifest) || empty($manifest['name']) || $manifest['name'] !== $pluginName) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak valid.'));
     }
 
     // Ekstrak ke temp
     $tmpExtract = PLUGIN_PATH . '/.extract-' . bin2hex(random_bytes(8));
     if (!mkdir($tmpExtract, 0755, true)) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal membuat temporary directory.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuat temporary directory.'));
     }
 
     $extracted = $zip->extractTo($tmpExtract);
@@ -142,24 +142,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
 
     if (!$extracted) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengekstrak file.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengekstrak file.'));
     }
 
     if (!is_file($tmpExtract . '/plugin.json')) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json tidak ditemukan di root ZIP.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak ditemukan di root ZIP.'));
     }
 
     $extractedManifest = json_decode(file_get_contents($tmpExtract . '/plugin.json'), true);
     if (!is_array($extractedManifest) || ($extractedManifest['name'] ?? '') !== $pluginName) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json setelah ekstrak tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json setelah ekstrak tidak valid.'));
     }
 
     // Pindah ke plugins/{name}/
     if (!rename($tmpExtract, $pluginDir)) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal memindahkan plugin.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal memindahkan plugin.'));
     }
 
     // Set permissions

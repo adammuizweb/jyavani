@@ -30,7 +30,7 @@ if (is_file($manifestFile)) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
 
     $action = (string)($_POST['action'] ?? '');
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'check_remote') {
         $inputUrl = trim((string)($_POST['update_url'] ?? ''));
         if ($inputUrl === '') {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'URL update tidak boleh kosong.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('URL update tidak boleh kosong.'));
         }
 
         $ctx = stream_context_create([
@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $remote = json_decode($remoteJson, true);
         if (!is_array($remote) || !isset($remote['version'])) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Format respons remote tidak valid (dibutuhkan: version).');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Format respons remote tidak valid (dibutuhkan: version).'));
         }
 
         // Store in session for the apply step
@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $baseUrl = $_SESSION['cms_update_base_url'] ?? '';
 
         if (!$remote) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Tidak ada data update di session. Lakukan "Check for Updates" dulu.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Tidak ada data update di session. Lakukan "Check for Updates" dulu.'));
         }
 
         $result = _apply_cms_update($remote, $baseUrl, $currentVersion['version'] ?? '0.0.0');
@@ -110,13 +110,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // --- Upload update package ---
     if ($action === 'upload_update') {
         if (!isset($_FILES['update_package']) || $_FILES['update_package']['error'] !== UPLOAD_ERR_OK) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'File update tidak valid.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('File update tidak valid.'));
         }
 
         $file = $_FILES['update_package'];
         $origName = basename($file['name']);
         if (!str_ends_with(strtolower($origName), '.zip')) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Hanya file .zip yang didukung.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Hanya file .zip yang didukung.'));
         }
 
         $tmpZip = $file['tmp_name'];
@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Read manifest from zip
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal membuka file ZIP.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuka file ZIP.'));
         }
 
         $manifestJson = $zip->getFromName('cms-manifest.json');
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($manifestJson === false) {
             $zip->close();
-            adiwira_redirect_with_flash($selfUrl, 'error', 'cms-manifest.json tidak ditemukan di dalam package update.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('cms-manifest.json tidak ditemukan di dalam package update.'));
         }
 
         $remoteManifest = json_decode($manifestJson, true);
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!is_array($remoteManifest) || !isset($remoteManifest['version'])) {
             $zip->close();
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Format cms-manifest.json tidak valid.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Format cms-manifest.json tidak valid.'));
         }
 
         $zip->close();
@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $packageZip = $_SESSION['cms_update_package'] ?? '';
 
         if (!$remote || !$packageZip || !is_file($packageZip)) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Tidak ada package update. Upload ulang.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Tidak ada package update. Upload ulang.'));
         }
 
         $result = _apply_cms_update_from_zip($packageZip, $remote, $currentVersion['version'] ?? '0.0.0');
@@ -188,14 +188,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'clear_pending') {
         ensure_session_started(true);
         unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url'], $_SESSION['cms_update_package'], $_SESSION['cms_update_remote_url']);
-        adiwira_redirect_with_flash($selfUrl, 'info', 'Pending update dibatalkan.');
+        adiwira_redirect_with_flash($selfUrl, 'info', __('Pending update dibatalkan.'));
     }
 
     // --- Reinstall CMS (force overwrite same version) ---
     if ($action === 'reinstall') {
         $url = trim((string)($_POST['reinstall_url'] ?? ''));
         if ($url === '') {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'URL reinstall tidak boleh kosong.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('URL reinstall tidak boleh kosong.'));
         }
 
         $hardReset = !empty($_POST['hard_reset']);
@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $zipData = @file_get_contents($url, false, $ctx);
         if ($zipData === false) {
             @unlink($tmpZip);
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal download package reinstall.');
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal download package reinstall.'));
         }
         file_put_contents($tmpZip, $zipData);
 
@@ -238,7 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    adiwira_redirect_with_flash($selfUrl, 'error', 'Aksi tidak dikenal.');
+    adiwira_redirect_with_flash($selfUrl, 'error', __('Aksi tidak dikenal.'));
 }
 
 // --- Helper: remote download + apply ---

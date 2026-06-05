@@ -51,22 +51,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond_theme_bulk(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+    respond_theme_bulk(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond_theme_bulk(false, 'Tidak ada theme dipilih.', 400, [], $returnTo);
+    respond_theme_bulk(false, __('No themes selected.'), 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 if (empty($ids)) {
-    respond_theme_bulk(false, 'ID theme tidak valid.', 400, [], $returnTo);
+    respond_theme_bulk(false, __('Invalid theme ID.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    respond_theme_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond_theme_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
 
 $in = implode(',', array_fill(0, count($ids), '?'));
@@ -84,14 +84,14 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond_theme_bulk(true, "Berhasil memindahkan {$affected} theme partial ke trash.", 200, ['count' => $affected], $returnTo);
+        respond_theme_bulk(true, "Successfully moved  {$affected} theme partial ke trash.", 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_status') {
         $new_status = (string)($_POST['status'] ?? '');
         if (!in_array($new_status, ['draft','published','private'], true)) {
             $pdo->rollBack();
-            respond_theme_bulk(false, 'Status tidak valid.', 400, [], $returnTo);
+            respond_theme_bulk(false, __('Invalid status.'), 400, [], $returnTo);
         }
 
         $stmt = $pdo->prepare("
@@ -103,16 +103,16 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond_theme_bulk(true, "Berhasil mengubah status {$affected} theme partial menjadi {$new_status}.", 200, ['count' => $affected], $returnTo);
+        respond_theme_bulk(true, "Successfully changed status of  {$affected} theme partial menjadi {$new_status}.", 200, ['count' => $affected], $returnTo);
     }
 
     $pdo->rollBack();
-    respond_theme_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond_theme_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('themes/bulk_action.php error: ' . $e->getMessage());
-    respond_theme_bulk(false, 'Terjadi kesalahan saat proses bulk.', 500, [], $returnTo);
+    respond_theme_bulk(false, __('An error occurred during bulk processing.'), 500, [], $returnTo);
 }

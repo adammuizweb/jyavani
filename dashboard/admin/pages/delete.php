@@ -15,29 +15,29 @@ $returnTo = function_exists('adiwira_safe_return_to')
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
 $role = (string)($identity['role'] ?? 'guest');
 
 if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'CSRF token tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'ID tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 }
 
 $stmt = $pdo->prepare("
@@ -52,11 +52,11 @@ $stmt->execute([':id' => $id]);
 $page = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$page) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Halaman tidak ditemukan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Page not found.'));
 }
 
 if (in_array($role, ['author', 'editor'], true) && (int)($page['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: kamu hanya boleh menghapus halaman milikmu sendiri.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: you can only delete your own pages.'));
 }
 
 try {
@@ -79,7 +79,7 @@ try {
 
     $pdo->commit();
 
-    adiwira_redirect_with_flash($returnTo, 'success', 'Halaman berhasil dipindahkan ke trash.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Page moved to trash successfully.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -87,5 +87,5 @@ try {
     }
 
     error_log('pages/delete.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus halaman.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete page.'));
 }

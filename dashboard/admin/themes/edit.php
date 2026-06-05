@@ -58,7 +58,7 @@ $theme = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$theme) {
     http_response_code(404);
-    echo '<p>Theme tidak ditemukan.</p>';
+    echo '<p>' . __('Theme not found.') . '</p>';
     return;
 }
 
@@ -249,10 +249,10 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
     syncContent();
 
     askWarning({
-      title: 'Simpan perubahan',
+      title: <?= json_encode(__('Save changes')) ?>,
       message: 'Perubahan theme partial ini akan disimpan. Lanjutkan?',
-      confirmText: 'Ya, simpan',
-      cancelText: 'Batal'
+      confirmText: <?= json_encode(__('Yes, save')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){
       if (!ok) return;
       submitAjax();

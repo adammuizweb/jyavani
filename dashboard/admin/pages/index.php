@@ -172,17 +172,17 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/pages/index">
-    <input type="text" name="q" placeholder="Cari judul atau slug..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
+    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
 
     <select name="status" style="padding:.4rem;">
-      <option value="">-- Semua Status --</option>
+      <option value=""><?= _e('-- All Status --') ?></option>
       <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
       <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
       <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
     </select>
 
     <select name="author" style="padding:.4rem;">
-      <option value="">-- Semua Penulis --</option>
+      <option value=""><?= _e('-- All Authors --') ?></option>
       <?php foreach ($authors as $a):
         $label = $a['name'] ?: ($a['username'] ?: $a['id']);
       ?>
@@ -192,7 +192,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <?php endforeach; ?>
     </select>
 
-    <button type="submit" class="adam-button">Terapkan</button>
+    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
   </form>
 
@@ -216,10 +216,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <select id="bulkActionPages" name="action" style="padding:.4rem;">
         <option value="">-- Bulk action --</option>
-        <option value="delete">Hapus</option>
-        <option value="change_status">Ubah Status</option>
+        <option value="delete"><?= _e('Delete') ?></option>
+        <option value="change_status"><?= _e('Change Status') ?></option>
         <?php if ($role === 'admin'): ?>
-          <option value="change_author">Ubah Author</option>
+          <option value="change_author"><?= _e('Change Author') ?></option>
         <?php endif; ?>
       </select>
 
@@ -231,7 +231,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <?php if ($role === 'admin'): ?>
       <select id="bulkAuthorPages" name="author_id" style="padding:.4rem;display:none;">
-        <option value="">-- Pilih Author --</option>
+        <option value=""><?= _e('-- Select Author --') ?></option>
         <?php foreach ($authors as $a):
           $label = $a['name'] ?: ($a['username'] ?: $a['id']);
         ?>
@@ -240,8 +240,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </select>
       <?php endif; ?>
 
-      <button type="submit" class="adam-button">Terapkan</button>
-      <small style="color:var(--adam-muted);margin-left:.5rem;">Bulk hanya mempengaruhi item yang dicentang.</small>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+      <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
     </div>
 
     <div class="adam-table-wrapper">
@@ -249,17 +249,17 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <thead>
           <tr>
             <th style="width:40px"></th>
-            <th>Judul</th>
+            <th><?= _e('Title') ?></th>
             <th>Slug</th>
             <th>Status</th>
-            <th>Dibuat</th>
-            <th>Penulis</th>
-            <th>Aksi</th>
+            <th><?= _e('Created') ?></th>
+            <th><?= _e('Author') ?></th>
+            <th><?= _e('Actions') ?></th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($pages_list)): ?>
-            <tr><td colspan="7" style="padding:1rem;">Tidak ada page ditemukan.</td></tr>
+            <tr><td colspan="7" style="padding:1rem;"><?= _e('No pages found.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($pages_list as $p): ?>
               <?php
@@ -421,20 +421,20 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const count = checkedCount();
 
     if (!action) {
-      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu halaman.' };
+      return { ok:false, message: <?= json_encode(__('Select at least one page.')) ?> };
     }
 
     if (action === 'delete') {
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus halaman terpilih',
-        message: 'Sebanyak ' + count + ' halaman akan dipindahkan ke trash. Lanjutkan?',
-        confirmText: 'Ya, hapus'
+        title: <?= json_encode(__('Delete selected pages')) ?>,
+        message: <?= json_encode(__('')) ?> + count + ' halaman akan dipindahkan ke trash. Lanjutkan?',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
 
@@ -443,9 +443,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'warning',
-        title: 'Ubah status halaman',
-        message: 'Ubah status ' + count + ' halaman menjadi "' + status + '"?',
-        confirmText: 'Ya, ubah'
+        title: <?= json_encode(__('Change page status')) ?>,
+        message: <?= json_encode(__('Change status of ')) ?> + count + ' halaman menjadi "' + status + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
 
@@ -456,24 +456,24 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         : '';
 
       if (!authorId) {
-        return { ok:false, message:'Pilih author terlebih dahulu.' };
+        return { ok:false, message: <?= json_encode(__('Select an author first.')) ?> };
       }
 
       return {
         ok: true,
         variant: 'warning',
-        title: 'Ubah author halaman',
-        message: 'Ubah author ' + count + ' halaman menjadi "' + authorLabel + '"?',
-        confirmText: 'Ya, ubah'
+        title: <?= json_encode(__('Change page author')) ?>,
+        message: <?= json_encode(__('Change author of ')) ?> + count + ' halaman menjadi "' + authorLabel + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
 
     return {
       ok: true,
       variant: 'warning',
-      title: 'Konfirmasi bulk action',
-      message: 'Jalankan aksi untuk ' + count + ' halaman?',
-      confirmText: 'Lanjutkan'
+      title: <?= json_encode(__('Confirm bulk action')) ?>,
+      message: <?= json_encode(__('Execute action for ')) ?> + count + ' halaman?',
+      confirmText: <?= json_encode(__('Proceed')) ?>
     };
   }
 
@@ -498,10 +498,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Konfirmasi hapus',
-        message: 'Hapus halaman "' + title + '"? Halaman akan dipindahkan ke trash.',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete confirmation')) ?>,
+        message: <?= json_encode(__('Delete page "')) ?> + title + '"? Halaman akan dipindahkan ke trash.',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteIdInput) return;
@@ -525,7 +525,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -533,7 +533,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

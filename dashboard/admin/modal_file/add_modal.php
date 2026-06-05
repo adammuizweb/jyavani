@@ -50,7 +50,7 @@ try {
   <div class="mdlib-uploader-right">
     <div id="mdlib-dropzone" class="mdlib-dropzone" role="button" tabindex="0">
       Tarik file ke sini atau klik
-      <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button">Pilih file</button>
+      <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button"><?= _e('Select file') ?></button>
       <div class="mdlib-note">
         pdf, doc/docx, xls/xlsx, ppt/pptx, zip, mp4, webm, mov, txt, rtf, mp3, wav, ogg
       </div>
@@ -123,7 +123,7 @@ try {
     if (window.mdlibUi && typeof window.mdlibUi.ask === 'function') {
       return window.mdlibUi.ask(variant, opts || {});
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function getCsrfToken() {
@@ -294,10 +294,10 @@ try {
     if (deleteBtn) {
       deleteBtn.addEventListener('click', async function(){
         const ok = await uiAsk('danger', {
-          title: 'Hapus file',
-          message: 'File ini akan dihapus permanen. Lanjutkan?',
-          confirmText: 'Ya, hapus',
-          cancelText: 'Batal'
+          title: <?= json_encode(__('Delete file')) ?>,
+          message: <?= json_encode(__('This file will be permanently deleted. Proceed?')) ?>,
+          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         });
         if (!ok) return;
 

@@ -16,17 +16,17 @@ if (adiwira_is_navigate_request()) {
 $isAdmin = ($role === 'admin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
 }
 
 $csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!adiwira_csrf_validate(is_string($csrf) ? $csrf : '')) {
-    adiwira_json(['ok' => false, 'error' => 'CSRF invalid'], 419);
+    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    adiwira_json(['ok' => false, 'error' => 'Missing id'], 400);
+    adiwira_json(['ok' => false, 'error' => __('Missing id')], 400);
 }
 
 $title   = trim((string)($_POST['title'] ?? ''));
@@ -57,7 +57,7 @@ try {
     $row = $check->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
-        adiwira_json(['ok' => false, 'error' => 'File not found'], 404);
+        adiwira_json(['ok' => false, 'error' => __('File not found')], 404);
     }
 
     $setClause = "title = :title, caption = :caption, credit = :credit, updated_at = NOW()";
@@ -105,6 +105,6 @@ try {
     error_log('modal_file/save.php error: ' . $e->getMessage());
     adiwira_json([
         'ok'    => false,
-        'error' => 'DB error',
+        'error' => __('DB error'),
     ], 500);
 }

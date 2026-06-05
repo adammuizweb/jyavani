@@ -25,7 +25,7 @@ if ($progress) {
 
 adiwira_json([
     'percentage' => 0,
-    'status' => 'Memulai...',
+    'status' => __('Starting...'),
     'done' => false,
     'error' => null,
 ]);

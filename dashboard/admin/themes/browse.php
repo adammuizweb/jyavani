@@ -68,12 +68,12 @@ if ($cached !== null) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'install') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
 
     $themeName = (string)($_POST['theme'] ?? '');
     if (!preg_match('/^[a-zA-Z0-9_-]+$/', $themeName)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Nama theme tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Nama theme tidak valid.'));
     }
 
     $themeData = null;
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $dlCtx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS/2.0']]);
     $zipContent = @file_get_contents($downloadUrl, false, $dlCtx);
     if ($zipContent === false) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengunduh theme dari jyavani.com.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengunduh theme dari jyavani.com.'));
     }
 
     $tmpZip = tempnam(sys_get_temp_dir(), 'install-') . '.zip';
@@ -109,19 +109,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $manifestRaw = $zip->getFromName('theme.json');
     if ($manifestRaw === false) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'theme.json tidak ditemukan di dalam ZIP.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('theme.json tidak ditemukan di dalam ZIP.'));
     }
 
     $manifest = json_decode($manifestRaw, true);
     if (!is_array($manifest) || empty($manifest['name']) || $manifest['name'] !== $themeName) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'theme.json tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('theme.json tidak valid.'));
     }
 
     $tmpExtract = dirname(VIEWS_BASE) . '/.extract-' . bin2hex(random_bytes(8));
     if (!mkdir($tmpExtract, 0755, true)) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal membuat temporary directory.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuat temporary directory.'));
     }
 
     $extracted = $zip->extractTo($tmpExtract);
@@ -130,17 +130,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
 
     if (!$extracted) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengekstrak file.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengekstrak file.'));
     }
 
     if (!is_file($tmpExtract . '/theme.json')) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'theme.json tidak ditemukan di root ZIP.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('theme.json tidak ditemukan di root ZIP.'));
     }
 
     if (!rename($tmpExtract, $themeDir)) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal memindahkan theme.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal memindahkan theme.'));
     }
 
     $chmodIt = new RecursiveIteratorIterator(

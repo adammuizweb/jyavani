@@ -47,7 +47,7 @@ try {
         sess_dbg("adiwira/?: is_logged_in exception: " . $e->getMessage());
     }
     http_response_code(500);
-    echo "Internal error (see logs).";
+    echo __('Internal error (see logs).');
     exit;
 }
 
@@ -73,7 +73,7 @@ try {
         sess_dbg("adiwira/?: current_user_status exception: " . $e->getMessage());
     }
     http_response_code(500);
-    echo "Internal error (user load failed).";
+    echo __('Internal error (user load failed).');
     exit;
 }
 

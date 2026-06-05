@@ -207,17 +207,17 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/posts/index">
-    <input type="text" name="q" placeholder="Cari judul atau slug..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
+    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
     
     <select name="status" style="padding:.4rem;">
-      <option value="">-- Semua Status --</option>
+      <option value=""><?= _e('-- All Status --') ?></option>
       <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>>Draft</option>
       <option value="published" <?= $filter_status==='published'?'selected':'' ?>>Published</option>
       <option value="private" <?= $filter_status==='private'?'selected':'' ?>>Private</option>
     </select>
 
     <select name="category" style="padding:.4rem;">
-      <option value="">-- Semua Kategori --</option>
+      <option value=""><?= _e('-- All Categories --') ?></option>
       <?php foreach ($categories as $cat): ?>
         <option value="<?= (int)$cat['id'] ?>" <?= $filter_category==$cat['id']?'selected':'' ?>>
           <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
@@ -225,7 +225,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <?php endforeach; ?>
     </select>
 
-    <button type="submit" class="adam-button">Terapkan</button>
+    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
   </form>
 
@@ -249,9 +249,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <select id="bulkAction" name="action" style="padding:.4rem;">
         <option value="">-- Bulk action --</option>
-        <option value="delete">Hapus</option>
-        <option value="change_status">Ubah Status</option>
-        <option value="change_categories">Kelola Kategori</option>
+        <option value="delete"><?= _e('Delete') ?></option>
+        <option value="change_status"><?= _e('Change Status') ?></option>
+        <option value="change_categories"><?= _e('Manage Categories') ?></option>
       </select>
 
       <select id="bulkStatus" name="status" style="padding:.4rem;display:none;">
@@ -261,8 +261,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </select>
 
       <select id="bulkCatMode" name="cat_mode" style="padding:.4rem;display:none;">
-        <option value="add">Tambah</option>
-        <option value="remove">Hapus</option>
+        <option value="add"><?= _e('Add') ?></option>
+        <option value="remove"><?= _e('Delete') ?></option>
         <option value="toggle">Toggle</option>
       </select>
 
@@ -275,8 +275,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <?php endforeach; ?>
       </div>
 
-      <button type="submit" class="adam-button">Terapkan</button>
-      <small style="color:var(--adam-muted);margin-left:.5rem;">Bulk hanya mempengaruhi item yang dicentang.</small>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+      <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
     </div>
 
     <div class="adam-table-wrapper">
@@ -284,17 +284,17 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <thead>
           <tr>
             <th style="width:40px"></th>
-            <th>Judul</th>
+            <th><?= _e('Title') ?></th>
             <th>Status</th>
-            <th>Kategori</th>
-            <th>Dibuat</th>
-            <th>Penulis</th>
-            <th>Aksi</th>
+            <th><?= _e('Categories') ?></th>
+            <th><?= _e('Created') ?></th>
+            <th><?= _e('Author') ?></th>
+            <th><?= _e('Actions') ?></th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($posts)): ?>
-            <tr><td colspan="7" style="padding:1rem;">Tidak ada artikel ditemukan.</td></tr>
+            <tr><td colspan="7" style="padding:1rem;"><?= _e('No articles found.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($posts as $p): ?>
             <?php
@@ -494,20 +494,20 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const count = checkedCount();
 
     if (!action) {
-      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu artikel.' };
+      return { ok:false, message: <?= json_encode(__('Select at least one article.')) ?> };
     }
 
     if (action === 'delete') {
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus artikel terpilih',
-        message: 'Sebanyak ' + count + ' artikel akan dipindahkan ke trash. Lanjutkan?',
-        confirmText: 'Ya, hapus'
+        title: <?= json_encode(__('Delete selected articles')) ?>,
+        message: <?= json_encode(__('')) ?> + count + ' artikel akan dipindahkan ke trash. Lanjutkan?',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
 
@@ -516,9 +516,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'warning',
-        title: 'Ubah status artikel',
-        message: 'Ubah status ' + count + ' artikel menjadi "' + status + '"?',
-        confirmText: 'Ya, ubah'
+        title: <?= json_encode(__('Change article status')) ?>,
+        message: <?= json_encode(__('Change status of ')) ?> + count + ' artikel menjadi "' + status + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
 
@@ -526,7 +526,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const mode = bulkCatMode ? bulkCatMode.value : 'add';
       const names = checkedCategoryLabels();
       if (!names.length) {
-        return { ok:false, message:'Pilih minimal satu kategori untuk bulk kategori.' };
+        return { ok:false, message: <?= json_encode(__('Select at least one category for bulk categories.')) ?> };
       }
 
       const modeText = mode === 'remove' ? 'hapus dari' : (mode === 'toggle' ? 'toggle pada' : 'tambah ke');
@@ -537,18 +537,18 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'warning',
-        title: 'Kelola kategori artikel',
+        title: <?= json_encode(__('Manage article categories')) ?>,
         message: 'Terapkan mode "' + mode + '" untuk ' + count + ' artikel dengan kategori: ' + labelText + '. Lanjutkan?',
-        confirmText: 'Ya, terapkan'
+        confirmText: <?= json_encode(__('Yes, apply')) ?>
       };
     }
 
     return {
       ok: true,
       variant: 'warning',
-      title: 'Konfirmasi bulk action',
-      message: 'Jalankan aksi untuk ' + count + ' artikel?',
-      confirmText: 'Lanjutkan'
+      title: <?= json_encode(__('Confirm bulk action')) ?>,
+      message: <?= json_encode(__('Execute action for ')) ?> + count + ' artikel?',
+      confirmText: <?= json_encode(__('Proceed')) ?>
     };
   }
 
@@ -573,10 +573,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Konfirmasi hapus',
-        message: 'Hapus artikel "' + title + '"? Artikel akan dipindahkan ke trash.',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete confirmation')) ?>,
+        message: <?= json_encode(__('Delete article "')) ?> + title + '"? Artikel akan dipindahkan ke trash.',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteIdInput) return;
@@ -600,7 +600,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -608,7 +608,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

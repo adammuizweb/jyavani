@@ -198,7 +198,7 @@ try {
         <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>>Public</option>
         <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>>Private</option>
       </select>
-      <button class="mdlib-btn mdlib-btn-primary" type="button" data-mdlib-action="search">Cari</button>
+      <button class="mdlib-btn mdlib-btn-primary" type="button" data-mdlib-action="search"><?= _e('Search') ?></button>
     </div>
 
     <?php if (!$rows): ?>
@@ -262,7 +262,7 @@ try {
               </div>
               <div class="mdlib-actions">
                 <button class="mdlib-btn mdlib-btn-primary" type="button" data-mdlib-action="insert">Insert</button>
-                <button class="mdlib-btn" type="button" data-mdlib-action="detail">Detail</button>
+                <button class="mdlib-btn" type="button" data-mdlib-action="detail"><?= _e('Details') ?></button>
               </div>
             </div>
           </div>

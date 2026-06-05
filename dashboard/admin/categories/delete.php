@@ -15,27 +15,27 @@ $returnTo = function_exists('adiwira_safe_return_to')
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $role = (string)($identity['role'] ?? 'guest');
 if (!in_array($role, ['editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Role kamu tidak memiliki akses untuk hapus kategori ini.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Your role does not have access to delete this category.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'CSRF token tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'ID tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 }
 
 $stmt = $pdo->prepare("
@@ -47,7 +47,7 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([':id' => $id]);
 if (!$stmt->fetchColumn()) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Kategori tidak ditemukan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Category not found.'));
 }
 
 $child = $pdo->prepare("
@@ -58,7 +58,7 @@ $child = $pdo->prepare("
 ");
 $child->execute([':id' => $id]);
 if ((int)$child->fetchColumn() > 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Kategori masih punya subkategori aktif. Pindahkan/hapus subkategori dulu.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Category still has active subcategories. Move/delete them first.'));
 }
 
 try {
@@ -75,12 +75,12 @@ try {
     ")->execute([':id' => $id]);
 
     $pdo->commit();
-    adiwira_redirect_with_flash($returnTo, 'success', 'Kategori berhasil dipindahkan ke trash.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Category moved to trash successfully.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('categories/delete.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus kategori.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete category.'));
 }

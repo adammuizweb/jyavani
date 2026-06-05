@@ -13,7 +13,7 @@ $listUrl = $base . '/?page=admin/plugins/index';
 
 $pluginName = (string)($_GET['name'] ?? '');
 if ($pluginName === '' || !preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
-    adiwira_redirect_with_flash($listUrl, 'error', 'Nama plugin tidak valid.');
+    adiwira_redirect_with_flash($listUrl, 'error', __('Nama plugin tidak valid.'));
 }
 
 $manifest = plugin_manifest($pluginName);

@@ -61,7 +61,7 @@ $hasVisibility = mdlib_has_column('visibility');
   <?php endif; ?>
 
   <div class="dropzone" id="dropzone">
-    <p>Tarik gambar ke sini atau <button class="adam-btn" id="browse-btn" type="button">Pilih file</button></p>
+    <p>Tarik gambar ke sini atau <button class="adam-btn" id="browse-btn" type="button"><?= _e('Select file') ?></button></p>
     <div id="upload-progress" class="upload-progress"></div>
   </div>
 
@@ -114,7 +114,7 @@ $hasVisibility = mdlib_has_column('visibility');
         return window.NewNotifConfirm.warning(opts || {});
       }
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function getCsrfToken() {
@@ -276,10 +276,10 @@ $hasVisibility = mdlib_has_column('visibility');
         e.preventDefault();
 
         const ok = await uiAsk('danger', {
-          title: 'Hapus media',
+          title: <?= json_encode(__('Delete media')) ?>,
           message: 'Media ini akan dihapus permanen dari server. Lanjutkan?',
-          confirmText: 'Ya, hapus',
-          cancelText: 'Batal'
+          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         });
         if (!ok) return;
 

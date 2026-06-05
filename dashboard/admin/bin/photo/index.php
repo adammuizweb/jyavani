@@ -127,18 +127,18 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/bin/photo/index">
 
-    <input type="text" name="q" placeholder="Cari judul atau slug..."
+    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>"
       value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
       style="padding:.4rem;min-width:220px">
 
     <select name="status" style="padding:.4rem;">
-      <option value="">-- Semua Status --</option>
+      <option value=""><?= _e('-- All Status --') ?></option>
       <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
       <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
       <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
     </select>
 
-    <button type="submit" class="adam-button">Terapkan</button>
+    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/bin/photo/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
 
     <span style="margin-left:auto;color:var(--adam-muted);">
@@ -161,8 +161,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         <option value="delete_permanent">Hapus Permanen</option>
       </select>
 
-      <button type="submit" class="adam-button">Terapkan</button>
-      <small style="color:var(--adam-muted);">Bulk hanya mempengaruhi item yang dicentang.</small>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+      <small style="color:var(--adam-muted);"><?= _e('Bulk only affects checked items.') ?></small>
     </div>
 
     <div class="adam-table-wrapper">
@@ -171,12 +171,12 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           <tr>
             <th style="width:40px"></th>
             <th>Foto</th>
-            <th>Judul</th>
+            <th><?= _e('Title') ?></th>
             <th>Status</th>
             <th>Jumlah Foto</th>
             <th>Deleted</th>
-            <th>Penulis</th>
-            <th>Aksi</th>
+            <th><?= _e('Author') ?></th>
+            <th><?= _e('Actions') ?></th>
           </tr>
         </thead>
         <tbody>
@@ -357,7 +357,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const count = checkedCount();
 
     if (!action) {
-      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
     }
 
     if (count < 1) {
@@ -369,7 +369,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: 'Restore photo post terpilih',
-        message: 'Sebanyak ' + count + ' photo post akan direstore dari trash. Lanjutkan?',
+        message: <?= json_encode(__('')) ?> + count + ' photo post akan direstore dari trash. Lanjutkan?',
         confirmText: 'Ya, restore'
       };
     }
@@ -379,14 +379,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'danger',
         title: 'Hapus permanen photo post',
-        message: 'Sebanyak ' + count + ' photo post akan dihapus permanen. Relasi kategori dan item medianya juga akan dibersihkan.',
+        message: <?= json_encode(__('')) ?> + count + ' photo post akan dihapus permanen. Relasi kategori dan item medianya juga akan dibersihkan.',
         confirmText: 'Ya, hapus permanen'
       };
     }
 
     return {
       ok: false,
-      message: 'Aksi bulk tidak dikenal.'
+      message: <?= json_encode(__('Unknown bulk action.')) ?>
     };
   }
 
@@ -409,7 +409,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: 'Restore photo post',
         message: 'Restore photo post "' + title + '" dari trash?',
         confirmText: 'Ya, restore',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!restoreForm || !restoreId) return;
@@ -430,7 +430,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: 'Hapus permanen',
         message: 'Hapus permanen photo post "' + title + '"? Relasi kategori dan item medianya akan ikut dibersihkan. Aksi ini tidak bisa dibatalkan.',
         confirmText: 'Ya, hapus permanen',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteId) return;
@@ -454,7 +454,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -462,7 +462,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

@@ -41,7 +41,7 @@ register_shutdown_function(function () {
     echo json_encode([
         'success' => false,
         'ok'      => false,
-        'error'   => 'Server error',
+        'error'   => __('Server error'),
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 });
 
@@ -49,16 +49,16 @@ register_shutdown_function(function () {
 $isAdmin = ((string)$role === 'admin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!is_string($csrf) || $csrf === '' || !adiwira_csrf_validate($csrf)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'CSRF required'], 419);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('CSRF required')], 419);
 }
 
 if (empty($_FILES['file']) || !is_array($_FILES['file'])) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'File not found'], 400);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('File not found')], 400);
 }
 
 $file = $_FILES['file'];
@@ -67,19 +67,19 @@ if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
     adiwira_json([
         'success' => false,
         'ok'      => false,
-        'error'   => 'Upload error code: ' . (int)$file['error'],
+        'error'   => sprintf(__('Upload error code: %d'), (int)$file['error']),
     ], 400);
 }
 
 if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Invalid upload'], 400);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Invalid upload')], 400);
 }
 
 $auto_save = !empty($_POST['auto_save']) && in_array((string)$_POST['auto_save'], ['1', 'true', 'on'], true);
 
 $maxBytes = 30 * 1024 * 1024;
 if ((int)($file['size'] ?? 0) > $maxBytes) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'File too large (max 30MB)'], 413);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('File too large (max 30MB)')], 413);
 }
 
 if (!function_exists('mdlib_has_column')) {
@@ -209,7 +209,7 @@ if ($ext === null) {
     $response = [
         'success' => false,
         'ok'      => false,
-        'error'   => 'File type not allowed',
+        'error'   => __('File type not allowed'),
     ];
     if (function_exists('app_debug_enabled') && app_debug_enabled()) {
         $response['detected_mime'] = $mime;
@@ -247,7 +247,7 @@ if ($visibility === 'private' && !$auto_save) {
     adiwira_json([
         'success' => false,
         'ok'      => false,
-        'error'   => 'Private file requires auto_save=1 so a protected URL can be generated.',
+        'error'   => __('Private files require auto-save so a protected URL can be generated.'),
     ], 400);
 }
 
@@ -266,7 +266,7 @@ if ($storage_disk === 'private') {
 }
 
 if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed make upload folder'], 500);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to create upload folder')], 500);
 }
 
 $original_name = (string)pathinfo((string)$file['name'], PATHINFO_FILENAME);
@@ -280,7 +280,7 @@ $filename = $slug . '-' . $rand . '.' . $ext;
 $target_path = $target_dir . '/' . $filename;
 
 if (!move_uploaded_file($file['tmp_name'], $target_path)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => 'Failed to save file'], 500);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to save file')], 500);
 }
 
 @chmod($target_path, $storage_disk === 'private' ? 0640 : 0644);
@@ -382,8 +382,8 @@ if ($auto_save) {
         @unlink($target_path);
         $response['success'] = false;
         $response['ok'] = false;
-        $response['errors'] = ['DB insert failed'];
-        $response['error'] = 'DB insert failed';
+        $response['errors'] = [__('Database insert failed')];
+        $response['error'] = __('Database insert failed');
         adiwira_json($response, 500);
     }
 }

@@ -20,7 +20,7 @@ $pluginName = (string)($_POST['plugin'] ?? '');
 if ($action === 'toggle' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
 
     $manifest = plugin_manifest($pluginName);
@@ -32,12 +32,12 @@ if ($action === 'toggle' && $pluginName !== '') {
         if (plugin_disable($pluginName)) {
             adiwira_redirect_with_flash($selfUrl, 'success', 'Plugin "' . h($manifest['title'] ?? $pluginName) . '" dinonaktifkan.');
         }
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal menonaktifkan plugin.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal menonaktifkan plugin.'));
     } else {
         if (plugin_enable($pluginName)) {
             adiwira_redirect_with_flash($selfUrl, 'success', 'Plugin "' . h($manifest['title'] ?? $pluginName) . '" diaktifkan.');
         }
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengaktifkan plugin.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengaktifkan plugin.'));
     }
 }
 
@@ -45,7 +45,7 @@ if ($action === 'toggle' && $pluginName !== '') {
 if ($action === 'delete' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
 
     $manifest = plugin_manifest($pluginName);
@@ -56,21 +56,21 @@ if ($action === 'delete' && $pluginName !== '') {
     if (plugin_delete($pluginName)) {
         adiwira_redirect_with_flash($selfUrl, 'success', 'Plugin "' . h($manifest['title'] ?? $pluginName) . '" berhasil dihapus.');
     }
-    adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal menghapus plugin.');
+    adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal menghapus plugin.'));
 }
 
 // --- Handle check-updates ---
 if ($action === 'check-updates') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
     $updates = PluginStoreController::checkUpdates($pdo);
     $count = count($updates);
     if ($count > 0) {
         adiwira_redirect_with_flash($selfUrl, 'success', $count . ' plugin tersedia update.');
     } else {
-        adiwira_redirect_with_flash($selfUrl, 'info', 'Semua plugin sudah versi terbaru.');
+        adiwira_redirect_with_flash($selfUrl, 'info', __('Semua plugin sudah versi terbaru.'));
     }
 }
 
@@ -78,7 +78,7 @@ if ($action === 'check-updates') {
 if ($action === 'apply-update' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
     $updateResult = PluginStoreController::applyUpdate($pdo, $pluginName);
     if ($updateResult['success']) {

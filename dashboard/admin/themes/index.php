@@ -124,19 +124,19 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
     <input type="hidden" name="page" value="admin/themes/index">
-    <input type="text" name="q" placeholder="Cari judul atau slug..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
+    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
 
     <label style="display:flex;align-items:center;gap:.5rem">
       <span>Status:</span>
       <select name="status" style="padding:.4rem;">
-        <option value="">-- Semua Status --</option>
+        <option value=""><?= _e('-- All Status --') ?></option>
         <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
         <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
         <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
       </select>
     </label>
 
-    <button type="submit" class="adam-button">Terapkan</button>
+    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
   </form>
 
@@ -161,8 +161,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
         <select id="bulkActionThemes" name="action" style="padding:.4rem;">
           <option value="">-- Bulk action --</option>
-          <option value="delete">Hapus</option>
-          <option value="change_status">Ubah Status</option>
+          <option value="delete"><?= _e('Delete') ?></option>
+          <option value="change_status"><?= _e('Change Status') ?></option>
         </select>
 
         <select id="bulkStatusThemes" name="status" style="padding:.4rem;display:none;">
@@ -171,8 +171,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <option value="private">Private</option>
         </select>
 
-        <button type="submit" class="adam-button">Terapkan</button>
-        <small style="color:var(--adam-muted);margin-left:.5rem;">Bulk hanya mempengaruhi item yang dicentang.</small>
+        <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+        <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
       </div>
   <?php endif; ?>
 
@@ -181,11 +181,11 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <thead>
         <tr>
           <?php if ($isAdmin): ?><th style="width:40px"></th><?php endif; ?>
-          <th>Nama</th>
+          <th><?= _e('Name') ?></th>
           <th>Slug</th>
           <th>Status</th>
-          <th>Dibuat</th>
-          <th style="width:160px">Aksi</th>
+          <th><?= _e('Created') ?></th>
+          <th style="width:160px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
@@ -343,7 +343,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const count = checkedCount();
 
     if (!action) {
-      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
     }
 
     if (count < 1) {
@@ -355,8 +355,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'danger',
         title: 'Hapus theme partial terpilih',
-        message: 'Sebanyak ' + count + ' theme partial akan dipindahkan ke trash. Lanjutkan?',
-        confirmText: 'Ya, hapus'
+        message: <?= json_encode(__('')) ?> + count + ' theme partial akan dipindahkan ke trash. Lanjutkan?',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
 
@@ -366,17 +366,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: 'Ubah status theme partial',
-        message: 'Ubah status ' + count + ' theme partial menjadi "' + status + '"?',
-        confirmText: 'Ya, ubah'
+        message: <?= json_encode(__('Change status of ')) ?> + count + ' theme partial menjadi "' + status + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
 
     return {
       ok: true,
       variant: 'warning',
-      title: 'Konfirmasi bulk action',
-      message: 'Jalankan aksi untuk ' + count + ' theme partial?',
-      confirmText: 'Lanjutkan'
+      title: <?= json_encode(__('Confirm bulk action')) ?>,
+      message: <?= json_encode(__('Execute action for ')) ?> + count + ' theme partial?',
+      confirmText: <?= json_encode(__('Proceed')) ?>
     };
   }
 
@@ -401,10 +401,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Konfirmasi hapus',
+        title: <?= json_encode(__('Delete confirmation')) ?>,
         message: 'Hapus theme partial "' + title + '"? Item akan dipindahkan ke trash.',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteIdInput) return;
@@ -428,7 +428,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -436,7 +436,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

@@ -90,7 +90,7 @@ if ($displayImg === '') {
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $action = (string)($_POST['action'] ?? '');
@@ -99,9 +99,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $password_confirm = (string)($_POST['del_password'] ?? '');
 
         if ($password_confirm === '') {
-            $errors[] = 'Password wajib diisi untuk menghapus akun.';
+            $errors[] = __('Password is required to delete account.');
         } elseif (!password_verify($password_confirm, (string)($user['password'] ?? ''))) {
-            $errors[] = 'Password salah, akun gagal dihapus.';
+            $errors[] = __('Wrong password, account deletion failed.');
         } else {
             $stmtDel = $pdo->prepare("
                 UPDATE users
@@ -139,25 +139,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $initialPhone = (string)($_POST['phone'] ?? $initialPhone);
 
         if ($name === '') {
-            $errors[] = 'Nama tidak boleh kosong.';
+            $errors[] = __('Name is required.');
         }
 
         if ($email === '') {
-            $errors[] = 'Email tidak boleh kosong.';
+            $errors[] = __('Email is required.');
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'Format email tidak valid.';
+            $errors[] = __('Invalid email format.');
         }
 
         if ($phoneDb !== null && !preg_match('/^[0-9+\-\s]{6,20}$/', $phoneDb)) {
-            $errors[] = 'Format nomor telepon tidak valid.';
+            $errors[] = __('Invalid phone number format.');
         }
 
         if ($pass !== '') {
             if (strlen($pass) < 6) {
-                $errors[] = 'Password minimal 6 karakter.';
+                $errors[] = __('Password must be at least 6 characters.');
             }
             if ($pass !== $pass2) {
-                $errors[] = 'Konfirmasi password tidak cocok.';
+                $errors[] = __('Password confirmation does not match.');
             }
         }
 
@@ -176,7 +176,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($stmtCheck->fetch()) {
-                $errors[] = 'Email sudah digunakan pengguna lain.';
+                $errors[] = __('Email already used by another user.');
             }
         }
 
@@ -220,7 +220,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
                 profile_redirect_with_flash('success', 'Profil berhasil diperbarui.', $self_url);
             } else {
-                $errors[] = 'Gagal menyimpan ke database.';
+                $errors[] = __('Failed to save to database.');
             }
         }
     }

@@ -86,7 +86,7 @@ if (!function_exists('render_menu_items_admin')) {
             $html .= '<button type="button" class="menu-item-indent adam-ubah" title="Jadikan sub-menu">&#8594;</button>';
             $html .= '<button type="button" class="menu-item-outdent adam-ubah" title="Naikkan level">&#8592;</button>';
             $html .= '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>';
-            $html .= '<button type="button" class="menu-item-remove adam-hapus" title="Hapus">&#10005;</button>';
+            $html .= '<button type="button" class="menu-item-remove adam-hapus" title="' . __('Delete') . '">&#10005;</button>';
             $html .= '</div>';
             if ($hasChildren) {
                 $html .= render_menu_items_admin($item['children'], $depth + 1);
@@ -185,8 +185,8 @@ if (!function_exists('render_menu_items_admin')) {
               </label>
             </div>
             <div style="display:flex;gap:8px;">
-              <button type="button" id="saveItemEdit" class="adam-button" style="padding:6px 16px;">Simpan</button>
-              <button type="button" id="cancelItemEdit" class="adam-cancle" style="padding:6px 16px;">Batal</button>
+              <button type="button" id="saveItemEdit" class="adam-button" style="padding:6px 16px;"><?= _e('Save') ?></button>
+              <button type="button" id="cancelItemEdit" class="adam-cancle" style="padding:6px 16px;"><?= _e('Cancel') ?></button>
             </div>
           </div>
         </div>
@@ -228,8 +228,8 @@ if (!function_exists('render_menu_items_admin')) {
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
           <button type="button" class="add-item-tab adam-button" data-tab="custom" style="padding:4px 10px;font-size:12px;">Custom Link</button>
           <button type="button" class="add-item-tab adam-button" data-tab="article" style="padding:4px 10px;font-size:12px;">Artikel</button>
-          <button type="button" class="add-item-tab adam-button" data-tab="page" style="padding:4px 10px;font-size:12px;">Halaman</button>
-          <button type="button" class="add-item-tab adam-button" data-tab="category" style="padding:4px 10px;font-size:12px;">Kategori</button>
+          <button type="button" class="add-item-tab adam-button" data-tab="page" style="padding:4px 10px;font-size:12px;"><?= _e('Page') ?></button>
+          <button type="button" class="add-item-tab adam-button" data-tab="category" style="padding:4px 10px;font-size:12px;"><?= _e('Categories') ?></button>
         </div>
 
         <!-- Custom Link -->
@@ -317,8 +317,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         <label style="font-size:12px;">Slug Baru</label>
         <input type="text" name="slug" class="pht-input" value="<?= htmlspecialchars((string)($selectedMenu['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required>
         <div style="display:flex;gap:8px;margin-top:8px;">
-          <button type="submit" class="adam-button">Simpan</button>
-          <button type="button" class="adam-cancle" onclick="document.getElementById('renameModal').style.display='none'">Batal</button>
+          <button type="submit" class="adam-button"><?= _e('Save') ?></button>
+          <button type="button" class="adam-cancle" onclick="document.getElementById('renameModal').style.display='none'"><?= _e('Cancel') ?></button>
         </div>
       </div>
     </form>
@@ -389,7 +389,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       + '<button type="button" class="menu-item-indent adam-ubah" title="Jadikan sub-menu">&#8594;</button>'
       + '<button type="button" class="menu-item-outdent adam-ubah" title="Naikkan level">&#8592;</button>'
       + '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>'
-      + '<button type="button" class="menu-item-remove adam-hapus" title="Hapus">&#10005;</button>'
+      + '<button type="button" class="menu-item-remove adam-hapus" title="<?= _e('Delete') ?>">&#10005;</button>'
       + '</div>';
   }
 

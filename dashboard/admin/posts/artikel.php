@@ -203,7 +203,7 @@ $errors = [];
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
     if (!csrf_check($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $title   = trim((string)($_POST['title'] ?? ''));
@@ -219,7 +219,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $category_ids = (array)($_POST['categories'] ?? []);
 
     $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
-    if ($title === '') $errors[] = 'Judul tidak boleh kosong.';
+    if ($title === '') $errors[] = __('Title is required.');
 
     if ($role === 'author') {
         $content = sanitize_author_html($content);
@@ -228,10 +228,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    if (trim(strip_tags($content)) === '') $errors[] = 'Konten tidak boleh kosong.';
+    if (trim(strip_tags($content)) === '') $errors[] = __('Content is required.');
 
     if ($youtube !== null && !preg_match('/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i', $youtube)) {
-        $errors[] = 'Link YouTube tidak valid.';
+        $errors[] = __('Invalid YouTube link.');
     }
 
     $slug = ($slug === '') ? slugify($title) : slugify($slug);
@@ -239,7 +239,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (empty($errors)) {
         $s = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug LIMIT 1");
         $s->execute([':slug' => $slug]);
-        if ($s->fetch()) $errors[] = 'Slug sudah dipakai. Pilih slug lain.';
+        if ($s->fetch()) $errors[] = __('Slug already taken. Choose another slug.');
     }
 
     $created_at_in = trim((string)($_POST['created_at'] ?? ''));
@@ -250,12 +250,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if ($created_at_in !== '') {
         $created_at_parsed = parse_datetime_local($created_at_in);
-        if ($created_at_parsed === null) $errors[] = 'Format Created At tidak valid.';
+        if ($created_at_parsed === null) $errors[] = __('Invalid Created At format.');
     }
 
     if ($updated_at_in !== '') {
         $updated_at_parsed = parse_datetime_local($updated_at_in);
-        if ($updated_at_parsed === null) $errors[] = 'Format Updated At tidak valid.';
+        if ($updated_at_parsed === null) $errors[] = __('Invalid Updated At format.');
     }
 
     $category_ids = array_values(array_filter(array_map('intval', $category_ids), fn($v) => $v > 0));
@@ -310,10 +310,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
             }
 
-            adiwira_redirect_with_flash($return_to, 'success', 'Artikel berhasil disimpan.');
+            adiwira_redirect_with_flash($return_to, 'success', __('Article saved successfully.'));
         }
 
-        $errors[] = 'Gagal menyimpan post.';
+        $errors[] = __('Failed to save post.');
     }
 }
 ?>

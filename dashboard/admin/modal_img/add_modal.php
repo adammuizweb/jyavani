@@ -55,7 +55,7 @@ try {
   <div class="mdlib-uploader-right">
     <div id="mdlib-dropzone" class="mdlib-dropzone" role="button" tabindex="0">
       Tarik gambar ke sini atau klik
-      <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button">Pilih file</button>
+      <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button"><?= _e('Select file') ?></button>
       <div class="mdlib-note">Mendukung webp/png/jpg/avif.</div>
     </div>
 
@@ -133,7 +133,7 @@ try {
       if (variant === 'danger' && typeof api.danger === 'function') return api.danger(opts || {});
       if (typeof api.warning === 'function') return api.warning(opts || {});
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   browseBtn.addEventListener('click', () => fileInput.click());
@@ -365,10 +365,10 @@ try {
 
     box.querySelector('.mdlib-btn-danger').addEventListener('click', async function(){
       const ok = await uiAsk('danger', {
-        title: 'Hapus media',
+        title: <?= json_encode(__('Delete media')) ?>,
         message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 

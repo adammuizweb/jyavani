@@ -36,7 +36,7 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'CSRF token tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
 
     $file = $_FILES['plugin_zip'];
@@ -56,13 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     }
 
     if ($file['size'] > $maxSize) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'File terlalu besar. Maksimal 50MB.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('File terlalu besar. Maksimal 50MB.'));
     }
 
     // Validate MIME / extension
     $origName = basename($file['name']);
     if (!str_ends_with(strtolower($origName), '.zip')) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Hanya file .zip yang didukung.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Hanya file .zip yang didukung.'));
     }
 
     $zipPath = $file['tmp_name'];
@@ -78,13 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $pluginJsonRaw = $zip->getFromName('plugin.json');
     if ($pluginJsonRaw === false) {
         $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json tidak ditemukan di dalam ZIP.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak ditemukan di dalam ZIP.'));
     }
 
     $manifest = json_decode($pluginJsonRaw, true);
     if (!is_array($manifest) || empty($manifest['name'])) {
         $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json tidak valid atau field "name" tidak ditemukan.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak valid atau field "name" tidak ditemukan.'));
     }
 
     $pluginName = $manifest['name'];
@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     // Sanitize plugin name: only alphanumeric, dash, underscore
     if (!preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
         $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Nama plugin hanya boleh huruf, angka, dash dan underscore.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Nama plugin hanya boleh huruf, angka, dash dan underscore.'));
     }
 
     // Check if already exists
@@ -106,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $tmpExtract = PLUGIN_PATH . '/.extract-' . bin2hex(random_bytes(8));
     if (!mkdir($tmpExtract, 0755, true)) {
         $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal membuat temporary directory.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuat temporary directory.'));
     }
 
     $extracted = $zip->extractTo($tmpExtract);
@@ -114,20 +114,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
 
     if (!$extracted) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengekstrak file.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengekstrak file.'));
     }
 
     // Ensure plugin.json exists in extracted root
     if (!is_file($tmpExtract . '/plugin.json')) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json tidak ditemukan di root ZIP.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak ditemukan di root ZIP.'));
     }
 
     // Validate extracted manifest matches
     $extractedManifest = json_decode(file_get_contents($tmpExtract . '/plugin.json'), true);
     if (!is_array($extractedManifest) || ($extractedManifest['name'] ?? '') !== $pluginName) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'plugin.json setelah ekstrak tidak valid.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json setelah ekstrak tidak valid.'));
     }
 
     // Move to plugins/{name}/

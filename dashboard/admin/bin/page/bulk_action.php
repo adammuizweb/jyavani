@@ -52,22 +52,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond_page_bin_bulk(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+    respond_page_bin_bulk(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond_page_bin_bulk(false, 'Tidak ada page dipilih.', 400, [], $returnTo);
+    respond_page_bin_bulk(false, __('No pages selected.'), 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 if (empty($ids)) {
-    respond_page_bin_bulk(false, 'ID page tidak valid.', 400, [], $returnTo);
+    respond_page_bin_bulk(false, __('Invalid page ID.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    respond_page_bin_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond_page_bin_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
 
 $in = implode(',', array_fill(0, count($ids), '?'));
@@ -88,7 +88,7 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond_page_bin_bulk(true, "Berhasil restore {$affected} page.", 200, ['count' => $affected], $returnTo);
+        respond_page_bin_bulk(true, "Successfully restored  {$affected} page.", 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'delete_permanent') {
@@ -103,11 +103,11 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond_page_bin_bulk(true, "Berhasil hapus permanen {$affected} page.", 200, ['count' => $affected], $returnTo);
+        respond_page_bin_bulk(true, "Permanently deleted  {$affected} page.", 200, ['count' => $affected], $returnTo);
     }
 
     $pdo->rollBack();
-    respond_page_bin_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond_page_bin_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -115,5 +115,5 @@ try {
     }
 
     error_log('bin/page/bulk_action.php error: ' . $e->getMessage());
-    respond_page_bin_bulk(false, 'Terjadi kesalahan saat proses bulk action.', 500, [], $returnTo);
+    respond_page_bin_bulk(false, __('An error occurred during bulk action.'), 500, [], $returnTo);
 }

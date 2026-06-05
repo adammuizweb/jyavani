@@ -9,8 +9,8 @@ if (!defined('ADAM_THEME')) {
 <section class="adam-welcome" style="position:relative;">
     <!-- Konten home tetap ada di bawah flash -->
     <div class="adam-welcome-inner">
-        <h2>Halo, selamat datang!</h2>
-        <p>Ini adalah dashboard <strong>Adiwira</strong> dengan tema <strong>adam</strong> banh.</p>
+        <h2><?=_e('Hello, welcome!')?></h2>
+        <p><?=__('This is the Adiwira dashboard with the <strong>adam</strong> theme.')?></p>
     </div>
     <br><br>
         <?php if (!empty($flash_success)): ?>
@@ -28,7 +28,7 @@ if (!defined('ADAM_THEME')) {
                     </div>
                     <button type="button"
                             class="adam-flash-close"
-                            aria-label="Tutup notifikasi">&times;</button>
+                             aria-label="<?=_e('Close notification')?>">&times;</button>
                 </div>
             </div>
         </div>

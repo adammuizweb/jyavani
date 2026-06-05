@@ -46,27 +46,27 @@ if (!function_exists('respond_categories_bulk')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    respond_categories_bulk(false, 'Method Not Allowed', 405, [], $returnTo);
+    respond(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond_categories_bulk(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+    respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond_categories_bulk(false, 'Tidak ada kategori dipilih.', 400, [], $returnTo);
+    respond(false, __('No categories selected.'), 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 if (empty($ids)) {
-    respond_categories_bulk(false, 'ID kategori tidak valid.', 400, [], $returnTo);
+    respond(false, __('Invalid category ID.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    respond_categories_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
 
 $in = implode(',', array_fill(0, count($ids), '?'));
@@ -114,14 +114,14 @@ try {
         $parentRaw = $_POST['parent_id'] ?? null;
         if ($parentRaw === null || $parentRaw === '') {
             $pdo->rollBack();
-            respond_categories_bulk(false, 'Parent wajib dipilih (atau pilih Tanpa Parent).', 400, [], $returnTo);
+            respond(false, __('Parent is required (or select No Parent).'), 400, [], $returnTo);
         }
 
         $parent = (int)$parentRaw;
 
         if ($parent > 0 && in_array($parent, $ids, true)) {
             $pdo->rollBack();
-            respond_categories_bulk(false, 'Parent tidak boleh termasuk kategori yang dipilih.', 400, [], $returnTo);
+            respond(false, __('Parent cannot be among the selected categories.'), 400, [], $returnTo);
         }
 
         if ($parent !== 0) {
@@ -135,7 +135,7 @@ try {
             $v->execute([$parent]);
             if (!$v->fetchColumn()) {
                 $pdo->rollBack();
-                respond_categories_bulk(false, 'Parent kategori tidak ditemukan.', 400, [], $returnTo);
+                respond(false, __('Parent category not found.'), 400, [], $returnTo);
             }
 
             $allStmt = $pdo->prepare("
@@ -167,7 +167,7 @@ try {
                 $desc = $collectDesc($cid);
                 if (isset($desc[$parent])) {
                     $pdo->rollBack();
-                    respond_categories_bulk(false, 'Parent tidak valid: akan membentuk loop hirarki kategori.', 400, [], $returnTo);
+                    respond(false, __('Invalid parent: would create a category hierarchy loop.'), 400, [], $returnTo);
                 }
             }
         }
@@ -198,12 +198,12 @@ try {
     }
 
     $pdo->rollBack();
-    respond_categories_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('categories/bulk_action.php error: ' . $e->getMessage());
-    respond_categories_bulk(false, 'Terjadi kesalahan saat proses bulk.', 500, [], $returnTo);
+    respond(false, __('An error occurred during bulk processing.'), 500, [], $returnTo);
 }

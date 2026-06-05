@@ -33,7 +33,7 @@ $return_to = function_exists('adiwira_safe_return_to')
 
 if ($id <= 0) {
     http_response_code(400);
-    echo '<p>ID kategori tidak valid.</p>';
+    echo '<p>' . __('Invalid category ID.') . '</p>';
     return;
 }
 
@@ -49,7 +49,7 @@ $cat = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$cat) {
     http_response_code(404);
-    echo '<p>Kategori tidak ditemukan.</p>';
+    echo '<p>' . __('Category not found.') . '</p>';
     return;
 }
 
@@ -62,7 +62,7 @@ $cat['created_by']  = isset($cat['created_by']) ? (int)$cat['created_by'] : null
 // author hanya boleh edit miliknya sendiri
 if ($role === 'author' && (int)$cat['created_by'] !== $uid) {
     http_response_code(403);
-    echo '<p>Akses ditolak: kamu tidak boleh mengedit kategori ini.</p>';
+    echo '<p>' . __('Access denied: you cannot edit this category.') . '</p>';
     exit;
 }
 
@@ -111,7 +111,7 @@ $collectDesc((int)$id);
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $name        = trim((string)($_POST['name'] ?? ''));
@@ -120,17 +120,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $parent_id   = isset($_POST['parent_id']) && $_POST['parent_id'] !== '' ? (int)$_POST['parent_id'] : null;
 
     if ($name === '') {
-        $errors[] = 'Nama kategori tidak boleh kosong.';
+        $errors[] = __('Category name is required.');
     }
 
     $slug = ($slug === '') ? slugify($name) : slugify($slug);
 
     if ($parent_id !== null && $parent_id === $id) {
-        $errors[] = 'Parent tidak boleh sama dengan kategori sendiri.';
+        $errors[] = __('Parent cannot be the category itself.');
     }
 
     if ($parent_id !== null && empty($errors) && isset($descendants[$parent_id])) {
-        $errors[] = 'Parent tidak boleh menjadi anak atau cucu dari kategori ini.';
+        $errors[] = __('Parent cannot be a child or descendant of this category.');
     }
 
     if ($parent_id !== null && empty($errors)) {
@@ -143,7 +143,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         ");
         $stmtParent->execute([':id' => $parent_id]);
         if (!$stmtParent->fetchColumn()) {
-            $errors[] = 'Parent kategori tidak valid.';
+            $errors[] = __('Invalid parent category.');
         }
     }
 
@@ -158,7 +158,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         ");
         $stmt2->execute([':slug' => $slug, ':id' => $id]);
         if ($stmt2->fetch()) {
-            $errors[] = 'Slug sudah dipakai oleh kategori lain.';
+            $errors[] = __('Slug already used by another category.');
         }
     }
 
@@ -183,13 +183,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
-                adiwira_redirect_with_flash($return_to, 'success', 'Kategori berhasil diperbarui.');
+                adiwira_redirect_with_flash($return_to, 'success', __('Category updated successfully.'));
             } else {
-                $errors[] = 'Gagal memperbarui kategori.';
+                $errors[] = __('Failed to update category.');
             }
         } catch (Throwable $e) {
             error_log('categories/edit.php update error: ' . $e->getMessage());
-            $errors[] = 'Gagal memperbarui kategori.';
+            $errors[] = __('Failed to update category.');
         }
     }
 }

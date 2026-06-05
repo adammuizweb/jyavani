@@ -11,7 +11,7 @@ adiwira_cosmetic_404_on_direct_open();
 [$uid, $role] = adiwira_require_editorial($pdo, true);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
@@ -108,7 +108,7 @@ try {
         exit;
     }
 
-    adiwira_redirect_with_flash($return_to, 'success', 'Layout berhasil disimpan.');
+    adiwira_redirect_with_flash($return_to, 'success', __('Layout berhasil disimpan.'));
 } catch (Throwable $e) {
     error_log('shortcodes/save_layout.php error: ' . $e->getMessage());
     adiwira_json(['ok' => false, 'errors' => ['Gagal menyimpan file layout.']], 500);

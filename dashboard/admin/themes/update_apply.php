@@ -6,12 +6,12 @@ adiwira_cosmetic_404_on_direct_open();
 [$uid, $role] = adiwira_require_admin($pdo, true);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 if (!adiwira_csrf_validate($csrf)) {
-    adiwira_json(['ok' => false, 'error' => 'CSRF invalid'], 419);
+    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 $folderName = (string)($_POST['theme'] ?? '');

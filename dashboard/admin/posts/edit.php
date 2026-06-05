@@ -64,7 +64,7 @@ $return_to = function_exists('adiwira_safe_return_to')
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) {
     http_response_code(400);
-    echo '<p>ID post tidak valid.</p>';
+    echo '<p>' . __('Invalid post ID.') . '</p>';
     return;
 }
 
@@ -74,13 +74,13 @@ $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {
     http_response_code(404);
-    echo '<p>Post tidak ditemukan atau bukan artikel.</p>';
+    echo '<p>' . __('Post not found or is not an article.') . '</p>';
     return;
 }
 
 if ($role !== 'admin' && (int)($post['created_by'] ?? 0) !== $me) {
     http_response_code(403);
-    echo '<p>Akses ditolak: kamu hanya boleh mengedit posting milikmu sendiri.</p>';
+    echo '<p>' . __('Access denied: you can only edit your own posts.') . '</p>';
     return;
 }
 
@@ -181,9 +181,9 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
                    style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
-                   placeholder="URL thumbnail (atau pilih dari Media)">
+                   placeholder="<?= _e('Thumbnail URL (or select from Media)') ?>">
             <button type="button" id="btn-open-media-for-thumb" class="adam-button"
-                    style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd">Pilih dari Media</button>
+                    style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?= _e('Select from Media') ?></button>
             <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
           </div>
           <div id="thumbnail-preview" style="margin-top:.6rem;">
@@ -247,10 +247,10 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
         }
         ?>
       </select>
-      <div style="font-size:12px;color:#666;margin-top:6px">Admin-only.</div>
+      <div style="font-size:12px;color:#666;margin-top:6px"><?= _e('Admin only.') ?></div>
     </label>
     <?php else: ?>
-      <div style="font-size:12px;color:#666;margin-top:.6rem">Creator tidak bisa diubah. Timestamp boleh diubah.</div>
+      <div style="font-size:12px;color:#666;margin-top:.6rem"><?= _e('Creator cannot be changed. Timestamp can be changed.') ?></div>
     <?php endif; ?>
 
     <label style="display:block;margin-top:.6rem">Created At<br>
@@ -260,7 +260,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 
     <label style="display:block;margin-top:.6rem">Updated At<br>
       <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang.</div>
+      <div style="font-size:12px;color:#666;margin-top:4px"><?= _e('Leave empty to use current time.') ?></div>
     </label>
 
     <?php
@@ -275,7 +275,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
       <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 Posisi Sidebar</div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
-        <option value="">Default (ikuti hierarki global)</option>
+        <option value=""><?= _e('Default (follow global hierarchy)') ?></option>
         <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>>Kanan</option>
         <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>>Kiri</option>
         <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>>Sembunyikan</option>
@@ -283,7 +283,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     </div>
 
     <p style="margin-top:.8rem">
-      <button type="submit" class="adam-button" id="btn-save">Simpan Perubahan</button>
+      <button type="submit" class="adam-button" id="btn-save"><?= _e('Save Changes') ?></button>
       <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
     </p>
   </form>
@@ -429,10 +429,10 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     syncContent();
 
     askWarning({
-      title: 'Simpan perubahan',
-      message: 'Perubahan artikel ini akan disimpan. Lanjutkan?',
-      confirmText: 'Ya, simpan',
-      cancelText: 'Batal'
+      title: <?= json_encode(__('Save changes')) ?>,
+      message: <?= json_encode(__('This article will be saved. Proceed?')) ?>,
+      confirmText: <?= json_encode(__('Yes, save')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){
       if (!ok) return;
       submitAjax();

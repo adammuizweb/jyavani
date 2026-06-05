@@ -139,7 +139,7 @@ $self_url = $base . '/?page=admin/settings/auth';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!function_exists('adiwira_csrf_validate') || !adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $registration_enabled  = !empty($_POST['registration_enabled']) ? '1' : '0';
@@ -154,39 +154,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $new_block_minutes     = trim((string)($_POST['bruteforce_block_minutes'] ?? ''));
 
     if ($new_admin_path === '') {
-        $errors[] = 'Path dashboard tidak boleh kosong.';
+        $errors[] = __('Dashboard path is required.');
     } elseif (!preg_match('/^[a-z0-9_\/.-]+$/', $new_admin_path)) {
-        $errors[] = 'Path dashboard hanya boleh huruf kecil, angka, slash, titik, underscore, dan minus.';
+        $errors[] = __('Dashboard path can only contain lowercase letters, numbers, slash, dot, underscore, and dash.');
     } elseif ($new_admin_path === 'static' || $new_admin_path === 'admin' || strpos($new_admin_path, '/') === 0) {
-        $errors[] = 'Path dashboard tidak boleh "static", "admin", atau diawali slash.';
+        $errors[] = __('Dashboard path cannot be "static", "admin", or start with slash.');
     } else {
         $admin_path = trim($new_admin_path, '/');
     }
 
     if ($new_login_path === '') {
-        $errors[] = 'Path halaman login tidak boleh kosong.';
+        $errors[] = __('Login page path is required.');
     } elseif (!preg_match('/^[a-z0-9_\/.-]+$/', $new_login_path)) {
-        $errors[] = 'Path login hanya boleh huruf kecil, angka, slash, titik, underscore, dan minus.';
+        $errors[] = __('Login path can only contain lowercase letters, numbers, slash, dot, underscore, and dash.');
     } else {
         $login_path = trim($new_login_path, '/');
     }
 
     if ($new_register_path === '') {
-        $errors[] = 'Path halaman daftar tidak boleh kosong.';
+        $errors[] = __('Registration page path is required.');
     } elseif (!preg_match('/^[a-z0-9_\/.-]+$/', $new_register_path)) {
-        $errors[] = 'Path daftar hanya boleh huruf kecil, angka, slash, titik, underscore, dan minus.';
+        $errors[] = __('Registration path can only contain lowercase letters, numbers, slash, dot, underscore, and dash.');
     } else {
         $register_path = trim($new_register_path, '/');
     }
 
     if ($new_max_attempts === '' || (int)$new_max_attempts < 1) {
-        $errors[] = 'Maksimum percobaan login gagal minimal 1.';
+        $errors[] = __('Maximum failed login attempts must be at least 1.');
     } else {
         $bruteforce_max_attempts = (string)max(1, (int)$new_max_attempts);
     }
 
     if ($new_block_minutes === '' || (int)$new_block_minutes < 1) {
-        $errors[] = 'Durasi blokir minimal 1 menit.';
+        $errors[] = __('Block duration must be at least 1 minute.');
     } else {
         $bruteforce_block_minutes = (string)max(1, (int)$new_block_minutes);
     }
@@ -210,12 +210,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($updated) {
             if (function_exists('adiwira_redirect_with_flash')) {
                 $redirect_path = '/' . trim($admin_path, '/') . '/?page=admin/settings/auth';
-                adiwira_redirect_with_flash($redirect_path, 'success', 'Pengaturan login & registrasi berhasil disimpan.');
+                adiwira_redirect_with_flash($redirect_path, 'success', __('Login & registration settings saved successfully.'));
                 exit;
             }
             $success_msg = 'Pengaturan login & registrasi berhasil disimpan.';
         } else {
-            $errors[] = 'Gagal menyimpan pengaturan.';
+            $errors[] = __('Failed to save settings.');
         }
     }
 }

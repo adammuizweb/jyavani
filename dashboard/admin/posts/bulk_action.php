@@ -46,22 +46,22 @@ if (!function_exists('respond')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    respond(false, 'Method Not Allowed', 405, [], $returnTo);
+    respond(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+    respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond(false, 'Tidak ada artikel dipilih.', 400, [], $returnTo);
+    respond(false, __('No articles selected.'), 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 if (empty($ids)) {
-    respond(false, 'ID artikel tidak valid.', 400, [], $returnTo);
+    respond(false, __('Invalid article ID.'), 400, [], $returnTo);
 }
 
 if ($role !== 'admin') {
@@ -72,13 +72,13 @@ if ($role !== 'admin') {
     $ids = array_values(array_filter(array_map('intval', $ownIds), fn($v) => $v > 0));
 
     if (empty($ids)) {
-        respond(false, 'Tidak ada artikel yang boleh kamu ubah.', 403, [], $returnTo);
+        respond(false, __('No articles you can modify.'), 403, [], $returnTo);
     }
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    respond(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
 
 try {
@@ -106,7 +106,7 @@ try {
 
         if (!in_array($new_status, $allowed, true)) {
             $pdo->rollBack();
-            respond(false, 'Status tidak valid.', 400, [], $returnTo);
+            respond(false, __('Invalid status.'), 400, [], $returnTo);
         }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -129,7 +129,7 @@ try {
 
         if (empty($cat_ids)) {
             $pdo->rollBack();
-            respond(false, 'Pilih minimal satu kategori.', 400, [], $returnTo);
+            respond(false, __('Select at least one category.'), 400, [], $returnTo);
         }
 
         $inCats = implode(',', array_fill(0, count($cat_ids), '?'));
@@ -140,7 +140,7 @@ try {
 
         if (empty($cat_ids)) {
             $pdo->rollBack();
-            respond(false, 'Kategori tidak valid.', 400, [], $returnTo);
+            respond(false, __('Invalid category.'), 400, [], $returnTo);
         }
 
         $mode = (string)($_POST['cat_mode'] ?? 'add');
@@ -236,16 +236,16 @@ try {
         }
 
         $pdo->rollBack();
-        respond(false, 'Mode kategori tidak dikenal.', 400, [], $returnTo);
+        respond(false, __('Unknown category mode.'), 400, [], $returnTo);
     }
 
     $pdo->rollBack();
-    respond(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('posts/bulk_action error: ' . $e->getMessage());
-    respond(false, 'Terjadi kesalahan saat proses bulk action.', 500, [], $returnTo);
+    respond(false, __('An error occurred during bulk action.'), 500, [], $returnTo);
 }

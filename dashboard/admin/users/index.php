@@ -107,17 +107,17 @@ function build_pagination_items(int $current, int $total, int $max_visible = 9):
 $paging_items = build_pagination_items($page, $pages, 9);
 ?>
 <section class="adam-card">
-  <h2>Manajemen User</h2>
+  <h2><?= _e('User Management') ?></h2>
 
   <form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
     <input type="hidden" name="page" value="admin/users/index">
 
-    <input type="text" name="q" placeholder="Cari nama, email atau username..."
+    <input type="text" name="q" placeholder="<?= _e('Search name, email or username...') ?>"
            value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
            style="padding:.4rem;min-width:220px">
 
     <select name="role" style="padding:.4rem;">
-      <option value="">-- Semua Role --</option>
+      <option value=""><?= _e('-- All Roles --') ?></option>
       <?php foreach ($allRoles as $r): ?>
         <option value="<?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?>" <?= $filter_role === $r ? 'selected' : '' ?>>
           <?= htmlspecialchars(ucfirst($r), ENT_QUOTES, 'UTF-8') ?>
@@ -126,12 +126,12 @@ $paging_items = build_pagination_items($page, $pages, 9);
     </select>
 
     <select name="lock" style="padding:.4rem;">
-      <option value="">-- Semua Status --</option>
+      <option value=""><?= _e('-- All Status --') ?></option>
       <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>>Locked / Pending</option>
       <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>>Unlocked / Approved</option>
     </select>
 
-    <button class="adam-button" type="submit">Terapkan</button>
+    <button class="adam-button" type="submit"><?= _e('Apply') ?></button>
     <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>">Reset</a>
 
     <div style="margin-left:auto">
@@ -150,7 +150,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
       <select id="bulkAction" name="action" style="padding:.4rem;">
         <option value="">-- Bulk action --</option>
-        <option value="change_role">Ubah Role</option>
+        <option value="change_role"><?= _e('Change Role') ?></option>
         <option value="lock">Lock</option>
         <option value="unlock">Unlock / Approve</option>
         <option value="delete">Hapus (soft)</option>
@@ -162,8 +162,8 @@ $paging_items = build_pagination_items($page, $pages, 9);
         <?php endforeach; ?>
       </select>
 
-      <button type="submit" class="adam-button">Terapkan</button>
-      <small style="color:var(--adam-muted);margin-left:.5rem;">Bulk hanya mempengaruhi user yang dicentang.</small>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+      <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked users.') ?></small>
     </div>
 
     <div class="adam-table-wrapper">
@@ -172,19 +172,19 @@ $paging_items = build_pagination_items($page, $pages, 9);
           <tr style="text-align:left;border-bottom:1px solid #e6e6e6">
             <th style="width:44px"></th>
             <th>Avatar</th>
-            <th>Nama</th>
+            <th><?= _e('Name') ?></th>
             <th>Email / Username</th>
             <th>Role</th>
             <th>Status</th>
             <th>Bio</th>
             <th>Phone</th>
-            <th>Terdaftar</th>
-            <th>Aksi</th>
+            <th><?= _e('Registered') ?></th>
+            <th><?= _e('Actions') ?></th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($users)): ?>
-            <tr><td colspan="10" style="padding:1rem;">Belum ada user.</td></tr>
+            <tr><td colspan="10" style="padding:1rem;"><?= _e('No users yet.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($users as $u):
               $img = !empty($u['img']) ? $u['img'] : '/static/img/person.svg';
@@ -369,20 +369,20 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const count = checkedCount();
 
     if (!action) {
-      return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu user.' };
+      return { ok:false, message: <?= json_encode(__('Select at least one user.')) ?> };
     }
 
     if (action === 'delete') {
       return {
         ok:true,
         variant:'danger',
-        title:'Hapus user terpilih',
-        message:'Sebanyak ' + count + ' user akan dipindahkan ke trash. Lanjutkan?',
-        confirmText:'Ya, hapus'
+        title: <?= json_encode(__('Delete selected users')) ?>,
+        message: <?= json_encode(__('')) ?> + count + ' user akan dipindahkan ke trash. Lanjutkan?',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
 
@@ -391,9 +391,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok:true,
         variant:'warning',
-        title:'Ubah role user',
-        message:'Ubah role ' + count + ' user menjadi "' + role + '"?',
-        confirmText:'Ya, ubah'
+        title: <?= json_encode(__('Change user role')) ?>,
+        message: <?= json_encode(__('Change role of ')) ?> + count + ' user menjadi "' + role + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
 
@@ -403,7 +403,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         variant:'warning',
         title:'Lock user',
         message:'Lock ' + count + ' user terpilih?',
-        confirmText:'Ya, lock'
+        confirmText: <?= json_encode(__('Yes, lock')) ?>
       };
     }
 
@@ -413,16 +413,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         variant:'warning',
         title:'Approve / unlock user',
         message:'Approve / unlock ' + count + ' user terpilih?',
-        confirmText:'Ya, unlock'
+        confirmText: <?= json_encode(__('Yes, unlock')) ?>
       };
     }
 
     return {
       ok:true,
       variant:'warning',
-      title:'Konfirmasi bulk action',
-      message:'Jalankan aksi untuk ' + count + ' user?',
-      confirmText:'Lanjutkan'
+      title: <?= json_encode(__('Confirm bulk action')) ?>,
+      message: <?= json_encode(__('Execute action for ')) ?> + count + ' user?',
+      confirmText: <?= json_encode(__('Proceed')) ?>
     };
   }
 
@@ -447,10 +447,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Konfirmasi hapus',
+        title: <?= json_encode(__('Delete confirmation')) ?>,
         message: 'Hapus user "' + name + '"? User akan dipindahkan ke trash.',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteIdInput) return;
@@ -476,7 +476,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
           ? 'Approve / unlock user "' + name + '"?'
           : 'Lock user "' + name + '"?',
         confirmText: isUnlock ? 'Ya, unlock' : 'Ya, lock',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         form.submit();
@@ -497,7 +497,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -505,7 +505,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

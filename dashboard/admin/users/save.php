@@ -47,7 +47,7 @@ $initial_phone = $user['phone'] ?? '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $email = trim((string)($_POST['email'] ?? ''));
@@ -65,18 +65,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $initial_bio = $_POST['bio'] ?? $initial_bio;
     $initial_phone = $_POST['phone'] ?? $initial_phone;
 
-    if ($email === '') $errors[] = 'Email tidak boleh kosong.';
-    if ($name === '') $errors[] = 'Nama tidak boleh kosong.';
+    if ($email === '') $errors[] = __('Email is required.');
+    if ($name === '') $errors[] = __('Name is required.');
 
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Format email tidak valid.';
+        $errors[] = __('Invalid email format.');
     }
 
     if ($username === '') {
-        $errors[] = 'Username tidak boleh kosong.';
+        $errors[] = __('Username tidak boleh kosong.');
     } else {
         if (!preg_match('/^[a-zA-Z0-9._-]{3,32}$/', $username)) {
-            $errors[] = 'Username hanya boleh berisi huruf, angka, titik, underscore, strip; panjang 3-32.';
+            $errors[] = __('Username hanya boleh berisi huruf, angka, titik, underscore, strip; panjang 3-32.');
         }
     }
 
@@ -91,13 +91,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $stmtCheckU = $pdo->prepare($sql);
         $stmtCheckU->execute($params);
         if ($stmtCheckU->fetch()) {
-            $errors[] = 'Username sudah digunakan oleh user lain.';
+            $errors[] = __('Username sudah digunakan oleh user lain.');
         }
     }
 
     if ($phone !== null && $phone !== '') {
         if (!preg_match('/^[0-9+\-\s]{6,20}$/', $phone)) {
-            $errors[] = 'Format nomor telepon tidak valid.';
+            $errors[] = __('Invalid phone number format.');
         }
     }
 
@@ -116,7 +116,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $stmt2 = $pdo->prepare($sql);
         $stmt2->execute($params);
         if ($stmt2->fetch()) {
-            $errors[] = 'Email sudah dipakai oleh user lain.';
+            $errors[] = __('Email sudah dipakai oleh user lain.');
         }
     }
 
@@ -166,13 +166,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if ($id === $uid) {
                     $_SESSION['user_role'] = $role_input;
                 }
-                adiwira_redirect_with_flash($return_to, 'success', 'User berhasil diperbarui.');
+                adiwira_redirect_with_flash($return_to, 'success', __('User berhasil diperbarui.'));
             } else {
-                $errors[] = 'Gagal memperbarui user.';
+                $errors[] = __('Gagal memperbarui user.');
             }
         } else {
             if ($plain_password === '') {
-                $errors[] = 'Password harus diisi untuk membuat user baru.';
+                $errors[] = __('Password harus diisi untuk membuat user baru.');
             } else {
                 $hash = password_hash($plain_password, PASSWORD_DEFAULT);
                 $stmtIns = $pdo->prepare("
@@ -193,9 +193,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ]);
 
                 if ($ok) {
-                    adiwira_redirect_with_flash($return_to, 'success', 'User baru berhasil dibuat.');
+                    adiwira_redirect_with_flash($return_to, 'success', __('User baru berhasil dibuat.'));
                 } else {
-                    $errors[] = 'Gagal membuat user baru.';
+                    $errors[] = __('Gagal membuat user baru.');
                 }
             }
         }

@@ -66,7 +66,7 @@ if ($isEdit) {
 
     if (!$preset) {
         http_response_code(404);
-        echo '<p>Preset tidak ditemukan.</p>';
+        echo '<p>' . __('Preset not found.') . '</p>';
         return;
     }
 
@@ -178,7 +178,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
         <label style="display:block;margin-top:.6rem">Kategori (kosongi untuk semua)<br>
           <select name="filter_category" class="inpud">
-            <option value="">-- Semua Kategori --</option>
+            <option value=""><?= _e('-- All Categories --') ?></option>
             <?php foreach ($cats as $c): ?>
               <option value="<?= h($c['slug']) ?>" <?= ($pref_config['category'] ?? '') === $c['slug'] ? 'selected' : '' ?>><?= h($c['name']) ?> (<?= h($c['slug']) ?>)</option>
             <?php endforeach; ?>

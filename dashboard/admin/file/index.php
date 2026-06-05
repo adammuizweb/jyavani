@@ -104,7 +104,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts || {});
       }
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function getCsrfToken() {
@@ -347,10 +347,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const ok = await uiAsk('warning', {
-        title: 'Simpan perubahan file',
+        title: <?= json_encode(__('Save file changes')) ?>,
         message: 'Perubahan metadata file akan disimpan. Lanjutkan?',
-        confirmText: 'Ya, simpan',
-        cancelText: 'Batal'
+        confirmText: <?= json_encode(__('Yes, save')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 
@@ -397,10 +397,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const ok = await uiAsk('danger', {
-        title: 'Hapus file',
-        message: 'File ini akan dihapus permanen. Lanjutkan?',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete file')) ?>,
+        message: <?= json_encode(__('This file will be permanently deleted. Proceed?')) ?>,
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 
@@ -508,10 +508,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       }
 
       const ok = await uiAsk('danger', {
-        title: 'Hapus file terpilih',
-        message: 'Sebanyak ' + checked.length + ' file akan dihapus permanen. Lanjutkan?',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete selected files')) ?>,
+        message: <?= json_encode(__('')) ?> + checked.length + ' file akan dihapus permanen. Lanjutkan?',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 

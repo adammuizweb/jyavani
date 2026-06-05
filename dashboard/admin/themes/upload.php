@@ -47,23 +47,23 @@ if (!function_exists('theme_upload_respond')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    theme_upload_respond(false, 'Method Not Allowed', 405, [], $returnTo);
+    theme_upload_respond(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    theme_upload_respond(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+    theme_upload_respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 if (empty($_FILES['theme_zip']) || (int)($_FILES['theme_zip']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-    theme_upload_respond(false, 'File zip tidak ditemukan atau upload gagal.', 400, [], $returnTo);
+    theme_upload_respond(false, __('File zip tidak ditemukan atau upload gagal.'), 400, [], $returnTo);
 }
 
 $file = $_FILES['theme_zip'];
 
 $maxBytes = 50 * 1024 * 1024;
 if ((int)($file['size'] ?? 0) > $maxBytes) {
-    theme_upload_respond(false, 'File terlalu besar. Maksimal 50MB.', 400, [], $returnTo);
+    theme_upload_respond(false, __('File terlalu besar. Maksimal 50MB.'), 400, [], $returnTo);
 }
 
 $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -71,13 +71,13 @@ $mime = (string)$finfo->file($file['tmp_name']);
 if ($mime !== 'application/zip' && $mime !== 'application/x-zip') {
     $ext = strtolower(pathinfo((string)$file['name'], PATHINFO_EXTENSION));
     if ($ext !== 'zip') {
-        theme_upload_respond(false, 'File harus berekstensi .zip.', 400, [], $returnTo);
+        theme_upload_respond(false, __('File harus berekstensi .zip.'), 400, [], $returnTo);
     }
 }
 
 $tmpZip = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "theme_upload_" . bin2hex(random_bytes(8)) . ".zip";
 if (!move_uploaded_file($file['tmp_name'], $tmpZip)) {
-    theme_upload_respond(false, 'Gagal memindahkan file upload.', 500, [], $returnTo);
+    theme_upload_respond(false, __('Gagal memindahkan file upload.'), 500, [], $returnTo);
 }
 
 $activate = !empty($_POST['activate']) && (string)$_POST['activate'] === '1';
@@ -102,7 +102,7 @@ try {
 
 } catch (Throwable $e) {
     error_log('themes/upload.php error: ' . $e->getMessage());
-    theme_upload_respond(false, 'Terjadi kesalahan saat instalasi theme.', 500, [], $returnTo);
+    theme_upload_respond(false, __('Terjadi kesalahan saat instalasi theme.'), 500, [], $returnTo);
 } finally {
     if (is_file($tmpZip)) {
         @unlink($tmpZip);

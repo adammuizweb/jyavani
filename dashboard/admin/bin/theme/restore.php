@@ -15,29 +15,29 @@ $returnTo = function_exists('adiwira_safe_return_to')
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
 $role = (string)($identity['role'] ?? 'guest');
 
 if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'CSRF token tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'ID tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 }
 
 $stmt = $pdo->prepare("
@@ -52,11 +52,11 @@ $stmt->execute([':id' => $id]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$row) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Theme tidak ditemukan di trash.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Theme tidak ditemukan di trash.'));
 }
 
 if ($role === 'author' && (int)($row['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Role kamu tidak punya akses restore theme ini.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak punya akses restore theme ini.'));
 }
 
 try {
@@ -72,9 +72,9 @@ try {
     ");
     $stmt->execute([':id' => $id]);
 
-    adiwira_redirect_with_flash($returnTo, 'success', 'Theme berhasil direstore.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Theme berhasil direstore.'));
 
 } catch (Throwable $e) {
     error_log('bin/theme/restore.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal restore theme.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal restore theme.'));
 }

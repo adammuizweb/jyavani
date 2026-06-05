@@ -162,27 +162,27 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 <div class="media-list">
   <div class="controls">
     <input type="checkbox" id="select-all" class="select-all">
-    <label for="select-all" class="small">Pilih semua</label>
+    <label for="select-all" class="small"><?= _e('Select all') ?></label>
 
     <button id="delete-bulk-btn" class="btn danger">Delete Selected</button>
 
     <?php if ($hasVisibility): ?>
     <select id="visibility-filter" style="margin-left:12px;padding:3px 6px;font-size:12px">
-      <option value="">Semua</option>
+      <option value=""><?= _e('All') ?></option>
       <option value="public" <?= $visFilter === 'public' ? 'selected' : '' ?>>Public</option>
       <option value="private" <?= $visFilter === 'private' ? 'selected' : '' ?>>Private</option>
       <option value="auto" <?= $visFilter === 'auto' ? 'selected' : '' ?>>Auto</option>
     </select>
     <?php endif; ?>
 
-    <input type="text" id="media-search" class="search" placeholder="Cari title / filename / caption" value="<?= e($search) ?>" style="margin-left:12px;">
-    <button id="media-search-btn" class="btn">Cari</button>
+    <input type="text" id="media-search" class="search" placeholder="<?= _e('Search title / filename / caption') ?>" value="<?= e($search) ?>" style="margin-left:12px;">
+    <button id="media-search-btn" class="btn"><?= _e('Search') ?></button>
 
     <div style="margin-left:auto" class="small">Total: <?= $total ?></div>
   </div>
 
   <?php if (empty($rows)): ?>
-    <div class="empty">Tidak ada media</div>
+    <div class="empty"><?= _e('No media') ?></div>
   <?php else: ?>
     <table class="table" id="media-table">
       <thead>
@@ -284,7 +284,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
         return window.NewNotifConfirm.warning(opts || {});
       }
     }
-    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function getCsrfToken(){
@@ -374,10 +374,10 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       }
 
       const ok = await uiAsk('danger', {
-        title: 'Hapus media terpilih',
-        message: 'Sebanyak ' + checked.length + ' media akan dihapus permanen. Lanjutkan?',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete selected media')) ?>,
+        message: <?= json_encode(__('')) ?> + checked.length + ' media akan dihapus permanen. Lanjutkan?',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
 

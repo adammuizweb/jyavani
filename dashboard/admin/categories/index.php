@@ -283,17 +283,17 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
 <section class="adam-card">
-  <h2>Kategori</h2>
+  <h2><?= _e('Categories') ?></h2>
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/categories/index">
 
-    <input type="text" name="q" placeholder="Cari nama atau slug..."
+    <input type="text" name="q" placeholder="<?= _e('Search name or slug...') ?>"
       value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
       style="padding:.4rem;min-width:200px">
 
     <select name="parent" style="padding:.4rem;">
-      <option value="0">-- Semua Parent --</option>
+      <option value="0"><?= _e('-- All Parents --') ?></option>
       <?php foreach ($parentOptions as $opt): ?>
         <option value="<?= (int)$opt['id'] ?>" <?= $filter_parent === (int)$opt['id'] ? 'selected' : '' ?>>
           <?= htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8') ?>
@@ -302,7 +302,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </select>
 
     <select name="author" style="padding:.4rem;">
-      <option value="0">-- Semua Creator --</option>
+      <option value="0"><?= _e('-- All Creators --') ?></option>
       <?php foreach ($authors as $a):
         $label = $a['name'] ?: ($a['username'] ?: $a['id']);
       ?>
@@ -312,7 +312,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <?php endforeach; ?>
     </select>
 
-    <button type="submit" class="adam-button">Terapkan</button>
+    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
   </form>
 
@@ -338,20 +338,20 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
         <select id="bulkActionCategories" name="action" style="padding:.4rem;">
           <option value="">-- Bulk action --</option>
-          <option value="delete">Hapus</option>
-          <option value="change_parent">Ubah Parent</option>
+          <option value="delete"><?= _e('Delete') ?></option>
+          <option value="change_parent"><?= _e('Change Parent') ?></option>
         </select>
 
         <select id="bulkParentCategories" name="parent_id" style="padding:.4rem;display:none;">
-          <option value="">-- Pilih Parent --</option>
-          <option value="0">(Tanpa Parent)</option>
+          <option value=""><?= _e('-- Select Parent --') ?></option>
+          <option value="0"><?= _e('(No Parent)') ?></option>
           <?php foreach ($parentOptions as $opt): ?>
             <option value="<?= (int)$opt['id'] ?>"><?= htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8') ?></option>
           <?php endforeach; ?>
         </select>
 
-        <button type="submit" class="adam-button">Terapkan</button>
-        <small style="color:var(--adam-muted);margin-left:.5rem;">Bulk hanya mempengaruhi item yang dicentang.</small>
+        <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+        <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
       </div>
   <?php else: ?>
     <div style="margin-bottom:1rem;color:#666;">Bulk actions disembunyikan untuk role <strong>author</strong>.</div>
@@ -362,14 +362,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <thead>
         <tr>
           <th style="width:40px"></th>
-          <th>Nama</th>
+          <th><?= _e('Name') ?></th>
           <th>Posts</th>
-          <th style="width:160px">Aksi</th>
+          <th style="width:160px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($categories_list)): ?>
-          <tr><td colspan="4" style="padding:1rem;">Belum ada kategori.</td></tr>
+          <tr><td colspan="4" style="padding:1rem;"><?= _e('No categories yet.') ?></td></tr>
         <?php else: ?>
           <?php foreach ($categories_list as $cat):
             $aCount = (int)$cat['post_count'];
@@ -518,23 +518,23 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const action = bulkAction ? bulkAction.value : '';
     const count = checkedCount();
 
-    if (!action) return { ok:false, message:'Pilih bulk action terlebih dahulu.' };
-    if (count < 1) return { ok:false, message:'Pilih minimal satu kategori.' };
+    if (!action) return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
+    if (count < 1) return { ok:false, message: <?= json_encode(__('Select at least one category.')) ?> };
 
     if (action === 'delete') {
       return {
         ok:true,
         variant:'danger',
-        title:'Hapus kategori terpilih',
-        message:'Sebanyak ' + count + ' kategori akan dipindahkan ke trash. Kategori parent yang masih punya subkategori aktif akan gagal. Lanjutkan?',
-        confirmText:'Ya, hapus'
+        title: <?= json_encode(__('Delete selected categories')) ?>,
+        message: <?= json_encode(__('')) ?> + count + ' kategori akan dipindahkan ke trash. Kategori parent yang masih punya subkategori aktif akan gagal. Lanjutkan?',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
 
     if (action === 'change_parent') {
       const v = bulkParent ? bulkParent.value : '';
       if (v === '') {
-        return { ok:false, message:'Pilih parent (atau pilih Tanpa Parent).' };
+        return { ok:false, message: <?= json_encode(__('Select parent (or choose No Parent).')) ?> };
       }
 
       let label = '(Tanpa Parent)';
@@ -545,18 +545,18 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok:true,
         variant:'warning',
-        title:'Ubah parent kategori',
-        message:'Ubah parent untuk ' + count + ' kategori menjadi "' + label + '"?',
-        confirmText:'Ya, ubah'
+        title: <?= json_encode(__('Change category parent')) ?>,
+        message: <?= json_encode(__('Change parent for ')) ?> + count + ' kategori menjadi "' + label + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
 
     return {
       ok:true,
       variant:'warning',
-      title:'Konfirmasi bulk action',
-      message:'Jalankan aksi untuk ' + count + ' kategori?',
-      confirmText:'Lanjutkan'
+      title: <?= json_encode(__('Confirm bulk action')) ?>,
+      message: <?= json_encode(__('Execute action for ')) ?> + count + ' kategori?',
+      confirmText: <?= json_encode(__('Proceed')) ?>
     };
   }
 
@@ -581,10 +581,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Konfirmasi hapus',
-        message: 'Hapus kategori "' + name + '"? Kategori yang punya subkategori aktif tidak bisa dihapus.',
-        confirmText: 'Ya, hapus',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Delete confirmation')) ?>,
+        message: <?= json_encode(__('Delete category "')) ?> + name + '"? Kategori yang punya subkategori aktif tidak bisa dihapus.',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         if (!deleteForm || !deleteIdInput) return;
@@ -608,7 +608,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const summary = getBulkSummary();
 
       if (!summary.ok) {
-        toast('error', summary.message, 'Bulk action gagal');
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
         return;
       }
 
@@ -616,7 +616,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         title: summary.title,
         message: summary.message,
         confirmText: summary.confirmText || 'Lanjutkan',
-        cancelText: 'Batal'
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         bulkConfirmed = true;

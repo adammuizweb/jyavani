@@ -80,16 +80,16 @@ if ($cst) $cats = $cst->fetchAll(PDO::FETCH_ASSOC);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
     $action = (string)($_POST['_action'] ?? 'save');
 
     if ($action === 'add') {
         $type = (string)($_POST['new_type'] ?? '');
         if (!isset($widget_types[$type])) {
-            $errors[] = 'Tipe widget tidak valid.';
+            $errors[] = __('Tipe widget tidak valid.');
         } elseif (!$currentZone) {
-            $errors[] = 'Pilih zone terlebih dahulu.';
+            $errors[] = __('Pilih zone terlebih dahulu.');
         } else {
             $cfg = $widget_types[$type]['default_config'];
             $newTitle = trim((string)($_POST['new_title'] ?? ''));

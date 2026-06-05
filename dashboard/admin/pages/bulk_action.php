@@ -46,22 +46,22 @@ if (!function_exists('respond_pages_bulk')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    respond_pages_bulk(false, 'Method Not Allowed', 405, [], $returnTo);
+    respond(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond_pages_bulk(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+    respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond_pages_bulk(false, 'Tidak ada halaman dipilih.', 400, [], $returnTo);
+    respond(false, __('No pages selected.'), 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 if (empty($ids)) {
-    respond_pages_bulk(false, 'ID halaman tidak valid.', 400, [], $returnTo);
+    respond(false, __('Invalid page ID.'), 400, [], $returnTo);
 }
 
 // author/editor hanya boleh bulk page miliknya sendiri
@@ -80,13 +80,13 @@ if ($role !== 'admin') {
     $ids = array_values(array_filter(array_map('intval', $ownIds), fn($v) => $v > 0));
 
     if (empty($ids)) {
-        respond_pages_bulk(false, 'Tidak ada halaman yang boleh kamu ubah.', 403, [], $returnTo);
+        respond(false, __('No pages you can modify.'), 403, [], $returnTo);
     }
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    respond_pages_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
 
 try {
@@ -115,7 +115,7 @@ try {
 
         if (!in_array($new_status, $allowed, true)) {
             $pdo->rollBack();
-            respond_pages_bulk(false, 'Status tidak valid.', 400, [], $returnTo);
+            respond(false, __('Invalid status.'), 400, [], $returnTo);
         }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -136,13 +136,13 @@ try {
     if ($action === 'change_author') {
         if ($role !== 'admin') {
             $pdo->rollBack();
-            respond_pages_bulk(false, 'Akses ditolak: hanya admin yang boleh mengubah author.', 403, [], $returnTo);
+            respond(false, __('Access denied: only admin can change author.'), 403, [], $returnTo);
         }
 
         $author_id = (int)($_POST['author_id'] ?? 0);
         if ($author_id <= 0) {
             $pdo->rollBack();
-            respond_pages_bulk(false, 'Author tidak valid.', 400, [], $returnTo);
+            respond(false, __('Invalid author.'), 400, [], $returnTo);
         }
 
         $v = $pdo->prepare("
@@ -156,7 +156,7 @@ try {
         $v->execute([$author_id]);
         if (!$v->fetchColumn()) {
             $pdo->rollBack();
-            respond_pages_bulk(false, 'Author tidak ditemukan.', 400, [], $returnTo);
+            respond(false, __('Author not found.'), 400, [], $returnTo);
         }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -175,12 +175,12 @@ try {
     }
 
     $pdo->rollBack();
-    respond_pages_bulk(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('pages/bulk_action.php error: ' . $e->getMessage());
-    respond_pages_bulk(false, 'Terjadi kesalahan saat proses bulk action.', 500, [], $returnTo);
+    respond(false, __('An error occurred during bulk action.'), 500, [], $returnTo);
 }

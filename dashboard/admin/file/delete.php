@@ -11,19 +11,19 @@ adiwira_cosmetic_404_on_direct_open();
 $isAdmin = ($role === 'admin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 if (!adiwira_csrf_validate($csrf)) {
-    adiwira_json(['ok' => false, 'error' => 'CSRF invalid'], 419);
+    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 $id  = (int)($_POST['id'] ?? 0);
 $url = trim((string)($_POST['url'] ?? ''));
 
 if ($id <= 0 && $url === '') {
-    adiwira_json(['ok' => false, 'error' => 'Missing id or url'], 400);
+    adiwira_json(['ok' => false, 'error' => __('Missing id or url')], 400);
 }
 
 if (!function_exists('file_static_root')) {
@@ -84,7 +84,7 @@ try {
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
-        adiwira_json(['ok' => false, 'error' => 'File not found'], 404);
+        adiwira_json(['ok' => false, 'error' => __('File not found')], 404);
     }
 
     $deleted_id = (int)($row['id'] ?? 0);
@@ -125,5 +125,5 @@ try {
 
 } catch (Throwable $e) {
     error_log('file/delete.php error: ' . $e->getMessage());
-    adiwira_json(['ok' => false, 'error' => 'Server error'], 500);
+    adiwira_json(['ok' => false, 'error' => __('Server error')], 500);
 }

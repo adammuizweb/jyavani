@@ -11,7 +11,7 @@ adiwira_cosmetic_404_on_direct_open();
 [$uid, $role] = adiwira_require_editorial($pdo, true);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
@@ -25,7 +25,7 @@ $return_to = function_exists('adiwira_safe_return_to')
     : ADMIN_BASE_PATH . '/?page=admin/shortcodes/index&tab=presets';
 
 if ($id <= 0) {
-    adiwira_redirect_with_flash($return_to, 'error', 'ID tidak valid.');
+    adiwira_redirect_with_flash($return_to, 'error', __('Invalid ID.'));
 }
 
 try {
@@ -41,11 +41,11 @@ try {
     $stmt->execute($params);
 
     if ($stmt->rowCount() > 0) {
-        adiwira_redirect_with_flash($return_to, 'success', 'Preset berhasil dipindahkan ke trash.');
+        adiwira_redirect_with_flash($return_to, 'success', __('Preset berhasil dipindahkan ke trash.'));
     } else {
-        adiwira_redirect_with_flash($return_to, 'error', 'Preset tidak ditemukan.');
+        adiwira_redirect_with_flash($return_to, 'error', __('Preset tidak ditemukan.'));
     }
 } catch (Throwable $e) {
     error_log('shortcodes/delete.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($return_to, 'error', 'Gagal menghapus preset.');
+    adiwira_redirect_with_flash($return_to, 'error', __('Gagal menghapus preset.'));
 }

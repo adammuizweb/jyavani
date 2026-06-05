@@ -15,39 +15,39 @@ $returnTo = function_exists('adiwira_safe_return_to')
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: belum login.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: belum login.'));
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
 $role = (string)($identity['role'] ?? 'guest');
 
 if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: hanya admin yang boleh menghapus user.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: hanya admin yang boleh menghapus user.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Token CSRF tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Token CSRF tidak valid.'));
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'ID tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 }
 
 if ($id === $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Tidak dapat menghapus user sendiri.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Tidak dapat menghapus user sendiri.'));
 }
 
 $stmt = $pdo->prepare("SELECT id FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
 $stmt->execute([':id' => $id]);
 if (!$stmt->fetch()) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'User tidak ditemukan atau sudah dihapus.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('User tidak ditemukan atau sudah dihapus.'));
 }
 
 $stmtDel = $pdo->prepare("UPDATE users SET is_deleted = 1, updated_at = NOW() WHERE id = :id LIMIT 1");
@@ -56,11 +56,11 @@ try {
     $ok = $stmtDel->execute([':id' => $id]);
 
     if ($ok) {
-        adiwira_redirect_with_flash($returnTo, 'success', 'User berhasil dihapus.');
+        adiwira_redirect_with_flash($returnTo, 'success', __('User berhasil dihapus.'));
     }
 
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus user.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal menghapus user.'));
 } catch (Throwable $e) {
     error_log('[users/delete] ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal menghapus user.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal menghapus user.'));
 }

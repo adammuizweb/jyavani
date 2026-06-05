@@ -46,29 +46,29 @@ if (!function_exists('adiwira_users_bulk_respond')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_users_bulk_respond(false, 'Method Not Allowed', 405, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_users_bulk_respond(false, 'CSRF token tidak valid.', 419, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    adiwira_users_bulk_respond(false, 'Tidak ada user dipilih.', 400, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('No users selected.'), 400, [], $returnTo);
 }
 
 $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 $ids = array_values(array_filter($ids, fn($v) => $v !== $uid)); // jangan proses diri sendiri
 
 if (empty($ids)) {
-    adiwira_users_bulk_respond(false, 'Tidak ada user valid dipilih.', 400, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('Tidak ada user valid dipilih.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    adiwira_users_bulk_respond(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
 
 try {
@@ -91,7 +91,7 @@ try {
 
         if (!in_array($newRole, $allowed, true)) {
             $pdo->rollBack();
-            adiwira_users_bulk_respond(false, 'Role tujuan tidak valid.', 400, [], $returnTo);
+            adiwira_users_bulk_respond(false, __('Role tujuan tidak valid.'), 400, [], $returnTo);
         }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -128,12 +128,12 @@ try {
     }
 
     $pdo->rollBack();
-    adiwira_users_bulk_respond(false, 'Aksi bulk tidak dikenal.', 400, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('[users/bulk_action] ' . $e->getMessage());
-    adiwira_users_bulk_respond(false, 'Terjadi kesalahan saat proses bulk action.', 500, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('An error occurred during bulk action.'), 500, [], $returnTo);
 }

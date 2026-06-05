@@ -37,7 +37,7 @@ if (!$embedded):
       <div class="mdlib-tab mdlib-is-active" data-tab="upload">Upload</div>
       <div class="mdlib-tab" data-tab="gallery">Gallery</div>
     </div>
-    <div class="small">Pilih media untuk insert</div>
+    <div class="small"><?= _e('Select media to insert') ?></div>
   </div>
 
   <div id="mdlib-panel-upload" class="mdlib-panel" style="display:block;">

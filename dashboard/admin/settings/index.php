@@ -242,7 +242,7 @@ if ($isAdmin) {
 <section class="adam-card settingshub-wrap">
   <header class="settingshub-head">
     <div>
-      <h1 class="settingshub-title">Pengaturan</h1>
+      <h1 class="settingshub-title"><?= _e('Settings') ?></h1>
       <p class="settingshub-sub">
         Kelola pengaturan akun dan sistem dari satu tempat.
         Menu yang tampil mengikuti hak akses akunmu.
@@ -250,7 +250,7 @@ if ($isAdmin) {
     </div>
   </header>
 
-  <nav aria-label="Pengaturan utama" class="settingshub-grid">
+  <nav aria-label="<?=_e('Main Settings')?>" class="settingshub-grid">
     <?php foreach ($items as $it): ?>
       <a class="settingshub-card"
          href="<?= htmlspecialchars($it['href'], ENT_QUOTES, 'UTF-8') ?>">

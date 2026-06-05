@@ -21,7 +21,7 @@ if (!function_exists('slugify_sc')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
@@ -49,17 +49,17 @@ if ($isEdit) {
     $session_key = 'sc_save_nonce_' . $id;
     $session_nonce = $_SESSION[$session_key] ?? null;
     if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce, (string)$save_nonce)) {
-        $errors[] = 'Token penyimpanan tidak valid atau sudah digunakan (duplikat). Muat ulang halaman.';
+        $errors[] = __('Token penyimpanan tidak valid atau sudah digunakan (duplikat). Muat ulang halaman.');
     }
 } else {
     $session_nonce = $_SESSION['sc_add_nonce'] ?? null;
     if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce, (string)$save_nonce)) {
-        $errors[] = 'Token penyimpanan tidak valid. Muat ulang halaman.';
+        $errors[] = __('Token penyimpanan tidak valid. Muat ulang halaman.');
     }
 }
 
 if ($title === '') {
-    $errors[] = 'Nama preset tidak boleh kosong.';
+    $errors[] = __('Nama preset tidak boleh kosong.');
 }
 
 $slug = slugify_sc($slug_in !== '' ? $slug_in : $title);
@@ -67,7 +67,7 @@ $slug = slugify_sc($slug_in !== '' ? $slug_in : $title);
 // Decode config
 $config = json_decode($config_json, true);
 if (!is_array($config)) {
-    $errors[] = 'Format konfigurasi tidak valid.';
+    $errors[] = __('Format konfigurasi tidak valid.');
 }
 
 // Check slug uniqueness

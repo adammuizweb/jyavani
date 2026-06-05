@@ -52,19 +52,19 @@ $status  = in_array((string)($_POST['status'] ?? ''), ['draft', 'published', 'pr
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ''))) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     if (!hash_equals($save_nonce, (string)($_POST['save_nonce'] ?? ''))) {
-        $errors[] = 'Token penyimpanan tidak valid. Muat ulang halaman.';
+        $errors[] = __('Token penyimpanan tidak valid. Muat ulang halaman.');
     }
 
     if ($title === '') {
-        $errors[] = 'Judul tidak boleh kosong.';
+        $errors[] = __('Title is required.');
     }
 
     if (trim($content) === '') {
-        $errors[] = 'Konten tidak boleh kosong.';
+        $errors[] = __('Content is required.');
     }
 
     $slug = $slug === '' ? slugify($title) : slugify($slug);
@@ -73,7 +73,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $s = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug LIMIT 1");
         $s->execute([':slug' => $slug]);
         if ($s->fetch()) {
-            $errors[] = 'Slug sudah digunakan.';
+            $errors[] = __('Slug already used.');
         }
     }
 
@@ -97,13 +97,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
-                adiwira_redirect_with_flash($return_to, 'success', 'Theme partial berhasil disimpan.');
+                adiwira_redirect_with_flash($return_to, 'success', __('Theme partial berhasil disimpan.'));
             }
 
-            $errors[] = 'Gagal menyimpan ke database.';
+            $errors[] = __('Failed to save to database.');
         } catch (Throwable $e) {
             error_log('themes/add.php error: ' . $e->getMessage());
-            $errors[] = 'Terjadi kesalahan saat menyimpan data.';
+            $errors[] = __('Terjadi kesalahan saat menyimpan data.');
         }
     }
 

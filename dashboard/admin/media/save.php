@@ -11,17 +11,17 @@ adiwira_cosmetic_404_on_direct_open();
 $isAdmin = ($role === 'admin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 if (!adiwira_csrf_validate($csrf)) {
-    adiwira_json(['ok' => false, 'error' => 'CSRF invalid'], 419);
+    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    adiwira_json(['ok' => false, 'error' => 'Missing id'], 400);
+    adiwira_json(['ok' => false, 'error' => __('Missing id')], 400);
 }
 
 $title   = trim((string)($_POST['title'] ?? ''));
@@ -41,12 +41,12 @@ $errors = [];
 $link_url = null;
 if ($target_url_raw !== '') {
     if (!filter_var($target_url_raw, FILTER_VALIDATE_URL)) {
-        $errors[] = 'Invalid target URL. Use full URL starting with http:// or https://';
+        $errors[] = __('Invalid target URL. Use full URL starting with http:// or https://');
     } else {
         $parts = parse_url($target_url_raw);
         $scheme = isset($parts['scheme']) ? strtolower((string)$parts['scheme']) : '';
         if (!in_array($scheme, ['http', 'https'], true)) {
-            $errors[] = 'Target URL must use http or https scheme';
+            $errors[] = __('Target URL must use http or https scheme');
         } else {
             $link_url = $target_url_raw;
         }
@@ -57,7 +57,7 @@ $allowed = ['', '_self', '_blank', '_parent', '_top'];
 $link_target = null;
 if ($target_attribute_raw !== '') {
     if (!in_array($target_attribute_raw, $allowed, true)) {
-        $errors[] = 'Invalid target attribute';
+        $errors[] = __('Invalid target attribute');
     } else {
         $link_target = $target_attribute_raw ?: null;
     }
@@ -66,7 +66,7 @@ if ($target_attribute_raw !== '') {
 if (!empty($errors)) {
     adiwira_json([
         'ok'     => false,
-        'error'  => 'Validation failed',
+        'error' => __('Validation failed'),
         'errors' => $errors
     ], 400);
 }
@@ -125,7 +125,7 @@ try {
     $check = $pdo->prepare($sql);
     $check->execute($params);
     if (!$check->fetchColumn()) {
-        adiwira_json(['ok' => false, 'error' => 'Media not found'], 404);
+        adiwira_json(['ok' => false, 'error' => __('Media not found')], 404);
     }
 
     [$urlColumn, $targetColumn] = media_detect_link_columns($pdo);
@@ -204,6 +204,6 @@ try {
     error_log('media/save.php error: ' . $e->getMessage());
     adiwira_json([
         'ok'    => false,
-        'error' => 'DB error',
+        'error' => __('DB error'),
     ], 500);
 }

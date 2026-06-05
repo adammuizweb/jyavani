@@ -15,27 +15,27 @@ $returnTo = function_exists('adiwira_safe_return_to')
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $role = (string)($identity['role'] ?? 'guest');
 if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak: hanya admin yang boleh hapus permanen photo post.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: hanya admin yang boleh hapus permanen photo post.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'CSRF token tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 }
 
 $id = (int)($_POST['id'] ?? 0);
 if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'ID photo post tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('ID photo post tidak valid.'));
 }
 
 $stmt = $pdo->prepare("
@@ -50,7 +50,7 @@ $stmt->execute([':id' => $id]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Photo post tidak ditemukan di trash.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Photo post tidak ditemukan di trash.'));
 }
 
 try {
@@ -72,7 +72,7 @@ try {
 
     $pdo->commit();
 
-    adiwira_redirect_with_flash($returnTo, 'success', 'Photo post berhasil dihapus permanen.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Photo post berhasil dihapus permanen.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -80,5 +80,5 @@ try {
     }
 
     error_log('bin/photo/delete_permanent.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', 'Gagal hapus permanen photo post.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal hapus permanen photo post.'));
 }

@@ -53,7 +53,7 @@ if (!function_exists('save_error_response')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
@@ -225,10 +225,10 @@ $edit_return   = ADMIN_BASE_PATH . '/?' . http_build_query([
     'return_to' => $return_to,
 ]);
 
-if ($id <= 0) $errors[] = 'ID tidak valid.';
+if ($id <= 0) $errors[] = __('Invalid ID.');
 
 $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
-if ($title === '') $errors[] = 'Judul tidak boleh kosong.';
+if ($title === '') $errors[] = __('Title is required.');
 
 if ($role === 'author') {
     $content = sanitize_author_html($content);
@@ -238,12 +238,12 @@ if ($role === 'author') {
     }
 }
 
-if (trim(strip_tags($content)) === '') $errors[] = 'Konten tidak boleh kosong.';
+if (trim(strip_tags($content)) === '') $errors[] = __('Content is required.');
 
-if ($youtube !== null && mb_strlen($youtube) > 512) $errors[] = 'Link YouTube terlalu panjang.';
+if ($youtube !== null && mb_strlen($youtube) > 512) $errors[] = __('YouTube link is too long.');
 if ($youtube !== null) {
-    if (!preg_match('/^https?:\/\//i', $youtube)) $errors[] = 'Link YouTube harus diawali http atau https.';
-    if (!preg_match('/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i', $youtube)) $errors[] = 'Link YouTube tidak valid.';
+    if (!preg_match('/^https?:\/\//i', $youtube)) $errors[] = __('YouTube link must start with http or https.');
+    if (!preg_match('/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i', $youtube)) $errors[] = __('Invalid YouTube link.');
 }
 
 $slugSeed = ($slug_in !== '') ? $slug_in : ($title !== '' ? $title : 'untitled');
@@ -256,11 +256,11 @@ $st = $pdo->prepare("\n    SELECT id, slug, created_by, created_at, meta\n    FR
 $st->execute([':id' => $id]);
 $existing = $st->fetch(PDO::FETCH_ASSOC);
 
-if (!$existing) $errors[] = 'Post tidak ditemukan.';
+if (!$existing) $errors[] = __('Post not found.');
 
 if (empty($errors) && $role !== 'admin') {
     if ((int)($existing['created_by'] ?? 0) !== $uid) {
-        $errors[] = 'Akses ditolak: kamu hanya boleh menyimpan posting milikmu sendiri.';
+        $errors[] = __('Access denied: you can only save your own posts.');
     }
 }
 
@@ -270,7 +270,7 @@ if (empty($errors)) {
         ':slug' => $slug,
         ':id'   => $id,
     ]);
-    if ($q->fetch()) $errors[] = 'Slug sudah dipakai oleh posting lain.';
+    if ($q->fetch()) $errors[] = __('Slug already used by another post.');
 }
 
 if (!empty($errors)) {
@@ -364,7 +364,7 @@ try {
 
     $pdo->commit();
 
-    save_success_response('Artikel berhasil diperbarui.', $return_to, [
+    save_success_response(__('Article updated successfully.'), $return_to, [
         'post' => [
             'id'         => $id,
             'slug'       => $slug,

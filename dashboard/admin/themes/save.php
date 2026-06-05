@@ -54,7 +54,7 @@ if (!function_exists('theme_save_error_response')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Not found'], 404);
+    adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
@@ -92,22 +92,22 @@ $edit_return = ADMIN_BASE_PATH . '/?' . http_build_query([
 $errors = [];
 
 if ($id <= 0) {
-    $errors[] = 'ID tidak valid.';
+    $errors[] = __('Invalid ID.');
 }
 
 $session_key   = 'theme_save_nonce_' . $id;
 $session_nonce = $_SESSION[$session_key] ?? null;
 
 if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce, (string)$save_nonce)) {
-    $errors[] = 'Token penyimpanan tidak valid atau sudah digunakan (duplikat). Coba muat ulang halaman.';
+    $errors[] = __('Token penyimpanan tidak valid atau sudah digunakan (duplikat). Coba muat ulang halaman.');
 }
 
 if ($title === '') {
-    $errors[] = 'Judul tidak boleh kosong.';
+    $errors[] = __('Title is required.');
 }
 
 if (trim($content) === '') {
-    $errors[] = 'Konten tidak boleh kosong.';
+    $errors[] = __('Content is required.');
 }
 
 $slug = adiwira_slugify_theme($slug_in !== '' ? $slug_in : $title);
@@ -129,7 +129,7 @@ if (empty($errors)) {
     $theme = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$theme) {
-        $errors[] = 'Theme tidak ditemukan.';
+        $errors[] = __('Theme tidak ditemukan.');
     }
 }
 
@@ -137,7 +137,7 @@ if (empty($errors)) {
     $s = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND id != :id LIMIT 1");
     $s->execute([':slug' => $slug, ':id' => $id]);
     if ($s->fetch()) {
-        $errors[] = 'Slug sudah dipakai.';
+        $errors[] = __('Slug sudah dipakai.');
     }
 }
 
@@ -185,7 +185,7 @@ try {
     $new_nonce = bin2hex(random_bytes(12));
     $_SESSION[$session_key] = $new_nonce;
 
-    theme_save_success_response('Theme partial berhasil diperbarui.', $return_to, [
+    theme_save_success_response(__('Theme partial berhasil diperbarui.'), $return_to, [
         'theme' => [
             'id'     => (int)($new['id'] ?? $id),
             'slug'   => (string)($new['slug'] ?? $slug),

@@ -118,12 +118,12 @@ try {
       <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>>Public</option>
       <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>>Private</option>
     </select>
-    <button id="mdlib-search-btn" class="mdlib-btn" type="button">Cari</button>
+    <button id="mdlib-search-btn" class="mdlib-btn" type="button"><?= _e('Search') ?></button>
   </div>
 
   <div id="mdlib-gallery-container">
     <?php if (count($rows) === 0): ?>
-      <div class="mdlib-note">Tidak ada media</div>
+      <div class="mdlib-note"><?= _e('No media') ?></div>
     <?php else: ?>
       <div class="mdlib-pic-grid" id="mdlib-pic-grid">
         <?php foreach ($rows as $r): ?>

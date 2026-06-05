@@ -33,7 +33,7 @@ $errors = [];
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     }
 
     $name        = trim((string)($_POST['name'] ?? ''));
@@ -42,7 +42,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $parent_id   = isset($_POST['parent_id']) && $_POST['parent_id'] !== '' ? (int)$_POST['parent_id'] : null;
 
     if ($name === '') {
-        $errors[] = 'Nama kategori tidak boleh kosong.';
+        $errors[] = __('Category name is required.');
     }
 
     $slug = ($slug === '') ? slugify($name) : slugify($slug);
@@ -61,7 +61,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         ");
         $stmtParent->execute([':id' => $parent_id]);
         if (!$stmtParent->fetchColumn()) {
-            $errors[] = 'Parent kategori tidak valid.';
+            $errors[] = __('Invalid parent category.');
         }
     }
 
@@ -75,7 +75,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         ");
         $stmt->execute([':slug' => $slug]);
         if ($stmt->fetch()) {
-            $errors[] = 'Slug sudah dipakai. Silakan gunakan slug lain.';
+            $errors[] = __('Slug already taken. Please use another slug.');
         }
     }
 
@@ -94,13 +94,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
-                adiwira_redirect_with_flash($return_to, 'success', 'Kategori berhasil disimpan.');
+                adiwira_redirect_with_flash($return_to, 'success', __('Category saved successfully.'));
             } else {
-                $errors[] = 'Gagal menambahkan kategori.';
+                $errors[] = __('Failed to add category.');
             }
         } catch (Throwable $e) {
             error_log('categories/add.php insert error: ' . $e->getMessage());
-            $errors[] = 'Gagal menambahkan kategori.';
+            $errors[] = __('Failed to add category.');
         }
     }
 }

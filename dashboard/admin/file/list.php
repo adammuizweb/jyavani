@@ -175,13 +175,13 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 <div class="media-list">
   <div class="controls">
     <input type="checkbox" id="select-all" class="select-all" />
-    <label for="select-all" class="small">Pilih semua</label>
+    <label for="select-all" class="small"><?= _e('Select all') ?></label>
 
     <button id="delete-bulk-btn" class="btn danger" type="button">Delete Selected</button>
 
     <?php if ($hasVisibility): ?>
     <select id="visibility-filter" style="margin-left:12px;padding:3px 6px;font-size:12px">
-      <option value="">Semua</option>
+      <option value=""><?= _e('All') ?></option>
       <option value="public" <?= $visFilter === 'public' ? 'selected' : '' ?>>Public</option>
       <option value="private" <?= $visFilter === 'private' ? 'selected' : '' ?>>Private</option>
       <option value="auto" <?= $visFilter === 'auto' ? 'selected' : '' ?>>Auto</option>
@@ -192,17 +192,17 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       type="text"
       id="media-search"
       class="search"
-      placeholder="Cari title / filename / caption / mime"
+      placeholder="<?= _e('Search title / filename / caption / mime') ?>"
       value="<?= e($search) ?>"
       style="margin-left:12px;"
     >
-    <button id="media-search-btn" class="btn" type="button">Cari</button>
+    <button id="media-search-btn" class="btn" type="button"><?= _e('Search') ?></button>
 
     <div style="margin-left:auto" class="small">Total: <?= (int)$total ?></div>
   </div>
 
   <?php if (empty($rows)): ?>
-    <div class="empty">Tidak ada file</div>
+    <div class="empty"><?= _e('No files') ?></div>
   <?php else: ?>
     <table class="table" id="media-table">
       <thead>

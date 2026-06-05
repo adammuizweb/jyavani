@@ -152,7 +152,7 @@ $messages = [];
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!adiwira_csrf_validate($token)) {
-        $errors[] = 'CSRF token tidak valid.';
+        $errors[] = __('Invalid CSRF token.');
     } else {
         $action = (string)($_POST['action'] ?? '');
 
@@ -177,7 +177,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     if ($ok) {
                         $messages[] = "Theme '{$folder}' juga diterapkan ke semua slot.";
                     } else {
-                        $errors[] = 'Gagal menerapkan theme ke semua slot setelah aktivasi.';
+                        $errors[] = __('Gagal menerapkan theme ke semua slot setelah aktivasi.');
                     }
                 } catch (Throwable $e) {
                     $errors[] = 'Error saat menerapkan theme ke semua slot: ' . $e->getMessage();
@@ -192,7 +192,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if ($ok) {
                     $messages[] = "Theme '{$folder}' berhasil diterapkan ke semua slot.";
                 } else {
-                    $errors[] = 'Gagal menerapkan theme ke semua slot.';
+                    $errors[] = __('Gagal menerapkan theme ke semua slot.');
                 }
 
             } elseif ($action === 'save_assignments') {
@@ -370,7 +370,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
             } elseif ($action === 'upload_theme') {
                 if (!isset($_FILES['theme_zip'])) {
-                    $errors[] = 'File zip tidak ditemukan pada request.';
+                    $errors[] = __('File zip tidak ditemukan pada request.');
                 } else {
                     $file = $_FILES['theme_zip'];
                     if (!empty($file['error'])) {
@@ -379,12 +379,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         $name = $file['name'] ?? '';
                         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
                         if ($ext !== 'zip') {
-                            $errors[] = 'Hanya file .zip yang diperbolehkan.';
+                            $errors[] = __('Hanya file .zip yang diperbolehkan.');
                         } else {
                             $tmpZip = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'theme_upload_' . uniqid('', true) . '.zip';
                             if (!move_uploaded_file($file['tmp_name'], $tmpZip)) {
                                 if (!@copy($file['tmp_name'], $tmpZip)) {
-                                    $errors[] = 'Gagal menyimpan file upload.';
+                                    $errors[] = __('Gagal menyimpan file upload.');
                                 }
                             }
 
@@ -409,7 +409,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
 
             } else {
-                $errors[] = 'Aksi tidak dikenali.';
+                $errors[] = __('Aksi tidak dikenali.');
             }
 
         } catch (Throwable $e) {
@@ -424,7 +424,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif (!empty($errors)) {
         adiwira_redirect_with_flash($selfUrl, 'error', implode(' ', $errors));
     } else {
-        adiwira_redirect_with_flash($selfUrl, 'info', 'Aksi selesai.');
+        adiwira_redirect_with_flash($selfUrl, 'info', __('Aksi selesai.'));
     }
 }
 

@@ -16,22 +16,22 @@ $returnTo = function_exists('adiwira_safe_return_to')
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Method tidak diizinkan.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Akses ditolak.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $role = (string)($identity['role'] ?? 'guest');
 if (!in_array($role, ['editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'Role kamu tidak memiliki akses.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak memiliki akses.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', 'CSRF token tidak valid.');
+    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 }
 
 $action = (string)($_POST['action'] ?? '');
@@ -41,7 +41,7 @@ if ($action === 'create') {
     $slug = trim((string)($_POST['slug'] ?? ''));
 
     if ($name === '' || $slug === '') {
-        adiwira_redirect_with_flash($returnTo, 'error', 'Nama dan slug harus diisi.');
+        adiwira_redirect_with_flash($returnTo, 'error', __('Nama dan slug harus diisi.'));
     }
 
     $st = $pdo->prepare("SELECT COUNT(*) FROM menus WHERE slug = :slug");
@@ -64,7 +64,7 @@ if ($action === 'rename') {
     $slug = trim((string)($_POST['slug'] ?? ''));
 
     if ($menuId <= 0 || $name === '' || $slug === '') {
-        adiwira_redirect_with_flash($returnTo, 'error', 'Data tidak lengkap.');
+        adiwira_redirect_with_flash($returnTo, 'error', __('Data tidak lengkap.'));
     }
 
     $st = $pdo->prepare("SELECT COUNT(*) FROM menus WHERE slug = :slug AND id != :id");
@@ -76,20 +76,20 @@ if ($action === 'rename') {
     $st = $pdo->prepare("UPDATE menus SET name = :name, slug = :slug WHERE id = :id");
     $st->execute([':name' => $name, ':slug' => $slug, ':id' => $menuId]);
 
-    adiwira_redirect_with_flash($returnTo, 'success', 'Menu berhasil diubah.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Menu berhasil diubah.'));
 }
 
 if ($action === 'set_default') {
     $menuId = (int)($_POST['menu_id'] ?? 0);
     if ($menuId <= 0) {
-        adiwira_redirect_with_flash($returnTo, 'error', 'Menu tidak valid.');
+        adiwira_redirect_with_flash($returnTo, 'error', __('Menu tidak valid.'));
     }
 
     $pdo->exec("UPDATE menus SET is_default = 0");
     $st = $pdo->prepare("UPDATE menus SET is_default = 1 WHERE id = :id");
     $st->execute([':id' => $menuId]);
 
-    adiwira_redirect_with_flash($returnTo, 'success', 'Menu default berhasil diubah.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Menu default berhasil diubah.'));
 }
 
-adiwira_redirect_with_flash($returnTo, 'error', 'Aksi tidak dikenal.');
+adiwira_redirect_with_flash($returnTo, 'error', __('Aksi tidak dikenal.'));

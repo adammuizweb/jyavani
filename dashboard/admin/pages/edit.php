@@ -71,7 +71,7 @@ $return_to = function_exists('adiwira_safe_return_to')
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) {
     http_response_code(400);
-    echo '<p>ID page tidak valid.</p>';
+    echo '<p>' . __('Invalid page ID.') . '</p>';
     return;
 }
 
@@ -89,14 +89,14 @@ $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {
     http_response_code(404);
-    echo '<p>Page tidak ditemukan atau bukan page.</p>';
+    echo '<p>' . __('Page not found or is not a page.') . '</p>';
     return;
 }
 
 // admin bebas, author/editor hanya miliknya sendiri
 if ($role !== 'admin' && (int)($post['created_by'] ?? 0) !== $me) {
     http_response_code(403);
-    echo '<p>Akses ditolak: kamu hanya boleh mengedit halaman milikmu sendiri.</p>';
+    echo '<p>' . __('Access denied: you can only edit your own pages.') . '</p>';
     return;
 }
 
@@ -170,13 +170,11 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                    name="thumbnail"
                    value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
                    style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
-                   placeholder="URL thumbnail (atau pilih dari Media)">
+                   placeholder="<?= _e('Thumbnail URL (or select from Media)') ?>">
             <button type="button"
                     id="btn-open-media-for-thumb"
                     class="adam-button"
-                    style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd">
-              Pilih dari Media
-            </button>
+                    style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?= _e('Select from Media') ?></button>
             <button type="button"
                     id="thumbnail-clear"
                     class="adam-link"
@@ -259,7 +257,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
             }
           ?>
         </select>
-        <div style="font-size:12px;color:#666;margin-top:6px">Admin-only.</div>
+        <div style="font-size:12px;color:#666;margin-top:6px"><?= _e('Admin only.') ?></div>
       </label>
 
       <label style="display:block;margin-top:.6rem">
@@ -277,12 +275,10 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                name="updated_at"
                value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>"
                style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang.</div>
+        <div style="font-size:12px;color:#666;margin-top:4px"><?= _e('Leave empty to use current time.') ?></div>
       </label>
     <?php else: ?>
-      <div style="margin-top:.8rem;color:#666;font-size:12px">
-        Creator tidak bisa diubah. Timestamp hanya bisa diubah admin.
-      </div>
+      <div style="margin-top:.8rem;color:#666;font-size:12px"><?= _e('Creator cannot be changed. Timestamp can only be edited by admin.') ?></div>
     <?php endif; ?>
 
     <?php
@@ -297,7 +293,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
       <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 Posisi Sidebar</div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
-        <option value="">Default (ikuti hierarki global)</option>
+        <option value=""><?= _e('Default (follow global hierarchy)') ?></option>
         <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>>Kanan</option>
         <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>>Kiri</option>
         <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>>Sembunyikan</option>
@@ -305,7 +301,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
     </div>
 
     <p style="margin-top:.8rem">
-      <button type="submit" class="adam-button" id="btn-save">Simpan Perubahan</button>
+      <button type="submit" class="adam-button" id="btn-save"><?= _e('Save Changes') ?></button>
       <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
     </p>
   </form>
@@ -450,10 +446,10 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
     syncContent();
 
     askWarning({
-      title: 'Simpan perubahan',
-      message: 'Perubahan halaman ini akan disimpan. Lanjutkan?',
-      confirmText: 'Ya, simpan',
-      cancelText: 'Batal'
+      title: <?= json_encode(__('Save changes')) ?>,
+      message: <?= json_encode(__('This page will be saved. Proceed?')) ?>,
+      confirmText: <?= json_encode(__('Yes, save')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){
       if (!ok) return;
       submitAjax();

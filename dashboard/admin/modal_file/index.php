@@ -112,7 +112,7 @@ if (!$embedded):
             return api.warning(opts || {});
           }
         }
-        return Promise.resolve(window.confirm((opts && opts.message) ? opts.message : 'Lanjutkan aksi ini?'));
+        return Promise.resolve(window.confirm((opts && opts.message) ? opts.message: <?= json_encode(__('Proceed with this action?')) ?>));
       }
 
       function readJsonSafe(txt){
