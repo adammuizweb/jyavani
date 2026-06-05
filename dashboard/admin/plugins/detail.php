@@ -78,6 +78,30 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
     </div>
   </div>
   <?php endif; ?>
+
+  <?php $storeInfo = $manifest['store'] ?? null; if ($storeInfo): ?>
+  <?php
+    require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
+    $availableUpdates = PluginStoreController::getCachedUpdates();
+    $hasUpdate = isset($availableUpdates[$pluginName]);
+  ?>
+  <div class="detail-card">
+    <h3 class="card-title">Informasi Store</h3>
+    <table class="info-table">
+      <tr><th>Store URL</th><td><a href="<?= h($storeInfo['url'] ?? '') ?>" target="_blank" rel="noopener"><?= h(rtrim($storeInfo['url'] ?? '', '/')) ?></a></td></tr>
+      <tr><th>Versi Store</th><td>
+        <?php if ($hasUpdate): ?>
+          v<?= h($availableUpdates[$pluginName]['new_version']) ?> <span class="badge badge-update">Update tersedia</span>
+        <?php else: ?>
+          <span style="color:var(--adam-muted)">v<?= h($version) ?> (terbaru)</span>
+        <?php endif; ?>
+      </td></tr>
+      <?php if ($hasUpdate && !empty($availableUpdates[$pluginName]['changelog'])): ?>
+      <tr><th>Changelog</th><td style="white-space:pre-wrap;font-size:.8rem;line-height:1.5"><?= h($availableUpdates[$pluginName]['changelog']) ?></td></tr>
+      <?php endif; ?>
+    </table>
+  </div>
+  <?php endif; ?>
 </div>
 
 <div class="form-actions">
@@ -122,33 +146,53 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
 .form-actions { display:flex; gap:.5rem; margin-top:1.25rem; }
 .badge { display:inline-block; padding:.15rem .5rem; font-size:.75rem; font-weight:600; border-radius:999px; }
 .badge-success { background:#d1fae5; color:#065f46; }
+.badge-update { background:#fef3c7; color:#92400e; }
 .badge-muted { background:var(--adam-surface-3); color:var(--adam-muted); }
 </style>
 
 <script>
 (function(){
+  function copyText(text, btn) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+    if (ok) {
+      btn.textContent = '\u2713';
+      btn.classList.add('copied');
+      setTimeout(function() {
+        btn.textContent = '\uD83D\uDCCB';
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+  }
+
   document.querySelectorAll('.btn-copy').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var cmd = this.getAttribute('data-cmd');
       if (!cmd) return;
-      navigator.clipboard.writeText(cmd).then(function() {
-        btn.textContent = '\u2713';
-        btn.classList.add('copied');
-        setTimeout(function() {
-          btn.textContent = '\u{1F4CB}';
-          btn.classList.remove('copied');
-        }, 2000);
-      }).catch(function() {
-        // fallback: select text
-        var code = btn.parentElement.querySelector('code');
-        if (code) {
-          var range = document.createRange();
-          range.selectNodeContents(code);
-          var sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      });
+      // Try clipboard API first (async)
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmd).then(function() {
+          btn.textContent = '\u2713';
+          btn.classList.add('copied');
+          setTimeout(function() {
+            btn.textContent = '\uD83D\uDCCB';
+            btn.classList.remove('copied');
+          }, 2000);
+        }).catch(function() {
+          copyText(cmd, btn);
+        });
+      } else {
+        copyText(cmd, btn);
+      }
     });
   });
 })();

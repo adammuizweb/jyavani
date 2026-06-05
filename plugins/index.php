@@ -222,7 +222,7 @@ function plugin_checks(string $name): array {
         $results[] = [
             'label' => $label,
             'passed' => $passed,
-            'command' => $runCmd,
+            'command' => str_replace(['{plugin_dir}', '{project_root}'], [$pluginDir, $projectRoot], $runCmd),
             'doc' => $tip,
             'raw_output' => $output ? implode("\n", $output) : '',
         ];

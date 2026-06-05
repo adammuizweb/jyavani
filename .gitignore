@@ -10,7 +10,11 @@ cfg/var/sessions/
 cfg/var/sessions/**
 cfg/var/terminal-tokens/
 cfg/var/plugins-disabled.json
+cfg/var/plugin-backups/
+cfg/var/plugin-update-transient.json
+cfg/var/update-progress-*.json
 /var/sessions/**
+plugins/disabled.json
 
 # If you want to ignore only session files but keep folder tracked, use:
 # cfg/var/sessions/*.sess
