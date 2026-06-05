@@ -103,6 +103,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 
 <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
   <a href="<?= h($base) ?>/?page=admin/plugins/upload" class="btn btn-primary btn-sm">+ Upload Plugin</a>
+  <a href="<?= h($base) ?>/?page=admin/plugins/browse" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">🏪 Cari Plugin</a>
   <?php if ($hasStoreUrl): ?>
   <form method="post" style="display:inline">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">

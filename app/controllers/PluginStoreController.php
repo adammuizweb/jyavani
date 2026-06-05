@@ -164,6 +164,19 @@ class PluginStoreController
 
         unlink($tmpZip);
 
+        // Hapus backup setelah update sukses
+        if (is_dir($backupDir)) {
+            $dit = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($backupDir, RecursiveDirectoryIterator::SKIP_DOTS),
+                RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($dit as $f) {
+                if ($f->isDir()) @rmdir($f->getPathname());
+                else @unlink($f->getPathname());
+            }
+            @rmdir($backupDir);
+        }
+
         // Update plugin.json version
         $p(88, 'Memperbarui manifest plugin...');
         $manifestPath = $pluginDir . '/plugin.json';
