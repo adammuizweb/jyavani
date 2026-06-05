@@ -80,8 +80,8 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="form-toolbar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;">
-      <button type="submit" class="adam-button" id="btn-save">💾 Simpan Perubahan</button>
-      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Batal</a>
+      <button type="submit" class="adam-button" id="btn-save">💾 <?=_e('Save Changes')?></button>
+      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
 
       <div style="margin-left:auto;font-size:.9rem;color:#555;">
         Updated:
@@ -96,18 +96,18 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-        ⚙️ Pengaturan Theme
+        ⚙️ <?=_e('Theme Settings')?>
         <span class="chevron">▸</span>
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
-        <label>Judul<br>
+        <label><?=_e('Title')?><br>
           <input type="text" name="title"
                  value="<?= htmlspecialchars($pref_title, ENT_QUOTES, 'UTF-8') ?>"
                  class="inpud">
         </label>
 
-        <label style="margin-top:.6rem;display:block">Slug (opsional)<br>
+        <label style="margin-top:.6rem;display:block"><?=_e('Slug (optional)')?><br>
           <input type="text" name="slug"
                  value="<?= htmlspecialchars($pref_slug, ENT_QUOTES, 'UTF-8') ?>"
                  class="inpud">
@@ -124,7 +124,7 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
     </div>
 
     <div style="margin-top:.75rem;">
-      <label>Konten (HTML / PHP fragment)<br>
+      <label><?=_e('Content (HTML / PHP fragment)')?><br>
         <textarea id="cm-textarea"
                   style="width:100%;min-height:70vh;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
         <textarea id="content-textarea" name="content" style="display:none;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
@@ -165,7 +165,7 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function getCMValue(){
@@ -232,14 +232,14 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
         return;
       }
 
-      notify('success', data.message || 'Perubahan berhasil disimpan.', 'Berhasil');
+      notify('success', data.message || '<?=__('Changes saved successfully.')?>', '<?=__('Success')?>');
 
     } catch (err) {
-      notify('error', 'Terjadi gangguan jaringan saat menyimpan.', 'Jaringan');
+      notify('error', '<?=__('Network error while saving.')?>', '<?=__('Network')?>');
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = oldLabel || '💾 Simpan Perubahan';
+        saveBtn.textContent = oldLabel || '💾 <?=__('Save Changes')?>';
       }
     }
   }
@@ -250,7 +250,7 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
 
     askWarning({
       title: <?= json_encode(__('Save changes')) ?>,
-      message: 'Perubahan theme partial ini akan disimpan. Lanjutkan?',
+      message: '<?=__('Changes to this theme partial will be saved. Continue?')?>',
       confirmText: <?= json_encode(__('Yes, save')) ?>,
       cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){

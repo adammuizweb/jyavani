@@ -202,7 +202,7 @@ try {
                 ->execute($post_ids);
 
             $pdo->commit();
-            respond(true, 'Kategori yang dipilih berhasil dihapus dari ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)], $returnTo);
+            respond(true, __('Selected category removed from') . ' ' . count($post_ids) . ' ' . __('articles.'), 200, ['count' => count($post_ids)], $returnTo);
         }
 
         if ($mode === 'toggle') {

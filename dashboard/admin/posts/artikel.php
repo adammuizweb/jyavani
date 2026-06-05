@@ -319,7 +319,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2>Tambah Article</h2>
+  <h2><?=_e('Add Article')?></h2>
 
   <form id="post-add-form" method="post" novalidate>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -327,19 +327,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="theme-meta-body">
-        ⚙️ Pengaturan Post <span class="chevron">▸</span>
+        ⚙️ <?=_e('Post Settings')?> <span class="chevron">▸</span>
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
-        <label>Judul<br>
+        <label><?=_e('Title')?><br>
           <input type="text" name="title" value="<?= htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label>Slug (opsional)<br>
+        <label><?=_e('Slug (optional)')?><br>
           <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label>Kategori (centang untuk memilih)<br>
+        <label><?=_e('Category (check to select)')?><br>
           <div style="padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;max-height:calc(1.6em * 3 + .9rem);overflow-y:auto;overflow-x:hidden;">
             <?php
               $selectedCats = isset($_POST['categories']) ? (array)$_POST['categories'] : [];
@@ -349,20 +349,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
 
         <div class="form-group">
-          <label for="youtube">YouTube Link</label>
+          <label for="youtube"><?=_e('YouTube Link')?></label>
           <input type="text" name="youtube" id="youtube" class="form-control inpud"
                  placeholder="https://www.youtube.com/watch?v=xxxxxx"
                  value="<?= htmlspecialchars($_POST['youtube'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         </div>
         <div id="youtube-preview" style="margin-top:8px"></div>
 
-        <label>Thumbnail (gunakan modal media)<br>
+        <label><?=_e('Thumbnail (use media modal)')?><br>
           <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
                    style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
                    placeholder="URL thumbnail (atau pilih dari Media)">
-            <button type="button" id="btn-open-media-for-thumb" class="adam-button" style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd">Pilih dari Media</button>
+            <button type="button" id="btn-open-media-for-thumb" class="adam-button" style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?=_e('Select from Media')?></button>
             <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
           </div>
           <div id="thumbnail-preview" style="margin-top:.6rem;">
@@ -374,7 +374,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       </div>
     </div>
 
-    <label for="quill-editor">Konten (rich text)</label>
+    <label for="quill-editor"><?=_e('Content (rich text)')?></label>
     <div id="quill-editor-box" class="adam-quill adam-quill--auto" style="margin-top:.4rem;">
       <div id="quill-editor"></div>
     </div>
@@ -397,31 +397,31 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     <label style="display:block;margin-top:.6rem">Created At (opsional)<br>
       <input type="datetime-local" name="created_at" value="<?= htmlspecialchars((string)$created_val, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang (GMT+7).</div>
+      <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to use current time (GMT+7).')?></div>
     </label>
 
     <label style="display:block;margin-top:.6rem">Updated At (opsional)<br>
       <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars((string)$updated_val, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk menggunakan waktu sekarang (GMT+7).</div>
+      <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to use current time (GMT+7).')?></div>
     </label>
 
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 Posisi Sidebar</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
-        <option value="">Default (ikuti hierarki global)</option>
-        <option value="right">Kanan</option>
-        <option value="left">Kiri</option>
-        <option value="hide">Sembunyikan</option>
+        <option value=""><?=_e('Default (follow global hierarchy)')?></option>
+        <option value="right"><?=_e('Right')?></option>
+        <option value="left"><?=_e('Left')?></option>
+        <option value="hide"><?=_e('Hide')?></option>
       </select>
     </div>
 
     <p style="margin-top:.8rem">
-      <button type="submit" class="adam-button">Simpan</button>
-      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
+      <button type="submit" class="adam-button"><?=_e('Save')?></button>
+      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Cancel')?></a>
     </p>
 
     <div id="media-single-panel" style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:480px">
-      <div id="media-single-content">Klik gambar pada Media untuk melihat detail & edit.</div>
+      <div id="media-single-content"><?=_e('Click image in Media to view details & edit.')?></div>
     </div>
   </form>
 </section>

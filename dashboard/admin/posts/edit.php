@@ -139,20 +139,20 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-          ⚙️ Pengaturan Post
+          ⚙️ <?=_e('Post Settings')?>
           <span class="chevron">▸</span>
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
-        <label>Judul<br>
+        <label><?=_e('Title')?><br>
           <input type="text" name="title" value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label>Slug (opsional)<br>
+        <label><?=_e('Slug (optional)')?><br>
           <input type="text" name="slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label>Kategori (centang untuk memilih)<br>
+        <label><?=_e('Category (check to select)')?><br>
           <div style="padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;max-height:calc(1.6em * 6 + .9rem);overflow-y:auto;">
             <?php
               $selected = isset($_POST['categories']) ? array_map('intval', (array)$_POST['categories']) : $current_cats;
@@ -172,11 +172,11 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
             placeholder="https://www.youtube.com/watch?v=xxxxxx atau https://youtu.be/xxxxxx"
             value="<?= htmlspecialchars($youtube, ENT_QUOTES, 'UTF-8') ?>"
           >
-          <small id="youtube-help" style="color:#556;"><i>Masukkan URL watch atau short link.</i></small>
+          <small id="youtube-help" style="color:#556;"><i><?=_e('Enter watch URL or short link.')?></i></small>
         </div>
         <div id="youtube-preview" style="margin-top:8px"></div>
 
-        <label>Thumbnail (URL) atau pilih dari Media<br>
+        <label><?=_e('Thumbnail (URL) or select from Media')?><br>
           <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
@@ -196,7 +196,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     </div>
 
     <label style="display:block;margin-top:.6rem">
-      Pilih Editor<br>
+      <?=_e('Select Editor')?><br>
       <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
         <label><input type="radio" name="editor_mode" value="quill" id="editor-quill" <?= ((($_POST['editor_mode'] ?? '') === 'codemirror') ? '' : 'checked') ?>> Quill (rich)</label>
         <label><input type="radio" name="editor_mode" value="codemirror" id="editor-codemirror" <?= (($_POST['editor_mode'] ?? '') === 'codemirror') ? 'checked' : '' ?>> CodeMirror (HTML)</label>
@@ -255,7 +255,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 
     <label style="display:block;margin-top:.6rem">Created At<br>
       <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk mempertahankan nilai semula (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
+      <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
     </label>
 
     <label style="display:block;margin-top:.6rem">Updated At<br>
@@ -273,18 +273,18 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     }
     ?>
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 Posisi Sidebar</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
         <option value=""><?= _e('Default (follow global hierarchy)') ?></option>
-        <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>>Kanan</option>
-        <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>>Kiri</option>
-        <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>>Sembunyikan</option>
+        <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>><?=_e('Right')?></option>
+        <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>><?=_e('Left')?></option>
+        <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>><?=_e('Hide')?></option>
       </select>
     </div>
 
     <p style="margin-top:.8rem">
       <button type="submit" class="adam-button" id="btn-save"><?= _e('Save Changes') ?></button>
-      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
+      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Cancel')?></a>
     </p>
   </form>
 </section>
@@ -330,7 +330,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function currentEditorMode(){
@@ -412,14 +412,14 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
         return;
       }
 
-      notify('success', data.message || 'Perubahan berhasil disimpan.', 'Berhasil');
+      notify('success', data.message || '<?=__('Changes saved successfully.')?>', '<?=__('Success')?>');
 
     } catch (err) {
-      notify('error', 'Terjadi gangguan jaringan saat menyimpan.', 'Jaringan');
+      notify('error', '<?=__('Network error while saving.')?>', '<?=__('Network')?>');
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = oldLabel || 'Simpan Perubahan';
+        saveBtn.textContent = oldLabel || '<?=__('Save Changes')?>';
       }
     }
   }

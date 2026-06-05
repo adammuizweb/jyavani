@@ -326,7 +326,7 @@ try {
           if (j && j.ok) {
             box.remove();
             updateClearButton();
-            uiToast('success', 'Library File', 'File berhasil dihapus.', 2200);
+            uiToast('success', '<?=__('Library File')?>', '<?=__('File deleted successfully.')?>', 2200);
             if (j.warning) {
               uiToast('warning', 'Library File', j.warning, 6000);
             }

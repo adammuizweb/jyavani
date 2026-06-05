@@ -141,7 +141,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </form>
 
   <p style="margin-bottom:1rem">
-    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>">+ Tambah Theme Partial</a>
+    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Theme Partial')?></a>
 
     <?php if ($isAdmin): ?>
       &nbsp;&nbsp;
@@ -156,7 +156,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:.4rem;">
-          <input type="checkbox" id="selectAllThemes"> Pilih semua di halaman
+          <input type="checkbox" id="selectAllThemes"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionThemes" name="action" style="padding:.4rem;">
@@ -190,7 +190,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </thead>
       <tbody>
         <?php if (empty($themes)): ?>
-          <tr><td colspan="<?= $isAdmin ? 6 : 5 ?>" style="padding:1rem;">Belum ada theme partial.</td></tr>
+          <tr><td colspan="<?= $isAdmin ? 6 : 5 ?>" style="padding:1rem;"><?=_e('No theme partials.')?></td></tr>
         <?php else: ?>
           <?php foreach ($themes as $t): ?>
             <?php
@@ -247,7 +247,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Hapus
+                    <?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>
@@ -326,7 +326,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Proceed with this action?')?>'));
   }
 
   function toggleBulkExtras(){
@@ -347,15 +347,15 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu theme partial.' };
+      return { ok:false, message:'<?=__('Select at least one theme partial.')?>' };
     }
 
     if (action === 'delete') {
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus theme partial terpilih',
-        message: <?= json_encode(__('')) ?> + count + ' theme partial akan dipindahkan ke trash. Lanjutkan?',
+        title: '<?=__('Delete selected theme partials')?>',
+        message: <?= json_encode(__('')) ?> + count + '<?=__(' theme partials will be moved to trash. Continue?')?>',
         confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
@@ -365,8 +365,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'warning',
-        title: 'Ubah status theme partial',
-        message: <?= json_encode(__('Change status of ')) ?> + count + ' theme partial menjadi "' + status + '"?',
+        title: '<?=__('Change theme partial status')?>',
+        message: <?= json_encode(__('Change status of ')) ?> + count + '<?=__(' theme partials to')?> "' + status + '"?',
         confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
@@ -375,7 +375,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ok: true,
       variant: 'warning',
       title: <?= json_encode(__('Confirm bulk action')) ?>,
-      message: <?= json_encode(__('Execute action for ')) ?> + count + ' theme partial?',
+        message: <?= json_encode(__('Execute action for ')) ?> + count + '<?=__(' theme partials?')?>',
       confirmText: <?= json_encode(__('Proceed')) ?>
     };
   }
@@ -397,12 +397,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-theme-delete').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'theme partial ini';
+      const title = this.getAttribute('data-title') || '<?=__('this theme partial')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
         title: <?= json_encode(__('Delete confirmation')) ?>,
-        message: 'Hapus theme partial "' + title + '"? Item akan dipindahkan ke trash.',
+        message: '<?=__('Delete theme partial')?> "' + title + '"? <?=__('Item will be moved to trash.')?>',
         confirmText: <?= json_encode(__('Yes, delete')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
@@ -435,7 +435,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

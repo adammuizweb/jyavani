@@ -135,7 +135,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
     <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>">Reset</a>
 
     <div style="margin-left:auto">
-      <a class="adam-button" href="<?= htmlspecialchars($base . '/?page=admin/users/save&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">+ Tambah User</a>
+      <a class="adam-button" href="<?= htmlspecialchars($base . '/?page=admin/users/save&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">+ Add User</a>
     </div>
   </form>
 
@@ -145,7 +145,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
     <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="selectAll"> Pilih semua di halaman
+        <input type="checkbox" id="selectAll"> Select all on this page
       </label>
 
       <select id="bulkAction" name="action" style="padding:.4rem;">
@@ -153,7 +153,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
         <option value="change_role"><?= _e('Change Role') ?></option>
         <option value="lock">Lock</option>
         <option value="unlock">Unlock / Approve</option>
-        <option value="delete">Hapus (soft)</option>
+        <option value="delete">Delete (soft)</option>
       </select>
 
       <select id="bulkRole" name="role" style="padding:.4rem;display:none;">
@@ -262,7 +262,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
                           data-id="<?= (int)$u['id'] ?>"
                           data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Hapus
+                    Delete
                   </button>
                 <?php endif; ?>
               </td>
@@ -352,7 +352,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function toggleBulkExtras(){
@@ -448,7 +448,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       ask('danger', {
         title: <?= json_encode(__('Delete confirmation')) ?>,
-        message: 'Hapus user "' + name + '"? User akan dipindahkan ke trash.',
+        message: '<?=__('Delete user')?> "' + name + '"? <?=__('User will be moved to trash.')?>',
         confirmText: <?= json_encode(__('Yes, delete')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
@@ -504,7 +504,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

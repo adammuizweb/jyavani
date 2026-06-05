@@ -230,7 +230,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </form>
 
   <p style="margin-bottom:1rem">
-    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>">+ Tambah Article</a>
+    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
       <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
@@ -244,7 +244,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="selectAll"> Pilih semua di halaman
+        <input type="checkbox" id="selectAll"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkAction" name="action" style="padding:.4rem;">
@@ -391,7 +391,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Hapus
+                  <?=_e('Delete')?>
                 </button>
               </td>
             </tr>
@@ -466,7 +466,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Proceed with this action?')?>'));
   }
 
   function toggleBulkExtras(){
@@ -506,7 +506,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'danger',
         title: <?= json_encode(__('Delete selected articles')) ?>,
-        message: <?= json_encode(__('')) ?> + count + ' artikel akan dipindahkan ke trash. Lanjutkan?',
+        message: <?= json_encode(__('')) ?> + count + '<?=__(' articles will be moved to trash. Continue?')?>',
         confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
@@ -517,7 +517,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: <?= json_encode(__('Change article status')) ?>,
-        message: <?= json_encode(__('Change status of ')) ?> + count + ' artikel menjadi "' + status + '"?',
+        message: <?= json_encode(__('Change status of ')) ?> + count + '<?=__(' articles to')?> "' + status + '"?',
         confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
@@ -529,7 +529,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return { ok:false, message: <?= json_encode(__('Select at least one category for bulk categories.')) ?> };
       }
 
-      const modeText = mode === 'remove' ? 'hapus dari' : (mode === 'toggle' ? 'toggle pada' : 'tambah ke');
+      const modeText = mode === 'remove' ? '<?=__('remove from')?>' : (mode === 'toggle' ? '<?=__('toggle on')?>' : '<?=__('add to')?>');
       const labelText = names.length > 3
         ? names.slice(0, 3).join(', ') + ' +' + (names.length - 3) + ' lagi'
         : names.join(', ');
@@ -538,7 +538,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: <?= json_encode(__('Manage article categories')) ?>,
-        message: 'Terapkan mode "' + mode + '" untuk ' + count + ' artikel dengan kategori: ' + labelText + '. Lanjutkan?',
+        message: '<?=__('Apply mode')?> "' + mode + '" <?=__('for')?> ' + count + ' <?=__('articles with categories:')?> ' + labelText + '. <?=__('Continue?')?>',
         confirmText: <?= json_encode(__('Yes, apply')) ?>
       };
     }
@@ -547,7 +547,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ok: true,
       variant: 'warning',
       title: <?= json_encode(__('Confirm bulk action')) ?>,
-      message: <?= json_encode(__('Execute action for ')) ?> + count + ' artikel?',
+        message: <?= json_encode(__('Execute action for ')) ?> + count + '<?=__(' articles?')?>',
       confirmText: <?= json_encode(__('Proceed')) ?>
     };
   }
@@ -569,12 +569,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-post-delete').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'artikel ini';
+      const title = this.getAttribute('data-title') || '<?=__('this article')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
         title: <?= json_encode(__('Delete confirmation')) ?>,
-        message: <?= json_encode(__('Delete article "')) ?> + title + '"? Artikel akan dipindahkan ke trash.',
+        message: <?= json_encode(__('Delete article "')) ?> + title + '<?=__('"? Article will be moved to trash.')?>',
         confirmText: <?= json_encode(__('Yes, delete')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
@@ -607,7 +607,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

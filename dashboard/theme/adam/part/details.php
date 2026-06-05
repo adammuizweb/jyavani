@@ -43,54 +43,46 @@ $requested = trim($requested, "/ \t\n\r\0\x0B");
     <?php if (strpos($requested, 'admin/posts') === 0): ?>
         <h3>Posts</h3>
         <p>
-            Posts digunakan untuk mempublikasikan <strong>artikel dinamis</strong> seperti berita, kegiatan,
-            agenda, pengumuman, dan konten informatif lainnya.  
-            Semua tulisan diurutkan berdasarkan tanggal, dapat diberi kategori, serta dapat dipublikasikan
-            atau disimpan sebagai draft.
+            <?=_e('Posts are used to publish dynamic articles such as news, activities, agendas, announcements, and other informative content.')?>
+            <?=_e('All posts are sorted by date, can be categorized, and can be published or saved as drafts.')?>
         </p>
 
     <?php elseif (strpos($requested, 'admin/pages') === 0): ?>
         <h3>Pages</h3>
         <p>
-            Pages berfungsi untuk membuat <strong>halaman statis</strong> seperti Profil, Visi Misi, Tentang Kami,
-            dan Halaman Kontak.  
-            Berbeda dengan posts, pages tidak berbasis tanggal dan biasanya dipakai untuk konten yang
-            permanen atau jarang berubah.
+            <?=_e('Pages are used to create static pages such as Profile, Vision & Mission, About Us, and Contact Page.')?>
+            <?=_e('Unlike posts, pages are not date-based and are typically used for permanent or rarely changed content.')?>
         </p>
 
     <?php elseif (strpos($requested, 'admin/categories') === 0): ?>
         <h3>Categories</h3>
         <p>
-            Category digunakan untuk membuat <strong>label atau kelompok topik</strong> yang nantinya dapat dipakai
-            untuk menyusun dan memfilter artikel atau program.  
-            Kategori membantu pengunjung menemukan konten yang relevan sesuai minat mereka.
+            <?=_e('Categories are used to create labels or topic groups that can be used to organize and filter articles or programs.')?>
+            <?=_e('Categories help visitors find relevant content according to their interests.')?>
         </p>
 
     <?php elseif (strpos($requested, 'admin/program') === 0): ?>
         <h3>Program</h3>
         <p>
-            Program digunakan untuk mempublikasikan <strong>materi pembelajaran</strong>, kurikulum, topik,
-            atau modul pelatihan.  
-            Cocok untuk sekolah, lembaga diklat, maupun aplikasi edukasi yang membutuhkan konten terstruktur.
+            <?=_e('Programs are used to publish learning materials, curriculum, topics, or training modules.')?>
+            <?=_e('Suitable for schools, training institutions, and educational applications that need structured content.')?>
         </p>
 
     <?php elseif (strpos($requested, 'admin/themes') === 0): ?>
         <h3>Themes</h3>
         <p>
-            Themes digunakan untuk membuat atau mengedit <strong>partial tema</strong> menggunakan HTML, CSS,
-            dan JavaScript.  
-            Menu ini ditujukan untuk user yang memahami dasar-dasar frontend agar dapat merancang tampilan
-            website sesuai kebutuhan.
+            <?=_e('Themes are used to create or edit theme partials using HTML, CSS, and JavaScript.')?>
+            <?=_e('This menu is intended for users who understand frontend basics to design the website appearance as needed.')?>
         </p>
 
     <?php elseif ($requested === 'home'): ?>
-        <h3>Informasi</h3>
-        <p>Selamat datang di panel kontrol. Pilih menu di samping untuk mulai mengelola konten.</p>
+        <h3><?=_e('Information')?></h3>
+        <p><?=_e('Welcome to the control panel. Select a menu on the side to start managing content.')?></p>
 
     <?php endif; ?>
 
     <section class="panel-info">
-        <p>Panel ini menampilkan informasi konteks sesuai menu yang sedang dibuka.</p>
+        <p><?=_e('This panel displays contextual information according to the menu currently being opened.')?></p>
     </section>
 
 <?php endif; ?>

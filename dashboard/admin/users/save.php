@@ -31,7 +31,7 @@ if ($editing) {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$user) {
         http_response_code(404);
-        echo '<p>User tidak ditemukan.</p>';
+        echo '<p>' . __('User not found.') . '</p>';
         return;
     }
 }
@@ -73,10 +73,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 
     if ($username === '') {
-        $errors[] = __('Username tidak boleh kosong.');
+        $errors[] = __('Username cannot be empty.');
     } else {
         if (!preg_match('/^[a-zA-Z0-9._-]{3,32}$/', $username)) {
-            $errors[] = __('Username hanya boleh berisi huruf, angka, titik, underscore, strip; panjang 3-32.');
+            $errors[] = __('Username can only contain letters, numbers, dots, underscores, hyphens; length 3-32.');
         }
     }
 
@@ -91,7 +91,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $stmtCheckU = $pdo->prepare($sql);
         $stmtCheckU->execute($params);
         if ($stmtCheckU->fetch()) {
-            $errors[] = __('Username sudah digunakan oleh user lain.');
+            $errors[] = __('Username already taken by another user.');
         }
     }
 
@@ -116,7 +116,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $stmt2 = $pdo->prepare($sql);
         $stmt2->execute($params);
         if ($stmt2->fetch()) {
-            $errors[] = __('Email sudah dipakai oleh user lain.');
+            $errors[] = __('Email already in use by another user.');
         }
     }
 
@@ -166,9 +166,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if ($id === $uid) {
                     $_SESSION['user_role'] = $role_input;
                 }
-                adiwira_redirect_with_flash($return_to, 'success', __('User berhasil diperbarui.'));
+                adiwira_redirect_with_flash($return_to, 'success', __('User updated successfully.'));
             } else {
-                $errors[] = __('Gagal memperbarui user.');
+                $errors[] = __('Failed to update user.');
             }
         } else {
             if ($plain_password === '') {
@@ -193,9 +193,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ]);
 
                 if ($ok) {
-                    adiwira_redirect_with_flash($return_to, 'success', __('User baru berhasil dibuat.'));
+                    adiwira_redirect_with_flash($return_to, 'success', __('New user created successfully.'));
                 } else {
-                    $errors[] = __('Gagal membuat user baru.');
+                    $errors[] = __('Failed to create new user.');
                 }
             }
         }
@@ -204,7 +204,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2><?= $editing ? 'Edit User' : 'Tambah User' ?></h2>
+  <h2><?= $editing ? _e('Edit User') : _e('Add User') ?></h2>
 
   <form method="post" novalidate id="user-save-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -247,7 +247,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
   <div id="media-single-panel"
        style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:320px;text-align:left;">
-    <div id="media-single-content">Klik gambar pada Media untuk melihat detail & edit.</div>
+    <div id="media-single-content">Click on an image in Media to view details & edit.</div>
   </div>
 
   <?php if ($editing): ?>
@@ -264,7 +264,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           id="btn-view-profile"
           class="adam-ubah"
           style="padding:.35rem .6rem; font-size:0.85rem;margin-top:12px;">
-    Lihat Profile
+    View Profile
   </button>
 
   <div id="upload-error" style="color:red; font-size:0.7rem; margin-top:5px; display:none;"></div>
@@ -277,14 +277,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <label>Username<br>
           <input type="text" name="username" id="inp_username" value="<?= htmlspecialchars($_POST['username'] ?? $user['username'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-          <div style="font-size:12px;color:#666;margin-top:6px">Username unik (alphanumeric, underscore, titik). Panjang 3-32 karakter.</div>
+          <div style="font-size:12px;color:#666;margin-top:6px"><?=_e('Unique username (alphanumeric, underscore, dot). Length 3-32 characters.')?></div>
         </label>
 
-        <label>Nama<br>
+        <label>Name<br>
           <input type="text" name="name" value="<?= htmlspecialchars($_POST['name'] ?? $user['name'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label>Telepon<br>
+        <label>Phone<br>
           <input type="text" name="phone" value="<?= htmlspecialchars($_POST['phone'] ?? $user['phone'] ?? $initial_phone, ENT_QUOTES, 'UTF-8') ?>" placeholder="+62xxxxxxxxx" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
@@ -292,7 +292,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <textarea name="bio" rows="4" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? $user['bio'] ?? $initial_bio, ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
 
-        <label>Password <?= $editing ? '<small style="color:#888">(kosongkan jika tetap)</small>' : '<small style="color:red">*</small>' ?><br>
+        <label><?=_e('Password')?> <?= $editing ? '<small style="color:#888">' . __('(leave blank to keep current)') . '</small>' : '<small style="color:red">*</small>' ?><br>
           <input type="password" name="password" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
@@ -306,8 +306,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
 
         <p style="margin-top:1.5rem">
-          <button type="submit" class="adam-button"><?= $editing ? 'Simpan Perubahan' : 'Buat User' ?></button>
-          <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px">Batal</a>
+          <button type="submit" class="adam-button"><?= $editing ? _e('Save Changes') : _e('Create User') ?></button>
+          <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px"><?=_e('Cancel')?></a>
         </p>
       </div>
     </div>
@@ -362,10 +362,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
           window.NewNotifToast.show({
             type: 'error',
             title: 'Gallery',
-            message: 'Gagal memilih media.'
+            message: '<?=__('Failed to select media.')?>'
           });
         } else {
-          alert('Gagal memilih media.');
+          alert('<?=__('Failed to select media.')?>');
         }
       });
   });
@@ -384,7 +384,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
       if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
         return window.NewNotifConfirm.warning(opts);
       }
-      return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+      return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
     }
 
     form.addEventListener('submit', function(ev){
@@ -395,10 +395,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
       ev.preventDefault();
       askWarning({
-        title: <?= json_encode($editing ? 'Simpan perubahan user' : 'Buat user baru') ?>,
-        message: <?= json_encode($editing ? 'Perubahan user ini akan disimpan. Lanjutkan?' : 'User baru akan dibuat. Lanjutkan?') ?>,
-        confirmText: <?= json_encode($editing ? 'Ya, simpan' : 'Ya, buat') ?>,
-        cancelText: 'Batal'
+        title: <?= json_encode($editing ? __('Save user changes') : __('Create new user')) ?>,
+        message: <?= json_encode($editing ? __('User changes will be saved. Continue?') : __('New user will be created. Continue?')) ?>,
+        confirmText: <?= json_encode($editing ? __('Yes, save') : __('Yes, create')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         confirmed = true;
@@ -418,10 +418,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
         window.NewNotifToast.show({
           type: 'error',
           title: 'Username',
-          message: 'Username tidak tersedia.'
+          message: '<?=__('Username not available.')?>'
         });
       } else {
-        alert('Username tidak tersedia.');
+        alert('<?=__('Username not available.')?>');
       }
       return;
     }

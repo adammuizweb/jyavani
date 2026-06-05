@@ -25,7 +25,7 @@ if ($isAdmin) {
         'label' => 'Website',
         'href'  => $base . '/?page=admin/settings/site',
         'icon'  => '🌐',
-        'desc'  => 'Atur site title dan host default website.',
+        'desc'  => __('Manage site title and default website host.'),
         'badge' => 'Admin',
     ];
 
@@ -33,7 +33,7 @@ if ($isAdmin) {
         'label' => 'Sidebar',
         'href'  => $base . '/?page=admin/settings/sidebar',
         'icon'  => '📐',
-        'desc'  => 'Atur enable/disable sidebar global dan posisi default.',
+        'desc'  => __('Manage sidebar global enable/disable and default position.'),
         'badge' => 'Admin',
     ];
 
@@ -41,7 +41,7 @@ if ($isAdmin) {
         'label' => 'Sidebar Widgets',
         'href'  => $base . '/?page=admin/sidebar/index',
         'icon'  => '🧩',
-        'desc'  => 'Buat beberapa zone sidebar, atur widget tiap zone, pilih primary zone.',
+        'desc'  => __('Create multiple sidebar zones, manage widgets in each zone, select primary zone.'),
         'badge' => 'Admin',
     ];
 
@@ -49,7 +49,7 @@ if ($isAdmin) {
         'label' => 'Menus',
         'href'  => $base . '/?page=admin/menus/index',
         'icon'  => '📋',
-        'desc'  => 'Kelola menu navigasi website.',
+        'desc'  => __('Manage website navigation menus.'),
         'badge' => 'Admin',
     ];
 
@@ -57,7 +57,7 @@ if ($isAdmin) {
         'label' => 'Shortcodes',
         'href'  => $base . '/?page=admin/shortcodes/index&tab=presets',
         'icon'  => '🔌',
-        'desc'  => 'Buat dan kelola preset shortcode untuk widget.',
+        'desc'  => __('Create and manage shortcode presets for widgets.'),
         'badge' => 'Admin',
     ];
 
@@ -65,7 +65,7 @@ if ($isAdmin) {
         'label' => 'Sign Up & Sign In',
         'href'  => $base . '/?page=admin/settings/auth',
         'icon'  => '🔐',
-        'desc'  => 'Atur registrasi, login slug, reCAPTCHA, dan anti brute-force.',
+        'desc'  => __('Manage registration, login path, reCAPTCHA, and anti brute-force.'),
         'badge' => 'Admin',
     ];
 }
@@ -74,7 +74,7 @@ $items[] = [
     'label' => 'Profile',
     'href'  => $base . '/?page=admin/profile/index',
     'icon'  => '🧑',
-    'desc'  => 'Kelola profil, foto, bio, dan password akunmu.',
+    'desc'  => __('Manage your profile, photo, bio, and password.'),
     'badge' => null,
 ];
 
@@ -83,7 +83,7 @@ if ($isAdmin) {
         'label' => 'Users',
         'href'  => $base . '/?page=admin/users/index',
         'icon'  => '👥',
-        'desc'  => 'Kelola akun pengguna dan peran akses dashboard.',
+        'desc'  => __('Manage user accounts and dashboard access roles.'),
         'badge' => 'Admin',
     ];
 
@@ -91,7 +91,7 @@ if ($isAdmin) {
         'label' => 'Bin',
         'href'  => $base . '/?page=admin/bin/index',
         'icon'  => '🗑️',
-        'desc'  => 'Lihat item yang dihapus dan kelola trash system.',
+        'desc'  => __('View deleted items and manage trash system.'),
         'badge' => 'Admin',
     ];
 }
@@ -244,8 +244,8 @@ if ($isAdmin) {
     <div>
       <h1 class="settingshub-title"><?= _e('Settings') ?></h1>
       <p class="settingshub-sub">
-        Kelola pengaturan akun dan sistem dari satu tempat.
-        Menu yang tampil mengikuti hak akses akunmu.
+        <?=_e('Manage account and system settings from one place.')?>
+        <?=_e('The displayed menu follows your account access rights.')?>
       </p>
     </div>
   </header>

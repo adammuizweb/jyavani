@@ -52,7 +52,7 @@ try {
     if (!unlink($realPath)) {
         throw new RuntimeException('Gagal menghapus file.');
     }
-    adiwira_redirect_with_flash($return_to, 'success', 'Layout "' . $cleanName . '" berhasil dihapus.');
+    adiwira_redirect_with_flash($return_to, 'success', __('Layout') . ' "' . $cleanName . '" ' . __('deleted successfully.'));
 } catch (Throwable $e) {
     error_log('shortcodes/delete_layout.php error: ' . $e->getMessage());
     adiwira_redirect_with_flash($return_to, 'error', __('Gagal menghapus file layout.'));

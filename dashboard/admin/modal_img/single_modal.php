@@ -158,7 +158,7 @@ if (!function_exists('modalimg_human_filesize')) {
 
       <div class="mdlib-field">
         <label for="mdlib-field-credit">Credit</label>
-        <input id="mdlib-field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Nama Photographer — Sumber / Lisensi">
+        <input id="mdlib-field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="<?=_e('Photographer Name — Source / License')?>">
       </div>
 
       <div class="mdlib-field">
@@ -185,7 +185,7 @@ if (!function_exists('modalimg_human_filesize')) {
             <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
             <option value="admin">Admin Only</option>
         </select>
-        <?php if ($visibility === 'public'): ?><div class="mdlib-note">Public media selalu access_scope public. Untuk private, upload ulang dengan mode Private.</div><?php endif; ?>
+        <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public media always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
       </div>
 
       <div class="mdlib-field">
@@ -208,7 +208,7 @@ if (!function_exists('modalimg_human_filesize')) {
       <input type="hidden" name="url" value="<?= htmlspecialchars((string)($r['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
       <div class="mdlib-actions">
-        <button type="button" class="mdlib-btn" id="mdlib-back-btn">← Kembali ke Gallery</button>
+        <button type="button" class="mdlib-btn" id="mdlib-back-btn"><?=_e('← Back to Gallery')?></button>
         <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-media-save-btn">Save</button>
         <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-media-delete-btn">Delete</button>
       </div>
@@ -245,7 +245,7 @@ if (!function_exists('modalimg_human_filesize')) {
       });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts){
@@ -275,7 +275,7 @@ if (!function_exists('modalimg_human_filesize')) {
   document.getElementById('mdlib-media-save-btn')?.addEventListener('click', async function(){
     const ok = await uiAsk('warning', {
       title: <?= json_encode(__('Save media changes')) ?>,
-      message: 'Perubahan metadata media akan disimpan. Lanjutkan?',
+      message: <?= json_encode(__('Media metadata changes will be saved. Proceed?')) ?>,
       confirmText: <?= json_encode(__('Yes, save')) ?>,
       cancelText: <?= json_encode(__('Cancel')) ?>
     });
@@ -308,12 +308,12 @@ if (!function_exists('modalimg_human_filesize')) {
         }
 
         const j = resp.json || {};
-        uiToast('success', 'Gallery', 'Media berhasil diperbarui.', 2500);
+        uiToast('success', 'Gallery', <?= json_encode(__('Media updated successfully.')) ?>, 2500);
         broadcast('media:updated', j);
       })
       .catch(err => {
         console.error('Save error', err);
-        uiToast('error', 'Gallery', 'Save error: ' + (err.message || 'Gagal'), 6000);
+        uiToast('error', 'Gallery', <?= json_encode(__('Save error:')) ?> + ' ' + (err.message || <?= json_encode(__('Failed')) ?>), 6000);
       })
       .finally(() => {
         btn.disabled = false;
@@ -323,7 +323,7 @@ if (!function_exists('modalimg_human_filesize')) {
   document.getElementById('mdlib-media-delete-btn')?.addEventListener('click', async function(){
     const ok = await uiAsk('danger', {
       title: <?= json_encode(__('Delete media')) ?>,
-      message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
+      message: <?= json_encode(__('This media will be permanently deleted from the gallery. Proceed?')) ?>,
       confirmText: <?= json_encode(__('Yes, delete')) ?>,
       cancelText: <?= json_encode(__('Cancel')) ?>
     });
@@ -364,7 +364,7 @@ if (!function_exists('modalimg_human_filesize')) {
         const j = resp.json || {};
         const finalUrl = urlEl ? String(urlEl.value || '') : '';
 
-        uiToast('success', 'Gallery', 'Media berhasil dihapus.', 2500);
+        uiToast('success', 'Gallery', <?= json_encode(__('Media deleted successfully.')) ?>, 2500);
         if (j.warning) uiToast('warning', 'Gallery', j.warning, 6000);
 
         const payload = Object.assign({}, j || {}, {
@@ -386,7 +386,7 @@ if (!function_exists('modalimg_human_filesize')) {
       })
       .catch(err => {
         console.error('Delete error', err);
-        uiToast('error', 'Gallery', 'Delete error: ' + (err.message || 'Gagal'), 6000);
+        uiToast('error', 'Gallery', <?= json_encode(__('Delete error:')) ?> + ' ' + (err.message || <?= json_encode(__('Failed')) ?>), 6000);
       })
       .finally(() => {
         btn.disabled = false;
@@ -408,7 +408,7 @@ if (!function_exists('modalimg_human_filesize')) {
         .then(function(html){ return window.injectHtmlWithScriptsTo(content, html); })
         .catch(function(err){
           console.error('back-to-list error', err);
-          uiToast('error', 'Gallery', 'Gagal memuat daftar media.', 4000);
+          uiToast('error', 'Gallery', <?= json_encode(__('Failed to load media list.')) ?>, 4000);
         });
     } else {
       try {
@@ -428,7 +428,7 @@ if (!function_exists('modalimg_human_filesize')) {
     const path = pathEl ? (pathEl.value || '').trim() : '';
 
     if (!path) {
-      uiToast('warning', 'Gallery', 'URL tidak ditemukan.', 4000);
+      uiToast('warning', 'Gallery', <?= json_encode(__('URL not found.')) ?>, 4000);
       return;
     }
 
@@ -439,7 +439,7 @@ if (!function_exists('modalimg_human_filesize')) {
 
     if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
       navigator.clipboard.writeText(full)
-        .then(() => uiToast('success', 'Gallery', 'URL berhasil disalin.', 2000))
+        .then(() => uiToast('success', 'Gallery', <?= json_encode(__('URL copied successfully.')) ?>, 2000))
         .catch(() => fallbackCopy(full));
     } else {
       fallbackCopy(full);
@@ -455,9 +455,9 @@ if (!function_exists('modalimg_human_filesize')) {
       ta.select();
       try {
         document.execCommand('copy');
-        uiToast('success', 'Gallery', 'URL berhasil disalin.', 2000);
+        uiToast('success', 'Gallery', <?= json_encode(__('URL copied successfully.')) ?>, 2000);
       } catch(e){
-        uiToast('error', 'Gallery', 'Gagal menyalin URL.', 4000);
+        uiToast('error', 'Gallery', <?= json_encode(__('Failed to copy URL.')) ?>, 4000);
       }
       document.body.removeChild(ta);
     }

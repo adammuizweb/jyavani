@@ -210,7 +210,7 @@ $isPrivate = ($visibility === 'private');
     saveBtn.addEventListener('click', async function(){
       const ok = await uiAsk('warning', {
         title: <?= json_encode(__('Save file changes')) ?>,
-        message: 'Perubahan metadata file akan disimpan. Lanjutkan?',
+        message: '<?=__('File metadata changes will be saved. Continue?')?>',
         confirmText: <?= json_encode(__('Yes, save')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });

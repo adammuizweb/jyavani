@@ -122,7 +122,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 }
 ?>
 <section class="adam-card">
-  <h2><?= $isEdit ? 'Edit Preset' : 'Tambah Preset Baru' ?></h2>
+  <h2><?= $isEdit ? _e('Edit Preset') : _e('Add New Preset') ?></h2>
 
   <form method="post" id="sc-form" action="<?= h($base . '/admin/shortcodes/save.php') ?>">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
@@ -132,8 +132,8 @@ if ($layoutDir && is_dir($layoutDir)) {
     <input type="hidden" name="config_json" id="config-json" value="">
 
     <div class="form-toolbar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;">
-      <button type="submit" class="adam-button" id="btn-save"><?= $isEdit ? '💾 Simpan Perubahan' : '💾 Simpan' ?></button>
-      <a href="<?= h($return_to) ?>" class="adam-cancle">Batal</a>
+      <button type="submit" class="adam-button" id="btn-save"><?= $isEdit ? '💾 ' . __('Save Changes') : '💾 ' . __('Save') ?></button>
+      <a href="<?= h($return_to) ?>" class="adam-cancle"><?=_e('Cancel')?></a>
       <div style="margin-left:auto;font-size:.9rem;color:var(--adam-muted,#555);">
         <?php if ($isEdit): ?>
           Updated: <span id="updated-at"><?= h(function_exists('format_datetime_indo') ? format_datetime_indo((string)($preset['updated_at'] ?? '-')) : (string)($preset['updated_at'] ?? '-')) ?></span>
@@ -143,15 +143,15 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" id="sc-general-accordion" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-general-body">
-        ⚙️ Pengaturan Preset
+        ⚙️ <?=_e('Preset Settings')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-general-body">
-        <label>Nama Preset<br>
+        <label><?=_e('Preset Name')?><br>
           <input type="text" name="title" value="<?= h($pref_title) ?>" class="inpud" required>
         </label>
-        <label style="display:block;margin-top:.6rem">Widget Name (slug) — dipakai di sidebar: <code>widget('nama_ini')</code><br>
-          <input type="text" name="slug" value="<?= h($pref_slug) ?>" class="inpud" placeholder="Kosongi untuk auto-generate">
+        <label style="display:block;margin-top:.6rem"><?=_e('Widget Name (slug) — used in sidebar')?>: <code>widget('nama_ini')</code><br>
+          <input type="text" name="slug" value="<?= h($pref_slug) ?>" class="inpud" placeholder="<?=_e('Leave empty to auto-generate')?>">
         </label>
         <label style="display:block;margin-top:.6rem">Status<br>
           <select name="status" class="inpud">
@@ -165,7 +165,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" id="sc-filter-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-filter-body">
-        🔍 Filter Konten
+        🔍 <?=_e('Content Filter')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-filter-body">
@@ -176,7 +176,7 @@ if ($layoutDir && is_dir($layoutDir)) {
           </select>
         </label>
 
-        <label style="display:block;margin-top:.6rem">Kategori (kosongi untuk semua)<br>
+        <label style="display:block;margin-top:.6rem"><?=_e('Category (leave empty for all)')?><br>
           <select name="filter_category" class="inpud">
             <option value=""><?= _e('-- All Categories --') ?></option>
             <?php foreach ($cats as $c): ?>
@@ -186,7 +186,7 @@ if ($layoutDir && is_dir($layoutDir)) {
         </label>
 
         <?php if ($isAdmin): ?>
-        <label style="display:block;margin-top:.6rem">Author (kosongi untuk semua)<br>
+        <label style="display:block;margin-top:.6rem"><?=_e('Author (leave empty for all)')?><br>
           <select name="filter_author" class="inpud">
             <option value="">-- Semua Author --</option>
             <?php foreach ($users as $u): ?>
@@ -221,16 +221,16 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-order-body">
-        📊 Urutan &amp; Tanggal
+        📊 <?=_e('Order & Date')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-order-body">
-        <label>Urutan<br>
+        <label><?=_e('Order')?><br>
           <select name="filter_order" class="inpud" id="filter-order" style="width:auto;">
-            <option value="latest" <?= ($pref_config['order_by'] ?? '') === 'created_at' && ($pref_config['order_dir'] ?? 'DESC') === 'DESC' ? 'selected' : '' ?>>Terbaru (Latest)</option>
-            <option value="oldest" <?= ($pref_config['order_by'] ?? '') === 'created_at' && ($pref_config['order_dir'] ?? 'DESC') === 'ASC' ? 'selected' : '' ?>>Terlama (Oldest)</option>
-            <option value="random" <?= ($pref_config['order_by'] ?? '') === 'RAND()' ? 'selected' : '' ?>>Acak (Random)</option>
-            <option value="custom" <?= !in_array(($pref_config['order_by'] ?? 'created_at'), ['created_at', 'RAND()']) || ($pref_config['order_by'] ?? 'created_at') === 'created_at' && !in_array(($pref_config['order_dir'] ?? 'DESC'), ['DESC', 'ASC']) ? (in_array(($pref_config['order_by'] ?? ''), ['sort_order', 'id', 'updated_at', 'title']) ? 'selected' : '') : '' ?> id="order-custom-opt">Kustom</option>
+            <option value="latest" <?= ($pref_config['order_by'] ?? '') === 'created_at' && ($pref_config['order_dir'] ?? 'DESC') === 'DESC' ? 'selected' : '' ?>><?=_e('Latest')?></option>
+            <option value="oldest" <?= ($pref_config['order_by'] ?? '') === 'created_at' && ($pref_config['order_dir'] ?? 'DESC') === 'ASC' ? 'selected' : '' ?>><?=_e('Oldest')?></option>
+            <option value="random" <?= ($pref_config['order_by'] ?? '') === 'RAND()' ? 'selected' : '' ?>><?=_e('Random')?></option>
+            <option value="custom" <?= !in_array(($pref_config['order_by'] ?? 'created_at'), ['created_at', 'RAND()']) || ($pref_config['order_by'] ?? 'created_at') === 'created_at' && !in_array(($pref_config['order_dir'] ?? 'DESC'), ['DESC', 'ASC']) ? (in_array(($pref_config['order_by'] ?? ''), ['sort_order', 'id', 'updated_at', 'title']) ? 'selected' : '') : '' ?> id="order-custom-opt"><?=_e('Custom')?></option>
           </select>
         </label>
 
@@ -265,11 +265,11 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-layout-body">
-        🎨 Tampilan (Layout)
+        🎨 <?=_e('Display (Layout)')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-layout-body">
-        <label>Template Layout<br>
+        <label><?=_e('Layout Template')?><br>
           <select name="filter_layout" class="inpud" style="width:auto;">
             <?php foreach ($layoutOptions as $lo): ?>
               <option value="<?= h($lo) ?>" <?= ($pref_config['layout'] ?? 'list') === $lo ? 'selected' : '' ?>><?= h($lo) ?></option>

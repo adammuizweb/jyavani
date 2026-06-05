@@ -142,7 +142,7 @@ try {
         'url'              => $fileUrl,
         'deleted_urls'     => [$fileUrl],
         'physical_deleted' => $deletedPhysical,
-        'warning'          => $deletedPhysical ? null : 'Metadata terhapus, tetapi file fisik tidak ditemukan atau tidak bisa dihapus.',
+        'warning'          => $deletedPhysical ? null : __('Metadata deleted, but physical file not found or could not be deleted.'),
     ], 200);
 
 } catch (Throwable $e) {

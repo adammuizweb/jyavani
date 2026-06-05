@@ -309,7 +309,7 @@ $hasVisibility = mdlib_has_column('visibility');
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
           <button class="edit-btn" type="button">Edit</button>
-          <button class="remove-btn" type="button" title="Hapus dari server">Del</button>
+          <button class="remove-btn" type="button" title="<?=_e('Delete from server')?>">Del</button>
         </div>
       </div>
     `;
@@ -336,7 +336,7 @@ $hasVisibility = mdlib_has_column('visibility');
 
         const ok = await uiAsk('danger', {
           title: <?= json_encode(__('Delete file')) ?>,
-          message: 'File ini akan dihapus permanen dari server. Lanjutkan?',
+          message: '<?=__('This file will be permanently deleted from the server. Continue?')?>',
           confirmText: <?= json_encode(__('Yes, delete')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         });
@@ -366,9 +366,9 @@ $hasVisibility = mdlib_has_column('visibility');
 
           if (j && j.ok) {
             box.remove();
-            uiToast('success', 'File', 'File berhasil dihapus.', 3000);
+            uiToast('success', '<?=__('File')?>', '<?=__('File deleted successfully.')?>', 3000);
             if (j.warning) {
-              uiToast('warning', 'File', j.warning, 6000);
+              uiToast('warning', '<?=__('File')?>', j.warning, 6000);
             }
             document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
           } else {

@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'check_remote') {
         $inputUrl = trim((string)($_POST['update_url'] ?? ''));
         if ($inputUrl === '') {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('URL update tidak boleh kosong.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Update URL cannot be empty.'));
         }
 
         $ctx = stream_context_create([
@@ -62,12 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $remoteJson = @file_get_contents($checkUrl, false, $ctx);
         if ($remoteJson === false) {
-            adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal mengambil info update dari URL: ' . htmlspecialchars($inputUrl));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to fetch update info from URL:') . ' ' . htmlspecialchars($inputUrl));
         }
 
         $remote = json_decode($remoteJson, true);
         if (!is_array($remote) || !isset($remote['version'])) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Format respons remote tidak valid (dibutuhkan: version).'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid remote response format (expected: version).'));
         }
 
         // Store in session for the apply step
@@ -79,11 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (version_compare($remoteVer, $localVer, '>')) {
             adiwira_redirect_with_flash($selfUrl, 'success',
-                'Update tersedia: v' . htmlspecialchars($localVer) . ' → v' . htmlspecialchars($remoteVer) . '. '
-                . 'Total ' . ($remote['total_files'] ?? 0) . ' file. Klik "Apply Update" untuk memulai.');
+                __('Update available:') . ' v' . htmlspecialchars($localVer) . ' → v' . htmlspecialchars($remoteVer) . '. '
+                . __('Total') . ' ' . ($remote['total_files'] ?? 0) . ' ' . __('files. Click "Apply Update" to start.'));
         } else {
             adiwira_redirect_with_flash($selfUrl, 'info',
-                'CMS sudah versi terbaru (v' . htmlspecialchars($localVer) . ').');
+                __('CMS is already the latest version') . ' (v' . htmlspecialchars($localVer) . ').');
         }
     }
 
@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $baseUrl = $_SESSION['cms_update_base_url'] ?? '';
 
         if (!$remote) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Tidak ada data update di session. Lakukan "Check for Updates" dulu.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('No update data in session. Run "Check for Updates" first.'));
         }
 
         $result = _apply_cms_update($remote, $baseUrl, $currentVersion['version'] ?? '0.0.0');
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // --- Upload update package ---
     if ($action === 'upload_update') {
         if (!isset($_FILES['update_package']) || $_FILES['update_package']['error'] !== UPLOAD_ERR_OK) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('File update tidak valid.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid update file.'));
         }
 
         $file = $_FILES['update_package'];
@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Read manifest from zip
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuka file ZIP.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to open ZIP file.'));
         }
 
         $manifestJson = $zip->getFromName('cms-manifest.json');
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($manifestJson === false) {
             $zip->close();
-            adiwira_redirect_with_flash($selfUrl, 'error', __('cms-manifest.json tidak ditemukan di dalam package update.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('cms-manifest.json not found in the update package.'));
         }
 
         $remoteManifest = json_decode($manifestJson, true);
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!is_array($remoteManifest) || !isset($remoteManifest['version'])) {
             $zip->close();
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Format cms-manifest.json tidak valid.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid cms-manifest.json format.'));
         }
 
         $zip->close();
@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!version_compare($remoteVer, $localVer, '>')) {
             adiwira_redirect_with_flash($selfUrl, 'warning',
-                'Versi package (v' . htmlspecialchars($remoteVer) . ') tidak lebih baru dari versi saat ini (v' . htmlspecialchars($localVer) . ').');
+                __('Package version') . ' (v' . htmlspecialchars($remoteVer) . ') ' . __('is not newer than current version') . ' (v' . htmlspecialchars($localVer) . ').');
         }
 
         // Store in session and redirect to apply
@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $packageZip = $_SESSION['cms_update_package'] ?? '';
 
         if (!$remote || !$packageZip || !is_file($packageZip)) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Tidak ada package update. Upload ulang.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('No update package. Upload again.'));
         }
 
         $result = _apply_cms_update_from_zip($packageZip, $remote, $currentVersion['version'] ?? '0.0.0');
@@ -188,14 +188,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'clear_pending') {
         ensure_session_started(true);
         unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url'], $_SESSION['cms_update_package'], $_SESSION['cms_update_remote_url']);
-        adiwira_redirect_with_flash($selfUrl, 'info', __('Pending update dibatalkan.'));
+        adiwira_redirect_with_flash($selfUrl, 'info', __('Pending update cancelled.'));
     }
 
     // --- Reinstall CMS (force overwrite same version) ---
     if ($action === 'reinstall') {
         $url = trim((string)($_POST['reinstall_url'] ?? ''));
         if ($url === '') {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('URL reinstall tidak boleh kosong.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Reinstall URL cannot be empty.'));
         }
 
         $hardReset = !empty($_POST['hard_reset']);
@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $zipData = @file_get_contents($url, false, $ctx);
         if ($zipData === false) {
             @unlink($tmpZip);
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal download package reinstall.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download reinstall package.'));
         }
         file_put_contents($tmpZip, $zipData);
 
@@ -228,7 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($result['success']) {
-            $msg = 'Reinstall selesai! ' . $result['message'];
+            $msg = __('Reinstall complete!') . ' ' . $result['message'];
             if (!empty($resetMessages)) {
                 $msg .= ' ' . implode(' ', $resetMessages);
             }
@@ -238,7 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    adiwira_redirect_with_flash($selfUrl, 'error', __('Aksi tidak dikenal.'));
+    adiwira_redirect_with_flash($selfUrl, 'error', __('Unknown action.'));
 }
 
 // --- Helper: remote download + apply ---
@@ -260,7 +260,7 @@ function _apply_cms_update(array $remoteManifest, string $remoteUrl, string $cur
 
         $zipData = @file_get_contents($remoteUrl, false, $ctx);
         if ($zipData === false) {
-            return ['success' => false, 'message' => 'Gagal download package update.'];
+            return ['success' => false, 'message' => __('Failed to download update package.')];
         }
 
         file_put_contents($tmpZip, $zipData);
@@ -281,13 +281,13 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
 
     $zip = new ZipArchive();
     if ($zip->open($zipPath) !== true) {
-        return ['success' => false, 'message' => 'Gagal membuka ZIP package.'];
+        return ['success' => false, 'message' => __('Failed to open ZIP package.')];
     }
 
     $totalFiles = $zip->numFiles;
     if ($totalFiles === 0) {
         $zip->close();
-        return ['success' => false, 'message' => 'Package update kosong.'];
+        return ['success' => false, 'message' => __('Update package is empty.')];
     }
 
     // Build list of remote files from manifest (null = no file-level filtering)
@@ -350,7 +350,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         // Extract file
         $extracted = @file_put_contents($targetPath, $zip->getFromIndex($i));
         if ($extracted === false) {
-            $errors[] = 'Gagal menulis: ' . $filename;
+            $errors[] = __('Failed to write:') . ' ' . $filename;
         } else {
             $updated++;
         }
@@ -403,12 +403,12 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         @shell_exec('php ' . escapeshellarg($projectRoot . '/tools/generate-manifest.php') . ' 2>&1');
     }
 
-    $msg = 'Update selesai: ' . $updated . ' file diperbarui, ' . $backedUp . ' file dibackup.';
+    $msg = __('Update complete:') . ' ' . $updated . ' ' . __('files updated') . ', ' . $backedUp . ' ' . __('files backed up') . '.';
     if (!empty($errors)) {
         $msg .= ' Error: ' . implode('; ', array_slice($errors, 0, 5));
     }
     if (isset($deleted) && $deleted > 0) {
-        $msg .= ' ' . $deleted . ' file usang dihapus.';
+        $msg .= ' ' . $deleted . ' ' . __('obsolete files removed') . '.';
     }
     $msg .= ' Backup: ' . basename($backupDir);
 
@@ -450,7 +450,7 @@ function _reinstall_hard_reset(PDO $pdo): array {
 
     // 1. Reset active theme in settings
     $pdo->exec("UPDATE settings SET value = 'default' WHERE key = 'active_theme'");
-    $msgs[] = 'Tema direset ke default.';
+    $msgs[] = __('Theme reset to default.');
 
     // 2. Reset theme active flag + slot assignments
     $pdo->exec("UPDATE themes SET is_active = 0");
@@ -461,17 +461,17 @@ function _reinstall_hard_reset(PDO $pdo): array {
         ('footer', 1, 'footer.php'),
         ('sidebar', 1, 'sidebar.php'),
         ('main.homepage', 1, 'main/homepage.php')");
-    $msgs[] = 'Slot assignments direset.';
+    $msgs[] = __('Slot assignments reset.');
 
     // 3. Reset sidebar zone items
     $pdo->exec("DELETE FROM sidebar_zone_items");
     $zoneId = $pdo->query("SELECT id FROM sidebar_zones WHERE slug = 'main'")->fetchColumn();
     if ($zoneId) {
         $pdo->prepare("INSERT IGNORE INTO sidebar_zone_items (zone_id, type, title, config, ordering, active) VALUES
-            (?, 'search', 'Cari', '{\"title\":\"Cari\",\"placeholder\":\"Cari artikel...\"}', 0, 1),
-            (?, 'last_posts', 'Artikel Terbaru', '{\"title\":\"Artikel Terbaru\",\"limit\":5,\"type\":\"article\"}', 1, 1),
-            (?, 'categories', 'Kategori', '{\"title\":\"Kategori\",\"limit\":30,\"only_parents\":true}', 2, 1)")->execute([$zoneId, $zoneId, $zoneId]);
-        $msgs[] = 'Sidebar items direset.';
+            (?, 'search', 'Search', '{\"title\":\"Search\",\"placeholder\":\"Search articles...\"}', 0, 1),
+            (?, 'last_posts', 'Recent Articles', '{\"title\":\"Recent Articles\",\"limit\":5,\"type\":\"article\"}', 1, 1),
+            (?, 'categories', 'Categories', '{\"title\":\"Categories\",\"limit\":30,\"only_parents\":true}', 2, 1)")->execute([$zoneId, $zoneId, $zoneId]);
+        $msgs[] = __('Sidebar items reset.');
     }
 
     // 4. Reset menu items
@@ -482,7 +482,7 @@ function _reinstall_hard_reset(PDO $pdo): array {
             (?, NULL, 0, 'custom', 'Home', '/', NULL, 0),
             (?, NULL, 1, 'category', 'Blog', NULL, 1, 0),
             (?, NULL, 2, 'category', 'Services', NULL, 2, 0)")->execute([$menuId, $menuId, $menuId]);
-        $msgs[] = 'Menu items direset.';
+        $msgs[] = __('Menu items reset.');
     }
 
     // 5. Reset auth paths to defaults
@@ -490,7 +490,7 @@ function _reinstall_hard_reset(PDO $pdo): array {
         ('admin_path', 'dashboard', 1),
         ('login_path', 'login', 1),
         ('register_path', 'register', 1)");
-    $msgs[] = 'Auth paths direset (admin: /dashboard/, login: /login/).';
+    $msgs[] = __('Auth paths reset (admin: /dashboard/, login: /login/).');
 
     // 6. Disable all plugins (not deleted)
     $pluginDir = dirname(DASH_PATH) . '/plugins';
@@ -502,7 +502,7 @@ function _reinstall_hard_reset(PDO $pdo): array {
     if (!empty($pluginNames)) {
         $disabledFile = dirname(DASH_PATH) . '/cfg/var/plugins-disabled.json';
         file_put_contents($disabledFile, json_encode($pluginNames), LOCK_EX);
-        $msgs[] = count($pluginNames) . ' plugin dinonaktifkan.';
+        $msgs[] = count($pluginNames) . ' ' . __('plugins disabled') . '.';
     }
 
     // 7. Reset general settings
@@ -523,12 +523,12 @@ $defaultUpdateUrl = 'https://jyavani.com/download/latest/';
 // Compute file stats
 $totalCore = $localManifest['total_files'] ?? 0;
 ?>
-<h2 class="pg-title">CMS Update</h2>
+<h2 class="pg-title"><?=_e('CMS Update')?></h2>
 <p class="pg-subtitle">Version <?= htmlspecialchars($currentVersion['version'] ?? '—') ?> &mdash; <?= htmlspecialchars($currentVersion['build'] ?? '') ?></p>
 
 <div class="up-grid">
     <div class="up-card">
-        <div class="up-card-header">Current Installation</div>
+        <div class="up-card-header"><?=_e('Current Installation')?></div>
         <table class="up-table">
             <tr><td>CMS</td><td><strong><?= htmlspecialchars($currentVersion['name'] ?? 'Jyavani CMS') ?></strong></td></tr>
             <tr><td>Version</td><td><strong>v<?= htmlspecialchars($currentVersion['version'] ?? '0.0.0') ?></strong></td></tr>
@@ -540,52 +540,52 @@ $totalCore = $localManifest['total_files'] ?? 0;
     </div>
 
     <div class="up-card">
-        <div class="up-card-header">Check for Updates</div>
+            <div class="up-card-header"><?=_e('Check for Updates')?></div>
         <form method="post" class="up-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
             <input type="hidden" name="action" value="check_remote">
 
-            <label class="up-label">Update URL</label>
+            <label class="up-label"><?=_e('Update URL')?></label>
             <input type="url" name="update_url" class="up-input"
                    value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
                    placeholder="https://example.com/download/latest/">
 
-            <div class="up-hint">URL ke download endpoint versi terbaru. Secara otomatis ditambahi <code>?format=json</code> untuk pengecekan versi.</div>
+            <div class="up-hint"><?=_e('URL to the latest version download endpoint. Automatically appended with')?> <code>?format=json</code> <?=_e('for version checking.')?></div>
 
-            <button type="submit" class="btn btn-primary">Check for Updates</button>
+            <button type="submit" class="btn btn-primary"><?=_e('Check for Updates')?></button>
         </form>
     </div>
 </div>
 
 <?php if ($pendingUpdate): ?>
 <div class="up-card up-card-warning">
-    <div class="up-card-header">Update Ready</div>
+    <div class="up-card-header"><?=_e('Update Ready')?></div>
     <p>Package: <strong>v<?= htmlspecialchars($pendingUpdate['version'] ?? '?') ?></strong>
-       &mdash; <?= ($pendingUpdate['total_files'] ?? 0) ?> file
-       &mdash; Source: <?= htmlspecialchars($pendingUrl ?: 'uploaded') ?></p>
+       &mdash; <?= ($pendingUpdate['total_files'] ?? 0) ?> <?=_e('file')?>
+       &mdash; <?=_e('Source:')?> <?= htmlspecialchars($pendingUrl ?: __('uploaded')) ?></p>
 
     <div class="up-flex">
-        <form method="post" style="display:inline" onsubmit="return confirm('Apply update now? Files will be backed up automatically.')">
+        <form method="post" style="display:inline" onsubmit="return confirm(<?= json_encode(__('Apply update now? Files will be backed up automatically.')) ?>)">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
             <?php if ($pendingPackage): ?>
                 <input type="hidden" name="action" value="apply_uploaded">
             <?php else: ?>
                 <input type="hidden" name="action" value="apply_update">
             <?php endif; ?>
-            <button type="submit" class="btn btn-primary" style="background:#059669;border-color:#059669">Apply Update</button>
+            <button type="submit" class="btn btn-primary" style="background:#059669;border-color:#059669"><?=_e('Apply Update')?></button>
         </form>
         <form method="post" style="display:inline">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
             <input type="hidden" name="action" value="clear_pending">
-            <button type="submit" class="btn btn-outline">Cancel</button>
+            <button type="submit" class="btn btn-outline"><?=_e('Cancel')?></button>
         </form>
     </div>
 </div>
 <?php endif; ?>
 
 <div class="up-card" style="margin-top:1.25rem">
-    <div class="up-card-header">Manual Upload</div>
-    <p class="up-hint">Upload file <code>.zip</code> package update yang berisi <code>cms-manifest.json</code> di root-nya.</p>
+    <div class="up-card-header"><?=_e('Manual Upload')?></div>
+    <p class="up-hint"><?=_e('Upload a')?> <code>.zip</code> <?=_e('update package containing')?> <code>cms-manifest.json</code> <?=_e('in its root.')?></p>
 
     <form method="post" enctype="multipart/form-data" class="up-form">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
@@ -593,45 +593,45 @@ $totalCore = $localManifest['total_files'] ?? 0;
 
         <div class="up-file-row">
             <input type="file" name="update_package" accept=".zip" required id="upFile">
-            <button type="submit" class="btn btn-primary" id="upBtn">Upload &amp; Install</button>
+            <button type="submit" class="btn btn-primary" id="upBtn"><?=_e('Upload &amp; Install')?></button>
         </div>
     </form>
 </div>
 
 <div class="up-card" style="margin-top:1.25rem;border-color:var(--adam-danger)">
-    <div class="up-card-header" style="color:var(--adam-danger)">Reinstall CMS</div>
-    <p class="up-hint">Timpa semua file inti CMS dengan versi original. Cocok jika ada file yang rusak. Data (<code>cfg/.env</code>, tema, plugin, upload) tetap aman.</p>
+    <div class="up-card-header" style="color:var(--adam-danger)"><?=_e('Reinstall CMS')?></div>
+    <p class="up-hint"><?=_e('Overwrite all core CMS files with original versions. Suitable if files are corrupted. Data (cfg/.env, themes, plugins, uploads) remain safe.')?></p>
 
     <form method="post" class="up-form" onsubmit="return confirmReinstall(event)">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <input type="hidden" name="action" value="reinstall">
-        <label class="up-label">Download URL</label>
+        <label class="up-label"><?=_e('Download URL')?></label>
         <input type="url" name="reinstall_url" class="up-input"
                value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
                placeholder="https://example.com/download/latest/">
         <label class="up-checkline">
             <input type="checkbox" name="hard_reset" value="1" id="chkHard">
-            Hard reset &mdash; reset tema, auth paths, plugin, slot, sidebar, dan menu ke default
+            <?=_e('Hard reset')?> &mdash; <?=_e('reset theme, auth paths, plugins, slots, sidebar, and menus to defaults')?>
         </label>
         <div class="up-hint" id="hintHard" style="display:none;margin-top:-.3rem;margin-bottom:.3rem;border-left:3px solid var(--adam-danger);padding-left:.6rem">
-            Tema → default, Auth paths → /dashboard/ /login/ /register/, semua plugin dinonaktifkan.
-            Kustomisasi slot/sidebar/menu akan hilang. Konten (postingan, halaman, media, user) TIDAK terpengaruh.
+            <?=__('Theme → default, Auth paths → /dashboard/ /login/ /register/, all plugins disabled.')?>
+            <?=__('Slot/sidebar/menu customizations will be lost. Content (posts, pages, media, users) is NOT affected.')?>
         </div>
-        <button type="submit" class="btn btn-danger">Reinstall Now</button>
+        <button type="submit" class="btn btn-danger"><?=_e('Reinstall Now')?></button>
     </form>
 </div>
 
 <!-- Simple reinstall confirmation modal -->
 <div class="adam-modal" id="reinstallModal">
     <div class="adam-modal__panel">
-        <div class="adam-modal__title">Konfirmasi Reinstall</div>
+        <div class="adam-modal__title"><?=_e('Confirm Reinstall')?></div>
         <div class="adam-modal__text">
-            <p>Yakin reinstall? Semua file inti CMS akan ditimpa dengan versi original. Backup otomatis dibuat.</p>
-            <p class="up-hint" style="margin-top:.5rem">Data (<code>cfg/.env</code>, tema, plugin, upload) tetap aman.</p>
+            <p><?=_e('Reinstall? All core CMS files will be overwritten with original versions. Automatic backup will be created.')?></p>
+            <p class="up-hint" style="margin-top:.5rem"><?=_e('Data (cfg/.env, themes, plugins, uploads) remain safe.')?></p>
         </div>
         <div class="adam-modal__actions">
-            <button class="adam-btn adam-btn--ghost" onclick="closeReinstallModal()">Batal</button>
-            <button class="adam-btn adam-btn--danger" id="reinstallApplyBtn">Ya, Reinstall</button>
+            <button class="adam-btn adam-btn--ghost" onclick="closeReinstallModal()"><?=_e('Cancel')?></button>
+            <button class="adam-btn adam-btn--danger" id="reinstallApplyBtn"><?=_e('Yes, Reinstall')?></button>
         </div>
     </div>
 </div>
@@ -639,30 +639,30 @@ $totalCore = $localManifest['total_files'] ?? 0;
 <!-- Hard reset confirmation modal -->
 <div class="adam-modal" id="resetModal">
     <div class="adam-modal__panel" style="max-width:480px">
-        <div class="adam-modal__title">Konfirmasi Hard Reset</div>
+        <div class="adam-modal__title"><?=_e('Confirm Hard Reset')?></div>
         <div class="adam-modal__text">
-            <p style="margin-bottom:.75rem;font-weight:600">Hard reset akan melakukan perubahan berikut:</p>
-            <p style="margin-bottom:.6rem;font-weight:600">Centang semua untuk melanjutkan:</p>
+            <p style="margin-bottom:.75rem;font-weight:600"><?=_e('Hard reset will make the following changes:')?></p>
+            <p style="margin-bottom:.6rem;font-weight:600"><?=_e('Check all to proceed:')?></p>
             <ul class="reset-checklist">
-                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> File inti CMS ditimpa dengan versi original</label></li>
-                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Tema direset ke <strong>default</strong></label></li>
-                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Auth paths: admin → <code>/dashboard/</code>, login → <code>/login/</code>, register → <code>/register/</code></label></li>
-                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Semua plugin <strong>dinonaktifkan</strong> (file tetap ada)</label></li>
-                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Kustomisasi slot, sidebar, dan menu direset ke bawaan</label></li>
-                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Konten (postingan, halaman, media, user) <strong>AMAN</strong></label></li>
-                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> Konfigurasi database &amp; file upload <strong>AMAN</strong></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> <?=_e('Core CMS files overwritten with original versions')?></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> <?=_e('Theme reset to')?> <strong>default</strong></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> <?=_e('Auth paths: admin → /dashboard/, login → /login/, register → /register/')?></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> <?=_e('All plugins')?> <strong><?=_e('disabled')?></strong> (<?=_e('files remain')?>)</label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> <?=_e('Slot, sidebar, and menu customizations reset to defaults')?></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> <?=_e('Content (posts, pages, media, users)')?> <strong><?=_e('SAFE')?></strong></label></li>
+                <li class="reset-cb"><label><input type="checkbox" class="reset-cbox"> <?=_e('Database config &amp; file uploads')?> <strong><?=_e('SAFE')?></strong></label></li>
             </ul>
         </div>
         <div class="adam-modal__actions">
-            <button class="adam-btn adam-btn--ghost" onclick="closeResetModal()">Batal</button>
-            <button class="adam-btn adam-btn--danger" id="resetApplyBtn" disabled>Apply Hard Reset</button>
+            <button class="adam-btn adam-btn--ghost" onclick="closeResetModal()"><?=_e('Cancel')?></button>
+            <button class="adam-btn adam-btn--danger" id="resetApplyBtn" disabled><?=_e('Apply Hard Reset')?></button>
         </div>
     </div>
 </div>
 
 <div class="up-card" style="margin-top:1.25rem">
-    <div class="up-card-header">What Gets Updated</div>
-    <p class="up-hint">Update hanya memengaruhi file inti CMS. Data berikut TIDAK akan disentuh:</p>
+    <div class="up-card-header"><?=_e('What Gets Updated')?></div>
+    <p class="up-hint"><?=_e('Update only affects core CMS files. The following data will NOT be touched:')?></p>
     <ul class="up-list">
         <li><code>cfg/.env</code> &mdash; database &amp; session config</li>
         <li><code>cfg/var/</code> &mdash; sessions, tokens, runtime data</li>
@@ -673,7 +673,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <li><code>public/pdf/</code> &mdash; PWA / static PDF files</li>
         <li><code>public/sitemaps/</code> &mdash; generated sitemaps</li>
     </ul>
-    <p class="up-hint">File yang diubah akan otomatis dibackup ke <code>cfg/var/backup-{timestamp}/</code>.</p>
+    <p class="up-hint"><?=_e('Changed files will be automatically backed up to')?> <code>cfg/var/backup-{timestamp}/</code>.</p>
 </div>
 
 <style>

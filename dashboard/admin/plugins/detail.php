@@ -13,7 +13,7 @@ $listUrl = $base . '/?page=admin/plugins/index';
 
 $pluginName = (string)($_GET['name'] ?? '');
 if ($pluginName === '' || !preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
-    adiwira_redirect_with_flash($listUrl, 'error', __('Nama plugin tidak valid.'));
+    adiwira_redirect_with_flash($listUrl, 'error', __('Invalid plugin name.'));
 }
 
 $manifest = plugin_manifest($pluginName);
@@ -31,31 +31,31 @@ $checks = plugin_checks($pluginName);
 $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed'])) === count($checks);
 ?>
 <h2 class="pg-title"><?= h($title) ?></h2>
-<p class="pg-subtitle">Detail dan status setup plugin.</p>
+<p class="pg-subtitle"><?=_e('Plugin details and setup status.')?></p>
 
 <div class="detail-grid">
   <div class="detail-card">
-    <h3 class="card-title">Informasi Plugin</h3>
+    <h3 class="card-title"><?=_e('Plugin Information')?></h3>
     <table class="info-table">
-      <tr><th>Nama</th><td><?= h($pluginName) ?></td></tr>
-      <tr><th>Versi</th><td><?= h($version) ?></td></tr>
-      <?php if ($author): ?><tr><th>Penulis</th><td><?= h($author) ?></td></tr><?php endif; ?>
-      <?php if ($desc): ?><tr><th>Deskripsi</th><td><?= h($desc) ?></td></tr><?php endif; ?>
-      <?php if ($homepage): ?><tr><th>Situs</th><td><a href="<?= h($homepage) ?>" target="_blank" rel="noopener"><?= h($homepage) ?></a></td></tr><?php endif; ?>
-      <tr><th>Status</th><td><?php if ($isActive): ?><span class="badge badge-success">Aktif</span><?php else: ?><span class="badge badge-muted">Nonaktif</span><?php endif; ?></td></tr>
+      <tr><th><?=_e('Name')?></th><td><?= h($pluginName) ?></td></tr>
+      <tr><th><?=_e('Version')?></th><td><?= h($version) ?></td></tr>
+      <?php if ($author): ?><tr><th><?=_e('Author')?></th><td><?= h($author) ?></td></tr><?php endif; ?>
+      <?php if ($desc): ?><tr><th><?=_e('Description')?></th><td><?= h($desc) ?></td></tr><?php endif; ?>
+      <?php if ($homepage): ?><tr><th><?=_e('Website')?></th><td><a href="<?= h($homepage) ?>" target="_blank" rel="noopener"><?= h($homepage) ?></a></td></tr><?php endif; ?>
+      <tr><th><?=_e('Status')?></th><td><?php if ($isActive): ?><span class="badge badge-success"><?=_e('Active')?></span><?php else: ?><span class="badge badge-muted"><?=_e('Inactive')?></span><?php endif; ?></td></tr>
     </table>
   </div>
 
   <?php if (!empty($checks)): ?>
   <div class="detail-card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-      <h3 class="card-title" style="margin:0">Setup Checklist</h3>
-      <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($pluginName) ?>" class="btn btn-sm btn-outline" title="Periksa ulang semua status">⟳ Periksa Ulang</a>
+      <h3 class="card-title" style="margin:0"><?=_e('Setup Checklist')?></h3>
+      <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($pluginName) ?>" class="btn btn-sm btn-outline" title="<?=_e('Re-check all statuses')?>">⟳ <?=_e('Re-check')?></a>
     </div>
     <?php if ($allPassed): ?>
-      <div class="notice notice-success">Semua langkah setup telah selesai. Plugin siap digunakan.</div>
+      <div class="notice notice-success"><?=__('All setup steps completed. The plugin is ready to use.')?></div>
     <?php else: ?>
-      <div class="notice notice-warning">Beberapa langkah setup belum selesai. Jalankan perintah di bawah.</div>
+      <div class="notice notice-warning"><?=__('Some setup steps are not complete. Run the commands below.')?></div>
     <?php endif; ?>
     <div class="checks-list">
       <?php foreach ($checks as $i => $c): ?>
@@ -66,7 +66,7 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
           <?php if ($c['command']): ?>
             <div class="check-command">
               <code><?= h($c['command']) ?></code>
-              <button type="button" class="btn-copy btn btn-xs btn-ghost" data-cmd="<?= h($c['command']) ?>" title="Salin perintah">&#128203;</button>
+              <button type="button" class="btn-copy btn btn-xs btn-ghost" data-cmd="<?= h($c['command']) ?>" title="<?=_e('Copy command')?>">&#128203;</button>
             </div>
           <?php endif; ?>
           <?php if ($c['doc']): ?>
@@ -86,18 +86,18 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
     $hasUpdate = isset($availableUpdates[$pluginName]);
   ?>
   <div class="detail-card">
-    <h3 class="card-title">Informasi Store</h3>
+    <h3 class="card-title"><?=_e('Store Information')?></h3>
     <table class="info-table">
-      <tr><th>Store URL</th><td><a href="<?= h($storeInfo['url'] ?? '') ?>" target="_blank" rel="noopener"><?= h(rtrim($storeInfo['url'] ?? '', '/')) ?></a></td></tr>
-      <tr><th>Versi Store</th><td>
+      <tr><th><?=_e('Store URL')?></th><td><a href="<?= h($storeInfo['url'] ?? '') ?>" target="_blank" rel="noopener"><?= h(rtrim($storeInfo['url'] ?? '', '/')) ?></a></td></tr>
+      <tr><th><?=_e('Store Version')?></th><td>
         <?php if ($hasUpdate): ?>
-          v<?= h($availableUpdates[$pluginName]['new_version']) ?> <span class="badge badge-update">Update tersedia</span>
+          v<?= h($availableUpdates[$pluginName]['new_version']) ?> <span class="badge badge-update"><?=_e('Update available')?></span>
         <?php else: ?>
-          <span style="color:var(--adam-muted)">v<?= h($version) ?> (terbaru)</span>
+          <span style="color:var(--adam-muted)">v<?= h($version) ?> (<?=_e('latest')?>)</span>
         <?php endif; ?>
       </td></tr>
       <?php if ($hasUpdate && !empty($availableUpdates[$pluginName]['changelog'])): ?>
-      <tr><th>Changelog</th><td style="white-space:pre-wrap;font-size:.8rem;line-height:1.5"><?= h($availableUpdates[$pluginName]['changelog']) ?></td></tr>
+      <tr><th><?=_e('Changelog')?></th><td style="white-space:pre-wrap;font-size:.8rem;line-height:1.5"><?= h($availableUpdates[$pluginName]['changelog']) ?></td></tr>
       <?php endif; ?>
     </table>
   </div>
@@ -105,7 +105,7 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
 </div>
 
 <div class="form-actions">
-  <a href="<?= h($listUrl) ?>" class="btn btn-outline">&larr; Kembali</a>
+  <a href="<?= h($listUrl) ?>" class="btn btn-outline"><?=_e('&larr; Back')?></a>
 </div>
 
 <style>

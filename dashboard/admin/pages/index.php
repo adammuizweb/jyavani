@@ -197,7 +197,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </form>
 
   <p style="margin-bottom:1rem">
-    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>">+ Tambah Page</a>
+    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Page')?></a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
       <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
@@ -211,7 +211,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="selectAllPages"> Pilih semua di halaman
+        <input type="checkbox" id="selectAllPages"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkActionPages" name="action" style="padding:.4rem;">
@@ -403,7 +403,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function toggleBulkExtras(){
@@ -532,7 +532,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

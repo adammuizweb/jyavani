@@ -218,7 +218,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $user['bio']   = $bioDb ?? '';
                 $user['phone'] = $phoneDb ?? '';
 
-                profile_redirect_with_flash('success', 'Profil berhasil diperbarui.', $self_url);
+                profile_redirect_with_flash('success', __('Profile updated successfully.'), $self_url);
             } else {
                 $errors[] = __('Failed to save to database.');
             }
@@ -228,7 +228,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2>Edit Profil Saya</h2>
+  <h2>Edit My Profile</h2>
 
   <form method="post" novalidate id="profile-save-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -273,14 +273,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 id="btn-view-profile"
                 class="adam-ubah"
                 style="padding:.35rem .6rem; font-size:0.85rem; margin-top:12px;">
-          Lihat Profile
+          View Profile
         </button>
 
         <div id="upload-error" style="color:red; font-size:0.75rem; margin-top:5px; display:none;"></div>
       </div>
 
       <div style="flex:1; min-width:280px;">
-        <label>Nama Lengkap<br>
+        <label>Full Name<br>
           <input type="text"
                  name="name"
                  id="profile-name-input"
@@ -305,7 +305,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label style="margin-top:1rem;">Telepon<br>
+        <label style="margin-top:1rem;">Phone<br>
           <input type="text"
                  name="phone"
                  value="<?= htmlspecialchars($_POST['phone'] ?? ($user['phone'] ?? $initialPhone), ENT_QUOTES, 'UTF-8') ?>"
@@ -313,7 +313,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label style="margin-top:1rem;">Bio / Tentang Saya<br>
+        <label style="margin-top:1rem;">Bio / About Me<br>
           <textarea name="bio"
                     rows="4"
                     style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? ($user['bio'] ?? $initialBio), ENT_QUOTES, 'UTF-8') ?></textarea>
@@ -321,17 +321,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <hr style="margin:1.5rem 0; border:0; border-top:1px solid #eee;">
 
-        <p style="font-size:0.9rem; color:#666; margin-bottom:1rem;"><strong>Ganti Password</strong> (Opsional)</p>
+        <p style="font-size:0.9rem; color:#666; margin-bottom:1rem;"><strong>Change Password</strong> (Optional)</p>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-          <label>Password Baru<br>
+          <label>New Password<br>
             <input type="password"
                    name="password"
                    autocomplete="new-password"
                    style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
           </label>
 
-          <label>Konfirmasi Password<br>
+          <label>Confirm Password<br>
             <input type="password"
                    name="password_confirm"
                    autocomplete="new-password"
@@ -340,8 +340,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </div>
 
         <div style="margin-top:2rem;">
-          <button type="submit" class="adam-button">Simpan Perubahan</button>
-          <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px;">Kembali</a>
+          <button type="submit" class="adam-button">Save Changes</button>
+          <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px;">Back</a>
         </div>
       </div>
     </div>
@@ -349,18 +349,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 </section>
 
 <section class="adam-card" style="margin-top:2rem; border-top:4px solid #e74c3c;">
-  <h3 style="color:#c0392b;">Zona Bahaya</h3>
+  <h3 style="color:#c0392b;">Danger Zone</h3>
   <button type="button"
           id="btn-open-delete-account-modal"
           style="background:#e74c3c; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">
-    Hapus Akun Saya
+    Delete My Account
   </button>
 </section>
 
 <div id="deleteModal"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:5000;">
   <div style="background:#fff; padding:2rem; border-radius:8px; max-width:400px; width:90%; position:relative;">
-    <h3 style="margin-top:0; color:#c0392b;">Konfirmasi Hapus</h3>
+    <h3 style="margin-top:0; color:#c0392b;">Confirm Deletion</h3>
 
     <form method="post" id="profile-delete-form">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -369,7 +369,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <input type="password"
              id="del_password"
              name="del_password"
-             placeholder="Password Anda"
+             placeholder="Your Password"
              required
              style="width:100%; padding:.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:1rem;">
 
@@ -377,11 +377,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <button type="button"
                 id="btn-close-delete-account-modal"
                 style="background:#ccc; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">
-          Batal
+          Cancel
         </button>
         <button type="submit"
                 style="background:#e74c3c; color:#fff; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">
-          Hapus
+          Delete
         </button>
       </div>
     </form>
@@ -413,14 +413,14 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function askDanger(opts){
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.danger === 'function') {
       return window.NewNotifConfirm.danger(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   const previewImg = document.getElementById('preview-img');
@@ -467,7 +467,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     const username = usernameFromServer || (usernameField ? usernameField.value : '');
 
     if (!username) {
-      toast('error', 'Username', 'Username tidak tersedia.');
+      toast('error', 'Username', <?= json_encode(__('Username not available.')) ?>);
       return;
     }
 
@@ -484,7 +484,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
   galleryBtn?.addEventListener('click', function(){
     if (typeof openMediaSelector !== 'function') {
-      toast('error', 'Gallery', 'Media selector belum tersedia.');
+      toast('error', 'Gallery', <?= json_encode(__('Media selector not available yet.')) ?>);
       return;
     }
 
@@ -501,7 +501,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
       })
       .catch(function(err){
         console.error('media selector error', err);
-        toast('error', 'Gallery', 'Gagal memilih media.');
+        toast('error', 'Gallery', <?= json_encode(__('Failed to select media.')) ?>);
       });
   });
 
@@ -541,7 +541,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
         if (imgInput) imgInput.value = data.url;
       } else {
         if (uploadError) {
-          uploadError.innerText = data.error || 'Gagal upload gambar.';
+          uploadError.innerText = data.error || <?= json_encode(__('Failed to upload image.')) ?>;
           uploadError.style.display = 'block';
         }
       }
@@ -549,7 +549,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     .catch(function(error){
       if (uploadLoader) uploadLoader.style.display = 'none';
       if (uploadError) {
-        uploadError.innerText = 'Terjadi kesalahan jaringan.';
+        uploadError.innerText = <?= json_encode(__('A network error occurred.')) ?>;
         uploadError.style.display = 'block';
       }
       console.error('Error:', error);
@@ -565,10 +565,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
     ev.preventDefault();
     askWarning({
-      title: 'Simpan perubahan profil',
-      message: 'Perubahan profil akan disimpan. Lanjutkan?',
-      confirmText: 'Ya, simpan',
-      cancelText: 'Batal'
+      title: <?= json_encode(__('Save profile changes')) ?>,
+      message: <?= json_encode(__('Profile changes will be saved. Continue?')) ?>,
+      confirmText: <?= json_encode(__('Yes, save')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){
       if (!ok) return;
       saveConfirmed = true;
@@ -605,16 +605,16 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
     const pwd = String(deletePasswordInput?.value || '').trim();
     if (pwd === '') {
-      toast('error', 'Hapus akun', 'Password wajib diisi.');
+      toast('error', <?= json_encode(__('Delete account')) ?>, <?= json_encode(__('Password is required.')) ?>);
       try { deletePasswordInput && deletePasswordInput.focus(); } catch(e){}
       return;
     }
 
     askDanger({
-      title: 'Hapus akun saya',
-      message: 'Akun ini akan dihapus dan kamu akan keluar dari sistem. Lanjutkan?',
-      confirmText: 'Ya, hapus akun',
-      cancelText: 'Batal'
+      title: <?= json_encode(__('Delete my account')) ?>,
+      message: <?= json_encode(__('This account will be deleted and you will be logged out. Continue?')) ?>,
+      confirmText: <?= json_encode(__('Yes, delete account')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){
       if (!ok) return;
       deleteConfirmed = true;

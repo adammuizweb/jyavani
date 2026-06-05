@@ -50,8 +50,8 @@ if (!$embedded):
         <div data-mdlib-tab="upload" role="button" tabindex="0" class="mdlib-tab">Upload</div>
         <div data-mdlib-tab="library" role="button" tabindex="0" class="mdlib-tab">Library</div>
       </div>
-      <div id="mdlib-hint">Klik <b>Insert</b> untuk memilih file</div>
-      <button id="mdlib-close-btn" class="mdlib-btn mdlib-close-btn" title="Tutup">&times;</button>
+      <div id="mdlib-hint"><?=_e('Click')?> <b>Insert</b> <?=_e('to select file')?></div>
+      <button id="mdlib-close-btn" class="mdlib-btn mdlib-close-btn" title="<?=_e('Close')?>">&times;</button>
     </div>
   </div>
 
@@ -60,7 +60,7 @@ if (!$embedded):
   </div>
 
   <div id="mdlib-panel-library" class="mdlib-panel" style="display:none;">
-    <div id="mdlib-library-host" class="mdlib-loading">Memuat library…</div>
+    <div id="mdlib-library-host" class="mdlib-loading"><?=_e('Loading library…')?></div>
   </div>
 </div>
 
@@ -99,7 +99,7 @@ if (!$embedded):
           });
           return;
         }
-        alert(message || title || 'Terjadi sesuatu.');
+        alert(message || title || <?= json_encode(__('Something happened.')) ?>);
       }
 
       function ask(variant, opts){
@@ -206,8 +206,8 @@ if (!$embedded):
       });
     } catch (err) {
       console.error('mdlib inject error', err);
-      container.innerHTML = '<div style="color:#c00">Gagal memuat konten.</div>';
-      uiToast('error', 'Library File', 'Gagal memuat konten modal.', 5000);
+      container.innerHTML = '<div style="color:#c00"><?=__('Failed to load content.')?></div>';
+      uiToast('error', 'Library File', <?= json_encode(__('Failed to load modal content.')) ?>, 5000);
     }
   }
 
@@ -234,7 +234,7 @@ if (!$embedded):
     const host = getHost();
     if (!host) return;
 
-    host.innerHTML = '<div class="mdlib-loading">' + (loadingText || 'Memuat…') + '</div>';
+    host.innerHTML = '<div class="mdlib-loading">' + (loadingText || <?= json_encode(__('Loading…')) ?>) + '</div>';
 
     let finalUrl = String(url || '');
     if (!finalUrl) return;
@@ -268,12 +268,12 @@ if (!$embedded):
     host.setAttribute('data-view', 'list');
 
     try {
-      await fetchIntoLibrary(lastListUrl, 'Memuat daftar file…');
+      await fetchIntoLibrary(lastListUrl, <?= json_encode(__('Loading file list…')) ?>);
       host.setAttribute('data-loaded', '1');
     } catch (err) {
       console.error('mdlib loadList error', err);
-      host.innerHTML = '<div class="mdlib-loading" style="color:#dc2626">Gagal memuat library file.</div>';
-      uiToast('error', 'Library File', 'Gagal memuat daftar file: ' + (err.message || err), 6000);
+      host.innerHTML = '<div class="mdlib-loading" style="color:#dc2626"><?=__('Failed to load file library.')?></div>';
+      uiToast('error', 'Library File', <?= json_encode(__('Failed to load file list:')) ?> + ' ' + (err.message || err), 6000);
     }
   }
 
@@ -288,10 +288,10 @@ if (!$embedded):
     host.setAttribute('data-view', 'single');
     host.innerHTML =
       '<div class="mdlib-singlehead">' +
-        '<div class="mdlib-back" data-mdlib-action="back">← Kembali</div>' +
-        '<div class="mdlib-singletitle">Detail File</div>' +
+        '<div class="mdlib-back" data-mdlib-action="back"><?=__('← Back')?></div>' +
+        '<div class="mdlib-singletitle"><?=__('File Details')?></div>' +
       '</div>' +
-      '<div class="mdlib-loading">Memuat detail…</div>';
+      '<div class="mdlib-loading"><?=__('Loading details…')?></div>';
 
     try {
       const url = '<?= ADMIN_BASE_PATH ?>/admin/modal_file/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1&_ts=' + Date.now();
@@ -314,8 +314,8 @@ if (!$embedded):
 
       host.innerHTML =
         '<div class="mdlib-singlehead">' +
-          '<div class="mdlib-back" data-mdlib-action="back">← Kembali</div>' +
-          '<div class="mdlib-singletitle">Detail File</div>' +
+          '<div class="mdlib-back" data-mdlib-action="back"><?=__('← Back')?></div>' +
+          '<div class="mdlib-singletitle"><?=__('File Details')?></div>' +
         '</div>' +
         (clone.outerHTML || clone.innerHTML || '');
 
@@ -330,10 +330,10 @@ if (!$embedded):
       console.error('mdlib openSingle error', err);
       host.innerHTML =
         '<div class="mdlib-singlehead">' +
-          '<div class="mdlib-back" data-mdlib-action="back">← Kembali</div>' +
-          '<div class="mdlib-singletitle">Detail File</div>' +
+          '<div class="mdlib-back" data-mdlib-action="back"><?=__('← Back')?></div>' +
+          '<div class="mdlib-singletitle"><?=__('File Details')?></div>' +
         '</div>' +
-        '<div class="mdlib-loading" style="color:#dc2626">Gagal memuat detail file.</div>';
+        '<div class="mdlib-loading" style="color:#dc2626"><?=__('Failed to load file details.')?></div>';
       uiToast('error', 'Library File', 'Gagal memuat detail file: ' + (err.message || err), 6000);
     }
   }
@@ -354,8 +354,8 @@ if (!$embedded):
   };
   window.mdlibLoadIntoRoot = function(url){
     setActive('library');
-    return fetchIntoLibrary(url, 'Memuat…').catch(function(err){
-      uiToast('error', 'Library File', 'Gagal memuat konten: ' + (err.message || err), 6000);
+    return fetchIntoLibrary(url, <?= json_encode(__('Loading…')) ?>).catch(function(err){
+      uiToast('error', 'Library File', <?= json_encode(__('Failed to load content:')) ?> + ' ' + (err.message || err), 6000);
     });
   };
 

@@ -1,7 +1,7 @@
 <?php
 /**
  * ===============================================================
- *  Adiwira Jyavani CMS © 2025 Adam Muiz
+ *  Jyavani CMS © 2025 Adam Muiz
  *  All Rights Reserved.
  *  Unauthorized copying, modification, or redistribution is prohibited.
  * ===============================================================

@@ -136,7 +136,7 @@ $walk = function(int $pid, int $depth) use (&$children, &$flatten, &$walk): void
 $walk(0, 0);
 ?>
 <section class="adam-card">
-  <h2>Tambah Kategori</h2>
+  <h2><?=_e('Add Category')?></h2>
 
   <form method="post" novalidate id="category-add-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -150,24 +150,24 @@ $walk(0, 0);
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-          ⚙️ Pengaturan Category
+          ⚙️ <?=_e('Category Settings')?>
           <span class="chevron">▸</span>
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
-        <label>Nama<br>
+        <label><?=_e('Name')?><br>
           <input type="text" name="name" value="<?= htmlspecialchars($_POST['name'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label>Slug (opsional)<br>
+        <label><?=_e('Slug (optional)')?><br>
           <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
       </div>
     </div>
 
-    <label>Parent (opsional)<br>
+    <label><?=_e('Parent (optional)')?><br>
       <select name="parent_id" style="width:100%;padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-        <option value="">-- Tidak ada --</option>
+        <option value=""><?=_e('-- None --')?></option>
         <?php
         $selectedParent = isset($_POST['parent_id']) && $_POST['parent_id'] !== '' ? (int)$_POST['parent_id'] : null;
         foreach ($flatten as $row):
@@ -180,11 +180,11 @@ $walk(0, 0);
       </select>
     </label>
 
-    <label>Deskripsi<br>
+    <label><?=_e('Description')?><br>
       <textarea name="description" style="width:100%;min-height:100px;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
     </label>
 
-    <p><button type="submit" class="adam-button">Simpan</button> <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Batal</a></p>
+    <p><button type="submit" class="adam-button"><?=_e('Save')?></button> <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a></p>
   </form>
 </section>
 
@@ -206,7 +206,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Proceed with this action?')?>'));
   }
 
   form.addEventListener('submit', function(ev){
@@ -217,10 +217,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
     ev.preventDefault();
     askWarning({
-      title: 'Simpan kategori',
-      message: 'Kategori baru akan disimpan. Lanjutkan?',
-      confirmText: 'Ya, simpan',
-      cancelText: 'Batal'
+      title: '<?=__('Save category')?>',
+      message: '<?=__('New category will be saved. Continue?')?>',
+      confirmText: '<?=__('Yes, save')?>',
+      cancelText: '<?=__('Cancel')?>'
     }).then(function(ok){
       if (!ok) return;
       confirmed = true;

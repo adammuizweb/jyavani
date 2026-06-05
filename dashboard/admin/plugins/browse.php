@@ -59,7 +59,7 @@ if ($cached !== null) {
     $ctx = stream_context_create(['http' => ['timeout' => 10, 'user_agent' => 'JyavaniCMS/2.0']]);
     $json = @file_get_contents($apiBase . '/', false, $ctx);
     if ($json === false) {
-        $error = 'Gagal terhubung ke jyavani.com. Coba lagi nanti.';
+        $error = __('Failed to connect to jyavani.com. Try again later.');
     } else {
         $data = json_decode($json, true);
         if (is_array($data) && isset($data['plugins'])) {
@@ -67,7 +67,7 @@ if ($cached !== null) {
             $storeName = $data['store_name'] ?? $storeName;
             store_cache_write($cacheFile, ['store_name' => $storeName, 'plugins' => $plugins]);
         } else {
-            $error = 'Respon dari jyavani.com tidak valid.';
+            $error = __('Invalid response from jyavani.com.');
         }
     }
 }
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
 
     $pluginName = (string)($_POST['plugin'] ?? '');
     if (!preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Nama plugin tidak valid.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid plugin name.'));
     }
 
     // Cari data plugin dari API list
@@ -90,12 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
         if ($p['name'] === $pluginName) { $pluginData = $p; break; }
     }
     if (!$pluginData) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Plugin "' . h($pluginName) . '" tidak ditemukan di store.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin not found in store.') . ' "' . h($pluginName) . '"');
     }
 
     $pluginDir = PLUGIN_PATH . '/' . $pluginName;
     if (is_dir($pluginDir)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Plugin "' . h($pluginName) . '" sudah terpasang.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already installed.') . ' "' . h($pluginName) . '"');
     }
 
     // Download zip
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $dlCtx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS/2.0']]);
     $zipContent = @file_get_contents($downloadUrl, false, $dlCtx);
     if ($zipContent === false) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengunduh plugin dari jyavani.com.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download plugin from jyavani.com.'));
     }
 
     $tmpZip = tempnam(sys_get_temp_dir(), 'install-') . '.zip';
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $open = $zip->open($tmpZip);
     if ($open !== true) {
         @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'File ZIP tidak valid (kode: ' . $open . ').');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid ZIP file') . ' (code: ' . $open . ').');
     }
 
     // Validasi plugin.json di dalam zip
@@ -198,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     // Hapus cache agar daftar plugin terbaru
     plugin_enable($pluginName);
 
-    adiwira_redirect_with_flash($listUrl, 'success', 'Plugin "' . h($manifest['title'] ?? $pluginName) . '" berhasil diinstall dari store.');
+    adiwira_redirect_with_flash($listUrl, 'success', __('Plugin installed from store.') . ' "' . h($manifest['title'] ?? $pluginName) . '"');
 }
 
 $installedPlugins = plugins_all();
@@ -221,29 +221,29 @@ if (isset($_GET['refresh'])) {
             $storeName = $data['store_name'] ?? $storeName;
             store_cache_write($cacheFile, ['store_name' => $storeName, 'plugins' => $plugins]);
         } else {
-            $error = 'Respon dari jyavani.com tidak valid.';
+            $error = __('Invalid response from jyavani.com.');
         }
     }
 }
 ?>
-<h2 class="pg-title">Cari Plugin</h2>
-<p class="pg-subtitle">Jelajahi plugin dari <a href="https://jyavani.com/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — komunitas Jyavani.</p>
+<h2 class="pg-title"><?=_e('Browse Plugins')?></h2>
+<p class="pg-subtitle"><?=_e('Browse plugins from')?> <a href="https://jyavani.com/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?=_e('Jyavani community.')?></p>
 
 <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
-  <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm">&larr; Kembali ke Plugin Terpasang</a>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ Muat Ulang</a>
+  <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?=_e('&larr; Back to Installed Plugins')?></a>
+  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ <?=_e('Refresh')?></a>
 </div>
 
 <?php if ($error): ?>
 <div class="alert alert-error">
-  <strong>Gagal memuat daftar plugin.</strong><br>
+  <strong><?=_e('Failed to load plugin list.')?></strong><br>
   <?= h($error) ?>
   <br><br>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-primary">Coba Lagi</a>
+  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-primary"><?=_e('Try Again')?></a>
 </div>
 <?php elseif (empty($plugins)): ?>
 <div class="empty-state">
-  <p>Belum ada plugin tersedia di store. Silakan cek kembali nanti.</p>
+  <p><?=_e('No plugins available in the store yet. Please check back later.')?></p>
 </div>
 <?php else: ?>
 <div class="plugin-grid">
@@ -265,16 +265,16 @@ if (isset($_GET['refresh'])) {
         <span class="badge-php">PHP <?= h($p['php_required']) ?></span>
         <?php endif; ?>
         <?php if (!empty($p['author'])): ?>
-        <span>oleh <?= h($p['author']) ?></span>
+        <span><?=_e('by')?> <?= h($p['author']) ?></span>
         <?php endif; ?>
       </div>
     </div>
     <div class="plugin-card-actions">
       <?php if ($isInstalled): ?>
         <?php if ($hasUpdate): ?>
-        <a href="<?= h($listUrl) ?>" class="btn btn-sm btn-update">Update Tersedia</a>
+        <a href="<?= h($listUrl) ?>" class="btn btn-sm btn-update"><?=_e('Update Available')?></a>
         <?php else: ?>
-        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5">✓ Terpasang</span>
+        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5">✓ <?=_e('Installed')?></span>
         <?php endif; ?>
       <?php else: ?>
       <form method="post" style="display:inline">

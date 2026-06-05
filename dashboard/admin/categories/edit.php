@@ -195,7 +195,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 }
 ?>
 <section class="adam-card">
-  <h2>Edit Kategori</h2>
+  <h2><?=_e('Edit Category')?></h2>
 
   <form method="post" novalidate id="category-edit-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -246,13 +246,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       </select>
     </label>
 
-    <label>Deskripsi<br>
+    <label><?=_e('Description')?><br>
       <textarea name="description" style="width:100%;min-height:100px;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['description'] ?? $cat['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
     </label>
 
     <p>
-      <button type="submit" class="adam-button">Simpan Perubahan</button>
-      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Batal</a>
+      <button type="submit" class="adam-button"><?=_e('Save Changes')?></button>
+      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
     </p>
   </form>
 </section>
@@ -275,7 +275,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   form.addEventListener('submit', function(ev){
@@ -286,10 +286,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
     ev.preventDefault();
     askWarning({
-      title: 'Simpan perubahan kategori',
-      message: 'Perubahan kategori ini akan disimpan. Lanjutkan?',
-      confirmText: 'Ya, simpan',
-      cancelText: 'Batal'
+      title: '<?=__('Save category changes')?>',
+      message: '<?=__('Changes to this category will be saved. Continue?')?>',
+      confirmText: '<?=__('Yes, save')?>',
+      cancelText: '<?=__('Cancel')?>'
     }).then(function(ok){
       if (!ok) return;
       confirmed = true;

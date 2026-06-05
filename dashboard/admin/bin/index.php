@@ -134,7 +134,7 @@ $items = [
     [
         'key' => 'users',
         'title' => 'Bin Users',
-        'desc' => 'Trash untuk user yang sudah dihapus (soft delete).',
+        'desc' => __('Trash for deleted users (soft delete).'),
         'count' => $countUsers,
         'href' => $base . '/?page=admin/bin/users/index',
         'emoji' => '👤',
@@ -305,10 +305,10 @@ $show_inline_errors = !empty($errors) && !function_exists('adiwira_bootstrap_toa
   <div class="binhub-head">
     <div>
       <h2>Bin / Trash</h2>
-      <div class="binhub-sub">Menu pengelolaan item yang dihapus (admin only).</div>
+      <div class="binhub-sub"><?=_e('Manage deleted items menu (admin only).')?></div>
     </div>
     <div class="binhub-back">
-      <a class="adam-link" href="<?= htmlspecialchars($base . '/?page=admin/settings/index', ENT_QUOTES, 'UTF-8') ?>">← Kembali ke Pengaturan</a>
+      <a class="adam-link" href="<?= htmlspecialchars($base . '/?page=admin/settings/index', ENT_QUOTES, 'UTF-8') ?>"><?=_e('← Back to Settings')?></a>
     </div>
   </div>
 
@@ -340,9 +340,9 @@ $show_inline_errors = !empty($errors) && !function_exists('adiwira_bootstrap_toa
 
         <div class="binhub-actions">
           <?php if ($ok): ?>
-            <a class="adam-button" href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>">Buka</a>
+            <a class="adam-button" href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Open')?></a>
           <?php else: ?>
-            <span class="binhub-disabled">Belum tersedia</span>
+            <span class="binhub-disabled"><?=_e('Not available')?></span>
           <?php endif; ?>
         </div>
       </article>
@@ -350,7 +350,7 @@ $show_inline_errors = !empty($errors) && !function_exists('adiwira_bootstrap_toa
   </div>
 
   <div class="binhub-note">
-    Halaman ini menampilkan ringkasan item yang sudah di-soft delete. Masuk ke masing-masing menu untuk restore atau hapus permanen jika fiturnya tersedia.
+    <?=_e('This page shows a summary of soft-deleted items.')?> <?=_e('Go to each menu to restore or permanently delete if the feature is available.')?>
   </div>
 </section>
 

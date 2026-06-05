@@ -180,12 +180,12 @@ if (isset($_GET['refresh'])) {
     }
 }
 ?>
-<h2 class="pg-title">Cari Theme</h2>
-<p class="pg-subtitle">Jelajahi theme dari <a href="https://jyavani.com/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — komunitas Jyavani.</p>
+<h2 class="pg-title"><?=_e('Browse Themes')?></h2>
+<p class="pg-subtitle"><?=_e('Explore themes from')?> <a href="https://jyavani.com/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?=_e('Jyavani community.')?></p>
 
 <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
-  <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm">&larr; Kembali ke Theme Manager</a>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ Muat Ulang</a>
+  <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?=_e('&larr; Back to Theme Manager')?></a>
+  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ <?=_e('Reload')?></a>
 </div>
 
 <?php if ($error): ?>

@@ -65,8 +65,8 @@ if ($action === 'list_attempts') {
             $html .= '<td>' . $ip . '</td>';
             $html .= '<td>' . $attempts . '</td>';
             $html .= '<td>' . $last . '</td>';
-            $html .= '<td>' . ($blocked ? '<span class="badge" style="background:rgba(229,57,53,0.12);color:var(--adam-danger);border-color:rgba(229,57,53,0.2);">Diblokir</span>' : '<span class="badge" style="background:rgba(30,143,74,0.08);color:var(--adam-success);border-color:rgba(30,143,74,0.18);">Aktif</span>') . '</td>';
-            $html .= '<td><button class="adam-hapus" onclick="deleteAttempt(' . $id . ')" title="Hapus">Hapus</button></td>';
+            $html .= '<td>' . ($blocked ? '<span class="badge" style="background:rgba(229,57,53,0.12);color:var(--adam-danger);border-color:rgba(229,57,53,0.2);">' . __('Blocked') . '</span>' : '<span class="badge" style="background:rgba(30,143,74,0.08);color:var(--adam-success);border-color:rgba(30,143,74,0.18);">' . __('Active') . '</span>') . '</td>';
+            $html .= '<td><button class="adam-hapus" onclick="deleteAttempt(' . $id . ')" title="' . __('Delete') . '">' . __('Delete') . '</button></td>';
             $html .= '</tr>';
         }
     }
@@ -253,21 +253,21 @@ function auth_path_example(string $path): string {
 
     <label style="display:flex;align-items:center;gap:8px;margin:.6rem 0;cursor:pointer;">
       <input type="checkbox" name="registration_enabled" value="1" <?= $registration_enabled === '1' ? 'checked' : '' ?>>
-      Aktifkan halaman pendaftaran
+      <?=_e('Enable registration page')?>
     </label>
 
     <label style="display:flex;align-items:center;gap:8px;margin:.6rem 0;cursor:pointer;">
       <input type="checkbox" name="registration_approval_required" value="1" <?= $registration_approval === '1' ? 'checked' : '' ?>>
-      Pengguna baru perlu persetujuan admin (akun langsung <code>is_locked</code>)
+      <?=_e('New users need admin approval (account directly <code>is_locked</code>)')?>
     </label>
 
     <hr style="border:none;border-top:1px solid var(--adam-border);margin:1.2rem 0;">
 
-    <h3 style="margin:1.2rem 0 .5rem;">Keamanan</h3>
+    <h3 style="margin:1.2rem 0 .5rem;"><?=_e('Security')?></h3>
 
     <label style="display:flex;align-items:center;gap:8px;margin:.6rem 0;cursor:pointer;">
       <input type="checkbox" name="recaptcha_enabled" value="1" <?= $recaptcha_enabled === '1' ? 'checked' : '' ?>>
-      Aktifkan reCAPTCHA
+      <?=_e('Enable reCAPTCHA')?>
     </label>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
@@ -316,7 +316,7 @@ function auth_path_example(string $path): string {
 
     <hr style="border:none;border-top:1px solid var(--adam-border);margin:1.2rem 0;">
 
-    <h3 style="margin:1.2rem 0 .5rem;">Path Halaman Login &amp; Daftar</h3>
+    <h3 style="margin:1.2rem 0 .5rem;"><?=_e('Login & Register Page Path')?></h3>
 
     <p style="font-size:.85rem;color:var(--adam-muted);margin-bottom:12px;">
       Tentukan URL bebas untuk halaman login dan pendaftaran. Simpan dulu pengaturan
@@ -369,9 +369,9 @@ function auth_path_example(string $path): string {
     </label>
 
     <div style="margin-top:18px;display:flex;gap:10px;align-items:center;">
-      <button type="submit" class="adam-button">Simpan</button>
-      <a class="adam-cancle" href="<?= ADMIN_BASE_PATH ?>/?page=admin/settings/index">Kembali</a>
-      <button type="button" class="adam-cancle" onclick="openAttemptModal()" style="margin-left:auto;">Lihat percobaan login</button>
+      <button type="submit" class="adam-button"><?=_e('Save')?></button>
+      <a class="adam-cancle" href="<?= ADMIN_BASE_PATH ?>/?page=admin/settings/index"><?=_e('Back')?></a>
+      <button type="button" class="adam-cancle" onclick="openAttemptModal()" style="margin-left:auto;"><?=_e('View login attempts')?></button>
     </div>
   </form>
 </section>
@@ -443,7 +443,7 @@ function loadAttempts(page) {
 }
 
 function deleteAttempt(id) {
-  if (!confirm('Hapus data percobaan login ini?')) return;
+  if (!confirm('<?=__('Delete this login attempt data?')?>')) return;
 
   var form = new FormData();
   form.append('action', 'delete_attempt');

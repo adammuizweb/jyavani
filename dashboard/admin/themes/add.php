@@ -115,7 +115,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2>Tambah Theme / Partial</h2>
+  <h2><?=_e('Add Theme / Partial')?></h2>
 
   <form method="post" id="theme-add-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -123,8 +123,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="form-toolbar" style="display:flex;gap:.5rem;margin-bottom:.8rem;">
-      <button type="submit" class="adam-button">💾 Simpan</button>
-      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Batal</a>
+      <button type="submit" class="adam-button">💾 <?=_e('Save')?></button>
+      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
     </div>
 
     <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
@@ -140,7 +140,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
       <div class="adam-accordion-body" id="theme-meta-body">
         <label>
-          Judul<br>
+          <?=_e('Title')?><br>
           <input
             type="text"
             name="title"

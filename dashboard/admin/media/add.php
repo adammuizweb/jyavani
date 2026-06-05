@@ -252,7 +252,7 @@ $hasVisibility = mdlib_has_column('visibility');
         </div>
         <div style="display:flex;gap:6px;align-items:center">
           <button class="edit-btn" type="button">Edit</button>
-          <button class="remove-btn" type="button" title="Hapus dari server">Del</button>
+          <button class="remove-btn" type="button" title="<?=_e('Delete from server')?>">Del</button>
         </div>
       </div>
     `;
@@ -277,7 +277,7 @@ $hasVisibility = mdlib_has_column('visibility');
 
         const ok = await uiAsk('danger', {
           title: <?= json_encode(__('Delete media')) ?>,
-          message: 'Media ini akan dihapus permanen dari server. Lanjutkan?',
+          message: '<?=__('This media will be permanently deleted from the server. Continue?')?>',
           confirmText: <?= json_encode(__('Yes, delete')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         });
@@ -308,7 +308,7 @@ $hasVisibility = mdlib_has_column('visibility');
 
           if (j && j.ok) {
             box.remove();
-            uiToast('success', 'Media', 'Media berhasil dihapus.');
+            uiToast('success', '<?=__('Media')?>', '<?=__('Media deleted successfully.')?>');
             if (j.warning) {
               uiToast('warning', 'Media', j.warning);
             }

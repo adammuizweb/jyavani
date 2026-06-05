@@ -187,7 +187,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/bin/category/index">
 
-    <input type="text" name="q" placeholder="Cari nama/slug..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:220px">
+    <input type="text" name="q" placeholder="<?=_e('Search name/slug...')?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:220px">
 
     <select name="parent" style="padding:.4rem;">
       <option value="0"><?= _e('-- All Parents --') ?></option>
@@ -226,13 +226,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:.4rem;">
-          <input type="checkbox" id="selectAllBinCategory"> Pilih semua di halaman
+          <input type="checkbox" id="selectAllBinCategory"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionBinCategory" name="action" style="padding:.4rem;">
           <option value="">-- Bulk action --</option>
           <option value="restore">Restore</option>
-          <option value="delete_permanent">Hapus Permanen</option>
+          <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -282,7 +282,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                           data-id="<?= (int)$c['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Hapus Permanen
+                    <?=_e('Delete Permanently')?>
                   </button>
                 </td>
               </tr>
@@ -294,7 +294,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     </form>
   <?php else: ?>
     <div style="margin-bottom:1rem;color:var(--adam-muted);">
-      Bulk actions disembunyikan untuk role <strong>author</strong>.
+      <?=_e('Bulk actions hidden for')?> <strong>author</strong> <?=_e('role.')?>
     </div>
 
     <div class="adam-table-wrapper">
@@ -313,7 +313,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </thead>
         <tbody>
         <?php if (empty($cats)): ?>
-          <tr><td colspan="8" style="padding:1rem;">Trash kosong.</td></tr>
+          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
         <?php else: ?>
           <?php foreach ($cats as $c): ?>
             <tr class="adam-row">
@@ -338,7 +338,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$c['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Hapus Permanen
+                  <?=_e('Delete Permanently')?>
                 </button>
               </td>
             </tr>
@@ -421,7 +421,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function checkedCount(){
@@ -444,9 +444,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'warning',
-        title: 'Restore kategori terpilih',
-        message: <?= json_encode(__('')) ?> + count + ' kategori akan direstore dari trash. Parent yang masih trash akan diputus otomatis.',
-        confirmText: 'Ya, restore'
+        title: '<?=__('Restore selected categories')?>',
+        message: count + <?= json_encode(__(' category(ies) will be restored from trash. Parents still in trash will be detached automatically.')) ?>,
+        confirmText: '<?=__('Yes, restore')?>'
       };
     }
 
@@ -454,9 +454,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus permanen kategori',
-        message: <?= json_encode(__('')) ?> + count + ' kategori akan dihapus permanen. Aksi ini akan gagal jika ada kategori yang masih punya subkategori.',
-        confirmText: 'Ya, hapus permanen'
+        title: '<?=__('Delete permanently categories')?>',
+        message: count + <?= json_encode(__(' category(ies) will be permanently deleted. This will fail if any category still has subcategories.')) ?>,
+        confirmText: '<?=__('Yes, delete permanently')?>'
       };
     }
 
@@ -478,13 +478,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-category-restore').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'kategori ini';
+      const title = this.getAttribute('data-title') || '<?=__('this category')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('warning', {
-        title: 'Restore kategori',
-        message: 'Restore kategori "' + title + '"? Jika parent-nya masih trash, parent akan diputus otomatis.',
-        confirmText: 'Ya, restore',
+        title: '<?=__('Restore category')?>',
+        message: '<?=__('Restore category')?> "' + title + '"? <?=__('If its parent is still in trash, it will be detached automatically.')?>',
+        confirmText: '<?=__('Yes, restore')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -499,13 +499,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-category-delete-permanent').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'kategori ini';
+      const title = this.getAttribute('data-title') || '<?=__('this category')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Hapus permanen',
-        message: 'Hapus permanen kategori "' + title + '"? Aksi ini tidak bisa dibatalkan dan akan ditolak jika masih punya subkategori.',
-        confirmText: 'Ya, hapus permanen',
+        title: '<?=__('Delete permanently')?>',
+        message: '<?=__('Permanently delete category')?> "' + title + '"? <?=__('This action cannot be undone and will be rejected if it still has subcategories.')?>',
+        confirmText: '<?=__('Yes, delete permanently')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -537,7 +537,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

@@ -24,19 +24,19 @@ $current_position = function_exists('settings_get')
 
 $controller_contexts = [
     'home'          => 'Homepage',
-    '404'           => '404 Halaman',
-    'search'        => 'Hasil Pencarian',
-    'theme'         => 'Theme Pages',
-    'archive'       => 'Arsip Tanggal',
-    'authors'       => 'Daftar Penulis',
-    'posts'         => 'Posting Penulis',
-    'single.post'   => 'Artikel Detail',
-    'single.page'   => 'Halaman Detail',
-    'list.post'     => 'Daftar Artikel',
-    'list.page'     => 'Daftar Halaman',
-    'list.category' => 'Kategori — Artikel',
-    'list.gallery'  => 'Kategori — Galeri',
-    'index.category'=> 'Indeks Kategori',
+    '404'           => '404 Page',
+    'search'        => 'Search Results',
+    'archive'       => 'Archive',
+    'category'      => 'Category',
+    'tag'           => 'Tag',
+    'author'        => 'Author',
+    'single.article'=> 'Article Detail',
+    'single.page'   => 'Page Detail',
+    'list.article'  => 'Article List',
+    'list.page'     => 'Page List',
+    'list.category' => 'Category — Articles',
+    'list.gallery'  => 'Category — Gallery',
+    'index.category'=> 'Category Index',
     'index.gallery' => 'Indeks Galeri',
 ];
 
@@ -122,7 +122,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
 
   <div style="margin-bottom:20px;">
     <h2 style="margin:0 0 4px;">Sidebar</h2>
-    <div class="muted" style="font-size:13px;">Atur tampilan sidebar website — enable/disable, posisi, dan override per halaman.</div>
+    <div class="muted" style="font-size:13px;"><?=_e('Manage sidebar display — enable/disable, position, and per-page override.')?></div>
   </div>
 
   <?php if ($show_inline_success): ?>
@@ -153,27 +153,27 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
         </div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:14px;">
           <input type="checkbox" name="sidebar_enabled" value="1" <?= $current_enabled === '1' ? 'checked' : '' ?> style="width:17px;height:17px;accent-color:var(--adam-primary);">
-          Aktifkan Sidebar
+          <?=_e('Enable Sidebar')?>
         </label>
-        <div class="muted" style="font-size:12px;margin-top:6px;">Matikan untuk menyembunyikan sidebar di <strong>seluruh</strong> halaman. Prioritas tertinggi, override lain tidak berlaku.</div>
+        <div class="muted" style="font-size:12px;margin-top:6px;"><?=_e('Disable to hide sidebar on <strong>all</strong> pages. Highest priority, other overrides do not apply.')?></div>
       </div>
 
       <div style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);padding:16px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span class="badge" style="background:var(--adam-text-3);color:var(--adam-card);padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;">A</span>
-          <strong style="font-size:14px;">Posisi Default Global</strong>
+          <strong style="font-size:14px;"><?=_e('Global Default Position')?></strong>
         </div>
         <div style="display:flex;gap:18px;">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
             <input type="radio" name="sidebar_position" value="left" <?= $current_position === 'left' ? 'checked' : '' ?> style="accent-color:var(--adam-primary);">
-            Kiri
+            <?=_e('Left')?>
           </label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
             <input type="radio" name="sidebar_position" value="right" <?= $current_position === 'right' ? 'checked' : '' ?> style="accent-color:var(--adam-primary);">
-            Kanan
+            <?=_e('Right')?>
           </label>
         </div>
-        <div class="muted" style="font-size:12px;margin-top:6px;">Posisi default saat tidak ada override dari controller (B) atau konten (C).</div>
+        <div class="muted" style="font-size:12px;margin-top:6px;"><?=_e('Default position when no override from controller (B) or content (C).')?></div>
       </div>
     </div>
 
@@ -183,14 +183,14 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
         <span class="badge" style="background:var(--adam-warning);color:#fff;padding:1px 8px;border-radius:4px;font-size:11px;font-weight:600;">B</span>
         <strong style="font-size:14px;">Override Per Controller</strong>
       </div>
-      <div class="muted" style="font-size:12px;margin-bottom:14px;">Atur posisi atau sembunyikan sidebar untuk jenis halaman tertentu (arsip, kategori, dll). Prioritas lebih rendah dari override per konten (C), tapi lebih tinggi dari posisi default (A).</div>
+      <div class="muted" style="font-size:12px;margin-bottom:14px;"><?=_e('Set position or hide sidebar for specific page types (archive, category, etc.). Lower priority than content override (C), but higher than default position (A).')?></div>
 
       <table class="adam-table" style="width:100%;font-size:13px;">
         <thead>
           <tr>
-            <th style="padding:8px 10px;text-align:left;white-space:nowrap;">Halaman</th>
-            <th style="padding:8px 10px;text-align:left;width:130px;">Posisi</th>
-            <th style="padding:8px 10px;text-align:center;width:80px;">Sembunyikan</th>
+            <th style="padding:8px 10px;text-align:left;white-space:nowrap;"><?=_e('Page')?></th>
+            <th style="padding:8px 10px;text-align:left;width:130px;"><?=_e('Position')?></th>
+            <th style="padding:8px 10px;text-align:center;width:80px;"><?=_e('Hide')?></th>
           </tr>
         </thead>
         <tbody>
@@ -205,8 +205,8 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
               <td style="padding:7px 10px;">
                 <select name="ctx[<?= htmlspecialchars($ctx_key, ENT_QUOTES, 'UTF-8') ?>][position]" style="padding:3px 6px;border:1px solid var(--adam-border-2);border-radius:5px;background:var(--adam-bg);color:var(--adam-text);font-size:12px;width:100%;max-width:120px;">
                   <option value="">— Default —</option>
-                  <option value="left" <?= $ov_position === 'left' ? 'selected' : '' ?>>Kiri</option>
-                  <option value="right" <?= $ov_position === 'right' ? 'selected' : '' ?>>Kanan</option>
+                  <option value="left" <?= $ov_position === 'left' ? 'selected' : '' ?>><?=_e('Left')?></option>
+                  <option value="right" <?= $ov_position === 'right' ? 'selected' : '' ?>><?=_e('Right')?></option>
                 </select>
               </td>
               <td style="padding:7px 10px;text-align:center;">
@@ -219,18 +219,18 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
     </div>
 
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
-      <button type="submit" class="adam-button" style="padding:8px 20px;">Simpan Semua Pengaturan</button>
-      <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/settings/index', ENT_QUOTES, 'UTF-8') ?>">Kembali</a>
+      <button type="submit" class="adam-button" style="padding:8px 20px;"><?=_e('Save All Settings')?></button>
+      <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/settings/index', ENT_QUOTES, 'UTF-8') ?>"><?=_e('Back')?></a>
     </div>
   </form>
 
   <div style="background:var(--adam-surface-3);border-radius:var(--adam-radius);padding:14px 16px;font-size:12px;color:var(--adam-muted);line-height:1.7;">
-    <strong style="font-size:13px;">📋 Prioritas Override (tertinggi → terendah)</strong>
+    <strong style="font-size:13px;">📋 <?=_e('Override Priority (highest → lowest)')?></strong>
     <ol style="margin:6px 0 0;padding-left:20px;">
-      <li><strong>Z — Master</strong> — enable/disable global. Matikan untuk nonaktifkan sidebar di semua halaman.</li>
-      <li><strong>C — Per Konten</strong> — atur posisi atau sembunyikan sidebar untuk artikel/halaman tertentu (dari editor).</li>
-      <li><strong>B — Per Controller</strong> — atur posisi atau sembunyikan per jenis halaman (tabel di atas).</li>
-      <li><strong>A — Global</strong> — posisi default kiri/kanan (dipakai saat tidak ada override lain).</li>
+      <li><strong>Z — <?=_e('Master')?></strong> — <?=_e('global enable/disable. Turn off to disable sidebar on all pages.')?></li>
+      <li><strong>C — <?=_e('Per Content')?></strong> — <?=_e('set position or hide sidebar for specific articles/pages (from editor).')?></li>
+      <li><strong>B — <?=_e('Per Controller')?></strong> — <?=_e('set position or hide per page type (table above).')?></li>
+      <li><strong>A — <?=_e('Global')?></strong> — <?=_e('default left/right position (used when no other override).')?></li>
     </ol>
   </div>
 </div>

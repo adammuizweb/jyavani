@@ -59,7 +59,7 @@ $save_nonce = bin2hex(random_bytes(12));
 $_SESSION['sc_layout_nonce'] = $save_nonce;
 ?>
 <section class="adam-card">
-  <h2><?= $isNew ? 'Tambah Layout Baru' : 'Edit Layout: ' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?></h2>
+  <h2><?= $isNew ? _e('Add New Layout') : _e('Edit Layout:') . ' ' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?></h2>
 
   <form method="post" id="layout-form" action="<?= htmlspecialchars($base . '/admin/shortcodes/save_layout.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -71,18 +71,18 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
     <?php endif; ?>
 
     <div class="form-toolbar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;">
-      <button type="submit" class="adam-button" id="btn-save"><?= $isNew ? '💾 Simpan' : '💾 Simpan Perubahan' ?></button>
-      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Batal</a>
+      <button type="submit" class="adam-button" id="btn-save"><?= $isNew ? '💾 ' . __('Save') : '💾 ' . __('Save Changes') ?></button>
+      <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
     </div>
 
     <?php if ($isNew): ?>
       <div class="adam-accordion" data-open="1">
         <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="layout-meta-body">
-          ⚙️ Pengaturan Layout
+          ⚙️ <?=_e('Layout Settings')?>
           <span class="chevron">▸</span>
         </button>
         <div class="adam-accordion-body" id="layout-meta-body">
-          <label>Nama Layout (slug)<br>
+          <label><?=_e('Layout Name (slug)')?><br>
             <input type="text" name="layout_name" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>" class="inpud" placeholder="my_layout" required>
             <small style="color:var(--adam-muted,#888);">Akan menjadi: <code>views/partials/shortcodes/post_cat/{nama}.php</code></small>
           </label>
@@ -97,7 +97,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
     <?php endif; ?>
 
     <div style="margin-top:.75rem;">
-      <label>Template Konten (HTML + PHP)<br>
+      <label><?=_e('Content Template (HTML + PHP)')?><br>
         <textarea id="cm-textarea" style="width:100%;min-height:70vh;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
         <textarea id="content-textarea" name="content" style="display:none;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
       </label>
@@ -192,7 +192,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = oldLabel || '<?= $isNew ? '💾 Simpan' : '💾 Simpan Perubahan' ?>';
+        btn.textContent = oldLabel || '<?= $isNew ? '💾 ' . __('Save') : '💾 ' . __('Save Changes') ?>';
       }
     }
   }
@@ -203,8 +203,8 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
       syncContent();
       if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
         window.NewNotifConfirm.warning({
-          title: 'Simpan layout',
-          message: 'Perubahan akan disimpan. Lanjutkan?',
+          title: '<?=__('Save layout')?>',
+          message: '<?=__('Changes will be saved. Continue?')?>',
           confirmText: <?= json_encode(__('Yes, save')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
@@ -212,7 +212,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
           submitAjax();
         });
       } else {
-        if (!window.confirm('Simpan perubahan layout ini?')) return;
+        if (!window.confirm('<?=__('Save changes to this layout?')?>')) return;
         submitAjax();
       }
     });

@@ -165,17 +165,17 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
     <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="selectAllBinUsers"> Pilih semua di halaman
+        <input type="checkbox" id="selectAllBinUsers"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkActionBinUsers" name="action" style="padding:.4rem;">
         <option value="">-- Bulk action --</option>
         <option value="restore">Restore</option>
-        <option value="delete_permanent">Hapus Permanen</option>
+        <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
       </select>
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <small style="color:var(--adam-muted);">Bulk mempengaruhi user yang dicentang.</small>
+      <small style="color:var(--adam-muted);"><?= _e('Bulk affects checked users.') ?></small>
     </div>
 
     <div class="adam-table-wrapper">
@@ -189,13 +189,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             <th>Role</th>
             <th>Status</th>
             <th>Phone</th>
-            <th>Dihapus</th>
+            <th><?= _e('Deleted') ?></th>
             <th><?= _e('Actions') ?></th>
           </tr>
         </thead>
         <tbody>
         <?php if (empty($users)): ?>
-          <tr><td colspan="9" style="padding:1rem;">Trash user kosong.</td></tr>
+          <tr><td colspan="9" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
         <?php else: ?>
           <?php foreach ($users as $u): ?>
             <?php
@@ -260,7 +260,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$u['id'] ?>"
                         data-title="<?= htmlspecialchars($labelName, ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Hapus Permanen
+                  <?=_e('Delete Permanently')?>
                 </button>
               </td>
             </tr>
@@ -343,7 +343,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function checkedCount(){
@@ -366,9 +366,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'warning',
-        title: 'Restore user terpilih',
-        message: <?= json_encode(__('')) ?> + count + ' user akan direstore dari trash. Lanjutkan?',
-        confirmText: 'Ya, restore'
+        title: '<?=__('Restore selected users')?>',
+        message: count + <?= json_encode(__(' user(s) will be restored from trash. Continue?')) ?>,
+        confirmText: '<?=__('Yes, restore')?>'
       };
     }
 
@@ -376,9 +376,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus permanen user',
-        message: <?= json_encode(__('')) ?> + count + ' user akan dihapus permanen. Aksi ini tidak bisa dibatalkan.',
-        confirmText: 'Ya, hapus permanen'
+        title: '<?=__('Delete permanently users')?>',
+        message: count + <?= json_encode(__(' user(s) will be permanently deleted. This action cannot be undone.')) ?>,
+        confirmText: '<?=__('Yes, delete permanently')?>'
       };
     }
 
@@ -400,13 +400,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-user-restore').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'user ini';
+      const title = this.getAttribute('data-title') || '<?=__('this user')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('warning', {
-        title: 'Restore user',
-        message: 'Restore user "' + title + '" dari trash?',
-        confirmText: 'Ya, restore',
+        title: '<?=__('Restore user')?>',
+        message: '<?=__('Restore user')?> "' + title + '" <?=__('from trash?')?>',
+        confirmText: '<?=__('Yes, restore')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -421,13 +421,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-user-delete-permanent').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'user ini';
+      const title = this.getAttribute('data-title') || '<?=__('this user')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Hapus permanen',
-        message: 'Hapus permanen user "' + title + '"? Aksi ini tidak bisa dibatalkan.',
-        confirmText: 'Ya, hapus permanen',
+        title: '<?=__('Delete permanently')?>',
+        message: '<?=__('Delete permanently user')?> "' + title + '"? <?=__('This action cannot be undone.')?>',
+        confirmText: '<?=__('Yes, delete permanently')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -459,7 +459,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

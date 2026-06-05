@@ -126,7 +126,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/bin/theme/index">
 
-    <input type="text" name="q" placeholder="Cari title atau slug..."
+    <input type="text" name="q" placeholder="<?=_e('Search title or slug...')?>"
       value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
       style="padding:.4rem;min-width:220px">
 
@@ -152,13 +152,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:.4rem;">
-          <input type="checkbox" id="selectAllBinTheme"> Pilih semua di halaman
+          <input type="checkbox" id="selectAllBinTheme"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionBinTheme" name="action" style="padding:.4rem;">
           <option value="">-- Bulk action --</option>
           <option value="restore">Restore</option>
-          <option value="delete_permanent">Hapus Permanen</option>
+        <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -244,7 +244,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Hapus Permanen
+                    <?=_e('Delete Permanently')?>
                   </button>
                 </td>
               </tr>
@@ -256,7 +256,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     </form>
   <?php else: ?>
     <div style="margin-bottom:1rem;color:var(--adam-muted);">
-      Bulk actions disembunyikan untuk role <strong>author</strong>.
+      <?=_e('Bulk actions hidden for')?> <strong>author</strong> <?=_e('role.')?>
     </div>
 
     <div class="adam-table-wrapper">
@@ -275,7 +275,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </thead>
         <tbody>
         <?php if (empty($themes)): ?>
-          <tr><td colspan="8" style="padding:1rem;">Trash kosong.</td></tr>
+          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
         <?php else: ?>
           <?php foreach ($themes as $t): ?>
             <?php
@@ -336,7 +336,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$t['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Hapus Permanen
+                  <?=_e('Delete Permanently')?>
                 </button>
               </td>
             </tr>
@@ -419,7 +419,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function checkedCount(){
@@ -435,16 +435,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu theme.' };
+      return { ok:false, message:'<?=__('Select at least one theme.')?>' };
     }
 
     if (action === 'restore') {
       return {
         ok: true,
         variant: 'warning',
-        title: 'Restore theme terpilih',
-        message: <?= json_encode(__('')) ?> + count + ' theme akan direstore dari trash. Lanjutkan?',
-        confirmText: 'Ya, restore'
+        title: '<?=__('Restore selected themes')?>',
+        message: count + <?= json_encode(__(' theme(s) will be restored from trash. Continue?')) ?>,
+        confirmText: '<?=__('Yes, restore')?>'
       };
     }
 
@@ -452,9 +452,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus permanen theme',
-        message: <?= json_encode(__('')) ?> + count + ' theme akan dihapus permanen. Aksi ini tidak bisa dibatalkan.',
-        confirmText: 'Ya, hapus permanen'
+        title: '<?=__('Delete permanently themes')?>',
+        message: count + <?= json_encode(__(' theme(s) will be permanently deleted. This action cannot be undone.')) ?>,
+        confirmText: '<?=__('Yes, delete permanently')?>'
       };
     }
 
@@ -476,13 +476,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-theme-restore').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'theme ini';
+      const title = this.getAttribute('data-title') || '<?=__('this theme')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('warning', {
-        title: 'Restore theme partial',
-        message: 'Restore "' + title + '" dari trash?',
-        confirmText: 'Ya, restore',
+        title: '<?=__('Restore theme')?>',
+        message: '<?=__('Restore')?> "' + title + '" <?=__('from trash?')?>',
+        confirmText: '<?=__('Yes, restore')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -497,13 +497,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-theme-delete-permanent').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'theme ini';
+      const title = this.getAttribute('data-title') || '<?=__('this theme')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Hapus permanen',
-        message: 'Hapus permanen "' + title + '"? Aksi ini tidak bisa dibatalkan.',
-        confirmText: 'Ya, hapus permanen',
+        title: '<?=__('Delete permanently')?>',
+        message: '<?=__('Delete permanently')?> "' + title + '"? <?=__('This action cannot be undone.')?>',
+        confirmText: '<?=__('Yes, delete permanently')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -535,7 +535,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

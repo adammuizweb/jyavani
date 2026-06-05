@@ -143,19 +143,19 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="page-meta-body">
-        ⚙️ Pengaturan Halaman
+        ⚙️ <?=_e('Page Settings')?>
         <span class="chevron">▸</span>
       </button>
 
       <div class="adam-accordion-body" id="page-meta-body">
-        <label>Judul<br>
+        <label><?=_e('Title')?><br>
           <input type="text"
                  name="title"
                  value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"
                  class="inpud">
         </label>
 
-        <label style="display:block;margin-top:.6rem">Slug (opsional)<br>
+        <label style="display:block;margin-top:.6rem"><?=_e('Slug (optional)')?><br>
           <input type="text"
                  name="slug"
                  value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
@@ -163,7 +163,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
         </label>
 
         <label style="display:block;margin-top:.6rem">
-          Thumbnail (URL) atau pilih dari Media<br>
+          <?=_e('Thumbnail (URL) or select from Media')?><br>
           <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
             <input type="text"
                    id="thumbnail-input"
@@ -195,7 +195,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
     </div>
 
     <label style="display:block;margin-top:.6rem">
-      Pilih Editor<br>
+      <?=_e('Select Editor')?><br>
       <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
         <label>
           <input type="radio"
@@ -266,7 +266,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                name="created_at"
                value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>"
                style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <div style="font-size:12px;color:#666;margin-top:4px">Kosongkan untuk mempertahankan nilai semula (<?= htmlspecialchars((string)$post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
+        <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars((string)$post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
       </label>
 
       <label style="display:block;margin-top:.6rem">
@@ -291,18 +291,18 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
     }
     ?>
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 Posisi Sidebar</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
         <option value=""><?= _e('Default (follow global hierarchy)') ?></option>
-        <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>>Kanan</option>
-        <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>>Kiri</option>
-        <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>>Sembunyikan</option>
+        <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>><?=_e('Right')?></option>
+        <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>><?=_e('Left')?></option>
+        <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>><?=_e('Hide')?></option>
       </select>
     </div>
 
     <p style="margin-top:.8rem">
       <button type="submit" class="adam-button" id="btn-save"><?= _e('Save Changes') ?></button>
-      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">Batal</a>
+      <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Cancel')?></a>
     </p>
   </form>
 </section>
@@ -347,7 +347,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Proceed with this action?')?>'));
   }
 
   function currentEditorMode(){
@@ -429,14 +429,14 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
         return;
       }
 
-      notify('success', data.message || 'Perubahan berhasil disimpan.', 'Berhasil');
+      notify('success', data.message || '<?=__('Changes saved successfully.')?>', '<?=__('Success')?>');
 
     } catch (err) {
-      notify('error', 'Terjadi gangguan jaringan saat menyimpan.', 'Jaringan');
+      notify('error', '<?=__('Network error while saving.')?>', '<?=__('Network')?>');
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = oldLabel || 'Simpan Perubahan';
+        saveBtn.textContent = oldLabel || '<?=__('Save Changes')?>';
       }
     }
   }

@@ -44,25 +44,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     // Validate upload
     if ($file['error'] !== UPLOAD_ERR_OK) {
         $uploadErrors = [
-            UPLOAD_ERR_INI_SIZE   => 'File melebihi upload_max_filesize di php.ini.',
-            UPLOAD_ERR_FORM_SIZE  => 'File melebihi MAX_FILE_SIZE yang ditentukan.',
-            UPLOAD_ERR_PARTIAL    => 'File hanya terupload sebagian.',
-            UPLOAD_ERR_NO_FILE    => 'Tidak ada file yang dipilih.',
-            UPLOAD_ERR_NO_TMP_DIR => 'Folder temporary tidak ditemukan.',
-            UPLOAD_ERR_CANT_WRITE => 'Gagal menulis file ke disk.',
+            UPLOAD_ERR_INI_SIZE   => __('File exceeds upload_max_filesize in php.ini.'),
+            UPLOAD_ERR_FORM_SIZE  => __('File exceeds the specified MAX_FILE_SIZE.'),
+            UPLOAD_ERR_PARTIAL    => __('File was only partially uploaded.'),
+            UPLOAD_ERR_NO_FILE    => __('No file was selected.'),
+            UPLOAD_ERR_NO_TMP_DIR => __('Temporary folder not found.'),
+            UPLOAD_ERR_CANT_WRITE => __('Failed to write file to disk.'),
         ];
         $msg = $uploadErrors[$file['error']] ?? 'Unknown upload error.';
         adiwira_redirect_with_flash($selfUrl, 'error', $msg);
     }
 
     if ($file['size'] > $maxSize) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('File terlalu besar. Maksimal 50MB.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('File is too large. Maximum 50MB.'));
     }
 
     // Validate MIME / extension
     $origName = basename($file['name']);
     if (!str_ends_with(strtolower($origName), '.zip')) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Hanya file .zip yang didukung.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Only .zip files are supported.'));
     }
 
     $zipPath = $file['tmp_name'];
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $zip = new ZipArchive();
     $open = $zip->open($zipPath);
     if ($open !== true) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal membuka file ZIP (kode: ' . $open . ').');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to open ZIP file') . ' (code: ' . $open . ').');
     }
 
     // Read plugin.json from zip to validate
@@ -92,14 +92,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     // Sanitize plugin name: only alphanumeric, dash, underscore
     if (!preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
         $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Nama plugin hanya boleh huruf, angka, dash dan underscore.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin name can only contain letters, numbers, dashes and underscores.'));
     }
 
     // Check if already exists
     $pluginDir = PLUGIN_PATH . '/' . $pluginName;
     if (is_dir($pluginDir)) {
         $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Plugin "' . htmlspecialchars($pluginName) . '" sudah ada. Hapus atau rename dulu.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already exists. Delete or rename first.') . ' "' . htmlspecialchars($pluginName) . '"');
     }
 
     // Extract to temp dir first
@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     // Move to plugins/{name}/
     if (!rename($tmpExtract, $pluginDir)) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Gagal memindahkan plugin ke ' . htmlspecialchars($pluginDir) . '.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to move plugin to') . ' ' . htmlspecialchars($pluginDir) . '.');
     }
 
     // Set permissions so www-data (PHP-FPM) can manage plugin files
@@ -188,17 +188,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
             }
         }
         if ($copied > 0) {
-            $flashMessages[] = $copied . ' file static disalin.';
+            $flashMessages[] = $copied . ' ' . __('static files copied.');
         }
         if ($failed > 0) {
-            $flashMessages[] = $failed . ' file static gagal disalin.';
+            $flashMessages[] = $failed . ' ' . __('static files failed to copy.');
         }
     }
 
     // --- Enable plugin ---
     if (function_exists('plugin_enable')) {
         plugin_enable($pluginName);
-        $flashMessages[] = 'Plugin "' . htmlspecialchars($manifest['title'] ?? $pluginName) . '" diaktifkan.';
+        $flashMessages[] = __('Plugin activated.') . ' "' . htmlspecialchars($manifest['title'] ?? $pluginName) . '"';
     }
 
     $finalMsg = implode(' ', $flashMessages);
@@ -207,7 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
 
 ?>
 <h2 class="pg-title">Upload Plugin</h2>
-<p class="pg-subtitle">Upload file <code>.zip</code> plugin yang valid (wajib memiliki <code>plugin.json</code> di root).</p>
+<p class="pg-subtitle"><?=_e('Upload a valid plugin')?> <code>.zip</code> <?=_e('file (must have')?> <code>plugin.json</code> <?=_e('in root).')?></p>
 
 <?php if ($error): ?>
 <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
@@ -224,19 +224,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
                 <line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
         </div>
-        <p class="drop-zone-text">Seret file .zip ke sini atau klik untuk pilih</p>
-        <p class="drop-zone-hint">Maksimal 50MB. Plugin harus memiliki <code>plugin.json</code>.</p>
+        <p class="drop-zone-text"><?=_e('Drag .zip file here or click to select')?></p>
+        <p class="drop-zone-hint"><?=_e('Maximum 50MB. Plugin must have')?> <code>plugin.json</code>.</p>
         <input type="file" name="plugin_zip" id="fileInput" accept=".zip" class="file-input" required>
     </div>
 
     <div id="fileInfo" class="file-info" style="display:none">
         <span id="fileName"></span>
-        <button type="button" id="removeFile" class="btn btn-sm btn-outline">Hapus</button>
+        <button type="button" id="removeFile" class="btn btn-sm btn-outline"><?=_e('Delete')?></button>
     </div>
 
     <div class="form-actions">
-        <a href="<?= htmlspecialchars($listUrl) ?>" class="btn btn-outline">Kembali</a>
-        <button type="submit" class="btn btn-primary" id="submitBtn">Upload Plugin</button>
+        <a href="<?= htmlspecialchars($listUrl) ?>" class="btn btn-outline"><?=_e('Back')?></a>
+        <button type="submit" class="btn btn-primary" id="submitBtn"><?=_e('Upload Plugin')?></button>
     </div>
 </form>
 
@@ -326,7 +326,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     // Form submit loading state
     document.querySelector('.upload-form').addEventListener('submit', function() {
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Mengupload...';
+        submitBtn.textContent = '<?=__('Uploading...')?>';
     });
 
     hideFile();

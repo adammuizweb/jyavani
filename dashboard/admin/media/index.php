@@ -257,7 +257,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       const ok = await uiAsk('warning', {
         title: <?= json_encode(__('Save media changes')) ?>,
-        message: 'Perubahan metadata media akan disimpan. Lanjutkan?',
+        message: '<?=__('Media metadata changes will be saved. Continue?')?>',
         confirmText: <?= json_encode(__('Yes, save')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });

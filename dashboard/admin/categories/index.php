@@ -317,7 +317,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   </form>
 
   <p style="margin-bottom:1rem">
-    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>">+ Tambah Kategori</a>
+    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Category')?></a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
       <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
@@ -333,7 +333,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:.4rem;">
-          <input type="checkbox" id="selectAllCategories"> Pilih semua di halaman
+          <input type="checkbox" id="selectAllCategories"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionCategories" name="action" style="padding:.4rem;">
@@ -427,7 +427,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                           data-id="<?= $catId ?>"
                           data-name="<?= htmlspecialchars((string)($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Hapus
+                    <?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>
@@ -502,120 +502,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
-  }
-
-  function toggleBulkExtras(){
-    const v = bulkAction ? bulkAction.value : '';
-    if (bulkParent) bulkParent.style.display = (v === 'change_parent') ? 'inline-block' : 'none';
-  }
-
-  function checkedCount(){
-    return document.querySelectorAll('.bulkCheckboxCategory:checked').length;
-  }
-
-  function getBulkSummary(){
-    const action = bulkAction ? bulkAction.value : '';
-    const count = checkedCount();
-
-    if (!action) return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
-    if (count < 1) return { ok:false, message: <?= json_encode(__('Select at least one category.')) ?> };
-
-    if (action === 'delete') {
-      return {
-        ok:true,
-        variant:'danger',
-        title: <?= json_encode(__('Delete selected categories')) ?>,
-        message: <?= json_encode(__('')) ?> + count + ' kategori akan dipindahkan ke trash. Kategori parent yang masih punya subkategori aktif akan gagal. Lanjutkan?',
-        confirmText: <?= json_encode(__('Yes, delete')) ?>
-      };
-    }
-
-    if (action === 'change_parent') {
-      const v = bulkParent ? bulkParent.value : '';
-      if (v === '') {
-        return { ok:false, message: <?= json_encode(__('Select parent (or choose No Parent).')) ?> };
-      }
-
-      let label = '(Tanpa Parent)';
-      if (v !== '0' && bulkParent && bulkParent.selectedIndex >= 0) {
-        label = bulkParent.options[bulkParent.selectedIndex].textContent || '';
-      }
-
-      return {
-        ok:true,
-        variant:'warning',
-        title: <?= json_encode(__('Change category parent')) ?>,
-        message: <?= json_encode(__('Change parent for ')) ?> + count + ' kategori menjadi "' + label + '"?',
-        confirmText: <?= json_encode(__('Yes, change')) ?>
-      };
-    }
-
-    return {
-      ok:true,
-      variant:'warning',
-      title: <?= json_encode(__('Confirm bulk action')) ?>,
-      message: <?= json_encode(__('Execute action for ')) ?> + count + ' kategori?',
-      confirmText: <?= json_encode(__('Proceed')) ?>
-    };
-  }
-
-  if (selectAll) {
-    selectAll.addEventListener('change', function(){
-      const checked = !!this.checked;
-      document.querySelectorAll('.bulkCheckboxCategory').forEach(function(cb){
-        cb.checked = checked;
-      });
-    });
-  }
-
-  if (bulkAction) {
-    bulkAction.addEventListener('change', toggleBulkExtras);
-    toggleBulkExtras();
-  }
-
-  document.querySelectorAll('.js-category-delete').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      const id = this.getAttribute('data-id') || '';
-      const name = this.getAttribute('data-name') || 'kategori ini';
-      const returnTo = this.getAttribute('data-return-to') || '';
-
-      ask('danger', {
-        title: <?= json_encode(__('Delete confirmation')) ?>,
-        message: <?= json_encode(__('Delete category "')) ?> + name + '"? Kategori yang punya subkategori aktif tidak bisa dihapus.',
-        confirmText: <?= json_encode(__('Yes, delete')) ?>,
-        cancelText: <?= json_encode(__('Cancel')) ?>
-      }).then(function(ok){
-        if (!ok) return;
-        if (!deleteForm || !deleteIdInput) return;
-        deleteIdInput.value = id;
-        if (deleteReturnTo) deleteReturnTo.value = returnTo;
-        deleteForm.submit();
-      });
-    });
-  });
-
-  if (bulkForm) {
-    let bulkConfirmed = false;
-
-    bulkForm.addEventListener('submit', function(ev){
-      if (bulkConfirmed) {
-        bulkConfirmed = false;
-        return;
-      }
-
-      ev.preventDefault();
-      const summary = getBulkSummary();
-
-      if (!summary.ok) {
-        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
-        return;
-      }
-
-      ask(summary.variant || 'warning', {
-        title: summary.title,
-        message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
+...
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

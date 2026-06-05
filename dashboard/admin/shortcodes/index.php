@@ -54,7 +54,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
 <?php if ($tab === 'presets'): ?>
   <p style="margin-bottom:1rem">
-    <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/edit') ?>">+ Tambah Preset</a>
+    <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/edit') ?>"><?=_e('+ Add Preset')?></a>
     <?php if ($isAdmin): ?>
       &nbsp;&nbsp;
       <a class="adam-att" href="<?= h($base . '/?page=admin/bin/index') ?>">🗑️ Trash</a>
@@ -65,7 +65,7 @@ if ($layoutDir && is_dir($layoutDir)) {
     <table class="adam-table">
       <thead>
         <tr>
-          <th>Nama Preset</th>
+          <th><?=_e('Preset Name')?></th>
           <th>Widget Name</th>
           <th>Status</th>
           <th><?= _e('Created') ?></th>
@@ -74,7 +74,7 @@ if ($layoutDir && is_dir($layoutDir)) {
       </thead>
       <tbody>
         <?php if (empty($presets)): ?>
-          <tr><td colspan="5" style="padding:1rem;">Belum ada preset. <a href="<?= h($base . '/?page=admin/shortcodes/edit') ?>">Buat sekarang</a>.</td></tr>
+          <tr><td colspan="5" style="padding:1rem;"><?=_e('No presets yet.')?> <a href="<?= h($base . '/?page=admin/shortcodes/edit') ?>"><?=_e('Create one now')?></a>.</td></tr>
         <?php else: ?>
           <?php foreach ($presets as $p): ?>
             <?php
@@ -90,7 +90,7 @@ if ($layoutDir && is_dir($layoutDir)) {
               <td>
                 <a class="adam-ubah" href="<?= h($editHref) ?>">Edit</a>
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
-                <button type="button" class="adam-hapus js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>">Hapus</button>
+                <button type="button" class="adam-hapus js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>"><?=_e('Delete')?></button>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -107,22 +107,22 @@ if ($layoutDir && is_dir($layoutDir)) {
 
 <?php elseif ($tab === 'layouts'): ?>
   <p style="margin-bottom:1rem">
-    <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/layout') ?>">+ Tambah Layout</a>
+    <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/layout') ?>"><?=_e('+ Add Layout')?></a>
   </p>
 
   <div class="adam-table-wrapper">
     <table class="adam-table">
       <thead>
         <tr>
-          <th>Nama File</th>
-          <th>Layout Name</th>
-          <th>Ukuran</th>
+          <th><?=_e('File Name')?></th>
+          <th><?=_e('Layout Name')?></th>
+          <th><?=_e('Size')?></th>
           <th style="width:140px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($layoutFiles)): ?>
-          <tr><td colspan="4" style="padding:1rem;">Belum ada layout template. <a href="<?= h($base . '/?page=admin/shortcodes/layout') ?>">Buat sekarang</a>.</td></tr>
+          <tr><td colspan="4" style="padding:1rem;"><?=_e('No layout templates yet.')?> <a href="<?= h($base . '/?page=admin/shortcodes/layout') ?>"><?=_e('Create one now')?></a>.</td></tr>
         <?php else: ?>
           <?php foreach ($layoutFiles as $f):
             $layoutName = pathinfo($f, PATHINFO_FILENAME);
@@ -139,7 +139,7 @@ if ($layoutDir && is_dir($layoutDir)) {
                 <a class="adam-ubah" href="<?= h($editHref) ?>">Edit</a>
                 <?php if (!in_array($layoutName, ['cards', 'list', 'card2', 'sliderpage'], true)): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
-                  <button type="button" class="adam-hapus js-layout-delete" data-file="<?= h($f) ?>" data-name="<?= h($layoutName) ?>">Hapus</button>
+                  <button type="button" class="adam-hapus js-layout-delete" data-file="<?= h($f) ?>" data-name="<?= h($layoutName) ?>"><?=_e('Delete')?></button>
                 <?php endif; ?>
               </td>
             </tr>
@@ -166,7 +166,7 @@ if ($layoutDir && is_dir($layoutDir)) {
       if (typeof window.NewNotifConfirm.warning === 'function')
         return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue?')?>'));
   }
 
   var deleteForm = document.getElementById('preset-delete-form');
@@ -174,10 +174,10 @@ if ($layoutDir && is_dir($layoutDir)) {
     document.querySelectorAll('.js-preset-delete').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = this.getAttribute('data-id') || '';
-        var title = this.getAttribute('data-title') || 'preset ini';
+        var title = this.getAttribute('data-title') || '<?=__('this preset')?>';
         ask('danger', {
-          title: 'Hapus preset',
-          message: 'Hapus preset "' + title + '"? Item akan dipindahkan ke trash.',
+          title: '<?=__('Delete preset')?>',
+          message: '<?=__('Delete preset')?> "' + title + '"? <?=__('Item will be moved to trash.')?>',
           confirmText: <?= json_encode(__('Yes, delete')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
@@ -194,10 +194,10 @@ if ($layoutDir && is_dir($layoutDir)) {
     document.querySelectorAll('.js-layout-delete').forEach(function(btn){
       btn.addEventListener('click', function(){
         var file = this.getAttribute('data-file') || '';
-        var name = this.getAttribute('data-name') || 'layout ini';
+        var name = this.getAttribute('data-name') || '<?=__('this layout')?>';
         ask('danger', {
-          title: 'Hapus layout',
-          message: 'Hapus file layout "' + name + '"? File akan dihapus permanen.',
+          title: '<?=__('Delete layout')?>',
+          message: '<?=__('Delete layout file')?> "' + name + '"? <?=__('File will be permanently deleted.')?>',
           confirmText: <?= json_encode(__('Yes, delete')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){

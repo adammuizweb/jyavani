@@ -187,13 +187,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;">
         <label style="display:flex;align-items:center;gap:.4rem;">
-          <input type="checkbox" id="selectAllBinPage"> Pilih semua di halaman
+          <input type="checkbox" id="selectAllBinPage"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionBinPage" name="action" style="padding:.4rem;">
           <option value="">-- Bulk action --</option>
           <option value="restore">Restore</option>
-          <option value="delete_permanent">Hapus Permanen</option>
+          <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -216,88 +216,88 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           </thead>
           <tbody>
           <?php if (empty($rows)): ?>
-            <tr><td colspan="8" style="padding:1rem;">Trash kosong.</td></tr>
-          <?php else: ?>
-            <?php foreach ($rows as $p): ?>
-              <?php
-                $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
-                $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
+          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
+        <?php else: ?>
+          <?php foreach ($rows as $p): ?>
+            <?php
+              $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
+              $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
 
-                $icons = [
-                  'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-                  'draft'     => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-                  'private'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-                  'unknown'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9a2.5 2.5 0 1 1 5 1c0 1.5-1.5 1.75-1.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor"/></svg>',
-                ];
-                $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
-              ?>
-              <tr class="adam-row">
-                <td style="text-align:center;">
-                  <input type="checkbox" class="bulkCheckboxBinPage" name="ids[]" value="<?= (int)$p['id'] ?>">
-                </td>
+              $icons = [
+                'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+                'draft'     => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+                'private'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+                'unknown'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9a2.5 2.5 0 1 1 5 1c0 1.5-1.5 1.75-1.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor"/></svg>',
+              ];
+              $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
+            ?>
+            <tr class="adam-row">
+              <td style="text-align:center;">
+                <input type="checkbox" class="bulkCheckboxBinPage" name="ids[]" value="<?= (int)$p['id'] ?>">
+              </td>
 
-                <td>
-                  <div style="font-weight:600;">
-                    <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
-                  </div>
-                </td>
+              <td>
+                <div style="font-weight:600;">
+                  <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                </div>
+              </td>
 
-                <td><?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
 
-                <td>
-                  <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
-                        role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
-                    <span class="adam-status-icon"><?= $iconSvg ?></span>
-                    <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
-                  </span>
-                </td>
+              <td>
+                <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
+                      role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
+                  <span class="adam-status-icon"><?= $iconSvg ?></span>
+                  <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
+                </span>
+              </td>
 
-                <td><?= htmlspecialchars(!empty($p['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars(!empty($p['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
 
-                <td><?= htmlspecialchars(!empty($p['created_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['created_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
+              <td><?= htmlspecialchars(!empty($p['created_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['created_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
 
-                <td>
-                  <?php
-                    $authorName = $p['author_name'] ?? '-';
-                    $authorUsername = trim((string)($p['author_username'] ?? ''));
-                    if ($authorUsername !== '') {
-                      $authorHref = '/author/' . rawurlencode($authorUsername) . '/';
-                      echo '<a class="adam-penulis" href="' . htmlspecialchars($authorHref, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8') . '</a>';
-                    } else {
-                      echo htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8');
-                    }
-                  ?>
-                </td>
+              <td>
+                <?php
+                  $authorName = $p['author_name'] ?? '-';
+                  $authorUsername = trim((string)($p['author_username'] ?? ''));
+                  if ($authorUsername !== '') {
+                    $authorHref = '/author/' . rawurlencode($authorUsername) . '/';
+                    echo '<a class="adam-penulis" href="' . htmlspecialchars($authorHref, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8') . '</a>';
+                  } else {
+                    echo htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8');
+                  }
+                ?>
+              </td>
 
-                <td>
-                  <button type="button"
-                          class="adam-link-button js-bin-page-restore"
-                          data-id="<?= (int)$p['id'] ?>"
-                          data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                          data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Restore
-                  </button>
+              <td>
+                <button type="button"
+                        class="adam-link-button js-bin-page-restore"
+                        data-id="<?= (int)$p['id'] ?>"
+                        data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                  Restore
+                </button>
 
-                  &nbsp;<span class="muted-divider">|</span>&nbsp;
+                &nbsp;<span class="muted-divider">|</span>&nbsp;
 
-                  <button type="button"
-                          class="adam-link-button js-bin-page-delete-permanent"
-                          data-id="<?= (int)$p['id'] ?>"
-                          data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                          data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Hapus Permanen
-                  </button>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          <?php endif; ?>
-          </tbody>
-        </table>
-      </div>
-    </form>
-  <?php else: ?>
+                <button type="button"
+                        class="adam-link-button js-bin-page-delete-permanent"
+                        data-id="<?= (int)$p['id'] ?>"
+                        data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                  <?=_e('Delete Permanently')?>
+                </button>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+        </tbody>
+      </table>
+    </div>
+  </form>
+<?php else: ?>
     <div style="margin-bottom:1rem;color:var(--adam-muted);">
-      Bulk actions disembunyikan untuk role <strong>author</strong>.
+      <?=_e('Bulk actions hidden for')?> <strong>author</strong> <?=_e('role.')?>
     </div>
 
     <div class="adam-table-wrapper">
@@ -316,7 +316,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </thead>
         <tbody>
         <?php if (empty($rows)): ?>
-          <tr><td colspan="8" style="padding:1rem;">Trash kosong.</td></tr>
+          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
         <?php else: ?>
           <?php foreach ($rows as $p): ?>
             <?php
@@ -383,7 +383,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Hapus Permanen
+                  <?=_e('Delete Permanently')?>
                 </button>
               </td>
             </tr>
@@ -466,7 +466,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function checkedCount(){
@@ -482,16 +482,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu page.' };
+      return { ok:false, message:'<?=__('Select at least one page.')?>' };
     }
 
     if (action === 'restore') {
       return {
         ok: true,
         variant: 'warning',
-        title: 'Restore page terpilih',
-        message: <?= json_encode(__('')) ?> + count + ' page akan direstore dari trash. Lanjutkan?',
-        confirmText: 'Ya, restore'
+        title: '<?=__('Restore selected pages')?>',
+        message: count + <?= json_encode(__(' page(s) will be restored from trash. Continue?')) ?>,
+        confirmText: '<?=__('Yes, restore')?>'
       };
     }
 
@@ -499,9 +499,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus permanen page',
-        message: <?= json_encode(__('')) ?> + count + ' page akan dihapus permanen. Aksi ini tidak bisa dibatalkan.',
-        confirmText: 'Ya, hapus permanen'
+        title: '<?=__('Delete permanently pages')?>',
+        message: count + <?= json_encode(__(' page(s) will be permanently deleted. This action cannot be undone.')) ?>,
+        confirmText: '<?=__('Yes, delete permanently')?>'
       };
     }
 
@@ -523,13 +523,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-page-restore').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'page ini';
+      const title = this.getAttribute('data-title') || '<?=__('this page')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('warning', {
-        title: 'Restore page',
-        message: 'Restore page "' + title + '" dari trash?',
-        confirmText: 'Ya, restore',
+        title: '<?=__('Restore page')?>',
+        message: '<?=__('Restore page')?> "' + title + '" <?=__('from trash?')?>',
+        confirmText: '<?=__('Yes, restore')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -544,13 +544,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-page-delete-permanent').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'page ini';
+      const title = this.getAttribute('data-title') || '<?=__('this page')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Hapus permanen',
-        message: 'Hapus permanen page "' + title + '"? Aksi ini tidak bisa dibatalkan.',
-        confirmText: 'Ya, hapus permanen',
+        title: '<?=__('Delete permanently')?>',
+        message: '<?=__('Delete permanently page')?> "' + title + '"? <?=__('This action cannot be undone.')?>',
+        confirmText: '<?=__('Yes, delete permanently')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -582,7 +582,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

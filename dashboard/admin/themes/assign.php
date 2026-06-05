@@ -160,24 +160,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($action === 'register_themes') {
                 $registered = register_all_themes_from_fs($pdo);
                 if (!empty($registered)) {
-                    $messages[] = 'Scan theme selesai. Ditemukan: ' . implode(', ', $registered);
+                    $messages[] = __('Scan complete. Found: ') . implode(', ', $registered);
                 } else {
-                    $messages[] = 'Scan theme selesai. Tidak ada folder baru atau VIEWS_BASE kosong.';
+                    $messages[] = __('Scan complete. No new folders or VIEWS_BASE is empty.');
                 }
 
             } elseif ($action === 'activate_theme') {
                 $folder = trim((string)($_POST['theme_folder'] ?? ''));
-                if ($folder === '') throw new RuntimeException('Folder theme tidak disebutkan.');
+                if ($folder === '') throw new RuntimeException(__('Theme folder not specified.'));
 
                 set_site_active_theme($pdo, $folder);
-                $messages[] = "Theme aktif diubah ke: {$folder}";
+                $messages[] = __('Active theme changed to: ') . $folder;
 
                 try {
                     $ok = bulk_assign_theme($pdo, $folder, null, $user_id);
                     if ($ok) {
-                        $messages[] = "Theme '{$folder}' juga diterapkan ke semua slot.";
+                        $messages[] = __("Theme '{$folder}' also applied to all slots.");
                     } else {
-                        $errors[] = __('Gagal menerapkan theme ke semua slot setelah aktivasi.');
+                        $errors[] = __('Failed to apply theme to all slots after activation.');
                     }
                 } catch (Throwable $e) {
                     $errors[] = 'Error saat menerapkan theme ke semua slot: ' . $e->getMessage();
@@ -186,13 +186,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
             } elseif ($action === 'apply_theme') {
                 $folder = trim((string)($_POST['theme_folder'] ?? ''));
-                if ($folder === '') throw new RuntimeException('Folder theme tidak disebutkan.');
+                if ($folder === '') throw new RuntimeException(__('Theme folder not specified.'));
 
                 $ok = bulk_assign_theme($pdo, $folder, null, $user_id);
                 if ($ok) {
-                    $messages[] = "Theme '{$folder}' berhasil diterapkan ke semua slot.";
+                    $messages[] = __("Theme '{$folder}' successfully applied to all slots.");
                 } else {
-                    $errors[] = __('Gagal menerapkan theme ke semua slot.');
+                    $errors[] = __('Failed to apply theme to all slots.');
                 }
 
             } elseif ($action === 'save_assignments') {
@@ -209,7 +209,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     if (strpos($val, 'post:') === 0) {
                         $post_id = (int)substr($val, 5);
                         if ($post_id <= 0 || !isset($theme_posts_by_id[$post_id])) {
-                            $errors[] = "Custom template tidak valid untuk slot {$slot_label}.";
+                            $errors[] = __("Custom template not valid for slot {$slot_label}.");
                             continue;
                         }
                         assign_custom_post_to_slot($pdo, $slot_key, $post_id, $user_id);
@@ -219,7 +219,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     if (strpos($val, 'theme:') === 0) {
                         $theme_id = (int)substr($val, 6);
                         if ($theme_id <= 0 || empty($themes_by_id[$theme_id])) {
-                            $errors[] = "Theme tidak ditemukan untuk slot {$slot_label}.";
+                            $errors[] = __("Theme not found for slot {$slot_label}.");
                             continue;
                         }
                         $theme_folder = $themes_by_id[$theme_id]['folder_name'];
@@ -227,27 +227,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         continue;
                     }
 
-                    $errors[] = "Pilihan tidak dikenal untuk slot {$slot_label}.";
+                    $errors[] = __("Unknown selection for slot {$slot_label}.");
                 }
 
                 if (empty($errors)) {
-                    $messages[] = 'Pengaturan theme berhasil disimpan.';
+                    $messages[] = __('Theme settings saved successfully.');
                 }
 
             } elseif ($action === 'delete_theme') {
                 $theme_id = (int)($_POST['theme_id'] ?? 0);
-                if ($theme_id <= 0) throw new RuntimeException('Tema tidak ditemukan (invalid id).');
+                if ($theme_id <= 0) throw new RuntimeException(__('Theme not found (invalid id).'));
 
                 $stmt = $pdo->prepare("SELECT * FROM themes WHERE id = :id LIMIT 1");
                 $stmt->execute([':id' => $theme_id]);
                 $th = $stmt->fetch(PDO::FETCH_ASSOC);
-                if (!$th) throw new RuntimeException('Tema tidak ditemukan di database.');
+                if (!$th) throw new RuntimeException(__('Theme not found in database.'));
 
                 if (($th['folder_name'] ?? '') === (defined('DEFAULT_THEME_FOLDER') ? DEFAULT_THEME_FOLDER : 'default')) {
-                    throw new RuntimeException('Tema default tidak boleh dihapus.');
+                    throw new RuntimeException(__('Default theme cannot be deleted.'));
                 }
                 if (!empty($th['is_system'])) {
-                    throw new RuntimeException('System theme tidak boleh dihapus.');
+                    throw new RuntimeException(__('System theme cannot be deleted.'));
                 }
 
                 $pdo->beginTransaction();
@@ -310,26 +310,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                             rrmdir($realTarget);
                             if (!is_dir($realTarget)) {
                                 $deletedFilesOk = true;
-                                $deletedFilesMsg = "Folder tema fisik dihapus: {$th['folder_name']}";
+                                $deletedFilesMsg = __('Physical theme folder deleted:') . ' ' . $th['folder_name'];
                             } else {
-                                $deletedFilesMsg = "Gagal menghapus folder fisik: {$folderPath}";
+                                $deletedFilesMsg = __('Failed to delete physical folder:') . ' ' . $folderPath;
                             }
                         } else {
                             if (is_dir($folderPath)) {
                                 rrmdir($folderPath);
                                 if (!is_dir($folderPath)) {
                                     $deletedFilesOk = true;
-                                    $deletedFilesMsg = "Folder tema fisik dihapus: {$th['folder_name']}";
+                                    $deletedFilesMsg = __('Physical theme folder deleted:') . ' ' . $th['folder_name'];
                                 } else {
-                                    $deletedFilesMsg = "Gagal menghapus folder fisik: {$folderPath}";
+                                    $deletedFilesMsg = __('Failed to delete physical folder:') . ' ' . $folderPath;
                                 }
                             } else {
-                                $deletedFilesMsg = "Folder tema tidak ditemukan di filesystem: {$folderPath}";
+                                $deletedFilesMsg = __('Theme folder not found in filesystem:') . ' ' . $folderPath;
                             }
                         }
                     }
 
-                    $messages[] = "Tema '{$th['folder_name']}' dihapus dari database dan assignment terkait dibersihkan.";
+                    $messages[] = __("Theme '{$th['folder_name']}' deleted from database and related assignments cleaned.");
 
                     if ($deleteFilesRequested) {
                         if ($deletedFilesOk) {
@@ -347,30 +347,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             } elseif ($action === 'check_updates') {
                 $count = count(ThemeStoreClient::checkUpdates($pdo));
                 if ($count > 0) {
-                    $messages[] = "{$count} update theme tersedia.";
+                    $messages[] = "{$count} " . __('theme update(s) available.');
                 } else {
-                    $messages[] = 'Semua theme sudah versi terbaru.';
+                    $messages[] = __('All themes are up to date.');
                 }
 
             } elseif ($action === 'apply_theme_update') {
                 $folder = trim((string)($_POST['theme_folder'] ?? ''));
                 $themeName = $folder;
                 $token = (string)($_POST['token'] ?? '');
-                if ($folder === '') throw new RuntimeException('Folder theme tidak disebutkan.');
+                if ($folder === '') throw new RuntimeException(__('Theme folder not specified.'));
                 if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
                     throw new RuntimeException('Invalid progress token.');
                 }
                 session_write_close();
                 $result = ThemeStoreClient::applyUpdate($pdo, $folder, $token);
                 if ($result['success']) {
-                    $messages[] = "Theme '{$folder}' berhasil diupdate ke v{$result['new_version']}.";
+                    $messages[] = __("Theme '{$folder}' updated to v{$result['new_version']}.");
                 } else {
-                    $errors[] = (string)($result['error'] ?? 'Gagal update theme.');
+                    $errors[] = (string)($result['error'] ?? __('Failed to update theme.'));
                 }
 
             } elseif ($action === 'upload_theme') {
                 if (!isset($_FILES['theme_zip'])) {
-                    $errors[] = __('File zip tidak ditemukan pada request.');
+                    $errors[] = __('ZIP file not found in request.');
                 } else {
                     $file = $_FILES['theme_zip'];
                     if (!empty($file['error'])) {
@@ -379,12 +379,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         $name = $file['name'] ?? '';
                         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
                         if ($ext !== 'zip') {
-                            $errors[] = __('Hanya file .zip yang diperbolehkan.');
+                            $errors[] = __('Only .zip files are allowed.');
                         } else {
                             $tmpZip = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'theme_upload_' . uniqid('', true) . '.zip';
                             if (!move_uploaded_file($file['tmp_name'], $tmpZip)) {
                                 if (!@copy($file['tmp_name'], $tmpZip)) {
-                                    $errors[] = __('Gagal menyimpan file upload.');
+                                    $errors[] = __('Failed to save uploaded file.');
                                 }
                             }
 
@@ -393,7 +393,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 try {
                                     $res = install_theme_from_zip($pdo, $tmpZip, $activate, $user_id);
                                     if (!empty($res['success'])) {
-                                        $messages[] = 'Tema berhasil diinstall: ' . (string)$res['folder'] . '. ' . (string)$res['message'];
+                                        $messages[] = __('Theme installed successfully:') . ' ' . (string)$res['folder'] . '. ' . (string)$res['message'];
                                     } else {
                                         $errors[] = 'Instalasi gagal: ' . (string)($res['message'] ?? 'unknown');
                                     }
@@ -409,7 +409,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
 
             } else {
-                $errors[] = __('Aksi tidak dikenali.');
+                $errors[] = __('Unknown action.');
             }
 
         } catch (Throwable $e) {
@@ -424,7 +424,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif (!empty($errors)) {
         adiwira_redirect_with_flash($selfUrl, 'error', implode(' ', $errors));
     } else {
-        adiwira_redirect_with_flash($selfUrl, 'info', __('Aksi selesai.'));
+        adiwira_redirect_with_flash($selfUrl, 'info', __('Action completed.'));
     }
 }
 
@@ -480,7 +480,7 @@ foreach ($themes as $t) {
       <div class="tm-note">
         Scan folder: <strong><?= htmlspecialchars(VIEWS_BASE, ENT_QUOTES, 'UTF-8') ?></strong>
       </div>
-      <div class="tm-note">Scan akan mencari folder tema baru dan mendaftarkannya ke database.</div>
+      <div class="tm-note"><?=__('Scan will find new theme folders and register them in the database.')?></div>
     </div>
 
     <form id="upload-theme-form" class="tm-upload" method="post" enctype="multipart/form-data" style="margin:0">
@@ -488,9 +488,9 @@ foreach ($themes as $t) {
       <input type="hidden" name="action" value="upload_theme">
 
       <div class="tm-file" title="Choose a theme .zip to install">
-        <label class="tm-file-btn" for="theme_zip_input" id="fileBtn">Choose .zip</label>
+        <label class="tm-file-btn" for="theme_zip_input" id="fileBtn"><?=_e('Choose .zip')?></label>
         <input id="theme_zip_input" type="file" name="theme_zip" accept=".zip" required style="display:none">
-        <div class="tm-file-name" id="fileName">No file chosen</div>
+        <div class="tm-file-name" id="fileName"><?=_e('No file chosen')?></div>
       </div>
 
       <div class="tm-mode" role="radiogroup" aria-label="Install mode">
@@ -504,10 +504,10 @@ foreach ($themes as $t) {
         </label>
       </div>
 
-      <button type="submit" class="tm-install" id="installBtn" disabled>Install theme</button>
+      <button type="submit" class="tm-install" id="installBtn" disabled><?=_e('Install theme')?></button>
 
       <div class="tm-note" style="margin-left:8px">
-        Pilih mode: <strong>Install</strong> hanya menambahkan; <strong>Install &amp; Activate</strong> juga menjadikan aktif.
+        <?=_e('Select mode:')?> <strong>Install</strong> <?=_e('only adds;')?> <strong>Install &amp; Activate</strong> <?=_e('also makes it active.')?>
       </div>
     </form>
   </div>
@@ -560,9 +560,9 @@ foreach ($themes as $t) {
                 <input type="hidden" name="action" value="delete_theme">
                 <input type="hidden" name="theme_id" value="<?= (int)$th['id'] ?>">
 
-                <label class="tm-delcheck" title="Hapus juga folder fisik tema (jika ada)">
+                <label class="tm-delcheck" title="<?=_e('Also delete the physical theme folder (if exists)')?>">
                   <input type="checkbox" name="delete_files" value="1">
-                  <span>Remove files</span>
+                  <span><?=_e('Remove files')?></span>
                 </label>
 
                 <button class="tm-danger" type="submit" title="Delete theme from DB">Delete</button>
@@ -592,7 +592,7 @@ foreach ($themes as $t) {
 
           <?php if ($updateInfo): ?>
             <div class="tm-update-banner">
-              <span>Update v<?= h($updateInfo['new_version']) ?> tersedia</span>
+              <span><?=__('Update')?> v<?= h($updateInfo['new_version']) ?> <?=__('available')?></span>
               <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>">Update</button>
             </div>
           <?php endif; ?>
@@ -672,7 +672,7 @@ foreach ($themes as $t) {
                       </option>
                     <?php endforeach; ?>
                   </select>
-                  <div class="tm-note" style="margin-top:6px">Pilih "Site default" untuk kembali ke perilaku standar (menggunakan tema aktif).</div>
+                  <div class="tm-note" style="margin-top:6px"><?=_e('Select "Site default" to revert to standard behavior (using active theme).')?></div>
                 </div>
 
                 <div style="width:360px;min-width:280px" class="choice-block" id="choice-post-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
@@ -687,7 +687,7 @@ foreach ($themes as $t) {
                     <?php endforeach; ?>
                   </select>
                   <div class="tm-note" style="margin-top:6px">
-                    Custom templates disimpan di <code>posts.type='theme'</code>. Jika dipilih, ini akan mengalahkan registered theme untuk slot ini.
+                    <?=__('Custom templates are stored in')?> <code>posts.type='theme'</code>. <?=__('If selected, this will override the registered theme for this slot.')?>
                   </div>
                 </div>
               </div>
@@ -712,7 +712,7 @@ foreach ($themes as $t) {
           <a class="tm-ghost" href="<?= htmlspecialchars($selfUrl, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;display:inline-flex;align-items:center">Cancel</a>
         </div>
         <p class="tm-note" style="margin:0">
-          Catatan Dev: Untuk menambahkan slot maka perlu mengedit theme_helper dan controller.
+          <?=__('Dev note: To add new slots, you need to edit theme_helper and controller.')?>
         </p>
       </div>
     </form>
@@ -745,7 +745,7 @@ if (!empty($all_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
 <div id="themeProgressOverlay" class="progress-overlay" style="display:none">
   <div class="progress-box">
     <div class="progress-spinner"></div>
-    <div class="progress-status" id="themeProgressStatus">Memulai update...</div>
+    <div class="progress-status" id="themeProgressStatus"><?=__('Starting update...')?></div>
     <div class="progress-bar-track"><div class="progress-bar-fill" id="themeProgressFill" style="width:0%"></div></div>
     <div class="progress-pct" id="themeProgressPct">0%</div>
   </div>
@@ -784,7 +784,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
   function updateHidden(slot) {
@@ -864,15 +864,15 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
           else hidden.value = '';
         });
       } catch(err){
-        toast('error', 'Terjadi kesalahan saat menyiapkan data assignment.', 'Gagal');
+        toast('error', <?= json_encode(__('An error occurred while preparing assignment data.')) ?>, <?= json_encode(__('Failed')) ?>);
         return;
       }
 
       ask('warning', {
-        title: 'Simpan assignment theme',
-        message: 'Perubahan assignment slot akan disimpan. Lanjutkan?',
-        confirmText: 'Ya, simpan',
-        cancelText: 'Batal'
+        title: <?= json_encode(__('Save theme assignment')) ?>,
+        message: <?= json_encode(__('Slot assignment changes will be saved. Proceed?')) ?>,
+        confirmText: <?= json_encode(__('Yes, save')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
         assignForm.submit();
@@ -917,7 +917,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     on(fileInput, 'change', function(){
       var f = fileInput.files && fileInput.files[0];
       if (f) fileNameEl.textContent = f.name + ' — ' + Math.round((f.size||0)/1024) + ' KB';
-      else fileNameEl.textContent = 'No file chosen';
+      else fileNameEl.textContent = <?= json_encode(__('No file chosen')) ?>;
       updateUploadBtn();
     });
 
@@ -929,17 +929,17 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
       var f = fileInput.files && fileInput.files[0];
       if (!f) {
         e.preventDefault();
-        toast('error', 'Pilih file .zip terlebih dahulu.', 'Upload gagal');
+        toast('error', <?= json_encode(__('Select a .zip file first.')) ?>, <?= json_encode(__('Upload failed')) ?>);
         return;
       }
       if (!/\.zip$/i.test(f.name)) {
         e.preventDefault();
-        toast('error', 'Upload harus berekstensi .zip.', 'Upload gagal');
+        toast('error', <?= json_encode(__('Upload must be a .zip file.')) ?>, <?= json_encode(__('Upload failed')) ?>);
         return;
       }
       syncActivate();
       uploadBtn.disabled = true;
-      try { uploadBtn.textContent = 'Installing…'; } catch(e2){}
+      try { uploadBtn.textContent = <?= json_encode(__('Installing…')) ?>; } catch(e2){}
     });
   })();
 
@@ -947,12 +947,12 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     qsa('.js-theme-manager-activate').forEach(function(form){
       on(form, 'submit', function(e){
         e.preventDefault();
-        var folder = form.getAttribute('data-folder') || 'theme ini';
+        var folder = form.getAttribute('data-folder') || <?= json_encode(__('this theme')) ?>;
         ask('warning', {
           title: 'Activate theme',
-          message: 'Aktifkan theme "' + folder + '" dan terapkan ke semua slot?',
-          confirmText: 'Ya, aktifkan',
-          cancelText: 'Batal'
+          message: <?= json_encode(__('Activate theme "')) ?> + folder + <?= json_encode(__('" and apply to all slots?')) ?>,
+          confirmText: <?= json_encode(__('Yes, activate')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
           form.submit();
@@ -963,12 +963,12 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     qsa('.js-theme-manager-apply').forEach(function(form){
       on(form, 'submit', function(e){
         e.preventDefault();
-        var folder = form.getAttribute('data-folder') || 'theme ini';
+        var folder = form.getAttribute('data-folder') || <?= json_encode(__('this theme')) ?>;
         ask('warning', {
-          title: 'Apply theme ke semua slot',
-          message: 'Terapkan theme "' + folder + '" ke semua slot?',
-          confirmText: 'Ya, terapkan',
-          cancelText: 'Batal'
+          title: <?= json_encode(__('Apply theme to all slots')) ?>,
+          message: <?= json_encode(__('Apply theme "')) ?> + folder + <?= json_encode(__('" to all slots?')) ?>,
+          confirmText: <?= json_encode(__('Yes, apply')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
           form.submit();
@@ -979,20 +979,20 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     qsa('.js-theme-manager-delete').forEach(function(form){
       on(form, 'submit', function(e){
         e.preventDefault();
-        var folder = form.getAttribute('data-folder') || 'theme ini';
+        var folder = form.getAttribute('data-folder') || <?= json_encode(__('this theme')) ?>;
         var deleteFiles = form.querySelector('input[name="delete_files"]');
         var withFiles = !!(deleteFiles && deleteFiles.checked);
 
-        var message = 'Hapus theme "' + folder + '" dari database dan bersihkan assignment terkait?';
+        var message = <?= json_encode(__('Delete theme "')) ?> + folder + <?= json_encode(__('" from database and clean up related assignments?')) ?>;
         if (withFiles) {
-          message += ' Folder fisik theme juga akan dihapus.';
+          message += ' ' + <?= json_encode(__('The physical theme folder will also be deleted.')) ?>;
         }
 
         ask('danger', {
-          title: 'Hapus theme',
+          title: <?= json_encode(__('Delete theme')) ?>,
           message: message,
-          confirmText: 'Ya, hapus',
-          cancelText: 'Batal'
+          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
           form.submit();
@@ -1016,7 +1016,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
       var txt = document.createElement('div');
       txt.className = 'warn-text';
-      txt.innerHTML = '<strong>Peringatan:</strong> Anda memilih tema <em>'+ (optionText || selectedFolder) +'</em> untuk slot ini. Ini akan menggunakan CSS &amp; JS dari tema tersebut dan dapat berpotensi menimbulkan konflik dengan assets tema aktif (' + (active || '—') + ').';
+      txt.innerHTML = '<strong><?=_e('Warning:')?></strong> <?=_e('You selected theme')?> <em>'+ (optionText || selectedFolder) +'</em> <?=_e('for this slot. It will use the CSS &amp; JS from that theme and may conflict with the active theme assets')?> (' + (active || '—') + ').';
 
       var actions = document.createElement('div');
       actions.className = 'warn-actions';
@@ -1024,7 +1024,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
       var dismiss = document.createElement('button');
       dismiss.className = 'btn-ghost';
       dismiss.type = 'button';
-      dismiss.textContent = 'Acknowledge';
+      dismiss.textContent = <?= json_encode(__('Acknowledge')) ?>;
       dismiss.onclick = function(){ placeholder.innerHTML = ''; };
 
       actions.appendChild(dismiss);
@@ -1089,7 +1089,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
               if (data.done) {
                 clearInterval(interval);
                 if (data.error) {
-                  setTimeout(function(){ hideOverlay(); toast('error', data.error, 'Update Gagal'); }, 1000);
+                  setTimeout(function(){ hideOverlay(); toast('error', data.error, <?= json_encode(__('Update Failed')) ?>); }, 1000);
                 } else {
                   setTimeout(function(){ hideOverlay(); window.location.reload(); }, 1500);
                 }
@@ -1104,7 +1104,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     function startThemeUpdate(folderName){
       var token = makeProgressToken();
       showOverlay();
-      setProgress(2, 'Mempersiapkan...');
+      setProgress(2, <?= json_encode(__('Preparing...')) ?>);
       pollProgress(token);
 
       var xhr = new XMLHttpRequest();
@@ -1114,7 +1114,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         if (xhr.status !== 200) {
           clearInterval();
           hideOverlay();
-          toast('error', 'Gagal memulai update.', 'Error');
+          toast('error', <?= json_encode(__('Failed to start update.')) ?>, <?= json_encode(__('Error')) ?>);
         }
       };
       xhr.send('csrf_token=<?= h(csrf_token()) ?>&action=apply_theme_update&theme=' + encodeURIComponent(folderName) + '&token=' + token);
@@ -1126,14 +1126,14 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         if (!folder) return;
         if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
           window.NewNotifConfirm.warning({
-            title: 'Update Theme',
-            message: 'Update theme "' + folder + '" ke versi terbaru?',
-            confirmText: 'Ya, update',
-            cancelText: 'Batal'
+            title: <?= json_encode(__('Update Theme')) ?>,
+            message: <?= json_encode(__('Update theme "')) ?> + folder + <?= json_encode(__('" to the latest version?')) ?>,
+            confirmText: <?= json_encode(__('Yes, update')) ?>,
+            cancelText: <?= json_encode(__('Cancel')) ?>
           }).then(function(ok){
             if (ok) startThemeUpdate(folder);
           });
-        } else if (confirm('Update theme "' + folder + '" ke versi terbaru?')) {
+        } else if (confirm(<?= json_encode(__('Update theme "')) ?> + folder + <?= json_encode(__('" to the latest version?')) ?>)) {
           startThemeUpdate(folder);
         }
       });

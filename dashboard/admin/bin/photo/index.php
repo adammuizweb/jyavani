@@ -152,13 +152,13 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
     <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="selectAllBinPhoto"> Pilih semua di halaman
+        <input type="checkbox" id="selectAllBinPhoto"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkActionBinPhoto" name="action" style="padding:.4rem;">
         <option value="">-- Bulk action --</option>
         <option value="restore">Restore</option>
-        <option value="delete_permanent">Hapus Permanen</option>
+        <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
       </select>
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -181,7 +181,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </thead>
         <tbody>
         <?php if (empty($photos)): ?>
-          <tr><td colspan="8" style="padding:1rem;">Trash photo post kosong.</td></tr>
+          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
         <?php else: ?>
           <?php foreach ($photos as $p): ?>
             <?php
@@ -262,15 +262,15 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Hapus Permanen
-                </button>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
+                    <?=_e('Delete Permanently')?>
+                  </button>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          <?php endif; ?>
+          </tbody>
+        </table>
+      </div>
   </form>
 
   <?php if ($pages > 1): ?>
@@ -345,7 +345,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         return window.NewNotifConfirm.warning(opts);
       }
     }
-    return Promise.resolve(window.confirm(opts.message || 'Lanjutkan aksi ini?'));
+    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
   }
 
   function checkedCount(){
@@ -361,16 +361,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (count < 1) {
-      return { ok:false, message:'Pilih minimal satu photo post.' };
+      return { ok:false, message:'<?=__('Select at least one photo post.')?>' };
     }
 
     if (action === 'restore') {
       return {
         ok: true,
         variant: 'warning',
-        title: 'Restore photo post terpilih',
-        message: <?= json_encode(__('')) ?> + count + ' photo post akan direstore dari trash. Lanjutkan?',
-        confirmText: 'Ya, restore'
+        title: '<?=__('Restore selected photo posts')?>',
+        message: count + <?= json_encode(__(' photo post(s) will be restored from trash. Continue?')) ?>,
+        confirmText: '<?=__('Yes, restore')?>'
       };
     }
 
@@ -378,9 +378,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return {
         ok: true,
         variant: 'danger',
-        title: 'Hapus permanen photo post',
-        message: <?= json_encode(__('')) ?> + count + ' photo post akan dihapus permanen. Relasi kategori dan item medianya juga akan dibersihkan.',
-        confirmText: 'Ya, hapus permanen'
+        title: '<?=__('Delete permanently photo posts')?>',
+        message: count + <?= json_encode(__(' photo post(s) will be permanently deleted. Category relations and media items will be cleaned up.')) ?>,
+        confirmText: '<?=__('Yes, delete permanently')?>'
       };
     }
 
@@ -402,13 +402,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-photo-restore').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'photo post ini';
+      const title = this.getAttribute('data-title') || '<?=__('this photo post')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('warning', {
-        title: 'Restore photo post',
-        message: 'Restore photo post "' + title + '" dari trash?',
-        confirmText: 'Ya, restore',
+        title: '<?=__('Restore photo post')?>',
+        message: '<?=__('Restore photo post')?> "' + title + '" <?=__('from trash?')?>',
+        confirmText: '<?=__('Yes, restore')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -423,13 +423,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-bin-photo-delete-permanent').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'photo post ini';
+      const title = this.getAttribute('data-title') || '<?=__('this photo post')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
-        title: 'Hapus permanen',
-        message: 'Hapus permanen photo post "' + title + '"? Relasi kategori dan item medianya akan ikut dibersihkan. Aksi ini tidak bisa dibatalkan.',
-        confirmText: 'Ya, hapus permanen',
+        title: '<?=__('Delete permanently')?>',
+        message: '<?=__('Permanently delete photo post')?> "' + title + '"? <?=__('Category relations and media items will be cleaned up. This action cannot be undone.')?>',
+        confirmText: '<?=__('Yes, delete permanently')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
@@ -461,7 +461,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ask(summary.variant || 'warning', {
         title: summary.title,
         message: summary.message,
-        confirmText: summary.confirmText || 'Lanjutkan',
+        confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

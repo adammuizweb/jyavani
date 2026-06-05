@@ -84,7 +84,7 @@ if ($isNew) {
 
 $content = (string)($_POST['content'] ?? '');
 if (trim($content) === '') {
-    adiwira_json(['ok' => false, 'errors' => ['Konten template tidak boleh kosong.']], 400);
+    adiwira_json(['ok' => false, 'errors' => [__('Template content cannot be empty.')]], 400);
     exit;
 }
 

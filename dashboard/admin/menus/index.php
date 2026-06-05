@@ -83,8 +83,8 @@ if (!function_exists('render_menu_items_admin')) {
             $html .= '<span class="menu-item-handle">&#9776;</span>';
             $html .= '<span class="menu-item-label">' . $label . '</span>';
             $html .= '<span class="menu-item-type">' . $type . '</span>';
-            $html .= '<button type="button" class="menu-item-indent adam-ubah" title="Jadikan sub-menu">&#8594;</button>';
-            $html .= '<button type="button" class="menu-item-outdent adam-ubah" title="Naikkan level">&#8592;</button>';
+            $html .= '<button type="button" class="menu-item-indent adam-ubah" title="' . __('Make sub-menu') . '">&#8594;</button>';
+            $html .= '<button type="button" class="menu-item-outdent adam-ubah" title="' . __('Raise level') . '">&#8592;</button>';
             $html .= '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>';
             $html .= '<button type="button" class="menu-item-remove adam-hapus" title="' . __('Delete') . '">&#10005;</button>';
             $html .= '</div>';
@@ -103,7 +103,7 @@ if (!function_exists('render_menu_items_admin')) {
     <div>
       <h2 style="margin:0">Menu Manager</h2>
       <div style="margin-top:6px;font-size:12px" class="pht-muted">
-        Buat dan kelola menu navigasi seperti WordPress.
+        <?=_e('Create and manage navigation menus like WordPress.')?>
       </div>
     </div>
   </div>
@@ -115,9 +115,9 @@ if (!function_exists('render_menu_items_admin')) {
     <!-- LEFT: Menu Structure -->
     <div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
-        <label style="font-weight:600;">Pilih Menu:</label>
+        <label style="font-weight:600;"><?=_e('Select Menu:')?></label>
         <select id="menuSelect" onchange="if(this.value) window.location.href='<?= htmlspecialchars($base . '/?page=admin/menus/index&menu_id=', ENT_QUOTES, 'UTF-8') ?>'+this.value" class="pht-select" style="min-width:200px;">
-          <option value="">-- Pilih Menu --</option>
+          <option value=""><?=_e('-- Select Menu --')?></option>
           <?php foreach ($allMenus as $m): ?>
             <option value="<?= (int)$m['id'] ?>" <?= $selectedMenuId === (int)$m['id'] ? 'selected' : '' ?>>
               <?= htmlspecialchars((string)($m['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
@@ -142,15 +142,15 @@ if (!function_exists('render_menu_items_admin')) {
           <span style="font-weight:600;">Menu:</span>
           <span id="menuNameDisplay"><?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
           <span style="color:var(--adam-muted);font-size:12px;">(slug: <?= htmlspecialchars((string)($selectedMenu['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>)</span>
-          <button type="button" id="btnRenameMenu" class="adam-ubah" style="font-size:12px;">Ganti Nama</button>
+          <button type="button" id="btnRenameMenu" class="adam-ubah" style="font-size:12px;"><?=_e('Rename')?></button>
 
           <?php if (count($allMenus) > 1): ?>
             <span style="margin-left:auto;">
-              <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;" onsubmit="return confirm('Hapus menu &quot;<?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>&quot;? Semua item akan ikut terhapus.');">
+              <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;" onsubmit="return confirm('<?=__('Delete menu')?> &quot;<?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>&quot;? <?=__('All items will be deleted.')?>');">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="menu_id" value="<?= (int)$selectedMenu['id'] ?>">
                 <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/?page=admin/menus/index', ENT_QUOTES, 'UTF-8') ?>">
-                <button type="submit" class="adam-hapus" style="font-size:12px;">Hapus Menu</button>
+                <button type="submit" class="adam-hapus" style="font-size:12px;"><?=_e('Delete Menu')?></button>
               </form>
             </span>
           <?php endif; ?>
@@ -160,7 +160,7 @@ if (!function_exists('render_menu_items_admin')) {
         <div id="menuItemsContainer" style="border:1px solid var(--adam-border-2);border-radius:12px;padding:12px;background:var(--adam-surface-4);min-height:100px;">
           <?php if (empty($menuTree)): ?>
             <div style="text-align:center;padding:24px;color:var(--adam-muted);font-size:13px;">
-              Belum ada item menu. Tambah item dari panel sebelah kanan.
+              <?=_e('No menu items yet. Add items from the right panel.')?>
             </div>
           <?php else: ?>
             <?= render_menu_items_admin($menuTree, 0) ?>
@@ -192,13 +192,13 @@ if (!function_exists('render_menu_items_admin')) {
         </div>
 
         <div style="margin-top:12px;display:flex;gap:8px;">
-          <button type="button" id="btnSaveItems" class="adam-button">Simpan Semua Item</button>
+          <button type="button" id="btnSaveItems" class="adam-button"><?=_e('Save All Items')?></button>
           <span id="saveItemsStatus" style="font-size:12px;color:var(--adam-muted);align-self:center;"></span>
         </div>
 
       <?php else: ?>
         <div style="text-align:center;padding:40px;color:var(--adam-muted);">
-          Belum ada menu. Buat menu baru dari panel sebelah kanan.
+          <?=_e('No menus yet. Create a new menu from the right panel.')?>
         </div>
       <?php endif; ?>
     </div>
@@ -207,15 +207,15 @@ if (!function_exists('render_menu_items_admin')) {
     <div>
       <!-- Create New Menu -->
       <div style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;margin-bottom:16px;background:var(--adam-surface-4);">
-        <h4 style="margin:0 0 12px 0;">Buat Menu Baru</h4>
+        <h4 style="margin:0 0 12px 0;"><?=_e('Create New Menu')?></h4>
         <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="action" value="create">
           <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/?page=admin/menus/index', ENT_QUOTES, 'UTF-8') ?>">
           <div style="display:flex;gap:8px;flex-direction:column;">
-            <input type="text" name="name" class="pht-input" placeholder="Nama menu (contoh: Primary)" required>
-            <input type="text" name="slug" class="pht-input" placeholder="Slug (contoh: primary)" required>
-            <button type="submit" class="adam-button">Buat Menu</button>
+            <input type="text" name="name" class="pht-input" placeholder="<?=_e('Menu name (e.g. Primary)')?>" required>
+            <input type="text" name="slug" class="pht-input" placeholder="<?=_e('Slug (e.g. primary)')?>" required>
+            <button type="submit" class="adam-button"><?=_e('Create Menu')?></button>
           </div>
         </form>
       </div>
@@ -223,11 +223,11 @@ if (!function_exists('render_menu_items_admin')) {
       <?php if ($selectedMenu): ?>
       <!-- Add Items -->
       <div style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;background:var(--adam-surface-4);">
-        <h4 style="margin:0 0 12px 0;">Tambah Item</h4>
+        <h4 style="margin:0 0 12px 0;"><?=_e('Add Item')?></h4>
 
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
           <button type="button" class="add-item-tab adam-button" data-tab="custom" style="padding:4px 10px;font-size:12px;">Custom Link</button>
-          <button type="button" class="add-item-tab adam-button" data-tab="article" style="padding:4px 10px;font-size:12px;">Artikel</button>
+          <button type="button" class="add-item-tab adam-button" data-tab="article" style="padding:4px 10px;font-size:12px;"><?=_e('Articles')?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="page" style="padding:4px 10px;font-size:12px;"><?= _e('Page') ?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="category" style="padding:4px 10px;font-size:12px;"><?= _e('Categories') ?></button>
         </div>
@@ -237,17 +237,17 @@ if (!function_exists('render_menu_items_admin')) {
           <div style="display:grid;gap:8px;">
             <input type="text" id="customLabel" class="pht-input" placeholder="Label">
             <input type="url" id="customUrl" class="pht-input" placeholder="https://...">
-            <label style="font-size:12px;"><input type="checkbox" id="customTargetBlank"> Buka di tab baru</label>
-            <button type="button" class="add-item-btn adam-button" data-type="custom">Tambah ke Menu</button>
+            <label style="font-size:12px;"><input type="checkbox" id="customTargetBlank"> <?=_e('Open in new tab')?></label>
+            <button type="button" class="add-item-btn adam-button" data-type="custom"><?=_e('Add to Menu')?></button>
           </div>
         </div>
 
         <!-- Articles -->
         <div class="add-item-panel" id="panel-article" style="display:none;">
-          <input type="text" id="articleSearch" class="pht-input" placeholder="Cari artikel..." style="margin-bottom:8px;">
+          <input type="text" id="articleSearch" class="pht-input" placeholder="<?=_e('Search articles...')?>" style="margin-bottom:8px;">
           <div class="source-list" id="articleList" style="max-height:200px;overflow-y:auto;">
             <?php if (empty($articles)): ?>
-              <div style="font-size:12px;color:var(--adam-muted);">Tidak ada artikel.</div>
+              <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No articles.')?></div>
             <?php else: ?>
               <?php foreach ($articles as $a): ?>
                 <div class="source-item" data-id="<?= (int)$a['id'] ?>" data-type="article" data-label="<?= htmlspecialchars((string)($a['title'] ?: $a['slug']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
@@ -260,10 +260,10 @@ if (!function_exists('render_menu_items_admin')) {
 
         <!-- Pages -->
         <div class="add-item-panel" id="panel-page" style="display:none;">
-          <input type="text" id="pageSearch" class="pht-input" placeholder="Cari halaman..." style="margin-bottom:8px;">
+          <input type="text" id="pageSearch" class="pht-input" placeholder="<?=_e('Search pages...')?>" style="margin-bottom:8px;">
           <div class="source-list" id="pageList" style="max-height:200px;overflow-y:auto;">
             <?php if (empty($pages)): ?>
-              <div style="font-size:12px;color:var(--adam-muted);">Tidak ada halaman.</div>
+              <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No pages.')?></div>
             <?php else: ?>
               <?php foreach ($pages as $p): ?>
                 <div class="source-item" data-id="<?= (int)$p['id'] ?>" data-type="page" data-label="<?= htmlspecialchars((string)($p['title'] ?: $p['slug']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
@@ -276,10 +276,10 @@ if (!function_exists('render_menu_items_admin')) {
 
         <!-- Categories -->
         <div class="add-item-panel" id="panel-category" style="display:none;">
-          <input type="text" id="categorySearch" class="pht-input" placeholder="Cari kategori..." style="margin-bottom:8px;">
+          <input type="text" id="categorySearch" class="pht-input" placeholder="<?=_e('Search categories...')?>" style="margin-bottom:8px;">
           <div class="source-list" id="categoryList" style="max-height:200px;overflow-y:auto;">
             <?php if (empty($categories)): ?>
-              <div style="font-size:12px;color:var(--adam-muted);">Tidak ada kategori.</div>
+              <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No categories.')?></div>
             <?php else: ?>
               <?php foreach ($categories as $c): ?>
                 <div class="source-item" data-id="<?= (int)$c['id'] ?>" data-type="category" data-label="<?= htmlspecialchars((string)($c['name'] ?: $c['slug']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
@@ -305,16 +305,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 <!-- Rename Menu Modal -->
 <div id="renameModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;" onclick="if(event.target===this)document.getElementById('renameModal').style.display='none'">
   <div style="background:var(--adam-card);padding:24px;border-radius:16px;min-width:320px;max-width:90vw;" onclick="event.stopPropagation()">
-    <h4 style="margin:0 0 12px 0;">Ganti Nama Menu</h4>
+    <h4 style="margin:0 0 12px 0;"><?=_e('Rename Menu')?></h4>
     <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="rename">
       <input type="hidden" name="menu_id" value="<?= $selectedMenuId ?>">
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/?page=admin/menus/index&menu_id=' . $selectedMenuId, ENT_QUOTES, 'UTF-8') ?>">
       <div style="display:grid;gap:8px;">
-        <label style="font-size:12px;">Nama Baru</label>
+        <label style="font-size:12px;"><?=_e('New Name')?></label>
         <input type="text" name="name" class="pht-input" value="<?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required>
-        <label style="font-size:12px;">Slug Baru</label>
+        <label style="font-size:12px;"><?=_e('New Slug')?></label>
         <input type="text" name="slug" class="pht-input" value="<?= htmlspecialchars((string)($selectedMenu['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button type="submit" class="adam-button"><?= _e('Save') ?></button>
@@ -386,8 +386,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       + '<span class="menu-item-handle">&#9776;</span>'
       + '<span class="menu-item-label">' + escapeHtml(data.label) + '</span>'
       + '<span class="menu-item-type">' + escapeHtml(data.type) + '</span>'
-      + '<button type="button" class="menu-item-indent adam-ubah" title="Jadikan sub-menu">&#8594;</button>'
-      + '<button type="button" class="menu-item-outdent adam-ubah" title="Naikkan level">&#8592;</button>'
+      + '<button type="button" class="menu-item-indent adam-ubah" title="<?=_e('Make sub-menu')?>">&#8594;</button>'
+      + '<button type="button" class="menu-item-outdent adam-ubah" title="<?=_e('Raise level')?>">&#8592;</button>'
       + '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>'
       + '<button type="button" class="menu-item-remove adam-hapus" title="<?= _e('Delete') ?>">&#10005;</button>'
       + '</div>';
@@ -395,7 +395,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function showEmptyState(){
     container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--adam-muted);font-size:13px;">'
-      + 'Belum ada item menu. Tambah item dari panel sebelah kanan.'
+      + '<?=__('No menu items yet. Add items from the right panel.')?>'
       + '</div>';
   }
 
@@ -433,7 +433,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       var targetBlank = document.getElementById('customTargetBlank').checked;
 
       if (!label || !url) {
-        toast('error', 'Label dan URL harus diisi');
+        toast('error', '<?=__('Label and URL are required.')?>');
         return;
       }
 
@@ -486,7 +486,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
 
     ul.appendChild(li);
-    toast('success', 'Item "' + data.label + '" ditambahkan ke menu');
+    toast('success', '<?=__('Item added to menu')?> "' + data.label + '"');
   }
 
   // =============== Remove item ===============
@@ -496,7 +496,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (!btn) return;
 
     var li = btn.closest('.menu-item-admin');
-    if (li && confirm('Hapus item ini dari menu?')) {
+    if (li && confirm('<?=__('Remove this item from menu?')?>')) {
       li.remove();
       if (!container.querySelector('ul.menu-sortable') || !container.querySelector('ul.menu-sortable').querySelector('li')) {
         showEmptyState();
@@ -535,7 +535,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
     setItemData(li, data);
     form.style.display = 'none';
-    toast('success', 'Item diupdate');
+    toast('success', '<?=__('Item updated')?>');
   });
 
   document.getElementById('cancelItemEdit').addEventListener('click', function(){
@@ -725,7 +725,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     saveBtn.addEventListener('click', function(){
       var items = collectItems();
       saveBtn.disabled = true;
-      saveStatus.textContent = 'Menyimpan...';
+      saveStatus.textContent = '<?=__('Saving...')?>';
 
       fetch(SAVE_URL, {
         method: 'POST',
@@ -740,10 +740,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       .then(function(r){ return r.json(); })
       .then(function(data){
         if (data && data.ok) {
-          toast('success', 'Menu berhasil disimpan');
+          toast('success', '<?=__('Menu saved successfully.')?>');
           setTimeout(function(){ window.location.reload(); }, 600);
         } else {
-          toast('error', (data && data.error) ? data.error : 'Gagal menyimpan');
+          toast('error', (data && data.error) ? data.error : '<?=__('Failed to save.')?>');
           saveBtn.disabled = false;
           saveStatus.textContent = '';
         }

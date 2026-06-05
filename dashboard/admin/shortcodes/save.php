@@ -77,7 +77,7 @@ if (empty($errors)) {
     if ($isEdit) $params[':id'] = $id;
     $s->execute($params);
     if ($s->fetch()) {
-        $errors[] = 'Widget name "' . $slug . '" sudah digunakan. Pilih nama lain.';
+        $errors[] = __('Widget name') . ' "' . $slug . '" ' . __('is already in use. Choose another name.');
     }
 }
 

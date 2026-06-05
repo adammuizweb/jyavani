@@ -112,7 +112,7 @@ try {
 ?>
 <div id="mdlib-list-root">
   <div class="mdlib-bar">
-    <input id="mdlib-search" class="mdlib-input" placeholder="Cari title/filename/caption..." value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
+    <input id="mdlib-search" class="mdlib-input" placeholder="<?=_e('Search title/filename/caption...')?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
     <select id="mdlib-visibility-filter" class="mdlib-select">
       <option value="" <?= $filterVisibility === '' ? 'selected' : '' ?>>Semua</option>
       <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>>Public</option>

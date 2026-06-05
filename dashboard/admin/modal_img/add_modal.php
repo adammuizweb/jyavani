@@ -366,7 +366,7 @@ try {
     box.querySelector('.mdlib-btn-danger').addEventListener('click', async function(){
       const ok = await uiAsk('danger', {
         title: <?= json_encode(__('Delete media')) ?>,
-        message: 'Media ini akan dihapus permanen dari gallery. Lanjutkan?',
+        message: '<?=__('This media will be permanently deleted from the gallery. Continue?')?>',
         confirmText: <?= json_encode(__('Yes, delete')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });
@@ -405,7 +405,7 @@ try {
             deleted_urls: url ? [url] : []
           });
 
-          uiToast('success', 'Gallery', 'Media berhasil dihapus.', 2500);
+          uiToast('success', '<?=__('Gallery')?>', '<?=__('Media deleted successfully.')?>', 2500);
           if (j.warning) uiToast('warning', 'Gallery', j.warning, 6000);
 
           broadcast('media:deleted', payload);
