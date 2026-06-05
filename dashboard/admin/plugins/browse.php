@@ -206,15 +206,24 @@ $installedNames = array_keys($installedPlugins);
 
 $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_query_toasts() : [];
 
-// Hapus cache jika ada parameter refresh — harus sebelum output HTML
+// Hapus cache + re-fetch dari API jika ada parameter refresh (tanpa redirect — sudah terlambat karena layout terlanjur render)
 if (isset($_GET['refresh'])) {
     if (is_file($cacheFile)) @unlink($cacheFile);
-    $cleanUrl = strtok($_SERVER['REQUEST_URI'] ?? $selfUrl, '?');
-    $qs = $_GET;
-    unset($qs['refresh']);
-    if (!empty($qs)) $cleanUrl .= '?' . http_build_query($qs);
-    header('Location: ' . $cleanUrl);
-    exit;
+    $cached = null;
+    $plugins = [];
+    store_cache_write($cacheFile, ['store_name' => $storeName, 'plugins' => []]);
+    $ctx = stream_context_create(['http' => ['timeout' => 10, 'user_agent' => 'JyavaniCMS/2.0']]);
+    $json = @file_get_contents($apiBase . '/', false, $ctx);
+    if ($json !== false) {
+        $data = json_decode($json, true);
+        if (is_array($data) && isset($data['plugins'])) {
+            $plugins = $data['plugins'];
+            $storeName = $data['store_name'] ?? $storeName;
+            store_cache_write($cacheFile, ['store_name' => $storeName, 'plugins' => $plugins]);
+        } else {
+            $error = 'Respon dari jyavani.com tidak valid.';
+        }
+    }
 }
 ?>
 <h2 class="pg-title">Cari Plugin</h2>
