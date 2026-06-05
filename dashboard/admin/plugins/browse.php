@@ -205,6 +205,17 @@ $installedPlugins = plugins_all();
 $installedNames = array_keys($installedPlugins);
 
 $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_query_toasts() : [];
+
+// Hapus cache jika ada parameter refresh — harus sebelum output HTML
+if (isset($_GET['refresh'])) {
+    if (is_file($cacheFile)) @unlink($cacheFile);
+    $cleanUrl = strtok($_SERVER['REQUEST_URI'] ?? $selfUrl, '?');
+    $qs = $_GET;
+    unset($qs['refresh']);
+    if (!empty($qs)) $cleanUrl .= '?' . http_build_query($qs);
+    header('Location: ' . $cleanUrl);
+    exit;
+}
 ?>
 <h2 class="pg-title">Cari Plugin</h2>
 <p class="pg-subtitle">Jelajahi plugin dari <a href="https://jyavani.com/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — komunitas Jyavani.</p>
@@ -302,16 +313,3 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 .btn-update { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
 </style>
 
-<?php
-// Hapus cache jika ada parameter refresh
-if (isset($_GET['refresh'])) {
-    if (is_file($cacheFile)) @unlink($cacheFile);
-    // redirect without refresh param
-    $cleanUrl = strtok($_SERVER['REQUEST_URI'] ?? $selfUrl, '?');
-    $qs = $_GET;
-    unset($qs['refresh']);
-    if (!empty($qs)) $cleanUrl .= '?' . http_build_query($qs);
-    header('Location: ' . $cleanUrl);
-    exit;
-}
-?>
