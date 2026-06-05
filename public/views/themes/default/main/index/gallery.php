@@ -106,7 +106,7 @@ function gallery_path(string $prefix, array $slugs): string {
         <div class="gallery-cat" role="listitem">
           <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>">
             <div class="gallery-cat-title"><?= htmlspecialchars($c['name'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
-            <div class="gallery-cat-count"><?= (int)($c['cnt'] ?? 0) ?> Foto</div>
+            <div class="gallery-cat-count"><?= sprintf(__('%d Photos'), (int)($c['cnt'] ?? 0)) ?></div>
           </a>
         </div>
       <?php endforeach; ?>
@@ -114,7 +114,7 @@ function gallery_path(string $prefix, array $slugs): string {
   <?php endif; ?>
 
   <?php if (empty($items)): ?>
-    <div class="gallery-muted">Belum ada foto.</div>
+    <div class="gallery-muted"><?= __('No photos yet.') ?></div>
   <?php else: ?>
     <div class="gallery-grid" aria-label="Gallery photo grid">
       <?php foreach ($items as $p): ?>
@@ -123,7 +123,7 @@ function gallery_path(string $prefix, array $slugs): string {
           if (!$img) continue; // hanya featured
           $slug = $p['slug'] ?? '';
           $href = $slug !== '' ? ('/' . rawurlencode($slug) . '/') : '#';
-          $alt  = $p['title'] ?? 'Photo';
+          $alt  = $p['title'] ?? __('Photo');
         ?>
         <div class="gallery-item">
           <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') ?>">

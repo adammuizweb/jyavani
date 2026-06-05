@@ -18,7 +18,7 @@ $perPage = 10;
 $pages   = max(1, (int)ceil($total / $perPage));
 
 // safe author fields
-$authorName = (string)($author['name'] ?? $author['username'] ?? 'Penulis');
+$authorName = (string)($author['name'] ?? $author['username'] ?? __('Author'));
 $authorImg  = (string)($author['img'] ?? '');
 $authorBio  = trim((string)($author['bio'] ?? ''));
 
@@ -55,7 +55,7 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
   </header>
 
   <?php if (empty($posts)): ?>
-    <p>Tidak ada artikel.</p>
+    <p><?= __('No articles.') ?></p>
   <?php else: ?>
     <div class="author-posts-list">
       <?php foreach ($posts as $p): ?>
@@ -63,7 +63,7 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
           if (!is_array($p)) continue;
 
           $slug      = (string)($p['slug'] ?? '');
-          $titleRaw  = (string)($p['title'] ?? 'Tanpa Judul');
+          $titleRaw  = (string)($p['title'] ?? __('Untitled'));
           $content   = (string)($p['content'] ?? '');
           $createdAt = (string)($p['created_at'] ?? '');
 
@@ -106,13 +106,13 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
 
   <nav class="pagination" aria-label="Pagination">
     <?php if ($page > 1): ?>
-      <a class="page-prev" href="?page=<?= max(1, $page - 1) ?>">&larr; Sebelumnya</a>
+      <a class="page-prev" href="?page=<?= max(1, $page - 1) ?>"><?= __('← Previous') ?></a>
     <?php endif; ?>
 
-    <span class="page-info">Halaman <?= $page ?> / <?= $pages ?></span>
+    <span class="page-info"><?= sprintf(__('Page %d / %d'), $page, $pages) ?></span>
 
     <?php if ($page < $pages): ?>
-      <a class="page-next" href="?page=<?= min($pages, $page + 1) ?>">Berikutnya &rarr;</a>
+      <a class="page-next" href="?page=<?= min($pages, $page + 1) ?>"><?= __('Next →') ?></a>
     <?php endif; ?>
   </nav>
 </div>

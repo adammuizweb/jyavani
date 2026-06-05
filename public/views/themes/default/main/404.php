@@ -2,9 +2,9 @@
 // /views/themes/default/main/404.php
 ?>
 <section class="error-page">
-  <h1 class="error-title">404 — Halaman Tidak Ditemukan</h1>
-  <p class="error-message">Maaf, halaman yang kamu cari tidak tersedia atau telah dipindahkan.</p>
-  <a href="/" class="error-link">Kembali ke Beranda</a>
+  <h1 class="error-title"><?= __('404 — Page Not Found') ?></h1>
+  <p class="error-message"><?= __('Sorry, the page you are looking for is not available or has been moved.') ?></p>
+  <a href="/" class="error-link"><?= __('Back to Home') ?></a>
 </section>
 
 <style>

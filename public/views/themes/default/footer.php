@@ -9,27 +9,27 @@ $year = date('Y');
   <div class="footer-container">
     <!-- Baris 1: Halaman (links) dan Social -->
     <div class="footer-row-top">
-      <div class="footer-col footer-pages slide-right" aria-label="Halaman" data-anime-trigger="load" data-delay="250">
-        <h3 class="visually-hidden">Halaman</h3>
+      <div class="footer-col footer-pages slide-right" aria-label="<?= __('Pages') ?>" data-anime-trigger="load" data-delay="250">
+        <h3 class="visually-hidden"><?= __('Pages') ?></h3>
         <ul class="footer-links" role="list">
-          <li><a class="footer-link" href="/about" aria-label="Tentang"> 
+          <li><a class="footer-link" href="/about" aria-label="<?= __('About') ?>"> 
               <!-- icon kecil di samping -->
               <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              <span>About</span>
+              <span><?= __('About') ?></span>
             </a></li>
-          <li><a class="footer-link" href="/docs" aria-label="Dokumentasi">
+          <li><a class="footer-link" href="/docs" aria-label="<?= __('Docs') ?>">
               <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" stroke="currentColor" fill="none" stroke-width="1.5"/></svg>
-              <span>Docs</span>
+              <span><?= __('Docs') ?></span>
             </a></li>
-          <li><a class="footer-link" href="/contact" aria-label="Kontak">
+          <li><a class="footer-link" href="/contact" aria-label="<?= __('Contact') ?>">
               <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 8l9 6 9-6" stroke="currentColor" fill="none" stroke-width="1.6"/></svg>
-              <span>Contact</span>
+              <span><?= __('Contact') ?></span>
             </a></li>
         </ul>
       </div>
 
-      <div class="footer-col footer-social slide-left" aria-label="Sosial media" data-anime-trigger="load" data-delay="250">
-        <h3 class="visually-hidden">Sosial</h3>
+      <div class="footer-col footer-social slide-left" aria-label="<?= __('Social Media') ?>" data-anime-trigger="load" data-delay="250">
+        <h3 class="visually-hidden"><?= __('Social') ?></h3>
         <div class="social-icons" role="list">
           <a class="social-btn" href="https://twitter.com/" target="_blank" rel="noopener" aria-label="Twitter">
             <!-- twitter -->
@@ -59,7 +59,7 @@ $year = date('Y');
 
     <!-- Baris 2: Copyright -->
     <div class="footer-row-bottom">
-      <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load">© <span id="year"></span> Jyavani. All rights reserved.</div>
+      <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load"><?= _e('©') ?> <span id="year"></span> Jyavani. <?= _e('All rights reserved.') ?></div>
     </div>
   </div>
 </footer>

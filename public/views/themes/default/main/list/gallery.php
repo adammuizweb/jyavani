@@ -7,7 +7,7 @@
  */
 
 $prefix = '/gallery/';
-$category    = (isset($category) && is_array($category)) ? $category : ['name'=>'Kategori','slug'=>''];
+$category    = (isset($category) && is_array($category)) ? $category : ['name'=>__('Category'),'slug'=>''];
 $children    = (isset($children) && is_array($children)) ? $children : [];
 $breadcrumbs = (isset($breadcrumbs) && is_array($breadcrumbs)) ? $breadcrumbs : [];
 ?>
@@ -48,7 +48,7 @@ $breadcrumbs = (isset($breadcrumbs) && is_array($breadcrumbs)) ? $breadcrumbs : 
 
 <div class="gallery-cats-wrap">
   <div class="gallery-bc">
-    <a href="<?= htmlspecialchars($prefix, ENT_QUOTES, 'UTF-8') ?>">Gallery</a>
+    <a href="<?= htmlspecialchars($prefix, ENT_QUOTES, 'UTF-8') ?>"><?= __('Gallery') ?></a>
     <?php foreach ($breadcrumbs as $b): ?>
       <span> / </span>
       <a href="<?= htmlspecialchars((string)($b['url'] ?? '#'), ENT_QUOTES, 'UTF-8') ?>">
@@ -56,11 +56,11 @@ $breadcrumbs = (isset($breadcrumbs) && is_array($breadcrumbs)) ? $breadcrumbs : 
       </a>
     <?php endforeach; ?>
     <span> / </span>
-    <strong><?= htmlspecialchars((string)($category['name'] ?? 'Kategori'), ENT_QUOTES, 'UTF-8') ?></strong>
+    <strong><?= htmlspecialchars((string)($category['name'] ?? __('Category')), ENT_QUOTES, 'UTF-8') ?></strong>
   </div>
 
   <?php if (empty($children)): ?>
-    <div style="color:#64748b;font-size:14px;padding:14px 4px">Tidak ada subkategori.</div>
+    <div style="color:#64748b;font-size:14px;padding:14px 4px"><?= __('No subcategories.') ?></div>
   <?php else: ?>
     <div class="cat-grid" role="list" aria-label="Subcategories">
       <?php foreach ($children as $ch): ?>
@@ -68,7 +68,7 @@ $breadcrumbs = (isset($breadcrumbs) && is_array($breadcrumbs)) ? $breadcrumbs : 
         <div class="cat-card" role="listitem">
           <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>">
             <div class="cat-title"><?= htmlspecialchars((string)($ch['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-            <div class="cat-count"><?= (int)($ch['cnt'] ?? 0) ?> Foto</div>
+            <div class="cat-count"><?= sprintf(__('%d Photos'), (int)($ch['cnt'] ?? 0)) ?></div>
           </a>
         </div>
       <?php endforeach; ?>

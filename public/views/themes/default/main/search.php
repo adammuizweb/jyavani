@@ -140,11 +140,11 @@ if (!function_exists('search_theme_build_page_url')) {
 }
 </style>
 
-<h1>Hasil pencarian untuk: “<?= $qEsc ?>”</h1>
-<p class="summary"><?= (int)$total ?> hasil ditemukan.</p>
+<h1><?= __('Search results for:') ?> “<?= $qEsc ?>”</h1>
+<p class="summary"><?= sprintf(__('%d results found.'), (int)$total) ?></p>
 
 <?php if (empty($posts)): ?>
-  <p>Tidak ada hasil. Coba kata kunci lain.</p>
+  <p><?= __('No results. Try another keyword.') ?></p>
 <?php else: ?>
 
   <?php
@@ -166,7 +166,7 @@ if (!function_exists('search_theme_build_page_url')) {
       <article class="card">
         <h2>
           <a href="/<?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>/">
-            <?= htmlspecialchars((string)($p['title'] ?? '(untitled)'), ENT_QUOTES, 'UTF-8') ?>
+            <?= htmlspecialchars((string)($p['title'] ?? __('(untitled)')), ENT_QUOTES, 'UTF-8') ?>
           </a>
         </h2>
 
@@ -191,7 +191,7 @@ if (!function_exists('search_theme_build_page_url')) {
     <?php endforeach; ?>
 
     <?php if ($pages > 1): ?>
-      <nav class="pagination" aria-label="Pagination">
+      <nav class="pagination" aria-label="<?= __('Pagination') ?>">
         <?php for ($i = 1; $i <= $pages; $i++): ?>
           <?php $link = search_theme_build_page_url($base, $i); ?>
           <a

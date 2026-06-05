@@ -17,7 +17,7 @@ $authorName = !empty($post['author_name'])
     ? $post['author_name']
     : (!empty($post['author_username'])
         ? $post['author_username']
-        : (!empty($post['author_email']) ? $post['author_email'] : 'Penulis'));
+        : (!empty($post['author_email']) ? $post['author_email'] : __('Author')));
 
 $authorImg = !empty($post['author_img']) ? $post['author_img'] : null;
 $authorIdOrSlug = $post['author_username'] ?? (isset($post['author_id']) ? (string)$post['author_id'] : '');
@@ -42,7 +42,7 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
     <!-- Baris 2: author username | terakhir diperbarui -->
     <div class="post-top-meta">
       <div class="author-inline">
-          <span class="author-label">Author:</span>
+          <span class="author-label"><?= __('Author:') ?></span>
           <?php if ($authorUrl): ?>
           <a href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>" class="author-link">
             <span class="author-username"><?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?></span>
@@ -53,8 +53,8 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
       </div>
 
       <?php if ($updatedTs): ?>
-        <div class="updated-at" title="Terakhir diperbarui">
-         Updated: <?= htmlspecialchars($displayUpdated, ENT_QUOTES, 'UTF-8') ?>
+        <div class="updated-at" title="<?= __('Last updated') ?>">
+         <?= __('Updated:') ?> <?= htmlspecialchars($displayUpdated, ENT_QUOTES, 'UTF-8') ?>
         </div>
       <?php endif; ?>
     </div>
@@ -81,7 +81,7 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
 
       <div class="publisher-meta">
         <div class="publisher-line">
-          <strong>Dipublikasikan:</strong>
+          <strong><?= __('Published:') ?></strong>
           <?php if ($authorUrl): ?>
             <a class="publisher-name" href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>">
               <?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?>
@@ -93,7 +93,7 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
 
         <?php if ($displayCreated): ?>
         <div class="published-at">
-          pada <?= htmlspecialchars($displayCreated, ENT_QUOTES, 'UTF-8') ?>
+          <?= __('on') ?> <?= htmlspecialchars($displayCreated, ENT_QUOTES, 'UTF-8') ?>
         </div>
         <?php endif; ?>
       </div>

@@ -44,19 +44,19 @@ $searchQuery = $_GET['s'] ?? '';
       data-anime-trigger="load"
       data-duration="700"
       data-delay="260"
-      aria-label="Menu"
+      aria-label="<?= __('Menu') ?>"
     >
       <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
 
     <nav id="navbar" class="navbar">
       <div class="mobile-head">
-        <span class="mobile-title">Menu Utama</span>
+        <span class="mobile-title"><?= __('Main Menu') ?></span>
         <button id="closeMenu" class="close-btn pop onload"
           data-anime-trigger="load"
           data-duration="700"
           data-delay="320"
-          aria-label="Close Menu"
+          aria-label="<?= __('Close Menu') ?>"
         >
           <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
@@ -81,8 +81,8 @@ $searchQuery = $_GET['s'] ?? '';
           data-duration="1700"
           data-delay="760"
         >
-          <option value="light">Terang</option>
-          <option value="dark">Gelap</option>
+          <option value="light"><?= __('Light') ?></option>
+          <option value="dark"><?= __('Dark') ?></option>
         </select>
 
         <select id="lang-switch" class="ctrl-item blur-in onload"
@@ -90,8 +90,8 @@ $searchQuery = $_GET['s'] ?? '';
           data-duration="700"
           data-delay="860"
         >
-          <option value="id">Indonesia</option>
-          <option value="en">English</option>
+          <option value="id"><?= __('Indonesian') ?></option>
+          <option value="en"><?= __('English') ?></option>
         </select>
 
         <form method="get" action="<?= htmlspecialchars($homeUrl) ?>">
@@ -102,7 +102,7 @@ $searchQuery = $_GET['s'] ?? '';
             data-anime-trigger="load"
             data-duration="1000"
             data-delay="1000"
-            placeholder="Cari..."
+            placeholder="<?= __('Search...') ?>"
             value="<?= htmlspecialchars($searchQuery) ?>"
           >
         </form>

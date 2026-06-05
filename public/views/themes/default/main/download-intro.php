@@ -79,28 +79,28 @@
 
 <section class="dl-hero">
   <h1>Jyavani CMS</h1>
-  <p class="tagline">CMS native PHP tanpa framework. Cepat, ringan, mudah dikustomisasi. <br>Tidak perlu Composer, Node.js, atau build tools.</p>
+  <p class="tagline"><?= __('Native PHP CMS without framework. Fast, lightweight, easy to customize.') ?><br><?= __('No need for Composer, Node.js, or build tools.') ?></p>
   <a class="dl-btn" href="/download/latest/">Download v<?= e($version) ?></a>
-  <span class="dl-version">Rilis terbaru — <?= e($version) ?></span>
+  <span class="dl-version"><?= __('Latest release — ') ?><?= e($version) ?></span>
 </section>
 
 <section class="dl-features">
-  <h2>Fitur</h2>
+  <h2><?= __('Features') ?></h2>
   <ul>
-    <li>Tanpa framework — pure PHP 8</li>
-    <li>Admin panel di luar public root</li>
-    <li>Login & register path kustom</li>
-    <li>Theme system dengan slot rendering</li>
-    <li>Plugin system dengan uploader</li>
-    <li>Private file & media streaming</li>
-    <li>Shortcode engine (widget, video, PDF)</li>
-    <li>Custom permalink structures</li>
-    <li>Multi-zone sidebar</li>
-    <li>MariaDB / MySQL</li>
+    <li><?= __('No framework — pure PHP 8') ?></li>
+    <li><?= __('Admin panel outside public root') ?></li>
+    <li><?= __('Custom login & register path') ?></li>
+    <li><?= __('Theme system with slot rendering') ?></li>
+    <li><?= __('Plugin system with uploader') ?></li>
+    <li><?= __('Private file & media streaming') ?></li>
+    <li><?= __('Shortcode engine (widget, video, PDF)') ?></li>
+    <li><?= __('Custom permalink structures') ?></li>
+    <li><?= __('Multi-zone sidebar') ?></li>
+    <li><?= __('MariaDB / MySQL') ?></li>
   </ul>
 </section>
 
 <section class="dl-tech">
-  <p>PHP 8.1+ &bull; MariaDB 10.6+ &bull; Nginx / Apache</p>
-  <p>Dikembangkan oleh Adam Muiz &middot; Jyavani CMS v<?= e($version) ?></p>
+  <p><?= __('PHP 8.1+ • MariaDB 10.6+ • Nginx / Apache') ?></p>
+  <p><?= __('Developed by Adam Muiz') ?> &middot; Jyavani CMS v<?= e($version) ?></p>
 </section>

@@ -19,7 +19,7 @@ unset($_cp);
 ?>
 
 <nav class="breadcrumb" aria-label="Breadcrumb">
-    <a href="<?= $catBase ?>">Kategori</a>
+    <a href="<?= $catBase ?>"><?= __('Category') ?></a>
 
     <?php if ($category_path !== ''):
         $accum = [];

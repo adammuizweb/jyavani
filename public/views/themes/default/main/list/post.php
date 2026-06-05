@@ -90,20 +90,20 @@ if (!function_exists('_theme_posts_resolve_image')) {
 
 <section class="adam-posts-list" style="max-width:980px;margin:0 auto;padding:1rem;">
   <div style="margin-bottom:1rem;">
-    <h1 style="margin:0;font-size:1.6rem">Articles - (Themes)</h1>
+    <h1 style="margin:0;font-size:1.6rem"><?= __('Articles') ?></h1>
     <?php if ($total): ?>
       <div style="color:#666;font-size:.9rem;margin-top:.35rem">
-        <?= htmlspecialchars(number_format($total), ENT_QUOTES, 'UTF-8') ?> item<?= $total>1 ? 's' : '' ?>
+        <?= sprintf(__('%s items'), htmlspecialchars(number_format($total), ENT_QUOTES, 'UTF-8')) ?>
       </div>
     <?php endif; ?>
   </div>
 
   <?php if (empty($posts)): ?>
-    <div style="padding:1rem;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.04);">Tidak ada artikel.</div>
+    <div style="padding:1rem;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.04);"><?= __('No articles.') ?></div>
   <?php else: ?>
     <div style="display:grid;grid-template-columns: 1fr;gap:1rem;">
       <?php foreach ($posts as $p):
-          $title = htmlspecialchars($p['title'] ?? 'Untitled', ENT_QUOTES, 'UTF-8');
+          $title = htmlspecialchars($p['title'] ?? __('Untitled'), ENT_QUOTES, 'UTF-8');
           $slug  = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug'] ?? '') . '/';
           $date  = isset($p['created_at'])
               ? htmlspecialchars(function_exists('format_datetime_id') ? format_datetime_id($p['created_at']) : $p['created_at'], ENT_QUOTES, 'UTF-8')
@@ -126,7 +126,7 @@ if (!function_exists('_theme_posts_resolve_image')) {
             <div style="font-size:.85rem;margin-bottom:.5rem;"><?= $date ?></div>
             <p style="margin:0;line-height:1.6;font-size:.98rem;"><?= htmlspecialchars(_theme_posts_excerpt($p['content'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
             <p style="margin-top:.6rem">
-              <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;font-weight:600">Baca selengkapnya →</a>
+              <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;font-weight:600"><?= __('Read more →') ?></a>
             </p>
           </div>
         </article>
@@ -138,13 +138,13 @@ if (!function_exists('_theme_posts_resolve_image')) {
       <div aria-label="Pagination" style="margin-top:1rem;text-align:center">
         <div style="display:inline-flex;gap:.5rem;align-items:center;">
 <?php if ($page > 1): ?>
-  <a href="<?= htmlspecialchars($base . '?page=' . ($page-1), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px solid #eee;text-decoration:none">← Prev</a>
+  <a href="<?= htmlspecialchars($base . '?page=' . ($page-1), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px solid #eee;text-decoration:none"><?= __('← Prev') ?></a>
 <?php endif; ?>
 
-<span style="padding:.45rem .75rem;border-radius:6px;border:1px solid #eee">Halaman <?= $page ?> dari <?= $pages ?></span>
+<span style="padding:.45rem .75rem;border-radius:6px;border:1px solid #eee"><?= sprintf(__('Page %d of %d'), $page, $pages) ?></span>
 
 <?php if ($page < $pages): ?>
-  <a href="<?= htmlspecialchars($base . '?page=' . ($page+1), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px;text-decoration:none">Next →</a>
+  <a href="<?= htmlspecialchars($base . '?page=' . ($page+1), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px;text-decoration:none"><?= __('Next →') ?></a>
 <?php endif; ?>
         </div>
       </div>

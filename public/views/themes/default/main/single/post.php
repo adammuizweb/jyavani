@@ -90,7 +90,7 @@ $authorName = !empty($post['author_name'])
     ? $post['author_name']
     : (!empty($post['author_username'])
         ? $post['author_username']
-        : (!empty($post['author_email']) ? $post['author_email'] : 'Penulis'));
+        : (!empty($post['author_email']) ? $post['author_email'] : __('Author')));
 
 $authorImg  = !empty($post['author_img']) ? $post['author_img'] : null;
 $authorSlug = !empty($post['author_username']) ? $post['author_username'] : (!empty($post['author_id']) ? (string)$post['author_id'] : '');
@@ -175,7 +175,7 @@ $bcDataAttrs = function (int $dur, int $delay): string {
 ?>
 
 <nav class="adam-breadcrumb" aria-label="Breadcrumb">
-  <a href="/" class="typewrite onload"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>>Beranda</a>
+  <a href="/" class="typewrite onload"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>><?= __('Home') ?></a>
   <?php $bcDelay += $bcGap; ?>
 
   <span class="sep typewrite onload"<?= $bcDataAttrs($bcDurSep, $bcDelay) ?>>/</span>
@@ -204,7 +204,7 @@ $bcDataAttrs = function (int $dur, int $delay): string {
   <?php endif; ?>
 
   <span class="current blur-in onload typewrite"
-        aria-current="page"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>>Artikel</span>
+        aria-current="page"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>><?= __('Article') ?></span>
 </nav>
 
 <header class="adam-post-header">
@@ -249,7 +249,7 @@ $bcDataAttrs = function (int $dur, int $delay): string {
     <?php endif; ?>
 
     <div class="meta-text">
-      <span class="by">Ditulis oleh</span>
+      <span class="by"><?= __('Written by') ?></span>
       <?php if ($authorUrl): ?>
         <a class="name typewrite" data-duration="400" href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>">
           <?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?>
@@ -282,12 +282,12 @@ $readDelay = $d1; // default kalau updated tidak muncul
 
   <?php if (!empty($post['updated_at']) && !empty($post['created_at']) && $post['updated_at'] > $post['created_at']): ?>
     <div class="meta-item updated slide-up onload"
-         title="Terakhir diperbarui"
+         title="<?= __('Last updated') ?>"
          data-anim-trigger="load"
          data-duration="300"
          data-delay="<?= $d1 ?>">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg>
-      Updated: <?= htmlspecialchars(date('d M Y', strtotime((string)$post['updated_at'])), ENT_QUOTES, 'UTF-8') ?>
+      <?= __('Updated:') ?> <?= htmlspecialchars(date('d M Y', strtotime((string)$post['updated_at'])), ENT_QUOTES, 'UTF-8') ?>
     </div>
     <?php $readDelay = $d2; ?>
   <?php endif; ?>
@@ -297,7 +297,7 @@ $readDelay = $d1; // default kalau updated tidak muncul
        data-duration="300"
        data-delay="<?= $readDelay ?>">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-    <?= (int)$readTime ?> menit baca
+    <?= sprintf(__('%d min read'), (int)$readTime) ?>
   </div>
 
 </div>
@@ -377,11 +377,11 @@ $imgSrcRaw = !empty($post['display_image'])
     <?php if ($turl): ?>
       <a href="<?= $turl ?>"<?= $targetAttr ?><?= $relAttr ?>
          class="adam-thumb--linked"
-         aria-label="Buka materi: <?= $imgAlt ?>">
+         aria-label="<?= sprintf(__('Open material: %s'), $imgAlt) ?>">
         <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>" loading="lazy">
-        <div class="adam-thumb-badge">📄 <?= htmlspecialchars((string)($typeLabel ?? 'Materi'), ENT_QUOTES, 'UTF-8') ?></div>
-        <div class="adam-thumb-overlay" aria-hidden="true"><div class="adam-thumb-cta">Lihat Materi</div></div>
-        <span class="adam-thumb-bottom" aria-hidden="false">Buka Materi</span>
+        <div class="adam-thumb-badge">📄 <?= htmlspecialchars((string)($typeLabel ?? __('Material')), ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="adam-thumb-overlay" aria-hidden="true"><div class="adam-thumb-cta"><?= __('View Material') ?></div></div>
+        <span class="adam-thumb-bottom" aria-hidden="false"><?= __('Open Material') ?></span>
       </a>
     <?php else: ?>
       <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>" loading="lazy">
@@ -399,7 +399,7 @@ $imgSrcRaw = !empty($post['display_image'])
   <div class="footer-actions">
     <a href="/" class="btn-back">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-      Home
+      <?= __('Home') ?>
     </a>
 
     <?php if ($authorUrl): ?>
@@ -409,8 +409,8 @@ $imgSrcRaw = !empty($post['display_image'])
                viewBox="0 0 64 64"
                role="img"
                aria-labelledby="avatarTitle avatarDesc">
-            <title id="avatarTitle">Avatar</title>
-            <desc id="avatarDesc">Simple user silhouette icon (head + shoulders)</desc>
+            <title id="avatarTitle"><?= __('Avatar') ?></title>
+            <desc id="avatarDesc"><?= __('Simple user silhouette icon (head and shoulders)') ?></desc>
             <g fill="var(--let-base, #1f2937)">
               <circle cx="32" cy="18" r="10" />
               <path d="M6 54c0-14 13-26 26-26s26 12 26 26H6z" />

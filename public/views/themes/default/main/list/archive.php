@@ -23,14 +23,14 @@ if ($archive_label !== '') {
 } elseif ($month !== null && $month >= 1 && $month <= 12 && $year !== null && $year > 0) {
     $archiveTitle = date('F', mktime(0, 0, 0, $month, 1, $year)) . ' ' . $year;
 } elseif ($year !== null && $year > 0) {
-    $archiveTitle = 'Tahun ' . $year;
+    $archiveTitle = __('Year') . ' ' . $year;
 } else {
-    $archiveTitle = 'Arsip';
+    $archiveTitle = __('Archive');
 }
 ?>
 <section id="adamz-arch-container">
     <header class="adamz-arch-header">
-        <span class="adamz-arch-label">Koleksi Tulisan</span>
+        <span class="adamz-arch-label"><?= __('Writing Collection') ?></span>
         <h1 class="adamz-arch-title">
             <?= htmlspecialchars($archiveTitle, ENT_QUOTES, 'UTF-8') ?>
         </h1>
@@ -38,7 +38,7 @@ if ($archive_label !== '') {
 
     <?php if (empty($posts)): ?>
         <div style="text-align:center; padding:5rem; color:#ced6e0; border:2px dashed #f1f2f6; border-radius:24px;">
-            <p>Tidak ditemukan artikel pada periode ini.</p>
+            <p><?= __('No articles found in this period.') ?></p>
         </div>
     <?php else: ?>
         <div class="adamz-arch-grid">
@@ -47,7 +47,7 @@ if ($archive_label !== '') {
                     if (!is_array($p)) continue;
 
                     $slug      = (string)($p['slug'] ?? '');
-                    $titleRaw  = (string)($p['title'] ?? 'Tanpa Judul');
+                    $titleRaw  = (string)($p['title'] ?? __('Untitled'));
                     $content   = (string)($p['content'] ?? '');
                     $createdAt = !empty($p['created_at']) ? strtotime((string)$p['created_at']) : false;
 
@@ -89,18 +89,18 @@ if ($archive_label !== '') {
                         $prevUrl = $basePath . ($prevPage === 1 ? '' : '?page=' . $prevPage);
                     ?>
                     <a href="<?= htmlspecialchars($prevUrl, ENT_QUOTES, 'UTF-8') ?>" class="adamz-arch-nav-btn">
-                        &larr; Prev
+                        <?= __('← Prev') ?>
                     </a>
                 <?php endif; ?>
 
                 <span class="adamz-arch-page-info">
-                    Halaman <?= $page ?> / <?= $totalPages ?>
+                    <?= sprintf(__('Page %d / %d'), $page, $totalPages) ?>
                 </span>
 
                 <?php if ($page < $totalPages): ?>
                     <?php $nextUrl = $basePath . '?page=' . ($page + 1); ?>
                     <a href="<?= htmlspecialchars($nextUrl, ENT_QUOTES, 'UTF-8') ?>" class="adamz-arch-nav-btn">
-                        Next &rarr;
+                        <?= __('Next →') ?>
                     </a>
                 <?php endif; ?>
             </nav>

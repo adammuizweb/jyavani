@@ -14,8 +14,8 @@ if (!function_exists('widget')) {
     ?>
     <div class="sidebar-wrap">
       <div class="w-box">
-        <div class="w-title">Sidebar</div>
-        <p class="w-empty">Fungsi widget tidak tersedia.</p>
+        <div class="w-title"><?= __('Sidebar') ?></div>
+        <p class="w-empty"><?= __('Widget function is not available.') ?></p>
       </div>
     </div>
     <?php
@@ -61,9 +61,9 @@ if (class_exists('ShortcodeQuery') && !defined('SIDEBAR_PRESETS_REGISTERED')) {
 </div>
 <div class="sidebar-wrap">
   <?php
-  echo widget('search_form', ['placeholder' => 'Cari artikel...']);
-  echo widget('categories_list', ['title' => 'Kategori', 'limit' => 30, 'only_parents' => true]);
-  echo widget('author_posts', ['title' => 'Artikel Saya', 'limit' => 8]);
+  echo widget('search_form', ['placeholder' => __('Search articles...')]);
+  echo widget('categories_list', ['title' => __('Categories'), 'limit' => 30, 'only_parents' => true]);
+  echo widget('author_posts', ['title' => __('My Articles'), 'limit' => 8]);
   ?>
 </div>
 <div class="sidebar-wrap">

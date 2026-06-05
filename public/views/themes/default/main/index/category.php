@@ -5,10 +5,10 @@
  */
 ?>
 <div class="container category-index">
-    <h1 class="page-title">Kategori</h1>
+    <h1 class="page-title"><?= __('Categories') ?></h1>
 
     <?php if (empty($categories)): ?>
-        <p class="empty-msg">Tidak ada kategori.</p>
+        <p class="empty-msg"><?= __('No categories.') ?></p>
     <?php else: ?>
         <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
         <ul class="category-list">

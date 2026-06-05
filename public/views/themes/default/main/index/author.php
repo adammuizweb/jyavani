@@ -5,15 +5,15 @@
  */
 ?>
 <div class="author-container">
-  <h1 class="author-page-title">Penulis</h1>
+  <h1 class="author-page-title"><?= __('Authors') ?></h1>
 
   <?php if (empty($authors)): ?>
-    <p>Tidak ada penulis.</p>
+    <p><?= __('No authors.') ?></p>
   <?php else: ?>
     <div class="authors-grid">
       <?php foreach ($authors as $a): 
         $link = !empty($a['username']) ? '/author/' . rawurlencode($a['username']) . '/' : '/author/' . rawurlencode($a['id']) . '/';
-        $displayName = $a['name'] ?: $a['email'] ?: ($a['username'] ?? 'Penulis');
+        $displayName = $a['name'] ?: $a['email'] ?: ($a['username'] ?? __('Author'));
         $initial = strtoupper(mb_substr($displayName, 0, 1));
       ?>
         <article class="author-card">

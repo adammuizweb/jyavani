@@ -109,13 +109,13 @@
 <div class="glow"></div>
 
 <div class="container">
-    <div class="status-badge">Segera Hadir</div>
+    <div class="status-badge"><?= __('Coming Soon') ?></div>
     <h1>Adam <span>Muiz</span></h1>
-    <p>Sedang membangun sesuatu yang luar biasa.</p>
+    <p><?= __('Building something amazing.') ?></p>
     
     <div class="links">
         <a href="#">LinkedIn</a>
         <a href="#">GitHub</a>
-        <a href="mailto:email@example.com">Kontak</a>
+        <a href="mailto:email@example.com"><?= __('Contact') ?></a>
     </div>
 </div>

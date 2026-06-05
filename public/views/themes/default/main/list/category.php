@@ -17,7 +17,7 @@ $totalPages = isset($totalPages) ? max(1, (int)$totalPages) : 1;
 $category_path = isset($category_path) && is_string($category_path) ? trim($category_path, '/') : '';
 
 // derived safe values
-$categoryName = (string)($category['name'] ?? 'Kategori');
+$categoryName = (string)($category['name'] ?? __('Category'));
 $categoryDescription = (string)($category['description'] ?? '');
 ?>
 
@@ -42,7 +42,7 @@ $categoryDescription = (string)($category['description'] ?? '');
     </header>
 
     <?php if (empty($posts)): ?>
-        <p class="no-posts">Tidak ada artikel dalam kategori ini.</p>
+        <p class="no-posts"><?= __('No articles in this category.') ?></p>
     <?php else: ?>
         <div class="posts-list">
             <?php foreach ($posts as $p): ?>
@@ -51,7 +51,7 @@ $categoryDescription = (string)($category['description'] ?? '');
 
                     $postId = (int)($p['id'] ?? 0);
                     $postSlug = (string)($p['slug'] ?? '');
-                    $postTitle = (string)($p['title'] ?? 'Tanpa Judul');
+                    $postTitle = (string)($p['title'] ?? __('Untitled'));
                     $postContent = (string)($p['content'] ?? '');
                     $postCreatedAt = !empty($p['created_at']) ? strtotime((string)$p['created_at']) : false;
 
@@ -86,7 +86,7 @@ $categoryDescription = (string)($category['description'] ?? '');
                         </p>
 
                         <div class="post-actions">
-                            <a class="read-more" href="/<?= rawurlencode($postSlug) ?>/">Baca selengkapnya →</a>
+                            <a class="read-more" href="/<?= rawurlencode($postSlug) ?>/"><?= __('Read more →') ?></a>
                         </div>
                     </div>
                 </article>
@@ -103,13 +103,13 @@ $categoryDescription = (string)($category['description'] ?? '');
         ?>
         <nav class="pagination" aria-label="Pagination">
             <?php if ($page > 1): ?>
-                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page - 1), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
+                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page - 1), ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
             <?php endif; ?>
 
-            <span class="page-info">Halaman <?= $page ?> dari <?= $totalPages ?></span>
+            <span class="page-info"><?= sprintf(__('Page %d of %d'), $page, $totalPages) ?></span>
 
             <?php if ($page < $totalPages): ?>
-                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page + 1), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
+                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page + 1), ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
             <?php endif; ?>
         </nav>
     <?php endif; ?>

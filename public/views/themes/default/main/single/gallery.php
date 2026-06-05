@@ -124,7 +124,7 @@ $buildPageUrl = function(int $n) use ($base) {
 <div class="gallery-wrap">
 
   <div class="gallery-bc">
-    <a href="<?= htmlspecialchars($prefix, ENT_QUOTES, 'UTF-8') ?>">Gallery</a>
+    <a href="<?= htmlspecialchars($prefix, ENT_QUOTES, 'UTF-8') ?>"><?= __('Gallery') ?></a>
     <?php
       $acc = [];
       foreach ($breadcrumbs as $b):
@@ -135,11 +135,11 @@ $buildPageUrl = function(int $n) use ($base) {
       <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($b['name'] ?? '', ENT_QUOTES, 'UTF-8') ?></a>
     <?php endforeach; ?>
     <span> / </span>
-    <strong><?= htmlspecialchars($category['name'] ?? 'Kategori', ENT_QUOTES, 'UTF-8') ?></strong>
+    <strong><?= htmlspecialchars($category['name'] ?? __('Category'), ENT_QUOTES, 'UTF-8') ?></strong>
   </div>
 
   <?php if (empty($items)): ?>
-    <div class="gallery-muted">Belum ada foto pada album ini.</div>
+    <div class="gallery-muted"><?= __('No photos in this album yet.') ?></div>
   <?php else: ?>
     <div class="gallery-grid" aria-label="Gallery photo grid">
       <?php foreach ($items as $it): ?>
@@ -149,7 +149,7 @@ $buildPageUrl = function(int $n) use ($base) {
 
           $alt = (string)($it['alt'] ?? '');
           if ($alt === '') $alt = (string)($it['caption'] ?? '');
-          if ($alt === '') $alt = 'Photo';
+          if ($alt === '') $alt = __('Photo');
 
           $full = $img;
         ?>
@@ -175,11 +175,11 @@ $buildPageUrl = function(int $n) use ($base) {
     <?php if ($totalPages > 1): ?>
       <nav class="gallery-pager" aria-label="Pagination">
         <?php if ($page > 1): ?>
-          <a href="<?= htmlspecialchars($buildPageUrl($page-1), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
+          <a href="<?= htmlspecialchars($buildPageUrl($page-1), ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
         <?php endif; ?>
-        <span>Album <?= (int)$page ?> / <?= (int)$totalPages ?></span>
+        <span><?= sprintf(__('Album %d / %d'), (int)$page, (int)$totalPages) ?></span>
         <?php if ($page < $totalPages): ?>
-          <a href="<?= htmlspecialchars($buildPageUrl($page+1), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
+          <a href="<?= htmlspecialchars($buildPageUrl($page+1), ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
         <?php endif; ?>
       </nav>
     <?php endif; ?>
