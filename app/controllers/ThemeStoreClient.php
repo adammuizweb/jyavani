@@ -58,7 +58,7 @@ class ThemeStoreClient
 
         if (!isset($updates[$themeName])) {
             if ($progressToken !== '') {
-                self::writeProgress($progressToken, 0, 'Tidak ada update tersedia.', true, 'Jalankan "Check for Updates" terlebih dahulu.');
+                self::writeProgress($progressToken, 0, __('No update available.'), true, __('Run "Check for Updates" first.'));
             }
             return ['success' => false, 'error' => 'No update available for "' . $themeName . '". Run "Check for Updates" first.'];
         }
@@ -67,7 +67,7 @@ class ThemeStoreClient
         $themeDir = rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $folderName;
         if (!is_dir($themeDir)) {
             if ($progressToken !== '') {
-                self::writeProgress($progressToken, 0, 'Direktori theme tidak ditemukan.', true, 'Direktori theme tidak ditemukan.');
+                self::writeProgress($progressToken, 0, __('Theme directory not found.'), true, __('Theme directory not found.'));
             }
             return ['success' => false, 'error' => 'Theme directory not found.'];
         }
@@ -76,9 +76,9 @@ class ThemeStoreClient
             if ($progressToken !== '') self::writeProgress($progressToken, $pct, $status);
         };
 
-        $p(3, 'Memulai update...');
+        $p(3, __('Starting update...'));
 
-        $p(8, 'Membackup theme saat ini...');
+        $p(8, __('Backing up current theme...'));
         $backupDir = dirname(self::transientFile()) . '/theme-backups/' . $folderName . '-' . $update['current_version'];
         if (!is_dir($backupDir)) mkdir($backupDir, 0755, true);
         $backupFile = $backupDir . '/backup.zip';
@@ -95,39 +95,39 @@ class ThemeStoreClient
             $zip->close();
         }
 
-        $p(18, 'Mengunduh paket update...');
+        $p(18, __('Downloading update package...'));
         $zipContent = @file_get_contents($update['download_url']);
         if ($zipContent === false) {
-            self::writeProgress($progressToken, 0, 'Gagal mengunduh update.', true, 'Gagal mengunduh update dari store.');
-            return ['success' => false, 'error' => 'Gagal mengunduh update dari store.'];
+            self::writeProgress($progressToken, 0, __('Failed to download update.'), true, __('Failed to download update from store.'));
+            return ['success' => false, 'error' => __('Failed to download update from store.')];
         }
 
-        $p(35, 'Unduhan selesai. Memverifikasi paket...');
+        $p(35, __('Download complete. Verifying package...'));
         $tmpZip = tempnam(sys_get_temp_dir(), 'update-') . '.zip';
         file_put_contents($tmpZip, $zipContent);
 
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
             unlink($tmpZip);
-            self::writeProgress($progressToken, 0, 'Paket update tidak valid.', true, 'Paket update tidak valid.');
-            return ['success' => false, 'error' => 'Paket update tidak valid.'];
+            self::writeProgress($progressToken, 0, __('Invalid update package.'), true, __('Invalid update package.'));
+            return ['success' => false, 'error' => __('Invalid update package.')];
         }
 
         $manifestRaw = $zip->getFromName('theme.json');
         if ($manifestRaw === false) {
             $zip->close(); unlink($tmpZip);
-            self::writeProgress($progressToken, 0, 'theme.json tidak ditemukan dalam paket.', true);
-            return ['success' => false, 'error' => 'theme.json tidak ditemukan dalam paket.'];
+            self::writeProgress($progressToken, 0, __('theme.json not found in package.'), true);
+            return ['success' => false, 'error' => __('theme.json not found in package.')];
         }
 
         $manifest = json_decode($manifestRaw, true);
         if (!is_array($manifest) || empty($manifest['name']) || $manifest['name'] !== $folderName) {
             $zip->close(); unlink($tmpZip);
-            self::writeProgress($progressToken, 0, 'theme.json tidak valid.', true);
-            return ['success' => false, 'error' => 'theme.json tidak valid.'];
+            self::writeProgress($progressToken, 0, __('Invalid theme.json.'), true);
+            return ['success' => false, 'error' => __('Invalid theme.json.')];
         }
 
-        $p(45, 'Membersihkan file lama...');
+        $p(45, __('Cleaning old files...'));
         $it = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($themeDir, RecursiveDirectoryIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST
@@ -139,7 +139,7 @@ class ThemeStoreClient
             else @unlink($f->getPathname());
         }
 
-        $p(55, 'Memasang file update...');
+        $p(55, __('Installing update files...'));
         $totalFiles = $zip->numFiles;
         $extractFailed = false;
         for ($i = 0; $i < $totalFiles; $i++) {
@@ -153,13 +153,13 @@ class ThemeStoreClient
             if (!$copied) { $extractFailed = true; break; }
             if ($progressToken !== '' && $totalFiles > 0 && $i % max(1, intdiv($totalFiles, 10)) === 0) {
                 $pct = 55 + (int)(30 * ($i + 1) / $totalFiles);
-                $p($pct, 'Memasang file (' . ($i + 1) . '/' . $totalFiles . ')...');
+                $p($pct, __('Installing file') . ' (' . ($i + 1) . '/' . $totalFiles . ')...');
             }
         }
         $zip->close();
 
         if ($extractFailed) {
-            $p(0, 'Gagal! Mengembalikan backup...');
+            $p(0, __('Failed! Restoring backup...'));
             if (is_file($backupFile)) {
                 $bz = new ZipArchive();
                 if ($bz->open($backupFile) === true) {
@@ -168,8 +168,8 @@ class ThemeStoreClient
                 }
             }
             unlink($tmpZip);
-            self::writeProgress($progressToken, 0, 'Gagal mengekstrak update. Backup sudah dikembalikan.', true);
-            return ['success' => false, 'error' => 'Gagal mengekstrak update. Backup sudah dikembalikan.'];
+            self::writeProgress($progressToken, 0, __('Failed to extract update. Backup has been restored.'), true);
+            return ['success' => false, 'error' => __('Failed to extract update. Backup has been restored.')];
         }
 
         unlink($tmpZip);
@@ -186,7 +186,7 @@ class ThemeStoreClient
             @rmdir($backupDir);
         }
 
-        $p(88, 'Memperbarui manifest theme...');
+        $p(88, __('Updating theme manifest...'));
         $manifestPath = $themeDir . '/theme.json';
         $existingManifest = is_file($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : null;
         if ($existingManifest) {
@@ -196,12 +196,12 @@ class ThemeStoreClient
 
         register_theme_in_db($pdo, $folderName);
 
-        $p(95, 'Menyelesaikan...');
+        $p(95, __('Finishing...'));
         $transient = self::readTransient();
         unset($transient['updates'][$themeName]);
         self::writeTransient($transient);
 
-        self::writeProgress($progressToken, 100, 'Selesai!', true);
+        self::writeProgress($progressToken, 100, __('Done!'), true);
 
         return ['success' => true, 'new_version' => $update['new_version']];
     }

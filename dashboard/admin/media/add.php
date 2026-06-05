@@ -198,7 +198,7 @@ $hasVisibility = mdlib_has_column('visibility');
           413: 'File terlalu besar. Maksimal 20MB.'
         };
         const msg = j?.error || httpMap[res.status] || txt?.replace(/<[^>]+>/g, '').trim() || ('HTTP ' + res.status);
-        uiToast('error', 'Media', 'Upload gagal: ' + msg);
+        uiToast('error', 'Media', '<?=__('Upload failed: ')?>' + msg);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 400);
@@ -207,7 +207,7 @@ $hasVisibility = mdlib_has_column('visibility');
       }
 
       if (!j || !j.success) {
-        uiToast('error', 'Media', 'Upload gagal: ' + (j?.error || txt || 'unknown'));
+        uiToast('error', 'Media', '<?=__('Upload failed: ')?>' + (j?.error || txt || 'unknown'));
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 400);
@@ -218,7 +218,7 @@ $hasVisibility = mdlib_has_column('visibility');
       bar.style.width = '100%';
       showThumb(j.url, j.media);
 
-      uiToast('success', 'Media', 'Upload berhasil: ' + file.name, 1800);
+      uiToast('success', 'Media', '<?=__('Upload successful: ')?>' + file.name, 1800);
       document.dispatchEvent(new CustomEvent('media:added', { detail: j.media }));
 
       setTimeout(() => {
@@ -229,7 +229,7 @@ $hasVisibility = mdlib_has_column('visibility');
       }, 900);
 
     } catch (err) {
-      uiToast('error', 'Media', 'Upload gagal (network): ' + (err.message || err));
+      uiToast('error', '<?=__('Media')?>', '<?=__('Upload failed (network): ')?>' + (err.message || err));
       setTimeout(() => {
         row.classList.add('fade');
         setTimeout(() => row.remove(), 400);

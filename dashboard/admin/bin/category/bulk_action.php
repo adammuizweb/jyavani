@@ -117,7 +117,7 @@ try {
             $pdo->rollBack();
             respond_category_bin_bulk(
                 false,
-                'Gagal: beberapa kategori masih punya subkategori. IDs: ' . implode(',', array_slice($bad, 0, 20)),
+                __('Failed: some categories still have subcategories. IDs: ') . implode(',', array_slice($bad, 0, 20)),
                 400,
                 ['blocked_ids' => $bad],
                 $returnTo

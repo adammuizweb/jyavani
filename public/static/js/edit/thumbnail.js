@@ -148,7 +148,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       thumbnailPreview.innerHTML =
         '<img src="' + escapeAttr(svgUrl) + '"'
         + ' data-removed-media="1"'
-        + ' alt="Media telah dihapus dari gallery"'
+        + ' alt="Media was deleted from the gallery"'
         + ' style="max-width:220px;max-height:140px;border:1px solid #f1b5b5;padding:.3rem;background:#fff7f7">';
     }
   }
@@ -245,7 +245,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 
       if (matchById || matchByUrl) {
         setRemovedThumbPlaceholder(detail || null, thumbnailInput, thumbnailPreview);
-        uiToast('warning', 'Thumbnail', 'Thumbnail diubah ke placeholder karena medianya sudah dihapus dari gallery.', 3200);
+        uiToast('warning', 'Thumbnail', 'Thumbnail changed to placeholder because the media was deleted from the gallery.', 3200);
       }
     }
 

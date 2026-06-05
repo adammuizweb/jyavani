@@ -1083,7 +1083,7 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
     $ret = ['success' => false, 'message' => '', 'folder' => null, 'errors' => []];
 
     if (!is_file($zipPath) || !is_readable($zipPath)) {
-        $ret['message'] = 'Zip file tidak ditemukan atau tidak dapat dibaca.';
+        $ret['message'] = __('Zip file not found or unreadable.');
         return $ret;
     }
     if (!class_exists('ZipArchive')) {

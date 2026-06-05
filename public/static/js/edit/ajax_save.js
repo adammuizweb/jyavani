@@ -264,7 +264,7 @@ if (j.ok) {
   updateUpdatedAtIfAny(j);
   updateNonceIfAny(j);
 
-  showNotif('Berhasil', j.message || 'Perubahan berhasil disimpan.', 2000, 'success');
+  showNotif('Success', j.message || 'Changes saved successfully.', 2000, 'success');
 } else {
   const msg =
     (j.errors && Array.isArray(j.errors)) ? j.errors.join('\n') :

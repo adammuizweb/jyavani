@@ -376,14 +376,14 @@ try {
       const j = readJsonSafe(txt);
 
       if (!res.ok) {
-        uiToast('error', 'Library File', 'Upload gagal: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+        uiToast('error', 'Library File', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
         progress.row.remove();
         updateClearButton();
         return;
       }
 
       if (!j || !j.success) {
-        uiToast('error', 'Library File', 'Upload gagal: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
+        uiToast('error', 'Library File', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         progress.row.remove();
         updateClearButton();
         return;
@@ -404,7 +404,7 @@ try {
 
       showPreview(j.url || fileMeta.url || '', fileMeta);
       broadcast('file:added', fileMeta);
-      uiToast('success', 'Library File', 'Upload berhasil: ' + file.name, 1800);
+      uiToast('success', 'Library File', '<?=__('Upload successful: ')?>' + file.name, 1800);
 
       setTimeout(function(){
         if (progress.row.parentNode) {
@@ -413,7 +413,7 @@ try {
         updateClearButton();
       }, 700);
     } catch (err) {
-      uiToast('error', 'Library File', 'Upload gagal (network): ' + (err && err.message ? err.message : err), 6000);
+      uiToast('error', 'Library File', '<?=__('Upload failed (network): ')?>' + (err && err.message ? err.message : err), 6000);
       if (progress.row.parentNode) {
         progress.row.parentNode.removeChild(progress.row);
       }

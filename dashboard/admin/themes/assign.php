@@ -180,7 +180,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         $errors[] = __('Failed to apply theme to all slots after activation.');
                     }
                 } catch (Throwable $e) {
-                    $errors[] = 'Error saat menerapkan theme ke semua slot: ' . $e->getMessage();
+                    $errors[] = __('Error applying theme to all slots:') . ' ' . $e->getMessage();
                     if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[ADMIN ACTIVATE->APPLY] ' . $e->getMessage());
                 }
 
@@ -374,7 +374,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 } else {
                     $file = $_FILES['theme_zip'];
                     if (!empty($file['error'])) {
-                        $errors[] = 'Upload gagal (error code: ' . (int)$file['error'] . ').';
+                        $errors[] = __('Upload failed (error code:') . ' ' . (int)$file['error'] . ').';
                     } else {
                         $name = $file['name'] ?? '';
                         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
@@ -395,7 +395,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                     if (!empty($res['success'])) {
                                         $messages[] = __('Theme installed successfully:') . ' ' . (string)$res['folder'] . '. ' . (string)$res['message'];
                                     } else {
-                                        $errors[] = 'Instalasi gagal: ' . (string)($res['message'] ?? 'unknown');
+                                        $errors[] = __('Installation failed:') . ' ' . (string)($res['message'] ?? 'unknown');
                                     }
                                 } catch (Throwable $e) {
                                     $errors[] = 'Error saat instalasi tema: ' . $e->getMessage();

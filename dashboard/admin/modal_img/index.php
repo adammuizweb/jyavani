@@ -207,7 +207,7 @@ document.addEventListener('click', function(ev){
   }
   if (!id) {
     if (typeof window.modalImgToast === 'function') {
-      window.modalImgToast('warning', 'Gallery', 'ID media tidak ditemukan.');
+      window.modalImgToast('warning', 'Gallery', '<?=__('Media ID not found.')?>');
     }
     return;
   }

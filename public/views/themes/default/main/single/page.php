@@ -39,7 +39,7 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
   <header class="post-header">
     <h1 class="post-title" itemprop="headline"><?= $titleSafe ?></h1>
 
-    <!-- Baris 2: author username | terakhir diperbarui -->
+    <!-- Row 2: author username | last updated -->
     <div class="post-top-meta">
       <div class="author-inline">
           <span class="author-label"><?= __('Author:') ?></span>

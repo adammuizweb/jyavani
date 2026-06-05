@@ -369,7 +369,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 
       const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
       if (checked.length === 0) {
-        uiToast('warning', 'Media', 'Pilih minimal satu media untuk dihapus.');
+        uiToast('warning', 'Media', '<?=__('Select at least one media to delete.')?>');
         return;
       }
 

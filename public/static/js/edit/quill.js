@@ -220,7 +220,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     });
 
     img.setAttribute('src', removedSrc);
-    img.setAttribute('alt', 'Media telah dihapus dari gallery');
+    img.setAttribute('alt', 'Media was deleted from the gallery');
     img.setAttribute('title', 'Media telah dihapus dari gallery');
     img.setAttribute('data-media-removed', '1');
 
@@ -237,7 +237,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     if (figure) {
       const cap = figure.querySelector('figcaption');
       if (cap) {
-        cap.textContent = 'Media telah dihapus dari gallery';
+        cap.textContent = 'Media was deleted from the gallery';
       }
     }
   }
@@ -292,7 +292,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       uiToast(
         'warning',
         'Editor',
-        'Gambar yang dihapus dari gallery diubah ke placeholder pada editor.',
+        'Image removed from gallery changed to placeholder in the editor.',
         3200
       );
     }
@@ -353,7 +353,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       tb.addHandler('video', function () {
         const pickFile = getFileSelector();
         if (!pickFile) {
-          alert('File selector belum dimuat. Pastikan /adiwira/static/js/add/file-selector.js di-include di edit.php');
+          alert('File selector not loaded. Make sure file-selector.js is included in edit.php');
           return;
         }
 

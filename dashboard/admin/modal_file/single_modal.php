@@ -322,7 +322,7 @@ if (!$embedded):
       }
 
       broadcast('file:updated', j.file || j);
-      uiToast('success', 'Library File', 'File berhasil diperbarui.', 2200);
+      uiToast('success', 'Library File', '<?=__('File updated successfully.')?>', 2200);
     } catch (err) {
       uiToast('error', 'Library File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
     } finally {
@@ -379,7 +379,7 @@ if (!$embedded):
 
       broadcast('file:deleted', payload);
 
-      uiToast('success', 'Library File', 'File berhasil dihapus.', 2200);
+      uiToast('success', 'Library File', '<?=__('File deleted successfully.')?>', 2200);
       if (j.warning) {
         uiToast('warning', 'Library File', j.warning, 6000);
       }
@@ -405,14 +405,14 @@ if (!$embedded):
     const input = document.getElementById('mdlib-file-url');
     const value = input ? (input.value || '').trim() : '';
     if (!value) {
-      uiToast('warning', 'Library File', 'URL tidak ditemukan.', 4000);
+      uiToast('warning', 'Library File', '<?=__('URL not found.')?>', 4000);
       return;
     }
 
     try {
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         await navigator.clipboard.writeText(value);
-        uiToast('success', 'Library File', 'URL berhasil disalin.', 1800);
+        uiToast('success', 'Library File', '<?=__('URL copied successfully.')?>', 1800);
         return;
       }
     } catch(e){}
@@ -421,7 +421,7 @@ if (!$embedded):
       input.select();
       try {
         document.execCommand('copy');
-        uiToast('success', 'Library File', 'URL berhasil disalin.', 1800);
+        uiToast('success', 'Library File', '<?=__('URL copied successfully.')?>', 1800);
       } catch (e) {
         uiToast('error', 'Library File', 'Gagal menyalin URL.', 4000);
       }

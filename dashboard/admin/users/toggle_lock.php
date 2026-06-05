@@ -85,8 +85,8 @@ try {
             $returnTo,
             'success',
             ($newLock === 1)
-                ? 'User berhasil di-lock.'
-                : 'User berhasil di-approve / di-unlock.'
+                ? __('User locked successfully.')
+                : __('User approved/unlocked successfully.')
         );
     }
 

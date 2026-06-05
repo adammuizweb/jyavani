@@ -55,7 +55,7 @@ if ($action === 'create') {
     $menuId = (int)$pdo->lastInsertId();
 
     $returnTo = ADMIN_BASE_PATH . '/?page=admin/menus/index&menu_id=' . $menuId;
-    adiwira_redirect_with_flash($returnTo, 'success', 'Menu "' . htmlspecialchars($name) . '" berhasil dibuat.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Menu') . ' "' . htmlspecialchars($name) . '" ' . __('created successfully.'));
 }
 
 if ($action === 'rename') {

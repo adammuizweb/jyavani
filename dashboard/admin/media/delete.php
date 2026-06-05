@@ -128,7 +128,7 @@ try {
             $fullPath = $base . '/' . ltrim($storagePath, '/\\');
             $deletedPhysical = media_safe_unlink($base, $fullPath);
             if (!$deletedPhysical) {
-                $warning = 'File private gagal dihapus, tetapi record database tetap dihapus.';
+                $warning = __('Private file failed to delete, but database record was deleted.');
             }
         }
     }
@@ -137,7 +137,7 @@ try {
         $localFile = media_local_path_from_url($url);
         if ($localFile && is_file($localFile)) {
             if (!@unlink($localFile)) {
-                $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+                $warning = __('Physical file failed to delete, but database record was deleted.');
             }
         }
     }

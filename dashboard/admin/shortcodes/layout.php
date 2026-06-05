@@ -19,7 +19,7 @@ $return_to = function_exists('adiwira_safe_return_to')
 
 $layoutDir = realpath(__DIR__ . '/../../../app/views/partials/shortcodes/post_cat');
 if (!$layoutDir || !is_dir($layoutDir)) {
-    echo '<section class="adam-card"><p>Direktori layout tidak ditemukan.</p></section>';
+    echo '<section class="adam-card"><p>' . __('Layout directory not found.') . '</p></section>';
     return;
 }
 
@@ -38,7 +38,7 @@ if (!$isNew) {
 
     if (!$realPath || strpos($realPath, $layoutDir) !== 0 || !is_file($realPath)) {
         http_response_code(404);
-        echo '<section class="adam-card"><p>File layout tidak ditemukan: ' . htmlspecialchars($cleanName, ENT_QUOTES, 'UTF-8') . '</p></section>';
+        echo '<section class="adam-card"><p>' . __('Layout file not found:') . ' ' . htmlspecialchars($cleanName, ENT_QUOTES, 'UTF-8') . '</p></section>';
         return;
     }
     $fileName = $cleanName;

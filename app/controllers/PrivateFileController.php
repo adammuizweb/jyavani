@@ -753,12 +753,12 @@ class PrivateFileController
 
       function loadPdf() {
         if (!window.pdfjsLib) {
-          setState('<strong>PDF.js lokal tidak termuat.</strong><br>Pastikan file ada di <code>/static/vendor/pdfjs/pdf.min.js</code> dan <code>/static/vendor/pdfjs/pdf.worker.min.js</code>.', true);
+          setState('<strong>' . __('Local PDF.js not loaded.') . '</strong><br>' . __('Make sure files exist at') . ' <code>/static/vendor/pdfjs/pdf.min.js</code> ' . __('and') . ' <code>/static/vendor/pdfjs/pdf.worker.min.js</code>.', true);
           return;
         }
 
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = config.workerUrl;
-        setState('Mengambil dokumen PDF...', false);
+        setState(__('Fetching PDF document...'), false);
 
         var loadingTask = window.pdfjsLib.getDocument({
           url: config.pdfUrl,

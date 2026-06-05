@@ -86,11 +86,11 @@ try {
     $res = install_theme_from_zip($pdo, $tmpZip, $activate, $uid);
 
     if (empty($res['success'])) {
-        theme_upload_respond(false, 'Instalasi gagal: ' . (string)($res['message'] ?? 'unknown'), 400, [], $returnTo);
+        theme_upload_respond(false, __('Installation failed:') . ' ' . (string)($res['message'] ?? 'unknown'), 400, [], $returnTo);
     }
 
     $folder = (string)($res['folder'] ?? '');
-    $msg = 'Tema berhasil diinstall';
+    $msg = __('Theme installed successfully.');
     if ($folder !== '') {
         $msg .= ': ' . $folder;
     }

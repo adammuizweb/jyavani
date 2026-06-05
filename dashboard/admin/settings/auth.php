@@ -213,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 adiwira_redirect_with_flash($redirect_path, 'success', __('Login & registration settings saved successfully.'));
                 exit;
             }
-            $success_msg = 'Pengaturan login & registrasi berhasil disimpan.';
+            $success_msg = __('Login & registration settings saved successfully.');
         } else {
             $errors[] = __('Failed to save settings.');
         }
@@ -301,7 +301,7 @@ function auth_path_example(string $path): string {
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
       <label style="display:block;">
-        Maksimum percobaan gagal sebelum blokir
+        <?=_e('Maximum failed attempts before block')?>
         <input type="number" name="bruteforce_max_attempts" min="1" max="100"
           value="<?= htmlspecialchars($bruteforce_max_attempts, ENT_QUOTES, 'UTF-8') ?>"
           style="width:100%;padding:.55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);margin-top:.35rem;">
@@ -352,8 +352,7 @@ function auth_path_example(string $path): string {
     <h3 style="margin:1.2rem 0 .5rem;">Path Dashboard</h3>
 
     <p style="font-size:.85rem;color:var(--adam-muted);margin-bottom:12px;">
-      URL Dashboard (panel admin). Ubah dengan hati-hati — jika salah, Anda tidak bisa
-      masuk ke halaman ini. Simpan dulu pengaturan lain sebelum mengubah.
+      <?=_e('Change with caution — if wrong, you will not be able to access the admin panel.')?> <?=_e('Save other settings first before changing this.')?>
     </p>
 
     <label style="display:block;margin:.6rem 0;">

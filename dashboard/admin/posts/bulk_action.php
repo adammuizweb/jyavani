@@ -191,7 +191,7 @@ try {
                 ->execute($post_ids);
 
             $pdo->commit();
-            respond(true, 'Kategori berhasil ditambahkan ke ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)], $returnTo);
+            respond(true, __('Category added to') . ' ' . count($post_ids) . ' ' . __('articles.'), 200, ['count' => count($post_ids)], $returnTo);
         }
 
         if ($mode === 'remove') {

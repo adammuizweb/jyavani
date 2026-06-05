@@ -322,7 +322,7 @@ try {
 
       var id = detailBtn.getAttribute('data-id');
       if (!id) {
-        uiToast('warning', 'Gallery', 'ID media tidak ditemukan.', 4000);
+        uiToast('warning', 'Gallery', '<?=__('Media ID not found.')?>', 4000);
         return;
       }
 

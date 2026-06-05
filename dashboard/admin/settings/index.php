@@ -274,7 +274,7 @@ if ($isAdmin) {
   </nav>
 
   <div class="settingshub-note">
-    Beberapa menu hanya tersedia untuk admin. Susunan menu di halaman ini sudah disamakan dengan grup
-    <strong>Settings</strong> pada sidebar agar navigasi lebih konsisten.
+    <?=_e('Some menus are only available for admin. The menu layout on this page has been adjusted to match the access group.')?>
+    <strong><?=_e('Settings')?></strong> <?=_e('on the sidebar for more consistent navigation.')?>
   </div>
 </section>

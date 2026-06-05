@@ -55,7 +55,7 @@ class PluginStoreController
         $updates = self::getCachedUpdates();
         if (!isset($updates[$name])) {
             if ($progressToken !== '') {
-                self::writeProgress($progressToken, 0, 'Tidak ada update tersedia.', true, 'Tidak ada update tersedia. Jalankan "Check for Updates" terlebih dahulu.');
+                self::writeProgress($progressToken, 0, __('No updates available.'), true, __('No updates available. Run "Check for Updates" first.'));
             }
             return ['success' => false, 'error' => 'No update available for "' . $name . '". Run "Check for Updates" first.'];
         }
@@ -178,7 +178,7 @@ class PluginStoreController
         }
 
         // Update plugin.json version
-        $p(88, 'Memperbarui manifest plugin...');
+        $p(88, __('Updating plugin manifest...'));
         $manifestPath = $pluginDir . '/plugin.json';
         $manifest = is_file($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : null;
         if ($manifest) {

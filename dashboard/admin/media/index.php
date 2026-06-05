@@ -242,9 +242,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     ta.select();
     try {
       document.execCommand('copy');
-      uiToast('success', 'Media', 'URL berhasil disalin.');
+      uiToast('success', 'Media', '<?=__('URL copied successfully.')?>');
     } catch (e) {
-      uiToast('error', 'Media', 'Gagal menyalin URL.');
+      uiToast('error', 'Media', '<?=__('Failed to copy URL.')?>');
     }
     document.body.removeChild(ta);
   }
@@ -290,7 +290,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
-          uiToast('success', 'Media', 'Media berhasil diperbarui.');
+          uiToast('success', 'Media', '<?=__('Media updated successfully.')?>');
           document.dispatchEvent(new CustomEvent('media:updated', { detail: j }));
         } else {
           uiToast('error', 'Media', j?.error || txt || 'Terjadi kesalahan.');
@@ -339,7 +339,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
-          uiToast('success', 'Media', 'Media berhasil dihapus.');
+          uiToast('success', 'Media', '<?=__('Media deleted successfully.')?>');
           if (j.warning) {
             uiToast('warning', 'Media', j.warning);
           }
@@ -366,7 +366,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const path   = pathEl ? (pathEl.value || '').trim() : '';
 
       if (!path) {
-        uiToast('warning', 'Media', 'URL tidak ditemukan.');
+        uiToast('warning', '<?=__('Media')?>', '<?=__('URL not found.')?>', 5000);
         return;
       }
 
@@ -377,7 +377,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         navigator.clipboard.writeText(full).then(() => {
-          uiToast('success', 'Media', 'URL berhasil disalin.');
+          uiToast('success', 'Media', '<?=__('URL copied successfully.')?>');
         }).catch(() => {
           fallbackCopy(full);
         });

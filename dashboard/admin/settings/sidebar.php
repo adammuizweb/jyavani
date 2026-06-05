@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             adiwira_redirect_with_flash($self_url, 'success', __('Sidebar settings saved successfully.'));
             exit;
         }
-        $success_msg = 'Pengaturan sidebar berhasil disimpan.';
+        $success_msg = __('Sidebar settings saved successfully.');
     }
 }
 

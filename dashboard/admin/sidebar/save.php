@@ -55,7 +55,7 @@ if ($action === 'create') {
     $zoneId = (int)$pdo->lastInsertId();
 
     $returnTo = ADMIN_BASE_PATH . '/?page=admin/sidebar/index&zone_id=' . $zoneId;
-    adiwira_redirect_with_flash($returnTo, 'success', 'Zone "' . htmlspecialchars($name) . '" berhasil dibuat.');
+    adiwira_redirect_with_flash($returnTo, 'success', __('Zone') . ' "' . htmlspecialchars($name) . '" ' . __('created successfully.'));
 }
 
 if ($action === 'rename') {

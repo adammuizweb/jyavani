@@ -100,7 +100,7 @@ try {
             $privateFile = realpath($privateRoot . '/' . ltrim($storagePath, '/\\'));
             if ($privateFile && str_starts_with($privateFile, $privateRoot) && is_file($privateFile)) {
                 if (!@unlink($privateFile)) {
-                    $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+                    $warning = __('Physical file failed to delete, but database record was deleted.');
                 }
             }
         }
@@ -108,7 +108,7 @@ try {
         $localFile = file_local_path_from_url($final_url);
         if ($localFile && is_file($localFile)) {
             if (!@unlink($localFile)) {
-                $warning = 'File fisik gagal dihapus, tetapi record database tetap dihapus.';
+                $warning = __('Physical file failed to delete, but database record was deleted.');
             }
         }
     }

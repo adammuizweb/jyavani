@@ -379,7 +379,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
-          uiToast('success', 'File', 'File berhasil diperbarui.', 3000);
+          uiToast('success', 'File', '<?=__('File updated successfully.')?>', 3000);
           document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
           uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
@@ -432,7 +432,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
-          uiToast('success', 'File', 'File berhasil dihapus.', 3000);
+          uiToast('success', 'File', '<?=__('File deleted successfully.')?>', 3000);
           if (j.warning) {
             uiToast('warning', 'File', j.warning, 6000);
           }
@@ -461,7 +461,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const path = pathEl ? (pathEl.value || '').trim() : '';
 
       if (!path) {
-        uiToast('warning', 'File', 'URL tidak ditemukan.', 5000);
+        uiToast('warning', 'File', '<?=__('URL not found.')?>', 5000);
         return;
       }
 
@@ -480,7 +480,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ta.select();
         try {
           document.execCommand('copy');
-          uiToast('success', 'File', 'URL berhasil disalin.', 2500);
+          uiToast('success', 'File', '<?=__('URL copied successfully.')?>', 2500);
         } catch (e) {
           uiToast('error', 'File', 'Gagal menyalin URL.', 5000);
         }
@@ -489,7 +489,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         navigator.clipboard.writeText(full).then(() => {
-          uiToast('success', 'File', 'URL berhasil disalin.', 2500);
+          uiToast('success', 'File', '<?=__('URL copied successfully.')?>', 2500);
         }).catch(() => fallbackCopy(full));
       } else {
         fallbackCopy(full);
@@ -503,7 +503,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       const checked = Array.from(root.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
       if (checked.length < 1) {
-        uiToast('warning', 'File', 'Pilih minimal satu file untuk dihapus.', 5000);
+        uiToast('warning', 'File', '<?=__('Select at least one file to delete.')?>', 5000);
         return;
       }
 

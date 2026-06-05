@@ -286,7 +286,7 @@ try {
           bar.style.width = '100%';
           showThumb(media.url || data.url || '', media);
 
-          uiToast('success', 'Gallery', 'Upload berhasil: ' + file.name, 1800);
+          uiToast('success', 'Gallery', '<?=__('Upload successful: ')?>' + file.name, 1800);
           broadcast('media:added', media);
           broadcast('media:insert', media);
           resolve(media);
@@ -309,7 +309,7 @@ try {
       xhr.send(fd);
     }).catch(err => {
       console.error('Upload error', err);
-      uiToast('error', 'Gallery', 'Upload gagal: ' + (err.message || 'Unknown'), 5000);
+      uiToast('error', 'Gallery', '<?=__('Upload failed: ')?>' + (err.message || 'Unknown'), 5000);
     });
   }
 

@@ -230,7 +230,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       });
 
       img.setAttribute('src', removedSrc);
-      img.setAttribute('alt', 'Media telah dihapus dari gallery');
+      img.setAttribute('alt', 'Media was deleted from the gallery');
       img.setAttribute('title', 'Media telah dihapus dari gallery');
       img.setAttribute('data-media-removed', '1');
 
@@ -284,7 +284,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
           contentInput.value = quill.root.innerHTML;
         }
 
-        uiToast('warning', 'Editor', 'Gambar yang dihapus dari gallery diubah ke placeholder pada editor.', 3200);
+        uiToast('warning', 'Editor', 'Image removed from gallery changed to placeholder in the editor.', 3200);
       }
     }
 

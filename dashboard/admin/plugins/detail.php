@@ -18,7 +18,7 @@ if ($pluginName === '' || !preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
 
 $manifest = plugin_manifest($pluginName);
 if (!$manifest) {
-    adiwira_redirect_with_flash($listUrl, 'error', 'Plugin "' . h($pluginName) . '" tidak ditemukan.');
+    adiwira_redirect_with_flash($listUrl, 'error', __('Plugin') . ' "' . h($pluginName) . '" ' . __('not found.'));
 }
 
 $title = $manifest['title'] ?? $pluginName;

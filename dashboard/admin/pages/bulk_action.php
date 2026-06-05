@@ -171,7 +171,7 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond_pages_bulk(true, "Author berhasil diubah untuk {$affected} halaman.", 200, ['count' => $affected], $returnTo);
+        respond_pages_bulk(true, __('Author changed for') . " {$affected} " . __('pages.'), 200, ['count' => $affected], $returnTo);
     }
 
     $pdo->rollBack();

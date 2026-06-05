@@ -36,13 +36,13 @@ $return_to = function_exists('adiwira_safe_return_to')
 $save_nonce = (string)($_POST['save_nonce'] ?? '');
 $session_nonce = $_SESSION['sc_layout_nonce'] ?? null;
 if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce, (string)$save_nonce)) {
-    adiwira_json(['ok' => false, 'errors' => ['Token penyimpanan tidak valid. Muat ulang halaman.']], 419);
+    adiwira_json(['ok' => false, 'errors' => [__('Save token invalid. Reload the page.')]], 419);
     exit;
 }
 
 $layoutDir = realpath(__DIR__ . '/../../../app/views/partials/shortcodes/post_cat');
 if (!$layoutDir || !is_dir($layoutDir)) {
-    adiwira_json(['ok' => false, 'errors' => ['Direktori layout tidak ditemukan.']], 500);
+    adiwira_json(['ok' => false, 'errors' => [__('Layout directory not found.')]], 500);
     exit;
 }
 
@@ -58,7 +58,7 @@ if ($isNew) {
     }
     $newName = slugify_sc($newName);
     if ($newName === '') {
-        adiwira_json(['ok' => false, 'errors' => ['Nama layout tidak valid.']], 400);
+        adiwira_json(['ok' => false, 'errors' => [__('Invalid layout name.')]], 400);
         exit;
     }
     $fileName = $newName . '.php';
@@ -76,7 +76,7 @@ if ($isNew) {
     $filePath = $layoutDir . DIRECTORY_SEPARATOR . $cleanName;
     $realPath = realpath($filePath);
     if (!$realPath || strpos($realPath, $layoutDir) !== 0) {
-        adiwira_json(['ok' => false, 'errors' => ['Path file tidak valid.']], 400);
+        adiwira_json(['ok' => false, 'errors' => [__('Invalid file path.')]], 400);
         exit;
     }
     $filePath = $realPath;
@@ -101,7 +101,7 @@ try {
         $_SESSION['sc_layout_nonce'] = $newNonce;
         adiwira_json([
             'ok' => true,
-            'message' => 'Layout "' . ($isNew ? $newName : basename($filePath)) . '" berhasil disimpan.',
+            'message' => __('Layout') . ' "' . ($isNew ? $newName : basename($filePath)) . '" ' . __('saved successfully.'),
             'new_save_nonce' => $newNonce,
             'redirect' => $return_to,
         ], 200);

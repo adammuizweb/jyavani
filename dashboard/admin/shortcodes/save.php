@@ -110,7 +110,7 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
 
-        adiwira_redirect_with_flash($return_to, 'success', 'Preset "' . $title . '" berhasil diperbarui.');
+        adiwira_redirect_with_flash($return_to, 'success', __('Preset') . ' "' . $title . '" ' . __('updated successfully.'));
     } else {
         unset($_SESSION['sc_add_nonce']);
 
@@ -123,7 +123,7 @@ try {
             ':uid' => $uid,
         ]);
 
-        adiwira_redirect_with_flash($return_to, 'success', 'Preset "' . $title . '" berhasil dibuat. Gunakan widget(\'' . $slug . '\') di sidebar.');
+        adiwira_redirect_with_flash($return_to, 'success', __('Preset') . ' "' . $title . '" ' . __('created successfully. Use') . ' widget(\'' . $slug . '\') ' . __('in sidebar.'));
     }
 } catch (Throwable $e) {
     error_log('shortcodes/save.php error: ' . $e->getMessage());

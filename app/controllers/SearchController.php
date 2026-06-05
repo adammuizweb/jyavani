@@ -182,7 +182,7 @@ class SearchController
             ob_start(); ?>
             <section class="search-results">
                 <h1>Hasil pencarian: “<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?>”</h1>
-                <p><?= (int)$total ?> hasil ditemukan.</p>
+                <p><?= (int)$total ?> <?=_e('results found.')?></p>
 
                 <?php if (empty($posts)): ?>
                     <p>Tidak ada hasil.</p>

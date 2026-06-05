@@ -90,10 +90,10 @@ const complexPattern =
       '<div style="background:#fff;padding:1.2rem 1.6rem;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.18);text-align:center;max-width:420px;">'+
       '<div style="font-weight:600;margin-bottom:.4rem;">⚠️ Konten mengandung kode kompleks</div>'+
       '<div style="color:#334;margin-bottom:1rem;text-align:left">Konten mengandung tag seperti &lt;div&gt; atau &lt;section&gt; yang tidak dipertahankan oleh editor Rich (Quill).<br>'+
-      'Pilih <strong>Hapus kode lama</strong> untuk menghapus tag kompleks dan beralih ke Quill, atau <strong>Batalkan</strong> untuk tetap di CodeMirror.</div>'+
+      'Choose <strong>Clear old code</strong> to remove complex tags and switch to Quill, or <strong>Cancel</strong> to stay in CodeMirror.</div>'+
       '<div style="display:flex;gap:.5rem;justify-content:center">'+
-      '<button id="__warn_cancel" style="padding:.45rem .8rem;border:0;background:#666;color:#fff;border-radius:6px;cursor:pointer">Batalkan</button>'+
-      '<button id="__warn_clear"  style="padding:.45rem .8rem;border:0;background:#a33;color:#fff;border-radius:6px;cursor:pointer">Hapus kode lama</button>'+
+      '<button id="__warn_cancel" style="padding:.45rem .8rem;border:0;background:#666;color:#fff;border-radius:6px;cursor:pointer">Cancel</button>'+
+      '<button id="__warn_clear"  style="padding:.45rem .8rem;border:0;background:#a33;color:#fff;border-radius:6px;cursor:pointer">Clear old code</button>'+
       '</div></div></div>';
     document.body.appendChild(dom);
 

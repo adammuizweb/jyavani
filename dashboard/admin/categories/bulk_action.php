@@ -194,7 +194,7 @@ try {
 
         $affected = $stmt->rowCount();
         $pdo->commit();
-        respond_categories_bulk(true, "Parent berhasil diubah untuk {$affected} kategori.", 200, ['count' => $affected], $returnTo);
+        respond_categories_bulk(true, __('Parent changed for') . " {$affected} " . __('categories.'), 200, ['count' => $affected], $returnTo);
     }
 
     $pdo->rollBack();

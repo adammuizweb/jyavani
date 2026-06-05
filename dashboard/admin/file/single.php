@@ -238,7 +238,7 @@ $isPrivate = ($visibility === 'private');
         }
 
         if (j && j.ok) {
-          uiToast('success', 'File', 'File berhasil diperbarui.', 3000);
+          uiToast('success', 'File', '<?=__('File updated successfully.')?>', 3000);
           document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
           uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
@@ -286,7 +286,7 @@ $isPrivate = ($visibility === 'private');
         }
 
         if (j && j.ok) {
-          uiToast('success', 'File', 'File berhasil dihapus.', 3000);
+          uiToast('success', 'File', '<?=__('File deleted successfully.')?>', 3000);
           if (j.warning) {
             uiToast('warning', 'File', j.warning, 6000);
           }

@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
         if ($p['name'] === $themeName) { $themeData = $p; break; }
     }
     if (!$themeData) {
-        adiwira_redirect_with_flash($selfUrl, 'error', 'Theme "' . h($themeName) . '" tidak ditemukan di store.');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Theme') . ' "' . h($themeName) . '" ' . __('not found in store.'));
     }
 
     $themeDir = rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $themeName;
@@ -154,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
 
     register_theme_in_db($pdo, $themeName);
 
-    adiwira_redirect_with_flash($listUrl, 'success', 'Theme "' . h($manifest['title'] ?? $themeName) . '" berhasil diinstall dari store.');
+    adiwira_redirect_with_flash($listUrl, 'success', __('Theme') . ' "' . h($manifest['title'] ?? $themeName) . '" ' . __('installed from store successfully.'));
 }
 
 $installedThemes = get_registered_themes($pdo);
@@ -197,7 +197,7 @@ if (isset($_GET['refresh'])) {
 </div>
 <?php elseif (empty($themes)): ?>
 <div class="empty-state">
-  <p>Belum ada theme tersedia di store. Silakan cek kembali nanti.</p>
+  <p><?=_e('No themes available in the store yet. Please check back later.')?></p>
 </div>
 <?php else: ?>
 <div class="plugin-grid">

@@ -408,7 +408,7 @@ try {
       const card = btn.closest('.mdlib-card');
       const id = card ? card.getAttribute('data-id') : '';
       if (!id) {
-        uiToast('warning', 'Library File', 'ID file tidak ditemukan.', 4000);
+        uiToast('warning', 'Library File', '<?=__('File ID not found.')?>', 4000);
         return;
       }
 

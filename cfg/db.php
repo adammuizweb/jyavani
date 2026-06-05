@@ -18,7 +18,7 @@ try {
         : '';
 
     $msg = $detail !== ''
-        ? "Koneksi database gagal: {$detail}"
+        ? __("Database connection failed: {$detail}")
         : 'Gagal terhubung ke database.';
 
     http_response_code(500);
