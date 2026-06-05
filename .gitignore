@@ -13,6 +13,7 @@ cfg/var/plugins-disabled.json
 cfg/var/plugin-backups/
 cfg/var/plugin-update-transient.json
 cfg/var/update-progress-*.json
+cfg/var/store-cache.json
 /var/sessions/**
 plugins/disabled.json
 
