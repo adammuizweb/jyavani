@@ -5,6 +5,7 @@ if (!defined('ADAM_THEME')) {
     exit('Forbidden');
 }
 ?>
+<?php do_action('admin_footer'); ?>
 <footer id="adam-footer" class="adam-footer">
   <div class="adam-footer-inner">
     <small>&copy; <?= date('Y') ?> Adiwira Jyavani CMS — Adam Muiz</small>

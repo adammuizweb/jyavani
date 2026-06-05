@@ -7,6 +7,13 @@
 require_once __DIR__ . '/../app/bootstrap_core.php';
 require_once __DIR__ . '/../app/bootstrap_theme.php';
 
+// Load plugin system (hooks + registry + active plugin auto-loader)
+require_once __DIR__ . '/../plugins/index.php';
+plugin_load_active();
+
+// Fire init action — plugins register routes, shortcodes, hooks here
+do_action('init');
+
 // normalize path
 $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $rawPath = rawurldecode($rawPath);
@@ -299,34 +306,17 @@ if (in_array($prefix, $pagesListRoutes, true)) {
     exit;
 }
 
-// GALLERY (PHOTO)
-if ($prefix === 'gallery') {
-    require_once __DIR__ . '/../app/controllers/PhotoController.php';
-
-    // ambil semua segmen setelah 'gallery'
-    $pathSegs = array_slice($segments, 1);
-
-    // pagination /page/N/
-    $page = 1;
-    $n = count($pathSegs);
-    if ($n >= 2 && ($pathSegs[$n-2] ?? '') === 'page') {
-        $page = max(1, (int)($pathSegs[$n-1] ?? 1));
-        $pathSegs = array_slice($pathSegs, 0, $n-2);
+// PLUGIN FRONTEND ROUTES — registered via register_frontend_route() in plugin.php files
+if (function_exists('match_frontend_route')) {
+    $pluginHandler = match_frontend_route($prefix);
+    if ($pluginHandler !== null) {
+        if (is_callable($pluginHandler)) {
+            $pluginHandler($pdo);
+        } elseif (is_string($pluginHandler) && is_file($pluginHandler)) {
+            require $pluginHandler;
+        }
+        exit;
     }
-
-    $q = trim((string)($_GET['q'] ?? ''));
-
-    // decode + bersihkan kosong
-    $slugs = array_values(array_filter(array_map('rawurldecode', $pathSegs), fn($s)=>trim($s) !== ''));
-
-    if (empty($slugs)) {
-        // /gallery/
-        PhotoController::index($pdo, '/gallery/', $q);
-    } else {
-        // /gallery/{parent}/{child}/.../
-        PhotoController::showCategoryPath($pdo, $slugs, $page, $q, '/gallery/');
-    }
-    exit;
 }
 
 // FALLBACK POST — try permalink resolver first, then direct slug lookup

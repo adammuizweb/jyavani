@@ -307,10 +307,6 @@ echo nav_item($base, $requested, 'admin/file', adam_icon('folder'), 'File', [
   [$base . '/?page=admin/file/index&tab=add','Tambah', adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
-echo nav_item($base, $requested, 'admin/photos', adam_icon('camera'), 'Albums', [
-  [$base . '/?page=admin/photos/index','Daftar', adam_icon('list','adam-svg-icon--sm')]
-]);
-
 $themeLinks = [
   [$base . '/?page=admin/themes/index','Daftar', adam_icon('list','adam-svg-icon--sm')],
   [$base . '/?page=admin/themes/add','Tambah', adam_icon('plus','adam-svg-icon--sm')]
@@ -446,6 +442,9 @@ if (function_exists('plugin_nav_items')) {
     }
 }
 // ===== END PLUGIN NAV ITEMS =====
+
+// Hook for plugins to add nav items dynamically
+do_action('admin_menu');
 
 echo '<li class="adam-nav-item"><a class="adam-nav-link" href="' . h($base . '/logout.php') . '"><span class="adam-nav-icon">' . adam_icon('logout') . '</span><span class="adam-nav-text">Logout</span></a></li>';
       ?>

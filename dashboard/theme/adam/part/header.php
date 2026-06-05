@@ -5,6 +5,7 @@ if (!defined('ADAM_THEME')) {
     exit('Forbidden');
 }
 ?>
+<?php do_action('admin_header'); ?>
 <header id="adam-header" class="adam-header">
   <div class="adam-header-inner">
     <div style="display:flex; align-items:center; gap:12px;">

@@ -1,10 +1,39 @@
 <?php
 declare(strict_types=1);
-// Plugin Registry — Jyavani CMS Plugin System v1.0
+if (defined('PLUGIN_SYSTEM_LOADED')) return;
+define('PLUGIN_SYSTEM_LOADED', true);
+// Plugin Registry — Jyavani CMS Plugin System v2.0
 // Loaded after bootstrap in dashboard/index.php
 
 define('PLUGIN_PATH', __DIR__);
 define('PLUGIN_DISABLED_JSON', defined('BACKEND_PATH') ? BACKEND_PATH . '/var/plugins-disabled.json' : PLUGIN_PATH . '/disabled.json');
+
+// --- Frontend Route Registry ---
+$GLOBALS['_plugin_frontend_routes'] = [];
+
+function register_frontend_route(string $prefix, callable|string $handler): void {
+    $GLOBALS['_plugin_frontend_routes'][$prefix] = $handler;
+}
+
+function get_frontend_routes(): array {
+    return $GLOBALS['_plugin_frontend_routes'];
+}
+
+function match_frontend_route(string $prefix): callable|string|null {
+    return $GLOBALS['_plugin_frontend_routes'][$prefix] ?? null;
+}
+
+// --- Plugin auto-loader: require plugin.php for each active plugin ---
+function plugin_load_active(): void {
+    $active = plugins_active();
+    foreach ($active as $name => $p) {
+        $mainFile = PLUGIN_PATH . '/' . $name . '/plugin.php';
+        if (is_file($mainFile)) {
+            require_once $mainFile;
+        }
+    }
+    do_action('plugins_loaded');
+}
 
 function plugin_manifest(string $name): ?array {
     $file = PLUGIN_PATH . '/' . $name . '/plugin.json';

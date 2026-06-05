@@ -580,6 +580,8 @@ class PostController
             $postData['display_image_target_attribute'] = null;
         }
 
+        $postData['content'] = apply_filters('post_content', (string)$postData['content'], $postData);
+
         $vars = [
             'post'         => $postData,
             'site_context' => 'posts_single',

@@ -70,6 +70,7 @@ $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull()
   <script src="/static/vendor/codemirror/addon/fold/brace-fold.js"></script>
   <script src="/static/vendor/codemirror/addon/fold/xml-fold.js"></script>
   <script src="/static/vendor/codemirror/addon/fold/comment-fold.js"></script>
+<?php do_action('admin_head'); ?>
 </head>
 
 <body id="adam-body" class="adam-body ad-body">
@@ -107,5 +108,6 @@ $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull()
   <script src="/static/dashboard/js/accordion.js" defer></script>
   <script src="/static/dashboard/js/theme-toggle.js" defer></script>
 
+<?php do_action('admin_footer'); ?>
 </body>
 </html>

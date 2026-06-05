@@ -5,6 +5,7 @@ if (!defined('ADAM_THEME')) {
     exit('Forbidden');
 }
 
+do_action('admin_main');
 echo '<main id="adam-main" class="adam-main">';
 
 // tampilkan flash success jika ada (hanya sekali)

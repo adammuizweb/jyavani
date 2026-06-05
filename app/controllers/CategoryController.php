@@ -69,6 +69,10 @@ class CategoryController
 
     private static function isGalleryCategory(array $category, array $parts): bool
     {
+        // Cek apakah photo-gallery plugin terpasang
+        $pluginDir = (defined('PLUGIN_PATH') ? PLUGIN_PATH : __DIR__ . '/../../plugins') . '/photo-gallery';
+        if (!is_dir($pluginDir)) return false;
+
         $slug = strtolower((string)($category['slug'] ?? ''));
         $last = strtolower((string)end($parts));
         return in_array($slug, ['photo','gallery'], true) || in_array($last, ['photo','gallery'], true);

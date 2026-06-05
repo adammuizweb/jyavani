@@ -5,6 +5,7 @@ if (!defined('ADAM_THEME')) {
     exit('Forbidden');
 }
 ?>
+<?php do_action('admin_home'); ?>
 <section class="adam-welcome" style="position:relative;">
     <!-- Konten home tetap ada di bawah flash -->
     <div class="adam-welcome-inner">

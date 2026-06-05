@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
-// Load plugin registry
+// Load plugin registry + active plugins
 $pluginLoader = __DIR__ . '/../plugins/index.php';
 if (is_file($pluginLoader)) {
     require_once $pluginLoader;
+    plugin_load_active();
+    do_action('admin_init');
 }
 
 // Path guard: 404 if request URI doesn't match configured admin path

@@ -7,6 +7,7 @@ require_once __DIR__ . '/env.php';
 // 2. Load isi .env
 load_env(__DIR__ . '/.env');
 
+require_once __DIR__ . '/helpers/hooks.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';
 app_configure_error_reporting();
 app_register_shutdown_handler();

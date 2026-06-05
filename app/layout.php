@@ -226,6 +226,7 @@ if (!function_exists('echo_relevant_theme_styles')) {
 
 <link rel="stylesheet" href="/static/vendor/swiper/swiper-bundle.min.css">
 <script src="/static/vendor/swiper/swiper-bundle.min.js"></script>
+<?php do_action('wp_head'); ?>
 </head>
 <body>
 <?php
@@ -253,6 +254,7 @@ if ($enable_sidebar) {
 }
 ?>
 
+<?php do_action('before_main'); ?>
 <main id="site-main" class="site-main" role="main">
 <?php if ($use_container): ?>
   <div class="container">
@@ -296,7 +298,7 @@ if (!empty($content_html)) {
         }
     }
 
-    echo $content_html;
+    echo apply_filters('post_content', (string)$content_html, $post ?? []);
 
 } else {
     try {
@@ -322,6 +324,7 @@ if ($enable_sidebar && $sidebar_html !== '') {
   </div>
 <?php endif; ?>
 </main>
+<?php do_action('after_main'); ?>
 
 <?php
 // Footer slot
@@ -366,6 +369,8 @@ if (function_exists('echo_relevant_theme_scripts')) {
         }
     }
 }
+
+do_action('wp_footer');
 ?>
 </body>
 </html>

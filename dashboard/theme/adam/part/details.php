@@ -96,5 +96,6 @@ $requested = trim($requested, "/ \t\n\r\0\x0B");
 <?php endif; ?>
 
 
+    <?php do_action('admin_details'); ?>
     </div>
 </aside>
