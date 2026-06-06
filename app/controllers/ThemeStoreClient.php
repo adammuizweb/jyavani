@@ -195,7 +195,7 @@ class ThemeStoreClient
             file_put_contents($manifestPath, json_encode($existingManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
-        register_theme_in_db($pdo, $folderName);
+        register_theme_in_db($pdo, $folderName, $existingManifest ?: []);
 
         $p(95, __('Finishing...'));
         $transient = self::readTransient();

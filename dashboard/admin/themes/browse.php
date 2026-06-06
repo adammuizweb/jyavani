@@ -152,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
         else @chmod($item->getPathname(), 0664);
     }
 
-    register_theme_in_db($pdo, $themeName);
+    register_theme_in_db($pdo, $themeName, $manifest);
 
     adiwira_redirect_with_flash($listUrl, 'success', __('Theme') . ' "' . h($manifest['title'] ?? $themeName) . '" ' . __('installed from store successfully.'));
 }

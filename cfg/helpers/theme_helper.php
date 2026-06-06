@@ -732,6 +732,8 @@ function read_theme_manifest(string $folderPath): array {
             // optional arrays for assets
             if (!empty($j['styles']) && is_array($j['styles'])) $manifest['styles'] = $j['styles'];
             if (!empty($j['scripts']) && is_array($j['scripts'])) $manifest['scripts'] = $j['scripts'];
+            // store block for update checking
+            if (!empty($j['store']) && is_array($j['store'])) $manifest['store'] = $j['store'];
         }
     }
     return $manifest;
@@ -1225,6 +1227,7 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
             'screenshot' => $manifestArray['screenshot'] ?? null,
             'folder' => $finalFolder,
             'is_active' => !empty($manifestArray['is_active']),
+            'store' => $manifestArray['store'] ?? [],
         ];
         register_theme_in_db($pdo, $finalFolder, $manifestForDb, !empty($manifestForDb['is_active']));
         if ($activate) {
