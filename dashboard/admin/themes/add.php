@@ -134,7 +134,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         aria-expanded="true"
         aria-controls="theme-meta-body"
       >
-        ⚙️ Pengaturan Theme
+        ⚙️ <?=_e('Theme Settings')?>
         <span class="chevron">▸</span>
       </button>
 
