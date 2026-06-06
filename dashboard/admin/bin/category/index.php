@@ -212,10 +212,10 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     <?php endif; ?>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+    <a href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
 
     <span style="margin-left:auto;color:var(--adam-muted);">
-      Total trash: <strong><?= (int)$total ?></strong>
+      <?=_e('Total trash:')?> <strong><?= (int)$total ?></strong>
     </span>
   </form>
 
@@ -231,7 +231,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
         <select id="bulkActionBinCategory" name="action" style="padding:.4rem;">
           <option value="">-- Bulk action --</option>
-          <option value="restore">Restore</option>
+          <option value="restore"><?=_e('Restore')?></option>
           <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
         </select>
 
@@ -245,17 +245,17 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             <tr>
               <th style="width:40px"></th>
               <th><?= _e('Name') ?></th>
-              <th>Slug</th>
-              <th>Parent</th>
-              <th>Posts</th>
-              <th>Deleted</th>
-              <th>Creator</th>
+              <th><?=_e('Slug')?></th>
+              <th><?=_e('Parent')?></th>
+              <th><?=_e('Posts')?></th>
+              <th><?=_e('Deleted')?></th>
+              <th><?=_e('Creator')?></th>
               <th><?= _e('Actions') ?></th>
             </tr>
           </thead>
           <tbody>
           <?php if (empty($cats)): ?>
-            <tr><td colspan="8" style="padding:1rem;">Trash kosong.</td></tr>
+            <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
           <?php else: ?>
             <?php foreach ($cats as $c): ?>
               <tr class="adam-row">
@@ -274,7 +274,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                           data-id="<?= (int)$c['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Restore
+                    <?=_e('Restore')?>
                   </button>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button"
@@ -303,35 +303,35 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           <tr>
             <th style="width:40px"></th>
             <th><?= _e('Name') ?></th>
-            <th>Slug</th>
-            <th>Parent</th>
-            <th>Posts</th>
-            <th>Deleted</th>
-            <th>Creator</th>
-            <th><?= _e('Actions') ?></th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php if (empty($cats)): ?>
-          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
-        <?php else: ?>
-          <?php foreach ($cats as $c): ?>
-            <tr class="adam-row">
-              <td style="text-align:center;">&mdash;</td>
-              <td style="font-weight:600;"><?= htmlspecialchars((string)($c['name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-              <td><?= htmlspecialchars((string)($c['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-              <td><?= htmlspecialchars((string)($c['parent_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-              <td><?= (int)($c['post_count'] ?? 0) ?></td>
-              <td><?= htmlspecialchars(!empty($c['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$c['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
-              <td><?= htmlspecialchars((string)($c['created_by_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-              <td>
-                <button type="button"
-                        class="adam-link-button js-bin-category-restore"
-                        data-id="<?= (int)$c['id'] ?>"
-                        data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Restore
-                </button>
+            <th><?=_e('Slug')?></th>
+            <th><?=_e('Parent')?></th>
+            <th><?=_e('Posts')?></th>
+            <th><?=_e('Deleted')?></th>
+            <th><?=_e('Creator')?></th>
+                <th><?= _e('Actions') ?></th>
+              </tr>
+            </thead>
+            <tbody>
+            <?php if (empty($cats)): ?>
+              <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
+            <?php else: ?>
+              <?php foreach ($cats as $c): ?>
+                <tr class="adam-row">
+                  <td style="text-align:center;">&mdash;</td>
+                  <td style="font-weight:600;"><?= htmlspecialchars((string)($c['name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                  <td><?= htmlspecialchars((string)($c['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                  <td><?= htmlspecialchars((string)($c['parent_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                  <td><?= (int)($c['post_count'] ?? 0) ?></td>
+                  <td><?= htmlspecialchars(!empty($c['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$c['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
+                  <td><?= htmlspecialchars((string)($c['created_by_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+                  <td>
+                    <button type="button"
+                            class="adam-link-button js-bin-category-restore"
+                            data-id="<?= (int)$c['id'] ?>"
+                            data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                            data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                      <?=_e('Restore')?>
+                    </button>
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
                 <button type="button"
                         class="adam-link-button js-bin-category-delete-permanent"

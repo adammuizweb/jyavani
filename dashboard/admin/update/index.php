@@ -524,18 +524,18 @@ $defaultUpdateUrl = 'https://jyavani.com/download/latest/';
 $totalCore = $localManifest['total_files'] ?? 0;
 ?>
 <h2 class="pg-title"><?=_e('CMS Update')?></h2>
-<p class="pg-subtitle">Version <?= htmlspecialchars($currentVersion['version'] ?? '—') ?> &mdash; <?= htmlspecialchars($currentVersion['build'] ?? '') ?></p>
+<p class="pg-subtitle"><?=_e('Version')?> <?= htmlspecialchars($currentVersion['version'] ?? '—') ?> &mdash; <?= htmlspecialchars($currentVersion['build'] ?? '') ?></p>
 
 <div class="up-grid">
     <div class="up-card">
         <div class="up-card-header"><?=_e('Current Installation')?></div>
         <table class="up-table">
-            <tr><td>CMS</td><td><strong><?= htmlspecialchars($currentVersion['name'] ?? 'Jyavani CMS') ?></strong></td></tr>
-            <tr><td>Version</td><td><strong>v<?= htmlspecialchars($currentVersion['version'] ?? '0.0.0') ?></strong></td></tr>
-            <tr><td>Build</td><td><?= htmlspecialchars($currentVersion['build'] ?? '—') ?></td></tr>
-            <tr><td>Core files</td><td><?= $totalCore ?> files tracked</td></tr>
-            <tr><td>PHP</td><td><?= htmlspecialchars($currentVersion['php_required'] ?? '8.1') ?>+ (server: <?= PHP_VERSION ?>)</td></tr>
-            <tr><td>MySQL</td><td><?= htmlspecialchars($currentVersion['mysql_required'] ?? '5.7') ?>+</td></tr>
+            <tr><td><?=_e('CMS')?></td><td><strong><?= htmlspecialchars($currentVersion['name'] ?? 'Jyavani CMS') ?></strong></td></tr>
+            <tr><td><?=_e('Version')?></td><td><strong>v<?= htmlspecialchars($currentVersion['version'] ?? '0.0.0') ?></strong></td></tr>
+            <tr><td><?=_e('Build')?></td><td><?= htmlspecialchars($currentVersion['build'] ?? '—') ?></td></tr>
+            <tr><td><?=_e('Core files')?></td><td><?= $totalCore ?> <?=_e('files tracked')?></td></tr>
+            <tr><td><?=_e('PHP')?></td><td><?= htmlspecialchars($currentVersion['php_required'] ?? '8.1') ?>+ (server: <?= PHP_VERSION ?>)</td></tr>
+            <tr><td><?=_e('MySQL')?></td><td><?= htmlspecialchars($currentVersion['mysql_required'] ?? '5.7') ?>+</td></tr>
         </table>
     </div>
 
@@ -560,7 +560,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
 <?php if ($pendingUpdate): ?>
 <div class="up-card up-card-warning">
     <div class="up-card-header"><?=_e('Update Ready')?></div>
-    <p>Package: <strong>v<?= htmlspecialchars($pendingUpdate['version'] ?? '?') ?></strong>
+    <p><?=_e('Package:')?> <strong>v<?= htmlspecialchars($pendingUpdate['version'] ?? '?') ?></strong>
        &mdash; <?= ($pendingUpdate['total_files'] ?? 0) ?> <?=_e('file')?>
        &mdash; <?=_e('Source:')?> <?= htmlspecialchars($pendingUrl ?: __('uploaded')) ?></p>
 

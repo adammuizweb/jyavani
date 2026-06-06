@@ -147,15 +147,15 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
     <select name="lock" style="padding:.4rem;">
       <option value=""><?= _e('-- All Status --') ?></option>
-      <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>>Locked / Pending</option>
-      <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>>Unlocked / Approved</option>
+      <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>><?=_e('Locked / Pending')?></option>
+      <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>><?=_e('Unlocked / Approved')?></option>
     </select>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/bin/users/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
 
     <span style="margin-left:auto;color:var(--adam-muted);">
-      Total trash: <strong><?= (int)$total ?></strong>
+      <?=_e('Total trash:')?> <strong><?= (int)$total ?></strong>
     </span>
   </form>
 

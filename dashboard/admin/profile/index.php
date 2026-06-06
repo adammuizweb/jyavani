@@ -228,7 +228,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2>Edit My Profile</h2>
+  <h2><?=_e('Edit My Profile')?></h2>
 
   <form method="post" novalidate id="profile-save-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -239,7 +239,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <div style="flex:0 0 150px; text-align:center;">
         <div style="width:150px; height:150px; border-radius:50%; overflow:hidden; background:#f0f0f0; margin-bottom:10px; border:2px solid #ddd; position:relative;">
           <div id="upload-loader" style="display:none; position:absolute; inset:0; background:rgba(255,255,255,0.8); align-items:center; justify-content:center; z-index:2;">
-            <span style="font-size:0.8rem; font-weight:bold; color:#555;">Uploading...</span>
+            <span style="font-size:0.8rem; font-weight:bold; color:#555;"><?=_e('Uploading...')?></span>
           </div>
 
           <img id="preview-img"
@@ -250,7 +250,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <div style="display:flex;gap:.5rem;align-items:center;justify-content:center;">
           <label class="adam-button" style="cursor:pointer; display:none; font-size:0.85rem; padding:5px 10px;">
-            Upload
+            <?=_e('Upload')?>
             <input type="file" id="file-uploader" accept="image/png, image/jpeg, image/webp" style="display:none;">
           </label>
 
@@ -258,14 +258,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                   id="btn-open-media-for-profile"
                   class="adam-button"
                   style="padding:.35rem .6rem; font-size:1rem;">
-            Gallery
+            <?=_e('Gallery')?>
           </button>
 
           <button type="button"
                   id="thumbnail-clear"
                   class="adam-hapus"
                   style="padding:.35rem .6rem; font-size:0.85rem;">
-            Clear
+            <?=_e('Clear')?>
           </button>
         </div>
 
@@ -273,14 +273,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 id="btn-view-profile"
                 class="adam-ubah"
                 style="padding:.35rem .6rem; font-size:0.85rem; margin-top:12px;">
-          View Profile
+          <?=_e('View Profile')?>
         </button>
 
         <div id="upload-error" style="color:red; font-size:0.75rem; margin-top:5px; display:none;"></div>
       </div>
 
       <div style="flex:1; min-width:280px;">
-        <label>Full Name<br>
+        <label><?=_e('Full Name')?><br>
           <input type="text"
                  name="name"
                  id="profile-name-input"
@@ -290,14 +290,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <div style="margin-top:1rem;"></div>
 
-        <label>Email (Login)<br>
+        <label><?=_e('Email (Login)')?><br>
           <input type="email"
                  name="email"
                  value="<?= htmlspecialchars($_POST['email'] ?? ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label>Username<br>
+        <label><?=_e('Username')?><br>
           <input type="text"
                  id="inp_username"
                  value="<?= htmlspecialchars($_POST['username'] ?? ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
@@ -305,7 +305,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label style="margin-top:1rem;">Phone<br>
+        <label style="margin-top:1rem;"><?=_e('Phone')?><br>
           <input type="text"
                  name="phone"
                  value="<?= htmlspecialchars($_POST['phone'] ?? ($user['phone'] ?? $initialPhone), ENT_QUOTES, 'UTF-8') ?>"
@@ -313,7 +313,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                  style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label style="margin-top:1rem;">Bio / About Me<br>
+        <label style="margin-top:1rem;"><?=_e('Bio / About Me')?><br>
           <textarea name="bio"
                     rows="4"
                     style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? ($user['bio'] ?? $initialBio), ENT_QUOTES, 'UTF-8') ?></textarea>
@@ -321,17 +321,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <hr style="margin:1.5rem 0; border:0; border-top:1px solid #eee;">
 
-        <p style="font-size:0.9rem; color:#666; margin-bottom:1rem;"><strong>Change Password</strong> (Optional)</p>
+        <p style="font-size:0.9rem; color:#666; margin-bottom:1rem;"><strong><?=_e('Change Password')?></strong> (<?=_e('Optional')?>)</p>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
-          <label>New Password<br>
+          <label><?=_e('New Password')?><br>
             <input type="password"
                    name="password"
                    autocomplete="new-password"
                    style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
           </label>
 
-          <label>Confirm Password<br>
+          <label><?=_e('Confirm Password')?><br>
             <input type="password"
                    name="password_confirm"
                    autocomplete="new-password"
@@ -340,8 +340,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </div>
 
         <div style="margin-top:2rem;">
-          <button type="submit" class="adam-button">Save Changes</button>
-          <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px;">Back</a>
+          <button type="submit" class="adam-button"><?=_e('Save Changes')?></button>
+          <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px;"><?=_e('Back')?></a>
         </div>
       </div>
     </div>
@@ -349,18 +349,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 </section>
 
 <section class="adam-card" style="margin-top:2rem; border-top:4px solid #e74c3c;">
-  <h3 style="color:#c0392b;">Danger Zone</h3>
+  <h3 style="color:#c0392b;"><?=_e('Danger Zone')?></h3>
   <button type="button"
           id="btn-open-delete-account-modal"
           style="background:#e74c3c; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">
-    Delete My Account
+    <?=_e('Delete My Account')?>
   </button>
 </section>
 
 <div id="deleteModal"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:5000;">
   <div style="background:#fff; padding:2rem; border-radius:8px; max-width:400px; width:90%; position:relative;">
-    <h3 style="margin-top:0; color:#c0392b;">Confirm Deletion</h3>
+    <h3 style="margin-top:0; color:#c0392b;"><?=_e('Confirm Deletion')?></h3>
 
     <form method="post" id="profile-delete-form">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -369,7 +369,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <input type="password"
              id="del_password"
              name="del_password"
-             placeholder="Your Password"
+             placeholder="<?=_e('Your Password')?>"
              required
              style="width:100%; padding:.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:1rem;">
 
@@ -377,11 +377,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <button type="button"
                 id="btn-close-delete-account-modal"
                 style="background:#ccc; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">
-          Cancel
+          <?=_e('Cancel')?>
         </button>
         <button type="submit"
                 style="background:#e74c3c; color:#fff; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">
-          Delete
+          <?=_e('Delete')?>
         </button>
       </div>
     </form>

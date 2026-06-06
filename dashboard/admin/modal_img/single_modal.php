@@ -43,7 +43,7 @@ $stmt->execute($params);
 $r = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$r) {
-    echo '<div>Media not found</div>';
+    echo '<div>' . __('Media not found') . '</div>';
     exit;
 }
 

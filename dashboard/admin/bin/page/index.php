@@ -173,10 +173,10 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     <?php endif; ?>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+    <a href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
 
     <span style="margin-left:auto;color:var(--adam-muted);">
-      Total trash: <strong><?= (int)$total ?></strong>
+      <?=_e('Total trash:')?> <strong><?= (int)$total ?></strong>
     </span>
   </form>
 
@@ -373,7 +373,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Restore
+                  <?=_e('Restore')?>
                 </button>
 
                 &nbsp;<span class="muted-divider">|</span>&nbsp;

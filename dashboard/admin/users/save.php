@@ -241,21 +241,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             id="thumbnail-clear"
             class="adam-hapus"
             style="padding:.35rem .6rem; font-size:0.85rem;">
-      Clear
+      <?=_e('Clear')?>
     </button>
   </div>
 
   <div id="media-single-panel"
        style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:320px;text-align:left;">
-    <div id="media-single-content">Click on an image in Media to view details & edit.</div>
+    <div id="media-single-content"><?=_e('Click on an image in Media to view details & edit.')?></div>
   </div>
 
   <?php if ($editing): ?>
     <div style="margin-top:12px;font-size:12px;">
       <?php if ((int)($user['is_locked'] ?? 0) === 1): ?>
-        <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;">Locked / Pending</span>
+        <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;"><?=_e('Locked / Pending')?></span>
       <?php else: ?>
-        <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;">Unlocked / Approved</span>
+        <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;"><?=_e('Unlocked / Approved')?></span>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -264,31 +264,31 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           id="btn-view-profile"
           class="adam-ubah"
           style="padding:.35rem .6rem; font-size:0.85rem;margin-top:12px;">
-    View Profile
+    <?=_e('View Profile')?>
   </button>
 
   <div id="upload-error" style="color:red; font-size:0.7rem; margin-top:5px; display:none;"></div>
 </div>
 
       <div style="flex:1; min-width:250px;">
-        <label>Email<br>
+        <label><?=_e('Email')?><br>
           <input type="email" name="email" value="<?= htmlspecialchars($_POST['email'] ?? $user['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label>Username<br>
+        <label><?=_e('Username')?><br>
           <input type="text" name="username" id="inp_username" value="<?= htmlspecialchars($_POST['username'] ?? $user['username'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
           <div style="font-size:12px;color:#666;margin-top:6px"><?=_e('Unique username (alphanumeric, underscore, dot). Length 3-32 characters.')?></div>
         </label>
 
-        <label>Name<br>
+        <label><?=_e('Name')?><br>
           <input type="text" name="name" value="<?= htmlspecialchars($_POST['name'] ?? $user['name'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label>Phone<br>
+        <label><?=_e('Phone')?><br>
           <input type="text" name="phone" value="<?= htmlspecialchars($_POST['phone'] ?? $user['phone'] ?? $initial_phone, ENT_QUOTES, 'UTF-8') ?>" placeholder="+62xxxxxxxxx" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label>Bio<br>
+        <label><?=_e('Bio')?><br>
           <textarea name="bio" rows="4" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? $user['bio'] ?? $initial_bio, ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
 
@@ -296,7 +296,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <input type="password" name="password" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
 
-        <label>Role<br>
+        <label><?=_e('Role')?><br>
           <?php $curRole = $_POST['role'] ?? $user['role'] ?? 'author'; ?>
           <select name="role" style="width:100%;padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
             <option value="author" <?= $curRole === 'author' ? 'selected' : '' ?>>author</option>

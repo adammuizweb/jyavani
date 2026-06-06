@@ -468,17 +468,17 @@ foreach ($themes as $t) {
       <form method="post" style="margin:0;display:inline-flex">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="check_updates">
-        <button class="btn btn-sm btn-outline" type="submit" style="padding:6px 14px;border-radius:6px;font-size:.82rem">↻ Check Updates</button>
+        <button class="btn btn-sm btn-outline" type="submit" style="padding:6px 14px;border-radius:6px;font-size:.82rem">↻ <?=_e('Check Updates')?></button>
       </form>
     </div>
     <div class="tm-scan" aria-hidden="false">
       <form id="theme-scan-form" method="post" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="register_themes">
-        <button class="tm-ghost" type="submit">Scan filesystem</button>
+        <button class="tm-ghost" type="submit"><?=_e('Scan filesystem')?></button>
       </form>
       <div class="tm-note">
-        Scan folder: <strong><?= htmlspecialchars(VIEWS_BASE, ENT_QUOTES, 'UTF-8') ?></strong>
+        <?=_e('Scan folder:')?> <strong><?= htmlspecialchars(VIEWS_BASE, ENT_QUOTES, 'UTF-8') ?></strong>
       </div>
       <div class="tm-note"><?=__('Scan will find new theme folders and register them in the database.')?></div>
     </div>
@@ -496,11 +496,11 @@ foreach ($themes as $t) {
       <div class="tm-mode" role="radiogroup" aria-label="Install mode">
         <label>
           <input type="radio" name="install_mode" value="install" checked>
-          <span>Install</span>
+          <span><?=_e('Install')?></span>
         </label>
         <label>
           <input type="radio" name="install_mode" value="install_activate">
-          <span>Install &amp; Activate</span>
+          <span><?=_e('Install & Activate')?></span>
         </label>
       </div>
 
@@ -513,7 +513,7 @@ foreach ($themes as $t) {
   </div>
 
   <div class="tm-card" style="margin-top:12px">
-    <h3 class="tm-title" style="font-size:16px;margin:0">Installed themes</h3>
+    <h3 class="tm-title" style="font-size:16px;margin:0"><?=_e('Installed themes')?></h3>
 
     <div class="tm-grid">
       <?php foreach ($themes as $th):
@@ -549,10 +549,10 @@ foreach ($themes as $t) {
       ?>
         <div class="tm-theme <?= $isActive ? 'active' : '' ?> <?= $updateInfo ? 'has-update' : '' ?>">
           <div class="tm-delrow">
-            <div class="tm-pill"><?= $isActive ? 'Activated' : 'Inactive' ?></div>
+            <div class="tm-pill"><?= $isActive ? __('Activated') : __('Inactive') ?></div>
 
             <?php if ($isDefault || $isSystem): ?>
-              <span class="tm-protected">System</span>
+              <span class="tm-protected"><?=_e('System')?></span>
 
             <?php else: ?>
               <form method="post" class="js-theme-manager-delete" style="display:flex;gap:8px;align-items:center;margin:0" data-folder="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
@@ -565,7 +565,7 @@ foreach ($themes as $t) {
                   <span><?=_e('Remove files')?></span>
                 </label>
 
-                <button class="tm-danger" type="submit" title="Delete theme from DB">Delete</button>
+                <button class="tm-danger" type="submit" title="<?=_e('Delete theme from DB')?>"><?=_e('Delete')?></button>
               </form>
             <?php endif; ?>
           </div>
@@ -575,7 +575,7 @@ foreach ($themes as $t) {
                  alt="<?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?>"
                  class="tm-preview">
           <?php else: ?>
-            <div class="tm-noprev">No preview</div>
+            <div class="tm-noprev"><?=_e('No preview')?></div>
           <?php endif; ?>
 
           <div class="tm-theme-title"><?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?></div>
@@ -586,14 +586,14 @@ foreach ($themes as $t) {
           <?php endif; ?>
 
           <div class="tm-theme-meta">
-            Version: <?= htmlspecialchars($displayVersion ?: '-', ENT_QUOTES, 'UTF-8') ?>
-            — Author: <?= htmlspecialchars($displayAuthor ?: '-', ENT_QUOTES, 'UTF-8') ?>
+            <?=_e('Version:')?> <?= htmlspecialchars($displayVersion ?: '-', ENT_QUOTES, 'UTF-8') ?>
+            — <?=_e('Author:')?> <?= htmlspecialchars($displayAuthor ?: '-', ENT_QUOTES, 'UTF-8') ?>
           </div>
 
           <?php if ($updateInfo): ?>
             <div class="tm-update-banner">
               <span><?=__('Update')?> v<?= h($updateInfo['new_version']) ?> <?=__('available')?></span>
-              <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>">Update</button>
+              <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>"><?=_e('Update')?></button>
             </div>
           <?php endif; ?>
 
@@ -603,17 +603,17 @@ foreach ($themes as $t) {
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="activate_theme">
                 <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
-                <button class="tm-install" type="submit" style="padding:8px 10px">Activate</button>
+                <button class="tm-install" type="submit" style="padding:8px 10px"><?=_e('Activate')?></button>
               </form>
             <?php else: ?>
-              <span class="tm-pill">Activated</span>
+              <span class="tm-pill"><?=_e('Activated')?></span>
             <?php endif; ?>
 
             <form method="post" class="js-theme-manager-apply" style="display:inline;margin:0" data-folder="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
               <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
               <input type="hidden" name="action" value="apply_theme">
               <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
-              <button class="tm-ghost" type="submit">Apply to all</button>
+              <button class="tm-ghost" type="submit"><?=_e('Apply to all')?></button>
             </form>
           </div>
         </div>
@@ -621,7 +621,7 @@ foreach ($themes as $t) {
 
       <?php if (empty($themes)): ?>
         <div class="tm-note">
-          No themes registered. Put theme folders under <strong><?= htmlspecialchars(VIEWS_BASE, ENT_QUOTES, 'UTF-8') ?></strong> and scan.
+          <?=_e('No themes registered. Put theme folders under')?> <strong><?= htmlspecialchars(VIEWS_BASE, ENT_QUOTES, 'UTF-8') ?></strong> <?=_e('and scan.')?>
         </div>
       <?php endif; ?>
     </div>
@@ -630,7 +630,7 @@ foreach ($themes as $t) {
   <div style="height:14px"></div>
 
   <div class="tm-card">
-    <h3 class="tm-title" style="font-size:16px;margin:0">Per-slot assignments</h3>
+    <h3 class="tm-title" style="font-size:16px;margin:0"><?=_e('Per-slot assignments')?></h3>
 
     <form method="post" id="theme-assign-form" style="margin-top:12px">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -639,8 +639,8 @@ foreach ($themes as $t) {
       <table class="tm-table">
         <thead>
           <tr>
-            <th style="width:18%">Slot</th>
-            <th>Assign (custom &gt; theme)</th>
+            <th style="width:18%"><?=_e('Slot')?></th>
+            <th><?=_e('Assign (custom > theme)')?></th>
           </tr>
         </thead>
         <tbody>
@@ -656,14 +656,14 @@ foreach ($themes as $t) {
             <td>
               <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
                 <div style="flex:1;min-width:280px" class="choice-block" id="choice-theme-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                  <label style="font-weight:900;display:block;margin-bottom:6px;color:var(--adam-text-2)">Registered theme</label>
+                  <label style="font-weight:900;display:block;margin-bottom:6px;color:var(--adam-text-2)"><?=_e('Registered theme')?></label>
 
                   <div class="theme-warning-placeholder" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"></div>
 
                   <select data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"
                           class="theme-select tm-select"
                           aria-label="Registered theme for <?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?>">
-                    <option value="">-- Site default (use active theme) --</option>
+                    <option value=""><?=_e('-- Site default (use active theme) --')?></option>
                     <?php foreach ($themes as $t2): ?>
                       <option data-folder="<?= htmlspecialchars($t2['folder_name'], ENT_QUOTES, 'UTF-8') ?>"
                               value="<?= 'theme:'.(int)$t2['id'] ?>"
@@ -676,9 +676,9 @@ foreach ($themes as $t) {
                 </div>
 
                 <div style="width:360px;min-width:280px" class="choice-block" id="choice-post-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                  <label style="font-weight:900;display:block;margin-bottom:6px;color:var(--adam-text-2)">Or use custom template (post type=theme)</label>
+                  <label style="font-weight:900;display:block;margin-bottom:6px;color:var(--adam-text-2)"><?=_e('Or use custom template (post type=theme)')?></label>
                   <select class="post-select tm-select" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                    <option value="">-- none --</option>
+                    <option value=""><?=_e('-- none --')?></option>
                     <?php foreach ($theme_posts as $tp): ?>
                       <option value="<?= 'post:'.(int)$tp['id'] ?>"
                         <?= (!empty($current['custom_post_id']) && (int)$current['custom_post_id']===(int)$tp['id']) ? 'selected' : '' ?>>
@@ -708,8 +708,8 @@ foreach ($themes as $t) {
 
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-top:12px">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="tm-install" type="submit">Apply changes</button>
-          <a class="tm-ghost" href="<?= htmlspecialchars($selfUrl, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;display:inline-flex;align-items:center">Cancel</a>
+          <button class="tm-install" type="submit"><?=_e('Apply changes')?></button>
+          <a class="tm-ghost" href="<?= htmlspecialchars($selfUrl, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;display:inline-flex;align-items:center"><?=_e('Cancel')?></a>
         </div>
         <p class="tm-note" style="margin:0">
           <?=__('Dev note: To add new slots, you need to edit theme_helper and controller.')?>
