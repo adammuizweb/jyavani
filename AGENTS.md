@@ -1,4 +1,4 @@
-# AGENTS.md — Jyavani CMS
+# AGENTS.md — Jyavani CMS v2.0.5
 
 Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework, no Composer, no build tools, no tests.
 
@@ -25,9 +25,18 @@ The admin PHP files live at `dashboard/` (project root, alongside `app/`, `cfg/`
 
 ## Boot order
 
-`public/router.php` → `app/bootstrap_core.php` → `cfg/config.php` (loads `.env` via `env.php`, DB via `db.php` → `$pdo`, all 22 helpers in `cfg/helpers/`, session via `session.php`) → `app/bootstrap_theme.php` → route matching.
+```
+public/router.php
+  → app/bootstrap_core.php           (env, DB, helpers, session, locale bootstrap)
+  → cfg/config.php                   (.env via env.php, DB via db.php → $pdo,
+                                      26 helpers in cfg/helpers/, session via session.php)
+  → app/bootstrap_theme.php          (theme helper, widget helper, asset_url)
+  → route matching
+```
 
 **Welcome guard:** If `cfg/.env` doesn't exist (fresh install), `bootstrap_core.php` shows a standalone HTML welcome page with a link to `/pondasi/` — no 500 error.
+
+**Locale bootstrap:** After DB is available, `bootstrap_core.php` reads `site_language` from settings, calls `set_locale($locale)` + `setlocale(LC_TIME, 'de_DE.UTF-8')` for German.
 
 `$pdo` is created in `cfg/db.php` and is available as `$pdo` global + `$GLOBALS['pdo']`. All controllers receive it as parameter.
 
@@ -41,7 +50,7 @@ The admin PHP files live at `dashboard/` (project root, alongside `app/`, `cfg/`
 | `{admin_path}` | `dashboard/index.php` (via router) | Custom admin path (configurable in settings; default: `adiwira`) |
 | `/private/media/` | `PrivateMediaController` | Private image serving via PHP stream |
 | `/private/file/`, `/private/pdf/` | `PrivateFileController` | Private file serving + PDF.js viewer |
-| `/author/` | `AuthorController` | |  
+| `/author/` | `AuthorController` | |
 | `/category/` | `CategoryController` | Nested category paths |
 | `/YYYY/` | `ArchiveController` | Year/month archive |
 | `sitemap*.xml` | `SitemapController` | XML sitemaps |
@@ -101,6 +110,17 @@ All controllers are in `app/controllers/`, all are static methods.
 - Fallback chain: assigned theme → active theme → `default` theme
 - Widgets search: active theme → default theme → `public/views/widget/`
 
+### Theme Store Integration
+
+The `themes` table has `store_url` and `store_slug` columns for update checking against a remote store:
+
+- `read_theme_manifest($folder)` includes `store` block from `theme.json` (returns `store_url` + `store_slug`)
+- `register_theme_in_db($pdo, $folder, $manifest)` stores `store_url`/`store_slug` from manifest's `store` key
+- `register_all_themes_from_fs($pdo)` auto-registers all themes from filesystem
+- Theme update flow: Check Updates → `register_all_themes_from_fs()` → `ThemeStoreClient::checkUpdates()` fetches `{store.url}/{store.slug}/version.json` → banners by folder name → applyUpdate()
+- `install_theme_from_zip($pdo, $zip, $overwrite)` includes `store` in `manifestForDb`
+- Theme updates keyed by **folder name** (not manifest name or store slug)
+
 ## Content & Shortcodes
 
 - Posts/pages share `posts` table; `type` column: `article`, `page`, `theme`, `sc_preset`
@@ -123,10 +143,56 @@ All controllers are in `app/controllers/`, all are static methods.
 
 ## Database
 
-- Schema file: `schema/default.sql` (single file, no migration files — merged into one)
-- Tables: `users`, `posts`, `categories`, `post_categories`, `media`, `post_media_items`, `file`, `themes`, `assignments`, `menus`, `menu_items`, `settings`, `sidebar_zones`, `sidebar_zone_items`, `login_attempts`, `post_translations`, `ui_translations`
+### Schema files
+
+| File | Purpose |
+|---|---|
+| `schema/default.sql` | Core tables (single file, no migration files — merged into one) |
+| `schema/translations.sql` | UI translations seed data (id + de locales, 2,959 INSERT IGNORE rows) |
+| `schema/migrations/006-theme-store.sql` | Adds `is_system`, `store_url`, `store_slug` to `themes` table |
+| `schema/migrations/007-i18n.sql` | Adds `ui_translations` and `post_translations` tables |
+
+### Core tables
+
+`users`, `posts`, `categories`, `post_categories`, `media`, `post_media_items`, `file`, `themes`, `assignments`, `menus`, `menu_items`, `settings`, `sidebar_zones`, `sidebar_zone_items`, `login_attempts`, `post_translations`, `ui_translations`
+
 - Soft-delete pattern: `is_deleted` column on most tables
 - `users` has `is_locked` for manual ban
+
+## i18n (Internationalization)
+
+### System (`cfg/helpers/lang_helpers.php`)
+
+- `__($key, ...$vars)` — lookup `ui_translations` by key + current locale, supports sprintf vars. Short-circuits for `en` (no DB lookup).
+- `_e($key, ...$vars)` — echo version of `__()`
+- `set_locale($locale)` — set current locale for request
+- `get_supported_locales()` — returns `$supported_locales` array
+
+### Supported locales
+
+Defined in `$supported_locales` (`cfg/helpers/lang_helpers.php`):
+- `en` — English (source, no DB lookup)
+- `id` — Indonesian
+- `de` — German (LC_TIME: `de_DE.UTF-8`)
+
+### Locale bootstrap
+
+`app/bootstrap_core.php`:
+1. Reads `site_language` from DB settings
+2. Calls `set_locale($locale)`
+3. Calls `setlocale(LC_TIME, $localeMap[$locale])` for date/time formatting
+
+### Admin language selector
+
+`dashboard/admin/settings/site.php` has a language dropdown. POST handler saves to `site_language` setting. `<html lang>` attribute is dynamic across all admin + frontend layouts.
+
+### Schema
+
+`ui_translations` table: `id`, `scope` (default=`default`), `locale`, `key`, `value`, `updated_at`. `translations.sql` seeds `id` and `de` rows.
+
+### Quill editor
+
+Placeholder string translatable via JS global `window.QUILL_PLACEHOLDER` (set in layout).
 
 ## Project structure
 
@@ -135,11 +201,32 @@ All controllers are in `app/controllers/`, all are static methods.
 - `dashboard/` — admin PHP files (outside web root)
 - `public/` — web root (entrypoints + static assets + `views/` with themes)
 - `private_files/` — user uploads (outside web root)
-- `schema/` — SQL schema
+- `schema/` — SQL schema + migrations
+- `plugins/` — plugin registry + installed plugins
+- `tools/` — build tools
+
+## Hooks System (`cfg/helpers/hooks.php`)
+
+WordPress-style hook system:
+
+| Function | Description |
+|---|---|
+| `add_action(string $hook, callable $callback, int $priority = 10)` | Register action hook |
+| `do_action(string $hook, mixed ...$args)` | Execute action hooks |
+| `add_filter(string $hook, callable $callback, int $priority = 10)` | Register filter hook |
+| `apply_filters(string $hook, mixed $value, mixed ...$args)` | Execute filters, return modified value |
+| `remove_action(string $hook, callable $callback, int $priority = 10)` | Remove action |
+| `remove_filter(string $hook, callable $callback, int $priority = 10)` | Remove filter |
+
+Used for bin items (`apply_filters('bin_items', ...)`), allowing plugins to extend admin bin pages.
 
 ## Plugin System (v1.0)
 
 Third-party features installed as removable plugins via `plugins/{name}/plugin.json`.
+
+### State file
+
+`plugins/disabled.json` — JSON array of disabled plugin names (instead of checking filesystem). `PLUGIN_DISABLED_JSON` constant. Created automatically if missing.
 
 ### Registry API (`plugins/index.php`)
 
@@ -148,14 +235,16 @@ Third-party features installed as removable plugins via `plugins/{name}/plugin.j
 | `plugin_manifest(string $name)` | `?array` | Read a single plugin's `plugin.json` |
 | `plugins_all()` | `array` | All plugins (enabled & disabled) |
 | `plugins_active()` | `array` | Only enabled plugins (cached per-request) |
-| `plugin_enable(string $name)` | `bool` | Enable a plugin |
-| `plugin_disable(string $name)` | `bool` | Disable a plugin |
+| `plugin_enable(string $name)` | `bool` | Enable a plugin (removes from disabled.json) |
+| `plugin_disable(string $name)` | `bool` | Disable a plugin (adds to disabled.json) |
 | `plugin_is_active(string $name)` | `bool` | Check if plugin is enabled |
 | `plugin_admin_routes()` | `array` | Routes from active plugins |
 | `plugin_nav_items()` | `array` | Nav items from active plugins |
 | `plugin_assets()` | `array` | CSS/JS assets from active plugins |
 | `plugin_resolve_route(string $route)` | `?array` | Find a specific route |
 | `plugin_include_file(string $file)` | `bool` | `require` a plugin file |
+| `plugin_delete(string $name)` | `bool` | Remove plugin from filesystem entirely |
+| `plugin_checks(string $name)` | `array` | Run setup checks for a plugin |
 
 ### Plugin Manifest (`plugin.json`) — Key Fields
 
@@ -175,8 +264,17 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 3. Extracts to `plugins/{name}/`
 4. Copies files declared in `static.copy[]` to `public/` (e.g., xterm JS/CSS → `public/static/vendor/xterm/`)
 5. Runs `install.sh` if present and executable
-6. Enables the plugin automatically
+6. Enables the plugin automatically (or shows Install vs Install & Activate buttons)
 7. Redirects to Plugin Manager with success toast
+
+**Two-button UI on Plugin Store:** `Install` (extract + disable) vs `Install & Activate` (extract + enable). Install-only mode calls `plugin_disable($name)` after extraction.
+
+### Plugin Browser (Store)
+
+`dashboard/admin/plugins/browse.php` — fetches plugin list from remote store API. Uses `PluginStoreController` (in `app/controllers/`) for:
+- `checkUpdates($pdo)` — compare installed vs store versions
+- `applyUpdate($pdo, $name, $progressToken)` — download + backup + extract
+- `readProgress($token)` / `clearProgress($token)` — AJAX progress polling
 
 ### Integration Points
 
@@ -184,6 +282,7 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 - `dashboard/theme/adam/part/main.php` — plugin pages resolved before DASH_PATH file lookup via `plugin_resolve_route()`
 - `dashboard/theme/adam/part/aside.php` — renders plugin nav items: `parent: "settings"` as sublinks under Settings, `parent: "tools"` under collapsible Tools menu
 - Plugin Manager at `dashboard/admin/plugins/index.php` (core admin page, not a plugin)
+- Bin pages use `apply_filters('bin_items', ...)` hook for plugin-extendable trash listing
 
 ### Example: Terminal Plugin
 
@@ -194,13 +293,15 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 
 ## Development
 
+- Version: **2.0.5** (see `VERSION` and `version.json`)
 - No test suite — manual testing only
 - Error display controlled by `APP_DEBUG=1` in `.env`
 - `dev_lock.php` can lockdown the site
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
-- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. Link to dashboard uses URL `/adiwira/gerbank/melbu/` (default login path, router serves from `dashboard/`).
-- **Project structure:** `app/` (controllers, layout, bootstrap), `dashboard/` (admin PHP), `cfg/` (config), `public/` (web root + theme views), `schema/` (SQL), `private_files/` (user uploads)
-- Server setup guide at `SERVER_SETUP.md`
+- `reset_admin_cache()` must be called after enabling a plugin for nav to appear (deletes `cfg/var/theme_cache.json`)
+- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. After `default.sql`, imports `translations.sql` for seed data. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. Link to dashboard uses URL `/adiwira/gerbank/melbu/` (default login path, router serves from `dashboard/`).
+- **Build tools:** `tools/build-package.php` builds distributable zip, `tools/generate-manifest.php` generates `tools/cms-manifest.json`
+- **Server setup guide** at `SERVER_SETUP.md`
 - `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
 - Timezone: `Asia/Jakarta`
 - `.gitignore` excludes: `.env`, `private_files/`, `cfg/var/sessions/`, `public/static/img/{year}/`
@@ -214,7 +315,38 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 - Strict types: `declare(strict_types=1);` on most files
 - Admin AJAX endpoints return JSON via `adiwira_json()`
 
-## Key auth helpers (`cfg/helpers/auth_helpers.php`)
+## Helpers (`cfg/helpers/` — 26 files)
+
+`sessions.php` and `lang_helpers.php` are loaded inline (not via config.php loop):
+
+| Helper | Description |
+|---|---|
+| `auth_helpers.php` | Login/register path matching, brute force |
+| `author_helpers.php` | Author metadata display |
+| `cms_content.php` | Content formatting, excerpt, read time |
+| `datetime.php` | Date/time formatting |
+| `debug_helpers.php` | Debug/dump utilities |
+| `editor_helpers.php` | Editor toolbar configuration |
+| **`hooks.php`** | Action/filter hook system (add_action, apply_filters, etc.) |
+| **`lang_helpers.php`** | i18n: `__()`, `_e()`, `set_locale()`, `get_supported_locales()` |
+| `menu_helper.php` | Menu rendering |
+| `null_helpers.php` | `e()` = `htmlspecialchars()`, null-safe utilities |
+| `permalink_helpers.php` | Custom permalink structures |
+| `private_file_shortcodes.php` | `[private_pdf]` shortcode |
+| `redirct_helpers.php` | Redirect helpers (note: typo in filename preserved) |
+| `role_helpers.php` | Role checking utilities |
+| `settings_helpers.php` | Settings CRUD |
+| `shortcode_builder.php` | Shortcode registration |
+| `sidebar_helper.php` | Sidebar zone rendering |
+| `success_redirect.php` | Flash messages |
+| `theme_helper.php` | Theme resolution, slot rendering, manifest, store integration |
+| `time_helpers.php` | Time ago, time formatting |
+| `url_helpers.php` | URL building |
+| `video_shortcodes.php` | `[video]` shortcode |
+| `widget_helper.php` | Widget rendering |
+| `widget_shortcodes_p.php` | `[[widget:...]]` shortcode expansion |
+
+### Key auth helpers (`cfg/helpers/auth_helpers.php`)
 
 - `auth_path_matches(string $path): bool` — compares request URI against configured path
 - `get_login_path(PDO $pdo): string` — reads `login_path` with fallback to old `login_slug`
