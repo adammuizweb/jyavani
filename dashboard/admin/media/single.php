@@ -133,43 +133,16 @@ $displayClientUrl = modalfilez_client_url($r);
         <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
 
-        <label for="field-title">Title</label>
+        <label for="field-title"><?=_e('Title')?></label>
         <input id="field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
-        <label for="field-alt">Alt</label>
-        <input id="field-alt" type="text" name="alt" value="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-
-        <label for="field-caption">Caption</label>
-        <textarea id="field-caption" name="caption"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
-
-        <label for="field-credit">Credit <span class="small">(Optional — contoh: "Nama Photographer / Agency")</span></label>
-        <input id="field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="Nama Photographer — Sumber / Lisensi">
-
-        <?php if ($hasVisibility): ?>
-        <div style="margin-top:12px">
-          <label for="field-access-scope">Access Scope</label>
-          <select id="field-access-scope" name="access_scope">
-            <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
-            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>>Admin Only</option>
-          </select>
-        </div>
-        <div style="margin-top:8px">
-          <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
-            <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
-            Downloadable
-          </label>
-        </div>
-        <?php endif; ?>
-
-        <label for="field-target-url">Target URL <span class="small">(Optional — full URL, http/https)</span></label>
-        <input id="field-target-url"
-               type="text"
-               name="target_url"
-               value="<?= htmlspecialchars($linkUrlValue, ENT_QUOTES, 'UTF-8') ?>"
-               placeholder="https://example.com/page atau https://example.com/file.pdf">
-
-        <label for="field-target-attr">Open behavior</label>
+        <label for="field-alt"><?=_e('Alt')?></label>
+...
+        <label for="field-caption"><?=_e('Caption')?></label>
+...
+          <label for="field-access-scope"><?=_e('Access Scope')?></label>
+...
+        <label for="field-target-attr"><?=_e('Open behavior')?></label>
         <select id="field-target-attr" name="target_attribute">
           <option value="">Default</option>
           <option value="_self"   <?= ($linkTargetValue === '_self') ? 'selected' : '' ?>>Open in same tab (_self)</option>
