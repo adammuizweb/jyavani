@@ -34,29 +34,29 @@ $hasVisibility = mdlib_has_column('visibility');
   <?php if ($hasVisibility): ?>
   <div style="margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:4px 0">
     <div>
-      <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px">Visibility</label>
+      <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Visibility')?></label>
       <select id="media-visibility" style="padding:3px 6px;font-size:12px">
-        <option value="auto">Auto</option>
+        <option value="auto"><?=_e('Auto')?></option>
         <option value="public"><?=_e('Public')?></option>
-        <option value="private">Private</option>
+        <option value="private"><?=_e('Private')?></option>
       </select>
     </div>
     <div id="media-private-options" style="display:none">
       <div style="display:inline-block;margin-right:8px">
-        <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px">Access Scope</label>
+        <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Access Scope')?></label>
         <select id="media-access-scope" style="padding:3px 6px;font-size:12px">
-          <option value="editorial">Editorial</option>
-          <option value="admin">Admin Only</option>
+          <option value="editorial"><?=_e('Editorial')?></option>
+          <option value="admin"><?=_e('Admin Only')?></option>
         </select>
       </div>
       <div style="display:inline-block">
         <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600">
           <input type="checkbox" id="media-is-downloadable" value="1" checked>
-          Downloadable
+          <?=_e('Downloadable')?>
         </label>
       </div>
     </div>
-    <div style="align-self:flex-end" class="small" style="color:#888">Private images stored outside public_html</div>
+    <div style="align-self:flex-end" class="small" style="color:#888"><?=_e('Private images stored outside public_html')?></div>
   </div>
   <?php endif; ?>
 
