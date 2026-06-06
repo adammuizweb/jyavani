@@ -90,3 +90,6 @@ require_once __DIR__ . '/helpers/auth_helpers.php';
 
 // 24. helpers untuk custom permalink structure
 require_once __DIR__ . '/helpers/permalink_helpers.php';
+
+// 25. helpers untuk permission auto-fix
+require_once __DIR__ . '/helpers/permission_helper.php';

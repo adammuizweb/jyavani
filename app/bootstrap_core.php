@@ -61,6 +61,11 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 
 $GLOBALS['pdo'] = $pdo;
 
+// Auto-fix runtime file permissions (group-writable untuk www-data)
+if (function_exists('ensure_writable_runtime')) {
+    ensure_writable_runtime();
+}
+
 // Initialize locale from site_language setting
 if (function_exists('settings_get')) {
     $siteLang = settings_get($pdo, 'site_language', 'en');
