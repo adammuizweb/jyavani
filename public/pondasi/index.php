@@ -80,6 +80,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($stmt !== '') $pdo->exec($stmt);
                 }
 
+                // Import translation seed data (id + de)
+                $translationsSql = $schemaDir . '/translations.sql';
+                if (is_file($translationsSql)) {
+                    $tsql = file_get_contents($translationsSql);
+                    if ($tsql !== false) {
+                        $tstatements = explode(';', $tsql);
+                        foreach ($tstatements as $tstmt) {
+                            $tstmt = trim($tstmt);
+                            if ($tstmt !== '') $pdo->exec($tstmt);
+                        }
+                    }
+                }
+
                 $step = 2;
                 // carry DB creds forward
                 $dbFields = [
