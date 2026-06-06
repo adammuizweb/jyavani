@@ -302,6 +302,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 <script src="/static/js/add/file-selector.js"></script>
 
 <!-- editor spesifik edit tetap -->
+<script>window.QUILL_PLACEHOLDER = <?= json_encode(__('Write article content here...')) ?>;</script>
 <script src="/static/js/edit/codemirror.js"></script>
 <script src="/static/js/edit/quill.js"></script>
 <script src="/static/js/edit/editor_mode.js"></script>

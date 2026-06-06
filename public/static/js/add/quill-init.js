@@ -133,7 +133,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
           ]
         },
         theme: 'snow',
-        placeholder: 'Tulis konten artikel di sini...'
+        placeholder: window.QUILL_PLACEHOLDER || 'Write article content here...'
       });
 
       try {

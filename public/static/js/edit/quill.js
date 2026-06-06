@@ -426,7 +426,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     quill = new Quill(editorEl, {
       theme: 'snow',
       modules: { toolbar: toolbarOption },
-      placeholder: 'Tulis konten artikel di sini...'
+      placeholder: window.QUILL_PLACEHOLDER || 'Write article content here...'
     });
 
     attachToolbarHandlers(quill);
