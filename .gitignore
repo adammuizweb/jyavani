@@ -9,6 +9,7 @@ jyavani.code-profile
 cfg/var/
 /var/sessions/**
 plugins/disabled.json
+cfg/session_debug.log
 
 # Sensitive PHP config / public bootstrap (optional - decide per project)
 # If those must stay out of remote, uncomment:
