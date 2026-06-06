@@ -133,7 +133,7 @@ $items = [
     ],
     [
         'key' => 'users',
-        'title' => 'Bin Users',
+        'title' => __('Bin Users'),
         'desc' => __('Trash for deleted users (soft delete).'),
         'count' => $countUsers,
         'href' => $base . '/?page=admin/bin/users/index',
