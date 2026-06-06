@@ -32,8 +32,13 @@ $maxSize = 50 * 1024 * 1024; // 50MB
 $error = '';
 $success = '';
 
-// --- Process upload ---
+// --- Handle upload ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
+    $installAction = (string)($_POST['action'] ?? 'upload');
+    if (!in_array($installAction, ['upload', 'upload_activate'], true)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid action.'));
+    }
+
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
@@ -196,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     }
 
     // --- Enable plugin ---
-    if (function_exists('plugin_enable')) {
+    if ($installAction === 'upload_activate' && function_exists('plugin_enable')) {
         plugin_enable($pluginName);
         $flashMessages[] = __('Plugin activated.') . ' "' . htmlspecialchars($manifest['title'] ?? $pluginName) . '"';
     }
@@ -236,7 +241,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
 
     <div class="form-actions">
         <a href="<?= htmlspecialchars($listUrl) ?>" class="btn btn-outline"><?=_e('Back')?></a>
-        <button type="submit" class="btn btn-primary" id="submitBtn"><?=_e('Upload Plugin')?></button>
+        <input type="hidden" name="action" id="uploadAction" value="upload">
+        <button type="submit" class="btn btn-outline" onclick="document.getElementById('uploadAction').value='upload'"><?=_e('Upload Plugin')?></button>
+        <button type="submit" class="btn btn-primary" onclick="document.getElementById('uploadAction').value='upload_activate'"><?=_e('Upload & Activate')?></button>
     </div>
 </form>
 
