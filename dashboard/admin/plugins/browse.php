@@ -73,7 +73,12 @@ if ($cached !== null) {
 }
 
 // --- Handle install ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'install') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $installAction = (string)($_POST['action'] ?? '');
+    if (!in_array($installAction, ['install', 'install_activate'], true)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid action.'));
+    }
+
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
@@ -196,9 +201,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     }
 
     // Hapus cache agar daftar plugin terbaru
-    plugin_enable($pluginName);
+    if ($installAction === 'install_activate') {
+        plugin_enable($pluginName);
+    }
 
-    adiwira_redirect_with_flash($listUrl, 'success', __('Plugin installed from store.') . ' "' . h($manifest['title'] ?? $pluginName) . '"');
+    $msg = ($installAction === 'install_activate')
+        ? __('Plugin installed and activated from store.')
+        : __('Plugin installed from store.');
+    adiwira_redirect_with_flash($listUrl, 'success', $msg . ' "' . h($manifest['title'] ?? $pluginName) . '"');
 }
 
 $installedPlugins = plugins_all();
@@ -277,11 +287,11 @@ if (isset($_GET['refresh'])) {
         <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5">✓ <?=_e('Installed')?></span>
         <?php endif; ?>
       <?php else: ?>
-      <form method="post" style="display:inline">
+      <form method="post" style="display:inline-flex;gap:3px">
         <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-        <input type="hidden" name="action" value="install">
         <input type="hidden" name="plugin" value="<?= h($p['name']) ?>">
-        <button type="submit" class="btn btn-sm btn-primary">+ Install</button>
+        <button type="submit" name="action" value="install" class="btn btn-sm btn-outline"><?=_e('Install')?></button>
+        <button type="submit" name="action" value="install_activate" class="btn btn-sm btn-primary"><?=_e('Install & Activate')?></button>
       </form>
       <?php endif; ?>
       <?php if (!empty($p['plugin_uri'])): ?>
