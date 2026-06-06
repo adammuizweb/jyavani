@@ -66,8 +66,8 @@ $hasVisibility = mdlib_has_column('visibility');
     </p>
     <div id="upload-progress" class="upload-progress"></div>
     <div class="small" style="margin-top:8px">
-      Maks ukuran per file: 30MB.
-      Tipe: pdf, doc/docx, xls/xlsx, ppt/pptx, zip, mp4, webm, mov, txt, rtf, mp3, wav, ogg
+      <?=_e('Maks ukuran per file: 30MB.')?>
+      <?=_e('Tipe: pdf, doc/docx, xls/xlsx, ppt/pptx, zip, mp4, webm, mov, txt, rtf, mp3, wav, ogg')?>
     </div>
   </div>
 

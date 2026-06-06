@@ -61,7 +61,7 @@ $hasVisibility = mdlib_has_column('visibility');
   <?php endif; ?>
 
   <div class="dropzone" id="dropzone">
-    <p>Tarik gambar ke sini atau <button class="adam-btn" id="browse-btn" type="button"><?= _e('Select file') ?></button></p>
+    <p><?=_e('Tarik gambar ke sini atau')?> <button class="adam-btn" id="browse-btn" type="button"><?= _e('Select file') ?></button></p>
     <div id="upload-progress" class="upload-progress"></div>
   </div>
 
