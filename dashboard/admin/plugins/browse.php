@@ -203,6 +203,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Hapus cache agar daftar plugin terbaru
     if ($installAction === 'install_activate') {
         plugin_enable($pluginName);
+    } else {
+        plugin_disable($pluginName);
     }
 
     $msg = ($installAction === 'install_activate')

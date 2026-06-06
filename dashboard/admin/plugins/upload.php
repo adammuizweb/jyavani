@@ -200,10 +200,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         }
     }
 
-    // --- Enable plugin ---
+    // --- Enable / disable plugin ---
     if ($installAction === 'upload_activate' && function_exists('plugin_enable')) {
         plugin_enable($pluginName);
         $flashMessages[] = __('Plugin activated.') . ' "' . htmlspecialchars($manifest['title'] ?? $pluginName) . '"';
+    } elseif (function_exists('plugin_disable')) {
+        plugin_disable($pluginName);
     }
 
     $finalMsg = implode(' ', $flashMessages);
