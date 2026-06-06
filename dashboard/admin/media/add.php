@@ -37,7 +37,7 @@ $hasVisibility = mdlib_has_column('visibility');
       <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px">Visibility</label>
       <select id="media-visibility" style="padding:3px 6px;font-size:12px">
         <option value="auto">Auto</option>
-        <option value="public">Public</option>
+        <option value="public"><?=_e('Public')?></option>
         <option value="private">Private</option>
       </select>
     </div>

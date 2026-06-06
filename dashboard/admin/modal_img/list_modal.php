@@ -114,9 +114,9 @@ try {
   <div class="mdlib-bar">
     <input id="mdlib-search" class="mdlib-input" placeholder="<?=_e('Search title/filename/caption...')?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
     <select id="mdlib-visibility-filter" class="mdlib-select">
-      <option value="" <?= $filterVisibility === '' ? 'selected' : '' ?>>Semua</option>
-      <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>>Public</option>
-      <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>>Private</option>
+      <option value="" <?= $filterVisibility === '' ? 'selected' : '' ?>><?=_e('All')?></option>
+      <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+      <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
     </select>
     <button id="mdlib-search-btn" class="mdlib-btn" type="button"><?= _e('Search') ?></button>
   </div>

@@ -192,11 +192,11 @@ try {
 <div id="mdlib-lib-wrap">
   <div class="mdlib-lib" id="mdlib-lib" data-per-page="<?= (int)$per_page ?>">
     <div class="mdlib-searchrow">
-      <input class="mdlib-input" id="mdlib-search" placeholder="Cari title/filename/caption/mime..." value="<?= mdlib_e($q) ?>">
+      <input class="mdlib-input" id="mdlib-search" placeholder="<?=_e('Search title/filename/caption/mime...')?>" value="<?= mdlib_e($q) ?>">
       <select class="mdlib-select" id="mdlib-visibility-filter">
-        <option value="" <?= $filterVisibility === '' ? 'selected' : '' ?>>Semua</option>
-        <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>>Public</option>
-        <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>>Private</option>
+        <option value="" <?= $filterVisibility === '' ? 'selected' : '' ?>><?=_e('All')?></option>
+        <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+        <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
       <button class="mdlib-btn mdlib-btn-primary" type="button" data-mdlib-action="search"><?= _e('Search') ?></button>
     </div>
