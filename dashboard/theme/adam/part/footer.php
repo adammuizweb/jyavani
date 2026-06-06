@@ -8,7 +8,7 @@ if (!defined('ADAM_THEME')) {
 <?php do_action('admin_footer'); ?>
 <footer id="adam-footer" class="adam-footer">
   <div class="adam-footer-inner">
-    <small>&copy; <?= date('Y') ?> Adiwira Jyavani CMS — Adam Muiz</small>
+    <small>&copy; <?= date('Y') ?> Jyavani CMS — Adam Muiz</small>
   </div>
 </footer>
 

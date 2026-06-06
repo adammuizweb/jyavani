@@ -662,7 +662,7 @@ foreach ($themes as $t) {
 
                   <select data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"
                           class="theme-select tm-select"
-                          aria-label="Registered theme for <?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?>">
+                          aria-label="<?=_e('Registered theme for')?> <?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?>">
                     <option value=""><?=_e('-- Site default (use active theme) --')?></option>
                     <?php foreach ($themes as $t2): ?>
                       <option data-folder="<?= htmlspecialchars($t2['folder_name'], ENT_QUOTES, 'UTF-8') ?>"
