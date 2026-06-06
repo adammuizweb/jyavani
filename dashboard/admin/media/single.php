@@ -107,9 +107,9 @@ $displayClientUrl = modalfilez_client_url($r);
       </div>
 
       <div style="margin-top:10px;" class="meta-row">
-        <div><strong>Filename:</strong> <?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?></div>
-        <div><strong>MIME:</strong> <?= htmlspecialchars((string)($r['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
-        <div><strong>Size:</strong> <?= htmlspecialchars(human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></div>
+        <div><strong><?=_e('Filename:')?></strong> <?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?></div>
+        <div><strong><?=_e('MIME:')?></strong> <?= htmlspecialchars((string)($r['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
+        <div><strong><?=_e('Size:')?></strong> <?= htmlspecialchars(human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></div>
         <?php if (!empty($r['width']) || !empty($r['height'])): ?>
           <div><strong>Dim:</strong> <?= (int)$r['width'] ?> × <?= (int)$r['height'] ?></div>
         <?php endif; ?>

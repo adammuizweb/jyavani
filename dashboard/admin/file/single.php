@@ -99,9 +99,9 @@ $isPrivate = ($visibility === 'private');
         </div>
 
         <div class="small">
-          Filename: <?= htmlspecialchars((string)($row['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-          — MIME: <?= htmlspecialchars((string)($row['mime'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-          — Size: <?= (int)($row['size'] ?? 0) ?> bytes
+          <?=_e('Filename:')?> <?= htmlspecialchars((string)($row['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+          — <?=_e('MIME:')?> <?= htmlspecialchars((string)($row['mime'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
+          — <?=_e('Size:')?> <?= (int)($row['size'] ?? 0) ?> <?=_e('bytes')?>
         </div>
 
         <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
