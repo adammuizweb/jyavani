@@ -71,13 +71,12 @@ try {
     $countArticle = count_posts_trash($pdo, 'article');
     $countPage    = count_posts_trash($pdo, 'page');
     $countTheme   = count_posts_trash($pdo, 'theme');
-    $countPhoto   = count_posts_trash($pdo, 'photo');
     $countCat     = count_categories_trash($pdo);
     $countUsers   = count_users_trash($pdo);
 } catch (Throwable $e) {
     error_log('admin/bin/? stats error: ' . $e->getMessage());
     $errors[] = __('Gagal mengambil statistik bin.');
-    $countArticle = $countPage = $countTheme = $countPhoto = $countCat = $countUsers = 0;
+    $countArticle = $countPage = $countTheme = $countCat = $countUsers = 0;
 }
 
 // cek apakah halaman bin sudah ada
@@ -86,7 +85,6 @@ $exists = [
     'page'     => is_file(__DIR__ . '/page/index.php'),
     'category' => is_file(__DIR__ . '/category/index.php'),
     'theme'    => is_file(__DIR__ . '/theme/index.php'),
-    'photo'    => is_file(__DIR__ . '/photo/index.php'),
     'users'    => is_file(__DIR__ . '/users/index.php'),
 ];
 
@@ -124,14 +122,6 @@ $items = [
         'emoji' => '🎨',
     ],
     [
-        'key' => 'photo',
-        'title' => __('Bin Photo'),
-        'desc' => __('Trash for photo posts (posts type=photo).'),
-        'count' => $countPhoto,
-        'href' => $base . '/?page=admin/bin/photo/index',
-        'emoji' => '🖼️',
-    ],
-    [
         'key' => 'users',
         'title' => __('Bin Users'),
         'desc' => __('Trash for deleted users (soft delete).'),
@@ -140,6 +130,19 @@ $items = [
         'emoji' => '👤',
     ],
 ];
+
+// allow plugins to register bin items via filter
+$items = apply_filters('bin_items', $items, $pdo, $countArticle, $countPage, $countCat, $countTheme, $countUsers, $base);
+
+// check plugin routes for existence
+if (function_exists('plugin_resolve_route')) {
+    foreach ($items as &$it) {
+        if (!isset($exists[$it['key']])) {
+            $exists[$it['key']] = plugin_resolve_route($it['route'] ?? '') !== null;
+        }
+    }
+    unset($it);
+}
 
 $show_inline_errors = !empty($errors) && !function_exists('adiwira_bootstrap_toasts_script');
 ?>

@@ -97,6 +97,19 @@ function plugin_is_active(string $name): bool {
     return array_key_exists($name, plugins_active());
 }
 
+// --- Bin Items aggregation ---
+function plugin_bin_items(): array {
+    $items = [];
+    foreach (plugins_active() as $name => $p) {
+        $bin = $p['admin']['bin'] ?? [];
+        foreach ($bin as $b) {
+            $b['plugin'] = $name;
+            $items[] = $b;
+        }
+    }
+    return $items;
+}
+
 // --- Route / Nav / Asset aggregation ---
 
 function plugin_admin_routes(): array {
