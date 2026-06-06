@@ -128,7 +128,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
 ?>
 
 <section class="adam-card">
-  <h2>Edit Page</h2>
+  <h2><?=_e('Edit Page')?></h2>
 
   <form method="post"
         id="page-edit-form"
@@ -179,7 +179,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                     id="thumbnail-clear"
                     class="adam-link"
                     style="padding:.35rem .6rem">
-              Clear
+              <?=_e('Clear')?>
             </button>
           </div>
 
@@ -203,7 +203,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                  value="quill"
                  id="editor-quill"
                  <?= ($chosenMode === 'quill') ? 'checked' : '' ?>>
-          Quill (rich)
+          <?=_e('Quill (rich)')?>
         </label>
         <label>
           <input type="radio"
@@ -211,7 +211,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                  value="codemirror"
                  id="editor-codemirror"
                  <?= ($chosenMode === 'codemirror') ? 'checked' : '' ?>>
-          CodeMirror (HTML)
+          <?=_e('CodeMirror (HTML)')?>
         </label>
       </div>
     </label>
@@ -230,17 +230,17 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
     </div>
 
     <div class="form-row" style="margin-top:.6rem">
-      <label for="status">Status</label>
+      <label for="status"><?=_e('Status')?></label>
       <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <option value="draft" <?= ($status === 'draft') ? 'selected' : '' ?>>Draft</option>
-        <option value="published" <?= ($status === 'published') ? 'selected' : '' ?>>Published</option>
-        <option value="private" <?= ($status === 'private') ? 'selected' : '' ?>>Private</option>
+        <option value="draft" <?= ($status === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
+        <option value="published" <?= ($status === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
+        <option value="private" <?= ($status === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
     </div>
 
     <?php if ($role === 'admin'): ?>
       <label style="display:block;margin-top:.6rem">
-        Created By<br>
+        <?=_e('Created By')?><br>
         <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
           <?php
             if (!empty($users)) {

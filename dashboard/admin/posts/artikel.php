@@ -361,9 +361,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
                    style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
-                   placeholder="URL thumbnail (atau pilih dari Media)">
+                   placeholder="<?=_e('URL thumbnail (or select from Media)')?>">
             <button type="button" id="btn-open-media-for-thumb" class="adam-button" style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?=_e('Select from Media')?></button>
-            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
+            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem"><?=_e('Clear')?></button>
           </div>
           <div id="thumbnail-preview" style="margin-top:.6rem;">
             <?php if (!empty($_POST['thumbnail'])): ?>
@@ -387,20 +387,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     ?>
 
     <div class="form-row" style="margin-top:.6rem">
-      <label for="status">Status</label>
+      <label for="status"><?=_e('Status')?></label>
       <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>>Draft</option>
-        <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>>Published</option>
-        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>>Private</option>
+        <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
+        <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
+        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
     </div>
 
-    <label style="display:block;margin-top:.6rem">Created At (opsional)<br>
+    <label style="display:block;margin-top:.6rem"><?=_e('Created At (optional)')?><br>
       <input type="datetime-local" name="created_at" value="<?= htmlspecialchars((string)$created_val, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to use current time (GMT+7).')?></div>
     </label>
 
-    <label style="display:block;margin-top:.6rem">Updated At (opsional)<br>
+    <label style="display:block;margin-top:.6rem"><?=_e('Updated At (optional)')?><br>
       <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars((string)$updated_val, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to use current time (GMT+7).')?></div>
     </label>

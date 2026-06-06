@@ -45,11 +45,11 @@ if ($layoutDir && is_dir($layoutDir)) {
 }
 ?>
 <section class="adam-card">
-  <h2>Shortcode Builder</h2>
+  <h2><?=_e('Shortcode Builder')?></h2>
 
   <div style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid var(--adam-border,#ddd);">
-    <a href="?page=admin/shortcodes/index&tab=presets" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'presets' ? 'bold' : 'normal' ?>;">Presets</a>
-    <a href="?page=admin/shortcodes/index&tab=layouts" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'layouts' ? 'bold' : 'normal' ?>;">Layouts</a>
+    <a href="?page=admin/shortcodes/index&tab=presets" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'presets' ? 'bold' : 'normal' ?>;"><?=_e('Presets')?></a>
+    <a href="?page=admin/shortcodes/index&tab=layouts" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'layouts' ? 'bold' : 'normal' ?>;"><?=_e('Layouts')?></a>
   </div>
 
 <?php if ($tab === 'presets'): ?>
@@ -57,7 +57,7 @@ if ($layoutDir && is_dir($layoutDir)) {
     <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/edit') ?>"><?=_e('+ Add Preset')?></a>
     <?php if ($isAdmin): ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= h($base . '/?page=admin/bin/index') ?>">🗑️ Trash</a>
+      <a class="adam-att" href="<?= h($base . '/?page=admin/bin/index') ?>">🗑️ <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -66,8 +66,8 @@ if ($layoutDir && is_dir($layoutDir)) {
       <thead>
         <tr>
           <th><?=_e('Preset Name')?></th>
-          <th>Widget Name</th>
-          <th>Status</th>
+          <th><?=_e('Widget Name')?></th>
+          <th><?=_e('Status')?></th>
           <th><?= _e('Created') ?></th>
           <th style="width:140px"><?= _e('Actions') ?></th>
         </tr>
@@ -88,7 +88,7 @@ if ($layoutDir && is_dir($layoutDir)) {
               <td><span class="adam-status <?= h($stClass) ?>"><span class="adam-status-text"><?= h(ucfirst($st)) ?></span></span></td>
               <td><?= h(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$p['created_at']) : (string)$p['created_at']) ?></td>
               <td>
-                <a class="adam-ubah" href="<?= h($editHref) ?>">Edit</a>
+                <a class="adam-ubah" href="<?= h($editHref) ?>"><?=_e('Edit')?></a>
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
                 <button type="button" class="adam-hapus js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>"><?=_e('Delete')?></button>
               </td>
@@ -136,7 +136,7 @@ if ($layoutDir && is_dir($layoutDir)) {
               <td><code><?= h($layoutName) ?></code></td>
               <td><?= $fsizeStr ?></td>
               <td>
-                <a class="adam-ubah" href="<?= h($editHref) ?>">Edit</a>
+                <a class="adam-ubah" href="<?= h($editHref) ?>"><?=_e('Edit')?></a>
                 <?php if (!in_array($layoutName, ['cards', 'list', 'card2', 'sliderpage'], true)): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button" class="adam-hapus js-layout-delete" data-file="<?= h($f) ?>" data-name="<?= h($layoutName) ?>"><?=_e('Delete')?></button>

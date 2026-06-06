@@ -127,7 +127,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 ?>
 
 <section class="adam-card">
-  <h2>Bin / Trash — Users</h2>
+  <h2><?=_e('Bin / Trash — Users')?></h2>
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/bin/users/index">
@@ -152,7 +152,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     </select>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/bin/users/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+    <a href="<?= htmlspecialchars($base . '/?page=admin/bin/users/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
 
     <span style="margin-left:auto;color:var(--adam-muted);">
       Total trash: <strong><?= (int)$total ?></strong>
@@ -169,8 +169,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
       </label>
 
       <select id="bulkActionBinUsers" name="action" style="padding:.4rem;">
-        <option value="">-- Bulk action --</option>
-        <option value="restore">Restore</option>
+        <option value=""><?=_e('-- Bulk action --')?></option>
+        <option value="restore"><?=_e('Restore')?></option>
         <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
       </select>
 
@@ -183,12 +183,12 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         <thead>
           <tr>
             <th style="width:40px"></th>
-            <th>Avatar</th>
+            <th><?=_e('Avatar')?></th>
             <th><?= _e('Name') ?></th>
-            <th>Email / Username</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Phone</th>
+            <th><?=_e('Email / Username')?></th>
+            <th><?=_e('Role')?></th>
+            <th><?=_e('Status')?></th>
+            <th><?=_e('Phone')?></th>
             <th><?= _e('Deleted') ?></th>
             <th><?= _e('Actions') ?></th>
           </tr>
@@ -232,9 +232,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
               <td>
                 <?php if ($isLocked): ?>
-                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;">Locked / Pending</span>
+                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;"><?=_e('Locked / Pending')?></span>
                 <?php else: ?>
-                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;">Unlocked / Approved</span>
+                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;"><?=_e('Unlocked / Approved')?></span>
                 <?php endif; ?>
               </td>
 
@@ -250,7 +250,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$u['id'] ?>"
                         data-title="<?= htmlspecialchars($labelName, ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Restore
+                  <?=_e('Restore')?>
                 </button>
 
                 &nbsp;<span class="muted-divider">|</span>&nbsp;

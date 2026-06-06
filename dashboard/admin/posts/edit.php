@@ -124,7 +124,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 ?>
 
 <section class="adam-card">
-  <h2>Edit Article</h2>
+  <h2><?=_e('Edit Article')?></h2>
 
   <form method="post"
         id="post-edit-form"
@@ -162,7 +162,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
         </label>
 
         <div class="form-group" style="margin-top:.6rem">
-          <label for="youtube-input">YouTube link</label>
+          <label for="youtube-input"><?=_e('YouTube link')?></label>
           <input
             type="text"
             id="youtube-input"
@@ -184,7 +184,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
                    placeholder="<?= _e('Thumbnail URL (or select from Media)') ?>">
             <button type="button" id="btn-open-media-for-thumb" class="adam-button"
                     style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?= _e('Select from Media') ?></button>
-            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem">Clear</button>
+            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem"><?=_e('Clear')?></button>
           </div>
           <div id="thumbnail-preview" style="margin-top:.6rem;">
             <?php if (!empty($thumbnail)): ?>
@@ -198,8 +198,8 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     <label style="display:block;margin-top:.6rem">
       <?=_e('Select Editor')?><br>
       <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
-        <label><input type="radio" name="editor_mode" value="quill" id="editor-quill" <?= ((($_POST['editor_mode'] ?? '') === 'codemirror') ? '' : 'checked') ?>> Quill (rich)</label>
-        <label><input type="radio" name="editor_mode" value="codemirror" id="editor-codemirror" <?= (($_POST['editor_mode'] ?? '') === 'codemirror') ? 'checked' : '' ?>> CodeMirror (HTML)</label>
+        <label><input type="radio" name="editor_mode" value="quill" id="editor-quill" <?= ((($_POST['editor_mode'] ?? '') === 'codemirror') ? '' : 'checked') ?>> <?=_e('Quill (rich)')?></label>
+        <label><input type="radio" name="editor_mode" value="codemirror" id="editor-codemirror" <?= (($_POST['editor_mode'] ?? '') === 'codemirror') ? 'checked' : '' ?>> <?=_e('CodeMirror (HTML)')?></label>
       </div>
     </label>
 
@@ -217,18 +217,18 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
     </div>
 
     <div class="form-row" style="margin-top:.6rem">
-      <label for="status">Status</label>
+      <label for="status"><?=_e('Status')?></label>
       <?php $currentStatus = $status; ?>
       <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>>Draft</option>
-        <option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>>Published</option>
-        <option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>>Private</option>
+        <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
+        <option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
+        <option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
     </div>
 
     <?php if ($role === 'admin'): ?>
     <label style="display:block;margin-top:.6rem">
-      Created By<br>
+      <?=_e('Created By')?><br>
       <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
         <?php
         if (!empty($users)) {
@@ -253,12 +253,12 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
       <div style="font-size:12px;color:#666;margin-top:.6rem"><?= _e('Creator cannot be changed. Timestamp can be changed.') ?></div>
     <?php endif; ?>
 
-    <label style="display:block;margin-top:.6rem">Created At<br>
+    <label style="display:block;margin-top:.6rem"><?=_e('Created At')?><br>
       <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
     </label>
 
-    <label style="display:block;margin-top:.6rem">Updated At<br>
+    <label style="display:block;margin-top:.6rem"><?=_e('Updated At')?><br>
       <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-top:4px"><?= _e('Leave empty to use current time.') ?></div>
     </label>

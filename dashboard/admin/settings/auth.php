@@ -51,7 +51,7 @@ if ($action === 'list_attempts') {
 
     $html = '';
     if (empty($rows)) {
-        $html = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);">Belum ada data percobaan login.</td></tr>';
+        $html = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);">' . __('No login attempts data.') . '</td></tr>';
     } else {
         foreach ($rows as $r) {
             $email = htmlspecialchars($r['email'] ?? '', ENT_QUOTES, 'UTF-8');
@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     $id = (int)($_POST['id'] ?? 0);
     $token = (string)($_POST['csrf_token'] ?? '');
     if (!function_exists('adiwira_csrf_validate') || !adiwira_csrf_validate($token)) {
-        adiwira_json(['ok' => false, 'error' => 'CSRF token tidak valid.']);
+        adiwira_json(['ok' => false, 'error' => __('Invalid CSRF token.')]);
         exit;
     }
     $stmt = $pdo->prepare("DELETE FROM login_attempts WHERE id = ?");
@@ -228,7 +228,7 @@ function auth_path_example(string $path): string {
 }
 ?>
 <section class="adam-card" style="max-width:820px;margin:18px auto;">
-  <h2>Sign Up &amp; Sign In</h2>
+  <h2><?=_e('Sign Up &amp; Sign In')?></h2>
 
   <?php if ($show_inline_success): ?>
     <div class="adam-success" style="margin:10px 0;">
@@ -249,7 +249,7 @@ function auth_path_example(string $path): string {
   <form method="post" novalidate>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
-    <h3 style="margin:1.2rem 0 .5rem;">Registrasi Pengguna</h3>
+    <h3 style="margin:1.2rem 0 .5rem;"><?=_e('User Registration')?></h3>
 
     <label style="display:flex;align-items:center;gap:8px;margin:.6rem 0;cursor:pointer;">
       <input type="checkbox" name="registration_enabled" value="1" <?= $registration_enabled === '1' ? 'checked' : '' ?>>
@@ -278,10 +278,10 @@ function auth_path_example(string $path): string {
             value="<?= htmlspecialchars($recaptcha_sitekey, ENT_QUOTES, 'UTF-8') ?>"
             autocomplete="off"
             style="width:100%;padding:.55rem 2.2rem .55rem .55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);">
-          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--adam-muted);font-size:.85rem;user-select:none;" onclick="toggleField('recaptcha_sitekey')">Lihat</span>
+          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--adam-muted);font-size:.85rem;user-select:none;" onclick="toggleField('recaptcha_sitekey')"><?=_e('Show')?></span>
         </div>
         <div style="font-size:.8rem;color:var(--adam-muted-2);margin-top:4px;">
-          Kosongkan jika menggunakan konfigurasi dari <code>.env</code>
+          <?=_e('Leave empty to use <code>.env</code> configuration.')?>
         </div>
       </label>
       <label style="display:block;">
@@ -291,10 +291,10 @@ function auth_path_example(string $path): string {
             value="<?= htmlspecialchars($recaptcha_secret, ENT_QUOTES, 'UTF-8') ?>"
             autocomplete="off"
             style="width:100%;padding:.55rem 2.2rem .55rem .55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);">
-          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--adam-muted);font-size:.85rem;user-select:none;" onclick="toggleField('recaptcha_secret')">Lihat</span>
+          <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--adam-muted);font-size:.85rem;user-select:none;" onclick="toggleField('recaptcha_secret')"><?=_e('Show')?></span>
         </div>
         <div style="font-size:.8rem;color:var(--adam-muted-2);margin-top:4px;">
-          Kosongkan jika menggunakan konfigurasi dari <code>.env</code>
+          <?=_e('Leave empty to use <code>.env</code> configuration.')?>
         </div>
       </label>
     </div>
@@ -307,7 +307,7 @@ function auth_path_example(string $path): string {
           style="width:100%;padding:.55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);margin-top:.35rem;">
       </label>
       <label style="display:block;">
-        Durasi blokir (menit)
+        <?=_e('Block duration (minutes)')?>
         <input type="number" name="bruteforce_block_minutes" min="1" max="1440"
           value="<?= htmlspecialchars($bruteforce_block_minutes, ENT_QUOTES, 'UTF-8') ?>"
           style="width:100%;padding:.55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);margin-top:.35rem;">
@@ -319,51 +319,50 @@ function auth_path_example(string $path): string {
     <h3 style="margin:1.2rem 0 .5rem;"><?=_e('Login & Register Page Path')?></h3>
 
     <p style="font-size:.85rem;color:var(--adam-muted);margin-bottom:12px;">
-      Tentukan URL bebas untuk halaman login dan pendaftaran. Simpan dulu pengaturan
-      di atas sebelum mengubah path agar tidak terkunci.
+      <?=_e('Set a custom URL for login and registration pages. Save other settings first before changing paths to avoid being locked out.')?>
     </p>
 
     <label style="display:block;margin:.6rem 0;">
-      Path halaman login
+      <?=_e('Login page path')?>
       <input type="text" name="login_path"
         value="<?= htmlspecialchars($login_path, ENT_QUOTES, 'UTF-8') ?>"
         pattern="[a-z0-9_\/.\-]+"
         style="width:100%;padding:.55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);margin-top:.35rem;font-family:monospace;">
       <div style="font-size:.8rem;color:var(--adam-muted-2);margin-top:4px;">
-        Bisa diakses di: <code><?= htmlspecialchars(auth_path_example($login_path), ENT_QUOTES, 'UTF-8') ?></code>
-        &middot; Contoh: <code>masuk</code>, <code>login</code>, <code>pintu/oke/masuk</code>, <code>gerbang/masuk</code>
+        <?=_e('Accessible at:')?> <code><?= htmlspecialchars(auth_path_example($login_path), ENT_QUOTES, 'UTF-8') ?></code>
+        &middot; <?=_e('Example:')?> <code>masuk</code>, <code>login</code>, <code>pintu/oke/masuk</code>, <code>gerbang/masuk</code>
       </div>
     </label>
 
     <label style="display:block;margin:.6rem 0;">
-      Path halaman daftar
+      <?=_e('Register page path')?>
       <input type="text" name="register_path"
         value="<?= htmlspecialchars($register_path, ENT_QUOTES, 'UTF-8') ?>"
         pattern="[a-z0-9_\/.\-]+"
         style="width:100%;padding:.55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);margin-top:.35rem;font-family:monospace;">
       <div style="font-size:.8rem;color:var(--adam-muted-2);margin-top:4px;">
-        Bisa diakses di: <code><?= htmlspecialchars(auth_path_example($register_path), ENT_QUOTES, 'UTF-8') ?></code>
-        &middot; Contoh: <code>daftar</code>, <code>register</code>, <code>gerbang/daftar</code>, <code>buat-akun</code>
+        <?=_e('Accessible at:')?> <code><?= htmlspecialchars(auth_path_example($register_path), ENT_QUOTES, 'UTF-8') ?></code>
+        &middot; <?=_e('Example:')?> <code>daftar</code>, <code>register</code>, <code>gerbang/daftar</code>, <code>buat-akun</code>
       </div>
     </label>
 
     <hr style="border:none;border-top:1px solid var(--adam-border);margin:1.2rem 0;">
 
-    <h3 style="margin:1.2rem 0 .5rem;">Path Dashboard</h3>
+    <h3 style="margin:1.2rem 0 .5rem;"><?=_e('Dashboard Path')?></h3>
 
     <p style="font-size:.85rem;color:var(--adam-muted);margin-bottom:12px;">
       <?=_e('Change with caution — if wrong, you will not be able to access the admin panel.')?> <?=_e('Save other settings first before changing this.')?>
     </p>
 
     <label style="display:block;margin:.6rem 0;">
-      Path dashboard
+      <?=_e('Dashboard path')?>
       <input type="text" name="admin_path"
         value="<?= htmlspecialchars($admin_path, ENT_QUOTES, 'UTF-8') ?>"
         pattern="[a-z0-9_\/.\-]+"
         style="width:100%;padding:.55rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);margin-top:.35rem;font-family:monospace;">
       <div style="font-size:.8rem;color:var(--adam-muted-2);margin-top:4px;">
-        Bisa diakses di: <code>/<?= htmlspecialchars($admin_path, ENT_QUOTES, 'UTF-8') ?>/</code>
-        &middot; Contoh: <code>panel</code>, <code>admin</code>, <code>dashboard</code>, <code>rahasia/panel</code>
+        <?=_e('Accessible at:')?> <code>/<?= htmlspecialchars($admin_path, ENT_QUOTES, 'UTF-8') ?>/</code>
+        &middot; <?=_e('Example:')?> <code>panel</code>, <code>admin</code>, <code>dashboard</code>, <code>rahasia/panel</code>
       </div>
     </label>
 
@@ -379,23 +378,23 @@ function auth_path_example(string $path): string {
 <div id="attempt-modal" style="display:none;align-items:center;justify-content:center;pointer-events:auto;" class="adam-modal">
   <div style="width:94vw;max-width:960px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;background:var(--adam-card);color:var(--adam-text);border:1px solid var(--adam-border);border-radius:12px;padding:1.2rem 1.2rem 1rem;box-shadow:var(--adam-shadow);box-sizing:border-box;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
-      <h3 style="margin:0;color:var(--adam-text-2);">Percobaan Login</h3>
+      <h3 style="margin:0;color:var(--adam-text-2);"><?=_e('Login Attempts')?></h3>
       <button onclick="closeAttemptModal()" style="background:none;border:0;font-size:1.4rem;cursor:pointer;color:var(--adam-muted);line-height:1;">&times;</button>
     </div>
     <div id="attempt-table-wrap" style="overflow-y:auto;flex:1;min-height:0;">
       <table class="adam-table" style="width:100%;">
         <thead>
           <tr>
-            <th>Email</th>
-            <th>IP</th>
-            <th>Percobaan</th>
-            <th>Terakhir</th>
-            <th>Status</th>
-            <th style="width:70px;">Aksi</th>
+            <th><?=_e('Email')?></th>
+            <th><?=_e('IP')?></th>
+            <th><?=_e('Attempts')?></th>
+            <th><?=_e('Last Attempt')?></th>
+            <th><?=_e('Status')?></th>
+            <th style="width:70px;"><?=_e('Actions')?></th>
           </tr>
         </thead>
         <tbody id="attempt-tbody">
-          <tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);">Memuat...</td></tr>
+          <tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);"><?=_e('Loading...')?></td></tr>
         </tbody>
       </table>
     </div>
@@ -424,7 +423,7 @@ function closeAttemptModal() {
 function loadAttempts(page) {
   var tbody = document.getElementById('attempt-tbody');
   var pagination = document.getElementById('attempt-pagination');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);">Memuat...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);"><?=_e('Loading...')?></td></tr>';
   pagination.innerHTML = '';
 
   var url = window.location.pathname + window.location.search.replace(/[&?]action=[^&]*/g, '').replace(/[&?]p=\d+/g, '');

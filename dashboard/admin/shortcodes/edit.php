@@ -153,11 +153,11 @@ if ($layoutDir && is_dir($layoutDir)) {
         <label style="display:block;margin-top:.6rem"><?=_e('Widget Name (slug) — used in sidebar')?>: <code>widget('nama_ini')</code><br>
           <input type="text" name="slug" value="<?= h($pref_slug) ?>" class="inpud" placeholder="<?=_e('Leave empty to auto-generate')?>">
         </label>
-        <label style="display:block;margin-top:.6rem">Status<br>
+        <label style="display:block;margin-top:.6rem"><?=_e('Status')?><br>
           <select name="status" class="inpud">
-            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>>Published</option>
-            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>>Draft</option>
-            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>>Private</option>
+            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
+            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
+            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
           </select>
         </label>
       </div>
@@ -169,10 +169,10 @@ if ($layoutDir && is_dir($layoutDir)) {
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-filter-body">
-        <label>Post Type<br>
+        <label><?=_e('Post Type')?><br>
           <select name="filter_type" class="inpud" id="filter-type">
-            <option value="article" <?= ($pref_config['type'] ?? 'article') === 'article' ? 'selected' : '' ?>>Article</option>
-            <option value="page" <?= ($pref_config['type'] ?? '') === 'page' ? 'selected' : '' ?>>Page</option>
+            <option value="article" <?= ($pref_config['type'] ?? 'article') === 'article' ? 'selected' : '' ?>><?=_e('Article')?></option>
+            <option value="page" <?= ($pref_config['type'] ?? '') === 'page' ? 'selected' : '' ?>><?=_e('Page')?></option>
           </select>
         </label>
 
@@ -188,7 +188,7 @@ if ($layoutDir && is_dir($layoutDir)) {
         <?php if ($isAdmin): ?>
         <label style="display:block;margin-top:.6rem"><?=_e('Author (leave empty for all)')?><br>
           <select name="filter_author" class="inpud">
-            <option value="">-- Semua Author --</option>
+            <option value=""><?=_e('-- All Authors --')?></option>
             <?php foreach ($users as $u): ?>
               <option value="<?= (int)$u['id'] ?>" <?= ($pref_config['author'] ?? '') == $u['id'] ? 'selected' : '' ?>><?= h($u['username'] . ($u['name'] ? ' (' . $u['name'] . ')' : '')) ?></option>
             <?php endforeach; ?>
@@ -199,21 +199,21 @@ if ($layoutDir && is_dir($layoutDir)) {
         <?php endif; ?>
 
         <div style="display:flex;gap:1rem;margin-top:.6rem;flex-wrap:wrap;">
-          <label>Limit<br>
+          <label><?=_e('Limit')?><br>
             <input type="number" name="filter_limit" value="<?= (int)($pref_config['limit'] ?? 5) ?>" class="inpud" style="width:100px" min="1" max="200">
           </label>
-          <label>Offset<br>
+          <label><?=_e('Offset')?><br>
             <input type="number" name="filter_offset" value="<?= (int)($pref_config['offset'] ?? 0) ?>" class="inpud" style="width:100px" min="0">
           </label>
-          <label>Excerpt Length<br>
+          <label><?=_e('Excerpt Length')?><br>
             <input type="number" name="filter_excerpt" value="<?= (int)($pref_config['excerpt_len'] ?? 90) ?>" class="inpud" style="width:100px" min="10" max="1000">
           </label>
         </div>
 
-        <label style="display:block;margin-top:.6rem">Include Child Categories<br>
+        <label style="display:block;margin-top:.6rem"><?=_e('Include Child Categories')?><br>
           <select name="filter_include_children" class="inpud" style="width:auto;">
-            <option value="1" <?= (string)($pref_config['include_children'] ?? '1') === '1' ? 'selected' : '' ?>>Ya</option>
-            <option value="0" <?= (string)($pref_config['include_children'] ?? '1') === '0' ? 'selected' : '' ?>>Tidak</option>
+            <option value="1" <?= (string)($pref_config['include_children'] ?? '1') === '1' ? 'selected' : '' ?>><?=_e('Yes')?></option>
+            <option value="0" <?= (string)($pref_config['include_children'] ?? '1') === '0' ? 'selected' : '' ?>><?=_e('No')?></option>
           </select>
         </label>
       </div>
@@ -235,7 +235,7 @@ if ($layoutDir && is_dir($layoutDir)) {
         </label>
 
         <div id="order-custom-fields" style="display:<?= in_array(($pref_config['order_by'] ?? ''), ['sort_order', 'id', 'updated_at', 'title']) ? 'flex' : 'none' ?>;gap:1rem;margin-top:.6rem;">
-          <label>Column<br>
+          <label><?=_e('Column')?><br>
             <select name="filter_order_custom_col" class="inpud" style="width:auto;">
               <option value="created_at" <?= ($pref_config['order_by'] ?? '') === 'created_at' ? 'selected' : '' ?>>created_at</option>
               <option value="sort_order" <?= ($pref_config['order_by'] ?? '') === 'sort_order' ? 'selected' : '' ?>>sort_order</option>
@@ -244,7 +244,7 @@ if ($layoutDir && is_dir($layoutDir)) {
               <option value="title" <?= ($pref_config['order_by'] ?? '') === 'title' ? 'selected' : '' ?>>title</option>
             </select>
           </label>
-          <label>Direction<br>
+          <label><?=_e('Direction')?><br>
             <select name="filter_order_custom_dir" class="inpud" style="width:auto;">
               <option value="DESC" <?= ($pref_config['order_dir'] ?? 'DESC') === 'DESC' ? 'selected' : '' ?>>DESC</option>
               <option value="ASC" <?= ($pref_config['order_dir'] ?? 'DESC') === 'ASC' ? 'selected' : '' ?>>ASC</option>
@@ -253,10 +253,10 @@ if ($layoutDir && is_dir($layoutDir)) {
         </div>
 
         <div style="display:flex;gap:1rem;margin-top:.6rem;flex-wrap:wrap;">
-          <label>Date From (YYYY-MM-DD)<br>
+          <label><?=_e('Date From (YYYY-MM-DD)')?><br>
             <input type="text" name="filter_date_from" value="<?= h($pref_config['date_from'] ?? '') ?>" class="inpud" style="width:160px" placeholder="2024-01-01">
           </label>
-          <label>Date To (YYYY-MM-DD)<br>
+          <label><?=_e('Date To (YYYY-MM-DD)')?><br>
             <input type="text" name="filter_date_to" value="<?= h($pref_config['date_to'] ?? '') ?>" class="inpud" style="width:160px" placeholder="2024-12-31">
           </label>
         </div>
@@ -277,14 +277,14 @@ if ($layoutDir && is_dir($layoutDir)) {
           </select>
         </label>
 
-        <label style="display:block;margin-top:.6rem">Class Prefix (opsional)<br>
-          <input type="text" name="filter_class_prefix" value="<?= h($pref_config['class_prefix'] ?? '') ?>" class="inpud" placeholder="contoh: featured-news">
+        <label style="display:block;margin-top:.6rem"><?=_e('Class Prefix (optional)')?><br>
+          <input type="text" name="filter_class_prefix" value="<?= h($pref_config['class_prefix'] ?? '') ?>" class="inpud" placeholder="<?=_e('example: featured-news')?>">
         </label>
 
-        <label style="display:block;margin-top:.6rem">Wrapper<br>
+        <label style="display:block;margin-top:.6rem"><?=_e('Wrapper')?><br>
           <select name="filter_wrap" class="inpud" style="width:auto;">
-            <option value="1" <?= (string)($pref_config['wrap'] ?? '1') === '1' ? 'selected' : '' ?>>Ya (bungkus dengan div)</option>
-            <option value="0" <?= (string)($pref_config['wrap'] ?? '1') === '0' ? 'selected' : '' ?>>Tidak</option>
+            <option value="1" <?= (string)($pref_config['wrap'] ?? '1') === '1' ? 'selected' : '' ?>><?=_e('Yes (wrap with div)')?></option>
+            <option value="0" <?= (string)($pref_config['wrap'] ?? '1') === '0' ? 'selected' : '' ?>><?=_e('No')?></option>
           </select>
         </label>
       </div>

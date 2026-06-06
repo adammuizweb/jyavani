@@ -98,7 +98,7 @@ foreach ($allPlugins as $name => $p) {
 }
 $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_query_toasts() : [];
 ?>
-<h2 class="pg-title">Plugin</h2>
+<h2 class="pg-title"><?=_e('Plugin')?></h2>
 <p class="pg-subtitle"><?=_e('Manage installed plugins.')?></p>
 
 <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
@@ -108,7 +108,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
   <form method="post" style="display:inline">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="action" value="check-updates">
-    <button type="submit" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ Check Update</button>
+    <button type="submit" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ <?=_e('Check Update')?></button>
   </form>
   <?php endif; ?>
 </div>
@@ -122,9 +122,9 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 <table class="data-table" data-sortable>
   <thead>
     <tr>
-      <th>Plugin</th>
-      <th>Versi</th>
-      <th>Status</th>
+      <th><?=_e('Plugin')?></th>
+      <th><?=_e('Version')?></th>
+      <th><?=_e('Status')?></th>
       <th><?=_e('Action')?></th>
     </tr>
   </thead>

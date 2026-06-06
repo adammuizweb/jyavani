@@ -85,7 +85,7 @@ if (!function_exists('render_menu_items_admin')) {
             $html .= '<span class="menu-item-type">' . $type . '</span>';
             $html .= '<button type="button" class="menu-item-indent adam-ubah" title="' . __('Make sub-menu') . '">&#8594;</button>';
             $html .= '<button type="button" class="menu-item-outdent adam-ubah" title="' . __('Raise level') . '">&#8592;</button>';
-            $html .= '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>';
+            $html .= '<button type="button" class="menu-item-edit adam-ubah" title="' . __('Edit') . '">&#9998;</button>';
             $html .= '<button type="button" class="menu-item-remove adam-hapus" title="' . __('Delete') . '">&#10005;</button>';
             $html .= '</div>';
             if ($hasChildren) {
@@ -101,7 +101,7 @@ if (!function_exists('render_menu_items_admin')) {
 <section class="adam-card">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
     <div>
-      <h2 style="margin:0">Menu Manager</h2>
+      <h2 style="margin:0"><?=_e('Menu Manager')?></h2>
       <div style="margin-top:6px;font-size:12px" class="pht-muted">
         <?=_e('Create and manage navigation menus like WordPress.')?>
       </div>
@@ -121,7 +121,7 @@ if (!function_exists('render_menu_items_admin')) {
           <?php foreach ($allMenus as $m): ?>
             <option value="<?= (int)$m['id'] ?>" <?= $selectedMenuId === (int)$m['id'] ? 'selected' : '' ?>>
               <?= htmlspecialchars((string)($m['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-              <?= !empty($m['is_default']) ? ' (Default)' : '' ?>
+              <?= !empty($m['is_default']) ? ' ' . __('(Default)') : '' ?>
             </option>
           <?php endforeach; ?>
         </select>
@@ -132,14 +132,14 @@ if (!function_exists('render_menu_items_admin')) {
             <input type="hidden" name="action" value="set_default">
             <input type="hidden" name="menu_id" value="<?= (int)$selectedMenu['id'] ?>">
             <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/?page=admin/menus/index&menu_id=' . $selectedMenuId, ENT_QUOTES, 'UTF-8') ?>">
-            <button type="submit" class="adam-button" style="padding:6px 12px;font-size:12px;">Set Default</button>
+            <button type="submit" class="adam-button" style="padding:6px 12px;font-size:12px;"><?=_e('Set Default')?></button>
           </form>
         <?php endif; ?>
       </div>
 
       <?php if ($selectedMenu): ?>
         <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <span style="font-weight:600;">Menu:</span>
+          <span style="font-weight:600;"><?=_e('Menu:')?></span>
           <span id="menuNameDisplay"><?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
           <span style="color:var(--adam-muted);font-size:12px;">(slug: <?= htmlspecialchars((string)($selectedMenu['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>)</span>
           <button type="button" id="btnRenameMenu" class="adam-ubah" style="font-size:12px;"><?=_e('Rename')?></button>
@@ -168,20 +168,20 @@ if (!function_exists('render_menu_items_admin')) {
         </div>
 
         <div id="menuItemEditForm" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--adam-border-2);border-radius:12px;background:var(--adam-surface-4);">
-          <h4 style="margin:0 0 12px 0;">Edit Item</h4>
+          <h4 style="margin:0 0 12px 0;"><?=_e('Edit Item')?></h4>
           <input type="hidden" id="editItemId" value="">
           <div style="display:grid;gap:8px;">
             <div>
-              <label style="display:block;font-size:12px;margin-bottom:4px;">Label</label>
-              <input id="editItemLabel" class="pht-input" placeholder="Label menu">
+              <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('Label')?></label>
+              <input id="editItemLabel" class="pht-input" placeholder="<?=_e('Label menu')?>">
             </div>
             <div>
-              <label style="display:block;font-size:12px;margin-bottom:4px;">URL (hanya untuk custom link)</label>
-              <input id="editItemUrl" class="pht-input" placeholder="https://...">
+              <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('URL (custom link only)')?></label>
+              <input id="editItemUrl" class="pht-input" placeholder="<?=_e('https://...')?>">
             </div>
             <div>
               <label style="display:block;font-size:12px;margin-bottom:4px;">
-                <input type="checkbox" id="editItemTargetBlank"> Buka di tab baru
+                <input type="checkbox" id="editItemTargetBlank"> <?=_e('Open in new tab')?>
               </label>
             </div>
             <div style="display:flex;gap:8px;">
@@ -226,7 +226,7 @@ if (!function_exists('render_menu_items_admin')) {
         <h4 style="margin:0 0 12px 0;"><?=_e('Add Item')?></h4>
 
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
-          <button type="button" class="add-item-tab adam-button" data-tab="custom" style="padding:4px 10px;font-size:12px;">Custom Link</button>
+          <button type="button" class="add-item-tab adam-button" data-tab="custom" style="padding:4px 10px;font-size:12px;"><?=_e('Custom Link')?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="article" style="padding:4px 10px;font-size:12px;"><?=_e('Articles')?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="page" style="padding:4px 10px;font-size:12px;"><?= _e('Page') ?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="category" style="padding:4px 10px;font-size:12px;"><?= _e('Categories') ?></button>
@@ -235,8 +235,8 @@ if (!function_exists('render_menu_items_admin')) {
         <!-- Custom Link -->
         <div class="add-item-panel" id="panel-custom">
           <div style="display:grid;gap:8px;">
-            <input type="text" id="customLabel" class="pht-input" placeholder="Label">
-            <input type="url" id="customUrl" class="pht-input" placeholder="https://...">
+            <input type="text" id="customLabel" class="pht-input" placeholder="<?=_e('Label')?>">
+            <input type="url" id="customUrl" class="pht-input" placeholder="<?=_e('https://...')?>">
             <label style="font-size:12px;"><input type="checkbox" id="customTargetBlank"> <?=_e('Open in new tab')?></label>
             <button type="button" class="add-item-btn adam-button" data-type="custom"><?=_e('Add to Menu')?></button>
           </div>
@@ -388,7 +388,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       + '<span class="menu-item-type">' + escapeHtml(data.type) + '</span>'
       + '<button type="button" class="menu-item-indent adam-ubah" title="<?=_e('Make sub-menu')?>">&#8594;</button>'
       + '<button type="button" class="menu-item-outdent adam-ubah" title="<?=_e('Raise level')?>">&#8592;</button>'
-      + '<button type="button" class="menu-item-edit adam-ubah" title="Edit">&#9998;</button>'
+      + '<button type="button" class="menu-item-edit adam-ubah" title="<?=_e('Edit')?>">&#9998;</button>'
       + '<button type="button" class="menu-item-remove adam-hapus" title="<?= _e('Delete') ?>">&#10005;</button>'
       + '</div>';
   }

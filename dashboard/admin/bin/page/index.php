@@ -143,7 +143,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 ?>
 
 <section class="adam-card">
-  <h2>Bin / Trash — Pages</h2>
+  <h2><?=_e('Bin / Trash — Pages')?></h2>
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/bin/page/index">
@@ -191,8 +191,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </label>
 
         <select id="bulkActionBinPage" name="action" style="padding:.4rem;">
-          <option value="">-- Bulk action --</option>
-          <option value="restore">Restore</option>
+        <option value=""><?=_e('-- Bulk action --')?></option>
+        <option value="restore"><?=_e('Restore')?></option>
           <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
         </select>
 
@@ -206,9 +206,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             <tr>
               <th style="width:40px"></th>
               <th><?= _e('Title') ?></th>
-              <th>Slug</th>
-              <th>Status</th>
-              <th>Deleted</th>
+              <th><?=_e('Slug')?></th>
+              <th><?=_e('Status')?></th>
+              <th><?=_e('Deleted')?></th>
               <th><?= _e('Created') ?></th>
               <th><?= _e('Author') ?></th>
               <th><?= _e('Actions') ?></th>
@@ -275,7 +275,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  Restore
+                  <?=_e('Restore')?>
                 </button>
 
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
@@ -306,9 +306,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           <tr>
             <th style="width:40px"></th>
             <th><?= _e('Title') ?></th>
-            <th>Slug</th>
-            <th>Status</th>
-            <th>Deleted</th>
+            <th><?=_e('Slug')?></th>
+            <th><?=_e('Status')?></th>
+            <th><?=_e('Deleted')?></th>
             <th><?= _e('Created') ?></th>
             <th><?= _e('Author') ?></th>
             <th><?= _e('Actions') ?></th>

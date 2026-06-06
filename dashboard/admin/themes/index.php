@@ -120,24 +120,24 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
 <section class="adam-card">
-  <h2>Themes / Partials</h2>
+  <h2><?=_e('Themes / Partials')?></h2>
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
     <input type="hidden" name="page" value="admin/themes/index">
     <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
 
     <label style="display:flex;align-items:center;gap:.5rem">
-      <span>Status:</span>
+      <span><?=_e('Status:')?></span>
       <select name="status" style="padding:.4rem;">
         <option value=""><?= _e('-- All Status --') ?></option>
-        <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
-        <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
-        <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
+        <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
+        <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
+        <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
     </label>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+    <a href="<?= htmlspecialchars($base . '/?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
   </form>
 
   <p style="margin-bottom:1rem">
@@ -145,7 +145,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <?php if ($isAdmin): ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -160,15 +160,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </label>
 
         <select id="bulkActionThemes" name="action" style="padding:.4rem;">
-          <option value="">-- Bulk action --</option>
+          <option value=""><?=_e('-- Bulk action --')?></option>
           <option value="delete"><?= _e('Delete') ?></option>
           <option value="change_status"><?= _e('Change Status') ?></option>
         </select>
 
         <select id="bulkStatusThemes" name="status" style="padding:.4rem;display:none;">
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
-          <option value="private">Private</option>
+          <option value="draft"><?=_e('Draft')?></option>
+          <option value="published"><?=_e('Published')?></option>
+          <option value="private"><?=_e('Private')?></option>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -182,8 +182,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <tr>
           <?php if ($isAdmin): ?><th style="width:40px"></th><?php endif; ?>
           <th><?= _e('Name') ?></th>
-          <th>Slug</th>
-          <th>Status</th>
+          <th><?=_e('Slug')?></th>
+          <th><?=_e('Status')?></th>
           <th><?= _e('Created') ?></th>
           <th style="width:160px"><?= _e('Actions') ?></th>
         </tr>
@@ -238,7 +238,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               <td><?= htmlspecialchars(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$t['created_at']) : (string)$t['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
 
                 <?php if ($isAdmin): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;

@@ -127,12 +127,12 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
     <select name="lock" style="padding:.4rem;">
       <option value=""><?= _e('-- All Status --') ?></option>
-      <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>>Locked / Pending</option>
-      <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>>Unlocked / Approved</option>
+      <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>><?=_e('Locked / Pending')?></option>
+      <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>><?=_e('Unlocked / Approved')?></option>
     </select>
 
     <button class="adam-button" type="submit"><?= _e('Apply') ?></button>
-    <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>">Reset</a>
+    <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>"><?=_e('Reset')?></a>
 
     <div style="margin-left:auto">
       <a class="adam-button" href="<?= htmlspecialchars($base . '/?page=admin/users/save&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">+ Add User</a>
@@ -145,15 +145,15 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
     <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
       <label style="display:flex;align-items:center;gap:.4rem;">
-        <input type="checkbox" id="selectAll"> Select all on this page
+        <input type="checkbox" id="selectAll"> <?=_e('Select all on this page')?>
       </label>
 
       <select id="bulkAction" name="action" style="padding:.4rem;">
-        <option value="">-- Bulk action --</option>
+        <option value=""><?=_e('-- Bulk action --')?></option>
         <option value="change_role"><?= _e('Change Role') ?></option>
-        <option value="lock">Lock</option>
-        <option value="unlock">Unlock / Approve</option>
-        <option value="delete">Delete (soft)</option>
+        <option value="lock"><?=_e('Lock')?></option>
+        <option value="unlock"><?=_e('Unlock / Approve')?></option>
+        <option value="delete"><?=_e('Delete (soft)')?></option>
       </select>
 
       <select id="bulkRole" name="role" style="padding:.4rem;display:none;">
@@ -171,13 +171,13 @@ $paging_items = build_pagination_items($page, $pages, 9);
         <thead>
           <tr style="text-align:left;border-bottom:1px solid #e6e6e6">
             <th style="width:44px"></th>
-            <th>Avatar</th>
+            <th><?=_e('Avatar')?></th>
             <th><?= _e('Name') ?></th>
-            <th>Email / Username</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Bio</th>
-            <th>Phone</th>
+            <th><?=_e('Email / Username')?></th>
+            <th><?=_e('Role')?></th>
+            <th><?=_e('Status')?></th>
+            <th><?=_e('Bio')?></th>
+            <th><?=_e('Phone')?></th>
             <th><?= _e('Registered') ?></th>
             <th><?= _e('Actions') ?></th>
           </tr>
@@ -212,7 +212,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
                 <td>
                   <a href="<?= htmlspecialchars('/author/' . rawurlencode($username), ENT_QUOTES, 'UTF-8') ?>"
                      class="adam-link"
-                     title="Lihat profil <?= $name ?>"
+                     title="<?= __('View profile of') ?> <?= $name ?>"
                      target="_blank"
                      rel="noopener noreferrer"><?= $name ?></a>
                 </td>
@@ -229,9 +229,9 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
               <td>
                 <?php if ($isLocked): ?>
-                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;">Locked / Pending</span>
+                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;"><?=_e('Locked / Pending')?></span>
                 <?php else: ?>
-                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;">Unlocked / Approved</span>
+                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;"><?=_e('Unlocked / Approved')?></span>
                 <?php endif; ?>
               </td>
 
@@ -243,7 +243,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
               <td><?= htmlspecialchars($u['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
 
                 <?php if (!$isSelf): ?>
                   &nbsp;|&nbsp;
@@ -253,7 +253,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
                           data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
                           data-mode="<?= $isLocked ? 'unlock' : 'lock' ?>"
                           style="background:none;border:0;padding:0;cursor:pointer;">
-                    <?= $isLocked ? 'Approve' : 'Lock' ?>
+                    <?= $isLocked ? __('Approve') : __('Lock') ?>
                   </button>
 
                   &nbsp;|&nbsp;
@@ -262,7 +262,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
                           data-id="<?= (int)$u['id'] ?>"
                           data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Delete
+                    <?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>

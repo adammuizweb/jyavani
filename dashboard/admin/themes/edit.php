@@ -38,7 +38,7 @@ $return_to = function_exists('adiwira_safe_return_to')
 $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
 if ($id <= 0) {
     http_response_code(400);
-    echo '<p>ID theme tidak valid.</p>';
+    echo '<p>' . __('Invalid theme ID.') . '</p>';
     return;
 }
 
@@ -71,7 +71,7 @@ $pref_content = (string)($theme['content'] ?? '');
 $pref_status  = (string)($theme['status'] ?? 'draft');
 ?>
 <section class="adam-card">
-  <h2>Edit Theme / Partial</h2>
+  <h2><?=_e('Edit Theme / Partial')?></h2>
 
   <form method="post" id="theme-edit-form" action="<?= htmlspecialchars($base . '/admin/themes/save.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -113,11 +113,11 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
                  class="inpud">
         </label>
 
-        <label style="margin-top:.6rem;display:block">Status<br>
+        <label style="margin-top:.6rem;display:block"><?=_e('Status')?><br>
           <select name="status" class="inpud">
-            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>>Draft</option>
-            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>>Published</option>
-            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>>Private</option>
+            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
+            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
+            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
           </select>
         </label>
       </div>

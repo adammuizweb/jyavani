@@ -168,7 +168,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
 <section class="adam-card">
-  <h2>Pages</h2>
+  <h2><?=_e('Pages')?></h2>
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/pages/index">
@@ -193,14 +193,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </select>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+    <a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
   </form>
 
   <p style="margin-bottom:1rem">
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Page')?></a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -215,7 +215,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </label>
 
       <select id="bulkActionPages" name="action" style="padding:.4rem;">
-        <option value="">-- Bulk action --</option>
+        <option value=""><?=_e('-- Bulk action --')?></option>
         <option value="delete"><?= _e('Delete') ?></option>
         <option value="change_status"><?= _e('Change Status') ?></option>
         <?php if ($role === 'admin'): ?>
@@ -224,9 +224,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </select>
 
       <select id="bulkStatusPages" name="status" style="padding:.4rem;display:none;">
-        <option value="draft">Draft</option>
-        <option value="published">Published</option>
-        <option value="private">Private</option>
+        <option value="draft"><?=_e('Draft')?></option>
+        <option value="published"><?=_e('Published')?></option>
+        <option value="private"><?=_e('Private')?></option>
       </select>
 
       <?php if ($role === 'admin'): ?>
@@ -250,8 +250,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <tr>
             <th style="width:40px"></th>
             <th><?= _e('Title') ?></th>
-            <th>Slug</th>
-            <th>Status</th>
+            <th><?=_e('Slug')?></th>
+            <th><?=_e('Status')?></th>
             <th><?= _e('Created') ?></th>
             <th><?= _e('Author') ?></th>
             <th><?= _e('Actions') ?></th>
@@ -300,9 +300,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
                 <td>
                   <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
-                        role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
+                        role="status" aria-label="<?= htmlspecialchars($status === 'published' ? __('Published') : ($status === 'draft' ? __('Draft') : ($status === 'private' ? __('Private') : ucfirst($status))), ENT_QUOTES, 'UTF-8') ?>">
                     <span class="adam-status-icon"><?= $iconSvg ?></span>
-                    <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="adam-status-text"><?= htmlspecialchars($status === 'published' ? __('Published') : ($status === 'draft' ? __('Draft') : ($status === 'private' ? __('Private') : ucfirst($status))), ENT_QUOTES, 'UTF-8') ?></span>
                   </span>
                 </td>
 
@@ -322,14 +322,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 </td>
 
                 <td>
-                  <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                  <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button"
                           class="adam-hapus js-page-delete"
                           data-id="<?= (int)$p['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    Hapus
+                    <?=_e('Delete')?>
                   </button>
                 </td>
               </tr>

@@ -18,8 +18,8 @@ try {
         : '';
 
     $msg = $detail !== ''
-        ? __("Database connection failed: {$detail}")
-        : 'Gagal terhubung ke database.';
+        ? __('Database connection failed.') . ' ' . $detail
+        : __('Failed to connect to database.');
 
     http_response_code(500);
     exit($msg);

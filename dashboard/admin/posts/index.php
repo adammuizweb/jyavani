@@ -203,7 +203,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
 <section class="adam-card">
-  <h2>Posts (Article)</h2>
+  <h2><?=_e('Posts (Article)')?></h2>
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/posts/index">
@@ -211,9 +211,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     
     <select name="status" style="padding:.4rem;">
       <option value=""><?= _e('-- All Status --') ?></option>
-      <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>>Draft</option>
-      <option value="published" <?= $filter_status==='published'?'selected':'' ?>>Published</option>
-      <option value="private" <?= $filter_status==='private'?'selected':'' ?>>Private</option>
+      <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>><?=_e('Draft')?></option>
+      <option value="published" <?= $filter_status==='published'?'selected':'' ?>><?=_e('Published')?></option>
+      <option value="private" <?= $filter_status==='private'?'selected':'' ?>><?=_e('Private')?></option>
     </select>
 
     <select name="category" style="padding:.4rem;">
@@ -226,14 +226,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </select>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+    <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
   </form>
 
   <p style="margin-bottom:1rem">
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -248,22 +248,22 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </label>
 
       <select id="bulkAction" name="action" style="padding:.4rem;">
-        <option value="">-- Bulk action --</option>
+        <option value=""><?=_e('-- Bulk action --')?></option>
         <option value="delete"><?= _e('Delete') ?></option>
         <option value="change_status"><?= _e('Change Status') ?></option>
         <option value="change_categories"><?= _e('Manage Categories') ?></option>
       </select>
 
       <select id="bulkStatus" name="status" style="padding:.4rem;display:none;">
-        <option value="draft">Draft</option>
-        <option value="published">Published</option>
-        <option value="private">Private</option>
+        <option value="draft"><?=_e('Draft')?></option>
+        <option value="published"><?=_e('Published')?></option>
+        <option value="private"><?=_e('Private')?></option>
       </select>
 
       <select id="bulkCatMode" name="cat_mode" style="padding:.4rem;display:none;">
         <option value="add"><?= _e('Add') ?></option>
         <option value="remove"><?= _e('Delete') ?></option>
-        <option value="toggle">Toggle</option>
+        <option value="toggle"><?=_e('Toggle')?></option>
       </select>
 
       <div id="bulkCategoriesPanel" style="display:none;border:1px solid var(--adam-border);padding:.4rem;border-radius:10px;max-height:180px;overflow:auto;background:var(--adam-surface-3);min-width:220px;">
@@ -285,7 +285,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <tr>
             <th style="width:40px"></th>
             <th><?= _e('Title') ?></th>
-            <th>Status</th>
+            <th><?=_e('Status')?></th>
             <th><?= _e('Categories') ?></th>
             <th><?= _e('Created') ?></th>
             <th><?= _e('Author') ?></th>
@@ -384,7 +384,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               </td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
                 <button type="button"
                         class="adam-hapus js-post-delete"

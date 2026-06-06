@@ -182,7 +182,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 ?>
 
 <section class="adam-card">
-  <h2>Bin / Trash — Categories</h2>
+  <h2><?=_e('Bin / Trash — Categories')?></h2>
 
   <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
     <input type="hidden" name="page" value="admin/bin/category/index">

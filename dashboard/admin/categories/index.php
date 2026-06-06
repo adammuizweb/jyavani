@@ -313,14 +313,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </select>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle">Reset</a>
+    <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
   </form>
 
   <p style="margin-bottom:1rem">
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Category')?></a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ Trash</a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -337,7 +337,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </label>
 
         <select id="bulkActionCategories" name="action" style="padding:.4rem;">
-          <option value="">-- Bulk action --</option>
+          <option value=""><?=_e('-- Bulk action --')?></option>
           <option value="delete"><?= _e('Delete') ?></option>
           <option value="change_parent"><?= _e('Change Parent') ?></option>
         </select>
@@ -354,7 +354,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
       </div>
   <?php else: ?>
-    <div style="margin-bottom:1rem;color:#666;">Bulk actions disembunyikan untuk role <strong>author</strong>.</div>
+    <div style="margin-bottom:1rem;color:#666;"><?=_e('Bulk actions hidden for role')?> <strong>author</strong>.</div>
   <?php endif; ?>
 
   <div class="adam-table-wrapper">
@@ -363,7 +363,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <tr>
           <th style="width:40px"></th>
           <th><?= _e('Name') ?></th>
-          <th>Posts</th>
+          <th><?=_e('Posts')?></th>
           <th style="width:160px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
@@ -413,13 +413,13 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               <td>
                 <a class="count-badge<?= $aCount === 0 ? ' zero' : '' ?>"
                    href="<?= htmlspecialchars($base . '/?page=admin/posts/index&category=' . $catId, ENT_QUOTES, 'UTF-8') ?>"
-                   title="<?= $aCount === 0 ? 'Tidak ada artikel' : $aCount . ' artikel' ?>">
+                   title="<?= $aCount === 0 ? __('No articles') : $aCount . ' ' . __('articles') ?>">
                   <?= $aCount ?>
                 </a>
               </td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>">Edit</a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
                 <?php if ($canDelete): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button"
