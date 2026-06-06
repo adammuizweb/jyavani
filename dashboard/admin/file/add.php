@@ -56,12 +56,12 @@ $hasVisibility = mdlib_has_column('visibility');
         </label>
       </div>
     </div>
-    <div style="align-self:flex-end" class="small" style="color:#888">Private files stored outside public_html</div>
+    <div style="align-self:flex-end" class="small" style="color:#888"><?=_e('Private files stored outside public_html')?></div>
   </div>
   <?php endif; ?>
 
   <div class="dropzone" id="dropzone">
-    <p>Tarik file (dokumen / excel / powerpoint / video / audio) ke sini atau
+    <p><?=_e('Drag files (documents / excel / powerpoint / video / audio) here or')?>
       <button class="adam-btn" id="browse-btn" type="button"><?= _e('Select file') ?></button>
     </p>
     <div id="upload-progress" class="upload-progress"></div>
