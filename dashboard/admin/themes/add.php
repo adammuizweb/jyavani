@@ -171,7 +171,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </div>
 
     <label style="margin-top:.75rem;display:block">
-      Konten (HTML / PHP fragment)<br>
+      <?=_e('Content (HTML / PHP fragment)')?><br>
       <div class="adam-cm-wrap">
         <textarea id="cm-textarea" style="width:100%;min-height:70vh;"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
