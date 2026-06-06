@@ -56,27 +56,42 @@ function migration_run_pending(PDO $pdo): array
             continue;
         }
 
-        $statements = preg_split('/;\s*$/m', $sql);
+        // Strip comment lines before splitting
+        $lines = explode("\n", $sql);
+        $cleanLines = [];
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if ($trimmed === '' || str_starts_with($trimmed, '--') || str_starts_with($trimmed, '#')) {
+                continue;
+            }
+            $cleanLines[] = $line;
+        }
+        $cleanSql = implode("\n", $cleanLines);
+        $statements = preg_split('/;\s*$/m', $cleanSql);
 
-        try {
-            $pdo->beginTransaction();
+        // DDL (ALTER TABLE, CREATE TABLE) auto-commits in MySQL,
+        // so wrap each statement individually instead of one big transaction.
+        $allOk = true;
+        foreach ($statements as $stmt) {
+            $stmt = trim($stmt);
+            if ($stmt === '') continue;
 
-            foreach ($statements as $stmt) {
-                $stmt = trim($stmt);
-                if ($stmt === '') continue;
-                if (str_starts_with($stmt, '--') || str_starts_with($stmt, '#')) continue;
-
+            try {
                 $pdo->exec($stmt);
+            } catch (Throwable $e) {
+                $results[$name] = 'error: ' . $e->getMessage();
+                $allOk = false;
+                break;
             }
+        }
 
-            $ins->execute([$name, $batch]);
-            $pdo->commit();
-            $results[$name] = 'ok';
-        } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
+        if ($allOk) {
+            try {
+                $ins->execute([$name, $batch]);
+                $results[$name] = 'ok';
+            } catch (Throwable $e) {
+                $results[$name] = 'error (tracking): ' . $e->getMessage();
             }
-            $results[$name] = 'error: ' . $e->getMessage();
         }
     }
 
