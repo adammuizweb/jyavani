@@ -345,6 +345,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
 
             } elseif ($action === 'check_updates') {
+                // Re-register themes first so DB store_slug/store_url are current
+                register_all_themes_from_fs($pdo);
                 $count = count(ThemeStoreClient::checkUpdates($pdo));
                 if ($count > 0) {
                     $messages[] = "{$count} " . __('theme update(s) available.');
@@ -545,7 +547,7 @@ foreach ($themes as $t) {
         $isDefault = (defined('DEFAULT_THEME_FOLDER') && $folder === DEFAULT_THEME_FOLDER);
         $isSystem = !empty($th['is_system']);
         $storeSlug = $th['store_slug'] ?? '';
-        $updateInfo = ($storeSlug !== '' && isset($themeUpdates[$storeSlug])) ? $themeUpdates[$storeSlug] : null;
+        $updateInfo = isset($themeUpdates[$folder]) ? $themeUpdates[$folder] : null;
       ?>
         <div class="tm-theme <?= $isActive ? 'active' : '' ?> <?= $updateInfo ? 'has-update' : '' ?>">
           <div class="tm-delrow">

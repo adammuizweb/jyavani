@@ -12,27 +12,28 @@ class ThemeStoreClient
         $updates = $transient['updates'] ?? [];
         $anyFetched = false;
 
-        foreach ($themes as $name => $manifest) {
+        foreach ($themes as $folder => $manifest) {
             $store = $manifest['store'] ?? null;
             if (!$store) continue;
             $storeUrl = rtrim($store['url'] ?? self::STORE_BASE, '/');
+            $storeSlug = $store['slug'] ?? $folder;
             $currentVersion = $manifest['version'] ?? '0.0.0';
 
-            $latest = self::fetchVersionInfo($storeUrl . '/' . $name . '/version.json');
+            $latest = self::fetchVersionInfo($storeUrl . '/' . $storeSlug . '/version.json');
             if ($latest === null) continue;
             $anyFetched = true;
 
             if (version_compare($latest['version'] ?? '0.0.0', $currentVersion, '>')) {
-                $updates[$name] = [
+                $updates[$folder] = [
                     'current_version' => $currentVersion,
                     'new_version' => $latest['version'],
-                    'download_url' => $latest['download_url'] ?? ($storeUrl . '/download/' . $name . '/'),
+                    'download_url' => $latest['download_url'] ?? ($storeUrl . '/download/' . $storeSlug . '/'),
                     'changelog' => $latest['changelog'] ?? '',
                     'zip_size' => $latest['zip_size'] ?? 0,
                     'php_required' => $latest['php_required'] ?? '',
                 ];
             } else {
-                unset($updates[$name]);
+                unset($updates[$folder]);
             }
         }
 
@@ -297,8 +298,7 @@ class ThemeStoreClient
                 $manifest = [];
             }
 
-            $name = $manifest['name'] ?? $folder;
-            $themes[$name] = $manifest;
+            $themes[$folder] = $manifest;
         }
         return $themes;
     }
