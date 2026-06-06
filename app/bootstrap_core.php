@@ -68,8 +68,10 @@ if (function_exists('settings_get')) {
         $siteLang = 'en';
     }
     set_locale($siteLang);
-    if ($siteLang !== 'en') {
+    if ($siteLang === 'id') {
         setlocale(LC_TIME, 'id_ID.UTF-8', 'id_ID', 'indonesian', 'Indonesia');
+    } elseif ($siteLang === 'de') {
+        setlocale(LC_TIME, 'de_DE.UTF-8', 'de_DE', 'german', 'de_DE@euro');
     }
 }
 

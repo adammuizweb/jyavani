@@ -333,6 +333,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
       <select name="site_language" style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;">
         <option value="en" <?=$current_site_language==='en'?'selected':''?>><?=_e('English')?></option>
         <option value="id" <?=$current_site_language==='id'?'selected':''?>><?=_e('Indonesian')?></option>
+        <option value="de" <?=$current_site_language==='de'?'selected':''?>><?=_e('German')?></option>
       </select>
     </label>
 

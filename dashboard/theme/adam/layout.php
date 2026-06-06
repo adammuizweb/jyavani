@@ -15,7 +15,7 @@ $themePath = DASH_PATH . '/theme/adam';
 $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull() : [];
 ?>
 <!doctype html>
-<html lang="id">
+<html lang="<?= h(get_locale()) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">

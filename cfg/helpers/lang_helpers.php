@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$supported_locales = ['en', 'id'];
+$supported_locales = ['en', 'id', 'de'];
 $default_locale = 'en';
 
 function get_supported_locales(): array {

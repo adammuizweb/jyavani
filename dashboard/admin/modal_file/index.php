@@ -27,7 +27,7 @@ try {
 
 if (!$embedded):
 ?><!doctype html>
-<html lang="id">
+<html lang="<?=h(get_locale())?>">
 <head>
 <meta charset="utf-8">
 <title><?=_e('File Modal')?></title>

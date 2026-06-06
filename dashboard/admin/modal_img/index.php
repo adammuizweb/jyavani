@@ -19,7 +19,7 @@ try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } ca
 
 if (!$embedded):
 ?><!doctype html>
-<html lang="id">
+<html lang="<?=h(get_locale())?>">
 <head>
 <meta charset="utf-8">
 <title><?=_e('Media Modal')?></title>

@@ -10,7 +10,7 @@ if (!function_exists('success_redirect')) {
         $redirectUrl = $base . $target . '&msg=' . urlencode($message);
         ?>
         <!doctype html>
-        <html lang="id">
+        <html lang="<?=function_exists('get_locale')?h(get_locale()):'id'?>">
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1">

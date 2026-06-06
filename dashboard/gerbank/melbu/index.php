@@ -283,7 +283,7 @@ $show_captcha = $show_captcha || ($attempts >= $captcha_threshold);
 $show_help = $show_help || ($attempts >= $captcha_threshold);
 ?>
 <!doctype html>
-<html lang="id">
+<html lang="<?=h(get_locale())?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
