@@ -34,25 +34,25 @@ $hasVisibility = mdlib_has_column('visibility');
   <?php if ($hasVisibility): ?>
   <div style="margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:4px 0">
     <div>
-      <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px">Visibility</label>
+      <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Visibility')?></label>
       <select id="file-visibility" style="padding:3px 6px;font-size:12px">
-        <option value="auto">Auto</option>
-        <option value="public">Public</option>
-        <option value="private">Private</option>
+        <option value="auto"><?=_e('Auto')?></option>
+        <option value="public"><?=_e('Public')?></option>
+        <option value="private"><?=_e('Private')?></option>
       </select>
     </div>
     <div id="file-private-options" style="display:none">
       <div style="display:inline-block;margin-right:8px">
-        <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px">Access Scope</label>
+        <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Access Scope')?></label>
         <select id="file-access-scope" style="padding:3px 6px;font-size:12px">
-          <option value="editorial">Editorial</option>
-          <option value="admin">Admin Only</option>
+          <option value="editorial"><?=_e('Editorial')?></option>
+          <option value="admin"><?=_e('Admin Only')?></option>
         </select>
       </div>
       <div style="display:inline-block">
         <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600">
           <input type="checkbox" id="file-is-downloadable" value="1" checked>
-          Downloadable
+          <?=_e('Downloadable')?>
         </label>
       </div>
     </div>

@@ -114,34 +114,34 @@ $isPrivate = ($visibility === 'private');
       </div>
     </div>
 
-    <label>Title</label>
+    <label><?=_e('Title')?></label>
     <input type="text" name="title" value="<?= htmlspecialchars((string)($row['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
-    <label>Caption</label>
+    <label><?=_e('Caption')?></label>
     <textarea name="caption" rows="3"><?= htmlspecialchars((string)($row['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
 
-    <label>Credit</label>
+    <label><?=_e('Credit')?></label>
     <input type="text" name="credit" value="<?= htmlspecialchars((string)($row['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
     <div style="margin-top:12px">
-      <label>Access Scope</label>
+      <label><?=_e('Access Scope')?></label>
       <select name="access_scope">
-        <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
-        <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
-        <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>>Admin Only</option>
+        <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+        <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
+        <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
       </select>
     </div>
 
     <div style="margin-top:8px">
       <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
         <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
-        Downloadable
+        <?=_e('Downloadable')?>
       </label>
     </div>
 
     <div style="margin-top:12px; display:flex; gap:10px;">
-      <button id="file-save-btn" class="btn" type="button">Save</button>
-      <button id="file-delete-btn" class="btn danger" type="button">Delete</button>
+      <button id="file-save-btn" class="btn" type="button"><?=_e('Save')?></button>
+      <button id="file-delete-btn" class="btn danger" type="button"><?=_e('Delete')?></button>
     </div>
   </form>
 </div>

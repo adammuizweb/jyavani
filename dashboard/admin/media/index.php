@@ -39,13 +39,13 @@ if (function_exists('adiwira_flash_pull')) {
     }
 }
 ?>
-<h2>Media Manager</h2>
+<h2><?=_e('Media Manager')?></h2>
 
 <input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 
 <div class="tabs">
-  <button class="tab-btn <?= $initialTab === 'add' ? 'active' : '' ?>" data-target="panel-add">Add</button>
-  <button class="tab-btn <?= $initialTab === 'list' ? 'active' : '' ?>" data-target="panel-list">List</button>
+  <button class="tab-btn <?= $initialTab === 'add' ? 'active' : '' ?>" data-target="panel-add"><?=_e('Add')?></button>
+  <button class="tab-btn <?= $initialTab === 'list' ? 'active' : '' ?>" data-target="panel-list"><?=_e('List')?></button>
 </div>
 
 <div id="panel-add" class="panel" style="<?= $initialTab === 'add' ? '' : 'display:none;' ?>">

@@ -22,7 +22,7 @@ if (!$embedded):
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>Media Modal</title>
+<title><?=_e('Media Modal')?></title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
 </head>
@@ -34,8 +34,8 @@ if (!$embedded):
 
   <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px">
     <div class="mdlib-tabs" id="mdlib-tabs">
-      <div class="mdlib-tab mdlib-is-active" data-tab="upload">Upload</div>
-      <div class="mdlib-tab" data-tab="gallery">Gallery</div>
+      <div class="mdlib-tab mdlib-is-active" data-tab="upload"><?=_e('Upload')?></div>
+      <div class="mdlib-tab" data-tab="gallery"><?=_e('Gallery')?></div>
     </div>
     <div class="small"><?= _e('Select media to insert') ?></div>
   </div>
@@ -152,15 +152,15 @@ function openSingleDetailInModal(id) {
     );
 
   if (modalContent) {
-    modalContent.innerHTML = '<div style="padding:18px;color:#666;font-style:italic">Memuat detail…</div>';
+    modalContent.innerHTML = '<div style="padding:18px;color:#666;font-style:italic">' + <?= json_encode(__('Loading details…')) ?> + '</div>';
     fetch(url, { credentials: 'include' })
       .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
       .then(html => injectHtmlWithScriptsTo(modalContent, html))
       .catch(err => {
         console.error('Failed to load single_modal:', err);
-        modalContent.innerHTML = '<div style="color:#c00;padding:12px">Gagal memuat detail</div>';
+        modalContent.innerHTML = '<div style="color:#c00;padding:12px">' + <?= json_encode(__('Failed to load details.')) ?> + '</div>';
         if (typeof window.modalImgToast === 'function') {
-          window.modalImgToast('error', 'Gallery', 'Gagal memuat detail media.');
+          window.modalImgToast('error', 'Gallery', <?= json_encode(__('Failed to load media details.')) ?>);
         }
       });
     return;
@@ -168,15 +168,15 @@ function openSingleDetailInModal(id) {
 
   const panel = document.getElementById('panel-gallery');
   if (panel) {
-    panel.innerHTML = '<div class="mdlib-loading">Memuat detail…</div>';
+    panel.innerHTML = '<div class="mdlib-loading">' + <?= json_encode(__('Loading details…')) ?> + '</div>';
     fetch(url, { credentials: 'include' })
       .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
       .then(html => injectHtmlWithScriptsTo(panel, html))
       .catch(err => {
         console.error('Failed to load single_modal into gallery panel:', err);
-        panel.innerHTML = '<div style="color:#c00;padding:12px">Gagal memuat detail</div>';
+        panel.innerHTML = '<div style="color:#c00;padding:12px">' + <?= json_encode(__('Failed to load details.')) ?> + '</div>';
         if (typeof window.modalImgToast === 'function') {
-          window.modalImgToast('error', 'Gallery', 'Gagal memuat detail media.');
+          window.modalImgToast('error', 'Gallery', <?= json_encode(__('Failed to load media details.')) ?>);
         }
       });
     return;
@@ -243,13 +243,13 @@ document.addEventListener('click', function(ev){
       const detailBtn = document.createElement('button');
       detailBtn.className = 'mdlib-btn-detail';
       detailBtn.type = 'button';
-      detailBtn.textContent = 'Detail';
+      detailBtn.textContent = <?= json_encode(__('Detail')) ?>;
       detailBtn.setAttribute('data-id', id);
 
       const insertBtn = document.createElement('button');
       insertBtn.className = 'mdlib-btn-insert';
       insertBtn.type = 'button';
-      insertBtn.textContent = 'Insert';
+      insertBtn.textContent = <?= json_encode(__('Insert')) ?>;
 
       const src = cloned.src || '';
       insertBtn.setAttribute('data-url', src);

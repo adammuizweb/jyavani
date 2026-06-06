@@ -122,17 +122,17 @@ if (!function_exists('modalimg_human_filesize')) {
     </div>
 
     <div class="mdlib-meta-row">
-      <div><strong>Filename:</strong> <?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-      <div><strong>MIME:</strong> <?= htmlspecialchars((string)($r['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
-      <div><strong>Size:</strong> <?= htmlspecialchars(modalimg_human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></div>
+      <div><strong><?=_e('Filename:')?></strong> <?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+      <div><strong><?=_e('MIME:')?></strong> <?= htmlspecialchars((string)($r['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
+      <div><strong><?=_e('Size:')?></strong> <?= htmlspecialchars(modalimg_human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></div>
       <?php if (!empty($r['width']) || !empty($r['height'])): ?>
-        <div><strong>Dim:</strong> <?= (int)$r['width'] ?> × <?= (int)$r['height'] ?></div>
+        <div><strong><?=_e('Dim:')?></strong> <?= (int)$r['width'] ?> × <?= (int)$r['height'] ?></div>
       <?php endif; ?>
       <?php if ($hasVisibility): ?>
-        <div><strong>Visibility:</strong> <?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></div>
-        <div><strong>Scope:</strong> <?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></div>
+        <div><strong><?=_e('Visibility:')?></strong> <?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></div>
+        <div><strong><?=_e('Scope:')?></strong> <?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></div>
       <?php endif; ?>
-      <div class="mdlib-meta-time">Uploaded: <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+      <div class="mdlib-meta-time"><?=_e('Uploaded:')?> <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
     </div>
   </div>
 
@@ -142,48 +142,48 @@ if (!function_exists('modalimg_human_filesize')) {
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
       <div class="mdlib-field">
-        <label for="mdlib-field-title">Title</label>
+        <label for="mdlib-field-title"><?=_e('Title')?></label>
         <input id="mdlib-field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
       <div class="mdlib-field">
-        <label for="mdlib-field-alt">Alt</label>
+        <label for="mdlib-field-alt"><?=_e('Alt')?></label>
         <input id="mdlib-field-alt" type="text" name="alt" value="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
       <div class="mdlib-field">
-        <label for="mdlib-field-caption">Caption</label>
+        <label for="mdlib-field-caption"><?=_e('Caption')?></label>
         <textarea id="mdlib-field-caption" name="caption"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
 
       <div class="mdlib-field">
-        <label for="mdlib-field-credit">Credit</label>
+        <label for="mdlib-field-credit"><?=_e('Credit')?></label>
         <input id="mdlib-field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" placeholder="<?=_e('Photographer Name — Source / License')?>">
       </div>
 
       <div class="mdlib-field">
-        <label for="mdlib-field-target-url">Target URL</label>
+        <label for="mdlib-field-target-url"><?=_e('Target URL')?></label>
         <input id="mdlib-field-target-url" type="text" name="target_url" value="<?= htmlspecialchars($linkUrlValue, ENT_QUOTES, 'UTF-8') ?>" placeholder="https://example.com/page">
       </div>
 
       <div class="mdlib-field">
-        <label for="mdlib-field-target-attr">Open behavior</label>
+        <label for="mdlib-field-target-attr"><?=_e('Open behavior')?></label>
         <select id="mdlib-field-target-attr" name="target_attribute">
-          <option value="" <?= $linkTargetValue === '' ? 'selected' : '' ?>>Default</option>
-          <option value="_self" <?= $linkTargetValue === '_self' ? 'selected' : '' ?>>Open in same tab (_self)</option>
-          <option value="_blank" <?= $linkTargetValue === '_blank' ? 'selected' : '' ?>>Open in new tab (_blank)</option>
-          <option value="_parent" <?= $linkTargetValue === '_parent' ? 'selected' : '' ?>>_parent</option>
-          <option value="_top" <?= $linkTargetValue === '_top' ? 'selected' : '' ?>>_top</option>
+          <option value="" <?= $linkTargetValue === '' ? 'selected' : '' ?>><?=_e('Default')?></option>
+          <option value="_self" <?= $linkTargetValue === '_self' ? 'selected' : '' ?>><?=_e('Open in same tab (_self)')?></option>
+          <option value="_blank" <?= $linkTargetValue === '_blank' ? 'selected' : '' ?>><?=_e('Open in new tab (_blank)')?></option>
+          <option value="_parent" <?= $linkTargetValue === '_parent' ? 'selected' : '' ?>><?=_e('_parent')?></option>
+          <option value="_top" <?= $linkTargetValue === '_top' ? 'selected' : '' ?>><?=_e('_top')?></option>
         </select>
       </div>
 
       <?php if ($hasVisibility): ?>
       <div class="mdlib-field">
-        <label for="mdlib-field-access-scope">Access Scope</label>
+        <label for="mdlib-field-access-scope"><?=_e('Access Scope')?></label>
         <select id="mdlib-field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
-          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
-            <option value="admin">Admin Only</option>
+          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
+            <option value="admin"><?=_e('Admin Only')?></option>
         </select>
         <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public media always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
       </div>
@@ -191,17 +191,17 @@ if (!function_exists('modalimg_human_filesize')) {
       <div class="mdlib-field">
         <label class="mdlib-checkline" style="display:flex;gap:8px;align-items:center;font-weight:700">
           <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
-          Downloadable
+          <?=_e('Downloadable')?>
         </label>
       </div>
       <?php endif; ?>
 
       <div class="mdlib-field">
-        <label>File URL (read-only)</label>
+        <label><?=_e('File URL (read-only)')?></label>
         <div class="mdlib-urlrow">
           <span class="mdlib-url-prefix" id="mdlib-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
           <input type="text" id="mdlib-url-path" class="mdlib-url" readonly value="<?= htmlspecialchars((string)(parse_url((string)($r['url'] ?? ''), PHP_URL_PATH) ?: ($r['url'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
-          <button type="button" class="mdlib-btn-copy" data-action="copy-url">Copy</button>
+          <button type="button" class="mdlib-btn-copy" data-action="copy-url"><?=_e('Copy')?></button>
         </div>
       </div>
 
@@ -209,8 +209,8 @@ if (!function_exists('modalimg_human_filesize')) {
 
       <div class="mdlib-actions">
         <button type="button" class="mdlib-btn" id="mdlib-back-btn"><?=_e('← Back to Gallery')?></button>
-        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-media-save-btn">Save</button>
-        <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-media-delete-btn">Delete</button>
+        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-media-save-btn"><?=_e('Save')?></button>
+        <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-media-delete-btn"><?=_e('Delete')?></button>
       </div>
     </form>
   </div>

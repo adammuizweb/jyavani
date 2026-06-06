@@ -111,7 +111,7 @@ if (!$embedded):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>File Detail</title>
+<title><?=_e('File Detail')?></title>
 </head>
 <body>
 <?php endif; ?>
@@ -146,61 +146,61 @@ if (!$embedded):
           <div class="mdlib-badges" style="margin-top:6px">
             <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
             <span class="mdlib-pill"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
-            <?php if (!$isDownloadable): ?><span class="mdlib-pill">NO DOWNLOAD</span><?php endif; ?>
-            <?php if ($storageDisk !== 'public'): ?><span class="mdlib-pill">STORAGE: <?= htmlspecialchars(strtoupper($storageDisk), ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
+            <?php if (!$isDownloadable): ?><span class="mdlib-pill"><?=__('NO DOWNLOAD')?></span><?php endif; ?>
+            <?php if ($storageDisk !== 'public'): ?><span class="mdlib-pill"><?=__('STORAGE:')?> <?= htmlspecialchars(strtoupper($storageDisk), ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
           </div>
           <div class="mdlib-note" style="margin-top:6px">
-            <a href="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $visibility === 'private' ? 'View (Protected)' : 'Open/Download' ?></a>
+            <a href="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $visibility === 'private' ? __('View (Protected)') : __('Open/Download') ?></a>
           </div>
         </div>
       </div>
 
       <div class="mdlib-row">
-        <label class="mdlib-label">Title</label>
+        <label class="mdlib-label"><?=_e('Title')?></label>
         <input class="mdlib-input" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
       <div class="mdlib-row">
-        <label class="mdlib-label">Caption</label>
+        <label class="mdlib-label"><?=_e('Caption')?></label>
         <textarea class="mdlib-textarea" name="caption"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
 
       <div class="mdlib-row">
-        <label class="mdlib-label">Credit</label>
+        <label class="mdlib-label"><?=_e('Credit')?></label>
         <input class="mdlib-input" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
 
       <div class="mdlib-row">
-        <label class="mdlib-label">Access Scope</label>
+        <label class="mdlib-label"><?=_e('Access Scope')?></label>
         <select class="mdlib-input" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
-          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>>Public</option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>>Editorial</option>
-            <option value="admin">Admin Only</option>
+          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
+            <option value="admin"><?=_e('Admin Only')?></option>
         </select>
-        <?php if ($visibility === 'public'): ?><div class="mdlib-note">Public file selalu access_scope public. Untuk private, upload ulang dengan mode Private.</div><?php endif; ?>
+        <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public file always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
       </div>
 
       <div class="mdlib-row">
         <label class="mdlib-checkline" style="display:flex;gap:8px;align-items:center;font-weight:700">
           <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
-          Downloadable
+          <?=_e('Downloadable')?>
         </label>
       </div>
 
       <div class="mdlib-row">
-        <label class="mdlib-label">File URL (read-only)</label>
+        <label class="mdlib-label"><?=_e('File URL (read-only)')?></label>
         <div class="mdlib-urlrow">
           <input class="mdlib-input mdlib-url" id="mdlib-file-url" type="text" readonly value="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>">
-          <button type="button" class="mdlib-btn" data-mdlib-action="copy-url">Copy</button>
+          <button type="button" class="mdlib-btn" data-mdlib-action="copy-url"><?=_e('Copy')?></button>
         </div>
-        <div class="mdlib-note">URL ini yang akan dipakai saat Insert.</div>
+        <div class="mdlib-note"><?=_e('This URL will be used when inserting.')?></div>
       </div>
 
       <div class="mdlib-actions">
-        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-file-insert">Insert</button>
-        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-file-save">Save</button>
-        <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-file-delete">Delete</button>
-        <button type="button" class="mdlib-btn" id="mdlib-back-btn">Back</button>
+        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-file-insert"><?=_e('Insert')?></button>
+        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-file-save"><?=_e('Save')?></button>
+        <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-file-delete"><?=_e('Delete')?></button>
+        <button type="button" class="mdlib-btn" id="mdlib-back-btn"><?=_e('Back')?></button>
       </div>
     </form>
   </div>

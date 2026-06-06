@@ -30,7 +30,7 @@ if (!$embedded):
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>File Modal</title>
+<title><?=_e('File Modal')?></title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
 <body>
@@ -47,8 +47,8 @@ if (!$embedded):
   <div id="mdlib-topbar">
     <div class="mdlib-toprow">
       <div id="mdlib-tabs">
-        <div data-mdlib-tab="upload" role="button" tabindex="0" class="mdlib-tab">Upload</div>
-        <div data-mdlib-tab="library" role="button" tabindex="0" class="mdlib-tab">Library</div>
+        <div data-mdlib-tab="upload" role="button" tabindex="0" class="mdlib-tab"><?=_e('Upload')?></div>
+        <div data-mdlib-tab="library" role="button" tabindex="0" class="mdlib-tab"><?=_e('Library')?></div>
       </div>
       <div id="mdlib-hint"><?=_e('Click')?> <b>Insert</b> <?=_e('to select file')?></div>
       <button id="mdlib-close-btn" class="mdlib-btn mdlib-close-btn" title="<?=_e('Close')?>">&times;</button>

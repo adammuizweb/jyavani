@@ -40,13 +40,13 @@ if (function_exists('adiwira_flash_pull')) {
 }
 ?>
 <div id="file-manager-root">
-  <h2>File Manager</h2>
+  <h2><?=_e('File Manager')?></h2>
 
   <input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 
   <div class="tabs">
-    <button type="button" class="tab-btn <?= $initialTab === 'add' ? 'active' : '' ?>" data-target="add">Add</button>
-    <button type="button" class="tab-btn <?= $initialTab === 'list' ? 'active' : '' ?>" data-target="list">List</button>
+    <button type="button" class="tab-btn <?= $initialTab === 'add' ? 'active' : '' ?>" data-target="add"><?=_e('Add')?></button>
+    <button type="button" class="tab-btn <?= $initialTab === 'list' ? 'active' : '' ?>" data-target="list"><?=_e('List')?></button>
   </div>
 
   <div id="file-panel-add" class="panel" style="<?= $initialTab === 'add' ? '' : 'display:none;' ?>">

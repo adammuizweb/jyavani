@@ -177,14 +177,14 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     <input type="checkbox" id="select-all" class="select-all" />
     <label for="select-all" class="small"><?= _e('Select all') ?></label>
 
-    <button id="delete-bulk-btn" class="btn danger" type="button">Delete Selected</button>
+    <button id="delete-bulk-btn" class="btn danger" type="button"><?=_e('Delete Selected')?></button>
 
     <?php if ($hasVisibility): ?>
     <select id="visibility-filter" style="margin-left:12px;padding:3px 6px;font-size:12px">
       <option value=""><?= _e('All') ?></option>
-      <option value="public" <?= $visFilter === 'public' ? 'selected' : '' ?>>Public</option>
-      <option value="private" <?= $visFilter === 'private' ? 'selected' : '' ?>>Private</option>
-      <option value="auto" <?= $visFilter === 'auto' ? 'selected' : '' ?>>Auto</option>
+      <option value="public" <?= $visFilter === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+      <option value="private" <?= $visFilter === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
+      <option value="auto" <?= $visFilter === 'auto' ? 'selected' : '' ?>><?=_e('Auto')?></option>
     </select>
     <?php endif; ?>
 
@@ -208,10 +208,10 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       <thead>
         <tr>
           <th></th>
-          <th>Preview</th>
-          <th>Title / Filename</th>
-          <th>Meta</th>
-          <th style="width:180px">Actions</th>
+          <th><?=_e('Preview')?></th>
+          <th><?=_e('Title / Filename')?></th>
+          <th><?=_e('Meta')?></th>
+          <th style="width:180px"><?=_e('Actions')?></th>
         </tr>
       </thead>
       <tbody>
@@ -242,23 +242,23 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
                 <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($visibility)) ?></span>
                 <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($accessScope)) ?></span>
                 <?php if (!$isDownloadable): ?>
-                  <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800">NO DOWNLOAD</span>
+                  <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?=__('NO DOWNLOAD')?></span>
                 <?php endif; ?>
               </div>
             </td>
             <td>
               <div class="small">
-                MIME: <?= e((string)($r['mime'] ?? '')) ?> —
-                Size: <?= e(human_filesize((int)($r['size'] ?? 0))) ?>
+                <?=_e('MIME:')?> <?= e((string)($r['mime'] ?? '')) ?> —
+                <?=_e('Size:')?> <?= e(human_filesize((int)($r['size'] ?? 0))) ?>
               </div>
               <?php if (!empty($r['duration'])): ?>
-                <div class="small">Durasi: <?= (int)$r['duration'] ?>s</div>
+                <div class="small"><?=_e('Duration:')?> <?= (int)$r['duration'] ?>s</div>
               <?php endif; ?>
-              <div class="small">Caption: <?= nl2br(e((string)($r['caption'] ?? ''))) ?></div>
+              <div class="small"><?=_e('Caption:')?> <?= nl2br(e((string)($r['caption'] ?? ''))) ?></div>
             </td>
             <td>
-              <button class="btn btn-open" type="button" data-id="<?= (int)$r['id'] ?>">Open</button>
-              <a class="btn" href="<?= e($clientUrl) ?>" target="_blank" rel="noopener"><?= $isPrivate ? 'View' : 'Download' ?></a>
+              <button class="btn btn-open" type="button" data-id="<?= (int)$r['id'] ?>"><?=_e('Open')?></button>
+              <a class="btn" href="<?= e($clientUrl) ?>" target="_blank" rel="noopener"><?= $isPrivate ? __('View') : __('Download') ?></a>
             </td>
           </tr>
         <?php endforeach; ?>
