@@ -96,6 +96,9 @@ if (is_dir($session_save_path)) {
     session_save_path($session_save_path);
     ini_set('session.save_handler', 'files');
     sess_dbg("session.save_path set to: {$session_save_path} owner=" . @fileowner($session_save_path) . " perms=" . substr(sprintf('%o', @fileperms($session_save_path)), -4));
+
+    // Fix permissions of any existing session files (survives chown -R)
+    array_map(static fn(string $f) => @chmod($f, 0660), glob($session_save_path . '/sess_*'));
 } else {
     sess_dbg("session.save_path not set, directory unavailable: {$session_save_path}");
 }
