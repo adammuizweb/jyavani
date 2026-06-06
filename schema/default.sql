@@ -184,6 +184,9 @@ CREATE TABLE IF NOT EXISTS `themes` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `folder_name` varchar(100) NOT NULL,
   `is_active` tinyint(1) NOT NULL DEFAULT 0,
+  `is_system` tinyint(1) NOT NULL DEFAULT 0,
+  `store_url` varchar(255) DEFAULT '',
+  `store_slug` varchar(100) DEFAULT '',
   `name` varchar(150) NOT NULL,
   `description` text DEFAULT NULL,
   `version` varchar(50) DEFAULT NULL,
@@ -375,6 +378,18 @@ CREATE TABLE IF NOT EXISTS `ui_translations` (
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `source_lookup` (`scope`, `source`(191), `locale`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 17. schema_migrations
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~
+CREATE TABLE IF NOT EXISTS `schema_migrations` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `migration` varchar(255) NOT NULL,
+  `batch` int(10) unsigned NOT NULL DEFAULT 1,
+  `executed_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_migration` (`migration`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS=1;

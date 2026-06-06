@@ -93,6 +93,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
+                // Seed schema_migrations: mark all existing migrations as applied
+                $migrationsDir = $schemaDir . '/migrations';
+                if (is_dir($migrationsDir)) {
+                    $mfiles = glob($migrationsDir . '/*.sql');
+                    if ($mfiles) {
+                        sort($mfiles);
+                        $pdo->exec("CREATE TABLE IF NOT EXISTS `schema_migrations` (
+                            `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                            `migration` varchar(255) NOT NULL,
+                            `batch` int(10) unsigned NOT NULL DEFAULT 1,
+                            `executed_at` datetime NOT NULL DEFAULT current_timestamp(),
+                            PRIMARY KEY (`id`),
+                            UNIQUE KEY `uq_migration` (`migration`)
+                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+                        $insMig = $pdo->prepare("INSERT IGNORE INTO schema_migrations (migration, batch) VALUES (?, 0)");
+                        foreach ($mfiles as $mfile) {
+                            $insMig->execute([basename($mfile)]);
+                        }
+                    }
+                }
+
                 $step = 2;
                 // carry DB creds forward
                 $dbFields = [

@@ -75,6 +75,20 @@ if (function_exists('settings_get')) {
     }
 }
 
+// Auto-run pending schema migrations (idempotent — safe on every request)
+$migrationPath = rtrim(BACKEND_PATH, '/\\') . '/helpers/migration_helper.php';
+if (is_file($migrationPath)) {
+    require_once $migrationPath;
+    if (function_exists('migration_run_pending')) {
+        $migrationResults = migration_run_pending($pdo);
+        if (!empty($migrationResults) && function_exists('core_dbg')) {
+            foreach ($migrationResults as $name => $status) {
+                core_dbg("migration {$name}: {$status}");
+            }
+        }
+    }
+}
+
 $session_path = rtrim(BACKEND_PATH, '/\\') . DIRECTORY_SEPARATOR . 'session.php';
 if (is_file($session_path)) {
     require_once $session_path;
