@@ -86,9 +86,6 @@ if (!function_exists('slot_to_file')) {
             'index.category'=> 'main/index/category.php',
             'index.author'  => 'main/index/author.php',
 
-            'index.gallery'  => 'main/index/gallery.php',
-            'list.gallery'   => 'main/list/gallery.php',
-            'single.gallery' => 'main/single/gallery.php',
         ];
         return $map[$slot_key] ?? (str_replace([':', '/'], '.', $slot_key) . '.php');
     }

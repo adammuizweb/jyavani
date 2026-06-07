@@ -198,6 +198,11 @@ if (in_array($prefix, $categoryRoutes, true)) {
     // rebuild slug from remaining segments (can be empty string)
     $slug = implode('/', $segmentsAfter);
 
+    // fallback: ?page=N query param (used by inline fallback pagination links)
+    if ($page === 1 && isset($_GET['page']) && ctype_digit((string)$_GET['page'])) {
+        $page = (int)$_GET['page'];
+    }
+
     // call controller (slug may be empty -> controller will render parent list)
     CategoryController::showCategory($pdo, rawurldecode($slug), $page, $q);
     exit;

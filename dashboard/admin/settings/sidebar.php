@@ -35,9 +35,7 @@ $controller_contexts = [
     'list.article'  => 'Article List',
     'list.page'     => 'Page List',
     'list.category' => 'Category — Articles',
-    'list.gallery'  => 'Category — Gallery',
     'index.category'=> 'Category Index',
-    'index.gallery' => 'Indeks Galeri',
 ];
 
 $current_overrides = [];

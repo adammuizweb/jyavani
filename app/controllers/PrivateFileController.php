@@ -343,7 +343,7 @@ class PrivateFileController
         header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
         ?>
 <!doctype html>
-<html lang="<?=h(get_locale())?>">
+<html lang="<?=e(get_locale())?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">

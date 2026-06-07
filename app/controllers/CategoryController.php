@@ -67,17 +67,6 @@ class CategoryController
         }
     }
 
-    private static function isGalleryCategory(array $category, array $parts): bool
-    {
-        // Cek apakah photo-gallery plugin terpasang
-        $pluginDir = (defined('PLUGIN_PATH') ? PLUGIN_PATH : __DIR__ . '/../../plugins') . '/photo-gallery';
-        if (!is_dir($pluginDir)) return false;
-
-        $slug = strtolower((string)($category['slug'] ?? ''));
-        $last = strtolower((string)end($parts));
-        return in_array($slug, ['photo','gallery'], true) || in_array($last, ['photo','gallery'], true);
-    }
-
     private static function resolveCategoryByPath(PDO $pdo, array $pathParts)
     {
         $parentId = null;
@@ -212,6 +201,8 @@ class CategoryController
 
         if ($hasPrefix && !$isCategoryIndex) {
             $uriSlug = self::slugFromRequestUri($catPrefix);
+            // Strip pagination segments (/page/N/) so slug remains clean
+            $uriSlug = preg_replace('#/page/\d+#', '', $uriSlug);
             if ($uriSlug !== '') $slug = $uriSlug;
         } elseif (!$hasPrefix && $slug === '') {
             // Root-level categories: slug must come from the parameter (already resolved)
@@ -348,14 +339,12 @@ class CategoryController
             exit;
         }
 
-        $isGallery  = self::isGalleryCategory($category, $parts);
-        $perPage    = $isGallery ? 30 : 10;
         $page       = max(1, (int)$page);
-        $offset     = ($page - 1) * $perPage;
+        $offset     = ($page - 1) * 10;
         $isLoggedIn = !empty($_SESSION['user_id'] ?? null);
 
         $categoryId = (int)$category['id'];
-        $catIds     = $isGallery ? [$categoryId] : self::getDescendantCategoryIds($pdo, $categoryId);
+        $catIds     = self::getDescendantCategoryIds($pdo, $categoryId);
 
         // build IN clause
         $inPlaceholders = [];
@@ -367,8 +356,6 @@ class CategoryController
         }
         $inSQL = implode(',', $inPlaceholders);
 
-        $thumbCond = $isGallery ? " AND p.thumbnail IS NOT NULL AND p.thumbnail <> '' " : "";
-
         // COUNT
         try {
             $countSql = "
@@ -378,7 +365,6 @@ class CategoryController
               WHERE pc.category_id IN ($inSQL)
                 AND p.is_deleted = 0
                 AND p.type = 'article'
-                $thumbCond
             ";
             if (!$isLoggedIn) $countSql .= " AND p.status = 'published' ";
 
@@ -402,15 +388,14 @@ class CategoryController
             exit;
         }
 
+        $perPage = 10;
         $totalPages = (int)ceil($total / max(1, $perPage));
         if ($page > $totalPages && $totalPages > 0) $page = $totalPages;
         $offset = ($page - 1) * $perPage;
 
         // FETCH
         try {
-            $selectCols = $isGallery
-                ? "p.id,p.title,p.slug,p.thumbnail,p.youtube,p.meta,p.created_at"
-                : "p.id,p.title,p.slug,p.content,p.thumbnail,p.youtube,p.meta,p.created_at";
+            $selectCols = "p.id,p.title,p.slug,p.content,p.thumbnail,p.youtube,p.meta,p.created_at";
 
             $sql = "
               SELECT DISTINCT $selectCols
@@ -419,7 +404,6 @@ class CategoryController
               WHERE pc.category_id IN ($inSQL)
                 AND p.is_deleted = 0
                 AND p.type = 'article'
-                $thumbCond
             ";
             if (!$isLoggedIn) $sql .= " AND p.status = 'published' ";
 
@@ -457,77 +441,12 @@ class CategoryController
             'total'         => $total,
             'totalPages'    => $totalPages,
             'category_path' => implode('/', $parts),
-            'site_context'  => $isGallery ? 'gallery_list' : 'posts_list',
-            'is_gallery'    => $isGallery,
+            'site_context'  => 'posts_list',
             'q'             => $q,
         ];
 
         // =========================
-        // RENDER (GALLERY)
-        // =========================
-        if ($isGallery) {
-            $content_html = '';
-
-            // 1) engine slot khusus gallery
-            $content_html = self::trySlot($pdo, 'list.gallery', $vars);
-
-            // 2) enforce default theme
-            if (trim($content_html) === '') {
-                $content_html = self::tryDefaultThemeFile('list.gallery', $vars);
-            }
-
-            // 3) local view (recommended)
-            if (trim($content_html) === '') {
-                $local = self::render_local_view('posts_list_photo.php', $vars);
-                if (trim($local) !== '') $content_html = $local;
-            }
-
-            // 4) inline fallback
-            if (trim($content_html) === '') {
-                ob_start(); ?>
-                <div class="container">
-                  <h1><?= htmlspecialchars((string)($category['name'] ?? 'Gallery'), ENT_QUOTES, 'UTF-8') ?></h1>
-
-                  <?php if (!empty($q)): ?>
-                    <p style="color:#666">Pencarian: <strong><?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8') ?></strong></p>
-                  <?php endif; ?>
-
-                  <?php if (empty($posts)): ?>
-                    <p>Tidak ada foto.</p>
-                  <?php else: ?>
-                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-                      <?php foreach ($posts as $p): if (empty($p['thumbnail'])) continue; ?>
-                        <a href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($p['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>" style="display:block;aspect-ratio:1/1;overflow:hidden;border-radius:10px;background:#eee">
-                          <img src="<?= htmlspecialchars($p['thumbnail'], ENT_QUOTES, 'UTF-8') ?>" alt=""
-                               style="width:100%;height:100%;object-fit:cover;display:block">
-                        </a>
-                      <?php endforeach; ?>
-                    </div>
-
-                    <nav aria-label="Pagination" style="margin-top:14px;">
-                      <?php $base = $catBase . implode('/', array_map('rawurlencode', $parts)) . '/'; ?>
-                      <?php if ($page > 1): ?>
-                        <a href="<?= htmlspecialchars($base . '?page=' . ($page - 1) . ($q !== '' ? '&q=' . rawurlencode($q) : ''), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
-                      <?php endif; ?>
-                      &nbsp; Halaman <?= (int)$page ?> dari <?= (int)$totalPages ?> &nbsp;
-                      <?php if ($page < $totalPages): ?>
-                        <a href="<?= htmlspecialchars($base . '?page=' . ($page + 1) . ($q !== '' ? '&q=' . rawurlencode($q) : ''), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
-                      <?php endif; ?>
-                    </nav>
-                  <?php endif; ?>
-                </div>
-                <?php
-                $content_html = ob_get_clean();
-            }
-
-            $page_title = htmlspecialchars(($category['name'] ?? 'Gallery') . ' — Gallery', ENT_QUOTES, 'UTF-8');
-            $context_for_layout = 'list.gallery';
-            require __DIR__ . '/../layout.php';
-            exit;
-        }
-
-        // =========================
-        // RENDER (NON-GALLERY)
+        // RENDER
         // =========================
         $content_html = '';
 
