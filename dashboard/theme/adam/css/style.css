@@ -161,6 +161,7 @@ html.theme-dark{
   --adam-primary-soft: rgba(98,181,255,0.16);
   --adam-danger: #ff5a58;
   --adam-danger-600: #ff4a47;
+  --adam-success: #2aad5e;
 
   --adam-nav-grad-1: rgba(255,255,255,0.12);
   --adam-nav-grad-2: rgba(255,255,255,0.08);
@@ -232,6 +233,7 @@ html.theme-dark{
     --adam-primary-soft: rgba(98,181,255,0.16);
     --adam-danger: #ff5a58;
     --adam-danger-600: #ff4a47;
+    --adam-success: #2aad5e;
 
     --adam-nav-grad-1: rgba(255,255,255,0.12);
     --adam-nav-grad-2: rgba(255,255,255,0.08);

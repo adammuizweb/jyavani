@@ -676,7 +676,21 @@ $totalCore = $localManifest['total_files'] ?? 0;
     <p class="up-hint"><?=_e('Changed files will be automatically backed up to')?> <code>cfg/var/backup-{timestamp}/</code>.</p>
 </div>
 
+<!-- Progress Overlay (green) -->
+<div id="cmsUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+  <div style="background:var(--adam-surface);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
+    <div id="cmsProgressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-success);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
+    <div id="cmsProgressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
+    <div id="cmsProgressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
+    <div style="margin-top:1rem;background:var(--adam-border-2);border-radius:999px;height:8px;overflow:hidden">
+      <div id="cmsProgressBar" style="width:0%;height:100%;background:var(--adam-success);border-radius:999px;transition:width .4s ease"></div>
+    </div>
+    <div id="cmsProgressPct" style="margin-top:.3rem;font-size:.75rem;color:var(--adam-muted)">0%</div>
+  </div>
+</div>
+
 <style>
+@keyframes spin { to { transform:rotate(360deg); } }
 .pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; color:var(--adam-text); }
 .pg-subtitle { color:var(--adam-muted); font-size:.9rem; margin:0 0 1.5rem; }
 .up-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
@@ -806,5 +820,19 @@ function closeResetModal(){
         });
         upBtn.disabled = true;
     }
+})();
+
+(function(){
+    var overlay = document.getElementById('cmsUpdateProgress');
+    if (!overlay) return;
+    var actions = ['check_remote','apply_update','apply_uploaded','upload_update'];
+    document.querySelectorAll('form').forEach(function(f){
+        f.addEventListener('submit', function(){
+            var inp = this.querySelector('input[name="action"]');
+            if (!inp) return;
+            if (actions.indexOf(inp.value) === -1) return;
+            overlay.style.display = 'flex';
+        });
+    });
 })();
 </script>

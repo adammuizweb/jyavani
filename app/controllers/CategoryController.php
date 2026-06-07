@@ -433,6 +433,16 @@ class CategoryController
 
         $attachDisplayImages($posts);
 
+        $catBaseUrl = $catBase . implode('/', array_map('rawurlencode', $parts)) . '/';
+        $paginationHtml = '';
+        if ($totalPages > 1) {
+            $prevUrl = $catBaseUrl . '?page=' . ($page - 1) . ($q !== '' ? '&q=' . rawurlencode($q) : '');
+            $nextUrl = $catBaseUrl . '?page=' . ($page + 1) . ($q !== '' ? '&q=' . rawurlencode($q) : '');
+            $paginationHtml = ($page > 1 ? '<a href="' . htmlspecialchars($prevUrl, ENT_QUOTES, 'UTF-8') . '">&larr; Sebelumnya</a> ' : '')
+                . 'Halaman ' . (int)$page . ' dari ' . (int)$totalPages . ' '
+                . ($page < $totalPages ? '<a href="' . htmlspecialchars($nextUrl, ENT_QUOTES, 'UTF-8') . '">Berikutnya &rarr;</a>' : '');
+        }
+
         $vars = [
             'category'      => $category,
             'posts'         => $posts,
@@ -443,6 +453,7 @@ class CategoryController
             'category_path' => implode('/', $parts),
             'site_context'  => 'posts_list',
             'q'             => $q,
+            'pagination'    => $paginationHtml,
         ];
 
         // =========================
