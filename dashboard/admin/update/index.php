@@ -8,8 +8,28 @@ require_once DASH_PATH . '/admin/_notify.php';
 
 [$uid, $role] = adiwira_require_role($pdo, ['admin'], false);
 
+// Load shared helpers
+require_once __DIR__ . '/_update_helpers.php';
+
+// AJAX: read progress (called via GET, returns JSON without page layout)
+if (isset($_GET['action']) && $_GET['action'] === 'cms_read_progress') {
+    session_write_close();
+    $token = (string)($_GET['token'] ?? '');
+    if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
+        adiwira_json(['percentage' => 0, 'status' => 'Invalid token', 'done' => true, 'error' => 'Invalid token']);
+    }
+    $p = _cms_read_progress($token);
+    adiwira_json($p ?: ['percentage' => 0, 'status' => __('Preparing…'), 'done' => false, 'error' => null]);
+}
+
 $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/update/index';
+
+// Dev instance detection
+$defaultUpdateUrl = 'https://jyavani.com/download/latest/';
+$localHost = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+$updateHost = parse_url($defaultUpdateUrl, PHP_URL_HOST);
+$isDevSelfCheck = $localHost !== '' && strcasecmp($updateHost ?: '', $localHost) === 0;
 
 // Load current version
 $versionFile = dirname(DASH_PATH) . '/version.json';
@@ -70,14 +90,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid remote response format (expected: version).'));
         }
 
-        // Store in session for the apply step
-        ensure_session_started(true);
-        $_SESSION['cms_update_remote'] = $remote;
-
         $localVer = $currentVersion['version'] ?? '0.0.0';
         $remoteVer = $remote['version'] ?? '0.0.0';
 
         if (version_compare($remoteVer, $localVer, '>')) {
+            ensure_session_started(true);
+            $_SESSION['cms_update_remote'] = $remote;
             adiwira_redirect_with_flash($selfUrl, 'success',
                 __('Update available:') . ' v' . htmlspecialchars($localVer) . ' → v' . htmlspecialchars($remoteVer) . '. '
                 . __('Total') . ' ' . ($remote['total_files'] ?? 0) . ' ' . __('files. Click "Apply Update" to start.'));
@@ -89,22 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- Apply update from remote (downloaded and stored in session) ---
     if ($action === 'apply_update') {
-        ensure_session_started(true);
-        $remote = $_SESSION['cms_update_remote'] ?? null;
-        $baseUrl = $_SESSION['cms_update_base_url'] ?? '';
-
-        if (!$remote) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('No update data in session. Run "Check for Updates" first.'));
-        }
-
-        $result = _apply_cms_update($remote, $baseUrl, $currentVersion['version'] ?? '0.0.0');
-        unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url']);
-
-        if ($result['success']) {
-            adiwira_redirect_with_flash($base . '/?page=admin/update/index', 'success', $result['message']);
-        } else {
-            adiwira_redirect_with_flash($selfUrl, 'error', $result['message']);
-        }
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Use the new AJAX-based update flow.'));
     }
 
     // --- Upload update package ---
@@ -165,23 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- Apply update from uploaded ZIP ---
     if ($action === 'apply_uploaded') {
-        ensure_session_started(true);
-        $remote = $_SESSION['cms_update_remote'] ?? null;
-        $packageZip = $_SESSION['cms_update_package'] ?? '';
-
-        if (!$remote || !$packageZip || !is_file($packageZip)) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('No update package. Upload again.'));
-        }
-
-        $result = _apply_cms_update_from_zip($packageZip, $remote, $currentVersion['version'] ?? '0.0.0');
-        @unlink($packageZip);
-        unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_package'], $_SESSION['cms_update_remote_url']);
-
-        if ($result['success']) {
-            adiwira_redirect_with_flash($base . '/?page=admin/update/index', 'success', $result['message']);
-        } else {
-            adiwira_redirect_with_flash($selfUrl, 'error', $result['message']);
-        }
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Use the new AJAX-based update flow.'));
     }
 
     // --- Clear pending update ---
@@ -239,209 +226,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     adiwira_redirect_with_flash($selfUrl, 'error', __('Unknown action.'));
-}
-
-// --- Helper: remote download + apply ---
-function _apply_cms_update(array $remoteManifest, string $remoteUrl, string $currentVer): array {
-    $projectRoot = dirname(DASH_PATH);
-    $backupDir = $projectRoot . '/cfg/var/backup-' . date('Ymd-His');
-    $preservePatterns = _get_preserve_patterns();
-
-    try {
-        // Download update zip
-        $tmpZip = sys_get_temp_dir() . '/cms-update-' . bin2hex(random_bytes(8)) . '.zip';
-
-        $ctx = stream_context_create([
-            'http' => [
-                'timeout' => 120,
-                'user_agent' => 'JyavaniCMS-Update/' . $currentVer,
-            ],
-        ]);
-
-        $zipData = @file_get_contents($remoteUrl, false, $ctx);
-        if ($zipData === false) {
-            return ['success' => false, 'message' => __('Failed to download update package.')];
-        }
-
-        file_put_contents($tmpZip, $zipData);
-
-        $result = _apply_cms_update_from_zip($tmpZip, $remoteManifest, $currentVer);
-        @unlink($tmpZip);
-        return $result;
-
-    } catch (Throwable $e) {
-        return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
-    }
-}
-
-// --- Helper: apply update from zip ---
-function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, string $currentVer): array {
-    $projectRoot = dirname(DASH_PATH);
-    $backupDir = $projectRoot . '/cfg/var/backup-' . date('Ymd-His');
-
-    $zip = new ZipArchive();
-    if ($zip->open($zipPath) !== true) {
-        return ['success' => false, 'message' => __('Failed to open ZIP package.')];
-    }
-
-    $totalFiles = $zip->numFiles;
-    if ($totalFiles === 0) {
-        $zip->close();
-        return ['success' => false, 'message' => __('Update package is empty.')];
-    }
-
-    // Build list of remote files from manifest (null = no file-level filtering)
-    $remoteFiles = null;
-    if (isset($remoteManifest['files']) && is_array($remoteManifest['files'])) {
-        $remoteFiles = $remoteManifest['files'];
-    }
-    $preservePatterns = _get_preserve_patterns();
-
-    // Create backup dir
-    if (!is_dir($backupDir)) {
-        @mkdir($backupDir, 0755, true);
-    }
-
-    $updated = 0;
-    $backedUp = 0;
-    $errors = [];
-
-    // Extract all files from zip
-    for ($i = 0; $i < $totalFiles; $i++) {
-        $filename = $zip->getNameIndex($i);
-        if ($filename === false) continue;
-
-        // Skip directories
-        if (str_ends_with($filename, '/')) continue;
-
-        // Skip preserved paths
-        $isPreserved = false;
-        foreach ($preservePatterns as $pattern) {
-            if (preg_match($pattern, $filename)) {
-                $isPreserved = true;
-                break;
-            }
-        }
-        if ($isPreserved) continue;
-
-        // If manifest provides a file list, only update files listed in it
-        if ($remoteFiles !== null && !isset($remoteFiles[$filename])) continue;
-
-        $targetPath = $projectRoot . '/' . $filename;
-
-        // Backup existing file if it exists
-        if (is_file($targetPath)) {
-            $backupPath = $backupDir . '/' . $filename;
-            $backupParent = dirname($backupPath);
-            if (!is_dir($backupParent)) {
-                @mkdir($backupParent, 0755, true);
-            }
-            if (@copy($targetPath, $backupPath)) {
-                $backedUp++;
-            }
-        }
-
-        // Ensure target parent dir exists
-        $targetParent = dirname($targetPath);
-        if (!is_dir($targetParent)) {
-            @mkdir($targetParent, 0755, true);
-        }
-
-        // Extract file
-        $extracted = @file_put_contents($targetPath, $zip->getFromIndex($i));
-        if ($extracted === false) {
-            $errors[] = __('Failed to write:') . ' ' . $filename;
-        } else {
-            $updated++;
-        }
-    }
-
-    $zip->close();
-
-    // Delete files that exist locally but not in remote manifest
-    // (only when remote manifest provides a file list)
-    $deleted = 0;
-    if ($remoteFiles !== null) {
-        $localManifest = _get_local_manifest();
-        if ($localManifest) {
-            $localFiles = $localManifest['files'] ?? [];
-            foreach ($localFiles as $localRelPath => $hash) {
-                if (isset($remoteFiles[$localRelPath])) continue;
-                $isPreserved = false;
-                foreach ($preservePatterns as $pattern) {
-                    if (preg_match($pattern, $localRelPath)) {
-                        $isPreserved = true;
-                        break;
-                    }
-                }
-                if ($isPreserved) continue;
-                $localPath = $projectRoot . '/' . $localRelPath;
-                if (is_file($localPath)) {
-                    $backupPath = $backupDir . '/' . $localRelPath;
-                    $backupParent = dirname($backupPath);
-                    if (!is_dir($backupParent)) @mkdir($backupParent, 0755, true);
-                    @copy($localPath, $backupPath);
-                    @unlink($localPath);
-                    $deleted++;
-                }
-            }
-        }
-    }
-
-    // Update version.json
-    $newVersion = [
-        'name' => $remoteManifest['name'] ?? 'Jyavani CMS',
-        'version' => $remoteManifest['version'] ?? $currentVer,
-        'build' => $remoteManifest['build'] ?? date('Y-m-d'),
-        'php_required' => $remoteManifest['php_required'] ?? '8.1',
-        'mysql_required' => $remoteManifest['mysql_required'] ?? '5.7',
-    ];
-    file_put_contents($projectRoot . '/version.json', json_encode($newVersion, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-    // Regenerate local manifest
-    if (is_file($projectRoot . '/tools/generate-manifest.php')) {
-        @shell_exec('php ' . escapeshellarg($projectRoot . '/tools/generate-manifest.php') . ' 2>&1');
-    }
-
-    $msg = __('Update complete:') . ' ' . $updated . ' ' . __('files updated') . ', ' . $backedUp . ' ' . __('files backed up') . '.';
-    if (!empty($errors)) {
-        $msg .= ' Error: ' . implode('; ', array_slice($errors, 0, 5));
-    }
-    if (isset($deleted) && $deleted > 0) {
-        $msg .= ' ' . $deleted . ' ' . __('obsolete files removed') . '.';
-    }
-    $msg .= ' Backup: ' . basename($backupDir);
-
-    return ['success' => true, 'message' => $msg];
-}
-
-// --- Helper: get preserve regex patterns ---
-function _get_preserve_patterns(): array {
-    return [
-        '#^cfg/\.env$#',
-        '#^cfg/var/#',
-        '#^cfg/session_debug\.log$#',
-        '#^cfg/php-noteloc\.ini$#',
-        '#^private_files/#',
-        '#^public/static/img/#',
-        '#^public/static/files/#',
-        '#^public/sitemaps/#',
-        '#^public/pdf/#',
-        '#^public/views/themes/[^/]+/.+#',
-        '#^plugins/[^/]+/.+#',
-        '#^plugin-store/#',
-        '#node_modules/#',
-        '#\.git/#',
-        '#^\.gitignore$#',
-    ];
-}
-
-// --- Helper: load local manifest ---
-function _get_local_manifest(): ?array {
-    $f = dirname(DASH_PATH) . '/tools/cms-manifest.json';
-    if (!is_file($f)) return null;
-    $d = json_decode(file_get_contents($f), true);
-    return is_array($d) ? $d : null;
 }
 
 // --- Helper: hard reset DB settings ---
@@ -517,14 +301,16 @@ $pendingUpdate = $_SESSION['cms_update_remote'] ?? null;
 $pendingPackage = $_SESSION['cms_update_package'] ?? null;
 $pendingUrl = $_SESSION['cms_update_remote_url'] ?? $_SESSION['cms_update_base_url'] ?? '';
 
-// Suggest default update URL
-$defaultUpdateUrl = 'https://jyavani.com/download/latest/';
 
 // Compute file stats
 $totalCore = $localManifest['total_files'] ?? 0;
 ?>
 <h2 class="pg-title"><?=_e('CMS Update')?></h2>
 <p class="pg-subtitle"><?=_e('Version')?> <?= htmlspecialchars($currentVersion['version'] ?? '—') ?> &mdash; <?= htmlspecialchars($currentVersion['build'] ?? '') ?></p>
+
+<?php if ($isDevSelfCheck): ?>
+<div class="up-dev-notice"><?=__('This appears to be a development instance. The update URL points to this same server. Build and publish updates from here, then deploy to production.')?></div>
+<?php endif; ?>
 
 <div class="up-grid">
     <div class="up-card">
@@ -558,22 +344,14 @@ $totalCore = $localManifest['total_files'] ?? 0;
 </div>
 
 <?php if ($pendingUpdate): ?>
-<div class="up-card up-card-warning">
+<div class="up-card up-card-warning" id="pendingUpdateCard">
     <div class="up-card-header"><?=_e('Update Ready')?></div>
     <p><?=_e('Package:')?> <strong>v<?= htmlspecialchars($pendingUpdate['version'] ?? '?') ?></strong>
        &mdash; <?= ($pendingUpdate['total_files'] ?? 0) ?> <?=_e('file')?>
        &mdash; <?=_e('Source:')?> <?= htmlspecialchars($pendingUrl ?: __('uploaded')) ?></p>
 
     <div class="up-flex">
-        <form method="post" style="display:inline" onsubmit="return confirm(<?= json_encode(__('Apply update now? Files will be backed up automatically.')) ?>)">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-            <?php if ($pendingPackage): ?>
-                <input type="hidden" name="action" value="apply_uploaded">
-            <?php else: ?>
-                <input type="hidden" name="action" value="apply_update">
-            <?php endif; ?>
-            <button type="submit" class="btn btn-primary" style="background:#059669;border-color:#059669"><?=_e('Apply Update')?></button>
-        </form>
+        <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669" id="cmsApplyUpdateBtn"><?=_e('Apply Update')?></button>
         <form method="post" style="display:inline">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
             <input type="hidden" name="action" value="clear_pending">
@@ -660,6 +438,26 @@ $totalCore = $localManifest['total_files'] ?? 0;
     </div>
 </div>
 
+<!-- Confirm CMS Update modal -->
+<div class="adam-modal" id="cmsUpdateConfirmModal">
+    <div class="adam-modal__panel" style="max-width:440px">
+        <div class="adam-modal__title"><?=_e('Confirm Update')?></div>
+        <div class="adam-modal__text">
+            <p><?=_e('Apply update now? Files will be backed up automatically.')?></p>
+            <?php if ($pendingUpdate): ?>
+            <p style="margin-top:.5rem;font-size:.85rem;color:var(--adam-muted)">
+                v<?= htmlspecialchars($pendingUpdate['version'] ?? '?') ?>
+                &mdash; <?= ($pendingUpdate['total_files'] ?? 0) ?> <?=_e('file')?>
+            </p>
+            <?php endif; ?>
+        </div>
+        <div class="adam-modal__actions">
+            <button class="adam-btn adam-btn--ghost" onclick="closeCmsUpdateModal()"><?=_e('Cancel')?></button>
+            <button class="adam-btn" style="background:#059669;border-color:#059669;color:#fff" id="cmsUpdateApplyConfirmBtn"><?=_e('Yes, Apply Update')?></button>
+        </div>
+    </div>
+</div>
+
 <div class="up-card" style="margin-top:1.25rem">
     <div class="up-card-header"><?=_e('What Gets Updated')?></div>
     <p class="up-hint"><?=_e('Update only affects core CMS files. The following data will NOT be touched:')?></p>
@@ -730,6 +528,9 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
 .reset-cb label { display:flex; gap:.5rem; align-items:center; cursor:pointer; padding:.25rem .4rem; border-radius:6px; transition:background .12s; }
 .reset-cb label:hover { background:var(--adam-hover); }
 .reset-cb input[type=checkbox] { accent-color:var(--adam-danger); width:15px; height:15px; }
+.up-dev-notice { margin:-.5rem 0 1rem; padding:.6rem .75rem; border-radius:6px; font-size:.8rem; border:1px solid #f59e0b; background:#fffbeb; color:#92400e; }
+html.theme-dark .up-dev-notice { border-color:#d97706; background:#1a1500; color:#fbbf24; }
+@media (prefers-color-scheme: dark){ html:not(.theme-light):not(.theme-dark) .up-dev-notice { border-color:#d97706; background:#1a1500; color:#fbbf24; } }
 #resetApplyBtn:disabled { background:var(--adam-muted); border-color:var(--adam-border-2); color:#fff; cursor:not-allowed; opacity:1; }
 #resetApplyBtn:disabled:hover { background:var(--adam-muted); }
 </style>
@@ -822,10 +623,149 @@ function closeResetModal(){
     }
 })();
 
+// Progress overlay helpers
+var _cmsPollTimer = null;
+var _cmsToken = '';
+
+function closeCmsUpdateModal(){
+    var modal = document.getElementById('cmsUpdateConfirmModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function cmsUpdateProgressBar(pct, status) {
+    var bar = document.getElementById('cmsProgressBar');
+    var pctEl = document.getElementById('cmsProgressPct');
+    var detailEl = document.getElementById('cmsProgressDetail');
+    var statusEl = document.getElementById('cmsProgressStatus');
+    var spinner = document.getElementById('cmsProgressSpinner');
+    if (bar) bar.style.width = Math.min(pct, 100) + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (detailEl) detailEl.textContent = status || '';
+    if (pct >= 100 && statusEl) {
+        statusEl.textContent = '<?= __('Done!') ?>';
+        if (spinner) spinner.style.display = 'none';
+    }
+}
+
+function cmsShowProgress() {
+    var overlay = document.getElementById('cmsUpdateProgress');
+    if (!overlay) return;
+    cmsUpdateProgressBar(0, '<?= __('Starting...') ?>');
+    overlay.style.display = 'flex';
+}
+
+function cmsHideProgress() {
+    var overlay = document.getElementById('cmsUpdateProgress');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function cmsMakeToken() {
+    var hex = '0123456789abcdef';
+    var token = '';
+    for (var i = 0; i < 32; i++) token += hex[Math.floor(Math.random() * 16)];
+    return token;
+}
+
+function cmsStartUpdate() {
+    closeCmsUpdateModal();
+    var token = cmsMakeToken();
+    _cmsToken = token;
+    cmsShowProgress();
+    cmsUpdateProgressBar(1, '<?= __('Preparing...') ?>');
+
+    var baseUrl = '<?= $base ?>';
+    var progressUrl = '<?= $base ?>' + '/?page=admin/update/index&action=cms_read_progress&token=' + token;
+    var applyUrl = '<?= $base ?>' + '/?page=admin/update/update_apply';
+
+    _cmsPollTimer = setInterval(function() {
+        fetch(progressUrl, {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            cmsUpdateProgressBar(data.percentage || 0, data.status || '');
+            if (data.done || data.error) {
+                clearInterval(_cmsPollTimer);
+                _cmsPollTimer = null;
+                if (data.error) {
+                    setTimeout(function() {
+                        cmsHideProgress();
+                        alert('<?= __('Failed: ') ?>' + data.error);
+                    }, 1500);
+                } else {
+                    setTimeout(function() {
+                        window.location.href = '<?= $selfUrl ?>&cms_update_ok=1';
+                    }, 1500);
+                }
+            }
+        })
+        .catch(function() {});
+    }, 1500);
+
+    var formData = new FormData();
+    formData.append('csrf_token', '<?= h(csrf_token()) ?>');
+    formData.append('action', 'apply_update');
+    formData.append('token', token);
+
+    fetch(applyUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        },
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (!data.ok && data.error && !_cmsPollTimer) {
+            clearInterval(_cmsPollTimer);
+            _cmsPollTimer = null;
+            setTimeout(function() {
+                cmsHideProgress();
+                alert('<?= __('Failed: ') ?>' + data.error);
+            }, 1500);
+        }
+    })
+    .catch(function(err) {
+        clearInterval(_cmsPollTimer);
+        _cmsPollTimer = null;
+        setTimeout(function() {
+            cmsHideProgress();
+            alert('<?= __('Failed: ') ?>' + err.message);
+        }, 1500);
+    });
+}
+
+// Wire up the Apply Update button
+(function(){
+    var btn = document.getElementById('cmsApplyUpdateBtn');
+    if (btn) {
+        btn.addEventListener('click', function(e) {
+            var modal = document.getElementById('cmsUpdateConfirmModal');
+            if (modal) modal.style.display = 'flex';
+        });
+    }
+})();
+
+// Wire up the confirm button
+(function(){
+    var btn = document.getElementById('cmsUpdateApplyConfirmBtn');
+    if (btn) {
+        btn.addEventListener('click', function() {
+            cmsStartUpdate();
+        });
+    }
+})();
+
+// Show overlay on check_remote / upload_update POST submit
 (function(){
     var overlay = document.getElementById('cmsUpdateProgress');
     if (!overlay) return;
-    var actions = ['check_remote','apply_update','apply_uploaded','upload_update'];
+    var actions = ['check_remote', 'upload_update'];
     document.querySelectorAll('form').forEach(function(f){
         f.addEventListener('submit', function(){
             var inp = this.querySelector('input[name="action"]');
@@ -835,4 +775,13 @@ function closeResetModal(){
         });
     });
 })();
+
+// Flash success on ?cms_update_ok=1
+document.addEventListener('DOMContentLoaded', function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('cms_update_ok') === '1' && window.NewNotifToast) {
+        NewNotifToast.success('<?= __('Update applied successfully!') ?>');
+        window.history.replaceState({}, '', '<?= $selfUrl ?>');
+    }
+});
 </script>
