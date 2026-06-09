@@ -22,7 +22,7 @@ if (!defined('ADAM_THEME')) {
                  aria-live="polite"
                  tabindex="-1">
                 <div class="adam-flash-inner">
-                    <span class="adam-flash-icon" aria-hidden="true">✅</span>
+                    <span class="adam-flash-icon" aria-hidden="true"><?= svg_ico('circle-check', '', ['style' => 'width:20px;height:20px']) ?></span>
                     <div class="adam-flash-body">
                         <?= htmlspecialchars($flash_success, ENT_QUOTES, 'UTF-8') ?>
                     </div>

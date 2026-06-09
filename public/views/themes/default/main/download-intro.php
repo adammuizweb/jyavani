@@ -61,9 +61,7 @@
   font-size: .95rem;
 }
 .dl-features li::before {
-  content: "✓ ";
-  color: var(--accent, #2563eb);
-  font-weight: 700;
+  display: none;
 }
 .dl-tech {
   text-align: center;
@@ -87,16 +85,16 @@
 <section class="dl-features">
   <h2><?= __('Features') ?></h2>
   <ul>
-    <li><?= __('No framework — pure PHP 8') ?></li>
-    <li><?= __('Admin panel outside public root') ?></li>
-    <li><?= __('Custom login & register path') ?></li>
-    <li><?= __('Theme system with slot rendering') ?></li>
-    <li><?= __('Plugin system with uploader') ?></li>
-    <li><?= __('Private file & media streaming') ?></li>
-    <li><?= __('Shortcode engine (widget, video, PDF)') ?></li>
-    <li><?= __('Custom permalink structures') ?></li>
-    <li><?= __('Multi-zone sidebar') ?></li>
-    <li><?= __('MariaDB / MySQL') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('No framework — pure PHP 8') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Admin panel outside public root') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Custom login & register path') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Theme system with slot rendering') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Plugin system with uploader') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Private file & media streaming') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Shortcode engine (widget, video, PDF)') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Custom permalink structures') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('Multi-zone sidebar') ?></li>
+    <li><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px;color:var(--accent)']) ?> <?= __('MariaDB / MySQL') ?></li>
   </ul>
 </section>
 

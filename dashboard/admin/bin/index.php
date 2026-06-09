@@ -95,7 +95,7 @@ $items = [
         'desc' => __('Trash for articles (posts type=article).'),
         'count' => $countArticle,
         'href' => $base . '/?page=admin/bin/article/index',
-        'emoji' => '📝',
+        'svg' => 'file-text',
     ],
     [
         'key' => 'page',
@@ -103,7 +103,7 @@ $items = [
         'desc' => __('Trash for pages (posts type=page).'),
         'count' => $countPage,
         'href' => $base . '/?page=admin/bin/page/index',
-        'emoji' => '📄',
+        'svg' => 'file',
     ],
     [
         'key' => 'category',
@@ -111,7 +111,7 @@ $items = [
         'desc' => __('Trash for categories.'),
         'count' => $countCat,
         'href' => $base . '/?page=admin/bin/category/index',
-        'emoji' => '🏷️',
+        'svg' => 'tag',
     ],
     [
         'key' => 'theme',
@@ -119,7 +119,7 @@ $items = [
         'desc' => __('Trash for themes/partials (posts type=theme).'),
         'count' => $countTheme,
         'href' => $base . '/?page=admin/bin/theme/index',
-        'emoji' => '🎨',
+        'svg' => 'palette',
     ],
     [
         'key' => 'users',
@@ -127,7 +127,7 @@ $items = [
         'desc' => __('Trash for deleted users (soft delete).'),
         'count' => $countUsers,
         'href' => $base . '/?page=admin/bin/users/index',
-        'emoji' => '👤',
+        'svg' => 'user',
     ],
 ];
 
@@ -332,7 +332,7 @@ $show_inline_errors = !empty($errors) && !function_exists('adiwira_bootstrap_toa
     ?>
       <article class="binhub-card">
         <div class="binhub-row">
-          <div class="binhub-icon"><?= htmlspecialchars($it['emoji'], ENT_QUOTES, 'UTF-8') ?></div>
+          <div class="binhub-icon"><?= svg_ico($it['svg'], '', ['style' => 'width:20px;height:20px']) ?></div>
           <div class="binhub-title"><?= htmlspecialchars($it['title'], ENT_QUOTES, 'UTF-8') ?></div>
           <span class="binhub-count"><?= (int)$it['count'] ?></span>
         </div>

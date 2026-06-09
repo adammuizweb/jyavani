@@ -145,7 +145,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <?php if ($isAdmin): ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ <?=_e('Trash')?></a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -238,7 +238,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               <td><?= htmlspecialchars(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$t['created_at']) : (string)$t['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
 
                 <?php if ($isAdmin): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
@@ -247,7 +247,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?=_e('Delete')?>
+                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>

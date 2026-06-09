@@ -232,7 +232,7 @@ function auth_path_example(string $path): string {
 
   <?php if ($show_inline_success): ?>
     <div class="adam-success" style="margin:10px 0;">
-      ✅ <?= htmlspecialchars($success_msg, ENT_QUOTES, 'UTF-8') ?>
+      <?= svg_ico('circle-check') ?> <?= htmlspecialchars($success_msg, ENT_QUOTES, 'UTF-8') ?>
     </div>
   <?php endif; ?>
 

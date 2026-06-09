@@ -327,7 +327,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="theme-meta-body">
-        ⚙️ <?=_e('Post Settings')?> <span class="chevron">▸</span>
+        <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Post Settings')?> <span class="chevron">▸</span>
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
@@ -406,7 +406,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </label>
 
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 <?=_e('Sidebar Position')?></div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
         <option value="right"><?=_e('Right')?></option>

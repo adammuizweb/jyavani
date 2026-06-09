@@ -25,11 +25,7 @@ if (defined('THEME_HELPER_INCLUDED')) {
 }
 define('THEME_HELPER_INCLUDED', true);
 
-if (!defined('THEME_DEBUG')) define('THEME_DEBUG', true);
-if (THEME_DEBUG) {
-    @ini_set('display_errors', '1');
-    @error_reporting(E_ALL);
-}
+if (!defined('THEME_DEBUG')) define('THEME_DEBUG', function_exists('app_debug_enabled') ? app_debug_enabled() : false);
 
 if (!defined('PUBLIC_PATH')) {
     define('PUBLIC_PATH', realpath(__DIR__) ?: __DIR__);

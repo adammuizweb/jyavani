@@ -125,7 +125,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
 
   <?php if ($show_inline_success): ?>
     <div style="background:var(--adam-success);color:#fff;padding:10px 14px;border-radius:var(--adam-radius);margin-bottom:14px;font-size:14px;">
-      ✅ <?= htmlspecialchars($success_msg, ENT_QUOTES, 'UTF-8') ?>
+      <?= svg_ico('circle-check') ?> <?= htmlspecialchars($success_msg, ENT_QUOTES, 'UTF-8') ?>
     </div>
   <?php endif; ?>
 
@@ -223,7 +223,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
   </form>
 
   <div style="background:var(--adam-surface-3);border-radius:var(--adam-radius);padding:14px 16px;font-size:12px;color:var(--adam-muted);line-height:1.7;">
-    <strong style="font-size:13px;">📋 <?=_e('Override Priority (highest → lowest)')?></strong>
+    <strong style="font-size:13px;"><?= svg_ico('rows-3', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Override Priority (highest → lowest)')?></strong>
     <ol style="margin:6px 0 0;padding-left:20px;">
       <li><strong>Z — <?=_e('Master')?></strong> — <?=_e('global enable/disable. Turn off to disable sidebar on all pages.')?></li>
       <li><strong>C — <?=_e('Per Content')?></strong> — <?=_e('set position or hide sidebar for specific articles/pages (from editor).')?></li>

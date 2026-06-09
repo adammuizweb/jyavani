@@ -291,7 +291,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-        ⚙️ <?=_e('Page Settings')?>
+        <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Page Settings')?>
         <span class="chevron">▸</span>
       </button>
 
@@ -351,7 +351,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
     <?php endif; ?>
 
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem">📐 <?=_e('Sidebar Position')?></div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
         <option value="right" <?= (($_POST['sidebar_override'] ?? '') === 'right') ? 'selected' : '' ?>><?=_e('Right')?></option>

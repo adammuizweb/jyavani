@@ -59,7 +59,7 @@ $year = date('Y');
 
     <!-- Baris 2: Copyright -->
     <div class="footer-row-bottom">
-      <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load"><?= _e('©') ?> <span id="year"></span> Jyavani. <?= _e('All rights reserved.') ?></div>
+      <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load"><?= _e('©') ?> <span id="year"></span> Jyavani. <?= _e('Released under MIT License.') ?></div>
     </div>
   </div>
 </footer>

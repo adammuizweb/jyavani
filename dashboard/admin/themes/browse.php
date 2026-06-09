@@ -185,7 +185,7 @@ if (isset($_GET['refresh'])) {
 
 <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
   <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?=_e('&larr; Back to Theme Manager')?></a>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ <?=_e('Reload')?></a>
+  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);display:inline-flex;align-items:center;gap:4px"><?= svg_ico('refresh-cw', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Reload')?></a>
 </div>
 
 <?php if ($error): ?>
@@ -237,7 +237,7 @@ if (isset($_GET['refresh'])) {
         <?php if ($hasUpdate): ?>
         <a href="<?= h($listUrl) ?>" class="btn btn-sm btn-update">Update Tersedia</a>
         <?php else: ?>
-        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5">✓ Terpasang</span>
+        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> Terpasang</span>
         <?php endif; ?>
       <?php else: ?>
       <form method="post" style="display:inline">

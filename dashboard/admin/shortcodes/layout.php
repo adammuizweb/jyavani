@@ -71,14 +71,14 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
     <?php endif; ?>
 
     <div class="form-toolbar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;">
-      <button type="submit" class="adam-button" id="btn-save"><?= $isNew ? '💾 ' . __('Save') : '💾 ' . __('Save Changes') ?></button>
+      <button type="submit" class="adam-button" id="btn-save"><?= svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?= $isNew ? __('Save') : __('Save Changes') ?></button>
       <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
     </div>
 
     <?php if ($isNew): ?>
       <div class="adam-accordion" data-open="1">
         <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="layout-meta-body">
-          ⚙️ <?=_e('Layout Settings')?>
+          <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Layout Settings')?>
           <span class="chevron">▸</span>
         </button>
         <div class="adam-accordion-body" id="layout-meta-body">
@@ -192,7 +192,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = oldLabel || '<?= $isNew ? '💾 ' . __('Save') : '💾 ' . __('Save Changes') ?>';
+        btn.textContent = oldLabel || '<?= $isNew ? __('Save') : __('Save Changes') ?>';
       }
     }
   }

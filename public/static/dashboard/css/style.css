@@ -3746,3 +3746,52 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   transition: width .3s ease;
 }
 .progress-pct { font-size: 12px; color: var(--adam-muted, #6b7280); margin-top: 8px; }
+
+/* lucide icon base */
+.adam-svg-icon{
+  width:22px;
+  height:22px;
+  display:block;
+  color: var(--adam-icon-color);
+  opacity:.96;
+  transform: translateZ(0);
+  transition:
+    color .28s ease,
+    opacity .28s ease,
+    transform .35s cubic-bezier(.2,.8,.2,1),
+    filter .28s ease;
+}
+.adam-svg-icon--sm{
+  width:18px;
+  height:18px;
+}
+.adam-svg-icon *{
+  vector-effect: non-scaling-stroke;
+  transition:
+    stroke .28s ease,
+    fill .28s ease,
+    opacity .28s ease,
+    transform .35s cubic-bezier(.2,.8,.2,1);
+}
+
+/* smooth icon hover — lucide */
+.adam-nav-link .adam-svg-icon,
+.adam-nav-sublink .adam-svg-icon{
+  transition:scale .18s ease, rotate .18s ease, filter .18s ease, opacity .15s ease;
+}
+.adam-nav-link:hover .adam-svg-icon,
+.adam-nav-sublink:hover .adam-svg-icon{
+  scale:1.18;
+  filter:drop-shadow(0 0 5px var(--adam-icon-active));
+  opacity:.9;
+}
+.adam-nav-link--active .adam-svg-icon{
+  scale:1.1;
+  filter:drop-shadow(0 0 6px var(--adam-icon-active));
+}
+@media (prefers-reduced-motion: reduce){
+  .adam-nav-link .adam-svg-icon,
+  .adam-nav-sublink .adam-svg-icon{ transition:none!important; }
+  .adam-nav-link:hover .adam-svg-icon,
+  .adam-nav-sublink:hover .adam-svg-icon{ scale:1; filter:none; }
+}

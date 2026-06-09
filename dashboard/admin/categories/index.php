@@ -320,7 +320,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Category')?></a>
     <?php if ($role === 'admin') : ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>">🗑️ <?=_e('Trash')?></a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:3px']) ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -378,9 +378,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
             $levelClass = 'cat-level-' . min($depth, 3);
             $icon = match ($depth) {
-              0 => '📁',
-              1 => '📂',
-              default => '📄',
+              0 => svg_ico('folder', 'cat-svg-icon'),
+              1 => svg_ico('folder-open', 'cat-svg-icon'),
+              default => svg_ico('file-text', 'cat-svg-icon'),
             };
             $indentHtml = '<span class="cat-indent ' . $levelClass . '">' . $icon . '</span>';
 
@@ -419,7 +419,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               </td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
                 <?php if ($canDelete): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button"
@@ -427,7 +427,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                           data-id="<?= $catId ?>"
                           data-name="<?= htmlspecialchars((string)($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?=_e('Delete')?>
+                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>

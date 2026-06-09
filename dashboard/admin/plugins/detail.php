@@ -66,7 +66,7 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
           <?php if ($c['command']): ?>
             <div class="check-command">
               <code><?= h($c['command']) ?></code>
-              <button type="button" class="btn-copy btn btn-xs btn-ghost" data-cmd="<?= h($c['command']) ?>" title="<?=_e('Copy command')?>">&#128203;</button>
+              <button type="button" class="btn-copy btn btn-xs btn-ghost" data-cmd="<?= h($c['command']) ?>" title="<?=_e('Copy command')?>"><?= svg_ico('rows-3', '', ['style' => 'width:12px;height:12px']) ?></button>
             </div>
           <?php endif; ?>
           <?php if ($c['doc']): ?>
@@ -168,7 +168,7 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
       btn.textContent = '\u2713';
       btn.classList.add('copied');
       setTimeout(function() {
-        btn.textContent = '\uD83D\uDCCB';
+        btn.textContent = 'Copy';
         btn.classList.remove('copied');
       }, 2000);
     }
@@ -184,7 +184,7 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
           btn.textContent = '\u2713';
           btn.classList.add('copied');
           setTimeout(function() {
-            btn.textContent = '\uD83D\uDCCB';
+            btn.textContent = 'Copy';
             btn.classList.remove('copied');
           }, 2000);
         }).catch(function() {

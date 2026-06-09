@@ -24,7 +24,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Website',
         'href'  => $base . '/?page=admin/settings/site',
-        'icon'  => '🌐',
+        'icon'  => 'globe',
         'desc'  => __('Manage site title and default website host.'),
         'badge' => 'Admin',
     ];
@@ -32,7 +32,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Sidebar',
         'href'  => $base . '/?page=admin/settings/sidebar',
-        'icon'  => '📐',
+        'icon'  => 'columns-2',
         'desc'  => __('Manage sidebar global enable/disable and default position.'),
         'badge' => 'Admin',
     ];
@@ -40,7 +40,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Sidebar Widgets',
         'href'  => $base . '/?page=admin/sidebar/index',
-        'icon'  => '🧩',
+        'icon'  => 'puzzle',
         'desc'  => __('Create multiple sidebar zones, manage widgets in each zone, select primary zone.'),
         'badge' => 'Admin',
     ];
@@ -48,7 +48,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Menus',
         'href'  => $base . '/?page=admin/menus/index',
-        'icon'  => '📋',
+        'icon'  => 'rows-3',
         'desc'  => __('Manage website navigation menus.'),
         'badge' => 'Admin',
     ];
@@ -56,7 +56,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Shortcodes',
         'href'  => $base . '/?page=admin/shortcodes/index&tab=presets',
-        'icon'  => '🔌',
+        'icon'  => 'braces',
         'desc'  => __('Create and manage shortcode presets for widgets.'),
         'badge' => 'Admin',
     ];
@@ -64,7 +64,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Sign Up & Sign In',
         'href'  => $base . '/?page=admin/settings/auth',
-        'icon'  => '🔐',
+        'icon'  => 'lock',
         'desc'  => __('Manage registration, login path, reCAPTCHA, and anti brute-force.'),
         'badge' => 'Admin',
     ];
@@ -73,7 +73,7 @@ if ($isAdmin) {
 $items[] = [
     'label' => 'Profile',
     'href'  => $base . '/?page=admin/profile/index',
-    'icon'  => '🧑',
+    'icon'  => 'user',
     'desc'  => __('Manage your profile, photo, bio, and password.'),
     'badge' => null,
 ];
@@ -82,7 +82,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Users',
         'href'  => $base . '/?page=admin/users/index',
-        'icon'  => '👥',
+        'icon'  => 'users',
         'desc'  => __('Manage user accounts and dashboard access roles.'),
         'badge' => 'Admin',
     ];
@@ -90,7 +90,7 @@ if ($isAdmin) {
     $items[] = [
         'label' => 'Bin',
         'href'  => $base . '/?page=admin/bin/index',
-        'icon'  => '🗑️',
+        'icon'  => 'trash-2',
         'desc'  => __('View deleted items and manage trash system.'),
         'badge' => 'Admin',
     ];
@@ -176,8 +176,12 @@ if ($isAdmin) {
   border-radius:12px;
   background:var(--adam-primary-soft);
   color:var(--adam-primary);
-  font-size:1.15rem;
   flex:0 0 auto;
+}
+.settingshub-icon .lucide-icon{
+  width:22px;
+  height:22px;
+  stroke-width:1.8;
 }
 
 .settingshub-label{
@@ -255,7 +259,7 @@ if ($isAdmin) {
       <a class="settingshub-card"
          href="<?= htmlspecialchars($it['href'], ENT_QUOTES, 'UTF-8') ?>">
         <div class="settingshub-row">
-          <div class="settingshub-icon"><?= htmlspecialchars($it['icon'], ENT_QUOTES, 'UTF-8') ?></div>
+          <div class="settingshub-icon"><?= svg_ico($it['icon']) ?></div>
           <div class="settingshub-label"><?= htmlspecialchars($it['label'], ENT_QUOTES, 'UTF-8') ?></div>
           <?php if (!empty($it['badge'])): ?>
             <span class="settingshub-badge"><?= htmlspecialchars($it['badge'], ENT_QUOTES, 'UTF-8') ?></span>

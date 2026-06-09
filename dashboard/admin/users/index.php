@@ -243,7 +243,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
               <td><?= htmlspecialchars($u['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
 
                 <?php if (!$isSelf): ?>
                   &nbsp;|&nbsp;
@@ -262,7 +262,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
                           data-id="<?= (int)$u['id'] ?>"
                           data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?=_e('Delete')?>
+                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>

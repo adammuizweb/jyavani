@@ -132,7 +132,7 @@ if ($layoutDir && is_dir($layoutDir)) {
     <input type="hidden" name="config_json" id="config-json" value="">
 
     <div class="form-toolbar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;">
-      <button type="submit" class="adam-button" id="btn-save"><?= $isEdit ? '💾 ' . __('Save Changes') : '💾 ' . __('Save') ?></button>
+      <button type="submit" class="adam-button" id="btn-save"><?= svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?= $isEdit ? __('Save Changes') : __('Save') ?></button>
       <a href="<?= h($return_to) ?>" class="adam-cancle"><?=_e('Cancel')?></a>
       <div style="margin-left:auto;font-size:.9rem;color:var(--adam-muted,#555);">
         <?php if ($isEdit): ?>
@@ -143,7 +143,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" id="sc-general-accordion" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-general-body">
-        ⚙️ <?=_e('Preset Settings')?>
+        <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Preset Settings')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-general-body">
@@ -165,7 +165,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" id="sc-filter-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-filter-body">
-        🔍 <?=_e('Content Filter')?>
+        <?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Content Filter')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-filter-body">
@@ -221,7 +221,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-order-body">
-        📊 <?=_e('Order & Date')?>
+        <?= svg_ico('chart-bar', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Order & Date')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-order-body">
@@ -265,7 +265,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
     <div class="adam-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-layout-body">
-        🎨 <?=_e('Display (Layout)')?>
+        <?= svg_ico('palette', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Display (Layout)')?>
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-layout-body">

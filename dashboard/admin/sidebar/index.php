@@ -520,7 +520,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
   </form>
 
   <div style="background:var(--adam-surface-3);border-radius:var(--adam-radius);padding:14px 16px;font-size:12px;color:var(--adam-muted);line-height:1.7;margin-top:20px;">
-    <strong style="font-size:13px;">📖 <?=_e('How to Use Sidebar Zones')?></strong>
+    <strong style="font-size:13px;"><?= svg_ico('book-open', '', ['style' => 'width:14px;height:14px;vertical-align:middle']) ?> <?=_e('How to Use Sidebar Zones')?></strong>
     <ol style="margin:6px 0 0;padding-left:20px;">
       <li><strong><?=_e('Create Zone')?></strong> — <?=_e('click')?> <strong>+ <?=_e('New Zone')?></strong> <?=_e('to create a new sidebar zone (e.g. Main, Alt, Footer).')?></li>
       <li><strong><?=_e('Select Primary')?></strong> — <?=_e('zone marked with')?> <strong>★</strong> <?=_e('is')?> <strong><?=_e('primary')?></strong> <?=_e('and will appear on the front page. Use the')?> <strong><?=_e('Make Primary')?></strong> <?=_e('button to change it.')?></li>

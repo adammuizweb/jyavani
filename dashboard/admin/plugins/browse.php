@@ -243,7 +243,7 @@ if (isset($_GET['refresh'])) {
 
 <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
   <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?=_e('&larr; Back to Installed Plugins')?></a>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)">↻ <?=_e('Refresh')?></a>
+  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);display:inline-flex;align-items:center;gap:4px"><?= svg_ico('refresh-cw', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Refresh')?></a>
 </div>
 
 <?php if ($error): ?>
@@ -286,7 +286,7 @@ if (isset($_GET['refresh'])) {
         <?php if ($hasUpdate): ?>
         <a href="<?= h($listUrl) ?>" class="btn btn-sm btn-update"><?=_e('Update Available')?></a>
         <?php else: ?>
-        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5">✓ <?=_e('Installed')?></span>
+        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Installed')?></span>
         <?php endif; ?>
       <?php else: ?>
       <form method="post" style="display:inline-flex;gap:3px">

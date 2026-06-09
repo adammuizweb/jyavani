@@ -79,5 +79,5 @@ if (!defined('ADMIN_BASE_PATH')) {
 if (!isset($pdo) || !$pdo) {
     http_response_code(500);
     // Keep message concise for dev; in production DON'T expose DB details
-    die("❌ " . __('Backend failed to bootstrap. Make sure database and environment configuration is correct.'));
+    die(svg_ico('circle-x', '', ['style' => 'width:16px;height:16px;vertical-align:middle']) . ' ' . __('Backend failed to bootstrap. Make sure database and environment configuration is correct.'));
 }

@@ -210,7 +210,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-          ⚙️ Pengaturan Category
+          <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> Pengaturan Category
           <span class="chevron">▸</span>
       </button>
 

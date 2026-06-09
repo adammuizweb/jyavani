@@ -150,7 +150,7 @@ $walk(0, 0);
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-          ⚙️ <?=_e('Category Settings')?>
+          <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Category Settings')?>
           <span class="chevron">▸</span>
       </button>
 

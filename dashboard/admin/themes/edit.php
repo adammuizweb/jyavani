@@ -80,7 +80,7 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="form-toolbar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;">
-      <button type="submit" class="adam-button" id="btn-save">💾 <?=_e('Save Changes')?></button>
+      <button type="submit" class="adam-button" id="btn-save"><?= svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Save Changes')?></button>
       <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
 
       <div style="margin-left:auto;font-size:.9rem;color:#555;">
@@ -96,7 +96,7 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-        ⚙️ <?=_e('Theme Settings')?>
+        <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Theme Settings')?>
         <span class="chevron">▸</span>
       </button>
 
@@ -239,7 +239,7 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.textContent = oldLabel || '💾 <?=__('Save Changes')?>';
+        saveBtn.innerHTML = oldLabel || '<?= svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=__('Save Changes')?>';
       }
     }
   }

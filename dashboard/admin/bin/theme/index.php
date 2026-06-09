@@ -234,7 +234,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?=_e('Restore')?>
+                    <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
                   </button>
 
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
@@ -244,7 +244,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?=_e('Delete Permanently')?>
+                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
                   </button>
                 </td>
               </tr>

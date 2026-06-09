@@ -379,7 +379,7 @@ $imgSrcRaw = !empty($post['display_image'])
          class="adam-thumb--linked"
          aria-label="<?= sprintf(__('Open material: %s'), $imgAlt) ?>">
         <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>" loading="lazy">
-        <div class="adam-thumb-badge">📄 <?= htmlspecialchars((string)($typeLabel ?? __('Material')), ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="adam-thumb-badge"><?= svg_ico('file-text', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:4px']) ?> <?= htmlspecialchars((string)($typeLabel ?? __('Material')), ENT_QUOTES, 'UTF-8') ?></div>
         <div class="adam-thumb-overlay" aria-hidden="true"><div class="adam-thumb-cta"><?= __('View Material') ?></div></div>
         <span class="adam-thumb-bottom" aria-hidden="false"><?= __('Open Material') ?></span>
       </a>

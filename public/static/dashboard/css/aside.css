@@ -203,6 +203,22 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
   transform: scale(1);
 }
 
+/* smooth icon hover — lucide */
+.adam-nav-link .adam-svg-icon,
+.adam-nav-sublink .adam-svg-icon{
+  transition:scale .18s ease, rotate .18s ease, filter .18s ease, opacity .15s ease;
+}
+.adam-nav-link:hover .adam-svg-icon,
+.adam-nav-sublink:hover .adam-svg-icon{
+  scale:1.18;
+  filter:drop-shadow(0 0 5px var(--adam-icon-active));
+  opacity:.9;
+}
+.adam-nav-link--active .adam-svg-icon{
+  scale:1.1;
+  filter:drop-shadow(0 0 6px var(--adam-icon-active));
+}
+
 /* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .adam-svg-icon,

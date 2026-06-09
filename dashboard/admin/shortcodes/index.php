@@ -57,7 +57,7 @@ if ($layoutDir && is_dir($layoutDir)) {
     <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/edit') ?>"><?=_e('+ Add Preset')?></a>
     <?php if ($isAdmin): ?>
       &nbsp;&nbsp;
-      <a class="adam-att" href="<?= h($base . '/?page=admin/bin/index') ?>">🗑️ <?=_e('Trash')?></a>
+      <a class="adam-att" href="<?= h($base . '/?page=admin/bin/index') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:3px']) ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </p>
 
@@ -88,9 +88,9 @@ if ($layoutDir && is_dir($layoutDir)) {
               <td><span class="adam-status <?= h($stClass) ?>"><span class="adam-status-text"><?= h(ucfirst($st)) ?></span></span></td>
               <td><?= h(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$p['created_at']) : (string)$p['created_at']) ?></td>
               <td>
-                <a class="adam-ubah" href="<?= h($editHref) ?>"><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= h($editHref) ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
-                <button type="button" class="adam-hapus js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>"><?=_e('Delete')?></button>
+                <button type="button" class="adam-hapus js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>"><?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?></button>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -136,10 +136,10 @@ if ($layoutDir && is_dir($layoutDir)) {
               <td><code><?= h($layoutName) ?></code></td>
               <td><?= $fsizeStr ?></td>
               <td>
-                <a class="adam-ubah" href="<?= h($editHref) ?>"><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= h($editHref) ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
                 <?php if (!in_array($layoutName, ['cards', 'list', 'card2', 'sliderpage'], true)): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
-                  <button type="button" class="adam-hapus js-layout-delete" data-file="<?= h($f) ?>" data-name="<?= h($layoutName) ?>"><?=_e('Delete')?></button>
+                  <button type="button" class="adam-hapus js-layout-delete" data-file="<?= h($f) ?>" data-name="<?= h($layoutName) ?>"><?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?></button>
                 <?php endif; ?>
               </td>
             </tr>
