@@ -46,6 +46,23 @@ if (is_file($manifestFile)) {
     $localManifest = json_decode(file_get_contents($manifestFile), true);
 }
 
+// Pre-flight permission check — warn if www-data can't write key paths
+$permErrors = [];
+$permTestPaths = [
+    'version.json',
+    'tools/cms-manifest.json',
+    'app/bootstrap_core.php',
+    'public/router.php',
+    'cfg/var',
+];
+$projectRoot = dirname(DASH_PATH);
+foreach ($permTestPaths as $rel) {
+    $abs = $projectRoot . '/' . $rel;
+    if (file_exists($abs) && !is_writable($abs)) {
+        $permErrors[] = $rel;
+    }
+}
+
 // --- Handle actions ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
@@ -310,6 +327,19 @@ $totalCore = $localManifest['total_files'] ?? 0;
 
 <?php if ($isDevSelfCheck): ?>
 <div class="up-dev-notice"><?=__('This appears to be a development instance. The update URL points to this same server. Build and publish updates from here, then deploy to production.')?></div>
+<?php endif; ?>
+
+<?php if (!empty($permErrors)): ?>
+<div class="up-card" style="margin-bottom:1rem;border-color:var(--adam-danger)">
+    <div class="up-card-header" style="color:var(--adam-danger)"><?=_e('Permission Warning')?></div>
+    <p class="up-hint"><?=_e('The following paths are not writable by the web server process. The update will fail.')?></p>
+    <ul style="margin:.5rem 0;padding-left:1.25rem">
+        <?php foreach ($permErrors as $p): ?>
+        <li style="margin-bottom:.25rem"><code><?= htmlspecialchars($p) ?></code></li>
+        <?php endforeach; ?>
+    </ul>
+    <p class="up-hint"><?=_e('Fix:')?> <code>sudo chgrp -R www-data <?= htmlspecialchars($projectRoot) ?> && sudo chmod -R g+w <?= htmlspecialchars($projectRoot) ?></code></p>
+</div>
 <?php endif; ?>
 
 <div class="up-grid">
