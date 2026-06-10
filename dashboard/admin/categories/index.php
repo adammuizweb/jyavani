@@ -503,7 +503,111 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       }
     }
     return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
-...
+  }
+
+  function checkedCount(){
+    return document.querySelectorAll('.bulkCheckboxCategory:checked').length;
+  }
+
+  function getBulkSummary(){
+    const action = bulkAction ? bulkAction.value : '';
+    const count = checkedCount();
+
+    if (!action) {
+      return { ok:false, message: <?= json_encode(__('Select a bulk action first.')) ?> };
+    }
+
+    if (count < 1) {
+      return { ok:false, message: <?= json_encode(__('Select at least one category.')) ?> };
+    }
+
+    if (action === 'delete') {
+      return {
+        ok: true,
+        variant: 'danger',
+        title: <?= json_encode(__('Delete selected categories')) ?>,
+        message: <?= json_encode(__('')) ?> + count + '<?=__(' categories will be moved to trash. Continue?')?>',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>
+      };
+    }
+
+    if (action === 'change_parent') {
+      return {
+        ok: true,
+        variant: 'warning',
+        title: <?= json_encode(__('Change parent category')) ?>,
+        message: <?= json_encode(__('Change parent of ')) ?> + count + '<?=__(' categories?')?>',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
+      };
+    }
+
+    return {
+      ok: true,
+      variant: 'warning',
+      title: <?= json_encode(__('Confirm bulk action')) ?>,
+      message: <?= json_encode(__('Execute action for ')) ?> + count + '<?=__(' categories?')?>',
+      confirmText: <?= json_encode(__('Proceed')) ?>
+    };
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function(){
+      const checked = !!this.checked;
+      document.querySelectorAll('.bulkCheckboxCategory').forEach(function(cb){
+        cb.checked = checked;
+      });
+    });
+  }
+
+  if (bulkAction) {
+    bulkAction.addEventListener('change', function(){
+      if (bulkParent) {
+        bulkParent.style.display = (this.value === 'change_parent') ? 'inline-block' : 'none';
+      }
+    });
+  }
+
+  document.querySelectorAll('.js-category-delete').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const id = this.getAttribute('data-id') || '';
+      const name = this.getAttribute('data-name') || '<?=__('this category')?>';
+      const returnTo = this.getAttribute('data-return-to') || '';
+
+      ask('danger', {
+        title: <?= json_encode(__('Delete confirmation')) ?>,
+        message: <?= json_encode(__('Delete category "')) ?> + name + '<?=__('"? Category will be moved to trash.')?>',
+        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
+      }).then(function(ok){
+        if (!ok) return;
+        if (!deleteForm || !deleteIdInput) return;
+        deleteIdInput.value = id;
+        if (deleteReturnTo) deleteReturnTo.value = returnTo;
+        deleteForm.submit();
+      });
+    });
+  });
+
+  if (bulkForm) {
+    let bulkConfirmed = false;
+
+    bulkForm.addEventListener('submit', function(ev){
+      if (bulkConfirmed) {
+        bulkConfirmed = false;
+        return;
+      }
+
+      ev.preventDefault();
+      const summary = getBulkSummary();
+
+      if (!summary.ok) {
+        toast('error', summary.message, <?= json_encode(__('Bulk action failed')) ?>);
+        return;
+      }
+
+      ask(summary.variant || 'warning', {
+        title: summary.title,
+        message: summary.message,
         confirmText: summary.confirmText || '<?=__('Continue')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
