@@ -33,7 +33,7 @@ $isDevSelfCheck = $localHost !== '' && strcasecmp($updateHost ?: '', $localHost)
 
 // Load current version
 $versionFile = dirname(DASH_PATH) . '/version.json';
-$currentVersion = ['version' => '0.0.0', 'name' => 'Jyavani CMS', 'build' => ''];
+$currentVersion = ['version' => '0.0.0', 'name' => 'Jyavani CMS', 'build' => '', 'edition' => ''];
 if (is_file($versionFile)) {
     $v = json_decode(file_get_contents($versionFile), true);
     if (is_array($v)) $currentVersion = array_merge($currentVersion, $v);
@@ -348,6 +348,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <table class="up-table">
             <tr><td><?=_e('CMS')?></td><td><strong><?= htmlspecialchars($currentVersion['name'] ?? 'Jyavani CMS') ?></strong></td></tr>
             <tr><td><?=_e('Version')?></td><td><strong>v<?= htmlspecialchars($currentVersion['version'] ?? '0.0.0') ?></strong></td></tr>
+            <tr><td><?=_e('Edition')?></td><td><strong><?= htmlspecialchars($currentVersion['edition'] ?? '—') ?></strong></td></tr>
             <tr><td><?=_e('Build')?></td><td><?= htmlspecialchars($currentVersion['build'] ?? '—') ?></td></tr>
             <tr><td><?=_e('Core files')?></td><td><?= $totalCore ?> <?=_e('files tracked')?></td></tr>
             <tr><td><?=_e('PHP')?></td><td><?= htmlspecialchars($currentVersion['php_required'] ?? '8.1') ?>+ (server: <?= PHP_VERSION ?>)</td></tr>
