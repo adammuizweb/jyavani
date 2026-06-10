@@ -218,7 +218,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         _cms_write_progress($progressToken, 86, __('Updating version info…'));
     }
 
-    // Update version.json
+    // Update version.json — merge from remote manifest + zip version.json
     $newVersion = [
         'name' => $remoteManifest['name'] ?? 'Jyavani CMS',
         'version' => $remoteManifest['version'] ?? $currentVer,
@@ -226,6 +226,13 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         'php_required' => $remoteManifest['php_required'] ?? '8.1',
         'mysql_required' => $remoteManifest['mysql_required'] ?? '5.7',
     ];
+    $zipVersionJson = $zip->getFromName('version.json');
+    if ($zipVersionJson !== false) {
+        $zipVersion = json_decode($zipVersionJson, true);
+        if (is_array($zipVersion)) {
+            $newVersion = array_merge($newVersion, $zipVersion);
+        }
+    }
     file_put_contents($projectRoot . '/version.json', json_encode($newVersion, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
     if ($progressToken !== '') {
