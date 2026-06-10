@@ -119,6 +119,7 @@ $manifest = [
     'version' => $version['version'] ?? '0.0.0',
     'build' => $version['build'] ?? date('Y-m-d'),
     'generated' => date('c'),
+    'edition' => $version['edition'] ?? '',
     'php_required' => $version['php_required'] ?? '8.1',
     'mysql_required' => $version['mysql_required'] ?? '5.7',
     'total_files' => count($files),

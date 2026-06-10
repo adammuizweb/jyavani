@@ -223,6 +223,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         'name' => $remoteManifest['name'] ?? 'Jyavani CMS',
         'version' => $remoteManifest['version'] ?? $currentVer,
         'build' => $remoteManifest['build'] ?? date('Y-m-d'),
+        'edition' => $remoteManifest['edition'] ?? 'Phoenix',
         'php_required' => $remoteManifest['php_required'] ?? '8.1',
         'mysql_required' => $remoteManifest['mysql_required'] ?? '5.7',
     ];
