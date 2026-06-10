@@ -49,7 +49,11 @@
   function setTheme(mode){
     root.classList.toggle('theme-dark', mode === 'dark');
     root.classList.toggle('theme-light', mode === 'light');
+    root.style.colorScheme = mode;
     try { localStorage.setItem(KEY, mode); } catch(e){}
+    try { document.cookie = KEY + '=' + mode + '; path=/; max-age=' + (60*60*24*365); } catch(e){}
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute('content', mode === 'dark' ? '#071022' : '#f9fafb');
 
     // apply CM now + slightly later (buat CM yang baru di-init setelah load)
     applyCodeMirror(mode);

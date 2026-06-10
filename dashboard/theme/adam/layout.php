@@ -13,12 +13,24 @@ require_once __DIR__ . '/../../admin/_notify.php';
 
 $themePath = DASH_PATH . '/theme/adam';
 $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull() : [];
+
+// server-side theme: read cookie so browser never flashes dark during nav
+$adamTheme = '';
+if (!empty($_COOKIE['adam_theme'])) {
+    $at = (string)$_COOKIE['adam_theme'];
+    if ($at === 'dark' || $at === 'light') $adamTheme = $at;
+}
+$htmlClass = $adamTheme ? ' class="theme-' . htmlspecialchars($adamTheme, ENT_QUOTES, 'UTF-8') . '"' : '';
+$colorScheme = $adamTheme ?: 'light';
+$themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
 ?>
 <!doctype html>
-<html lang="<?= h(get_locale()) ?>">
+<html lang="<?= h(get_locale()) ?>"<?= $htmlClass ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="<?= htmlspecialchars($colorScheme, ENT_QUOTES, 'UTF-8') ?>">
+  <meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
 
   <!-- apply state early -->
   <script src="/static/dashboard/js/aside-state.js"></script>
@@ -35,8 +47,20 @@ $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull()
     var saved = localStorage.getItem(key);
     var root = document.documentElement;
 
-    if (saved === 'dark') root.classList.add('theme-dark');
-    else if (saved === 'light') root.classList.add('theme-light');
+    if (saved === 'dark') {
+      root.classList.add('theme-dark');
+      root.style.colorScheme = 'dark';
+    } else if (saved === 'light') {
+      root.classList.add('theme-light');
+      root.style.colorScheme = 'light';
+    }
+
+    // sync to cookie so server prevents flash on next navigation
+    if (saved === 'dark' || saved === 'light') {
+      try { document.cookie = 'adam_theme=' + saved + '; path=/; max-age=' + (60*60*24*365); } catch(e){}
+      var tc = document.querySelector('meta[name="theme-color"]');
+      if (tc) tc.setAttribute('content', saved === 'dark' ? '#071022' : '#f9fafb');
+    }
   }catch(e){}
 })();
 </script>
