@@ -265,21 +265,36 @@ if (isset($_GET['refresh'])) {
     $installedVersion = $installedManifest ? ($installedManifest['version'] ?? '') : '';
     $hasUpdate = $isInstalled && $installedVersion !== '' && version_compare($p['version'] ?? '0.0.0', $installedVersion, '>');
   ?>
+  <?php
+    $iconUrl = $p['icon'] ?? '';
+    $firstLetter = mb_strtoupper(mb_substr(($p['title'] ?? $p['name']), 0, 1));
+    $iconColors = ['#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444','#06b6d4','#84cc16','#d946ef','#0ea5e9'];
+    $iconColor = $iconColors[crc32($p['name']) % count($iconColors)];
+  ?>
   <div class="plugin-card">
+    <div class="plugin-card-head">
+      <?php if ($iconUrl): ?>
+      <img class="plugin-icon" src="<?= h($iconUrl) ?>" alt="" loading="lazy" width="48" height="48">
+      <?php else: ?>
+      <span class="plugin-icon-placeholder" style="background:<?= $iconColor ?>"><?= h($firstLetter) ?></span>
+      <?php endif; ?>
+      <div>
+        <div class="plugin-card-title"><?= h($p['title'] ?? $p['name']) ?></div>
+        <div class="plugin-card-meta">
+          <span>v<?= h($p['version'] ?? '—') ?></span>
+          <?php if (!empty($p['php_required'])): ?>
+          <span class="badge-php">PHP <?= h($p['php_required']) ?></span>
+          <?php endif; ?>
+          <?php if (!empty($p['author'])): ?>
+          <span><?=_e('by')?> <?= h($p['author']) ?></span>
+          <?php endif; ?>
+        </div>
+      </div>
+    </div>
     <div class="plugin-card-body">
-      <div class="plugin-card-title"><?= h($p['title'] ?? $p['name']) ?></div>
       <?php if (!empty($p['description'])): ?>
       <div class="plugin-card-desc"><?= h(mb_strimwidth($p['description'], 0, 120, '…')) ?></div>
       <?php endif; ?>
-      <div class="plugin-card-meta">
-        <span>v<?= h($p['version'] ?? '—') ?></span>
-        <?php if (!empty($p['php_required'])): ?>
-        <span class="badge-php">PHP <?= h($p['php_required']) ?></span>
-        <?php endif; ?>
-        <?php if (!empty($p['author'])): ?>
-        <span><?=_e('by')?> <?= h($p['author']) ?></span>
-        <?php endif; ?>
-      </div>
     </div>
     <div class="plugin-card-actions">
       <?php if ($isInstalled): ?>
@@ -318,9 +333,12 @@ if (isset($_GET['refresh'])) {
 
 .plugin-card { background:var(--adam-surface); border:1px solid var(--adam-border); border-radius:10px; display:flex; flex-direction:column; overflow:hidden; transition:box-shadow .15s; }
 .plugin-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
-.plugin-card-body { flex:1; padding:1rem 1rem .75rem; }
+.plugin-card-head { display:flex; gap:.75rem; align-items:center; padding:1rem 1rem 0; }
+.plugin-icon { width:48px; height:48px; border-radius:8px; object-fit:contain; flex-shrink:0; background:var(--adam-surface-4); }
+.plugin-icon-placeholder { width:48px; height:48px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; color:#fff; flex-shrink:0; }
+.plugin-card-body { flex:1; padding:.5rem 1rem .75rem; }
 .plugin-card-title { font-size:1rem; font-weight:600; color:var(--adam-text); margin-bottom:.35rem; }
-.plugin-card-desc { font-size:.82rem; color:var(--adam-muted); line-height:1.5; margin-bottom:.5rem; }
+.plugin-card-desc { font-size:.82rem; color:var(--adam-muted); line-height:1.5; }
 .plugin-card-meta { display:flex; gap:.5rem; flex-wrap:wrap; font-size:.75rem; color:var(--adam-muted-2); }
 .badge-php { background:var(--adam-surface-3); padding:.1rem .4rem; border-radius:4px; font-size:.72rem; }
 .plugin-card-actions { display:flex; gap:.35rem; padding:.6rem 1rem; border-top:1px solid var(--adam-border); background:var(--adam-surface-4); }

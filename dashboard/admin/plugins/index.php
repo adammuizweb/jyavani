@@ -140,14 +140,29 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
       $hasUpdate = isset($availableUpdates[$name]);
       $updateInfo = $hasUpdate ? $availableUpdates[$name] : null;
     ?>
+    <?php
+      $iconUrl = $p['icon'] ?? '';
+      $firstLetter = mb_strtoupper(mb_substr($title, 0, 1));
+      $iconColors = ['#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444','#06b6d4','#84cc16','#d946ef','#0ea5e9'];
+      $iconColor = $iconColors[crc32($name) % count($iconColors)];
+    ?>
     <tr>
       <td>
-        <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="plugin-name-link"><?= h($title) ?></a>
-        <?php if ($desc): ?><br><span class="text-muted" style="font-size:0.85rem"><?= h($desc) ?></span><?php endif; ?>
-        <?php if ($author): ?><br><span class="text-muted" style="font-size:0.8rem">
-          <?=_e('by')?> <?php if ($authorUri): ?><a href="<?= h($authorUri) ?>" target="_blank" rel="noopener"><?= h($author) ?></a><?php else: ?><?= h($author) ?><?php endif; ?>
-          <?php if ($pluginUri): ?>&middot; <a href="<?= h($pluginUri) ?>" target="_blank" rel="noopener"><?=_e('Visit Web')?></a><?php endif; ?>
-        </span><?php endif; ?>
+        <div class="plugin-cell">
+          <?php if ($iconUrl): ?>
+          <img class="plugin-cell-icon" src="<?= h($iconUrl) ?>" alt="" loading="lazy" width="40" height="40">
+          <?php else: ?>
+          <span class="plugin-cell-placeholder" style="background:<?= $iconColor ?>"><?= h($firstLetter) ?></span>
+          <?php endif; ?>
+          <div>
+            <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="plugin-name-link"><?= h($title) ?></a>
+            <?php if ($desc): ?><br><span class="text-muted" style="font-size:0.85rem"><?= h($desc) ?></span><?php endif; ?>
+            <?php if ($author): ?><br><span class="text-muted" style="font-size:0.8rem">
+              <?=_e('by')?> <?php if ($authorUri): ?><a href="<?= h($authorUri) ?>" target="_blank" rel="noopener"><?= h($author) ?></a><?php else: ?><?= h($author) ?><?php endif; ?>
+              <?php if ($pluginUri): ?>&middot; <a href="<?= h($pluginUri) ?>" target="_blank" rel="noopener"><?=_e('Visit Web')?></a><?php endif; ?>
+            </span><?php endif; ?>
+          </div>
+        </div>
       </td>
       <td>
         <?= h($version) ?>
@@ -261,6 +276,9 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 .btn-update:hover { background:#bfdbfe; }
 .plugin-name-link { color:var(--adam-text); font-weight:600; text-decoration:none; }
 .plugin-name-link:hover { color:var(--adam-primary); text-decoration:underline; }
+.plugin-cell { display:flex; gap:.75rem; align-items:center; }
+.plugin-cell-icon { width:40px; height:40px; border-radius:6px; object-fit:contain; flex-shrink:0; background:var(--adam-surface-4); }
+.plugin-cell-placeholder { width:40px; height:40px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:700; color:#fff; flex-shrink:0; }
 </style>
 
 <script>
