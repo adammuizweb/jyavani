@@ -141,6 +141,7 @@ body.aside-collapsed .adam-collapse .arrow{
   position: relative;
   font-weight: 700;
   letter-spacing: .6px;
+  font-size: .8rem;
 }
 .adam-nav-heading::after{
   content: '';
@@ -158,6 +159,9 @@ body.aside-collapsed .adam-collapse .arrow{
 .adam-nav-link{
   position: relative;
   border-radius: 8px;
+  font-size: .92rem;
+  font-weight: 500;
+  padding: .45rem .7rem;
   transition:
     background .18s ease,
     color .18s ease,
@@ -338,14 +342,14 @@ html.theme-dark{
   line-height: 0;
 }
 .adam-nav-sublink-icon{
-  width: 20px;
-  min-width: 20px;
-  flex: 0 0 20px;
+  width: 24px;
+  min-width: 24px;
+  flex: 0 0 24px;
 }
 
 .adam-svg-icon{
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   display: block;
   color: var(--adam-icon-color);
   opacity: .96;
@@ -357,8 +361,8 @@ html.theme-dark{
     filter .28s ease;
 }
 .adam-svg-icon--sm{
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 .adam-svg-icon *{
   vector-effect: non-scaling-stroke;
@@ -447,8 +451,8 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
 }
 
 .adam-theme-toggle .adam-theme-icon-svg{
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
 }
 .adam-theme-toggle .icon-sun,
 .adam-theme-toggle .icon-moon{

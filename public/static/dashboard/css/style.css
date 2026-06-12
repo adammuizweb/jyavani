@@ -403,7 +403,7 @@ select:focus{
 .adam-burger{
   background:none;
   border:0;
-  font-size:1.4rem;
+  font-size:1.6rem;
   cursor:pointer;
   color: var(--adam-text-2);
   padding:0.25rem 0.5rem;
@@ -413,16 +413,30 @@ select:focus{
 
 .adam-brand{
   margin:0;
-  font-size:1.05rem;
+  font-size:0;
   display:flex;
-  align-items:baseline;
-  gap:0.5rem;
-  color: var(--adam-text-2);
+  align-items:center;
+  gap:0.65rem;
 }
-
+.adam-brand-logo{
+  width:32px;
+  height:32px;
+  flex-shrink:0;
+}
+.adam-brand-text{
+  font-size:1.15rem;
+  font-weight:800;
+  background: var(--adam-primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing:.02em;
+}
 .adam-sub{
-  font-size:0.85rem;
+  font-size:0.8rem;
   color: var(--adam-muted);
+  font-weight:400;
+  margin-left:.15rem;
 }
 
 /* ============================
