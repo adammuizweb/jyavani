@@ -101,14 +101,12 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 <h2 class="pg-title"><?=_e('Plugin')?></h2>
 <p class="pg-subtitle"><?=_e('Manage installed plugins.')?></p>
 
-<div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
-  <a href="<?= h($base) ?>/?page=admin/plugins/upload" class="btn btn-primary btn-sm">+ Upload Plugin</a>
-  <a href="<?= h($base) ?>/?page=admin/plugins/browse" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary)"><?= svg_ico('store', '', ['style' => 'width:14px;height:14px;vertical-align:middle']) ?> <?=_e('Browse Plugins')?></a>
-  <?php if ($hasStoreUrl): ?>
-  <form method="post" style="display:inline">
+<div class="form-row">
+  <a href="<?= h($base) ?>/?page=admin/plugins/browse" class="adam-button"><?= svg_ico('store', '', ['class' => 'lucide-icon']) ?> <?=_e('Browse Plugins')?></a>
+  <form method="post" class="form-inline">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="action" value="check-updates">
-    <button type="submit" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);display:inline-flex;align-items:center;gap:4px"><?= svg_ico('refresh-cw', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Check Update')?></button>
+    <button type="submit" class="adam-button"><?= svg_ico('refresh-cw', '', ['class' => 'lucide-icon']) ?> <?=_e('Check Update')?></button>
   </form>
   <?php endif; ?>
 </div>
@@ -186,10 +184,10 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
         <?php endif; ?>
       </td>
       <td>
-        <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+        <div class="flex gap-4 wrap items-center">
         <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="btn btn-sm btn-outline"><?=_e('Detail')?></a>
         <?php if ($hasUpdate): ?>
-        <form method="post" style="display:inline" class="js-confirm-form">
+        <form method="post" class="form-inline js-confirm-form">
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="apply-update">
           <input type="hidden" name="plugin" value="<?= h($name) ?>">
@@ -199,9 +197,9 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
             data-confirm-action="update"><?=_e('Update to v')?><?= h($updateInfo['new_version']) ?></button>
         </form>
         <?php elseif (!empty($p['store'])): ?>
-        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Latest')?></span>
+        <span class="btn btn-sm btn-outline-latest"><?= svg_ico('circle-check', '', ['class' => 'lucide-icon']) ?> <?=_e('Latest')?></span>
         <?php endif; ?>
-        <form method="post" style="display:inline">
+        <form method="post" class="form-inline">
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="toggle">
           <input type="hidden" name="plugin" value="<?= h($name) ?>">
@@ -217,7 +215,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
               data-confirm-action="activate"><?=_e('Activate')?></button>
           <?php endif; ?>
         </form>
-        <form method="post" style="display:inline" class="js-confirm-form">
+        <form method="post" class="form-inline js-confirm-form">
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="delete">
           <input type="hidden" name="plugin" value="<?= h($name) ?>">

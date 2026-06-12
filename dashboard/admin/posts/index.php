@@ -205,18 +205,18 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 <section class="adam-card">
   <h2><?=_e('Posts (Article)')?></h2>
 
-  <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+  <form method="get" class="form-row">
     <input type="hidden" name="page" value="admin/posts/index">
-    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
+    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp" style="min-width:200px">
     
-    <select name="status" style="padding:.4rem;">
+    <select name="status" class="inp">
       <option value=""><?= _e('-- All Status --') ?></option>
       <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>><?=_e('Draft')?></option>
       <option value="published" <?= $filter_status==='published'?'selected':'' ?>><?=_e('Published')?></option>
       <option value="private" <?= $filter_status==='private'?'selected':'' ?>><?=_e('Private')?></option>
     </select>
 
-    <select name="category" style="padding:.4rem;">
+    <select name="category" class="inp">
       <option value=""><?= _e('-- All Categories --') ?></option>
       <?php foreach ($categories as $cat): ?>
         <option value="<?= (int)$cat['id'] ?>" <?= $filter_category==$cat['id']?'selected':'' ?>>
@@ -229,46 +229,45 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
   </form>
 
-  <p style="margin-bottom:1rem">
+  <div class="btn-row">
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a>
     <?php if ($role === 'admin') : ?>
-      &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:3px']) ?> <?=_e('Trash')?></a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?> <?=_e('Trash')?></a>
     <?php endif; ?>
-  </p>
+  </div>
 
   <?php if ($canBulk): ?>
   <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/posts/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
-      <label style="display:flex;align-items:center;gap:.4rem;">
+    <div class="bulk-bar">
+      <label class="check-row">
         <input type="checkbox" id="selectAll"> <?=_e('Select all on page')?>
       </label>
 
-      <select id="bulkAction" name="action" style="padding:.4rem;">
+      <select id="bulkAction" name="action" class="inp">
         <option value=""><?=_e('-- Bulk action --')?></option>
         <option value="delete"><?= _e('Delete') ?></option>
         <option value="change_status"><?= _e('Change Status') ?></option>
         <option value="change_categories"><?= _e('Manage Categories') ?></option>
       </select>
 
-      <select id="bulkStatus" name="status" style="padding:.4rem;display:none;">
+      <select id="bulkStatus" name="status" class="inp" style="display:none;">
         <option value="draft"><?=_e('Draft')?></option>
         <option value="published"><?=_e('Published')?></option>
         <option value="private"><?=_e('Private')?></option>
       </select>
 
-      <select id="bulkCatMode" name="cat_mode" style="padding:.4rem;display:none;">
+      <select id="bulkCatMode" name="cat_mode" class="inp" style="display:none;">
         <option value="add"><?= _e('Add') ?></option>
         <option value="remove"><?= _e('Delete') ?></option>
         <option value="toggle"><?=_e('Toggle')?></option>
       </select>
 
-      <div id="bulkCategoriesPanel" style="display:none;border:1px solid var(--adam-border);padding:.4rem;border-radius:10px;max-height:180px;overflow:auto;background:var(--adam-surface-3);min-width:220px;">
+      <div id="bulkCategoriesPanel" class="cat-panel" style="display:none;">
         <?php foreach ($categories as $cat): ?>
-          <label style="display:block;white-space:nowrap;margin:4px 0;">
+          <label class="nested-label">
             <input type="checkbox" name="categories[]" value="<?= (int)$cat['id'] ?>">
             <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
           </label>
@@ -276,14 +275,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </div>
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+      <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
     </div>
 
     <div class="adam-table-wrapper">
-      <table class="adam-table" style="margin-top:.5rem;">
+      <table class="adam-table mt-8">
         <thead>
           <tr>
-            <th style="width:40px"></th>
+            <th class="th-narrow"></th>
             <th><?= _e('Title') ?></th>
             <th><?=_e('Status')?></th>
             <th><?= _e('Categories') ?></th>
@@ -294,7 +293,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </thead>
         <tbody>
           <?php if (empty($posts)): ?>
-            <tr><td colspan="7" style="padding:1rem;"><?= _e('No articles found.') ?></td></tr>
+            <tr><td class="empty-state" colspan="7"><?= _e('No articles found.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($posts as $p): ?>
             <?php
@@ -315,7 +314,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               ]);
             ?>
             <tr class="adam-row">
-              <td style="text-align:center;">
+              <td class="td-center">
                 <input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$p['id'] ?>">
               </td>
 
@@ -384,14 +383,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               </td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
                 <button type="button"
                         class="adam-hapus js-post-delete"
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
+                  <?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?><?=_e('Delete')?>
                 </button>
               </td>
             </tr>
@@ -404,7 +403,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <?php endif; ?>
 
   <?php if ($pages > 1): ?>
-    <nav class="adam-pagination" style="margin-top:1rem;">
+    <nav class="adam-pagination pagination-wrap">
       <?php foreach ($paging_items as $item):
         if ($item === '...') {
           echo '<span class="dots">…</span> ';

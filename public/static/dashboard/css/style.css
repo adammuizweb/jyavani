@@ -3804,6 +3804,7 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 
 /* Layout */
 .flex{ display:flex; }
+.wrap{ flex-wrap:wrap; }
 .flex-col{ flex-direction:column; }
 .flex-wrap{ flex-wrap:wrap; }
 .items-center{ align-items:center; }
@@ -3903,6 +3904,15 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   text-decoration:none;
 }
 
+/* Latest badge for plugin manager */
+.btn-outline-latest{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  cursor:default;
+  opacity:.5;
+}
+
 /* Action bar (bulk) */
 .bulk-bar{
   display:flex;
@@ -3951,6 +3961,17 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 .nested-label{
   display:block;
   margin:3px 0 3px 0;
+}
+
+/* Bulk category panel */
+.cat-panel{
+  border:1px solid var(--adam-border);
+  padding:.4rem;
+  border-radius:10px;
+  max-height:180px;
+  overflow:auto;
+  background:var(--adam-surface-3);
+  min-width:220px;
 }
 
 /* Empty state */
