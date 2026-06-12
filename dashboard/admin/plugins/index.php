@@ -141,7 +141,17 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
       $updateInfo = $hasUpdate ? $availableUpdates[$name] : null;
     ?>
     <?php
-      $iconUrl = $p['icon'] ?? '';
+      $iconRaw = $p['icon'] ?? '';
+      if ($iconRaw !== '' && !str_starts_with($iconRaw, 'http://') && !str_starts_with($iconRaw, 'https://')) {
+          $iconFile = PLUGIN_PATH . '/' . $name . '/' . $iconRaw;
+          if (is_file($iconFile)) {
+              $iconUrl = '/plugins/static/' . rawurlencode($name) . '/' . rawurlencode($iconRaw);
+          } else {
+              $iconUrl = '';
+          }
+      } else {
+          $iconUrl = $iconRaw;
+      }
       $firstLetter = mb_strtoupper(mb_substr($title, 0, 1));
       $iconColors = ['#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444','#06b6d4','#84cc16','#d946ef','#0ea5e9'];
       $iconColor = $iconColors[crc32($name) % count($iconColors)];

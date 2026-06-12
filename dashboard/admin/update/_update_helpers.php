@@ -172,6 +172,8 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         }
     }
 
+    // Read version.json from zip before closing (must be before close in PHP 8.4+)
+    $zipVersionJson = $zip->getFromName('version.json');
     $zip->close();
 
     // Delete files that exist locally but not in remote manifest
@@ -227,7 +229,6 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         'php_required' => $remoteManifest['php_required'] ?? '8.1',
         'mysql_required' => $remoteManifest['mysql_required'] ?? '5.7',
     ];
-    $zipVersionJson = $zip->getFromName('version.json');
     if ($zipVersionJson !== false) {
         $zipVersion = json_decode($zipVersionJson, true);
         if (is_array($zipVersion)) {

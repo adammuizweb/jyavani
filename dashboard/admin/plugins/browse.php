@@ -239,7 +239,7 @@ if (isset($_GET['refresh'])) {
 }
 ?>
 <h2 class="pg-title"><?=_e('Browse Plugins')?></h2>
-<p class="pg-subtitle"><?=_e('Browse plugins from')?> <a href="https://jyavani.com/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?=_e('Jyavani community.')?></p>
+<p class="pg-subtitle"><?=_e('Browse plugins from')?> <a href="https://jyavani.com/plugins/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?=_e('Jyavani community.')?></p>
 
 <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
   <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?=_e('&larr; Back to Installed Plugins')?></a>

@@ -160,6 +160,28 @@ if ($prefix === 'private') {
     exit;
 }
 
+// PLUGIN STATIC — serve plugin icon/files from plugins/ (outside web root)
+if ($prefix === 'plugins' && ($segments[1] ?? '') === 'static') {
+    $pluginName = $segments[2] ?? '';
+    $pluginFile = $segments[3] ?? '';
+    if ($pluginName !== '' && $pluginFile !== '') {
+        $pluginName = basename($pluginName);
+        $pluginFile = basename($pluginFile);
+        $absFile = realpath(PLUGIN_PATH . '/' . $pluginName . '/' . $pluginFile);
+        $absBase = realpath(PLUGIN_PATH) . '/';
+        if ($absFile !== false && str_starts_with($absFile, $absBase) && is_file($absFile)) {
+            $mime = (function_exists('mime_content_type')) ? mime_content_type($absFile) : 'application/octet-stream';
+            header('Content-Type: ' . $mime);
+            header('Cache-Control: public, max-age=86400');
+            header('Content-Length: ' . filesize($absFile));
+            readfile($absFile);
+            exit;
+        }
+    }
+    http_response_code(404);
+    exit;
+}
+
 // AUTHOR
 if ($prefix === 'author') {
     require_once __DIR__ . '/../app/controllers/AuthorController.php';
