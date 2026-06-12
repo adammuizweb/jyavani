@@ -211,7 +211,10 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
               data-confirm-text="<?=__('Deactivate plugin')?> &quot;<?= h($title) ?>&quot;?"
               data-confirm-action="deactivate"><?=_e('Deactivate')?></button>
           <?php else: ?>
-            <button type="submit" class="btn btn-sm btn-primary"><?=_e('Activate')?></button>
+            <button type="submit" class="btn btn-sm btn-primary js-confirm-btn"
+              data-confirm-title="<?=_e('Activate Plugin')?>"
+              data-confirm-text="<?=__('Activate plugin')?> &quot;<?= h($title) ?>&quot;?"
+              data-confirm-action="activate"><?=_e('Activate')?></button>
           <?php endif; ?>
         </form>
         <form method="post" style="display:inline" class="js-confirm-form">
@@ -248,7 +251,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 <div id="pluginUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
   <div style="background:var(--adam-surface);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
     <div id="progressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
-    <div id="progressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Updating plugin…')?></div>
+    <div id="progressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
     <div id="progressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
     <div style="margin-top:1rem;background:var(--adam-border-2);border-radius:999px;height:8px;overflow:hidden">
       <div id="progressBar" style="width:0%;height:100%;background:var(--adam-primary);border-radius:999px;transition:width .4s ease"></div>
@@ -371,13 +374,22 @@ function applyPluginConfirm() {
     hidePluginConfirm();
     startPluginUpdate(pluginName);
   } else {
-    _confirmForm.submit();
+    var form = _confirmForm;
     hidePluginConfirm();
+    var statusText = '<?=__('Processing…')?>';
+    if (_confirmAction === 'activate') statusText = '<?=__('Activating plugin…')?>';
+    else if (_confirmAction === 'deactivate') statusText = '<?=__('Deactivating plugin…')?>';
+    else if (_confirmAction === 'delete') statusText = '<?=__('Deleting plugin…')?>';
+    document.getElementById('progressStatus').textContent = statusText;
+    showProgressOverlay();
+    updateProgressBar(0, '');
+    setTimeout(function() { form.submit(); }, 100);
   }
 }
 
 function startPluginUpdate(pluginName) {
   var token = makeProgressToken();
+  document.getElementById('progressStatus').textContent = '<?=__('Updating plugin…')?>';
   showProgressOverlay();
   updateProgressBar(2, '<?=__('Preparing...')?>');
 

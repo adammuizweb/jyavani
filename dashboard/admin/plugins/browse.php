@@ -304,11 +304,18 @@ if (isset($_GET['refresh'])) {
         <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Installed')?></span>
         <?php endif; ?>
       <?php else: ?>
-      <form method="post" style="display:inline-flex;gap:3px">
+      <form method="post" style="display:inline-flex;gap:3px" class="js-confirm-form">
         <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="plugin" value="<?= h($p['name']) ?>">
-        <button type="submit" name="action" value="install" class="btn btn-sm btn-outline"><?=_e('Install')?></button>
-        <button type="submit" name="action" value="install_activate" class="btn btn-sm btn-primary"><?=_e('Install & Activate')?></button>
+        <input type="hidden" name="action" value="" class="js-form-action">
+        <button type="submit" class="btn btn-sm btn-outline js-confirm-btn"
+          data-confirm-title="<?=_e('Install Plugin')?>"
+          data-confirm-text="<?=__('Install plugin')?> &quot;<?= h($p['title'] ?? $p['name']) ?>&quot;?"
+          data-confirm-action="install"><?=_e('Install')?></button>
+        <button type="submit" class="btn btn-sm btn-primary js-confirm-btn"
+          data-confirm-title="<?=_e('Install & Activate Plugin')?>"
+          data-confirm-text="<?=__('Install and activate plugin')?> &quot;<?= h($p['title'] ?? $p['name']) ?>&quot;?"
+          data-confirm-action="install_activate"><?=_e('Install & Activate')?></button>
       </form>
       <?php endif; ?>
       <?php if (!empty($p['plugin_uri'])): ?>
@@ -351,4 +358,89 @@ if (isset($_GET['refresh'])) {
 .btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
 .btn-update { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
 </style>
+
+<!-- Konfirmasi Modal -->
+<div class="adam-modal" id="pluginConfirmModal" style="display:none">
+  <div class="adam-modal__panel" style="max-width:420px">
+    <div class="adam-modal__title" id="pluginConfirmTitle"><?=_e('Confirmation')?></div>
+    <div class="adam-modal__text" id="pluginConfirmText" style="margin-bottom:1.25rem;line-height:1.5"></div>
+    <div class="adam-modal__actions" style="display:flex;gap:.5rem;justify-content:flex-end">
+      <button type="button" class="btn btn-outline" onclick="hidePluginConfirm()"><?=_e('Cancel')?></button>
+      <button type="button" class="btn btn-primary" id="pluginConfirmApply" onclick="applyPluginConfirm()"><?=_e('Yes')?></button>
+    </div>
+  </div>
+</div>
+
+<!-- Progress Overlay -->
+<div id="pluginUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+  <div style="background:var(--adam-surface);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
+    <div id="progressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
+    <div id="progressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
+    <div id="progressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
+    <div style="margin-top:1rem;background:var(--adam-border-2);border-radius:999px;height:8px;overflow:hidden">
+      <div id="progressBar" style="width:0%;height:100%;background:var(--adam-primary);border-radius:999px;transition:width .4s ease"></div>
+    </div>
+    <div id="progressPct" style="margin-top:.3rem;font-size:.75rem;color:var(--adam-muted)">0%</div>
+  </div>
+</div>
+<style>
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+
+<script>
+var _confirmForm = null;
+var _confirmAction = '';
+var _csrfToken = '<?= h(csrf_token()) ?>';
+
+document.querySelectorAll('.js-confirm-btn').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    var form = this.closest('.js-confirm-form') || this.closest('form');
+    if (!form) return;
+    var title = this.getAttribute('data-confirm-title') || '<?=__('Confirmation')?>';
+    var text = this.getAttribute('data-confirm-text') || '<?=__('Continue?')?>';
+    var action = this.getAttribute('data-confirm-action') || '';
+    var actionInput = form.querySelector('.js-form-action');
+    if (actionInput) actionInput.value = action;
+    document.getElementById('pluginConfirmTitle').textContent = title;
+    document.getElementById('pluginConfirmText').textContent = text;
+    var applyBtn = document.getElementById('pluginConfirmApply');
+    if (action === 'install' || action === 'install_activate') {
+      applyBtn.className = 'btn btn-primary';
+      applyBtn.textContent = '<?=__('Yes, Install')?>';
+    } else {
+      applyBtn.className = 'btn btn-primary';
+      applyBtn.textContent = '<?=__('Yes')?>';
+    }
+    _confirmForm = form;
+    _confirmAction = action;
+    document.getElementById('pluginConfirmModal').style.display = 'flex';
+    e.preventDefault();
+  });
+});
+
+function hidePluginConfirm() {
+  document.getElementById('pluginConfirmModal').style.display = 'none';
+  _confirmForm = null;
+  _confirmAction = '';
+}
+
+function showProgressOverlay() {
+  var overlay = document.getElementById('pluginUpdateProgress');
+  if (!overlay) return;
+  overlay.style.display = 'flex';
+}
+
+function hideProgressOverlay() {
+  var overlay = document.getElementById('pluginUpdateProgress');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function applyPluginConfirm() {
+  if (!_confirmForm) return;
+  var form = _confirmForm;
+  hidePluginConfirm();
+  showProgressOverlay();
+  setTimeout(function() { form.submit(); }, 100);
+}
+</script>
 
