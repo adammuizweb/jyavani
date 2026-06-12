@@ -140,9 +140,9 @@ body.aside-collapsed .adam-collapse .arrow{
 .adam-nav-heading{
   position: relative;
   font-weight: 700;
+  font-size: .73rem;
   letter-spacing: .6px;
-  font-size: .85rem;
-  padding: .2rem 0;
+  padding: .1rem 0;
 }
 .adam-nav-heading::after{
   content: '';
@@ -159,10 +159,9 @@ body.aside-collapsed .adam-collapse .arrow{
 /* ─── Nav link — main ─── */
 .adam-nav-link{
   position: relative;
-  border-radius: 10px;
-  font-size: 1rem;
-  font-weight: 600;
-  padding: .55rem .8rem;
+  border-radius: 8px;
+  font-size: .88rem;
+  padding: .4rem .65rem;
   transition:
     background .18s ease,
     color .18s ease,
@@ -343,14 +342,14 @@ html.theme-dark{
   line-height: 0;
 }
 .adam-nav-sublink-icon{
-  width: 26px;
-  min-width: 26px;
-  flex: 0 0 26px;
+  width: 20px;
+  min-width: 20px;
+  flex: 0 0 20px;
 }
 
 .adam-svg-icon{
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   display: block;
   color: var(--adam-icon-color);
   opacity: .96;
@@ -362,8 +361,8 @@ html.theme-dark{
     filter .28s ease;
 }
 .adam-svg-icon--sm{
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 .adam-svg-icon *{
   vector-effect: non-scaling-stroke;
@@ -435,11 +434,11 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
   width: 100%;
   display: flex;
   align-items: center;
-  gap: .7rem;
+  gap: .55rem;
   border: 0;
   background: transparent;
   text-align: left;
-  padding: .6rem .7rem;
+  padding: .45rem .6rem;
   border-radius: 8px;
   cursor: pointer;
   transition: background .2s ease, color .2s ease, scale .15s ease, box-shadow .2s ease;
@@ -452,8 +451,8 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
 }
 
 .adam-theme-toggle .adam-theme-icon-svg{
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
 }
 .adam-theme-toggle .icon-sun,
 .adam-theme-toggle .icon-moon{
