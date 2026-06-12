@@ -58,17 +58,19 @@
   /* Focus */
   --adam-focus: rgba(220, 38, 38, 0.22);
 
-  /* Brand / actions — Phoenix Red */
+  /* Brand / actions — Phoenix Fire */
   --adam-accent: #b91c1c;
   --adam-primary: #dc2626;
   --adam-primary-600: #b91c1c;
   --adam-primary-soft: rgba(220,38,38,0.12);
+  --adam-primary-gradient: linear-gradient(135deg, #f97316, #dc2626);
+  --adam-primary-gradient-hover: linear-gradient(135deg, #ea580c, #b91c1c);
   --adam-danger: #e53935;
   --adam-danger-600: #d73531;
   --adam-success: #1e8f4a;
   --adam-warning: #ff7f00;
 
-  /* Nav gradients (for aside overrides) — Phoenix */
+  /* Nav gradients (for aside overrides) — Phoenix Fire */
   --adam-nav-grad-1: rgba(220,38,38,0.10);
   --adam-nav-grad-2: rgba(220,38,38,0.06);
   --adam-nav-grad-3: rgba(220,38,38,0.03);
@@ -159,6 +161,8 @@ html.theme-dark{
   --adam-primary: #f87171;
   --adam-primary-600: #ef4444;
   --adam-primary-soft: rgba(248,113,113,0.16);
+  --adam-primary-gradient: linear-gradient(135deg, #fb923c, #f87171);
+  --adam-primary-gradient-hover: linear-gradient(135deg, #f97316, #ef4444);
   --adam-danger: #ff5a58;
   --adam-danger-600: #ff4a47;
 
@@ -230,6 +234,8 @@ html.theme-dark{
     --adam-primary: #f87171;
     --adam-primary-600: #ef4444;
     --adam-primary-soft: rgba(248,113,113,0.16);
+    --adam-primary-gradient: linear-gradient(135deg, #fb923c, #f87171);
+    --adam-primary-gradient-hover: linear-gradient(135deg, #f97316, #ef4444);
     --adam-danger: #ff5a58;
     --adam-danger-600: #ff4a47;
 
@@ -666,7 +672,7 @@ body.is-resizing{ cursor: col-resize; user-select:none; }
 
 /* Buttons */
 .adam-button{
-  background: var(--adam-accent);
+  background: var(--adam-primary-gradient);
   color:#fff;
   border:none;
   border-radius:6px;
@@ -677,18 +683,18 @@ body.is-resizing{ cursor: col-resize; user-select:none; }
   text-decoration:none;
   display:inline-block;
 }
-.adam-button:hover{ filter: brightness(0.95); color: #fff; }
+.adam-button:hover{ background: var(--adam-primary-gradient-hover); color: #fff; }
 
 .adam-btn{
   padding: 8px 12px;
   border-radius: 8px;
-  background: var(--adam-primary);
+  background: var(--adam-primary-gradient);
   color:#fff;
   border:0;
   cursor:pointer;
   font-weight: 700;
 }
-.adam-btn:hover{ filter: brightness(0.96); }
+.adam-btn:hover{ background: var(--adam-primary-gradient-hover); }
 
 .adam-btn.ghost{
   background: transparent;
@@ -735,14 +741,14 @@ body.is-resizing{ cursor: col-resize; user-select:none; }
 .btn-save,
 .btn-insert,
 .media-btn-save{
-  background: var(--adam-primary);
+  background: var(--adam-primary-gradient);
   color:#fff;
-  border-color: var(--adam-primary);
+  border-color: transparent;
 }
 .btn-save:hover,
 .btn-insert:hover,
 .media-btn-save:hover{
-  background: var(--adam-primary-600);
+  background: var(--adam-primary-gradient-hover);
 }
 .btn-detail{
   background: transparent;
@@ -833,12 +839,12 @@ body.is-resizing{ cursor: col-resize; user-select:none; }
 .tab:hover, .tab-btn:hover{ background: var(--adam-surface-4); }
 
 .tab.active, .tab-btn.active{
-  background: var(--adam-primary);
+  background: var(--adam-primary-gradient);
   color:#fff;
-  border-color: var(--adam-primary);
+  border-color: transparent;
 }
 .tab.active:hover, .tab-btn.active:hover{
-  background: var(--adam-primary);
+  background: var(--adam-primary-gradient-hover);
 }
 
 /* Panel box (content card) */
@@ -1407,11 +1413,11 @@ html.theme-dark .adam-modal{
   border-radius: 10px;
   border: 1px solid transparent;
   cursor:pointer;
-  background: var(--adam-primary);
+  background: var(--adam-primary-gradient);
   color:#fff;
   font-weight: 900;
 }
-.single-file .btn:hover{ background: var(--adam-primary-600); }
+.single-file .btn:hover{ background: var(--adam-primary-gradient-hover); }
 .single-file .btn.danger{ background: var(--adam-danger); }
 .single-file .btn.danger:hover{ background: var(--adam-danger-600); }
 .single-file .file-thumb{
@@ -1634,11 +1640,11 @@ html.theme-dark .adam-modal{
 .mdlib-btn:hover{ background: var(--adam-surface-3); }
 
 .mdlib-btn-primary{
-  background: var(--adam-primary);
-  border-color: var(--adam-primary);
+  background: var(--adam-primary-gradient);
+  border-color: transparent;
   color:#fff;
 }
-.mdlib-btn-primary:hover{ background: var(--adam-primary-600); }
+.mdlib-btn-primary:hover{ background: var(--adam-primary-gradient-hover); }
 
 .mdlib-btn-danger{
   background: var(--adam-danger);
@@ -1672,11 +1678,11 @@ html.theme-dark .adam-modal{
 .mdlib-btn-detail:hover{ background: var(--adam-primary-soft); }
 
 .mdlib-btn-insert{
-  background: var(--adam-primary);
+  background: var(--adam-primary-gradient);
   color:#fff;
-  border-color: var(--adam-primary);
+  border-color: transparent;
 }
-.mdlib-btn-insert:hover{ background: var(--adam-primary-600); }
+.mdlib-btn-insert:hover{ background: var(--adam-primary-gradient-hover); }
 
 .mdlib-input{
   padding: 10px;
@@ -2853,11 +2859,11 @@ body.aside-collapsed .adam-collapse .label-show{ display:inline; }
 .pht-btn:hover{ background: var(--adam-hover); }
 
 .pht-btn--primary{
-  background: var(--adam-accent);
-  border-color: var(--adam-accent);
+  background: var(--adam-primary-gradient);
+  border-color: transparent;
   color:#fff;
 }
-.pht-btn--primary:hover{ filter: brightness(.97); }
+.pht-btn--primary:hover{ background: var(--adam-primary-gradient-hover); }
 
 .pht-count{
   display:inline-flex;
@@ -2866,7 +2872,7 @@ body.aside-collapsed .adam-collapse .label-show{ display:inline; }
   min-width:28px;
   padding:3px 9px;
   border-radius:999px;
-  background: var(--adam-primary);
+  background: var(--adam-primary-gradient);
   color:#fff;
   font-weight:900;
   font-size:12px;
@@ -3112,8 +3118,8 @@ body.aside-collapsed .adam-collapse .label-show{ display:inline; }
 .tm-install{
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid var(--adam-primary);
-  background: var(--adam-primary);
+  border: none;
+  background: var(--adam-primary-gradient);
   color:#fff;
   font-weight: 900;
   cursor:pointer;
@@ -3985,6 +3991,24 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   color:var(--adam-muted);
 }
 
+/* Phoenix edition badge */
+.edition-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  background:var(--adam-primary-gradient);
+  color:#fff;
+  font-weight:600;
+  font-size:.78rem;
+  padding:2px 12px;
+  border-radius:999px;
+  letter-spacing:.02em;
+  box-shadow:0 1px 4px rgba(220,38,38,.3);
+}
+.edition-badge svg{
+  flex-shrink:0;
+}
+
 /* ─── End Utility Classes ─── */
 
 /* ═══════════════════════════════════════════════════════════════
@@ -4001,20 +4025,20 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(220,38,38,0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(185,28,28,0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(249,115,22,0.05) 0%, rgba(220,38,38,0.04) 40%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(220,38,38,0.04) 0%, transparent 60%);
   pointer-events: none;
 }
 html.theme-dark .adam-app::before{
   background:
-    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(248,113,113,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(239,68,68,0.05) 0%, transparent 60%);
+    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(251,146,60,0.07) 0%, rgba(248,113,113,0.06) 40%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(248,113,113,0.05) 0%, transparent 60%);
 }
 @media (prefers-color-scheme: dark){
   html:not(.theme-light):not(.theme-dark) .adam-app::before{
     background:
-      radial-gradient(ellipse 80% 60% at 0% 0%, rgba(248,113,113,0.07) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 50% at 100% 0%, rgba(239,68,68,0.05) 0%, transparent 60%);
+      radial-gradient(ellipse 80% 60% at 0% 0%, rgba(251,146,60,0.07) 0%, rgba(248,113,113,0.06) 40%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 100% 0%, rgba(248,113,113,0.05) 0%, transparent 60%);
   }
 }
 
@@ -4043,21 +4067,21 @@ html.theme-dark .adam-app::before{
 
 /* ─── Glow variables ─── */
 :root{
-  --adam-glow-soft: rgba(220,38,38,0.15);
-  --adam-glow-mid: rgba(220,38,38,0.25);
+  --adam-glow-soft: rgba(249,115,22,0.12);
+  --adam-glow-mid: rgba(220,38,38,0.22);
   --adam-glow-strong: rgba(220,38,38,0.35);
   --adam-card-glow: 0 0 0 1px var(--adam-border), 0 8px 24px rgba(0,0,0,0.04);
 }
 html.theme-dark{
-  --adam-glow-soft: rgba(248,113,113,0.12);
-  --adam-glow-mid: rgba(248,113,113,0.22);
+  --adam-glow-soft: rgba(251,146,60,0.10);
+  --adam-glow-mid: rgba(248,113,113,0.20);
   --adam-glow-strong: rgba(248,113,113,0.35);
   --adam-card-glow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.3);
 }
 @media (prefers-color-scheme: dark){
   html:not(.theme-light):not(.theme-dark){
-    --adam-glow-soft: rgba(248,113,113,0.12);
-    --adam-glow-mid: rgba(248,113,113,0.22);
+    --adam-glow-soft: rgba(251,146,60,0.10);
+    --adam-glow-mid: rgba(248,113,113,0.20);
     --adam-glow-strong: rgba(248,113,113,0.35);
     --adam-card-glow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.3);
   }
