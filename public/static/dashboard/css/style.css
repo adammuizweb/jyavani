@@ -294,7 +294,12 @@ a:hover{ color: var(--adam-link-hover); }
 .adam-app{
   width: 100%;
   margin: 0;
-  background: var(--adam-card);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--adam-card) 94%, #f97316) 0%,
+    var(--adam-card) 20%,
+    var(--adam-card) 100%
+  );
   border-radius: 8px;
   overflow: hidden;
   box-shadow: var(--adam-shadow);
@@ -304,7 +309,6 @@ a:hover{ color: var(--adam-link-hover); }
   flex-direction: column;
   min-height: 100vh;
 }
-/* Dark: gradient main area for depth */
 html.theme-dark .adam-app{
   background: linear-gradient(
     180deg,
