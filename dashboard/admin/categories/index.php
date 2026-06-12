@@ -285,19 +285,19 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 <section class="adam-card">
   <h2><?= _e('Categories') ?></h2>
 
-  <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+  <form method="get" class="form-row">
     <input type="hidden" name="page" value="admin/categories/index">
-
-    <input type="text" name="q" placeholder="<?= _e('Search name or slug...') ?>"
-      value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
-      style="padding:.4rem;min-width:200px">
-
-    <select name="parent" style="padding:.4rem;">
-      <option value="0"><?= _e('-- All Parents --') ?></option>
-      <?php foreach ($parentOptions as $opt): ?>
-        <option value="<?= (int)$opt['id'] ?>" <?= $filter_parent === (int)$opt['id'] ? 'selected' : '' ?>>
-          <?= htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8') ?>
-        </option>
+    <input type="text" name="search" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp" style="min-width:200px">
+    <select name="parent" class="inp">
+      <option value=""><?=_e('All Parents')?></option>
+      <?php foreach ($filterParentOptions as $opt): ?>
+        <option value="<?=(int)$opt['id']?>" <?=$parentFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
+      <?php endforeach; ?>
+    </select>
+    <select name="author" class="inp">
+      <option value=""><?=_e('All Authors')?></option>
+      <?php foreach ($filterAuthorOptions as $opt): ?>
+        <option value="<?=(int)$opt['id']?>" <?=$authorFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
       <?php endforeach; ?>
     </select>
 
@@ -316,13 +316,12 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
   </form>
 
-  <p style="margin-bottom:1rem">
+  <div class="btn-row">
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Category')?></a>
     <?php if ($role === 'admin') : ?>
-      &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:3px']) ?> <?=_e('Trash')?></a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?> <?=_e('Trash')?></a>
     <?php endif; ?>
-  </p>
+  </div>
 
   <?php if ($canBulk): ?>
     <form id="categoriesBulkForm"
@@ -331,18 +330,18 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
-      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:.4rem;">
+      <div class="bulk-bar">
+        <label class="check-row">
           <input type="checkbox" id="selectAllCategories"> <?=_e('Select all on page')?>
         </label>
 
-        <select id="bulkActionCategories" name="action" style="padding:.4rem;">
+        <select id="bulkActionCategories" name="action" class="inp">
           <option value=""><?=_e('-- Bulk action --')?></option>
           <option value="delete"><?= _e('Delete') ?></option>
           <option value="change_parent"><?= _e('Change Parent') ?></option>
         </select>
 
-        <select id="bulkParentCategories" name="parent_id" style="padding:.4rem;display:none;">
+        <select id="bulkParentCategories" name="parent_id" class="inp" style="display:none;">
           <option value=""><?= _e('-- Select Parent --') ?></option>
           <option value="0"><?= _e('(No Parent)') ?></option>
           <?php foreach ($parentOptions as $opt): ?>
@@ -351,25 +350,25 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-        <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+        <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
       </div>
   <?php else: ?>
-    <div style="margin-bottom:1rem;color:#666;"><?=_e('Bulk actions hidden for role')?> <strong>author</strong>.</div>
+    <div class="warning-box"><?=_e('Bulk actions hidden for role')?> <strong>author</strong>.</div>
   <?php endif; ?>
 
   <div class="adam-table-wrapper">
-    <table class="adam-table" style="margin-top:.5rem;">
+    <table class="adam-table mt-8">
       <thead>
         <tr>
-          <th style="width:40px"></th>
+          <th class="th-narrow"></th>
           <th><?= _e('Name') ?></th>
           <th><?=_e('Posts')?></th>
-          <th style="width:160px"><?= _e('Actions') ?></th>
+          <th class="th-med"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($categories_list)): ?>
-          <tr><td colspan="4" style="padding:1rem;"><?= _e('No categories yet.') ?></td></tr>
+          <tr><td class="empty-state" colspan="4"><?= _e('No categories yet.') ?></td></tr>
         <?php else: ?>
           <?php foreach ($categories_list as $cat):
             $aCount = (int)$cat['post_count'];
@@ -400,7 +399,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             ]);
           ?>
             <tr>
-              <td style="text-align:center;">
+              <td class="td-center">
                 <?php if ($canBulk): ?>
                   <input type="checkbox" class="bulkCheckboxCategory" name="ids[]" value="<?= $catId ?>">
                 <?php else: ?>
@@ -443,7 +442,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <?php endif; ?>
 
   <?php if ($pages > 1): ?>
-    <nav class="adam-pagination" style="margin-top:1rem;">
+    <nav class="adam-pagination pagination-wrap">
       <?php foreach ($paging_items as $item):
         if ($item === '...') { echo '<span class="dots">…</span> '; continue; }
         $i = (int)$item;

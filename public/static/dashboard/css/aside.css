@@ -5,9 +5,9 @@
 
 /* ─── Theme tokens (aside-specific) ─── */
 :root{
-  --adam-aside-glow: rgba(36,70,102,0.20);
+  --adam-aside-glow: rgba(220,38,38,0.18);
   --adam-aside-active-line: var(--adam-primary);
-  --adam-aside-accent: rgba(36,70,102,0.06);
+  --adam-aside-accent: rgba(220,38,38,0.06);
   --adam-aside-gradient: linear-gradient(
     170deg,
     var(--adam-surface-2) 0%,
@@ -16,14 +16,14 @@
   --adam-aside-shimmer: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(36,70,102,0.02) 50%,
+    rgba(220,38,38,0.03) 50%,
     transparent 100%
   );
 }
 html.theme-dark{
-  --adam-aside-glow: rgba(98,181,255,0.25);
-  --adam-aside-active-line: #7bd8ff;
-  --adam-aside-accent: rgba(98,181,255,0.08);
+  --adam-aside-glow: rgba(248,113,113,0.22);
+  --adam-aside-active-line: #f87171;
+  --adam-aside-accent: rgba(248,113,113,0.08);
   --adam-aside-gradient: linear-gradient(
     170deg,
     var(--adam-surface-2) 0%,
@@ -32,15 +32,15 @@ html.theme-dark{
   --adam-aside-shimmer: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(98,181,255,0.03) 50%,
+    rgba(248,113,113,0.04) 50%,
     transparent 100%
   );
 }
 @media (prefers-color-scheme: dark){
   html:not(.theme-light):not(.theme-dark){
-    --adam-aside-glow: rgba(98,181,255,0.25);
-    --adam-aside-active-line: #7bd8ff;
-    --adam-aside-accent: rgba(98,181,255,0.08);
+    --adam-aside-glow: rgba(248,113,113,0.22);
+    --adam-aside-active-line: #f87171;
+    --adam-aside-accent: rgba(248,113,113,0.08);
     --adam-aside-gradient: linear-gradient(
       170deg,
       var(--adam-surface-2) 0%,
@@ -49,7 +49,7 @@ html.theme-dark{
     --adam-aside-shimmer: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(98,181,255,0.03) 50%,
+      rgba(248,113,113,0.04) 50%,
       transparent 100%
     );
   }
@@ -280,20 +280,20 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
   --adam-icon-color: var(--adam-text-2);
   --adam-icon-color-soft: var(--adam-text-3);
   --adam-icon-active: var(--adam-primary);
-  --adam-icon-bg: rgba(36,70,102,0.08);
+  --adam-icon-bg: rgba(220,38,38,0.08);
 }
 html.theme-dark{
   --adam-icon-color: var(--adam-text-2);
   --adam-icon-color-soft: var(--adam-text-3);
-  --adam-icon-active: #7bd8ff;
-  --adam-icon-bg: rgba(98,181,255,0.10);
+  --adam-icon-active: #f87171;
+  --adam-icon-bg: rgba(248,113,113,0.10);
 }
 @media (prefers-color-scheme: dark){
   html:not(.theme-light):not(.theme-dark){
     --adam-icon-color: var(--adam-text-2);
     --adam-icon-color-soft: var(--adam-text-3);
-    --adam-icon-active: #7bd8ff;
-    --adam-icon-bg: rgba(98,181,255,0.10);
+    --adam-icon-active: #f87171;
+    --adam-icon-bg: rgba(248,113,113,0.10);
   }
 }
 
