@@ -18,12 +18,12 @@
 :root{
   color-scheme: light;
 
-  /* Surfaces */
-  --adam-bg: #f9fafb;
+  /* Surfaces — warm premium */
+  --adam-bg: #fcfcfd;
   --adam-card: #ffffff;
-  --adam-surface-2: #fbfcfd;   /* aside / soft surface */
-  --adam-surface-3: #f7f8fa;   /* table head / muted blocks */
-  --adam-surface-4: #fafafa;   /* chips / inputs bg */
+  --adam-surface-2: #faf9fd;   /* aside / soft surface */
+  --adam-surface-3: #f4f3f8;   /* table head / muted blocks */
+  --adam-surface-4: #f8f7fb;   /* chips / inputs bg */
 
   /* Panel */
   --adam-panel-bg: #eeeeee;
@@ -303,6 +303,56 @@ a:hover{ color: var(--adam-link-hover); }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+/* Dark: gradient main area for depth */
+html.theme-dark .adam-app{
+  background: linear-gradient(
+    180deg,
+    #101926 0%,
+    var(--adam-card) 30%,
+    var(--adam-card) 100%
+  );
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .adam-app{
+    background: linear-gradient(
+      180deg,
+      #101926 0%,
+      var(--adam-card) 30%,
+      var(--adam-card) 100%
+    );
+  }
+}
+
+/* ─── Card section ─── */
+.adam-card{
+  background: var(--adam-card);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--adam-border);
+}
+html.theme-dark .adam-card{
+  background: linear-gradient(
+    180deg,
+    #111a28 0%,
+    var(--adam-card) 40%,
+    var(--adam-card) 100%
+  );
+  border-color: rgba(255,255,255,0.06);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .adam-card{
+    background: linear-gradient(
+      180deg,
+      #111a28 0%,
+      var(--adam-card) 40%,
+      var(--adam-card) 100%
+    );
+    border-color: rgba(255,255,255,0.06);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  }
 }
 
 /* ============================

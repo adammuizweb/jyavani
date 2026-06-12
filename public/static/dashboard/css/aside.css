@@ -11,12 +11,12 @@
   --adam-aside-gradient: linear-gradient(
     170deg,
     var(--adam-surface-2) 0%,
-    color-mix(in srgb, var(--adam-surface-2) 92%, var(--adam-primary)) 100%
+    color-mix(in srgb, var(--adam-surface-2) 95%, #f97316) 100%
   );
   --adam-aside-shimmer: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(220,38,38,0.03) 50%,
+    rgba(249,115,22,0.04) 50%,
     transparent 100%
   );
 }
@@ -25,14 +25,16 @@ html.theme-dark{
   --adam-aside-active-line: #f87171;
   --adam-aside-accent: rgba(248,113,113,0.08);
   --adam-aside-gradient: linear-gradient(
-    170deg,
-    var(--adam-surface-2) 0%,
-    color-mix(in srgb, var(--adam-surface-2) 90%, var(--adam-primary)) 100%
+    175deg,
+    #0f1825 0%,
+    #121726 35%,
+    color-mix(in srgb, #121726 88%, #f87171) 100%
   );
   --adam-aside-shimmer: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(248,113,113,0.04) 50%,
+    rgba(248,113,113,0.07) 30%,
+    rgba(249,115,22,0.04) 60%,
     transparent 100%
   );
 }
@@ -42,14 +44,16 @@ html.theme-dark{
     --adam-aside-active-line: #f87171;
     --adam-aside-accent: rgba(248,113,113,0.08);
     --adam-aside-gradient: linear-gradient(
-      170deg,
-      var(--adam-surface-2) 0%,
-      color-mix(in srgb, var(--adam-surface-2) 90%, var(--adam-primary)) 100%
+      175deg,
+      #0f1825 0%,
+      #121726 35%,
+      color-mix(in srgb, #121726 88%, #f87171) 100%
     );
     --adam-aside-shimmer: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(248,113,113,0.04) 50%,
+      rgba(248,113,113,0.07) 30%,
+      rgba(249,115,22,0.04) 60%,
       transparent 100%
     );
   }
@@ -61,7 +65,26 @@ html.theme-dark{
   position: relative;
   z-index: 100;
 }
-/* Subtle shimmer overlay */
+/* Top glow line — more prominent in dark */
+.adam-aside::before{
+  content: '';
+  position: absolute;
+  top: 0; left: 5%; right: 5%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--adam-aside-active-line), transparent);
+  opacity: .12;
+  pointer-events: none;
+}
+html.theme-dark .adam-aside::before{
+  opacity: .25;
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .adam-aside::before{
+    opacity: .25;
+  }
+}
+
+/* Shimmer overlay */
 .adam-aside::after{
   content: '';
   position: absolute;
@@ -72,6 +95,16 @@ html.theme-dark{
   animation: asideShimmer 4s ease-in-out infinite;
   pointer-events: none;
   opacity: .5;
+}
+html.theme-dark .adam-aside::after{
+  opacity: .8;
+  height: 3px;
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .adam-aside::after{
+    opacity: .8;
+    height: 3px;
+  }
 }
 @keyframes asideShimmer{
   0%, 100%{ background-position: -200% center; }
