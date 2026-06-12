@@ -3797,3 +3797,268 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   .adam-nav-link:hover .adam-svg-icon,
   .adam-nav-sublink:hover .adam-svg-icon{ scale:1; filter:none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   FUTURISTIC ENHANCEMENTS — neon glow, glass, 3D, animations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── App container ─── */
+.adam-app{
+  position: relative;
+}
+.adam-app::before{
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(11,128,255,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(0,168,158,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+html.theme-dark .adam-app::before{
+  background:
+    radial-gradient(ellipse 80% 60% at 0% 0%, rgba(98,181,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 100% 100%, rgba(0,200,180,0.05) 0%, transparent 60%);
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .adam-app::before{
+    background:
+      radial-gradient(ellipse 80% 60% at 0% 0%, rgba(98,181,255,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, rgba(0,200,180,0.05) 0%, transparent 60%);
+  }
+}
+
+/* ─── Page entry animation ─── */
+.adam-main{
+  animation: adamFadeSlide .35s ease-out;
+}
+@keyframes adamFadeSlide{
+  from{ opacity:0; transform:translateY(8px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+
+/* ─── Neon glow keyframes ─── */
+@keyframes adamPulseGlow{
+  0%, 100%{ opacity:.6; }
+  50%{ opacity:1; }
+}
+@keyframes adamShimmer{
+  0%{ background-position: -200% center; }
+  100%{ background-position: 200% center; }
+}
+@keyframes adamBreathing{
+  0%, 100%{ box-shadow: 0 0 12px var(--adam-glow-soft); }
+  50%{ box-shadow: 0 0 24px var(--adam-glow-mid); }
+}
+
+/* ─── Glow variables ─── */
+:root{
+  --adam-glow-soft: rgba(11,128,255,0.15);
+  --adam-glow-mid: rgba(11,128,255,0.25);
+  --adam-glow-strong: rgba(11,128,255,0.35);
+  --adam-card-glow: 0 0 0 1px var(--adam-border), 0 8px 24px rgba(0,0,0,0.04);
+}
+html.theme-dark{
+  --adam-glow-soft: rgba(98,181,255,0.12);
+  --adam-glow-mid: rgba(98,181,255,0.22);
+  --adam-glow-strong: rgba(98,181,255,0.35);
+  --adam-card-glow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.3);
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark){
+    --adam-glow-soft: rgba(98,181,255,0.12);
+    --adam-glow-mid: rgba(98,181,255,0.22);
+    --adam-glow-strong: rgba(98,181,255,0.35);
+    --adam-card-glow: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.3);
+  }
+}
+
+/* ─── 3D Card hover ─── */
+.panel, .ps-profile-card, .ps-card, .adam-stat-card{
+  transition:
+    transform .3s cubic-bezier(.34,1.56,.64,1),
+    box-shadow .3s ease,
+    border-color .2s ease;
+}
+.panel:hover, .ps-card:hover{
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: var(--adam-card-glow), 0 12px 28px rgba(0,0,0,0.06);
+  border-color: var(--adam-border-2);
+}
+
+/* ─── Glass card variant ─── */
+.adam-glass{
+  background: color-mix(in srgb, var(--adam-card) 70%, transparent);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid var(--adam-border-soft);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+}
+html.theme-dark .adam-glass{
+  background: color-mix(in srgb, var(--adam-card) 60%, transparent);
+  border-color: rgba(255,255,255,0.08);
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .adam-glass{
+    background: color-mix(in srgb, var(--adam-card) 60%, transparent);
+    border-color: rgba(255,255,255,0.08);
+  }
+}
+
+/* ─── Neon glow buttons ─── */
+.adam-btn, .adam-button, .btn-save, .btn-insert, .mdlib-btn-primary{
+  position: relative;
+  overflow: hidden;
+  transition:
+    background .2s ease,
+    transform .2s cubic-bezier(.34,1.56,.64,1),
+    box-shadow .2s ease;
+}
+.adam-btn:hover, .adam-button:hover, .btn-save:hover, .btn-insert:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px var(--adam-glow-mid);
+}
+.adam-btn:active, .adam-button:active{
+  transform: translateY(0) scale(.97);
+}
+/* Ripple effect on click */
+.adam-btn::after, .adam-button::after{
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,0.25) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity .3s;
+  pointer-events: none;
+}
+.adam-btn:active::after, .adam-button:active::after{
+  opacity: 1;
+  transition: opacity 0s;
+}
+
+/* ─── Danger buttons ─── */
+.btn.danger, .btn-delete, .adam-btn--danger, .adam-hapus{
+  transition:
+    background .2s ease,
+    box-shadow .2s ease,
+    transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.btn.danger:hover, .btn-delete:hover, .adam-btn--danger:hover{
+  box-shadow: 0 0 20px rgba(229,57,53,0.3);
+  transform: translateY(-1px);
+}
+.adam-hapus:hover{
+  box-shadow: 0 0 12px rgba(229,57,53,0.2);
+  transform: scale(1.04);
+}
+
+/* ─── Focus glow (gantikan outline) ─── */
+.adam-nav-link:focus,
+.adam-nav-sublink:focus,
+.adam-burger:focus,
+.adam-collapse:focus,
+.adam-panel:focus,
+button:focus,
+input:focus,
+textarea:focus,
+select:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px var(--adam-focus);
+}
+
+/* ─── Premium scrollbar ─── */
+::-webkit-scrollbar{ width:6px; height:6px; }
+::-webkit-scrollbar-track{ background:transparent; }
+::-webkit-scrollbar-thumb{
+  background: var(--adam-scroll-thumb);
+  border-radius: 3px;
+  transition: background .2s;
+}
+::-webkit-scrollbar-thumb:hover{ background: var(--adam-scroll-thumb-hover); }
+
+/* ─── Loading shimmer utility ─── */
+.adam-shimmer{
+  background: linear-gradient(
+    90deg,
+    var(--adam-surface-3) 25%,
+    var(--adam-surface-4) 37%,
+    var(--adam-surface-3) 63%
+  );
+  background-size: 200% 100%;
+  animation: adamShimmer 1.4s ease infinite;
+  border-radius: 6px;
+}
+
+/* ─── Stat cards ─── */
+.adam-stat-card{
+  background: var(--adam-card);
+  border: 1px solid var(--adam-border);
+  border-radius: var(--adam-radius);
+  padding: 24px;
+  text-align: center;
+}
+.adam-stat-card:hover{
+  border-color: var(--adam-primary);
+  box-shadow: 0 0 24px var(--adam-glow-soft), var(--adam-card-glow);
+}
+.adam-stat-card strong{
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.adam-stat-card .adam-stat-label{
+  font-size: 14px;
+  color: var(--adam-muted);
+}
+
+/* ─── Table enhancements ─── */
+.adam-table, .media-list .table{
+  transition: box-shadow .2s;
+}
+.adam-table:hover{
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.adam-table thead th{
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* ─── Tag/badge enhancements ─── */
+.badge, .adam-status{
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ─── Tab active glow ─── */
+.tab.active, .tab-btn.active, .mdlib-is-active{
+  box-shadow: 0 0 16px var(--adam-glow-soft);
+}
+
+/* ─── Input focus ─── */
+.field input[type="text"]:focus,
+.field textarea:focus,
+.search:focus,
+.inpud:focus,
+.mdlib-input:focus{
+  box-shadow: 0 0 0 3px var(--adam-focus), 0 0 16px var(--adam-glow-soft);
+}
+
+/* ─── Responsive breakpoints ─── */
+@media (max-width: 900px){
+  .adam-main{ animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .adam-main,
+  .panel, .ps-card,
+  .adam-btn, .adam-button,
+  .adam-nav-link--active::before{ animation:none!important; transition:none!important; }
+  .adam-btn:hover, .adam-button:hover{ transform:none; box-shadow:none; }
+  .panel:hover, .ps-card:hover{ transform:none; }
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+}
+
+/* ─── End Futuristic Enhancements ─── */

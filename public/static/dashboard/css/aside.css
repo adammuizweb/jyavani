@@ -1,136 +1,184 @@
 /* /adiwira/theme/adam/css/aside.css
-   Sidebar cosmetics ONLY — futuristic refresh.
+   Sidebar cosmetics — futuristic overhaul.
    Jangan taruh rules layout/overlay/fixed di sini (itu semua di style.css).
 */
 
 /* ─── Theme tokens (aside-specific) ─── */
 :root{
-  --adam-aside-glow: rgba(36,70,102,0.15);
+  --adam-aside-glow: rgba(36,70,102,0.20);
   --adam-aside-active-line: var(--adam-primary);
-  --adam-aside-gradient: linear-gradient(180deg, var(--adam-surface-2) 0%, color-mix(in srgb, var(--adam-surface-2) 96%, var(--adam-primary)) 100%);
-  --adam-aside-heading-border: var(--adam-border-softer);
-  --adam-collapse-bg: transparent;
-  --adam-collapse-hover: var(--adam-hover);
+  --adam-aside-accent: rgba(36,70,102,0.06);
+  --adam-aside-gradient: linear-gradient(
+    170deg,
+    var(--adam-surface-2) 0%,
+    color-mix(in srgb, var(--adam-surface-2) 92%, var(--adam-primary)) 100%
+  );
+  --adam-aside-shimmer: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(36,70,102,0.02) 50%,
+    transparent 100%
+  );
 }
 html.theme-dark{
-  --adam-aside-glow: rgba(98,181,255,0.20);
+  --adam-aside-glow: rgba(98,181,255,0.25);
   --adam-aside-active-line: #7bd8ff;
-  --adam-aside-gradient: linear-gradient(180deg, var(--adam-surface-2) 0%, color-mix(in srgb, var(--adam-surface-2) 94%, var(--adam-primary)) 100%);
-  --adam-aside-heading-border: rgba(255,255,255,0.08);
-  --adam-collapse-bg: transparent;
-  --adam-collapse-hover: rgba(255,255,255,0.08);
+  --adam-aside-accent: rgba(98,181,255,0.08);
+  --adam-aside-gradient: linear-gradient(
+    170deg,
+    var(--adam-surface-2) 0%,
+    color-mix(in srgb, var(--adam-surface-2) 90%, var(--adam-primary)) 100%
+  );
+  --adam-aside-shimmer: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(98,181,255,0.03) 50%,
+    transparent 100%
+  );
 }
 @media (prefers-color-scheme: dark){
   html:not(.theme-light):not(.theme-dark){
-    --adam-aside-glow: rgba(98,181,255,0.20);
+    --adam-aside-glow: rgba(98,181,255,0.25);
     --adam-aside-active-line: #7bd8ff;
-    --adam-aside-gradient: linear-gradient(180deg, var(--adam-surface-2) 0%, color-mix(in srgb, var(--adam-surface-2) 94%, var(--adam-primary)) 100%);
-    --adam-aside-heading-border: rgba(255,255,255,0.08);
-    --adam-collapse-bg: transparent;
-    --adam-collapse-hover: rgba(255,255,255,0.08);
+    --adam-aside-accent: rgba(98,181,255,0.08);
+    --adam-aside-gradient: linear-gradient(
+      170deg,
+      var(--adam-surface-2) 0%,
+      color-mix(in srgb, var(--adam-surface-2) 90%, var(--adam-primary)) 100%
+    );
+    --adam-aside-shimmer: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(98,181,255,0.03) 50%,
+      transparent 100%
+    );
   }
 }
 
-/* ─── Aside background ─── */
+/* ─── Aside base ─── */
 .adam-aside{
   background: var(--adam-aside-gradient);
+  position: relative;
+  z-index: 100;
+}
+/* Subtle shimmer overlay */
+.adam-aside::after{
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--adam-aside-shimmer);
+  background-size: 200% 100%;
+  animation: asideShimmer 4s ease-in-out infinite;
+  pointer-events: none;
+  opacity: .5;
+}
+@keyframes asideShimmer{
+  0%, 100%{ background-position: -200% center; }
+  50%{ background-position: 200% center; }
 }
 
 /* ─── Collapse button ─── */
 .adam-collapse{
-  transition: background .2s ease, transform .2s ease;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: .3rem .5rem;
+  transition: background .2s ease, transform .2s ease;
 }
 .adam-collapse:hover{
   background: var(--adam-collapse-hover);
 }
 .adam-collapse .arrow{
-  transition: transform .35s cubic-bezier(.34,1.56,.64,1), color .2s ease;
   font-size: .75rem;
+  transition: transform .4s cubic-bezier(.34,1.56,.64,1), color .2s ease;
 }
 body.aside-collapsed .adam-collapse .arrow{
   transform: rotate(180deg);
 }
 
-/* Desktop: rapikan topbar ketika collapsed */
 @media (min-width: 901px) {
-  body.aside-collapsed .adam-collapse .label {
-    display: none !important;
+  body.aside-collapsed .adam-collapse .label{ display:none!important; }
+  body.aside-collapsed .adam-aside-top{
+    display:flex; align-items:center; justify-content:center; gap:0;
   }
-  body.aside-collapsed .adam-aside-top {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-  }
-  body.aside-collapsed .adam-collapse {
-    padding-left: 0;
-    padding-right: 0;
-  }
+  body.aside-collapsed .adam-collapse{ padding-left:0; padding-right:0; }
 }
 
 /* ─── Nav heading ─── */
 .adam-nav-heading{
   position: relative;
-  overflow: hidden;
+  font-weight: 700;
+  letter-spacing: .6px;
 }
 .adam-nav-heading::after{
   content: '';
   position: absolute;
   right: 0;
   top: 50%;
-  width: 40%;
+  width: 35%;
   height: 1px;
-  background: var(--adam-aside-heading-border);
+  background: linear-gradient(90deg, var(--adam-aside-active-line) 0%, transparent 100%);
+  opacity: .3;
   transform: translateY(-50%);
 }
 
-/* ─── Nav link ─── */
+/* ─── Nav link — main ─── */
 .adam-nav-link{
   position: relative;
   border-radius: 8px;
-  transition: background .18s ease, color .18s ease, padding-left .18s ease;
+  transition:
+    background .18s ease,
+    color .18s ease,
+    padding-left .18s ease,
+    transform .18s ease;
+  overflow: hidden;
 }
 .adam-nav-link:hover{
   background: var(--adam-hover);
-  padding-left: .75rem;
+  padding-left: .8rem;
+}
+.adam-nav-link:active{
+  transform: scale(.97);
 }
 .adam-nav-link--active{
   background: var(--adam-active);
   font-weight: 600;
-  padding-left: .75rem;
+  padding-left: .8rem;
 }
-/* Active left accent bar */
+
+/* Active left accent bar — glowing */
 .adam-nav-link--active::before{
   content: '';
   position: absolute;
   left: 0;
-  top: 20%;
-  height: 60%;
+  top: 18%;
+  height: 64%;
   width: 3px;
   border-radius: 0 3px 3px 0;
   background: var(--adam-aside-active-line);
-  box-shadow: 0 0 8px var(--adam-aside-glow);
+  box-shadow:
+    0 0 6px var(--adam-aside-glow),
+    0 0 12px var(--adam-aside-glow);
   opacity: 1;
-  transition: opacity .2s ease, height .2s ease;
+  transition: opacity .2s, height .2s, box-shadow .3s;
+  animation: asideActivePulse 2.5s ease-in-out infinite;
+}
+@keyframes asideActivePulse{
+  0%, 100%{ box-shadow: 0 0 6px var(--adam-aside-glow), 0 0 12px var(--adam-aside-glow); }
+  50%{ box-shadow: 0 0 10px var(--adam-aside-glow), 0 0 20px var(--adam-aside-glow); }
 }
 
 /* ─── Nav item separators ─── */
-.adam-nav-item{
-  position: relative;
-}
 .adam-nav-item + .adam-nav-item{
   border-top: 1px solid rgba(0,0,0,0.02);
   padding-top: .4rem;
   margin-top: .4rem;
 }
 html.theme-dark .adam-nav-item + .adam-nav-item{
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid rgba(255,255,255,0.05);
 }
 @media (prefers-color-scheme: dark){
   html:not(.theme-light):not(.theme-dark) .adam-nav-item + .adam-nav-item{
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid rgba(255,255,255,0.05);
   }
 }
 
@@ -142,28 +190,35 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
   padding-left: .2rem;
   display: none;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-6px);
   transition: opacity .2s ease, transform .25s cubic-bezier(.2,.8,.2,1);
 }
 .adam-nav-item.is-open > .adam-nav-sub{
   display: block;
   opacity: 1;
   transform: translateY(0);
-  padding-left: 0.4rem;
+  padding-left: 0.5rem;
   margin-top: 0.25rem;
 }
 
 .adam-nav-sublink{
   position: relative;
   border-radius: 6px;
-  transition: background .15s ease, padding-left .15s ease, color .15s ease;
+  transition:
+    background .15s ease,
+    padding-left .15s ease,
+    color .15s ease,
+    transform .15s ease;
 }
 .adam-nav-sublink:hover{
   background: var(--adam-hover-2);
-  padding-left: .75rem;
+  padding-left: .8rem;
+}
+.adam-nav-sublink:active{
+  transform: scale(.97);
 }
 
-/* Active sublink */
+/* Active sublink — subtle glow */
 .adam-nav-item.is-open > .adam-nav-sub .adam-nav-sublink--active,
 .adam-nav-item.is-open > .adam-nav-sub .adam-nav-sublink[aria-current="page"]{
   background-image: linear-gradient(
@@ -175,23 +230,24 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
   );
   font-weight: 600;
   border-radius: 6px;
-  padding-left: 0.6rem;
+  padding-left: 0.7rem;
 }
 .adam-nav-sublink--active::before{
   content: '';
   position: absolute;
   left: 0;
-  top: 15%;
-  height: 70%;
+  top: 12%;
+  height: 76%;
   width: 2px;
   border-radius: 0 2px 2px 0;
   background: var(--adam-aside-active-line);
-  opacity: .7;
+  box-shadow: 0 0 6px var(--adam-aside-glow);
+  opacity: .8;
 }
 
-/* ─── Collapsed sublinks ─── */
+/* ─── Collapsed sublinks (desktop) ─── */
 @media (min-width: 901px) {
-  body.aside-collapsed .adam-nav-item.is-open > .adam-nav-sub-collapsed {
+  body.aside-collapsed .adam-nav-item.is-open > .adam-nav-sub-collapsed{
     background-image: linear-gradient(
       to right,
       var(--adam-nav-grad-1) 0%,
@@ -203,16 +259,17 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
     padding: 6px 0;
     margin-top: 6px;
   }
-  body.aside-collapsed .adam-nav-sublink-mini {
+  body.aside-collapsed .adam-nav-sublink-mini{
     background: transparent;
     border-radius: 8px;
-    transition: background .15s ease, scale .15s ease;
+    transition: background .15s ease, scale .15s ease, box-shadow .15s ease;
   }
-  body.aside-collapsed .adam-nav-sublink-mini:hover {
+  body.aside-collapsed .adam-nav-sublink-mini:hover{
     background: var(--adam-hover);
-    scale: 1.02;
+    scale: 1.03;
+    box-shadow: 0 0 12px var(--adam-aside-glow);
   }
-  body.aside-collapsed .adam-nav-sublink-mini[aria-current="page"] {
+  body.aside-collapsed .adam-nav-sublink-mini[aria-current="page"]{
     background: var(--adam-active);
     font-weight: 600;
   }
@@ -279,11 +336,11 @@ html.theme-dark{
     transform .35s cubic-bezier(.2,.8,.2,1);
 }
 
-/* ─── Icon hover / active ─── */
+/* ─── Icon hover / active — enhanced ─── */
 .adam-nav-link:hover .adam-svg-icon,
 .adam-nav-sublink:hover .adam-svg-icon,
 .adam-theme-toggle:hover .adam-svg-icon{
-  transform: translateY(-1px) scale(1.04);
+  transform: translateY(-1px) scale(1.06);
 }
 .adam-nav-link--active .adam-svg-icon,
 .adam-nav-sublink--active .adam-svg-icon{
@@ -291,42 +348,51 @@ html.theme-dark{
   filter: drop-shadow(0 0 8px var(--adam-aside-glow));
 }
 
-/* supaya warna ikon ikut teks */
 .adam-nav-link{ color: var(--adam-text-2); }
 .adam-nav-sublink{ color: var(--adam-text-3); }
-
 .adam-nav-link--active,
 .adam-nav-sublink--active{
   color: var(--adam-text-2);
 }
 
-/* kompatibel collapsed */
 body.aside-collapsed .adam-nav-link .adam-svg-icon{
   transform: scale(1);
 }
 
-/* smooth icon hover — lucide */
+/* ─── Icon hover glow ─── */
 .adam-nav-link .adam-svg-icon,
 .adam-nav-sublink .adam-svg-icon{
-  transition: scale .18s ease, rotate .18s ease, filter .18s ease, opacity .15s ease;
+  transition: scale .22s ease, rotate .18s ease, filter .22s ease, opacity .15s ease;
 }
 .adam-nav-link:hover .adam-svg-icon,
 .adam-nav-sublink:hover .adam-svg-icon{
-  scale: 1.22;
-  filter: drop-shadow(0 0 8px var(--adam-aside-glow));
+  scale: 1.28;
+  filter: drop-shadow(0 0 12px var(--adam-aside-glow));
   opacity: 1;
 }
 .adam-nav-link--active .adam-svg-icon{
-  scale: 1.12;
-  filter: drop-shadow(0 0 10px var(--adam-aside-glow));
+  scale: 1.15;
+  filter: drop-shadow(0 0 14px var(--adam-aside-glow));
 }
 
 /* ─── Theme toggle ─── */
 .adam-aside-bottom{
   margin-top: auto;
-  padding-top: .6rem;
+  padding-top: .7rem;
   border-top: 1px solid var(--adam-border-softer);
+  position: relative;
 }
+.adam-aside-bottom::before{
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 10%;
+  width: 80%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--adam-aside-active-line), transparent);
+  opacity: .15;
+}
+
 .adam-theme-toggle{
   width: 100%;
   display: flex;
@@ -335,15 +401,16 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
   border: 0;
   background: transparent;
   text-align: left;
-  padding: .45rem .6rem;
+  padding: .5rem .6rem;
   border-radius: 8px;
   cursor: pointer;
-  transition: background .2s ease, color .2s ease, scale .15s ease;
+  transition: background .2s ease, color .2s ease, scale .15s ease, box-shadow .2s ease;
   color: var(--adam-text-2);
 }
 .adam-theme-toggle:hover{
   background: var(--adam-collapse-hover);
   scale: 1.01;
+  box-shadow: 0 0 12px var(--adam-aside-glow);
 }
 
 .adam-theme-toggle .adam-theme-icon-svg{
@@ -357,34 +424,25 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
     opacity .35s ease,
     transform .45s cubic-bezier(.2,.8,.2,1);
 }
-
 .adam-theme-toggle[data-mode="dark"] .icon-sun{
-  opacity:0;
-  transform: rotate(-90deg) scale(.55);
+  opacity:0; transform:rotate(-90deg) scale(.55);
 }
 .adam-theme-toggle[data-mode="dark"] .icon-moon{
-  opacity:1;
-  transform: rotate(0deg) scale(1);
+  opacity:1; transform:rotate(0deg) scale(1);
 }
 .adam-theme-toggle[data-mode="light"] .icon-sun{
-  opacity:1;
-  transform: rotate(0deg) scale(1);
+  opacity:1; transform:rotate(0deg) scale(1);
 }
 .adam-theme-toggle[data-mode="light"] .icon-moon{
-  opacity:0;
-  transform: rotate(90deg) scale(.55);
+  opacity:0; transform:rotate(90deg) scale(.55);
 }
 
-/* ─── Custom scrollbar untuk aside ─── */
-.adam-aside::-webkit-scrollbar{
-  width: 4px;
-}
-.adam-aside::-webkit-scrollbar-track{
-  background: transparent;
-}
+/* ─── Custom scrollbar ─── */
+.adam-aside::-webkit-scrollbar{ width: 3px; }
+.adam-aside::-webkit-scrollbar-track{ background:transparent; }
 .adam-aside::-webkit-scrollbar-thumb{
   background: var(--adam-scroll-thumb);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 .adam-aside::-webkit-scrollbar-thumb:hover{
   background: var(--adam-scroll-thumb-hover);
@@ -397,22 +455,25 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
   border-top: 1px solid var(--adam-border-softer);
 }
 
-/* ─── Logout link subtle ─── */
+/* ─── Logout ─── */
 .adam-nav-item:last-child .adam-nav-link{
   color: var(--adam-muted);
-  font-size: .9rem;
+  transition: color .2s ease, background .2s ease, box-shadow .2s ease;
 }
 .adam-nav-item:last-child .adam-nav-link:hover{
   color: var(--adam-danger);
   background: rgba(229,57,53,0.08);
+  box-shadow: 0 0 12px rgba(229,57,53,0.15);
 }
 .adam-nav-item:last-child .adam-nav-link:hover .adam-svg-icon{
   color: var(--adam-danger);
-  filter: drop-shadow(0 0 6px rgba(229,57,53,0.3));
+  filter: drop-shadow(0 0 8px rgba(229,57,53,0.35));
 }
 
 /* ─── Reduce motion ─── */
 @media (prefers-reduced-motion: reduce){
+  .adam-aside::after{ animation:none; opacity:0; }
+  .adam-nav-link--active::before{ animation:none; }
   .adam-svg-icon,
   .adam-svg-icon *,
   .adam-theme-toggle .icon-sun,
@@ -420,8 +481,7 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
   .adam-nav-link,
   .adam-nav-sublink,
   .adam-nav-sub,
-  .adam-collapse,
-  .adam-nav-link--active::before{
-    transition:none !important;
-  }
+  .adam-collapse{ transition:none!important; }
+  .adam-nav-link:hover .adam-svg-icon{ scale:1; filter:none; }
+  .adam-theme-toggle:hover{ scale:1; box-shadow:none; }
 }
