@@ -214,6 +214,11 @@ if (isset($_GET['refresh'])) {
     }
   ?>
   <div class="plugin-card">
+    <?php if (!empty($p['screenshot'])): ?>
+    <div class="theme-card-shot">
+      <img src="<?= h($p['screenshot']) ?>" alt="<?= h($p['title'] ?? $p['name']) ?>" loading="lazy">
+    </div>
+    <?php endif; ?>
     <div class="plugin-card-body">
       <div class="plugin-card-title"><?= h($p['title'] ?? $p['name']) ?></div>
       <?php if (!empty($p['description'])): ?>
@@ -263,6 +268,9 @@ if (isset($_GET['refresh'])) {
 .empty-state { padding:2rem; text-align:center; color:var(--adam-muted); }
 .plugin-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
 .plugin-card { background:var(--adam-surface); border:1px solid var(--adam-border); border-radius:10px; display:flex; flex-direction:column; overflow:hidden; transition:box-shadow .15s; }
+.theme-card-shot { width:100%; aspect-ratio:16/10; overflow:hidden; background:var(--adam-surface-3); }
+.theme-card-shot img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s; }
+.plugin-card:hover .theme-card-shot img { transform:scale(1.03); }
 .plugin-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
 .plugin-card-body { flex:1; padding:1rem 1rem .75rem; }
 .plugin-card-title { font-size:1rem; font-weight:600; color:var(--adam-text); margin-bottom:.35rem; }
