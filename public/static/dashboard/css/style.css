@@ -586,7 +586,6 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
   padding: .25rem .6rem;
   border-radius: 4px;
   margin: .15rem 0;
-  font-size: .85rem;
   transition: background .12s ease;
 }
 .adam-nav-sublink:hover{ background: var(--adam-hover-2); }

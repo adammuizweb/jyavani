@@ -140,7 +140,6 @@ body.aside-collapsed .adam-collapse .arrow{
 .adam-nav-heading{
   position: relative;
   font-weight: 700;
-  font-size: .73rem;
   letter-spacing: .6px;
   padding: .1rem 0;
 }
@@ -160,7 +159,6 @@ body.aside-collapsed .adam-collapse .arrow{
 .adam-nav-link{
   position: relative;
   border-radius: 8px;
-  font-size: .88rem;
   padding: .4rem .65rem;
   transition:
     background .18s ease,
