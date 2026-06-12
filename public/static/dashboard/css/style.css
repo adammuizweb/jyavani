@@ -102,7 +102,7 @@
 
   /* Layout Dimensions */
   --aside-expanded-width: 220px;
-  --aside-collapsed-width: 64px;
+  --aside-collapsed-width: 68px;
   --panel-expanded-width: 360px;
   --panel-collapsed-width: 32px;
 
@@ -580,13 +580,14 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
 .adam-nav-sublink{
   display:flex;
   align-items:center;
-  gap:.5rem;
+  gap:.6rem;
   text-decoration:none;
   color: var(--adam-text-3);
-  padding: .25rem .6rem;
-  border-radius: 4px;
-  margin: .15rem 0;
-  font-size: .92rem;
+  padding: .35rem .7rem;
+  border-radius: 6px;
+  margin: .2rem 0;
+  font-size: .95rem;
+  font-weight: 500;
   transition: background .12s ease;
 }
 .adam-nav-sublink:hover{ background: var(--adam-hover-2); }
