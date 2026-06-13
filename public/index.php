@@ -7,6 +7,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../app/bootstrap_core.php';
 
+// Load plugin system (hooks + registry + active plugin auto-loader)
+require_once __DIR__ . '/../plugins/index.php';
+plugin_load_active();
+do_action('init');
+
 // --- HANDLE root search via ?s= (minimal, non-invasive) ---
 if (!empty($_GET['s'])) {
     // pastikan SearchController ada dan $pdo sudah tersedia dari bootstrap_public

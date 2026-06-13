@@ -12,6 +12,14 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   const EDITOR_IMG_MAX_WIDTH = 560;
   const EDITOR_IMG_MAX_HEIGHT = 460;
 
+  function cleanExtraBreaks(html) {
+    return String(html)
+      .replace(/(<p><br><\/p>\s*){2,}/g, '<p><br></p>')
+      .replace(/<p>\s*<\/p>/g, '')
+      .replace(/(?:<p><br><\/p>\s*)+$/g, '')
+      .replace(/(<br>\s*){3,}/g, '<br><br>');
+  }
+
   const FULL_TOOLBAR = [
     [{ header: [1,2,3,4,5,6, false] }],
     ['bold','italic','underline','strike'],
@@ -457,8 +465,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     suppress = true;
     try {
       const initial = canonical ? (canonical.value || '') : '';
-      const delta = quill.clipboard.convert(initial || '');
-      quill.setContents(delta, 'silent');
+      quill.root.innerHTML = cleanExtraBreaks(initial || '');
       restoreImageDataAttributes(initial);
     } catch (e) {
       try {
@@ -494,9 +501,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       const cur = quill.root ? (quill.root.innerHTML || '') : '';
       if (normalizeHtmlForCompare(cur) === normalizeHtmlForCompare(html)) return;
 
-      const delta = quill.clipboard.convert(html || '');
       suppress = true;
-      quill.setContents(delta, 'silent');
+      quill.root.innerHTML = cleanExtraBreaks(html || '');
       restoreImageDataAttributes(html);
 
       if (canonical) canonical.value = quill.root.innerHTML;
