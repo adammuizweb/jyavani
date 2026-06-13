@@ -482,7 +482,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     quill.on('text-change', function() {
       if (suppress) return;
       try {
-        if (canonical) canonical.value = quill.root.innerHTML;
+        if (canonical) canonical.value = cleanExtraBreaks(quill.root.innerHTML || '');
       } catch (e) {}
     });
 
@@ -505,7 +505,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       quill.root.innerHTML = cleanExtraBreaks(html || '');
       restoreImageDataAttributes(html);
 
-      if (canonical) canonical.value = quill.root.innerHTML;
+      if (canonical) canonical.value = cleanExtraBreaks(quill.root.innerHTML || '');
 
       setTimeout(function(){
         suppress = false;
@@ -515,7 +515,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       try {
         quill.root.innerHTML = html;
         restoreImageDataAttributes(html);
-        if (canonical) canonical.value = quill.root.innerHTML;
+        if (canonical) canonical.value = cleanExtraBreaks(quill.root.innerHTML || '');
         normalizeEditorImages(document.getElementById('quill-editor'));
       } catch (_) {}
     }
