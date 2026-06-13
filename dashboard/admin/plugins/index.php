@@ -103,6 +103,7 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 
 <div class="form-row">
   <a href="<?= h($base) ?>/?page=admin/plugins/browse" class="adam-button"><?= svg_ico('store', '', ['class' => 'lucide-icon']) ?> <?=_e('Browse Plugins')?></a>
+  <a href="<?= h($base) ?>/?page=admin/plugins/upload" class="adam-button"><?= svg_ico('upload', '', ['class' => 'lucide-icon']) ?> <?=_e('Upload Plugin')?></a>
   <form method="post" class="form-inline">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="action" value="check-updates">
