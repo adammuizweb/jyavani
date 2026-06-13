@@ -603,23 +603,6 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 
       initQuill();
 
-      if (quill) {
-        suppress = true;
-        try {
-          const delta = quill.clipboard.convert(stripped || '');
-          quill.setContents(delta, 'silent');
-          restoreImageDataAttributes(stripped);
-          normalizeEditorImages(document.getElementById('quill-editor'));
-        } catch (e) {
-          try {
-            quill.root.innerHTML = stripped;
-            restoreImageDataAttributes(stripped);
-            normalizeEditorImages(document.getElementById('quill-editor'));
-          } catch (_) {}
-        }
-        setTimeout(function(){ suppress = false; }, 40);
-      }
-
       try {
         if (qRadio) qRadio.checked = true;
 
