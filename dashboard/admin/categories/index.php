@@ -301,7 +301,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <?php endforeach; ?>
     </select>
 
-    <select name="author" style="padding:.4rem;">
+    <select name="author" class="inp">
       <option value="0"><?= _e('-- All Creators --') ?></option>
       <?php foreach ($authors as $a):
         $label = $a['name'] ?: ($a['username'] ?: $a['id']);
@@ -319,7 +319,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <div class="btn-row">
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Category')?></a>
     <?php if ($role === 'admin') : ?>
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?> <?=_e('Trash')?></a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
 
@@ -341,7 +341,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <option value="change_parent"><?= _e('Change Parent') ?></option>
         </select>
 
-        <select id="bulkParentCategories" name="parent_id" class="inp" style="display:none;">
+        <select id="bulkParentCategories" name="parent_id" class="inp hide">
           <option value=""><?= _e('-- Select Parent --') ?></option>
           <option value="0"><?= _e('(No Parent)') ?></option>
           <?php foreach ($parentOptions as $opt): ?>
@@ -350,7 +350,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-        <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+        <small class="adam-muted ml-auto"><?= _e('Bulk only affects checked items.') ?></small>
       </div>
   <?php else: ?>
     <div class="warning-box"><?=_e('Bulk actions hidden for role')?> <strong>author</strong>.</div>
@@ -418,7 +418,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               </td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen') ?><?=_e('Edit')?></a>
                 <?php if ($canDelete): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button"
@@ -426,7 +426,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                           data-id="<?= $catId ?>"
                           data-name="<?= htmlspecialchars((string)($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
+                    <?= svg_ico('trash-2') ?><?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>
@@ -460,7 +460,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <?php endif; ?>
 
   <?php if ($canDelete): ?>
-    <form id="newnotif-category-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/categories/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+    <form id="newnotif-category-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/categories/delete.php', ENT_QUOTES, 'UTF-8') ?>" class="hide">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="id" id="newnotif-category-delete-id">
       <input type="hidden" name="return_to" id="newnotif-category-delete-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">

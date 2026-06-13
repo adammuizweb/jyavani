@@ -150,7 +150,7 @@ $walk(0, 0);
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-          <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Category Settings')?>
+          <?= svg_ico('cog') ?> <?=_e('Category Settings')?>
           <span class="chevron">▸</span>
       </button>
 
@@ -166,7 +166,7 @@ $walk(0, 0);
     </div>
 
     <label><?=_e('Parent (optional)')?><br>
-      <select name="parent_id" style="width:100%;padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
+      <select name="parent_id" class="inp w-full">
         <option value=""><?=_e('-- None --')?></option>
         <?php
         $selectedParent = isset($_POST['parent_id']) && $_POST['parent_id'] !== '' ? (int)$_POST['parent_id'] : null;
@@ -181,7 +181,7 @@ $walk(0, 0);
     </label>
 
     <label><?=_e('Description')?><br>
-      <textarea name="description" style="width:100%;min-height:100px;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+      <textarea name="description" class="inp w-full" style="min-height:100px"><?= htmlspecialchars($_POST['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
     </label>
 
     <p><button type="submit" class="adam-button"><?=_e('Save')?></button> <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a></p>

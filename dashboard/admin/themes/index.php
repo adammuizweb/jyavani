@@ -122,13 +122,13 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 <section class="adam-card">
   <h2><?=_e('Themes / Partials')?></h2>
 
-  <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+  <form method="get" class="form-row">
     <input type="hidden" name="page" value="admin/themes/index">
-    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
+    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
 
-    <label style="display:flex;align-items:center;gap:.5rem">
+    <label class="form-inline-label">
       <span><?=_e('Status:')?></span>
-      <select name="status" style="padding:.4rem;">
+      <select name="status" class="inp">
         <option value=""><?= _e('-- All Status --') ?></option>
         <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
         <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
@@ -140,57 +140,56 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     <a href="<?= htmlspecialchars($base . '/?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
   </form>
 
-  <p style="margin-bottom:1rem">
+  <div class="btn-row">
     <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Theme Partial')?></a>
 
     <?php if ($isAdmin): ?>
-      &nbsp;&nbsp;
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Trash')?></a>
+      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
-  </p>
+  </div>
 
   <?php if ($isAdmin): ?>
     <form id="themesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/themes/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
-      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:.4rem;">
+      <div class="bulk-bar">
+        <label class="check-row">
           <input type="checkbox" id="selectAllThemes"> <?=_e('Select all on page')?>
         </label>
 
-        <select id="bulkActionThemes" name="action" style="padding:.4rem;">
+        <select id="bulkActionThemes" name="action" class="inp">
           <option value=""><?=_e('-- Bulk action --')?></option>
           <option value="delete"><?= _e('Delete') ?></option>
           <option value="change_status"><?= _e('Change Status') ?></option>
         </select>
 
-        <select id="bulkStatusThemes" name="status" style="padding:.4rem;display:none;">
+        <select id="bulkStatusThemes" name="status" class="inp hide">
           <option value="draft"><?=_e('Draft')?></option>
           <option value="published"><?=_e('Published')?></option>
           <option value="private"><?=_e('Private')?></option>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-        <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+        <small class="ml-auto help-text"><?= _e('Bulk only affects checked items.') ?></small>
       </div>
   <?php endif; ?>
 
   <div class="adam-table-wrapper">
-    <table class="adam-table" style="margin-top:.5rem;">
+    <table class="adam-table mt-8">
       <thead>
         <tr>
-          <?php if ($isAdmin): ?><th style="width:40px"></th><?php endif; ?>
+          <?php if ($isAdmin): ?><th class="th-narrow"></th><?php endif; ?>
           <th><?= _e('Name') ?></th>
           <th><?=_e('Slug')?></th>
           <th><?=_e('Status')?></th>
           <th><?= _e('Created') ?></th>
-          <th style="width:160px"><?= _e('Actions') ?></th>
+          <th class="th-med"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($themes)): ?>
-          <tr><td colspan="<?= $isAdmin ? 6 : 5 ?>" style="padding:1rem;"><?=_e('No theme partials.')?></td></tr>
+          <tr class="empty-state"><td colspan="<?= $isAdmin ? 6 : 5 ?>"><?=_e('No theme partials.')?></td></tr>
         <?php else: ?>
           <?php foreach ($themes as $t): ?>
             <?php
@@ -213,7 +212,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             ?>
             <tr class="adam-row">
               <?php if ($isAdmin): ?>
-                <td style="text-align:center;">
+                <td class="td-center">
                   <input type="checkbox" class="bulkCheckboxTheme" name="ids[]" value="<?= (int)$t['id'] ?>">
                 </td>
               <?php endif; ?>
@@ -238,16 +237,16 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               <td><?= htmlspecialchars(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$t['created_at']) : (string)$t['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
+                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen') ?><?=_e('Edit')?></a>
 
                 <?php if ($isAdmin): ?>
-                  &nbsp;<span class="muted-divider">|</span>&nbsp;
+                  <span class="muted-divider">|</span>
                   <button type="button"
                           class="adam-hapus js-theme-delete"
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
+                    <?= svg_ico('trash-2') ?><?=_e('Delete')?>
                   </button>
                 <?php endif; ?>
               </td>
@@ -263,7 +262,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <?php endif; ?>
 
   <?php if ($pages > 1): ?>
-    <nav class="adam-pagination" style="margin-top:1rem;">
+    <nav class="adam-pagination pagination-wrap">
       <?php foreach ($paging_items as $item):
         if ($item === '...') {
           echo '<span class="dots">…</span> ';
@@ -284,7 +283,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <?php endif; ?>
 
   <?php if ($isAdmin): ?>
-    <form id="newnotif-theme-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/themes/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+    <form id="newnotif-theme-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/themes/delete.php', ENT_QUOTES, 'UTF-8') ?>" class="hide">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="id" id="newnotif-theme-delete-id">
       <input type="hidden" name="return_to" id="newnotif-theme-delete-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">

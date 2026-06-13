@@ -1,121 +1,99 @@
 <?php
-// /adiwira/theme/adam/part/home.php
 if (!defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');
 }
+/** @var PDO $pdo */
+require_once __DIR__ . '/widgets.php';
+
+$base = ADMIN_BASE_PATH;
+
+// Load widget layout from settings
+$layoutJson = settings_get($pdo, 'dashboard_widget_layout', '');
+$layout = $layoutJson ? json_decode($layoutJson, true) : null;
+
+// Default layout if none saved
+if (!$layout || !is_array($layout)) {
+    $layout = [
+        ['w' => 'cms_info', 'col' => 1],
+        ['w' => 'update_status', 'col' => 2],
+        ['w' => 'quick_stats', 'col' => 1],
+        ['w' => 'recent_posts', 'col' => 2],
+        ['w' => 'system_info', 'col' => 1],
+    ];
+}
+
+// Available widgets registry
+$widgets = [
+    'cms_info'      => ['title' => __('CMS Info'),      'render' => 'dash_widget_cms_info'],
+    'update_status' => ['title' => __('Update Status'),  'render' => 'dash_widget_update_status'],
+    'quick_stats'   => ['title' => __('Quick Stats'),    'render' => 'dash_widget_quick_stats'],
+    'recent_posts'  => ['title' => __('Recent Posts'),   'render' => 'dash_widget_recent_posts'],
+    'system_info'   => ['title' => __('System Info'),    'render' => 'dash_widget_system_info'],
+];
+
+// Group by column
+$col1 = [];
+$col2 = [];
+foreach ($layout as $item) {
+    $key = $item['w'] ?? '';
+    if (!isset($widgets[$key])) continue;
+    if (($item['col'] ?? 1) === 2) {
+        $col2[] = $key;
+    } else {
+        $col1[] = $key;
+    }
+}
 ?>
 <?php do_action('admin_home'); ?>
-<section class="adam-welcome" style="position:relative;">
-    <!-- Konten home tetap ada di bawah flash -->
-    <div class="adam-welcome-inner">
-        <h2><?=_e('Hello, welcome!')?></h2>
-        <p><?=__('This is the Adiwira dashboard with the <strong>adam</strong> theme.')?></p>
+<div class="dw-dashboard">
+  <div class="dw-heading">
+    <h2 class="dw-heading-title"><?=_e('Dashboard')?></h2>
+    <div class="dw-heading-actions">
+      <button type="button" class="adam-button" id="dw-arrange-toggle" data-active="0"><?=_e('Arrange Widgets')?></button>
     </div>
-    <br><br>
-        <?php if (!empty($flash_success)): ?>
-        <!-- FLASH : hanya dirender jika ada pesan -->
-        <div class="adam-flash-wrap" aria-hidden="false" style="display:block;">
-            <div id="adam-flash"
-                 class="adam-flash adam-flash-success"
-                 role="status"
-                 aria-live="polite"
-                 tabindex="-1">
-                <div class="adam-flash-inner">
-                    <span class="adam-flash-icon" aria-hidden="true"><?= svg_ico('circle-check', '', ['style' => 'width:20px;height:20px']) ?></span>
-                    <div class="adam-flash-body">
-                        <?= htmlspecialchars($flash_success, ENT_QUOTES, 'UTF-8') ?>
-                    </div>
-                    <button type="button"
-                            class="adam-flash-close"
-                             aria-label="<?=_e('Close notification')?>">&times;</button>
-                </div>
-            </div>
+  </div>
+
+  <div class="dw-grid" id="dw-grid">
+    <div class="dw-col" id="dw-col-1">
+      <?php foreach ($col1 as $key):
+        $fn = $widgets[$key]['render'];
+        $html = function_exists($fn) ? $fn($pdo) : '';
+        if (!$html) continue;
+      ?>
+      <div class="dw-widget" data-widget="<?=h($key)?>" data-col="1">
+        <div class="dw-drag-handle" draggable="true" title="<?=_e('Drag to reorder')?>">
+          <?=svg_ico('grip-vertical')?>
         </div>
+        <div class="dw-widget-body"><?=$html?></div>
+      </div>
+      <?php endforeach; ?>
+    </div>
 
-        <style>
-        /* Pastikan flash mengisi lebar section dan tidak "dikerdilkan" oleh layout kolom */
-        .adam-flash-wrap { width: 100%; display: block; box-sizing: border-box; padding: 0 0.25rem; }
-        .adam-flash {
-            width: 100%;
-            max-width: 100%;
-            margin: 0 0 1rem 0;
-            border-radius: 10px;
-            box-shadow: 0 6px 18px rgba(20,30,50,0.06);
-            transition: opacity .35s ease, transform .35s ease;
-            opacity: 1;
-            transform: translateY(0);
-            /* Force not to shrink if parent is a flex row/column */
-            flex: 0 0 100%;
-        }
-        .adam-flash.hide { opacity: 0; transform: translateY(-8px); pointer-events: none; }
-        .adam-flash-inner {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.9rem 1rem;
-            background: #f0fdf4;
-            color: #064e2a;
-            border: 1px solid #d1f3d9;
-            border-radius: 10px;
-            font-weight: 600;
-            box-sizing: border-box;
-        }
-        .adam-flash-icon { font-size: 1.1rem; line-height: 1; }
-        .adam-flash-body { flex: 1; word-break: break-word; }
-        .adam-flash-close {
-            background: transparent;
-            border: 0;
-            font-size: 1.2rem;
-            cursor: pointer;
-            color: rgba(6,78,42,0.8);
-            padding: 0 .25rem;
-            border-radius: 6px;
-        }
-        .adam-flash-close:focus { outline: 2px solid rgba(11,118,239,0.25); outline-offset: 2px; }
-        @media (max-width: 640px) {
-            .adam-flash-inner { padding: 0.7rem 0.9rem; font-size: 0.95rem; }
-        }
-        </style>
+    <div class="dw-col" id="dw-col-2">
+      <?php foreach ($col2 as $key):
+        $fn = $widgets[$key]['render'];
+        $html = function_exists($fn) ? $fn($pdo) : '';
+        if (!$html) continue;
+      ?>
+      <div class="dw-widget" data-widget="<?=h($key)?>" data-col="2">
+        <div class="dw-drag-handle" draggable="true" title="<?=_e('Drag to reorder')?>">
+          <?=svg_ico('grip-vertical')?>
+        </div>
+        <div class="dw-widget-body"><?=$html?></div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
 
-        <script>
-        (function () {
-            try {
-                var el = document.getElementById('adam-flash');
-                if (!el) return;
+  <form id="dw-layout-form" method="post" action="<?=h($base)?>/admin/save_dashboard_layout.php" style="display:none">
+    <input type="hidden" name="csrf_token" value="<?=h(csrf_token())?>">
+    <input type="hidden" name="layout" id="dw-layout-input" value="">
+  </form>
+</div>
 
-                var closeBtn = el.querySelector('.adam-flash-close');
-
-                // Fokus supaya screen reader mengetahui notifikasi
-                try { el.focus({ preventScroll: true }); } catch (e) {}
-
-                // Auto-hide setelah 4 detik
-                var hideTimer = setTimeout(hideFlash, 4000);
-
-                closeBtn.addEventListener('click', function () {
-                    clearTimeout(hideTimer);
-                    hideFlash();
-                });
-
-                function hideFlash() {
-                    el.classList.add('hide');
-                    setTimeout(function () {
-                        if (el && el.parentNode) el.parentNode.removeChild(el);
-                    }, 420);
-                }
-
-                // ESC untuk menutup
-                document.addEventListener('keydown', function (e) {
-                    if (e.key === 'Escape' || e.key === 'Esc') {
-                        clearTimeout(hideTimer);
-                        hideFlash();
-                    }
-                });
-            } catch (err) {
-                console && console.warn && console.warn('flash error:', err);
-            }
-        })();
-        </script>
-    <?php endif; ?>
-    
-</section>
+<script src="/static/dashboard/js/dashboard-widgets.js" defer></script>
+<style>
+/* inline flash override for this page */
+.adam-flash-wrap{ max-width:1200px; margin:0 auto 1rem; }
+</style>

@@ -108,7 +108,6 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
     <input type="hidden" name="action" value="check-updates">
     <button type="submit" class="adam-button"><?= svg_ico('refresh-cw', '', ['class' => 'lucide-icon']) ?> <?=_e('Check Update')?></button>
   </form>
-  <?php endif; ?>
 </div>
 
 <?php if (empty($allPlugins)): ?>

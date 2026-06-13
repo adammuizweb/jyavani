@@ -168,8 +168,7 @@ body.aside-collapsed .adam-collapse .arrow{
   overflow: hidden;
 }
 .adam-nav-link:hover{
-  background: var(--adam-hover);
-  padding-left: .8rem;
+  background: none;
 }
 .adam-nav-link:active{
   transform: scale(.97);
@@ -246,8 +245,7 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
     transform .15s ease;
 }
 .adam-nav-sublink:hover{
-  background: var(--adam-hover-2);
-  padding-left: .8rem;
+  background: none;
 }
 .adam-nav-sublink:active{
   transform: scale(.97);
@@ -340,14 +338,14 @@ html.theme-dark{
   line-height: 0;
 }
 .adam-nav-sublink-icon{
-  width: 20px;
-  min-width: 20px;
-  flex: 0 0 20px;
+  width: 24px;
+  min-width: 24px;
+  flex: 0 0 24px;
 }
 
 .adam-svg-icon{
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   display: block;
   color: var(--adam-icon-color);
   opacity: .96;
@@ -359,8 +357,8 @@ html.theme-dark{
     filter .28s ease;
 }
 .adam-svg-icon--sm{
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 .adam-svg-icon *{
   vector-effect: non-scaling-stroke;
@@ -372,8 +370,6 @@ html.theme-dark{
 }
 
 /* ─── Icon hover / active — enhanced ─── */
-.adam-nav-link:hover .adam-svg-icon,
-.adam-nav-sublink:hover .adam-svg-icon,
 .adam-theme-toggle:hover .adam-svg-icon{
   transform: translateY(-1px) scale(1.06);
 }
@@ -399,12 +395,7 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
 .adam-nav-sublink .adam-svg-icon{
   transition: scale .22s ease, rotate .18s ease, filter .22s ease, opacity .15s ease;
 }
-.adam-nav-link:hover .adam-svg-icon,
-.adam-nav-sublink:hover .adam-svg-icon{
-  scale: 1.28;
-  filter: drop-shadow(0 0 12px var(--adam-aside-glow));
-  opacity: 1;
-}
+/* no hover effect on nav icons */
 .adam-nav-link--active .adam-svg-icon{
   scale: 1.15;
   filter: drop-shadow(0 0 14px var(--adam-aside-glow));
@@ -496,14 +487,9 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
   transition: color .2s ease, background .2s ease, box-shadow .2s ease;
 }
 .adam-nav-item:last-child .adam-nav-link:hover{
-  color: var(--adam-danger);
-  background: rgba(229,57,53,0.08);
-  box-shadow: 0 0 12px rgba(229,57,53,0.15);
+  background: none;
 }
-.adam-nav-item:last-child .adam-nav-link:hover .adam-svg-icon{
-  color: var(--adam-danger);
-  filter: drop-shadow(0 0 8px rgba(229,57,53,0.35));
-}
+/* no hover effect on nav icons */
 
 /* ─── Reduce motion ─── */
 @media (prefers-reduced-motion: reduce){
@@ -517,6 +503,6 @@ body.aside-collapsed .adam-nav-link .adam-svg-icon{
   .adam-nav-sublink,
   .adam-nav-sub,
   .adam-collapse{ transition:none!important; }
-  .adam-nav-link:hover .adam-svg-icon{ scale:1; filter:none; }
+
   .adam-theme-toggle:hover{ scale:1; box-shadow:none; }
 }

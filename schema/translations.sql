@@ -2961,3 +2961,14 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Zone primary berhasil diubah.', 'Primary zone changed successfully.', 'id'),
 ('default', 'Zone tidak ditemukan.', 'Zone not found.', 'id'),
 ('default', 'Zone tidak valid.', 'Invalid zone.', 'id');
+
+-- v2.0.5 — update notification translations
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Failed to check updates.', 'Gagal memeriksa update.', 'id'),
+('default', 'All up to date.', 'Semua sudah versi terbaru.', 'id'),
+('default', 'Checking...', 'Memeriksa...', 'id'),
+('default', 'Updates available:', 'Update tersedia:', 'id'),
+('default', 'item', 'item', 'id'),
+('default', 'Update Notification', 'Notifikasi Update', 'id'),
+('default', 'Plugin', 'Plugin', 'id'),
+('default', 'Theme', 'Tema', 'id');

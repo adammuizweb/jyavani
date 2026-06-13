@@ -1,4 +1,4 @@
-# AGENTS.md — Jyavani CMS v2.0.5
+# AGENTS.md — Jyavani CMS v2.1.3
 
 Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework, no Composer, no build tools, no tests.
 
@@ -293,7 +293,7 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 
 ## Development
 
-- Version: **2.0.5** (see `VERSION` and `version.json`)
+- Version: **2.1.3** (see \`VERSION\` and \`version.json\`)
 - No test suite — manual testing only
 - Error display controlled by `APP_DEBUG=1` in `.env`
 - `dev_lock.php` can lockdown the site

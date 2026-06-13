@@ -327,7 +327,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     <div class="adam-accordion" id="theme-meta-accordion" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="theme-meta-body">
-        <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Post Settings')?> <span class="chevron">▸</span>
+        <?= svg_ico('cog') ?> <?=_e('Post Settings')?> <span class="chevron">▸</span>
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
@@ -340,7 +340,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
 
         <label><?=_e('Category (check to select)')?><br>
-          <div style="padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;max-height:calc(1.6em * 3 + .9rem);overflow-y:auto;overflow-x:hidden;">
+          <div class="cat-checklist">
             <?php
               $selectedCats = isset($_POST['categories']) ? (array)$_POST['categories'] : [];
               render_category_tree($all_categories, $selectedCats);
@@ -354,20 +354,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                  placeholder="https://www.youtube.com/watch?v=xxxxxx"
                  value="<?= htmlspecialchars($_POST['youtube'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         </div>
-        <div id="youtube-preview" style="margin-top:8px"></div>
+        <div id="youtube-preview"></div>
 
         <label><?=_e('Thumbnail (use media modal)')?><br>
-          <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+          <div class="flex gap-8 items-center mt-8">
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                   style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
+                   class="inp flex-1"
                    placeholder="<?=_e('URL thumbnail (or select from Media)')?>">
-            <button type="button" id="btn-open-media-for-thumb" class="adam-button" style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?=_e('Select from Media')?></button>
-            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem"><?=_e('Clear')?></button>
+            <button type="button" id="btn-open-media-for-thumb" class="adam-button"><?=_e('Select from Media')?></button>
+            <button type="button" id="thumbnail-clear" class="adam-link"><?=_e('Clear')?></button>
           </div>
-          <div id="thumbnail-preview" style="margin-top:.6rem;">
+          <div id="thumbnail-preview" class="thumbnail-preview mt-12">
             <?php if (!empty($_POST['thumbnail'])): ?>
-              <img src="<?= htmlspecialchars($_POST['thumbnail'], ENT_QUOTES, 'UTF-8') ?>" alt="preview" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
+              <img src="<?= htmlspecialchars($_POST['thumbnail'], ENT_QUOTES, 'UTF-8') ?>" alt="preview">
             <?php endif; ?>
           </div>
         </label>
@@ -375,7 +375,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </div>
 
     <label for="quill-editor"><?=_e('Content (rich text)')?></label>
-    <div id="quill-editor-box" class="adam-quill adam-quill--auto" style="margin-top:.4rem;">
+    <div id="quill-editor-box" class="adam-quill adam-quill--auto">
       <div id="quill-editor"></div>
     </div>
 
@@ -386,28 +386,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       $updated_val = $_POST['updated_at'] ?? '';
     ?>
 
-    <div class="form-row" style="margin-top:.6rem">
+    <div class="form-row mt-12">
       <label for="status"><?=_e('Status')?></label>
-      <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
+      <select name="status" id="status" class="inp">
         <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
         <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
         <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
     </div>
 
-    <label style="display:block;margin-top:.6rem"><?=_e('Created At (optional)')?><br>
-      <input type="datetime-local" name="created_at" value="<?= htmlspecialchars((string)$created_val, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to use current time (GMT+7).')?></div>
+    <label class="form-group"><?=_e('Created At (optional)')?><br>
+      <input type="datetime-local" name="created_at" value="<?= htmlspecialchars((string)$created_val, ENT_QUOTES, 'UTF-8') ?>" class="inp">
+      <div class="field-note"><?=_e('Leave empty to use current time (GMT+7).')?></div>
     </label>
 
-    <label style="display:block;margin-top:.6rem"><?=_e('Updated At (optional)')?><br>
-      <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars((string)$updated_val, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to use current time (GMT+7).')?></div>
+    <label class="form-group"><?=_e('Updated At (optional)')?><br>
+      <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars((string)$updated_val, ENT_QUOTES, 'UTF-8') ?>" class="inp">
+      <div class="field-note"><?=_e('Leave empty to use current time (GMT+7).')?></div>
     </label>
 
-    <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
-      <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
+    <div class="section-divider">
+      <div class="section-label"><?= svg_ico('columns-2') ?> <?=_e('Sidebar Position')?></div>
+      <select name="sidebar_override" class="inp">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
         <option value="right"><?=_e('Right')?></option>
         <option value="left"><?=_e('Left')?></option>
@@ -415,12 +415,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       </select>
     </div>
 
-    <p style="margin-top:.8rem">
+    <p class="mt-16">
       <button type="submit" class="adam-button"><?=_e('Save')?></button>
       <a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Cancel')?></a>
     </p>
 
-    <div id="media-single-panel" style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:480px">
+    <div id="media-single-panel" class="hide" style="border:1px solid #eee;padding:10px;border-radius:6px;max-width:480px">
       <div id="media-single-content"><?=_e('Click image in Media to view details & edit.')?></div>
     </div>
   </form>

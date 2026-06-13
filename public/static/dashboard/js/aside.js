@@ -96,6 +96,10 @@
       var sub = item.querySelector('.adam-nav-sub');
       if (!sub) return;
       if (sub.children.length === 0) return;
+      // when collapsed, let link navigate normally (fallback to index)
+      if (document.body.classList.contains('aside-collapsed') || document.documentElement.classList.contains('aside-collapsed')) {
+        return;
+      }
       e.preventDefault();
       var isOpen = item.classList.contains('is-open');
       item.classList.toggle('is-open');

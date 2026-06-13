@@ -131,6 +131,19 @@ $themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
   <script src="/static/dashboard/js/panel.js" defer></script>
   <script src="/static/dashboard/js/accordion.js" defer></script>
   <script src="/static/dashboard/js/theme-toggle.js" defer></script>
+  <script>
+window.i18n_upd = <?= json_encode([
+    'failed_to_check'   => __('Failed to check updates.'),
+    'all_up_to_date'    => __('All up to date.'),
+    'checking'          => __('Checking...'),
+    'updates_available' => __('Updates available:'),
+    'item'              => __('item'),
+    'notification'      => __('Update Notification'),
+    'plugin'            => __('Plugin'),
+    'theme'             => __('Theme'),
+]) ?>;
+</script>
+  <script src="/static/dashboard/js/update-notif.js" defer></script>
 
 <?php do_action('admin_footer'); ?>
 </body>
