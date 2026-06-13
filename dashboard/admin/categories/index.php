@@ -659,6 +659,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 .cat-level-1{ margin-left:18px; color:#2c5282; }
 .cat-level-2{ margin-left:36px; color:#4a5568; }
 .cat-level-3{ margin-left:54px; color:#6b7280; }
+.theme-dark .cat-level-0{ color:var(--adam-text); }
+.theme-dark .cat-level-1{ color:var(--adam-muted); }
+.theme-dark .cat-level-2{ color:var(--adam-muted); opacity:.8; }
+.theme-dark .cat-level-3{ color:var(--adam-muted); opacity:.65; }
 tbody tr:hover .cat-indent{ opacity:1; }
 
 @media (max-width:600px){
