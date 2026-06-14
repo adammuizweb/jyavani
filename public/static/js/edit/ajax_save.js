@@ -76,7 +76,11 @@ function showNotif(title, msg, ms, forcedType){
       const qApi = window.ADIWIRA && window.ADIWIRA.quill;
       if (qApi && typeof qApi.getInstance === 'function') {
         const q = qApi.getInstance();
-        if (q && q.root) return q.root.innerHTML || '';
+        if (q && q.root) {
+          const raw = q.root.innerHTML || '';
+          if (typeof qApi.cleanExtraBreaks === 'function') return qApi.cleanExtraBreaks(raw);
+          return raw;
+        }
       }
     } catch(e){}
     // fallback: try #quill-editor innerHTML

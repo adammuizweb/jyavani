@@ -73,6 +73,7 @@ $themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
   <!-- quill -->
   <link href="/static/vendor/quill/quill.snow.css" rel="stylesheet">
   <script src="/static/vendor/quill/quill.min.js"></script>
+  <style>.ql-editor p{margin:.35em 0 .75em}.ql-editor p:first-child{margin-top:0}.ql-editor p:last-child{margin-bottom:0}</style>
 
   <!-- codemirror -->
   <link rel="stylesheet" href="/static/vendor/codemirror/codemirror.min.css">

@@ -79,7 +79,6 @@ const complexPattern =
       // protect against loop — declare programmatic during setHTMLIfDifferent
       window.ADIWIRA.editor._programmatic = true;
       quillApi.setHTMLIfDifferent(chtml);
-      if (canonical) canonical.value = quillApi.getInstance() && quillApi.getInstance().root ? quillApi.getInstance().root.innerHTML : chtml;
       setTimeout(()=> { window.ADIWIRA.editor._programmatic = false; }, 70);
     } catch(e){ console.warn('syncCMToQuill', e); }
   }

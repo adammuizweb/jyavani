@@ -16,8 +16,20 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     return String(html)
       .replace(/(<p><br><\/p>\s*){2,}/g, '<p><br></p>')
       .replace(/<p>\s*<\/p>/g, '')
+      .replace(/<p><br><\/p>\s*(?=<(?:h[1-6]|blockquote|ul|ol|li|pre|table|div|section|figure|hr)[\s>])/gi, '')
       .replace(/(?:<p><br><\/p>\s*)+$/g, '')
       .replace(/(<br>\s*){3,}/g, '<br><br>');
+  }
+
+  function collapseBlankLinesInDelta(delta) {
+    if (!delta || !delta.ops) return delta;
+    var newOps = delta.ops.map(function(op){
+      if (typeof op.insert === 'string' && op.insert.indexOf('\n\n') !== -1) {
+        return {insert: op.insert.replace(/\n\n+/g, '\n'), attributes: op.attributes};
+      }
+      return op;
+    });
+    return {ops: newOps};
   }
 
   const FULL_TOOLBAR = [
@@ -294,7 +306,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       } catch (e) {}
 
       if (canonical) {
-        canonical.value = quill.root.innerHTML;
+        canonical.value = cleanExtraBreaks(quill.root.innerHTML);
       }
 
       uiToast(
@@ -467,12 +479,19 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     suppress = true;
     try {
       const initial = canonical ? (canonical.value || '') : '';
-      quill.root.innerHTML = cleanExtraBreaks(initial || '');
+      const cleaned = cleanExtraBreaks(initial || '');
+      const delta = collapseBlankLinesInDelta(quill.clipboard.convert(cleaned));
+      quill.setContents(delta, 'silent');
       restoreImageDataAttributes(initial);
+      if (canonical) canonical.value = cleaned;
     } catch (e) {
       try {
-        quill.root.innerHTML = canonical ? (canonical.value || '') : '';
+        const fallback = canonical ? (canonical.value || '') : '';
+        const cleanedFallback = cleanExtraBreaks(fallback || '');
+        const delta = collapseBlankLinesInDelta(quill.clipboard.convert(cleanedFallback));
+        quill.setContents(delta, 'silent');
         restoreImageDataAttributes(canonical ? canonical.value : '');
+        if (canonical) canonical.value = cleanedFallback;
       } catch (_) {}
     }
 
@@ -504,10 +523,12 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       if (normalizeHtmlForCompare(cur) === normalizeHtmlForCompare(html)) return;
 
       suppress = true;
-      quill.root.innerHTML = cleanExtraBreaks(html || '');
+      const cleaned = cleanExtraBreaks(html || '');
+      const delta = collapseBlankLinesInDelta(quill.clipboard.convert(cleaned));
+      quill.setContents(delta, 'silent');
       restoreImageDataAttributes(html);
 
-      if (canonical) canonical.value = cleanExtraBreaks(quill.root.innerHTML || '');
+      if (canonical) canonical.value = cleaned;
 
       setTimeout(function(){
         suppress = false;
@@ -515,9 +536,11 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       }, 40);
     } catch (e) {
       try {
-        quill.root.innerHTML = html;
+        const cleaned = cleanExtraBreaks(html || '');
+        const delta = collapseBlankLinesInDelta(quill.clipboard.convert(cleaned));
+        quill.setContents(delta, 'silent');
         restoreImageDataAttributes(html);
-        if (canonical) canonical.value = cleanExtraBreaks(quill.root.innerHTML || '');
+        if (canonical) canonical.value = cleaned;
         normalizeEditorImages(document.getElementById('quill-editor'));
       } catch (_) {}
     }
@@ -641,6 +664,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   window.ADIWIRA.quill = {
     initQuill,
     isContentComplex,
+    cleanExtraBreaks,
     forceEnableQuillAfterStrip,
     setHTMLIfDifferent,
     getInstance: function(){ return quill; }
