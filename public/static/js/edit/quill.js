@@ -431,6 +431,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       toolbarOption = FULL_TOOLBAR;
     }
 
+    editorEl.innerHTML = '';
+
     quill = new Quill(editorEl, {
       theme: 'snow',
       modules: { toolbar: toolbarOption },
