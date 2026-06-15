@@ -66,7 +66,7 @@ $themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
 </script>
 
   <!-- stylesheet tema -->
-  <link rel="stylesheet" href="/static/dashboard/css/style.css">
+  <link rel="stylesheet" href="/static/dashboard/css/style.css?v=<?= filemtime(__DIR__ . '/../../../public/static/dashboard/css/style.css') ?>">
   <link rel="stylesheet" href="/static/components/confirm/confirm.css">
   <link rel="stylesheet" href="/static/components/toast/toast.css">
 

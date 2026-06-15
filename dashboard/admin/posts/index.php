@@ -203,36 +203,36 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Posts (Article)')?></h2>
+  <div class="toolbar-top">
+    <h2 class="page-heading"><?=_e('Post')?></h2>
 
-  <form method="get" class="form-row">
-    <input type="hidden" name="page" value="admin/posts/index">
-    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp" style="min-width:200px">
-    
-    <select name="status" class="inp">
-      <option value=""><?= _e('-- All Status --') ?></option>
-      <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>><?=_e('Draft')?></option>
-      <option value="published" <?= $filter_status==='published'?'selected':'' ?>><?=_e('Published')?></option>
-      <option value="private" <?= $filter_status==='private'?'selected':'' ?>><?=_e('Private')?></option>
-    </select>
+    <form method="get" class="toolbar-filter">
+      <input type="hidden" name="page" value="admin/posts/index">
+      <input type="text" name="q" placeholder="<?= _e('Search…') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
 
-    <select name="category" class="inp">
-      <option value=""><?= _e('-- All Categories --') ?></option>
-      <?php foreach ($categories as $cat): ?>
-        <option value="<?= (int)$cat['id'] ?>" <?= $filter_category==$cat['id']?'selected':'' ?>>
-          <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
+      <select name="status" class="inp">
+        <option value=""><?= _e('All Status') ?></option>
+        <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>><?=_e('Draft')?></option>
+        <option value="published" <?= $filter_status==='published'?'selected':'' ?>><?=_e('Published')?></option>
+        <option value="private" <?= $filter_status==='private'?'selected':'' ?>><?=_e('Private')?></option>
+      </select>
 
-    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
-  </form>
+      <select name="category" class="inp">
+        <option value=""><?= _e('All Categories') ?></option>
+        <?php foreach ($categories as $cat): ?>
+          <option value="<?= (int)$cat['id'] ?>" <?= $filter_category==$cat['id']?'selected':'' ?>>
+            <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
 
-  <div class="btn-row">
-    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+      <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
+    </form>
+
+    <a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a>
     <?php if ($role === 'admin') : ?>
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
+      <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
 
@@ -276,6 +276,16 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+
+      <div class="cols-toggle ml-auto">
+        <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+        <div class="cols-dropdown">
+          <label class="cols-opt"><input type="checkbox" data-col="col-status" checked> <?=_e('Status')?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-categories" checked> <?=_e('Categories')?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-created" checked> <?=_e('Created')?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-author" checked> <?=_e('Author')?></label>
+        </div>
+      </div>
     </div>
 
     <div class="adam-table-wrapper">
@@ -284,16 +294,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <tr>
             <th class="th-narrow"></th>
             <th><?= _e('Title') ?></th>
-            <th><?=_e('Status')?></th>
-            <th><?= _e('Categories') ?></th>
-            <th><?= _e('Created') ?></th>
-            <th><?= _e('Author') ?></th>
-            <th><?= _e('Actions') ?></th>
+            <th class="col-status"><?=_e('Status')?></th>
+            <th class="col-categories"><?= _e('Categories') ?></th>
+            <th class="col-created"><?= _e('Created') ?></th>
+            <th class="col-author"><?= _e('Author') ?></th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($posts)): ?>
-            <tr><td class="empty-state" colspan="7"><?= _e('No articles found.') ?></td></tr>
+            <tr><td class="empty-state" colspan="6"><?= _e('No articles found.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($posts as $p): ?>
             <?php
@@ -319,18 +328,31 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               </td>
 
               <td>
-                <?php
-                  $titleHref = (function_exists('get_post_permalink') && !empty($p['slug']))
-                    ? get_post_permalink($p)
-                    : (($p['slug'] ?? '') !== '' ? '/' . rawurlencode((string)$p['slug']) . '/' : '#');
-                ?>
-                <a class="adam-link" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
-                   title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>">
-                   <?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>
-                </a>
+                <div class="title-wrap">
+                  <?php
+                    $titleHref = (function_exists('get_post_permalink') && !empty($p['slug']))
+                      ? get_post_permalink($p)
+                      : (($p['slug'] ?? '') !== '' ? '/' . rawurlencode((string)$p['slug']) . '/' : '#');
+                  ?>
+                  <a class="adam-link--full" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
+                     title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>">
+                     <?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>
+                  </a>
+                  <div class="row-actions">
+                    <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
+                    <span class="muted-divider">|</span>
+                    <button type="button"
+                            class="adam-hapus js-post-delete"
+                            data-id="<?= (int)$p['id'] ?>"
+                            data-title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>"
+                            data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                      <?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?><?=_e('Delete')?>
+                    </button>
+                  </div>
+                </div>
               </td>
 
-              <td>
+              <td class="col-status">
                 <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
                       role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
                   <span class="adam-status-icon"><?= $iconSvg ?></span>
@@ -338,7 +360,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 </span>
               </td>
 
-              <td>
+              <td class="col-categories">
                 <?php
                   if (!empty($p['category_ids'])) {
                     $catIds = array_filter(array_map('trim', explode(',', $p['category_ids'])));
@@ -367,9 +389,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 ?>
               </td>
 
-              <td><?= htmlspecialchars(format_date_ddmmyyyy_time_bracket($p['created_at']), ENT_QUOTES, 'UTF-8') ?></td>
+              <td class="col-created"><?= htmlspecialchars(format_date_ddmmyyyy_time_bracket($p['created_at']), ENT_QUOTES, 'UTF-8') ?></td>
 
-              <td>
+              <td class="col-author">
                 <?php
                   $authorName = $p['created_by'] ?? '-';
                   $authorUsername = $p['author_username'] ?? '';
@@ -380,18 +402,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                     echo htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8');
                   }
                 ?>
-              </td>
-
-              <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
-                <button type="button"
-                        class="adam-hapus js-post-delete"
-                        data-id="<?= (int)$p['id'] ?>"
-                        data-title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?><?=_e('Delete')?>
-                </button>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -564,6 +574,69 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     bulkAction.addEventListener('change', toggleBulkExtras);
     toggleBulkExtras();
   }
+
+  /* ── Column visibility toggle ── */
+  (function(){
+    const STORAGE_KEY = 'posts_columns';
+    const toggleBtn = document.querySelector('.cols-toggle-btn');
+    const dropdown = document.querySelector('.cols-dropdown');
+    const checkboxes = dropdown ? dropdown.querySelectorAll('input[data-col]') : [];
+
+    function loadColState(){
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? JSON.parse(saved) : null;
+      } catch(e){ return null; }
+    }
+
+    function saveColState(state){
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch(e){}
+    }
+
+    function applyColState(state){
+      checkboxes.forEach(function(cb){
+        const col = cb.getAttribute('data-col');
+        const hidden = state && state[col] === false;
+        cb.checked = !hidden;
+        document.querySelectorAll('.' + col).forEach(function(el){
+          el.classList.toggle('col-hidden', hidden);
+        });
+      });
+    }
+
+    /* restore saved state */
+    var saved = loadColState();
+    if (saved) applyColState(saved);
+
+    /* toggle dropdown */
+    if (toggleBtn && dropdown) {
+      toggleBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+      });
+      document.addEventListener('click', function(){
+        dropdown.classList.remove('open');
+      });
+      dropdown.addEventListener('click', function(e){
+        e.stopPropagation();
+      });
+    }
+
+    /* handle checkbox change */
+    checkboxes.forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var col = this.getAttribute('data-col');
+        var hidden = !this.checked;
+        document.querySelectorAll('.' + col).forEach(function(el){
+          el.classList.toggle('col-hidden', hidden);
+        });
+        var state = loadColState() || {};
+        state[col] = this.checked;
+        saveColState(state);
+      });
+    });
+  })();
 
   document.querySelectorAll('.js-post-delete').forEach(function(btn){
     btn.addEventListener('click', function(){

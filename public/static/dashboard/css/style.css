@@ -1160,6 +1160,38 @@ html.theme-dark .adam-table tbody tr:nth-child(even){ background: rgba(255,255,2
 }
 .adam-link:hover, .adam-penulis:hover{ text-decoration:underline; }
 
+/* Full-width title (no truncation) */
+.adam-link--full{
+  color: var(--adam-link);
+  font-weight: 700;
+  text-decoration:none;
+  display:inline;
+}
+.adam-link--full:hover{ text-decoration:underline; }
+
+/* Title cell wrapper */
+.title-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+
+/* Action row below title */
+.row-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:.82rem;
+  opacity:.75;
+  transition:opacity .15s;
+}
+.row-actions:hover{ opacity:1; }
+.row-actions .adam-ubah,
+.row-actions .adam-hapus{
+  padding:.1rem .2rem;
+  font-size:.82rem;
+}
+
 /* Actions */
 .adam-ubah{
   background: transparent;
@@ -2598,6 +2630,33 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
   .adam-panel-resizer{ display:none; }
 
   .adam-nav-sub-collapsed{ display:none !important; }
+
+  /* ── Mobile toolbar stack ── */
+  .toolbar-top{
+    flex-wrap:wrap;
+    gap:.5rem;
+  }
+  .toolbar-top .page-heading{
+    margin-right:auto;
+  }
+  .toolbar-filter{
+    order:1;
+    flex:1 1 100%;
+    flex-wrap:wrap;
+    align-items:flex-start;
+  }
+  .toolbar-filter .inp{
+    min-width:0;
+    flex:1;
+  }
+  .toolbar-filter input[type="text"].inp{
+    min-width:0;
+    flex:1 1 100%;
+  }
+  .toolbar-add,
+  .toolbar-trash{
+    flex-shrink:0;
+  }
 }
 
 @keyframes slideUp{
@@ -4129,6 +4188,62 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   flex-wrap:wrap;
 }
 
+/* Columns toggle */
+.cols-toggle{
+  position:relative;
+}
+.cols-toggle-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--adam-surface-3);
+  border:1px solid var(--adam-border-2);
+  border-radius:6px;
+  padding:.3rem;
+  cursor:pointer;
+  color:var(--adam-text-2);
+  transition:background .15s, border-color .15s;
+}
+.cols-toggle-btn:hover{
+  background:var(--adam-surface-4);
+  border-color:var(--adam-primary);
+  color:var(--adam-primary);
+}
+.cols-toggle-btn .lucide-icon{
+  width:16px;
+  height:16px;
+  margin:0;
+}
+.cols-dropdown{
+  display:none;
+  position:absolute;
+  right:0;
+  top:calc(100% + 4px);
+  min-width:160px;
+  background:var(--adam-card);
+  border:1px solid var(--adam-border-2);
+  border-radius:8px;
+  padding:.4rem 0;
+  box-shadow:var(--adam-shadow);
+  z-index:50;
+}
+.cols-dropdown.open{ display:block; }
+.cols-opt{
+  display:flex;
+  align-items:center;
+  gap:.4rem;
+  padding:.3rem .6rem;
+  font-size:.85rem;
+  color:var(--adam-text);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.cols-opt:hover{ background:var(--adam-hover); }
+.cols-opt input{ accent-color:var(--adam-primary); }
+
+/* Hidden column */
+.col-hidden{ display:none; }
+
 /* Pagination wrapper */
 .pagination-wrap{
   margin-top:1rem;
@@ -4151,6 +4266,17 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 /* Section heading */
 .section-heading{
   margin:0 0 .6rem;
+}
+
+/* Page heading — left accent bar */
+.page-heading{
+  margin:0;
+  font-size:1.25rem;
+  font-weight:700;
+  color:var(--adam-text);
+  padding-left:.6rem;
+  border-left:3px solid var(--adam-primary);
+  line-height:1.4;
 }
 
 /* Form group */
@@ -4458,6 +4584,31 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   .dw-grid{ grid-template-columns:1fr; }
   .dw-stats{ grid-template-columns:repeat(2,1fr); }
   .dw-heading{ flex-direction:column; gap:.75rem; align-items:flex-start; }
+}
+
+/* ─── Top toolbar (h2 + filter + actions) ─── */
+.toolbar-top{
+  display:flex;
+  align-items:center;
+  gap:1rem;
+  margin-bottom:.5rem;
+}
+.toolbar-filter{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  flex:1;
+}
+.toolbar-filter .inp{
+  min-width:90px;
+}
+.toolbar-filter input[type="text"].inp{
+  min-width:120px;
+  flex:1;
+}
+.toolbar-add,
+.toolbar-trash{
+  flex-shrink:0;
 }
 
 /* ─── End Utility Classes ─── */

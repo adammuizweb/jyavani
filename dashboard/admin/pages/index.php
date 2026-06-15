@@ -168,38 +168,38 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Pages')?></h2>
+  <div class="toolbar-top">
+    <h2 class="page-heading"><?=_e('Pages')?></h2>
 
-  <form method="get" style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
-    <input type="hidden" name="page" value="admin/pages/index">
-    <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;min-width:200px">
+    <form method="get" class="toolbar-filter">
+      <input type="hidden" name="page" value="admin/pages/index">
+      <input type="text" name="q" placeholder="<?= _e('Search…') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
 
-    <select name="status" style="padding:.4rem;">
-      <option value=""><?= _e('-- All Status --') ?></option>
-      <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
-      <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
-      <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
-    </select>
+      <select name="status" class="inp">
+        <option value=""><?= _e('All Status') ?></option>
+        <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
+        <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
+        <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
+      </select>
 
-    <select name="author" style="padding:.4rem;">
-      <option value=""><?= _e('-- All Authors --') ?></option>
-      <?php foreach ($authors as $a):
-        $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-      ?>
-        <option value="<?= (int)$a['id'] ?>" <?= ((string)$filter_author === (string)$a['id']) ? 'selected' : '' ?>>
-          <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
+      <select name="author" class="inp">
+        <option value=""><?= _e('All Authors') ?></option>
+        <?php foreach ($authors as $a):
+          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
+        ?>
+          <option value="<?= (int)$a['id'] ?>" <?= ((string)$filter_author === (string)$a['id']) ? 'selected' : '' ?>>
+            <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
 
-    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
-  </form>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+      <a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
+    </form>
 
-  <div class="btn-row">
-    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Page')?></a>
+    <a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Page')?></a>
     <?php if ($role === 'admin') : ?>
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
+      <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
 
@@ -208,12 +208,12 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
-      <label style="display:flex;align-items:center;gap:.4rem;">
+    <div class="bulk-bar">
+      <label class="check-row">
         <input type="checkbox" id="selectAllPages"> <?=_e('Select all on page')?>
       </label>
 
-      <select id="bulkActionPages" name="action" style="padding:.4rem;">
+      <select id="bulkActionPages" name="action" class="inp">
         <option value=""><?=_e('-- Bulk action --')?></option>
         <option value="delete"><?= _e('Delete') ?></option>
         <option value="change_status"><?= _e('Change Status') ?></option>
@@ -222,14 +222,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <?php endif; ?>
       </select>
 
-      <select id="bulkStatusPages" name="status" style="padding:.4rem;display:none;">
+      <select id="bulkStatusPages" name="status" class="inp" style="display:none;">
         <option value="draft"><?=_e('Draft')?></option>
         <option value="published"><?=_e('Published')?></option>
         <option value="private"><?=_e('Private')?></option>
       </select>
 
       <?php if ($role === 'admin'): ?>
-      <select id="bulkAuthorPages" name="author_id" style="padding:.4rem;display:none;">
+      <select id="bulkAuthorPages" name="author_id" class="inp" style="display:none;">
         <option value=""><?= _e('-- Select Author --') ?></option>
         <?php foreach ($authors as $a):
           $label = $a['name'] ?: ($a['username'] ?: $a['id']);
@@ -240,25 +240,34 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <?php endif; ?>
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+      <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+
+      <div class="cols-toggle ml-auto">
+        <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+        <div class="cols-dropdown">
+          <label class="cols-opt"><input type="checkbox" data-col="col-slug" checked> <?=_e('Slug')?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-status" checked> <?=_e('Status')?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-created" checked> <?=_e('Created')?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-author" checked> <?=_e('Author')?></label>
+        </div>
+      </div>
     </div>
 
     <div class="adam-table-wrapper">
       <table class="adam-table" style="margin-top:.5rem;">
-        <thead>
-          <tr>
-            <th style="width:40px"></th>
-            <th><?= _e('Title') ?></th>
-            <th><?=_e('Slug')?></th>
-            <th><?=_e('Status')?></th>
-            <th><?= _e('Created') ?></th>
-            <th><?= _e('Author') ?></th>
-            <th><?= _e('Actions') ?></th>
-          </tr>
-        </thead>
+      <thead>
+        <tr>
+          <th class="th-narrow"></th>
+          <th><?= _e('Title') ?></th>
+          <th class="col-slug"><?=_e('Slug')?></th>
+          <th class="col-status"><?=_e('Status')?></th>
+          <th class="col-created"><?= _e('Created') ?></th>
+          <th class="col-author"><?= _e('Author') ?></th>
+        </tr>
+      </thead>
         <tbody>
           <?php if (empty($pages_list)): ?>
-            <tr><td colspan="7" style="padding:1rem;"><?= _e('No pages found.') ?></td></tr>
+            <tr><td colspan="6" style="padding:1rem;"><?= _e('No pages found.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($pages_list as $p): ?>
               <?php
@@ -289,15 +298,39 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 </td>
 
                 <td>
-                  <a class="adam-link" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
-                     title="<?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>">
-                    <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
-                  </a>
+                  <div class="title-wrap">
+                    <?php
+                      $titleHref = (function_exists('get_page_permalink') && !empty($p['slug']))
+                          ? get_page_permalink($p)
+                          : (($p['slug'] ?? '') !== '' ? '/' . rawurlencode((string)$p['slug']) . '/' : '#');
+
+                      $editHref = $base . '/?' . http_build_query([
+                          'page'      => 'admin/pages/edit',
+                          'id'        => (int)$p['id'],
+                          'return_to' => $currentReturnTo,
+                      ]);
+                    ?>
+                    <a class="adam-link--full" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
+                       title="<?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>">
+                      <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                    </a>
+                    <div class="row-actions">
+                      <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
+                      <span class="muted-divider">|</span>
+                      <button type="button"
+                              class="adam-hapus js-page-delete"
+                              data-id="<?= (int)$p['id'] ?>"
+                              data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                              data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                        <?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?><?=_e('Delete')?>
+                      </button>
+                    </div>
+                  </div>
                 </td>
 
-                <td><?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                <td class="col-slug"><?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
 
-                <td>
+                <td class="col-status">
                   <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
                         role="status" aria-label="<?= htmlspecialchars($status === 'published' ? __('Published') : ($status === 'draft' ? __('Draft') : ($status === 'private' ? __('Private') : ucfirst($status))), ENT_QUOTES, 'UTF-8') ?>">
                     <span class="adam-status-icon"><?= $iconSvg ?></span>
@@ -305,9 +338,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   </span>
                 </td>
 
-                <td><?= htmlspecialchars(format_date_ddmmyyyy_time_bracket($p['created_at']), ENT_QUOTES, 'UTF-8') ?></td>
+                <td class="col-created"><?= htmlspecialchars(format_date_ddmmyyyy_time_bracket($p['created_at']), ENT_QUOTES, 'UTF-8') ?></td>
 
-                <td>
+                <td class="col-author">
                   <?php
                     $authorName = $p['author_name'] ?? '-';
                     $authorUsername = trim((string)($p['author_username'] ?? ''));
@@ -318,18 +351,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                       echo htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8');
                     }
                   ?>
-                </td>
-
-                <td>
-                  <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
-                  &nbsp;<span class="muted-divider">|</span>&nbsp;
-                  <button type="button"
-                          class="adam-hapus js-page-delete"
-                          data-id="<?= (int)$p['id'] ?>"
-                          data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                          data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
-                  </button>
                 </td>
               </tr>
             <?php endforeach; ?>
@@ -510,6 +531,66 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
     });
   });
+
+  /* ── Column visibility toggle ── */
+  (function(){
+    const STORAGE_KEY = 'pages_columns';
+    const toggleBtn = document.querySelector('.cols-toggle-btn');
+    const dropdown = document.querySelector('.cols-dropdown');
+    const checkboxes = dropdown ? dropdown.querySelectorAll('input[data-col]') : [];
+
+    function loadColState(){
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? JSON.parse(saved) : null;
+      } catch(e){ return null; }
+    }
+
+    function saveColState(state){
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch(e){}
+    }
+
+    function applyColState(state){
+      checkboxes.forEach(function(cb){
+        const col = cb.getAttribute('data-col');
+        const hidden = state && state[col] === false;
+        cb.checked = !hidden;
+        document.querySelectorAll('.' + col).forEach(function(el){
+          el.classList.toggle('col-hidden', hidden);
+        });
+      });
+    }
+
+    var saved = loadColState();
+    if (saved) applyColState(saved);
+
+    if (toggleBtn && dropdown) {
+      toggleBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+      });
+      document.addEventListener('click', function(){
+        dropdown.classList.remove('open');
+      });
+      dropdown.addEventListener('click', function(e){
+        e.stopPropagation();
+      });
+    }
+
+    checkboxes.forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var col = this.getAttribute('data-col');
+        var hidden = !this.checked;
+        document.querySelectorAll('.' + col).forEach(function(el){
+          el.classList.toggle('col-hidden', hidden);
+        });
+        var state = loadColState() || {};
+        state[col] = this.checked;
+        saveColState(state);
+      });
+    });
+  })();
 
   if (bulkForm) {
     let bulkConfirmed = false;

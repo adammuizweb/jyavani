@@ -283,43 +283,43 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
 <section class="adam-card">
-  <h2><?= _e('Categories') ?></h2>
+  <div class="toolbar-top">
+    <h2 class="page-heading"><?= _e('Categories') ?></h2>
 
-  <form method="get" class="form-row">
-    <input type="hidden" name="page" value="admin/categories/index">
-    <input type="text" name="search" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp" style="min-width:200px">
-    <select name="parent" class="inp">
-      <option value=""><?=_e('All Parents')?></option>
-      <?php foreach ($filterParentOptions as $opt): ?>
-        <option value="<?=(int)$opt['id']?>" <?=$parentFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
-      <?php endforeach; ?>
-    </select>
-    <select name="author" class="inp">
-      <option value=""><?=_e('All Authors')?></option>
-      <?php foreach ($filterAuthorOptions as $opt): ?>
-        <option value="<?=(int)$opt['id']?>" <?=$authorFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
-      <?php endforeach; ?>
-    </select>
+    <form method="get" class="toolbar-filter">
+      <input type="hidden" name="page" value="admin/categories/index">
+      <input type="text" name="search" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp">
+      <select name="parent" class="inp">
+        <option value=""><?=_e('All Parents')?></option>
+        <?php foreach ($filterParentOptions as $opt): ?>
+          <option value="<?=(int)$opt['id']?>" <?=$parentFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
+        <?php endforeach; ?>
+      </select>
+      <select name="author" class="inp">
+        <option value=""><?=_e('All Authors')?></option>
+        <?php foreach ($filterAuthorOptions as $opt): ?>
+          <option value="<?=(int)$opt['id']?>" <?=$authorFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
+        <?php endforeach; ?>
+      </select>
 
-    <select name="author" class="inp">
-      <option value="0"><?= _e('-- All Creators --') ?></option>
-      <?php foreach ($authors as $a):
-        $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-      ?>
-        <option value="<?= (int)$a['id'] ?>" <?= $filter_author === (int)$a['id'] ? 'selected' : '' ?>>
-          <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
+      <select name="author" class="inp">
+        <option value="0"><?= _e('All Creators') ?></option>
+        <?php foreach ($authors as $a):
+          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
+        ?>
+          <option value="<?= (int)$a['id'] ?>" <?= $filter_author === (int)$a['id'] ? 'selected' : '' ?>>
+            <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
 
-    <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-    <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
-  </form>
+      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
+      <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
+    </form>
 
-  <div class="btn-row">
-    <a class="adam-button" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Category')?></a>
+    <a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add')?></a>
     <?php if ($role === 'admin') : ?>
-      <a class="adam-att" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
+      <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
 
@@ -350,7 +350,14 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-        <small class="adam-muted ml-auto"><?= _e('Bulk only affects checked items.') ?></small>
+        <small class="adam-muted"><?= _e('Bulk only affects checked items.') ?></small>
+
+        <div class="cols-toggle ml-auto">
+          <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+          <div class="cols-dropdown">
+            <label class="cols-opt"><input type="checkbox" data-col="col-posts" checked> <?=_e('Posts')?></label>
+          </div>
+        </div>
       </div>
   <?php else: ?>
     <div class="warning-box"><?=_e('Bulk actions hidden for role')?> <strong>author</strong>.</div>
@@ -362,13 +369,12 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <tr>
           <th class="th-narrow"></th>
           <th><?= _e('Name') ?></th>
-          <th><?=_e('Posts')?></th>
-          <th class="th-med"><?= _e('Actions') ?></th>
+          <th class="col-posts"><?=_e('Posts')?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($categories_list)): ?>
-          <tr><td class="empty-state" colspan="4"><?= _e('No categories yet.') ?></td></tr>
+          <tr><td class="empty-state" colspan="3"><?= _e('No categories yet.') ?></td></tr>
         <?php else: ?>
           <?php foreach ($categories_list as $cat):
             $aCount = (int)$cat['post_count'];
@@ -407,28 +413,31 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 <?php endif; ?>
               </td>
 
-              <td><?= $indentHtml . $nameHtml ?></td>
-
               <td>
+                <div class="title-wrap">
+                  <?= $indentHtml . $nameHtml ?>
+                  <div class="row-actions">
+                    <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
+                    <?php if ($canDelete): ?>
+                      <span class="muted-divider">|</span>
+                      <button type="button"
+                              class="adam-hapus js-category-delete"
+                              data-id="<?= $catId ?>"
+                              data-name="<?= htmlspecialchars((string)($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                              data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                        <?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?><?=_e('Delete')?>
+                      </button>
+                    <?php endif; ?>
+                  </div>
+                </div>
+              </td>
+
+              <td class="col-posts">
                 <a class="count-badge<?= $aCount === 0 ? ' zero' : '' ?>"
                    href="<?= htmlspecialchars($base . '/?page=admin/posts/index&category=' . $catId, ENT_QUOTES, 'UTF-8') ?>"
                    title="<?= $aCount === 0 ? __('No articles') : $aCount . ' ' . __('articles') ?>">
                   <?= $aCount ?>
                 </a>
-              </td>
-
-              <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen') ?><?=_e('Edit')?></a>
-                <?php if ($canDelete): ?>
-                  &nbsp;<span class="muted-divider">|</span>&nbsp;
-                  <button type="button"
-                          class="adam-hapus js-category-delete"
-                          data-id="<?= $catId ?>"
-                          data-name="<?= htmlspecialchars((string)($cat['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                          data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?= svg_ico('trash-2') ?><?=_e('Delete')?>
-                  </button>
-                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -586,6 +595,57 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
     });
   });
+
+  /* ── Column visibility toggle ── */
+  (function(){
+    const STORAGE_KEY = 'categories_columns';
+    const toggleBtn = document.querySelector('.cols-toggle-btn');
+    const dropdown = document.querySelector('.cols-dropdown');
+    const checkboxes = dropdown ? dropdown.querySelectorAll('input[data-col]') : [];
+
+    function loadColState(){
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        return saved ? JSON.parse(saved) : null;
+      } catch(e){ return null; }
+    }
+    function saveColState(state){
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+      catch(e){}
+    }
+    function applyColState(state){
+      checkboxes.forEach(function(cb){
+        const col = cb.getAttribute('data-col');
+        const hidden = state && state[col] === false;
+        cb.checked = !hidden;
+        document.querySelectorAll('.' + col).forEach(function(el){
+          el.classList.toggle('col-hidden', hidden);
+        });
+      });
+    }
+    var saved = loadColState();
+    if (saved) applyColState(saved);
+    if (toggleBtn && dropdown) {
+      toggleBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        dropdown.classList.toggle('open');
+      });
+      document.addEventListener('click', function(){ dropdown.classList.remove('open'); });
+      dropdown.addEventListener('click', function(e){ e.stopPropagation(); });
+    }
+    checkboxes.forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var col = this.getAttribute('data-col');
+        var hidden = !this.checked;
+        document.querySelectorAll('.' + col).forEach(function(el){
+          el.classList.toggle('col-hidden', hidden);
+        });
+        var state = loadColState() || {};
+        state[col] = this.checked;
+        saveColState(state);
+      });
+    });
+  })();
 
   if (bulkForm) {
     let bulkConfirmed = false;
