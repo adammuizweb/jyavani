@@ -168,7 +168,7 @@ if (!function_exists('modalimg_human_filesize')) {
 
       <div class="mdlib-field">
         <label for="mdlib-field-target-attr"><?=_e('Open behavior')?></label>
-        <select id="mdlib-field-target-attr" name="target_attribute">
+        <select id="mdlib-field-target-attr" class="mdlib-select" name="target_attribute">
           <option value="" <?= $linkTargetValue === '' ? 'selected' : '' ?>><?=_e('Default')?></option>
           <option value="_self" <?= $linkTargetValue === '_self' ? 'selected' : '' ?>><?=_e('Open in same tab (_self)')?></option>
           <option value="_blank" <?= $linkTargetValue === '_blank' ? 'selected' : '' ?>><?=_e('Open in new tab (_blank)')?></option>
@@ -180,7 +180,7 @@ if (!function_exists('modalimg_human_filesize')) {
       <?php if ($hasVisibility): ?>
       <div class="mdlib-field">
         <label for="mdlib-field-access-scope"><?=_e('Access Scope')?></label>
-        <select id="mdlib-field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
+        <select id="mdlib-field-access-scope" class="mdlib-select" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
           <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
             <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
             <option value="admin"><?=_e('Admin Only')?></option>
@@ -189,7 +189,7 @@ if (!function_exists('modalimg_human_filesize')) {
       </div>
 
       <div class="mdlib-field">
-        <label class="mdlib-checkline" style="display:flex;gap:8px;align-items:center;font-weight:700">
+        <label class="mdlib-checkline">
           <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
           <?=_e('Downloadable')?>
         </label>

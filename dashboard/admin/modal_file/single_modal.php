@@ -181,7 +181,7 @@ if (!$embedded):
       </div>
 
       <div class="mdlib-row">
-        <label class="mdlib-checkline" style="display:flex;gap:8px;align-items:center;font-weight:700">
+        <label class="mdlib-checkline">
           <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
           <?=_e('Downloadable')?>
         </label>

@@ -86,7 +86,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
             <input type="text" name="layout_name" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>" class="inpud" placeholder="my_layout" required>
             <small style="color:var(--adam-muted,#888);">Akan menjadi: <code>views/partials/shortcodes/post_cat/{nama}.php</code></small>
           </label>
-          <p style="margin-top:.6rem;font-size:.9rem;background:#f5f5f5;padding:.6rem;border-radius:6px;">
+          <p style="margin-top:.6rem;font-size:.9rem;background:var(--adam-surface-3);padding:.6rem;border-radius:6px;">
             <strong>Template variables:</strong>
             <code>$items</code>, <code>$attrs</code>, <code>$layout</code>, <code>$kicker</code>,
             <code>$class_prefix</code>, <code>$wrap</code>, <code>$esc()</code>,
@@ -98,7 +98,7 @@ $_SESSION['sc_layout_nonce'] = $save_nonce;
 
     <div style="margin-top:.75rem;">
       <label><?=_e('Content Template (HTML + PHP)')?><br>
-        <textarea id="cm-textarea" style="width:100%;min-height:70vh;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
+        <textarea id="cm-textarea" style="width:100%;min-height:70vh;padding:.5rem;margin-top:.4rem;border:1px solid var(--adam-border-2);border-radius:6px;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
         <textarea id="content-textarea" name="content" style="display:none;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
       </label>
     </div>

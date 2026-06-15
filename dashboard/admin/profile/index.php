@@ -228,58 +228,55 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Edit My Profile')?></h2>
+  <h2 class="edit-heading"><?=_e('Edit My Profile')?></h2>
 
   <form method="post" novalidate id="profile-save-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="save_profile">
     <input type="hidden" name="img_url" id="inp_img_url" value="<?= htmlspecialchars($_POST['img_url'] ?? ($user['img'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
-    <div style="display:flex; flex-wrap:wrap; gap:2rem;">
-      <div style="flex:0 0 150px; text-align:center;">
-        <div style="width:150px; height:150px; border-radius:50%; overflow:hidden; background:#f0f0f0; margin-bottom:10px; border:2px solid #ddd; position:relative;">
-          <div id="upload-loader" style="display:none; position:absolute; inset:0; background:rgba(255,255,255,0.8); align-items:center; justify-content:center; z-index:2;">
-            <span style="font-size:0.8rem; font-weight:bold; color:#555;"><?=_e('Uploading...')?></span>
+    <div class="profile-layout">
+      <div class="profile-photo">
+        <div class="profile-avatar">
+          <div id="upload-loader" class="profile-loader">
+            <span><?=_e('Uploading...')?></span>
           </div>
-
           <img id="preview-img"
                src="<?= htmlspecialchars($displayImg, ENT_QUOTES, 'UTF-8') ?>"
-               alt="Profile"
-               style="width:100%; height:100%; object-fit:cover;">
+               alt="Profile">
+        </div>
+      </div>
+
+      <div class="profile-meta">
+        <div class="profile-status">
+          <?php if ((int)($user['is_locked'] ?? 0) === 0): ?>
+            <span class="status-badge status-unlocked"><?=_e('Unlocked')?></span> / <?=_e('Approved')?>
+          <?php else: ?>
+            <span class="status-badge status-locked"><?=_e('Locked')?></span>
+          <?php endif; ?>
         </div>
 
-        <div style="display:flex;gap:.5rem;align-items:center;justify-content:center;">
-          <label class="adam-button" style="cursor:pointer; display:none; font-size:0.85rem; padding:5px 10px;">
+        <div class="profile-actions">
+          <label class="adam-button" style="cursor:pointer;display:none;font-size:.85rem;padding:5px 10px;">
             <?=_e('Upload')?>
             <input type="file" id="file-uploader" accept="image/png, image/jpeg, image/webp" style="display:none;">
           </label>
 
           <button type="button"
                   id="btn-open-media-for-profile"
-                  class="adam-button"
-                  style="padding:.35rem .6rem; font-size:1rem;">
-            <?=_e('Gallery')?>
-          </button>
+                  class="adam-button"><?=_e('Gallery')?></button>
 
           <button type="button"
                   id="thumbnail-clear"
-                  class="adam-hapus"
-                  style="padding:.35rem .6rem; font-size:0.85rem;">
-            <?=_e('Clear')?>
-          </button>
+                  class="adam-hapus"><?=_e('Clear')?></button>
         </div>
 
         <button type="button"
                 id="btn-view-profile"
-                class="adam-ubah"
-                style="padding:.35rem .6rem; font-size:0.85rem; margin-top:12px;">
-          <?=_e('View Profile')?>
-        </button>
-
-        <div id="upload-error" style="color:red; font-size:0.75rem; margin-top:5px; display:none;"></div>
+                class="adam-ubah"><?=_e('View Profile')?></button>
       </div>
 
-      <div style="flex:1; min-width:280px;">
+      <div class="profile-fields">
         <label><?=_e('Full Name')?><br>
           <input type="text"
                  name="name"
@@ -325,17 +322,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
           <label><?=_e('New Password')?><br>
-            <input type="password"
-                   name="password"
-                   autocomplete="new-password"
-                   style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
+            <span class="pw-wrap">
+              <input type="password"
+                     name="password"
+                     autocomplete="new-password"
+                     style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
+              <button type="button" class="pw-toggle" data-toggle="password" aria-label="<?=_e('Show password')?>">
+                <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+              </button>
+            </span>
           </label>
 
           <label><?=_e('Confirm Password')?><br>
-            <input type="password"
-                   name="password_confirm"
-                   autocomplete="new-password"
-                   style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
+            <span class="pw-wrap">
+              <input type="password"
+                     name="password_confirm"
+                     autocomplete="new-password"
+                     style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
+              <button type="button" class="pw-toggle" data-toggle="password_confirm" aria-label="<?=_e('Show password')?>">
+                <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+              </button>
+            </span>
           </label>
         </div>
 
@@ -344,6 +351,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px;"><?=_e('Back')?></a>
         </div>
       </div>
+
+      <div id="upload-error" class="profile-error" style="display:none;"></div>
     </div>
   </form>
 </section>
@@ -620,6 +629,21 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
       deleteConfirmed = true;
       profileDeleteForm.submit();
     });
+    });
+  })();
+
+  document.querySelectorAll('.pw-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var wrap = this.closest('.pw-wrap');
+      if (!wrap) return;
+      var input = wrap.querySelector('input');
+      if (!input) return;
+      var isPassword = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPassword ? 'text' : 'password');
+      this.setAttribute('aria-label', isPassword ? <?= json_encode(__('Hide password')) ?> : <?= json_encode(__('Show password')) ?>);
+      this.innerHTML = isPassword
+        ? <?= json_encode(svg_ico('eye-off', '', ['class' => 'lucide-icon'])) ?>
+        : <?= json_encode(svg_ico('eye', '', ['class' => 'lucide-icon'])) ?>;
+    });
   });
-})();
 </script>

@@ -324,24 +324,25 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       if (!tb || typeof tb.addHandler !== 'function') return;
 
       tb.addHandler('image', function() {
+        var savedRange = window.__quillRange || localQuill.getSelection() || {
+          index: localQuill.getLength(),
+          length: 0
+        };
+        window.__quillRange = null;
+        if (localQuill && localQuill.root) localQuill.root.blur();
         const selector = getMediaSelector();
 
         if (!selector) {
           const url = prompt('Masukkan URL gambar:');
           if (url) {
-            const range = localQuill.getSelection(true) || {
-              index: localQuill.getLength(),
-              length: 0
-            };
-
-            localQuill.insertEmbed(range.index, 'image', url, 'user');
+            localQuill.insertEmbed(savedRange.index, 'image', url, 'user');
 
             setTimeout(function(){
               applyAttributesToInsertedImage({ url: url });
               normalizeEditorImages(document.getElementById('quill-editor'));
             }, 40);
 
-            localQuill.setSelection(range.index + 1, 0);
+            localQuill.setSelection(savedRange.index + 1, 0);
           }
           return;
         }
@@ -351,19 +352,14 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
             const m = normalizeMedia(detail);
             if (!m || !m.url) return;
 
-            const range = localQuill.getSelection(true) || {
-              index: localQuill.getLength(),
-              length: 0
-            };
-
-            localQuill.insertEmbed(range.index, 'image', m.url, 'user');
+            localQuill.insertEmbed(savedRange.index, 'image', m.url, 'user');
 
             setTimeout(function(){
               applyAttributesToInsertedImage(m);
               normalizeEditorImages(document.getElementById('quill-editor'));
             }, 40);
 
-            localQuill.setSelection(range.index + 1, 0);
+            localQuill.setSelection(savedRange.index + 1, 0);
           })
           .catch(function(err){
             console.warn('[quill:image handler] selector error', err);
@@ -371,16 +367,18 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       });
 
       tb.addHandler('video', function () {
+        var savedRange = window.__quillRange || localQuill.getSelection() || {
+          index: localQuill.getLength() - 1,
+          length: 0
+        };
+        window.__quillRange = null;
+        if (localQuill && localQuill.root) localQuill.root.blur();
+
         const pickFile = getFileSelector();
         if (!pickFile) {
           alert('File selector not loaded. Make sure file-selector.js is included in edit.php');
           return;
         }
-
-        const range = localQuill.getSelection(true) || {
-          index: localQuill.getLength() - 1,
-          length: 0
-        };
 
         pickFile({
           url: ADMIN_PATH + '/admin/modal_file/index.php?embedded=1',
@@ -395,8 +393,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 
           if (!htmlToInsert) return;
 
-          localQuill.clipboard.dangerouslyPasteHTML(range.index, htmlToInsert);
-          localQuill.setSelection(range.index + 2, 0);
+          localQuill.clipboard.dangerouslyPasteHTML(savedRange.index, htmlToInsert);
+          localQuill.setSelection(savedRange.index + 2, 0);
         }).catch(function (err) {
           console.warn('[file selector] error', err);
         });
@@ -452,6 +450,19 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     });
 
     attachToolbarHandlers(quill);
+
+    (function(){
+      var tb = document.querySelector('.ql-toolbar');
+      if (tb) {
+        tb.addEventListener('touchstart', function(e){
+          if (e.target.closest('.ql-picker')) return;
+          if (e.target.closest('button') && quill && quill.root && document.activeElement === quill.root) {
+            window.__quillRange = quill.getSelection();
+            quill.root.blur();
+          }
+        }, { passive: true });
+      }
+    })();
 
     if (!window.ADIWIRA.__editQuillMediaDeletedBound) {
       window.ADIWIRA.__editQuillMediaDeletedBound = true;

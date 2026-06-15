@@ -128,7 +128,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Edit Page')?></h2>
+  <h2 class="edit-heading"><?=_e('Edit Page')?></h2>
 
   <form method="post"
         id="page-edit-form"
@@ -163,24 +163,24 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
         </label>
 
         <label style="display:block;margin-top:.6rem">
-          <?=_e('Thumbnail (URL) or select from Media')?><br>
-          <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+          <?=_e('Thumbnail')?><br>
+          <div class="thumb-row">
             <input type="text"
                    id="thumbnail-input"
                    name="thumbnail"
                    value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
-                   style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
+                   class="inpud"
                    placeholder="<?= _e('Thumbnail URL (or select from Media)') ?>">
             <button type="button"
                     id="btn-open-media-for-thumb"
-                    class="adam-button"
-                    style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?= _e('Select from Media') ?></button>
+                    class="thumb-gallery-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <?=_e('Gallery')?>
+            </button>
             <button type="button"
                     id="thumbnail-clear"
-                    class="adam-link"
-                    style="padding:.35rem .6rem">
-              <?=_e('Clear')?>
-            </button>
+                    class="thumb-clear-btn"
+                    title="<?=_e('Clear')?>">&times;</button>
           </div>
 
           <div id="thumbnail-preview" style="margin-top:.6rem;">

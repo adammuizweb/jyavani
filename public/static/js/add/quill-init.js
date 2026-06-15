@@ -163,7 +163,10 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       }
 
       async function quillVideoAsFileHandler(){
-        lastRange = quill.getSelection(true);
+        var savedRange = window.__quillRange || quill.getSelection();
+        if (savedRange) lastRange = savedRange;
+        window.__quillRange = null;
+        if (quill && quill.root) quill.root.blur();
 
         if (typeof openFileSelector !== 'function') {
           console.warn('openFileSelector not available');
@@ -289,7 +292,10 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     }
 
     function quillImageHandler() {
-      lastRange = quill.getSelection(true);
+      var savedRange = window.__quillRange || quill.getSelection();
+      if (savedRange) lastRange = savedRange;
+      window.__quillRange = null;
+      if (quill && quill.root) quill.root.blur();
 
       if (typeof openMediaSelector !== 'function') {
         console.warn('openMediaSelector not available');
@@ -372,6 +378,19 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     } catch (e) {
       console.warn('Could not attach image handler to Quill toolbar', e);
     }
+
+    (function(){
+      var tb = document.querySelector('.ql-toolbar');
+      if (tb) {
+        tb.addEventListener('touchstart', function(e){
+          if (e.target.closest('.ql-picker')) return;
+          if (e.target.closest('button') && quill && quill.root && document.activeElement === quill.root) {
+            window.__quillRange = quill.getSelection();
+            quill.root.blur();
+          }
+        }, { passive: true });
+      }
+    })();
 
     (function attachFormSubmit(){
       const formId = window.ADIWIRA && window.ADIWIRA_FORM_ID ? window.ADIWIRA_FORM_ID : 'post-add-form';

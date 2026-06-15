@@ -319,7 +319,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Add Article')?></h2>
+  <h2 class="edit-heading"><?=_e('Add Article')?></h2>
 
   <form id="post-add-form" method="post" novalidate>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -339,31 +339,70 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label><?=_e('Category (check to select)')?><br>
-          <div class="cat-checklist">
+        <div class="cat-accordion">
+          <button type="button" class="cat-accordion-toggle" aria-expanded="false" aria-controls="cat-accordion-body">
+            <?= svg_ico('folder', '', ['style'=>'width:14px;height:14px']) ?> <?=_e('Categories')?>
+            <span class="chevron">▸</span>
+          </button>
+          <div class="cat-accordion-body" id="cat-accordion-body">
             <?php
               $selectedCats = isset($_POST['categories']) ? (array)$_POST['categories'] : [];
               render_category_tree($all_categories, $selectedCats);
             ?>
           </div>
-        </label>
-
-        <div class="form-group">
-          <label for="youtube"><?=_e('YouTube Link')?></label>
-          <input type="text" name="youtube" id="youtube" class="form-control inpud"
-                 placeholder="https://www.youtube.com/watch?v=xxxxxx"
-                 value="<?= htmlspecialchars($_POST['youtube'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         </div>
-        <div id="youtube-preview"></div>
+        <script>
+        (function(){
+          var btn = document.querySelector('.cat-accordion-toggle');
+          var body = document.getElementById('cat-accordion-body');
+          if(btn && body){
+            btn.addEventListener('click', function(){
+              var expanded = btn.getAttribute('aria-expanded') === 'true';
+              btn.setAttribute('aria-expanded', String(!expanded));
+              body.classList.toggle('is-open', !expanded);
+            });
+          }
+        })();
+        </script>
 
-        <label><?=_e('Thumbnail (use media modal)')?><br>
-          <div class="flex gap-8 items-center mt-8">
+        <div class="cat-accordion">
+          <button type="button" class="cat-accordion-toggle" aria-expanded="false" aria-controls="youtube-accordion-body">
+            <?= svg_ico('link', '', ['style'=>'width:14px;height:14px']) ?> <?=_e('YouTube Link')?>
+            <span class="chevron">▸</span>
+          </button>
+          <div class="cat-accordion-body" id="youtube-accordion-body">
+            <input type="text" name="youtube" id="youtube" class="form-control inpud"
+                   style="max-width:100%;margin-top:0"
+                   placeholder="https://www.youtube.com/watch?v=xxxxxx"
+                   value="<?= htmlspecialchars($_POST['youtube'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <div id="youtube-preview" style="margin-top:8px"></div>
+          </div>
+        </div>
+        <script>
+        (function(){
+          var btn = document.querySelector('.cat-accordion-toggle[aria-controls="youtube-accordion-body"]');
+          var body = document.getElementById('youtube-accordion-body');
+          if(btn && body){
+            btn.addEventListener('click', function(){
+              var expanded = btn.getAttribute('aria-expanded') === 'true';
+              btn.setAttribute('aria-expanded', String(!expanded));
+              body.classList.toggle('is-open', !expanded);
+            });
+          }
+        })();
+        </script>
+
+        <label><?=_e('Thumbnail')?><br>
+          <div class="thumb-row">
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
                    class="inp flex-1"
                    placeholder="<?=_e('URL thumbnail (or select from Media)')?>">
-            <button type="button" id="btn-open-media-for-thumb" class="adam-button"><?=_e('Select from Media')?></button>
-            <button type="button" id="thumbnail-clear" class="adam-link"><?=_e('Clear')?></button>
+            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <?=_e('Gallery')?>
+            </button>
+            <button type="button" id="thumbnail-clear" class="thumb-clear-btn" title="<?=_e('Clear')?>">&times;</button>
           </div>
           <div id="thumbnail-preview" class="thumbnail-preview mt-12">
             <?php if (!empty($_POST['thumbnail'])): ?>

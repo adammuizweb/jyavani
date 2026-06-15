@@ -40,7 +40,6 @@ $baseUrl = rtrim($proto . '://' . $host, '/');
 
 $path = parse_url((string)$r['url'], PHP_URL_PATH) ?: (string)$r['url'];
 
-// kompatibel: bisa baca schema baru ATAU lama
 $linkUrlValue = '';
 if (array_key_exists('link_url', $r)) {
     $linkUrlValue = (string)($r['link_url'] ?? '');
@@ -99,70 +98,96 @@ if (!function_exists('modalfilez_client_url')) {
 $displayClientUrl = modalfilez_client_url($r);
 ?>
 <div class="media-single-wrap">
-  <div class="media-grid">
-    <div class="media-left">
-      <div class="img-frame" title="<?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?>">
-        <img src="<?= htmlspecialchars($displayClientUrl, ENT_QUOTES, 'UTF-8') ?>"
-             alt="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-      </div>
+  <div class="media-single-card">
+    <div class="media-grid">
+      <div class="media-left">
+        <div class="img-frame" title="<?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?>">
+          <img src="<?= htmlspecialchars($displayClientUrl, ENT_QUOTES, 'UTF-8') ?>"
+               alt="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+        </div>
 
-      <div style="margin-top:10px;" class="meta-row">
-        <div><strong><?=_e('Filename:')?></strong> <?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?></div>
-        <div><strong><?=_e('MIME:')?></strong> <?= htmlspecialchars((string)($r['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div>
-        <div><strong><?=_e('Size:')?></strong> <?= htmlspecialchars(human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></div>
-        <?php if (!empty($r['width']) || !empty($r['height'])): ?>
-          <div><strong>Dim:</strong> <?= (int)$r['width'] ?> × <?= (int)$r['height'] ?></div>
-        <?php endif; ?>
-        <?php if ($hasVisibility): ?>
-        <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
-          <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-          <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
-          <?php if (!$isDownloadable): ?>
-            <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800">NO DOWNLOAD</span>
+        <div class="media-meta">
+          <div class="media-meta-row">
+            <span class="media-meta-label"><?=_e('Filename')?></span>
+            <span class="media-meta-value"><?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <div class="media-meta-row">
+            <span class="media-meta-label"><?=_e('MIME')?></span>
+            <span class="media-meta-value"><?= htmlspecialchars((string)($r['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <div class="media-meta-row">
+            <span class="media-meta-label"><?=_e('Size')?></span>
+            <span class="media-meta-value"><?= htmlspecialchars(human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <?php if (!empty($r['width']) || !empty($r['height'])): ?>
+          <div class="media-meta-row">
+            <span class="media-meta-label"><?=_e('Dimensions')?></span>
+            <span class="media-meta-value"><?= (int)$r['width'] ?> &times; <?= (int)$r['height'] ?> px</span>
+          </div>
+          <?php endif; ?>
+          <div class="media-meta-row">
+            <span class="media-meta-label"><?=_e('Uploaded')?></span>
+            <span class="media-meta-value"><?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <?php if ($hasVisibility): ?>
+          <div class="media-meta-badges">
+            <span class="badge badge--<?= $isPrivate ? 'warn' : 'ok' ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="badge badge--info"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+            <?php if (!$isDownloadable): ?>
+              <span class="badge badge--danger">NO DOWNLOAD</span>
+            <?php endif; ?>
+          </div>
           <?php endif; ?>
         </div>
-        <?php endif; ?>
-        <div style="margin-top:6px; color:#777; font-size:12px;">
-          Uploaded: <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-        </div>
       </div>
-    </div>
 
-    <div class="media-right">
-      <form id="media-edit-form" data-media-id="<?= (int)$r['id'] ?>">
-        <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
+      <div class="media-right">
+        <div class="media-section-title"><?=_e('Metadata')?></div>
 
-        <label for="field-title"><?=_e('Title')?></label>
-        <input id="field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+        <form id="media-edit-form" data-media-id="<?= (int)$r['id'] ?>">
+          <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
 
-        <label for="field-alt"><?=_e('Alt')?></label>
-...
-        <label for="field-caption"><?=_e('Caption')?></label>
-...
+          <label for="field-title"><?=_e('Title')?></label>
+          <input id="field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+
+          <label for="field-alt"><?=_e('Alt Text')?></label>
+          <input id="field-alt" type="text" name="alt" value="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+
+          <label for="field-caption"><?=_e('Caption')?></label>
+          <textarea id="field-caption" name="caption" rows="3"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+
           <label for="field-access-scope"><?=_e('Access Scope')?></label>
-...
-        <label for="field-target-attr"><?=_e('Open behavior')?></label>
-        <select id="field-target-attr" name="target_attribute">
-          <option value="">Default</option>
-          <option value="_self"   <?= ($linkTargetValue === '_self') ? 'selected' : '' ?>>Open in same tab (_self)</option>
-          <option value="_blank"  <?= ($linkTargetValue === '_blank') ? 'selected' : '' ?>>Open in new tab (_blank)</option>
-          <option value="_parent" <?= ($linkTargetValue === '_parent') ? 'selected' : '' ?>>_parent</option>
-          <option value="_top"    <?= ($linkTargetValue === '_top') ? 'selected' : '' ?>>_top</option>
-        </select>
+          <select id="field-access-scope" name="access_scope">
+            <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
+          </select>
 
-        <label>File URL (read-only)</label>
-        <div class="media-url-row">
-          <span class="media-url-prefix" id="media-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-          <input type="text" id="media-url-path" class="media-url-path" readonly value="<?= htmlspecialchars($path, ENT_QUOTES, 'UTF-8') ?>">
-          <button type="button" class="copy-btn" data-action="copy-url">Copy</button>
-        </div>
+          <label for="field-target-attr"><?=_e('Open behavior')?></label>
+          <select id="field-target-attr" name="target_attribute">
+            <option value=""><?=_e('Default')?></option>
+            <option value="_self"   <?= ($linkTargetValue === '_self') ? 'selected' : '' ?>><?=_e('Same tab')?> (_self)</option>
+            <option value="_blank"  <?= ($linkTargetValue === '_blank') ? 'selected' : '' ?>><?=_e('New tab')?> (_blank)</option>
+            <option value="_parent" <?= ($linkTargetValue === '_parent') ? 'selected' : '' ?>><?=_e('Parent')?> (_parent)</option>
+            <option value="_top"    <?= ($linkTargetValue === '_top') ? 'selected' : '' ?>><?=_e('Top')?> (_top)</option>
+          </select>
 
-        <div class="actions">
-          <button type="button" class="media-btn media-btn-save" id="media-save-btn">Save</button>
-          <button type="button" class="media-btn media-btn-delete" id="media-delete-btn">Delete</button>
-        </div>
-      </form>
+          <div class="media-url-section">
+            <div class="media-section-title"><?=_e('File URL')?></div>
+            <div class="media-url-row">
+              <span class="media-url-prefix" id="media-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
+              <input type="text" id="media-url-path" class="media-url-path" readonly value="<?= htmlspecialchars($path, ENT_QUOTES, 'UTF-8') ?>">
+              <button type="button" class="copy-btn" data-action="copy-url"><?=_e('Copy')?></button>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="media-btn media-btn-save" id="media-save-btn"><?=_e('Save')?></button>
+            <button type="button" class="media-btn media-btn-delete" id="media-delete-btn"><?=_e('Delete')?></button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
 </div>

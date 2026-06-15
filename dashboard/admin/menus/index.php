@@ -110,7 +110,7 @@ if (!function_exists('render_menu_items_admin')) {
 
   <hr style="margin:16px 0;border:none;border-top:1px solid var(--adam-border-softer);">
 
-  <div style="display:grid;grid-template-columns:1fr 320px;gap:20px;">
+  <div class="menus-grid" style="display:grid;grid-template-columns:1fr 320px;gap:20px;">
 
     <!-- LEFT: Menu Structure -->
     <div>
@@ -837,8 +837,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   background: var(--adam-border-2);
 }
 @media (max-width:768px){
-  div[style*="grid-template-columns: 1fr 320px"] {
-    grid-template-columns: 1fr !important;
-  }
+  .menus-grid{ grid-template-columns:1fr !important; }
 }
 </style>

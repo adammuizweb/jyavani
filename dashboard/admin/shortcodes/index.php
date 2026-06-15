@@ -53,13 +53,9 @@ if ($layoutDir && is_dir($layoutDir)) {
   </div>
 
 <?php if ($tab === 'presets'): ?>
-  <p style="margin-bottom:1rem">
+  <div class="sc-toolbar">
     <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/edit') ?>"><?=_e('+ Add Preset')?></a>
-    <?php if ($isAdmin): ?>
-      &nbsp;&nbsp;
-      <a class="adam-att" href="<?= h($base . '/?page=admin/bin/index') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:14px;height:14px;vertical-align:middle;margin-right:3px']) ?> <?=_e('Trash')?></a>
-    <?php endif; ?>
-  </p>
+  </div>
 
   <div class="adam-table-wrapper">
     <table class="adam-table">
@@ -106,9 +102,9 @@ if ($layoutDir && is_dir($layoutDir)) {
   </form>
 
 <?php elseif ($tab === 'layouts'): ?>
-  <p style="margin-bottom:1rem">
+  <div class="sc-toolbar">
     <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/layout') ?>"><?=_e('+ Add Layout')?></a>
-  </p>
+  </div>
 
   <div class="adam-table-wrapper">
     <table class="adam-table">
@@ -156,6 +152,10 @@ if ($layoutDir && is_dir($layoutDir)) {
   </form>
 <?php endif; ?>
 </section>
+
+<style>
+.sc-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
+</style>
 
 <script>
 (function(){

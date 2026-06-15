@@ -92,6 +92,8 @@ $current_category_path = function_exists('get_category_path')
 
 $current_site_language = settings_get($pdo, 'site_language', 'en') ?? 'en';
 
+$current_favicon_url = settings_get($pdo, 'favicon_url', '') ?? '';
+
 $base = ADMIN_BASE_PATH;
 $self_url = $base . '/?page=admin/settings/site';
 
@@ -109,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pages_list_path = trim((string)($_POST['pages_list_path'] ?? 'halaman'));
     $category_path = trim((string)($_POST['category_path'] ?? 'category'));
     $current_site_language = trim((string)($_POST['site_language'] ?? 'en'));
+    $favicon_url = trim((string)($_POST['favicon_url'] ?? ''));
 
     // pertahankan nilai input saat validasi gagal
     $current_title = $site_title;
@@ -118,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $current_posts_list_path = $posts_list_path;
     $current_pages_list_path = $pages_list_path;
     $current_category_path = $category_path;
+    $current_favicon_url = $favicon_url;
 
     if ($site_title === '') {
         $errors[] = __('Site title cannot be empty.');
@@ -163,8 +167,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok5 = settings_set($pdo, 'pages_list_path', $pages_list_path, 1);
         $ok6 = settings_set($pdo, 'category_path', $category_path, 1);
         $ok7 = settings_set($pdo, 'site_language', $current_site_language, 1);
+        $ok8 = settings_set($pdo, 'favicon_url', $favicon_url, 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8) {
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
                 exit;
@@ -182,8 +187,8 @@ $show_inline_success = ($success_msg !== '' && !function_exists('adiwira_bootstr
 $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_toasts_script'));
 ?>
 
-<section class="adam-card" style="max-width:820px;margin:18px auto;">
-  <h2><?=_e('Site Settings')?></h2>
+<section class="adam-card settings-card">
+  <h2 class="edit-heading"><?=_e('Site Settings')?></h2>
 
   <?php if ($show_inline_success): ?>
     <div class="adam-success" style="margin:10px 0;">
@@ -193,7 +198,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
 
   <?php if ($show_inline_errors): ?>
     <div class="adam-error" style="margin:10px 0;">
-      <ul style="margin:0;padding-left:18px">
+      <ul>
         <?php foreach ($errors as $e): ?>
           <li><?= htmlspecialchars($e, ENT_QUOTES, 'UTF-8') ?></li>
         <?php endforeach; ?>
@@ -204,146 +209,314 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
   <form method="post" novalidate id="site-settings-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Site Title (default)')?>
-      <input type="text" name="site_title"
-        value="<?= htmlspecialchars($current_title, ENT_QUOTES, 'UTF-8') ?>"
-        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;">
-    </label>
+    <!-- General -->
+    <div class="settings-section settings-section--general" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('globe') ?> <?=_e('General')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Site Host (fallback / canonical default)')?>
-      <input type="text" name="site_host"
-        value="<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?>"
-        placeholder="<?=__('jyavani.com or localhost:8000')?>"
-        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;">
-    </label>
+        <div class="form-group">
+          <label for="site_title"><?=_e('Site Title (default)')?></label>
+          <input type="text" name="site_title" id="site_title"
+            value="<?= htmlspecialchars($current_title, ENT_QUOTES, 'UTF-8') ?>"
+            class="inp inp-w100">
+        </div>
 
-    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
-
-    <h3 style="margin:0 0 .6rem;"><?=_e('Custom Permalink')?></h3>
-
-    <details style="margin:0 0 1rem;font-size:.85rem;color:#555;background:#f9f9fb;border-radius:8px;padding:.4rem .8rem;cursor:pointer;">
-      <summary style="font-weight:600;color:#333;outline:none;"><?=_e('How permalinks work? (click for details)')?></summary>
-      <div style="margin-top:.6rem;line-height:1.7;padding-left:.4rem;">
-
-        <p><strong><?=_e('Available tokens for Posts:')?></strong></p>
-        <table style="width:100%;border-collapse:collapse;margin:.3rem 0 .8rem;">
-          <tr><td style="padding:2px 8px;font-family:monospace;">%slug%</td><td style="padding:2px 8px;"><?=_e('The post\'s own slug (required)')?></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">%year%</td><td style="padding:2px 8px;"><?=_e('Publication year (4 digits, e.g. 2026)')?></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">%monthnum%</td><td style="padding:2px 8px;"><?=_e('Publication month (2 digits, e.g. 06)')?></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">%day%</td><td style="padding:2px 8px;"><?=_e('Publication day (2 digits, e.g. 02)')?></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">%cat%</td><td style="padding:2px 8px;"><?=_e('Slug of the <strong>parent category</strong> (top-level ancestor, not full child path). Empty if no category.')?></td></tr>
-        </table>
-
-        <p><strong><?=_e('Example Post structures:')?></strong></p>
-        <table style="width:100%;border-collapse:collapse;margin:.3rem 0 .8rem;">
-          <tr><td style="padding:2px 8px;font-family:monospace;">/%slug%/</td><td style="padding:2px 8px;"><?=_e('Standard')?> &mdash; <code>/los-geht/</code></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">/%year%/%slug%/</td><td style="padding:2px 8px;"><?=_e('Date-based')?> &mdash; <code>/2026/los-geht/</code></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">/%year%/%monthnum%/%slug%/</td><td style="padding:2px 8px;"><?=_e('Date + month')?> &mdash; <code>/2026/06/los-geht/</code></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">/%cat%/%slug%/</td><td style="padding:2px 8px;"><?=_e('Category + slug')?> &mdash; <code>/berita/los-geht/</code></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">/%cat%/%year%/%slug%/</td><td style="padding:2px 8px;"><?=_e('Category + date')?> &mdash; <code>/berita/2026/los-geht/</code></td></tr>
-          <tr><td style="padding:2px 8px;font-family:monospace;">/blog/%slug%/</td><td style="padding:2px 8px;"><?=_e('Static prefix')?> &mdash; <code>/blog/los-geht/</code></td></tr>
-        </table>
-
-        <p><strong><?=_e('Important notes:')?></strong></p>
-        <ul style="margin:.3rem 0 .8rem;padding-left:1.2rem;">
-          <li><?=_e('Structure <strong>must start with <code>/</code></strong> and contain <code>%slug%</code>.')?></li>
-          <li><?=_e('If the structure contains <code>%year%</code>, the path with a year in the first segment (e.g. <code>/2026/</code>) will be treated as <strong>archive year</strong>, not a category.')?></li>
-          <li><?=_e('The <code>%cat%</code> token is for Posts only, not Pages.')?></li>
-          <li><?=_e('If <code>%cat%</code> is used but the post has no category, the token will be removed (URL becomes <code>//slug/</code> &rarr; normalized to <code>/slug/</code>).')?></li>
-          <li><?=_e('If there is a slug conflict between a post and a category, <strong>the post wins</strong> (post is always checked first).')?></li>
-        </ul>
-
-        <hr style="border:none;border-top:1px solid #e0e0e0;margin:.6rem 0;">
-
-        <p><strong><?=_e('Post &amp; Page List:')?></strong></p>
-        <p style="margin:.2rem 0 .4rem;"><?=_e('Path prefix for listing pages (index). If left empty, listing pages are not available (404). Example: <code>artikel</code> &rarr; <code>/artikel/</code>, <code>blog</code> &rarr; <code>/blog/</code>.')?></p>
-
-        <hr style="border:none;border-top:1px solid #e0e0e0;margin:.6rem 0;">
-
-        <p><strong><?=_e('Category path:')?></strong></p>
-        <p style="margin:.2rem 0 .4rem;">
-          <?=_e('Prefix for all category pages. Default <code>category</code> &rarr; <code>/category/slug/</code>. If left empty, categories are accessible <strong>directly at root</strong> &rarr; <code>/slug/</code> (without prefix). The category index (listing all categories) is not available when the prefix is empty. To configure this together with the <code>%cat%</code> token in posts, ensure the category path is empty so post URLs like <code>/category-slug/post-slug/</code> can work.')?>
-        </p>
+        <div class="form-group">
+          <label for="site_host"><?=_e('Site Host (fallback / canonical default)')?></label>
+          <input type="text" name="site_host" id="site_host"
+            value="<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?>"
+            placeholder="<?=__('jyavani.com or localhost:8000')?>"
+            class="inp inp-w100">
+        </div>
 
       </div>
-    </details>
+    </div>
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Post permalink structure')?>
-      <input type="text" name="permalink_posts"
-        value="<?= htmlspecialchars($current_posts_permalink, ENT_QUOTES, 'UTF-8') ?>"
-        placeholder="/%slug%/"
-        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
-    </label>
+    <!-- Custom Permalink -->
+    <div class="settings-section settings-section--permalink" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('link') ?> <?=_e('Custom Permalink')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Page permalink structure')?>
-      <input type="text" name="permalink_pages"
-        value="<?= htmlspecialchars($current_pages_permalink, ENT_QUOTES, 'UTF-8') ?>"
-        placeholder="/%slug%/"
-        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
-    </label>
+        <details class="settings-details">
+          <summary><?=_e('How permalinks work? (click for details)')?></summary>
+          <div class="inner">
 
-    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
+            <p><strong><?=_e('Available tokens for Posts:')?></strong></p>
+            <table class="settings-table">
+              <tr><td>%slug%</td><td><?=_e('The post\'s own slug (required)')?></td></tr>
+              <tr><td>%year%</td><td><?=_e('Publication year (4 digits, e.g. 2026)')?></td></tr>
+              <tr><td>%monthnum%</td><td><?=_e('Publication month (2 digits, e.g. 06)')?></td></tr>
+              <tr><td>%day%</td><td><?=_e('Publication day (2 digits, e.g. 02)')?></td></tr>
+              <tr><td>%cat%</td><td><?=_e('Slug of the <strong>parent category</strong> (top-level ancestor, not full child path). Empty if no category.')?></td></tr>
+            </table>
 
-    <h3 style="margin:0 0 .6rem;"><?=_e('Post & Page List')?></h3>
-    <p style="color:#666;font-size:.85rem;margin:0 0 1rem;">
-      <?=_e('Path prefix for the post and page listing pages. Leave empty to disable.')?>
-    </p>
+            <p><strong><?=_e('Example Post structures:')?></strong></p>
+            <table class="settings-table">
+              <tr><td>/%slug%/</td><td><?=_e('Standard')?> &mdash; <code>/los-geht/</code></td></tr>
+              <tr><td>/%year%/%slug%/</td><td><?=_e('Date-based')?> &mdash; <code>/2026/los-geht/</code></td></tr>
+              <tr><td>/%year%/%monthnum%/%slug%/</td><td><?=_e('Date + month')?> &mdash; <code>/2026/06/los-geht/</code></td></tr>
+              <tr><td>/%cat%/%slug%/</td><td><?=_e('Category + slug')?> &mdash; <code>/berita/los-geht/</code></td></tr>
+              <tr><td>/%cat%/%year%/%slug%/</td><td><?=_e('Category + date')?> &mdash; <code>/berita/2026/los-geht/</code></td></tr>
+              <tr><td>/blog/%slug%/</td><td><?=_e('Static prefix')?> &mdash; <code>/blog/los-geht/</code></td></tr>
+            </table>
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Posts list path')?>
-      <input type="text" name="posts_list_path"
-        value="<?= htmlspecialchars($current_posts_list_path, ENT_QUOTES, 'UTF-8') ?>"
-        placeholder="<?=__('artikel')?>"
-        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
-      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;"><?=_e('Leave empty to disable the posts list page.')?></span>
-    </label>
+            <p><strong><?=_e('Important notes:')?></strong></p>
+            <ul>
+              <li><?=_e('Structure <strong>must start with <code>/</code></strong> and contain <code>%slug%</code>.')?></li>
+              <li><?=_e('If the structure contains <code>%year%</code>, the path with a year in the first segment (e.g. <code>/2026/</code>) will be treated as <strong>archive year</strong>, not a category.')?></li>
+              <li><?=_e('The <code>%cat%</code> token is for Posts only, not Pages.')?></li>
+              <li><?=_e('If <code>%cat%</code> is used but the post has no category, the token will be removed (URL becomes <code>//slug/</code> &rarr; normalized to <code>/slug/</code>).')?></li>
+              <li><?=_e('If there is a slug conflict between a post and a category, <strong>the post wins</strong> (post is always checked first).')?></li>
+            </ul>
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Pages list path')?>
-      <input type="text" name="pages_list_path"
-        value="<?= htmlspecialchars($current_pages_list_path, ENT_QUOTES, 'UTF-8') ?>"
-        placeholder="<?=__('halaman')?>"
-        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
-      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;"><?=_e('Leave empty to disable the pages list page.')?></span>
-    </label>
+            <hr class="settings-hr" style="margin:.6rem 0;">
 
-    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
+            <p><strong><?=_e('Post &amp; Page List:')?></strong></p>
+            <p><?=_e('Path prefix for listing pages (index). If left empty, listing pages are not available (404). Example: <code>artikel</code> &rarr; <code>/artikel/</code>, <code>blog</code> &rarr; <code>/blog/</code>.')?></p>
 
-    <h3 style="margin:0 0 .6rem;"><?=_e('Categories')?></h3>
+            <hr class="settings-hr" style="margin:.6rem 0;">
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Category path')?>
-      <input type="text" name="category_path"
-        value="<?= htmlspecialchars($current_category_path, ENT_QUOTES, 'UTF-8') ?>"
-        placeholder="category"
-        style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;font-family:monospace;">
-      <span style="display:block;font-size:.8rem;color:#888;margin-top:.25rem;"><?=_e('Leave empty to disable categories entirely.')?></span>
-    </label>
+            <p><strong><?=_e('Category path:')?></strong></p>
+            <p>
+              <?=_e('Prefix for all category pages. Default <code>category</code> &rarr; <code>/category/slug/</code>. If left empty, categories are accessible <strong>directly at root</strong> &rarr; <code>/slug/</code> (without prefix). The category index (listing all categories) is not available when the prefix is empty. To configure this together with the <code>%cat%</code> token in posts, ensure the category path is empty so post URLs like <code>/category-slug/post-slug/</code> can work.')?>
+            </p>
 
-    <hr style="margin:1.4rem 0;border:none;border-top:1px solid #eee">
+          </div>
+        </details>
 
-    <h3 style="margin:0 0 .6rem;"><?=_e('Language')?></h3>
+        <div class="form-group">
+          <label for="permalink_posts"><?=_e('Post permalink structure')?></label>
+          <div class="permalink-builder">
+            <span class="permalink-prefix">https://<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?>/</span>
+            <input type="text" name="permalink_posts" id="permalink_posts"
+              value="<?= htmlspecialchars($current_posts_permalink, ENT_QUOTES, 'UTF-8') ?>"
+              placeholder="/%slug%/"
+              class="permalink-input">
+          </div>
+          <div class="permalink-example" id="permalink-posts-example">
+            → https://<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?><span class="example-path"><?= htmlspecialchars($current_posts_permalink === '/%slug%/' ? '/sample-post/' : str_replace('%slug%', 'sample-post', $current_posts_permalink), ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+        </div>
 
-    <label style="display:block;margin:.6rem 0;">
-      <?=_e('Site Language')?>
-      <select name="site_language" style="width:100%;padding:.55rem;border:1px solid #ddd;border-radius:8px;margin-top:.35rem;">
-        <option value="en" <?=$current_site_language==='en'?'selected':''?>><?=_e('English')?></option>
-        <option value="id" <?=$current_site_language==='id'?'selected':''?>><?=_e('Indonesian')?></option>
-        <option value="de" <?=$current_site_language==='de'?'selected':''?>><?=_e('German')?></option>
-      </select>
-    </label>
+        <div class="form-group">
+          <label for="permalink_pages"><?=_e('Page permalink structure')?></label>
+          <div class="permalink-builder">
+            <span class="permalink-prefix">https://<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?>/</span>
+            <input type="text" name="permalink_pages" id="permalink_pages"
+              value="<?= htmlspecialchars($current_pages_permalink, ENT_QUOTES, 'UTF-8') ?>"
+              placeholder="/%slug%/"
+              class="permalink-input">
+          </div>
+          <div class="permalink-example" id="permalink-pages-example">
+            → https://<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?><span class="example-path"><?= htmlspecialchars($current_pages_permalink === '/%slug%/' ? '/sample-page/' : str_replace('%slug%', 'sample-page', $current_pages_permalink), ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+        </div>
 
-    <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
-      <button type="submit" class="adam-button"><?=_e('Save')?></button>
+      </div>
+    </div>
+
+    <!-- Post & Page List -->
+    <div class="settings-section settings-section--postlist" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('file-text') ?> <?=_e('Post & Page List')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
+
+        <p class="settings-desc">
+          <?=_e('Path prefix for the post and page listing pages. Leave empty to disable.')?>
+        </p>
+
+        <div class="form-group">
+          <label for="posts_list_path"><?=_e('Posts list path')?></label>
+          <input type="text" name="posts_list_path" id="posts_list_path"
+            value="<?= htmlspecialchars($current_posts_list_path, ENT_QUOTES, 'UTF-8') ?>"
+            placeholder="<?=__('artikel')?>"
+            class="inp inp-w100" style="font-family:monospace;">
+          <span class="field-note"><?=_e('Leave empty to disable the posts list page.')?></span>
+        </div>
+
+        <div class="form-group">
+          <label for="pages_list_path"><?=_e('Pages list path')?></label>
+          <input type="text" name="pages_list_path" id="pages_list_path"
+            value="<?= htmlspecialchars($current_pages_list_path, ENT_QUOTES, 'UTF-8') ?>"
+            placeholder="<?=__('halaman')?>"
+            class="inp inp-w100" style="font-family:monospace;">
+          <span class="field-note"><?=_e('Leave empty to disable the pages list page.')?></span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Categories -->
+    <div class="settings-section settings-section--categories" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('folder') ?> <?=_e('Categories')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
+
+        <div class="form-group">
+          <label for="category_path"><?=_e('Category path')?></label>
+          <div class="permalink-builder">
+            <span class="permalink-prefix">https://<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?>/</span>
+            <input type="text" name="category_path" id="category_path"
+              value="<?= htmlspecialchars($current_category_path, ENT_QUOTES, 'UTF-8') ?>"
+              placeholder="category"
+              class="permalink-input">
+            <span class="permalink-suffix">/slug/</span>
+          </div>
+          <span class="field-note"><?=_e('Leave empty to disable categories entirely.')?></span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Favicon -->
+    <div class="settings-section settings-section--favicon" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('image') ?> <?=_e('Favicon')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
+
+        <div class="form-group">
+          <label for="favicon-url-input"><?=_e('Custom Favicon URL')?></label>
+          <div class="thumb-row">
+            <input type="text" name="favicon_url" id="favicon-url-input"
+              value="<?= htmlspecialchars($current_favicon_url, ENT_QUOTES, 'UTF-8') ?>"
+              placeholder="/static/img/favicon/favicon.ico"
+              class="inp" style="flex:1;min-width:140px;">
+            <button type="button" id="btn-favicon-gallery" class="thumb-gallery-btn">
+              <?= svg_ico('image', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Gallery')?>
+            </button>
+            <button type="button" id="favicon-clear" class="thumb-clear-btn">&times;</button>
+          </div>
+          <div id="favicon-preview" style="margin-top:.6rem;">
+            <?php if ($current_favicon_url !== ''): ?>
+              <img src="<?= htmlspecialchars($current_favicon_url, ENT_QUOTES, 'UTF-8') ?>" alt="favicon preview" class="settings-favicon-preview">
+            <?php endif; ?>
+          </div>
+          <span class="field-note"><?=_e('Recommended: .ico, .png (32×32 or larger), or .svg. Leave empty to use the default favicon.')?></span>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Language -->
+    <div class="settings-section settings-section--language" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('book-open') ?> <?=_e('Language')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
+
+        <div class="form-group">
+          <label for="site_language"><?=_e('Site Language')?></label>
+          <select name="site_language" id="site_language" class="inp inp-w100">
+            <option value="en" <?=$current_site_language==='en'?'selected':''?>><?=_e('English')?></option>
+            <option value="id" <?=$current_site_language==='id'?'selected':''?>><?=_e('Indonesian')?></option>
+            <option value="de" <?=$current_site_language==='de'?'selected':''?>><?=_e('German')?></option>
+          </select>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:14px;margin-bottom:0;">
+      <button type="submit" class="adam-button"><?= svg_ico('save', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Save')?></button>
       <a class="adam-cancle" href="<?= ADMIN_BASE_PATH ?>/?page=admin/settings/index"><?=_e('Back')?></a>
     </div>
   </form>
 </section>
 
+<script src="/static/js/add/modal-helpers.js"></script>
+<script src="/static/js/add/media-selector.js"></script>
+<script>
+(function(){
+  var input = document.getElementById('favicon-url-input');
+  var preview = document.getElementById('favicon-preview');
+  var clearBtn = document.getElementById('favicon-clear');
+  var galleryBtn = document.getElementById('btn-favicon-gallery');
+
+  if (galleryBtn && input) {
+    galleryBtn.addEventListener('click', function(){
+      openMediaSelector({ url: ADMIN_PATH + '/admin/modal_img/list_modal.php?embedded=1' })
+        .then(function(detail){
+          var m = (typeof normalizeMedia === 'function')
+            ? normalizeMedia(detail)
+            : (detail || null);
+          if (!m || !m.url) return;
+          input.value = m.url;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          if (preview) {
+            preview.innerHTML = '<img src="' + m.url.replace(/&/g,'&amp;').replace(/"/g,'&quot;') + '" alt="favicon preview" class="settings-favicon-preview">';
+          }
+        });
+    });
+  }
+
+  if (clearBtn && input) {
+    clearBtn.addEventListener('click', function(){
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      if (preview) preview.innerHTML = '';
+    });
+  }
+})();
+</script>
+<script>
+(function(){
+  function updatePermalinkExample(inputId, exampleId) {
+    var input = document.getElementById(inputId);
+    var example = document.getElementById(exampleId);
+    if (!input || !example) return;
+    var pathSpan = example.querySelector('.example-path');
+
+    function refresh() {
+      var val = input.value || '';
+      var exampleUrl = val.replace(/%slug%/g, inputId === 'permalink_posts' ? 'sample-post' : 'sample-page');
+      if (pathSpan) pathSpan.textContent = exampleUrl;
+    }
+
+    input.addEventListener('input', refresh);
+    input.addEventListener('change', refresh);
+  }
+
+  updatePermalinkExample('permalink_posts', 'permalink-posts-example');
+  updatePermalinkExample('permalink_pages', 'permalink-pages-example');
+})();
+</script>
+<script>
+(function(){
+  var sections = document.querySelectorAll('.settings-section[data-open]');
+  Array.prototype.forEach.call(sections, function(section){
+    var toggle = section.querySelector('.settings-section-toggle');
+    var body = section.querySelector('.settings-section-body');
+    if (!toggle || !body) return;
+
+    var isOpen = section.getAttribute('data-open') === '1';
+    body.hidden = !isOpen;
+    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+
+    toggle.addEventListener('click', function(){
+      var open = section.getAttribute('data-open') === '1';
+      var newOpen = open ? '0' : '1';
+      section.setAttribute('data-open', newOpen);
+      body.hidden = !(newOpen === '1');
+      toggle.setAttribute('aria-expanded', newOpen === '1' ? 'true' : 'false');
+    });
+  });
+})();
+</script>
 <?php
 if (function_exists('adiwira_bootstrap_toasts_script')) {
     $toast_items = $page_toasts;

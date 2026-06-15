@@ -148,12 +148,20 @@ if ($pdo instanceof PDO && function_exists('settings_get')) {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script src="/static/assets/js/main.js"></script>
 
+<?php
+$faviconUrl = ($pdo instanceof PDO && function_exists('settings_get'))
+    ? (settings_get($pdo, 'favicon_url', '') ?? '')
+    : '';
+if ($faviconUrl !== ''): ?>
+  <link rel="icon" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
+<?php else: ?>
   <link rel="shortcut icon" href="/static/img/favicon/favicon.ico">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon/favicon-32x32.png">
   <link rel="icon" href="/static/img/favicon/jyavani.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/static/img/favicon/apple-touch-icon.png">
   <link rel="manifest" href="/static/img/favicon/site.webmanifest">
+<?php endif; ?>
   
 <meta name="theme-color" content="#ffffff">
 

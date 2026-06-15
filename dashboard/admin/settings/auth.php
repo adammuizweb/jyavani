@@ -270,7 +270,7 @@ function auth_path_example(string $path): string {
       <?=_e('Enable reCAPTCHA')?>
     </label>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+    <div class="auth-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
       <label style="display:block;">
         Site Key (RECAPTCHA_SITEKEY)
         <div style="position:relative;margin-top:.35rem;">
@@ -299,7 +299,7 @@ function auth_path_example(string $path): string {
       </label>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+    <div class="auth-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
       <label style="display:block;">
         <?=_e('Maximum failed attempts before block')?>
         <input type="number" name="bruteforce_max_attempts" min="1" max="100"

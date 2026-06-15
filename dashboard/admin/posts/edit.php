@@ -124,7 +124,7 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Edit Article')?></h2>
+  <h2 class="edit-heading"><?=_e('Edit Article')?></h2>
 
   <form method="post"
         id="post-edit-form"
@@ -152,39 +152,75 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
           <input type="text" name="slug" value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label><?=_e('Category (check to select)')?><br>
-          <div style="padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;max-height:calc(1.6em * 6 + .9rem);overflow-y:auto;">
+        <div class="cat-accordion">
+          <button type="button" class="cat-accordion-toggle" aria-expanded="false" aria-controls="cat-accordion-body">
+            <?= svg_ico('folder', '', ['style'=>'width:14px;height:14px']) ?> <?=_e('Categories')?>
+            <span class="chevron">▸</span>
+          </button>
+          <div class="cat-accordion-body" id="cat-accordion-body">
             <?php
               $selected = isset($_POST['categories']) ? array_map('intval', (array)$_POST['categories']) : $current_cats;
               render_category_tree($all_categories, $selected);
             ?>
           </div>
-        </label>
-
-        <div class="form-group" style="margin-top:.6rem">
-          <label for="youtube-input"><?=_e('YouTube link')?></label>
-          <input
-            type="text"
-            id="youtube-input"
-            name="youtube"
-            class="form-control inpud"
-            style="max-width: 700px;"
-            placeholder="https://www.youtube.com/watch?v=xxxxxx atau https://youtu.be/xxxxxx"
-            value="<?= htmlspecialchars($youtube, ENT_QUOTES, 'UTF-8') ?>"
-          >
-          <small id="youtube-help" style="color:#556;"><i><?=_e('Enter watch URL or short link.')?></i></small>
         </div>
-        <div id="youtube-preview" style="margin-top:8px"></div>
+        <script>
+        (function(){
+          var btn = document.querySelector('.cat-accordion-toggle');
+          var body = document.getElementById('cat-accordion-body');
+          if(btn && body){
+            btn.addEventListener('click', function(){
+              var expanded = btn.getAttribute('aria-expanded') === 'true';
+              btn.setAttribute('aria-expanded', String(!expanded));
+              body.classList.toggle('is-open', !expanded);
+            });
+          }
+        })();
+        </script>
 
-        <label><?=_e('Thumbnail (URL) or select from Media')?><br>
-          <div style="display:flex;gap:.5rem;align-items:center;margin-top:.4rem;">
+        <div class="cat-accordion">
+          <button type="button" class="cat-accordion-toggle" aria-expanded="false" aria-controls="youtube-accordion-body">
+            <?= svg_ico('link', '', ['style'=>'width:14px;height:14px']) ?> <?=_e('YouTube Link')?>
+            <span class="chevron">▸</span>
+          </button>
+          <div class="cat-accordion-body" id="youtube-accordion-body">
+            <input
+              type="text"
+              id="youtube-input"
+              name="youtube"
+              class="form-control inpud"
+              style="max-width:100%;margin-top:0"
+              placeholder="https://www.youtube.com/watch?v=xxxxxx"
+              value="<?= htmlspecialchars($youtube, ENT_QUOTES, 'UTF-8') ?>"
+            >
+            <div id="youtube-preview" style="margin-top:8px"></div>
+          </div>
+        </div>
+        <script>
+        (function(){
+          var btn = document.querySelector('.cat-accordion-toggle[aria-controls="youtube-accordion-body"]');
+          var body = document.getElementById('youtube-accordion-body');
+          if(btn && body){
+            btn.addEventListener('click', function(){
+              var expanded = btn.getAttribute('aria-expanded') === 'true';
+              btn.setAttribute('aria-expanded', String(!expanded));
+              body.classList.toggle('is-open', !expanded);
+            });
+          }
+        })();
+        </script>
+
+        <label><?=_e('Thumbnail')?><br>
+          <div class="thumb-row">
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
-                   style="flex:1;padding:.5rem;border:1px solid #ddd;border-radius:6px"
+                   class="inpud"
                    placeholder="<?= _e('Thumbnail URL (or select from Media)') ?>">
-            <button type="button" id="btn-open-media-for-thumb" class="adam-button"
-                    style="padding:.45rem .7rem;border-radius:6px;border:1px solid #ddd"><?= _e('Select from Media') ?></button>
-            <button type="button" id="thumbnail-clear" class="adam-link" style="padding:.35rem .6rem"><?=_e('Clear')?></button>
+            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              <?=_e('Gallery')?>
+            </button>
+            <button type="button" id="thumbnail-clear" class="thumb-clear-btn" title="<?=_e('Clear')?>">&times;</button>
           </div>
           <div id="thumbnail-preview" style="margin-top:.6rem;">
             <?php if (!empty($thumbnail)): ?>

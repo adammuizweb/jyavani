@@ -220,7 +220,7 @@ if ($userRole === 'admin') {
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('braces','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Shortcodes') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/auth') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('lock','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Sign Up &amp; Sign In') . '</span></a>';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('lock','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Auth') . '</span></a>';
 }
 
 echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/profile/index') . '">';

@@ -638,75 +638,77 @@ foreach ($themes as $t) {
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="save_assignments">
 
-      <table class="tm-table">
-        <thead>
-          <tr>
-            <th style="width:18%"><?=_e('Slot')?></th>
-            <th><?=_e('Assign (custom > theme)')?></th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php foreach ($SLOTS as $slot_key => $slot_label):
-          $current = $assign_rows[$slot_key] ?? null;
-          $safe_slot_id = str_replace('.', '__', $slot_key);
-        ?>
-          <tr>
-            <td>
-              <strong><?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?></strong>
-              <div class="tm-note"><?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?></div>
-            </td>
-            <td>
-              <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
-                <div style="flex:1;min-width:280px" class="choice-block" id="choice-theme-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                  <label style="font-weight:900;display:block;margin-bottom:6px;color:var(--adam-text-2)"><?=_e('Registered theme')?></label>
+      <div class="tm-table-wrap">
+        <table class="tm-table">
+          <thead>
+            <tr>
+              <th style="width:22%"><?=_e('Slot')?></th>
+              <th><?=_e('Assign (custom > theme)')?></th>
+            </tr>
+          </thead>
+          <tbody>
+          <?php foreach ($SLOTS as $slot_key => $slot_label):
+            $current = $assign_rows[$slot_key] ?? null;
+            $safe_slot_id = str_replace('.', '__', $slot_key);
+          ?>
+            <tr>
+              <td>
+                <strong><?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?></strong>
+                <div class="tm-note"><?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?></div>
+              </td>
+              <td>
+                <div class="tm-assign-row">
+                  <div class="choice-block" id="choice-theme-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
+                    <label class="choice-label"><?=_e('Registered theme')?></label>
 
-                  <div class="theme-warning-placeholder" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"></div>
+                    <div class="theme-warning-placeholder" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"></div>
 
-                  <select data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"
-                          class="theme-select tm-select"
-                          aria-label="<?=_e('Registered theme for')?> <?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?>">
-                    <option value=""><?=_e('-- Site default (use active theme) --')?></option>
-                    <?php foreach ($themes as $t2): ?>
-                      <option data-folder="<?= htmlspecialchars($t2['folder_name'], ENT_QUOTES, 'UTF-8') ?>"
-                              value="<?= 'theme:'.(int)$t2['id'] ?>"
-                              <?= (!empty($current['theme_id']) && (int)$current['theme_id']===(int)$t2['id'] && empty($current['custom_post_id'])) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars(($t2['name'] ?? $t2['folder_name']) . ' (' . $t2['folder_name'] . ')', ENT_QUOTES, 'UTF-8') ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </select>
-                  <div class="tm-note" style="margin-top:6px"><?=_e('Select "Site default" to revert to standard behavior (using active theme).')?></div>
-                </div>
+                    <select data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"
+                            class="theme-select tm-select"
+                            aria-label="<?=_e('Registered theme for')?> <?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?>">
+                      <option value=""><?=_e('-- Site default (use active theme) --')?></option>
+                      <?php foreach ($themes as $t2): ?>
+                        <option data-folder="<?= htmlspecialchars($t2['folder_name'], ENT_QUOTES, 'UTF-8') ?>"
+                                value="<?= 'theme:'.(int)$t2['id'] ?>"
+                                <?= (!empty($current['theme_id']) && (int)$current['theme_id']===(int)$t2['id'] && empty($current['custom_post_id'])) ? 'selected' : '' ?>>
+                          <?= htmlspecialchars(($t2['name'] ?? $t2['folder_name']) . ' (' . $t2['folder_name'] . ')', ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                    <div class="tm-note"><?=_e('Select "Site default" to revert to standard behavior (using active theme).')?></div>
+                  </div>
 
-                <div style="width:360px;min-width:280px" class="choice-block" id="choice-post-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                  <label style="font-weight:900;display:block;margin-bottom:6px;color:var(--adam-text-2)"><?=_e('Or use custom template (post type=theme)')?></label>
-                  <select class="post-select tm-select" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                    <option value=""><?=_e('-- none --')?></option>
-                    <?php foreach ($theme_posts as $tp): ?>
-                      <option value="<?= 'post:'.(int)$tp['id'] ?>"
-                        <?= (!empty($current['custom_post_id']) && (int)$current['custom_post_id']===(int)$tp['id']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($tp['title'] . ' (' . $tp['slug'] . ')', ENT_QUOTES, 'UTF-8') ?>
-                      </option>
-                    <?php endforeach; ?>
-                  </select>
-                  <div class="tm-note" style="margin-top:6px">
-                    <?=__('Custom templates are stored in')?> <code>posts.type='theme'</code>. <?=__('If selected, this will override the registered theme for this slot.')?>
+                  <div class="choice-block" id="choice-post-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
+                    <label class="choice-label"><?=_e('Or use custom template (post type=theme)')?></label>
+                    <select class="post-select tm-select" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
+                      <option value=""><?=_e('-- none --')?></option>
+                      <?php foreach ($theme_posts as $tp): ?>
+                        <option value="<?= 'post:'.(int)$tp['id'] ?>"
+                          <?= (!empty($current['custom_post_id']) && (int)$current['custom_post_id']===(int)$tp['id']) ? 'selected' : '' ?>>
+                          <?= htmlspecialchars($tp['title'] . ' (' . $tp['slug'] . ')', ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                      <?php endforeach; ?>
+                    </select>
+                    <div class="tm-note">
+                      <?=__('Custom templates are stored in')?> <code>posts.type='theme'</code>. <?=__('If selected, this will override the registered theme for this slot.')?>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <input type="hidden"
-                     name="assign[<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>]"
-                     id="assign-input-<?= htmlspecialchars($safe_slot_id, ENT_QUOTES, 'UTF-8') ?>"
-                     value="<?php
-                       if (!empty($current['custom_post_id'])) echo 'post:'.(int)$current['custom_post_id'];
-                       elseif (!empty($current['theme_id'])) echo 'theme:'.(int)$current['theme_id'];
-                       else echo '';
-                     ?>">
-            </td>
-          </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
+                <input type="hidden"
+                       name="assign[<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>]"
+                       id="assign-input-<?= htmlspecialchars($safe_slot_id, ENT_QUOTES, 'UTF-8') ?>"
+                       value="<?php
+                         if (!empty($current['custom_post_id'])) echo 'post:'.(int)$current['custom_post_id'];
+                         elseif (!empty($current['theme_id'])) echo 'theme:'.(int)$current['theme_id'];
+                         else echo '';
+                       ?>">
+              </td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
 
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-top:12px">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">

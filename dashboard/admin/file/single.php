@@ -79,71 +79,99 @@ $visibility = strtolower((string)($row['visibility'] ?? 'public')) ?: 'public';
 $accessScope = strtolower((string)($row['access_scope'] ?? 'public')) ?: 'public';
 $isDownloadable = (int)($row['is_downloadable'] ?? 1);
 $isPrivate = ($visibility === 'private');
+
+if (!function_exists('human_filesize')) {
+    function human_filesize(int $bytes, int $decimals = 1): string {
+        if ($bytes <= 0) return '0 B';
+        $units = ['B','KB','MB','GB','TB'];
+        $i = (int)floor(log(max(1, $bytes), 1024));
+        $i = min($i, count($units) - 1);
+        return sprintf("%.{$decimals}f %s", $bytes / pow(1024, $i), $units[$i]);
+    }
+}
 ?>
 <div class="single-file">
-  <form id="file-edit-form">
-    <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
-
-    <div class="meta">
-      <div style="flex:0 0 120px">
-        <div class="file-thumb"><?= htmlspecialchars($ext, ENT_QUOTES, 'UTF-8') ?></div>
+  <div class="single-file-card">
+    <div class="single-file-header">
+      <div class="single-file-thumb-wrap">
+        <div class="file-thumb file-thumb--large"><?= htmlspecialchars($ext, ENT_QUOTES, 'UTF-8') ?></div>
       </div>
-
-      <div style="flex:1; min-width:240px">
-        <div style="font-weight:800; margin-bottom:6px">URL</div>
-        <div class="small" style="margin-bottom:8px">
-          <a href="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">
-            <?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>
-          </a>
+      <div class="file-meta">
+        <div class="file-meta-row">
+          <span class="file-meta-label"><?=_e('Filename')?></span>
+          <span class="file-meta-value"><?= htmlspecialchars((string)($row['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
         </div>
-
-        <div class="small">
-          <?=_e('Filename:')?> <?= htmlspecialchars((string)($row['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-          — <?=_e('MIME:')?> <?= htmlspecialchars((string)($row['mime'] ?? ''), ENT_QUOTES, 'UTF-8') ?>
-          — <?=_e('Size:')?> <?= (int)($row['size'] ?? 0) ?> <?=_e('bytes')?>
+        <div class="file-meta-row">
+          <span class="file-meta-label"><?=_e('MIME')?></span>
+          <span class="file-meta-value"><?= htmlspecialchars((string)($row['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></span>
         </div>
-
-        <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
-          <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-          <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+        <div class="file-meta-row">
+          <span class="file-meta-label"><?=_e('Size')?></span>
+          <span class="file-meta-value"><?= htmlspecialchars(human_filesize((int)($row['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
+        <div class="file-meta-row">
+          <span class="file-meta-label"><?=_e('Uploaded')?></span>
+          <span class="file-meta-value"><?= htmlspecialchars((string)($row['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+        </div>
+        <div class="file-meta-badges">
+          <span class="badge badge--<?= $isPrivate ? 'warn' : 'ok' ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
+          <span class="badge badge--info"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
           <?php if (!$isDownloadable): ?>
-            <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800">NO DOWNLOAD</span>
+            <span class="badge badge--danger">NO DOWNLOAD</span>
           <?php endif; ?>
         </div>
       </div>
     </div>
 
-    <label><?=_e('Title')?></label>
-    <input type="text" name="title" value="<?= htmlspecialchars((string)($row['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+    <div class="single-file-body">
+      <div class="single-file-section">
+        <div class="file-section-title"><?=_e('Metadata')?></div>
 
-    <label><?=_e('Caption')?></label>
-    <textarea name="caption" rows="3"><?= htmlspecialchars((string)($row['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+        <form id="file-edit-form">
+          <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
 
-    <label><?=_e('Credit')?></label>
-    <input type="text" name="credit" value="<?= htmlspecialchars((string)($row['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+          <label for="file-field-title"><?=_e('Title')?></label>
+          <input id="file-field-title" type="text" name="title" value="<?= htmlspecialchars((string)($row['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
-    <div style="margin-top:12px">
-      <label><?=_e('Access Scope')?></label>
-      <select name="access_scope">
-        <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-        <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
-        <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
-      </select>
+          <label for="file-field-caption"><?=_e('Caption')?></label>
+          <textarea id="file-field-caption" name="caption" rows="3"><?= htmlspecialchars((string)($row['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
+
+          <label for="file-field-credit"><?=_e('Credit')?></label>
+          <input id="file-field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($row['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+
+          <label for="file-field-access-scope"><?=_e('Access Scope')?></label>
+          <select id="file-field-access-scope" name="access_scope">
+            <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
+          </select>
+
+          <label class="file-check-label">
+            <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+            <?=_e('Allow download')?>
+          </label>
+        </form>
+      </div>
+
+      <div class="single-file-section">
+        <div class="file-section-title"><?=_e('File URL')?></div>
+        <div class="url-row">
+          <span class="url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
+          <input type="text" class="url-path" readonly value="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>">
+          <button type="button" class="copy-btn" data-action="copy-url"><?=_e('Copy')?></button>
+        </div>
+        <div class="file-url-hint">
+          <a href="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?></a>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="file-save-btn" class="btn" type="button"><?=_e('Save')?></button>
+        <button id="file-delete-btn" class="btn danger" type="button"><?=_e('Delete')?></button>
+      </div>
     </div>
-
-    <div style="margin-top:8px">
-      <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
-        <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
-        <?=_e('Downloadable')?>
-      </label>
-    </div>
-
-    <div style="margin-top:12px; display:flex; gap:10px;">
-      <button id="file-save-btn" class="btn" type="button"><?=_e('Save')?></button>
-      <button id="file-delete-btn" class="btn danger" type="button"><?=_e('Delete')?></button>
-    </div>
-  </form>
+  </div>
 </div>
 
 <script>

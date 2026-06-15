@@ -204,7 +204,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2><?= $editing ? _e('Edit User') : _e('Add User') ?></h2>
+  <h2 class="edit-heading"><?= $editing ? _e('Edit User') : _e('Add User') ?></h2>
 
   <form method="post" novalidate id="user-save-form">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -212,65 +212,47 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="img_url" id="inp_img_url" value="<?= htmlspecialchars($_POST['img_url'] ?? ($user['img'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
-    <div style="display:flex; flex-wrap:wrap; gap:2rem;">
+    <div class="profile-layout">
+      <div class="profile-photo">
+        <div class="profile-avatar" style="width:120px;height:120px;">
+          <div id="upload-loader"
+               style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.8);align-items:center;justify-content:center;z-index:2;">
+            <div style="width:34px;height:34px;border-radius:50%;border:4px solid rgba(0,0,0,0.12);border-top-color:#3478f6;animation:spin 1s linear infinite"></div>
+          </div>
+          <img id="preview-img"
+               src="<?= htmlspecialchars($displayImg, ENT_QUOTES, 'UTF-8') ?>"
+               alt="Avatar">
+          <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+        </div>
+      </div>
 
-    <div style="flex: 0 0 120px; text-align:center;">
-  <div id="thumbnail-preview"
-       style="width:120px;height:120px;border-radius:50%;overflow:hidden;background:#f0f0f0;margin-bottom:10px;border:2px solid #ddd;position:relative;">
-    <div id="upload-loader"
-         style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.8);align-items:center;justify-content:center;z-index:2;">
-      <div style="width:34px;height:34px;border-radius:50%;border:4px solid rgba(0,0,0,0.12);border-top-color:#3478f6;animation:spin 1s linear infinite"></div>
-    </div>
-    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+      <div class="profile-meta">
+        <?php if ($editing): ?>
+          <div class="profile-status">
+            <?php if ((int)($user['is_locked'] ?? 0) === 1): ?>
+              <span class="status-badge status-locked"><?=_e('Locked / Pending')?></span>
+            <?php else: ?>
+              <span class="status-badge status-unlocked"><?=_e('Unlocked / Approved')?></span>
+            <?php endif; ?>
+          </div>
+        <?php endif; ?>
 
-<img id="preview-img"
-     src="<?= htmlspecialchars($displayImg, ENT_QUOTES, 'UTF-8') ?>"
-     alt="Avatar"
-     style="width:100%;height:100%;object-fit:cover;display:block;">
-  </div>
+        <div class="profile-actions">
+          <button type="button"
+                  id="btn-open-media-for-profile"
+                  class="adam-button"><?=_e('Gallery')?></button>
 
-  <div style="display:flex;gap:.5rem;align-items:center;justify-content:center;">
-<button type="button"
-        id="btn-open-media-for-profile"
-        class="adam-button"
-        style="padding:.35rem .6rem; font-size:1rem;">
-  Gallery
-</button>
+          <button type="button"
+                  id="thumbnail-clear"
+                  class="adam-hapus"><?=_e('Clear')?></button>
+        </div>
 
-    <button type="button"
-            id="thumbnail-clear"
-            class="adam-hapus"
-            style="padding:.35rem .6rem; font-size:0.85rem;">
-      <?=_e('Clear')?>
-    </button>
-  </div>
+        <button type="button"
+                id="btn-view-profile"
+                class="adam-ubah"><?=_e('View Profile')?></button>
+      </div>
 
-  <div id="media-single-panel"
-       style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:320px;text-align:left;">
-    <div id="media-single-content"><?=_e('Click on an image in Media to view details & edit.')?></div>
-  </div>
-
-  <?php if ($editing): ?>
-    <div style="margin-top:12px;font-size:12px;">
-      <?php if ((int)($user['is_locked'] ?? 0) === 1): ?>
-        <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;"><?=_e('Locked / Pending')?></span>
-      <?php else: ?>
-        <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;"><?=_e('Unlocked / Approved')?></span>
-      <?php endif; ?>
-    </div>
-  <?php endif; ?>
-
-  <button type="button"
-          id="btn-view-profile"
-          class="adam-ubah"
-          style="padding:.35rem .6rem; font-size:0.85rem;margin-top:12px;">
-    <?=_e('View Profile')?>
-  </button>
-
-  <div id="upload-error" style="color:red; font-size:0.7rem; margin-top:5px; display:none;"></div>
-</div>
-
-      <div style="flex:1; min-width:250px;">
+      <div class="profile-fields">
         <label><?=_e('Email')?><br>
           <input type="email" name="email" value="<?= htmlspecialchars($_POST['email'] ?? $user['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
         </label>
@@ -293,7 +275,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
 
         <label><?=_e('Password')?> <?= $editing ? '<small style="color:#888">' . __('(leave blank to keep current)') . '</small>' : '<small style="color:red">*</small>' ?><br>
-          <input type="password" name="password" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
+          <span class="pw-wrap">
+            <input type="password" name="password" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
+            <button type="button" class="pw-toggle" data-toggle="password" aria-label="<?=_e('Show password')?>">
+              <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+            </button>
+          </span>
         </label>
 
         <label><?=_e('Role')?><br>
@@ -305,11 +292,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           </select>
         </label>
 
-        <p style="margin-top:1.5rem">
+        <div style="margin-top:1.5rem;">
           <button type="submit" class="adam-button"><?= $editing ? _e('Save Changes') : _e('Create User') ?></button>
           <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px"><?=_e('Cancel')?></a>
-        </p>
+        </div>
       </div>
+
+      <div id="upload-error" class="profile-error" style="display:none;"></div>
+    </div>
+
+    <div id="media-single-panel"
+         style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:320px;text-align:left;">
+      <div id="media-single-content"><?=_e('Click on an image in Media to view details & edit.')?></div>
     </div>
   </form>
 </section>
@@ -428,6 +422,20 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
     const url = '/author/' + encodeURIComponent(username);
     window.open(url, '_blank');
+  });
+
+  document.querySelectorAll('.pw-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var wrap = this.closest('.pw-wrap');
+      if (!wrap) return;
+      var input = wrap.querySelector('input');
+      if (!input) return;
+      var isPassword = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPassword ? 'text' : 'password');
+      this.innerHTML = isPassword
+        ? <?= json_encode(svg_ico('eye-off', '', ['class' => 'lucide-icon'])) ?>
+        : <?= json_encode(svg_ico('eye', '', ['class' => 'lucide-icon'])) ?>;
+    });
   });
 })();
 </script>

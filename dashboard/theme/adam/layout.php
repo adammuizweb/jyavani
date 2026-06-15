@@ -37,8 +37,16 @@ $themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
 
   <title><?= _e('Dashboard — CMS Adiwira') ?></title>
   <script>window.ADMIN_PATH = '<?= ADMIN_BASE_PATH ?>';</script>
+<?php
+$faviconUrl = (isset($pdo) && $pdo instanceof PDO && function_exists('settings_get'))
+    ? (settings_get($pdo, 'favicon_url', '') ?? '')
+    : '';
+if ($faviconUrl !== ''): ?>
+  <link rel="icon" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
+<?php else: ?>
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+<?php endif; ?>
   
   <script>
 (function(){
