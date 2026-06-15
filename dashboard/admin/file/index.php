@@ -131,6 +131,15 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const url = new URL(window.location.href);
       url.searchParams.set('tab', name);
       history.replaceState(null, '', url.toString());
+
+      const page = url.searchParams.get('page') || '';
+      document.querySelectorAll('.adam-nav-sublink').forEach(function(sl){
+        const href = sl.getAttribute('href') || '';
+        const sp = new URLSearchParams(href.split('?')[1] || '');
+        if (sp.get('page') === page) {
+          sl.classList.toggle('adam-nav-sublink--active', sp.get('tab') === name);
+        }
+      });
     } catch (e) {}
   }
 
