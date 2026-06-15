@@ -753,12 +753,12 @@ class PrivateFileController
 
       function loadPdf() {
         if (!window.pdfjsLib) {
-          setState('<strong>' . __('Local PDF.js not loaded.') . '</strong><br>' . __('Make sure files exist at') . ' <code>/static/vendor/pdfjs/pdf.min.js</code> ' . __('and') . ' <code>/static/vendor/pdfjs/pdf.worker.min.js</code>.', true);
+          setState('<strong>Local PDF.js not loaded.</strong><br>Make sure files exist at <code>/static/vendor/pdfjs/pdf.min.js</code> and <code>/static/vendor/pdfjs/pdf.worker.min.js</code>.', true);
           return;
         }
 
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = config.workerUrl;
-        setState(__('Fetching PDF document...'), false);
+        setState('Fetching PDF document...', false);
 
         var loadingTask = window.pdfjsLib.getDocument({
           url: config.pdfUrl,
