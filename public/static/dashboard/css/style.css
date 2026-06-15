@@ -4611,6 +4611,40 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   flex-shrink:0;
 }
 
+/* ─── Media/File List responsive ─── */
+@media (max-width: 900px){
+  .media-list .controls{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .media-list .controls > input[type="text"].search,
+  .media-list .controls > #media-search{
+    width:100%;
+    box-sizing:border-box;
+    margin-left:0 !important;
+  }
+  .media-list .controls > .select-all + label,
+  .media-list .controls > #select-all + label{
+    order:-1;
+  }
+  #media-table,
+  .media-list .table{
+    display:block;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  #media-table th,
+  #media-table td,
+  .media-list .table th,
+  .media-list .table td{
+    white-space:nowrap;
+  }
+  .file-thumb, .media-thumb{
+    width:48px;
+    height:36px;
+  }
+}
+
 /* ─── End Utility Classes ─── */
 
 /* ═══════════════════════════════════════════════════════════════

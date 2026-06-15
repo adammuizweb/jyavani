@@ -93,6 +93,10 @@ if (!function_exists('nav_item')) {
                     $hp = (string)($qarr['page'] ?? '');
                     if ($hp !== '' && trim($hp, "/ \t\n\r\0\x0B") === $requested) {
                         $isSubActive = true;
+                        if (isset($qarr['tab'])) {
+                            $currentTab = (string)($_GET['tab'] ?? '');
+                            $isSubActive = ($qarr['tab'] === $currentTab);
+                        }
                     }
                 }
 
