@@ -64,24 +64,56 @@ function handleDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
 
+  // Check if cursor is inside a column (even empty)
+  var col = e.target.closest('.dw-col');
+  if (col) {
+    var row = col.closest('.dw-row');
+    if (row) {
+      var cols = row.querySelectorAll('.dw-col');
+      if (cols.length > 1) {
+        var c1c = (cols[0].getBoundingClientRect().left + cols[0].getBoundingClientRect().right) / 2;
+        var c2c = (cols[1].getBoundingClientRect().left + cols[1].getBoundingClientRect().right) / 2;
+        col = (Math.abs(e.clientX - c1c) <= Math.abs(e.clientX - c2c)) ? cols[0] : cols[1];
+      }
+    }
+    var ref = getInsertRef(col, e.clientY);
+    if (ref) col.insertBefore(dragWidget, ref);
+    else col.appendChild(dragWidget);
+    return;
+  }
+
   var target = getWidget(e.target);
-  if (!target || target === dragWidget) return;
+  if (target === dragWidget) return;
+
+  if (!target) {
+    // Empty area — append as orphan, normalizeGrid will wrap it
+    if (dragWidget.parentNode !== grid) grid.appendChild(dragWidget);
+    return;
+  }
 
   var targetCol  = target.closest('.dw-col');
   var rect       = target.getBoundingClientRect();
   var insertB4   = (e.clientY < rect.top + rect.height / 2);
 
   if (targetCol) {
-    // Determine which column the mouse is in (left vs right half of the row)
+    // Determine target column by mouse X (enables cross-column drops)
     var row = targetCol.closest('.dw-row');
     if (row) {
       var cols = row.querySelectorAll('.dw-col');
       if (cols.length > 1) {
         var c1c = (cols[0].getBoundingClientRect().left + cols[0].getBoundingClientRect().right) / 2;
         var c2c = (cols[1].getBoundingClientRect().left + cols[1].getBoundingClientRect().right) / 2;
-        targetCol = (Math.abs(e.clientX - c1c) <= Math.abs(e.clientX - c2c)) ? cols[0] : cols[1];
+        var newCol = (Math.abs(e.clientX - c1c) <= Math.abs(e.clientX - c2c)) ? cols[0] : cols[1];
+        if (newCol !== targetCol) {
+          // Cross-column drop: insert by Y position in new column
+          var ref = getInsertRef(newCol, e.clientY);
+          if (ref) newCol.insertBefore(dragWidget, ref);
+          else newCol.appendChild(dragWidget);
+          return;
+        }
       }
     }
+    // Same column: existing logic
     if (insertB4) {
       targetCol.insertBefore(dragWidget, target);
     } else if (target.nextSibling) {
@@ -137,78 +169,73 @@ attachEvents();
 grid.addEventListener('dragover', handleDragOver);
 grid.addEventListener('drop', handleDrop);
 
-function getColHint(el) {
-  var parentCol = el.closest('.dw-col');
-  if (parentCol) {
-    var row = parentCol.closest('.dw-row');
-    if (row) {
-      var cols = row.querySelectorAll('.dw-col');
-      return (cols.length > 1 && parentCol === cols[1]) ? 'r' : 'l';
-    }
+function getInsertRef(col, y) {
+  for (var i = 0; i < col.children.length; i++) {
+    var cr = col.children[i].getBoundingClientRect();
+    if (y < cr.top + cr.height / 2) return col.children[i];
   }
-  return 'f';
+  return null;
 }
 
 function normalizeGrid() {
-  var allWidgets = grid.querySelectorAll('.dw-widget');
-  var keys    = [];
-  var isFull  = {};
-  var colMap  = {};
-  var elMap   = {};
-
-  for (var i = 0; i < allWidgets.length; i++) {
-    var w = allWidgets[i];
-    var k = w.dataset.widget;
-    keys.push(k);
-    isFull[k] = w.dataset.fullWidth === '1';
-    colMap[k] = getColHint(w);
-    elMap[k]  = w;
-  }
-
-  if (!keys.length) return;
-
-  var segments = [];
-  var cur = [];
-  keys.forEach(function(key) {
-    if (isFull[key]) {
-      if (cur.length) { segments.push({ n: cur }); cur = []; }
-      segments.push({ f: key });
-    } else {
-      cur.push(key);
-    }
-  });
-  if (cur.length) segments.push({ n: cur });
-
-  grid.innerHTML = '';
-
-  segments.forEach(function(seg) {
-    if (seg.f) {
-      var row = document.createElement('div');
-      row.className = 'dw-row-full';
-      row.appendChild(elMap[seg.f]);
-      grid.appendChild(row);
-    } else {
-      var row  = document.createElement('div');
-      row.className = 'dw-row';
-      var c1   = document.createElement('div');
-      c1.className = 'dw-col';
-      var c2   = document.createElement('div');
-      c2.className = 'dw-col';
-
-      seg.n.forEach(function(key) {
-        var el = elMap[key];
-        if (el) {
-          if (colMap[key] === 'r') c2.appendChild(el); else c1.appendChild(el);
-        }
-      });
-
-      row.appendChild(c1);
-      row.appendChild(c2);
-      grid.appendChild(row);
-    }
-  });
-
+  fixOrphans();
+  fixFullWidthMisplaced();
+  removeEmptyRows();
   attachEvents();
+}
+
+function fixOrphans() {
+  var items = Array.from(grid.querySelectorAll(':scope > .dw-widget'));
+  items.forEach(function(w) {
+    var r = document.createElement('div');
+    if (w.dataset.fullWidth === '1') {
+      r.className = 'dw-row-full';
+      grid.replaceChild(r, w);
+      r.appendChild(w);
+    } else {
+      r.className = 'dw-row';
+      var c1 = document.createElement('div');
+      c1.className = 'dw-col';
+      var c2 = document.createElement('div');
+      c2.className = 'dw-col';
+      r.appendChild(c1);
+      r.appendChild(c2);
+      grid.replaceChild(r, w);
+      c1.appendChild(w);
+    }
+  });
+}
+
+function fixFullWidthMisplaced() {
+  var rows = Array.from(grid.querySelectorAll(':scope > .dw-row'));
+  rows.forEach(function(row) {
+    var cols = row.querySelectorAll('.dw-col');
+    cols.forEach(function(col) {
+      var fws = Array.from(col.querySelectorAll('.dw-widget[data-full-width="1"]'));
+      fws.forEach(function(w) {
+        col.removeChild(w);
+        var fr = document.createElement('div');
+        fr.className = 'dw-row-full';
+        if (row.nextSibling) grid.insertBefore(fr, row.nextSibling);
+        else grid.appendChild(fr);
+        fr.appendChild(w);
+      });
+    });
+  });
+}
+
+function removeEmptyRows() {
+  var rows = grid.querySelectorAll(':scope > .dw-row, :scope > .dw-row-full');
+  Array.from(rows).forEach(function(r) {
+    if (r.classList.contains('dw-row')) {
+      var cols = r.querySelectorAll('.dw-col');
+      var has = false;
+      cols.forEach(function(c) { if (c.children.length) has = true; });
+      if (!has) r.remove();
+    } else if (!r.children.length) {
+      r.remove();
+    }
+  });
 }
 
 function collectLayoutItems() {
