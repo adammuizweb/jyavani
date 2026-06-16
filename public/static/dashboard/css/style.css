@@ -4726,6 +4726,25 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 .dw-arrange-active .dw-col{
   min-height:60px;
 }
+.dw-arrange-active .dw-col.dw-col-empty::after{
+  content:'Drop widget here';
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:60px;
+  border:2px dashed var(--adam-border-2);
+  border-radius:10px;
+  color:var(--adam-muted);
+  font-size:.85rem;
+  background:var(--adam-surface-4);
+  pointer-events:none;
+  transition:border-color .15s, background .15s;
+}
+.dw-arrange-active .dw-col.dw-col-empty.dw-col-target::after{
+  border-color:var(--adam-primary);
+  background:rgba(59,130,246,0.06);
+  color:var(--adam-primary);
+}
 .dw-arrange-active .dw-col.dw-col-target{
   outline:2px dashed var(--adam-primary, #3b82f6);
   outline-offset:-3px;

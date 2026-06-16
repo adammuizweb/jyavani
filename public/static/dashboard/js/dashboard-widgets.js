@@ -17,6 +17,17 @@ var dragWidget    = null;
 var allWidgetKeys = [];
 try { allWidgetKeys = JSON.parse(wlist.dataset.keys || '[]'); } catch(e) {}
 
+function updateEmptyColumnHints() {
+  var cols = grid.querySelectorAll('.dw-col');
+  for (var i = 0; i < cols.length; i++) {
+    if (!cols[i].querySelector('.dw-widget')) {
+      cols[i].classList.add('dw-col-empty');
+    } else {
+      cols[i].classList.remove('dw-col-empty');
+    }
+  }
+}
+
 toggle.addEventListener('click', function(){
   arrangeActive = !arrangeActive;
 
@@ -24,6 +35,7 @@ toggle.addEventListener('click', function(){
     grid.classList.add('dw-arrange-active');
     toggle.textContent = 'Save Arrangement';
     toggle.dataset.active = '1';
+    updateEmptyColumnHints();
   } else {
     saveLayout();
     return;
@@ -56,6 +68,7 @@ function handleHideClick(e) {
   var w = getWidget(this);
   if (!w) return;
   w.remove(); // remove from DOM
+  updateEmptyColumnHints();
   updateWidgetPanel();
 }
 
@@ -199,6 +212,7 @@ function normalizeGrid() {
   fixFullWidthMisplaced();
   removeEmptyRows();
   attachEvents();
+  updateEmptyColumnHints();
 }
 
 function fixOrphans() {
