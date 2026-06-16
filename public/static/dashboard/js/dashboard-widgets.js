@@ -64,46 +64,52 @@ function handleDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
 
+  var col = e.target.closest('.dw-col');
+
+  if (col) {
+    // Inside a normal row's column (even empty) — determine target by mouse X
+    var row = col.closest('.dw-row');
+    if (row && row.querySelectorAll('.dw-col').length > 1) col = getColByMouseX(row, e.clientX);
+    insertByY(col, dragWidget, e.clientY);
+    return;
+  }
+
+  // Not in a column — check if target is a widget in a full-width row
   var target = getWidget(e.target);
-  if (!target || target === dragWidget) return;
-
-  var targetCol  = target.closest('.dw-col');
-  var rect       = target.getBoundingClientRect();
-  var insertB4   = (e.clientY < rect.top + rect.height / 2);
-
-  if (targetCol) {
-    // Determine which column the mouse is in (left vs right half of the row)
-    var row = targetCol.closest('.dw-row');
-    if (row) {
-      var cols = row.querySelectorAll('.dw-col');
-      if (cols.length > 1) {
-        var c1c = (cols[0].getBoundingClientRect().left + cols[0].getBoundingClientRect().right) / 2;
-        var c2c = (cols[1].getBoundingClientRect().left + cols[1].getBoundingClientRect().right) / 2;
-        targetCol = (Math.abs(e.clientX - c1c) <= Math.abs(e.clientX - c2c)) ? cols[0] : cols[1];
-      }
-    }
-    if (insertB4) {
-      targetCol.insertBefore(dragWidget, target);
-    } else if (target.nextSibling) {
-      targetCol.insertBefore(dragWidget, target.nextSibling);
-    } else {
-      targetCol.appendChild(dragWidget);
-    }
-  } else {
-    if (dragWidget.parentNode !== grid) {
-      grid.appendChild(dragWidget);
-    }
-    var targetRow = target.closest('.dw-row-full');
-    if (targetRow) {
-      if (insertB4) {
-        grid.insertBefore(dragWidget, targetRow);
-      } else if (targetRow.nextSibling) {
-        grid.insertBefore(dragWidget, targetRow.nextSibling);
-      } else {
-        grid.appendChild(dragWidget);
+  if (target && target !== dragWidget) {
+    var fullRow = target.closest('.dw-row-full');
+    if (fullRow) {
+      // Use the previous normal row's columns
+      var prev = fullRow.previousElementSibling;
+      while (prev && !prev.classList.contains('dw-row')) prev = prev.previousElementSibling;
+      if (prev) {
+        col = getColByMouseX(prev, e.clientX);
+        if (col) { insertByY(col, dragWidget, e.clientY); return; }
       }
     }
   }
+
+  // Fall back: append as direct grid child (normalizeGrid will wrap it)
+  if (dragWidget.parentNode !== grid) grid.appendChild(dragWidget);
+}
+
+function getColByMouseX(row, x) {
+  var cols = row.querySelectorAll('.dw-col');
+  if (!cols.length) return null;
+  var c1c = (cols[0].getBoundingClientRect().left + cols[0].getBoundingClientRect().right) / 2;
+  if (cols.length < 2) return cols[0];
+  var c2c = (cols[1].getBoundingClientRect().left + cols[1].getBoundingClientRect().right) / 2;
+  return (Math.abs(x - c1c) <= Math.abs(x - c2c)) ? cols[0] : cols[1];
+}
+
+function insertByY(col, el, y) {
+  var refChild = null;
+  for (var i = 0; i < col.children.length; i++) {
+    var cr = col.children[i].getBoundingClientRect();
+    if (y < cr.top + cr.height / 2) { refChild = col.children[i]; break; }
+  }
+  if (refChild) col.insertBefore(el, refChild);
+  else col.appendChild(el);
 }
 
 function handleDrop(e) {
@@ -150,65 +156,62 @@ function getColHint(el) {
 }
 
 function normalizeGrid() {
-  var allWidgets = grid.querySelectorAll('.dw-widget');
-  var keys    = [];
-  var isFull  = {};
-  var colMap  = {};
-  var elMap   = {};
-
-  for (var i = 0; i < allWidgets.length; i++) {
-    var w = allWidgets[i];
-    var k = w.dataset.widget;
-    keys.push(k);
-    isFull[k] = w.dataset.fullWidth === '1';
-    colMap[k] = getColHint(w);
-    elMap[k]  = w;
-  }
-
-  if (!keys.length) return;
-
-  var segments = [];
-  var cur = [];
-  keys.forEach(function(key) {
-    if (isFull[key]) {
-      if (cur.length) { segments.push({ n: cur }); cur = []; }
-      segments.push({ f: key });
-    } else {
-      cur.push(key);
-    }
-  });
-  if (cur.length) segments.push({ n: cur });
-
-  grid.innerHTML = '';
-
-  segments.forEach(function(seg) {
-    if (seg.f) {
-      var row = document.createElement('div');
-      row.className = 'dw-row-full';
-      row.appendChild(elMap[seg.f]);
-      grid.appendChild(row);
-    } else {
-      var row  = document.createElement('div');
-      row.className = 'dw-row';
-      var c1   = document.createElement('div');
-      c1.className = 'dw-col';
-      var c2   = document.createElement('div');
-      c2.className = 'dw-col';
-
-      seg.n.forEach(function(key) {
-        var el = elMap[key];
-        if (el) {
-          if (colMap[key] === 'r') c2.appendChild(el); else c1.appendChild(el);
-        }
-      });
-
-      row.appendChild(c1);
-      row.appendChild(c2);
-      grid.appendChild(row);
-    }
-  });
-
+  fixOrphans();
+  fixFullWidthMisplaced();
+  removeEmptyRows();
   attachEvents();
+}
+
+function fixOrphans() {
+  var items = Array.from(grid.querySelectorAll(':scope > .dw-widget'));
+  items.forEach(function(w) {
+    var r = document.createElement('div');
+    if (w.dataset.fullWidth === '1') {
+      r.className = 'dw-row-full';
+      grid.replaceChild(r, w);
+      r.appendChild(w);
+    } else {
+      r.className = 'dw-row';
+      var c1 = document.createElement('div');
+      c1.className = 'dw-col';
+      var c2 = document.createElement('div');
+      c2.className = 'dw-col';
+      r.appendChild(c1);
+      r.appendChild(c2);
+      grid.replaceChild(r, w);
+      c1.appendChild(w);
+    }
+  });
+}
+
+function fixFullWidthMisplaced() {
+  var rows = Array.from(grid.querySelectorAll(':scope > .dw-row'));
+  rows.forEach(function(row) {
+    var cols = row.querySelectorAll('.dw-col');
+    cols.forEach(function(col) {
+      var fws = Array.from(col.querySelectorAll('.dw-widget[data-full-width="1"]'));
+      fws.forEach(function(w) {
+        col.removeChild(w);
+        var fr = document.createElement('div');
+        fr.className = 'dw-row-full';
+        grid.insertBefore(fr, row.nextSibling);
+        fr.appendChild(w);
+      });
+    });
+  });
+}
+
+function removeEmptyRows() {
+  var empty = Array.from(grid.querySelectorAll(':scope > .dw-row:empty, :scope > .dw-row-full:empty'));
+  empty.forEach(function(r) { r.remove(); });
+  // Also remove rows where all cols are empty
+  var rows = grid.querySelectorAll(':scope > .dw-row');
+  rows.forEach(function(row) {
+    var cols = row.querySelectorAll('.dw-col');
+    var hasContent = false;
+    cols.forEach(function(c) { if (c.children.length) hasContent = true; });
+    if (!hasContent) row.remove();
+  });
 }
 
 function collectLayoutItems() {
