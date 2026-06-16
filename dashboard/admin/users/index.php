@@ -252,7 +252,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
                           data-form-id="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
                           data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
                           data-mode="<?= $isLocked ? 'unlock' : 'lock' ?>"
-                          style="background:none;border:0;padding:0;cursor:pointer;">
+                          style="background:none;border:0;padding:0;cursor:pointer;color:inherit;">
                     <?= $isLocked ? __('Approve') : __('Lock') ?>
                   </button>
 

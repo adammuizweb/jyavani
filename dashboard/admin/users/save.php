@@ -214,7 +214,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     <div class="profile-layout">
       <div class="profile-photo">
-        <div class="profile-avatar" style="width:120px;height:120px;">
+        <div class="profile-avatar">
           <div id="upload-loader"
                style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.8);align-items:center;justify-content:center;z-index:2;">
             <div style="width:34px;height:34px;border-radius:50%;border:4px solid rgba(0,0,0,0.12);border-top-color:#3478f6;animation:spin 1s linear infinite"></div>
