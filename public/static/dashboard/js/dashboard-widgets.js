@@ -59,10 +59,16 @@ function handleHideClick(e) {
   updateWidgetPanel();
 }
 
+function clearDragHighlights() {
+  var sel = grid.querySelectorAll('.dw-col-target, .dw-insert-before, .dw-insert-after');
+  for (var i = 0; i < sel.length; i++) sel[i].classList.remove('dw-col-target', 'dw-insert-before', 'dw-insert-after');
+}
+
 function handleDragOver(e) {
   if (!arrangeActive || !dragWidget) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
+  clearDragHighlights();
 
   // Check if cursor is inside a column (even empty)
   var col = e.target.closest('.dw-col');
@@ -76,7 +82,9 @@ function handleDragOver(e) {
         col = (Math.abs(e.clientX - c1c) <= Math.abs(e.clientX - c2c)) ? cols[0] : cols[1];
       }
     }
+    col.classList.add('dw-col-target');
     var ref = getInsertRef(col, e.clientY);
+    if (ref) ref.classList.add('dw-insert-before');
     if (ref) col.insertBefore(dragWidget, ref);
     else col.appendChild(dragWidget);
     return;
@@ -106,7 +114,9 @@ function handleDragOver(e) {
         var newCol = (Math.abs(e.clientX - c1c) <= Math.abs(e.clientX - c2c)) ? cols[0] : cols[1];
         if (newCol !== targetCol) {
           // Cross-column drop: insert by Y position in new column
+          newCol.classList.add('dw-col-target');
           var ref = getInsertRef(newCol, e.clientY);
+          if (ref) ref.classList.add('dw-insert-before');
           if (ref) newCol.insertBefore(dragWidget, ref);
           else newCol.appendChild(dragWidget);
           return;
@@ -114,11 +124,15 @@ function handleDragOver(e) {
       }
     }
     // Same column: existing logic
+    targetCol.classList.add('dw-col-target');
     if (insertB4) {
+      target.classList.add('dw-insert-before');
       targetCol.insertBefore(dragWidget, target);
     } else if (target.nextSibling) {
+      target.nextSibling.classList.add('dw-insert-before');
       targetCol.insertBefore(dragWidget, target.nextSibling);
     } else {
+      target.classList.add('dw-insert-after');
       targetCol.appendChild(dragWidget);
     }
   } else {
@@ -127,6 +141,7 @@ function handleDragOver(e) {
     }
     var targetRow = target.closest('.dw-row-full');
     if (targetRow) {
+      targetRow.classList.add('dw-col-target');
       if (insertB4) {
         grid.insertBefore(dragWidget, targetRow);
       } else if (targetRow.nextSibling) {
@@ -140,6 +155,7 @@ function handleDragOver(e) {
 
 function handleDrop(e) {
   e.preventDefault();
+  clearDragHighlights();
   if (dragWidget) dragWidget.classList.remove('dw-dragging');
   dragWidget = null;
   normalizeGrid();
@@ -147,6 +163,7 @@ function handleDrop(e) {
 }
 
 function handleDragEnd(e) {
+  clearDragHighlights();
   var w = getWidget(this);
   if (w) w.classList.remove('dw-dragging');
   if (dragWidget) dragWidget.classList.remove('dw-dragging');
