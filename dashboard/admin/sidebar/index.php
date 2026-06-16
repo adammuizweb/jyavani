@@ -68,6 +68,7 @@ $widget_types = [
         'default_config' => ['title' => '', 'preset_slug' => ''],
     ],
 ];
+$widget_types = apply_filters('sidebar_widget_types', $widget_types);
 $presets = [];
 $pst = $pdo->prepare("SELECT slug, title FROM posts WHERE type = 'sc_preset' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC");
 $pst->execute();

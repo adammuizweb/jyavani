@@ -41,7 +41,7 @@ if ($action === 'toggle' && $pluginName !== '') {
     }
 }
 
-// --- Handle delete ---
+// --- Handle uninstall ---
 if ($action === 'delete' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
@@ -53,10 +53,13 @@ if ($action === 'delete' && $pluginName !== '') {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin') . ' "' . h($pluginName) . '" ' . __('not found.'));
     }
 
-    if (plugin_delete($pluginName)) {
-        adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . __('deleted successfully.'));
+    $keepData = !empty($_POST['keep_data']);
+    $ok = plugin_uninstall($pluginName, $keepData);
+    if ($ok) {
+        $msg = __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . ($keepData ? __('uninstalled. Data kept.') : __('uninstalled completely.'));
+        adiwira_redirect_with_flash($selfUrl, 'success', $msg);
     }
-    adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to delete plugin.'));
+    adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to uninstall plugin.'));
 }
 
 // --- Handle check-updates ---
@@ -219,10 +222,10 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="delete">
           <input type="hidden" name="plugin" value="<?= h($name) ?>">
+          <input type="hidden" name="keep_data" value="1" class="js-keep-data">
           <button type="submit" class="btn btn-sm btn-danger js-confirm-btn"
-            data-confirm-title="<?=_e('Delete Plugin')?>"
-            data-confirm-text="<?=__('Delete plugin')?> &quot;<?= h($title) ?>&quot; <?=__('and all its files? This action cannot be undone.')?>"
-            data-confirm-action="delete"><?=_e('Delete')?></button>
+            data-confirm-title="<?=_e('Uninstall Plugin')?>"
+            data-confirm-action="delete"><?=_e('Uninstall')?></button>
         </form>
         </div>
       </td>
@@ -238,6 +241,12 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
   <div class="adam-modal__panel" style="max-width:420px">
     <div class="adam-modal__title" id="pluginConfirmTitle"><?=_e('Confirmation')?></div>
     <div class="adam-modal__text" id="pluginConfirmText" style="margin-bottom:1.25rem;line-height:1.5"></div>
+    <div id="pluginConfirmKeepData" style="display:none;margin-bottom:1rem;padding:.6rem;background:var(--adam-surface-3);border-radius:6px">
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+        <input type="checkbox" id="pluginKeepDataCheck" checked>
+        <span style="font-size:.875rem;color:var(--adam-text)"><?=__('Keep plugin data for future reinstallation')?></span>
+      </label>
+    </div>
     <div class="adam-modal__actions" style="display:flex;gap:.5rem;justify-content:flex-end">
       <button type="button" class="btn btn-outline" onclick="hidePluginConfirm()"><?=_e('Cancel')?></button>
       <button type="button" class="btn" id="pluginConfirmApply" onclick="applyPluginConfirm()"><?=_e('Yes')?></button>
@@ -307,15 +316,19 @@ document.querySelectorAll('.js-confirm-btn').forEach(function(btn) {
     document.getElementById('pluginConfirmTitle').textContent = title;
     document.getElementById('pluginConfirmText').textContent = text;
     var applyBtn = document.getElementById('pluginConfirmApply');
+    var keepDataEl = document.getElementById('pluginConfirmKeepData');
     if (action === 'delete') {
       applyBtn.className = 'btn btn-danger';
-      applyBtn.textContent = '<?=__('Yes, Delete')?>';
+      applyBtn.textContent = '<?=__('Yes, Uninstall')?>';
+      keepDataEl.style.display = 'block';
     } else if (action === 'update') {
+      keepDataEl.style.display = 'none';
       applyBtn.className = 'btn btn-update';
       applyBtn.textContent = '<?=__('Yes, Update')?>';
     } else {
       applyBtn.className = 'btn btn-primary';
       applyBtn.textContent = '<?=__('Yes')?>';
+      keepDataEl.style.display = 'none';
     }
     _confirmForm = form;
     _confirmAction = action;
@@ -373,11 +386,15 @@ function applyPluginConfirm() {
     startPluginUpdate(pluginName);
   } else {
     var form = _confirmForm;
+    if (_confirmAction === 'delete') {
+      var keepField = form.querySelector('.js-keep-data');
+      if (keepField) keepField.value = document.getElementById('pluginKeepDataCheck').checked ? '1' : '0';
+    }
     hidePluginConfirm();
     var statusText = '<?=__('Processing…')?>';
     if (_confirmAction === 'activate') statusText = '<?=__('Activating plugin…')?>';
     else if (_confirmAction === 'deactivate') statusText = '<?=__('Deactivating plugin…')?>';
-    else if (_confirmAction === 'delete') statusText = '<?=__('Deleting plugin…')?>';
+    else if (_confirmAction === 'delete') statusText = '<?=__('Uninstalling plugin…')?>';
     document.getElementById('progressStatus').textContent = statusText;
     showProgressOverlay();
     updateProgressBar(0, '');

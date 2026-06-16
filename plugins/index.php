@@ -177,6 +177,20 @@ if (!function_exists('h')) {
     }
 }
 
+// --- Uninstall plugin with data-keep option ---
+function plugin_uninstall(string $name, bool $keepData = true): bool {
+    $pluginDir = PLUGIN_PATH . '/' . $name;
+    if (!is_dir($pluginDir)) return false;
+
+    // Fire uninstall hook for data cleanup (only if NOT keeping data)
+    if (!$keepData) {
+        do_action('plugin_uninstall', $name);
+    }
+
+    // Delegate file deletion
+    return plugin_delete($name);
+}
+
 // --- Delete plugin from disk ---
 function plugin_delete(string $name): bool {
     $pluginDir = PLUGIN_PATH . '/' . $name;

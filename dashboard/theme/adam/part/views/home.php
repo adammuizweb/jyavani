@@ -8,7 +8,7 @@ require_once __DIR__ . '/widgets.php';
 
 $base = ADMIN_BASE_PATH;
 
-$widgets = [
+$widgets = apply_filters('dashboard_widgets', [
     'cms_info'      => ['title' => __('CMS Info'),      'render' => 'dash_widget_cms_info'],
     'update_status' => ['title' => __('Update Status'),  'render' => 'dash_widget_update_status'],
     'quick_stats'   => ['title' => __('Quick Stats'),    'render' => 'dash_widget_quick_stats'],
@@ -16,7 +16,7 @@ $widgets = [
     'system_info'   => ['title' => __('System Info'),    'render' => 'dash_widget_system_info'],
     'test_full_a'   => ['title' => 'Test Full A',        'render' => 'dash_widget_test_full_a', 'full_width' => true],
     'test_full_b'   => ['title' => 'Test Full B',        'render' => 'dash_widget_test_full_b', 'full_width' => true],
-];
+]);
 
 $layoutJson = settings_get($pdo, 'dashboard_widget_layout', '');
 $order = $layoutJson ? json_decode($layoutJson, true) : null;

@@ -333,7 +333,7 @@ if (!function_exists('_render_single_widget')) {
                 }
                 return '';
         }
-        return '';
+        return apply_filters('render_sidebar_widget', '', $type, $config, $pdo);
     }
 }
 
