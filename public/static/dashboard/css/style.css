@@ -4646,16 +4646,24 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   gap:.5rem;
 }
 .dw-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:1rem;
-  align-items:start;
-}
-.dw-col{
   display:flex;
   flex-direction:column;
   gap:1rem;
-  min-height:100px;
+}
+.dw-row{
+  display:flex;
+  gap:1rem;
+  align-items:flex-start;
+}
+.dw-col{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:1rem;
+  min-height:60px;
+}
+.dw-row-full{
+  display:block;
 }
 .dw-widget{
   position:relative;
@@ -4694,10 +4702,34 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 }
 .dw-arrange-active .dw-drag-handle{
   display:flex;
+  align-items:center;
+  gap:4px;
 }
-.dw-arrange-active .dw-widget{
-  border-color:var(--adam-border-2);
-  user-select:none;
+  margin-top:1.5rem;
+  padding:1rem;
+  background:var(--adam-card);
+  border:1px solid var(--adam-border);
+  border-radius:12px;
+}
+#dw-widget-panel h3{
+  margin:0 0 .75rem;
+  font-size:1rem;
+}
+#dw-widget-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.5rem;
+}
+.dw-add-btn{
+  font-size:.85rem;
+}
+.dw-arrange-active .dw-col{
+  min-height:60px;
+}
+.dw-arrange-active .dw-col-drop-active{
+  outline:2px dashed var(--adam-primary, #3b82f6);
+  outline-offset:-2px;
+  background:rgba(59,130,246,0.04);
 }
 .dw-widget-body{
   padding:0;
@@ -4814,7 +4846,8 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   margin-top:2px;
 }
 @media (max-width:768px){
-  .dw-grid{ grid-template-columns:1fr; }
+  .dw-grid{ flex-direction:column; }
+  .dw-row{ grid-template-columns:1fr; }
   .dw-stats{ grid-template-columns:repeat(2,1fr); }
   .dw-heading{ flex-direction:column; gap:.75rem; align-items:flex-start; }
 }

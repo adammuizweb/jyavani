@@ -176,6 +176,48 @@ function dash_widget_recent_posts(PDO $pdo): string
 </div>';
 }
 
+function dash_widget_test_full_a(): string
+{
+    return '
+<div class="dw-card" style="background:linear-gradient(135deg,#fff5f5,#ffe0e0);border-color:#fcc;">
+  <div class="dw-card-head" style="border-bottom-color:#fcc;">
+    <span class="dw-card-icon" style="color:#d33;">' . svg_ico('maximize-2') . '</span>
+    <span class="dw-card-title" style="color:#a00;">Test Full-width A</span>
+  </div>
+  <div class="dw-card-body">
+    <div style="padding:.5rem 0;text-align:center;color:#c33;font-size:1.1rem;font-weight:600;">
+      ⬅️ Placeholder A — full-width widget
+    </div>
+    <table class="dw-table">
+      <tr><td>Width</td><td><strong>100% (both columns)</strong></td></tr>
+      <tr><td>Section</td><td>Own section — independent row</td></tr>
+      <tr><td>Drag me</td><td>Use Arrange to move within section</td></tr>
+    </table>
+  </div>
+</div>';
+}
+
+function dash_widget_test_full_b(): string
+{
+    return '
+<div class="dw-card" style="background:linear-gradient(135deg,#f0f8ff,#dbeafe);border-color:#9cf;">
+  <div class="dw-card-head" style="border-bottom-color:#9cf;">
+    <span class="dw-card-icon" style="color:#36c;">' . svg_ico('maximize-2') . '</span>
+    <span class="dw-card-title" style="color:#258;">Test Full-width B</span>
+  </div>
+  <div class="dw-card-body">
+    <div style="padding:.5rem 0;text-align:center;color:#36c;font-size:1.1rem;font-weight:600;">
+      ➡️ Placeholder B — full-width widget
+    </div>
+    <table class="dw-table">
+      <tr><td>Width</td><td><strong>100% (both columns)</strong></td></tr>
+      <tr><td>Section</td><td>Own section — independent row</td></tr>
+      <tr><td>Drag me</td><td>Use Arrange to move within section</td></tr>
+    </table>
+  </div>
+</div>';
+}
+
 function dash_widget_system_info(): string
 {
     $server = $_SERVER['SERVER_SOFTWARE'] ?? '—';

@@ -21,13 +21,10 @@ if (!is_array($decoded)) {
     adiwira_json(['ok' => false, 'error' => 'Invalid layout data'], 400);
 }
 
-// Validate each entry
-foreach ($decoded as $item) {
-    if (!isset($item['w'], $item['col'])) {
-        adiwira_json(['ok' => false, 'error' => 'Missing widget key or column'], 400);
-    }
-    if (!in_array($item['col'], [1, 2], true)) {
-        adiwira_json(['ok' => false, 'error' => 'Column must be 1 or 2'], 400);
+// Validate flat array of widget key strings
+foreach ($decoded as $i => $item) {
+    if (!is_string($item)) {
+        adiwira_json(['ok' => false, 'error' => 'Item ' . $i . ' must be a string'], 400);
     }
 }
 
