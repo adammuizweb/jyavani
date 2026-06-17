@@ -14,15 +14,13 @@ $widgets = apply_filters('dashboard_widgets', [
     'quick_stats'   => ['title' => __('Quick Stats'),    'render' => 'dash_widget_quick_stats'],
     'recent_posts'  => ['title' => __('Recent Posts'),   'render' => 'dash_widget_recent_posts'],
     'system_info'   => ['title' => __('System Info'),    'render' => 'dash_widget_system_info'],
-    'test_full_a'   => ['title' => 'Test Full A',        'render' => 'dash_widget_test_full_a', 'full_width' => true],
-    'test_full_b'   => ['title' => 'Test Full B',        'render' => 'dash_widget_test_full_b', 'full_width' => true],
 ]);
 
 $layoutJson = settings_get($pdo, 'dashboard_widget_layout', '');
 $order = $layoutJson ? json_decode($layoutJson, true) : null;
 
 if (!$order || !is_array($order)) {
-    $order = ['cms_info:l', 'quick_stats:r', 'system_info:l', 'update_status:r', 'recent_posts:l', 'test_full_a:f', 'test_full_b:f'];
+    $order = ['cms_info:l', 'quick_stats:r', 'system_info:l', 'update_status:r', 'recent_posts:l'];
 }
 // backward compat: old format [{"w":"cms_info","col":1},...] → new format ["cms_info:l",...]
 if ($order && isset($order[0]['w'])) {
