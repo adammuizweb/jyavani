@@ -24,6 +24,11 @@ $order = $layoutJson ? json_decode($layoutJson, true) : null;
 if (!$order || !is_array($order)) {
     $order = ['cms_info:l', 'quick_stats:r', 'system_info:l', 'update_status:r', 'recent_posts:l', 'test_full_a:f', 'test_full_b:f'];
 }
+// backward compat: old format [{"w":"cms_info","col":1},...] → new format ["cms_info:l",...]
+if ($order && isset($order[0]['w'])) {
+    $map = [1 => 'l', 2 => 'r'];
+    $order = array_map(fn($o) => ($o['w'] ?? '?') . ':' . ($map[$o['col'] ?? 1] ?? 'l'), $order);
+}
 
 function dash_parse_item(string $item): array
 {

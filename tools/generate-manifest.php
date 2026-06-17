@@ -92,7 +92,7 @@ foreach ($it as $fileinfo) {
     $parts = explode('/', $relative, 2);
     $topDir = $parts[0];
 
-    $allowedDirs = ['app', 'cfg', 'dashboard', 'public', 'schema', 'tools'];
+    $allowedDirs = ['app', 'cfg', 'dashboard', 'plugins', 'public', 'schema', 'tools'];
     $allowedRootFiles = ['version.json', 'router.php', 'VERSION', '.gitattributes', 'LICENSE'];
 
     if (!in_array($topDir, $allowedDirs, true)) {
