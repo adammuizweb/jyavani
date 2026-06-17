@@ -104,6 +104,12 @@ if ($faviconUrl !== ''): ?>
   <script src="/static/vendor/codemirror/addon/fold/xml-fold.js"></script>
   <script src="/static/vendor/codemirror/addon/fold/comment-fold.js"></script>
 <?php do_action('admin_head'); ?>
+<?php
+$pa = function_exists('plugin_assets') ? plugin_assets() : [];
+foreach ($pa['css'] ?? [] as $css_url) {
+    echo '<link rel="stylesheet" href="' . htmlspecialchars($css_url, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
+}
+?>
 </head>
 
 <body id="adam-body" class="adam-body ad-body">
@@ -154,6 +160,12 @@ window.i18n_upd = <?= json_encode([
 </script>
   <script src="/static/dashboard/js/update-notif.js" defer></script>
 
+<?php
+$pa_js = function_exists('plugin_assets') ? plugin_assets() : [];
+foreach ($pa_js['js'] ?? [] as $js_url) {
+    echo '<script src="' . htmlspecialchars($js_url, ENT_QUOTES, 'UTF-8') . '"></script>' . PHP_EOL;
+}
+?>
 <?php do_action('admin_footer'); ?>
 </body>
 </html>

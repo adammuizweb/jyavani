@@ -47,13 +47,7 @@ const PRESERVE_PATTERNS = [
     '#^public/views/themes/[^/]+$#',          // theme dirs
     '#^public/views/themes/[^/]+/.+#',        // theme files
 
-    // Plugin state file (runtime, not core)
-    '#^plugins/disabled\.json$#',
-
-    // Plugin zip packages (distributable, not core)
-    '#^plugins/.*\.zip$#',
-
-    // Plugin subdirectories (user-installed)
+    // Plugins
     '#^plugins/[^/]+/.+#',
 
     // Plugin-installed vendor assets
@@ -98,7 +92,7 @@ foreach ($it as $fileinfo) {
     $parts = explode('/', $relative, 2);
     $topDir = $parts[0];
 
-    $allowedDirs = ['app', 'cfg', 'dashboard', 'plugins', 'public', 'schema', 'tools'];
+    $allowedDirs = ['app', 'cfg', 'dashboard', 'public', 'schema', 'tools'];
     $allowedRootFiles = ['version.json', 'router.php', 'VERSION', '.gitattributes', 'LICENSE'];
 
     if (!in_array($topDir, $allowedDirs, true)) {

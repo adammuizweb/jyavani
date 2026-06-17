@@ -235,6 +235,12 @@ if (!function_exists('echo_relevant_theme_styles')) {
 <link rel="stylesheet" href="/static/vendor/swiper/swiper-bundle.min.css">
 <script src="/static/vendor/swiper/swiper-bundle.min.js"></script>
 <?php do_action('wp_head'); ?>
+<?php
+$pa = function_exists('plugin_assets') ? plugin_assets() : [];
+foreach ($pa['css'] ?? [] as $css_url) {
+    echo '<link rel="stylesheet" href="' . htmlspecialchars($css_url, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
+}
+?>
 </head>
 <body>
 <?php
@@ -378,6 +384,10 @@ if (function_exists('echo_relevant_theme_scripts')) {
     }
 }
 
+$pa_js = function_exists('plugin_assets') ? plugin_assets() : [];
+foreach ($pa_js['js'] ?? [] as $js_url) {
+    echo '<script src="' . htmlspecialchars($js_url, ENT_QUOTES, 'UTF-8') . '"></script>' . PHP_EOL;
+}
 do_action('wp_footer');
 ?>
 </body>
