@@ -226,7 +226,7 @@ Third-party features installed as removable plugins via `plugins/{name}/plugin.j
 
 ### State file
 
-`plugins/disabled.json` — JSON array of disabled plugin names (instead of checking filesystem). `PLUGIN_DISABLED_JSON` constant. Created automatically if missing.
+`cfg/var/plugins-disabled.json` (via `PLUGIN_DISABLED_JSON` constant) — JSON array of disabled plugin names (instead of checking filesystem). Created automatically if missing.
 
 ### Registry API (`plugins/index.php`)
 
