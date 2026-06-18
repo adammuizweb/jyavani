@@ -6,7 +6,7 @@ define('PLUGIN_SYSTEM_LOADED', true);
 // Loaded after bootstrap in dashboard/index.php
 
 define('PLUGIN_PATH', __DIR__);
-define('PLUGIN_DISABLED_JSON', defined('BACKEND_PATH') ? BACKEND_PATH . '/var/plugins-disabled.json' : PLUGIN_PATH . '/disabled.json');
+define('PLUGIN_DISABLED_JSON', BACKEND_PATH . '/var/plugins-disabled.json');
 
 // --- Frontend Route Registry ---
 $GLOBALS['_plugin_frontend_routes'] = [];
@@ -95,19 +95,6 @@ function plugin_disable(string $name): bool {
 
 function plugin_is_active(string $name): bool {
     return array_key_exists($name, plugins_active());
-}
-
-// --- Bin Items aggregation ---
-function plugin_bin_items(): array {
-    $items = [];
-    foreach (plugins_active() as $name => $p) {
-        $bin = $p['admin']['bin'] ?? [];
-        foreach ($bin as $b) {
-            $b['plugin'] = $name;
-            $items[] = $b;
-        }
-    }
-    return $items;
 }
 
 // --- Route / Nav / Asset aggregation ---
