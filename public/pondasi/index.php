@@ -28,6 +28,41 @@ if (is_installed()) {
 // ---------- helpers ----------
 function random_secret(): string { return bin2hex(random_bytes(32)); }
 
+function split_sql_statements(string $sql): array {
+    $statements = [];
+    $current = '';
+    $inString = false;
+    $stringChar = '';
+    $len = strlen($sql);
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $sql[$i];
+        $prev = $i > 0 ? $sql[$i - 1] : '';
+        if ($inString) {
+            if ($ch === $stringChar && $prev !== '\\') {
+                $inString = false;
+            }
+            $current .= $ch;
+        } elseif ($ch === "'" || $ch === '"') {
+            $inString = true;
+            $stringChar = $ch;
+            $current .= $ch;
+        } elseif ($ch === ';') {
+            $trimmed = trim($current);
+            if ($trimmed !== '') {
+                $statements[] = $trimmed;
+            }
+            $current = '';
+        } else {
+            $current .= $ch;
+        }
+    }
+    $trimmed = trim($current);
+    if ($trimmed !== '') {
+        $statements[] = $trimmed;
+    }
+    return $statements;
+}
+
 function h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
@@ -71,13 +106,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                 $pdo->exec("USE `{$dbName}`");
 
+                // Ensure backslash is escape char (remove NO_BACKSLASH_ESCAPES if set)
+                $pdo->exec("SET SESSION sql_mode = REPLACE(@@SESSION.sql_mode, 'NO_BACKSLASH_ESCAPES', '')");
+
                 $defaultSql = $schemaDir . '/default.sql';
                 $sql = file_get_contents($defaultSql);
                 if ($sql === false) throw new RuntimeException('default.sql tidak ditemukan');
-                $statements = explode(';', $sql);
-                foreach ($statements as $stmt) {
-                    $stmt = trim($stmt);
-                    if ($stmt !== '') $pdo->exec($stmt);
+                $sql = str_replace("\\\\'", "''", $sql);
+                $stmts = split_sql_statements($sql);
+                foreach ($stmts as $stmt) {
+                    $pdo->exec($stmt);
                 }
 
                 // Import translation seed data (id + de)
@@ -85,10 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (is_file($translationsSql)) {
                     $tsql = file_get_contents($translationsSql);
                     if ($tsql !== false) {
-                        $tstatements = explode(';', $tsql);
-                        foreach ($tstatements as $tstmt) {
-                            $tstmt = trim($tstmt);
-                            if ($tstmt !== '') $pdo->exec($tstmt);
+                        $tsql = str_replace("\\\\'", "''", $tsql);
+                        $tstmts = split_sql_statements($tsql);
+                        foreach ($tstmts as $tstmt) {
+                            $pdo->exec($tstmt);
                         }
                     }
                 }

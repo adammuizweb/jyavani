@@ -29,6 +29,35 @@ if (!is_file($envFile)) {
  * bootstrap_core.php
  */
 
+// Auto-detect public directory (works with public, public_html, www, etc.)
+if (!defined('PUBLIC_PATH')) {
+    $pubPath = null;
+    // Best: entry point script location
+    if (!empty($_SERVER['SCRIPT_FILENAME'])) {
+        $scriptDir = dirname($_SERVER['SCRIPT_FILENAME']);
+        if (is_file($scriptDir . '/index.php') || is_file($scriptDir . '/router.php')) {
+            $pubPath = realpath($scriptDir);
+        }
+    }
+    // Fallback: try common public directory names
+    if (!$pubPath) {
+        $candidates = ['public_html', 'public', 'www', 'htdocs'];
+        foreach ($candidates as $dir) {
+            $p = realpath(__DIR__ . '/../' . $dir);
+            if ($p !== false && (is_file($p . '/index.php') || is_file($p . '/router.php'))) {
+                $pubPath = $p;
+                break;
+            }
+        }
+    }
+    // Last resort
+    if (!$pubPath) {
+        $guess = realpath(__DIR__ . '/../public');
+        $pubPath = $guess ?: (__DIR__ . '/../public');
+    }
+    define('PUBLIC_PATH', $pubPath);
+}
+
 if (!defined('BACKEND_PATH')) {
     $env_backend = getenv('BACKEND_PATH') ?: '';
     if ($env_backend !== '') {

@@ -74,7 +74,12 @@ if ($faviconUrl !== ''): ?>
 </script>
 
   <!-- stylesheet tema -->
-  <link rel="stylesheet" href="/static/dashboard/css/style.css?v=<?= filemtime(__DIR__ . '/../../../public/static/dashboard/css/style.css') ?>">
+<?php
+  $cssFile = defined('PUBLIC_PATH') ? (PUBLIC_PATH . '/static/dashboard/css/style.css') : '';
+  if (!$cssFile || !is_file($cssFile)) { $cssFile = __DIR__ . '/../../../public_html/static/dashboard/css/style.css'; }
+  if (!is_file($cssFile)) { $cssFile = __DIR__ . '/../../../public/static/dashboard/css/style.css'; }
+  $cssVer = is_file($cssFile) ? filemtime($cssFile) : '';
+?><link rel="stylesheet" href="/static/dashboard/css/style.css?v=<?= $cssVer ?>">
   <link rel="stylesheet" href="/static/components/confirm/confirm.css">
   <link rel="stylesheet" href="/static/components/toast/toast.css">
 

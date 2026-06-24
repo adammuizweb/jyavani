@@ -22,7 +22,10 @@ if (!function_exists('svg_ico')) {
     function svg_ico($name, $class = '', $attrs = []) {
         static $cache = [];
 
-        $icoDir = realpath(__DIR__ . '/../../public/static/icons/lucide');
+        $icoDir = defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/static/icons/lucide') : false;
+        if (!$icoDir) {
+            $icoDir = realpath(__DIR__ . '/../../public_html/static/icons/lucide') ?: realpath(__DIR__ . '/../../public/static/icons/lucide');
+        }
         if (!$icoDir) return '';
 
         if (!isset($cache[$name])) {

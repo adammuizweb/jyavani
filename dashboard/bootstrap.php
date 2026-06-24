@@ -47,11 +47,24 @@ if (!defined('DASH_PATH')) {
 if (!defined('PUBLIC_PATH')) {
     // allow explicit env override (deployment)
     $envPublic = getenv('PUBLIC_PATH') ?: '';
+    $publicPath = null;
 
     if ($envPublic !== '' && realpath($envPublic) !== false) {
         $publicPath = realpath($envPublic);
     } else {
-        // After moving admin out of public, the public root is one level up + public/
+        // Try common public directory names
+        $candidates = ['public_html', 'public', 'www', 'htdocs'];
+        foreach ($candidates as $dir) {
+            $p = realpath(__DIR__ . '/../' . $dir);
+            if ($p !== false && (is_file($p . '/index.php') || is_file($p . '/router.php'))) {
+                $publicPath = $p;
+                break;
+            }
+        }
+    }
+
+    // Last resort fallback
+    if (!$publicPath) {
         $parent = realpath(__DIR__ . '/../public');
         $publicPath = $parent !== false ? $parent : (__DIR__ . '/../public');
     }
