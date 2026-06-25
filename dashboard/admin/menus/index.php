@@ -77,12 +77,14 @@ if (!function_exists('render_menu_items_admin')) {
             $url = htmlspecialchars((string)($item['url'] ?? ''), ENT_QUOTES, 'UTF-8');
             $targetId = (int)($item['target_id'] ?? 0);
             $targetBlank = !empty($item['target_blank']) ? '1' : '0';
+            $hidden = !empty($item['hidden']) ? '1' : '0';
             $hasChildren = !empty($item['children']);
-            $html .= '<li class="menu-item-admin" data-id="' . $id . '" data-type="' . $type . '" data-label="' . $label . '" data-target="' . $targetId . '" data-url="' . $url . '" data-target-blank="' . $targetBlank . '">';
+            $html .= '<li class="menu-item-admin' . ($hidden === '1' ? ' menu-item-hidden' : '') . '" data-id="' . $id . '" data-type="' . $type . '" data-label="' . $label . '" data-target="' . $targetId . '" data-url="' . $url . '" data-target-blank="' . $targetBlank . '" data-hidden="' . $hidden . '">';
             $html .= '<div class="menu-item-bar">';
             $html .= '<span class="menu-item-handle">&#9776;</span>';
             $html .= '<span class="menu-item-label">' . $label . '</span>';
             $html .= '<span class="menu-item-type">' . $type . '</span>';
+            $html .= '<button type="button" class="menu-item-hide adam-ubah" title="' . __('Toggle visibility') . '">' . ($hidden === '1' ? '&#128064;' : '&#128065;') . '</button>';
             $html .= '<button type="button" class="menu-item-indent adam-ubah" title="' . __('Make sub-menu') . '">&#8594;</button>';
             $html .= '<button type="button" class="menu-item-outdent adam-ubah" title="' . __('Raise level') . '">&#8592;</button>';
             $html .= '<button type="button" class="menu-item-edit adam-ubah" title="' . __('Edit') . '">&#9998;</button>';
@@ -363,7 +365,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       label: li.getAttribute('data-label') || '',
       targetId: parseInt(li.getAttribute('data-target') || '0'),
       url: li.getAttribute('data-url') || '',
-      targetBlank: li.getAttribute('data-target-blank') === '1'
+      targetBlank: li.getAttribute('data-target-blank') === '1',
+      hidden: parseInt(li.getAttribute('data-hidden') || '0')
     };
   }
 
@@ -374,18 +377,30 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-target', String(data.targetId || 0));
     li.setAttribute('data-url', data.url || '');
     li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
+    li.setAttribute('data-hidden', data.hidden ? '1' : '0');
     // Update display
     const labelEl = li.querySelector('.menu-item-label');
     const typeEl = li.querySelector('.menu-item-type');
     if (labelEl) labelEl.textContent = data.label || '';
     if (typeEl) typeEl.textContent = data.type || 'custom';
+    // Update hidden CSS class + eye icon
+    var hideBtn = li.querySelector('.menu-item-hide');
+    if (data.hidden) {
+      li.classList.add('menu-item-hidden');
+      if (hideBtn) hideBtn.innerHTML = '&#128064;';
+    } else {
+      li.classList.remove('menu-item-hidden');
+      if (hideBtn) hideBtn.innerHTML = '&#128065;';
+    }
   }
 
   function buildListItemHTML(data){
+    var isHidden = data.hidden ? true : false;
     return '<div class="menu-item-bar">'
       + '<span class="menu-item-handle">&#9776;</span>'
       + '<span class="menu-item-label">' + escapeHtml(data.label) + '</span>'
       + '<span class="menu-item-type">' + escapeHtml(data.type) + '</span>'
+      + '<button type="button" class="menu-item-hide adam-ubah" title="<?=_e('Toggle visibility')?>">' + (isHidden ? '&#128064;' : '&#128065;') + '</button>'
       + '<button type="button" class="menu-item-indent adam-ubah" title="<?=_e('Make sub-menu')?>">&#8594;</button>'
       + '<button type="button" class="menu-item-outdent adam-ubah" title="<?=_e('Raise level')?>">&#8592;</button>'
       + '<button type="button" class="menu-item-edit adam-ubah" title="<?=_e('Edit')?>">&#9998;</button>'
@@ -484,10 +499,25 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-target', String(data.targetId || 0));
     li.setAttribute('data-url', data.url || '');
     li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
+    li.setAttribute('data-hidden', data.hidden ? '1' : '0');
 
     ul.appendChild(li);
     toast('success', '<?=__('Item added to menu')?> "' + data.label + '"');
   }
+
+  // =============== Remove item ===============
+
+  // =============== Hide toggle ===============
+
+  container.addEventListener('click', function(e){
+    var btn = e.target.closest('.menu-item-hide');
+    if (!btn) return;
+    var li = btn.closest('.menu-item-admin');
+    if (!li) return;
+    var data = getItemData(li);
+    data.hidden = data.hidden ? 0 : 1;
+    setItemData(li, data);
+  });
 
   // =============== Remove item ===============
 
@@ -703,7 +733,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
           label: data.label,
           target_id: data.targetId,
           url: data.url,
-          target_blank: data.targetBlank ? 1 : 0
+          target_blank: data.targetBlank ? 1 : 0,
+          hidden: data.hidden ? 1 : 0
         });
         var childUl = li.querySelector(':scope > ul.menu-sortable');
         if (childUl) {
@@ -814,10 +845,18 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   text-transform: uppercase;
   white-space: nowrap;
 }
+.menu-item-admin.menu-item-hidden > .menu-item-bar {
+  opacity: 0.5;
+  background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 8px);
+}
+.menu-item-admin.menu-item-hidden .menu-item-label {
+  text-decoration: line-through;
+}
 .menu-item-admin.drag-over > .menu-item-bar {
   border-color: #3b82f6;
   background: rgba(59,130,246,0.08);
 }
+.menu-item-hide,
 .menu-item-indent,
 .menu-item-outdent,
 .menu-item-edit {

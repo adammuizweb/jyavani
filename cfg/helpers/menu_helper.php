@@ -190,6 +190,7 @@ if (!function_exists('menu_render_tree')) {
         }
 
         foreach ($items as $item) {
+            if (!empty($item['hidden'])) continue;
             $label = htmlspecialchars((string)($item['label'] ?? ''), ENT_QUOTES, 'UTF-8');
             $url = menu_resolve_url($pdo, $item, $homeUrl);
             $target = !empty($item['target_blank']) ? ' target="_blank" rel="noopener"' : '';

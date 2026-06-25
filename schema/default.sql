@@ -260,6 +260,7 @@ CREATE TABLE IF NOT EXISTS `menu_items` (
   `url` varchar(500) DEFAULT NULL,
   `target_id` int(10) unsigned DEFAULT NULL,
   `target_blank` tinyint(1) NOT NULL DEFAULT 0,
+  `hidden` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),

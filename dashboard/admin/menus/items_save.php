@@ -72,6 +72,7 @@ try {
         $url = (string)($item['url'] ?? '');
         $targetId = (int)($item['target_id'] ?? 0);
         $targetBlank = !empty($item['target_blank']) ? 1 : 0;
+        $hidden = !empty($item['hidden']) ? 1 : 0;
 
         if ($label === '') continue;
 
@@ -89,7 +90,7 @@ try {
 
         if ($itemId !== null && (int)$itemId > 0) {
             // Update existing item
-            $st = $pdo->prepare("UPDATE menu_items SET parent_id = :pid, sort_order = :so, type = :typ, label = :lbl, url = :url, target_id = :tid, target_blank = :tb WHERE id = :id AND menu_id = :mid");
+            $st = $pdo->prepare("UPDATE menu_items SET parent_id = :pid, sort_order = :so, type = :typ, label = :lbl, url = :url, target_id = :tid, target_blank = :tb, hidden = :hd WHERE id = :id AND menu_id = :mid");
             $st->execute([
                 ':pid' => $resolvedParentId,
                 ':so' => $sortOrder,
@@ -98,13 +99,14 @@ try {
                 ':url' => $url,
                 ':tid' => $targetId ?: null,
                 ':tb' => $targetBlank,
+                ':hd' => $hidden,
                 ':id' => (int)$itemId,
                 ':mid' => $menuId,
             ]);
             $keepIds[] = (int)$itemId;
         } else {
             // Insert new item
-            $st = $pdo->prepare("INSERT INTO menu_items (menu_id, parent_id, sort_order, type, label, url, target_id, target_blank) VALUES (:mid, :pid, :so, :typ, :lbl, :url, :tid, :tb)");
+            $st = $pdo->prepare("INSERT INTO menu_items (menu_id, parent_id, sort_order, type, label, url, target_id, target_blank, hidden) VALUES (:mid, :pid, :so, :typ, :lbl, :url, :tid, :tb, :hd)");
             $st->execute([
                 ':mid' => $menuId,
                 ':pid' => $resolvedParentId,
@@ -114,6 +116,7 @@ try {
                 ':url' => $url,
                 ':tid' => $targetId ?: null,
                 ':tb' => $targetBlank,
+                ':hd' => $hidden,
             ]);
             $newId = (int)$pdo->lastInsertId();
             $keepIds[] = $newId;
