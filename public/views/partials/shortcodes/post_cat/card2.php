@@ -1,14 +1,9 @@
 <?php
-// /views/partials/shortcodes/post_cat/card2.php
-// vars: $items, $kicker, $class_prefix, $wrap, $esc (callable)
-
-// safe defaults
 $items = (isset($items) && is_array($items)) ? $items : [];
 $kicker = isset($kicker) ? (string)$kicker : '';
 $class_prefix = isset($class_prefix) ? (string)$class_prefix : '';
 $wrap = !empty($wrap);
 
-// safe esc fallback
 if (!isset($esc) || !is_callable($esc)) {
     $esc = static function ($value): string {
         return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -44,7 +39,9 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
           </div>
 
           <div class="pcat__body">
-            <div class="pcat__kicker"><?= $esc($kicker) ?></div>
+            <?php if ($kicker !== ''): ?>
+              <div class="pcat__kicker"><?= $esc($kicker) ?></div>
+            <?php endif; ?>
             <h3 class="pcat__title"><?= $title ?></h3>
             <?php if ($dateIso !== '' && $dateLabel !== ''): ?>
               <time class="pcat__date" datetime="<?= $dateIso ?>"><?= $dateLabel ?></time>
@@ -62,11 +59,12 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
 <?php if (!defined('PCAT_SLIDER_P_CSS')): define('PCAT_SLIDER_P_CSS', true); ?>
 <style id="pcat-slider-p-css">
   .pcat--slider-p{
-    --pcat-gap: 14px;
-    --pcat-radius: 18px;
+    --pcat-gap: var(--space-4, 14px);
+    --pcat-radius: var(--radius-lg, 18px);
     --pcat-w: 240px;
     --pcat-h: 360px;
-    --pcat-shadow: 0 14px 34px rgba(0,0,0,.14);
+    --pcat-accent: var(--accent, #00A89E);
+    --pcat-shadow: var(--shadow, 0 14px 34px rgba(0,0,0,.14));
   }
 
   .pcat--slider-p .pcat__track{
@@ -78,6 +76,13 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
     overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
   }
+
+  .pcat--slider-p .pcat__track::-webkit-scrollbar{ height: 8px; }
+  .pcat--slider-p .pcat__track::-webkit-scrollbar-thumb{
+    background: var(--border, rgba(0,0,0,.18));
+    border-radius: 999px;
+  }
+  .pcat--slider-p .pcat__track::-webkit-scrollbar-track{ background: transparent; }
 
   .pcat--slider-p .pcat__item{
     flex: 0 0 auto;
@@ -93,13 +98,18 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
     overflow:hidden;
     text-decoration:none;
     color:#fff;
-    background:#0b1220;
+    background: #0b1220;
     box-shadow: var(--pcat-shadow);
+    transition: box-shadow .25s ease;
+  }
+
+  .pcat--slider-p .pcat__card:hover{
+    box-shadow: 0 18px 40px rgba(0,0,0,.25);
   }
 
   .pcat--slider-p .pcat__media{
     position:relative;
-    background:#111827;
+    background: var(--surface-hover, #111827);
   }
 
   .pcat--slider-p .pcat__img{
@@ -115,11 +125,11 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
     width:100%;
     height:100%;
     background: radial-gradient(900px 450px at 20% 10%, rgba(255,255,255,.16), transparent 45%),
-                linear-gradient(135deg, rgba(99,102,241,.75), rgba(16,185,129,.55));
+                linear-gradient(135deg, var(--pcat-accent), color-mix(in srgb, var(--pcat-accent) 60%, #000));
   }
 
   .pcat--slider-p .pcat__body{
-    padding: 12px 12px 14px;
+    padding: var(--space-3, 12px);
     display:grid;
     gap: 6px;
     background: linear-gradient(to top, rgba(0,0,0,.75), rgba(0,0,0,.25));
@@ -130,7 +140,7 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
     font-weight: 900;
     letter-spacing: .08em;
     text-transform: uppercase;
-    opacity:.85;
+    opacity: .85;
   }
 
   .pcat--slider-p .pcat__title{
@@ -151,6 +161,12 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
 
   .pcat--slider-p .pcat__card:hover .pcat__img{
     transform: scale(1.08);
+  }
+
+  .pcat--slider-p .pcat__card:focus-visible{
+    outline: 3px solid var(--pcat-accent);
+    outline-offset: 3px;
+    border-radius: calc(var(--pcat-radius) + 2px);
   }
 
   @media (max-width: 520px){

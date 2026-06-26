@@ -1,14 +1,9 @@
 <?php
-// /views/partials/shortcodes/post_cat/list.php
-// vars: $items, $kicker, $class_prefix, $wrap, $esc (callable)
-
-// safe defaults
 $items = (isset($items) && is_array($items)) ? $items : [];
 $kicker = isset($kicker) ? (string)$kicker : '';
 $class_prefix = isset($class_prefix) ? (string)$class_prefix : '';
 $wrap = !empty($wrap);
 
-// safe esc fallback
 if (!isset($esc) || !is_callable($esc)) {
     $esc = static function ($value): string {
         return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -45,7 +40,9 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
           </div>
 
           <div class="pcat__body">
-            <div class="pcat__kicker"><?= $esc($kicker) ?></div>
+            <?php if ($kicker !== ''): ?>
+              <div class="pcat__kicker"><?= $esc($kicker) ?></div>
+            <?php endif; ?>
             <h3 class="pcat__title"><?= $title ?></h3>
             <?php if ($desc !== ''): ?>
               <p class="pcat__desc"><?= $desc ?></p>
@@ -66,10 +63,15 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
 <?php if (!defined('PCAT_LIST_CSS')): define('PCAT_LIST_CSS', true); ?>
 <style id="pcat-list-css">
   .pcat--list{
-    --pcat-gap: 14px;
-    --pcat-radius: 16px;
-    --pcat-border: rgba(0,0,0,.10);
-    --pcat-shadow: 0 10px 26px rgba(0,0,0,.10);
+    --pcat-gap: var(--space-4, 14px);
+    --pcat-radius: var(--radius-lg, 16px);
+    --pcard-bg: var(--bg, #fff);
+    --pcard-shadow: var(--shadow, 0 8px 24px rgba(2,6,23,0.08));
+    --pcard-media: var(--surface-hover, #f7fafc);
+    --pcard-text: var(--text, #0b1220);
+    --pcard-muted: var(--muted, #6b7280);
+    --pcard-border: var(--border, #e6eef2);
+    --pcard-accent: var(--accent, #00A89E);
   }
 
   .pcat--list .pcat__track{
@@ -80,20 +82,26 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
   .pcat--list .pcat__card{
     display:grid;
     grid-template-columns: 180px 1fr;
-    gap: 14px;
-    padding: 12px;
+    gap: var(--space-4, 14px);
+    padding: var(--space-3, 12px);
     border-radius: var(--pcat-radius);
-    border: 1px solid var(--pcat-border);
-    background: rgba(255,255,255,.70);
-    box-shadow: var(--pcat-shadow);
+    border: 1px solid var(--pcard-border);
+    background: var(--pcard-bg);
+    box-shadow: var(--pcard-shadow);
     text-decoration:none;
-    color: inherit;
+    color: var(--pcard-text);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+
+  .pcat--list .pcat__card:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(2,6,23,0.10);
   }
 
   .pcat--list .pcat__media{
     border-radius: calc(var(--pcat-radius) - 4px);
     overflow:hidden;
-    background:#eef1f5;
+    background: var(--pcard-media);
     min-height: 110px;
   }
 
@@ -107,12 +115,12 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
   .pcat--list .pcat__img--placeholder{
     width:100%;
     height:100%;
-    background: linear-gradient(135deg, rgba(99,102,241,.25), rgba(16,185,129,.22));
+    background: var(--pcard-media);
   }
 
   .pcat--list .pcat__body{
     display:grid;
-    gap: 8px;
+    gap: var(--space-2, 8px);
     align-content:start;
     min-width: 0;
   }
@@ -122,7 +130,7 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
     font-weight: 800;
     letter-spacing: .06em;
     text-transform: uppercase;
-    color: rgba(0,0,0,.60);
+    color: var(--pcard-muted);
   }
 
   .pcat--list .pcat__title{
@@ -136,7 +144,7 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
     margin:0;
     font-size: 14px;
     line-height: 1.45;
-    color: rgba(0,0,0,.70);
+    color: var(--pcard-muted);
     display:-webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -145,11 +153,13 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
 
   .pcat--list .pcat__date{
     font-size: 12px;
-    color: rgba(0,0,0,.55);
+    color: var(--pcard-muted);
+    opacity: .75;
   }
 
-  .pcat--list .pcat__card:hover{
-    transform: translateY(-1px);
+  .pcat--list .pcat__card:focus-visible{
+    outline: 2px solid var(--pcard-accent);
+    outline-offset: 2px;
   }
 
   @media (max-width: 640px){

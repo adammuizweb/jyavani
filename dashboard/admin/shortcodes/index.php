@@ -33,7 +33,7 @@ $presets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // --- Layouts ---
 $layoutFiles = [];
-$layoutDir = realpath(__DIR__ . '/../../../app/views/partials/shortcodes/post_cat');
+$layoutDir = realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat');
 if ($layoutDir && is_dir($layoutDir)) {
     $files = scandir($layoutDir);
     foreach ($files as $f) {
@@ -156,6 +156,52 @@ if ($layoutDir && is_dir($layoutDir)) {
 <style>
 .sc-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
 </style>
+
+<div class="sc-help" style="margin-top:2rem;padding:1.2rem;background:var(--adam-surface-3);border-radius:var(--adam-radius,8px);border:1px solid var(--adam-border-soft);font-size:.9rem;color:var(--adam-text);line-height:1.6;">
+  <h3 style="margin:0 0 .6rem;font-size:1rem;display:flex;align-items:center;gap:6px;">
+    <span style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;background:var(--adam-primary);color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">?</span>
+    Cara Penggunaan Shortcode
+  </h3>
+
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">📦 Preset — Simpan Konfigurasi, Pakai Ulang Nanti</h4>
+  <p style="margin:0 0 .5rem;">
+    Preset adalah <strong>kumpulan pengaturan filter + layout</strong> yang disimpan di database.
+    Gunakan preset untuk menampilkan daftar post/page di halaman manapun tanpa perlu ngatur ulang.
+  </p>
+
+  <h5 style="margin:.6rem 0 .2rem;font-size:.85rem;">Cara pakai Preset:</h5>
+  <table class="adam-table" style="font-size:.85rem;margin-bottom:.6rem;">
+    <thead><tr><th style="width:180px;">Metode</th><th>Contoh</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Shortcode di konten</strong></td><td><code>[[widget:nama_preset]]</code></td></tr>
+      <tr><td><strong>PHP di template tema</strong></td><td><code>&lt;?= widget('nama_preset') ?&gt;</code></td></tr>
+      <tr><td><strong>Sidebar widget</strong></td><td>Tambahkan widget "Post/Page List" di Dashboard → Tampilan → Widget, pilih preset dari dropdown</td></tr>
+      <tr><td><strong>PHP API (ShortcodeQuery)</strong></td><td><code>&lt;?= ShortcodeQuery::posts()-&gt;category('news')-&gt;limit(4)-&gt;render() ?&gt;</code></td></tr>
+    </tbody>
+  </table>
+
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🧩 Layout — Template Visual untuk Tampilan Post</h4>
+  <p style="margin:0 0 .5rem;">
+    Layout adalah <strong>file PHP</strong> di <code>public/views/partials/shortcodes/post_cat/</code> yang mengatur <em>bagaimana</em>
+    post/page dirender (cards, list, slider, dll). Tersedia 4 layout bawaan:
+  </p>
+  <ul style="margin:0 0 .5rem;padding-left:1.2rem;">
+    <li><code>list</code> — daftar vertikal dengan excerpt</li>
+    <li><code>cards</code> — grid kartu dengan thumbnail</li>
+    <li><code>card2</code> — variasi kartu dengan aksen berbeda</li>
+    <li><code>sliderpage</code> — slider horizontal (carousel)</li>
+  </ul>
+  <p style="margin:0;">
+    Kamu bisa bikin layout kustom sendiri lewat tab <strong>Layouts</strong>.
+    File baru otomatis muncul di dropdown layout saat edit preset.
+  </p>
+
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🔗 Integrasi dengan Sidebar</h4>
+  <p style="margin:0;">
+    Sidebar widget "Post/Page List" di <strong>Dashboard → Tampilan → Widget</strong> mendukung pemilihan preset langsung.
+    Semua preset dengan status <code>published</code> akan muncul di dropdown pilihan widget.
+  </p>
+</div>
 
 <script>
 (function(){

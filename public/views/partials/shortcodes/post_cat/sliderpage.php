@@ -1,28 +1,10 @@
 <?php
-/**
- * Shortcode layout template: sliderpage.php
- * Location:
- *   views/partials/shortcodes/post_cat/sliderpage.php
- *
- * Vars from shortcode engine:
- * - $items (array)
- * - $kicker (string)
- * - $class_prefix (string)
- * - $wrap (bool)
- * - $esc (callable)
- * - $attrs (array)
- * - $cat_key (string)
- */
-
-// safe defaults
 $items = (isset($items) && is_array($items)) ? $items : [];
 $kicker = isset($kicker) ? (string)$kicker : '';
 $class_prefix = isset($class_prefix) ? (string)$class_prefix : '';
 $wrap = !empty($wrap);
 $attrs = (isset($attrs) && is_array($attrs)) ? $attrs : [];
-$cat_key = isset($cat_key) ? (string)$cat_key : '';
 
-// safe esc fallback
 if (!isset($esc) || !is_callable($esc)) {
     $esc = static function ($value): string {
         return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -34,63 +16,34 @@ $extra = $class_prefix !== '' ? ' ' . $esc($class_prefix) : '';
 // Title
 $sectionTitle = trim((string)($attrs['section_title'] ?? $attrs['title'] ?? ''));
 if ($sectionTitle === '') {
-    $sectionTitle = ucwords(str_replace(['-', '_'], ' ', $cat_key !== '' ? $cat_key : 'News'));
+    $sectionTitle = 'Artikel Terbaru';
 }
 
-// Link label + desc toggle
-$linkLabel = trim((string)($attrs['link_label'] ?? 'Learn more'));
+// Show excerpt
 $showDesc  = !isset($attrs['show_desc']) ? true : ((string)$attrs['show_desc'] !== '0');
 
-// Visible columns (CSS only; data count comes from DB fetch/limit)
-$colsDesktop = (int)($attrs['show'] ?? 3);
-if ($colsDesktop < 1) $colsDesktop = 3;
-
-$colsTablet = (int)($attrs['show_tablet'] ?? 2);
-if ($colsTablet < 1) $colsTablet = 2;
-
-$colsMobile = (int)($attrs['show_mobile'] ?? 1);
-if ($colsMobile < 1) $colsMobile = 1;
-
-// icons (rotate)
-$icons = [
-  '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-     <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm6.1-1.4 4.3 4.3"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-   </svg>',
-  '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-     <path d="M4 19V5M4 19h16M8 16v-6m4 6V7m4 9v-4"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-   </svg>',
-  '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-     <path d="M7 8V7a5 5 0 0 1 10 0v1m-12 0h14l-1 12H6L5 8Z"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-   </svg>',
-  '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-     <path d="M6 7h12M6 12h12M6 17h8"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-   </svg>',
-  '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-     <path d="M12 3v18M3 12h18"
-           fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-   </svg>',
-];
-
-// Always output a root wrapper (so JS works even if wrap=0)
-$rootTag = $wrap ? 'section' : 'div';
-$bareCls = $wrap ? '' : ' sliderpage-sec--bare';
+// Visible columns
+$colsDesktop = max(1, (int)($attrs['show'] ?? 3));
+$colsTablet  = max(1, (int)($attrs['show_tablet'] ?? 2));
+$colsMobile  = max(1, (int)($attrs['show_mobile'] ?? 1));
 
 // root style vars
 $rootStyle = sprintf(
   '--sliderpage-cols-desktop:%d;--sliderpage-cols-tablet:%d;--sliderpage-cols-mobile:%d;',
-  (int)$colsDesktop,
-  (int)$colsTablet,
-  (int)$colsMobile
+  $colsDesktop, $colsTablet, $colsMobile
 );
 ?>
 
-<<?= $rootTag ?> class="sliderpage-sec<?= $bareCls ?><?= $extra ?>" data-sliderpage="1" style="<?= $esc($rootStyle) ?>">
+<?php if ($wrap): ?>
+<section class="pcat pcat--sliderpage<?= $extra ?>" data-pcat-layout="sliderpage" data-sliderpage="1" style="<?= $esc($rootStyle) ?>">
+<?php else: ?>
+<div class="pcat pcat--sliderpage<?= $extra ?>" data-pcat-layout="sliderpage" data-sliderpage="1" style="<?= $esc($rootStyle) ?>">
+<?php endif; ?>
+
   <div class="sliderpage-container">
-    <h2 class="sliderpage-title"><?= $esc($sectionTitle) ?></h2>
+    <?php if ($sectionTitle !== ''): ?>
+      <h2 class="sliderpage-title"><?= $esc($sectionTitle) ?></h2>
+    <?php endif; ?>
 
     <div class="sliderpage-wrap">
       <button class="sliderpage-arrow sliderpage-arrow--left" type="button" aria-label="Previous">
@@ -106,19 +59,27 @@ $rootStyle = sprintf(
               $title = $esc($it['title'] ?? '');
               $url   = $esc($it['url'] ?? '#');
               $desc  = $esc($it['desc'] ?? '');
-              $icon  = $icons[$i % count($icons)];
+              $thumb = trim((string)($it['thumb'] ?? ''));
+              $dateLabel = $esc($it['date_label'] ?? '');
             ?>
             <article class="sliderpage-card">
-              <div class="sliderpage-icon"><?= $icon ?></div>
-              <h3 class="sliderpage-cardTitle"><?= $title ?></h3>
-
-              <?php if ($showDesc && $desc !== ''): ?>
-                <p class="sliderpage-desc"><?= $desc ?></p>
+              <?php if ($thumb !== ''): ?>
+                <div class="sliderpage-thumb">
+                  <img src="<?= $esc($thumb) ?>" alt="" loading="lazy" decoding="async">
+                </div>
               <?php endif; ?>
-
-              <a class="sliderpage-link" href="<?= $url ?>">
-                <?= $esc($linkLabel) ?> <span aria-hidden="true">→</span>
-              </a>
+              <div class="sliderpage-card-body">
+                <h3 class="sliderpage-cardTitle"><?= $title ?></h3>
+                <?php if ($showDesc && $desc !== ''): ?>
+                  <p class="sliderpage-desc"><?= $desc ?></p>
+                <?php endif; ?>
+                <?php if ($dateLabel !== ''): ?>
+                  <time class="sliderpage-date"><?= $dateLabel ?></time>
+                <?php endif; ?>
+                <a class="sliderpage-link" href="<?= $url ?>">
+                  Baca selengkapnya <span aria-hidden="true">→</span>
+                </a>
+              </div>
             </article>
           <?php endforeach; ?>
         </div>
@@ -129,206 +90,240 @@ $rootStyle = sprintf(
       </button>
     </div>
   </div>
-</<?= $rootTag ?>>
+
+<?php if ($wrap): ?>
+</section>
+<?php else: ?>
+</div>
+<?php endif; ?>
 
 <?php if (!defined('SLIDERPAGE_PCAT_ASSETS')): define('SLIDERPAGE_PCAT_ASSETS', true); ?>
 <style id="sliderpage-styles">
-  .sliderpage-sec{
-    --sliderpage-bg: #f3eee8;
-    --sliderpage-ink: #062b3e;
-    --sliderpage-muted: rgba(6,43,62,.70);
-    --sliderpage-line: #1bb2c5;
-    --sliderpage-icon-bg: #062b3e;
-    --sliderpage-card-bg: #ffffff;
-    --sliderpage-maxw: 1220px;
-    --sliderpage-gap: 26px;
-    --sliderpage-cols: var(--sliderpage-cols-desktop, 3);
-    background: var(--sliderpage-bg);
+  .pcat--sliderpage{
+    --sp-bg: var(--bg, #fff);
+    --sp-text: var(--text, #0b1220);
+    --sp-muted: var(--muted, #6b7280);
+    --sp-border: var(--border, #e6eef2);
+    --sp-surface: var(--surface, #fff);
+    --sp-accent: var(--accent, #00A89E);
+    --sp-shadow: var(--shadow, 0 8px 24px rgba(2,6,23,0.08));
+    --sp-radius: var(--radius-md, 12px);
+    --sp-container: min(1100px, 100% - 36px);
+    --sp-gap: var(--space-6, 24px);
+    --sp-cols: var(--sliderpage-cols-desktop, 3);
+
+    background: var(--sp-bg);
     padding: clamp(28px, 5vw, 64px) 0;
-  }
-  .sliderpage-sec *{ box-sizing: border-box; }
-
-  .sliderpage-sec--bare{
-    background: transparent;
-    padding: 0;
+    container-type: inline-size;
   }
 
-  @media (max-width: 980px){
-    .sliderpage-sec{
-      --sliderpage-cols: var(--sliderpage-cols-tablet, 2);
-      --sliderpage-gap: 18px;
-    }
-  }
-  @media (max-width: 620px){
-    .sliderpage-sec{
-      --sliderpage-cols: var(--sliderpage-cols-mobile, 1);
-      --sliderpage-gap: 14px;
-    }
-  }
-
-  .sliderpage-container{
-    max-width: var(--sliderpage-maxw);
+  .pcat--sliderpage .sliderpage-container{
+    max-width: var(--sp-container);
     margin: 0 auto;
     padding: 0 18px;
   }
 
-  .sliderpage-title{
+  .pcat--sliderpage .sliderpage-title{
     margin: 0 0 clamp(18px, 3vw, 28px);
     text-align: center;
-    font-family: ui-serif, Georgia, "Times New Roman", serif;
-    font-size: clamp(34px, 4vw, 54px);
+    font-size: clamp(24px, 3.5vw, 42px);
     font-weight: 800;
-    color: var(--sliderpage-ink);
-    letter-spacing: .4px;
+    color: var(--sp-text);
+    letter-spacing: -.02em;
   }
 
-  .sliderpage-wrap{
+  .pcat--sliderpage .sliderpage-wrap{
     position: relative;
     display: grid;
-    grid-template-columns: 56px 1fr 56px;
+    grid-template-columns: 44px 1fr 44px;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
 
-  .sliderpage-arrow{
-    width: 56px;
-    height: 56px;
-    border: 0;
-    background: transparent;
-    color: rgba(6,43,62,.65);
+  .pcat--sliderpage .sliderpage-arrow{
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--sp-border);
+    background: var(--sp-surface);
+    color: var(--sp-text);
     cursor: pointer;
     display: grid;
     place-items: center;
     border-radius: 999px;
-    font-size: 40px;
+    font-size: 32px;
     line-height: 1;
     user-select: none;
+    transition: background .15s, color .15s;
+    box-shadow: var(--sp-shadow);
   }
-  .sliderpage-arrow:hover{
-    background: rgba(6,43,62,.06);
-    color: rgba(6,43,62,.92);
+  .pcat--sliderpage .sliderpage-arrow:hover{
+    background: var(--sp-accent);
+    color: #fff;
+    border-color: var(--sp-accent);
   }
-  .sliderpage-arrow[disabled]{ opacity: .35; cursor: default; }
-  .sliderpage-arrow.is-hidden{
+  .pcat--sliderpage .sliderpage-arrow[disabled]{ opacity: .3; cursor: default; }
+  .pcat--sliderpage .sliderpage-arrow.is-hidden{
     opacity: 0;
     pointer-events: none;
   }
 
-  @media (max-width: 980px){
-    .sliderpage-wrap{ grid-template-columns: 44px 1fr 44px; }
-    .sliderpage-arrow{ width: 44px; height: 44px; font-size: 34px; }
+  @container (max-width: 640px){
+    .pcat--sliderpage .sliderpage-wrap{
+      grid-template-columns: 36px 1fr 36px;
+      gap: 8px;
+    }
+    .pcat--sliderpage .sliderpage-arrow{
+      width: 36px;
+      height: 36px;
+      font-size: 24px;
+    }
   }
 
-  .sliderpage-viewport{
+  .pcat--sliderpage .sliderpage-viewport{
     overflow: hidden;
     width: 100%;
     touch-action: pan-y;
   }
 
-  .sliderpage-track{
+  .pcat--sliderpage .sliderpage-track{
     display: grid;
     grid-auto-flow: column;
-    gap: var(--sliderpage-gap);
+    gap: var(--sp-gap);
     grid-auto-columns: calc(
-      (100% - (var(--sliderpage-cols) - 1) * var(--sliderpage-gap))
-      / var(--sliderpage-cols)
+      (100% - (var(--sp-cols) - 1) * var(--sp-gap))
+      / var(--sp-cols)
     );
     align-items: stretch;
     transition: transform .35s ease;
     will-change: transform;
   }
 
-  .sliderpage-card{
-    background: var(--sliderpage-card-bg);
-    border: 2px solid var(--sliderpage-line);
-    padding: 28px 28px 26px;
-    min-height: 280px;
+  .pcat--sliderpage .sliderpage-card{
+    background: var(--sp-surface);
+    border: 1px solid var(--sp-border);
+    border-radius: var(--sp-radius);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-  }
-  @media (max-width: 620px){
-    .sliderpage-card{ min-height: 260px; padding: 22px; }
+    box-shadow: var(--sp-shadow);
+    transition: box-shadow .2s ease;
   }
 
-  .sliderpage-icon{
-    width: 48px;
-    height: 48px;
-    border-radius: 999px;
-    background: var(--sliderpage-icon-bg);
-    color: #fff;
-    display: grid;
-    place-items: center;
-    margin-bottom: 6px;
-    flex: 0 0 auto;
+  .pcat--sliderpage .sliderpage-card:hover{
+    box-shadow: 0 12px 32px rgba(2,6,23,0.12);
   }
 
-  .sliderpage-cardTitle{
+  .pcat--sliderpage .sliderpage-thumb{
+    aspect-ratio: 16/9;
+    overflow: hidden;
+    background: var(--sp-muted);
+  }
+
+  .pcat--sliderpage .sliderpage-thumb img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .4s ease;
+  }
+
+  .pcat--sliderpage .sliderpage-card:hover .sliderpage-thumb img{
+    transform: scale(1.06);
+  }
+
+  .pcat--sliderpage .sliderpage-card-body{
+    padding: var(--space-5, 20px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3, 12px);
+    flex: 1;
+  }
+
+  .pcat--sliderpage .sliderpage-cardTitle{
     margin: 0;
-    color: var(--sliderpage-ink);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 800;
+    line-height: 1.2;
+    color: var(--sp-text);
   }
 
-  .sliderpage-desc{
+  .pcat--sliderpage .sliderpage-desc{
     margin: 0;
-    color: var(--sliderpage-muted);
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    line-height: 1.6;
-    max-width: 44ch;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--sp-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
-  .sliderpage-link{
+  .pcat--sliderpage .sliderpage-date{
+    font-size: 12px;
+    color: var(--sp-muted);
+    opacity: .8;
+  }
+
+  .pcat--sliderpage .sliderpage-link{
     margin-top: auto;
-    color: var(--sliderpage-ink);
-    font-weight: 800;
-    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    color: var(--sp-accent);
+    font-weight: 700;
     font-size: 13px;
-    letter-spacing: .2px;
     text-decoration: none;
     display: inline-flex;
-    gap: 10px;
+    gap: 6px;
     align-items: center;
+    padding-top: var(--space-2, 8px);
+    border-top: 1px solid var(--sp-border);
   }
-  .sliderpage-link:hover{ text-decoration: underline; }
+
+  .pcat--sliderpage .sliderpage-link:hover{
+    text-decoration: underline;
+  }
+
+  .pcat--sliderpage .sliderpage-card:focus-within{
+    outline: 2px solid var(--sp-accent);
+    outline-offset: 2px;
+  }
 </style>
 
 <script id="sliderpage-script">
 (function(){
   function initOne(root){
-    const track = root.querySelector('.sliderpage-track');
-    const viewport = root.querySelector('.sliderpage-viewport');
-    const prev = root.querySelector('.sliderpage-arrow--left');
-    const next = root.querySelector('.sliderpage-arrow--right');
+    var track = root.querySelector('.sliderpage-track');
+    var viewport = root.querySelector('.sliderpage-viewport');
+    var prev = root.querySelector('.sliderpage-arrow--left');
+    var next = root.querySelector('.sliderpage-arrow--right');
     if (!track || !viewport || !prev || !next) return;
 
-    let index = 0;
+    var index = 0;
 
     function colsPerView(){
-      const v = parseInt(getComputedStyle(root).getPropertyValue('--sliderpage-cols'), 10);
+      var style = getComputedStyle(root);
+      var v = parseInt(style.getPropertyValue('--sp-cols'), 10);
       return (Number.isFinite(v) && v > 0) ? v : 3;
     }
 
     function stepWidth(){
-      const first = track.children[0];
+      var first = track.children[0];
       if (!first) return 0;
-      const gap = parseFloat(getComputedStyle(track).gap || '0') || 0;
+      var style = getComputedStyle(track);
+      var gap = parseFloat(style.gap || '0') || 0;
       return first.getBoundingClientRect().width + gap;
     }
 
     function render(){
-      const cols = colsPerView();
-      const total = track.children.length;
-      const mx = Math.max(0, total - cols);
+      var cols = colsPerView();
+      var total = track.children.length;
+      var mx = Math.max(0, total - cols);
 
       if (index > mx) index = mx;
       if (index < 0) index = 0;
 
-      const step = stepWidth();
-      track.style.transform = step ? `translateX(${-index * step}px)` : 'translateX(0px)';
+      var step = stepWidth();
+      track.style.transform = step ? 'translateX(' + (-index * step) + 'px)' : 'translateX(0px)';
 
-      const hideArrows = (mx === 0);
+      var hideArrows = (mx === 0);
       prev.classList.toggle('is-hidden', hideArrows);
       next.classList.toggle('is-hidden', hideArrows);
 
@@ -336,12 +331,12 @@ $rootStyle = sprintf(
       next.disabled = (index === mx);
     }
 
-    prev.addEventListener('click', () => { index -= 1; render(); });
-    next.addEventListener('click', () => { index += 1; render(); });
+    prev.addEventListener('click', function(){ index -= 1; render(); });
+    next.addEventListener('click', function(){ index += 1; render(); });
 
-    let sx = 0, dx = 0, isDown = false, pid = null;
+    var sx = 0, dx = 0, isDown = false, pid = null;
 
-    viewport.addEventListener('pointerdown', (e) => {
+    viewport.addEventListener('pointerdown', function(e){
       isDown = true;
       pid = e.pointerId;
       sx = e.clientX;
@@ -349,20 +344,22 @@ $rootStyle = sprintf(
       try { viewport.setPointerCapture(pid); } catch(_){}
     });
 
-    viewport.addEventListener('pointermove', (e) => {
+    viewport.addEventListener('pointermove', function(e){
       if (!isDown) return;
       dx = e.clientX - sx;
     });
 
-    function endSwipe(){
+    viewport.addEventListener('pointerup', function(){
       if (!isDown) return;
       isDown = false;
       if (Math.abs(dx) > 40) index += (dx < 0 ? 1 : -1);
       render();
-    }
+    });
 
-    viewport.addEventListener('pointerup', endSwipe);
-    viewport.addEventListener('pointercancel', endSwipe);
+    viewport.addEventListener('pointercancel', function(){
+      isDown = false;
+      render();
+    });
 
     window.addEventListener('resize', render);
     render();

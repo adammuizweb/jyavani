@@ -292,6 +292,44 @@ if ($layoutDir && is_dir($layoutDir)) {
   </form>
 </section>
 
+<div style="margin-top:1rem;display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
+  <span>🧩 <strong>Layout:</strong></span>
+  <span id="edit-layout-name" style="color:var(--adam-accent);font-weight:600;"><?= h($pref_config['layout'] ?? 'list') ?></span>
+  <a id="edit-layout-link" href="<?= h($base . '/?page=admin/shortcodes/layout&file=' . ($pref_config['layout'] ?? 'list') . '.php') ?>" class="adam-link" style="font-size:.8rem;" target="_blank">✏️ Edit Layout Ini</a>
+  <span style="flex:1"></span>
+  <span style="font-size:.78rem;color:var(--adam-muted,#888);">Preset = filter konten · Layout = tampilan visual</span>
+</div>
+
+<section class="adam-card" style="margin-top:1rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.6rem;">
+    <h3 style="margin:0;font-size:.95rem;">👁️ Live Preview</h3>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span id="edit-preview-mode" style="font-size:.72rem;background:var(--adam-surface-3);padding:.15rem .45rem;border-radius:3px;color:var(--adam-muted,#888);">preset config</span>
+      <span id="edit-preview-status" style="font-size:.78rem;color:var(--adam-muted,#888);">siap</span>
+    </span>
+  </div>
+  <div id="edit-preview-error" style="display:none;padding:.4rem .7rem;font-size:.82rem;background:#fef0ef;color:#c0392b;border:1px solid #f5c6cb;border-radius:4px;margin-bottom:.5rem;"></div>
+  <div id="edit-preview-content" style="min-height:100px;border:1px solid var(--adam-border-soft,#ddd);border-radius:6px;padding:1rem;background:var(--adam-bg,#fff);font-size:.9rem;color:var(--adam-muted,#888);">
+    Tekan tombol "Preview" untuk melihat hasil layout dengan konten real dari database.
+  </div>
+  <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
+    <button type="button" id="edit-preview-btn" class="adam-button" style="font-size:.85rem;">🔄 Preview dengan Data Real</button>
+    <span style="font-size:.78rem;color:var(--adam-muted,#888);">Mengambil post real dari database sesuai filter di atas</span>
+  </div>
+</section>
+
+<div class="sc-help" style="margin-top:1rem;padding:1rem;background:var(--adam-surface-3);border-radius:var(--adam-radius,8px);border:1px solid var(--adam-border-soft);font-size:.85rem;color:var(--adam-text);line-height:1.5;">
+  <div style="display:flex;align-items:flex-start;gap:.5rem;">
+    <div style="font-size:1.1rem;flex-shrink:0;">💡</div>
+    <div>
+      <strong>Korelasi Preset &amp; Layout:</strong><br>
+      <strong>Preset</strong> = "apa yang mau ditampilkan" (kategori, jumlah, urutan, dll).<br>
+      <strong>Layout</strong> = file PHP di <code>app/views/partials/shortcodes/post_cat/</code> yang mengatur "bagaimana tampilannya".<br>
+      Satu layout bisa dipakai oleh banyak preset. Edit layout di <a href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts') ?>" class="adam-link">Layouts Manager</a> → perubahan langsung terlihat di semua preset yang pakai layout tersebut.
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   var form = document.getElementById('sc-form');
@@ -370,6 +408,124 @@ if ($layoutDir && is_dir($layoutDir)) {
       if (wrap) config.wrap = wrap.value;
 
       if (configField) configField.value = JSON.stringify(config);
+    });
+  }
+
+  // --- Live Preview ---
+  var previewBtn = document.getElementById('edit-preview-btn');
+  var previewContent = document.getElementById('edit-preview-content');
+  var previewError = document.getElementById('edit-preview-error');
+  var previewStatus = document.getElementById('edit-preview-status');
+  var previewMode = document.getElementById('edit-preview-mode');
+  var layoutSelect = document.querySelector('[name="filter_layout"]');
+  var layoutLink = document.getElementById('edit-layout-link');
+  var layoutNameSpan = document.getElementById('edit-layout-name');
+
+  function buildPreviewConfig() {
+    var config = {};
+    var type = document.querySelector('[name="filter_type"]');
+    if (type) config.type = type.value;
+
+    var cat = document.querySelector('[name="filter_category"]');
+    if (cat && cat.value) config.category = cat.value;
+
+    var author = document.querySelector('[name="filter_author"]');
+    if (author && author.value) config.author = parseInt(author.value, 10);
+
+    var limit = document.querySelector('[name="filter_limit"]');
+    if (limit) config.limit = parseInt(limit.value, 10) || 5;
+
+    var offset = document.querySelector('[name="filter_offset"]');
+    if (offset) config.offset = parseInt(offset.value, 10) || 0;
+
+    var excerpt = document.querySelector('[name="filter_excerpt"]');
+    if (excerpt) config.excerpt_len = parseInt(excerpt.value, 10) || 90;
+
+    var inc = document.querySelector('[name="filter_include_children"]');
+    if (inc) config.include_children = inc.value;
+
+    var orderSel = document.getElementById('filter-order');
+    var order = orderSel ? orderSel.value : 'latest';
+    if (order === 'latest') {
+      config.order_by = 'created_at'; config.order_dir = 'DESC';
+    } else if (order === 'oldest') {
+      config.order_by = 'created_at'; config.order_dir = 'ASC';
+    } else if (order === 'random') {
+      config.order_by = 'RAND()';
+    } else if (order === 'custom') {
+      var col = document.querySelector('[name="filter_order_custom_col"]');
+      var dir = document.querySelector('[name="filter_order_custom_dir"]');
+      config.order_by = col ? col.value : 'created_at';
+      config.order_dir = dir ? dir.value : 'DESC';
+    }
+
+    var df = document.querySelector('[name="filter_date_from"]');
+    if (df && df.value) config.date_from = df.value;
+    var dt = document.querySelector('[name="filter_date_to"]');
+    if (dt && dt.value) config.date_to = dt.value;
+
+    if (layoutSelect) config.layout = layoutSelect.value;
+    var cp = document.querySelector('[name="filter_class_prefix"]');
+    if (cp && cp.value) config.class_prefix = cp.value;
+    var wrap = document.querySelector('[name="filter_wrap"]');
+    if (wrap) config.wrap = wrap.value;
+
+    return config;
+  }
+
+  function doPresetPreview() {
+    var config = buildPreviewConfig();
+    if (!config.layout) {
+      if (window.NewNotifToast) {
+        window.NewNotifToast.show({ type: 'warning', title: 'Preview', message: 'Pilih layout template dulu.' });
+      }
+      return;
+    }
+
+    previewStatus.textContent = 'memuat...';
+    previewError.style.display = 'none';
+
+    var fd = new FormData();
+    fd.append('content', '<?= '// auto-loaded from layout file' ?>');
+    fd.append('preset_config', JSON.stringify(config));
+
+    fetch('<?= $base ?>/admin/shortcodes/preview_layout.php', {
+      method: 'POST',
+      body: fd,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok) {
+        previewContent.innerHTML = data.html;
+        previewError.style.display = 'none';
+        previewStatus.textContent = 'siap ✔';
+        previewMode.textContent = '📦 ' + config.layout;
+      } else {
+        previewContent.innerHTML = data.html || '<div style="color:#e74c3c;padding:1rem;">Error</div>';
+        if (data.error) {
+          previewError.style.display = 'block';
+          previewError.textContent = '⚠ ' + data.error;
+        }
+        previewStatus.textContent = 'error ✗';
+      }
+    })
+    .catch(function(err) {
+      previewContent.innerHTML = '<div style="color:#e74c3c;padding:1rem;">Gagal: ' + err.message + '</div>';
+      previewError.style.display = 'none';
+      previewStatus.textContent = 'error ✗';
+    });
+  }
+
+  if (previewBtn) {
+    previewBtn.addEventListener('click', doPresetPreview);
+  }
+
+  if (layoutSelect && layoutLink && layoutNameSpan) {
+    layoutSelect.addEventListener('change', function() {
+      var v = this.value;
+      layoutNameSpan.textContent = v;
+      layoutLink.href = '<?= $base ?>/?page=admin/shortcodes/layout&file=' + encodeURIComponent(v) + '.php';
     });
   }
 
