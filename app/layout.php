@@ -25,8 +25,8 @@ $context_for_layout = $context_for_layout ?? 'global';
 // 4) Page title / meta (override in controllers)
 // Default dari DB (bisa dioverride controller via $page_title)
 $db_default_title = ($pdo instanceof PDO && function_exists('settings_get'))
-    ? (settings_get($pdo, 'site_title', 'Jyavani CMS') ?? 'Jyavani CMS')
-    : 'Jyavani CMS';
+    ? (settings_get($pdo, 'site_title', 'Jyavani') ?? 'Jyavani')
+    : 'Jyavani';
 
 $page_title = $page_title ?? $db_default_title;
 // derive site url for context (used by template context)
@@ -34,8 +34,8 @@ $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' :
 
 // Host: biasanya selalu ada dari HTTP_HOST; DB dipakai sebagai fallback/kanonikal default
 $db_default_host = ($pdo instanceof PDO && function_exists('settings_get'))
-    ? (settings_get($pdo, 'site_host', 'cms.jyavani.com') ?? 'cms.jyavani.com')
-    : 'cms.jyavani.com';
+    ? (settings_get($pdo, 'site_host', 'jyavani.com') ?? 'jyavani.com')
+    : 'jyavani.com';
 
 $host = $_SERVER['HTTP_HOST'] ?? $db_default_host;
 
@@ -146,6 +146,46 @@ if ($pdo instanceof PDO && function_exists('settings_get')) {
   <meta charset="utf-8">
   <title><?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?></title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+<?php
+$siteDesc = ($pdo instanceof PDO && function_exists('settings_get'))
+    ? (settings_get($pdo, 'site_description', '') ?? '')
+    : '';
+$metaDesc = $siteDesc;
+$metaImg = '';
+if (isset($post) && is_array($post)) {
+    if (!empty($post['content']) && function_exists('safe_strip_tags')) {
+        $excerpt = safe_strip_tags((string)$post['content']);
+        $excerpt = html_entity_decode($excerpt, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $excerpt = trim(preg_replace('/\s+/', ' ', $excerpt));
+        if ($excerpt !== '') {
+            $metaDesc = mb_strimwidth($excerpt, 0, 160, '...');
+        }
+    }
+    $postImg = !empty($post['display_image']) ? $post['display_image'] : (!empty($post['thumbnail']) ? $post['thumbnail'] : '');
+    if ($postImg !== '') {
+        $metaImg = $postImg;
+    }
+}
+?>
+<?php if ($metaDesc !== ''): ?>
+  <meta name="description" content="<?= htmlspecialchars($metaDesc, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="<?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?>">
+<?php if ($metaDesc !== ''): ?>
+  <meta property="og:description" content="<?= htmlspecialchars($metaDesc, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
+<?php if ($metaImg !== ''): ?>
+  <meta property="og:image" content="<?= htmlspecialchars($metaImg, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?>">
+<?php if ($metaDesc !== ''): ?>
+  <meta name="twitter:description" content="<?= htmlspecialchars($metaDesc, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
+<?php if ($metaImg !== ''): ?>
+  <meta name="twitter:image" content="<?= htmlspecialchars($metaImg, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
   <script src="/static/assets/js/main.js"></script>
 
 <?php
