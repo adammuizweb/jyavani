@@ -344,7 +344,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
   /* ---------- gallery ---------- */
   galleryBtn?.addEventListener('click', function(){
-    openMediaSelector({ url: '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?embedded=1' })
+    openMediaSelector({ url: '<?= ADMIN_BASE_PATH ?>/admin/modal_img/index.php?embedded=1' })
       .then(function(detail){
         const m = (typeof normalizeMedia === 'function') ? normalizeMedia(detail) : (detail || null);
         if (!m || !m.url) return;
