@@ -5757,4 +5757,106 @@ html.theme-dark .profile-loader{
   display: inline-block;
 }
 
+/* ─── Meta Tags toggle switch ─── */
+.settings-section--metatags {
+  --sec-clr: #8b5cf6;
+  --sec-clr-soft: rgba(139,92,246,0.10);
+  --sec-clr-border: rgba(139,92,246,0.22);
+}
+.settings-section--metatags .settings-section-toggle {
+  color: var(--sec-clr);
+  border-bottom: 2px solid var(--sec-clr);
+}
+.settings-section--metatags .settings-section-toggle svg { opacity: 1; }
+
+.metatags-card {
+  position:relative;
+  border: 1px solid var(--sec-clr-border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  background: var(--sec-clr-soft);
+  transition: border-color .2s, background .2s;
+}
+.metatags-card:hover {
+  border-color: var(--sec-clr);
+  background: transparent;
+}
+
+.metatags-row {
+  display:flex;
+  align-items:flex-start;
+  gap:1rem;
+  flex-wrap:wrap;
+}
+
+.metatags-info {
+  flex:1;
+  min-width:200px;
+}
+
+.metatags-label {
+  display:block;
+  font-weight:700;
+  font-size:.88rem;
+  color:var(--adam-text-2);
+  margin-bottom:.15rem;
+}
+
+.metatags-desc {
+  font-size:.8rem;
+  color:var(--adam-muted);
+  line-height:1.55;
+  margin:0;
+}
+
+.metatags-toggle {
+  position:relative;
+  flex-shrink:0;
+  width:52px;
+  height:28px;
+  margin-top:2px;
+}
+
+.metatags-toggle input {
+  position:absolute;
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.metatags-toggle .slider {
+  position:absolute;
+  inset:0;
+  background:var(--adam-border-2);
+  border-radius:999px;
+  cursor:pointer;
+  transition:background .25s ease;
+}
+
+.metatags-toggle .slider::before {
+  content:'';
+  position:absolute;
+  left:3px;
+  top:3px;
+  width:22px;
+  height:22px;
+  background:#fff;
+  border-radius:50%;
+  transition:transform .25s ease, background .25s ease;
+  box-shadow:0 1px 4px rgba(0,0,0,.12);
+}
+
+.metatags-toggle input:checked + .slider {
+  background:var(--sec-clr);
+}
+
+.metatags-toggle input:checked + .slider::before {
+  transform:translateX(24px);
+  background:#fff;
+}
+
+.metatags-toggle input:focus-visible + .slider {
+  box-shadow:0 0 0 3px var(--sec-clr-soft);
+}
+
 /* ─── End Futuristic Enhancements ─── */

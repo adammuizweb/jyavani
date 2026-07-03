@@ -418,13 +418,18 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
         <span class="chevron">▸</span>
       </button>
       <div class="settings-section-body">
-        <div class="form-group">
-          <label for="enable_custom_meta">
-            <input type="hidden" name="enable_custom_meta" value="0">
-            <input type="checkbox" name="enable_custom_meta" id="enable_custom_meta" value="1"<?= settings_get($pdo, 'enable_custom_meta', '0') === '1' ? ' checked' : '' ?>>
-            <?=_e('Enable custom meta description per post/page')?>
-          </label>
-          <span class="field-note"><?=_e('When enabled, editors can set a custom meta description per post/page. Falls back to auto-generated excerpt (160 chars) if empty.')?></span>
+        <div class="metatags-card">
+          <div class="metatags-row">
+            <div class="metatags-info">
+              <span class="metatags-label"><?=_e('Custom Meta Description')?></span>
+              <p class="metatags-desc"><?=_e('When enabled, editors can set a custom meta description per post/page. Falls back to auto-generated excerpt (160 chars) if empty.')?></p>
+            </div>
+            <label class="metatags-toggle">
+              <input type="hidden" name="enable_custom_meta" value="0">
+              <input type="checkbox" name="enable_custom_meta" id="enable_custom_meta" value="1"<?= settings_get($pdo, 'enable_custom_meta', '0') === '1' ? ' checked' : '' ?>>
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
