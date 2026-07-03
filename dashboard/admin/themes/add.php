@@ -81,11 +81,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         unset($_SESSION[$nonce_key]); // invalidate once used
 
         try {
+            $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
+            $themeMeta = [];
+            if ($metaDescription !== '') {
+                $themeMeta['meta_tags']['description'] = $metaDescription;
+            }
+            $finalMeta = !empty($themeMeta) ? json_encode($themeMeta, JSON_UNESCAPED_UNICODE) : null;
+
             $stmt = $pdo->prepare("
                 INSERT INTO posts
-                    (title, slug, content, type, status, created_by, created_at, updated_at)
+                    (title, slug, content, type, status, meta, created_by, created_at, updated_at)
                 VALUES
-                    (:title, :slug, :content, 'theme', :status, :uid, NOW(), NOW())
+                    (:title, :slug, :content, 'theme', :status, :meta, :uid, NOW(), NOW())
             ");
 
             $ok = $stmt->execute([
@@ -93,6 +100,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ':slug'    => $slug,
                 ':content' => $content,
                 ':status'  => $status,
+                ':meta'    => $finalMeta,
                 ':uid'     => $user_id,
             ]);
 
@@ -157,6 +165,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
             class="inpud"
           >
+        </label>
+
+        <label style="margin-top:.6rem;display:block">
+          <?=_e('Meta Description')?><br>
+          <textarea name="meta_description" rows="2" style="width:100%;padding:.4rem;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:13px;resize:vertical;box-sizing:border-box;margin-top:4px" maxlength="320" placeholder="<?=_e('Custom description for SEO & social share')?>"><?= htmlspecialchars((string)($_POST['meta_description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
 
         <label style="margin-top:.6rem;display:block">

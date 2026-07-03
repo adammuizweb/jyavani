@@ -166,10 +166,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok4 = settings_set($pdo, 'posts_list_path', $posts_list_path, 1);
         $ok5 = settings_set($pdo, 'pages_list_path', $pages_list_path, 1);
         $ok6 = settings_set($pdo, 'category_path', $category_path, 1);
-        $ok7 = settings_set($pdo, 'site_language', $current_site_language, 1);
-        $ok8 = settings_set($pdo, 'favicon_url', $favicon_url, 1);
+        $enable_custom_meta = (string)($_POST['enable_custom_meta'] ?? '0') === '1' ? '1' : '0';
+        $ok7  = settings_set($pdo, 'site_language', $current_site_language, 1);
+        $ok8  = settings_set($pdo, 'favicon_url', $favicon_url, 1);
+        $ok9  = settings_set($pdo, 'enable_custom_meta', $enable_custom_meta, 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9) {
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
                 exit;
@@ -406,6 +408,24 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
           <span class="field-note"><?=_e('Recommended: .ico, .png (32×32 or larger), or .svg. Leave empty to use the default favicon.')?></span>
         </div>
 
+      </div>
+    </div>
+
+    <!-- Meta Tags -->
+    <div class="settings-section settings-section--metatags" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('tag') ?> <?=_e('Meta Tags')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
+        <div class="form-group">
+          <label for="enable_custom_meta">
+            <input type="hidden" name="enable_custom_meta" value="0">
+            <input type="checkbox" name="enable_custom_meta" id="enable_custom_meta" value="1"<?= settings_get($pdo, 'enable_custom_meta', '0') === '1' ? ' checked' : '' ?>>
+            <?=_e('Enable custom meta description per post/page')?>
+          </label>
+          <span class="field-note"><?=_e('When enabled, editors can set a custom meta description per post/page. Falls back to auto-generated excerpt (160 chars) if empty.')?></span>
+        </div>
       </div>
     </div>
 

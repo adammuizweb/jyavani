@@ -153,7 +153,22 @@ $siteDesc = ($pdo instanceof PDO && function_exists('settings_get'))
 $metaDesc = $siteDesc;
 $metaImg = '';
 if (isset($post) && is_array($post)) {
-    if (!empty($post['content']) && function_exists('safe_strip_tags')) {
+    $customMetaUsed = false;
+
+    // A) Custom meta description — highest priority (from editor)
+    if ($pdo instanceof PDO && function_exists('settings_get')) {
+        $customMetaEnabled = settings_get($pdo, 'enable_custom_meta', '0');
+        if ($customMetaEnabled === '1' && !empty($post['meta'])) {
+            $pm = is_string($post['meta']) ? json_decode($post['meta'], true) : $post['meta'];
+            if (is_array($pm) && !empty($pm['meta_tags']['description'])) {
+                $metaDesc = trim($pm['meta_tags']['description']);
+                $customMetaUsed = true;
+            }
+        }
+    }
+
+    // B) Fallback: auto-generated excerpt from content
+    if (!$customMetaUsed && !empty($post['content']) && function_exists('safe_strip_tags')) {
         $excerpt = safe_strip_tags((string)$post['content']);
         $excerpt = html_entity_decode($excerpt, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $excerpt = trim(preg_replace('/\s+/', ' ', $excerpt));
@@ -161,6 +176,7 @@ if (isset($post) && is_array($post)) {
             $metaDesc = mb_strimwidth($excerpt, 0, 160, '...');
         }
     }
+
     $postImg = !empty($post['display_image']) ? $post['display_image'] : (!empty($post['thumbnail']) ? $post['thumbnail'] : '');
     if ($postImg !== '') {
         $metaImg = $postImg;

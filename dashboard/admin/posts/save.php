@@ -310,12 +310,21 @@ $sidebarOverride = (string)($_POST['sidebar_override'] ?? '');
 if ($sidebarOverride !== '' && !in_array($sidebarOverride, ['right', 'left', 'hide'], true)) {
     $sidebarOverride = '';
 }
+$metaDescription = trim((string)($_POST['meta_description'] ?? ''));
 $currentMeta = !empty($existing['meta']) ? json_decode($existing['meta'], true) : [];
 if (!is_array($currentMeta)) $currentMeta = [];
 if ($sidebarOverride !== '') {
     $currentMeta['sidebar'] = $sidebarOverride;
 } else {
     unset($currentMeta['sidebar']);
+}
+if ($metaDescription !== '') {
+    $currentMeta['meta_tags']['description'] = $metaDescription;
+} else {
+    unset($currentMeta['meta_tags']['description']);
+    if (empty($currentMeta['meta_tags'])) {
+        unset($currentMeta['meta_tags']);
+    }
 }
 $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNICODE) : null;
 

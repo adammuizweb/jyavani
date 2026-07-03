@@ -148,12 +148,26 @@ if (!empty($errors)) {
 unset($_SESSION[$session_key]);
 
 try {
+    $themeMeta = !empty($theme['meta']) ? json_decode($theme['meta'], true) : [];
+    if (!is_array($themeMeta)) $themeMeta = [];
+    $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
+    if ($metaDescription !== '') {
+        $themeMeta['meta_tags']['description'] = $metaDescription;
+    } else {
+        unset($themeMeta['meta_tags']['description']);
+        if (empty($themeMeta['meta_tags'])) {
+            unset($themeMeta['meta_tags']);
+        }
+    }
+    $finalMeta = !empty($themeMeta) ? json_encode($themeMeta, JSON_UNESCAPED_UNICODE) : null;
+
     $upd = $pdo->prepare("
         UPDATE posts
         SET title = :title,
             slug = :slug,
             content = :content,
             status = :status,
+            meta = :meta,
             updated_at = NOW()
         WHERE id = :id
           AND type = 'theme'
@@ -167,6 +181,7 @@ try {
         ':slug'    => $slug,
         ':content' => $content,
         ':status'  => $status,
+        ':meta'    => $finalMeta,
         ':id'      => $id,
     ];
     if (!$isAdmin) {
