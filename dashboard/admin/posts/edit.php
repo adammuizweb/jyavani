@@ -301,10 +301,16 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 
     <?php
     $current_sidebar = '';
+    $current_meta_desc = '';
     if (!empty($post['meta'])) {
         $pm = is_string($post['meta']) ? json_decode($post['meta'], true) : $post['meta'];
-        if (is_array($pm) && isset($pm['sidebar'])) {
-            $current_sidebar = $pm['sidebar'];
+        if (is_array($pm)) {
+            if (isset($pm['sidebar'])) {
+                $current_sidebar = $pm['sidebar'];
+            }
+            if (isset($pm['meta_tags']['description'])) {
+                $current_meta_desc = $pm['meta_tags']['description'];
+            }
         }
     }
     ?>
@@ -316,6 +322,12 @@ $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
         <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>><?=_e('Left')?></option>
         <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>><?=_e('Hide')?></option>
       </select>
+    </div>
+
+    <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Meta Description')?></div>
+      <textarea name="meta_description" rows="3" style="width:100%;padding:.4rem;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:13px;resize:vertical;box-sizing:border-box" maxlength="320" placeholder="<?= _e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.') ?>"><?= htmlspecialchars($current_meta_desc, ENT_QUOTES, 'UTF-8') ?></textarea>
+      <div style="font-size:11px;color:#888;margin-top:3px"><?= _e('Recommended: 150-160 characters. Falls back to excerpt when empty.') ?></div>
     </div>
 
     <p style="margin-top:.8rem">

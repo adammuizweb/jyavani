@@ -113,6 +113,20 @@ $pref_status  = (string)($theme['status'] ?? 'draft');
                  class="inpud">
         </label>
 
+        <?php
+        $current_meta_desc = '';
+        if (!empty($theme['meta'])) {
+            $pm = is_string($theme['meta']) ? json_decode($theme['meta'], true) : $theme['meta'];
+            if (is_array($pm) && isset($pm['meta_tags']['description'])) {
+                $current_meta_desc = $pm['meta_tags']['description'];
+            }
+        }
+        ?>
+        <label style="margin-top:.6rem;display:block">
+          <?=_e('Meta Description')?><br>
+          <textarea name="meta_description" rows="2" style="width:100%;padding:.4rem;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:13px;resize:vertical;box-sizing:border-box;margin-top:4px" maxlength="320" placeholder="<?=_e('Custom description for SEO & social share')?>"><?= htmlspecialchars($current_meta_desc, ENT_QUOTES, 'UTF-8') ?></textarea>
+        </label>
+
         <label style="margin-top:.6rem;display:block"><?=_e('Status')?><br>
           <select name="status" class="inpud">
             <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
