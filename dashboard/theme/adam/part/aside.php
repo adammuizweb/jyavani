@@ -145,7 +145,7 @@ echo '<li class="adam-nav-item">
 
 echo nav_item($base, $requested, 'admin/posts', adam_icon('pen'), __('Posts'), [
   [$base . '/?page=admin/posts/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/posts/artikel',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
+  [$base . '/?page=admin/posts/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
 if (in_array($userRole, ['admin','editor'], true)) {
@@ -157,7 +157,7 @@ if (in_array($userRole, ['admin','editor'], true)) {
 
 echo nav_item($base, $requested, 'admin/pages', adam_icon('file'), __('Pages'), [
   [$base . '/?page=admin/pages/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/pages/halaman',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
+  [$base . '/?page=admin/pages/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
 echo nav_item($base, $requested, 'admin/media', adam_icon('image'), __('Media'), [

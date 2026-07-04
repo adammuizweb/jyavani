@@ -145,7 +145,7 @@ $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/posts/index';
 $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 $addHref = $base . '/?' . http_build_query([
-    'page' => 'admin/posts/artikel',
+    'page' => 'admin/posts/add',
     'return_to' => $currentReturnTo,
 ]);
 

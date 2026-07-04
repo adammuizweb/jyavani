@@ -275,7 +275,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if ($sidebarOverride !== '' && !in_array($sidebarOverride, ['right', 'left', 'hide'], true)) {
             $sidebarOverride = '';
         }
-        $metaVal = $sidebarOverride !== '' ? json_encode(['sidebar' => $sidebarOverride], JSON_UNESCAPED_UNICODE) : null;
+        $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
+        $postMeta = [];
+        if ($sidebarOverride !== '') {
+            $postMeta['sidebar'] = $sidebarOverride;
+        }
+        if ($metaDescription !== '') {
+            $postMeta['meta_tags']['description'] = $metaDescription;
+        }
+        $metaVal = !empty($postMeta) ? json_encode($postMeta, JSON_UNESCAPED_UNICODE) : null;
 
         $insertSql = "INSERT INTO posts
             (title, slug, content, type, meta, youtube, thumbnail, status, created_by, created_at, updated_at)
@@ -452,6 +460,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <option value="left"><?=_e('Left')?></option>
         <option value="hide"><?=_e('Hide')?></option>
       </select>
+    </div>
+
+    <div class="section-divider">
+      <div class="section-label"><?= svg_ico('search') ?> <?=_e('Meta Description')?></div>
+      <textarea name="meta_description" rows="3" class="inp" maxlength="320" placeholder="<?=_e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.')?>"><?= htmlspecialchars($_POST['meta_description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+      <div class="field-note"><?=_e('Recommended: 150-160 characters. Falls back to excerpt when empty.')?></div>
     </div>
 
     <p class="mt-16">

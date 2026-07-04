@@ -111,7 +111,7 @@ $currentQuery['page'] = 'admin/pages/index';
 $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
 $addHref = $base . '/?' . http_build_query([
-    'page'      => 'admin/pages/halaman',
+    'page'      => 'admin/pages/add',
     'return_to' => $currentReturnTo,
 ]);
 

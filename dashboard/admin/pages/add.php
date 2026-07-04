@@ -244,7 +244,15 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
         if ($sidebarOverride !== '' && !in_array($sidebarOverride, ['right', 'left', 'hide'], true)) {
             $sidebarOverride = '';
         }
-        $metaVal = $sidebarOverride !== '' ? json_encode(['sidebar' => $sidebarOverride], JSON_UNESCAPED_UNICODE) : null;
+        $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
+        $pageMeta = [];
+        if ($sidebarOverride !== '') {
+            $pageMeta['sidebar'] = $sidebarOverride;
+        }
+        if ($metaDescription !== '') {
+            $pageMeta['meta_tags']['description'] = $metaDescription;
+        }
+        $metaVal = !empty($pageMeta) ? json_encode($pageMeta, JSON_UNESCAPED_UNICODE) : null;
 
         try {
             $stmt = $pdo->prepare("
@@ -357,10 +365,16 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
-        <option value="right" <?= (($_POST['sidebar_override'] ?? '') === 'right') ? 'selected' : '' ?>><?=_e('Right')?></option>
-        <option value="left" <?= (($_POST['sidebar_override'] ?? '') === 'left') ? 'selected' : '' ?>><?=_e('Left')?></option>
-        <option value="hide" <?= (($_POST['sidebar_override'] ?? '') === 'hide') ? 'selected' : '' ?>><?=_e('Hide')?></option>
+        <option value="right" <?= (($_POST['sidebar_override'] ?? '') === 'right') ? 'selected' : '' ?><?=_e('Right')?></option>
+        <option value="left" <?= (($_POST['sidebar_override'] ?? '') === 'left') ? 'selected' : '' ?><?=_e('Left')?></option>
+        <option value="hide" <?= (($_POST['sidebar_override'] ?? '') === 'hide') ? 'selected' : '' ?><?=_e('Hide')?></option>
       </select>
+    </div>
+
+    <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
+      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Meta Description')?></div>
+      <textarea name="meta_description" rows="3" style="width:100%;padding:.4rem;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:13px;resize:vertical;box-sizing:border-box" maxlength="320" placeholder="<?= _e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.') ?>"><?= htmlspecialchars($_POST['meta_description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+      <div style="font-size:11px;color:#888;margin-top:3px"><?=_e('Recommended: 150-160 characters. Falls back to excerpt when empty.')?></div>
     </div>
 
     <p style="margin-top:.8rem">
