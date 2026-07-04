@@ -155,9 +155,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
             @chmod($item->getPathname(), $mode);
         }
     }
-    @chgrp($pluginDir, 'www-data');
-    // Use shell to propagate group recursively (PHP chgrp doesn't support recursion)
-    @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
+    // Set group ownership when supported (some shared hosts disable chgrp/shell_exec).
+    // The chmod loop above already makes files writable by the PHP process owner.
+    if (function_exists('chgrp') && function_exists('posix_getegid')) {
+        @chgrp($pluginDir, 'www-data');
+    }
+    if (function_exists('shell_exec')) {
+        @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
+    }
 
     $flashMessages = [];
     $flashType = 'success';
