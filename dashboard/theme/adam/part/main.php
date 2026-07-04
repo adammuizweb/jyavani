@@ -43,6 +43,12 @@ if ($page === 'home') {
 if (function_exists('plugin_resolve_route')) {
     $pluginPage = plugin_resolve_route($page);
     if ($pluginPage && isset($pluginPage['file']) && is_file($pluginPage['file'])) {
+        if (function_exists('plugin_guard_route')) {
+            $pdo = $GLOBALS['pdo'] ?? null;
+            if ($pdo instanceof PDO) {
+                plugin_guard_route($pdo, $pluginPage, false);
+            }
+        }
         require $pluginPage['file'];
         echo '</main>';
         return;

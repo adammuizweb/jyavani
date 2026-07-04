@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 
+// Load guard helpers early so plugin routes can enforce role checks.
+$guardFile = __DIR__ . '/admin/_guard.php';
+if (is_file($guardFile)) {
+    require_once $guardFile;
+}
+
 // Load plugin registry + active plugins
 $pluginLoader = __DIR__ . '/../plugins/index.php';
 if (is_file($pluginLoader)) {
@@ -96,6 +102,9 @@ if ($ajaxAction !== '' && $ajaxPage !== '') {
     if (function_exists('plugin_resolve_route')) {
         $resolved = plugin_resolve_route($ajaxPage);
         if ($resolved && isset($resolved['file']) && is_file($resolved['file'])) {
+            if (function_exists('plugin_guard_route')) {
+                plugin_guard_route($pdo, $resolved, true);
+            }
             require $resolved['file'];
             exit;
         }
@@ -120,6 +129,9 @@ if (strncmp($uriPath, $adminPrefix, strlen($adminPrefix)) === 0) {
             $route = preg_replace('/\.php$/', '', $relative);
             $resolved = plugin_resolve_route($route);
             if ($resolved && isset($resolved['file']) && is_file($resolved['file'])) {
+                if (function_exists('plugin_guard_route')) {
+                    plugin_guard_route($pdo, $resolved, false);
+                }
                 require $resolved['file'];
                 exit;
             }

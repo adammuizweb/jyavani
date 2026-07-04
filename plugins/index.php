@@ -149,6 +149,20 @@ function plugin_resolve_route(string $route): ?array {
     return $routes[$route] ?? null;
 }
 
+/**
+ * Enforce role-based access for a plugin admin route.
+ * Fires the `plugin_page_roles` filter so plugins/themes can mutate the
+ * required roles before the hardcoded guard is applied.
+ */
+function plugin_guard_route(PDO $pdo, array $route, bool $asJson = false): void {
+    $roles = $route['roles'] ?? ['admin'];
+    $roles = apply_filters('plugin_page_roles', $roles, $route);
+
+    if (function_exists('adiwira_require_role')) {
+        adiwira_require_role($pdo, $roles, $asJson);
+    }
+}
+
 function plugin_include_file(string $file): bool {
     if (is_file($file) && is_readable($file)) {
         require $file;
