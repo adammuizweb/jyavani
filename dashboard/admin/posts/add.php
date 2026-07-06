@@ -199,6 +199,9 @@ $return_to = function_exists('adiwira_safe_return_to')
     : ($base . '/?page=admin/posts/index');
 
 $errors = [];
+$enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
+    ? (settings_get($pdo, 'enable_custom_meta', '0') === '1')
+    : false;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = $_POST['csrf_token'] ?? '';
@@ -454,7 +457,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     <div class="section-divider">
       <div class="section-label"><?= svg_ico('columns-2') ?> <?=_e('Sidebar Position')?></div>
-      <select name="sidebar_override" class="inp">
+      <select name="sidebar_override" style="width:100%;padding:.4rem .5rem;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-card);color:var(--adam-text);font-size:.9rem;box-sizing:border-box">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
         <option value="right"><?=_e('Right')?></option>
         <option value="left"><?=_e('Left')?></option>
@@ -462,11 +465,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       </select>
     </div>
 
+    <?php if ($enable_custom_meta): ?>
     <div class="section-divider">
       <div class="section-label"><?= svg_ico('search') ?> <?=_e('Meta Description')?></div>
-      <textarea name="meta_description" rows="3" class="inp" maxlength="320" placeholder="<?=_e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.')?>"><?= htmlspecialchars($_POST['meta_description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+      <textarea name="meta_description" rows="3" style="width:100%;padding:.4rem .5rem;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-card);color:var(--adam-text);font-size:.9rem;outline:none;resize:vertical;box-sizing:border-box" maxlength="320" placeholder="<?=_e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.')?>"><?= htmlspecialchars($_POST['meta_description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
       <div class="field-note"><?=_e('Recommended: 150-160 characters. Falls back to excerpt when empty.')?></div>
     </div>
+    <?php endif; ?>
 
     <p class="mt-16">
       <button type="submit" class="adam-button"><?=_e('Save')?></button>

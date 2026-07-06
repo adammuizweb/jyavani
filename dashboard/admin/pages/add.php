@@ -167,6 +167,9 @@ $return_to = function_exists('adiwira_safe_return_to')
     : ($base . '/?page=admin/pages/index');
 
 $errors = [];
+$enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
+    ? (settings_get($pdo, 'enable_custom_meta', '0') === '1')
+    : false;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
@@ -363,7 +366,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
       <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
-      <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
+      <select name="sidebar_override" style="width:100%;padding:.4rem .5rem;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-card);color:var(--adam-text);font-size:.9rem;box-sizing:border-box">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
         <option value="right" <?= (($_POST['sidebar_override'] ?? '') === 'right') ? 'selected' : '' ?><?=_e('Right')?></option>
         <option value="left" <?= (($_POST['sidebar_override'] ?? '') === 'left') ? 'selected' : '' ?><?=_e('Left')?></option>
@@ -371,11 +374,13 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       </select>
     </div>
 
+    <?php if ($enable_custom_meta): ?>
     <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
       <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Meta Description')?></div>
       <textarea name="meta_description" rows="3" style="width:100%;padding:.4rem;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:13px;resize:vertical;box-sizing:border-box" maxlength="320" placeholder="<?= _e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.') ?>"><?= htmlspecialchars($_POST['meta_description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
       <div style="font-size:11px;color:#888;margin-top:3px"><?=_e('Recommended: 150-160 characters. Falls back to excerpt when empty.')?></div>
     </div>
+    <?php endif; ?>
 
     <p style="margin-top:.8rem">
       <button type="submit" class="adam-button"><?=_e('Save')?></button>
