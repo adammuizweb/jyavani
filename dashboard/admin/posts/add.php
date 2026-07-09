@@ -405,15 +405,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <label><?=_e('Thumbnail')?><br>
           <div class="thumb-row">
+            <?php if ($role === 'author'): ?>
+            <input type="hidden" id="thumbnail-input" name="thumbnail"
+                   value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+            <?php else: ?>
             <input type="text" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
                    class="inp flex-1"
-                   placeholder="<?=_e('URL thumbnail (or select from Media)')?>">
+                   placeholder="<?=_e('Thumbnail URL')?>"
+                   style="display:none">
+            <?php endif; ?>
             <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>
-            <button type="button" id="thumbnail-clear" class="thumb-clear-btn" title="<?=_e('Clear')?>">&times;</button>
+            <?php if ($role !== 'author'): ?>
+            <button type="button" id="btn-toggle-url-input" class="thumb-url-btn"><?=_e('Insert via URL')?></button>
+            <?php endif; ?>
+            <button type="button" id="thumbnail-clear" class="thumb-clear-btn" title="<?=_e('Clear')?>" style="<?= empty($_POST['thumbnail']) ? 'display:none' : '' ?>">&times;</button>
           </div>
           <div id="thumbnail-preview" class="thumbnail-preview mt-12">
             <?php if (!empty($_POST['thumbnail'])): ?>
