@@ -100,7 +100,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     return false;
   }
 
-  function setThumbFromMedia(m, thumbnailInput, thumbnailPreview) {
+  function setThumbFromMedia(m, thumbnailInput, thumbnailPreview, thumbnailClear) {
     if (!m || !m.url) return;
 
     const media = {
@@ -126,9 +126,11 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         + ' alt="' + escapeAttr(media.alt || media.title || '') + '"'
         + ' style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem;background:#fff">';
     }
+
+    updateClearBtn(thumbnailInput, thumbnailClear);
   }
 
-  function setRemovedThumbPlaceholder(detail, thumbnailInput, thumbnailPreview) {
+  function setRemovedThumbPlaceholder(detail, thumbnailInput, thumbnailPreview, thumbnailClear) {
     const svgUrl = createRemovedMediaSvgDataUrl({
       width: 440,
       height: 280,
@@ -151,9 +153,17 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         + ' alt="Media was deleted from the gallery"'
         + ' style="max-width:220px;max-height:140px;border:1px solid #f1b5b5;padding:.3rem;background:#fff7f7">';
     }
+
+    updateClearBtn(thumbnailInput, thumbnailClear);
   }
 
-  function clearThumb(thumbnailInput, thumbnailPreview) {
+  function updateClearBtn(input, btn) {
+    if (!btn) return;
+    var hasValue = input ? !!normalizeUrl(input.value) : false;
+    btn.style.display = hasValue ? '' : 'none';
+  }
+
+  function clearThumb(thumbnailInput, thumbnailPreview, thumbnailClear) {
     window[STATE_KEY] = null;
 
     if (thumbnailInput) {
@@ -165,12 +175,15 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     if (thumbnailPreview) {
       thumbnailPreview.innerHTML = '';
     }
+
+    updateClearBtn(thumbnailInput, thumbnailClear);
   }
 
-  function initExistingThumb(thumbnailInput, thumbnailPreview) {
+  function initExistingThumb(thumbnailInput, thumbnailPreview, thumbnailClear) {
     const currentUrl = thumbnailInput ? normalizeUrl(thumbnailInput.value) : '';
     if (!currentUrl) {
       window[STATE_KEY] = null;
+      updateClearBtn(thumbnailInput, thumbnailClear);
       return;
     }
 
@@ -188,6 +201,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       caption: '',
       credit: ''
     };
+
+    updateClearBtn(thumbnailInput, thumbnailClear);
   }
 
   function extractDeletedPayload(detail) {
@@ -244,7 +259,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       const matchByUrl = hasSignatureMatch(currentSig, payload.urlSig);
 
       if (matchById || matchByUrl) {
-        setRemovedThumbPlaceholder(detail || null, thumbnailInput, thumbnailPreview);
+        setRemovedThumbPlaceholder(detail || null, thumbnailInput, thumbnailPreview, thumbnailClear);
         uiToast('warning', 'Thumbnail', 'Thumbnail changed to placeholder because the media was deleted from the gallery.', 3200);
       }
     }
@@ -271,7 +286,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
             : (detail || null);
 
           if (!m || !m.url) return;
-          setThumbFromMedia(m, thumbnailInput, thumbnailPreview);
+          setThumbFromMedia(m, thumbnailInput, thumbnailPreview, thumbnailClear);
         })
         .catch(function(err){
           console.error('thumbnail selector error', err);
@@ -281,7 +296,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     if (thumbnailClear && !thumbnailClear.__adiwiraThumbBound) {
       thumbnailClear.__adiwiraThumbBound = true;
       thumbnailClear.addEventListener('click', function(){
-        clearThumb(thumbnailInput, thumbnailPreview);
+        clearThumb(thumbnailInput, thumbnailPreview, thumbnailClear);
       });
     }
 
@@ -302,7 +317,26 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       }
     });
 
-    initExistingThumb(thumbnailInput, thumbnailPreview);
+    initExistingThumb(thumbnailInput, thumbnailPreview, thumbnailClear);
+
+    if (thumbnailInput) {
+      thumbnailInput.addEventListener('input', function(){
+        updateClearBtn(thumbnailInput, thumbnailClear);
+      });
+    }
+
+    var toggleUrlBtn = document.getElementById('btn-toggle-url-input');
+    if (toggleUrlBtn && thumbnailInput) {
+      toggleUrlBtn.addEventListener('click', function(){
+        if (thumbnailInput.style.display === 'none') {
+          thumbnailInput.style.display = '';
+          toggleUrlBtn.textContent = 'Hide URL input';
+        } else {
+          thumbnailInput.style.display = 'none';
+          toggleUrlBtn.textContent = 'Insert via URL';
+        }
+      });
+    }
   }
 
   window.ADIWIRA.thumbnail = Object.assign({}, window.ADIWIRA.thumbnail || {}, {

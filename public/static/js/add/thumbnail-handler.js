@@ -121,6 +121,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     window.__ADIWIRA_THUMBNAIL_MEDIA = media;
 
     if (thumbInput) thumbInput.value = media.url;
+    updateClearBtn();
     if (thumbPreview) {
       thumbPreview.innerHTML =
         '<img src="' + escapeAttr(media.url) + '"'
@@ -140,6 +141,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     window.__ADIWIRA_THUMBNAIL_MEDIA = null;
 
     if (thumbInput) thumbInput.value = '';
+    updateClearBtn();
     if (thumbPreview) {
       thumbPreview.innerHTML =
         '<img src="' + escapeAttr(svgUrl) + '"'
@@ -149,10 +151,17 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     }
   }
 
+  function updateClearBtn() {
+    if (!thumbClear) return;
+    var hasValue = thumbInput ? !!normalizeUrl(thumbInput.value) : false;
+    thumbClear.style.display = hasValue ? '' : 'none';
+  }
+
   function clearThumb(showToast) {
     window.__ADIWIRA_THUMBNAIL_MEDIA = null;
     if (thumbInput) thumbInput.value = '';
     if (thumbPreview) thumbPreview.innerHTML = '';
+    updateClearBtn();
     if (showToast) {
       uiToast('info', 'Thumbnail', 'Thumbnail cleared.', 1800);
     }
@@ -179,6 +188,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       caption: '',
       credit: ''
     };
+    updateClearBtn();
   }
 
   function extractDeletedPayload(detail) {
@@ -270,4 +280,21 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   });
 
   initExistingThumb();
+
+  if (thumbInput) {
+    thumbInput.addEventListener('input', updateClearBtn);
+  }
+
+  var toggleUrlBtn = document.getElementById('btn-toggle-url-input');
+  if (toggleUrlBtn && thumbInput) {
+    toggleUrlBtn.addEventListener('click', function(){
+      if (thumbInput.style.display === 'none') {
+        thumbInput.style.display = '';
+        toggleUrlBtn.textContent = 'Hide URL input';
+      } else {
+        thumbInput.style.display = 'none';
+        toggleUrlBtn.textContent = 'Insert via URL';
+      }
+    });
+  }
 })();

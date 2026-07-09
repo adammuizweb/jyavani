@@ -5374,6 +5374,22 @@ html.theme-dark .profile-loader{
   transition:background .12s;
 }
 .thumb-gallery-btn:hover{ background:var(--adam-surface-3); }
+.thumb-url-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  white-space:nowrap;
+  padding:.35rem .65rem;
+  border-radius:6px;
+  border:1px solid var(--adam-border-2);
+  background:transparent;
+  color:var(--adam-link, #1d4ed8);
+  cursor:pointer;
+  font-size:.85rem;
+  font-weight:600;
+  transition:background .12s,color .12s;
+}
+.thumb-url-btn:hover{ background:var(--adam-surface-3); color:var(--adam-text); }
 .thumb-clear-btn{
   display:inline-flex;
   align-items:center;
