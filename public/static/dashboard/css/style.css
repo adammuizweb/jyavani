@@ -1305,6 +1305,12 @@ html.theme-dark .adam-table tbody tr:nth-child(even){ background: rgba(255,255,2
   color: var(--adam-text);
 }
 
+/* Pastikan caret/teks kursor mengikuti warna teks tema (hindari caret putih di tema terang) */
+input, textarea, select{ caret-color: var(--adam-text); }
+/* Paksa color-scheme native control mengikuti tema eksplisit (fix Chrome caret putih saat hover pertama) */
+html.theme-light input, html.theme-light textarea, html.theme-light select { color-scheme: light; }
+html.theme-dark input, html.theme-dark textarea, html.theme-dark select { color-scheme: dark; }
+
 .field{ margin-bottom: 12px; }
 
 .field label{

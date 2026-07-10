@@ -127,8 +127,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $name   = trim((string)($_POST['name'] ?? ''));
         $email  = trim((string)($_POST['email'] ?? ''));
         $imgUrl = trim((string)($_POST['img_url'] ?? ''));
-        $pass   = (string)($_POST['password'] ?? '');
-        $pass2  = (string)($_POST['password_confirm'] ?? '');
+        $pass   = trim((string)($_POST['password'] ?? ''));
+        $pass2  = trim((string)($_POST['password_confirm'] ?? ''));
         $bio    = trim((string)($_POST['bio'] ?? ''));
         $phone  = trim((string)($_POST['phone'] ?? ''));
 

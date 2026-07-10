@@ -115,7 +115,7 @@ $captcha_threshold = max(1, (int)ceil($bfMaxAttempts * 0.6)); // captcha muncul 
 
 // input
 $email = mb_strtolower(trim((string)($_POST['email'] ?? '')), 'UTF-8');
-$password = (string)($_POST['password'] ?? '');
+$password = trim((string)($_POST['password'] ?? ''));
 $captcha_response = trim((string)($_POST['g-recaptcha-response'] ?? ''));
 
 // ---------- guard jika sudah login ----------

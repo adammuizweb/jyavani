@@ -54,6 +54,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $username = trim((string)($_POST['username'] ?? ''));
     $name = trim((string)($_POST['name'] ?? ''));
     $plain_password = trim((string)($_POST['password'] ?? ''));
+    $password_confirm = trim((string)($_POST['password_confirm'] ?? ''));
     $role_input = trim((string)($_POST['role'] ?? 'author'));
     $img_url = trim((string)($_POST['img_url'] ?? ''));
     $bio   = trim((string)($_POST['bio'] ?? ''));
@@ -103,6 +104,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (!in_array($role_input, ['author','editor','admin'], true)) {
         $role_input = 'author';
+    }
+
+    if ($plain_password !== '') {
+        if (strlen($plain_password) < 6) {
+            $errors[] = __('New password must be at least 6 characters.');
+        } elseif ($plain_password !== $password_confirm) {
+            $errors[] = __('Password confirmation does not match.');
+        }
     }
 
     if (empty($errors)) {
@@ -278,6 +287,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <span class="pw-wrap">
             <input type="password" name="password" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
             <button type="button" class="pw-toggle" data-toggle="password" aria-label="<?=_e('Show password')?>">
+              <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+            </button>
+          </span>
+        </label>
+
+        <label><?=_e('Confirm Password')?><br>
+          <span class="pw-wrap">
+            <input type="password" name="password_confirm" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
+            <button type="button" class="pw-toggle" data-toggle="password_confirm" aria-label="<?=_e('Show password')?>">
               <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
             </button>
           </span>
