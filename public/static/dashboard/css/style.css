@@ -1306,7 +1306,7 @@ html.theme-dark .adam-table tbody tr:nth-child(even){ background: rgba(255,255,2
 }
 
 /* Pastikan caret/teks kursor mengikuti warna teks tema (hindari caret putih di tema terang) */
-input, textarea, select{ caret-color: var(--adam-text); }
+input, textarea, select, [contenteditable], .ql-editor{ caret-color: var(--adam-text); }
 /* Paksa color-scheme native control mengikuti tema eksplisit (fix Chrome caret putih saat hover pertama) */
 html.theme-light input, html.theme-light textarea, html.theme-light select { color-scheme: light; }
 html.theme-dark input, html.theme-dark textarea, html.theme-dark select { color-scheme: dark; }
@@ -5882,3 +5882,24 @@ html.theme-dark .profile-loader{
 }
 
 /* ─── End Futuristic Enhancements ─── */
+
+/* Caret/cursor harus mengikuti warna teks tema di SEMUA field, termasuk
+   contenteditable/Quill. Dipaksa !important + scope tema eksplisit supaya
+   OS/browser dark mode tidak membocorkan caret putih di tema terang.
+   Light = html:not(.theme-dark) (mencakup default + theme-light). */
+html:not(.theme-dark) input,
+html:not(.theme-dark) textarea,
+html:not(.theme-dark) select,
+html:not(.theme-dark) [contenteditable],
+html:not(.theme-dark) .ql-editor {
+  caret-color: #0b1220 !important;
+  color-scheme: light !important;
+}
+html.theme-dark input,
+html.theme-dark textarea,
+html.theme-dark select,
+html.theme-dark [contenteditable],
+html.theme-dark .ql-editor {
+  caret-color: #e6eef6 !important;
+  color-scheme: dark !important;
+}
