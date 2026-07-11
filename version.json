@@ -1,7 +1,7 @@
 {
   "name": "Jyavani CMS",
-  "version": "2.3.7",
-  "build": "2026-07-10",
+  "version": "2.3.8",
+  "build": "2026-07-11",
   "edition": "Phoenix",
   "php_required": "8.1",
   "mysql_required": "5.7",

@@ -20,7 +20,7 @@ if (!empty($_COOKIE['adam_theme'])) {
     $at = (string)$_COOKIE['adam_theme'];
     if ($at === 'dark' || $at === 'light') $adamTheme = $at;
 }
-$htmlClass = $adamTheme ? ' class="theme-' . htmlspecialchars($adamTheme, ENT_QUOTES, 'UTF-8') . '"' : '';
+$htmlClass = ' class="theme-' . htmlspecialchars($adamTheme ?: 'light', ENT_QUOTES, 'UTF-8') . '"';
 $colorScheme = $adamTheme ?: 'light';
 $themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
 ?>
@@ -59,6 +59,10 @@ if ($faviconUrl !== ''): ?>
       root.classList.add('theme-dark');
       root.style.colorScheme = 'dark';
     } else if (saved === 'light') {
+      root.classList.add('theme-light');
+      root.style.colorScheme = 'light';
+    } else {
+      // belum pernah memilih tema: paksa terang agar OS/browser dark mode tidak bocor ke kontrol
       root.classList.add('theme-light');
       root.style.colorScheme = 'light';
     }
