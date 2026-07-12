@@ -38,7 +38,8 @@ if (!function_exists('svg_ico')) {
         if ($inner === '') {
             $inner = '<circle cx="12" cy="12" r="8"></circle>';
         } else {
-            $inner = trim(preg_replace('/^<svg[^>]*>|<\/svg>$/', '', $inner));
+            $inner = trim(preg_replace('/<!--.*?-->/s', '', $inner));
+            $inner = trim(preg_replace('/^<svg[^>]*>|<\/svg>$/s', '', $inner));
         }
 
         $cls = trim('lucide-icon ' . $class);
