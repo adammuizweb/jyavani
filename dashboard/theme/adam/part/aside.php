@@ -160,6 +160,23 @@ echo nav_item($base, $requested, 'admin/pages', adam_icon('file'), __('Pages'), 
   [$base . '/?page=admin/pages/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ]);
 
+// ===== PLUGIN TOP-LEVEL NAV (parent=pages) — rendered right after Pages =====
+if (function_exists('plugin_nav_items')) {
+    foreach (plugin_nav_items() as $pn) {
+        if (($pn['parent'] ?? '') !== 'pages') continue;
+        $pnRoles = $pn['roles'] ?? ['admin'];
+        if ($userRole !== null && !in_array($userRole, $pnRoles, true)) continue;
+        $pnPage = (string)($pn['page'] ?? '');
+        if ($pnPage === '') continue;
+        $pnActive = adam_nav_active($requested, $pnPage);
+        echo '<li class="adam-nav-item' . ($pnActive ? ' is-open' : '') . '" data-prefix="' . h($pnPage) . '">';
+        echo '<a class="adam-nav-link' . ($pnActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/?page=' . $pnPage) . '">';
+        echo '<span class="adam-nav-icon" aria-hidden="true">' . adam_icon($pn['icon'] ?? 'code') . '</span>';
+        echo '<span class="adam-nav-text">' . h($pn['label'] ?? __('Plugin')) . '</span></a>';
+        echo '</li>';
+    }
+}
+
 echo nav_item($base, $requested, 'admin/media', adam_icon('image'), __('Media'), [
   [$base . '/?page=admin/media/index&tab=list',__('List'), adam_icon('list','adam-svg-icon--sm')],
   [$base . '/?page=admin/media/index&tab=add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
