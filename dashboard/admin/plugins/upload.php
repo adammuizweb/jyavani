@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     // --- Copy static files ---
     $staticCopy = $extractedManifest['static']['copy'] ?? [];
     if (!empty($staticCopy) && is_array($staticCopy)) {
-        $publicPath = dirname(PLUGIN_PATH) . '/public';
+        $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
         $copied = 0;
         $failed = 0;
         foreach ($staticCopy as $entry) {
