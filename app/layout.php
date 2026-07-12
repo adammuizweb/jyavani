@@ -372,7 +372,9 @@ if (!empty($content_html)) {
 
 } else {
     try {
-        echo render_slot($pdo, $main_slot, $base_context);
+        // Filterable so plugins (e.g. page builders) can replace slot output
+        // for specific contexts such as the homepage.
+        echo apply_filters('layout_slot_html', render_slot($pdo, $main_slot, $base_context), $main_slot, $base_context);
     } catch (Throwable $e) {
         if (defined('THEME_DEBUG') && THEME_DEBUG) {
             error_log('[LAYOUT] render_slot(main) error: ' . $e->getMessage());
