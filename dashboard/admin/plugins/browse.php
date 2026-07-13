@@ -338,7 +338,7 @@ if (isset($_GET['refresh'])) {
 
 .plugin-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
 
-.plugin-card { background:var(--adam-surface); border:1px solid var(--adam-border); border-radius:10px; display:flex; flex-direction:column; overflow:hidden; transition:box-shadow .15s; }
+.plugin-card { background:var(--adam-card); border:1px solid var(--adam-border); border-radius:10px; display:flex; flex-direction:column; overflow:hidden; transition:box-shadow .15s; }
 .plugin-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
 .plugin-card-head { display:flex; gap:.75rem; align-items:center; padding:1rem 1rem 0; }
 .plugin-icon { width:48px; height:48px; border-radius:8px; object-fit:contain; flex-shrink:0; background:var(--adam-surface-4); }
@@ -373,7 +373,7 @@ if (isset($_GET['refresh'])) {
 
 <!-- Progress Overlay -->
 <div id="pluginUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
-  <div style="background:var(--adam-surface);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
+  <div style="background:var(--adam-card);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
     <div id="progressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
     <div id="progressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
     <div id="progressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
