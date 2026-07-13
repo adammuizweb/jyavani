@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// Plugin Manager — Kelola plugin (aktif/nonaktif/update)
+// Plugin Manager — Kelola plugin (aktif/nonaktif/update/bulk)
 
 require_once DASH_PATH . '/admin/_deny.php';
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) adiwira_admin_404();
@@ -14,20 +14,20 @@ require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
 $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/plugins/index';
 
-// --- Handle toggle ---
+// --- Handle POST actions ---
 $action = (string)($_POST['action'] ?? '');
 $pluginName = (string)($_POST['plugin'] ?? '');
+
+// Toggle single plugin
 if ($action === 'toggle' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
-
     $manifest = plugin_manifest($pluginName);
     if (!$manifest) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin') . ' "' . h($pluginName) . '" ' . __('not found.'));
     }
-
     if (plugin_is_active($pluginName)) {
         if (plugin_disable($pluginName)) {
             adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . __('deactivated.'));
@@ -41,18 +41,16 @@ if ($action === 'toggle' && $pluginName !== '') {
     }
 }
 
-// --- Handle uninstall ---
+// Uninstall single plugin
 if ($action === 'delete' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
-
     $manifest = plugin_manifest($pluginName);
     if (!$manifest) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin') . ' "' . h($pluginName) . '" ' . __('not found.'));
     }
-
     $keepData = !empty($_POST['keep_data']);
     $ok = plugin_uninstall($pluginName, $keepData);
     if ($ok) {
@@ -62,7 +60,57 @@ if ($action === 'delete' && $pluginName !== '') {
     adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to uninstall plugin.'));
 }
 
-// --- Handle check-updates ---
+// Bulk actions
+if ($action === 'bulk' && !empty($_POST['bulk_action']) && !empty($_POST['plugins'])) {
+    $csrf = (string)($_POST['csrf_token'] ?? '');
+    if (!csrf_check($csrf)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
+    }
+    $bulkAction = (string)$_POST['bulk_action'];
+    $pluginNames = array_map('strval', (array)$_POST['plugins']);
+    $success = 0;
+    $failed = 0;
+    $skipped = 0;
+
+    foreach ($pluginNames as $pn) {
+        $manifest = plugin_manifest($pn);
+        if (!$manifest) { $failed++; continue; }
+        $title = $manifest['title'] ?? $pn;
+
+        switch ($bulkAction) {
+            case 'activate':
+                if (!plugin_is_active($pn) && plugin_enable($pn)) { $success++; }
+                elseif (plugin_is_active($pn)) { $skipped++; }
+                else { $failed++; }
+                break;
+
+            case 'deactivate':
+                if (plugin_is_active($pn) && plugin_disable($pn)) { $success++; }
+                elseif (!plugin_is_active($pn)) { $skipped++; }
+                else { $failed++; }
+                break;
+
+            case 'uninstall':
+                // Bulk uninstall always keeps data — destructive cleanup must be done individually
+                if (plugin_uninstall($pn, true)) { $success++; }
+                else { $failed++; }
+                break;
+
+            default:
+                $failed++;
+        }
+    }
+
+    $parts = [];
+    if ($success > 0) $parts[] = $success . ' ' . __('succeeded');
+    if ($skipped > 0) $parts[] = $skipped . ' ' . __('skipped (already in target state)');
+    if ($failed > 0) $parts[] = $failed . ' ' . __('failed');
+    $msg = ucfirst($bulkAction) . ': ' . implode(', ', $parts) . '.';
+    $type = $failed > 0 ? 'warning' : 'success';
+    adiwira_redirect_with_flash($selfUrl, $type, $msg);
+}
+
+// Check updates
 if ($action === 'check-updates') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
@@ -77,7 +125,7 @@ if ($action === 'check-updates') {
     }
 }
 
-// --- Handle apply-update ---
+// Apply update
 if ($action === 'apply-update' && $pluginName !== '') {
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
@@ -100,6 +148,91 @@ foreach ($allPlugins as $name => $p) {
     if (!empty($p['store'])) { $hasStoreUrl = true; break; }
 }
 $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_query_toasts() : [];
+
+// --- Search ---
+$search = trim($_GET['q'] ?? '');
+
+// --- Filter ---
+$filterStatus = $_GET['status'] ?? '';
+
+// --- Per page ---
+$allowedPerPage = [10, 20, 50, 100];
+$perPage = (int)($_GET['per_page'] ?? 20);
+if (!in_array($perPage, $allowedPerPage, true)) $perPage = 20;
+
+// --- Filter plugins ---
+$filteredPlugins = [];
+foreach ($allPlugins as $name => $p) {
+    $title = $p['title'] ?? $name;
+    $desc = $p['description'] ?? '';
+    $isActive = isset($activePlugins[$name]);
+    $hasUpdate = isset($availableUpdates[$name]);
+
+    // Search
+    if ($search !== '') {
+        $q = mb_strtolower($search);
+        $haystack = mb_strtolower($title . ' ' . $name . ' ' . $desc . ' ' . ($p['author'] ?? ''));
+        if (mb_strpos($haystack, $q) === false) continue;
+    }
+
+    // Status filter
+    if ($filterStatus === 'active' && !$isActive) continue;
+    if ($filterStatus === 'inactive' && $isActive) continue;
+    if ($filterStatus === 'update' && !$hasUpdate) continue;
+
+    $filteredPlugins[$name] = $p;
+}
+
+// --- Pagination ---
+$totalPlugins = count($filteredPlugins);
+$pageNum = max(1, (int)($_GET['p'] ?? 1));
+$totalPages = max(1, (int)ceil($totalPlugins / $perPage));
+if ($pageNum > $totalPages) $pageNum = $totalPages;
+$offset = ($pageNum - 1) * $perPage;
+$pagedPlugins = array_slice($filteredPlugins, $offset, $perPage, true);
+
+// --- Build pagination ---
+if (!function_exists('build_pagination_items')) {
+    function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
+        if ($total <= $max_visible) return range(1, $total);
+        $items = [];
+        $reserved = 6;
+        $middle_slots = max(1, $max_visible - $reserved);
+        $half = (int)floor($middle_slots / 2);
+        $start = max(3, $current - $half);
+        $end = min($total - 2, $current + $half);
+        if ($start === 3) $end = min($total - 2, $start + $middle_slots - 1);
+        if ($end === $total - 2) $start = max(3, $end - $middle_slots + 1);
+        $items[] = 1;
+        $items[] = 2;
+        if ($start > 3) $items[] = '...';
+        for ($i = $start; $i <= $end; $i++) $items[] = $i;
+        if ($end < $total - 2) $items[] = '...';
+        $items[] = $total - 1;
+        $items[] = $total;
+        while (count($items) > $max_visible) {
+            for ($i = 0; $i < count($items); $i++) {
+                if (is_int($items[$i]) && $items[$i] !== 1 && $items[$i] !== 2 && $items[$i] !== $total - 1 && $items[$i] !== $total) {
+                    array_splice($items, $i, 1);
+                    break;
+                }
+            }
+        }
+        return $items;
+    }
+}
+$pagingItems = build_pagination_items($pageNum, $totalPages, 9);
+
+// Helper: build URL preserving current query
+$buildUrl = function(array $overrides = []) use ($base): string {
+    $q = $_GET;
+    foreach ($overrides as $k => $v) {
+        if ($v === null) unset($q[$k]);
+        else $q[$k] = $v;
+    }
+    $q['page'] = 'admin/plugins/index';
+    return $base . '/?' . http_build_query($q);
+};
 ?>
 <h2 class="pg-title"><?=_e('Plugin')?></h2>
 <p class="pg-subtitle"><?=_e('Manage installed plugins.')?></p>
@@ -114,23 +247,66 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
   </form>
 </div>
 
+<!-- Toolbar: search + filter + per-page -->
+<form method="get" class="plugin-toolbar">
+  <input type="hidden" name="page" value="admin/plugins/index">
+  <div class="toolbar-search">
+    <input type="text" name="q" value="<?= h($search) ?>" placeholder="<?=_e('Search plugins…')?>" class="inp">
+    <button type="submit" class="btn btn-sm btn-primary"><?= svg_ico('search', '', ['class' => 'lucide-icon']) ?></button>
+  </div>
+  <select name="status" class="inp" onchange="this.form.submit()">
+    <option value=""><?=_e('All Status')?></option>
+    <option value="active" <?= $filterStatus==='active'?'selected':'' ?>><?=_e('Active')?></option>
+    <option value="inactive" <?= $filterStatus==='inactive'?'selected':'' ?>><?=_e('Inactive')?></option>
+    <option value="update" <?= $filterStatus==='update'?'selected':'' ?>><?=_e('Update Available')?></option>
+  </select>
+  <select name="per_page" class="inp" onchange="this.form.submit()">
+    <?php foreach ($allowedPerPage as $pp): ?>
+      <option value="<?= $pp ?>" <?= $perPage===$pp?'selected':'' ?>><?= $pp ?> / <?=_e('page')?></option>
+    <?php endforeach; ?>
+  </select>
+  <?php if ($search !== '' || $filterStatus !== ''): ?>
+    <a href="<?= h($buildUrl(['q'=>null,'status'=>null,'p'=>null])) ?>" class="btn btn-sm btn-outline"><?=_e('Clear')?></a>
+  <?php endif; ?>
+</form>
+
 <?php if (empty($allPlugins)): ?>
 <div class="empty-state">
   <p><?=_e('No plugins installed yet. Add a plugin folder with')?> <code>plugin.json</code> <?=_e('to the')?> <code>plugins/</code> <?=_e('folder.')?></p>
 </div>
+<?php elseif (empty($pagedPlugins)): ?>
+<div class="empty-state">
+  <p><?=_e('No plugins match your search/filter.')?></p>
+</div>
 <?php else: ?>
+
+<!-- Bulk action bar -->
+<form method="post" id="bulkForm" class="bulk-bar" style="display:none">
+  <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+  <input type="hidden" name="action" value="bulk">
+  <span id="bulkCount" class="bulk-count">0</span> <?=_e('selected')?>
+  <select name="bulk_action" id="bulkActionSelect" class="inp inp-sm">
+    <option value=""><?=_e('-- Bulk action --')?></option>
+    <option value="activate"><?=_e('Activate')?></option>
+    <option value="deactivate"><?=_e('Deactivate')?></option>
+    <option value="uninstall"><?=_e('Uninstall (keep data)')?></option>
+  </select>
+  <button type="submit" class="btn btn-sm btn-primary" id="bulkApplyBtn" disabled><?=_e('Apply')?></button>
+</form>
+
 <div class="table-wrap">
-<table class="data-table" data-sortable>
+<table class="data-table">
   <thead>
     <tr>
+      <th class="th-check"><input type="checkbox" id="selectAllPlugins" title="<?=_e('Select all')?>"></th>
       <th><?=_e('Plugin')?></th>
       <th><?=_e('Version')?></th>
       <th><?=_e('Status')?></th>
-      <th><?=_e('Action')?></th>
+      <th class="th-actions"><?=_e('Actions')?></th>
     </tr>
   </thead>
   <tbody>
-    <?php foreach ($allPlugins as $name => $p):
+    <?php foreach ($pagedPlugins as $name => $p):
       $title = $p['title'] ?? $name;
       $desc = $p['description'] ?? '';
       $version = $p['version'] ?? '—';
@@ -157,7 +333,10 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
       $iconColors = ['#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444','#06b6d4','#84cc16','#d946ef','#0ea5e9'];
       $iconColor = $iconColors[crc32($name) % count($iconColors)];
     ?>
-    <tr>
+    <tr data-plugin="<?= h($name) ?>">
+      <td class="td-check">
+        <input type="checkbox" class="plugin-checkbox" value="<?= h($name) ?>">
+      </td>
       <td>
         <div class="plugin-cell">
           <?php if ($iconUrl): ?>
@@ -175,9 +354,13 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
           </div>
         </div>
       </td>
-      <td>
-        <?= h($version) ?>
-        <?php if ($hasUpdate): ?><br><span class="badge badge-update">v<?= h($updateInfo['new_version']) ?> <?=_e('available')?></span><?php endif; ?>
+      <td class="td-version">
+        <span class="version-text"><?= h($version) ?></span>
+        <?php if ($hasUpdate): ?>
+          <br><span class="badge badge-update">v<?= h($updateInfo['new_version']) ?></span>
+        <?php elseif (!empty($p['store'])): ?>
+          <br><span class="badge badge-latest"><?= svg_ico('circle-check', '', ['class' => 'lucide-icon-sm']) ?> <?=_e('Latest')?></span>
+        <?php endif; ?>
       </td>
       <td>
         <?php if ($isActive): ?>
@@ -186,47 +369,48 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
           <span class="badge badge-muted"><?=_e('Inactive')?></span>
         <?php endif; ?>
       </td>
-      <td>
-        <div class="flex gap-4 wrap items-center">
-        <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="btn btn-sm btn-outline"><?=_e('Detail')?></a>
-        <?php if ($hasUpdate): ?>
-        <form method="post" class="form-inline js-confirm-form">
-          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-          <input type="hidden" name="action" value="apply-update">
-          <input type="hidden" name="plugin" value="<?= h($name) ?>">
-          <button type="submit" class="btn btn-sm btn-update js-confirm-btn"
-            data-confirm-title="<?=_e('Update Plugin')?>"
-            data-confirm-text="<?=__('Update plugin')?> &quot;<?= h($title) ?>&quot; <?=__('from v')?><?= h($version) ?> <?=__('to v')?><?= h($updateInfo['new_version']) ?>? <?=__('Backup will be created automatically.')?>"
-            data-confirm-action="update"><?=_e('Update to v')?><?= h($updateInfo['new_version']) ?></button>
-        </form>
-        <?php elseif (!empty($p['store'])): ?>
-        <span class="btn btn-sm btn-outline-latest"><?= svg_ico('circle-check', '', ['class' => 'lucide-icon']) ?> <?=_e('Latest')?></span>
-        <?php endif; ?>
-        <form method="post" class="form-inline">
-          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-          <input type="hidden" name="action" value="toggle">
-          <input type="hidden" name="plugin" value="<?= h($name) ?>">
-          <?php if ($isActive): ?>
-            <button type="submit" class="btn btn-sm btn-outline js-confirm-btn"
-              data-confirm-title="<?=_e('Deactivate Plugin')?>"
-              data-confirm-text="<?=__('Deactivate plugin')?> &quot;<?= h($title) ?>&quot;?"
-              data-confirm-action="deactivate"><?=_e('Deactivate')?></button>
-          <?php else: ?>
-            <button type="submit" class="btn btn-sm btn-primary js-confirm-btn"
-              data-confirm-title="<?=_e('Activate Plugin')?>"
-              data-confirm-text="<?=__('Activate plugin')?> &quot;<?= h($title) ?>&quot;?"
-              data-confirm-action="activate"><?=_e('Activate')?></button>
+      <td class="td-actions">
+        <div class="action-btns">
+          <?php if ($hasUpdate): ?>
+          <form method="post" class="form-inline js-confirm-form">
+            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="action" value="apply-update">
+            <input type="hidden" name="plugin" value="<?= h($name) ?>">
+            <button type="submit" class="btn-icon btn-icon-update js-confirm-btn"
+              title="<?=__('Update to v')?><?= h($updateInfo['new_version']) ?>"
+              data-confirm-title="<?=_e('Update Plugin')?>"
+              data-confirm-text="<?=__('Update plugin')?> &quot;<?= h($title) ?>&quot; <?=__('from v')?><?= h($version) ?> <?=__('to v')?><?= h($updateInfo['new_version']) ?>? <?=__('Backup will be created automatically.')?>"
+              data-confirm-action="update"><?= svg_ico('download', '', ['class' => 'lucide-icon-sm']) ?></button>
+          </form>
           <?php endif; ?>
-        </form>
-        <form method="post" class="form-inline js-confirm-form">
-          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-          <input type="hidden" name="action" value="delete">
-          <input type="hidden" name="plugin" value="<?= h($name) ?>">
-          <input type="hidden" name="keep_data" value="1" class="js-keep-data">
-          <button type="submit" class="btn btn-sm btn-danger js-confirm-btn"
-            data-confirm-title="<?=_e('Uninstall Plugin')?>"
-            data-confirm-action="delete"><?=_e('Uninstall')?></button>
-        </form>
+          <form method="post" class="form-inline">
+            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="action" value="toggle">
+            <input type="hidden" name="plugin" value="<?= h($name) ?>">
+            <?php if ($isActive): ?>
+              <button type="submit" class="btn-icon btn-icon-toggle js-confirm-btn"
+                title="<?=_e('Deactivate')?>"
+                data-confirm-title="<?=_e('Deactivate Plugin')?>"
+                data-confirm-text="<?=__('Deactivate plugin')?> &quot;<?= h($title) ?>&quot;?"
+                data-confirm-action="deactivate"><?= svg_ico('power', '', ['class' => 'lucide-icon-sm']) ?></button>
+            <?php else: ?>
+              <button type="submit" class="btn-icon btn-icon-activate js-confirm-btn"
+                title="<?=_e('Activate')?>"
+                data-confirm-title="<?=_e('Activate Plugin')?>"
+                data-confirm-text="<?=__('Activate plugin')?> &quot;<?= h($title) ?>&quot;?"
+                data-confirm-action="activate"><?= svg_ico('power', '', ['class' => 'lucide-icon-sm']) ?></button>
+            <?php endif; ?>
+          </form>
+          <form method="post" class="form-inline js-confirm-form">
+            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="plugin" value="<?= h($name) ?>">
+            <input type="hidden" name="keep_data" value="1" class="js-keep-data">
+            <button type="submit" class="btn-icon btn-icon-danger js-confirm-btn"
+              title="<?=_e('Uninstall')?>"
+              data-confirm-title="<?=_e('Uninstall Plugin')?>"
+              data-confirm-action="delete"><?= svg_ico('trash-2', '', ['class' => 'lucide-icon-sm']) ?></button>
+          </form>
         </div>
       </td>
     </tr>
@@ -234,6 +418,31 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
   </tbody>
 </table>
 </div>
+
+<?php if ($totalPages > 1): ?>
+<nav class="adam-pagination pagination-wrap">
+  <?php foreach ($pagingItems as $item):
+    if ($item === '...') {
+      echo '<span class="dots">…</span> ';
+      continue;
+    }
+    $i = (int)$item;
+    $link = $buildUrl(['p' => $i]);
+  ?>
+    <?php if ($i === $pageNum): ?>
+      <strong><?= $i ?></strong>
+    <?php else: ?>
+      <a href="<?= h($link) ?>"><?= $i ?></a>
+    <?php endif; ?>
+  <?php endforeach; ?>
+</nav>
+<?php endif; ?>
+
+<div class="plugin-count">
+  <?= $totalPlugins ?> <?=_e('plugin(s)')?>
+  <?php if ($totalPages > 1): ?> — <?=_e('Page')?> <?= $pageNum ?> <?=_e('of')?> <?= $totalPages ?><?php endif; ?>
+</div>
+
 <?php endif; ?>
 
 <!-- Konfirmasi Modal -->
@@ -275,15 +484,41 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 .pg-subtitle { color:var(--adam-muted); font-size:.9rem; margin:0 0 1.5rem; }
 .text-muted { color:var(--adam-muted); }
 .empty-state { padding:2rem; text-align:center; color:var(--adam-muted); }
+
+/* Toolbar */
+.plugin-toolbar { display:flex; gap:.5rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap; }
+.toolbar-search { display:flex; gap:.25rem; align-items:center; flex:1; min-width:200px; }
+.toolbar-search .inp { flex:1; }
+.plugin-toolbar .inp { padding:.35rem .6rem; border:1px solid var(--adam-border-2); border-radius:6px; font-size:.85rem; background:var(--adam-card); color:var(--adam-text); }
+.plugin-toolbar .inp:focus { outline:none; border-color:var(--adam-primary); box-shadow:0 0 0 2px rgba(220,38,38,.15); }
+.inp-sm { font-size:.8rem; padding:.25rem .5rem; }
+
+/* Bulk bar */
+.bulk-bar { display:flex; gap:.5rem; align-items:center; padding:.5rem .75rem; background:var(--adam-surface-3); border:1px solid var(--adam-border); border-radius:8px; margin-bottom:.75rem; font-size:.85rem; color:var(--adam-text); }
+.bulk-count { font-weight:700; color:var(--adam-primary); }
+.bulk-bar .inp-sm { min-width:160px; }
+
+/* Table */
 .table-wrap { overflow-x:auto; }
 .data-table { width:100%; border-collapse:collapse; }
 .data-table th,
 .data-table td { text-align:left; padding:.6rem .75rem; border-bottom:1px solid var(--adam-border); vertical-align:middle; color:var(--adam-text); }
 .data-table th { font-size:.78rem; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--adam-muted); background:var(--adam-surface-3); }
+.th-check { width:36px; text-align:center; }
+.td-check { text-align:center; }
+.th-actions { width:100px; text-align:right; }
+.td-actions { text-align:right; }
+.td-version { white-space:nowrap; }
+
+/* Badges */
 .badge { display:inline-block; padding:.15rem .5rem; font-size:.75rem; font-weight:600; border-radius:999px; }
 .badge-success { background:#d1fae5; color:#065f46; }
 .badge-muted { background:var(--adam-surface-3); color:var(--adam-muted); }
 .badge-update { background:#fef3c7; color:#92400e; }
+.badge-latest { background:#d1fae5; color:#065f46; font-size:.7rem; }
+.version-text { font-weight:500; }
+
+/* Buttons */
 .btn { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .75rem; font-size:.8rem; font-weight:500; border-radius:6px; cursor:pointer; border:1px solid transparent; font-family:inherit; line-height:1; text-decoration:none; }
 .btn-sm { padding:.3rem .6rem; font-size:.75rem; }
 .btn-primary { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
@@ -292,13 +527,31 @@ $pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_
 .btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
 .btn-danger { background:var(--adam-danger); color:#fff; border-color:var(--adam-danger); }
 .btn-danger:hover { background:var(--adam-danger-600); }
-.btn-update { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
-.btn-update:hover { background:#bfdbfe; }
+
+/* Icon buttons */
+.action-btns { display:flex; gap:.25rem; justify-content:flex-end; }
+.btn-icon { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; cursor:pointer; border:1px solid var(--adam-border-2); background:var(--adam-card); color:var(--adam-muted); transition:all .15s; }
+.btn-icon:hover { background:var(--adam-surface-3); color:var(--adam-text); border-color:var(--adam-border); }
+.btn-icon-activate:hover { background:#d1fae5; color:#065f46; border-color:#a7f3d0; }
+.btn-icon-toggle:hover { background:#fef3c7; color:#92400e; border-color:#fde68a; }
+.btn-icon-update:hover { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.btn-icon-danger:hover { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
+
+/* Plugin cell */
 .plugin-name-link { color:var(--adam-text); font-weight:600; text-decoration:none; }
 .plugin-name-link:hover { color:var(--adam-primary); text-decoration:underline; }
 .plugin-cell { display:flex; gap:.75rem; align-items:center; }
 .plugin-cell-icon { width:40px; height:40px; border-radius:6px; object-fit:contain; flex-shrink:0; background:var(--adam-surface-4); }
 .plugin-cell-placeholder { width:40px; height:40px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:700; color:#fff; flex-shrink:0; }
+
+/* Pagination */
+.plugin-count { margin-top:.75rem; font-size:.8rem; color:var(--adam-muted); }
+
+/* Small icons */
+.lucide-icon-sm { width:14px; height:14px; }
+
+/* Row highlight on checkbox */
+tr.row-selected { background:var(--adam-surface-4); }
 </style>
 
 <script>
@@ -306,6 +559,7 @@ var _confirmForm = null;
 var _confirmAction = '';
 var _csrfToken = '<?= h(csrf_token()) ?>';
 
+// ─── Confirm modal ───
 document.querySelectorAll('.js-confirm-btn').forEach(function(btn) {
   btn.addEventListener('click', function(e) {
     var form = this.closest('.js-confirm-form') || this.closest('form');
@@ -343,6 +597,7 @@ function hidePluginConfirm() {
   _confirmAction = '';
 }
 
+// ─── Progress overlay ───
 function updateProgressBar(pct, status) {
   var bar = document.getElementById('progressBar');
   var pctEl = document.getElementById('progressPct');
@@ -472,6 +727,88 @@ function startPluginUpdate(pluginName) {
     }, 1500);
   });
 }
+
+// ─── Bulk selection ───
+(function(){
+  var selectAll = document.getElementById('selectAllPlugins');
+  var checkboxes = document.querySelectorAll('.plugin-checkbox');
+  var bulkBar = document.getElementById('bulkForm');
+  var bulkCount = document.getElementById('bulkCount');
+  var bulkSelect = document.getElementById('bulkActionSelect');
+  var bulkApply = document.getElementById('bulkApplyBtn');
+
+  function updateBulkBar() {
+    var checked = document.querySelectorAll('.plugin-checkbox:checked');
+    var count = checked.length;
+    if (bulkCount) bulkCount.textContent = count;
+    if (bulkBar) bulkBar.style.display = count > 0 ? 'flex' : 'none';
+    if (bulkApply) bulkApply.disabled = count === 0 || !bulkSelect || bulkSelect.value === '';
+    // Row highlight
+    checkboxes.forEach(function(cb) {
+      var row = cb.closest('tr');
+      if (row) row.classList.toggle('row-selected', cb.checked);
+    });
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checkboxes.forEach(function(cb) { cb.checked = selectAll.checked; });
+      updateBulkBar();
+    });
+  }
+
+  checkboxes.forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      if (selectAll) {
+        selectAll.checked = document.querySelectorAll('.plugin-checkbox:checked').length === checkboxes.length;
+        selectAll.indeterminate = !selectAll.checked && document.querySelectorAll('.plugin-checkbox:checked').length > 0;
+      }
+      updateBulkBar();
+    });
+  });
+
+  if (bulkSelect) {
+    bulkSelect.addEventListener('change', updateBulkBar);
+  }
+
+  // Bulk form submit — collect checked plugins
+  if (bulkBar) {
+    bulkBar.addEventListener('submit', function(e) {
+      var checked = document.querySelectorAll('.plugin-checkbox:checked');
+      if (checked.length === 0) { e.preventDefault(); return; }
+      var action = bulkSelect ? bulkSelect.value : '';
+      if (!action) { e.preventDefault(); return; }
+
+      // Clear old hidden inputs
+      bulkBar.querySelectorAll('input[name="plugins[]"]').forEach(function(el) { el.remove(); });
+
+      checked.forEach(function(cb) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'plugins[]';
+        inp.value = cb.value;
+        bulkBar.appendChild(inp);
+      });
+
+      if (action === 'uninstall') {
+        if (!confirm('<?=__('Uninstall')?> ' + checked.length + ' <?=__('plugin(s)? Data will be kept for all plugins. To remove data, uninstall individually.')?>')) {
+          e.preventDefault();
+          return;
+        }
+      } else {
+        var label = action === 'activate' ? '<?=__('Activate')?>' : '<?=__('Deactivate')?>';
+        if (!confirm(label + ' ' + checked.length + ' <?=__('plugin(s)?')?>')) {
+          e.preventDefault();
+          return;
+        }
+      }
+
+      showProgressOverlay();
+      document.getElementById('progressStatus').textContent = '<?=__('Processing bulk action…')?>';
+      updateProgressBar(0, '');
+    });
+  }
+})();
 
 // Flash sukses update
 document.addEventListener('DOMContentLoaded', function() {
