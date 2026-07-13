@@ -497,6 +497,14 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 .toolbar-search .inp { flex:1; }
 .plugin-toolbar .inp { padding:.35rem .6rem; border:1px solid var(--adam-border-2); border-radius:6px; font-size:.85rem; background:var(--adam-card); color:var(--adam-text); }
 .plugin-toolbar .inp:focus { outline:none; border-color:var(--adam-primary); box-shadow:0 0 0 2px rgba(220,38,38,.15); }
+
+/* Mobile: stack toolbar cleanly */
+@media (max-width: 640px){
+  .plugin-toolbar{ flex-direction:column; align-items:stretch; gap:.4rem; }
+  .toolbar-search{ min-width:0; width:100%; }
+  .plugin-toolbar select.inp{ width:100%; }
+  .plugin-toolbar .btn-outline{ width:100%; text-align:center; justify-content:center; }
+}
 .inp-sm { font-size:.8rem; padding:.25rem .5rem; }
 
 /* Bulk bar */
