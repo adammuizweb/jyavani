@@ -2,9 +2,10 @@
   "folder": "default",
   "name": "default",
   "description": "Tema bawaan Jyavani",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "adammuiz",
   "screenshot": "img.png",
+  "color_mode": "both",
   "styles": ["assets/css/style.css", "assets/css/blocks.css"],
   "scripts": ["assets/js/script.js"],
   "store": {

@@ -3,6 +3,7 @@ $siteTitle = $site['title'] ?? 'ABC';
 $baseUrl   = rtrim($site['url'] ?? '/', '/');
 $homeUrl   = $baseUrl ?: '/';
 $searchQuery = $_GET['s'] ?? '';
+$colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 'both';
 ?>
 <div id="overlay" class="overlay"></div>
 
@@ -76,6 +77,7 @@ $searchQuery = $_GET['s'] ?? '';
 
       <!-- CONTROLS (animasi per-item, jangan wrapper) -->
       <div class="controls">
+        <?php if ($colorMode === 'both'): ?>
         <select id="themeSelect" class="ctrl-item blur-in onload"
           data-anime-trigger="load"
           data-duration="1700"
@@ -84,6 +86,7 @@ $searchQuery = $_GET['s'] ?? '';
           <option value="light"><?= __('Light') ?></option>
           <option value="dark"><?= __('Dark') ?></option>
         </select>
+        <?php endif; ?>
 
         <select id="lang-switch" class="ctrl-item blur-in onload"
           data-anime-trigger="load"

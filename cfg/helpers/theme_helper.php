@@ -708,7 +708,7 @@ function clear_assignment($pdoOrNull, string $slot_key): bool {
 ////////////////////////////////////////////////////////////////////////////////
 
 function read_theme_manifest(string $folderPath): array {
-    $manifest = ['name' => basename($folderPath), 'description' => '', 'version' => '', 'author' => '', 'is_active' => false, 'screenshot' => ''];
+    $manifest = ['name' => basename($folderPath), 'description' => '', 'version' => '', 'author' => '', 'is_active' => false, 'screenshot' => '', 'color_mode' => 'both'];
     $path = rtrim($folderPath, "/\\") . DIRECTORY_SEPARATOR . 'theme.json';
     if (is_file($path)) {
         $raw = @file_get_contents($path);
@@ -722,6 +722,9 @@ function read_theme_manifest(string $folderPath): array {
             $manifest['screenshot'] = $j['screenshot'] ?? ($j['image'] ?? $manifest['screenshot']);
             // optionally include folder property if present
             if (isset($j['folder'])) $manifest['folder'] = $j['folder'];
+            // color_mode: "light", "dark", or "both" (default)
+            $cm = (string)($j['color_mode'] ?? 'both');
+            $manifest['color_mode'] = in_array($cm, ['light', 'dark', 'both'], true) ? $cm : 'both';
             // optional arrays for assets
             if (!empty($j['styles']) && is_array($j['styles'])) $manifest['styles'] = $j['styles'];
             if (!empty($j['scripts']) && is_array($j['scripts'])) $manifest['scripts'] = $j['scripts'];
@@ -977,6 +980,20 @@ function get_active_theme_folder($pdoOrNull = null): string {
         return $folder;
     }
     return DEFAULT_THEME_FOLDER;
+}
+
+/**
+ * Get the color_mode of the active theme.
+ * Returns "light", "dark", or "both" (default).
+ */
+function get_theme_color_mode($pdoOrNull = null): string {
+    static $cached = null;
+    if ($cached !== null) return $cached;
+    $pdo = $pdoOrNull ?: get_pdo_from_global();
+    $folder = get_active_theme_folder($pdo);
+    $manifest = read_theme_manifest(path_candidate(VIEWS_BASE, $folder, ''));
+    $cached = $manifest['color_mode'] ?? 'both';
+    return $cached;
 }
 
 /**

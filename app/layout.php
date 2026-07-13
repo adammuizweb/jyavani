@@ -43,13 +43,17 @@ $host = $_SERVER['HTTP_HOST'] ?? $db_default_host;
 $host = preg_replace('/[^a-z0-9\.\-:]/i', '', (string)$host);
 $site_base_url = $scheme . '://' . $host;
 
-// 5) Theme class (light/dark/system) from cookie
+// 5) Theme class (light/dark) — respect theme's color_mode capability
+$themeColorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode($pdo) : 'both';
 $themeClass = '';
 if (!empty($_COOKIE['site-theme'])) {
     $ct = (string)$_COOKIE['site-theme'];
-    if ($ct === 'dark') $themeClass = 'theme-dark';
-    elseif ($ct === 'light') $themeClass = 'theme-light';
+    if ($ct === 'dark' && $themeColorMode !== 'light') $themeClass = 'theme-dark';
+    elseif ($ct === 'light' && $themeColorMode !== 'dark') $themeClass = 'theme-light';
 }
+// Force class for single-mode themes
+if ($themeColorMode === 'light' && $themeClass === '') $themeClass = 'theme-light';
+if ($themeColorMode === 'dark' && $themeClass === '') $themeClass = 'theme-dark';
 
 // small helpers (kept local)
 if (!function_exists('ends_with')) {
@@ -202,6 +206,7 @@ if (isset($post) && is_array($post)) {
 <?php if ($metaImg !== ''): ?>
   <meta name="twitter:image" content="<?= htmlspecialchars($metaImg, ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
+  <script>window.THEME_COLOR_MODE = <?= json_encode($themeColorMode) ?>;</script>
   <script src="/static/assets/js/main.js"></script>
 
 <?php
