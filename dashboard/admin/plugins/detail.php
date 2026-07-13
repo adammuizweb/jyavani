@@ -88,7 +88,16 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
   <div class="detail-card">
     <h3 class="card-title"><?=_e('Store Information')?></h3>
     <table class="info-table">
-      <tr><th><?=_e('Store URL')?></th><td><a href="<?= h($storeInfo['url'] ?? '') ?>" target="_blank" rel="noopener"><?= h(rtrim($storeInfo['url'] ?? '', '/')) ?></a></td></tr>
+      <?php
+        $storeDisplayUrl = $manifest['plugin_uri'] ?? $manifest['homepage'] ?? '';
+        if ($storeDisplayUrl === '' && !empty($storeInfo['slug'])) {
+            $storeDisplayUrl = 'https://jyavani.com/plugin/' . $storeInfo['slug'] . '/';
+        }
+        if ($storeDisplayUrl === '') {
+            $storeDisplayUrl = rtrim($storeInfo['url'] ?? '', '/');
+        }
+      ?>
+      <tr><th><?=_e('Store URL')?></th><td><a href="<?= h($storeDisplayUrl) ?>" target="_blank" rel="noopener"><?= h(rtrim($storeDisplayUrl, '/')) ?></a></td></tr>
       <tr><th><?=_e('Store Version')?></th><td>
         <?php if ($hasUpdate): ?>
           v<?= h($availableUpdates[$pluginName]['new_version']) ?> <span class="badge badge-update"><?=_e('Update available')?></span>
