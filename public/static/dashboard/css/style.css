@@ -3185,29 +3185,71 @@ html.theme-dark .adam-aside::before{ opacity: .25; }
 /* ─── Nav scroll area ─── */
 .adam-nav{ flex: 1 1 auto; min-height: 0; overflow: auto; }
 
-/* ─── Collapse button ─── */
+/* ─── Collapse toggle — half-circle on right edge ─── */
 .adam-collapse{
-  border-radius: var(--aside-icon-radius);
-  padding: .35rem .55rem;
+  position: absolute;
+  top: 26px;
+  right: -14px;
+  z-index: 110;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--adam-border);
+  background: var(--adam-card);
   color: var(--adam-muted);
-  font-size: .8rem;
-  transition: background var(--aside-t-fast) var(--aside-ease);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  transition:
+    background var(--aside-t-fast) var(--aside-ease),
+    border-color var(--aside-t-fast) var(--aside-ease),
+    color var(--aside-t-fast) var(--aside-ease),
+    box-shadow var(--aside-t-fast) var(--aside-ease),
+    transform var(--aside-t-fast) var(--aside-ease);
 }
-.adam-collapse:hover{ background: var(--aside-hover-bg); color: var(--adam-text-2); }
-.adam-collapse .arrow{
-  font-size: .7rem;
+.adam-collapse:hover{
+  background: var(--adam-primary);
+  border-color: var(--adam-primary);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(220,38,38,0.3);
+}
+.adam-collapse:active{ transform: scale(.92); }
+.adam-collapse .collapse-chevron{
+  width: 14px;
+  height: 14px;
   transition: transform .35s var(--aside-ease-spring);
 }
-body.aside-collapsed .adam-collapse .arrow{ transform: rotate(180deg); }
-.adam-collapse .label-show{ display: none; }
-body.aside-collapsed .adam-collapse .label-hide{ display: none; }
-body.aside-collapsed .adam-collapse .label-show{ display: inline; }
-
-@media (min-width: 901px){
-  body.aside-collapsed .adam-collapse .label{ display: none !important; }
-  body.aside-collapsed .adam-aside-top{ display: flex; align-items: center; justify-content: center; gap: 0; }
-  body.aside-collapsed .adam-collapse{ padding-left: 0; padding-right: 0; }
+body.aside-collapsed .adam-collapse .collapse-chevron{
+  transform: rotate(180deg);
 }
+html.theme-dark .adam-collapse{
+  background: #16202e;
+  border-color: rgba(255,255,255,0.12);
+  color: var(--adam-text-3);
+}
+html.theme-dark .adam-collapse:hover{
+  background: var(--adam-primary);
+  border-color: var(--adam-primary);
+  color: #fff;
+}
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .adam-collapse{
+    background: #16202e;
+    border-color: rgba(255,255,255,0.12);
+    color: var(--adam-text-3);
+  }
+  html:not(.theme-light):not(.theme-dark) .adam-collapse:hover{
+    background: var(--adam-primary);
+    border-color: var(--adam-primary);
+    color: #fff;
+  }
+}
+
+/* Hide old aside-top wrapper */
+.adam-aside-top{ display: none; }
 
 /* ─── Section heading ─── */
 .adam-nav-heading{

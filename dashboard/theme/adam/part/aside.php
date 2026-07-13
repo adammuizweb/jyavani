@@ -124,12 +124,9 @@ if (!$userRole && isset($_SESSION) && is_array($_SESSION)) {
 $userRole = is_string($userRole) ? strtolower(trim($userRole)) : null;
 ?>
 <aside id="adam-aside" class="adam-aside" aria-hidden="false">
-  <div class="adam-aside-top">
-    <button id="adam-collapse" class="adam-collapse" aria-label="Toggle sidebar" title="<?= __('Hide / Show sidebar') ?>">
-      <span class="arrow">◀</span>
-      <span class="label"><?= _e('Hide') ?></span>
-    </button>
-  </div>
+  <button id="adam-collapse" class="adam-collapse" aria-label="Toggle sidebar" title="<?= __('Hide / Show sidebar') ?>">
+    <svg class="collapse-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
 
   <nav class="adam-nav" aria-label="Main navigation">
     <ul class="adam-nav-list">
