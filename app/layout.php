@@ -206,6 +206,17 @@ if (isset($post) && is_array($post)) {
 <?php if ($metaImg !== ''): ?>
   <meta name="twitter:image" content="<?= htmlspecialchars($metaImg, ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
+<?php
+// Canonical URL — strip query string except pagination
+$canonical = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http')
+    . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+    . strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
+$qp = [];
+if (!empty($_GET['page']) && (int)$_GET['page'] > 1) $qp['page'] = (int)$_GET['page'];
+if ($qp) $canonical .= '?' . http_build_query($qp);
+?>
+  <link rel="canonical" href="<?= htmlspecialchars($canonical, ENT_QUOTES, 'UTF-8') ?>">
+  <meta name="robots" content="index,follow">
   <script>window.THEME_COLOR_MODE = <?= json_encode($themeColorMode) ?>;</script>
   <script src="/static/assets/js/main.js"></script>
 

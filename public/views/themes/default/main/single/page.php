@@ -62,7 +62,7 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
 
   <!-- Baris 3: content -->
   <main class="post-content" itemprop="articleBody">
-    <?= $post['content'] ?? '' ?>
+    <?= apply_filters('post_content', (string)($post['content'] ?? ''), $post ?? []) ?>
   </main>
 
   <!-- Baris 4: published by (author img & username) | published on created_at -->

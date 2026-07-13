@@ -22,7 +22,7 @@ $base = isset($base) ? rtrim($base, '/') . '/' : '/artikel/';
 
 if (!function_exists('_theme_posts_excerpt')) {
     function _theme_posts_excerpt($html, $len = 200) {
-        $text = trim(safe_strip_tags($html));
+        $text = trim(safe_strip_tags(html_entity_decode($html, ENT_QUOTES, "UTF-8")));
         if (mb_strlen($text) <= $len) return $text;
         return mb_substr($text, 0, $len) . '…';
     }

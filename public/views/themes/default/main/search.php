@@ -186,7 +186,7 @@ if (!function_exists('search_theme_build_page_url')) {
           </div>
         <?php endif; ?>
 
-        <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags((string)($p['content'] ?? '')), 0, 240, '…'), ENT_QUOTES, 'UTF-8') ?></p>
+        <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags(html_entity_decode((string)($p['content'] ?? ''), ENT_QUOTES, 'UTF-8')), 0, 240, '…'), ENT_QUOTES, 'UTF-8') ?></p>
       </article>
     <?php endforeach; ?>
 

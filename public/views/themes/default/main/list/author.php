@@ -96,7 +96,7 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
             <?php endif; ?>
 
             <p class="post-excerpt">
-              <?= htmlspecialchars(mb_strimwidth(safe_strip_tags($content), 0, 220, '…'), ENT_QUOTES, 'UTF-8') ?>
+              <?= htmlspecialchars(mb_strimwidth(safe_strip_tags(html_entity_decode($content, ENT_QUOTES, "UTF-8")), 0, 220, '…'), ENT_QUOTES, 'UTF-8') ?>
             </p>
           </div>
         </article>

@@ -392,7 +392,7 @@ $imgSrcRaw = !empty($post['display_image'])
 <?php endif; ?>
 
 <div class="adam-post-body">
-  <?= $post['content'] ?? '' ?>
+  <?= apply_filters('post_content', (string)($post['content'] ?? ''), $post ?? []) ?>
 </div>
 
 <section class="adam-post-footer">
