@@ -69,19 +69,19 @@ $total = (int)$countStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
 
 // data
-$hasBuilder = false;
-try { $pdo->query('SELECT 1 FROM jvb_layouts LIMIT 1'); $hasBuilder = true; } catch (Throwable $e) {}
+$listSelect = apply_filters('post_list_select', '', $where_sql);
+$listJoin = apply_filters('post_list_join', '', $where_sql);
 
 $sql = "
 SELECT
   p.id, p.title, p.slug, p.status, p.created_at, p.updated_at,
   u.id AS author_id,
   u.username AS author_username,
-  COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS author_name" . ($hasBuilder ? ",
-  jvb.status AS jvb_status" : "") . "
+  COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS author_name
+  $listSelect
 FROM posts p
-LEFT JOIN users u ON u.id = p.created_by" . ($hasBuilder ? "
-LEFT JOIN jvb_layouts jvb ON jvb.post_id = p.id" : "") . "
+LEFT JOIN users u ON u.id = p.created_by
+$listJoin
 WHERE $where_sql
 ORDER BY p.created_at DESC
 LIMIT :limit OFFSET :offset
@@ -319,9 +319,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                        title="<?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>">
                       <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
                     </a>
-                    <?php if (!empty($p['jvb_status'])): ?>
-                    <span style="display:inline-block;padding:1px 6px;background:#dbeafe;color:#2563eb;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.03em;vertical-align:middle;margin-left:4px">BUILDER</span>
-                    <?php endif; ?>
+                    <?= apply_filters('post_list_title_after', '', $p) ?>
                     <div class="row-actions">
                       <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
                       <span class="muted-divider">|</span>

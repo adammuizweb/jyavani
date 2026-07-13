@@ -126,36 +126,35 @@ const complexPattern =
   }
 
   function applyEditorMode() {
-    const editorQuillRadio = document.getElementById('editor-quill');
-    const editorCMRadio = document.getElementById('editor-codemirror');
-    const editorBuilderRadio = document.getElementById('editor-builder');
-    const quillArea = document.getElementById('quill-area');
-    const cmArea = document.getElementById('codemirror-area');
-    const builderArea = document.getElementById('builder-area');
+    var radios = document.querySelectorAll('input[name="editor_mode"]');
+    var selected = null;
+    for (var i = 0; i < radios.length; i++) { if (radios[i].checked) { selected = radios[i].value; break; } }
 
-    // Builder mode — hide both editors, show builder link
-    if (editorBuilderRadio && editorBuilderRadio.checked) {
-      if (quillArea) quillArea.style.display = 'none';
-      if (cmArea) cmArea.style.display = 'none';
-      if (builderArea) builderArea.style.display = 'block';
-      return;
+    // Hide all editor areas (pattern: {value}-area)
+    var allAreas = document.querySelectorAll('[id$="-area"]');
+    for (var j = 0; j < allAreas.length; j++) { allAreas[j].style.display = 'none'; }
+
+    // Show matching area
+    if (selected) {
+      var area = document.getElementById(selected + '-area');
+      if (area) area.style.display = 'block';
     }
-    if (builderArea) builderArea.style.display = 'none';
+
+    // Non-quill/codemirror modes (e.g. builder) — no sync needed
+    if (selected !== 'quill' && selected !== 'codemirror') return;
 
     // ensure CM exists early to avoid empty-read races
     try { window.ADIWIRA.codemirror && window.ADIWIRA.codemirror.initCM && window.ADIWIRA.codemirror.initCM(); } catch(e){}
 
-    const mode = (editorCMRadio && editorCMRadio.checked) ? 'codemirror' : 'quill';
+    var mode = selected || 'quill';
+    var quillArea = document.getElementById('quill-area');
+    var cmArea = document.getElementById('codemirror-area');
 
     // If a programmatic operation is in progress, only adjust visibility without triggering modals
     if (window.ADIWIRA.editor._programmatic) {
       if (mode === 'codemirror') {
-        if (cmArea) cmArea.style.display = 'block';
-        if (quillArea) quillArea.style.display = 'none';
         setTimeout(syncQuillToCM, 20);
       } else {
-        if (quillArea) quillArea.style.display = 'block';
-        if (cmArea) cmArea.style.display = 'none';
         try { if (window.ADIWIRA && window.ADIWIRA.quill && typeof window.ADIWIRA.quill.initQuill === 'function') window.ADIWIRA.quill.initQuill(); } catch(e){}
         setTimeout(syncCMToQuill, 40);
       }
@@ -163,8 +162,6 @@ const complexPattern =
     }
 
     if (mode === 'codemirror') {
-      if (cmArea) cmArea.style.display = 'block';
-      if (quillArea) quillArea.style.display = 'none';
       // ensure CM refreshed when shown
       setTimeout(()=> {
         try {
@@ -177,24 +174,21 @@ const complexPattern =
     } else {
       const canonical = document.getElementById('content-textarea');
       if (canonical && complexPattern.test((canonical.value||'').trim())) {
-        // Show modal flow using change-based handler (the change handler will revert selection).
-        // Keep UI in CM for now.
-        if (editorCMRadio) editorCMRadio.checked = true;
-        if (editorQuillRadio) editorQuillRadio.checked = false;
+        // Revert to CM — content too complex for Quill
+        var cmRadio = document.getElementById('editor-codemirror');
+        var qRadio = document.getElementById('editor-quill');
+        if (cmRadio) cmRadio.checked = true;
+        if (qRadio) qRadio.checked = false;
         if (cmArea) cmArea.style.display = 'block';
         if (quillArea) quillArea.style.display = 'none';
         return;
       }
-      if (quillArea) quillArea.style.display = 'block';
-      if (cmArea) cmArea.style.display = 'none';
       try { if (window.ADIWIRA && window.ADIWIRA.quill && typeof window.ADIWIRA.quill.initQuill === 'function') window.ADIWIRA.quill.initQuill(); } catch(e){}
       setTimeout(syncCMToQuill, 40);
     }
   }
 
   function initEditorMode() {
-    const editorQuillRadio = document.getElementById('editor-quill');
-    const editorCMRadio = document.getElementById('editor-codemirror');
     const canonical = document.getElementById('content-textarea');
     const quillArea = document.getElementById('quill-area');
     const cmArea = document.getElementById('codemirror-area');
@@ -202,55 +196,45 @@ const complexPattern =
     // ensure CM init early so CM buffer seeded with server content
     try { window.ADIWIRA.codemirror && window.ADIWIRA.codemirror.initCM && window.ADIWIRA.codemirror.initCM(); } catch(e){}
 
-    // Ensure radio is not disabled by any leftover script/attribute: remove disabled attr and enable pointer events.
-    try {
-      if (editorQuillRadio) {
-        editorQuillRadio.disabled = false;
-        editorQuillRadio.removeAttribute && editorQuillRadio.removeAttribute('disabled');
-        editorQuillRadio.style.pointerEvents = 'auto';
-      }
-      if (editorCMRadio) {
-        editorCMRadio.disabled = false;
-        editorCMRadio.removeAttribute && editorCMRadio.removeAttribute('disabled');
-        editorCMRadio.style.pointerEvents = 'auto';
-      }
-    } catch(e){ console.warn('initEditorMode: enable radios failed', e); }
+    // Enable all editor_mode radios
+    var allRadios = document.querySelectorAll('input[name="editor_mode"]');
+    for (var ri = 0; ri < allRadios.length; ri++) {
+      allRadios[ri].disabled = false;
+      allRadios[ri].removeAttribute && allRadios[ri].removeAttribute('disabled');
+      allRadios[ri].style.pointerEvents = 'auto';
+    }
 
     const initialComplex = complexPattern.test((canonical && canonical.value || '').trim());
 
-    // Use change event (fires after the browser updates checked state) to detect attempted switch to Quill
+    // Quill radio — complex content guard
+    var editorQuillRadio = document.getElementById('editor-quill');
     if (editorQuillRadio) {
       editorQuillRadio.addEventListener('change', function(e){
         try {
-          // if it was selected AND content is complex -> revert to CM and show modal
           if (editorQuillRadio.checked && complexPattern.test((canonical && canonical.value || '').trim())) {
-            // revert selection immediately to avoid leaving radio checked
-            if (editorCMRadio) editorCMRadio.checked = true;
-            if (editorQuillRadio) editorQuillRadio.checked = false;
-
-            // ensure areas remain consistent (CM visible)
+            var cmRadio = document.getElementById('editor-codemirror');
+            if (cmRadio) cmRadio.checked = true;
+            editorQuillRadio.checked = false;
             if (cmArea) cmArea.style.display = 'block';
             if (quillArea) quillArea.style.display = 'none';
-
-            // show modal (user chooses Hapus kode lama or Batalkan)
             showConfirmStripModal();
           } else {
-            // normal change -> apply editor mode
             applyEditorMode();
           }
         } catch(err){ console.warn('editorQuill change handler', err); }
       });
     }
 
-    // keep existing change listener to handle normal selection of CM
-    if (editorCMRadio) editorCMRadio.addEventListener('change', applyEditorMode);
-
-    // builder radio
-    var editorBuilderRadio = document.getElementById('editor-builder');
-    if (editorBuilderRadio) editorBuilderRadio.addEventListener('change', applyEditorMode);
+    // All other radios — generic handler
+    for (var gi = 0; gi < allRadios.length; gi++) {
+      if (allRadios[gi].value !== 'quill') {
+        allRadios[gi].addEventListener('change', applyEditorMode);
+      }
+    }
 
     if (initialComplex) {
-      if (editorCMRadio) editorCMRadio.checked = true;
+      var cmRadio = document.getElementById('editor-codemirror');
+      if (cmRadio) cmRadio.checked = true;
       if (editorQuillRadio) editorQuillRadio.checked = false;
       if (cmArea) cmArea.style.display = 'block';
       if (quillArea) quillArea.style.display = 'none';
