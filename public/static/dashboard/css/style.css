@@ -735,7 +735,7 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
     position: relative;
     left:auto; top:auto; height:auto;
 
-    overflow:auto;
+    overflow:visible;
     z-index:100;
   }
 
@@ -3188,11 +3188,11 @@ html.theme-dark .adam-aside::before{ opacity: .25; }
 /* ─── Collapse toggle — half-circle on right edge ─── */
 .adam-collapse{
   position: absolute;
-  top: 26px;
+  top: 28px;
   right: -14px;
   z-index: 110;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1px solid var(--adam-border);
   background: var(--adam-card);
@@ -3202,7 +3202,7 @@ html.theme-dark .adam-aside::before{ opacity: .25; }
   align-items: center;
   justify-content: center;
   padding: 0;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.10);
   transition:
     background var(--aside-t-fast) var(--aside-ease),
     border-color var(--aside-t-fast) var(--aside-ease),
@@ -3218,8 +3218,8 @@ html.theme-dark .adam-aside::before{ opacity: .25; }
 }
 .adam-collapse:active{ transform: scale(.92); }
 .adam-collapse .collapse-chevron{
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
   transition: transform .35s var(--aside-ease-spring);
 }
 body.aside-collapsed .adam-collapse .collapse-chevron{
