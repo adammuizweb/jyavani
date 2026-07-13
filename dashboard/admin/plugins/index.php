@@ -238,12 +238,12 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 <p class="pg-subtitle"><?=_e('Manage installed plugins.')?></p>
 
 <div class="form-row">
-  <a href="<?= h($base) ?>/?page=admin/plugins/browse" class="adam-button"><?= svg_ico('store', '', ['class' => 'lucide-icon']) ?> <?=_e('Browse Plugins')?></a>
-  <a href="<?= h($base) ?>/?page=admin/plugins/upload" class="adam-button"><?= svg_ico('upload', '', ['class' => 'lucide-icon']) ?> <?=_e('Upload Plugin')?></a>
+  <a href="<?= h($base) ?>/?page=admin/plugins/browse" class="adam-button"><?= svg_ico('store') ?> <?=_e('Browse Plugins')?></a>
+  <a href="<?= h($base) ?>/?page=admin/plugins/upload" class="adam-button"><?= svg_ico('upload') ?> <?=_e('Upload Plugin')?></a>
   <form method="post" class="form-inline">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="action" value="check-updates">
-    <button type="submit" class="adam-button"><?= svg_ico('refresh-cw', '', ['class' => 'lucide-icon']) ?> <?=_e('Check Update')?></button>
+    <button type="submit" class="adam-button"><?= svg_ico('refresh-cw') ?> <?=_e('Check Update')?></button>
   </form>
 </div>
 
@@ -252,7 +252,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
   <input type="hidden" name="page" value="admin/plugins/index">
   <div class="toolbar-search">
     <input type="text" name="q" value="<?= h($search) ?>" placeholder="<?=_e('Search plugins…')?>" class="inp">
-    <button type="submit" class="btn btn-sm btn-primary"><?= svg_ico('search', '', ['class' => 'lucide-icon']) ?></button>
+    <button type="submit" class="btn-icon btn-icon-search" title="<?=_e('Search')?>"><?= svg_ico('search', 'lucide-icon-sm') ?></button>
   </div>
   <select name="status" class="inp" onchange="this.form.submit()">
     <option value=""><?=_e('All Status')?></option>
@@ -347,9 +347,15 @@ $buildUrl = function(array $overrides = []) use ($base): string {
           <div>
             <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="plugin-name-link"><?= h($title) ?></a>
             <?php if ($desc): ?><br><span class="text-muted" style="font-size:0.85rem"><?= h($desc) ?></span><?php endif; ?>
-            <?php if ($author): ?><br><span class="text-muted" style="font-size:0.8rem">
-              <?=_e('by')?> <?php if ($authorUri): ?><a href="<?= h($authorUri) ?>" target="_blank" rel="noopener"><?= h($author) ?></a><?php else: ?><?= h($author) ?><?php endif; ?>
-              <?php if ($pluginUri): ?>&middot; <a href="<?= h($pluginUri) ?>" target="_blank" rel="noopener"><?=_e('Visit Web')?></a><?php endif; ?>
+            <?php if ($author): ?><br><span class="plugin-meta">
+              <?php if ($authorUri): ?>
+                <a href="<?= h($authorUri) ?>" target="_blank" rel="noopener" class="plugin-meta-link"><?= svg_ico('user', 'lucide-icon-xs') ?> <?= h($author) ?></a>
+              <?php else: ?>
+                <span class="plugin-meta-item"><?= svg_ico('user', 'lucide-icon-xs') ?> <?= h($author) ?></span>
+              <?php endif; ?>
+              <?php if ($pluginUri): ?>
+                <a href="<?= h($pluginUri) ?>" target="_blank" rel="noopener" class="plugin-meta-link"><?= svg_ico('external-link', 'lucide-icon-xs') ?> <?=_e('Visit Web')?></a>
+              <?php endif; ?>
             </span><?php endif; ?>
           </div>
         </div>
@@ -359,7 +365,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
         <?php if ($hasUpdate): ?>
           <br><span class="badge badge-update">v<?= h($updateInfo['new_version']) ?></span>
         <?php elseif (!empty($p['store'])): ?>
-          <br><span class="badge badge-latest"><?= svg_ico('circle-check', '', ['class' => 'lucide-icon-sm']) ?> <?=_e('Latest')?></span>
+          <br><span class="badge badge-latest"><?=_e('Latest')?></span>
         <?php endif; ?>
       </td>
       <td>
@@ -380,7 +386,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
               title="<?=__('Update to v')?><?= h($updateInfo['new_version']) ?>"
               data-confirm-title="<?=_e('Update Plugin')?>"
               data-confirm-text="<?=__('Update plugin')?> &quot;<?= h($title) ?>&quot; <?=__('from v')?><?= h($version) ?> <?=__('to v')?><?= h($updateInfo['new_version']) ?>? <?=__('Backup will be created automatically.')?>"
-              data-confirm-action="update"><?= svg_ico('download', '', ['class' => 'lucide-icon-sm']) ?></button>
+              data-confirm-action="update"><?= svg_ico('download', 'lucide-icon-sm') ?></button>
           </form>
           <?php endif; ?>
           <form method="post" class="form-inline">
@@ -392,13 +398,13 @@ $buildUrl = function(array $overrides = []) use ($base): string {
                 title="<?=_e('Deactivate')?>"
                 data-confirm-title="<?=_e('Deactivate Plugin')?>"
                 data-confirm-text="<?=__('Deactivate plugin')?> &quot;<?= h($title) ?>&quot;?"
-                data-confirm-action="deactivate"><?= svg_ico('power', '', ['class' => 'lucide-icon-sm']) ?></button>
+                data-confirm-action="deactivate"><?= svg_ico('power', 'lucide-icon-sm') ?></button>
             <?php else: ?>
               <button type="submit" class="btn-icon btn-icon-activate js-confirm-btn"
                 title="<?=_e('Activate')?>"
                 data-confirm-title="<?=_e('Activate Plugin')?>"
                 data-confirm-text="<?=__('Activate plugin')?> &quot;<?= h($title) ?>&quot;?"
-                data-confirm-action="activate"><?= svg_ico('power', '', ['class' => 'lucide-icon-sm']) ?></button>
+                data-confirm-action="activate"><?= svg_ico('zap', 'lucide-icon-sm') ?></button>
             <?php endif; ?>
           </form>
           <form method="post" class="form-inline js-confirm-form">
@@ -409,7 +415,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
             <button type="submit" class="btn-icon btn-icon-danger js-confirm-btn"
               title="<?=_e('Uninstall')?>"
               data-confirm-title="<?=_e('Uninstall Plugin')?>"
-              data-confirm-action="delete"><?= svg_ico('trash-2', '', ['class' => 'lucide-icon-sm']) ?></button>
+              data-confirm-action="delete"><?= svg_ico('trash-2', 'lucide-icon-sm') ?></button>
           </form>
         </div>
       </td>
@@ -515,7 +521,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 .badge-success { background:#d1fae5; color:#065f46; }
 .badge-muted { background:var(--adam-surface-3); color:var(--adam-muted); }
 .badge-update { background:#fef3c7; color:#92400e; }
-.badge-latest { background:#d1fae5; color:#065f46; font-size:.7rem; }
+.badge-latest { background:#d1fae5; color:#065f46; font-size:.65rem; padding:.1rem .4rem; letter-spacing:.02em; }
 .version-text { font-weight:500; }
 
 /* Buttons */
@@ -536,6 +542,8 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 .btn-icon-toggle:hover { background:#fef3c7; color:#92400e; border-color:#fde68a; }
 .btn-icon-update:hover { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
 .btn-icon-danger:hover { background:#fee2e2; color:#dc2626; border-color:#fecaca; }
+.btn-icon-search { width:32px; height:32px; border-color:var(--adam-primary); color:var(--adam-primary); }
+.btn-icon-search:hover { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
 
 /* Plugin cell */
 .plugin-name-link { color:var(--adam-text); font-weight:600; text-decoration:none; }
@@ -544,11 +552,18 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 .plugin-cell-icon { width:40px; height:40px; border-radius:6px; object-fit:contain; flex-shrink:0; background:var(--adam-surface-4); }
 .plugin-cell-placeholder { width:40px; height:40px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:700; color:#fff; flex-shrink:0; }
 
+/* Plugin meta (author + links) */
+.plugin-meta { display:inline-flex; gap:.6rem; align-items:center; font-size:.75rem; color:var(--adam-muted); }
+.plugin-meta-link { display:inline-flex; align-items:center; gap:.2rem; color:var(--adam-muted); text-decoration:none; transition:color .15s; }
+.plugin-meta-link:hover { color:var(--adam-primary); }
+.plugin-meta-item { display:inline-flex; align-items:center; gap:.2rem; }
+
 /* Pagination */
 .plugin-count { margin-top:.75rem; font-size:.8rem; color:var(--adam-muted); }
 
 /* Small icons */
 .lucide-icon-sm { width:14px; height:14px; }
+.lucide-icon-xs { width:12px; height:12px; }
 
 /* Row highlight on checkbox */
 tr.row-selected { background:var(--adam-surface-4); }
