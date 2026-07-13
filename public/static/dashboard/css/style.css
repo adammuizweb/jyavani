@@ -3249,6 +3249,12 @@ html.theme-dark .adam-collapse:hover{
 /* Hide old aside-top wrapper */
 .adam-aside-top{ display: none; }
 
+/* Mobile: show collapse only when sidebar is open */
+@media (max-width: 900px){
+  .adam-collapse{ display: none; }
+  body.aside-open .adam-collapse{ display: flex; }
+}
+
 /* ─── Section heading ─── */
 .adam-nav-heading{
   display: flex;
