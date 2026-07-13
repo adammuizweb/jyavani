@@ -20,6 +20,7 @@ cfg/session_debug.log
 
 # Plugin-installed assets (copied by Plugin Uploader)
 public/static/vendor/xterm/
+public/static/js/photo_canvas.js
 
 # Ignore all plugin subdirectories — install via Plugin Uploader only
 plugins/*/

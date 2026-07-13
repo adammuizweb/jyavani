@@ -52,6 +52,8 @@ const PRESERVE_PATTERNS = [
 
     // Plugin-installed vendor assets
     '#^public/static/vendor/xterm/#',
+    '#^public/static/vendor/jyavani-builder/#',
+    '#^public/static/js/photo_canvas\.js$#',
 
     // Node modules
     '#node_modules/#',
