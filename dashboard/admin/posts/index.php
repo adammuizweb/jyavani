@@ -61,17 +61,22 @@ $totalStmt->execute($params);
 $total = (int)$totalStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
 
+$hasBuilder = false;
+try { $pdo->query('SELECT 1 FROM jvb_layouts LIMIT 1'); $hasBuilder = true; } catch (Throwable $e) {}
+
 $sql = "
 SELECT
   p.id, p.title, p.slug, p.status, p.created_at,
   u.name AS created_by,
   u.username AS author_username,
   GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') AS categories,
-  GROUP_CONCAT(DISTINCT c.id SEPARATOR ',') AS category_ids
+  GROUP_CONCAT(DISTINCT c.id SEPARATOR ',') AS category_ids" . ($hasBuilder ? ",
+  jvb.status AS jvb_status" : "") . "
 FROM posts p
 LEFT JOIN post_categories pc ON pc.post_id = p.id
 LEFT JOIN categories c ON c.id = pc.category_id AND c.is_deleted = 0
-LEFT JOIN users u ON u.id = p.created_by
+LEFT JOIN users u ON u.id = p.created_by" . ($hasBuilder ? "
+LEFT JOIN jvb_layouts jvb ON jvb.post_id = p.id" : "") . "
 WHERE $where_sql
 GROUP BY p.id
 ORDER BY p.created_at DESC
@@ -338,6 +343,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                      title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>">
                      <?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>
                   </a>
+                  <?php if (!empty($p['jvb_status'])): ?>
+                  <span style="display:inline-block;padding:1px 6px;background:#dbeafe;color:#2563eb;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.03em;vertical-align:middle;margin-left:4px">BUILDER</span>
+                  <?php endif; ?>
                   <div class="row-actions">
                     <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
                     <span class="muted-divider">|</span>

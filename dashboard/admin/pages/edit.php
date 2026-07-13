@@ -210,13 +210,25 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
 
     <label style="display:block;margin-top:.6rem">
       <?=_e('Select Editor')?><br>
+      <?php
+      $hasBuilderLayout = false;
+      $builderActive = function_exists('plugin_is_active') && plugin_is_active('jyavani-builder');
+      if ($builderActive) {
+          try {
+              $blSt = $pdo->prepare('SELECT status FROM jvb_layouts WHERE post_id = ? LIMIT 1');
+              $blSt->execute([(int)($post['id'] ?? 0)]);
+              $hasBuilderLayout = (bool)$blSt->fetchColumn();
+          } catch (Throwable $e) {}
+      }
+      $builderChecked = ($hasBuilderLayout && $chosenMode !== 'quill' && $chosenMode !== 'codemirror') || $chosenMode === 'builder';
+      ?>
       <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
         <label>
           <input type="radio"
                  name="editor_mode"
                  value="quill"
                  id="editor-quill"
-                 <?= ($chosenMode === 'quill') ? 'checked' : '' ?>>
+                 <?= (!$builderChecked && $chosenMode !== 'codemirror') ? 'checked' : '' ?>>
           <?=_e('Quill (rich)')?>
         </label>
         <label>
@@ -227,6 +239,16 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
                  <?= ($chosenMode === 'codemirror') ? 'checked' : '' ?>>
           <?=_e('CodeMirror (HTML)')?>
         </label>
+        <?php if ($builderActive): ?>
+        <label>
+          <input type="radio"
+                 name="editor_mode"
+                 value="builder"
+                 id="editor-builder"
+                 <?= $builderChecked ? 'checked' : '' ?>>
+          <?=_e('Builder (visual)')?>
+        </label>
+        <?php endif; ?>
       </div>
     </label>
 
@@ -242,6 +264,24 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
         <textarea id="cm-textarea" style="width:100%;min-height:300px;"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
     </div>
+
+    <?php if ($builderActive): ?>
+    <div id="builder-area" style="margin-top:.6rem;display:<?= $builderChecked ? 'block' : 'none' ?>;">
+      <div style="padding:24px;text-align:center;border:2px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
+        <?php if ($hasBuilderLayout): ?>
+        <p style="margin:0 0 12px;color:#2563eb;font-weight:600">This page is edited with Page Builder</p>
+        <?php else: ?>
+        <p style="margin:0 0 12px;color:#64748b">Open the visual builder to edit this page's layout</p>
+        <?php endif; ?>
+        <a href="<?= htmlspecialchars(ADMIN_BASE_PATH . '/?page=admin/tools/jyavani-builder&view=builder&post_id=' . (int)($post['id'] ?? 0), ENT_QUOTES) ?>"
+           target="_blank"
+           style="display:inline-block;padding:8px 20px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px">
+          Open in Builder
+        </a>
+        <p style="margin:12px 0 0;font-size:12px;color:#94a3b8">The builder opens in a new tab. Changes are auto-saved as draft.</p>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <div class="form-row" style="margin-top:.6rem">
       <label for="status"><?=_e('Status')?></label>

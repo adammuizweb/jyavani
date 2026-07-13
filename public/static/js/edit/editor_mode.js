@@ -128,8 +128,19 @@ const complexPattern =
   function applyEditorMode() {
     const editorQuillRadio = document.getElementById('editor-quill');
     const editorCMRadio = document.getElementById('editor-codemirror');
+    const editorBuilderRadio = document.getElementById('editor-builder');
     const quillArea = document.getElementById('quill-area');
     const cmArea = document.getElementById('codemirror-area');
+    const builderArea = document.getElementById('builder-area');
+
+    // Builder mode — hide both editors, show builder link
+    if (editorBuilderRadio && editorBuilderRadio.checked) {
+      if (quillArea) quillArea.style.display = 'none';
+      if (cmArea) cmArea.style.display = 'none';
+      if (builderArea) builderArea.style.display = 'block';
+      return;
+    }
+    if (builderArea) builderArea.style.display = 'none';
 
     // ensure CM exists early to avoid empty-read races
     try { window.ADIWIRA.codemirror && window.ADIWIRA.codemirror.initCM && window.ADIWIRA.codemirror.initCM(); } catch(e){}
@@ -233,6 +244,10 @@ const complexPattern =
 
     // keep existing change listener to handle normal selection of CM
     if (editorCMRadio) editorCMRadio.addEventListener('change', applyEditorMode);
+
+    // builder radio
+    var editorBuilderRadio = document.getElementById('editor-builder');
+    if (editorBuilderRadio) editorBuilderRadio.addEventListener('change', applyEditorMode);
 
     if (initialComplex) {
       if (editorCMRadio) editorCMRadio.checked = true;
