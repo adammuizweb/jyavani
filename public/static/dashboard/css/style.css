@@ -2798,7 +2798,7 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
     background: var(--adam-card);
     transition: transform var(--transition-fast) ease;
     -webkit-overflow-scrolling: touch;
-    overflow:auto;
+    overflow:visible;
   }
 
   .adam-aside.show,
@@ -2814,8 +2814,6 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
     pointer-events:none;
     user-select:none;
   }
-
-  .adam-collapse{ display:none; }
 
   .adam-panel{
     display:none;
