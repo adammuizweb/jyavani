@@ -1,6 +1,6 @@
 # AGENTS.md — Jyavani CMS v2.1.3
 
-Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework, no Composer, no build tools. Playwright regression tests available at `/var/www/automate/tests/`.
+Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework, no Composer, no build tools. Playwright regression tests available.
 
 ## v2.0 — Hidden Admin (Admin PHP Outside `public/`)
 
@@ -294,7 +294,7 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 ## Development
 
 - Version: **2.3.9** (see `VERSION` and `version.json`)
-- Playwright regression tests at `/var/www/automate/tests/` — run after changes to verify
+- Playwright regression tests available — run after changes to verify
 - Error display controlled by `APP_DEBUG=1` in `.env`
 - `dev_lock.php` can lockdown the site
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
