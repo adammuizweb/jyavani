@@ -5578,7 +5578,7 @@ html.theme-dark .profile-loader{
 }
 
 .settings-section-body {
-  padding: .1rem .85rem .85rem;
+  padding: .85rem;
   border-top: 1px solid var(--adam-border-soft);
 }
 
