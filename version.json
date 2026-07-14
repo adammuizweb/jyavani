@@ -1,10 +1,10 @@
 {
-  "name": "Jyavani CMS",
-  "version": "2.3.9",
-  "build": "2026-07-11",
-  "edition": "Phoenix",
-  "php_required": "8.1",
-  "mysql_required": "5.7",
-  "author": "Adam Muiz",
-  "homepage": "https://jyavani.com"
+    "name": "Jyavani CMS",
+    "version": "2.3.10",
+    "build": "2026-07-14",
+    "edition": "Phoenix",
+    "php_required": "8.1",
+    "mysql_required": "5.7",
+    "author": "Adam Muiz",
+    "homepage": "https://jyavani.com"
 }
