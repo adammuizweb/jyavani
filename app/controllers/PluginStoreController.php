@@ -186,6 +186,24 @@ class PluginStoreController
             file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
+        // Copy static files (respects PUBLIC_PATH for public_html/public/etc)
+        $staticCopy = $manifest['static']['copy'] ?? [];
+        if (!empty($staticCopy) && is_array($staticCopy)) {
+            $p(90, __('Copying static files...'));
+            $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
+            foreach ($staticCopy as $entry) {
+                $from = $entry['from'] ?? '';
+                $to = $entry['to'] ?? '';
+                if ($from === '' || $to === '') continue;
+                $source = $pluginDir . '/' . ltrim($from, '/');
+                $dest = $publicPath . '/' . ltrim($to, '/');
+                if (!is_file($source)) continue;
+                $destDir = dirname($dest);
+                if (!is_dir($destDir)) @mkdir($destDir, 0755, true);
+                @copy($source, $dest);
+            }
+        }
+
         $p(95, 'Menyelesaikan...');
         $transient = self::readTransient();
         unset($transient['updates'][$name]);

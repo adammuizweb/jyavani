@@ -186,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Copy static files
     $staticCopy = $extractedManifest['static']['copy'] ?? [];
     if (!empty($staticCopy) && is_array($staticCopy)) {
-        $publicPath = dirname(PLUGIN_PATH) . '/public';
+        $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
         foreach ($staticCopy as $entry) {
             $from = $entry['from'] ?? '';
             $to = $entry['to'] ?? '';

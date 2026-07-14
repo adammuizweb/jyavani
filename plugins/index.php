@@ -203,10 +203,11 @@ function plugin_delete(string $name): bool {
 
     // Remove static.copy files first
     if ($manifest && isset($manifest['static']['copy'])) {
+        $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
         foreach ($manifest['static']['copy'] as $entry) {
             $dest = $entry['to'] ?? $entry['dest'] ?? '';
             if ($dest !== '') {
-                $abs = (defined('PROJECT_ROOT') ? PROJECT_ROOT : dirname(PLUGIN_PATH)) . '/' . ltrim($dest, '/');
+                $abs = $publicPath . '/' . ltrim($dest, '/');
                 if (is_file($abs) && !@unlink($abs)) {
                     $errors[] = 'Failed to remove ' . $dest;
                 }
