@@ -289,4 +289,181 @@ class PluginStoreController
         $data = json_decode($json, true);
         return is_array($data) ? $data : null;
     }
+
+    // ─── Store API endpoints (served by jyavani.com) ───
+
+    public static function list(PDO $pdo): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $plugins = [];
+        try {
+            $stmt = $pdo->query(
+                "SELECT p.name, p.title, p.description, p.excerpt, p.icon, p.banner,
+                        p.php_required, p.homepage, p.github_url, p.total_downloads,
+                        m.username, m.display_name,
+                        pv.version, pv.changelog, pv.zip_file, pv.zip_size
+                 FROM plugins p
+                 LEFT JOIN members m ON p.member_id = m.id
+                 LEFT JOIN plugin_versions pv ON pv.plugin_id = p.id AND pv.is_current = 1
+                 WHERE p.status = 'approved' AND p.is_deleted = 0
+                 ORDER BY p.total_downloads DESC, p.title ASC"
+            );
+            $rows = $stmt ? $stmt->fetchAll() : [];
+            foreach ($rows as $row) {
+                $name = $row['name'];
+                $plugins[] = [
+                    'name' => $name,
+                    'title' => $row['title'] ?: $name,
+                    'version' => $row['version'] ?: '1.0.0',
+                    'php_required' => $row['php_required'] ?: '8.1',
+                    'description' => $row['description'] ?: $row['excerpt'] ?: '',
+                    'author' => $row['display_name'] ?: $row['username'] ?: 'Jyavani',
+                    'icon' => self::storeStaticUrl($name, (string)$row['icon']),
+                    'banner' => self::storeStaticUrl($name, (string)$row['banner']),
+                    'plugin_uri' => $row['homepage'] ?: '',
+                    'download_url' => self::storeDownloadUrl($name),
+                ];
+            }
+        } catch (Throwable $e) {
+            error_log('PluginStore list error: ' . $e->getMessage());
+            // Return empty list on DB error rather than 500
+        }
+        echo json_encode([
+            'store_name' => 'Jyavani Plugin Store',
+            'plugins' => $plugins,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    public static function download(PDO $pdo, string $name): void
+    {
+        $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $name);
+        if ($name === '') {
+            http_response_code(400);
+            exit;
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT p.id, pv.zip_file, pv.version
+                 FROM plugins p
+                 LEFT JOIN plugin_versions pv ON pv.plugin_id = p.id AND pv.is_current = 1
+                 WHERE p.name = ? AND p.status = 'approved' AND p.is_deleted = 0
+                 LIMIT 1"
+            );
+            $stmt->execute([$name]);
+            $row = $stmt->fetch();
+            if (!$row || empty($row['zip_file'])) {
+                http_response_code(404);
+                exit;
+            }
+
+            $file = __DIR__ . '/../../' . $row['zip_file'];
+            if (!is_file($file)) {
+                http_response_code(404);
+                exit;
+            }
+
+            $pdo->prepare("UPDATE plugins SET total_downloads = total_downloads + 1 WHERE id = ?")->execute([$row['id']]);
+
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $name . '-' . $row['version'] . '.zip"');
+            header('Content-Length: ' . filesize($file));
+            header('Cache-Control: no-store');
+            readfile($file);
+            exit;
+        } catch (Throwable $e) {
+            http_response_code(500);
+            exit;
+        }
+    }
+
+    public static function versionInfo(PDO $pdo, string $name): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $name);
+        if ($name === '') {
+            echo json_encode(['error' => 'Invalid plugin name.']);
+            exit;
+        }
+
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT pv.version, pv.changelog, pv.zip_size, pv.php_required
+                 FROM plugins p
+                 LEFT JOIN plugin_versions pv ON pv.plugin_id = p.id AND pv.is_current = 1
+                 WHERE p.name = ? AND p.status = 'approved' AND p.is_deleted = 0
+                 LIMIT 1"
+            );
+            $stmt->execute([$name]);
+            $row = $stmt->fetch();
+            if (!$row || empty($row['version'])) {
+                echo json_encode(['error' => 'Plugin not found.']);
+                exit;
+            }
+            echo json_encode([
+                'version' => $row['version'],
+                'download_url' => self::storeDownloadUrl($name),
+                'changelog' => $row['changelog'] ?: '',
+                'zip_size' => (int)($row['zip_size'] ?: 0),
+                'php_required' => $row['php_required'] ?: '8.1',
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            exit;
+        } catch (Throwable $e) {
+            echo json_encode(['error' => 'Failed to read version info.']);
+            exit;
+        }
+    }
+
+    public static function serveStatic(PDO $pdo, string $name, string $file): void
+    {
+        $name = preg_replace('/[^a-zA-Z0-9_-]/', '', $name);
+        if ($name === '' || $file === '') {
+            http_response_code(400);
+            exit;
+        }
+        // Prevent path traversal
+        $file = basename($file);
+        $allowedExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico'];
+        $ext = strtolower((string)pathinfo($file, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExtensions, true)) {
+            http_response_code(403);
+            exit;
+        }
+        $path = __DIR__ . '/../../plugin-store/plugins/' . $name . '/' . $file;
+        if (!is_file($path)) {
+            http_response_code(404);
+            exit;
+        }
+        $mimeTypes = [
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+        ];
+        header('Content-Type: ' . ($mimeTypes[$ext] ?? 'application/octet-stream'));
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: public, max-age=86400');
+        readfile($path);
+        exit;
+    }
+
+    private static function storeDownloadUrl(string $name): string
+    {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?: 'jyavani.com';
+        return $scheme . '://' . $host . '/plugin-store/download/' . rawurlencode($name) . '/';
+    }
+
+    private static function storeStaticUrl(string $name, string $file): string
+    {
+        if ($file === '') return '';
+        $file = basename($file);
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?: 'jyavani.com';
+        return $scheme . '://' . $host . '/plugin-store/static/' . rawurlencode($name) . '/' . rawurlencode($file);
+    }
 }
