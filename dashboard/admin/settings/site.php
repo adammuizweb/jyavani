@@ -63,12 +63,12 @@ if (function_exists('adiwira_flash_pull')) {
 }
 
 $current_title = function_exists('settings_get')
-    ? (settings_get($pdo, 'site_title', 'Pre Univ APU') ?? 'Pre Univ APU')
-    : 'Pre Univ APU';
+    ? (settings_get($pdo, 'site_title', 'My Website') ?? 'My Website')
+    : 'My Website';
 
 $current_host = function_exists('settings_get')
-    ? (settings_get($pdo, 'site_host', 'pre-univapu.kmb.ac.id') ?? 'pre-univapu.kmb.ac.id')
-    : 'pre-univapu.kmb.ac.id';
+    ? (settings_get($pdo, 'site_host', 'example.com') ?? 'example.com')
+    : 'example.com';
 
 $current_posts_permalink = function_exists('get_permalink_structure')
     ? get_permalink_structure($pdo, 'post')
