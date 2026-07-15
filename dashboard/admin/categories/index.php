@@ -288,20 +288,13 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <form method="get" class="toolbar-filter">
       <input type="hidden" name="page" value="admin/categories/index">
-      <input type="text" name="search" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp">
+      <input type="text" name="q" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp">
       <select name="parent" class="inp">
-        <option value=""><?=_e('All Parents')?></option>
-        <?php foreach ($filterParentOptions as $opt): ?>
-          <option value="<?=(int)$opt['id']?>" <?=$parentFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
+        <option value="0"><?=_e('All Parents')?></option>
+        <?php foreach ($parentOptions as $opt): ?>
+          <option value="<?=(int)$opt['id']?>" <?=$filter_parent === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
         <?php endforeach; ?>
       </select>
-      <select name="author" class="inp">
-        <option value=""><?=_e('All Authors')?></option>
-        <?php foreach ($filterAuthorOptions as $opt): ?>
-          <option value="<?=(int)$opt['id']?>" <?=$authorFilter === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
-        <?php endforeach; ?>
-      </select>
-
       <select name="author" class="inp">
         <option value="0"><?= _e('All Creators') ?></option>
         <?php foreach ($authors as $a):

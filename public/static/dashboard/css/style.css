@@ -5216,12 +5216,15 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   align-items:center;
   gap:1rem;
   margin-bottom:.5rem;
+  flex-wrap:wrap;
 }
 .toolbar-filter{
   display:flex;
   align-items:center;
   gap:.5rem;
   flex:1;
+  flex-wrap:wrap;
+  min-width:200px;
 }
 .toolbar-filter .inp{
   min-width:90px;
