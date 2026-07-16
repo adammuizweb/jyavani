@@ -110,6 +110,14 @@ All controllers are in `app/controllers/`, all are static methods.
 - Fallback chain: assigned theme → active theme → `default` theme
 - Widgets search: active theme → default theme → `public/views/widget/`
 
+### Theme Customizer (lite, v2.3.12)
+
+- Theme declares editable fields in `theme.json`: `"customizer": {"logo": true, "nav_menu": true, "controls": ["search","lang","theme"]}`
+- Values stored per-theme in settings key `theme_mods_{folder}` (JSON)
+- Helpers (`cfg/helpers/theme_customizer.php`): `theme_mod($key, $default)`, `theme_mods_all()`, `theme_mods_save()`
+- Admin page: `admin/themes/customize` (logo URL + preview, menu picker from Menu Manager, header control toggles) — aside link "Customize" under Themes (admin only)
+- Theme files consume via `theme_mod('logo')`, `theme_mod('nav_menu')`, `theme_mod('control_search', true)` etc.; defaults must preserve original behavior when no mods set
+
 ### Theme Store Integration
 
 The `themes` table has `store_url` and `store_slug` columns for update checking against a remote store:
