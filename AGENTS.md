@@ -110,15 +110,40 @@ All controllers are in `app/controllers/`, all are static methods.
 - Fallback chain: assigned theme → active theme → `default` theme
 - Widgets search: active theme → default theme → `public/views/widget/`
 
-### Theme Customizer (lite, v2.3.12)
+### Theme Customizer (v2.3.13)
 
-- Theme declares editable fields in `theme.json`: `"customizer": {"logo": true, "nav_menu": true, "controls": ["search","lang","theme"]}`
-- Values stored per-theme in settings key `theme_mods_{folder}` (JSON)
-- Helpers (`cfg/helpers/theme_customizer.php`): `theme_mod($key, $default)`, `theme_mods_all()`, `theme_mods_save()`
-- Admin page: `admin/themes/customize` (logo URL + preview, menu picker from Menu Manager, header control toggles) — aside link "Customize" under Themes (admin only)
-- Theme files consume via `theme_mod('logo')`, `theme_mod('nav_menu')`, `theme_mod('control_search', true)` etc.; defaults must preserve original behavior when no mods set
-
-### Theme Store Integration
+- Theme declares editable sections in `theme.json`:
+  ```json
+  "customizer": {
+    "sections": {
+      "header": {
+        "label": "Header",
+        "fields": {
+          "logo": {"type": "image", "label": "Logo image"},
+          "nav_menu": {"type": "menu", "label": "Navigation menu"},
+          "show_theme": {"type": "toggle", "label": "Show theme selector"},
+          "show_lang": {"type": "toggle", "label": "Show language selector"},
+          "show_search": {"type": "toggle", "label": "Show search box"}
+        }
+      },
+      "footer": {
+        "label": "Footer",
+        "fields": {
+          "footer_text": {"type": "textarea", "label": "Footer / copyright text"},
+          "footer_menu": {"type": "menu", "label": "Footer menu"},
+          "footer_sidebar_zone": {"type": "sidebar_zone", "label": "Footer sidebar zone"},
+          "show_social": {"type": "toggle", "label": "Show social icons"}
+        }
+      }
+    }
+  }
+  ```
+- Supported field types: `image` (URL + preview), `menu` (dropdown from Menu Manager), `sidebar_zone` (dropdown from Sidebar Settings), `textarea`, `text`, `toggle`.
+- Values stored per-theme in settings key `theme_mods_{folder}` (JSON).
+- Helpers (`cfg/helpers/theme_customizer.php`): `theme_mod($key, $default)`, `theme_mods_all()`, `theme_mods_save()`, `theme_customizer_fields($folder)`.
+- Admin page: `admin/themes/customize` — polished per-section cards, live logo preview, dropdowns reuse Menu Manager and Sidebar Settings. Link "Customize" under Themes (admin only).
+- Themes consume via `theme_mod('logo')`, `theme_mod('nav_menu')`, `theme_mod('show_search', true)`, `theme_mod('footer_text')`, `theme_mod('footer_sidebar_zone')`, etc. Defaults must preserve original behavior when no mods set.
+- Legacy flat format (`customizer: {"logo": true, "nav_menu": true, "controls": [...]}`) is auto-converted to sections for backward compatibility.
 
 The `themes` table has `store_url` and `store_slug` columns for update checking against a remote store:
 
