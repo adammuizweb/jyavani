@@ -4,6 +4,13 @@ $baseUrl   = rtrim($site['url'] ?? '/', '/');
 $homeUrl   = $baseUrl ?: '/';
 $searchQuery = $_GET['s'] ?? '';
 $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 'both';
+
+$tcLogo = function_exists('theme_mod') ? (string)theme_mod('logo', '') : '';
+$tcMenu = function_exists('theme_mod') ? (string)theme_mod('nav_menu', '') : '';
+$tcShowTheme = !function_exists('theme_mod') || theme_mod('show_theme', true);
+$tcShowLang  = !function_exists('theme_mod') || theme_mod('show_lang', true);
+$tcShowSearch = !function_exists('theme_mod') || theme_mod('show_search', true);
+$navMenuSlug = $tcMenu !== '' ? $tcMenu : 'primary';
 ?>
 <div id="overlay" class="overlay"></div>
 
@@ -21,7 +28,7 @@ $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 
    data-wave-step="28">
 
   <img
-    src="<?= $homeUrl ?>/static/img/jyavani.svg"
+    src="<?= $tcLogo !== '' ? htmlspecialchars($tcLogo, ENT_QUOTES, 'UTF-8') : htmlspecialchars($homeUrl) . '/static/img/jyavani.svg' ?>"
     alt="<?= htmlspecialchars($siteTitle) ?>"
     class="flip-logo onload"
     data-anim-trigger="load"
@@ -66,7 +73,7 @@ $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 
       <!-- Dynamic Menu dari Menu Manager -->
       <?php
       if (function_exists('menu_render')) {
-          echo menu_render($pdo, 'primary', [
+          echo menu_render($pdo, $navMenuSlug, [
               'menu_class' => 'menu expand-center-safe moving-line onload',
               'submenu_class' => 'submenu',
               'ul_attr' => 'data-anime-trigger="load" data-duration="2500" data-delay="360" data-ml-duration="1000" data-ml-delay="520"',
@@ -77,7 +84,7 @@ $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 
 
       <!-- CONTROLS (animasi per-item, jangan wrapper) -->
       <div class="controls">
-        <?php if ($colorMode === 'both'): ?>
+        <?php if ($colorMode === 'both' && $tcShowTheme): ?>
         <select id="themeSelect" class="ctrl-item blur-in onload"
           data-anime-trigger="load"
           data-duration="1700"
@@ -88,6 +95,7 @@ $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 
         </select>
         <?php endif; ?>
 
+        <?php if ($tcShowLang): ?>
         <select id="lang-switch" class="ctrl-item blur-in onload"
           data-anime-trigger="load"
           data-duration="700"
@@ -96,7 +104,9 @@ $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 
           <option value="id"><?= __('Indonesian') ?></option>
           <option value="en"><?= __('English') ?></option>
         </select>
+        <?php endif; ?>
 
+        <?php if ($tcShowSearch): ?>
         <form method="get" action="<?= htmlspecialchars($homeUrl) ?>">
           <input
             type="search"
@@ -109,6 +119,7 @@ $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 
             value="<?= htmlspecialchars($searchQuery) ?>"
           >
         </form>
+        <?php endif; ?>
       </div>
     </nav>
 
