@@ -190,6 +190,7 @@ $themeLinks = [
 ];
 
 if ($userRole === 'admin') {
+  $themeLinks[] = [$base . '/?page=admin/themes/customize',__('Customize'), adam_icon('settings','adam-svg-icon--sm')];
   $themeLinks[] = [$base . '/?page=admin/themes/assign',__('Assign (Dev)'), adam_icon('link','adam-svg-icon--sm')];
   $themeLinks[] = [$base . '/?page=admin/themes/browse',__('Browse Themes'), adam_icon('search','adam-svg-icon--sm')];
 }
