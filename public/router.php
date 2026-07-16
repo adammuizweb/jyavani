@@ -19,6 +19,10 @@ $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $rawPath = rawurldecode($rawPath);
 $pathTrimmed = trim($rawPath, " \t\n\r\0\x0B/");
 
+// Allow plugins to rewrite the request path before route matching
+// (e.g. locale prefix stripping for translated content routing)
+$pathTrimmed = apply_filters('router_path', $pathTrimmed);
+
 // homepage
 if ($pathTrimmed === '') {
     $context_for_layout = 'home';
@@ -66,7 +70,9 @@ if (substr($rawPath, -1) !== '/') {
     if (!preg_match('#/[^/]+\.[a-z0-9]{1,6}$#i', $rawPath)) {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        $canonical = $scheme . '://' . $host . '/' . $pathTrimmed . '/';
+        // Canonicalize the *requested* path (rawPath), not the plugin-rewritten
+        // pathTrimmed — otherwise rewrites (e.g. locale prefixes) leak into the redirect
+        $canonical = $scheme . '://' . $host . rtrim($rawPath, '/') . '/';
         $qs = $_SERVER['QUERY_STRING'] ?? '';
         if ($qs !== '') $canonical .= '?' . $qs;
         header("HTTP/1.1 301 Moved Permanently");

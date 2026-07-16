@@ -566,6 +566,9 @@ class PostController
 
     public static function renderArticle(array $row, PDO $pdo)
     {
+        // Allow plugins (e.g. content translation) to swap post data before rendering
+        $row = apply_filters('post_data', $row, $pdo);
+
         $postData = $row;
 
         $postData['display_image'] = self::resolve_post_display_image($postData);

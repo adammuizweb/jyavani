@@ -299,6 +299,9 @@ $pdo = $layout_pdo;
             exit;
         }
 
+        // Allow plugins (e.g. content translation) to swap page data before rendering
+        $pageData = apply_filters('post_data', $pageData, $pdo);
+
         // Perkaya data (author, dll)
         self::augmentAuthor($pageData, $pdo);
 
