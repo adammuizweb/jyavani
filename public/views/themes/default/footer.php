@@ -9,7 +9,7 @@ $tcFooterMenu = function_exists('theme_mod') ? (string)theme_mod('footer_menu', 
 $tcFooterZone = function_exists('theme_mod') ? (string)theme_mod('footer_sidebar_zone', '') : '';
 $tcShowSocial = !function_exists('theme_mod') || theme_mod('show_social', true);
 
-$copyright = $tcFooterText !== '' ? $tcFooterText : _e('©') . ' <span id="year"></span> ' . htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') . '. ' . __('Released under MIT License.');
+$copyright = $tcFooterText !== '' ? $tcFooterText : __('©') . ' <span id="year"></span> ' . htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') . '. ' . __('Released under MIT License.');
 ?>
 <footer class="site-footer fade-up onload" data-duration="1000" data-anime-trigger="load" role="contentinfo">
   <div class="footer-container">
