@@ -198,3 +198,13 @@
   border-style: solid;
   background: rgba(127,127,127,.15);
 }
+
+.widget-lang-switcher .ct-lang-select {
+  padding: .35rem .6rem;
+  border: 1px solid rgba(127,127,127,.4);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: .85rem;
+}
