@@ -109,6 +109,7 @@ All controllers are in `app/controllers/`, all are static methods.
 - `$context_for_layout` variable determines which main slot renders
 - Fallback chain: assigned theme → active theme → `default` theme
 - Widgets search: active theme → default theme → `public/views/widget/`
+- **Theme Zones**: Blogspot-style visual layout editor. Themes declare `layout` in `theme.json` with zones (`header`/`footer`) and positions (e.g. header: `logo`, `nav`, `controls`). Header/footer theme files call `theme_zone_render_position()` and fall back to hardcoded HTML when a position has no gadgets. Admin `Customize` shows the layout grid; gadgets can be added, configured, reordered, and removed per position. Built-in gadgets: `tz_logo`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`.
 
 ### Theme Customizer (v2.3.13)
 
@@ -144,6 +145,17 @@ All controllers are in `app/controllers/`, all are static methods.
 - Admin page: `admin/themes/customize` — polished per-section cards, live logo preview, dropdowns reuse Menu Manager and Sidebar Settings. Link "Customize" under Themes (admin only).
 - Themes consume via `theme_mod('logo')`, `theme_mod('nav_menu')`, `theme_mod('show_search', true)`, `theme_mod('footer_text')`, `theme_mod('footer_sidebar_zone')`, etc. Defaults must preserve original behavior when no mods set.
 - Legacy flat format (`customizer: {"logo": true, "nav_menu": true, "controls": [...]}`) is auto-converted to sections for backward compatibility.
+
+### Theme Zones (v2.3.14)
+
+- Blogspot-style visual layout editor for themes.
+- Themes declare `layout` in `theme.json` with zones (`header`/`footer`), positions, and optional `defaults` (gadgets to pre-fill when clicking **Load Default Layout**).
+- Table: `theme_zone_items` (`zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`).
+- Helper: `cfg/helpers/theme_zones.php` — `theme_zone_items()`, `theme_zone_layout()`, `theme_zone_render()`, `theme_zone_render_position()`, `theme_zone_has_position()`, `theme_zone_add_item()`, `theme_zone_delete_item()`, `theme_zone_set_order()`, `theme_zone_toggle_item()`.
+- Built-in gadgets: `tz_logo`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`. `tz_logo` supports raw `html` override; `tz_nav_menu` supports `ul_attr`; `tz_html` is raw HTML (no wrapper if title empty). Registered via `sidebar_widget_types`/`render_sidebar_widget` filters so they also work in sidebar zones.
+- Header/footer theme files check `theme_zone_has_position()` and use `theme_zone_render_position()`; positions without gadgets fall back to the theme's original hardcoded HTML.
+- Admin UI: `admin/themes/customize` shows a visual layout grid (Header / Footer) with positions as drop zones. Each position supports add/configure/reorder/enable/delete gadgets and a "Load Default Layout" button.
+- Migrations: `schema/migrations/008-theme-zones.sql` + `schema/migrations/009-theme-zone-position.sql` (also in `schema/default.sql`).
 
 The `themes` table has `store_url` and `store_slug` columns for update checking against a remote store:
 

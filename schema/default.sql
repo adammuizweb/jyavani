@@ -303,6 +303,25 @@ CREATE TABLE IF NOT EXISTS `sidebar_zone_items` (
   CONSTRAINT `fk_szi_zone` FOREIGN KEY (`zone_id`) REFERENCES `sidebar_zones` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- 15b. theme_zone_items
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~
+CREATE TABLE IF NOT EXISTS `theme_zone_items` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `zone_slug` varchar(50) NOT NULL,
+  `position` varchar(50) NOT NULL DEFAULT '',
+  `type` varchar(50) NOT NULL,
+  `title` varchar(200) NOT NULL DEFAULT '',
+  `config` longtext DEFAULT NULL,
+  `ordering` int(11) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_zone_order` (`zone_slug`, `ordering`),
+  KEY `idx_zone_position` (`zone_slug`, `position`, `ordering`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Core settings (installed overrides title/desc/url via installer)
 INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
   ('posts_per_page',   '10',  1),
