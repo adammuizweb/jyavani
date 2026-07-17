@@ -92,6 +92,14 @@ $is_homepage_context = ($main_slot === 'main.homepage');
 $layout_full_width = isset($layout_full_width) ? (bool)$layout_full_width : $is_homepage_context;
 $enable_sidebar    = isset($enable_sidebar) ? (bool)$enable_sidebar : (!$is_homepage_context);
 
+// Theme-level sidebar toggle
+if (function_exists('theme_mod')) {
+    $themeShowSidebar = theme_mod('show_sidebar', true);
+    if (!$themeShowSidebar) {
+        $enable_sidebar = false;
+    }
+}
+
 $use_container = !$layout_full_width;
 
 // ==============================

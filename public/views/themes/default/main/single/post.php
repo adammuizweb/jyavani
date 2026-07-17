@@ -236,7 +236,16 @@ $bcDataAttrs = function (int $dur, int $delay): string {
   <?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?>
 </h1>
 
+<?php
+$showPostMeta = !function_exists('theme_mod') || theme_mod('show_post_meta', true);
+$showAuthor   = !function_exists('theme_mod') || theme_mod('show_author', true);
+$showDate     = !function_exists('theme_mod') || theme_mod('show_date', true);
+$showReadTime = !function_exists('theme_mod') || theme_mod('show_read_time', true);
+?>
+
+<?php if ($showPostMeta): ?>
 <div class="adam-post-meta-row fade-up onload" data-anim-trigger="load">
+  <?php if ($showAuthor): ?>
   <div class="meta-author">
     <?php if (!empty($authorImg)): ?>
       <a href="<?= $authorUrl ?: '#' ?>"<?= $authorUrl ? '' : ' aria-disabled="true" tabindex="-1"' ?>>
@@ -259,6 +268,7 @@ $bcDataAttrs = function (int $dur, int $delay): string {
       <?php endif; ?>
     </div>
   </div>
+  <?php endif; ?>
 
 <?php
 $gap       = 400;
@@ -268,8 +278,10 @@ $d2        = $gap * 2;
 $readDelay = $d1; // default kalau updated tidak muncul
 ?>
 
+<?php if ($showDate || $showReadTime): ?>
 <div class="meta-details">
 
+  <?php if ($showDate): ?>
   <div class="meta-item slide-up onload"
        data-anim-trigger="load"
        data-duration="300"
@@ -279,8 +291,9 @@ $readDelay = $d1; // default kalau updated tidak muncul
       <?= htmlspecialchars(!empty($post['created_at']) ? date('d M Y', strtotime((string)$post['created_at'])) : '', ENT_QUOTES, 'UTF-8') ?>
     </time>
   </div>
+  <?php endif; ?>
 
-  <?php if (!empty($post['updated_at']) && !empty($post['created_at']) && $post['updated_at'] > $post['created_at']): ?>
+  <?php if ($showDate && !empty($post['updated_at']) && !empty($post['created_at']) && $post['updated_at'] > $post['created_at']): ?>
     <div class="meta-item updated slide-up onload"
          title="<?= __('Last updated') ?>"
          data-anim-trigger="load"
@@ -292,6 +305,7 @@ $readDelay = $d1; // default kalau updated tidak muncul
     <?php $readDelay = $d2; ?>
   <?php endif; ?>
 
+  <?php if ($showReadTime): ?>
   <div class="meta-item slide-up onload"
        data-anim-trigger="load"
        data-duration="300"
@@ -299,10 +313,13 @@ $readDelay = $d1; // default kalau updated tidak muncul
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
     <?= sprintf(__('%d min read'), (int)$readTime) ?>
   </div>
+  <?php endif; ?>
 
 </div>
+<?php endif; ?>
 
 </div>
+<?php endif; ?>
 </header>
 
 <?php

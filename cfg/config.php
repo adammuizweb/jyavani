@@ -96,3 +96,6 @@ require_once __DIR__ . '/helpers/permission_helper.php';
 
 // 26. Theme Customizer (lite) — theme mods from theme.json declaration
 require_once __DIR__ . '/helpers/theme_customizer.php';
+
+// 27. Theme Zones — widget-area style header/footer slots
+require_once __DIR__ . '/helpers/theme_zones.php';

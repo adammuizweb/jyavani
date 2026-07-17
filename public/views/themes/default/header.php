@@ -11,6 +11,10 @@ $tcShowTheme = !function_exists('theme_mod') || theme_mod('show_theme', true);
 $tcShowLang  = !function_exists('theme_mod') || theme_mod('show_lang', true);
 $tcShowSearch = !function_exists('theme_mod') || theme_mod('show_search', true);
 $navMenuSlug = $tcMenu !== '' ? $tcMenu : 'primary';
+
+$hasLogoZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'header', 'logo');
+$hasNavZone  = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'header', 'nav');
+$hasControlsZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'header', 'controls');
 ?>
 <div id="overlay" class="overlay"></div>
 
@@ -19,32 +23,36 @@ $navMenuSlug = $tcMenu !== '' ? $tcMenu : 'primary';
   data-ml-duration="980"
   data-ml-delay="240"
 >
-  <div class="header-inner"><!-- jangan kasih animasi di wrapper -->
+  <div class="header-inner">
 
     <!-- BRAND -->
-<a href="<?= htmlspecialchars($homeUrl) ?>" class="brand onload wave-span"
-   data-anim-trigger="load"
-   data-wave-target=".jyavani-logo"
-   data-wave-step="28">
-
-  <img
-    src="<?= $tcLogo !== '' ? htmlspecialchars($tcLogo, ENT_QUOTES, 'UTF-8') : htmlspecialchars($homeUrl) . '/static/img/jyavani.svg' ?>"
-    alt="<?= htmlspecialchars($siteTitle) ?>"
-    class="flip-logo onload"
-    data-anim-trigger="load"
-    data-fl-duration="900"
-    data-fl-delay="120"
-  >
-
-  <span class="jyavani-logo" aria-label="Jyavani">
-    <span class="letter accent" data-word="Just">J</span>
-    <span class="letter base" data-word="Your">y</span>
-    <span class="letter accent" data-word="Visiting">v</span>
-    <span class="letter base" data-word="Always">a</span>
-    <span class="letter base" data-word="Nice">n</span>
-    <span class="letter base" data-word="Inspire">i</span>
-  </span>
-</a>
+    <?php if ($hasLogoZone): ?>
+      <div class="brand onload">
+        <?= theme_zone_render_position($pdo, 'header', 'logo') ?>
+      </div>
+    <?php else: ?>
+      <a href="<?= htmlspecialchars($homeUrl) ?>" class="brand onload wave-span"
+         data-anim-trigger="load"
+         data-wave-target=".jyavani-logo"
+         data-wave-step="28">
+        <img
+          src="<?= $tcLogo !== '' ? htmlspecialchars($tcLogo, ENT_QUOTES, 'UTF-8') : htmlspecialchars($homeUrl) . '/static/img/jyavani.svg' ?>"
+          alt="<?= htmlspecialchars($siteTitle) ?>"
+          class="flip-logo onload"
+          data-anim-trigger="load"
+          data-fl-duration="900"
+          data-fl-delay="120"
+        >
+        <span class="jyavani-logo" aria-label="Jyavani">
+          <span class="letter accent" data-word="Just">J</span>
+          <span class="letter base" data-word="Your">y</span>
+          <span class="letter accent" data-word="Visiting">v</span>
+          <span class="letter base" data-word="Always">a</span>
+          <span class="letter base" data-word="Nice">n</span>
+          <span class="letter base" data-word="Inspire">i</span>
+        </span>
+      </a>
+    <?php endif; ?>
 
 
     <!-- HAMBURGER -->
@@ -71,56 +79,66 @@ $navMenuSlug = $tcMenu !== '' ? $tcMenu : 'primary';
       </div>
 
       <!-- Dynamic Menu dari Menu Manager -->
-      <?php
-      if (function_exists('menu_render')) {
-          echo menu_render($pdo, $navMenuSlug, [
+      <?php if ($hasNavZone): ?>
+        <div class="nav-zone">
+          <?= theme_zone_render_position($pdo, 'header', 'nav') ?>
+        </div>
+      <?php else: ?>
+        <?php if (function_exists('menu_render')): ?>
+          <?= menu_render($pdo, $navMenuSlug, [
               'menu_class' => 'menu expand-center-safe moving-line onload',
               'submenu_class' => 'submenu',
               'ul_attr' => 'data-anime-trigger="load" data-duration="2500" data-delay="360" data-ml-duration="1000" data-ml-delay="520"',
               'depth' => 0,
-          ]);
-      }
-      ?>
+          ]) ?>
+        <?php endif; ?>
+      <?php endif; ?>
 
       <!-- CONTROLS (animasi per-item, jangan wrapper) -->
-      <div class="controls">
-        <?php if ($colorMode === 'both' && $tcShowTheme): ?>
-        <select id="themeSelect" class="ctrl-item blur-in onload"
-          data-anime-trigger="load"
-          data-duration="1700"
-          data-delay="760"
-        >
-          <option value="light"><?= __('Light') ?></option>
-          <option value="dark"><?= __('Dark') ?></option>
-        </select>
-        <?php endif; ?>
-
-        <?php if ($tcShowLang): ?>
-        <select id="lang-switch" class="ctrl-item blur-in onload"
-          data-anime-trigger="load"
-          data-duration="700"
-          data-delay="860"
-        >
-          <option value="id"><?= __('Indonesian') ?></option>
-          <option value="en"><?= __('English') ?></option>
-        </select>
-        <?php endif; ?>
-
-        <?php if ($tcShowSearch): ?>
-        <form method="get" action="<?= htmlspecialchars($homeUrl) ?>">
-          <input
-            type="search"
-            name="s"
-            class="ctrl-item pop"
+      <?php if ($hasControlsZone): ?>
+        <div class="controls">
+          <?= theme_zone_render_position($pdo, 'header', 'controls') ?>
+        </div>
+      <?php else: ?>
+        <div class="controls">
+          <?php if ($colorMode === 'both' && $tcShowTheme): ?>
+          <select id="themeSelect" class="ctrl-item blur-in onload"
             data-anime-trigger="load"
-            data-duration="1000"
-            data-delay="1000"
-            placeholder="<?= __('Search...') ?>"
-            value="<?= htmlspecialchars($searchQuery) ?>"
+            data-duration="1700"
+            data-delay="760"
           >
-        </form>
-        <?php endif; ?>
-      </div>
+            <option value="light"><?= __('Light') ?></option>
+            <option value="dark"><?= __('Dark') ?></option>
+          </select>
+          <?php endif; ?>
+
+          <?php if ($tcShowLang): ?>
+          <select id="lang-switch" class="ctrl-item blur-in onload"
+            data-anime-trigger="load"
+            data-duration="700"
+            data-delay="860"
+          >
+            <option value="id"><?= __('Indonesian') ?></option>
+            <option value="en"><?= __('English') ?></option>
+          </select>
+          <?php endif; ?>
+
+          <?php if ($tcShowSearch): ?>
+          <form method="get" action="<?= htmlspecialchars($homeUrl) ?>">
+            <input
+              type="search"
+              name="s"
+              class="ctrl-item pop"
+              data-anime-trigger="load"
+              data-duration="1000"
+              data-delay="1000"
+              placeholder="<?= __('Search...') ?>"
+              value="<?= htmlspecialchars($searchQuery) ?>"
+            >
+          </form>
+          <?php endif; ?>
+        </div>
+      <?php endif; ?>
     </nav>
 
   </div>
