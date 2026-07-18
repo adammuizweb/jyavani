@@ -36,7 +36,7 @@ public/router.php
 
 **Welcome guard:** If `cfg/.env` doesn't exist (fresh install), `bootstrap_core.php` shows a standalone HTML welcome page with a link to `/pondasi/` — no 500 error.
 
-**Locale bootstrap:** After DB is available, `bootstrap_core.php` reads `site_language` from settings, calls `set_locale($locale)` + `setlocale(LC_TIME, 'de_DE.UTF-8')` for German.
+**Locale bootstrap:** After DB is available, `bootstrap_core.php` reads `site_language` from settings, sets `__APP_DEFAULT_LOCALE` so `default_locale()` follows the configured site default (not hardcoded `en`), then calls `set_locale($locale)` + `setlocale(LC_TIME, ...)`.
 
 `$pdo` is created in `cfg/db.php` and is available as `$pdo` global + `$GLOBALS['pdo']`. All controllers receive it as parameter.
 
@@ -224,8 +224,11 @@ Defined in `$supported_locales` (`cfg/helpers/lang_helpers.php`):
 
 `app/bootstrap_core.php`:
 1. Reads `site_language` from DB settings
-2. Calls `set_locale($locale)`
-3. Calls `setlocale(LC_TIME, $localeMap[$locale])` for date/time formatting
+2. Sets `$GLOBALS['__APP_DEFAULT_LOCALE']` so `default_locale()` returns the configured site default (was hardcoded `en`)
+3. Calls `set_locale($locale)` for the current request
+4. Calls `setlocale(LC_TIME, $localeMap[$locale])` for date/time formatting
+
+Because `default_locale()` is now dynamic, plugins like Content Translation treat `site_language` as the default content language: default-locale URLs have no prefix, and every other supported locale becomes a translation target.
 
 ### Admin language selector
 
