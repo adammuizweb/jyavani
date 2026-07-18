@@ -433,6 +433,15 @@ pre code{
   .navbar{
     flex: 1;
     gap: 12px;
+    justify-content: space-between;
+  }
+
+  .nav-zone{
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
   }
 
   .menu{
