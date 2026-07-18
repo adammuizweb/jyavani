@@ -36,7 +36,11 @@ public/router.php
 
 **Welcome guard:** If `cfg/.env` doesn't exist (fresh install), `bootstrap_core.php` shows a standalone HTML welcome page with a link to `/pondasi/` — no 500 error.
 
-**Locale bootstrap:** After DB is available, `bootstrap_core.php` reads `site_language` from settings, sets `__APP_DEFAULT_LOCALE` so `default_locale()` follows the configured site default (not hardcoded `en`), then calls `set_locale($locale)` + `setlocale(LC_TIME, ...)`.
+**Locale bootstrap:** After DB is available, `bootstrap_core.php` reads two settings:
+- `site_language` — language for the admin dashboard UI (stored in `__APP_ADMIN_LOCALE`).
+- `content_default_language` — default language for site content/URLs (stored in `__APP_DEFAULT_LOCALE` and returned by `default_locale()`). Falls back to `site_language` if not set.
+
+It then calls `set_locale($contentDefault)` so the public frontend uses the content default, while `dashboard/index.php` re-applies `site_language` for admin users.
 
 `$pdo` is created in `cfg/db.php` and is available as `$pdo` global + `$GLOBALS['pdo']`. All controllers receive it as parameter.
 
@@ -223,12 +227,19 @@ Defined in `$supported_locales` (`cfg/helpers/lang_helpers.php`):
 ### Locale bootstrap
 
 `app/bootstrap_core.php`:
-1. Reads `site_language` from DB settings
-2. Sets `$GLOBALS['__APP_DEFAULT_LOCALE']` so `default_locale()` returns the configured site default (was hardcoded `en`)
-3. Calls `set_locale($locale)` for the current request
-4. Calls `setlocale(LC_TIME, $localeMap[$locale])` for date/time formatting
+1. Reads `site_language` from DB settings (admin UI locale)
+2. Reads `content_default_language` from DB settings (frontend content default), falling back to `site_language`
+3. Sets `__APP_ADMIN_LOCALE` (used by `admin_ui_locale()`) and `__APP_DEFAULT_LOCALE` (used by `default_locale()`)
+4. Calls `set_locale($contentDefault)` for the public frontend
+5. `dashboard/index.php` re-applies `set_locale(admin_ui_locale())` so the admin dashboard stays in `site_language`
+6. Calls `setlocale(LC_TIME, ...)` for date/time formatting
 
-Because `default_locale()` is now dynamic, plugins like Content Translation treat `site_language` as the default content language: default-locale URLs have no prefix, and every other supported locale becomes a translation target.
+Helper functions:
+- `default_locale()` — returns the configured content default (`__APP_DEFAULT_LOCALE`).
+- `admin_ui_locale()` — returns the configured admin UI language (`__APP_ADMIN_LOCALE`).
+- `content_default_locale()` — same as `default_locale()`, but wrapped with the `content_default_locale` filter so plugins can override it.
+
+Because `default_locale()` is now the content default, plugins like Content Translation treat `content_default_language` as the base language: default-locale URLs have no prefix, and every other supported locale becomes a translation target. The admin dashboard language remains independent.
 
 ### Admin language selector
 
