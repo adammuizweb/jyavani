@@ -265,6 +265,14 @@ WordPress-style hook system:
 
 Used for bin items (`apply_filters('bin_items', ...)`), allowing plugins to extend admin bin pages.
 
+**Admin lifecycle hooks** (for plugins like Content Translation):
+- `admin_post_after_add($post_id, $pdo, $_POST)` — after a new article is saved.
+- `admin_post_after_edit($post_id, $pdo, $_POST)` — after an article is updated.
+- `admin_post_after_delete($post_id, $pdo)` — after an article is moved to trash.
+- `admin_page_after_add($page_id, $pdo, $_POST)`, `admin_page_after_edit($page_id, $pdo, $_POST)`, `admin_page_after_delete($page_id, $pdo)` — same for pages.
+
+Fired from `dashboard/admin/posts/{add,save,delete}.php` and `dashboard/admin/pages/{add,save,delete}.php`.
+
 ## Plugin System (v1.0)
 
 Third-party features installed as removable plugins via `plugins/{name}/plugin.json`.
