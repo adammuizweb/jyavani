@@ -25,7 +25,7 @@ $colorScheme = $adamTheme ?: 'light';
 $themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
 ?>
 <!doctype html>
-<html lang="<?= h(get_locale()) ?>"<?= $htmlClass ?>>
+<html lang="<?= h(apply_filters('html_lang_attribute', function_exists('admin_ui_locale') ? admin_ui_locale() : get_locale())) ?>"<?= $htmlClass ?>>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">

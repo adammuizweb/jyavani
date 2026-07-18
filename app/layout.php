@@ -153,7 +153,7 @@ if ($pdo instanceof PDO && function_exists('settings_get')) {
 }
 
 ?><!doctype html>
-<html lang="<?=e(get_locale())?>"<?= $themeClass ? ' class="'.htmlspecialchars($themeClass, ENT_QUOTES, 'UTF-8').'"' : '' ?>>
+<html lang="<?= h(apply_filters('html_lang_attribute', function_exists('content_default_locale') ? content_default_locale() : get_locale())) ?>"<?= $themeClass ? ' class="'.htmlspecialchars($themeClass, ENT_QUOTES, 'UTF-8').'"' : '' ?>>
 <head>
   <meta charset="utf-8">
   <title><?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?></title>
