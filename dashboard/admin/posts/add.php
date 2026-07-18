@@ -321,6 +321,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
             }
 
+            do_action('admin_post_after_add', $post_id, $pdo, $_POST);
+
             adiwira_redirect_with_flash($return_to, 'success', __('Article saved successfully.'));
         }
 

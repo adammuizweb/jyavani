@@ -373,6 +373,8 @@ try {
 
     $pdo->commit();
 
+    do_action('admin_post_after_edit', $id, $pdo, $_POST);
+
     save_success_response(__('Article updated successfully.'), $return_to, [
         'post' => [
             'id'         => $id,

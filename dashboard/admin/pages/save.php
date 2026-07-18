@@ -400,6 +400,8 @@ try {
         throw new RuntimeException('DB update failed.');
     }
 
+    do_action('admin_page_after_edit', $id, $pdo, $_POST);
+
     save_success_response(__('Page updated successfully.'), $return_to, [
         'page' => [
             'id'         => $id,

@@ -278,6 +278,8 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
             ]);
 
             if ($ok) {
+                $page_id = (int)$pdo->lastInsertId();
+                do_action('admin_page_after_add', $page_id, $pdo, $_POST);
                 adiwira_redirect_with_flash($return_to, 'success', __('Page saved successfully.'));
             }
 

@@ -63,6 +63,8 @@ try {
 
     $pdo->commit();
 
+    do_action('admin_post_after_delete', $id, $pdo);
+
     adiwira_redirect_with_flash($returnTo, 'success', __('Article moved to trash successfully.'));
 
 } catch (Throwable $e) {
