@@ -239,6 +239,10 @@ Helper functions:
 - `admin_ui_locale()` — returns the configured admin UI language (`__APP_ADMIN_LOCALE`).
 - `content_default_locale()` — same as `default_locale()`, but wrapped with the `content_default_locale` filter so plugins can override it.
 
+`<html lang>` is rendered via the `html_lang_attribute` filter:
+- Public layout (`app/layout.php`) uses `apply_filters('html_lang_attribute', content_default_locale())`.
+- Admin layout (`dashboard/theme/adam/layout.php`) uses `apply_filters('html_lang_attribute', admin_ui_locale())`.
+
 Because `default_locale()` is now the content default, plugins like Content Translation treat `content_default_language` as the base language: default-locale URLs have no prefix, and every other supported locale becomes a translation target. The admin dashboard language remains independent.
 
 ### Admin language selector
