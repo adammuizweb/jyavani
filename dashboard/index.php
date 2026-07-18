@@ -86,6 +86,11 @@ try {
 // dashboard context
 define('DASHBOARD_CONTEXT', true);
 
+// Enforce admin UI locale separately from frontend content default locale
+if (function_exists('set_locale') && function_exists('admin_ui_locale')) {
+    set_locale(admin_ui_locale());
+}
+
 // sinkronkan role dari DB -> session
 if (is_array($user)) {
     $role = $user['role'] ?? $user['user_role'] ?? null;

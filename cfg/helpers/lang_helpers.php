@@ -14,6 +14,15 @@ function default_locale(): string {
     return $GLOBALS['__APP_DEFAULT_LOCALE'] ?? $default_locale;
 }
 
+function admin_ui_locale(): string {
+    return $GLOBALS['__APP_ADMIN_LOCALE'] ?? default_locale();
+}
+
+function content_default_locale(): string {
+    $default = $GLOBALS['__APP_DEFAULT_LOCALE'] ?? default_locale();
+    return apply_filters('content_default_locale', $default);
+}
+
 function get_locale(): string {
     return $GLOBALS['__APP_LOCALE'] ?? default_locale();
 }

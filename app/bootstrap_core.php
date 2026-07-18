@@ -101,11 +101,18 @@ if (function_exists('settings_get')) {
     if (!in_array($siteLang, get_supported_locales(), true)) {
         $siteLang = 'en';
     }
-    $GLOBALS['__APP_DEFAULT_LOCALE'] = $siteLang;
-    set_locale($siteLang);
-    if ($siteLang === 'id') {
+
+    $contentDefault = settings_get($pdo, 'content_default_language', $siteLang) ?? $siteLang;
+    if (!in_array($contentDefault, get_supported_locales(), true)) {
+        $contentDefault = $siteLang;
+    }
+
+    $GLOBALS['__APP_ADMIN_LOCALE']      = $siteLang;
+    $GLOBALS['__APP_DEFAULT_LOCALE']     = $contentDefault;
+    set_locale($contentDefault);
+    if ($contentDefault === 'id') {
         setlocale(LC_TIME, 'id_ID.UTF-8', 'id_ID', 'indonesian', 'Indonesia');
-    } elseif ($siteLang === 'de') {
+    } elseif ($contentDefault === 'de') {
         setlocale(LC_TIME, 'de_DE.UTF-8', 'de_DE', 'german', 'de_DE@euro');
     }
 }

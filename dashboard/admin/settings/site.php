@@ -91,6 +91,7 @@ $current_category_path = function_exists('get_category_path')
     : 'category';
 
 $current_site_language = settings_get($pdo, 'site_language', 'en') ?? 'en';
+$current_content_language = settings_get($pdo, 'content_default_language', $current_site_language) ?? $current_site_language;
 
 $current_favicon_url = settings_get($pdo, 'favicon_url', '') ?? '';
 
@@ -111,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pages_list_path = trim((string)($_POST['pages_list_path'] ?? 'halaman'));
     $category_path = trim((string)($_POST['category_path'] ?? 'category'));
     $current_site_language = trim((string)($_POST['site_language'] ?? 'en'));
+    $current_content_language = trim((string)($_POST['content_default_language'] ?? $current_site_language));
     $favicon_url = trim((string)($_POST['favicon_url'] ?? ''));
 
     // pertahankan nilai input saat validasi gagal
@@ -157,6 +159,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = __('Category path may only contain lowercase letters, numbers, slashes, underscores, and hyphens.');
     }
 
+    if (!in_array($current_site_language, get_supported_locales(), true)) {
+        $current_site_language = 'en';
+    }
+    if (!in_array($current_content_language, get_supported_locales(), true)) {
+        $current_content_language = $current_site_language;
+    }
+
     if (!$errors) {
         $ok1 = settings_set($pdo, 'site_title', $site_title, 1);
         $ok2 = settings_set($pdo, 'site_host',  $site_host,  1);
@@ -170,8 +179,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok7  = settings_set($pdo, 'site_language', $current_site_language, 1);
         $ok8  = settings_set($pdo, 'favicon_url', $favicon_url, 1);
         $ok9  = settings_set($pdo, 'enable_custom_meta', $enable_custom_meta, 1);
+        $ok10 = settings_set($pdo, 'content_default_language', $current_content_language, 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10) {
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
                 exit;
@@ -449,6 +459,16 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
             <option value="id" <?=$current_site_language==='id'?'selected':''?>><?=_e('Indonesian')?></option>
             <option value="de" <?=$current_site_language==='de'?'selected':''?>><?=_e('German')?></option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <label for="content_default_language"><?=_e('Content Default Language')?></label>
+          <select name="content_default_language" id="content_default_language" class="inp inp-w100">
+            <option value="en" <?=$current_content_language==='en'?'selected':''?>><?=_e('English')?></option>
+            <option value="id" <?=$current_content_language==='id'?'selected':''?>><?=_e('Indonesian')?></option>
+            <option value="de" <?=$current_content_language==='de'?'selected':''?>><?=_e('German')?></option>
+          </select>
+          <div style="font-size:12px;color:var(--adam-muted);margin-top:4px"><?=_e('Default language for posts/pages. The Site Language above controls the admin dashboard.')?></div>
         </div>
 
       </div>
