@@ -11,7 +11,7 @@ function get_supported_locales(): array {
 
 function default_locale(): string {
     global $default_locale;
-    return $default_locale;
+    return $GLOBALS['__APP_DEFAULT_LOCALE'] ?? $default_locale;
 }
 
 function get_locale(): string {

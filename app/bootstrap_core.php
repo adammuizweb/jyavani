@@ -101,6 +101,7 @@ if (function_exists('settings_get')) {
     if (!in_array($siteLang, get_supported_locales(), true)) {
         $siteLang = 'en';
     }
+    $GLOBALS['__APP_DEFAULT_LOCALE'] = $siteLang;
     set_locale($siteLang);
     if ($siteLang === 'id') {
         setlocale(LC_TIME, 'id_ID.UTF-8', 'id_ID', 'indonesian', 'Indonesia');
