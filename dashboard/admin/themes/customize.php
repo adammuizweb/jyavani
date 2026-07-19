@@ -391,7 +391,7 @@ $activeZoneTab = in_array(($_GET['tab'] ?? ''), ['header', 'main', 'footer'], tr
           <div style="margin-top:1.5rem; padding:1rem; background:var(--adam-card, rgba(127,127,127,.04)); border:1px dashed rgba(127,127,127,.35); border-radius:8px; text-align:center; color:var(--adam-muted); font-size:13px;"
                title="<?= __('Visual preview of the main + sidebar layout') ?>">
             <div style="font-weight:600; margin-bottom:.5rem;"><?= __('Main Area') ?></div>
-            <div style="display:grid; grid-template-columns: 3fr 1fr; gap:1rem; opacity:.7;">
+            <div class="tz-main-preview" style="display:grid; grid-template-columns: 3fr 1fr; gap:1rem; opacity:.7;">
               <div style="border:1px dashed rgba(127,127,127,.35); border-radius:6px; padding:1rem;"><?= __('Content') ?></div>
               <div style="border:1px dashed rgba(127,127,127,.35); border-radius:6px; padding:1rem;"><?= __('Sidebar') ?></div>
             </div>
@@ -412,7 +412,7 @@ $activeZoneTab = in_array(($_GET['tab'] ?? ''), ['header', 'main', 'footer'], tr
           </button>
         </form>
 
-        <div class="tz-layout-grid" style="display:grid; grid-template-columns: repeat(<?= count($layoutDef['positions']) ?>, 1fr); gap:1rem;">
+        <div class="tz-layout-grid">
           <?php foreach ($layoutDef['positions'] as $posKey => $posDef): ?>
             <?php
             $posItems = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zSlug, $posKey) : [];
@@ -479,7 +479,7 @@ $activeZoneTab = in_array(($_GET['tab'] ?? ''), ['header', 'main', 'footer'], tr
 
               <!-- Add Widget to this position -->
               <div style="background:var(--adam-surface-2, rgba(127,127,127,.08)); border-radius:6px; padding:.75rem;">
-                <form method="post" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+                <form class="tz-add-form" method="post" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
                   <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
                   <input type="hidden" name="tz_action" value="add">
                   <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
@@ -641,10 +641,35 @@ $activeZoneTab = in_array(($_GET['tab'] ?? ''), ['header', 'main', 'footer'], tr
 </script>
 
 <style>
+.tc-wrap { width: 100%; box-sizing: border-box; }
+.tz-layout { max-width: 100%; overflow-x: auto; }
+.tz-layout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.tz-position { min-width: 0; }
 .tz-item { transition: opacity .2s ease; }
-.tz-header { border-radius: var(--adam-radius, 8px); }
+.tz-header { border-radius: var(--adam-radius, 8px); flex-wrap: wrap; }
 .tz-header:hover { background: var(--adam-surface-2, rgba(127,127,127,.08)); }
+.tz-item .tz-body { grid-template-columns: 1fr; }
+.tz-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
 @media (max-width: 768px) {
   .tz-layout-grid { grid-template-columns: 1fr !important; }
+  .tz-header { gap: .35rem; }
+  .tz-add-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tz-add-form > * {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .tz-main-preview { grid-template-columns: 1fr !important; }
 }
 </style>
