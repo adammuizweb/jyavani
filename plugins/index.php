@@ -232,19 +232,45 @@ function plugin_delete(string $name): bool {
     }
 
     // Remove plugin directory recursively
-    $it = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::CHILD_FIRST
-    );
-    foreach ($it as $f) {
-        $path = $f->getPathname();
-        if ($f->isLink() || !$f->isDir()) {
-            @unlink($path);
+    // Try PHP-based deletion first (may fail if permissions are restrictive)
+    $phpDeleted = false;
+    try {
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($it as $f) {
+            $path = $f->getPathname();
+            @chmod($path, $f->isDir() ? 0777 : 0666);
+            if ($f->isLink() || !$f->isDir()) {
+                @unlink($path);
+            } else {
+                @rmdir($path);
+            }
+        }
+        @chmod($pluginDir, 0777);
+        if (@rmdir($pluginDir)) {
+            $phpDeleted = true;
+        }
+    } catch (\Throwable $e) {
+        error_log("[plugin_delete] PHP deletion failed for '{$name}': {$e->getMessage()}");
+    }
+
+    // Fallback: CLI rm -rf if PHP deletion failed
+    if (!$phpDeleted && is_dir($pluginDir)) {
+        $escaped = escapeshellarg($pluginDir);
+        $output = [];
+        $rc = 0;
+        exec("rm -rf {$escaped} 2>&1", $output, $rc);
+        if ($rc !== 0 || is_dir($pluginDir)) {
+            $errors[] = 'Failed to remove plugin directory (permission denied)';
+            error_log("[plugin_delete] CLI rm -rf failed for '{$name}': " . implode("\n", $output));
         } else {
-            @rmdir($path);
+            $phpDeleted = true;
         }
     }
-    if (!@rmdir($pluginDir)) {
+
+    if (!$phpDeleted) {
         $errors[] = 'Failed to remove plugin directory';
     }
 
