@@ -67,7 +67,7 @@ if (is_file($absFile) || is_dir($absFile)) {
 // i.e. /sitemap.xml  or /static/script.js should NOT be redirected to /sitemap.xml/
 if (substr($rawPath, -1) !== '/') {
     // skip if request looks like a file with extension (contains dot after last slash)
-    if (!preg_match('#/[^/]+\.[a-z0-9]{1,6}$#i', $rawPath)) {
+    if (!preg_match('#/[^/]+\.[a-z0-9]{1,10}$#i', $rawPath)) {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
         // Canonicalize the *requested* path (rawPath), not the plugin-rewritten
