@@ -180,8 +180,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             @chmod($item->getPathname(), ($ext === 'sh') ? 0775 : 0664);
         }
     }
-    @chgrp($pluginDir, 'www-data');
-    @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
+    // Set group ownership when supported (some shared hosts disable chgrp/shell_exec).
+    // The chmod loop above already makes files writable by the PHP process owner.
+    if (function_exists('chgrp') && function_exists('posix_getegid')) {
+        @chgrp($pluginDir, 'www-data');
+    }
+    if (function_exists('shell_exec')) {
+        @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
+    }
 
     // Copy static files
     $staticCopy = $extractedManifest['static']['copy'] ?? [];
