@@ -40,7 +40,7 @@ if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce
     exit;
 }
 
-$layoutDir = realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat');
+$layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
 if (!$layoutDir || !is_dir($layoutDir)) {
     adiwira_json(['ok' => false, 'errors' => [__('Layout directory not found.')]], 500);
     exit;

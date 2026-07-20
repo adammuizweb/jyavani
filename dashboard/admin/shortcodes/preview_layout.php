@@ -42,7 +42,7 @@ try {
         $layoutName = (string)($config['layout'] ?? 'list');
 
         // Load the actual layout template from file
-        $layoutDir = realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat');
+        $layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
         $layoutFile = $layoutDir . DIRECTORY_SEPARATOR . preg_replace('/[^a-z0-9_-]/', '', $layoutName) . '.php';
         if ($layoutDir && is_file($layoutFile)) {
             $content = file_get_contents($layoutFile);

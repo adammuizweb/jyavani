@@ -17,7 +17,7 @@ $return_to = function_exists('adiwira_safe_return_to')
     ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/?page=admin/shortcodes/index&tab=layouts')
     : ($base . '/?page=admin/shortcodes/index&tab=layouts');
 
-$layoutDir = realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat');
+$layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
 if (!$layoutDir || !is_dir($layoutDir)) {
     echo '<section class="adam-card"><p>' . __('Layout directory not found.') . '</p></section>';
     return;
