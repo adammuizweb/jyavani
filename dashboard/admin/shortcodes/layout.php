@@ -543,7 +543,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
           </tbody>
         </table>
         <div style="margin-top:.6rem;font-size:.8rem;color:var(--adam-muted,#888);background:var(--adam-surface-3);padding:.5rem .7rem;border-radius:4px;">
-          <strong>📍 Layout file:</strong> <code>public/views/partials/shortcodes/post_cat/<span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{nama}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
+          <strong>📍 Layout file:</strong> <code>views/partials/shortcodes/post_cat/<span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{nama}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
         </div>
       </div>
     </div>

@@ -182,7 +182,7 @@ if ($layoutDir && is_dir($layoutDir)) {
 
   <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🧩 Layout — Template Visual untuk Tampilan Post</h4>
   <p style="margin:0 0 .5rem;">
-    Layout adalah <strong>file PHP</strong> di <code>public/views/partials/shortcodes/post_cat/</code> yang mengatur <em>bagaimana</em>
+    Layout adalah <strong>file PHP</strong> di <code>views/partials/shortcodes/post_cat/</code> yang mengatur <em>bagaimana</em>
     post/page dirender (cards, list, slider, dll). Tersedia 4 layout bawaan:
   </p>
   <ul style="margin:0 0 .5rem;padding-left:1.2rem;">
