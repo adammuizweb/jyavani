@@ -29,7 +29,13 @@ function plugin_load_active(): void {
     foreach ($active as $name => $p) {
         $mainFile = PLUGIN_PATH . '/' . $name . '/plugin.php';
         if (is_file($mainFile)) {
-            require_once $mainFile;
+            try {
+                require_once $mainFile;
+            } catch (\Throwable $e) {
+                error_log("[plugin-loader] Failed to load plugin '{$name}': {$e->getMessage()}");
+                // Skip corrupt plugin, continue loading others
+                continue;
+            }
         }
     }
     do_action('plugins_loaded');
