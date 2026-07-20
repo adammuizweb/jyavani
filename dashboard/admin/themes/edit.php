@@ -134,11 +134,27 @@ $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
 
         <label style="margin-top:.6rem;display:block"><?=_e('Status')?><br>
           <select name="status" class="inpud">
-            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
-            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
-            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
+            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>>Draft</option>
+            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>>Published</option>
+            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>>Private</option>
           </select>
         </label>
+
+        <?php if ($isAdmin): ?>
+        <label style="margin-top:.6rem;display:block">
+          <?=_e('Author')?><br>
+          <select name="created_by" class="inpud">
+            <?php
+            $current_author = (int)($theme['created_by'] ?? $user_id);
+            $authors = $pdo->query("SELECT id, email FROM users WHERE is_deleted = 0 ORDER BY email ASC")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($authors as $a) {
+                $sel = $a['id'] === $current_author ? 'selected' : '';
+                echo '<option value="' . $a['id'] . '" ' . $sel . '>' . htmlspecialchars($a['email'], ENT_QUOTES, 'UTF-8') . '</option>';
+            }
+            ?>
+          </select>
+        </label>
+        <?php endif; ?>
       </div>
     </div>
 

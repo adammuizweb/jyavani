@@ -88,6 +88,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
             $finalMeta = !empty($themeMeta) ? json_encode($themeMeta, JSON_UNESCAPED_UNICODE) : null;
 
+            $authorId = ($user_role === 'admin' && !empty($_POST['created_by']))
+                ? (int)$_POST['created_by']
+                : $user_id;
+
             $stmt = $pdo->prepare("
                 INSERT INTO posts
                     (title, slug, content, type, status, meta, created_by, created_at, updated_at)
@@ -101,7 +105,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ':content' => $content,
                 ':status'  => $status,
                 ':meta'    => $finalMeta,
-                ':uid'     => $user_id,
+                ':uid'     => $authorId,
             ]);
 
             if ($ok) {
@@ -180,6 +184,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             <option value="private" <?= $status === 'private' ? 'selected' : '' ?>>Private</option>
           </select>
         </label>
+
+        <?php if ($user_role === 'admin'): ?>
+        <label style="margin-top:.6rem;display:block">
+          <?=_e('Author')?><br>
+          <select name="created_by" class="inpud">
+            <?php
+            $selected_author = (int)($_POST['created_by'] ?? $user_id);
+            $authors = $pdo->query("SELECT id, email FROM users WHERE is_deleted = 0 ORDER BY email ASC")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($authors as $a) {
+                $sel = $a['id'] === $selected_author ? 'selected' : '';
+                echo '<option value="' . $a['id'] . '" ' . $sel . '>' . htmlspecialchars($a['email'], ENT_QUOTES, 'UTF-8') . '</option>';
+            }
+            ?>
+          </select>
+        </label>
+        <?php endif; ?>
       </div>
     </div>
 

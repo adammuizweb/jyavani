@@ -168,6 +168,7 @@ try {
             content = :content,
             status = :status,
             meta = :meta,
+            " . ($isAdmin ? "created_by = :author_id," : "") . "
             updated_at = NOW()
         WHERE id = :id
           AND type = 'theme'
@@ -184,6 +185,9 @@ try {
         ':meta'    => $finalMeta,
         ':id'      => $id,
     ];
+    if ($isAdmin) {
+        $params[':author_id'] = !empty($_POST['created_by']) ? (int)$_POST['created_by'] : $user_id;
+    }
     if (!$isAdmin) {
         $params[':uid'] = $user_id;
     }
