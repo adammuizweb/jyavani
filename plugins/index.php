@@ -190,8 +190,13 @@ function plugin_uninstall(string $name, bool $keepData = true): bool {
     if (!is_dir($pluginDir)) return false;
 
     // Fire uninstall hook for data cleanup (only if NOT keeping data)
+    // Try-catch: jika plugin corrupt, hook mungkin tidak ter-register — skip saja
     if (!$keepData) {
-        do_action('plugin_uninstall', $name);
+        try {
+            do_action('plugin_uninstall', $name);
+        } catch (\Throwable $e) {
+            error_log("[plugin] Uninstall hook failed for '{$name}': {$e->getMessage()}");
+        }
     }
 
     // Delegate file deletion
