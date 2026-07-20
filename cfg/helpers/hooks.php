@@ -5,17 +5,35 @@ if (!isset($GLOBALS['_hooks'])) {
     $GLOBALS['_hooks'] = ['actions' => [], 'filters' => []];
 }
 
-function add_action(string $name, callable $callback, int $priority = 10): void {
-    $GLOBALS['_hooks']['actions'][$name][$priority][] = $callback;
+// Legacy hook aliases — canonical Jyavani hooks (jy_*) also notify listeners
+// registered under their old WordPress-style names (wp_*), for backward
+// compatibility with plugins written before the jy_ rebrand.
+function _hook_legacy_aliases(string $name): array {
+    static $map = [
+        'jy_head'   => ['wp_head'],
+        'jy_footer' => ['wp_footer'],
+    ];
+    return $map[$name] ?? [];
 }
 
-function do_action(string $name, mixed ...$args): void {
+function _do_action_exact(string $name, mixed ...$args): void {
     $hooks = $GLOBALS['_hooks']['actions'][$name] ?? [];
     ksort($hooks);
     foreach ($hooks as $priorities) {
         foreach ($priorities as $cb) {
             call_user_func($cb, ...$args);
         }
+    }
+}
+
+function add_action(string $name, callable $callback, int $priority = 10): void {
+    $GLOBALS['_hooks']['actions'][$name][$priority][] = $callback;
+}
+
+function do_action(string $name, mixed ...$args): void {
+    _do_action_exact($name, ...$args);
+    foreach (_hook_legacy_aliases($name) as $legacy) {
+        _do_action_exact($legacy, ...$args);
     }
 }
 
