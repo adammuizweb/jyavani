@@ -126,9 +126,23 @@ function get_relevant_theme_folders($pdoOrNull, ?array $slot_keys = null): array
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $folders = [];
 
-    // ensure default present
+    // ensure default present — unless the active theme opts out via "standalone": true
+    // (a standalone theme ships its own complete CSS and must not inherit default resets,
+    //  which are unlayered and would beat Tailwind v4's @layer utilities)
     $default = defined('DEFAULT_THEME_FOLDER') ? DEFAULT_THEME_FOLDER : 'default';
-    if ($default) $folders[] = $default;
+    $skipDefault = false;
+    if ($pdo) {
+        try {
+            $stmtA = $pdo->prepare("SELECT folder_name FROM themes WHERE is_active = 1 LIMIT 1");
+            $stmtA->execute();
+            $rA = $stmtA->fetch(PDO::FETCH_ASSOC);
+            if ($rA && !empty($rA['folder_name'])) {
+                $mA = read_theme_manifest(path_candidate(VIEWS_BASE, $rA['folder_name'], ''));
+                $skipDefault = !empty($mA['standalone']);
+            }
+        } catch (Throwable $e) {}
+    }
+    if ($default && !$skipDefault) $folders[] = $default;
 
     if ($pdo) {
         // pull assignments optionally filtering by slot_keys
@@ -730,6 +744,8 @@ function read_theme_manifest(string $folderPath): array {
             if (!empty($j['scripts']) && is_array($j['scripts'])) $manifest['scripts'] = $j['scripts'];
             // store block for update checking
             if (!empty($j['store']) && is_array($j['store'])) $manifest['store'] = $j['store'];
+            // standalone: skip default theme CSS/JS when this theme is active
+            if (!empty($j['standalone'])) $manifest['standalone'] = true;
         }
     }
     return $manifest;
