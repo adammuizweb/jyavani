@@ -67,6 +67,9 @@ class ThemeController
         // expose to layout
         $page_title = $vars['page_title'];
         $context_for_layout = 'theme';
+        // Expose the post so layout.php's apply_filters('post_content', ..., $post)
+        // receives the id — plugins (e.g. Jy Builder) key off it to render live layouts.
+        $post = $themeData;
 
         // ==============================
         // LAYOUT OVERRIDE (INI TEMPATNYA)
