@@ -143,6 +143,10 @@ if (!function_exists('search_theme_build_page_url')) {
 <h1><?= __('Search results for:') ?> “<?= $qEsc ?>”</h1>
 <p class="summary"><?= sprintf(__('%d results found.'), (int)$total) ?></p>
 
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.search', 'before_loop')): ?>
+  <div class="tz-search-before"><?= theme_zone_render_position($pdo, 'main.search', 'before_loop') ?></div>
+<?php endif; ?>
+
 <?php if (empty($posts)): ?>
   <p><?= __('No results. Try another keyword.') ?></p>
 <?php else: ?>
@@ -205,5 +209,9 @@ if (!function_exists('search_theme_build_page_url')) {
     <?php endif; ?>
   <?php endif; ?>
 
+<?php endif; ?>
+
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.search', 'after_loop')): ?>
+  <div class="tz-search-after"><?= theme_zone_render_position($pdo, 'main.search', 'after_loop') ?></div>
 <?php endif; ?>
 </section>

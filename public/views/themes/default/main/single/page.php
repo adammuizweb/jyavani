@@ -12,6 +12,9 @@ if (!isset($post) || !is_array($post)) {
     return;
 }
 
+// Expose current post/page to zone gadgets
+$GLOBALS['jy_current_post'] = $post;
+
 // author fields (assume PageController.augmentAuthor filled author_* keys)
 $authorName = !empty($post['author_name'])
     ? $post['author_name']
@@ -61,9 +64,17 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
   </header>
 
   <!-- Baris 3: content -->
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'single.page', 'before_content')): ?>
+    <div class="tz-single-page-before"><?= theme_zone_render_position($pdo, 'single.page', 'before_content') ?></div>
+  <?php endif; ?>
+
   <main class="post-content" itemprop="articleBody">
     <?= apply_filters('post_content', (string)($post['content'] ?? ''), $post ?? []) ?>
   </main>
+
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'single.page', 'after_content')): ?>
+    <div class="tz-single-page-after"><?= theme_zone_render_position($pdo, 'single.page', 'after_content') ?></div>
+  <?php endif; ?>
 
   <!-- Baris 4: published by (author img & username) | published on created_at -->
   <footer class="post-published-by">

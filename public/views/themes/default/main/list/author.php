@@ -54,6 +54,10 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
     </div>
   </header>
 
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.author', 'before_loop')): ?>
+    <div class="tz-list-author-before"><?= theme_zone_render_position($pdo, 'list.author', 'before_loop') ?></div>
+  <?php endif; ?>
+
   <?php if (empty($posts)): ?>
     <p><?= __('No articles.') ?></p>
   <?php else: ?>
@@ -115,6 +119,10 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
       <a class="page-next" href="?page=<?= min($pages, $page + 1) ?>"><?= __('Next →') ?></a>
     <?php endif; ?>
   </nav>
+
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.author', 'after_loop')): ?>
+    <div class="tz-list-author-after"><?= theme_zone_render_position($pdo, 'list.author', 'after_loop') ?></div>
+  <?php endif; ?>
 </div>
 
 <style>

@@ -24,6 +24,10 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
     <?php endif; ?>
   </header>
 
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.page', 'before_loop')): ?>
+    <div class="tz-list-page-before"><?= theme_zone_render_position($pdo, 'list.page', 'before_loop') ?></div>
+  <?php endif; ?>
+
   <?php if (empty($pages)): ?>
     <div class="adam-empty-card" role="status">
       <?= __('No pages.') ?>
@@ -72,6 +76,10 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
           <?php endif; ?>
         </div>
       </nav>
+    <?php endif; ?>
+
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.page', 'after_loop')): ?>
+      <div class="tz-list-page-after"><?= theme_zone_render_position($pdo, 'list.page', 'after_loop') ?></div>
     <?php endif; ?>
 
   <?php endif; ?>

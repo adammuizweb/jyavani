@@ -77,6 +77,39 @@ if (!function_exists('theme_zone_ensure_schema')) {
         return $j['layout'];
     }
 
+    // Temukan semua partial di main/ tema → ['list.post' => 'List Post', ...]
+    // File top-level jadi 'main.{nama}', subfolder jadi '{dir}.{nama}', file _*.php di-skip.
+    function theme_zone_discover_partials(string $folder): array {
+        $out = [];
+        if (!defined('PUBLIC_PATH')) return $out;
+        $base = rtrim(PUBLIC_PATH, '/\\') . '/views/themes/' . $folder . '/main';
+        if (!is_dir($base)) return $out;
+        $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS));
+        foreach ($rii as $f) {
+            if (!$f->isFile() || strtolower($f->getExtension()) !== 'php') continue;
+            $name = $f->getFilename();
+            if (str_starts_with($name, '_')) continue;
+            $rel = ltrim(substr($f->getPathname(), strlen($base)), '/\\');
+            $rel = substr($rel, 0, -4);
+            $parts = preg_split('#[/\\\\]#', $rel);
+            $slug = count($parts) === 1 ? 'main.' . $parts[0] : implode('.', $parts);
+            $out[$slug] = ucwords(str_replace(['.', '_', '-'], ' ', $slug));
+        }
+        ksort($out);
+        return $out;
+    }
+
+    // Konvensi positions untuk partial yang tidak declare layout di theme.json
+    function theme_zone_partial_positions(string $slug): array {
+        if (str_starts_with($slug, 'single.')) {
+            return ['before_content' => __('Sebelum Konten'), 'after_content' => __('Sesudah Konten')];
+        }
+        if (str_starts_with($slug, 'list.') || str_starts_with($slug, 'index.') || $slug === 'main.search') {
+            return ['before_loop' => __('Sebelum Daftar'), 'after_loop' => __('Sesudah Daftar')];
+        }
+        return ['before' => __('Sebelum'), 'after' => __('Sesudah')];
+    }
+
     function theme_zone_render(PDO $pdo, string $zoneSlug, ?string $folder = null): string {
         $folder = theme_zone_folder($pdo, $folder);
         $items = theme_zone_items($pdo, $zoneSlug, null, $folder);

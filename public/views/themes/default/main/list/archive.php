@@ -36,6 +36,10 @@ if ($archive_label !== '') {
         </h1>
     </header>
 
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.archive', 'before_loop')): ?>
+        <div class="tz-list-archive-before"><?= theme_zone_render_position($pdo, 'list.archive', 'before_loop') ?></div>
+    <?php endif; ?>
+
     <?php if (empty($posts)): ?>
         <div style="text-align:center; padding:5rem; color:#ced6e0; border:2px dashed #f1f2f6; border-radius:24px;">
             <p><?= __('No articles found in this period.') ?></p>
@@ -105,5 +109,9 @@ if ($archive_label !== '') {
                 <?php endif; ?>
             </nav>
         <?php endif; ?>
+    <?php endif; ?>
+
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.archive', 'after_loop')): ?>
+        <div class="tz-list-archive-after"><?= theme_zone_render_position($pdo, 'list.archive', 'after_loop') ?></div>
     <?php endif; ?>
 </section>

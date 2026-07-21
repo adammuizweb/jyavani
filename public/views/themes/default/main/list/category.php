@@ -41,6 +41,10 @@ $categoryDescription = (string)($category['description'] ?? '');
         <?php endif; ?>
     </header>
 
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.category', 'before_loop')): ?>
+        <div class="tz-list-category-before"><?= theme_zone_render_position($pdo, 'list.category', 'before_loop') ?></div>
+    <?php endif; ?>
+
     <?php if (empty($posts)): ?>
         <p class="no-posts"><?= __('No articles in this category.') ?></p>
     <?php else: ?>
@@ -112,5 +116,9 @@ $categoryDescription = (string)($category['description'] ?? '');
                 <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page + 1), ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
             <?php endif; ?>
         </nav>
+    <?php endif; ?>
+
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.category', 'after_loop')): ?>
+        <div class="tz-list-category-after"><?= theme_zone_render_position($pdo, 'list.category', 'after_loop') ?></div>
     <?php endif; ?>
 </div>

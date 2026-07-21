@@ -48,7 +48,18 @@ foreach ($themeLayout as $zSlug => $zDef) {
     }
 }
 $zoneSlugs = array_keys($zoneZones);
-$partialZones = array_values(array_filter($zoneSlugs, fn($z) => !in_array($z, ['header', 'footer'], true)));
+
+// Partials = semua file di main/ tema (discovery) + zone declared non-header/footer
+$discoveredPartials = function_exists('theme_zone_discover_partials') ? theme_zone_discover_partials($folder) : [];
+foreach ($discoveredPartials as $slug => $label) {
+    if (!isset($zoneZones[$slug])) $zoneZones[$slug] = $label;
+}
+$partialZones = array_values(array_filter(array_keys($zoneZones), fn($z) => !in_array($z, ['header', 'footer'], true)));
+// Urutan: main dulu, lalu main.homepage, sisanya menyusul
+usort($partialZones, function ($a, $b) {
+    $rank = fn($z) => $z === 'main' ? 0 : ($z === 'main.homepage' ? 1 : 2);
+    return $rank($a) <=> $rank($b) ?: strnatcasecmp($a, $b);
+});
 if (empty($partialZones)) $partialZones = ['main'];
 $activePartial = (string)($_GET['partial'] ?? '');
 if (!in_array($activePartial, $partialZones, true)) {
@@ -95,7 +106,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tc_save'])) 
     $mods = array_intersect_key($mods, $validKeys);
 
     theme_mods_save($pdo, $folder, $mods);
-    adiwira_redirect_with_flash($selfUrl, 'success', __('Customization saved.'));
+    adiwira_redirect_with_flash($selfUrl . '&partial=' . rawurlencode($activePartial), 'success', __('Customization saved.'));
     return;
 }
 
@@ -240,7 +251,9 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
 // Render satu zone editor lengkap (tombol defaults + grid positions + gadget list + add form)
 function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial): string {
     ob_start();
+    $hasDefaults = !empty($layoutDef['defaults']) || in_array($zSlug, ['header', 'footer'], true);
     ?>
+    <?php if ($hasDefaults): ?>
     <form method="post" style="margin-bottom:.75rem; display:inline-block;">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="tz_action" value="defaults">
@@ -250,6 +263,7 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
         <?= __('Load Default Layout') ?>
       </button>
     </form>
+    <?php endif; ?>
 
     <?php
     $posCount = count($layoutDef['positions']);
@@ -353,10 +367,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         return;
     }
     $action = (string)$_POST['tz_action'];
-    $allowedPostZones = [];
-    foreach ($themeLayout as $lk => $lv) {
-        if ($lk !== 'main' && !empty($lv['positions']) && is_array($lv['positions'])) $allowedPostZones[] = $lk;
-    }
+    // Semua zone boleh menerima gadget kecuali main (config-only)
+    $allowedPostZones = array_values(array_filter(array_keys($zoneZones), fn($z) => $z !== 'main'));
     if (empty($allowedPostZones)) $allowedPostZones = ['header'];
     $zone = in_array(($_POST['tz_zone'] ?? ''), $allowedPostZones, true) ? $_POST['tz_zone'] : $allowedPostZones[0];
     $position = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)($_POST['tz_position'] ?? ''));
@@ -482,8 +494,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 
   <!-- Theme Layout Editor — kanvas halaman utuh ala Blogspot -->
   <?php if (!empty($themeLayout)): ?>
-    <!-- Partials selector: mengganti isi area Main -->
-    <div class="tz-partials-bar">
+    <!-- Topbar: Global Settings ⇄ Partials -->
+    <div class="tz-topbar">
+      <?php if ($hasFields): ?>
+        <button type="button" id="tz-global-btn" class="btn btn-secondary"><?= __('Global Settings') ?></button>
+      <?php else: ?>
+        <span></span>
+      <?php endif; ?>
       <select id="tz-partial-select" aria-label="<?= __('Partials') ?>">
         <?php foreach ($partialZones as $pz): ?>
           <option value="<?= h($pz) ?>" <?= $activePartial === $pz ? 'selected' : '' ?>><?= h($zoneZones[$pz] ?? $pz) ?></option>
@@ -560,7 +577,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                     <div class="adam-alert info"><?= __('No main layout options declared by this theme.') ?></div>
                   <?php endif; ?>
                 <?php else: ?>
-                  <?php $pzDef = $themeLayout[$pz] ?? null; ?>
+                  <?php
+                  $pzDef = $themeLayout[$pz] ?? null;
+                  if ((empty($pzDef) || empty($pzDef['positions'])) && function_exists('theme_zone_partial_positions')) {
+                      $pzDef = ['label' => $zoneZones[$pz] ?? $pz, 'columns' => 1, 'positions' => []];
+                      foreach (theme_zone_partial_positions($pz) as $pk => $pl) {
+                          $pzDef['positions'][$pk] = ['label' => $pl];
+                      }
+                  }
+                  ?>
                   <?php if (!empty($pzDef) && !empty($pzDef['positions']) && is_array($pzDef['positions'])): ?>
                     <?= tz_zone_editor_html($pdo, $folder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial) ?>
                   <?php else: ?>
@@ -609,15 +634,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
     </div>
   <?php endif; ?>
 
-  <!-- Theme Settings (legacy customizer fields) -->
+  <!-- Global Settings modal (legacy customizer fields) -->
   <?php if ($hasFields): ?>
-    <div class="tc-panel" style="margin-top:2rem; background:var(--adam-card, transparent); border:1px solid rgba(127,127,127,.18); border-radius:8px; padding:1.25rem;">
-      <h3 style="margin:0 0 1rem; font-size:1.1rem; border-bottom:1px solid rgba(127,127,127,.18); padding-bottom:.5rem;"><?= __('Theme Settings') ?></h3>
-      <p class="muted" style="margin-top:-.5rem; margin-bottom:1rem;"><?= __('Global options declared by the theme in theme.json.') ?></p>
+    <div id="tz-global-modal" class="tz-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="<?= __('Global Settings') ?>">
+      <div class="tz-modal-overlay" data-tz-close></div>
+      <div class="tz-modal-card">
+        <div class="tz-modal-head">
+          <strong><?= __('Global Settings') ?> — <?= h($folder) ?></strong>
+          <button type="button" class="tz-modal-x" data-tz-close aria-label="<?= __('Close') ?>">×</button>
+        </div>
+        <div class="tz-modal-body">
+          <p class="muted" style="margin-top:0; margin-bottom:1rem;"><?= __('Global options declared by the theme in theme.json.') ?></p>
 
       <form method="post" style="display:flex; flex-direction:column; gap:1.5rem;">
         <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="tc_save" value="1">
+        <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
 
       <?php foreach ($sections as $sectionKey => $section): ?>
         <?php if ($sectionKey === 'main') continue; ?>
@@ -678,6 +710,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
           <button type="submit" class="btn btn-primary"><?= __('Save Theme Settings') ?></button>
         </div>
       </form>
+        </div>
+      </div>
     </div>
   <?php endif; ?>
 </div>
@@ -868,6 +902,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
       }
     });
   }
+
+  // ─── Global Settings modal ───
+  var tzGlobalModal = document.getElementById('tz-global-modal');
+  var tzGlobalBtn = document.getElementById('tz-global-btn');
+  if (tzGlobalModal && tzGlobalBtn) {
+    tzGlobalBtn.addEventListener('click', function(){
+      tzGlobalModal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    });
+    var tzCloseModal = function(){
+      tzGlobalModal.style.display = 'none';
+      document.body.style.overflow = '';
+    };
+    tzGlobalModal.querySelectorAll('[data-tz-close]').forEach(function(el){
+      el.addEventListener('click', tzCloseModal);
+    });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape' && tzGlobalModal.style.display !== 'none') tzCloseModal();
+    });
+  }
 })();
 </script>
 
@@ -908,8 +962,8 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
 }
 
 /* Kanvas halaman utuh (ala Blogspot) */
-.tz-partials-bar { display: flex; justify-content: center; margin-bottom: 1rem; }
-.tz-partials-bar select {
+.tz-topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.tz-topbar select {
   min-width: 220px; padding: .45rem .8rem; font-size: 14px; font-weight: 600;
   border: 1px solid rgba(127,127,127,.35); border-radius: 8px;
   background: var(--adam-bg); color: var(--adam-text);
@@ -933,6 +987,27 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
 @media (max-width: 900px) {
   .tz-main-row { grid-template-columns: 1fr; }
 }
+
+/* Global Settings modal */
+.tz-modal { position: fixed; inset: 0; z-index: 10000; }
+.tz-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+.tz-modal-card {
+  position: relative; max-width: 760px; width: calc(100% - 2rem);
+  max-height: 85vh; margin: 6vh auto 0; display: flex; flex-direction: column;
+  background: var(--adam-bg, #fff); border: 1px solid rgba(127,127,127,.3);
+  border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden;
+}
+.tz-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .8rem 1.1rem; border-bottom: 1px solid rgba(127,127,127,.18);
+  background: var(--adam-surface-2, rgba(127,127,127,.06));
+}
+.tz-modal-x {
+  background: none; border: none; font-size: 22px; line-height: 1;
+  cursor: pointer; color: var(--adam-muted); padding: 2px 8px;
+}
+.tz-modal-x:hover { color: var(--adam-danger); }
+.tz-modal-body { padding: 1.1rem; overflow-y: auto; }
 
 @media (max-width: 768px) {
   .tz-layout-grid { grid-template-columns: 1fr !important; }

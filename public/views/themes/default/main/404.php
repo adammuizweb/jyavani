@@ -1,11 +1,19 @@
 <?php
 // /views/themes/default/main/404.php
 ?>
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.404', 'before')): ?>
+  <div class="tz-404-before"><?= theme_zone_render_position($pdo, 'main.404', 'before') ?></div>
+<?php endif; ?>
+
 <section class="error-page">
   <h1 class="error-title"><?= __('404 — Page Not Found') ?></h1>
   <p class="error-message"><?= __('Sorry, the page you are looking for is not available or has been moved.') ?></p>
   <a href="/" class="error-link"><?= __('Back to Home') ?></a>
 </section>
+
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.404', 'after')): ?>
+  <div class="tz-404-after"><?= theme_zone_render_position($pdo, 'main.404', 'after') ?></div>
+<?php endif; ?>
 
 <style>
 .error-page {

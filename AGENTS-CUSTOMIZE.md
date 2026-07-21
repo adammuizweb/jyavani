@@ -161,6 +161,22 @@ Konsekuensi desain:
   - **Footer 3 kolom**: positions `left`/`middle`/`right` (label Logo/Pages/Contact, `columns: 3`)
     di theme.json default + adam; `footer.php` render grid 3 kolom bila ada isinya, fallback ke
     position `main` lama, lalu fallback hardcode — backward compatible.
+
+- **Fase 3c:** ✅ Global Settings modal + partials lengkap dari filesystem. Done 2026-07-21:
+  - Panel Theme Settings pindah ke **modal "Global Settings"**; topbar
+    `|Global Settings| ⇄ |Partials select|` (space-between). Modal custom (overlay, tombol ×,
+    Escape) — bukan native dialog.
+  - **Select partials sekarang lengkap**: `theme_zone_discover_partials($folder)` memindai
+    `main/**/*.php` tema (skip `_*.php`) → slug mengikuti slot mapping
+    (`main.homepage`, `main.search`, `main.404`, `main.download-intro`, `list.*`, `single.*`, `index.*`).
+  - Partial tanpa deklarasi di theme.json memakai konvensi positions dari
+    `theme_zone_partial_positions()`: `single.*` → before_content/after_content;
+    `list.*`/`index.*`/`main.search` → before_loop/after_loop; lainnya → before/after.
+  - Hook render ditambahkan ke 11 partial (default + adam): single/page, list/page,
+    list/category, list/archive, list/author, index/category, index/author, homepage,
+    search, 404, download-intro. `single/page.php` juga set `$GLOBALS['jy_current_post']`.
+  - Tombol Load Default Layout hanya tampil jika zone declare `defaults` (atau header/footer).
+  - Urutan select: `main` → `main.homepage` → sisanya alfabetis.
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
   yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.
