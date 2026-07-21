@@ -35,6 +35,27 @@ $mods = theme_mods_all($pdo, $folder);
 $tzWidgets = function_exists('theme_zone_default_widget_types') ? theme_zone_default_widget_types() : [];
 $themeLayout = function_exists('theme_zone_layout') ? theme_zone_layout($folder) : [];
 
+// Zone labels + daftar partial (zone selain header/footer tampil di area Main)
+$zoneZones = [];
+foreach (['header', 'main', 'footer'] as $preferred) {
+    if (isset($themeLayout[$preferred])) {
+        $zoneZones[$preferred] = (string)($themeLayout[$preferred]['label'] ?? ucfirst($preferred));
+    }
+}
+foreach ($themeLayout as $zSlug => $zDef) {
+    if (!isset($zoneZones[$zSlug])) {
+        $zoneZones[$zSlug] = (string)($zDef['label'] ?? ucwords(str_replace(['.', '_', '-'], ' ', (string)$zSlug)));
+    }
+}
+$zoneSlugs = array_keys($zoneZones);
+$partialZones = array_values(array_filter($zoneSlugs, fn($z) => !in_array($z, ['header', 'footer'], true)));
+if (empty($partialZones)) $partialZones = ['main'];
+$activePartial = (string)($_GET['partial'] ?? '');
+if (!in_array($activePartial, $partialZones, true)) {
+    $legacyTab = (string)($_GET['tab'] ?? '');
+    $activePartial = in_array($legacyTab, $partialZones, true) ? $legacyTab : $partialZones[0];
+}
+
 // Field sanitizers for saving
 $field_sanitizers = [
     'image'        => fn($v) => preg_match('#^(/|https?://)#i', trim((string)$v)) ? trim((string)$v) : '',
@@ -93,7 +114,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tc_main_save
         }
         theme_mods_save($pdo, $folder, $mods);
     }
-    adiwira_redirect_with_flash($selfUrl . '&tab=main', 'success', __('Main layout saved.'));
+    adiwira_redirect_with_flash($selfUrl . '&partial=main', 'success', __('Main layout saved.'));
     return;
 }
 
@@ -216,6 +237,116 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
     return $out;
 }
 
+// Render satu zone editor lengkap (tombol defaults + grid positions + gadget list + add form)
+function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial): string {
+    ob_start();
+    ?>
+    <form method="post" style="margin-bottom:.75rem; display:inline-block;">
+      <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="tz_action" value="defaults">
+      <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
+      <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
+      <button type="submit" class="btn btn-sm btn-secondary" style="padding:.3rem .75rem; font-size:13px;" onclick="return confirm('<?= __('Load default gadgets for this zone?') ?>')">
+        <?= __('Load Default Layout') ?>
+      </button>
+    </form>
+
+    <?php
+    $posCount = count($layoutDef['positions']);
+    $cols = (int)($layoutDef['columns'] ?? min(max($posCount, 1), 4));
+    $cols = max(1, min(4, $cols));
+    ?>
+    <div class="tz-layout-grid" data-cols="<?= $cols ?>">
+      <?php foreach ($layoutDef['positions'] as $posKey => $posDef): ?>
+        <?php
+        $posItems = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zSlug, $posKey, $folder, false) : [];
+        ?>
+        <div class="tz-position" data-position="<?= h($posKey) ?>" style="background:var(--adam-card, rgba(127,127,127,.04)); border:1px dashed rgba(127,127,127,.35); border-radius:8px; padding:1rem; min-height:120px;">
+          <div style="font-weight:700; font-size:.85rem; margin-bottom:.75rem; color:var(--adam-muted); text-transform:uppercase; letter-spacing:.5px;"><?= h($posDef['label'] ?? $posKey) ?></div>
+
+          <form method="post" id="tz-form-<?= h($zSlug) ?>-<?= h($posKey) ?>">
+            <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="tz_action" value="save">
+            <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
+            <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
+            <input type="hidden" name="_widget_order" id="tz-order-<?= h($zSlug) ?>-<?= h($posKey) ?>" value="<?= h(implode(',', array_map(fn($it) => $it['id'] ?? '', $posItems))) ?>">
+
+            <div class="tz-list" id="tz-list-<?= h($zSlug) ?>-<?= h($posKey) ?>" data-position="<?= h($posKey) ?>" style="display:flex; flex-direction:column; gap:.75rem; margin-bottom:1rem;">
+              <?php if (empty($posItems)): ?>
+                <div class="tz-empty" style="padding:1rem; text-align:center; color:var(--adam-muted); font-size:13px; border:1px dashed rgba(127,127,127,.25); border-radius:6px;"><?= __('Drop gadget here') ?></div>
+              <?php else: ?>
+                <?php foreach ($posItems as $it): ?>
+                  <?php
+                  $itemId = (int)($it['id'] ?? 0);
+                  $type = (string)($it['type'] ?? '');
+                  $active = !empty($it['active']);
+                  $typeInfo = $tzWidgets[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
+                  $isOpen = (string)($_GET['edit'] ?? '') === (string)$itemId;
+                  ?>
+                  <div class="tz-item" data-id="<?= $itemId ?>" style="background:var(--adam-bg); border:1px solid rgba(127,127,127,.18); border-radius:8px; <?= $active ? '' : 'opacity:.55;' ?>">
+                    <input type="hidden" name="widget[<?= $itemId ?>][type]" value="<?= h($type) ?>">
+                    <input type="hidden" name="widget[<?= $itemId ?>][position]" value="<?= h($posKey) ?>">
+
+                    <div class="tz-header" style="display:flex; align-items:center; gap:.5rem; padding:.6rem .9rem; cursor:pointer; user-select:none;" onclick="tzToggleWidget(this)">
+                      <span class="tz-grip" style="cursor:grab; color:var(--adam-muted); font-size:18px; line-height:1; touch-action:none;" title="<?= __('Drag to reorder or move to another position') ?>" onclick="event.stopPropagation();"><?= '⠿' ?></span>
+                      <span style="background:var(--adam-primary-soft, rgba(127,127,127,.18)); color:var(--adam-primary, inherit); padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; white-space:nowrap;"><?= h($typeInfo['label']) ?></span>
+                      <span style="flex:1; font-weight:600; font-size:14px;"><?= h($it['title'] ?: $typeInfo['label']) ?></span>
+
+                      <input type="hidden" name="widget[<?= $itemId ?>][active]" value="0">
+                      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:12px; white-space:nowrap;" onclick="event.stopPropagation();">
+                        <input type="checkbox" name="widget[<?= $itemId ?>][active]" value="1" <?= $active ? 'checked' : '' ?> style="width:16px; height:16px; accent-color:var(--adam-primary); cursor:pointer;" onchange="this.closest('.tz-item').style.opacity = this.checked ? '' : '0.55';">
+                        <?= __('Active') ?>
+                      </label>
+
+                      <div style="display:flex; gap:4px;">
+                        <button type="button" onclick="event.stopPropagation(); tzMoveWidget(this, -1)" style="background:none; border:1px solid rgba(127,127,127,.25); border-radius:4px; padding:2px 6px; cursor:pointer; font-size:13px; color:var(--adam-muted);" title="<?= __('Move up') ?>">▲</button>
+                        <button type="button" onclick="event.stopPropagation(); tzMoveWidget(this, 1)" style="background:none; border:1px solid rgba(127,127,127,.25); border-radius:4px; padding:2px 6px; cursor:pointer; font-size:13px; color:var(--adam-muted);" title="<?= __('Move down') ?>">▼</button>
+                      </div>
+                      <button type="button" onclick="event.stopPropagation(); tzDeleteWidget(<?= $itemId ?>, '<?= h($zSlug) ?>')" style="background:none; border:none; cursor:pointer; color:var(--adam-danger); font-size:18px; line-height:1; padding:2px 4px;" title="<?= __('Delete widget') ?>">×</button>
+                    </div>
+
+                    <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
+                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
+                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus) ?>
+                      </div>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              <?php endif; ?>
+            </div>
+
+            <?php if (!empty($posItems)): ?>
+              <div style="margin-bottom:1rem;">
+                <button type="submit" class="btn btn-primary" style="padding:.45rem 1rem;"><?= __('Save Widgets') ?></button>
+              </div>
+            <?php endif; ?>
+          </form>
+
+          <!-- Add Widget to this position -->
+          <div style="background:var(--adam-surface-2, rgba(127,127,127,.08)); border-radius:6px; padding:.75rem;">
+            <form class="tz-add-form" method="post" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+              <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+              <input type="hidden" name="tz_action" value="add">
+              <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
+              <input type="hidden" name="tz_position" value="<?= h($posKey) ?>">
+              <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
+              <select name="tz_type" required style="flex:1; min-width:140px; padding:.4rem .6rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">
+                <option value=""><?= __('- Select gadget -') ?></option>
+                <?php foreach ($tzWidgets as $typeKey => $typeDef): ?>
+                  <option value="<?= h($typeKey) ?>"><?= h($typeDef['label'] ?? $typeKey) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <input type="text" name="tz_title" placeholder="<?= __('Title (optional)') ?>" style="flex:1; min-width:120px; padding:.4rem .6rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">
+              <button type="submit" class="btn btn-secondary" style="padding:.4rem .75rem;"><?= __('Add') ?></button>
+            </form>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <?php
+    return (string)ob_get_clean();
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action']) && function_exists('theme_zone_add_item')) {
     if (!$csrfOk) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
@@ -230,16 +361,23 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
     $zone = in_array(($_POST['tz_zone'] ?? ''), $allowedPostZones, true) ? $_POST['tz_zone'] : $allowedPostZones[0];
     $position = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)($_POST['tz_position'] ?? ''));
 
+    // Redirect kembali ke partial yang sedang dipilih user
+    $backPartial = (string)($_POST['tz_partial'] ?? '');
+    if (!in_array($backPartial, $partialZones, true)) {
+        $backPartial = in_array($zone, $partialZones, true) ? $zone : $partialZones[0];
+    }
+    $backUrl = $selfUrl . '&partial=' . rawurlencode($backPartial);
+
     if ($action === 'add' && !empty($_POST['tz_type'])) {
         $type = (string)$_POST['tz_type'];
         $config = (isset($tzWidgets[$type]) && is_array($tzWidgets[$type]['default_config'] ?? null)) ? $tzWidgets[$type]['default_config'] : [];
         $title = trim((string)($_POST['tz_title'] ?? ''));
         if ($title !== '') $config['title'] = $title;
         if (theme_zone_add_item($pdo, $zone, $type, $config, (string)($tzWidgets[$type]['label'] ?? $type), $position, $folder)) {
-            adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'success', __('Widget added to %s.', [($themeLayout[$zone]['positions'][$position]['label'] ?? $position)]));
+            adiwira_redirect_with_flash($backUrl, 'success', __('Widget added to %s.', [($themeLayout[$zone]['positions'][$position]['label'] ?? $position)]));
             return;
         }
-        adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'error', __('Failed to add widget.'));
+        adiwira_redirect_with_flash($backUrl, 'error', __('Failed to add widget.'));
         return;
     }
 
@@ -263,24 +401,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
             theme_zone_toggle_item($pdo, $wid, $active);
             theme_zone_set_order($pdo, $wid, $idx++);
         }
-        adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'success', __('Zone settings saved.'));
+        adiwira_redirect_with_flash($backUrl, 'success', __('Zone settings saved.'));
         return;
     }
 
     if ($action === 'delete' && !empty($_POST['tz_id'])) {
         $id = (int)$_POST['tz_id'];
         if (theme_zone_delete_item($pdo, $id)) {
-            adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'success', __('Widget removed.'));
+            adiwira_redirect_with_flash($backUrl, 'success', __('Widget removed.'));
             return;
         }
-        adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'error', __('Failed to remove widget.'));
+        adiwira_redirect_with_flash($backUrl, 'error', __('Failed to remove widget.'));
         return;
     }
 
     if ($action === 'defaults') {
         $existing = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zone, null, $folder, false) : [];
         if (!empty($existing)) {
-            adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'warning', __('Zone already has widgets. Remove them first to load defaults.'));
+            adiwira_redirect_with_flash($backUrl, 'warning', __('Zone already has widgets. Remove them first to load defaults.'));
             return;
         }
 
@@ -302,7 +440,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                     'main' => [['type' => 'tz_html', 'title' => __('Footer Text'), 'config' => ['title' => '', 'html' => '<p>&copy; ' . date('Y') . ' ' . h($site['title'] ?? '') . '</p>']]],
                 ];
             } else {
-                adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'warning', __('This zone does not declare default gadgets.'));
+                adiwira_redirect_with_flash($backUrl, 'warning', __('This zone does not declare default gadgets.'));
                 return;
             }
         }
@@ -320,30 +458,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
             }
         }
 
-        adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'success', __('Default layout loaded.'));
+        adiwira_redirect_with_flash($backUrl, 'success', __('Default layout loaded.'));
         return;
     }
 }
 
-// Zone tabs — dibangun dari layout tema aktif (header/main/footer dulu, sisanya menyusul)
-$zoneZones = [];
-foreach (['header', 'main', 'footer'] as $preferred) {
-    if (isset($themeLayout[$preferred])) {
-        $zoneZones[$preferred] = (string)($themeLayout[$preferred]['label'] ?? ucfirst($preferred));
-    }
-}
-foreach ($themeLayout as $zSlug => $zDef) {
-    if (!isset($zoneZones[$zSlug])) {
-        $zoneZones[$zSlug] = (string)($zDef['label'] ?? ucwords(str_replace(['.', '_', '-'], ' ', (string)$zSlug)));
-    }
-}
-$zoneSlugs = array_keys($zoneZones);
-$activeZoneTab = in_array(($_GET['tab'] ?? ''), $zoneSlugs, true) ? (string)$_GET['tab'] : ($zoneSlugs[0] ?? 'header');
-
-// Zone yang boleh menerima gadget (punya positions dan bukan main yang config-only)
-$gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLayout) {
-    return $z !== 'main' && !empty($themeLayout[$z]['positions']) && is_array($themeLayout[$z]['positions']);
-}));
+// Zone tabs dibangun dari layout tema aktif — komputasi ada di atas (dipakai juga POST handler)
 ?>
 
 <div class="tc-wrap" style="max-width:1100px;">
@@ -360,219 +480,133 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
     <div class="adam-alert warning"><?= __('Active theme does not declare a layout. Theme zones are disabled.') ?></div>
   <?php endif; ?>
 
-  <!-- Theme Layout Editor -->
+  <!-- Theme Layout Editor — kanvas halaman utuh ala Blogspot -->
   <?php if (!empty($themeLayout)): ?>
-    <!-- Page map wireframe (ala Blogspot) -->
-    <div class="tz-pagemap" style="margin-bottom:1.25rem;">
-      <?php foreach ($zoneZones as $pmSlug => $pmLabel): ?>
-        <?php
-        $pmDef = $themeLayout[$pmSlug] ?? [];
-        $pmPositions = array_keys($pmDef['positions'] ?? []);
-        ?>
-        <a href="<?= h($selfUrl) ?>&tab=<?= h($pmSlug) ?>" class="tz-pm-row<?= $activeZoneTab === $pmSlug ? ' active' : '' ?>">
-          <span class="tz-pm-label"><?= h($pmLabel) ?></span>
-          <span class="tz-pm-cells">
-            <?php if ($pmSlug === 'main'): ?>
-              <span class="tz-pm-cell tz-pm-cell-wide"><?= __('Content') ?></span>
-              <span class="tz-pm-cell tz-pm-cell-side"><?= __('Sidebar') ?></span>
-            <?php elseif (empty($pmPositions)): ?>
-              <span class="tz-pm-cell tz-pm-cell-wide">—</span>
-            <?php else: ?>
-              <?php foreach ($pmPositions as $pmPos): ?>
-                <span class="tz-pm-cell"><?= h((string)($pmDef['positions'][$pmPos]['label'] ?? $pmPos)) ?></span>
-              <?php endforeach; ?>
-            <?php endif; ?>
-          </span>
-        </a>
-      <?php endforeach; ?>
+    <!-- Partials selector: mengganti isi area Main -->
+    <div class="tz-partials-bar">
+      <select id="tz-partial-select" aria-label="<?= __('Partials') ?>">
+        <?php foreach ($partialZones as $pz): ?>
+          <option value="<?= h($pz) ?>" <?= $activePartial === $pz ? 'selected' : '' ?>><?= h($zoneZones[$pz] ?? $pz) ?></option>
+        <?php endforeach; ?>
+      </select>
     </div>
 
-    <div class="tz-layout-tabs" style="display:flex; gap:.5rem; margin-bottom:1rem; border-bottom:1px solid rgba(127,127,127,.18); overflow-x:auto;">
-      <?php foreach ($zoneZones as $zSlug => $zLabel): ?>
-        <a href="<?= h($selfUrl) ?>&tab=<?= h($zSlug) ?>" style="padding:.5rem 1rem; text-decoration:none; border-bottom:2px solid transparent; <?= $activeZoneTab === $zSlug ? 'border-bottom-color:var(--adam-primary, #0066ff); font-weight:600;' : 'opacity:.7;' ?>"><?= h($zLabel) ?></a>
-      <?php endforeach; ?>
-    </div>
-
-    <?php foreach ($zoneZones as $zSlug => $zLabel): ?>
-      <?php if ($activeZoneTab !== $zSlug) continue; ?>
-      <?php
-      $layoutDef = $themeLayout[$zSlug] ?? null;
-      if (empty($layoutDef) || empty($layoutDef['positions']) || !is_array($layoutDef['positions'])) continue;
-      ?>
-
-      <?php if ($zSlug === 'main'): ?>
-        <div class="tz-layout tz-layout-main" data-zone="main">
-          <h3 style="margin:0 0 .75rem; font-size:1.1rem;"><?= h($layoutDef['label'] ?? $zLabel) ?></h3>
-          <p class="muted" style="margin-top:-.5rem; margin-bottom:1rem;"><?= __('Configure the main content area and sidebar visibility.') ?></p>
-
-          <?php $mainSection = $sections['main'] ?? []; ?>
-          <?php if (!empty($mainSection['fields'])): ?>
-            <form method="post" style="display:flex; flex-direction:column; gap:1rem; max-width:700px;">
-              <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-              <input type="hidden" name="tc_main_save" value="1">
-
-              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
-                <?php foreach ($mainSection['fields'] as $key => $def): ?>
-                  <div class="tc-field" style="background:var(--adam-card, rgba(127,127,127,.04)); border:1px solid rgba(127,127,127,.18); border-radius:8px; padding:1rem;">
-                    <label style="display:block; font-weight:600; font-size:.9rem; margin-bottom:.5rem;"><?= h($def['label']) ?></label>
-
-                    <?php if ($def['type'] === 'toggle'): ?>
-                      <?php $on = (bool)($mods[$key] ?? true); ?>
-                      <label style="display:inline-flex; align-items:center; gap:.5rem; font-weight:400; cursor:pointer;">
-                        <input type="checkbox" name="<?= h($key) ?>" value="1" <?= $on ? 'checked' : '' ?> style="width:18px; height:18px;">
-                        <span class="muted"><?= __('Enabled') ?></span>
-                      </label>
-                    <?php elseif ($def['type'] === 'image'): ?>
-                      <input type="text" name="<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>" placeholder="/static/img/..." style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
-                    <?php elseif ($def['type'] === 'menu'): ?>
-                      <select name="<?= h($key) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit;">
-                        <option value=""><?= __('Theme default') ?></option>
-                        <?php foreach ($menus as $m): ?>
-                          <?php $slug = (string)($m['slug'] ?? ''); ?>
-                          <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($m['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
-                        <?php endforeach; ?>
-                      </select>
-                    <?php elseif ($def['type'] === 'sidebar_zone'): ?>
-                      <select name="<?= h($key) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit;">
-                        <option value=""><?= __('None') ?></option>
-                        <?php foreach ($zones as $z): ?>
-                          <?php $slug = (string)($z['slug'] ?? ''); ?>
-                          <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($z['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
-                        <?php endforeach; ?>
-                      </select>
-                    <?php elseif ($def['type'] === 'textarea'): ?>
-                      <textarea name="<?= h($key) ?>" rows="3" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; font:inherit; box-sizing:border-box;"><?= h((string)($mods[$key] ?? '')) ?></textarea>
-                    <?php elseif ($def['type'] === 'text'): ?>
-                      <input type="text" name="<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
-                    <?php endif; ?>
-                  </div>
-                <?php endforeach; ?>
-              </div>
-
-              <div>
-                <button type="submit" class="btn btn-primary"><?= __('Save Main Layout') ?></button>
-              </div>
-            </form>
-          <?php else: ?>
-            <div class="adam-alert info"><?= __('No main layout options declared by this theme.') ?></div>
-          <?php endif; ?>
-
-          <div style="margin-top:1.5rem; padding:1rem; background:var(--adam-card, rgba(127,127,127,.04)); border:1px dashed rgba(127,127,127,.35); border-radius:8px; text-align:center; color:var(--adam-muted); font-size:13px;"
-               title="<?= __('Visual preview of the main + sidebar layout') ?>">
-            <div style="font-weight:600; margin-bottom:.5rem;"><?= __('Main Area') ?></div>
-            <div class="tz-main-preview" style="display:grid; grid-template-columns: 3fr 1fr; gap:1rem; opacity:.7;">
-              <div style="border:1px dashed rgba(127,127,127,.35); border-radius:6px; padding:1rem;"><?= __('Content') ?></div>
-              <div style="border:1px dashed rgba(127,127,127,.35); border-radius:6px; padding:1rem;"><?= __('Sidebar') ?></div>
-            </div>
+    <div class="tz-canvas">
+      <!-- HEADER band -->
+      <?php if (isset($themeLayout['header']) && !empty($themeLayout['header']['positions'])): ?>
+        <section class="tz-band" data-zone="header">
+          <div class="tz-band-label"><?= h($zoneZones['header'] ?? __('Header')) ?></div>
+          <div class="tz-band-body">
+            <?= tz_zone_editor_html($pdo, $folder, 'header', $themeLayout['header'], $tzWidgets, $menus, $selfUrl, $activePartial) ?>
           </div>
-        </div>
-        <?php continue; ?>
+        </section>
       <?php endif; ?>
 
-      <div class="tz-layout" data-zone="<?= h($zSlug) ?>">
-        <h3 style="margin:0 0 .75rem; font-size:1.1rem;"><?= h($layoutDef['label'] ?? $zLabel) ?></h3>
-
-        <form method="post" style="margin-bottom:.75rem; display:inline-block;">
-          <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-          <input type="hidden" name="tz_action" value="defaults">
-          <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
-          <button type="submit" class="btn btn-sm btn-secondary" style="padding:.3rem .75rem; font-size:13px;" onclick="return confirm('<?= __('Load default gadgets for this zone?') ?>')">
-            <?= __('Load Default Layout') ?>
-          </button>
-        </form>
-
-        <?php
-        $posCount = count($layoutDef['positions']);
-        $cols = (int)($layoutDef['columns'] ?? min(max($posCount, 1), 4));
-        $cols = max(1, min(4, $cols));
-        ?>
-        <div class="tz-layout-grid" data-cols="<?= $cols ?>">
-          <?php foreach ($layoutDef['positions'] as $posKey => $posDef): ?>
-            <?php
-            $posItems = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zSlug, $posKey, $folder, false) : [];
-            ?>
-            <div class="tz-position" data-position="<?= h($posKey) ?>" style="background:var(--adam-card, rgba(127,127,127,.04)); border:1px dashed rgba(127,127,127,.35); border-radius:8px; padding:1rem; min-height:120px;">
-              <div style="font-weight:700; font-size:.85rem; margin-bottom:.75rem; color:var(--adam-muted); text-transform:uppercase; letter-spacing:.5px;"><?= h($posDef['label'] ?? $posKey) ?></div>
-
-              <form method="post" id="tz-form-<?= h($zSlug) ?>-<?= h($posKey) ?>">
-                <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-                <input type="hidden" name="tz_action" value="save">
-                <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
-                <input type="hidden" name="_widget_order" id="tz-order-<?= h($zSlug) ?>-<?= h($posKey) ?>" value="<?= h(implode(',', array_map(fn($it) => $it['id'] ?? '', $posItems))) ?>">
-
-                <div class="tz-list" id="tz-list-<?= h($zSlug) ?>-<?= h($posKey) ?>" data-position="<?= h($posKey) ?>" style="display:flex; flex-direction:column; gap:.75rem; margin-bottom:1rem;">
-                  <?php if (empty($posItems)): ?>
-                    <div class="tz-empty" style="padding:1rem; text-align:center; color:var(--adam-muted); font-size:13px; border:1px dashed rgba(127,127,127,.25); border-radius:6px;"><?= __('Drop gadget here') ?></div>
-                  <?php else: ?>
-                    <?php foreach ($posItems as $it): ?>
-                      <?php
-                      $itemId = (int)($it['id'] ?? 0);
-                      $type = (string)($it['type'] ?? '');
-                      $active = !empty($it['active']);
-                      $typeInfo = $tzWidgets[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
-                      $isOpen = (string)($_GET['edit'] ?? '') === (string)$itemId;
-                      ?>
-                      <div class="tz-item" data-id="<?= $itemId ?>" style="background:var(--adam-bg); border:1px solid rgba(127,127,127,.18); border-radius:8px; <?= $active ? '' : 'opacity:.55;' ?>">
-                        <input type="hidden" name="widget[<?= $itemId ?>][type]" value="<?= h($type) ?>">
-                        <input type="hidden" name="widget[<?= $itemId ?>][position]" value="<?= h($posKey) ?>">
-
-                        <div class="tz-header" style="display:flex; align-items:center; gap:.5rem; padding:.6rem .9rem; cursor:pointer; user-select:none;" onclick="tzToggleWidget(this)">
-                          <span class="tz-grip" style="cursor:grab; color:var(--adam-muted); font-size:18px; line-height:1; touch-action:none;" title="<?= __('Drag to reorder or move to another position') ?>" onclick="event.stopPropagation();"><?= '⠿' ?></span>
-                          <span style="background:var(--adam-primary-soft, rgba(127,127,127,.18)); color:var(--adam-primary, inherit); padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; white-space:nowrap;"><?= h($typeInfo['label']) ?></span>
-                          <span style="flex:1; font-weight:600; font-size:14px;"><?= h($it['title'] ?: $typeInfo['label']) ?></span>
-
-                          <input type="hidden" name="widget[<?= $itemId ?>][active]" value="0">
-                          <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:12px; white-space:nowrap;" onclick="event.stopPropagation();">
-                            <input type="checkbox" name="widget[<?= $itemId ?>][active]" value="1" <?= $active ? 'checked' : '' ?> style="width:16px; height:16px; accent-color:var(--adam-primary); cursor:pointer;" onchange="this.closest('.tz-item').style.opacity = this.checked ? '' : '0.55';">
-                            <?= __('Active') ?>
-                          </label>
-
-                          <div style="display:flex; gap:4px;">
-                            <button type="button" onclick="event.stopPropagation(); tzMoveWidget(this, -1)" style="background:none; border:1px solid rgba(127,127,127,.25); border-radius:4px; padding:2px 6px; cursor:pointer; font-size:13px; color:var(--adam-muted);" title="<?= __('Move up') ?>">▲</button>
-                            <button type="button" onclick="event.stopPropagation(); tzMoveWidget(this, 1)" style="background:none; border:1px solid rgba(127,127,127,.25); border-radius:4px; padding:2px 6px; cursor:pointer; font-size:13px; color:var(--adam-muted);" title="<?= __('Move down') ?>">▼</button>
+      <!-- MAIN row: partial terpilih | sidebar -->
+      <div class="tz-main-row">
+        <section class="tz-band tz-band-main">
+          <div class="tz-band-label"><?= __('Main') ?> — <span id="tz-partial-name"><?= h($zoneZones[$activePartial] ?? $activePartial) ?></span></div>
+          <div class="tz-band-body">
+            <?php foreach ($partialZones as $pz): ?>
+              <div class="tz-partial-panel" data-partial="<?= h($pz) ?>" style="display:<?= $pz === $activePartial ? 'block' : 'none' ?>;">
+                <?php if ($pz === 'main'): ?>
+                  <p class="muted" style="margin-top:0; margin-bottom:1rem;"><?= __('Configure the main content area and sidebar visibility.') ?></p>
+                  <?php $mainSection = $sections['main'] ?? []; ?>
+                  <?php if (!empty($mainSection['fields'])): ?>
+                    <form method="post" style="display:flex; flex-direction:column; gap:1rem; max-width:700px;">
+                      <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+                      <input type="hidden" name="tc_main_save" value="1">
+                      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
+                        <?php foreach ($mainSection['fields'] as $key => $def): ?>
+                          <div class="tc-field" style="background:var(--adam-card, rgba(127,127,127,.04)); border:1px solid rgba(127,127,127,.18); border-radius:8px; padding:1rem;">
+                            <label style="display:block; font-weight:600; font-size:.9rem; margin-bottom:.5rem;"><?= h($def['label']) ?></label>
+                            <?php if ($def['type'] === 'toggle'): ?>
+                              <?php $on = (bool)($mods[$key] ?? true); ?>
+                              <label style="display:inline-flex; align-items:center; gap:.5rem; font-weight:400; cursor:pointer;">
+                                <input type="checkbox" name="<?= h($key) ?>" value="1" <?= $on ? 'checked' : '' ?> style="width:18px; height:18px;">
+                                <span class="muted"><?= __('Enabled') ?></span>
+                              </label>
+                            <?php elseif ($def['type'] === 'image'): ?>
+                              <input type="text" name="<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>" placeholder="/static/img/..." style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
+                            <?php elseif ($def['type'] === 'menu'): ?>
+                              <select name="<?= h($key) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit;">
+                                <option value=""><?= __('Theme default') ?></option>
+                                <?php foreach ($menus as $m): ?>
+                                  <?php $slug = (string)($m['slug'] ?? ''); ?>
+                                  <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($m['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
+                                <?php endforeach; ?>
+                              </select>
+                            <?php elseif ($def['type'] === 'sidebar_zone'): ?>
+                              <select name="<?= h($key) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit;">
+                                <option value=""><?= __('None') ?></option>
+                                <?php foreach ($zones as $z): ?>
+                                  <?php $slug = (string)($z['slug'] ?? ''); ?>
+                                  <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($z['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
+                                <?php endforeach; ?>
+                              </select>
+                            <?php elseif ($def['type'] === 'textarea'): ?>
+                              <textarea name="<?= h($key) ?>" rows="3" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; font:inherit; box-sizing:border-box;"><?= h((string)($mods[$key] ?? '')) ?></textarea>
+                            <?php elseif ($def['type'] === 'text'): ?>
+                              <input type="text" name="<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
+                            <?php endif; ?>
                           </div>
-                          <button type="button" onclick="event.stopPropagation(); tzDeleteWidget(<?= $itemId ?>, '<?= h($zSlug) ?>')" style="background:none; border:none; cursor:pointer; color:var(--adam-danger); font-size:18px; line-height:1; padding:2px 4px;" title="<?= __('Delete widget') ?>">×</button>
-                        </div>
-
-                        <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
-                          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
-                            <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus) ?>
-                          </div>
-                        </div>
+                        <?php endforeach; ?>
                       </div>
-                    <?php endforeach; ?>
+                      <div>
+                        <button type="submit" class="btn btn-primary"><?= __('Save Main Layout') ?></button>
+                      </div>
+                    </form>
+                  <?php else: ?>
+                    <div class="adam-alert info"><?= __('No main layout options declared by this theme.') ?></div>
                   <?php endif; ?>
-                </div>
-
-                <?php if (!empty($posItems)): ?>
-                  <div style="margin-bottom:1rem;">
-                    <button type="submit" class="btn btn-primary" style="padding:.45rem 1rem;"><?= __('Save Widgets') ?></button>
-                  </div>
+                <?php else: ?>
+                  <?php $pzDef = $themeLayout[$pz] ?? null; ?>
+                  <?php if (!empty($pzDef) && !empty($pzDef['positions']) && is_array($pzDef['positions'])): ?>
+                    <?= tz_zone_editor_html($pdo, $folder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial) ?>
+                  <?php else: ?>
+                    <div class="adam-alert info"><?= __('This partial does not declare positions.') ?></div>
+                  <?php endif; ?>
                 <?php endif; ?>
-              </form>
-
-              <!-- Add Widget to this position -->
-              <div style="background:var(--adam-surface-2, rgba(127,127,127,.08)); border-radius:6px; padding:.75rem;">
-                <form class="tz-add-form" method="post" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
-                  <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-                  <input type="hidden" name="tz_action" value="add">
-                  <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
-                  <input type="hidden" name="tz_position" value="<?= h($posKey) ?>">
-                  <select name="tz_type" required style="flex:1; min-width:140px; padding:.4rem .6rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">
-                    <option value=""><?= __('- Select gadget -') ?></option>
-                    <?php foreach ($tzWidgets as $typeKey => $typeDef): ?>
-                      <option value="<?= h($typeKey) ?>"><?= h($typeDef['label'] ?? $typeKey) ?></option>
-                    <?php endforeach; ?>
-                  </select>
-                  <input type="text" name="tz_title" placeholder="<?= __('Title (optional)') ?>" style="flex:1; min-width:120px; padding:.4rem .6rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">
-                  <button type="submit" class="btn btn-secondary" style="padding:.4rem .75rem;"><?= __('Add') ?></button>
-                </form>
               </div>
-            </div>
-          <?php endforeach; ?>
-        </div>
+            <?php endforeach; ?>
+          </div>
+        </section>
+
+        <!-- SIDEBAR panel (jika aktif) -->
+        <?php $sidebarOn = !function_exists('theme_mod') || theme_mod('show_sidebar', true); ?>
+        <aside class="tz-band tz-band-sidebar">
+          <div class="tz-band-label"><?= __('Sidebar') ?> <?= $sidebarOn ? '' : '(' . __('nonaktif') . ')' ?></div>
+          <div class="tz-band-body">
+            <?php if (!$sidebarOn): ?>
+              <p class="muted" style="margin-top:0;"><?= __('Sidebar sedang nonaktif. Aktifkan lewat toggle Show sidebar di partial Main.') ?></p>
+            <?php endif; ?>
+            <?php if (empty($zones)): ?>
+              <p class="muted" style="margin-top:0;"><?= __('Belum ada sidebar zone.') ?></p>
+            <?php else: ?>
+              <ul class="tz-sidebar-list">
+                <?php foreach ($zones as $sz): ?>
+                  <li>
+                    <strong><?= h((string)($sz['name'] ?? $sz['slug'] ?? '')) ?></strong>
+                    <code><?= h((string)($sz['slug'] ?? '')) ?></code>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+            <a class="btn btn-sm btn-secondary" style="margin-top:.5rem; display:inline-block; padding:.35rem .75rem; font-size:13px;" href="<?= h($base . '/?page=admin/sidebar/index') ?>"><?= __('Kelola Sidebar') ?> →</a>
+          </div>
+        </aside>
       </div>
-    <?php endforeach; ?>
+
+      <!-- FOOTER band -->
+      <?php if (isset($themeLayout['footer']) && !empty($themeLayout['footer']['positions'])): ?>
+        <section class="tz-band" data-zone="footer">
+          <div class="tz-band-label"><?= h($zoneZones['footer'] ?? __('Footer')) ?></div>
+          <div class="tz-band-body">
+            <?= tz_zone_editor_html($pdo, $folder, 'footer', $themeLayout['footer'], $tzWidgets, $menus, $selfUrl, $activePartial) ?>
+          </div>
+        </section>
+      <?php endif; ?>
+    </div>
   <?php endif; ?>
 
   <!-- Theme Settings (legacy customizer fields) -->
@@ -812,6 +846,28 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
     var observer = new MutationObserver(function(){ tzUpdateOrder(list); });
     observer.observe(list, { childList: true, subtree: false });
   });
+
+  // ─── Partial switcher: mengganti isi area Main ───
+  var tzPartialSelect = document.getElementById('tz-partial-select');
+  if (tzPartialSelect) {
+    tzPartialSelect.addEventListener('change', function(){
+      var v = tzPartialSelect.value;
+      document.querySelectorAll('.tz-partial-panel').forEach(function(p){
+        p.style.display = p.getAttribute('data-partial') === v ? 'block' : 'none';
+      });
+      var nameEl = document.getElementById('tz-partial-name');
+      if (nameEl) nameEl.textContent = tzPartialSelect.options[tzPartialSelect.selectedIndex].textContent;
+      document.querySelectorAll('input[name="tz_partial"]').forEach(function(i){ i.value = v; });
+      if (window.history && history.replaceState) {
+        try {
+          var u = new URL(window.location.href);
+          u.searchParams.set('partial', v);
+          u.searchParams.delete('tab');
+          history.replaceState(null, '', u.toString());
+        } catch (e) {}
+      }
+    });
+  }
 })();
 </script>
 
@@ -851,26 +907,32 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
   align-items: center;
 }
 
-/* Page map wireframe (ala Blogspot) */
-.tz-pagemap { display: flex; flex-direction: column; gap: .5rem; max-width: 720px; }
-.tz-pm-row {
-  display: flex; align-items: center; gap: .75rem;
-  border: 1px solid rgba(127,127,127,.28); border-radius: 8px;
-  padding: .5rem .75rem; text-decoration: none; color: inherit;
-  background: var(--adam-card, rgba(127,127,127,.04));
-  transition: border-color .15s ease, background .15s ease;
+/* Kanvas halaman utuh (ala Blogspot) */
+.tz-partials-bar { display: flex; justify-content: center; margin-bottom: 1rem; }
+.tz-partials-bar select {
+  min-width: 220px; padding: .45rem .8rem; font-size: 14px; font-weight: 600;
+  border: 1px solid rgba(127,127,127,.35); border-radius: 8px;
+  background: var(--adam-bg); color: var(--adam-text);
 }
-.tz-pm-row:hover { border-color: var(--adam-primary, #0066ff); }
-.tz-pm-row.active { border-color: var(--adam-primary, #0066ff); background: var(--adam-primary-soft, rgba(0,102,255,.07)); }
-.tz-pm-label { flex: 0 0 110px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--adam-muted); }
-.tz-pm-cells { display: flex; gap: .4rem; flex: 1; min-width: 0; }
-.tz-pm-cell {
-  flex: 1; min-width: 0; text-align: center; font-size: 12px;
-  border: 1px dashed rgba(127,127,127,.4); border-radius: 6px;
-  padding: .35rem .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.tz-canvas { display: flex; flex-direction: column; gap: 1rem; }
+.tz-band {
+  border: 1px solid rgba(127,127,127,.28); border-radius: 10px; overflow: hidden;
+  background: var(--adam-card, rgba(127,127,127,.03));
 }
-.tz-pm-cell-wide { flex: 3; }
-.tz-pm-cell-side { flex: 1; }
+.tz-band-label {
+  padding: .45rem .9rem; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px; color: var(--adam-muted);
+  border-bottom: 1px solid rgba(127,127,127,.18);
+  background: var(--adam-surface-2, rgba(127,127,127,.06));
+}
+.tz-band-body { padding: 1rem; }
+.tz-main-row { display: grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items: start; }
+.tz-sidebar-list { list-style: none; margin: 0 0 .5rem; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+.tz-sidebar-list li { display: flex; align-items: center; gap: .5rem; font-size: 13px; }
+.tz-sidebar-list code { font-size: 11px; opacity: .7; background: rgba(127,127,127,.12); padding: 1px 6px; border-radius: 4px; }
+@media (max-width: 900px) {
+  .tz-main-row { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 768px) {
   .tz-layout-grid { grid-template-columns: 1fr !important; }
@@ -884,7 +946,5 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
     box-sizing: border-box;
   }
   .tz-main-preview { grid-template-columns: 1fr !important; }
-  .tz-pm-label { flex-basis: 84px; font-size: 11px; }
-  .tz-pm-cell { font-size: 11px; padding: .25rem .15rem; }
 }
 </style>

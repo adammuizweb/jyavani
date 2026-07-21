@@ -12,11 +12,28 @@ $tcShowSocial = !function_exists('theme_mod') || theme_mod('show_social', true);
 $copyright = $tcFooterText !== '' ? $tcFooterText : __('©') . ' <span id="year"></span> ' . htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') . '. ' . __('Released under MIT License.');
 
 $hasFooterZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'main');
+$footerColPositions = ['left', 'middle', 'right'];
+$hasFooterCols = false;
+if (function_exists('theme_zone_has_position')) {
+    foreach ($footerColPositions as $fp) {
+        if (theme_zone_has_position($pdo, 'footer', $fp)) { $hasFooterCols = true; break; }
+    }
+}
 ?>
 <footer class="site-footer fade-up onload" data-duration="1000" data-anime-trigger="load" role="contentinfo">
   <div class="footer-container">
     <div class="footer-row-top">
-      <?php if ($hasFooterZone): ?>
+      <?php if ($hasFooterCols): ?>
+        <div class="footer-cols" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1.25rem; width:100%;">
+          <?php foreach ($footerColPositions as $fp): ?>
+            <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
+              <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>">
+                <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
+              </div>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </div>
+      <?php elseif ($hasFooterZone): ?>
         <div class="footer-zone">
           <?= theme_zone_render_position($pdo, 'footer', 'main') ?>
         </div>

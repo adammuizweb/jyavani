@@ -141,21 +141,42 @@
         },
         "footer": {
             "label": "Footer",
+            "columns": 3,
             "positions": {
-                "main": {
-                    "label": "Konten Footer"
+                "left": {
+                    "label": "Logo"
+                },
+                "middle": {
+                    "label": "Pages"
+                },
+                "right": {
+                    "label": "Contact"
                 }
             },
             "defaults": {
-                "main": {
+                "left": {
+                    "type": "tz_logo",
+                    "title": "Footer Logo",
+                    "config": {
+                        "use_logo": false,
+                        "show_title": true
+                    }
+                },
+                "middle": {
                     "type": "tz_html",
                     "title": "Copyright",
                     "config": {
                         "html": "<p>&copy; 2026 Jyavani. Released under MIT License.</p>"
                     }
+                },
+                "right": {
+                    "type": "tz_html",
+                    "title": "Contact",
+                    "config": {
+                        "html": "<p><a href=\"/contact/\">Contact</a></p>"
+                    }
                 }
-            },
-            "columns": 1
+            }
         },
         "single.post": {
             "label": "Single Post",

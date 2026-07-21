@@ -143,11 +143,24 @@ Konsekuensi desain:
     server memang sudah mengupdate `position` per item — tidak ada perubahan server.
   - Kedua form (sumber + target) diberi tanda dirty (`•` + ring biru pada tombol Save).
   - List kosong menampilkan kembali teks "Drop gadget here" secara dinamis.
-  - **Page map wireframe** di atas tabs: baris per zone dengan sel per position
-    (main digambar sebagai Content|Sidebar), klik = pindah tab, tab aktif di-highlight.
-  - Grid kolom visual mengikuti `columns` di `theme.json` (header: 3, dst.; fallback
-    `min(jumlah positions, 4)`); collapse ke 1 kolom di layar < 768px.
+  - Grid kolom visual mengikuti `columns` di `theme.json` (fallback `min(jumlah positions, 4)`);
+    collapse ke 1 kolom di layar sempit.
   - Tombol ▲▼ tetap ada sebagai fallback aksesibilitas (juga menandai dirty).
+
+- **Fase 3b:** ✅ Kanvas halaman utuh + select partials. Done 2026-07-21:
+  - Tabs DIHAPUS — diganti satu kanvas: **Header band → Main row (partial | Sidebar) → Footer band**.
+  - **Select partials** di atas tengah: opsi = semua zone selain header/footer (`main`,
+    `single.post`, `list.post`, dst.). Mengganti isi kolom Main tanpa reload (panel pre-render,
+    toggle via JS) + `history.replaceState(?partial=...)`; semua form membawa hidden
+    `tz_partial` supaya redirect POST kembali ke partial yang sama (`&partial=`, `&tab=` legacy
+    tetap diterima untuk kompatibilitas).
+  - Position editor diekstrak ke `tz_zone_editor_html()` — dipakai header band, footer band,
+    dan tiap partial panel.
+  - **Panel Sidebar**: status aktif/nonaktif (`theme_mod('show_sidebar')`), daftar sidebar zones,
+    link cepat ke `?page=admin/sidebar/index` (integrasi Sidebar Settings).
+  - **Footer 3 kolom**: positions `left`/`middle`/`right` (label Logo/Pages/Contact, `columns: 3`)
+    di theme.json default + adam; `footer.php` render grid 3 kolom bila ada isinya, fallback ke
+    position `main` lama, lalu fallback hardcode — backward compatible.
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
   yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.
