@@ -160,35 +160,57 @@
                 }
             },
             "defaults": {
-                "about": {
-                    "type": "tz_logo",
-                    "title": "About/Logo",
-                    "config": {
-                        "use_logo": false,
-                        "show_title": true
+                "about": [
+                    {
+                        "type": "tz_logo",
+                        "title": "Site Logo",
+                        "config": {
+                            "use_logo": true,
+                            "show_title": false,
+                            "logo": "/static/img/jyavani.svg"
+                        }
+                    },
+                    {
+                        "type": "tz_html",
+                        "title": "About Text",
+                        "config": {
+                            "html": "<p style=\"margin:.35rem 0 0;font-size:.85rem;opacity:.75\">Jyavani — native PHP CMS. Fast, lightweight, easy to customize.</p>"
+                        }
                     }
-                },
-                "pages": {
-                    "type": "tz_nav_menu",
-                    "title": "Pages",
-                    "config": {
-                        "menu": "primary",
-                        "menu_class": "footer-links",
-                        "depth": 1
+                ],
+                "pages": [
+                    {
+                        "type": "tz_pages",
+                        "title": "Pages",
+                        "config": {
+                            "pages": [],
+                            "list_class": "tz-pages"
+                        }
                     }
-                },
-                "social": {
-                    "type": "tz_social",
-                    "title": "Social",
-                    "config": []
-                },
-                "copyright": {
-                    "type": "tz_html",
-                    "title": "Copyright",
-                    "config": {
-                        "html": "<p>&copy; 2026 Jyavani. Released under MIT License.</p>"
+                ],
+                "social": [
+                    {
+                        "type": "tz_social",
+                        "title": "Social",
+                        "config": {
+                            "enabled": [
+                                "x",
+                                "github",
+                                "instagram"
+                            ],
+                            "links": []
+                        }
                     }
-                }
+                ],
+                "copyright": [
+                    {
+                        "type": "tz_html",
+                        "title": "Copyright",
+                        "config": {
+                            "html": "<p style=\"margin:0;font-size:.85rem;opacity:.75\">&copy; 2026 Jyavani. Released under MIT License.</p>"
+                        }
+                    }
+                ]
             }
         },
         "single.post": {

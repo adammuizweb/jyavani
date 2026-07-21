@@ -194,6 +194,21 @@ Konsekuensi desain:
   - Admin `tz_zone_editor_html()` mengelompokkan positions per `row` — zone multi-baris
     digambar sebagai beberapa grid bertumpuk di kanvas.
   - `theme_mods` tetap ada sebagai sumber fallback tema; hanya UI editor legacy yang dihapus.
+
+- **Fase 3e:** ✅ Gadget proper: pages, social dinamis, richtext, CodeMirror. Done 2026-07-21:
+  - `tz_pages` — daftar link page dari `posts` type=page published; config checkbox pilih page
+    tertentu (kosong = semua) + `list_class`. Urutan mengikuti urutan pilihan user.
+  - `tz_social` **dinamis** — `theme_zone_social_networks()` berisi 8 jaringan populer
+    (facebook, x, instagram, youtube, github, tiktok, telegram, whatsapp) dengan SVG path dari
+    **Simple Icons (CC0)** — aman secara lisensi. Config: checkbox enable + URL per network.
+  - `tz_richtext` — editor **Quill** (sudah di-load global oleh admin layout core, jadi tidak
+    perlu depend ke plugin builder). Init lazy saat body widget dibuka (`tzInitEditors`).
+  - `tz_html` — textarea sekarang di-upgrade ke **CodeMirror** (`htmlmixed`, lineNumbers,
+    autoCloseTags) via lazy init yang sama.
+  - `tz_logo` — field `logo` URL (sudah ada sejak 3d).
+  - Footer default: about = tz_logo (logo `/static/img/jyavani.svg`) + tz_html about text;
+    pages = tz_pages; social = tz_social (x/github/instagram); copyright = teks kecil proper
+    (`font-size:.85rem; opacity:.75`).
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
   yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.

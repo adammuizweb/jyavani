@@ -31,6 +31,12 @@ $menus = function_exists('menu_get_all') ? menu_get_all($pdo) : [];
 $zones = function_exists('sidebar_zone_get_all') ? sidebar_zone_get_all($pdo) : [];
 $mods = theme_mods_all($pdo, $folder);
 
+// Daftar page published untuk gadget tz_pages
+$pagesList = [];
+try {
+    $pagesList = $pdo->query("SELECT title, slug FROM posts WHERE type = 'page' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {}
+
 $tzWidgets = function_exists('theme_zone_default_widget_types') ? theme_zone_default_widget_types() : [];
 $themeLayout = function_exists('theme_zone_layout') ? theme_zone_layout($folder) : [];
 
@@ -115,6 +121,24 @@ function tz_sanitize_config(string $type, array $config, array $tzWidgets): arra
             $out['logo'] = preg_match('#^(/|https?://)#i', trim((string)($config['logo'] ?? ''))) ? trim((string)$config['logo']) : '';
             break;
         case 'tz_social':
+            $nets = function_exists('theme_zone_social_networks') ? theme_zone_social_networks() : [];
+            $enabled = array_values(array_intersect(array_keys($nets), array_map('strval', (array)($config['enabled'] ?? []))));
+            $links = [];
+            foreach ((array)($config['links'] ?? []) as $k => $v) {
+                $k = (string)$k;
+                if (!isset($nets[$k])) continue;
+                $v = trim((string)$v);
+                if ($v !== '' && preg_match('#^https?://#i', $v)) $links[$k] = $v;
+            }
+            $out['enabled'] = $enabled;
+            $out['links'] = $links;
+            break;
+        case 'tz_pages':
+            $out['pages'] = array_values(array_filter(array_map(fn($s) => preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)$s), (array)($config['pages'] ?? []))));
+            $out['list_class'] = preg_replace('/[^a-zA-Z0-9_\- ]/', '', trim((string)($config['list_class'] ?? 'tz-pages'))) ?: 'tz-pages';
+            break;
+        case 'tz_richtext':
+            $out['html'] = (string)($config['html'] ?? '');
             break;
         case 'tz_sidebar_zone':
             $out['zone'] = preg_replace('/[^a-zA-Z0-9_\-]/', '', trim((string)($config['zone'] ?? '')));
@@ -174,7 +198,7 @@ function tz_widget_config_field(string $zoneSlug, string $position, int $itemId,
     return $out;
 }
 
-function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus, array $sidebarZones = []): string {
+function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus, array $sidebarZones = [], array $pagesList = []): string {
     $type = (string)($item['type'] ?? '');
     $config = json_decode((string)($item['config'] ?? '{}'), true) ?: [];
     $out = '';
@@ -191,7 +215,46 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'html', __('Custom HTML (overrides logo/title)'), $config['html'] ?? '', 'textarea') . '</div>';
             break;
         case 'tz_social':
-            $out .= '<div style="grid-column:1/-1;"><p class="muted" style="margin:0; font-size:13px;">' . __('Renders the theme social icons. No extra options.') . '</p></div>';
+            $nets = function_exists('theme_zone_social_networks') ? theme_zone_social_networks() : [];
+            $enabledNow = (array)($config['enabled'] ?? []);
+            $linksNow = (array)($config['links'] ?? []);
+            $out .= '<div style="grid-column:1/-1;">';
+            foreach ($nets as $netSlug => $netDef) {
+                $on = in_array($netSlug, $enabledNow, true);
+                $cbName = "widget[{$itemId}][config][enabled][]";
+                $urlName = "widget[{$itemId}][config][links][" . h($netSlug) . "]";
+                $out .= '<div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.45rem;">';
+                $out .= '<label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; min-width:110px; cursor:pointer;">';
+                $out .= '<input type="checkbox" name="' . $cbName . '" value="' . h($netSlug) . '"' . ($on ? ' checked' : '') . ' style="width:15px; height:15px; accent-color:var(--adam-primary);">';
+                $out .= h($netDef['label']) . '</label>';
+                $out .= '<input type="text" name="' . $urlName . '" value="' . h((string)($linksNow[$netSlug] ?? '')) . '" placeholder="https://" style="flex:1; padding:5px 9px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
+                $out .= '</div>';
+            }
+            $out .= '</div>';
+            break;
+        case 'tz_pages':
+            $selectedPages = (array)($config['pages'] ?? []);
+            $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Pages yang ditampilkan (kosong = semua)') . '</label>';
+            if (empty($pagesList)) {
+                $out .= '<p class="muted" style="margin:0; font-size:13px;">' . __('Belum ada page published.') . '</p>';
+            } else {
+                $out .= '<div style="max-height:180px; overflow-y:auto; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; padding:.5rem .75rem; display:flex; flex-direction:column; gap:.3rem;">';
+                foreach ($pagesList as $pg) {
+                    $pgSlug = (string)($pg['slug'] ?? '');
+                    $on = in_array($pgSlug, $selectedPages, true);
+                    $out .= '<label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:400;">';
+                    $out .= '<input type="checkbox" name="widget[' . $itemId . '][config][pages][]" value="' . h($pgSlug) . '"' . ($on ? ' checked' : '') . ' style="width:15px; height:15px; accent-color:var(--adam-primary);">';
+                    $out .= h((string)($pg['title'] ?? $pgSlug)) . ' <code style="font-size:11px; opacity:.6;">/' . h($pgSlug) . '/</code></label>';
+                }
+                $out .= '</div>';
+            }
+            $out .= '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'list_class', __('List CSS class'), $config['list_class'] ?? 'tz-pages') . '</div>';
+            break;
+        case 'tz_richtext':
+            $rtName = "widget[{$itemId}][config][html]";
+            $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Content') . '</label>';
+            $out .= '<textarea class="tz-richtext-area" name="' . $rtName . '" rows="5" style="width:100%; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px; font-family:inherit; box-sizing:border-box;">' . h((string)($config['html'] ?? '')) . '</textarea></div>';
             break;
         case 'tz_sidebar_zone':
             $zoneOptions = ['' => __('- Pilih sidebar zone -')];
@@ -217,7 +280,9 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'button', __('Show button'), $config['button'] ?? false, 'checkbox') . '</div>';
             break;
         case 'tz_html':
-            $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'html', __('HTML Content'), $config['html'] ?? '', 'textarea') . '</div>';
+            $cmName = "widget[{$itemId}][config][html]";
+            $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('HTML Content') . '</label>';
+            $out .= '<textarea class="tz-code-area" name="' . $cmName . '" rows="5" style="width:100%; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px; font-family:monospace; box-sizing:border-box;">' . h((string)($config['html'] ?? '')) . '</textarea></div>';
             break;
         case 'tz_post_author':
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_avatar', __('Show avatar'), $config['show_avatar'] ?? true, 'checkbox') . '</div>';
@@ -232,7 +297,7 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
 }
 
 // Render satu zone editor lengkap (tombol defaults + grid positions + gadget list + add form)
-function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, array $sidebarZones = []): string {
+function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, array $sidebarZones = [], array $pagesList = []): string {
     ob_start();
     $hasDefaults = !empty($layoutDef['defaults']) || in_array($zSlug, ['header', 'footer'], true);
     ?>
@@ -315,7 +380,7 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
 
                     <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
                       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
-                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones) ?>
+                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList) ?>
                       </div>
                     </div>
                   </div>
@@ -505,7 +570,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         <section class="tz-band" data-zone="header">
           <div class="tz-band-label"><?= h($zoneZones['header'] ?? __('Header')) ?></div>
           <div class="tz-band-body">
-            <?= tz_zone_editor_html($pdo, $folder, 'header', $themeLayout['header'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones) ?>
+            <?= tz_zone_editor_html($pdo, $folder, 'header', $themeLayout['header'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
           </div>
         </section>
       <?php endif; ?>
@@ -578,7 +643,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                   }
                   ?>
                   <?php if (!empty($pzDef) && !empty($pzDef['positions']) && is_array($pzDef['positions'])): ?>
-                    <?= tz_zone_editor_html($pdo, $folder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $zones) ?>
+                    <?= tz_zone_editor_html($pdo, $folder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
                   <?php else: ?>
                     <div class="adam-alert info"><?= __('This partial does not declare positions.') ?></div>
                   <?php endif; ?>
@@ -618,7 +683,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         <section class="tz-band" data-zone="footer">
           <div class="tz-band-label"><?= h($zoneZones['footer'] ?? __('Footer')) ?></div>
           <div class="tz-band-body">
-            <?= tz_zone_editor_html($pdo, $folder, 'footer', $themeLayout['footer'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones) ?>
+            <?= tz_zone_editor_html($pdo, $folder, 'footer', $themeLayout['footer'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
           </div>
         </section>
       <?php endif; ?>
@@ -647,12 +712,47 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
     });
   });
 
+  window.tzInitEditors = function(scope){
+    if (!scope) return;
+    scope.querySelectorAll('textarea.tz-richtext-area:not(.tz-ed-init)').forEach(function(ta){
+      if (typeof Quill === 'undefined') return;
+      ta.classList.add('tz-ed-init');
+      var div = document.createElement('div');
+      div.className = 'tz-quill-editor';
+      div.innerHTML = ta.value;
+      ta.style.display = 'none';
+      ta.parentNode.insertBefore(div, ta.nextSibling);
+      var q = new Quill(div, { theme: 'snow' });
+      q.on('text-change', function(){
+        ta.value = div.querySelector('.ql-editor').innerHTML;
+      });
+    });
+    scope.querySelectorAll('textarea.tz-code-area:not(.tz-ed-init)').forEach(function(ta){
+      if (typeof CodeMirror === 'undefined') return;
+      ta.classList.add('tz-ed-init');
+      var cm = CodeMirror.fromTextArea(ta, {
+        mode: 'htmlmixed',
+        lineNumbers: true,
+        autoCloseTags: true,
+        autoCloseBrackets: true
+      });
+      cm.setSize('100%', 180);
+      cm.on('change', function(){ cm.save(); });
+    });
+  };
+
   window.tzToggleWidget = function(header){
     var body = header.nextElementSibling;
     if (body && body.classList.contains('tz-body')) {
       body.style.display = body.style.display === 'none' ? 'block' : 'none';
+      if (body.style.display !== 'none') tzInitEditors(body);
     }
   };
+
+  // Init editor untuk widget body yang terbuka sejak awal
+  document.querySelectorAll('.tz-body').forEach(function(body){
+    if (body.style.display !== 'none') tzInitEditors(body);
+  });
 
   window.tzMoveWidget = function(btn, dir){
     var item = btn.closest('.tz-item');
@@ -893,4 +993,9 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
   }
   .tz-main-preview { grid-template-columns: 1fr !important; }
 }
+
+/* Editor gadget: Quill richtext + CodeMirror html */
+.tz-quill-editor { background: var(--adam-bg, #fff); border-radius: 0 0 6px 6px; }
+.tz-quill-editor .ql-editor { min-height: 120px; font-size: 14px; }
+.CodeMirror { border: 1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius: 6px; font-size: 13px; height: 180px; }
 </style>
