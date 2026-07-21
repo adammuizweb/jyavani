@@ -161,8 +161,9 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 $rendered = render_widget($type, $config, $pdo);
             }
             if (trim((string)$rendered) === '') continue;
-            // Tiap gadget selalu jadi row penuh di dalam position (tidak pernah berdampingan)
-            $html .= '<div class="tz-gadget tz-gadget-' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '" style="display:block;width:100%;">' . $rendered . '</div>';
+            // Wrapper netral (tanpa inline style) — layout position diatur tema,
+            // bukan core, supaya header/footer flex tidak rusak.
+            $html .= '<div class="tz-gadget tz-gadget-' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '">' . $rendered . '</div>';
         }
         return $html;
     }

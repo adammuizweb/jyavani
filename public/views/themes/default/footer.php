@@ -44,7 +44,7 @@ if (function_exists('theme_zone_has_position')) {
           <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1.25rem; width:100%; margin-bottom:1rem;">
             <?php foreach ($rowPositions as $fp): ?>
               <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
-                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>">
+                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; align-items:flex-start; gap:.35rem;">
                   <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
                 </div>
               <?php endif; ?>
