@@ -156,10 +156,13 @@ if (!function_exists('theme_zone_ensure_schema')) {
             $type = (string)($item['type'] ?? '');
             $config = json_decode((string)($item['config'] ?? '{}'), true) ?: [];
             if (function_exists('_render_single_widget')) {
-                $html .= _render_single_widget($pdo, $type, $config);
+                $rendered = _render_single_widget($pdo, $type, $config);
             } else {
-                $html .= render_widget($type, $config, $pdo);
+                $rendered = render_widget($type, $config, $pdo);
             }
+            if (trim((string)$rendered) === '') continue;
+            // Tiap gadget selalu jadi row penuh di dalam position (tidak pernah berdampingan)
+            $html .= '<div class="tz-gadget tz-gadget-' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '" style="display:block;width:100%;">' . $rendered . '</div>';
         }
         return $html;
     }
@@ -335,7 +338,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 $listClass = preg_replace('/[^a-zA-Z0-9_\- ]/', '', (string)($config['list_class'] ?? 'tz-pages'));
                 $titleText = trim((string)($config['title'] ?? ''));
                 $out = $titleText !== ''
-                    ? '<h2 class="tz-pages-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</h2>'
+                    ? '<div class="tz-html-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div>'
                     : '';
                 $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '">';
                 foreach ($rows as $r) {
