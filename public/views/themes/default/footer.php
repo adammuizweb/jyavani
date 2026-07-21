@@ -40,11 +40,21 @@ if (function_exists('theme_zone_has_position')) {
               if (theme_zone_has_position($pdo, 'footer', $fp)) { $rowHas = true; break; }
           }
           if (!$rowHas) continue;
+
+          // Alignment per position dari theme.json ("align": left|center|right; default center)
+          $tzFooterLayout = function_exists('theme_zone_layout') && function_exists('get_active_theme_folder')
+              ? (theme_zone_layout(get_active_theme_folder($pdo))['footer'] ?? [])
+              : [];
+          $tzAlignMap = ['left' => ['flex-start', 'left'], 'right' => ['flex-end', 'right'], 'center' => ['center', 'center']];
           ?>
           <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); justify-items:center; gap:1.25rem; width:100%; box-sizing:border-box; margin-top:10px; margin-bottom:1rem; padding:0 16px;">
             <?php foreach ($rowPositions as $fp): ?>
               <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
-                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:.35rem;">
+                <?php
+                $fpAlign = (string)($tzFooterLayout['positions'][$fp]['align'] ?? 'center');
+                [$fpItems, $fpText] = $tzAlignMap[$fpAlign] ?? $tzAlignMap['center'];
+                ?>
+                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; align-items:<?= $fpItems ?>; text-align:<?= $fpText ?>; gap:.35rem;">
                   <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
                 </div>
               <?php endif; ?>

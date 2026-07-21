@@ -145,19 +145,23 @@
             "positions": {
                 "about": {
                     "label": "About/Logo",
-                    "row": 1
+                    "row": 1,
+                    "align": "left"
                 },
                 "pages": {
                     "label": "Pages",
-                    "row": 1
+                    "row": 1,
+                    "align": "center"
                 },
                 "social": {
                     "label": "Social",
-                    "row": 1
+                    "row": 1,
+                    "align": "center"
                 },
                 "copyright": {
                     "label": "Copyright",
-                    "row": 2
+                    "row": 2,
+                    "align": "center"
                 }
             },
             "defaults": {
