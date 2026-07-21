@@ -12,6 +12,7 @@ $tcShowSocial = !function_exists('theme_mod') || theme_mod('show_social', true);
 $copyright = $tcFooterText !== '' ? $tcFooterText : __('©') . ' <span id="year"></span> ' . htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') . '. ' . __('Released under MIT License.');
 
 $hasFooterZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'main');
+$hasCopyrightZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'copyright');
 $footerRows = [1 => ['about', 'pages', 'social'], 2 => ['copyright']];
 $hasFooterCols = false;
 if (function_exists('theme_zone_has_position')) {
@@ -95,9 +96,11 @@ if (function_exists('theme_zone_has_position')) {
       <?php endif; ?>
     </div>
 
-    <!-- Baris 2: Copyright -->
+    <!-- Baris 2: Copyright — hanya jika tidak ada gadget copyright -->
+    <?php if (!$hasCopyrightZone): ?>
     <div class="footer-row-bottom">
       <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load"><?= $copyright ?></div>
     </div>
+    <?php endif; ?>
   </div>
 </footer>
