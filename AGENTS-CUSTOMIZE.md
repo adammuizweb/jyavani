@@ -55,23 +55,22 @@ c. `dashboard/admin/shortcodes` — gadget HTML/shortcode bisa memakai shortcode
 7. Schema di `/var/www/jyavani.lan/schema` harus menyesuaikan (migration baru, plus
    update `schema/default.sql`).
 
-## 4. Keadaan Saat Ini (baseline v2.3.17)
+## 4. Keadaan Saat Ini (final v2.3.17 — Fase 3 100%)
 
 Sudah ada:
-- `cfg/helpers/theme_zones.php` — schema gadget, CRUD, render, `theme_zone_render_position()`.
-- Tabel `theme_zone_items` (`zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`).
-- Gadget bawaan: `tz_logo`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`.
-- Admin `dashboard/admin/themes/customize.php` — tab Header/Main/Footer, add/configure/reorder/delete, Load Default Layout.
+- `cfg/helpers/theme_zones.php` — schema gadget, CRUD, render, `theme_zone_render_position()`,
+  `theme_zone_render_title()`, `theme_zone_content_align()`, `theme_zone_universal_defaults()`.
+- Tabel `theme_zone_items` dengan kolom `theme_folder` (per-theme scoping, migration `010`).
+- 13 gadget bawaan: `tz_image`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`,
+  `tz_html`, `tz_richtext`, `tz_pages`, `tz_social`, `tz_sidebar_zone`, `tz_post_author`,
+  `tz_post_meta`, `tz_post_contact`. Semua support universal title/alignment settings.
+- Admin `dashboard/admin/themes/customize.php` — kanvas full-page ala Blogspot (Header band →
+  Main row + Sidebar → Footer band), select partials, drag & drop antar-position,
+  gadget config form dengan alignment icon buttons + title tag selector.
 - `theme_mods_{folder}` (JSON di settings) untuk Theme Customizer fields.
 - Header/footer default & adam sudah zone-aware dengan fallback hardcode.
-
-Kekurangan yang harus dikerjakan di branch ini:
-- `theme_zone_items` belum per-tema → tambah kolom `theme_folder` (atau tabel baru).
-- Zone baru belum ada: `single.post`, `list.post`, `page.single`, partials.
-- Belum ada drag & drop antar-position (sekarang hanya reorder dalam satu position).
-- Toggle single post (author/date/read time) masih theme_mods — perlu diekspos sebagai partial yang bisa di-drag.
-- Integrasi shortcode builder di gadget `tz_html` belum ada UI-nya.
-- Belum ada preview/visual mapping seperti Blogspot.
+- Semua gadget renderer sudah menggunakan `theme_zone_render_title()` + `width:100%` agar
+  `text-align` berfungsi dalam flex container dengan `align-items:center`.
 
 ## 5. Rencana Schema (draft — finalisasi saat implementasi)
 
@@ -219,11 +218,23 @@ Konsekuensi desain:
   - Gadget baru `tz_image` — config `src` (input + tombol **Pilih dari Media** yang memanggil
     `openMediaSelector()` dari CMS core: `modal-helpers.js` + `media-selector.js` di-include
     di halaman customize), `alt`, `link`, `max_width`. Live preview saat URL diketik.
-  - `tz_pages` me-render `<h2 class="tz-pages-title">` dari `config.title` bila diisi
-    (judul harus masuk config, bukan hanya kolom title — sanitizer memang menyalinnya).
+  - `tz_pages` me-render judul dari `theme_zone_render_title()` (title tag + alignment).
   - Migrasi DB: gadget `tz_logo` header/footer → `tz_html` brand; gadget kosong dihapus.
-- **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
-  yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
+  - **Universal gadget settings (3g):** ✅ Dijalankan bersamaan dengan 3f. Done 2026-07-21:
+    - `theme_zone_render_title(string $titleText, array $config): string` — render title dengan
+      tag (div/h1–h6) + inline `style="width:100%;text-align:left|center|right"`. Default left.
+    - `theme_zone_content_align(array $config): string` — baca `_align_content` → css value.
+    - `theme_zone_universal_defaults(): array` — return `['_title_tag'=>'div', '_align_title'=>'left',
+      '_align_content'=>'left']`.
+    - Semua 13 gadget registrasi pakai `array_merge($uni, ...)`.
+    - Renderer `tz_html`, `tz_richtext`, `tz_social`, `tz_pages` panggil helpers.
+    - Admin config form: dropdown Title Tag, icon buttons Title Align + Content Align
+      (Lucide SVG icons). Backward compat: gadget tanpa universal keys render tanpa inline style.
+    - Seed data `default.sql`: semua 11 rows include key universal eksplisit.
+    - `customize.php` define `.btn-primary`, `.btn-secondary`, `.tz-align-btn:hover` —
+      tombol konsisten dengan halaman admin lain.
+- **Fase 4:** Integrasi shortcode builder ke gadget HTML/richtext (UI picker di CodeMirror/Quill);
+  panel pilih menu/sidebar zone yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.
 - **Fase 6:** Hook/kontrak untuk theme-builder, jyavani-builder, form-builder.
 
