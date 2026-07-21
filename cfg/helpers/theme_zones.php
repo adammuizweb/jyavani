@@ -161,9 +161,10 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 $rendered = render_widget($type, $config, $pdo);
             }
             if (trim((string)$rendered) === '') continue;
-            // Wrapper netral (tanpa inline style) — layout position diatur tema,
-            // bukan core, supaya header/footer flex tidak rusak.
-            $html .= '<div class="tz-gadget tz-gadget-' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '">' . $rendered . '</div>';
+            // Wrapper display:contents — secara layout "tidak ada", sehingga isi gadget
+            // kembali menjadi flex/grid item langsung dari position parent (header/footer
+            // tidak rusak), sementara class tetap tersedia untuk namespacing CSS tema.
+            $html .= '<div class="tz-gadget tz-gadget-' . htmlspecialchars($type, ENT_QUOTES, 'UTF-8') . '" style="display:contents;">' . $rendered . '</div>';
         }
         return $html;
     }
