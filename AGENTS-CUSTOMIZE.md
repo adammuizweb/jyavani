@@ -100,6 +100,8 @@ Kekurangan yang harus dikerjakan di branch ini:
   `min(jumlah positions, 4)`. Murni untuk tampilan admin, tidak memaksa CSS tema.
 - `row` (opsional, default 1) — pengelompokan baris position; admin menggambar tiap baris
   sebagai grid terpisah, template render per baris (contoh: footer About|Pages|Social + Copyright).
+- `align` (opsional, `left`|`center`|`right`, default `center`) — alignment isi position di
+  frontend; template footer memetakan ke `align-items` + `text-align` per cell.
 
 Tema consume lewat `theme_zone_render_position('single.post', 'after_content')` dst.,
 dengan fallback ke partial bawaan jika kosong. Untuk gadget yang butuh data post
