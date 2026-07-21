@@ -346,7 +346,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 $out = $titleText !== ''
                     ? '<div class="tz-html-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div>'
                     : '';
-                $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '">';
+                $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '" style="text-align:left;">';
                 foreach ($rows as $r) {
                     $href = function_exists('get_page_permalink') ? get_page_permalink($r) : '/' . rawurlencode((string)$r['slug']) . '/';
                     $out .= '<li class="tz-page-item"><a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)($r['title'] ?? $r['slug']), ENT_QUOTES, 'UTF-8') . '</a></li>';
