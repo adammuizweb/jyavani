@@ -114,11 +114,11 @@ function tz_sanitize_config(string $type, array $config, array $tzWidgets): arra
     }
 
     switch ($type) {
-        case 'tz_logo':
-            $out['use_logo'] = !empty($config['use_logo']);
-            $out['show_title'] = !empty($config['show_title']);
-            $out['html'] = (string)($config['html'] ?? '');
-            $out['logo'] = preg_match('#^(/|https?://)#i', trim((string)($config['logo'] ?? ''))) ? trim((string)$config['logo']) : '';
+        case 'tz_image':
+            $out['src'] = preg_match('#^(/|https?://)#i', trim((string)($config['src'] ?? ''))) ? trim((string)$config['src']) : '';
+            $out['alt'] = trim((string)($config['alt'] ?? ''));
+            $out['link'] = preg_match('#^(/|https?://)#i', trim((string)($config['link'] ?? ''))) ? trim((string)$config['link']) : '';
+            $out['max_width'] = max(0, min(2000, (int)($config['max_width'] ?? 0)));
             break;
         case 'tz_social':
             $nets = function_exists('theme_zone_social_networks') ? theme_zone_social_networks() : [];
@@ -208,11 +208,20 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
     $out .= '</div>';
 
     switch ($type) {
-        case 'tz_logo':
-            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'use_logo', __('Use logo image'), $config['use_logo'] ?? true, 'checkbox') . '</div>';
-            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_title', __('Show site title'), $config['show_title'] ?? false, 'checkbox') . '</div>';
-            $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'logo', __('Logo image URL (kosong = theme_mod/default)'), $config['logo'] ?? '') . '</div>';
-            $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'html', __('Custom HTML (overrides logo/title)'), $config['html'] ?? '', 'textarea') . '</div>';
+        case 'tz_image':
+            $srcName = "widget[{$itemId}][config][src]";
+            $srcId = 'tz-img-src-' . $itemId;
+            $out .= '<div style="grid-column:1/-1;">';
+            $out .= '<label for="' . $srcId . '" style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Image') . '</label>';
+            $out .= '<div style="display:flex; gap:.5rem; align-items:center;">';
+            $out .= '<input type="text" name="' . $srcName . '" id="' . $srcId . '" value="' . h((string)($config['src'] ?? '')) . '" placeholder="/static/img/..." style="flex:1; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
+            $out .= '<button type="button" class="btn btn-secondary tz-img-pick-btn" data-target="' . $srcId . '" style="padding:.4rem .75rem; white-space:nowrap;">' . __('Pilih dari Media') . '</button>';
+            $out .= '</div>';
+            $out .= '<div class="tz-img-preview" id="' . $srcId . '-preview" style="margin-top:.5rem;' . (empty($config['src']) ? 'display:none;' : '') . '"><img src="' . h((string)($config['src'] ?? '')) . '" alt="" style="max-height:64px; max-width:200px; border-radius:6px; background:rgba(127,127,127,.1); padding:4px;"></div>';
+            $out .= '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'alt', __('Alt text'), $config['alt'] ?? '') . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'link', __('Link URL (opsional)'), $config['link'] ?? '') . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'max_width', __('Max width px (0 = auto)'), $config['max_width'] ?? 0) . '</div>';
             break;
         case 'tz_social':
             $nets = function_exists('theme_zone_social_networks') ? theme_zone_social_networks() : [];
@@ -499,7 +508,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
             // Fallback generic defaults hanya untuk header/footer; zone lain harus declare sendiri
             if ($zone === 'header') {
                 $layoutDefaults = [
-                    'logo' => [['type' => 'tz_logo', 'title' => __('Site Logo'), 'config' => ['use_logo' => true, 'show_title' => false]]],
+                    'logo' => [['type' => 'tz_html', 'title' => __('Site Logo'), 'config' => ['title' => '', 'html' => '<a href="/" class="tz-brand">' . h($site['title'] ?? 'Site') . '</a>']]],
                     'nav' => [['type' => 'tz_nav_menu', 'title' => __('Navigation'), 'config' => ['menu' => 'primary', 'menu_class' => 'menu', 'depth' => 1, 'ul_attr' => '']]],
                     'controls' => [
                         ['type' => 'tz_theme_toggle', 'title' => __('Theme Toggle'), 'config' => ['label' => '']],
@@ -699,6 +708,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
   <input type="hidden" name="tz_id" id="tz-delete-id" value="">
 </form>
 
+<script src="/static/js/add/modal-helpers.js"></script>
+<script src="/static/js/add/media-selector.js"></script>
+
 <script>
 (function(){
   document.querySelectorAll('input[type="text"][id^="tc-"]').forEach(function(inp){
@@ -752,6 +764,36 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
   // Init editor untuk widget body yang terbuka sejak awal
   document.querySelectorAll('.tz-body').forEach(function(body){
     if (body.style.display !== 'none') tzInitEditors(body);
+  });
+
+  // ─── Image picker via media modal CMS core ───
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.tz-img-pick-btn');
+    if (!btn) return;
+    e.preventDefault();
+    var targetId = btn.getAttribute('data-target');
+    var input = document.getElementById(targetId);
+    if (!input || typeof openMediaSelector !== 'function') return;
+    openMediaSelector({ url: (window.ADMIN_PATH || '/adiwira') + '/admin/modal_img/index.php?embedded=1' }).then(function(detail){
+      var m = (typeof normalizeMedia === 'function') ? normalizeMedia(detail) : detail;
+      if (m && m.url) {
+        input.value = m.url;
+        var preview = document.getElementById(targetId + '-preview');
+        if (preview) { preview.querySelector('img').src = m.url; preview.style.display = 'block'; }
+      }
+    });
+  });
+
+  // Live preview saat URL gambar diketik manual
+  document.addEventListener('input', function(e){
+    var inp = e.target;
+    if (!inp.matches || !inp.matches('input[id^="tz-img-src-"]')) return;
+    var preview = document.getElementById(inp.id + '-preview');
+    if (!preview) return;
+    var v = inp.value.trim();
+    if (v === '') { preview.style.display = 'none'; return; }
+    preview.querySelector('img').src = v;
+    preview.style.display = 'block';
   });
 
   window.tzMoveWidget = function(btn, dir){

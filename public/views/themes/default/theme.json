@@ -111,9 +111,10 @@
             },
             "defaults": {
                 "logo": {
-                    "type": "tz_logo",
+                    "type": "tz_html",
                     "title": "Logo Jyavani",
                     "config": {
+                        "title": "",
                         "html": "<a href=\"/\" class=\"brand onload wave-span\" data-anim-trigger=\"load\" data-wave-target=\".jyavani-logo\" data-wave-step=\"28\">\n  <img src=\"/static/img/jyavani.svg\" alt=\"Jyavani\" class=\"flip-logo onload\" data-anim-trigger=\"load\" data-fl-duration=\"900\" data-fl-delay=\"120\">\n  <span class=\"jyavani-logo\" aria-label=\"Jyavani\">\n    <span class=\"letter accent\" data-word=\"Just\">J</span>\n    <span class=\"letter base\" data-word=\"Your\">y</span>\n    <span class=\"letter accent\" data-word=\"Visiting\">v</span>\n    <span class=\"letter base\" data-word=\"Always\">a</span>\n    <span class=\"letter base\" data-word=\"Nice\">n</span>\n    <span class=\"letter base\" data-word=\"Inspire\">i</span>\n  </span>\n</a>"
                     }
                 },
@@ -162,12 +163,11 @@
             "defaults": {
                 "about": [
                     {
-                        "type": "tz_logo",
-                        "title": "Site Logo",
+                        "type": "tz_html",
+                        "title": "Brand",
                         "config": {
-                            "use_logo": true,
-                            "show_title": false,
-                            "logo": "/static/img/jyavani.svg"
+                            "title": "",
+                            "html": "<a href=\"/\" class=\"brand onload wave-span\" data-anim-trigger=\"load\" data-wave-target=\".jyavani-logo\" data-wave-step=\"28\">\n  <img src=\"/static/img/jyavani.svg\" alt=\"Jyavani\" class=\"flip-logo onload\" data-anim-trigger=\"load\" data-fl-duration=\"900\" data-fl-delay=\"120\">\n  <span class=\"jyavani-logo\" aria-label=\"Jyavani\">\n    <span class=\"letter accent\" data-word=\"Just\">J</span>\n    <span class=\"letter base\" data-word=\"Your\">y</span>\n    <span class=\"letter accent\" data-word=\"Visiting\">v</span>\n    <span class=\"letter base\" data-word=\"Always\">a</span>\n    <span class=\"letter base\" data-word=\"Nice\">n</span>\n    <span class=\"letter base\" data-word=\"Inspire\">i</span>\n  </span>\n</a>"
                         }
                     },
                     {
@@ -184,7 +184,8 @@
                         "title": "Pages",
                         "config": {
                             "pages": [],
-                            "list_class": "tz-pages"
+                            "list_class": "tz-pages",
+                            "title": "Pages"
                         }
                     }
                 ],

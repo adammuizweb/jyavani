@@ -209,6 +209,17 @@ Konsekuensi desain:
   - Footer default: about = tz_logo (logo `/static/img/jyavani.svg`) + tz_html about text;
     pages = tz_pages; social = tz_social (x/github/instagram); copyright = teks kecil proper
     (`font-size:.85rem; opacity:.75`).
+
+- **Fase 3f:** ✅ `tz_logo` DIHAPUS, diganti `tz_image` + brand HTML. Done 2026-07-21:
+  - Gadget `tz_logo` dihapus total (registry, renderer, sanitizer, config form, fallback defaults).
+    Logo bermerek (brand HTML animasi Jyavani/Adamz) sekarang cukup pakai `tz_html` —
+    header DAN footer memakai brand HTML yang sama dari `theme.json` header defaults.
+  - Gadget baru `tz_image` — config `src` (input + tombol **Pilih dari Media** yang memanggil
+    `openMediaSelector()` dari CMS core: `modal-helpers.js` + `media-selector.js` di-include
+    di halaman customize), `alt`, `link`, `max_width`. Live preview saat URL diketik.
+  - `tz_pages` me-render `<h2 class="tz-pages-title">` dari `config.title` bila diisi
+    (judul harus masuk config, bukan hanya kolom title — sanitizer memang menyalinnya).
+  - Migrasi DB: gadget `tz_logo` header/footer → `tz_html` brand; gadget kosong dihapus.
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
   yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.

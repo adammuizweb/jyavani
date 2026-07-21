@@ -196,10 +196,10 @@ if (!function_exists('theme_zone_ensure_schema')) {
     // through the regular sidebar widget system so they can also appear there.
     function theme_zone_default_widget_types(): array {
         return [
-            'tz_logo' => [
-                'label' => __('Site Logo'),
-                'desc'  => __('Logo image with site title fallback. Reads config logo, theme_mod("logo"), or theme default.'),
-                'default_config' => ['use_logo' => true, 'show_title' => false, 'logo' => ''],
+            'tz_image' => [
+                'label' => __('Image'),
+                'desc'  => __('Gambar dari Media Library (modal picker) atau URL langsung.'),
+                'default_config' => ['src' => '', 'alt' => '', 'link' => '', 'max_width' => 0],
             ],
             'tz_nav_menu' => [
                 'label' => __('Navigation Menu'),
@@ -273,28 +273,19 @@ if (!function_exists('theme_zone_ensure_schema')) {
         }
 
         switch ($type) {
-            case 'tz_logo':
-                $logo = trim((string)($config['logo'] ?? ''));
-                if ($logo === '' && function_exists('theme_mod')) {
-                    $logo = (string)theme_mod('logo', '');
+            case 'tz_image':
+                $src = trim((string)($config['src'] ?? ''));
+                if ($src === '') return '';
+                $alt = htmlspecialchars((string)($config['alt'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $link = trim((string)($config['link'] ?? ''));
+                $maxWidth = (int)($config['max_width'] ?? 0);
+                $style = 'height:auto;';
+                $style = 'max-width:' . ($maxWidth > 0 ? $maxWidth . 'px' : '100%') . ';height:auto;';
+                $img = '<img src="' . htmlspecialchars($src, ENT_QUOTES, 'UTF-8') . '" alt="' . $alt . '" class="tz-image" style="' . $style . '">';
+                if ($link !== '' && preg_match('#^(/|https?://)#i', $link)) {
+                    return '<a href="' . htmlspecialchars($link, ENT_QUOTES, 'UTF-8') . '" class="tz-image-link">' . $img . '</a>';
                 }
-                $showTitle = !empty($config['show_title']);
-                $useLogo = !empty($config['use_logo']);
-                $customHtml = trim((string)($config['html'] ?? ''));
-                $title = htmlspecialchars((string)$site['title'], ENT_QUOTES, 'UTF-8');
-                $homeUrl = rtrim((string)($site['url'] ?? '/'), '/') . '/';
-                if ($customHtml !== '') {
-                    return $customHtml;
-                }
-                $out = '';
-                if ($useLogo && $logo !== '') {
-                    $out .= '<a href="' . htmlspecialchars($homeUrl, ENT_QUOTES) . '" class="tz-brand">';
-                    $out .= '<img src="' . htmlspecialchars($logo, ENT_QUOTES) . '" alt="' . $title . '" class="tz-logo" style="max-height:44px;">';
-                    $out .= '</a>';
-                } elseif ($useLogo || $showTitle) {
-                    $out .= '<a href="' . htmlspecialchars($homeUrl, ENT_QUOTES) . '" class="tz-brand">' . $title . '</a>';
-                }
-                return $out;
+                return $img;
 
             case 'tz_nav_menu':
                 $menu = (string)($config['menu'] ?? 'primary');
@@ -342,7 +333,11 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 }
                 if (empty($rows)) return '';
                 $listClass = preg_replace('/[^a-zA-Z0-9_\- ]/', '', (string)($config['list_class'] ?? 'tz-pages'));
-                $out = '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '">';
+                $titleText = trim((string)($config['title'] ?? ''));
+                $out = $titleText !== ''
+                    ? '<h2 class="tz-pages-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</h2>'
+                    : '';
+                $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '">';
                 foreach ($rows as $r) {
                     $href = function_exists('get_page_permalink') ? get_page_permalink($r) : '/' . rawurlencode((string)$r['slug']) . '/';
                     $out .= '<li class="tz-page-item"><a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)($r['title'] ?? $r['slug']), ENT_QUOTES, 'UTF-8') . '</a></li>';
