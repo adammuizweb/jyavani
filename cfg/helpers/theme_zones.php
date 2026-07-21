@@ -197,69 +197,94 @@ if (!function_exists('theme_zone_ensure_schema')) {
         ];
     }
 
+    // ─── Universal gadget display helpers ───
+    // Key-name   = _title_tag, _align_title, _align_content
+    // Stored in  $config alongside type-specific keys.
+    // Rendered via helpers below so every gadget respects them.
+
+    function theme_zone_render_title(string $titleText, array $config): string {
+        $titleText = trim($titleText);
+        if ($titleText === '') return '';
+        $tag = in_array((string)($config['_title_tag'] ?? ''), ['h1','h2','h3','h4','h5','h6'], true)
+            ? $config['_title_tag'] : 'div';
+        $align = (string)($config['_align_title'] ?? 'left');
+        if (!in_array($align, ['left','center','right'], true)) $align = 'left';
+        return '<' . $tag . ' class="tz-title" style="width:100%;text-align:' . $align . ';">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</' . $tag . '>';
+    }
+
+    function theme_zone_content_align(array $config): string {
+        $align = $config['_align_content'] ?? '';
+        return in_array($align, ['left', 'center', 'right'], true) ? $align : '';
+    }
+
+    function theme_zone_universal_defaults(): array {
+        return ['_title_tag' => 'div', '_align_title' => 'left', '_align_content' => 'left'];
+    }
+
     // Widget types intended for theme zones (header/footer). They are registered
     // through the regular sidebar widget system so they can also appear there.
     function theme_zone_default_widget_types(): array {
+        $uni = theme_zone_universal_defaults();
         return [
             'tz_image' => [
                 'label' => __('Image'),
                 'desc'  => __('Gambar dari Media Library (modal picker) atau URL langsung.'),
-                'default_config' => ['src' => '', 'alt' => '', 'link' => '', 'max_width' => 0],
+                'default_config' => array_merge($uni, ['src' => '', 'alt' => '', 'link' => '', 'max_width' => 0]),
             ],
             'tz_nav_menu' => [
                 'label' => __('Navigation Menu'),
                 'desc'  => __('Renders a menu from Menu Manager.'),
-                'default_config' => ['menu' => 'primary', 'menu_class' => 'menu', 'depth' => 1],
+                'default_config' => array_merge($uni, ['menu' => 'primary', 'menu_class' => 'menu', 'depth' => 1]),
             ],
             'tz_social' => [
                 'label' => __('Social Icons'),
                 'desc'  => __('Pilih sosial media populer yang ingin ditampilkan (icon Simple Icons CC0).'),
-                'default_config' => ['enabled' => ['x', 'github', 'instagram'], 'links' => []],
+                'default_config' => array_merge($uni, ['enabled' => ['x', 'github', 'instagram'], 'links' => []]),
             ],
             'tz_pages' => [
                 'label' => __('Page List'),
                 'desc'  => __('Daftar link page dari Pages admin. Kosong = semua page published.'),
-                'default_config' => ['pages' => [], 'list_class' => 'tz-pages'],
+                'default_config' => array_merge($uni, ['pages' => [], 'list_class' => 'tz-pages']),
             ],
             'tz_richtext' => [
                 'label' => __('Rich Text'),
                 'desc'  => __('Konten rich text (Quill) — heading, bold, link, list, dll.'),
-                'default_config' => ['html' => ''],
+                'default_config' => array_merge($uni, ['html' => '']),
             ],
             'tz_sidebar_zone' => [
                 'label' => __('Sidebar Zone'),
                 'desc'  => __('Renders a sidebar zone from Sidebar Settings.'),
-                'default_config' => ['zone' => ''],
+                'default_config' => array_merge($uni, ['zone' => '']),
             ],
             'tz_theme_toggle' => [
                 'label' => __('Theme Toggle'),
                 'desc'  => __('Light / Dark mode selector.'),
-                'default_config' => ['label' => ''],
+                'default_config' => array_merge($uni, ['label' => '']),
             ],
             'tz_lang_switcher' => [
                 'label' => __('Language Switcher'),
                 'desc'  => __('Language selector. Requires content-translation plugin.'),
-                'default_config' => ['title' => ''],
+                'default_config' => array_merge($uni, ['title' => '']),
             ],
             'tz_search' => [
                 'label' => __('Search Field'),
                 'desc'  => __('Article search form.'),
-                'default_config' => ['placeholder' => __('Search...'), 'button' => false],
+                'default_config' => array_merge($uni, ['placeholder' => __('Search...'), 'button' => false]),
             ],
             'tz_html' => [
                 'label' => __('Custom HTML'),
                 'desc'  => __('Free HTML content.'),
-                'default_config' => ['title' => '', 'html' => ''],
+                'default_config' => array_merge($uni, ['title' => '', 'html' => '']),
             ],
             'tz_post_author' => [
                 'label' => __('Post Author'),
                 'desc'  => __('Author box for single post. Reads the current post context.'),
-                'default_config' => ['show_avatar' => true],
+                'default_config' => array_merge($uni, ['show_avatar' => true]),
             ],
             'tz_post_meta' => [
                 'label' => __('Post Meta'),
                 'desc'  => __('Date / updated / read-time row for single post.'),
-                'default_config' => ['show_date' => true, 'show_updated' => false, 'show_read_time' => true],
+                'default_config' => array_merge($uni, ['show_date' => true, 'show_updated' => false, 'show_read_time' => true]),
             ],
         ];
     }
@@ -320,10 +345,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
                         . '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="' . $networks[$net]['path'] . '" fill="currentColor"/></svg></a>';
                 }
                 if ($out === '') return '';
-                $titleText = trim((string)($config['title'] ?? ''));
-                $titleHtml = $titleText !== ''
-                    ? '<div class="tz-html-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div>'
-                    : '';
+                $titleHtml = theme_zone_render_title((string)($config['title'] ?? ''), $config);
                 return $titleHtml . '<div class="tz-social social-icons" role="list">' . $out . '</div>';
 
             case 'tz_pages':
@@ -336,17 +358,15 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 }
                 if (!empty($selected)) {
                     $rows = array_values(array_filter($rows, fn($r) => in_array((string)$r['slug'], $selected, true)));
-                    // urutkan sesuai urutan pilihan user
                     $order = array_flip($selected);
                     usort($rows, fn($a, $b) => ($order[(string)$a['slug']] ?? 999) <=> ($order[(string)$b['slug']] ?? 999));
                 }
                 if (empty($rows)) return '';
                 $listClass = preg_replace('/[^a-zA-Z0-9_\- ]/', '', (string)($config['list_class'] ?? 'tz-pages'));
-                $titleText = trim((string)($config['title'] ?? ''));
-                $out = $titleText !== ''
-                    ? '<div class="tz-html-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div>'
-                    : '';
-                $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '" style="text-align:left;">';
+                $out = theme_zone_render_title((string)($config['title'] ?? ''), $config);
+                $contAlign = theme_zone_content_align($config);
+                $ulStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
+                $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '"' . $ulStyle . '>';
                 foreach ($rows as $r) {
                     $href = function_exists('get_page_permalink') ? get_page_permalink($r) : '/' . rawurlencode((string)$r['slug']) . '/';
                     $out .= '<li class="tz-page-item"><a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)($r['title'] ?? $r['slug']), ENT_QUOTES, 'UTF-8') . '</a></li>';
@@ -354,12 +374,15 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 return $out . '</ul>';
 
             case 'tz_richtext':
-                $titleText = (string)($config['title'] ?? '');
                 $htmlContent = (string)($config['html'] ?? '');
-                if ($titleText !== '') {
-                    return '<div class="tz-richtext"><div class="tz-richtext-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div><div class="tz-richtext-content">' . $htmlContent . '</div></div>';
+                $titleHtml = theme_zone_render_title((string)($config['title'] ?? ''), $config);
+                $contAlign = theme_zone_content_align($config);
+                $contStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
+                if ($titleHtml !== '') {
+                    return '<div class="tz-richtext">' . $titleHtml . '<div class="tz-richtext-content"' . $contStyle . '>' . $htmlContent . '</div></div>';
                 }
-                return '<div class="tz-richtext">' . $htmlContent . '</div>';
+                $wrapStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
+                return '<div class="tz-richtext"' . $wrapStyle . '>' . $htmlContent . '</div>';
 
             case 'tz_sidebar_zone':
                 $sbZone = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)($config['zone'] ?? ''));
@@ -393,10 +416,15 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 return $out;
 
             case 'tz_html':
-                $titleText = (string)($config['title'] ?? '');
                 $htmlContent = (string)($config['html'] ?? '');
-                if ($titleText !== '') {
-                    return '<div class="tz-html"><div class="tz-html-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div><div class="tz-html-content">' . $htmlContent . '</div></div>';
+                $titleHtml = theme_zone_render_title((string)($config['title'] ?? ''), $config);
+                $contAlign = theme_zone_content_align($config);
+                $contStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
+                if ($titleHtml !== '') {
+                    return '<div class="tz-html">' . $titleHtml . '<div class="tz-html-content"' . $contStyle . '>' . $htmlContent . '</div></div>';
+                }
+                if ($contAlign !== '') {
+                    return '<div class="tz-html" style="width:100%;text-align:' . $contAlign . ';">' . $htmlContent . '</div>';
                 }
                 return $htmlContent;
 

@@ -118,6 +118,14 @@ function tz_sanitize_config(string $type, array $config, array $tzWidgets): arra
         $out['title'] = trim((string)$config['title']);
     }
 
+    // Universal display settings
+    $tag = (string)($config['_title_tag'] ?? 'div');
+    $out['_title_tag'] = in_array($tag, ['h1','h2','h3','h4','h5','h6'], true) ? $tag : 'div';
+    $align = (string)($config['_align_title'] ?? 'left');
+    $out['_align_title'] = in_array($align, ['left','center','right'], true) ? $align : 'left';
+    $cAlign = (string)($config['_align_content'] ?? 'left');
+    $out['_align_content'] = in_array($cAlign, ['left','center','right'], true) ? $cAlign : 'left';
+
     switch ($type) {
         case 'tz_image':
             $out['src'] = preg_match('#^(/|https?://)#i', trim((string)($config['src'] ?? ''))) ? trim((string)$config['src']) : '';
@@ -210,6 +218,52 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
 
     $out .= '<div style="grid-column:1/-1;">';
     $out .= tz_widget_config_field($zoneSlug, $position, $itemId, 'title', __('Widget Title'), $config['title'] ?? $item['title'] ?? '');
+    $out .= '</div>';
+
+    // ── Universal display settings ──
+    $titleTag = $config['_title_tag'] ?? 'div';
+    $alignTitle = $config['_align_title'] ?? 'left';
+    $alignContent = $config['_align_content'] ?? 'left';
+
+    // Title tag selector
+    $tagName = "widget[{$itemId}][config][_title_tag]";
+    $out .= '<div>';
+    $out .= '<label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted,#777);margin-bottom:4px;">' . __('Title Tag') . '</label>';
+    $out .= '<select name="' . h($tagName) . '" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2,rgba(127,127,127,.35));border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">';
+    foreach (['div','h1','h2','h3','h4','h5','h6'] as $opt) {
+        $sel = $opt === $titleTag ? ' selected' : '';
+        $out .= '<option value="' . $opt . '"' . $sel . '>' . $opt . '</option>';
+    }
+    $out .= '</select></div>';
+
+    // Title alignment icon buttons
+    $alignFieldName = "widget[{$itemId}][config][_align_title]";
+    $out .= '<div>';
+    $out .= '<label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted,#777);margin-bottom:4px;">' . __('Title Align') . '</label>';
+    $out .= '<div class="tz-align-btns" style="display:flex;gap:4px;">';
+    foreach (['left','center','right'] as $al) {
+        $active = $al === $alignTitle ? ' is-active' : '';
+        $out .= '<button type="button" class="tz-align-btn' . $active . '" data-field="' . h($alignFieldName) . '" data-value="' . $al . '" style="flex:1;border:1px solid var(--adam-border-2,rgba(127,127,127,.35));border-radius:6px;padding:6px 0;cursor:pointer;background:var(--adam-bg);color:var(--adam-text);display:flex;align-items:center;justify-content:center;" onclick="this.closest(\'.tz-align-btns\').querySelectorAll(\'.tz-align-btn\').forEach(b=>b.classList.remove(\'is-active\'));this.classList.add(\'is-active\');document.getElementsByName(this.dataset.field)[0].value=this.dataset.value;">';
+        $out .= svg_ico('align-' . $al, '', ['style' => 'width:16px;height:16px;']);
+        $out .= '</button>';
+    }
+    $out .= '</div>';
+    $out .= '<input type="hidden" name="' . h($alignFieldName) . '" value="' . h($alignTitle) . '">';
+    $out .= '</div>';
+
+    // Content alignment icon buttons
+    $contFieldName = "widget[{$itemId}][config][_align_content]";
+    $out .= '<div>';
+    $out .= '<label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted,#777);margin-bottom:4px;">' . __('Content Align') . '</label>';
+    $out .= '<div class="tz-align-btns" style="display:flex;gap:4px;">';
+    foreach (['left','center','right'] as $al) {
+        $active = $al === $alignContent ? ' is-active' : '';
+        $out .= '<button type="button" class="tz-align-btn' . $active . '" data-field="' . h($contFieldName) . '" data-value="' . $al . '" style="flex:1;border:1px solid var(--adam-border-2,rgba(127,127,127,.35));border-radius:6px;padding:6px 0;cursor:pointer;background:var(--adam-bg);color:var(--adam-text);display:flex;align-items:center;justify-content:center;" onclick="this.closest(\'.tz-align-btns\').querySelectorAll(\'.tz-align-btn\').forEach(b=>b.classList.remove(\'is-active\'));this.classList.add(\'is-active\');document.getElementsByName(this.dataset.field)[0].value=this.dataset.value;">';
+        $out .= svg_ico('align-' . $al, '', ['style' => 'width:16px;height:16px;']);
+        $out .= '</button>';
+    }
+    $out .= '</div>';
+    $out .= '<input type="hidden" name="' . h($contFieldName) . '" value="' . h($alignContent) . '">';
     $out .= '</div>';
 
     switch ($type) {
@@ -1021,6 +1075,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 .tz-grip:active { cursor: grabbing; }
 .tz-item .tz-body { grid-template-columns: 1fr; }
 button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
+.tz-align-btn.is-active { border-color: var(--adam-primary, #0066ff) !important; background: var(--adam-primary-soft, rgba(0,102,255,.1)) !important; color: var(--adam-primary, #0066ff) !important; }
+.tz-align-btn.is-active svg { stroke: var(--adam-primary, #0066ff); }
+.btn-primary { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
+.btn-primary:hover { background:var(--adam-primary-600); }
+.btn-secondary { background:var(--adam-surface-3); color:var(--adam-text); border-color:var(--adam-border-2); }
+.btn-secondary:hover { background:var(--adam-surface-4); }
+.tz-align-btn:hover { border-color:var(--adam-primary) !important; }
+.tz-title { margin: 0 0 .35rem; }
 .tz-add-form {
   display: flex;
   flex-wrap: wrap;
