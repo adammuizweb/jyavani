@@ -233,8 +233,19 @@ Konsekuensi desain:
     - Seed data `default.sql`: semua 11 rows include key universal eksplisit.
     - `customize.php` define `.btn-primary`, `.btn-secondary`, `.tz-align-btn:hover` —
       tombol konsisten dengan halaman admin lain.
-- **Fase 4:** Integrasi shortcode builder ke gadget HTML/richtext (UI picker di CodeMirror/Quill);
-  panel pilih menu/sidebar zone yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
+- **Fase 4:** ✅ Integrasi shortcode builder ke gadget HTML/richtext + quick links menu/sidebar.
+  Done 2026-07-21:
+  - Query `posts WHERE type='sc_preset'` di customize.php → expose ke JS sebagai
+    `window.TZ_SHORTCODE_PRESETS`.
+  - Tombol **Insert Shortcode** di atas `tz_html` (CodeMirror) dan `tz_richtext` (Quill).
+  - `window.tzEditors = { quill: {}, cm: {} }` menyimpan instance editor berdasarkan
+    `data-tz-editor` key.
+  - Modal picker menampilkan daftar preset + preview shortcode `[[widget:slug]]`;
+    klik memanggil `tzInsertShortcode()` yang insert di cursor/editor yang benar.
+  - CodeMirror: `cm.replaceSelection()`; Quill: `quill.insertText()`; fallback textarea raw.
+  - Quick link **Kelola Menu →** di config `tz_nav_menu`; **Kelola Sidebar →** di config
+    `tz_sidebar_zone` (buka tab baru).
+  - Fix scope `$base` di `tz_zone_editor_html()` / `tz_widget_config_form()`.
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.
 - **Fase 6:** Hook/kontrak untuk theme-builder, jyavani-builder, form-builder.
 
