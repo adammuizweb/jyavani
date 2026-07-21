@@ -318,12 +318,12 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
     $hasDefaults = !empty($layoutDef['defaults']) || in_array($zSlug, ['header', 'footer'], true);
     ?>
     <?php if ($hasDefaults): ?>
-    <form method="post" style="margin-bottom:.75rem; display:inline-block;">
+    <form method="post" id="tz-defaults-<?= h($zSlug) ?>" style="margin-bottom:.75rem; display:inline-block;">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="tz_action" value="defaults">
       <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
       <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
-      <button type="submit" class="btn btn-sm btn-secondary" style="padding:.3rem .75rem; font-size:13px;" onclick="return confirm('<?= __('Load default gadgets for this zone?') ?>')">
+      <button type="button" class="btn btn-sm btn-secondary" style="padding:.3rem .75rem; font-size:13px;" onclick="tzLoadDefaults('<?= h($zSlug) ?>')">
         <?= __('Load Default Layout') ?>
       </button>
     </form>
@@ -821,10 +821,35 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
   };
 
   window.tzDeleteWidget = function(id, zone){
-    if (!confirm('<?= __('Remove this widget?') ?>')) return;
-    document.getElementById('tz-delete-id').value = id;
-    document.getElementById('tz-delete-zone').value = zone;
-    document.getElementById('tz-delete-form').submit();
+    var doDelete = function(){
+      document.getElementById('tz-delete-id').value = id;
+      document.getElementById('tz-delete-zone').value = zone;
+      document.getElementById('tz-delete-form').submit();
+    };
+    if (window.NewNotifConfirm && typeof window.NewNotifConfirm.danger === 'function') {
+      window.NewNotifConfirm.danger({
+        title: <?= json_encode(__('Delete Widget')) ?>,
+        message: <?= json_encode(__('Remove this widget?')) ?>,
+        confirmText: <?= json_encode(__('Delete')) ?>
+      }).then(function(ok){ if (ok) doDelete(); });
+    } else if (window.confirm(<?= json_encode(__('Remove this widget?')) ?>)) {
+      doDelete();
+    }
+  };
+
+  window.tzLoadDefaults = function(zone){
+    var form = document.getElementById('tz-defaults-' + zone);
+    if (!form) return;
+    var go = function(){ form.submit(); };
+    if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
+      window.NewNotifConfirm.warning({
+        title: <?= json_encode(__('Load Default Layout')) ?>,
+        message: <?= json_encode(__('Load default gadgets for this zone? Existing widgets must be removed first.')) ?>,
+        confirmText: <?= json_encode(__('Load')) ?>
+      }).then(function(ok){ if (ok) go(); });
+    } else {
+      go();
+    }
   };
 
   window.tzUpdateOrder = function(list){
