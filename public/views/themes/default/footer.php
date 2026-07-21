@@ -41,10 +41,10 @@ if (function_exists('theme_zone_has_position')) {
           }
           if (!$rowHas) continue;
           ?>
-          <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1.25rem; width:100%; margin-bottom:1rem;">
+          <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); justify-items:center; gap:1.25rem; margin:10px 16px 1rem;">
             <?php foreach ($rowPositions as $fp): ?>
               <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
-                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; align-items:flex-start; gap:.35rem;">
+                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; align-items:center; text-align:center; gap:.35rem;">
                   <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
                 </div>
               <?php endif; ?>

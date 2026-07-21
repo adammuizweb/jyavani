@@ -320,7 +320,11 @@ if (!function_exists('theme_zone_ensure_schema')) {
                         . '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="' . $networks[$net]['path'] . '" fill="currentColor"/></svg></a>';
                 }
                 if ($out === '') return '';
-                return '<div class="tz-social social-icons" role="list">' . $out . '</div>';
+                $titleText = trim((string)($config['title'] ?? ''));
+                $titleHtml = $titleText !== ''
+                    ? '<div class="tz-html-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div>'
+                    : '';
+                return $titleHtml . '<div class="tz-social social-icons" role="list">' . $out . '</div>';
 
             case 'tz_pages':
                 $selected = array_filter(array_map('trim', (array)($config['pages'] ?? [])));
