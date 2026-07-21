@@ -87,7 +87,10 @@ Kekurangan yang harus dikerjakan di branch ini:
 "layout": {
   "header":  { "columns": 3, "positions": { "logo": {}, "nav": {}, "controls": {} }, "defaults": { ... } },
   "main":    { "positions": { "content": {}, "sidebar": {} } },
-  "footer":  { "columns": 3, "positions": { "left": {}, "middle": {}, "right": {} }, "defaults": { ... } },
+  "footer":  { "positions": {
+      "about": {"row": 1}, "pages": {"row": 1}, "social": {"row": 1},
+      "copyright": {"row": 2}
+    }, "defaults": { ... } },
   "single.post": { "positions": { "before_content": {}, "after_content": {} } },
   "list.post":   { "positions": { "before_loop": {}, "after_loop": {} } }
 }
@@ -95,6 +98,8 @@ Kekurangan yang harus dikerjakan di branch ini:
 
 - `columns` (opsional, 1–4) — jumlah kolom visual position di editor; fallback
   `min(jumlah positions, 4)`. Murni untuk tampilan admin, tidak memaksa CSS tema.
+- `row` (opsional, default 1) — pengelompokan baris position; admin menggambar tiap baris
+  sebagai grid terpisah, template render per baris (contoh: footer About|Pages|Social + Copyright).
 
 Tema consume lewat `theme_zone_render_position('single.post', 'after_content')` dst.,
 dengan fallback ke partial bawaan jika kosong. Untuk gadget yang butuh data post
@@ -177,6 +182,18 @@ Konsekuensi desain:
     search, 404, download-intro. `single/page.php` juga set `$GLOBALS['jy_current_post']`.
   - Tombol Load Default Layout hanya tampil jika zone declare `defaults` (atau header/footer).
   - Urutan select: `main` → `main.homepage` → sisanya alfabetis.
+
+- **Fase 3d:** ✅ Global Settings modal DIHAPUS + footer 2 baris. Done 2026-07-21:
+  - Modal Global Settings dihapus total (button, markup, JS, CSS, handler `tc_save`) —
+    redundan dengan kanvas. Kemampuan uniknya dimigrasi ke gadget:
+    - `tz_social` — social icons (Twitter/GitHub/Instagram, SVG bawaan tema).
+    - `tz_sidebar_zone` — render sidebar zone dari Sidebar Settings (config dropdown).
+    - `tz_logo` — field config `logo` (URL gambar; fallback `theme_mod('logo')`).
+  - **Footer 2 baris**: positions `about`/`pages`/`social` (`row: 1`) + `copyright` (`row: 2`)
+    di theme.json. `footer.php` render per-baris (grid auto-fit), fallback `main` → hardcode.
+  - Admin `tz_zone_editor_html()` mengelompokkan positions per `row` — zone multi-baris
+    digambar sebagai beberapa grid bertumpuk di kanvas.
+  - `theme_mods` tetap ada sebagai sumber fallback tema; hanya UI editor legacy yang dihapus.
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
   yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.

@@ -26,7 +26,6 @@ $selfUrl = $base . '/?page=admin/themes/customize';
 
 $folder = get_active_theme_folder($pdo);
 $sections = theme_customizer_fields($folder);
-$hasFields = !empty($sections);
 
 $menus = function_exists('menu_get_all') ? menu_get_all($pdo) : [];
 $zones = function_exists('sidebar_zone_get_all') ? sidebar_zone_get_all($pdo) : [];
@@ -79,37 +78,6 @@ $field_sanitizers = [
 
 $csrfOk = function_exists('csrf_check') && csrf_check((string)($_POST['csrf_token'] ?? ''));
 
-// ─── Save customizer fields ───
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tc_save'])) {
-    if (!$csrfOk) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
-        return;
-    }
-
-    foreach ($sections as $sectionKey => $section) {
-        if ($sectionKey === 'main') continue;
-        foreach ($section['fields'] as $key => $def) {
-            $type = $def['type'];
-            $raw = $_POST[$key] ?? '';
-            $mods[$key] = $field_sanitizers[$type]($raw);
-        }
-    }
-
-    // Remove keys that are no longer declared (schema changed / renamed) - skip main keys
-    $validKeys = [];
-    foreach ($sections as $sectionKey => $section) {
-        if ($sectionKey === 'main') continue;
-        foreach ($section['fields'] as $key => $def) {
-            $validKeys[$key] = true;
-        }
-    }
-    $mods = array_intersect_key($mods, $validKeys);
-
-    theme_mods_save($pdo, $folder, $mods);
-    adiwira_redirect_with_flash($selfUrl . '&partial=' . rawurlencode($activePartial), 'success', __('Customization saved.'));
-    return;
-}
-
 // ─── Save main layout settings ───
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tc_main_save'])) {
     if (!$csrfOk) {
@@ -144,6 +112,12 @@ function tz_sanitize_config(string $type, array $config, array $tzWidgets): arra
             $out['use_logo'] = !empty($config['use_logo']);
             $out['show_title'] = !empty($config['show_title']);
             $out['html'] = (string)($config['html'] ?? '');
+            $out['logo'] = preg_match('#^(/|https?://)#i', trim((string)($config['logo'] ?? ''))) ? trim((string)$config['logo']) : '';
+            break;
+        case 'tz_social':
+            break;
+        case 'tz_sidebar_zone':
+            $out['zone'] = preg_replace('/[^a-zA-Z0-9_\-]/', '', trim((string)($config['zone'] ?? '')));
             break;
         case 'tz_nav_menu':
             $out['menu'] = preg_replace('/[^a-zA-Z0-9_\-]/', '', trim((string)($config['menu'] ?? $defaults['menu'] ?? 'primary')));
@@ -200,7 +174,7 @@ function tz_widget_config_field(string $zoneSlug, string $position, int $itemId,
     return $out;
 }
 
-function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus): string {
+function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus, array $sidebarZones = []): string {
     $type = (string)($item['type'] ?? '');
     $config = json_decode((string)($item['config'] ?? '{}'), true) ?: [];
     $out = '';
@@ -213,7 +187,16 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
         case 'tz_logo':
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'use_logo', __('Use logo image'), $config['use_logo'] ?? true, 'checkbox') . '</div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_title', __('Show site title'), $config['show_title'] ?? false, 'checkbox') . '</div>';
+            $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'logo', __('Logo image URL (kosong = theme_mod/default)'), $config['logo'] ?? '') . '</div>';
             $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'html', __('Custom HTML (overrides logo/title)'), $config['html'] ?? '', 'textarea') . '</div>';
+            break;
+        case 'tz_social':
+            $out .= '<div style="grid-column:1/-1;"><p class="muted" style="margin:0; font-size:13px;">' . __('Renders the theme social icons. No extra options.') . '</p></div>';
+            break;
+        case 'tz_sidebar_zone':
+            $zoneOptions = ['' => __('- Pilih sidebar zone -')];
+            foreach ($sidebarZones as $sz) { $zoneOptions[(string)($sz['slug'] ?? '')] = (string)($sz['name'] ?? $sz['slug'] ?? ''); }
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'zone', __('Sidebar Zone'), $config['zone'] ?? '', 'select', $zoneOptions) . '</div>';
             break;
         case 'tz_nav_menu':
             $menuOptions = ['' => __('Theme default')];
@@ -249,7 +232,7 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
 }
 
 // Render satu zone editor lengkap (tombol defaults + grid positions + gadget list + add form)
-function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial): string {
+function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, array $sidebarZones = []): string {
     ob_start();
     $hasDefaults = !empty($layoutDef['defaults']) || in_array($zSlug, ['header', 'footer'], true);
     ?>
@@ -266,12 +249,23 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
     <?php endif; ?>
 
     <?php
-    $posCount = count($layoutDef['positions']);
-    $cols = (int)($layoutDef['columns'] ?? min(max($posCount, 1), 4));
-    $cols = max(1, min(4, $cols));
+    // Group positions by row (theme.json: "row": 1|2|...; default 1)
+    $posRows = [];
+    foreach ($layoutDef['positions'] as $posKey => $posDef) {
+        $r = (int)($posDef['row'] ?? 1);
+        $posRows[$r][$posKey] = $posDef;
+    }
+    ksort($posRows);
+    $multiRow = count($posRows) > 1;
     ?>
-    <div class="tz-layout-grid" data-cols="<?= $cols ?>">
-      <?php foreach ($layoutDef['positions'] as $posKey => $posDef): ?>
+    <?php foreach ($posRows as $rowPositions): ?>
+      <?php
+      $rowCount = count($rowPositions);
+      $cols = $multiRow ? $rowCount : (int)($layoutDef['columns'] ?? min(max($rowCount, 1), 4));
+      $cols = max(1, min(4, $cols));
+      ?>
+      <div class="tz-layout-grid" data-cols="<?= $cols ?>"<?= $multiRow ? ' style="margin-bottom:1rem;"' : '' ?>>
+      <?php foreach ($rowPositions as $posKey => $posDef): ?>
         <?php
         $posItems = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zSlug, $posKey, $folder, false) : [];
         ?>
@@ -321,7 +315,7 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
 
                     <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
                       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
-                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus) ?>
+                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones) ?>
                       </div>
                     </div>
                   </div>
@@ -356,7 +350,8 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
           </div>
         </div>
       <?php endforeach; ?>
-    </div>
+      </div>
+    <?php endforeach; ?>
     <?php
     return (string)ob_get_clean();
 }
@@ -494,13 +489,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 
   <!-- Theme Layout Editor — kanvas halaman utuh ala Blogspot -->
   <?php if (!empty($themeLayout)): ?>
-    <!-- Topbar: Global Settings ⇄ Partials -->
+    <!-- Topbar: label kanvas ⇄ Partials -->
     <div class="tz-topbar">
-      <?php if ($hasFields): ?>
-        <button type="button" id="tz-global-btn" class="btn btn-secondary"><?= __('Global Settings') ?></button>
-      <?php else: ?>
-        <span></span>
-      <?php endif; ?>
+      <span class="tz-topbar-title muted"><?= __('Page Canvas') ?> — <strong><?= h($folder) ?></strong></span>
       <select id="tz-partial-select" aria-label="<?= __('Partials') ?>">
         <?php foreach ($partialZones as $pz): ?>
           <option value="<?= h($pz) ?>" <?= $activePartial === $pz ? 'selected' : '' ?>><?= h($zoneZones[$pz] ?? $pz) ?></option>
@@ -514,7 +505,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         <section class="tz-band" data-zone="header">
           <div class="tz-band-label"><?= h($zoneZones['header'] ?? __('Header')) ?></div>
           <div class="tz-band-body">
-            <?= tz_zone_editor_html($pdo, $folder, 'header', $themeLayout['header'], $tzWidgets, $menus, $selfUrl, $activePartial) ?>
+            <?= tz_zone_editor_html($pdo, $folder, 'header', $themeLayout['header'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones) ?>
           </div>
         </section>
       <?php endif; ?>
@@ -587,7 +578,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                   }
                   ?>
                   <?php if (!empty($pzDef) && !empty($pzDef['positions']) && is_array($pzDef['positions'])): ?>
-                    <?= tz_zone_editor_html($pdo, $folder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial) ?>
+                    <?= tz_zone_editor_html($pdo, $folder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $zones) ?>
                   <?php else: ?>
                     <div class="adam-alert info"><?= __('This partial does not declare positions.') ?></div>
                   <?php endif; ?>
@@ -627,93 +618,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         <section class="tz-band" data-zone="footer">
           <div class="tz-band-label"><?= h($zoneZones['footer'] ?? __('Footer')) ?></div>
           <div class="tz-band-body">
-            <?= tz_zone_editor_html($pdo, $folder, 'footer', $themeLayout['footer'], $tzWidgets, $menus, $selfUrl, $activePartial) ?>
+            <?= tz_zone_editor_html($pdo, $folder, 'footer', $themeLayout['footer'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones) ?>
           </div>
         </section>
       <?php endif; ?>
     </div>
   <?php endif; ?>
 
-  <!-- Global Settings modal (legacy customizer fields) -->
-  <?php if ($hasFields): ?>
-    <div id="tz-global-modal" class="tz-modal" style="display:none;" role="dialog" aria-modal="true" aria-label="<?= __('Global Settings') ?>">
-      <div class="tz-modal-overlay" data-tz-close></div>
-      <div class="tz-modal-card">
-        <div class="tz-modal-head">
-          <strong><?= __('Global Settings') ?> — <?= h($folder) ?></strong>
-          <button type="button" class="tz-modal-x" data-tz-close aria-label="<?= __('Close') ?>">×</button>
-        </div>
-        <div class="tz-modal-body">
-          <p class="muted" style="margin-top:0; margin-bottom:1rem;"><?= __('Global options declared by the theme in theme.json.') ?></p>
-
-      <form method="post" style="display:flex; flex-direction:column; gap:1.5rem;">
-        <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-        <input type="hidden" name="tc_save" value="1">
-        <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
-
-      <?php foreach ($sections as $sectionKey => $section): ?>
-        <?php if ($sectionKey === 'main') continue; ?>
-        <div>
-          <h4 style="margin:0 0 .75rem; font-size:1rem;"><?= h($section['label']) ?></h4>
-            <div style="display:grid; grid-template-columns: 1fr; gap:1.25rem;">
-              <?php foreach ($section['fields'] as $key => $def): ?>
-                <div class="tc-field">
-                  <label style="display:block; font-weight:600; font-size:.9rem; margin-bottom:.4rem;"><?= h($def['label']) ?></label>
-
-                  <?php if ($def['type'] === 'image'): ?>
-                    <input type="text" name="<?= h($key) ?>" id="tc-<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>"
-                           placeholder="/static/img/logo.svg" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
-                    <div class="tc-image-preview" id="tc-preview-<?= h($key) ?>" style="margin-top:.6rem; <?= empty($mods[$key]) ? 'display:none;' : '' ?>">
-                      <img src="<?= h((string)($mods[$key] ?? '')) ?>" alt="" style="max-height:56px; max-width:220px; border-radius:6px; background:rgba(127,127,127,.1); padding:6px;">
-                    </div>
-
-                  <?php elseif ($def['type'] === 'menu'): ?>
-                    <select name="<?= h($key) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit;">
-                      <option value=""><?= __('Theme default') ?></option>
-                      <?php foreach ($menus as $m): ?>
-                        <?php $slug = (string)($m['slug'] ?? ''); ?>
-                        <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($m['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
-                      <?php endforeach; ?>
-                    </select>
-
-                  <?php elseif ($def['type'] === 'sidebar_zone'): ?>
-                    <select name="<?= h($key) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit;">
-                      <option value=""><?= __('None') ?></option>
-                      <?php foreach ($zones as $z): ?>
-                        <?php $slug = (string)($z['slug'] ?? ''); ?>
-                        <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($z['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
-                      <?php endforeach; ?>
-                    </select>
-
-                  <?php elseif ($def['type'] === 'textarea'): ?>
-                    <textarea name="<?= h($key) ?>" rows="3" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; font:inherit; box-sizing:border-box;"><?= h((string)($mods[$key] ?? '')) ?></textarea>
-
-                  <?php elseif ($def['type'] === 'text'): ?>
-                    <input type="text" name="<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>"
-                           style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
-
-                  <?php elseif ($def['type'] === 'toggle'): ?>
-                    <?php $on = (bool)($mods[$key] ?? true); ?>
-                    <label style="display:inline-flex; align-items:center; gap:.5rem; font-weight:400; cursor:pointer;">
-                      <input type="checkbox" name="<?= h($key) ?>" value="1" <?= $on ? 'checked' : '' ?>
-                             style="width:18px; height:18px;">
-                      <span class="muted"><?= __('Enabled') ?></span>
-                    </label>
-                  <?php endif; ?>
-                </div>
-              <?php endforeach; ?>
-            </div>
-          </div>
-        <?php endforeach; ?>
-
-        <div>
-          <button type="submit" class="btn btn-primary"><?= __('Save Theme Settings') ?></button>
-        </div>
-      </form>
-        </div>
-      </div>
-    </div>
-  <?php endif; ?>
 </div>
 
 <form id="tz-delete-form" method="post" style="display:none;">
@@ -903,25 +814,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
     });
   }
 
-  // ─── Global Settings modal ───
-  var tzGlobalModal = document.getElementById('tz-global-modal');
-  var tzGlobalBtn = document.getElementById('tz-global-btn');
-  if (tzGlobalModal && tzGlobalBtn) {
-    tzGlobalBtn.addEventListener('click', function(){
-      tzGlobalModal.style.display = 'block';
-      document.body.style.overflow = 'hidden';
-    });
-    var tzCloseModal = function(){
-      tzGlobalModal.style.display = 'none';
-      document.body.style.overflow = '';
-    };
-    tzGlobalModal.querySelectorAll('[data-tz-close]').forEach(function(el){
-      el.addEventListener('click', tzCloseModal);
-    });
-    document.addEventListener('keydown', function(e){
-      if (e.key === 'Escape' && tzGlobalModal.style.display !== 'none') tzCloseModal();
-    });
-  }
 })();
 </script>
 
@@ -987,27 +879,6 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
 @media (max-width: 900px) {
   .tz-main-row { grid-template-columns: 1fr; }
 }
-
-/* Global Settings modal */
-.tz-modal { position: fixed; inset: 0; z-index: 10000; }
-.tz-modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
-.tz-modal-card {
-  position: relative; max-width: 760px; width: calc(100% - 2rem);
-  max-height: 85vh; margin: 6vh auto 0; display: flex; flex-direction: column;
-  background: var(--adam-bg, #fff); border: 1px solid rgba(127,127,127,.3);
-  border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.25); overflow: hidden;
-}
-.tz-modal-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: .8rem 1.1rem; border-bottom: 1px solid rgba(127,127,127,.18);
-  background: var(--adam-surface-2, rgba(127,127,127,.06));
-}
-.tz-modal-x {
-  background: none; border: none; font-size: 22px; line-height: 1;
-  cursor: pointer; color: var(--adam-muted); padding: 2px 8px;
-}
-.tz-modal-x:hover { color: var(--adam-danger); }
-.tz-modal-body { padding: 1.1rem; overflow-y: auto; }
 
 @media (max-width: 768px) {
   .tz-layout-grid { grid-template-columns: 1fr !important; }

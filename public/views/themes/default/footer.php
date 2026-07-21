@@ -12,11 +12,13 @@ $tcShowSocial = !function_exists('theme_mod') || theme_mod('show_social', true);
 $copyright = $tcFooterText !== '' ? $tcFooterText : __('©') . ' <span id="year"></span> ' . htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') . '. ' . __('Released under MIT License.');
 
 $hasFooterZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'main');
-$footerColPositions = ['left', 'middle', 'right'];
+$footerRows = [1 => ['about', 'pages', 'social'], 2 => ['copyright']];
 $hasFooterCols = false;
 if (function_exists('theme_zone_has_position')) {
-    foreach ($footerColPositions as $fp) {
-        if (theme_zone_has_position($pdo, 'footer', $fp)) { $hasFooterCols = true; break; }
+    foreach ($footerRows as $rowPositions) {
+        foreach ($rowPositions as $fp) {
+            if (theme_zone_has_position($pdo, 'footer', $fp)) { $hasFooterCols = true; break 2; }
+        }
     }
 }
 ?>
@@ -24,15 +26,24 @@ if (function_exists('theme_zone_has_position')) {
   <div class="footer-container">
     <div class="footer-row-top">
       <?php if ($hasFooterCols): ?>
-        <div class="footer-cols" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1.25rem; width:100%;">
-          <?php foreach ($footerColPositions as $fp): ?>
-            <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
-              <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>">
-                <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
-              </div>
-            <?php endif; ?>
-          <?php endforeach; ?>
-        </div>
+        <?php foreach ($footerRows as $rowPositions): ?>
+          <?php
+          $rowHas = false;
+          foreach ($rowPositions as $fp) {
+              if (theme_zone_has_position($pdo, 'footer', $fp)) { $rowHas = true; break; }
+          }
+          if (!$rowHas) continue;
+          ?>
+          <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1.25rem; width:100%; margin-bottom:1rem;">
+            <?php foreach ($rowPositions as $fp): ?>
+              <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
+                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>">
+                  <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
+                </div>
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+        <?php endforeach; ?>
       <?php elseif ($hasFooterZone): ?>
         <div class="footer-zone">
           <?= theme_zone_render_position($pdo, 'footer', 'main') ?>
