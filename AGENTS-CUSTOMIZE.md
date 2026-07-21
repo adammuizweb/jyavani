@@ -1,0 +1,129 @@
+# AGENTS-CUSTOMIZE.md — Pedoman BIG Project: Visual Customize
+
+> Branch kerja: `feat/customize` pada repo `jyavani.git`.
+> Dokumen ini adalah pedoman utama (source of truth) untuk refactor fitur Customize.
+> Baca dokumen ini SEBELUM mengerjakan apapun di branch ini. Jangan lupakan isinya.
+
+## 1. Visi
+
+Jyavani CMS harus memiliki fitur **Customize visual ala Blogspot**: layout tema dipetakan
+ke zone/position, dan user mengisi tiap position dengan gadget yang bisa di-drag, dikonfigurasi,
+diaktif/nonaktifkan, dan dihapus. Menu **Customize** di dashboard
+(`/adiwira/?page=admin/themes/customize`) **otomatis menarget tema yang sedang aktif**.
+
+Target pemetaan layout:
+
+```
+                    | partials |
+ ______________________________
+|           Header             |
+| Logo | Navigasi | Controller |
+ ------------------------------
+|   Main | Sidebar (jika aktif)|
+ ------------------------------
+|          Footer              |
+|   Logo |  Pages  |  Contact  |
+ ------------------------------
+```
+
+Selain Header/Main/Footer, Customize juga harus bisa mengatur halaman lain:
+- **Post list** (arsip/index)
+- **Single post** — contoh: tampilkan/sembunyikan profil author, tanggal, read time;
+  urutan partial bisa di-drag & drop
+- **Partial lain** yang dideklarasikan tema
+
+## 2. Integrasi Wajib
+
+Customize harus terintegrasi (baca + pilih dari) menu admin yang sudah ada:
+a. `dashboard/admin/menus` — gadget navigasi memilih menu dari Menu Manager.
+b. `dashboard/admin/sidebar` — position bisa menautkan sidebar zone dari Sidebar Settings.
+c. `dashboard/admin/shortcodes` — gadget HTML/shortcode bisa memakai shortcode builder.
+
+## 3. Prinsip Arsitektur (JANGAN DILANGGAR)
+
+1. **Core tetap plugin-agnostic** — tidak ada hardcode plugin apapun di core.
+2. **Tema tidak boleh hardcode bagian yang customizable.** Semua yang bisa diubah user
+   lewat Customize disimpan di **database**, bukan di file tema.
+3. **`theme.json` hanya mendeklarasikan kontrak** (zones, positions, gadget defaults,
+   opsi toggle) — nilai aktual tetap di DB.
+4. **Fallback aman** — jika position kosong / tema belum declare layout, render HTML
+   bawaan tema seperti sekarang (tidak ada halaman rusak).
+5. **Customize harus theme-aware** — selalu membaca manifest tema aktif; konfigurasi
+   gadget harus **per-tema** (pindah tema tidak membawa gadget tema lain).
+6. **Dua tema referensi**: `default` dan `adam` di-update sebagai contoh canonical
+   supaya developer tema lain paham algoritmanya.
+7. Schema di `/var/www/jyavani.lan/schema` harus menyesuaikan (migration baru, plus
+   update `schema/default.sql`).
+
+## 4. Keadaan Saat Ini (baseline v2.3.17)
+
+Sudah ada:
+- `cfg/helpers/theme_zones.php` — schema gadget, CRUD, render, `theme_zone_render_position()`.
+- Tabel `theme_zone_items` (`zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`).
+- Gadget bawaan: `tz_logo`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`.
+- Admin `dashboard/admin/themes/customize.php` — tab Header/Main/Footer, add/configure/reorder/delete, Load Default Layout.
+- `theme_mods_{folder}` (JSON di settings) untuk Theme Customizer fields.
+- Header/footer default & adam sudah zone-aware dengan fallback hardcode.
+
+Kekurangan yang harus dikerjakan di branch ini:
+- `theme_zone_items` belum per-tema → tambah kolom `theme_folder` (atau tabel baru).
+- Zone baru belum ada: `single.post`, `list.post`, `page.single`, partials.
+- Belum ada drag & drop antar-position (sekarang hanya reorder dalam satu position).
+- Toggle single post (author/date/read time) masih theme_mods — perlu diekspos sebagai partial yang bisa di-drag.
+- Integrasi shortcode builder di gadget `tz_html` belum ada UI-nya.
+- Belum ada preview/visual mapping seperti Blogspot.
+
+## 5. Rencana Schema (draft — finalisasi saat implementasi)
+
+- Migration baru: tambah `theme_folder VARCHAR(100)` ke `theme_zone_items` + index
+  (`zone_slug`, `position`, `theme_folder`). Data lama di-backfill dengan tema aktif saat migrasi.
+- Pertimbangkan tabel `theme_partials` / extend assignments untuk partial single/list
+  jika model zone tidak cukup. Keputusan dicatat di dokumen ini saat implementasi.
+- `schema/default.sql` ikut di-update agar install baru langsung punya schema final.
+
+## 6. Kontrak `theme.json` (target)
+
+```json
+"layout": {
+  "header":  { "positions": { "logo": {}, "nav": {}, "controls": {} }, "defaults": { ... } },
+  "main":    { "positions": { "content": {}, "sidebar": {} } },
+  "footer":  { "positions": { "left": {}, "middle": {}, "right": {} }, "defaults": { ... } },
+  "single.post": { "positions": { "before_content": {}, "after_content": {} } },
+  "list.post":   { "positions": { "before_loop": {}, "after_loop": {} } }
+}
+```
+
+Tema consume lewat `theme_zone_render_position('single.post', 'after_content')` dst.,
+dengan fallback ke partial bawaan jika kosong.
+
+## 7. Ekosistem Plugin Masa Depan (desain harus siap)
+
+Customize akan saling support dengan:
+a. `adammuizweb/theme-builder` — builder tema visual.
+b. `adammuizweb/jyavani-builder` — page builder.
+c. `adammuizweb/form-builder` — form builder.
+
+Konsekuensi desain:
+- Registry gadget HARUS filter-based (`add_filter`) supaya plugin bisa menambah gadget.
+- Render gadget HARUS filter-based supaya plugin bisa override renderer.
+- Config gadget disimpan JSON — plugin bebas menambah key sendiri.
+- API render zone harus bisa dipanggil dari luar admin (frontend + builder preview).
+
+## 8. Roadmap (kerjakan bertahap, satu fase = satu commit/logis)
+
+- **Fase 1:** Per-theme scoping gadget (`theme_folder`) + migrasi + backfill.
+- **Fase 2:** Zone `single.post` + `list.post` + partials; default & adam jadi contoh.
+- **Fase 3:** Drag & drop antar-position (HTML5 sortable) + visual mapping ala Blogspot.
+- **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
+  yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
+- **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.
+- **Fase 6:** Hook/kontrak untuk theme-builder, jyavani-builder, form-builder.
+
+## 9. Aturan Kerja di Branch Ini
+
+- Jangan merge ke `main` sebelum user setuju.
+- Commit kecil, pesan jelas (`feat(customize): ...`).
+- Setiap mengubah file core: regenerate `tools/cms-manifest.php` (generate-manifest) sebelum commit.
+- Sync ke jyavani.com / apu.lan / adammuiz.com HANYA setelah di-merge ke main.
+- Jaga kompatibilitas: tema lama tanpa `layout` tetap jalan (fallback hardcode).
+- Tidak ada native `alert/confirm`; toast color semantics; SVG icons only.
