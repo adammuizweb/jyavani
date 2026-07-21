@@ -132,6 +132,14 @@ function tz_sanitize_config(string $type, array $config, array $tzWidgets): arra
         case 'tz_html':
             $out['html'] = (string)($config['html'] ?? '');
             break;
+        case 'tz_post_author':
+            $out['show_avatar'] = !empty($config['show_avatar']);
+            break;
+        case 'tz_post_meta':
+            $out['show_date'] = !empty($config['show_date']);
+            $out['show_updated'] = !empty($config['show_updated']);
+            $out['show_read_time'] = !empty($config['show_read_time']);
+            break;
     }
     return $out;
 }
@@ -196,6 +204,14 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
         case 'tz_html':
             $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'html', __('HTML Content'), $config['html'] ?? '', 'textarea') . '</div>';
             break;
+        case 'tz_post_author':
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_avatar', __('Show avatar'), $config['show_avatar'] ?? true, 'checkbox') . '</div>';
+            break;
+        case 'tz_post_meta':
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_date', __('Show date'), $config['show_date'] ?? true, 'checkbox') . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_updated', __('Show updated'), $config['show_updated'] ?? false, 'checkbox') . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_read_time', __('Show read time'), $config['show_read_time'] ?? true, 'checkbox') . '</div>';
+            break;
     }
     return $out;
 }
@@ -206,7 +222,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         return;
     }
     $action = (string)$_POST['tz_action'];
-    $zone = in_array(($_POST['tz_zone'] ?? ''), ['header', 'footer'], true) ? $_POST['tz_zone'] : 'header';
+    $allowedPostZones = [];
+    foreach ($themeLayout as $lk => $lv) {
+        if ($lk !== 'main' && !empty($lv['positions']) && is_array($lv['positions'])) $allowedPostZones[] = $lk;
+    }
+    if (empty($allowedPostZones)) $allowedPostZones = ['header'];
+    $zone = in_array(($_POST['tz_zone'] ?? ''), $allowedPostZones, true) ? $_POST['tz_zone'] : $allowedPostZones[0];
     $position = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)($_POST['tz_position'] ?? ''));
 
     if ($action === 'add' && !empty($_POST['tz_type'])) {
@@ -265,18 +286,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 
         $layoutDefaults = $themeLayout[$zone]['defaults'] ?? [];
         if (empty($layoutDefaults) || !is_array($layoutDefaults)) {
-            // Fallback generic defaults if theme.json does not declare any
-            $layoutDefaults = ($zone === 'header') ? [
-                'logo' => [['type' => 'tz_logo', 'title' => __('Site Logo'), 'config' => ['use_logo' => true, 'show_title' => false]]],
-                'nav' => [['type' => 'tz_nav_menu', 'title' => __('Navigation'), 'config' => ['menu' => 'primary', 'menu_class' => 'menu', 'depth' => 1, 'ul_attr' => '']]],
-                'controls' => [
-                    ['type' => 'tz_theme_toggle', 'title' => __('Theme Toggle'), 'config' => ['label' => '']],
-                    ['type' => 'tz_lang_switcher', 'title' => __('Language'), 'config' => ['title' => '']],
-                    ['type' => 'tz_search', 'title' => __('Search'), 'config' => ['placeholder' => __('Search...'), 'button' => false]],
-                ],
-            ] : [
-                'main' => [['type' => 'tz_html', 'title' => __('Footer Text'), 'config' => ['title' => '', 'html' => '<p>&copy; ' . date('Y') . ' ' . h($site['title'] ?? '') . '</p>']]],
-            ];
+            // Fallback generic defaults hanya untuk header/footer; zone lain harus declare sendiri
+            if ($zone === 'header') {
+                $layoutDefaults = [
+                    'logo' => [['type' => 'tz_logo', 'title' => __('Site Logo'), 'config' => ['use_logo' => true, 'show_title' => false]]],
+                    'nav' => [['type' => 'tz_nav_menu', 'title' => __('Navigation'), 'config' => ['menu' => 'primary', 'menu_class' => 'menu', 'depth' => 1, 'ul_attr' => '']]],
+                    'controls' => [
+                        ['type' => 'tz_theme_toggle', 'title' => __('Theme Toggle'), 'config' => ['label' => '']],
+                        ['type' => 'tz_lang_switcher', 'title' => __('Language'), 'config' => ['title' => '']],
+                        ['type' => 'tz_search', 'title' => __('Search'), 'config' => ['placeholder' => __('Search...'), 'button' => false]],
+                    ],
+                ];
+            } elseif ($zone === 'footer') {
+                $layoutDefaults = [
+                    'main' => [['type' => 'tz_html', 'title' => __('Footer Text'), 'config' => ['title' => '', 'html' => '<p>&copy; ' . date('Y') . ' ' . h($site['title'] ?? '') . '</p>']]],
+                ];
+            } else {
+                adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'warning', __('This zone does not declare default gadgets.'));
+                return;
+            }
         }
 
         foreach ($layoutDefaults as $position => $items) {
@@ -297,9 +325,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
     }
 }
 
-// Zone tabs
-$zoneZones = ['header' => __('Header'), 'main' => __('Main'), 'footer' => __('Footer')];
-$activeZoneTab = in_array(($_GET['tab'] ?? ''), ['header', 'main', 'footer'], true) ? ($_GET['tab'] ?? 'header') : 'header';
+// Zone tabs — dibangun dari layout tema aktif (header/main/footer dulu, sisanya menyusul)
+$zoneZones = [];
+foreach (['header', 'main', 'footer'] as $preferred) {
+    if (isset($themeLayout[$preferred])) {
+        $zoneZones[$preferred] = (string)($themeLayout[$preferred]['label'] ?? ucfirst($preferred));
+    }
+}
+foreach ($themeLayout as $zSlug => $zDef) {
+    if (!isset($zoneZones[$zSlug])) {
+        $zoneZones[$zSlug] = (string)($zDef['label'] ?? ucwords(str_replace(['.', '_', '-'], ' ', (string)$zSlug)));
+    }
+}
+$zoneSlugs = array_keys($zoneZones);
+$activeZoneTab = in_array(($_GET['tab'] ?? ''), $zoneSlugs, true) ? (string)$_GET['tab'] : ($zoneSlugs[0] ?? 'header');
+
+// Zone yang boleh menerima gadget (punya positions dan bukan main yang config-only)
+$gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLayout) {
+    return $z !== 'main' && !empty($themeLayout[$z]['positions']) && is_array($themeLayout[$z]['positions']);
+}));
 ?>
 
 <div class="tc-wrap" style="max-width:1100px;">

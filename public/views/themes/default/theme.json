@@ -143,6 +143,20 @@
           }
         }
       }
+    },
+    "single.post": {
+      "label": "Single Post",
+      "positions": {
+        "before_content": {"label": "Sebelum Konten"},
+        "after_content": {"label": "Sesudah Konten"}
+      }
+    },
+    "list.post": {
+      "label": "Post List",
+      "positions": {
+        "before_loop": {"label": "Sebelum Daftar"},
+        "after_loop": {"label": "Sesudah Daftar"}
+      }
     }
   }
 }

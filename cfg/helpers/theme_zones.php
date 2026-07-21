@@ -179,6 +179,16 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 'desc'  => __('Free HTML content.'),
                 'default_config' => ['title' => '', 'html' => ''],
             ],
+            'tz_post_author' => [
+                'label' => __('Post Author'),
+                'desc'  => __('Author box for single post. Reads the current post context.'),
+                'default_config' => ['show_avatar' => true],
+            ],
+            'tz_post_meta' => [
+                'label' => __('Post Meta'),
+                'desc'  => __('Date / updated / read-time row for single post.'),
+                'default_config' => ['show_date' => true, 'show_updated' => false, 'show_read_time' => true],
+            ],
         ];
     }
 
@@ -262,6 +272,53 @@ if (!function_exists('theme_zone_ensure_schema')) {
                     return '<div class="tz-html"><div class="tz-html-title">' . htmlspecialchars($titleText, ENT_QUOTES, 'UTF-8') . '</div><div class="tz-html-content">' . $htmlContent . '</div></div>';
                 }
                 return $htmlContent;
+
+            case 'tz_post_author':
+                $post = (isset($GLOBALS['jy_current_post']) && is_array($GLOBALS['jy_current_post'])) ? $GLOBALS['jy_current_post'] : null;
+                if (!$post) return '';
+                $authorName = !empty($post['author_name']) ? (string)$post['author_name']
+                    : (!empty($post['author_username']) ? (string)$post['author_username']
+                    : (!empty($post['author_email']) ? (string)$post['author_email'] : __('Author')));
+                $authorImg = !empty($post['author_img']) ? (string)$post['author_img'] : '';
+                $authorSlug = !empty($post['author_username']) ? (string)$post['author_username'] : (!empty($post['author_id']) ? (string)$post['author_id'] : '');
+                $authorUrl = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . '/' : '';
+                $showAvatar = !array_key_exists('show_avatar', $config) || !empty($config['show_avatar']);
+                $out = '<div class="tz-post-author">';
+                if ($showAvatar) {
+                    if ($authorImg !== '') {
+                        $avatar = '<img src="' . htmlspecialchars($authorImg, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') . '" class="tz-author-avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">';
+                    } else {
+                        $avatar = '<span class="tz-author-avatar-placeholder" style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--accent,#0066ff);color:#fff;font-weight:700;">' . htmlspecialchars(strtoupper(substr($authorName, 0, 1)), ENT_QUOTES, 'UTF-8') . '</span>';
+                    }
+                    $out .= $authorUrl !== '' ? '<a href="' . htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') . '">' . $avatar . '</a>' : $avatar;
+                }
+                $out .= '<div class="tz-author-meta"><span class="tz-author-by">' . __('Written by') . '</span> ';
+                $out .= $authorUrl !== ''
+                    ? '<a class="tz-author-name" href="' . htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') . '</a>'
+                    : '<span class="tz-author-name">' . htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') . '</span>';
+                $out .= '</div></div>';
+                return $out;
+
+            case 'tz_post_meta':
+                $post = (isset($GLOBALS['jy_current_post']) && is_array($GLOBALS['jy_current_post'])) ? $GLOBALS['jy_current_post'] : null;
+                if (!$post) return '';
+                $showDate = !array_key_exists('show_date', $config) || !empty($config['show_date']);
+                $showUpdated = !empty($config['show_updated']);
+                $showReadTime = !array_key_exists('show_read_time', $config) || !empty($config['show_read_time']);
+                $parts = [];
+                if ($showDate && !empty($post['created_at'])) {
+                    $parts[] = '<time datetime="' . htmlspecialchars(date('c', strtotime((string)$post['created_at'])), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars(date('d M Y', strtotime((string)$post['created_at'])), ENT_QUOTES, 'UTF-8') . '</time>';
+                }
+                if ($showUpdated && !empty($post['updated_at']) && !empty($post['created_at']) && $post['updated_at'] > $post['created_at']) {
+                    $parts[] = '<span class="tz-meta-updated">' . __('Updated:') . ' ' . htmlspecialchars(date('d M Y', strtotime((string)$post['updated_at'])), ENT_QUOTES, 'UTF-8') . '</span>';
+                }
+                if ($showReadTime) {
+                    $wordCount = str_word_count(function_exists('safe_strip_tags') ? safe_strip_tags((string)($post['content'] ?? '')) : strip_tags((string)($post['content'] ?? '')));
+                    $readTime = max(1, (int)ceil($wordCount / 200));
+                    $parts[] = '<span class="tz-meta-readtime">' . sprintf(__('%d min read'), $readTime) . '</span>';
+                }
+                if (empty($parts)) return '';
+                return '<div class="tz-post-meta">' . implode(' <span class="tz-meta-sep">&middot;</span> ', $parts) . '</div>';
         }
 
         return $html;

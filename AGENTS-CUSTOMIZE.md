@@ -94,7 +94,9 @@ Kekurangan yang harus dikerjakan di branch ini:
 ```
 
 Tema consume lewat `theme_zone_render_position('single.post', 'after_content')` dst.,
-dengan fallback ke partial bawaan jika kosong.
+dengan fallback ke partial bawaan jika kosong. Untuk gadget yang butuh data post
+(`tz_post_author`, `tz_post_meta`, dst.), template single HARUS set
+`$GLOBALS['jy_current_post'] = $post;` sebelum memanggil render zone.
 
 ## 7. Ekosistem Plugin Masa Depan (desain harus siap)
 
@@ -114,7 +116,22 @@ Konsekuensi desain:
 - **Fase 1:** ✅ Per-theme scoping gadget (`theme_folder` di `theme_zone_items`, migrasi
   `010-theme-zone-theme-folder.sql` + backfill, runtime `ensure_schema` ikut ALTER,
   admin menampilkan gadget inactive). Done 2026-07-21.
-- **Fase 2:** Zone `single.post` + `list.post` + partials; default & adam jadi contoh.
+- **Fase 2:** ✅ Zone `single.post` + `list.post` + partials; default & adam jadi contoh.
+  Done 2026-07-21:
+  - `theme.json` (default + adam): zone `single.post` (positions `before_content`/`after_content`)
+    dan `list.post` (`before_loop`/`after_loop`).
+  - Gadget baru: `tz_post_author` (config `show_avatar`) dan `tz_post_meta`
+    (`show_date`/`show_updated`/`show_read_time`).
+  - **Kontrak konteks post:** template single WAJIB set `$GLOBALS['jy_current_post'] = $post;`
+    sebelum render zone; gadget post-aware membaca global itu. Tanpa konteks, gadget render `''`.
+  - Template single (default + adam) render `single.post/before_content` sebelum `.adam-post-body`
+    dan `single.post/after_content` sesudahnya. Template list render `list.post/before_loop`
+    sebelum loop dan `list.post/after_loop` setelah pagination.
+  - Admin Customize: tab sekarang **dinamis dari `theme.json`** (bukan hardcode header/main/footer);
+    POST zone divalidasi terhadap layout tema; Load Default Layout untuk zone tanpa `defaults`
+    menolak dengan warning (tidak lagi fallback sembarangan).
+  - Test gadget contoh ada di DB untuk tema `default` (single.post/after_content: Post Meta +
+    Author Box; list.post/after_loop: demo HTML) — bisa dihapus lewat admin.
 - **Fase 3:** Drag & drop antar-position (HTML5 sortable) + visual mapping ala Blogspot.
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
   yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).

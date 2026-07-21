@@ -7,6 +7,9 @@ if (!isset($post) || !is_array($post)) {
     return;
 }
 
+// Expose current post to zone gadgets (tz_post_author, tz_post_meta, dll)
+$GLOBALS['jy_current_post'] = $post;
+
 /**
  * Helper: build full category path (e.g. parent/child/grandchild) from a category slug.
  * Returns string like "parent/child" (without leading/trailing slash) or the original slug on failure.
@@ -408,9 +411,21 @@ $imgSrcRaw = !empty($post['display_image'])
 
 <?php endif; ?>
 
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'single.post', 'before_content')): ?>
+  <div class="tz-single-before">
+    <?= theme_zone_render_position($pdo, 'single.post', 'before_content') ?>
+  </div>
+<?php endif; ?>
+
 <div class="adam-post-body">
   <?= apply_filters('post_content', (string)($post['content'] ?? ''), $post ?? []) ?>
 </div>
+
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'single.post', 'after_content')): ?>
+  <div class="tz-single-after">
+    <?= theme_zone_render_position($pdo, 'single.post', 'after_content') ?>
+  </div>
+<?php endif; ?>
 
 <section class="adam-post-footer">
   <div class="footer-actions">

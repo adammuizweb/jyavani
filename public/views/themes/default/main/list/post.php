@@ -98,6 +98,12 @@ if (!function_exists('_theme_posts_resolve_image')) {
     <?php endif; ?>
   </div>
 
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.post', 'before_loop')): ?>
+    <div class="tz-list-before">
+      <?= theme_zone_render_position($pdo, 'list.post', 'before_loop') ?>
+    </div>
+  <?php endif; ?>
+
   <?php if (empty($posts)): ?>
     <div style="padding:1rem;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.04);"><?= __('No articles.') ?></div>
   <?php else: ?>
@@ -147,6 +153,12 @@ if (!function_exists('_theme_posts_resolve_image')) {
   <a href="<?= htmlspecialchars($base . '?page=' . ($page+1), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px;text-decoration:none"><?= __('Next →') ?></a>
 <?php endif; ?>
         </div>
+      </div>
+    <?php endif; ?>
+
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'list.post', 'after_loop')): ?>
+      <div class="tz-list-after">
+        <?= theme_zone_render_position($pdo, 'list.post', 'after_loop') ?>
       </div>
     <?php endif; ?>
   <?php endif; ?>
