@@ -27,7 +27,13 @@ if (function_exists('theme_zone_has_position')) {
   <div class="footer-container">
     <div class="footer-row-top">
       <?php if ($hasFooterCols): ?>
-        <?php foreach ($footerRows as $rowPositions): ?>
+        <?php
+        // Baris terakhir (mis. copyright) dirender terpisah di footer-row-bottom
+        $footerRowKeys = array_keys($footerRows);
+        $footerBottomRow = (int)max($footerRowKeys);
+        ?>
+        <?php foreach ($footerRows as $rk => $rowPositions): ?>
+          <?php if ((int)$rk === $footerBottomRow) continue; ?>
           <?php
           $rowHas = false;
           foreach ($rowPositions as $fp) {
@@ -96,8 +102,14 @@ if (function_exists('theme_zone_has_position')) {
       <?php endif; ?>
     </div>
 
-    <!-- Baris 2: Copyright — hanya jika tidak ada gadget copyright -->
-    <?php if (!$hasCopyrightZone): ?>
+    <!-- Baris bawah: gadget copyright jika ada, fallback hardcoded -->
+    <?php if ($hasCopyrightZone): ?>
+    <div class="footer-row-bottom">
+      <div class="footer-zone-copyright copyright-text">
+        <?= theme_zone_render_position($pdo, 'footer', 'copyright') ?>
+      </div>
+    </div>
+    <?php else: ?>
     <div class="footer-row-bottom">
       <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load"><?= $copyright ?></div>
     </div>
