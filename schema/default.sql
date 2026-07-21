@@ -308,6 +308,7 @@ CREATE TABLE IF NOT EXISTS `sidebar_zone_items` (
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~
 CREATE TABLE IF NOT EXISTS `theme_zone_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `theme_folder` varchar(100) NOT NULL DEFAULT '',
   `zone_slug` varchar(50) NOT NULL,
   `position` varchar(50) NOT NULL DEFAULT '',
   `type` varchar(50) NOT NULL,
@@ -319,7 +320,8 @@ CREATE TABLE IF NOT EXISTS `theme_zone_items` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_zone_order` (`zone_slug`, `ordering`),
-  KEY `idx_zone_position` (`zone_slug`, `position`, `ordering`)
+  KEY `idx_zone_position` (`zone_slug`, `position`, `ordering`),
+  KEY `idx_theme_zone` (`theme_folder`, `zone_slug`, `position`, `ordering`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Core settings (installed overrides title/desc/url via installer)

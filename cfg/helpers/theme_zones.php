@@ -13,6 +13,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
         try {
             $pdo->exec("CREATE TABLE IF NOT EXISTS theme_zone_items (
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                theme_folder VARCHAR(100) NOT NULL DEFAULT '',
                 zone_slug VARCHAR(50) NOT NULL,
                 position VARCHAR(50) NOT NULL DEFAULT '',
                 type VARCHAR(50) NOT NULL,
@@ -23,22 +24,41 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 KEY idx_zone_order (zone_slug, ordering),
-                KEY idx_zone_position (zone_slug, position, ordering)
+                KEY idx_zone_position (zone_slug, position, ordering),
+                KEY idx_theme_zone (theme_folder, zone_slug, position, ordering)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+            $cols = $pdo->query("SHOW COLUMNS FROM theme_zone_items")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('theme_folder', $cols, true)) {
+                $pdo->exec("ALTER TABLE theme_zone_items ADD COLUMN theme_folder VARCHAR(100) NOT NULL DEFAULT '' AFTER zone_slug");
+                $pdo->exec("ALTER TABLE theme_zone_items ADD KEY idx_theme_zone (theme_folder, zone_slug, position, ordering)");
+                $pdo->exec("UPDATE theme_zone_items t JOIN settings s ON s.`key` = 'active_theme' SET t.theme_folder = s.`value` WHERE t.theme_folder = ''");
+            }
         } catch (Throwable $e) {
             error_log('[theme_zones] schema error: ' . $e->getMessage());
         }
     }
 
-    function theme_zone_items(PDO $pdo, string $zoneSlug, ?string $position = null): array {
+    function theme_zone_folder(PDO $pdo, ?string $folder = null): string {
+        if (is_string($folder) && $folder !== '') return $folder;
+        if (function_exists('get_active_theme_folder')) {
+            $active = (string)get_active_theme_folder($pdo);
+            if ($active !== '') return $active;
+        }
+        return 'default';
+    }
+
+    function theme_zone_items(PDO $pdo, string $zoneSlug, ?string $position = null, ?string $themeFolder = null, bool $activeOnly = true): array {
         theme_zone_ensure_schema($pdo);
+        $themeFolder = theme_zone_folder($pdo, $themeFolder);
+        $activeSql = $activeOnly ? ' AND active = 1' : '';
         try {
             if ($position === null) {
-                $stmt = $pdo->prepare("SELECT * FROM theme_zone_items WHERE zone_slug = ? AND active = 1 ORDER BY position ASC, ordering ASC, id ASC");
-                $stmt->execute([$zoneSlug]);
+                $stmt = $pdo->prepare("SELECT * FROM theme_zone_items WHERE theme_folder = ? AND zone_slug = ?{$activeSql} ORDER BY position ASC, ordering ASC, id ASC");
+                $stmt->execute([$themeFolder, $zoneSlug]);
             } else {
-                $stmt = $pdo->prepare("SELECT * FROM theme_zone_items WHERE zone_slug = ? AND position = ? AND active = 1 ORDER BY ordering ASC, id ASC");
-                $stmt->execute([$zoneSlug, $position]);
+                $stmt = $pdo->prepare("SELECT * FROM theme_zone_items WHERE theme_folder = ? AND zone_slug = ? AND position = ?{$activeSql} ORDER BY ordering ASC, id ASC");
+                $stmt->execute([$themeFolder, $zoneSlug, $position]);
             }
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
@@ -58,8 +78,8 @@ if (!function_exists('theme_zone_ensure_schema')) {
     }
 
     function theme_zone_render(PDO $pdo, string $zoneSlug, ?string $folder = null): string {
-        $folder = $folder ?: (function_exists('get_active_theme_folder') ? get_active_theme_folder($pdo) : 'default');
-        $items = theme_zone_items($pdo, $zoneSlug);
+        $folder = theme_zone_folder($pdo, $folder);
+        $items = theme_zone_items($pdo, $zoneSlug, null, $folder);
         if (empty($items)) return '';
 
         $layout = theme_zone_layout($folder)[$zoneSlug] ?? null;
@@ -111,16 +131,16 @@ if (!function_exists('theme_zone_ensure_schema')) {
         return $html;
     }
 
-    function theme_zone_position_items(PDO $pdo, string $zoneSlug, string $position): array {
-        return theme_zone_items($pdo, $zoneSlug, $position);
+    function theme_zone_position_items(PDO $pdo, string $zoneSlug, string $position, ?string $folder = null, bool $activeOnly = true): array {
+        return theme_zone_items($pdo, $zoneSlug, $position, $folder, $activeOnly);
     }
 
-    function theme_zone_has_position(PDO $pdo, string $zoneSlug, string $position): bool {
-        return !empty(theme_zone_position_items($pdo, $zoneSlug, $position));
+    function theme_zone_has_position(PDO $pdo, string $zoneSlug, string $position, ?string $folder = null): bool {
+        return !empty(theme_zone_position_items($pdo, $zoneSlug, $position, $folder));
     }
 
     function theme_zone_render_position(PDO $pdo, string $zoneSlug, string $position, ?string $folder = null): string {
-        $items = theme_zone_position_items($pdo, $zoneSlug, $position);
+        $items = theme_zone_position_items($pdo, $zoneSlug, $position, $folder);
         if (empty($items)) return '';
         return theme_zone_render_items($pdo, $items);
     }
@@ -249,14 +269,15 @@ if (!function_exists('theme_zone_ensure_schema')) {
 
     // ─── Admin CRUD ───
 
-    function theme_zone_add_item(PDO $pdo, string $zoneSlug, string $type, array $config, string $title = '', string $position = ''): bool {
+    function theme_zone_add_item(PDO $pdo, string $zoneSlug, string $type, array $config, string $title = '', string $position = '', ?string $themeFolder = null): bool {
         theme_zone_ensure_schema($pdo);
+        $themeFolder = theme_zone_folder($pdo, $themeFolder);
         try {
-            $maxStmt = $pdo->prepare("SELECT MAX(ordering) FROM theme_zone_items WHERE zone_slug = ? AND position = ?");
-            $maxStmt->execute([$zoneSlug, $position]);
+            $maxStmt = $pdo->prepare("SELECT MAX(ordering) FROM theme_zone_items WHERE theme_folder = ? AND zone_slug = ? AND position = ?");
+            $maxStmt->execute([$themeFolder, $zoneSlug, $position]);
             $maxOrder = (int)$maxStmt->fetchColumn();
-            $stmt = $pdo->prepare("INSERT INTO theme_zone_items (zone_slug, position, type, title, config, ordering, active) VALUES (?, ?, ?, ?, ?, ?, 1)");
-            return $stmt->execute([$zoneSlug, $position, $type, $title, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $maxOrder + 1]);
+            $stmt = $pdo->prepare("INSERT INTO theme_zone_items (theme_folder, zone_slug, position, type, title, config, ordering, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)");
+            return $stmt->execute([$themeFolder, $zoneSlug, $position, $type, $title, json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $maxOrder + 1]);
         } catch (Throwable $e) {
             error_log('[theme_zones] add error: ' . $e->getMessage());
             return false;

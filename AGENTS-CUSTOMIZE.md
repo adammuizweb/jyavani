@@ -111,7 +111,9 @@ Konsekuensi desain:
 
 ## 8. Roadmap (kerjakan bertahap, satu fase = satu commit/logis)
 
-- **Fase 1:** Per-theme scoping gadget (`theme_folder`) + migrasi + backfill.
+- **Fase 1:** ✅ Per-theme scoping gadget (`theme_folder` di `theme_zone_items`, migrasi
+  `010-theme-zone-theme-folder.sql` + backfill, runtime `ensure_schema` ikut ALTER,
+  admin menampilkan gadget inactive). Done 2026-07-21.
 - **Fase 2:** Zone `single.post` + `list.post` + partials; default & adam jadi contoh.
 - **Fase 3:** Drag & drop antar-position (HTML5 sortable) + visual mapping ala Blogspot.
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone

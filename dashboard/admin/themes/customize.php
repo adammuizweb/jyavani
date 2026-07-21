@@ -214,7 +214,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         $config = (isset($tzWidgets[$type]) && is_array($tzWidgets[$type]['default_config'] ?? null)) ? $tzWidgets[$type]['default_config'] : [];
         $title = trim((string)($_POST['tz_title'] ?? ''));
         if ($title !== '') $config['title'] = $title;
-        if (theme_zone_add_item($pdo, $zone, $type, $config, (string)($tzWidgets[$type]['label'] ?? $type), $position)) {
+        if (theme_zone_add_item($pdo, $zone, $type, $config, (string)($tzWidgets[$type]['label'] ?? $type), $position, $folder)) {
             adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'success', __('Widget added to %s.', [($themeLayout[$zone]['positions'][$position]['label'] ?? $position)]));
             return;
         }
@@ -257,7 +257,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
     }
 
     if ($action === 'defaults') {
-        $existing = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zone) : [];
+        $existing = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zone, null, $folder, false) : [];
         if (!empty($existing)) {
             adiwira_redirect_with_flash($selfUrl . '&tab=' . $zone, 'warning', __('Zone already has widgets. Remove them first to load defaults.'));
             return;
@@ -288,7 +288,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                 $type = (string)$d['type'];
                 $title = trim((string)($d['title'] ?? ($tzWidgets[$type]['label'] ?? $type)));
                 $config = is_array($d['config'] ?? null) ? $d['config'] : ($tzWidgets[$type]['default_config'] ?? []);
-                theme_zone_add_item($pdo, $zone, $type, $config, $title, $position);
+                theme_zone_add_item($pdo, $zone, $type, $config, $title, $position, $folder);
             }
         }
 
@@ -415,7 +415,7 @@ $activeZoneTab = in_array(($_GET['tab'] ?? ''), ['header', 'main', 'footer'], tr
         <div class="tz-layout-grid">
           <?php foreach ($layoutDef['positions'] as $posKey => $posDef): ?>
             <?php
-            $posItems = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zSlug, $posKey) : [];
+            $posItems = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zSlug, $posKey, $folder, false) : [];
             ?>
             <div class="tz-position" data-position="<?= h($posKey) ?>" style="background:var(--adam-card, rgba(127,127,127,.04)); border:1px dashed rgba(127,127,127,.35); border-radius:8px; padding:1rem; min-height:120px;">
               <div style="font-weight:700; font-size:.85rem; margin-bottom:.75rem; color:var(--adam-muted); text-transform:uppercase; letter-spacing:.5px;"><?= h($posDef['label'] ?? $posKey) ?></div>
