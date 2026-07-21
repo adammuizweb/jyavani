@@ -133,7 +133,7 @@
                         "type": "tz_html",
                         "title": "Controller",
                         "config": {
-                            "html": "<select id=\"themeSelect\" class=\"ctrl-item blur-in onload\" data-anime-trigger=\"load\" data-duration=\"1700\" data-delay=\"760\">\n  <option value=\"light\">Light</option>\n  <option value=\"dark\">Dark</option>\n</select>\n<select id=\"lang-switch\" class=\"ctrl-item blur-in onload\" data-anime-trigger=\"load\" data-duration=\"700\" data-delay=\"860\">\n  <option value=\"id\">Indonesian</option>\n  <option value=\"en\">English</option>\n</select>\n<form method=\"get\" action=\"/\">\n  <input type=\"search\" name=\"s\" class=\"ctrl-item pop\" data-anime-trigger=\"load\" data-duration=\"1000\" data-delay=\"1000\" placeholder=\"Search...\">\n</form>"
+                            "html": "<select id=\"themeSelect\" class=\"ctrl-item blur-in onload\" data-anime-trigger=\"load\" data-duration=\"1700\" data-delay=\"760\">\n  <option value=\"light\">Light</option>\n  <option value=\"dark\">Dark</option>\n</select>\n<select id=\"lang-switch\" class=\"ctrl-item blur-in onload\" data-anime-trigger=\"load\" data-duration=\"700\" data-delay=\"860\">\n  <option value=\"id\">ID</option>\n  <option value=\"en\">EN</option>\n</select>\n<form method=\"get\" action=\"/\">\n  <input type=\"search\" name=\"s\" class=\"ctrl-item pop\" data-anime-trigger=\"load\" data-duration=\"1000\" data-delay=\"1000\" placeholder=\"Search...\" style=\"width:120px;max-width:140px;\">\n</form>"
                         }
                     }
                 ]
