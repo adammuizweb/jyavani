@@ -34,7 +34,17 @@ $mods = theme_mods_all($pdo, $folder);
 // Daftar page published untuk gadget tz_pages
 $pagesList = [];
 try {
-    $pagesList = $pdo->query("SELECT title, slug FROM posts WHERE type = 'page' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC")->fetchAll(PDO::FETCH_ASSOC);
+    $pagesList = $pdo->query("SELECT title, slug FROM posts WHERE type = 'page' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC")
+        ->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {}
+
+// Shortcode presets untuk picker di tz_html / tz_richtext
+$scPresets = [];
+try {
+    $scStmt = $pdo->query("SELECT id, title, slug, status FROM posts WHERE type = 'sc_preset' AND is_deleted = 0 ORDER BY title ASC");
+    if ($scStmt) {
+        $scPresets = array_values(array_filter($scStmt->fetchAll(PDO::FETCH_ASSOC), fn($r) => strtolower((string)($r['status'] ?? '')) !== 'deleted'));
+    }
 } catch (Throwable $e) {}
 
 $tzWidgets = function_exists('theme_zone_default_widget_types') ? theme_zone_default_widget_types() : [];
@@ -211,7 +221,7 @@ function tz_widget_config_field(string $zoneSlug, string $position, int $itemId,
     return $out;
 }
 
-function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus, array $sidebarZones = [], array $pagesList = []): string {
+function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus, array $sidebarZones = [], array $pagesList = [], string $base = ''): string {
     $type = (string)($item['type'] ?? '');
     $config = json_decode((string)($item['config'] ?? '{}'), true) ?: [];
     $out = '';
@@ -323,18 +333,24 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             break;
         case 'tz_richtext':
             $rtName = "widget[{$itemId}][config][html]";
+            $rtEditorKey = 'rt-' . $itemId;
             $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Content') . '</label>';
-            $out .= '<textarea class="tz-richtext-area" name="' . $rtName . '" rows="5" style="width:100%; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px; font-family:inherit; box-sizing:border-box;">' . h((string)($config['html'] ?? '')) . '</textarea></div>';
+            $out .= '<div style="display:flex; gap:.5rem; align-items:center; margin-bottom:4px;">';
+            $out .= '<button type="button" class="btn btn-sm btn-secondary tz-sc-pick-btn" data-editor="' . h($rtEditorKey) . '" style="padding:.3rem .6rem; font-size:12px;">' . __('Insert Shortcode') . '</button>';
+            $out .= '</div>';
+            $out .= '<textarea class="tz-richtext-area" data-tz-editor="' . h($rtEditorKey) . '" name="' . $rtName . '" rows="5" style="width:100%; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px; font-family:inherit; box-sizing:border-box;">' . h((string)($config['html'] ?? '')) . '</textarea></div>';
             break;
         case 'tz_sidebar_zone':
             $zoneOptions = ['' => __('- Pilih sidebar zone -')];
             foreach ($sidebarZones as $sz) { $zoneOptions[(string)($sz['slug'] ?? '')] = (string)($sz['name'] ?? $sz['slug'] ?? ''); }
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'zone', __('Sidebar Zone'), $config['zone'] ?? '', 'select', $zoneOptions) . '</div>';
+            $out .= '<div><a class="btn btn-sm btn-secondary" style="margin-top:.25rem; display:inline-flex; align-items:center; gap:4px; padding:.3rem .6rem; font-size:12px;" href="' . h($base . '/?page=admin/sidebar/index') . '" target="_blank">' . __('Kelola Sidebar') . ' →</a></div>';
             break;
         case 'tz_nav_menu':
             $menuOptions = ['' => __('Theme default')];
             foreach ($menus as $m) { $menuOptions[(string)($m['slug'] ?? '')] = (string)($m['name'] ?? $m['slug'] ?? ''); }
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'menu', __('Menu'), $config['menu'] ?? 'primary', 'select', $menuOptions) . '</div>';
+            $out .= '<div><a class="btn btn-sm btn-secondary" style="margin-top:.25rem; display:inline-flex; align-items:center; gap:4px; padding:.3rem .6rem; font-size:12px;" href="' . h($base . '/?page=admin/menus/index') . '" target="_blank">' . __('Kelola Menu') . ' →</a></div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'menu_class', __('CSS class'), $config['menu_class'] ?? 'menu') . '</div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'depth', __('Depth'), $config['depth'] ?? 1) . '</div>';
             $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'ul_attr', __('UL attributes'), $config['ul_attr'] ?? '') . '</div>';
@@ -351,8 +367,12 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             break;
         case 'tz_html':
             $cmName = "widget[{$itemId}][config][html]";
+            $cmEditorKey = 'html-' . $itemId;
             $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('HTML Content') . '</label>';
-            $out .= '<textarea class="tz-code-area" name="' . $cmName . '" rows="5" style="width:100%; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px; font-family:monospace; box-sizing:border-box;">' . h((string)($config['html'] ?? '')) . '</textarea></div>';
+            $out .= '<div style="display:flex; gap:.5rem; align-items:center; margin-bottom:4px;">';
+            $out .= '<button type="button" class="btn btn-sm btn-secondary tz-sc-pick-btn" data-editor="' . h($cmEditorKey) . '" style="padding:.3rem .6rem; font-size:12px;">' . __('Insert Shortcode') . '</button>';
+            $out .= '</div>';
+            $out .= '<textarea class="tz-code-area" data-tz-editor="' . h($cmEditorKey) . '" name="' . $cmName . '" rows="5" style="width:100%; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px; font-family:monospace; box-sizing:border-box;">' . h((string)($config['html'] ?? '')) . '</textarea></div>';
             break;
         case 'tz_post_author':
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'show_avatar', __('Show avatar'), $config['show_avatar'] ?? true, 'checkbox') . '</div>';
@@ -368,6 +388,8 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
 
 // Render satu zone editor lengkap (tombol defaults + grid positions + gadget list + add form)
 function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, array $sidebarZones = [], array $pagesList = []): string {
+    global $base;
+    $base = $base ?? (defined('ADMIN_BASE_PATH') ? ADMIN_BASE_PATH : '/adiwira');
     ob_start();
     $hasDefaults = !empty($layoutDef['defaults']) || in_array($zSlug, ['header', 'footer'], true);
     ?>
@@ -450,7 +472,7 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
 
                     <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
                       <div class="tz-config-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
-                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList) ?>
+                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList, $base) ?>
                       </div>
                     </div>
                   </div>
@@ -773,6 +795,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 <script src="/static/js/add/media-selector.js"></script>
 
 <script>
+window.TZ_SHORTCODE_PRESETS = <?= json_encode($scPresets, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 (function(){
   document.querySelectorAll('input[type="text"][id^="tc-"]').forEach(function(inp){
     const preview = document.getElementById('tc-preview-' + inp.id.replace('tc-',''));
@@ -784,6 +807,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
       preview.style.display = 'block';
     });
   });
+
+  window.tzEditors = window.tzEditors || { quill: {}, cm: {} };
 
   window.tzInitEditors = function(scope){
     if (!scope) return;
@@ -799,6 +824,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
       q.on('text-change', function(){
         ta.value = div.querySelector('.ql-editor').innerHTML;
       });
+      var key = ta.getAttribute('data-tz-editor');
+      if (key) window.tzEditors.quill[key] = q;
     });
     scope.querySelectorAll('textarea.tz-code-area:not(.tz-ed-init)').forEach(function(ta){
       if (typeof CodeMirror === 'undefined') return;
@@ -811,6 +838,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
       });
       cm.setSize('100%', 180);
       cm.on('change', function(){ cm.save(); });
+      var key = ta.getAttribute('data-tz-editor');
+      if (key) window.tzEditors.cm[key] = cm;
     });
   };
 
@@ -825,6 +854,86 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
   // Init editor untuk widget body yang terbuka sejak awal
   document.querySelectorAll('.tz-body').forEach(function(body){
     if (body.style.display !== 'none') tzInitEditors(body);
+  });
+
+  // ─── Shortcode picker for tz_html / tz_richtext ───
+  var tzActiveShortcodeEditor = null;
+  function tzBuildShortcodePicker(){
+    var presets = (window.TZ_SHORTCODE_PRESETS && window.TZ_SHORTCODE_PRESETS.length) ? window.TZ_SHORTCODE_PRESETS : [];
+    var emptyMsg = <?= json_encode(__('Belum ada shortcode preset. Buat di Shortcode Builder.')) ?>;
+    var items = presets.map(function(p){
+      var title = p.title || p.slug || ('#' + p.id);
+      var slug = p.slug || p.id;
+      return '<button type="button" class="tz-sc-item" data-slug="' + slug.replace(/"/g, '&quot;') + '" style="display:flex; align-items:center; justify-content:space-between; width:100%; padding:.6rem .8rem; border:1px solid var(--adam-border-2); border-radius:6px; background:var(--adam-card); color:var(--adam-text); cursor:pointer; text-align:left;">'
+        + '<span style="font-weight:600;">' + title.replace(/</g, '&lt;') + '</span>'
+        + '<code style="font-size:11px; background:rgba(127,127,127,.1); padding:2px 6px; border-radius:4px;">[[widget:' + slug.replace(/</g, '&lt;') + ']]</code>'
+        + '</button>';
+    }).join('');
+    if (!items) {
+      items = '<p style="margin:0; color:var(--adam-muted); font-size:13px; text-align:center;">' + emptyMsg + '</p>';
+    }
+    return '<div id="tz-sc-modal" style="position:fixed; inset:0; z-index:2000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45);">'
+      + '<div class="tz-sc-box" style="width:min(420px, 92vw); max-height:80vh; overflow:auto; background:var(--adam-bg); border:1px solid var(--adam-border-2); border-radius:10px; padding:1rem; box-shadow:var(--adam-shadow, 0 12px 40px rgba(0,0,0,.15));">'
+      + '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem;">'
+      + '<h3 style="margin:0; font-size:1rem;"><?= __('Pilih Shortcode Preset') ?></h3>'
+      + '<button type="button" id="tz-sc-close" style="background:none; border:none; cursor:pointer; font-size:1.25rem; color:var(--adam-muted); line-height:1;">×</button>'
+      + '</div>'
+      + '<div style="display:flex; flex-direction:column; gap:.5rem;">' + items + '</div>'
+      + '</div></div>';
+  }
+  function tzOpenShortcodePicker(editorKey){
+    tzActiveShortcodeEditor = editorKey;
+    var existing = document.getElementById('tz-sc-modal');
+    if (existing) existing.remove();
+    var wrap = document.createElement('div');
+    wrap.innerHTML = tzBuildShortcodePicker();
+    document.body.appendChild(wrap.firstElementChild);
+    var modal = document.getElementById('tz-sc-modal');
+    modal.style.display = 'flex';
+    modal.addEventListener('click', function(e){
+      if (e.target === modal) { modal.remove(); tzActiveShortcodeEditor = null; }
+    });
+    document.getElementById('tz-sc-close').addEventListener('click', function(){ modal.remove(); tzActiveShortcodeEditor = null; });
+    modal.querySelectorAll('.tz-sc-item').forEach(function(item){
+      item.addEventListener('click', function(){
+        var slug = item.getAttribute('data-slug');
+        if (tzActiveShortcodeEditor && slug) tzInsertShortcode(tzActiveShortcodeEditor, slug);
+        modal.remove();
+        tzActiveShortcodeEditor = null;
+      });
+    });
+  }
+  function tzInsertShortcode(editorKey, slug){
+    var shortcode = '[[widget:' + slug + ']]';
+    var cm = window.tzEditors.cm[editorKey];
+    if (cm) {
+      cm.replaceSelection(shortcode);
+      cm.focus();
+      return;
+    }
+    var q = window.tzEditors.quill[editorKey];
+    if (q) {
+      var range = q.getSelection(true);
+      q.insertText(range ? range.index : q.getLength(), shortcode);
+      q.setSelection((range ? range.index : q.getLength()) + shortcode.length);
+      return;
+    }
+    // Fallback: textarea raw
+    var ta = document.querySelector('textarea[data-tz-editor="' + editorKey + '"]');
+    if (ta) {
+      var start = ta.selectionStart || 0;
+      var end = ta.selectionEnd || 0;
+      ta.value = ta.value.substring(0, start) + shortcode + ta.value.substring(end);
+      ta.selectionStart = ta.selectionEnd = start + shortcode.length;
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.tz-sc-pick-btn');
+    if (!btn) return;
+    e.preventDefault();
+    var key = btn.getAttribute('data-editor');
+    if (key) tzOpenShortcodePicker(key);
   });
 
   // ─── Image picker via media modal CMS core ───
