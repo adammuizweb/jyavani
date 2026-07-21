@@ -60,6 +60,11 @@ foreach ($discoveredPartials as $slug => $label) {
     if (!isset($zoneZones[$slug])) $zoneZones[$slug] = $label;
 }
 $partialZones = array_values(array_filter(array_keys($zoneZones), fn($z) => !in_array($z, ['header', 'footer'], true)));
+// Pastikan 'main' selalu tersedia jika tema declare layout.main atau customizer section main
+if (!in_array('main', $partialZones, true) && (isset($themeLayout['main']) || !empty($sections['main']['fields']))) {
+    $partialZones[] = 'main';
+    if (!isset($zoneZones['main'])) $zoneZones['main'] = __('Main');
+}
 // Urutan: main dulu, lalu main.homepage, sisanya menyusul
 usort($partialZones, function ($a, $b) {
     $rank = fn($z) => $z === 'main' ? 0 : ($z === 'main.homepage' ? 1 : 2);
@@ -214,8 +219,10 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             $out .= '<div style="grid-column:1/-1;">';
             $out .= '<label for="' . $srcId . '" style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Image') . '</label>';
             $out .= '<div style="display:flex; gap:.5rem; align-items:center;">';
-            $out .= '<input type="text" name="' . $srcName . '" id="' . $srcId . '" value="' . h((string)($config['src'] ?? '')) . '" placeholder="/static/img/..." style="flex:1; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
-            $out .= '<button type="button" class="btn btn-secondary tz-img-pick-btn" data-target="' . $srcId . '" style="padding:.4rem .75rem; white-space:nowrap;">' . __('Pilih dari Media') . '</button>';
+            $out .= '<input type="text" name="' . $srcName . '" id="' . $srcId . '" value="' . h((string)($config['src'] ?? '')) . '" placeholder="/static/img/..." style="flex:1; min-width:0; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
+            $out .= '<button type="button" class="btn btn-secondary tz-img-pick-btn" data-target="' . $srcId . '" style="display:inline-flex; align-items:center; gap:5px; padding:.4rem .7rem; white-space:nowrap;">';
+            $out .= '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+            $out .= __('Gallery') . '</button>';
             $out .= '</div>';
             $out .= '<div class="tz-img-preview" id="' . $srcId . '-preview" style="margin-top:.5rem;' . (empty($config['src']) ? 'display:none;' : '') . '"><img src="' . h((string)($config['src'] ?? '')) . '" alt="" style="max-height:64px; max-width:200px; border-radius:6px; background:rgba(127,127,127,.1); padding:4px;"></div>';
             $out .= '</div>';
@@ -236,7 +243,7 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
                 $out .= '<label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; min-width:110px; cursor:pointer;">';
                 $out .= '<input type="checkbox" name="' . $cbName . '" value="' . h($netSlug) . '"' . ($on ? ' checked' : '') . ' style="width:15px; height:15px; accent-color:var(--adam-primary);">';
                 $out .= h($netDef['label']) . '</label>';
-                $out .= '<input type="text" name="' . $urlName . '" value="' . h((string)($linksNow[$netSlug] ?? '')) . '" placeholder="https://" style="flex:1; padding:5px 9px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
+                $out .= '<input type="text" name="' . $urlName . '" value="' . h((string)($linksNow[$netSlug] ?? '')) . '" placeholder="https://" style="flex:1; min-width:0; padding:5px 9px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
                 $out .= '</div>';
             }
             $out .= '</div>';
@@ -388,7 +395,7 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
                     </div>
 
                     <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
-                      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
+                      <div class="tz-config-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
                         <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList) ?>
                       </div>
                     </div>
@@ -455,7 +462,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         $title = trim((string)($_POST['tz_title'] ?? ''));
         if ($title !== '') $config['title'] = $title;
         if (theme_zone_add_item($pdo, $zone, $type, $config, (string)($tzWidgets[$type]['label'] ?? $type), $position, $folder)) {
-            adiwira_redirect_with_flash($backUrl, 'success', __('Widget added to %s.', [($themeLayout[$zone]['positions'][$position]['label'] ?? $position)]));
+            adiwira_redirect_with_flash($backUrl, 'success', sprintf(__('Widget added to %s.'), (string)($themeLayout[$zone]['positions'][$position]['label'] ?? $position)));
             return;
         }
         adiwira_redirect_with_flash($backUrl, 'error', __('Failed to add widget.'));
@@ -973,7 +980,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
   .tz-layout-grid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 .tz-position { min-width: 0; }
-.tz-item { transition: opacity .2s ease; }
+.tz-item { transition: opacity .2s ease; min-width: 0; }
+.tz-config-grid > * { min-width: 0; }
 .tz-item.tz-dragging { opacity: .35; }
 .tz-drop-placeholder {
   border: 2px dashed var(--adam-primary, #0066ff);
