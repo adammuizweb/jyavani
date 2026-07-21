@@ -362,7 +362,32 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
 
   <!-- Theme Layout Editor -->
   <?php if (!empty($themeLayout)): ?>
-    <div class="tz-layout-tabs" style="display:flex; gap:.5rem; margin-bottom:1rem; border-bottom:1px solid rgba(127,127,127,.18);">
+    <!-- Page map wireframe (ala Blogspot) -->
+    <div class="tz-pagemap" style="margin-bottom:1.25rem;">
+      <?php foreach ($zoneZones as $pmSlug => $pmLabel): ?>
+        <?php
+        $pmDef = $themeLayout[$pmSlug] ?? [];
+        $pmPositions = array_keys($pmDef['positions'] ?? []);
+        ?>
+        <a href="<?= h($selfUrl) ?>&tab=<?= h($pmSlug) ?>" class="tz-pm-row<?= $activeZoneTab === $pmSlug ? ' active' : '' ?>">
+          <span class="tz-pm-label"><?= h($pmLabel) ?></span>
+          <span class="tz-pm-cells">
+            <?php if ($pmSlug === 'main'): ?>
+              <span class="tz-pm-cell tz-pm-cell-wide"><?= __('Content') ?></span>
+              <span class="tz-pm-cell tz-pm-cell-side"><?= __('Sidebar') ?></span>
+            <?php elseif (empty($pmPositions)): ?>
+              <span class="tz-pm-cell tz-pm-cell-wide">—</span>
+            <?php else: ?>
+              <?php foreach ($pmPositions as $pmPos): ?>
+                <span class="tz-pm-cell"><?= h((string)($pmDef['positions'][$pmPos]['label'] ?? $pmPos)) ?></span>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </span>
+        </a>
+      <?php endforeach; ?>
+    </div>
+
+    <div class="tz-layout-tabs" style="display:flex; gap:.5rem; margin-bottom:1rem; border-bottom:1px solid rgba(127,127,127,.18); overflow-x:auto;">
       <?php foreach ($zoneZones as $zSlug => $zLabel): ?>
         <a href="<?= h($selfUrl) ?>&tab=<?= h($zSlug) ?>" style="padding:.5rem 1rem; text-decoration:none; border-bottom:2px solid transparent; <?= $activeZoneTab === $zSlug ? 'border-bottom-color:var(--adam-primary, #0066ff); font-weight:600;' : 'opacity:.7;' ?>"><?= h($zLabel) ?></a>
       <?php endforeach; ?>
@@ -456,7 +481,12 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
           </button>
         </form>
 
-        <div class="tz-layout-grid">
+        <?php
+        $posCount = count($layoutDef['positions']);
+        $cols = (int)($layoutDef['columns'] ?? min(max($posCount, 1), 4));
+        $cols = max(1, min(4, $cols));
+        ?>
+        <div class="tz-layout-grid" data-cols="<?= $cols ?>">
           <?php foreach ($layoutDef['positions'] as $posKey => $posDef): ?>
             <?php
             $posItems = function_exists('theme_zone_items') ? theme_zone_items($pdo, $zSlug, $posKey, $folder, false) : [];
@@ -470,7 +500,7 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
                 <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
                 <input type="hidden" name="_widget_order" id="tz-order-<?= h($zSlug) ?>-<?= h($posKey) ?>" value="<?= h(implode(',', array_map(fn($it) => $it['id'] ?? '', $posItems))) ?>">
 
-                <div class="tz-list" id="tz-list-<?= h($zSlug) ?>-<?= h($posKey) ?>" style="display:flex; flex-direction:column; gap:.75rem; margin-bottom:1rem;">
+                <div class="tz-list" id="tz-list-<?= h($zSlug) ?>-<?= h($posKey) ?>" data-position="<?= h($posKey) ?>" style="display:flex; flex-direction:column; gap:.75rem; margin-bottom:1rem;">
                   <?php if (empty($posItems)): ?>
                     <div class="tz-empty" style="padding:1rem; text-align:center; color:var(--adam-muted); font-size:13px; border:1px dashed rgba(127,127,127,.25); border-radius:6px;"><?= __('Drop gadget here') ?></div>
                   <?php else: ?>
@@ -487,7 +517,7 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
                         <input type="hidden" name="widget[<?= $itemId ?>][position]" value="<?= h($posKey) ?>">
 
                         <div class="tz-header" style="display:flex; align-items:center; gap:.5rem; padding:.6rem .9rem; cursor:pointer; user-select:none;" onclick="tzToggleWidget(this)">
-                          <span style="cursor:grab; color:var(--adam-muted); font-size:18px; line-height:1;" title="<?= __('Drag to reorder') ?>"><?= '⠿' ?></span>
+                          <span class="tz-grip" style="cursor:grab; color:var(--adam-muted); font-size:18px; line-height:1; touch-action:none;" title="<?= __('Drag to reorder or move to another position') ?>" onclick="event.stopPropagation();"><?= '⠿' ?></span>
                           <span style="background:var(--adam-primary-soft, rgba(127,127,127,.18)); color:var(--adam-primary, inherit); padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; white-space:nowrap;"><?= h($typeInfo['label']) ?></span>
                           <span style="flex:1; font-weight:600; font-size:14px;"><?= h($it['title'] ?: $typeInfo['label']) ?></span>
 
@@ -659,6 +689,7 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
       list.insertBefore(item, items[target].nextSibling);
     }
     tzUpdateOrder(list);
+    tzMarkDirty(list);
   };
 
   window.tzDeleteWidget = function(id, zone){
@@ -677,6 +708,106 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
     if (input) input.value = ids.join(',');
   };
 
+  window.tzMarkDirty = function(list){
+    var form = list.closest('form');
+    if (!form) return;
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn && !btn.classList.contains('tz-dirty')) {
+      btn.classList.add('tz-dirty');
+      btn.textContent = <?= json_encode(__('Save Widgets')) ?> + ' •';
+    }
+  };
+
+  // ─── Drag & Drop (dalam + antar position) ───
+  var TZ_EMPTY_TEXT = <?= json_encode(__('Drop gadget here')) ?>;
+  var tzDragItem = null;
+  var tzPlaceholder = null;
+
+  function tzGetPlaceholder(){
+    if (!tzPlaceholder) {
+      tzPlaceholder = document.createElement('div');
+      tzPlaceholder.className = 'tz-drop-placeholder';
+    }
+    return tzPlaceholder;
+  }
+
+  function tzRefreshEmpty(list){
+    var has = list.querySelector('.tz-item');
+    var empty = list.querySelector('.tz-empty');
+    if (has && empty) { empty.remove(); return; }
+    if (!has && !empty) {
+      var d = document.createElement('div');
+      d.className = 'tz-empty';
+      d.style.cssText = 'padding:1rem; text-align:center; color:var(--adam-muted); font-size:13px; border:1px dashed rgba(127,127,127,.25); border-radius:6px;';
+      d.textContent = TZ_EMPTY_TEXT;
+      list.appendChild(d);
+    }
+  }
+
+  document.querySelectorAll('.tz-item').forEach(function(item){
+    var handle = item.querySelector('.tz-grip');
+    if (!handle) return;
+    handle.addEventListener('mousedown', function(){ item.draggable = true; });
+    handle.addEventListener('touchstart', function(){ item.draggable = true; }, {passive:true});
+    item.addEventListener('dragstart', function(e){
+      tzDragItem = item;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', item.getAttribute('data-id') || '');
+      setTimeout(function(){ item.classList.add('tz-dragging'); }, 0);
+    });
+    item.addEventListener('dragend', function(){
+      item.draggable = false;
+      item.classList.remove('tz-dragging');
+      if (tzPlaceholder && tzPlaceholder.parentNode) tzPlaceholder.parentNode.removeChild(tzPlaceholder);
+      document.querySelectorAll('.tz-list').forEach(function(l){ l.classList.remove('tz-drag-over'); });
+      tzDragItem = null;
+    });
+  });
+
+  document.querySelectorAll('.tz-list').forEach(function(list){
+    list.addEventListener('dragover', function(e){
+      if (!tzDragItem) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      list.classList.add('tz-drag-over');
+      var ph = tzGetPlaceholder();
+      var siblings = Array.prototype.slice.call(list.querySelectorAll('.tz-item:not(.tz-dragging)'));
+      var inserted = false;
+      for (var i = 0; i < siblings.length; i++) {
+        var r = siblings[i].getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) {
+          list.insertBefore(ph, siblings[i]);
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) list.appendChild(ph);
+    });
+    list.addEventListener('dragleave', function(e){
+      if (e.relatedTarget && list.contains(e.relatedTarget)) return;
+      list.classList.remove('tz-drag-over');
+    });
+    list.addEventListener('drop', function(e){
+      if (!tzDragItem) return;
+      e.preventDefault();
+      var ph = tzGetPlaceholder();
+      if (ph.parentNode === list) {
+        list.insertBefore(tzDragItem, ph);
+        list.removeChild(ph);
+      } else {
+        list.appendChild(tzDragItem);
+      }
+      // pindah position → update hidden input milik item
+      var posInput = tzDragItem.querySelector('input[name$="[position]"]');
+      if (posInput) posInput.value = list.getAttribute('data-position') || '';
+      document.querySelectorAll('.tz-list').forEach(function(l){
+        tzRefreshEmpty(l);
+        tzUpdateOrder(l);
+        tzMarkDirty(l);
+      });
+    });
+  });
+
   document.querySelectorAll('.tz-list').forEach(function(list){
     var observer = new MutationObserver(function(){ tzUpdateOrder(list); });
     observer.observe(list, { childList: true, subtree: false });
@@ -689,20 +820,58 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
 .tz-layout { max-width: 100%; overflow-x: auto; }
 .tz-layout-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1rem;
+}
+@media (min-width: 768px) {
+  .tz-layout-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tz-layout-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tz-layout-grid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 .tz-position { min-width: 0; }
 .tz-item { transition: opacity .2s ease; }
+.tz-item.tz-dragging { opacity: .35; }
+.tz-drop-placeholder {
+  border: 2px dashed var(--adam-primary, #0066ff);
+  border-radius: 8px;
+  min-height: 56px;
+  background: var(--adam-primary-soft, rgba(0,102,255,.06));
+}
+.tz-list.tz-drag-over { outline: 1px dashed rgba(127,127,127,.35); outline-offset: 4px; border-radius: 6px; }
 .tz-header { border-radius: var(--adam-radius, 8px); flex-wrap: wrap; }
 .tz-header:hover { background: var(--adam-surface-2, rgba(127,127,127,.08)); }
+.tz-grip { cursor: grab; }
+.tz-grip:active { cursor: grabbing; }
 .tz-item .tz-body { grid-template-columns: 1fr; }
+button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
 .tz-add-form {
   display: flex;
   flex-wrap: wrap;
   gap: .5rem;
   align-items: center;
 }
+
+/* Page map wireframe (ala Blogspot) */
+.tz-pagemap { display: flex; flex-direction: column; gap: .5rem; max-width: 720px; }
+.tz-pm-row {
+  display: flex; align-items: center; gap: .75rem;
+  border: 1px solid rgba(127,127,127,.28); border-radius: 8px;
+  padding: .5rem .75rem; text-decoration: none; color: inherit;
+  background: var(--adam-card, rgba(127,127,127,.04));
+  transition: border-color .15s ease, background .15s ease;
+}
+.tz-pm-row:hover { border-color: var(--adam-primary, #0066ff); }
+.tz-pm-row.active { border-color: var(--adam-primary, #0066ff); background: var(--adam-primary-soft, rgba(0,102,255,.07)); }
+.tz-pm-label { flex: 0 0 110px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--adam-muted); }
+.tz-pm-cells { display: flex; gap: .4rem; flex: 1; min-width: 0; }
+.tz-pm-cell {
+  flex: 1; min-width: 0; text-align: center; font-size: 12px;
+  border: 1px dashed rgba(127,127,127,.4); border-radius: 6px;
+  padding: .35rem .25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tz-pm-cell-wide { flex: 3; }
+.tz-pm-cell-side { flex: 1; }
+
 @media (max-width: 768px) {
   .tz-layout-grid { grid-template-columns: 1fr !important; }
   .tz-header { gap: .35rem; }
@@ -715,5 +884,7 @@ $gadgetZones = array_values(array_filter($zoneSlugs, function ($z) use ($themeLa
     box-sizing: border-box;
   }
   .tz-main-preview { grid-template-columns: 1fr !important; }
+  .tz-pm-label { flex-basis: 84px; font-size: 11px; }
+  .tz-pm-cell { font-size: 11px; padding: .25rem .15rem; }
 }
 </style>

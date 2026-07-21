@@ -85,13 +85,16 @@ Kekurangan yang harus dikerjakan di branch ini:
 
 ```json
 "layout": {
-  "header":  { "positions": { "logo": {}, "nav": {}, "controls": {} }, "defaults": { ... } },
+  "header":  { "columns": 3, "positions": { "logo": {}, "nav": {}, "controls": {} }, "defaults": { ... } },
   "main":    { "positions": { "content": {}, "sidebar": {} } },
-  "footer":  { "positions": { "left": {}, "middle": {}, "right": {} }, "defaults": { ... } },
+  "footer":  { "columns": 3, "positions": { "left": {}, "middle": {}, "right": {} }, "defaults": { ... } },
   "single.post": { "positions": { "before_content": {}, "after_content": {} } },
   "list.post":   { "positions": { "before_loop": {}, "after_loop": {} } }
 }
 ```
+
+- `columns` (opsional, 1–4) — jumlah kolom visual position di editor; fallback
+  `min(jumlah positions, 4)`. Murni untuk tampilan admin, tidak memaksa CSS tema.
 
 Tema consume lewat `theme_zone_render_position('single.post', 'after_content')` dst.,
 dengan fallback ke partial bawaan jika kosong. Untuk gadget yang butuh data post
@@ -132,7 +135,19 @@ Konsekuensi desain:
     menolak dengan warning (tidak lagi fallback sembarangan).
   - Test gadget contoh ada di DB untuk tema `default` (single.post/after_content: Post Meta +
     Author Box; list.post/after_loop: demo HTML) — bisa dihapus lewat admin.
-- **Fase 3:** Drag & drop antar-position (HTML5 sortable) + visual mapping ala Blogspot.
+- **Fase 3:** ✅ Drag & drop antar-position (HTML5 sortable) + visual mapping ala Blogspot.
+  Done 2026-07-21:
+  - Drag handle `.tz-grip` (mousedown baru `draggable=true` — teks di input tetap bisa diseleksi).
+  - Drop placeholder mengikuti posisi cursor (insert sebelum/sesudah item), indikator `.tz-drag-over`.
+  - Pindah antar-position: hidden input `widget[id][position]` diupdate saat drop; save handler
+    server memang sudah mengupdate `position` per item — tidak ada perubahan server.
+  - Kedua form (sumber + target) diberi tanda dirty (`•` + ring biru pada tombol Save).
+  - List kosong menampilkan kembali teks "Drop gadget here" secara dinamis.
+  - **Page map wireframe** di atas tabs: baris per zone dengan sel per position
+    (main digambar sebagai Content|Sidebar), klik = pindah tab, tab aktif di-highlight.
+  - Grid kolom visual mengikuti `columns` di `theme.json` (header: 3, dst.; fallback
+    `min(jumlah positions, 4)`); collapse ke 1 kolom di layar < 768px.
+  - Tombol ▲▼ tetap ada sebagai fallback aksesibilitas (juga menandai dirty).
 - **Fase 4:** Integrasi shortcode builder ke gadget HTML; panel pilih menu/sidebar zone
   yang lebih baik (link cepat ke Menu Manager / Sidebar Settings).
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.
