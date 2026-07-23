@@ -75,6 +75,10 @@
 }
 </style>
 
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.download-intro', 'before')): ?>
+  <div class="tz-download-before"><?= theme_zone_render_position($pdo, 'main.download-intro', 'before') ?></div>
+<?php endif; ?>
+
 <section class="dl-hero">
   <h1>Jyavani CMS</h1>
   <p class="tagline"><?= __('Native PHP CMS without framework. Fast, lightweight, easy to customize.') ?><br><?= __('No need for Composer, Node.js, or build tools.') ?></p>
@@ -102,3 +106,7 @@
   <p><?= __('PHP 8.1+ • MariaDB 10.6+ • Nginx / Apache') ?></p>
   <p><?= __('Developed by Adam Muiz') ?> &middot; Jyavani CMS v<?= e($version) ?></p>
 </section>
+
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.download-intro', 'after')): ?>
+  <div class="tz-download-after"><?= theme_zone_render_position($pdo, 'main.download-intro', 'after') ?></div>
+<?php endif; ?>

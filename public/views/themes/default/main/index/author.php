@@ -7,6 +7,10 @@
 <div class="author-container">
   <h1 class="author-page-title"><?= __('Authors') ?></h1>
 
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'index.author', 'before_loop')): ?>
+    <div class="tz-index-author-before"><?= theme_zone_render_position($pdo, 'index.author', 'before_loop') ?></div>
+  <?php endif; ?>
+
   <?php if (empty($authors)): ?>
     <p><?= __('No authors.') ?></p>
   <?php else: ?>
@@ -37,6 +41,10 @@
         </article>
       <?php endforeach; ?>
     </div>
+  <?php endif; ?>
+
+  <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'index.author', 'after_loop')): ?>
+    <div class="tz-index-author-after"><?= theme_zone_render_position($pdo, 'index.author', 'after_loop') ?></div>
   <?php endif; ?>
 </div>
 

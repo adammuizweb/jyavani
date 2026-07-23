@@ -12,11 +12,56 @@ $tcShowSocial = !function_exists('theme_mod') || theme_mod('show_social', true);
 $copyright = $tcFooterText !== '' ? $tcFooterText : __('©') . ' <span id="year"></span> ' . htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') . '. ' . __('Released under MIT License.');
 
 $hasFooterZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'main');
+$hasCopyrightZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'copyright');
+$footerRows = [1 => ['about', 'pages', 'social'], 2 => ['copyright']];
+$hasFooterCols = false;
+if (function_exists('theme_zone_has_position')) {
+    foreach ($footerRows as $rowPositions) {
+        foreach ($rowPositions as $fp) {
+            if (theme_zone_has_position($pdo, 'footer', $fp)) { $hasFooterCols = true; break 2; }
+        }
+    }
+}
 ?>
 <footer class="site-footer fade-up onload" data-duration="1000" data-anime-trigger="load" role="contentinfo">
   <div class="footer-container">
     <div class="footer-row-top">
-      <?php if ($hasFooterZone): ?>
+      <?php if ($hasFooterCols): ?>
+        <?php
+        // Baris terakhir (mis. copyright) dirender terpisah di footer-row-bottom
+        $footerRowKeys = array_keys($footerRows);
+        $footerBottomRow = (int)max($footerRowKeys);
+        ?>
+        <?php foreach ($footerRows as $rk => $rowPositions): ?>
+          <?php if ((int)$rk === $footerBottomRow) continue; ?>
+          <?php
+          $rowHas = false;
+          foreach ($rowPositions as $fp) {
+              if (theme_zone_has_position($pdo, 'footer', $fp)) { $rowHas = true; break; }
+          }
+          if (!$rowHas) continue;
+
+          // Alignment per position dari theme.json ("align": left|center|right; default center)
+          $tzFooterLayout = function_exists('theme_zone_layout') && function_exists('get_active_theme_folder')
+              ? (theme_zone_layout(get_active_theme_folder($pdo))['footer'] ?? [])
+              : [];
+          $tzAlignMap = ['left' => ['flex-start', 'left'], 'right' => ['flex-end', 'right'], 'center' => ['center', 'center']];
+          ?>
+          <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); justify-items:center; gap:1.25rem; width:100%; box-sizing:border-box; margin-top:10px; margin-bottom:1rem; padding:0 16px;">
+            <?php foreach ($rowPositions as $fp): ?>
+              <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
+                <?php
+                $fpAlign = (string)($tzFooterLayout['positions'][$fp]['align'] ?? 'center');
+                [$fpItems, $fpText] = $tzAlignMap[$fpAlign] ?? $tzAlignMap['center'];
+                ?>
+                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; align-items:<?= $fpItems ?>; text-align:<?= $fpText ?>; gap:.35rem;">
+                  <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
+                </div>
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+        <?php endforeach; ?>
+      <?php elseif ($hasFooterZone): ?>
         <div class="footer-zone">
           <?= theme_zone_render_position($pdo, 'footer', 'main') ?>
         </div>
@@ -67,9 +112,17 @@ $hasFooterZone = function_exists('theme_zone_has_position') && theme_zone_has_po
       <?php endif; ?>
     </div>
 
-    <!-- Baris 2: Copyright -->
+    <!-- Baris bawah: gadget copyright jika ada, fallback hardcoded -->
+    <?php if ($hasCopyrightZone): ?>
+    <div class="footer-row-bottom">
+      <div class="footer-zone-copyright copyright-text">
+        <?= theme_zone_render_position($pdo, 'footer', 'copyright') ?>
+      </div>
+    </div>
+    <?php else: ?>
     <div class="footer-row-bottom">
       <div class="copyright-text typewrite onload" data-duration="1000" data-anime-trigger="load"><?= $copyright ?></div>
     </div>
+    <?php endif; ?>
   </div>
 </footer>

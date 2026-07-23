@@ -108,6 +108,10 @@
 
 <div class="glow"></div>
 
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.homepage', 'before')): ?>
+    <div class="tz-homepage-before"><?= theme_zone_render_position($pdo, 'main.homepage', 'before') ?></div>
+<?php endif; ?>
+
 <div class="container">
     <div class="status-badge"><?= __('Coming Soon') ?></div>
     <h1>Adam <span>Muiz</span></h1>
@@ -119,3 +123,7 @@
         <a href="mailto:email@example.com"><?= __('Contact') ?></a>
     </div>
 </div>
+
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.homepage', 'after')): ?>
+    <div class="tz-homepage-after"><?= theme_zone_render_position($pdo, 'main.homepage', 'after') ?></div>
+<?php endif; ?>

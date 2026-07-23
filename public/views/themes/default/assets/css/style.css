@@ -341,6 +341,12 @@ pre code{
   margin-left: auto;
 }
 
+/* Theme Zone tz_html wrapper inside controls should lay out its children
+   as direct flex items of .controls, so the 3rd item doesn't wrap below. */
+.controls .tz-html{
+  display: contents;
+}
+
 .ctrl-item{
   padding: 8px 12px;
   border-radius: 8px;

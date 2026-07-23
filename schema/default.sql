@@ -308,6 +308,7 @@ CREATE TABLE IF NOT EXISTS `sidebar_zone_items` (
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~
 CREATE TABLE IF NOT EXISTS `theme_zone_items` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `theme_folder` varchar(100) NOT NULL DEFAULT '',
   `zone_slug` varchar(50) NOT NULL,
   `position` varchar(50) NOT NULL DEFAULT '',
   `type` varchar(50) NOT NULL,
@@ -319,8 +320,23 @@ CREATE TABLE IF NOT EXISTS `theme_zone_items` (
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_zone_order` (`zone_slug`, `ordering`),
-  KEY `idx_zone_position` (`zone_slug`, `position`, `ordering`)
+  KEY `idx_zone_position` (`zone_slug`, `position`, `ordering`),
+  KEY `idx_theme_zone` (`theme_folder`, `zone_slug`, `position`, `ordering`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Default theme zone items (header, footer, single.post, list.post)
+INSERT INTO `theme_zone_items` (`theme_folder`, `zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`) VALUES
+  ('default', 'footer', 'about', 'tz_html', 'Site Logo', '{\"title\":\"\",\"html\":\"<a href=\\\"/\\\" class=\\\"brand onload wave-span\\\" data-anim-trigger=\\\"load\\\" data-wave-target=\\\".jyavani-logo\\\" data-wave-step=\\\"28\\\">\\n  <img src=\\\"/static/img/jyavani.svg\\\" alt=\\\"Jyavani\\\" class=\\\"flip-logo onload\\\" data-anim-trigger=\\\"load\\\" data-fl-duration=\\\"900\\\" data-fl-delay=\\\"120\\\">\\n  <span class=\\\"jyavani-logo\\\" aria-label=\\\"Jyavani\\\">\\n    <span class=\\\"letter accent\\\" data-word=\\\"Just\\\">J</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Your\\\">y</span>\\n    <span class=\\\"letter accent\\\" data-word=\\\"Visiting\\\">v</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Always\\\">a</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Nice\\\">n</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Inspire\\\">i</span>\\n  </span>\\n</a>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 0, 1),
+  ('default', 'footer', 'about', 'tz_html', 'About Text', '{\"title\":\"About Text\",\"html\":\"<p style=\\\"margin:.35rem 0 0;font-size:.85rem;opacity:.75\\\">Jyavani CMS — native PHP CMS. Fast, lightweight, easy to customize.</p>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
+  ('default', 'footer', 'copyright', 'tz_html', 'Copyright', '{\"html\":\"<p style=\\\"margin:0;font-size:.85rem;opacity:.75\\\">&copy; 2026 Jyavani. Released under MIT License.<\\/p>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
+  ('default', 'footer', 'pages', 'tz_pages', 'Pages', '{\"title\":\"Pages\",\"pages\":[\"about\",\"contact\",\"privacy-policy\"],\"list_class\":\"tz-pages\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 0, 1),
+  ('default', 'footer', 'social', 'tz_social', 'Social Media', '{\"title\":\"Social Media\",\"enabled\":[\"x\",\"github\",\"instagram\"],\"links\":[],\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 0, 1),
+  ('default', 'header', 'controls', 'tz_html', 'Controller', '{\"title\":\"\",\"html\":\"<select id=\\\"themeSelect\\\" class=\\\"ctrl-item blur-in onload\\\" data-anime-trigger=\\\"load\\\" data-duration=\\\"1700\\\" data-delay=\\\"760\\\">\\n  <option value=\\\"light\\\">Light</option>\\n  <option value=\\\"dark\\\">Dark</option>\\n</select>\\n<select id=\\\"lang-switch\\\" class=\\\"ctrl-item blur-in onload\\\" data-anime-trigger=\\\"load\\\" data-duration=\\\"700\\\" data-delay=\\\"860\\\">\\n  <option value=\\\"id\\\">ID</option>\\n  <option value=\\\"en\\\">EN</option>\\n</select>\\n<form method=\\\"get\\\" action=\\\"/\\\">\\n  <input type=\\\"search\\\" name=\\\"s\\\" class=\\\"ctrl-item pop\\\" data-anime-trigger=\\\"load\\\" data-duration=\\\"1000\\\" data-delay=\\\"1000\\\" placeholder=\\\"Search...\\\" style=\\\"width:120px;max-width:140px;\\\">\\n</form>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
+  ('default', 'header', 'logo', 'tz_html', 'Logo Jyavani', '{\"title\":\"\",\"html\":\"<a href=\\\"/\\\" class=\\\"brand onload wave-span\\\" data-anim-trigger=\\\"load\\\" data-wave-target=\\\".jyavani-logo\\\" data-wave-step=\\\"28\\\">\\n  <img src=\\\"/static/img/jyavani.svg\\\" alt=\\\"Jyavani\\\" class=\\\"flip-logo onload\\\" data-anim-trigger=\\\"load\\\" data-fl-duration=\\\"900\\\" data-fl-delay=\\\"120\\\">\\n  <span class=\\\"jyavani-logo\\\" aria-label=\\\"Jyavani\\\">\\n    <span class=\\\"letter accent\\\" data-word=\\\"Just\\\">J</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Your\\\">y</span>\\n    <span class=\\\"letter accent\\\" data-word=\\\"Visiting\\\">v</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Always\\\">a</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Nice\\\">n</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Inspire\\\">i</span>\\n  </span>\\n</a>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
+  ('default', 'header', 'nav', 'tz_nav_menu', 'Main Menu', '{\"menu\":\"primary\",\"menu_class\":\"menu expand-center-safe moving-line onload\",\"depth\":0,\"ul_attr\":\"data-anime-trigger=\\\"load\\\" data-duration=\\\"2500\\\" data-delay=\\\"360\\\" data-ml-duration=\\\"1000\\\" data-ml-delay=\\\"520\\\"\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
+  ('default', 'list.post', 'after_loop', 'tz_html', 'Demo After Loop', '{\"title\":\"\",\"html\":\"<p style=\\\"text-align:center;color:#888\\\">\\u2014 area after_loop \\u2014<\\/p>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
+  ('default', 'single.post', 'after_content', 'tz_post_meta', 'Post Meta', '{\"show_date\":true,\"show_updated\":false,\"show_read_time\":true,\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
+  ('default', 'single.post', 'after_content', 'tz_post_author', 'Author Box', '{\"show_avatar\":true,\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 2, 1);
 
 -- Core settings (installed overrides title/desc/url via installer)
 INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES

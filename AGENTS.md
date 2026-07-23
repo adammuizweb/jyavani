@@ -150,16 +150,17 @@ All controllers are in `app/controllers/`, all are static methods.
 - Themes consume via `theme_mod('logo')`, `theme_mod('nav_menu')`, `theme_mod('show_search', true)`, `theme_mod('footer_text')`, `theme_mod('footer_sidebar_zone')`, etc. Defaults must preserve original behavior when no mods set.
 - Legacy flat format (`customizer: {"logo": true, "nav_menu": true, "controls": [...]}`) is auto-converted to sections for backward compatibility.
 
-### Theme Zones (v2.3.14)
+### Theme Zones (v2.3.17)
 
-- Blogspot-style visual layout editor for themes.
-- Themes declare `layout` in `theme.json` with zones (`header`/`footer`), positions, and optional `defaults` (gadgets to pre-fill when clicking **Load Default Layout**).
-- Table: `theme_zone_items` (`zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`).
-- Helper: `cfg/helpers/theme_zones.php` — `theme_zone_items()`, `theme_zone_layout()`, `theme_zone_render()`, `theme_zone_render_position()`, `theme_zone_has_position()`, `theme_zone_add_item()`, `theme_zone_delete_item()`, `theme_zone_set_order()`, `theme_zone_toggle_item()`.
-- Built-in gadgets: `tz_logo`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`. `tz_logo` supports raw `html` override; `tz_nav_menu` supports `ul_attr`; `tz_html` is raw HTML (no wrapper if title empty). Registered via `sidebar_widget_types`/`render_sidebar_widget` filters so they also work in sidebar zones.
-- Header/footer theme files check `theme_zone_has_position()` and use `theme_zone_render_position()`; positions without gadgets fall back to the theme's original hardcoded HTML.
-- Admin UI: `admin/themes/customize` shows a visual layout grid (Header / Footer) with positions as drop zones. Each position supports add/configure/reorder/enable/delete gadgets and a "Load Default Layout" button.
-- Migrations: `schema/migrations/008-theme-zones.sql` + `schema/migrations/009-theme-zone-position.sql` (also in `schema/default.sql`).
+- Blogspot-style visual layout editor for themes. Admin page: `admin/themes/customize`.
+- Themes declare `layout` in `theme.json` with zones, positions, and optional `defaults` (gadgets to pre-fill when clicking **Load Default Layout**).
+- Table: `theme_zone_items` (`theme_folder`, `zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`). Each theme has its own isolated gadget rows; switching themes does not leak gadgets across themes.
+- Migration `010-theme-zone-theme-folder.sql` adds `theme_folder` column and backfills existing rows with the active theme.
+- Helper: `cfg/helpers/theme_zones.php` — `theme_zone_items()`, `theme_zone_layout()`, `theme_zone_discover_partials()`, `theme_zone_partial_positions()`, `theme_zone_render()`, `theme_zone_render_position()`, `theme_zone_has_position()`, `theme_zone_add_item()`, `theme_zone_delete_item()`, `theme_zone_set_order()`, `theme_zone_toggle_item()`, plus `theme_zone_render_title()`, `theme_zone_content_align()`, `theme_zone_universal_defaults()`.
+- 13 built-in gadgets: `tz_image`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`, `tz_richtext`, `tz_pages`, `tz_social`, `tz_sidebar_zone`, `tz_post_author`, `tz_post_meta`, `tz_post_contact`. All gadgets support universal title/alignment settings (`_title_tag`, `_align_title`, `_align_content`). Gadgets are registered via filters so plugins can add their own.
+- Admin UI shows a full-page canvas: Header band → Main row (partial selector + Sidebar) → Footer band. Partials are discovered automatically from `main/**/*.php`. Supports drag & drop between positions, multi-row positions, and gadget configuration.
+- Theme template files check `theme_zone_has_position()` and use `theme_zone_render_position()`; positions without gadgets fall back to the theme's original hardcoded HTML.
+- Migrations: `schema/migrations/008-theme-zones.sql` + `009-theme-zone-position.sql` + `010-theme-zone-theme-folder.sql` (also in `schema/default.sql`).
 
 The `themes` table has `store_url` and `store_slug` columns for update checking against a remote store:
 
@@ -169,6 +170,236 @@ The `themes` table has `store_url` and `store_slug` columns for update checking 
 - Theme update flow: Check Updates → `register_all_themes_from_fs()` → `ThemeStoreClient::checkUpdates()` fetches `{store.url}/{store.slug}/version.json` → banners by folder name → applyUpdate()
 - `install_theme_from_zip($pdo, $zip, $overwrite)` includes `store` in `manifestForDb`
 - Theme updates keyed by **folder name** (not manifest name or store slug)
+
+## Theme Authoring Guide (Customize / Theme Zones)
+
+This guide is for theme developers who want to support the visual Customize editor (`admin/themes/customize`).
+
+### File structure
+
+```
+public/views/themes/{folder}/
+├── theme.json          # manifest + layout contract
+├── assets/
+│   ├── css/style.css
+│   └── js/script.js
+├── header.php          # zone: header
+├── footer.php          # zone: footer
+├── sidebar.php         # optional sidebar
+├── main/
+│   ├── homepage.php    # partial: main.homepage
+│   ├── search.php      # partial: main.search
+│   ├── 404.php         # partial: main.404
+│   └── ...
+├── single/
+│   ├── post.php        # partial: single.post
+│   └── page.php        # partial: single.page
+├── list/
+│   ├── post.php        # partial: list.post
+│   ├── category.php    # partial: list.category
+│   └── ...
+└── index/
+    └── category.php    # partial: index.category
+```
+
+### `theme.json` layout contract
+
+The `layout` key tells the Customize editor which zones/positions exist and how to render the admin canvas. It does **not** store user data — user data lives in `theme_zone_items`.
+
+```json
+{
+  "folder": "mytheme",
+  "name": "My Theme",
+  "layout": {
+    "header": {
+      "label": "Header",
+      "columns": 3,
+      "positions": {
+        "logo":    { "label": "Logo" },
+        "nav":     { "label": "Navigasi" },
+        "controls":{ "label": "Controller" }
+      },
+      "defaults": { ... }
+    },
+    "footer": {
+      "label": "Footer",
+      "positions": {
+        "about":     { "label": "About/Logo", "row": 1, "align": "left" },
+        "pages":     { "label": "Pages",      "row": 1, "align": "center" },
+        "social":    { "label": "Social",     "row": 1, "align": "center" },
+        "copyright": { "label": "Copyright",  "row": 2, "align": "center" }
+      },
+      "defaults": { ... }
+    },
+    "single.post": {
+      "label": "Single Post",
+      "columns": 1,
+      "positions": {
+        "before_content": { "label": "Sebelum Konten" },
+        "after_content":  { "label": "Sesudah Konten" }
+      }
+    },
+    "list.post": {
+      "label": "Post List",
+      "columns": 1,
+      "positions": {
+        "before_loop": { "label": "Sebelum Daftar" },
+        "after_loop":  { "label": "Sesudah Daftar" }
+      }
+    }
+  }
+}
+```
+
+Position options:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `label` | string | — | Label shown in the admin canvas. |
+| `row` | int | `1` | Row grouping for multi-row zones (e.g. footer row 1 + row 2). |
+| `align` | `left`\|`center`\|`right` | `center` | Frontend alignment hint for the position cell. |
+| `grid` | string | — | (legacy header only) CSS grid area like `1 / 2`. Prefer `columns` + `row`. |
+
+Zone-level options:
+
+| Key | Description |
+|-----|-------------|
+| `columns` | Number of columns in the admin canvas (1–4). Visual only; templates are free to use any CSS. |
+| `defaults` | Gadgets pre-filled when user clicks **Load Default Layout**. Format: `{ "position": { "type": "tz_html", "title": "...", "config": {...} }` or array for multiple gadgets per position. |
+
+### Rendering zones in templates
+
+Always check `theme_zone_has_position()` first, then render with `theme_zone_render_position()`. Provide fallback HTML so the theme still works when a position has no gadgets or when the active theme has no `layout` declared.
+
+```php
+<?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'header', 'logo')): ?>
+  <?= theme_zone_render_position($pdo, 'header', 'logo') ?>
+<?php else: ?>
+  <!-- fallback hardcoded logo -->
+  <a href="/" class="brand">My Theme</a>
+<?php endif; ?>
+```
+
+For full zones (all positions in one call):
+
+```php
+<?= function_exists('theme_zone_render') ? theme_zone_render($pdo, 'header') : '' ?>
+```
+
+### Partials discovery
+
+Any PHP file inside `main/` becomes a partial selectable in Customize. Examples:
+
+| File | Partial slug | Positions (if not declared in `theme.json`) |
+|------|--------------|---------------------------------------------|
+| `main/homepage.php` | `main.homepage` | `before`, `after` |
+| `main/search.php` | `main.search` | `before_loop`, `after_loop` |
+| `single/post.php` | `single.post` | `before_content`, `after_content` |
+| `list/post.php` | `list.post` | `before_loop`, `after_loop` |
+| `index/category.php` | `index.category` | `before_loop`, `after_loop` |
+
+Files starting with `_` are ignored. Subfolders become dotted slugs (`dir.file` → `dir.file`).
+
+### Post-aware gadgets
+
+`tz_post_author`, `tz_post_meta`, and `tz_post_contact` read `$GLOBALS['jy_current_post']`. Single/page templates must set it before rendering the zone:
+
+```php
+<?php $GLOBALS['jy_current_post'] = $post; ?>
+<?= theme_zone_render_position($pdo, 'single.post', 'after_content') ?>
+```
+
+If the global is not set, these gadgets render empty string.
+
+### Built-in gadget reference
+
+| Gadget | Purpose | Key config keys |
+|--------|---------|-----------------|
+| `tz_html` | Raw HTML / CodeMirror editor. | `html` |
+| `tz_richtext` | WYSIWYG via Quill. | `html` |
+| `tz_image` | Image with media picker. | `src`, `alt`, `link`, `max_width` |
+| `tz_nav_menu` | Menu from Menu Manager. | `menu`, `menu_class`, `depth`, `ul_attr` |
+| `tz_search` | Search form. | `placeholder`, `button` |
+| `tz_theme_toggle` | Light/dark toggle. | — |
+| `tz_lang_switcher` | Language switcher. | `label` |
+| `tz_pages` | List of published pages. | `pages[]`, `list_class` |
+| `tz_social` | Social icon links. | `enabled[]`, `links` |
+| `tz_sidebar_zone` | Embed a Sidebar zone. | `zone` |
+| `tz_post_author` | Author box (single context). | `show_avatar` |
+| `tz_post_meta` | Date/read time (single context). | `show_date`, `show_updated`, `show_read_time` |
+| `tz_post_contact` | Contact info (single context). | — |
+
+All gadgets support universal settings: `_title_tag` (`div`/`h1`–`h6`), `_align_title` (`left`/`center`/`right`), `_align_content` (`left`/`center`/`right`).
+
+### Adding custom gadgets (plugin/theme)
+
+Use filters so the gadget appears in the Customize "Add gadget" dropdown and renders correctly.
+
+```php
+// Register gadget type
+add_filter('theme_zone_widget_types', function(array $types): array {
+    $types['tz_hello'] = [
+        'label' => __('Hello World'),
+        'desc'  => __('Simple hello gadget.'),
+        'default_config' => ['message' => 'Hello'],
+    ];
+    return $types;
+});
+
+// Render gadget
+add_filter('theme_zone_render_widget', function(string $html, string $type, array $config, PDO $pdo): string {
+    if ($type !== 'tz_hello') return $html;
+    $msg = htmlspecialchars((string)($config['message'] ?? 'Hello'), ENT_QUOTES, 'UTF-8');
+    return '<p class="tz-hello">' . $msg . '</p>';
+}, 10, 5);
+```
+
+If a gadget is registered with `sidebar_widget_types`/`render_sidebar_widget` filters, it will also work in sidebar zones.
+
+### Builder integration (theme-builder / jyavani-builder / form-builder)
+
+Theme Zones expose two filter-based extension points so builder plugins can register their own gadgets. Builder plugins running inside the dashboard should call the PHP helpers directly instead of using a public HTTP API.
+
+**Gadget registry filter:** `theme_zone_widget_types`
+
+```php
+add_filter('theme_zone_widget_types', function(array $types): array {
+    $types['tz_my_block'] = [
+        'label' => __('My Block'),
+        'desc'  => __('Custom block from my plugin.'),
+        'default_config' => ['foo' => 'bar'],
+    ];
+    return $types;
+});
+```
+
+**Gadget renderer filter:** `theme_zone_render_widget`
+
+```php
+add_filter('theme_zone_render_widget', function(string $html, string $type, array $config, PDO $pdo): string {
+    if ($type !== 'tz_my_block') return $html;
+    return '<div class="tz-my-block">' . htmlspecialchars((string)($config['foo'] ?? '')) . '</div>';
+}, 10, 5);
+```
+
+Built-in gadgets render through the same filter chain at priority 10. Use a higher priority to override a built-in renderer, or lower priority to provide a fallback.
+
+PHP helpers available anywhere after bootstrap:
+
+- `theme_zone_render(PDO $pdo, string $zone, ?string $folder = null): string`
+- `theme_zone_render_position(PDO $pdo, string $zone, string $position, ?string $folder = null): string`
+- `theme_zone_has_position(PDO $pdo, string $zone, string $position, ?string $folder = null): bool`
+- `theme_zone_widget_types(): array`
+- `theme_zone_render_widget(PDO $pdo, string $type, array $config): string`
+
+### Best practices
+
+1. **Never hardcode user-editable content.** Put it in `theme_zone_items` (via `layout.defaults` or let users add gadgets). Hardcode only the HTML skeleton (rows, columns, containers).
+2. **Always provide fallback HTML.** If a position has no gadgets, the theme must still render correctly.
+3. **Use `theme.json` `align` for footer cells**, but apply the actual CSS in your theme. The value is just a hint; your template decides how to use it.
+4. **Keep `columns` as a visual hint** for the admin canvas; do not let it force your frontend CSS grid.
+5. **Test `layout.defaults`** by clicking **Load Default Layout** on a fresh install or after deleting all gadgets.
+6. **Run Playwright tests** after changing theme structure (`tests/playwright/`).
 
 ## Content & Shortcodes
 

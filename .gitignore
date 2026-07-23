@@ -37,6 +37,9 @@ private_files/
 public/static/files/2025
 public/static/files/2026
 
+# Playwright E2E tests (local dev tooling)
+tests/
+
 jyavani-cms-update.zip
 photo-gallery-*.zip
 public/static/vendor/jyavani-builder/

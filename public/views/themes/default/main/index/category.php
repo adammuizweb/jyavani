@@ -7,6 +7,10 @@
 <div class="container category-index">
     <h1 class="page-title"><?= __('Categories') ?></h1>
 
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'index.category', 'before_loop')): ?>
+        <div class="tz-index-category-before"><?= theme_zone_render_position($pdo, 'index.category', 'before_loop') ?></div>
+    <?php endif; ?>
+
     <?php if (empty($categories)): ?>
         <p class="empty-msg"><?= __('No categories.') ?></p>
     <?php else: ?>
@@ -30,6 +34,10 @@
                 </li>
             <?php endforeach; ?>
         </ul>
+    <?php endif; ?>
+
+    <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'index.category', 'after_loop')): ?>
+        <div class="tz-index-category-after"><?= theme_zone_render_position($pdo, 'index.category', 'after_loop') ?></div>
     <?php endif; ?>
 </div>
 
