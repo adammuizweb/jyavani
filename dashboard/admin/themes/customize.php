@@ -47,7 +47,7 @@ try {
     }
 } catch (Throwable $e) {}
 
-$tzWidgets = function_exists('theme_zone_default_widget_types') ? theme_zone_default_widget_types() : [];
+$tzWidgets = function_exists('theme_zone_widget_types') ? theme_zone_widget_types() : [];
 $themeLayout = function_exists('theme_zone_layout') ? theme_zone_layout($folder) : [];
 
 // Zone labels + daftar partial (zone selain header/footer tampil di area Main)
@@ -85,6 +85,88 @@ $activePartial = (string)($_GET['partial'] ?? '');
 if (!in_array($activePartial, $partialZones, true)) {
     $legacyTab = (string)($_GET['tab'] ?? '');
     $activePartial = in_array($legacyTab, $partialZones, true) ? $legacyTab : $partialZones[0];
+}
+
+// ─── Mix-aware assignment detection ───
+// If any slot is assigned to a theme other than the active theme, or to a
+// custom theme post, the Customize canvas is in a mixed state.
+$activeTheme = function_exists('get_theme_by_folder') ? get_theme_by_folder($pdo, $folder) : null;
+$activeThemeId = $activeTheme ? (int)($activeTheme['id'] ?? 0) : 0;
+$mixedAssignments = [];
+$isMixedTheme = false;
+$checkSlots = array_unique(array_merge(['header', 'footer', 'sidebar'], $partialZones, $zoneSlugs));
+foreach ($checkSlots as $slotKey) {
+    $assign = function_exists('get_assignment') ? get_assignment($pdo, $slotKey) : null;
+    if (!$assign) continue;
+
+    $isOverride = false;
+    $overrideType = '';
+    $overrideLabel = '';
+    $overridePostId = null;
+    if (!empty($assign['custom_post_id'])) {
+        $post = function_exists('get_post_by_id') ? get_post_by_id($pdo, (int)$assign['custom_post_id']) : null;
+        if ($post && (($post['type'] ?? '') === 'theme')) {
+            $isOverride = true;
+            $overrideType = 'custom_post';
+            $overrideLabel = __('Custom Theme Post') . ': ' . ($post['title'] ?? '#' . $assign['custom_post_id']);
+            $overridePostId = (int)$assign['custom_post_id'];
+        }
+    } elseif (!empty($assign['theme_id']) && (int)$assign['theme_id'] !== $activeThemeId) {
+        $theme = function_exists('get_theme_by_id') ? get_theme_by_id($pdo, (int)$assign['theme_id']) : null;
+        $isOverride = true;
+        $overrideType = 'theme';
+        $overrideLabel = $theme ? ($theme['folder_name'] ?? __('Other theme')) : __('Other theme');
+    }
+
+    if ($isOverride) {
+        $isMixedTheme = true;
+        $mixedAssignments[$slotKey] = ['type' => $overrideType, 'label' => $overrideLabel];
+        if ($overridePostId !== null) {
+            $mixedAssignments[$slotKey]['post_id'] = $overridePostId;
+        }
+    }
+}
+$canvasThemeLabel = $isMixedTheme ? __('MIX Theme') : h($folder);
+$canvasThemeClass = $isMixedTheme ? 'tz-theme-badge tz-theme-badge--mix' : 'tz-theme-badge';
+
+function tz_override_class(string $slotKey, array $mixedAssignments): string {
+    if (!isset($mixedAssignments[$slotKey])) return '';
+    $type = $mixedAssignments[$slotKey]['type'] ?? '';
+    return $type === 'theme' ? 'tz-band--override-theme' : ($type === 'custom_post' ? 'tz-band--override-post' : '');
+}
+
+function tz_override_label(string $slotKey, array $mixedAssignments): string {
+    if (!isset($mixedAssignments[$slotKey])) return '';
+    return (string)($mixedAssignments[$slotKey]['label'] ?? '');
+}
+
+function tz_override_type(string $slotKey, array $mixedAssignments): string {
+    return $mixedAssignments[$slotKey]['type'] ?? '';
+}
+
+function tz_zone_source_folder(string $slotKey, string $activeFolder, array $mixedAssignments): ?string {
+    if (!isset($mixedAssignments[$slotKey])) return $activeFolder;
+    $type = $mixedAssignments[$slotKey]['type'] ?? '';
+    if ($type === 'custom_post') return null;
+    if ($type === 'theme') return $mixedAssignments[$slotKey]['label'] ?? $activeFolder;
+    return $activeFolder;
+}
+
+function tz_override_notice(string $label, ?int $postId = null): string {
+    $base = defined('ADMIN_BASE_PATH') ? ADMIN_BASE_PATH : '/adiwira';
+    $builderUrl = null;
+    if ($postId !== null && function_exists('plugin_is_active') && plugin_is_active('jyavani-builder')) {
+        $builderUrl = htmlspecialchars($base . '/?page=admin/tools/jyavani-builder&view=builder&post_id=' . $postId, ENT_QUOTES, 'UTF-8');
+    }
+
+    $noticeText = '<div class="tz-override-notice__text"><strong>' . __('Override active') . '</strong> — ' . __('This zone is rendered by') . ' <em>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</em>. ' . __('Theme zone gadgets do not apply here.') . '</div>';
+
+    if ($builderUrl !== null) {
+        $icon = '<svg class="tz-jb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+        return '<div class="tz-override-notice tz-override-notice--with-action">' . $noticeText . '<a class="tz-jb-button" href="' . $builderUrl . '">' . $icon . '<span>' . __('Edit with Jy Builder') . '</span></a></div>';
+    }
+
+    return '<div class="tz-override-notice">' . $noticeText . '</div>';
 }
 
 // Field sanitizers for saving
@@ -648,7 +730,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
   <?php if (!empty($themeLayout)): ?>
     <!-- Topbar: label kanvas ⇄ Partials -->
     <div class="tz-topbar">
-      <span class="tz-topbar-title muted"><?= __('Page Canvas') ?> — <strong><?= h($folder) ?></strong></span>
+      <span class="tz-topbar-title muted"><?= __('Page Canvas') ?> — <span class="<?= h($canvasThemeClass) ?>"><?= h($canvasThemeLabel) ?></span></span>
       <select id="tz-partial-select" aria-label="<?= __('Partials') ?>">
         <?php foreach ($partialZones as $pz): ?>
           <option value="<?= h($pz) ?>" <?= $activePartial === $pz ? 'selected' : '' ?>><?= h($zoneZones[$pz] ?? $pz) ?></option>
@@ -659,24 +741,48 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
     <div class="tz-canvas">
       <!-- HEADER band -->
       <?php if (isset($themeLayout['header']) && !empty($themeLayout['header']['positions'])): ?>
-        <section class="tz-band" data-zone="header">
-          <div class="tz-band-label"><?= h($zoneZones['header'] ?? __('Header')) ?></div>
+        <?php $headerOverrideClass = tz_override_class('header', $mixedAssignments); ?>
+        <?php $headerSourceFolder = tz_zone_source_folder('header', $folder, $mixedAssignments); ?>
+        <section class="tz-band <?= h($headerOverrideClass) ?>" data-zone="header">
+          <div class="tz-band-label">
+            <?= h($zoneZones['header'] ?? __('Header')) ?>
+            <?php if ($headerOverrideClass !== ''): ?>
+              <span class="tz-override-tag <?= h($headerOverrideClass === 'tz-band--override-theme' ? 'tz-override-tag--theme' : 'tz-override-tag--post') ?>"><?= h(tz_override_label('header', $mixedAssignments)) ?></span>
+            <?php endif; ?>
+          </div>
           <div class="tz-band-body">
-            <?= tz_zone_editor_html($pdo, $folder, 'header', $themeLayout['header'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+            <?php if ($headerSourceFolder === null): ?>
+              <?= tz_override_notice($mixedAssignments['header']['label'] ?? '', $mixedAssignments['header']['post_id'] ?? null) ?>
+            <?php else: ?>
+              <?php $headerLayout = $headerSourceFolder === $folder ? $themeLayout['header'] : (theme_zone_layout($headerSourceFolder)['header'] ?? $themeLayout['header']); ?>
+              <?= tz_zone_editor_html($pdo, $headerSourceFolder, 'header', $headerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+            <?php endif; ?>
           </div>
         </section>
       <?php endif; ?>
 
       <!-- MAIN row: partial terpilih | sidebar -->
       <div class="tz-main-row">
-        <section class="tz-band tz-band-main">
-          <div class="tz-band-label"><?= __('Main') ?> — <span id="tz-partial-name"><?= h($zoneZones[$activePartial] ?? $activePartial) ?></span></div>
+        <?php $mainOverrideClass = tz_override_class($activePartial, $mixedAssignments); ?>
+        <section class="tz-band tz-band-main <?= h($mainOverrideClass) ?>">
+          <div class="tz-band-label">
+            <?= __('Main') ?> — <span id="tz-partial-name"><?= h($zoneZones[$activePartial] ?? $activePartial) ?></span>
+            <?php if ($mainOverrideClass !== ''): ?>
+              <span class="tz-override-tag <?= h($mainOverrideClass === 'tz-band--override-theme' ? 'tz-override-tag--theme' : 'tz-override-tag--post') ?>"><?= h(tz_override_label($activePartial, $mixedAssignments)) ?></span>
+            <?php endif; ?>
+          </div>
           <div class="tz-band-body">
             <?php foreach ($partialZones as $pz): ?>
-              <div class="tz-partial-panel" data-partial="<?= h($pz) ?>" style="display:<?= $pz === $activePartial ? 'block' : 'none' ?>;">
-                <?php if ($pz === 'main'): ?>
+              <?php $pzOverrideClass = tz_override_class($pz, $mixedAssignments); ?>
+              <?php $pzSourceFolder = tz_zone_source_folder($pz, $folder, $mixedAssignments); ?>
+              <div class="tz-partial-panel <?= h($pzOverrideClass) ?>" data-partial="<?= h($pz) ?>" style="display:<?= $pz === $activePartial ? 'block' : 'none' ?>;">
+                <?php if ($pzSourceFolder === null): ?>
+                  <?= tz_override_notice($mixedAssignments[$pz]['label'] ?? '', $mixedAssignments[$pz]['post_id'] ?? null) ?>
+                <?php elseif ($pz === 'main'): ?>
+                  <?php $pzSections = $pzSourceFolder === $folder ? $sections : theme_customizer_fields($pzSourceFolder); ?>
+                  <?php $pzMods = $pzSourceFolder === $folder ? $mods : theme_mods_all($pdo, $pzSourceFolder); ?>
                   <p class="muted" style="margin-top:0; margin-bottom:1rem;"><?= __('Configure the main content area and sidebar visibility.') ?></p>
-                  <?php $mainSection = $sections['main'] ?? []; ?>
+                  <?php $mainSection = $pzSections['main'] ?? []; ?>
                   <?php if (!empty($mainSection['fields'])): ?>
                     <form method="post" style="display:flex; flex-direction:column; gap:1rem; max-width:700px;">
                       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
@@ -686,19 +792,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                           <div class="tc-field" style="background:var(--adam-card, rgba(127,127,127,.04)); border:1px solid rgba(127,127,127,.18); border-radius:8px; padding:1rem;">
                             <label style="display:block; font-weight:600; font-size:.9rem; margin-bottom:.5rem;"><?= h($def['label']) ?></label>
                             <?php if ($def['type'] === 'toggle'): ?>
-                              <?php $on = (bool)($mods[$key] ?? true); ?>
+                              <?php $on = (bool)($pzMods[$key] ?? true); ?>
                               <label style="display:inline-flex; align-items:center; gap:.5rem; font-weight:400; cursor:pointer;">
                                 <input type="checkbox" name="<?= h($key) ?>" value="1" <?= $on ? 'checked' : '' ?> style="width:18px; height:18px;">
                                 <span class="muted"><?= __('Enabled') ?></span>
                               </label>
                             <?php elseif ($def['type'] === 'image'): ?>
-                              <input type="text" name="<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>" placeholder="/static/img/..." style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
+                              <input type="text" name="<?= h($key) ?>" value="<?= h((string)($pzMods[$key] ?? '')) ?>" placeholder="/static/img/..." style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
                             <?php elseif ($def['type'] === 'menu'): ?>
                               <select name="<?= h($key) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit;">
                                 <option value=""><?= __('Theme default') ?></option>
                                 <?php foreach ($menus as $m): ?>
                                   <?php $slug = (string)($m['slug'] ?? ''); ?>
-                                  <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($m['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
+                                  <option value="<?= h($slug) ?>" <?= ((string)($pzMods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($m['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
                                 <?php endforeach; ?>
                               </select>
                             <?php elseif ($def['type'] === 'sidebar_zone'): ?>
@@ -706,13 +812,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                                 <option value=""><?= __('None') ?></option>
                                 <?php foreach ($zones as $z): ?>
                                   <?php $slug = (string)($z['slug'] ?? ''); ?>
-                                  <option value="<?= h($slug) ?>" <?= ((string)($mods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($z['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
+                                  <option value="<?= h($slug) ?>" <?= ((string)($pzMods[$key] ?? '') === $slug) ? 'selected' : '' ?>><?= h((string)($z['name'] ?? $slug)) ?> (<?= h($slug) ?>)</option>
                                 <?php endforeach; ?>
                               </select>
                             <?php elseif ($def['type'] === 'textarea'): ?>
-                              <textarea name="<?= h($key) ?>" rows="3" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; font:inherit; box-sizing:border-box;"><?= h((string)($mods[$key] ?? '')) ?></textarea>
+                              <textarea name="<?= h($key) ?>" rows="3" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; font:inherit; box-sizing:border-box;"><?= h((string)($pzMods[$key] ?? '')) ?></textarea>
                             <?php elseif ($def['type'] === 'text'): ?>
-                              <input type="text" name="<?= h($key) ?>" value="<?= h((string)($mods[$key] ?? '')) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
+                              <input type="text" name="<?= h($key) ?>" value="<?= h((string)($pzMods[$key] ?? '')) ?>" style="width:100%; padding:.5rem .7rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:transparent; color:inherit; box-sizing:border-box;">
                             <?php endif; ?>
                           </div>
                         <?php endforeach; ?>
@@ -727,6 +833,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                 <?php else: ?>
                   <?php
                   $pzDef = $themeLayout[$pz] ?? null;
+                  if ($pzSourceFolder !== $folder) {
+                      $pzDef = theme_zone_layout($pzSourceFolder)[$pz] ?? null;
+                  }
                   if ((empty($pzDef) || empty($pzDef['positions'])) && function_exists('theme_zone_partial_positions')) {
                       $pzDef = ['label' => $zoneZones[$pz] ?? $pz, 'columns' => 1, 'positions' => []];
                       foreach (theme_zone_partial_positions($pz) as $pk => $pl) {
@@ -735,7 +844,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                   }
                   ?>
                   <?php if (!empty($pzDef) && !empty($pzDef['positions']) && is_array($pzDef['positions'])): ?>
-                    <?= tz_zone_editor_html($pdo, $folder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+                    <?= tz_zone_editor_html($pdo, $pzSourceFolder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
                   <?php else: ?>
                     <div class="adam-alert info"><?= __('This partial does not declare positions.') ?></div>
                   <?php endif; ?>
@@ -772,10 +881,22 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 
       <!-- FOOTER band -->
       <?php if (isset($themeLayout['footer']) && !empty($themeLayout['footer']['positions'])): ?>
-        <section class="tz-band" data-zone="footer">
-          <div class="tz-band-label"><?= h($zoneZones['footer'] ?? __('Footer')) ?></div>
+        <?php $footerOverrideClass = tz_override_class('footer', $mixedAssignments); ?>
+        <?php $footerSourceFolder = tz_zone_source_folder('footer', $folder, $mixedAssignments); ?>
+        <section class="tz-band <?= h($footerOverrideClass) ?>" data-zone="footer">
+          <div class="tz-band-label">
+            <?= h($zoneZones['footer'] ?? __('Footer')) ?>
+            <?php if ($footerOverrideClass !== ''): ?>
+              <span class="tz-override-tag <?= h($footerOverrideClass === 'tz-band--override-theme' ? 'tz-override-tag--theme' : 'tz-override-tag--post') ?>"><?= h(tz_override_label('footer', $mixedAssignments)) ?></span>
+            <?php endif; ?>
+          </div>
           <div class="tz-band-body">
-            <?= tz_zone_editor_html($pdo, $folder, 'footer', $themeLayout['footer'], $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+            <?php if ($footerSourceFolder === null): ?>
+              <?= tz_override_notice($mixedAssignments['footer']['label'] ?? '', $mixedAssignments['footer']['post_id'] ?? null) ?>
+            <?php else: ?>
+              <?php $footerLayout = $footerSourceFolder === $folder ? $themeLayout['footer'] : (theme_zone_layout($footerSourceFolder)['footer'] ?? $themeLayout['footer']); ?>
+              <?= tz_zone_editor_html($pdo, $footerSourceFolder, 'footer', $footerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+            <?php endif; ?>
           </div>
         </section>
       <?php endif; ?>
@@ -1201,6 +1322,25 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
 
 /* Kanvas halaman utuh (ala Blogspot) */
 .tz-topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.tz-theme-badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .2rem .65rem; border-radius: 999px;
+  background: var(--adam-accent, #00A89E); color: #fff;
+  font-weight: 700; font-size: .82rem; text-transform: uppercase; letter-spacing: .4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+}
+.tz-theme-badge::before {
+  content: '';
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #fff;
+}
+.tz-theme-badge--mix {
+  background: #f59e0b;
+  color: #1f2937;
+}
+.tz-theme-badge--mix::before {
+  background: #1f2937;
+}
 .tz-topbar select {
   min-width: 220px; padding: .45rem .8rem; font-size: 14px; font-weight: 600;
   border: 1px solid rgba(127,127,127,.35); border-radius: 8px;
@@ -1218,6 +1358,139 @@ button.tz-dirty { box-shadow: 0 0 0 2px var(--adam-primary, #0066ff); }
   background: var(--adam-surface-2, rgba(127,127,127,.06));
 }
 .tz-band-body { padding: 1rem; }
+
+/* Override indicators: blue = another theme, green = custom theme post */
+.tz-band--override-theme {
+  border-color: rgba(59,130,246,.5);
+  background: rgba(59,130,246,.06);
+}
+.tz-band--override-theme .tz-band-label {
+  background: rgba(59,130,246,.12);
+  color: #2563eb;
+  border-color: rgba(59,130,246,.35);
+}
+.tz-band--override-post {
+  border-color: rgba(34,197,94,.5);
+  background: rgba(34,197,94,.06);
+}
+.tz-band--override-post .tz-band-label {
+  background: rgba(34,197,94,.12);
+  color: #16a34a;
+  border-color: rgba(34,197,94,.35);
+}
+.tz-override-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  margin-left: .5rem;
+  padding: .15rem .5rem;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+.tz-override-tag::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+.tz-override-tag--theme {
+  background: rgba(59,130,246,.15);
+  color: #2563eb;
+}
+.tz-override-tag--theme::before { background: #2563eb; }
+.tz-override-tag--post {
+  background: rgba(34,197,94,.15);
+  color: #16a34a;
+}
+.tz-override-tag--post::before { background: #16a34a; }
+
+.tz-override-notice {
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  background: var(--adam-surface-2, rgba(127,127,127,.06));
+  border: 1px solid var(--adam-border, rgba(127,127,127,.25));
+  color: var(--adam-text);
+  font-size: .9rem;
+  line-height: 1.55;
+}
+.tz-override-notice em {
+  font-weight: 600;
+  font-style: normal;
+}
+.tz-override-notice--with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: nowrap;
+}
+.tz-override-notice--with-action .tz-override-notice__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Jy Builder action button — gradient aqua/blue, distinct from core buttons */
+.tz-jb-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: .88rem;
+  color: #fff;
+  text-decoration: none;
+  white-space: nowrap;
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+  border: 1px solid rgba(6,182,212,.35);
+  box-shadow: 0 4px 12px rgba(59,130,246,.25);
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.tz-jb-button:hover,
+.tz-jb-button:focus-visible {
+  color: #fff;
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 18px rgba(59,130,246,.35);
+}
+.tz-jb-button:active {
+  transform: translateY(0);
+}
+.tz-jb-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+/* Dark mode adjustments */
+html.theme-dark .tz-band--override-theme .tz-band-label,
+html:not(.theme-light):not(.theme-dark) .tz-band--override-theme .tz-band-label {
+  color: #60a5fa;
+}
+html.theme-dark .tz-band--override-post .tz-band-label,
+html:not(.theme-light):not(.theme-dark) .tz-band--override-post .tz-band-label {
+  color: #4ade80;
+}
+html.theme-dark .tz-override-tag--theme,
+html:not(.theme-light):not(.theme-dark) .tz-override-tag--theme {
+  color: #60a5fa;
+}
+html.theme-dark .tz-override-tag--theme::before,
+html:not(.theme-light):not(.theme-dark) .tz-override-tag--theme::before {
+  background: #60a5fa;
+}
+html.theme-dark .tz-override-tag--post,
+html:not(.theme-light):not(.theme-dark) .tz-override-tag--post {
+  color: #4ade80;
+}
+html.theme-dark .tz-override-tag--post::before,
+html:not(.theme-light):not(.theme-dark) .tz-override-tag--post::before {
+  background: #4ade80;
+}
+
 .tz-main-row { display: grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items: start; }
 .tz-sidebar-list { list-style: none; margin: 0 0 .5rem; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
 .tz-sidebar-list li { display: flex; align-items: center; gap: .5rem; font-size: 13px; }

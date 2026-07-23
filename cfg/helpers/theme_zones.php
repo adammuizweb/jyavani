@@ -41,6 +41,10 @@ if (!function_exists('theme_zone_ensure_schema')) {
 
     function theme_zone_folder(PDO $pdo, ?string $folder = null): string {
         if (is_string($folder) && $folder !== '') return $folder;
+        // When rendering an assigned theme file, use that theme's folder so gadgets
+        // are loaded from the correct theme instead of the active theme.
+        $renderFolder = (string)($GLOBALS['__jy_render_theme_folder'] ?? '');
+        if ($renderFolder !== '') return $renderFolder;
         if (function_exists('get_active_theme_folder')) {
             $active = (string)get_active_theme_folder($pdo);
             if ($active !== '') return $active;
@@ -137,11 +141,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
             foreach ($byPosition[$posKey] ?? [] as $item) {
                 $type = (string)($item['type'] ?? '');
                 $config = json_decode((string)($item['config'] ?? '{}'), true) ?: [];
-                if (function_exists('_render_single_widget')) {
-                    $html .= _render_single_widget($pdo, $type, $config);
-                } else {
-                    $html .= render_widget($type, $config, $pdo);
-                }
+                $html .= theme_zone_render_widget($pdo, $type, $config);
             }
             $html .= '\n  </div>';
         }
@@ -155,11 +155,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
         foreach ($items as $item) {
             $type = (string)($item['type'] ?? '');
             $config = json_decode((string)($item['config'] ?? '{}'), true) ?: [];
-            if (function_exists('_render_single_widget')) {
-                $rendered = _render_single_widget($pdo, $type, $config);
-            } else {
-                $rendered = render_widget($type, $config, $pdo);
-            }
+            $rendered = theme_zone_render_widget($pdo, $type, $config);
             if (trim((string)$rendered) === '') continue;
             // Wrapper display:contents — secara layout "tidak ada", sehingga isi gadget
             // kembali menjadi flex/grid item langsung dari position parent (header/footer
@@ -181,6 +177,14 @@ if (!function_exists('theme_zone_ensure_schema')) {
         $items = theme_zone_position_items($pdo, $zoneSlug, $position, $folder);
         if (empty($items)) return '';
         return theme_zone_render_items($pdo, $items);
+    }
+
+    // Render a single theme-zone gadget through the `theme_zone_render_widget` filter.
+    // Falls back to the legacy `render_sidebar_widget` filter for backward compatibility.
+    function theme_zone_render_widget(PDO $pdo, string $type, array $config): string {
+        $html = apply_filters('theme_zone_render_widget', '', $type, $config, $pdo);
+        if ($html !== '') return $html;
+        return apply_filters('render_sidebar_widget', '', $type, $config, $pdo);
     }
 
     // Jaringan sosial populer — SVG path dari Simple Icons (CC0).
@@ -221,11 +225,11 @@ if (!function_exists('theme_zone_ensure_schema')) {
         return ['_title_tag' => 'div', '_align_title' => 'left', '_align_content' => 'left'];
     }
 
-    // Widget types intended for theme zones (header/footer). They are registered
-    // through the regular sidebar widget system so they can also appear there.
+    // Widget types intended for theme zones (header/footer/single/list/partials).
+    // Plugins can extend the registry via the `theme_zone_widget_types` filter.
     function theme_zone_default_widget_types(): array {
         $uni = theme_zone_universal_defaults();
-        return [
+        $types = [
             'tz_image' => [
                 'label' => __('Image'),
                 'desc'  => __('Gambar dari Media Library (modal picker) atau URL langsung.'),
@@ -287,16 +291,23 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 'default_config' => array_merge($uni, ['show_date' => true, 'show_updated' => false, 'show_read_time' => true]),
             ],
         ];
+        return apply_filters('theme_zone_widget_types', $types);
     }
 
-    // Register zone widgets as sidebar widget types so render_widget() can dispatch them
+    // Alias for the full filtered registry (convenience for callers).
+    function theme_zone_widget_types(): array {
+        return theme_zone_default_widget_types();
+    }
+
+    // Register zone widgets as sidebar widget types so legacy sidebars can also use them.
     add_filter('sidebar_widget_types', function ($types) {
         if (!is_array($types)) $types = [];
-        return array_merge($types, theme_zone_default_widget_types());
+        return array_merge($types, theme_zone_widget_types());
     });
 
-    add_filter('render_sidebar_widget', function ($html, $type, $config, $pdo) {
-        if (!$pdo instanceof PDO) return $html;
+    // Built-in theme-zone gadget renderer. Exposed via `theme_zone_render_widget`
+    // and kept on `render_sidebar_widget` for backward compatibility.
+    function _theme_zone_built_in_widget_html(PDO $pdo, string $type, array $config): string {
         $site = ['title' => 'Site', 'url' => '/'];
         if (isset($GLOBALS['site']) && is_array($GLOBALS['site'])) {
             $site = array_merge($site, $GLOBALS['site']);
@@ -476,7 +487,17 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 return '<div class="tz-post-meta">' . implode(' <span class="tz-meta-sep">&middot;</span> ', $parts) . '</div>';
         }
 
-        return $html;
+        return '';
+    }
+
+    add_filter('theme_zone_render_widget', function ($html, $type, $config, $pdo) {
+        if ($html !== '' || !$pdo instanceof PDO) return $html;
+        return _theme_zone_built_in_widget_html($pdo, $type, $config);
+    }, 10, 4);
+
+    add_filter('render_sidebar_widget', function ($html, $type, $config, $pdo) {
+        if ($html !== '' || !$pdo instanceof PDO) return $html;
+        return _theme_zone_built_in_widget_html($pdo, $type, $config);
     }, 10, 4);
 
     // ─── Admin CRUD ───

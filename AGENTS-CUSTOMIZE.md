@@ -248,8 +248,139 @@ Konsekuensi desain:
   - Fix scope `$base` di `tz_zone_editor_html()` / `tz_widget_config_form()`.
 - **Fase 5:** Dokumentasi authoring tema (update AGENTS.md utama + cms.md) + test Playwright.
 - **Fase 6:** Hook/kontrak untuk theme-builder, jyavani-builder, form-builder.
+  Done 2026-07-22:
+  - Filter `theme_zone_widget_types` — `theme_zone_default_widget_types()` meng-apply filter
+    sehingga plugin bisa menambah gadget ke Customize.
+  - Filter `theme_zone_render_widget` — `theme_zone_render_widget()` menerapkan filter ini
+    dengan fallback ke `render_sidebar_widget` untuk backward compat.
+  - Built-in renderer diekstrak ke `_theme_zone_built_in_widget_html()` dan diregister ke
+    kedua filter (`theme_zone_render_widget` + `render_sidebar_widget`).
+  - `customize.php` mengonsumsi `theme_zone_widget_types()`.
+  - PHP helpers stabil: `theme_zone_render()`, `theme_zone_render_position()`,
+    `theme_zone_render_widget()`, `theme_zone_has_position()`, `theme_zone_widget_types()`.
+  - Public API endpoint (`public/api/theme-zone.php`) yang dibuat sementara **dihapus** karena
+    plugin builder berjalan di dalam dashboard; tidak perlu HTTP publik.
 
-## 9. Aturan Kerja di Branch Ini
+- **Fase 7:** Integrasi konkret dengan theme-builder, jyavani-builder, form-builder.
+
+## 9. Fase 7 — Konsep Integrasi dengan Builder Plugins
+
+> Tujuan: tiap builder plugin bisa menyumbang gadget ke Theme Zones, dan Customize bisa
+> memanfaatkan builder untuk konten / partial / form. Core CMS tetap plugin-agnostic;
+> integrasi spesifik dilakukan di repo plugin masing-masing.
+
+### 9.1 Arsitektur integrasi
+
+Core CMS sudah menyediakan dua filter kontrak (Fase 6):
+
+| Filter | Tujuan |
+|--------|--------|
+| `theme_zone_widget_types` | Plugin mendaftarkan gadget baru dengan `label`, `desc`, `default_config`. |
+| `theme_zone_render_widget` | Plugin merender gadget-nya menjadi HTML. |
+
+Setiap builder plugin cukup hook ke dua filter ini di `plugin.php`. Tidak ada perubahan core.
+
+### 9.2 Theme Builder (adammuizweb/theme-builder)
+
+Theme Builder membuat tema statis (file PHP + theme.json + assets). Integrasi:
+
+1. **Generate `theme.json` layout block** saat user membuat/mengedit tema.
+   - Theme Builder bisa menyediakan UI sederhana untuk menambah zone/position.
+   - Outputnya ditulis ke `theme.json` tema hasil build.
+2. **Generate template PHP yang zone-aware**.
+   - Saat user membuat partial (misal `header.php`), editor menghasilkan:
+     ```php
+     <?php if (theme_zone_has_position($pdo, 'header', 'logo')): ?>
+       <?= theme_zone_render_position($pdo, 'header', 'logo') ?>
+     <?php else: ?>
+       <!-- fallback HTML -->
+     <?php endif; ?>
+     ```
+3. **Gadget `tz_theme_builder_partial`** (opsional).
+   - Memungkinkan user memasukkan partial statis buatan Theme Builder ke zone mana pun.
+   - Config: `partial` (select partial slug dari tema aktif).
+   - Renderer: include file partial + echo.
+4. **Preview Theme Builder**.
+   - Preview iframe bisa memanggil `theme_zone_render()` untuk merender header/footer
+     dari tema yang sedang dikerjakan, tanpa harus install tema dulu.
+   - Gunakan helper PHP langsung, bukan HTTP API.
+
+### 9.3 Jyavani Builder (adammuizweb/jyavani-builder)
+
+Jy Builder menyimpan layout visual per post (article/page/theme) di `jvb_layouts`.
+Integrasi:
+
+1. **Gadget `tz_jyavani_builder`**.
+   - Config: `post_id` (dropdown published posts/pages/themes atau input ID).
+   - Renderer: `jvb_render_layout($pdo, jvb_get_layout($pdo, $post_id), $post)`.
+   - Mendukung universal title/alignment settings.
+2. **Builder post type `theme`**.
+   - Post type `theme` sudah ada di core (`posts.type = 'theme'`).
+   - Core slot resolver (`resolve_template()`) **sudah** mendukung custom post assignment:
+     kalau sebuah slot (misal `main.homepage`) di-assign ke post type `theme` via tabel
+     `assignments.custom_post_id`, core akan merender post tersebut sebagai template.
+   - Jadi Jy Builder cukup mengizinkan edit post type `theme`, dan user meng-assign-nya
+     lewat menu **Assign** yang sudah ada. Tidak perlu perubahan core.
+3. **Builder element "Theme Zone"** (opsional, fase lanjut).
+   - Di dalam Jy Builder, user bisa menambah element yang merender sebuah zone/position.
+
+### 9.4 Form Builder (adammuizweb/form-builder)
+
+Form Builder menyimpan form di `fb_forms`. Integrasi:
+
+1. **Gadget `tz_form_builder`**.
+   - Config: `slug` (dropdown active forms atau input slug).
+   - Renderer: `fb_render_form($pdo, $form)`.
+   - Mendukung universal title/alignment settings.
+2. **Form Builder gadget** bisa ditaruh di header, footer, sidebar zone, atau partial.
+
+### 9.5 Perubahan per repo
+
+| Repo | Perubahan | Notes |
+|------|-----------|-------|
+| `jyavani.git` | Tidak ada. Core sudah menyediakan filter + slot assignment untuk post type `theme`. | Core tetap plugin-agnostic. |
+| `theme-builder.git` | Hook filters (opsional gadget) + generate theme.json layout + zone-aware template. | Preview memakai helper PHP. |
+| `jyavani-builder.git` | Hook filters `tz_jyavani_builder` gadget. | Bisa juga edit `theme` post type. |
+| `form-builder.git` | Hook filters `tz_form_builder` gadget. | Minimal. |
+
+### 9.6 Urutan implementasi yang disarankan
+
+1. **Form Builder** gadget — paling sederhana, proof-of-concept filter integration.
+2. **Jyavani Builder** gadget — sedikit lebih kompleks karena perlu post context.
+3. **Theme Builder** — paling kompleks karena involve generate theme.json dan template.
+4. **Core slot resolver** untuk post type `theme` — hanya jika Jy Builder ingin layout DB sebagai partial.
+
+### 9.7 Contoh hook minimal di plugin
+
+```php
+// Di plugin.php masing-masing plugin
+
+// 1. Register gadget type
+add_filter('theme_zone_widget_types', function(array $types): array {
+    $types['tz_form_builder'] = [
+        'label' => __('Form'),
+        'desc'  => __('Embed a Form Builder form.'),
+        'default_config' => theme_zone_universal_defaults() + ['slug' => ''],
+    ];
+    return $types;
+});
+
+// 2. Render gadget
+add_filter('theme_zone_render_widget', function(string $html, string $type, array $config, PDO $pdo): string {
+    if ($type !== 'tz_form_builder' || !function_exists('fb_render_form')) return $html;
+    $form = fb_get_form_by_slug($pdo, (string)($config['slug'] ?? ''));
+    if (!$form) return $html;
+    return fb_render_form($pdo, $form);
+}, 10, 5);
+```
+
+### 9.8 Catatan keamanan
+
+- Tidak ada endpoint HTTP publik. Semua render terjadi di server melalui PHP helper.
+- Builder plugin yang berjalan di dashboard sudah melewati auth admin.
+- Gadget renderer bertanggung jawab sanitize output-nya sendiri.
+
+## 10. Aturan Kerja di Branch Ini
 
 - Jangan merge ke `main` sebelum user setuju.
 - Commit kecil, pesan jelas (`feat(customize): ...`).

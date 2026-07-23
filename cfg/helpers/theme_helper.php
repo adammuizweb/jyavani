@@ -451,6 +451,10 @@ function get_post_by_id($pdoOrNull, int $post_id) {
 function resolve_template($pdoOrNull, string $slot_key): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
 
+    // Allow plugins to override template resolution (e.g., live theme preview).
+    $resolved = apply_filters('resolve_template', null, $slot_key, $pdo);
+    if ($resolved !== null) return $resolved;
+
     if ($pdo) {
         $assign = get_assignment($pdo, $slot_key);
         if ($assign) {
@@ -519,6 +523,14 @@ function resolve_theme_file_path(array $resolved): ?string {
 function include_template_file(string $path, array $context = []): string {
     if (!is_file($path)) return '';
     global $pdo;
+
+    // Track which theme folder is currently rendering so theme zones can load
+    // gadgets from the assigned theme instead of always the active theme.
+    $previousFolder = $GLOBALS['__jy_render_theme_folder'] ?? null;
+    if (!empty($context['__jy_theme_folder'])) {
+        $GLOBALS['__jy_render_theme_folder'] = $context['__jy_theme_folder'];
+    }
+
     $__ctx = $context;
     $__ctx['pdo'] = $pdo;
     ob_start();
@@ -527,10 +539,21 @@ function include_template_file(string $path, array $context = []): string {
         include $path;
     } catch (Throwable $e) {
         ob_end_clean();
+        if ($previousFolder === null) {
+            unset($GLOBALS['__jy_render_theme_folder']);
+        } else {
+            $GLOBALS['__jy_render_theme_folder'] = $previousFolder;
+        }
         error_log('[THEME] include_template_file error: ' . $e->getMessage());
         return '';
     }
     $html = ob_get_clean();
+
+    if ($previousFolder === null) {
+        unset($GLOBALS['__jy_render_theme_folder']);
+    } else {
+        $GLOBALS['__jy_render_theme_folder'] = $previousFolder;
+    }
 
 if ($pdo instanceof PDO) {
     if (function_exists('widget_expand_shortcodes')) {
@@ -612,6 +635,7 @@ function render_slot($pdoOrNull, string $slot_key, array $context = []): string 
     } elseif ($resolved['type'] === 'theme_file') {
         $path = resolve_theme_file_path($resolved);
         if ($path) {
+            $context['__jy_theme_folder'] = $resolved['theme_folder'] ?? ($resolved['folder'] ?? DEFAULT_THEME_FOLDER);
             return include_template_file($path, $context);
         } else {
             if (THEME_DEBUG) error_log("[THEME] render_slot - file not found for slot={$slot_key}");
@@ -991,6 +1015,9 @@ function get_active_theme_folder($pdoOrNull = null): string {
             if (THEME_DEBUG) error_log("[THEME] get_active_theme_folder error: " . $e->getMessage());
         }
     }
+    // Allow plugins to override the active theme folder (e.g., live theme preview).
+    $folder = apply_filters('active_theme_folder', $folder, $pdo);
+
     $maybe = path_candidate(VIEWS_BASE, $folder, '');
     if (realpath($maybe) && is_dir(realpath($maybe))) {
         return $folder;
