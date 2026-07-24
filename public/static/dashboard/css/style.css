@@ -3056,6 +3056,18 @@ html.theme-dark .adam-quill.adam-quill--auto .ql-snow .ql-picker{ color: var(--a
   html:not(.theme-light):not(.theme-dark) .adam-quill.adam-quill--auto .ql-snow .ql-picker{ color: var(--adam-text-2); }
 }
 
+/* Dark mode: fix code/pre white-on-white */
+html.theme-dark .adam-quill .ql-snow .ql-editor code,
+html.theme-dark .adam-quill .ql-snow .ql-editor pre {
+  background-color: #1e2433;
+  color: var(--adam-text);
+}
+html:not(.theme-light):not(.theme-dark) .adam-quill .ql-snow .ql-editor code,
+html:not(.theme-light):not(.theme-dark) .adam-quill .ql-snow .ql-editor pre {
+  background-color: #1e2433;
+  color: var(--adam-text);
+}
+
 /* ===== FORCE LIGHT MODE (fallback) ===== */
 .adam-quill.adam-quill--light{
   background: #fff;
