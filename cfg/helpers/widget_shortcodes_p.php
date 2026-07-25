@@ -210,7 +210,9 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
 
   $baseUrl = rtrim((string)($ctx['base_url'] ?? ''), '/');
   $kicker = trim((string)($attrs['kicker'] ?? ''));
-  if ($kicker === '') $kicker = strtoupper(str_replace(['-','_'], ' ', $catKey));
+  if ($kicker === '' && !array_key_exists('kicker', $attrs)) {
+    $kicker = strtoupper(str_replace(['-','_'], ' ', $catKey));
+  }
 
   $excerptLen = (int)($attrs['excerpt'] ?? $attrs['excerpt_len'] ?? 90);
   if ($excerptLen < 20) $excerptLen = 90;

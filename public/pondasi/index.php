@@ -63,6 +63,32 @@ function split_sql_statements(string $sql): array {
     return $statements;
 }
 
+function copy_demo_assets(string $sourceDir, string $targetDir): int {
+    if (!is_dir($sourceDir)) return 0;
+    $copied = 0;
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($sourceDir, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+    foreach ($it as $fileinfo) {
+        $srcPath = $fileinfo->getPathname();
+        $relPath = substr($srcPath, strlen($sourceDir));
+        $dstPath = $targetDir . $relPath;
+        if ($fileinfo->isDir()) {
+            if (!is_dir($dstPath)) {
+                mkdir($dstPath, 0755, true);
+            }
+        } else {
+            $dir = dirname($dstPath);
+            if (!is_dir($dir)) mkdir($dir, 0755, true);
+            if (@copy($srcPath, $dstPath)) {
+                $copied++;
+            }
+        }
+    }
+    return $copied;
+}
+
 function h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
@@ -225,6 +251,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "\n# Strong random secret for stateless CSRF\nSESSION_SECRET=" . random_secret() . "\n"
                     . "\n# Token secret for private file signed URLs\nPRIVATE_FILE_TOKEN_SECRET=" . random_secret() . "\n";
 
+                // Optional demo content
+                $installDemo = (int)($_POST['install_demo'] ?? 0) === 1;
+                if ($installDemo) {
+                    $demoSql = $schemaDir . '/demo.sql';
+                    if (is_file($demoSql)) {
+                        $dsql = file_get_contents($demoSql);
+                        if ($dsql !== false) {
+                            $dsql = str_replace("\\\\'", "''", $dsql);
+                            $dstmts = split_sql_statements($dsql);
+                            foreach ($dstmts as $dstmt) {
+                                $pdo->exec($dstmt);
+                            }
+                        }
+                    }
+                    $demoAssetsDir = $schemaDir . '/demo-assets';
+                    $publicDir = $projectRoot . '/public';
+                    copy_demo_assets($demoAssetsDir, $publicDir);
+                }
+
                 $written = @file_put_contents($envFile, $envContent, LOCK_EX);
                 if ($written === false) {
                     $manualEnv = $envContent;
@@ -318,6 +363,7 @@ if ($step === 1) {
         . input('admin_name','Nama Lengkap Admin','text','','Nama yang akan ditampilkan')
         . '</div>'
         . pass('admin_pass','Password Admin')
+        . '<label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:8px 0 0;"><input type="checkbox" name="install_demo" value="1" style="width:auto;margin:0"> Pasang konten demo (15 artikel + 3 halaman + kategori + menu)</label>'
         . '<div style="display:flex;gap:8px;margin-top:8px">'
         . '<a class="btn" href="/pondasi/" style="text-decoration:none;text-align:center;background:#94a3b8;flex:1">← Kembali</a>'
         . '<button class="btn" type="submit" style="flex:1">Selesai →</button></div></form>';

@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS `posts` (
   `created_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `sort_order` int(11) NOT NULL DEFAULT 0,
   `deleted_at` datetime DEFAULT NULL,
   `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
@@ -326,17 +327,17 @@ CREATE TABLE IF NOT EXISTS `theme_zone_items` (
 
 -- Default theme zone items (header, footer, single.post, list.post)
 INSERT INTO `theme_zone_items` (`theme_folder`, `zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`) VALUES
-  ('default', 'footer', 'about', 'tz_html', 'Site Logo', '{\"title\":\"\",\"html\":\"<a href=\\\"/\\\" class=\\\"brand onload wave-span\\\" data-anim-trigger=\\\"load\\\" data-wave-target=\\\".jyavani-logo\\\" data-wave-step=\\\"28\\\">\\n  <img src=\\\"/static/img/jyavani.svg\\\" alt=\\\"Jyavani\\\" class=\\\"flip-logo onload\\\" data-anim-trigger=\\\"load\\\" data-fl-duration=\\\"900\\\" data-fl-delay=\\\"120\\\">\\n  <span class=\\\"jyavani-logo\\\" aria-label=\\\"Jyavani\\\">\\n    <span class=\\\"letter accent\\\" data-word=\\\"Just\\\">J</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Your\\\">y</span>\\n    <span class=\\\"letter accent\\\" data-word=\\\"Visiting\\\">v</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Always\\\">a</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Nice\\\">n</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Inspire\\\">i</span>\\n  </span>\\n</a>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 0, 1),
-  ('default', 'footer', 'about', 'tz_html', 'About Text', '{\"title\":\"About Text\",\"html\":\"<p style=\\\"margin:.35rem 0 0;font-size:.85rem;opacity:.75\\\">Jyavani CMS — native PHP CMS. Fast, lightweight, easy to customize.</p>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
-  ('default', 'footer', 'copyright', 'tz_html', 'Copyright', '{\"html\":\"<p style=\\\"margin:0;font-size:.85rem;opacity:.75\\\">&copy; 2026 Jyavani. Released under MIT License.<\\/p>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
-  ('default', 'footer', 'pages', 'tz_pages', 'Pages', '{\"title\":\"Pages\",\"pages\":[\"about\",\"contact\",\"privacy-policy\"],\"list_class\":\"tz-pages\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 0, 1),
-  ('default', 'footer', 'social', 'tz_social', 'Social Media', '{\"title\":\"Social Media\",\"enabled\":[\"x\",\"github\",\"instagram\"],\"links\":[],\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 0, 1),
-  ('default', 'header', 'controls', 'tz_html', 'Controller', '{\"title\":\"\",\"html\":\"<select id=\\\"themeSelect\\\" class=\\\"ctrl-item blur-in onload\\\" data-anime-trigger=\\\"load\\\" data-duration=\\\"1700\\\" data-delay=\\\"760\\\">\\n  <option value=\\\"light\\\">Light</option>\\n  <option value=\\\"dark\\\">Dark</option>\\n</select>\\n<select id=\\\"lang-switch\\\" class=\\\"ctrl-item blur-in onload\\\" data-anime-trigger=\\\"load\\\" data-duration=\\\"700\\\" data-delay=\\\"860\\\">\\n  <option value=\\\"id\\\">ID</option>\\n  <option value=\\\"en\\\">EN</option>\\n</select>\\n<form method=\\\"get\\\" action=\\\"/\\\">\\n  <input type=\\\"search\\\" name=\\\"s\\\" class=\\\"ctrl-item pop\\\" data-anime-trigger=\\\"load\\\" data-duration=\\\"1000\\\" data-delay=\\\"1000\\\" placeholder=\\\"Search...\\\" style=\\\"width:120px;max-width:140px;\\\">\\n</form>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
-  ('default', 'header', 'logo', 'tz_html', 'Logo Jyavani', '{\"title\":\"\",\"html\":\"<a href=\\\"/\\\" class=\\\"brand onload wave-span\\\" data-anim-trigger=\\\"load\\\" data-wave-target=\\\".jyavani-logo\\\" data-wave-step=\\\"28\\\">\\n  <img src=\\\"/static/img/jyavani.svg\\\" alt=\\\"Jyavani\\\" class=\\\"flip-logo onload\\\" data-anim-trigger=\\\"load\\\" data-fl-duration=\\\"900\\\" data-fl-delay=\\\"120\\\">\\n  <span class=\\\"jyavani-logo\\\" aria-label=\\\"Jyavani\\\">\\n    <span class=\\\"letter accent\\\" data-word=\\\"Just\\\">J</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Your\\\">y</span>\\n    <span class=\\\"letter accent\\\" data-word=\\\"Visiting\\\">v</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Always\\\">a</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Nice\\\">n</span>\\n    <span class=\\\"letter base\\\" data-word=\\\"Inspire\\\">i</span>\\n  </span>\\n</a>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
-  ('default', 'header', 'nav', 'tz_nav_menu', 'Main Menu', '{\"menu\":\"primary\",\"menu_class\":\"menu expand-center-safe moving-line onload\",\"depth\":0,\"ul_attr\":\"data-anime-trigger=\\\"load\\\" data-duration=\\\"2500\\\" data-delay=\\\"360\\\" data-ml-duration=\\\"1000\\\" data-ml-delay=\\\"520\\\"\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
-  ('default', 'list.post', 'after_loop', 'tz_html', 'Demo After Loop', '{\"title\":\"\",\"html\":\"<p style=\\\"text-align:center;color:#888\\\">\\u2014 area after_loop \\u2014<\\/p>\",\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
-  ('default', 'single.post', 'after_content', 'tz_post_meta', 'Post Meta', '{\"show_date\":true,\"show_updated\":false,\"show_read_time\":true,\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 1, 1),
-  ('default', 'single.post', 'after_content', 'tz_post_author', 'Author Box', '{\"show_avatar\":true,\"_title_tag\":\"div\",\"_align_title\":\"left\",\"_align_content\":\"left\"}', 2, 1);
+  ('default', 'footer', 'about', 'tz_html', 'Site Logo', '{"title": "", "html": "<a href=\\"/\\" class=\\"brand onload wave-span\\" data-anim-trigger=\\"load\\" data-wave-target=\\".jyavani-logo\\" data-wave-step=\\"28\\">\\n  <img src=\\"/static/img/jyavani.svg\\" alt=\\"Jyavani\\" class=\\"flip-logo onload\\" data-anim-trigger=\\"load\\" data-fl-duration=\\"900\\" data-fl-delay=\\"120\\">\\n  <span class=\\"jyavani-logo\\" aria-label=\\"Jyavani\\">\\n    <span class=\\"letter accent\\" data-word=\\"Just\\">J</span>\\n    <span class=\\"letter base\\" data-word=\\"Your\\">y</span>\\n    <span class=\\"letter accent\\" data-word=\\"Visiting\\">v</span>\\n    <span class=\\"letter base\\" data-word=\\"Always\\">a</span>\\n    <span class=\\"letter base\\" data-word=\\"Nice\\">n</span>\\n    <span class=\\"letter base\\" data-word=\\"Inspire\\">i</span>\\n  </span>\\n</a>\\n", "_title_tag": "div", "_align_title": "left", "_align_content": "left"}', 0, 1),
+  ('default', 'footer', 'about', 'tz_html', 'About', '{"title": "About", "html": "<p style=\\"margin:.35rem 0 0;font-size:.85rem;opacity:.75\\">Jyavani CMS \\u2014 native PHP CMS. Fast, lightweight, easy to customize.</p>", "_title_tag": "div", "_align_title": "left", "_align_content": "left"}', 1, 1),
+  ('default', 'footer', 'copyright', 'tz_html', '', '{"title":"","_title_tag":"div","_align_title":"left","_align_content":"center","html":"<p style=\\"margin:0;font-size:.85rem;opacity:.75\\">&copy; 2026 Jyavani. Released under MIT License.</p>"}', 0, 1),
+  ('default', 'footer', 'pages', 'tz_pages', 'Pages', '{"title":"Pages","_title_tag":"div","_align_title":"left","_align_content":"left","pages":[],"list_class":"tz-pages"}', 0, 1),
+  ('default', 'footer', 'social', 'tz_social', 'Social Media', '{"title": "Social Media", "enabled": ["x", "github", "instagram"], "links": [], "_title_tag": "div", "_align_title": "left", "_align_content": "left"}', 0, 1),
+  ('default', 'header', 'controls', 'tz_html', 'Controller', '{"title": "", "html": "<select id=\\"themeSelect\\" class=\\"ctrl-item blur-in onload\\" data-anime-trigger=\\"load\\" data-duration=\\"1700\\" data-delay=\\"760\\">\\n  <option value=\\"light\\">Light</option>\\n  <option value=\\"dark\\">Dark</option>\\n</select>\\n<select id=\\"lang-switch\\" class=\\"ctrl-item blur-in onload\\" data-anime-trigger=\\"load\\" data-duration=\\"700\\" data-delay=\\"860\\">\\n  <option value=\\"id\\">ID</option>\\n  <option value=\\"en\\">EN</option>\\n</select>\\n<form method=\\"get\\" action=\\"/\\">\\n  <input type=\\"search\\" name=\\"s\\" class=\\"ctrl-item pop\\" data-anime-trigger=\\"load\\" data-duration=\\"1000\\" data-delay=\\"1000\\" placeholder=\\"Search...\\" style=\\"width:120px;max-width:140px;\\">\\n</form>", "_title_tag": "div", "_align_title": "left", "_align_content": "left"}', 1, 1),
+  ('default', 'header', 'logo', 'tz_html', 'Logo Jyavani', '{"title": "", "html": "<a href=\\"/\\" class=\\"brand onload wave-span\\" data-anim-trigger=\\"load\\" data-wave-target=\\".jyavani-logo\\" data-wave-step=\\"28\\">\\n  <img src=\\"/static/img/jyavani.svg\\" alt=\\"Jyavani\\" class=\\"flip-logo onload\\" data-anim-trigger=\\"load\\" data-fl-duration=\\"900\\" data-fl-delay=\\"120\\">\\n  <span class=\\"jyavani-logo\\" aria-label=\\"Jyavani\\">\\n    <span class=\\"letter accent\\" data-word=\\"Just\\">J</span>\\n    <span class=\\"letter base\\" data-word=\\"Your\\">y</span>\\n    <span class=\\"letter accent\\" data-word=\\"Visiting\\">v</span>\\n    <span class=\\"letter base\\" data-word=\\"Always\\">a</span>\\n    <span class=\\"letter base\\" data-word=\\"Nice\\">n</span>\\n    <span class=\\"letter base\\" data-word=\\"Inspire\\">i</span>\\n  </span>\\n</a>", "_title_tag": "div", "_align_title": "left", "_align_content": "left"}', 1, 1),
+  ('default', 'header', 'nav', 'tz_nav_menu', 'Main Menu', '{"menu": "primary", "menu_class": "menu expand-center-safe moving-line onload", "depth": 0, "ul_attr": "data-anime-trigger=\\"load\\" data-duration=\\"2500\\" data-delay=\\"360\\" data-ml-duration=\\"1000\\" data-ml-delay=\\"520\\"", "_title_tag": "div", "_align_title": "left", "_align_content": "left"}', 1, 1),
+
+  ('default', 'single.post', 'after_content', 'tz_post_meta', 'Post Meta', '{"title":"Post Meta","_title_tag":"div","_align_title":"left","_align_content":"left","show_date":true,"show_updated":false,"show_read_time":true}', 0, 0),
+  ('default', 'single.post', 'after_content', 'tz_post_author', 'Author Box', '{"title":"Author Box","_title_tag":"div","_align_title":"left","_align_content":"left","show_avatar":true}', 1, 0);
 
 -- Core settings (installed overrides title/desc/url via installer)
 INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
@@ -357,52 +358,34 @@ INSERT INTO `assignments` (`slot_key`, `theme_id`, `theme_file`) VALUES
   ('main.homepage', 1, 'main/homepage.php')
 ON DUPLICATE KEY UPDATE `theme_id` = VALUES(`theme_id`);
 
--- Default "Primary" menu
-INSERT IGNORE INTO `menus` (`id`, `name`, `slug`, `is_default`) VALUES (1, 'Primary', 'primary', 1);
-
--- Default "Main" sidebar zone
-INSERT IGNORE INTO `sidebar_zones` (`name`, `slug`, `description`, `is_primary`) VALUES ('Main Sidebar', 'main', 'Sidebar utama website', 1);
-
--- Default sidebar zone items — mirrored from old hardcoded fallback
-INSERT IGNORE INTO `sidebar_zone_items` (`zone_id`, `type`, `title`, `config`, `ordering`, `active`)
-SELECT sz.id, 'search', 'Cari', '{"title":"Cari","placeholder":"Cari artikel..."}', 0, 1
-FROM sidebar_zones sz WHERE sz.slug = 'main' AND NOT EXISTS (
-  SELECT 1 FROM sidebar_zone_items WHERE zone_id = sz.id AND type = 'search'
-);
-
-INSERT IGNORE INTO `sidebar_zone_items` (`zone_id`, `type`, `title`, `config`, `ordering`, `active`)
-SELECT sz.id, 'last_posts', 'Artikel Terbaru', '{"title":"Artikel Terbaru","limit":5,"type":"article"}', 1, 1
-FROM sidebar_zones sz WHERE sz.slug = 'main' AND NOT EXISTS (
-  SELECT 1 FROM sidebar_zone_items WHERE zone_id = sz.id AND type = 'last_posts'
-);
-
-INSERT IGNORE INTO `sidebar_zone_items` (`zone_id`, `type`, `title`, `config`, `ordering`, `active`)
-SELECT sz.id, 'categories', 'Kategori', '{"title":"Kategori","limit":30,"only_parents":true}', 2, 1
-FROM sidebar_zones sz WHERE sz.slug = 'main' AND NOT EXISTS (
-  SELECT 1 FROM sidebar_zone_items WHERE zone_id = sz.id AND type = 'categories'
-);
-
--- Default categories
-INSERT IGNORE INTO `categories` (`id`, `name`, `slug`, `description`, `created_by`)
-VALUES
-  (1, 'Blog',        'blog',           'Tulisan dan artikel blog', NULL),
-  (2, 'Services',    'services',       'Layanan yang kami tawarkan', NULL),
-  (3, 'Web Development', 'web-development', 'Jasa pembuatan dan pengembangan website', NULL),
-  (4, 'Tutorial',    'tutorial',       'Tutorial dan panduan', NULL);
-
--- Web Development is sub-category of Services
-UPDATE `categories` SET `parent_id` = 2 WHERE `id` = 3;
+-- Default "Main" menu
+INSERT IGNORE INTO `menus` (`id`, `name`, `slug`, `is_default`) VALUES (3, 'Main', 'main', 1);
 
 -- Default menu items
 INSERT IGNORE INTO `menu_items` (`id`, `menu_id`, `parent_id`, `sort_order`, `type`, `label`, `url`, `target_id`, `target_blank`)
 VALUES
-  (1, 1, NULL, 0, 'custom',   'Home',           '/',    NULL, 0),
-  (2, 1, NULL, 1, 'category', 'Blog',           NULL,   1,    0),
-  (3, 1, NULL, 2, 'category', 'Services',       NULL,   2,    0),
-  (4, 1, 3,     0, 'category', 'Web Development', NULL,  3,    0),
-   (5, 1, NULL, 3, 'category', 'Tutorial',       NULL,   4,    0);
+  (9, 3, NULL, 0, 'custom',   'Home',      '/',  NULL, 0),
+  (14, 3, NULL, 1, 'category', 'Panduan',   '', 1, 0),
+  (15, 3, NULL, 2, 'category', 'Sistem',    '', 4, 0),
+  (16, 3, 15,   0, 'category', 'Keamanan',  '', 2, 0),
+  (17, 3, NULL, 3, 'category', 'Pengembangan', '', 3, 0);
 
--- ~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- Default categories
+INSERT IGNORE INTO `categories` (`id`, `name`, `slug`, `description`, `created_by`)
+VALUES
+  (1, 'Panduan',      'panduan',      'Artikel panduan langkah demi langkah menggunakan Jyavani CMS', 1),
+  (2, 'Keamanan',     'keamanan',     'Artikel tentang keamanan, privasi, proteksi data, dan akses kontrol', 1),
+  (3, 'Pengembangan', 'pengembangan', 'Artikel tentang theme, plugin, widget, shortcodes, dan pengembangan fitur CMS', 1),
+  (4, 'Sistem',       'sistem',       'Artikel tentang administrasi sistem, maintenance, update, dan manajemen user', 1);
+
+-- Default "Sidebar Alt" sidebar zone
+INSERT IGNORE INTO `sidebar_zones` (`id`, `name`, `slug`, `description`, `is_primary`) VALUES (3, 'Sidebar Alt', 'altsid', '', 1);
+
+-- Default sidebar zone items
+INSERT IGNORE INTO `sidebar_zone_items` (`zone_id`, `type`, `title`, `config`, `ordering`, `active`)
+VALUES
+  (3, 'last_posts', 'Artikel Terbaru', '{"title":"Artikel Terbaru","limit":5,"type":"article"}', 1, 1),
+  (3, 'search', 'Cari', '{"title":"Cari","placeholder":"Cari artikel..."}', 0, 1);
 -- 16. ui_translations
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~
 CREATE TABLE IF NOT EXISTS `ui_translations` (

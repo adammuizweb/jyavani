@@ -228,7 +228,7 @@ if (!function_exists('widget_fetch_recent_posts')) {
             $params[':uid'] = (int)$created_by;
         }
 
-        $sql = "SELECT id, title, slug, created_at, created_by
+        $sql = "SELECT id, title, slug, thumbnail, content, created_at, created_by
                 FROM posts
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY created_at DESC
@@ -244,6 +244,33 @@ if (!function_exists('widget_fetch_recent_posts')) {
         $st->execute();
 
         return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+}
+
+if (!function_exists('widget_first_image_from_content')) {
+    function widget_first_image_from_content(?string $html): string {
+        if (empty($html) || !class_exists('DOMDocument')) return '';
+        $prev = libxml_use_internal_errors(true);
+        $doc = new DOMDocument();
+        $loaded = @$doc->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($prev);
+        if (!$loaded) return '';
+        $imgs = $doc->getElementsByTagName('img');
+        foreach ($imgs as $img) {
+            $src = trim((string)$img->getAttribute('src'));
+            if ($src !== '') return $src;
+        }
+        return '';
+    }
+}
+
+if (!function_exists('widget_format_date_id')) {
+    function widget_format_date_id(?string $date): string {
+        if (empty($date)) return '';
+        $ts = strtotime($date);
+        if (!$ts) return '';
+        return function_exists('format_date_id') ? format_date_id($ts) : date('d M Y', $ts);
     }
 }
 
@@ -328,10 +355,15 @@ if (!function_exists('_render_single_widget')) {
 
             case 'shortcode_preset':
                 $slug = (string)($config['preset_slug'] ?? '');
-                if ($slug !== '') {
-                    return render_widget($slug, [], $pdo);
-                }
-                return '';
+                if ($slug === '') return '';
+                $rendered = render_widget($slug, [], $pdo);
+                if ($rendered === '') return '';
+                $titleText = (string)($config['title'] ?? '');
+                if ($titleText === '') return $rendered;
+                return '<div class="w-box w-shortcode-preset">'
+                    . '<div class="w-title">' . widget_h($titleText) . '</div>'
+                    . $rendered
+                    . '</div>';
         }
         return apply_filters('render_sidebar_widget', '', $type, $config, $pdo);
     }
@@ -383,12 +415,15 @@ if (!function_exists('render_sidebar_widgets')) {
         $html = '';
         foreach ($items as $item) {
             if (empty($item['active'])) continue;
-            $config = is_array($item['config']) ? $item['config'] : [];
-            try {
-                $html .= _render_single_widget($pdo, (string)$item['type'], $config);
-            } catch (Throwable $e) {
-                error_log('[widget_helper] render_sidebar_widgets item error: ' . $e->getMessage());
-            }
+        $config = is_array($item['config']) ? $item['config'] : [];
+        if (!isset($config['title']) && !empty($item['title'])) {
+            $config['title'] = (string)$item['title'];
+        }
+        try {
+            $html .= _render_single_widget($pdo, (string)$item['type'], $config);
+        } catch (Throwable $e) {
+            error_log('[widget_helper] render_sidebar_widgets item error: ' . $e->getMessage());
+        }
         }
 
         return $html;

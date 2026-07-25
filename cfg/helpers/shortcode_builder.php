@@ -94,6 +94,11 @@ class ShortcodeQuery {
     return $this;
   }
 
+  public function kicker(?string $text): self {
+    $this->props['kicker'] = $text;
+    return $this;
+  }
+
   public function layout(string $layout): self {
     $this->props['layout'] = $layout;
     return $this;
