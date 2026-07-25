@@ -31,6 +31,7 @@ public/static/img/2026
 # Ignore installed themes — install via Store Browse only
 public/views/themes/*
 !public/views/themes/default/
+!public/views/themes/adam/
 
 # Uploaded / private files (runtime data)
 private_files/

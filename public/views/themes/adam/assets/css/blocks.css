@@ -1,0 +1,95 @@
+/* =========================================================
+   LAYOUT WRAPPER CLEAN
+========================================================= */
+:root{
+  --container-max: 1100px;
+  --layout-gap: clamp(16px, 2vw, 24px);
+  --sidebar-w: 280px;
+}
+
+/* desktop / tablet */
+.container{
+  width: min(calc(100% - 40px), var(--container-max));
+  margin-inline: auto;
+  padding: 0;
+}
+
+.layout-grid{
+  display: grid;
+  gap: var(--layout-gap);
+  align-items: start;
+  min-width: 0;
+}
+
+.layout-grid.layout-sidebar-left{
+  grid-template-columns: minmax(240px, var(--sidebar-w)) minmax(0, 1fr);
+}
+
+.layout-grid.layout-sidebar-right{
+  grid-template-columns: minmax(0, 1fr) minmax(240px, var(--sidebar-w));
+}
+
+.main-col,
+.sidebar-col,
+.site-main-area{
+  min-width: 0;
+}
+
+.site-main-area{
+  min-height: 200px;
+}
+
+/* single desktop */
+.adam-post-single{
+  max-width: 820px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+}
+
+/* tablet */
+@media (max-width: 880px){
+  .container{
+    width: min(calc(100% - 24px), var(--container-max));
+  }
+
+  .layout-grid.layout-sidebar-left,
+  .layout-grid.layout-sidebar-right{
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* mobile */
+@media (max-width: 768px){
+  /* wrapper utama dibuat mepet */
+  .site-main{
+    padding-top: 0;
+    margin-top: 0;
+  }
+
+  .site-main > .container{
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .adam-post-single{
+    max-width: none;
+    margin: 0;
+    padding: 1rem;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* hp kecil */
+@media (max-width: 480px){
+  .adam-post-single{
+    padding: .9rem;
+    border-radius: 0;
+  }
+}

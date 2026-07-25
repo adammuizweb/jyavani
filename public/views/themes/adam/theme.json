@@ -1,22 +1,11 @@
 {
-    "folder": "default",
-    "name": "default",
-    "description": "Tema bawaan Jyavani — dark mode, i18n, SEO lengkap, slot-based rendering.",
-    "version": "1.3.1",
+    "folder": "adam",
+    "name": "Adamz Code",
+    "description": "Tema premium untuk blog teknologi, programming, dan filosofi. Dark mode, SEO lengkap, i18n siap pakai.",
+    "version": "2.3.0",
     "author": "adammuiz",
     "screenshot": "img.png",
     "color_mode": "both",
-    "styles": [
-        "assets/css/style.css",
-        "assets/css/blocks.css"
-    ],
-    "scripts": [
-        "assets/js/script.js"
-    ],
-    "store": {
-        "url": "https://jyavani.com/theme-store/",
-        "slug": "default"
-    },
     "customizer": {
         "sections": {
             "header": {
@@ -112,10 +101,10 @@
             "defaults": {
                 "logo": {
                     "type": "tz_html",
-                    "title": "Logo Jyavani",
+                    "title": "Logo Adamz",
                     "config": {
                         "title": "",
-                        "html": "<a href=\"/\" class=\"brand onload wave-span\" data-anim-trigger=\"load\" data-wave-target=\".jyavani-logo\" data-wave-step=\"28\">\n  <img src=\"/static/img/jyavani.svg\" alt=\"Jyavani\" class=\"flip-logo onload\" data-anim-trigger=\"load\" data-fl-duration=\"900\" data-fl-delay=\"120\">\n  <span class=\"jyavani-logo\" aria-label=\"Jyavani\">\n    <span class=\"letter accent\" data-word=\"Just\">J</span>\n    <span class=\"letter base\" data-word=\"Your\">y</span>\n    <span class=\"letter accent\" data-word=\"Visiting\">v</span>\n    <span class=\"letter base\" data-word=\"Always\">a</span>\n    <span class=\"letter base\" data-word=\"Nice\">n</span>\n    <span class=\"letter base\" data-word=\"Inspire\">i</span>\n  </span>\n</a>"
+                        "html": "<a href=\"/\" class=\"brand onload wave-span\" data-anim-trigger=\"load\" data-wave-target=\".adamz-logo\" data-wave-step=\"28\">\n  <span class=\"adamz-logo-mark\" aria-hidden=\"true\">ADZ</span>\n  <span class=\"adamz-logo\" aria-label=\"Adamz Code\">\n    <span class=\"letter accent\" data-word=\"Code\">A</span>\n    <span class=\"letter base\" data-word=\"Think\">d</span>\n    <span class=\"letter accent\" data-word=\"Explore\">a</span>\n    <span class=\"letter base\" data-word=\"Build\">m</span>\n    <span class=\"letter base\" data-word=\"Share\">z</span>\n  </span>\n</a>"
                     }
                 },
                 "nav": {
@@ -139,6 +128,20 @@
                 ]
             },
             "columns": 3
+        },
+        "main": {
+            "label": "Main Content",
+            "positions": {
+                "meta": {
+                    "label": "Post Meta"
+                },
+                "content": {
+                    "label": "Content Area"
+                },
+                "sidebar": {
+                    "label": "Sidebar"
+                }
+            }
         },
         "footer": {
             "label": "Footer",
@@ -171,7 +174,7 @@
                         "title": "Brand",
                         "config": {
                             "title": "",
-                            "html": "<a href=\"/\" class=\"brand onload wave-span\" data-anim-trigger=\"load\" data-wave-target=\".jyavani-logo\" data-wave-step=\"28\">\n  <img src=\"/static/img/jyavani.svg\" alt=\"Jyavani\" class=\"flip-logo onload\" data-anim-trigger=\"load\" data-fl-duration=\"900\" data-fl-delay=\"120\">\n  <span class=\"jyavani-logo\" aria-label=\"Jyavani\">\n    <span class=\"letter accent\" data-word=\"Just\">J</span>\n    <span class=\"letter base\" data-word=\"Your\">y</span>\n    <span class=\"letter accent\" data-word=\"Visiting\">v</span>\n    <span class=\"letter base\" data-word=\"Always\">a</span>\n    <span class=\"letter base\" data-word=\"Nice\">n</span>\n    <span class=\"letter base\" data-word=\"Inspire\">i</span>\n  </span>\n</a>"
+                            "html": "<a href=\"/\" class=\"brand onload wave-span\" data-anim-trigger=\"load\" data-wave-target=\".adamz-logo\" data-wave-step=\"28\">\n  <span class=\"adamz-logo-mark\" aria-hidden=\"true\">ADZ</span>\n  <span class=\"adamz-logo\" aria-label=\"Adamz Code\">\n    <span class=\"letter accent\" data-word=\"Code\">A</span>\n    <span class=\"letter base\" data-word=\"Think\">d</span>\n    <span class=\"letter accent\" data-word=\"Explore\">a</span>\n    <span class=\"letter base\" data-word=\"Build\">m</span>\n    <span class=\"letter base\" data-word=\"Share\">z</span>\n  </span>\n</a>"
                         }
                     },
                     {
@@ -179,7 +182,7 @@
                         "title": "About",
                         "config": {
                             "title": "About",
-                            "html": "<p style=\"margin:.35rem 0 0;font-size:.85rem;opacity:.75\">Jyavani — native PHP CMS. Fast, lightweight, easy to customize.</p>", "_title_tag": "div", "_align_title": "left", "_align_content": "left"
+                            "html": "<p style=\"margin:.35rem 0 0;font-size:.85rem;opacity:.75\">Adamz Code — native PHP CMS. Fast, lightweight, easy to customize.</p>", "_title_tag": "div", "_align_title": "left", "_align_content": "left"
                         }
                     }
                 ],
@@ -214,7 +217,7 @@
                         "type": "tz_html",
                         "title": "Copyright",
                         "config": {
-                            "html": "<p style=\"margin:0;font-size:.85rem;opacity:.75\">&copy; 2026 Jyavani. Released under MIT License.</p>"
+                            "html": "<p style=\"margin:0;font-size:.85rem;opacity:.75\">&copy; 2026 Adamz Code. Released under MIT License.</p>"
                         }
                     }
                 ]
@@ -244,5 +247,16 @@
             },
             "columns": 1
         }
+    },
+    "styles": [
+        "assets/css/style.css",
+        "assets/css/blocks.css"
+    ],
+    "scripts": [
+        "assets/js/script.js"
+    ],
+    "store": {
+        "url": "https://jyavani.com/theme-store/",
+        "slug": "adam"
     }
 }
