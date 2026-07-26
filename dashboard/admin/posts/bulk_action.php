@@ -49,6 +49,36 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     respond(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
 
+if (!function_exists('parse_datetime_local')) {
+    function parse_datetime_local(string $value): ?DateTimeImmutable {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2})?$/', $value)) {
+            return null;
+        }
+        $normalized = str_replace('T', ' ', $value);
+        if (strlen($normalized) === 16) {
+            $normalized .= ':00';
+        }
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $normalized, $m)) {
+            return null;
+        }
+        if (!checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
+            return null;
+        }
+        if ((int)$m[4] > 23 || (int)$m[5] > 59 || (int)$m[6] > 59) {
+            return null;
+        }
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $normalized);
+        if (!$dt) {
+            return null;
+        }
+        return $dt;
+    }
+}
+
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
     respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
@@ -278,6 +308,65 @@ try {
 
         $pdo->commit();
         respond(true, __('Author changed for') . " {$affected} " . __('articles.'), 200, ['count' => $affected], $returnTo);
+    }
+
+    if ($action === 'change_date') {
+        if ($role !== 'admin') {
+            $pdo->rollBack();
+            respond(false, __('Access denied: only admin can change date.'), 403, [], $returnTo);
+        }
+
+        $created_at = trim((string)($_POST['created_at'] ?? ''));
+        $updated_at = trim((string)($_POST['updated_at'] ?? ''));
+
+        if ($created_at === '' && $updated_at === '') {
+            $pdo->rollBack();
+            respond(false, __('Please enter at least one date.'), 400, [], $returnTo);
+        }
+
+        $fields = [];
+        $params = [];
+
+        if ($created_at !== '') {
+            $dt = parse_datetime_local($created_at);
+            if (!$dt) {
+                $pdo->rollBack();
+                respond(false, __('Invalid date format.'), 400, [], $returnTo);
+            }
+            $fields[] = 'created_at = ?';
+            $params[] = $dt->format('Y-m-d H:i:s');
+        }
+
+        if ($updated_at !== '') {
+            $dt = parse_datetime_local($updated_at);
+            if (!$dt) {
+                $pdo->rollBack();
+                respond(false, __('Invalid date format.'), 400, [], $returnTo);
+            }
+            $fields[] = 'updated_at = ?';
+            $params[] = $dt->format('Y-m-d H:i:s');
+        }
+
+        // Supaya MySQL tidak menggeser updated_at ke NOW() karena ON UPDATE current_timestamp
+        // saat hanya created_at yang diubah.
+        if ($created_at !== '' && $updated_at === '') {
+            $fields[] = 'updated_at = updated_at';
+        }
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $set = implode(', ', $fields);
+        $params = array_merge($params, $ids);
+
+        $stmt = $pdo->prepare("
+            UPDATE posts
+            SET {$set}
+            WHERE type = 'article' AND id IN ($in) AND is_deleted = 0
+        ");
+        $stmt->execute($params);
+        $affected = $stmt->rowCount();
+
+        $pdo->commit();
+        respond(true, __('Date changed for') . " {$affected} " . __('articles.'), 200, ['count' => $affected], $returnTo);
     }
 
     $pdo->rollBack();

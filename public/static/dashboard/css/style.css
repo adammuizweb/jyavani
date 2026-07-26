@@ -4749,6 +4749,76 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   flex-wrap:wrap;
 }
 
+/* Bulk selection counter badge */
+.bulk-selection-count{
+  display:inline-flex;
+  align-items:center;
+  gap:.45rem;
+  padding:.32rem .75rem;
+  border-radius:999px;
+  background:var(--adam-primary-gradient);
+  color:#fff;
+  font-weight:700;
+  font-size:.82rem;
+  line-height:1;
+  border:1px solid transparent;
+  box-shadow:0 2px 8px var(--adam-primary-soft);
+  text-shadow:0 1px 0 rgba(0,0,0,.15);
+  opacity:1;
+  transform:scale(1);
+  transition:opacity .15s ease, transform .15s ease, box-shadow .15s ease;
+  margin-left:.5rem;
+  white-space:nowrap;
+  user-select:none;
+}
+.bulk-selection-count[hidden]{
+  display:none;
+}
+.bulk-selection-count .bsc-number{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:1.25rem;
+  height:1.25rem;
+  padding:0 .35rem;
+  border-radius:999px;
+  background:rgba(255,255,255,.22);
+  color:#fff;
+  font-weight:800;
+  font-size:.75rem;
+  line-height:1;
+}
+.bulk-selection-count .bsc-label{
+  color:#fff;
+}
+.bulk-selection-count.is-pulse{
+  animation:bscPulse .22s ease-in-out 2;
+}
+@keyframes bscPulse{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.06); }
+}
+
+/* Bulk date panel */
+.date-panel{
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  flex-wrap:wrap;
+}
+.date-panel .date-label{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  font-size:.85rem;
+  color:var(--adam-text-2);
+  font-weight:600;
+}
+.date-panel .date-label .inp{
+  width:auto;
+  min-width:190px;
+}
+
 /* Columns toggle */
 .cols-toggle{
   position:relative;

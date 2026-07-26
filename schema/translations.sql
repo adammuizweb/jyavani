@@ -2981,4 +2981,31 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Posts Selected', 'Beiträge ausgewählt', 'de'),
 ('default', 'Page Selected', 'Seite ausgewählt', 'de'),
 ('default', 'Pages Selected', 'Seiten ausgewählt', 'de'),
-('default', 'Change article author', 'Autor des Artikels ändern', 'de');
+('default', 'Change article author', 'Autor des Artikels ändern', 'de'),
+
+-- v2.3.20 — bulk change date translations
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Change Date', 'Ubah Tanggal', 'id'),
+('default', 'Change Date', 'Datum ändern', 'de'),
+('default', 'Created at', 'Dibuat pada', 'id'),
+('default', 'Created at', 'Erstellt am', 'de'),
+('default', 'Updated at', 'Diperbarui pada', 'id'),
+('default', 'Updated at', 'Aktualisiert am', 'de'),
+('default', 'Date changed for', 'Tanggal diubah untuk', 'id'),
+('default', 'Date changed for', 'Datum geändert für', 'de'),
+('default', 'Please enter at least one date.', 'Masukkan setidaknya satu tanggal.', 'id'),
+('default', 'Please enter at least one date.', 'Bitte geben Sie mindestens ein Datum ein.', 'de'),
+('default', 'Invalid date format.', 'Format tanggal tidak valid.', 'id'),
+('default', 'Invalid date format.', 'Ungültiges Datumsformat.', 'de'),
+('default', 'Change date of ', 'Ubah tanggal dari ', 'id'),
+('default', 'Change date of ', 'Datum ändern von ', 'de'),
+('default', 'Change article date', 'Ubah tanggal artikel', 'id'),
+('default', 'Change article date', 'Artikeldatum ändern', 'de'),
+('default', 'Change page date', 'Ubah tanggal halaman', 'id'),
+('default', 'Change page date', 'Seitendatum ändern', 'de'),
+('default', 'Updated', 'Diperbarui', 'id'),
+('default', 'Updated', 'Aktualisiert', 'de'),
+('default', 'Access denied: only admin can change date.', 'Akses ditolak: hanya admin yang dapat mengubah tanggal.', 'id'),
+('default', 'Access denied: only admin can change date.', 'Zugriff verweigert: Nur Admin kann das Datum ändern.', 'de'),
+('default', ' pages to', ' halaman menjadi', 'id'),
+('default', ' pages to', ' Seiten zu', 'de');

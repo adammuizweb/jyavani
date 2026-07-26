@@ -224,6 +224,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <option value="change_status"><?= _e('Change Status') ?></option>
         <?php if ($role === 'admin'): ?>
           <option value="change_author"><?= _e('Change Author') ?></option>
+          <option value="change_date"><?= _e('Change Date') ?></option>
         <?php endif; ?>
       </select>
 
@@ -244,9 +245,25 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </select>
       <?php endif; ?>
 
+      <?php if ($role === 'admin'): ?>
+      <div id="bulkDatesPanelPages" class="date-panel" style="display:none;">
+        <label class="date-label">
+          <?= _e('Created at') ?>
+          <input type="datetime-local" id="bulkCreatedAtPages" name="created_at" class="inp">
+        </label>
+        <label class="date-label">
+          <?= _e('Updated at') ?>
+          <input type="datetime-local" id="bulkUpdatedAtPages" name="updated_at" class="inp">
+        </label>
+      </div>
+      <?php endif; ?>
+
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
-      <span id="bulkSelectionCount" class="bulk-selection-count" style="margin-left:.75rem;font-weight:600;">0 <?= _e('Page Selected') ?></span>
+      <span id="bulkSelectionCount" class="bulk-selection-count" hidden>
+        <span class="bsc-number">0</span>
+        <span class="bsc-label"><?= _e('Page Selected') ?></span>
+      </span>
 
       <div class="cols-toggle ml-auto">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
@@ -409,19 +426,27 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const bulkAction = document.getElementById('bulkActionPages');
   const bulkStatus = document.getElementById('bulkStatusPages');
   const bulkAuthor = document.getElementById('bulkAuthorPages');
+  const bulkDatesPanel = document.getElementById('bulkDatesPanelPages');
+  const bulkCreatedAt = document.getElementById('bulkCreatedAtPages');
+  const bulkUpdatedAt = document.getElementById('bulkUpdatedAtPages');
   const deleteForm = document.getElementById('newnotif-pages-delete-form');
   const deleteIdInput = document.getElementById('newnotif-pages-delete-id');
   const deleteReturnTo = document.getElementById('newnotif-pages-delete-return-to');
   const bulkSelectionCount = document.getElementById('bulkSelectionCount');
 
-  function selectionLabel(count) {
-    return count + ' ' + (count === 1 ? <?= json_encode(__('Page Selected')) ?> : <?= json_encode(__('Pages Selected')) ?>);
-  }
-
   function updateSelectionCount(){
     if (!bulkSelectionCount) return;
     const count = document.querySelectorAll('.bulkCheckboxPage:checked').length;
-    bulkSelectionCount.textContent = selectionLabel(count);
+    const numEl = bulkSelectionCount.querySelector('.bsc-number');
+    const labelEl = bulkSelectionCount.querySelector('.bsc-label');
+    if (numEl) numEl.textContent = String(count);
+    if (labelEl) labelEl.textContent = (count === 1 ? <?= json_encode(__('Page Selected')) ?> : <?= json_encode(__('Pages Selected')) ?>);
+    bulkSelectionCount.hidden = (count === 0);
+    if (count > 0) {
+      bulkSelectionCount.classList.remove('is-pulse');
+      void bulkSelectionCount.offsetWidth;
+      bulkSelectionCount.classList.add('is-pulse');
+    }
   }
 
   function toast(type, message, title){
@@ -448,6 +473,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const v = bulkAction ? bulkAction.value : '';
     if (bulkStatus) bulkStatus.style.display = (v === 'change_status') ? 'inline-block' : 'none';
     if (bulkAuthor) bulkAuthor.style.display = (v === 'change_author') ? 'inline-block' : 'none';
+    if (bulkDatesPanel) bulkDatesPanel.style.display = (v === 'change_date') ? 'inline-flex' : 'none';
   }
 
   function checkedCount(){
@@ -502,6 +528,24 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         variant: 'warning',
         title: <?= json_encode(__('Change page author')) ?>,
         message: <?= json_encode(__('Change author of ')) ?> + count + ' halaman menjadi "' + authorLabel + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
+      };
+    }
+
+    if (action === 'change_date') {
+      if (<?= json_encode($role !== 'admin') ?>) {
+        return { ok:false, message: <?= json_encode(__('Access denied: only admin can change date.')) ?> };
+      }
+      const createdAt = bulkCreatedAt ? bulkCreatedAt.value : '';
+      const updatedAt = bulkUpdatedAt ? bulkUpdatedAt.value : '';
+      if (!createdAt && !updatedAt) {
+        return { ok:false, message: <?= json_encode(__('Please enter at least one date.')) ?> };
+      }
+      return {
+        ok: true,
+        variant: 'warning',
+        title: <?= json_encode(__('Change page date')) ?>,
+        message: <?= json_encode(__('Change date of ')) ?> + count + <?= json_encode(__(' pages to')) ?> + ' ' + <?= json_encode(__('Created')) ?> + ': ' + (createdAt || '-') + ', ' + <?= json_encode(__('Updated')) ?> + ': ' + (updatedAt || '-') + ' ' + <?= json_encode(__('Continue?')) ?>,
         confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
