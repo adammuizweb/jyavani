@@ -267,7 +267,7 @@ if (isset($_GET['refresh'])) {
 .alert-error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
 .empty-state { padding:2rem; text-align:center; color:var(--adam-muted); }
 .plugin-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
-.plugin-card { background:var(--adam-surface); border:1px solid var(--adam-border); border-radius:10px; display:flex; flex-direction:column; overflow:hidden; transition:box-shadow .15s; }
+.plugin-card { background:var(--adam-card); border:1px solid var(--adam-border); border-radius:10px; display:flex; flex-direction:column; overflow:hidden; transition:box-shadow .15s; }
 .theme-card-shot { width:100%; aspect-ratio:16/10; overflow:hidden; background:var(--adam-surface-3); }
 .theme-card-shot img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s; }
 .plugin-card:hover .theme-card-shot img { transform:scale(1.03); }

@@ -505,9 +505,9 @@ $totalCore = $localManifest['total_files'] ?? 0;
     <p class="up-hint"><?=_e('Changed files will be automatically backed up to')?> <code>cfg/var/backup-{timestamp}/</code>.</p>
 </div>
 
-<!-- Progress Overlay (green) -->
-<div id="cmsUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
-  <div style="background:var(--adam-surface);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
+<!-- Progress Overlay (solid modal-style) -->
+<div id="cmsUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="background:var(--adam-card);padding:2rem 2.5rem;border-radius:12px;border:1px solid var(--adam-border);text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
     <div id="cmsProgressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-success);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
     <div id="cmsProgressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
     <div id="cmsProgressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
