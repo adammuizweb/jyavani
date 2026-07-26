@@ -595,7 +595,7 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 
 ## Development
 
-- Version: **2.3.19** (see `VERSION` and `version.json`)
+- Version: **2.3.20** (see `VERSION` and `version.json`)
 - Playwright regression tests available — run after changes to verify
 - Error display controlled by `APP_DEBUG=1` in `.env`
 - `dev_lock.php` can lockdown the site
