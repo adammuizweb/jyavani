@@ -239,6 +239,47 @@ try {
         respond(false, __('Unknown category mode.'), 400, [], $returnTo);
     }
 
+    if ($action === 'change_author') {
+        if ($role !== 'admin') {
+            $pdo->rollBack();
+            respond(false, __('Access denied: only admin can change author.'), 403, [], $returnTo);
+        }
+
+        $author_id = (int)($_POST['author_id'] ?? 0);
+        if ($author_id <= 0) {
+            $pdo->rollBack();
+            respond(false, __('Invalid author.'), 400, [], $returnTo);
+        }
+
+        $v = $pdo->prepare("
+            SELECT id
+            FROM users
+            WHERE id = ?
+              AND is_deleted = 0
+              AND is_locked = 0
+            LIMIT 1
+        ");
+        $v->execute([$author_id]);
+        if (!$v->fetchColumn()) {
+            $pdo->rollBack();
+            respond(false, __('Author not found.'), 400, [], $returnTo);
+        }
+
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $params = array_merge([$author_id], $ids);
+
+        $stmt = $pdo->prepare("
+            UPDATE posts
+            SET created_by = ?, updated_at = NOW()
+            WHERE type = 'article' AND id IN ($in) AND is_deleted = 0
+        ");
+        $stmt->execute($params);
+        $affected = $stmt->rowCount();
+
+        $pdo->commit();
+        respond(true, __('Author changed for') . " {$affected} " . __('articles.'), 200, ['count' => $affected], $returnTo);
+    }
+
     $pdo->rollBack();
     respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 

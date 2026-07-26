@@ -141,6 +141,15 @@ if (!function_exists('cat_hue')) {
 $catStmt = $pdo->query("SELECT id, name FROM categories WHERE is_deleted = 0 ORDER BY name ASC");
 $categories = $catStmt->fetchAll(PDO::FETCH_ASSOC);
 
+$authorsStmt = $pdo->query("
+    SELECT id, name, username
+    FROM users
+    WHERE is_deleted = 0
+      AND is_locked = 0
+    ORDER BY name ASC, username ASC
+");
+$authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC);
+
 $base = ADMIN_BASE_PATH;
 $_catPath = function_exists('get_category_path') ? get_category_path($pdo) : 'category';
 $catBase = $_catPath !== '' ? '/' . $_catPath . '/' : '/';
@@ -256,6 +265,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <option value="delete"><?= _e('Delete') ?></option>
         <option value="change_status"><?= _e('Change Status') ?></option>
         <option value="change_categories"><?= _e('Manage Categories') ?></option>
+        <?php if ($role === 'admin'): ?>
+          <option value="change_author"><?= _e('Change Author') ?></option>
+        <?php endif; ?>
       </select>
 
       <select id="bulkStatus" name="status" class="inp" style="display:none;">
@@ -263,6 +275,17 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <option value="published"><?=_e('Published')?></option>
         <option value="private"><?=_e('Private')?></option>
       </select>
+
+      <?php if ($role === 'admin'): ?>
+      <select id="bulkAuthor" name="author_id" class="inp" style="display:none;">
+        <option value=""><?= _e('-- Select Author --') ?></option>
+        <?php foreach ($authors as $a):
+          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
+        ?>
+          <option value="<?= (int)$a['id'] ?>"><?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php endif; ?>
 
       <select id="bulkCatMode" name="cat_mode" class="inp" style="display:none;">
         <option value="add"><?= _e('Add') ?></option>
@@ -281,6 +304,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+      <span id="bulkSelectionCount" class="bulk-selection-count" style="margin-left:.75rem;font-weight:600;">0 <?= _e('Post Selected') ?></span>
 
       <div class="cols-toggle ml-auto">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
@@ -458,11 +482,23 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const bulkForm = document.getElementById('bulkForm');
   const bulkAction = document.getElementById('bulkAction');
   const bulkStatus = document.getElementById('bulkStatus');
+  const bulkAuthor = document.getElementById('bulkAuthor');
   const bulkCatMode = document.getElementById('bulkCatMode');
   const bulkCategoriesPanel = document.getElementById('bulkCategoriesPanel');
+  const bulkSelectionCount = document.getElementById('bulkSelectionCount');
   const deleteForm = document.getElementById('newnotif-delete-form');
   const deleteIdInput = document.getElementById('newnotif-delete-id');
   const deleteReturnTo = document.getElementById('newnotif-delete-return-to');
+
+  function selectionLabel(count) {
+    return count + ' ' + (count === 1 ? <?= json_encode(__('Post Selected')) ?> : <?= json_encode(__('Posts Selected')) ?>);
+  }
+
+  function updateSelectionCount(){
+    if (!bulkSelectionCount) return;
+    const count = document.querySelectorAll('.bulkCheckbox:checked').length;
+    bulkSelectionCount.textContent = selectionLabel(count);
+  }
 
   function toast(type, message, title){
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
@@ -487,6 +523,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   function toggleBulkExtras(){
     const v = bulkAction ? bulkAction.value : '';
     if (bulkStatus) bulkStatus.style.display = (v === 'change_status') ? 'inline-block' : 'none';
+    if (bulkAuthor) bulkAuthor.style.display = (v === 'change_author') ? 'inline-block' : 'none';
     if (bulkCatMode) bulkCatMode.style.display = (v === 'change_categories') ? 'inline-block' : 'none';
     if (bulkCategoriesPanel) bulkCategoriesPanel.style.display = (v === 'change_categories') ? 'block' : 'none';
   }
@@ -558,6 +595,28 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       };
     }
 
+    if (action === 'change_author') {
+      if (<?= json_encode($role !== 'admin') ?>) {
+        return { ok:false, message: <?= json_encode(__('Access denied: only admin can change author.')) ?> };
+      }
+      const authorId = bulkAuthor ? bulkAuthor.value : '';
+      const authorLabel = bulkAuthor && bulkAuthor.selectedIndex >= 0
+        ? (bulkAuthor.options[bulkAuthor.selectedIndex].textContent || '').trim()
+        : '';
+
+      if (!authorId) {
+        return { ok:false, message: <?= json_encode(__('Select an author first.')) ?> };
+      }
+
+      return {
+        ok: true,
+        variant: 'warning',
+        title: <?= json_encode(__('Change article author')) ?>,
+        message: <?= json_encode(__('Change author of ')) ?> + count + '<?=__(' articles to')?> "' + authorLabel + '"?',
+        confirmText: <?= json_encode(__('Yes, change')) ?>
+      };
+    }
+
     return {
       ok: true,
       variant: 'warning',
@@ -573,13 +632,20 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       document.querySelectorAll('.bulkCheckbox').forEach(function(cb){
         cb.checked = checked;
       });
+      updateSelectionCount();
     });
   }
+
+  document.querySelectorAll('.bulkCheckbox').forEach(function(cb){
+    cb.addEventListener('change', updateSelectionCount);
+  });
 
   if (bulkAction) {
     bulkAction.addEventListener('change', toggleBulkExtras);
     toggleBulkExtras();
   }
+
+  updateSelectionCount();
 
   /* ── Column visibility toggle ── */
   (function(){

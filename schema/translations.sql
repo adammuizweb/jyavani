@@ -2971,4 +2971,14 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'item', 'item', 'id'),
 ('default', 'Update Notification', 'Notifikasi Update', 'id'),
 ('default', 'Plugin', 'Plugin', 'id'),
-('default', 'Theme', 'Tema', 'id');
+('default', 'Theme', 'Tema', 'id'),
+('default', 'Post Selected', 'Post Dipilih', 'id'),
+('default', 'Posts Selected', 'Post Dipilih', 'id'),
+('default', 'Page Selected', 'Halaman Dipilih', 'id'),
+('default', 'Pages Selected', 'Halaman Dipilih', 'id'),
+('default', 'Change article author', 'Ubah penulis artikel', 'id'),
+('default', 'Post Selected', 'Beitrag ausgewählt', 'de'),
+('default', 'Posts Selected', 'Beiträge ausgewählt', 'de'),
+('default', 'Page Selected', 'Seite ausgewählt', 'de'),
+('default', 'Pages Selected', 'Seiten ausgewählt', 'de'),
+('default', 'Change article author', 'Autor des Artikels ändern', 'de');

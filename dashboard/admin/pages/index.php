@@ -246,6 +246,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
+      <span id="bulkSelectionCount" class="bulk-selection-count" style="margin-left:.75rem;font-weight:600;">0 <?= _e('Page Selected') ?></span>
 
       <div class="cols-toggle ml-auto">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
@@ -411,6 +412,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const deleteForm = document.getElementById('newnotif-pages-delete-form');
   const deleteIdInput = document.getElementById('newnotif-pages-delete-id');
   const deleteReturnTo = document.getElementById('newnotif-pages-delete-return-to');
+  const bulkSelectionCount = document.getElementById('bulkSelectionCount');
+
+  function selectionLabel(count) {
+    return count + ' ' + (count === 1 ? <?= json_encode(__('Page Selected')) ?> : <?= json_encode(__('Pages Selected')) ?>);
+  }
+
+  function updateSelectionCount(){
+    if (!bulkSelectionCount) return;
+    const count = document.querySelectorAll('.bulkCheckboxPage:checked').length;
+    bulkSelectionCount.textContent = selectionLabel(count);
+  }
 
   function toast(type, message, title){
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
@@ -509,13 +521,20 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       document.querySelectorAll('.bulkCheckboxPage').forEach(function(cb){
         cb.checked = checked;
       });
+      updateSelectionCount();
     });
   }
+
+  document.querySelectorAll('.bulkCheckboxPage').forEach(function(cb){
+    cb.addEventListener('change', updateSelectionCount);
+  });
 
   if (bulkAction) {
     bulkAction.addEventListener('change', toggleBulkExtras);
     toggleBulkExtras();
   }
+
+  updateSelectionCount();
 
   document.querySelectorAll('.js-page-delete').forEach(function(btn){
     btn.addEventListener('click', function(){
