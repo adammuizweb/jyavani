@@ -245,6 +245,40 @@ class CategoryController
                 exit;
             }
 
+            // Attach post counts for each parent category (including descendants)
+            foreach ($cats as $key => &$cat) {
+                $catIds = self::getDescendantCategoryIds($pdo, (int)$cat['id']);
+                $inPlaceholders = [];
+                $params = [];
+                foreach ($catIds as $i => $cid) {
+                    $ph = ':cid' . $i;
+                    $inPlaceholders[] = $ph;
+                    $params[$ph] = (int)$cid;
+                }
+                $inSQL = implode(',', $inPlaceholders);
+                try {
+                    $countSql = "
+                        SELECT COUNT(DISTINCT p.id)
+                        FROM posts p
+                        JOIN post_categories pc ON pc.post_id = p.id
+                        WHERE pc.category_id IN ($inSQL)
+                          AND p.is_deleted = 0
+                          AND p.type = 'article'
+                          AND p.status = 'published'
+                    ";
+                    $stmt = $pdo->prepare($countSql);
+                    foreach ($params as $k => $v) {
+                        $stmt->bindValue($k, (int)$v, PDO::PARAM_INT);
+                    }
+                    $stmt->execute();
+                    $cat['post_count'] = (int)$stmt->fetchColumn();
+                } catch (Throwable $e) {
+                    error_log("[CategoryController::showCategory] count error for category {$cat['id']}: " . $e->getMessage());
+                    $cat['post_count'] = 0;
+                }
+            }
+            unset($cat);
+
             $page_title = 'Kategori';
             $vars = [
                 'categories'   => $cats,
