@@ -248,12 +248,14 @@ if ($storage_disk === 'private') {
     $dirMode = 0750;
 } else {
     $target_dir = $upload_base_dir . '/' . $relative_storage_path;
-    $dirMode = 0755;
+    $dirMode = 0775;
 }
 
 if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to create upload folder')], 500);
 }
+
+@chmod($target_dir, $dirMode);
 
 $original_name = pathinfo((string)$file['name'], PATHINFO_FILENAME);
 $slug = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', mb_strtolower($original_name, 'UTF-8'));
