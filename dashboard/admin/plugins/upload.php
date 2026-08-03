@@ -102,6 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
 
     // Check if already exists
     $pluginDir = PLUGIN_PATH . '/' . $pluginName;
+
+    // If a leftover/corrupt plugin directory exists without a valid manifest, remove it
+    // so the uploaded plugin can replace it.
+    if (is_dir($pluginDir) && !plugin_manifest($pluginName)) {
+        _rmdir_recursive($pluginDir);
+    }
+
     if (is_dir($pluginDir)) {
         $zip->close();
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already exists. Delete or rename first.') . ' "' . htmlspecialchars($pluginName) . '"');

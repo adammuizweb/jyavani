@@ -99,6 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $pluginDir = PLUGIN_PATH . '/' . $pluginName;
+
+    // If a leftover/corrupt plugin directory exists without a valid manifest, remove it
+    // so the user can reinstall from the store (e.g. node_modules survived deletion).
+    if (is_dir($pluginDir) && !plugin_manifest($pluginName)) {
+        _rmdir_recursive($pluginDir);
+    }
+
     if (is_dir($pluginDir)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already installed.') . ' "' . h($pluginName) . '"');
     }
