@@ -1,0 +1,82 @@
+/* ============================================================
+   Jyavani CMS Core — CodeMirror code blocks (runMode highlight)
+   Loaded via app/layout.php on single post/page contexts.
+   Uses theme CSS variables with safe fallbacks.
+   ============================================================ */
+
+.cm-block {
+  margin: 1.5rem 0;
+  border-radius: var(--radius-sm, 8px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #282a36;
+  box-shadow: var(--shadow, 0 1px 3px rgba(0, 0, 0, 0.2));
+}
+
+.cm-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  background: #21222c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cm-block-lang {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #bd93f9;
+}
+
+.cm-block-copy {
+  font-family: var(--font, inherit);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0.35rem 0.7rem;
+  color: #f8f8f2;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cm-block-copy:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+.cm-block-copy:active { transform: translateY(1px); }
+
+.cm-block-pre {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  background: #282a36;
+  border: none;
+  border-radius: 0;
+  overflow: auto;
+  tab-size: 4;
+  color: #f8f8f2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  white-space: pre;
+}
+.cm-block-pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  color: #f8f8f2;
+  white-space: pre;
+  font: inherit;
+}
+
+.cm-block-pre ::selection { background: rgba(255, 255, 255, 0.12); }
+
+@media (max-width: 560px) {
+  .cm-block-pre, .cm-block-pre code { font-size: 0.8rem; }
+}

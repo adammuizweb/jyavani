@@ -267,6 +267,10 @@ if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlsp
 <link rel="stylesheet" href="/static/vendor/quill/quill.snow.pub.css">
 <link rel="stylesheet" href="/static/assets/css/fonts.css">
 
+<?php if (in_array($context_for_layout ?? '', ['single.post', 'single.page'], true)): ?>
+<link rel="stylesheet" href="/static/assets/css/codemirror-blocks.css">
+<?php endif; ?>
+
 <?php
 // THEME STYLES: request relevant slots including hero and sidebar so assets for them are included.
 $style_slots = ['header', $main_slot, 'footer'];
@@ -469,6 +473,9 @@ if (function_exists('echo_relevant_theme_scripts')) {
 $pa_js = function_exists('plugin_assets') ? plugin_assets() : [];
 foreach ($pa_js['js'] ?? [] as $js_url) {
     echo '<script src="' . htmlspecialchars($js_url, ENT_QUOTES, 'UTF-8') . '"></script>' . PHP_EOL;
+}
+if (in_array($context_for_layout ?? '', ['single.post', 'single.page'], true)) {
+    echo '<script src="/static/assets/js/codemirror-blocks.js"></script>' . PHP_EOL;
 }
 do_action('jy_footer');
 ?>
