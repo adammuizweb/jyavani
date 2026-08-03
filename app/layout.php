@@ -267,7 +267,27 @@ if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlsp
 <link rel="stylesheet" href="/static/vendor/quill/quill.snow.pub.css">
 <link rel="stylesheet" href="/static/assets/css/fonts.css">
 
-<?php if (in_array($context_for_layout ?? '', ['single.post', 'single.page'], true)): ?>
+<?php
+// If the active theme already ships its own CodeMirror block loader (e.g. portfolio),
+// skip the core loader/CSS to avoid double-wrapping.
+$theme_implements_cm = false;
+if (function_exists('get_active_theme_folder') && function_exists('read_theme_manifest') && function_exists('path_candidate')) {
+    try {
+        $activeTheme = get_active_theme_folder($pdo);
+        $themeManifest = read_theme_manifest(path_candidate(VIEWS_BASE, $activeTheme, ''));
+        foreach ($themeManifest['scripts'] ?? [] as $themeScript) {
+            if (stripos((string)$themeScript, 'codemirror-blocks') !== false) {
+                $theme_implements_cm = true;
+                break;
+            }
+        }
+    } catch (Throwable $e) {
+        if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] theme CM loader detection error: ' . $e->getMessage());
+    }
+}
+?>
+
+<?php if (!$theme_implements_cm && in_array($context_for_layout ?? '', ['single.post', 'single.page'], true)): ?>
 <link rel="stylesheet" href="/static/assets/css/codemirror-blocks.css">
 <?php endif; ?>
 
@@ -474,7 +494,7 @@ $pa_js = function_exists('plugin_assets') ? plugin_assets() : [];
 foreach ($pa_js['js'] ?? [] as $js_url) {
     echo '<script src="' . htmlspecialchars($js_url, ENT_QUOTES, 'UTF-8') . '"></script>' . PHP_EOL;
 }
-if (in_array($context_for_layout ?? '', ['single.post', 'single.page'], true)) {
+if (!$theme_implements_cm && in_array($context_for_layout ?? '', ['single.post', 'single.page'], true)) {
     echo '<script src="/static/assets/js/codemirror-blocks.js"></script>' . PHP_EOL;
 }
 do_action('jy_footer');
