@@ -66,6 +66,10 @@ $current_title = function_exists('settings_get')
     ? (settings_get($pdo, 'site_title', 'My Website') ?? 'My Website')
     : 'My Website';
 
+$current_site_description = function_exists('settings_get')
+    ? (settings_get($pdo, 'site_description', '') ?? '')
+    : '';
+
 $current_host = function_exists('settings_get')
     ? (settings_get($pdo, 'site_host', 'example.com') ?? 'example.com')
     : 'example.com';
@@ -105,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $site_title = trim((string)($_POST['site_title'] ?? ''));
+    $site_description = trim((string)($_POST['site_description'] ?? ''));
     $site_host  = trim((string)($_POST['site_host'] ?? ''));
     $posts_permalink = trim((string)($_POST['permalink_posts'] ?? '/%slug%/'));
     $pages_permalink = trim((string)($_POST['permalink_pages'] ?? '/%slug%/'));
@@ -117,6 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // pertahankan nilai input saat validasi gagal
     $current_title = $site_title;
+    $current_site_description = $site_description;
     $current_host  = $site_host;
     $current_posts_permalink = $posts_permalink;
     $current_pages_permalink = $pages_permalink;
@@ -180,8 +186,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok8  = settings_set($pdo, 'favicon_url', $favicon_url, 1);
         $ok9  = settings_set($pdo, 'enable_custom_meta', $enable_custom_meta, 1);
         $ok10 = settings_set($pdo, 'content_default_language', $current_content_language, 1);
+        $ok11 = settings_set($pdo, 'site_description', $site_description, 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11) {
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
                 exit;
@@ -234,6 +241,14 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
           <input type="text" name="site_title" id="site_title"
             value="<?= htmlspecialchars($current_title, ENT_QUOTES, 'UTF-8') ?>"
             class="inp inp-w100">
+        </div>
+
+        <div class="form-group">
+          <label for="site_description"><?=_e('Site Description')?></label>
+          <textarea name="site_description" id="site_description" rows="3"
+            class="inp inp-w100"
+            placeholder="<?=_e('Short description used for meta tags and SEO.')?>"><?= htmlspecialchars($current_site_description, ENT_QUOTES, 'UTF-8') ?></textarea>
+          <span class="field-note"><?=_e('Used as fallback for meta description on homepage and other non-article pages.')?></span>
         </div>
 
         <div class="form-group">
