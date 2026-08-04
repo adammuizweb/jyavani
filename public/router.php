@@ -23,6 +23,19 @@ $pathTrimmed = trim($rawPath, " \t\n\r\0\x0B/");
 // (e.g. locale prefix stripping for translated content routing)
 $pathTrimmed = apply_filters('router_path', $pathTrimmed);
 
+// A Service Worker must be served from the origin root to control the whole site.
+// Plugins append their worker event handlers through this filter.
+if ($pathTrimmed === 'sw.js') {
+    $script = apply_filters('service_worker_script', '');
+    if ($script !== '') {
+        header('Content-Type: application/javascript; charset=utf-8');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Service-Worker-Allowed: /');
+        echo $script;
+        exit;
+    }
+}
+
 // homepage
 if ($pathTrimmed === '') {
     $context_for_layout = 'home';
