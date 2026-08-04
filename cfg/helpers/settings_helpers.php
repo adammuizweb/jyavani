@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 if (!function_exists('settings_get')) {
     function settings_get(PDO $pdo, string $key, ?string $default = null): ?string {
-        static $cache = null;
+        $cache =& $GLOBALS['__jy_settings_autoload_cache'];
 
         // lazy load autoload settings sekali per request
-        if ($cache === null) {
+        if (!is_array($cache)) {
             $cache = [];
             try {
                 $st = $pdo->query("SELECT `key`, `value` FROM settings WHERE autoload = 1");
@@ -29,10 +29,18 @@ if (!function_exists('settings_set')) {
                 VALUES (:k,:v,:a)
                 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `autoload` = VALUES(`autoload`)";
         $st = $pdo->prepare($sql);
-        return $st->execute([
+        $saved = $st->execute([
             ':k' => $key,
             ':v' => $value,
             ':a' => $autoload
         ]);
+        if ($saved && isset($GLOBALS['__jy_settings_autoload_cache']) && is_array($GLOBALS['__jy_settings_autoload_cache'])) {
+            if ($autoload === 1) {
+                $GLOBALS['__jy_settings_autoload_cache'][$key] = $value;
+            } else {
+                unset($GLOBALS['__jy_settings_autoload_cache'][$key]);
+            }
+        }
+        return $saved;
     }
 }
