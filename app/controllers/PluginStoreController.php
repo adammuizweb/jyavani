@@ -12,6 +12,11 @@ class PluginStoreController
 
         foreach ($plugins as $name => $manifest) {
             $store = $manifest['store'] ?? null;
+            // Store packages published before manifest metadata existed can still
+            // discover their first update from the official Jyavani store.
+            if (!$store && str_starts_with((string)($manifest['plugin_uri'] ?? ''), 'https://jyavani.com/plugin/')) {
+                $store = ['url' => 'https://jyavani.com/plugin-store'];
+            }
             if (!$store) continue;
             $storeUrl = rtrim($store['url'] ?? 'https://jyavani.com/plugin-store/', '/');
             $currentVersion = $manifest['version'] ?? '0.0.0';
