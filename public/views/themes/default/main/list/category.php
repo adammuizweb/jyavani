@@ -15,6 +15,7 @@ $posts = (isset($posts) && is_array($posts)) ? $posts : [];
 $page = isset($page) ? max(1, (int)$page) : 1;
 $totalPages = isset($totalPages) ? max(1, (int)$totalPages) : 1;
 $category_path = isset($category_path) && is_string($category_path) ? trim($category_path, '/') : '';
+$q = trim((string)($q ?? ''));
 
 // derived safe values
 $categoryName = (string)($category['name'] ?? __('Category'));
@@ -90,30 +91,22 @@ $categoryDescription = (string)($category['description'] ?? '');
                         </p>
 
                         <div class="post-actions">
-                            <a class="read-more" href="/<?= rawurlencode($postSlug) ?>/"><?= __('Read more →') ?></a>
+                            <a class="read-more" href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($postSlug) . '/', ENT_QUOTES, 'UTF-8') ?>"><?= __('Read more →') ?></a>
                         </div>
                     </div>
                 </article>
             <?php endforeach; ?>
         </div>
 
-        <?php
-            $_cp = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? get_category_path($GLOBALS['pdo']) : 'category';
-            $catBase = $_cp !== '' ? '/' . $_cp . '/' : '/';
-            unset($_cp);
-            $base = $category_path !== ''
-                ? $catBase . implode('/', array_map('rawurlencode', explode('/', $category_path))) . '/'
-                : $catBase;
-        ?>
         <nav class="pagination" aria-label="Pagination">
             <?php if ($page > 1): ?>
-                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page - 1), ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
+                <a class="page-link" href="<?= htmlspecialchars(function_exists('get_category_permalink') ? get_category_permalink($pdo, $category, $page - 1, $q) : '/', ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
             <?php endif; ?>
 
             <span class="page-info"><?= sprintf(__('Page %d of %d'), $page, $totalPages) ?></span>
 
             <?php if ($page < $totalPages): ?>
-                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page + 1), ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
+                <a class="page-link" href="<?= htmlspecialchars(function_exists('get_category_permalink') ? get_category_permalink($pdo, $category, $page + 1, $q) : '/', ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
             <?php endif; ?>
         </nav>
     <?php endif; ?>

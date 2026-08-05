@@ -14,11 +14,11 @@
     <?php if (empty($categories)): ?>
         <p class="empty-msg"><?= __('No categories.') ?></p>
     <?php else: ?>
-        <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
         <ul class="category-list">
             <?php foreach ($categories as $cat): ?>
+                <?php $categoryUrl = function_exists('get_category_permalink') ? get_category_permalink($pdo, $cat) : '/category/' . rawurlencode($cat['slug']) . '/'; ?>
                 <li class="category-item">
-                    <a class="category-link" href="<?= htmlspecialchars($catBase . rawurlencode($cat['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>">
+                    <a class="category-link" href="<?= htmlspecialchars($categoryUrl, ENT_QUOTES, 'UTF-8') ?>">
                         <div class="category-body">
                             <h3 class="category-name"><?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?></h3>
 

@@ -232,8 +232,16 @@ if (in_array($prefix, $categoryRoutes, true)) {
         $page = (int)$_GET['page'];
     }
 
-    // call controller (slug may be empty -> controller will render parent list)
-    CategoryController::showCategory($pdo, rawurldecode($slug), $page, $q);
+    // Preserve the resolved dynamic route for controllers and extensions.
+    $context = collection_set_route_context([
+        'route' => 'category',
+        'path' => $pathTrimmed,
+        'base' => $prefix,
+        'slug' => rawurldecode($slug),
+        'page' => $page,
+        'query' => $q,
+    ]);
+    CategoryController::showCategory($pdo, (string)$context['slug'], (int)$context['page'], (string)$context['query'], $context);
     exit;
 }
 
