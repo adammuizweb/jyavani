@@ -29,6 +29,12 @@ class ThemeController
             if (!function_exists('render_widget') && is_file($wh)) require_once $wh;
         }
 
+        // Lets extensions supply request-specific theme data before it is rendered.
+        if (function_exists('apply_filters')) {
+            $filtered = apply_filters('theme_post_data', $themeData, $GLOBALS['pdo'] ?? null);
+            if (is_array($filtered)) $themeData = $filtered;
+        }
+
         $vars = [
             'post'         => $themeData,
             'page'         => $themeData,

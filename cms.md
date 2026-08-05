@@ -115,6 +115,28 @@ theme_zone_render(PDO $pdo, string $zone): string
 
 Use `theme_zone_has_position()` to decide whether to output fallback HTML.
 
+## Custom theme post hooks
+
+Custom posts with `type = theme` can be rendered directly by slug or assigned to a
+slot. The Core exposes generic hooks so extensions can adapt their data without
+changing the assignment model or renderer.
+
+```php
+// Direct theme post, before variables, template rendering, and layout metadata.
+apply_filters('theme_post_data', array $themePost, ?PDO $pdo): array
+
+// Custom theme post assigned to a slot, before render_custom_post_template().
+apply_filters('theme_slot_post_data', array $themePost, string $slotKey, ?PDO $pdo, array $context): array
+
+// Theme editor, after Theme Settings and before the CodeMirror content editor.
+do_action('theme_editor_before_content', array $themePost, PDO $pdo): void
+```
+
+Filters must return a post array. A slot filter must only adapt the assigned theme
+post; it must not replace page-level metadata for the request. This keeps direct
+theme pages, assigned partials, preview tools, localization, and future extensions
+independent from one another.
+
 ## Defaults and Load Default Layout
 
 The `defaults` block pre-fills gadgets when the admin clicks **Load Default Layout**. This is useful for:

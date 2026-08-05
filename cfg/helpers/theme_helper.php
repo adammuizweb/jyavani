@@ -461,6 +461,9 @@ function resolve_template($pdoOrNull, string $slot_key): array {
             if (!empty($assign['custom_post_id'])) {
                 $post = get_post_by_id($pdo, (int)$assign['custom_post_id']);
                 if ($post && (($post['type'] ?? '') === 'theme')) {
+                    // Extensions can adapt a custom theme post for this rendering context.
+                    $filtered = apply_filters('theme_slot_post_data', $post, $slot_key, $pdo, $context);
+                    if (is_array($filtered)) $post = $filtered;
                     return ['type' => 'custom_post', 'post' => $post];
                 }
             }

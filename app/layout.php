@@ -214,16 +214,6 @@ if (isset($post) && is_array($post)) {
 <?php if ($metaImg !== ''): ?>
   <meta name="twitter:image" content="<?= htmlspecialchars($metaImg, ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
-<?php
-// Canonical URL — strip query string except pagination
-$canonical = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http')
-    . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
-    . strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
-$qp = [];
-if (!empty($_GET['page']) && (int)$_GET['page'] > 1) $qp['page'] = (int)$_GET['page'];
-if ($qp) $canonical .= '?' . http_build_query($qp);
-?>
-  <link rel="canonical" href="<?= htmlspecialchars($canonical, ENT_QUOTES, 'UTF-8') ?>">
   <meta name="robots" content="index,follow">
   <script>window.THEME_COLOR_MODE = <?= json_encode($themeColorMode) ?>;</script>
   <script src="/static/assets/js/main.js"></script>
@@ -246,18 +236,19 @@ if ($faviconUrl !== ''): ?>
 <meta name="theme-color" content="#ffffff">
 
 <?php
-// canonical URL
+// Canonical URL can be adjusted by plugins for localized or aliased content.
 if (!empty($canonical_url)) {
-    echo '<link rel="canonical" href="' . htmlspecialchars($canonical_url, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
+    $resolvedCanonical = $canonical_url;
 } else {
     $currentPath = $_SERVER['REQUEST_URI'] ?? '/';
     $currentPathNoQs = preg_replace('/\?.*$/', '', $currentPath);
     if ($currentPathNoQs !== '/' && !ends_with($currentPathNoQs, '/')) {
         $currentPathNoQs .= '/';
     }
-    $fallbackCanonical = $site_base_url . $currentPathNoQs;
-    echo '<link rel="canonical" href="' . htmlspecialchars($fallbackCanonical, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
+    $resolvedCanonical = $site_base_url . $currentPathNoQs;
 }
+$resolvedCanonical = apply_filters('canonical_url', $resolvedCanonical);
+echo '<link rel="canonical" href="' . htmlspecialchars($resolvedCanonical, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
 if (!empty($GLOBALS['rel_prev'])) echo '<link rel="prev" href="'.htmlspecialchars($GLOBALS['rel_prev'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 if (!empty($GLOBALS['rel_next'])) echo '<link rel="next" href="'.htmlspecialchars($GLOBALS['rel_next'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlspecialchars($GLOBALS['robots_meta'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;

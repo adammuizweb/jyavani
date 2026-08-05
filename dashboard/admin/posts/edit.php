@@ -241,6 +241,8 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       </div>
     </div>
 
+    <?php do_action('editor_mode_before_options', $post ?? [], $chosenMode); ?>
+
     <label style="display:block;margin-top:.6rem">
       <?=_e('Select Editor')?><br>
       <?php

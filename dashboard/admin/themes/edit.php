@@ -158,6 +158,8 @@ $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
       </div>
     </div>
 
+    <?php do_action('theme_editor_before_content', $theme, $pdo); ?>
+
     <div style="margin-top:.75rem;">
       <label><?=_e('Content (HTML / PHP fragment)')?><br>
         <textarea id="cm-textarea"
