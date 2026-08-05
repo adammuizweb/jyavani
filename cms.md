@@ -137,6 +137,40 @@ post; it must not replace page-level metadata for the request. This keeps direct
 theme pages, assigned partials, preview tools, localization, and future extensions
 independent from one another.
 
+## Collection route contract
+
+Collection routes use the active Website Settings at request time. Core never
+stores a configured collection prefix in a controller or plugin. For example,
+the category route always resolves the current `category_path` setting through
+`get_category_routes()` and `get_category_base()`.
+
+After routing resolves a collection, it stores a normalized context with
+`collection_set_route_context()`. Extensions may inspect or adapt this semantic
+context through `collection_route_context`; they must not parse `REQUEST_URI`
+again. The initial context includes the route name, normalized path, configured
+base, slug, page, and query.
+
+Core provides extension points that preserve data ownership:
+
+```php
+apply_filters('collection_item', array $item, string $type, array $context): array
+apply_filters('collection_rows', array $rows, array $context): array
+apply_filters('collection_url', string $url, string $type, array $context): string
+apply_filters('collection_query_clauses', array $clauses, array $context): array
+```
+
+The filters are presentation and URL extension points. They must not change the
+database identity or relationships used by the controller, such as category IDs,
+parentage, or post-category membership. URL helpers such as
+`get_category_permalink()` and `collection_paginated_url()` read the current
+settings and are the required path for Core-rendered category links.
+
+`collection_query_clauses` is used before both the count and row queries. It
+accepts only prepared `where` fragments and uniquely named `params`, so an
+extension can apply the same visibility policy to pagination and results. Core
+owns the base query, joins, ordering, and pagination; extensions must not alter
+those concerns through this hook.
+
 ## Defaults and Load Default Layout
 
 The `defaults` block pre-fills gadgets when the admin clicks **Load Default Layout**. This is useful for:

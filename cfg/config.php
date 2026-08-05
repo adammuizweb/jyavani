@@ -91,11 +91,14 @@ require_once __DIR__ . '/helpers/auth_helpers.php';
 // 24. helpers untuk custom permalink structure
 require_once __DIR__ . '/helpers/permalink_helpers.php';
 
-// 25. helpers untuk permission auto-fix
+// 25. Generic collection routing, data, and URL extension helpers
+require_once __DIR__ . '/helpers/collection_helpers.php';
+
+// 26. helpers untuk permission auto-fix
 require_once __DIR__ . '/helpers/permission_helper.php';
 
-// 26. Theme Customizer (lite) — theme mods from theme.json declaration
+// 27. Theme Customizer (lite) — theme mods from theme.json declaration
 require_once __DIR__ . '/helpers/theme_customizer.php';
 
-// 27. Theme Zones — widget-area style header/footer slots
+// 28. Theme Zones — widget-area style header/footer slots
 require_once __DIR__ . '/helpers/theme_zones.php';

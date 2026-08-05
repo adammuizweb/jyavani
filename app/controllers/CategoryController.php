@@ -28,33 +28,6 @@ class CategoryController
         return '';
     }
 
-    /**
-     * Ambil slug path dari REQUEST_URI (bagian setelah /category/)
-     * Contoh: /category/news/photo/?page=2 -> "news/photo"
-     */
-    private static function slugFromRequestUri(string $prefix = 'category'): string
-    {
-        $path = '/';
-        if (!empty($_SERVER['REQUEST_URI'])) {
-            $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
-        }
-        $path = trim((string)$path);
-
-        $needle = '/' . trim($prefix, '/');
-        $pos = strpos($path, $needle);
-        if ($pos === false) return '';
-
-        $after = substr($path, $pos + strlen($needle));
-        $after = trim((string)$after, " \t\n\r\0\x0B/");
-
-        // decode setiap segmen path
-        $after = preg_replace_callback('~[^/]+~', function ($m) {
-            return rawurldecode($m[0]);
-        }, (string)$after);
-
-        return (string)$after;
-    }
-
     private static function resolveCategoryBySlug(PDO $pdo, string $slug)
     {
         try {
@@ -182,31 +155,20 @@ class CategoryController
         return '';
     }
 
-    public static function showCategory(PDO $pdo, string $slug = '', int $page = 1, string $q = '')
+    public static function showCategory(PDO $pdo, string $slug = '', int $page = 1, string $q = '', array $routeContext = [])
     {
+        if ($routeContext !== []) {
+            $slug = (string)($routeContext['slug'] ?? $slug);
+            $page = (int)($routeContext['page'] ?? $page);
+            $q = (string)($routeContext['query'] ?? $q);
+        }
         $slug = trim((string)$slug, " \t\n\r\0\x0B/");
         $q = trim((string)$q);
 
         $catPrefix = function_exists('get_category_path') ? get_category_path($pdo) : 'category';
         $hasPrefix = $catPrefix !== '';
         $catBase = $hasPrefix ? '/' . $catPrefix . '/' : '/';
-
-        // Paksa slug dari REQUEST_URI agar /category/news/photo/ selalu akurat
-        $reqPath = '/';
-        if (!empty($_SERVER['REQUEST_URI'])) {
-            $reqPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
-        }
-        $reqPathTrim = rtrim((string)$reqPath, '/');
-        $isCategoryIndex = $hasPrefix && ($reqPathTrim === '/' . $catPrefix);
-
-        if ($hasPrefix && !$isCategoryIndex) {
-            $uriSlug = self::slugFromRequestUri($catPrefix);
-            // Strip pagination segments (/page/N/) so slug remains clean
-            $uriSlug = preg_replace('#/page/\d+#', '', $uriSlug);
-            if ($uriSlug !== '') $slug = $uriSlug;
-        } elseif (!$hasPrefix && $slug === '') {
-            // Root-level categories: slug must come from the parameter (already resolved)
-        }
+        $isCategoryIndex = $hasPrefix && $slug === '';
 
         // Helper: attach display images
         $attachDisplayImages = function (&$posts) {
@@ -278,6 +240,7 @@ class CategoryController
                 }
             }
             unset($cat);
+            $cats = collection_filter_rows($cats, $routeContext + ['scope' => 'category_index']);
 
             $page_title = 'Kategori';
             $vars = [
@@ -315,7 +278,7 @@ class CategoryController
                   <?php else: ?>
                     <ul>
                       <?php foreach ($cats as $c): ?>
-                        <li><a href="<?= htmlspecialchars($catBase . rawurlencode($c['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8') ?></a></li>
+                        <li><a href="<?= htmlspecialchars(get_category_permalink($pdo, $c), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8') ?></a></li>
                       <?php endforeach; ?>
                     </ul>
                   <?php endif; ?>
@@ -373,11 +336,14 @@ class CategoryController
             exit;
         }
 
+        $categoryIdentity = $category;
+        $category = collection_filter_item($category, 'category', $routeContext + ['scope' => 'category', 'category_id' => (int)$categoryIdentity['id']]);
+
         $page       = max(1, (int)$page);
         $offset     = ($page - 1) * 10;
         $isLoggedIn = !empty($_SESSION['user_id'] ?? null);
 
-        $categoryId = (int)$category['id'];
+        $categoryId = (int)$categoryIdentity['id'];
         $catIds     = self::getDescendantCategoryIds($pdo, $categoryId);
 
         // build IN clause
@@ -389,6 +355,12 @@ class CategoryController
             $params[$ph] = (int)$cid;
         }
         $inSQL = implode(',', $inPlaceholders);
+        $collectionContext = array_merge($routeContext, [
+            'scope' => 'category_posts',
+            'category_id' => $categoryId,
+            'table_alias' => 'p',
+        ]);
+        $collectionClauses = collection_query_clauses(['where' => [], 'params' => []], $collectionContext);
 
         // COUNT
         try {
@@ -402,7 +374,11 @@ class CategoryController
             ";
             if (!$isLoggedIn) $countSql .= " AND p.status = 'published' ";
 
-            $countParams = $params;
+            foreach ($collectionClauses['where'] as $clause) {
+                $countSql .= " AND ($clause) ";
+            }
+
+            $countParams = array_merge($params, $collectionClauses['params']);
             if ($q !== '') {
                 $countSql .= " AND (p.title LIKE :q OR p.slug LIKE :q OR p.content LIKE :q) ";
                 $countParams[':q'] = '%' . $q . '%';
@@ -441,7 +417,11 @@ class CategoryController
             ";
             if (!$isLoggedIn) $sql .= " AND p.status = 'published' ";
 
-            $fetchParams = $params;
+            foreach ($collectionClauses['where'] as $clause) {
+                $sql .= " AND ($clause) ";
+            }
+
+            $fetchParams = array_merge($params, $collectionClauses['params']);
             if ($q !== '') {
                 $sql .= " AND (p.title LIKE :q OR p.slug LIKE :q OR p.content LIKE :q) ";
                 $fetchParams[':q'] = '%' . $q . '%';
@@ -465,13 +445,14 @@ class CategoryController
             exit;
         }
 
+        $posts = collection_filter_rows($posts, $collectionContext);
         $attachDisplayImages($posts);
 
-        $catBaseUrl = $catBase . implode('/', array_map('rawurlencode', $parts)) . '/';
+        $catBaseUrl = get_category_permalink($pdo, $categoryIdentity);
         $paginationHtml = '';
         if ($totalPages > 1) {
-            $prevUrl = $catBaseUrl . '?page=' . ($page - 1) . ($q !== '' ? '&q=' . rawurlencode($q) : '');
-            $nextUrl = $catBaseUrl . '?page=' . ($page + 1) . ($q !== '' ? '&q=' . rawurlencode($q) : '');
+            $prevUrl = get_category_permalink($pdo, $categoryIdentity, $page - 1, $q);
+            $nextUrl = get_category_permalink($pdo, $categoryIdentity, $page + 1, $q);
             $paginationHtml = ($page > 1 ? '<a href="' . htmlspecialchars($prevUrl, ENT_QUOTES, 'UTF-8') . '">&larr; Sebelumnya</a> ' : '')
                 . 'Halaman ' . (int)$page . ' dari ' . (int)$totalPages . ' '
                 . ($page < $totalPages ? '<a href="' . htmlspecialchars($nextUrl, ENT_QUOTES, 'UTF-8') . '">Berikutnya &rarr;</a>' : '');
@@ -485,6 +466,8 @@ class CategoryController
             'total'         => $total,
             'totalPages'    => $totalPages,
             'category_path' => implode('/', $parts),
+            'category_url'  => $catBaseUrl,
+            'category_index_url' => get_category_index_permalink($pdo),
             'site_context'  => 'posts_list',
             'q'             => $q,
             'pagination'    => $paginationHtml,
@@ -538,13 +521,12 @@ class CategoryController
                 <?php endforeach; ?>
 
                 <nav aria-label="Pagination" style="margin-top:1rem;">
-                  <?php $base = $catBase . implode('/', array_map('rawurlencode', $parts)) . '/'; ?>
                   <?php if ($page > 1): ?>
-                    <a href="<?= htmlspecialchars($base . '?page=' . ($page - 1) . ($q !== '' ? '&q=' . rawurlencode($q) : ''), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
+                    <a href="<?= htmlspecialchars(get_category_permalink($pdo, $categoryIdentity, $page - 1, $q), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
                   <?php endif; ?>
                   &nbsp; Halaman <?= (int)$page ?> dari <?= (int)$totalPages ?> &nbsp;
                   <?php if ($page < $totalPages): ?>
-                    <a href="<?= htmlspecialchars($base . '?page=' . ($page + 1) . ($q !== '' ? '&q=' . rawurlencode($q) : ''), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
+                    <a href="<?= htmlspecialchars(get_category_permalink($pdo, $categoryIdentity, $page + 1, $q), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
                   <?php endif; ?>
                 </nav>
               <?php endif; ?>
