@@ -207,11 +207,12 @@ if ($prefix === 'author') {
 
 // CATEGORY — dynamic prefix from settings
 $categoryRoutes = function_exists('get_category_routes') ? get_category_routes($pdo) : ['category'];
-if (in_array($prefix, $categoryRoutes, true)) {
+$categoryMatch = collection_match_route_base($pathTrimmed, $categoryRoutes);
+if ($categoryMatch !== null) {
     require_once __DIR__ . '/../app/controllers/CategoryController.php';
 
     // collect segments after category prefix
-    $segmentsAfter = array_slice($segments, 1);
+    $segmentsAfter = $categoryMatch['rest'] === '' ? [] : explode('/', $categoryMatch['rest']);
     $q = trim((string)($_GET['q'] ?? ''));
 
     // detect 'page' segment (e.g. /category/foo/page/2/ or /category/page/2/)
@@ -236,7 +237,7 @@ if (in_array($prefix, $categoryRoutes, true)) {
     $context = collection_set_route_context([
         'route' => 'category',
         'path' => $pathTrimmed,
-        'base' => $prefix,
+        'base' => $categoryMatch['base'],
         'slug' => rawurldecode($slug),
         'page' => $page,
         'query' => $q,
@@ -305,14 +306,15 @@ if (preg_match('#^sitemap(?:_(posts|pages)_(\d+))?\.xml$#', $pathTrimmed, $m)) {
 
 // LIST ARTICLES — dynamic prefix from settings
 $postsListRoutes = function_exists('get_posts_list_routes') ? get_posts_list_routes($pdo) : ['artikel'];
-if (in_array($prefix, $postsListRoutes, true)) {
+$postsListMatch = collection_match_route_base($pathTrimmed, $postsListRoutes);
+if ($postsListMatch !== null) {
     require_once __DIR__ . '/../app/controllers/PostController.php';
 
     $page = 1;
     if (!empty($_GET['page'])) {
         $page = max(1, (int)$_GET['page']);
     } else {
-        $segmentsAfter = array_slice($segments, 1);
+        $segmentsAfter = $postsListMatch['rest'] === '' ? [] : explode('/', $postsListMatch['rest']);
         foreach ($segmentsAfter as $idx => $seg) {
             if ($seg === 'page' && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
                 $page = (int)$segmentsAfter[$idx + 1];
@@ -328,11 +330,12 @@ if (in_array($prefix, $postsListRoutes, true)) {
 
 // PAGES LIST — dynamic prefix from settings
 $pagesListRoutes = function_exists('get_pages_list_routes') ? get_pages_list_routes($pdo) : ['halaman'];
-if (in_array($prefix, $pagesListRoutes, true)) {
+$pagesListMatch = collection_match_route_base($pathTrimmed, $pagesListRoutes);
+if ($pagesListMatch !== null) {
     require_once __DIR__ . '/../app/controllers/PageController.php';
 
     $page = 1;
-    $segmentsAfter = array_slice($segments, 1);
+    $segmentsAfter = $pagesListMatch['rest'] === '' ? [] : explode('/', $pagesListMatch['rest']);
     foreach ($segmentsAfter as $idx => $seg) {
         if ($seg === 'page' && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
             $page = (int)$segmentsAfter[$idx + 1];

@@ -23,6 +23,21 @@ function collection_current_route_context(): ?array
     return is_array($context) ? $context : null;
 }
 
+function collection_match_route_base(string $path, array $bases): ?array
+{
+    $path = trim($path, '/');
+    $bases = array_values(array_unique(array_filter(array_map(fn($base) => trim((string)$base, '/'), $bases), fn($base) => $base !== '')));
+    usort($bases, fn($left, $right) => strlen($right) <=> strlen($left));
+
+    foreach ($bases as $base) {
+        if ($path === $base) return ['base' => $base, 'rest' => ''];
+        if (str_starts_with($path, $base . '/')) {
+            return ['base' => $base, 'rest' => substr($path, strlen($base) + 1)];
+        }
+    }
+    return null;
+}
+
 function collection_filter_item(array $item, string $type, array $context = []): array
 {
     $filtered = apply_filters('collection_item', $item, $type, $context);
