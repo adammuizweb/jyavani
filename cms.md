@@ -143,6 +143,9 @@ Collection routes use the active Website Settings at request time. Core never
 stores a configured collection prefix in a controller or plugin. For example,
 the category route always resolves the current `category_path` setting through
 `get_category_routes()` and `get_category_base()`.
+Configured collection bases may contain nested segments, such as
+`isi/kategori`; Core matches the complete configured base before parsing the
+remaining route.
 
 After routing resolves a collection, it stores a normalized context with
 `collection_set_route_context()`. Extensions may inspect or adapt this semantic
