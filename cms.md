@@ -179,6 +179,10 @@ the same `collection_item` contract. The Category editor also exposes
 `category_editor_after_fields` after source fields have loaded, allowing an
 extension to add related controls without changing category CRUD.
 
+Content URL builders finish through `content_permalink`, receiving the generated
+URL, the source content row, and its type (`post` or `page`). Extensions may
+return an alias URL without changing permalink structures or content identity.
+
 ## Defaults and Load Default Layout
 
 The `defaults` block pre-fills gadgets when the admin clicks **Load Default Layout**. This is useful for:

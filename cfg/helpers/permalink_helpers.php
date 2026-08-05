@@ -94,7 +94,8 @@ function get_post_permalink(array $post): string
         $url .= '/';
     }
 
-    return $url;
+    $filtered = apply_filters('content_permalink', $url, $post, 'post');
+    return is_string($filtered) && $filtered !== '' ? $filtered : $url;
 }
 
 function get_page_permalink(array $page): string
@@ -128,7 +129,8 @@ function get_page_permalink(array $page): string
         $url .= '/';
     }
 
-    return $url;
+    $filtered = apply_filters('content_permalink', $url, $page, 'page');
+    return is_string($filtered) && $filtered !== '' ? $filtered : $url;
 }
 
 function get_author_permalink(array $author, int $page = 1, string $query = ''): string
