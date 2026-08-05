@@ -131,6 +131,26 @@ function get_page_permalink(array $page): string
     return $url;
 }
 
+function get_author_permalink(array $author, int $page = 1, string $query = ''): string
+{
+    $identifier = trim((string)($author['username'] ?? ''));
+    if ($identifier === '') {
+        $identifier = (string)($author['id'] ?? '');
+    }
+    if ($identifier === '') {
+        return '/author/';
+    }
+
+    $url = '/author/' . rawurlencode($identifier) . '/';
+    if ($page > 1) {
+        $url .= 'page/' . $page . '/';
+    }
+    if ($query !== '') {
+        $url .= '?' . http_build_query(['q' => $query]);
+    }
+    return $url;
+}
+
 function permalink_match_path(string $path, string $structure): ?array
 {
     $path = trim($path, '/');

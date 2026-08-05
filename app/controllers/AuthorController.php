@@ -149,11 +149,9 @@ class AuthorController
 
                                     <div>
                                         <?php
-                                        if (!empty($a['username'])) {
-                                            $authorLink = '/author/' . rawurlencode($a['username']) . '/';
-                                        } else {
-                                            $authorLink = '/author/' . rawurlencode($a['id']) . '/';
-                                        }
+                                        $authorLink = function_exists('get_author_permalink')
+                                            ? get_author_permalink($a)
+                                            : '/author/' . rawurlencode((string)($a['username'] ?? $a['id'])) . '/';
                                         ?>
                                         <h3 style="margin:0;font-size:1.05rem">
                                             <a href="<?= htmlspecialchars($authorLink, ENT_QUOTES, 'UTF-8') ?>">
@@ -310,7 +308,6 @@ class AuthorController
         // -------------------------
         $perPage = 10;
         $pageNum = max(1, (int)$pageNum);
-        $offset = ($pageNum - 1) * $perPage;
 
         $where = [
             "p.type = 'article'",
@@ -341,6 +338,12 @@ class AuthorController
         }
 
         $pages = max(1, (int)ceil($total / $perPage));
+        if ($pageNum > $pages) {
+            http_response_code(404);
+            require __DIR__ . '/../frontend_404.php';
+            exit;
+        }
+        $offset = ($pageNum - 1) * $perPage;
 
         // Fetch posts
         try {
@@ -397,6 +400,7 @@ class AuthorController
             'page'   => $pageNum,
             'total'  => $total,
             'pages'  => $pages,
+            'q'      => $q,
             'site_context' => 'author_posts',
             'page_title' => $page_title,
         ];
@@ -556,11 +560,11 @@ $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' 
 
                 <nav aria-label="Pagination" style="margin-top:1rem">
                     <?php if ($pageNum > 1): ?>
-                        <a href="?page=<?= max(1, $pageNum - 1) ?><?= $q ? '&q=' . urlencode($q) : '' ?>">&larr; Sebelumnya</a>
+                        <a href="<?= htmlspecialchars(function_exists('get_author_permalink') ? get_author_permalink($user, $pageNum - 1, $q) : '/author/' . rawurlencode((string)($user['username'] ?? $user['id'])) . '/', ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
                     <?php endif; ?>
                     &nbsp; Halaman <?= $pageNum ?> dari <?= $pages ?> &nbsp;
                     <?php if ($pageNum < $pages): ?>
-                        <a href="?page=<?= min($pages, $pageNum + 1) ?><?= $q ? '&q=' . urlencode($q) : '' ?>">Berikutnya &rarr;</a>
+                        <a href="<?= htmlspecialchars(function_exists('get_author_permalink') ? get_author_permalink($user, $pageNum + 1, $q) : '/author/' . rawurlencode((string)($user['username'] ?? $user['id'])) . '/page/' . ($pageNum + 1) . '/', ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
                     <?php endif; ?>
                 </nav>
             </div>
@@ -571,6 +575,19 @@ $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' 
         // expose for layout
         $layout_pdo = $GLOBALS['pdo'] ?? $pdo;
         $pdo = $layout_pdo;
+
+        $authorPath = function_exists('get_author_permalink')
+            ? get_author_permalink($user, $pageNum, $q)
+            : '/author/' . rawurlencode((string)($user['username'] ?? $user['id'])) . '/';
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
+        $canonical_url = $scheme . '://' . $host . $authorPath;
+        if ($pageNum > 1) {
+            $GLOBALS['rel_prev'] = $scheme . '://' . $host . get_author_permalink($user, $pageNum - 1, $q);
+        }
+        if ($pageNum < $pages) {
+            $GLOBALS['rel_next'] = $scheme . '://' . $host . get_author_permalink($user, $pageNum + 1, $q);
+        }
 
         $context_for_layout = 'posts'; // layout context for author posts
 

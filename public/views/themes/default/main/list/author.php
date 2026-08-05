@@ -26,7 +26,10 @@ $authorBio  = trim((string)($author['bio'] ?? ''));
 $authorUsername = trim((string)($author['username'] ?? ''));
 $authorId       = isset($author['id']) ? (string)$author['id'] : '';
 $authorSlug     = $authorUsername !== '' ? $authorUsername : $authorId;
-$authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . '/' : null;
+$q              = trim((string)($q ?? ''));
+$authorLink     = $authorSlug !== ''
+  ? (function_exists('get_author_permalink') ? get_author_permalink($author) : '/author/' . rawurlencode($authorSlug) . '/')
+  : null;
 ?>
 
 <div class="author-container">
@@ -110,13 +113,13 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
 
   <nav class="pagination" aria-label="Pagination">
     <?php if ($page > 1): ?>
-      <a class="page-prev" href="?page=<?= max(1, $page - 1) ?>"><?= __('← Previous') ?></a>
+      <a class="page-prev" href="<?= htmlspecialchars(function_exists('get_author_permalink') ? get_author_permalink($author, $page - 1, $q) : $authorLink, ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
     <?php endif; ?>
 
     <span class="page-info"><?= sprintf(__('Page %d / %d'), $page, $pages) ?></span>
 
     <?php if ($page < $pages): ?>
-      <a class="page-next" href="?page=<?= min($pages, $page + 1) ?>"><?= __('Next →') ?></a>
+      <a class="page-next" href="<?= htmlspecialchars(function_exists('get_author_permalink') ? get_author_permalink($author, $page + 1, $q) : $authorLink, ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
     <?php endif; ?>
   </nav>
 
