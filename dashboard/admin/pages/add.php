@@ -355,9 +355,9 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 
     <label><?=_e('Status')?><br>
       <select name="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px;">
-        <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>>Draft</option>
-        <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>>Published</option>
-        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>>Private</option>
+        <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?= _e('Draft') ?></option>
+        <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?= _e('Published') ?></option>
+        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?= _e('Private') ?></option>
       </select>
     </label>
 

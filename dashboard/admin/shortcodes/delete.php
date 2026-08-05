@@ -41,11 +41,11 @@ try {
     $stmt->execute($params);
 
     if ($stmt->rowCount() > 0) {
-        adiwira_redirect_with_flash($return_to, 'success', __('Preset berhasil dipindahkan ke trash.'));
+        adiwira_redirect_with_flash($return_to, 'success', __('Preset moved to trash successfully.'));
     } else {
-        adiwira_redirect_with_flash($return_to, 'error', __('Preset tidak ditemukan.'));
+        adiwira_redirect_with_flash($return_to, 'error', __('Preset not found.'));
     }
 } catch (Throwable $e) {
     error_log('shortcodes/delete.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($return_to, 'error', __('Gagal menghapus preset.'));
+    adiwira_redirect_with_flash($return_to, 'error', __('Failed to delete preset.'));
 }

@@ -41,7 +41,7 @@ if ($action === 'create') {
     $desc = trim((string)($_POST['description'] ?? ''));
 
     if ($name === '' || $slug === '') {
-        adiwira_redirect_with_flash($returnTo, 'error', __('Nama dan slug harus diisi.'));
+        adiwira_redirect_with_flash($returnTo, 'error', __('Name and slug are required.'));
     }
 
     $st = $pdo->prepare("SELECT COUNT(*) FROM sidebar_zones WHERE slug = :slug");
@@ -65,7 +65,7 @@ if ($action === 'rename') {
     $desc = trim((string)($_POST['description'] ?? ''));
 
     if ($zoneId <= 0 || $name === '' || $slug === '') {
-        adiwira_redirect_with_flash($returnTo, 'error', __('Data tidak lengkap.'));
+        adiwira_redirect_with_flash($returnTo, 'error', __('Incomplete data.'));
     }
 
     $st = $pdo->prepare("SELECT COUNT(*) FROM sidebar_zones WHERE slug = :slug AND id != :id");
@@ -93,4 +93,4 @@ if ($action === 'set_primary') {
     adiwira_redirect_with_flash($returnTo, 'success', __('Zone primary berhasil diubah.'));
 }
 
-adiwira_redirect_with_flash($returnTo, 'error', __('Aksi tidak dikenal.'));
+adiwira_redirect_with_flash($returnTo, 'error', __('Unknown action.'));

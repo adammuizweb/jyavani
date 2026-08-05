@@ -269,7 +269,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       window.NewNotifToast.show({ type: type, title: title, message: message });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts) {
@@ -333,7 +333,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       }
     } catch (err) {
       console.error('Gagal load list.php:', err);
-      if (!silent) uiToast('error', 'Media', 'Gagal memuat daftar media: ' + (err.message || err));
+      if (!silent) uiToast('error', '<?=__('Media')?>', '<?=__('Failed to load media:')?> ' + (err.message || err));
     }
   }
 
@@ -369,13 +369,13 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
 
       const checked = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
       if (checked.length === 0) {
-        uiToast('warning', 'Media', '<?=__('Select at least one media to delete.')?>');
+        uiToast('warning', '<?=__('Media')?>', '<?=__('Select at least one media to delete.')?>');
         return;
       }
 
       const ok = await uiAsk('danger', {
         title: <?= json_encode(__('Delete selected media')) ?>,
-        message: <?= json_encode(__('')) ?> + checked.length + ' media akan dihapus permanen. Lanjutkan?',
+        message: <?= json_encode(__('')) ?> + checked.length + <?= json_encode(__(' media will be permanently deleted. This action cannot be undone.')) ?>,
         confirmText: <?= json_encode(__('Yes, delete')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });
@@ -397,14 +397,14 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          uiToast('error', 'Media', j?.error || txt || ('HTTP ' + res.status));
+          uiToast('error', '<?=__('Media')?>', j?.error || txt || ('HTTP ' + res.status));
           return;
         }
 
         if (j && j.ok) {
-          uiToast('success', 'Media', 'Berhasil menghapus ' + (j.deleted_count || checked.length) + ' media.');
+          uiToast('success', '<?=__('Media')?>', <?= json_encode(__('%d media deleted.')) ?>.replace('%d', j.deleted_count || checked.length));
           if (Array.isArray(j.warnings) && j.warnings.length) {
-            uiToast('warning', 'Media', j.warnings.join('\n'));
+            uiToast('warning', '<?=__('Media')?>', j.warnings.join('\n'));
           }
 
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: { ids: checked, result: j } }));
@@ -414,10 +414,10 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
           const currentPage = currentPageEl ? parseInt(currentPageEl.textContent, 10) : 1;
           await reloadListFragment(currentQ, currentPage, true);
         } else {
-          uiToast('error', 'Media', j?.error || txt || 'Terjadi kesalahan.');
+          uiToast('error', '<?=__('Media')?>', j?.error || txt || '<?=__('Something happened.')?>');
         }
       } catch (err) {
-        uiToast('error', 'Media', 'Network error: ' + (err.message || err));
+        uiToast('error', '<?=__('Media')?>', '<?=__('Network error:')?> ' + (err.message || err));
       }
       return;
     }

@@ -51,7 +51,7 @@ $stmt->execute([':id' => $id]);
 $cat = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$cat) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Kategori tidak ditemukan di trash.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Category not found in trash.'));
 }
 
 if ($role === 'author' && (int)($cat['created_by'] ?? 0) !== $uid) {
@@ -62,7 +62,7 @@ if ($role === 'author' && (int)($cat['created_by'] ?? 0) !== $uid) {
 $child = $pdo->prepare("SELECT COUNT(*) FROM categories WHERE parent_id = :id");
 $child->execute([':id' => $id]);
 if ((int)$child->fetchColumn() > 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Tidak bisa hapus permanen: kategori masih punya subkategori. Hapus/pindahkan subkategori dulu.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Cannot permanently delete: the category still has subcategories. Delete or move them first.'));
 }
 
 try {
@@ -80,7 +80,7 @@ try {
 
     $pdo->commit();
 
-    adiwira_redirect_with_flash($returnTo, 'success', __('Kategori berhasil dihapus permanen.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Category permanently deleted.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -88,5 +88,5 @@ try {
     }
 
     error_log('bin/category/delete_permanent.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal hapus permanen kategori.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to permanently delete category.'));
 }

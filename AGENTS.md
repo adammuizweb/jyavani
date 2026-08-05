@@ -428,7 +428,7 @@ PHP helpers available anywhere after bootstrap:
 | File | Purpose |
 |---|---|
 | `schema/default.sql` | Core tables (single file, no migration files — merged into one) |
-| `schema/translations.sql` | UI translations seed data (id + de locales, 2,959 INSERT IGNORE rows) |
+| `schema/translations.sql` | UI translations seed data (id + de locales, 3,804 INSERT IGNORE rows) |
 | `schema/migrations/006-theme-store.sql` | Adds `is_system`, `store_url`, `store_slug` to `themes` table |
 | `schema/migrations/007-i18n.sql` | Adds `ui_translations` and `post_translations` tables |
 
@@ -483,6 +483,29 @@ Because `default_locale()` is now the content default, plugins like Content Tran
 ### Schema
 
 `ui_translations` table: `id`, `scope` (default=`default`), `locale`, `key`, `value`, `updated_at`. `translations.sql` seeds `id` and `de` rows.
+
+### Auto-importing seed data for existing sites
+
+`app/bootstrap_core.php` calls `ensure_ui_translations_seeded($pdo)` on every request (defined in `cfg/helpers/lang_helpers.php`). It hashes `schema/translations.sql` and stores the hash in `settings.ui_translations_seed_hash`. When the file changes or the setting is missing, it re-imports the seed using `INSERT IGNORE`, so:
+
+- Sites that were installed before `translations.sql` existed get the seed automatically.
+- New strings added to `translations.sql` appear on existing sites after the file is updated.
+- User-edited translations are never overwritten (INSERT IGNORE only adds missing rows).
+
+### Rule: every new user-facing string must be translatable
+
+All new dashboard UI text — labels, headings, button text, placeholders, `title`/`aria-label`/`alt` attributes, `<option>` labels, status badges, empty states, flash messages, and JS toast/dialog strings — must go through `__()` / `_e()`. For strings used in JavaScript, emit them via `<?= json_encode(__('Source text')) ?>`.
+
+When adding a new string:
+1. Use an English source text as the key, e.g. `__('Save failed')`.
+2. Add the English key plus an Indonesian translation to `schema/translations.sql`. Add a German translation if you can; otherwise add the English source as the German value as a placeholder.
+3. Run `php -l` on the changed file and re-test the page with the admin language set to `id` and `de`.
+
+Common examples that should NOT be hard-coded:
+- Status labels (`Draft`, `Published`, `Private`). Wrap the output of `ucfirst($status)` with `__()`.
+- Modal dropzone text, storage mode labels, access scope options.
+- Theme manager headings/buttons and theme-browser labels.
+- File/media manager toast prefixes and fallback messages.
 
 ### Quill editor
 

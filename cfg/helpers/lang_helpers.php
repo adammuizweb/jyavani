@@ -68,3 +68,117 @@ function __(string $source, string $scope = 'default'): string {
 function _e(string $source, string $scope = 'default'): void {
     echo __($source, $scope);
 }
+
+/**
+ * Split a multi-statement SQL file into individual statements.
+ * Respects single/double quoted strings so semicolons inside values are preserved.
+ */
+function jy_split_sql_statements(string $sql): array {
+    $statements = [];
+    $current = '';
+    $inString = false;
+    $stringChar = '';
+    $len = strlen($sql);
+
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $sql[$i];
+        $prev = $i > 0 ? $sql[$i - 1] : '';
+
+        if ($inString) {
+            if ($ch === $stringChar && $prev !== '\\') {
+                $inString = false;
+            }
+            $current .= $ch;
+        } elseif ($ch === "'" || $ch === '"') {
+            $inString = true;
+            $stringChar = $ch;
+            $current .= $ch;
+        } elseif ($ch === ';') {
+            $trimmed = trim($current);
+            if ($trimmed !== '') {
+                $statements[] = $trimmed;
+            }
+            $current = '';
+        } else {
+            $current .= $ch;
+        }
+    }
+
+    $trimmed = trim($current);
+    if ($trimmed !== '') {
+        $statements[] = $trimmed;
+    }
+
+    return $statements;
+}
+
+/**
+ * Ensure ui_translations seed data is loaded.
+ *
+ * Uses a hash of schema/translations.sql so that existing sites automatically
+ * receive new strings whenever the seed file is updated, without overwriting
+ * user-edited translations (INSERT IGNORE only inserts missing rows).
+ *
+ * Called once per request from bootstrap_core after the DB is ready.
+ */
+function ensure_ui_translations_seeded(PDO $pdo): bool {
+    $seedFile = dirname(__DIR__, 2) . '/schema/translations.sql';
+    if (!is_file($seedFile)) {
+        return false;
+    }
+
+    $seedHash = hash_file('sha256', $seedFile);
+    if ($seedHash === false) {
+        return false;
+    }
+
+    $storedHash = function_exists('settings_get') ? (string) settings_get($pdo, 'ui_translations_seed_hash', '') : '';
+    if ($storedHash === $seedHash) {
+        return true;
+    }
+
+    $raw = file_get_contents($seedFile);
+    if ($raw === false) {
+        return false;
+    }
+
+    // Strip single-line comments
+    $lines = explode("\n", $raw);
+    $cleanLines = [];
+    foreach ($lines as $line) {
+        $trimmed = trim($line);
+        if ($trimmed === '' || str_starts_with($trimmed, '--') || str_starts_with($trimmed, '#')) {
+            continue;
+        }
+        $cleanLines[] = $line;
+    }
+
+    $sql = implode("\n", $cleanLines);
+    $statements = jy_split_sql_statements($sql);
+
+    $anyFailed = false;
+    $executed = 0;
+    foreach ($statements as $stmt) {
+        $stmt = trim($stmt);
+        if ($stmt === '') {
+            continue;
+        }
+        try {
+            $pdo->exec($stmt);
+            $executed++;
+        } catch (Throwable $e) {
+            error_log('ensure_ui_translations_seeded: statement failed: ' . $e->getMessage());
+            $anyFailed = true;
+        }
+    }
+
+    if ($anyFailed) {
+        return false;
+    }
+
+    if (function_exists('settings_set')) {
+        settings_set($pdo, 'ui_translations_seed_hash', $seedHash, 1);
+    }
+
+    return true;
+}

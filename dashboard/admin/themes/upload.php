@@ -77,7 +77,7 @@ if ($mime !== 'application/zip' && $mime !== 'application/x-zip') {
 
 $tmpZip = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "theme_upload_" . bin2hex(random_bytes(8)) . ".zip";
 if (!move_uploaded_file($file['tmp_name'], $tmpZip)) {
-    theme_upload_respond(false, __('Gagal memindahkan file upload.'), 500, [], $returnTo);
+    theme_upload_respond(false, __('Failed to move the uploaded file.'), 500, [], $returnTo);
 }
 
 $activate = !empty($_POST['activate']) && (string)$_POST['activate'] === '1';

@@ -134,7 +134,7 @@ $displayClientUrl = modalfilez_client_url($r);
             <span class="badge badge--<?= $isPrivate ? 'warn' : 'ok' ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
             <span class="badge badge--info"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
             <?php if (!$isDownloadable): ?>
-              <span class="badge badge--danger">NO DOWNLOAD</span>
+              <span class="badge badge--danger"><?=_e('NO DOWNLOAD')?></span>
             <?php endif; ?>
           </div>
           <?php endif; ?>

@@ -111,7 +111,7 @@ $hasVisibility = mdlib_has_column('visibility');
       window.NewNotifToast.show({ type, title, message, duration });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts) {
@@ -231,9 +231,9 @@ $hasVisibility = mdlib_has_column('visibility');
         const { txt, j } = await readJsonSafe(up);
 
       if (!up.ok) {
-        const httpMap = { 413: 'File terlalu besar. Maksimal 20MB.' };
+        const httpMap = { 413: '<?=__('File too large. Max 20MB.')?>' };
         const msg = (j && j.error) ? j.error : (httpMap[up.status] || txt?.replace(/<[^>]+>/g, '').trim() || ('HTTP ' + up.status));
-        uiToast('error', 'File', '<?=__('Upload failed: ')?>' + msg, 6000);
+        uiToast('error', '<?=__('File')?>', '<?=__('Upload failed: ')?>' + msg, 6000);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 420);
@@ -242,7 +242,7 @@ $hasVisibility = mdlib_has_column('visibility');
       }
 
       if (!j || !j.success) {
-        uiToast('error', 'File', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
+        uiToast('error', '<?=__('File')?>', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 420);
@@ -262,7 +262,7 @@ $hasVisibility = mdlib_has_column('visibility');
 
       showThumb(j.url, meta);
 
-      uiToast('success', 'File', '<?=__('Upload successful: ')?>' + file.name, 1800);
+      uiToast('success', '<?=__('File')?>', '<?=__('Upload successful: ')?>' + file.name, 1800);
       document.dispatchEvent(new CustomEvent('file:added', { detail: meta }));
 
       setTimeout(() => {
@@ -270,7 +270,7 @@ $hasVisibility = mdlib_has_column('visibility');
         setTimeout(() => row.remove(), 420);
       }, 900);
     } catch (err) {
-      uiToast('error', 'File', '<?=__('Upload failed (network): ')?>' + (err && err.message ? err.message : err), 6000);
+      uiToast('error', '<?=__('File')?>', '<?=__('Upload failed (network): ')?>' + (err && err.message ? err.message : err), 6000);
       setTimeout(() => {
         row.classList.add('fade');
         setTimeout(() => row.remove(), 420);
@@ -360,7 +360,7 @@ $hasVisibility = mdlib_has_column('visibility');
           const { txt, j } = await readJsonSafe(res);
 
           if (!res.ok) {
-            uiToast('error', 'File', 'Gagal hapus: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+            uiToast('error', '<?=__('File')?>', '<?=__('Failed to delete: ')?>' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
             return;
           }
 
@@ -372,10 +372,10 @@ $hasVisibility = mdlib_has_column('visibility');
             }
             document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
           } else {
-            uiToast('error', 'File', 'Gagal hapus: ' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
+            uiToast('error', '<?=__('File')?>', '<?=__('Failed to delete: ')?>' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
           }
         } catch (err) {
-          uiToast('error', 'File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
+          uiToast('error', '<?=__('File')?>', '<?=__('Network error:')?> ' + (err && err.message ? err.message : err), 6000);
         }
       };
     }

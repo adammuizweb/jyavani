@@ -41,35 +41,28 @@ $requested = trim($requested, "/ \t\n\r\0\x0B");
 <?php else: ?>
 
     <?php if (strpos($requested, 'admin/posts') === 0): ?>
-        <h3>Posts</h3>
+        <h3><?=_e('Posts')?></h3>
         <p>
             <?=_e('Posts are used to publish dynamic articles such as news, activities, agendas, announcements, and other informative content.')?>
             <?=_e('All posts are sorted by date, can be categorized, and can be published or saved as drafts.')?>
         </p>
 
     <?php elseif (strpos($requested, 'admin/pages') === 0): ?>
-        <h3>Pages</h3>
+        <h3><?=_e('Pages')?></h3>
         <p>
             <?=_e('Pages are used to create static pages such as Profile, Vision & Mission, About Us, and Contact Page.')?>
             <?=_e('Unlike posts, pages are not date-based and are typically used for permanent or rarely changed content.')?>
         </p>
 
     <?php elseif (strpos($requested, 'admin/categories') === 0): ?>
-        <h3>Categories</h3>
+        <h3><?=_e('Categories')?></h3>
         <p>
             <?=_e('Categories are used to create labels or topic groups that can be used to organize and filter articles or programs.')?>
             <?=_e('Categories help visitors find relevant content according to their interests.')?>
         </p>
 
-    <?php elseif (strpos($requested, 'admin/program') === 0): ?>
-        <h3>Program</h3>
-        <p>
-            <?=_e('Programs are used to publish learning materials, curriculum, topics, or training modules.')?>
-            <?=_e('Suitable for schools, training institutions, and educational applications that need structured content.')?>
-        </p>
-
     <?php elseif (strpos($requested, 'admin/themes') === 0): ?>
-        <h3>Themes</h3>
+        <h3><?=_e('Themes')?></h3>
         <p>
             <?=_e('Themes are used to create or edit theme partials using HTML, CSS, and JavaScript.')?>
             <?=_e('This menu is intended for users who understand frontend basics to design the website appearance as needed.')?>

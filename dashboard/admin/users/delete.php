@@ -20,14 +20,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: belum login.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: not logged in.'));
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
 $role = (string)($identity['role'] ?? 'guest');
 
 if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: hanya admin yang boleh menghapus user.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: only admins can delete users.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
@@ -41,7 +41,7 @@ if ($id <= 0) {
 }
 
 if ($id === $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Tidak dapat menghapus user sendiri.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('You cannot delete your own account.'));
 }
 
 $stmt = $pdo->prepare("SELECT id FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
@@ -59,8 +59,8 @@ try {
         adiwira_redirect_with_flash($returnTo, 'success', __('User berhasil dihapus.'));
     }
 
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal menghapus user.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete user.'));
 } catch (Throwable $e) {
     error_log('[users/delete] ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal menghapus user.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete user.'));
 }

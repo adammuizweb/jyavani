@@ -44,13 +44,13 @@ $st->execute([':id' => $menuId]);
 $menu = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$menu) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Menu tidak ditemukan.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Menu not found.'));
 }
 
 if (!empty($menu['is_default'])) {
     $count = (int)$pdo->query("SELECT COUNT(*) FROM menus")->fetchColumn();
     if ($count > 1) {
-        adiwira_redirect_with_flash($returnTo, 'error', __('Tidak bisa menghapus menu default. Set menu lain sebagai default terlebih dahulu.'));
+        adiwira_redirect_with_flash($returnTo, 'error', __('Cannot delete the default menu. Set another menu as default first.'));
     }
 }
 
@@ -61,12 +61,12 @@ try {
     $pdo->prepare("DELETE FROM menus WHERE id = :id")->execute([':id' => $menuId]);
 
     $pdo->commit();
-    adiwira_redirect_with_flash($returnTo, 'success', __('Menu berhasil dihapus.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Menu deleted successfully.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('menus/delete.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal menghapus menu.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete menu.'));
 }

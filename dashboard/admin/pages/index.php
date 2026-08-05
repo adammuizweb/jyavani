@@ -356,9 +356,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
                 <td class="col-status">
                   <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
-                        role="status" aria-label="<?= htmlspecialchars($status === 'published' ? __('Published') : ($status === 'draft' ? __('Draft') : ($status === 'private' ? __('Private') : ucfirst($status))), ENT_QUOTES, 'UTF-8') ?>">
+                        role="status" aria-label="<?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?>">
                     <span class="adam-status-icon"><?= $iconSvg ?></span>
-                    <span class="adam-status-text"><?= htmlspecialchars($status === 'published' ? __('Published') : ($status === 'draft' ? __('Draft') : ($status === 'private' ? __('Private') : ucfirst($status))), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="adam-status-text"><?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?></span>
                   </span>
                 </td>
 
@@ -497,7 +497,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'danger',
         title: <?= json_encode(__('Delete selected pages')) ?>,
-        message: <?= json_encode(__('')) ?> + count + ' halaman akan dipindahkan ke trash. Lanjutkan?',
+        message: <?= json_encode(__('')) ?> + count + <?= json_encode(__(' pages will be moved to trash. Continue?')) ?>,
         confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
@@ -508,7 +508,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: <?= json_encode(__('Change page status')) ?>,
-        message: <?= json_encode(__('Change status of ')) ?> + count + ' halaman menjadi "' + status + '"?',
+        message: <?= json_encode(__('Change status of ')) ?> + count + <?= json_encode(__(' pages to')) ?> + ' "' + status + '"?',
         confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
@@ -527,7 +527,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok: true,
         variant: 'warning',
         title: <?= json_encode(__('Change page author')) ?>,
-        message: <?= json_encode(__('Change author of ')) ?> + count + ' halaman menjadi "' + authorLabel + '"?',
+        message: <?= json_encode(__('Change author of ')) ?> + count + <?= json_encode(__(' pages to')) ?> + ' "' + authorLabel + '"?',
         confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
@@ -583,12 +583,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-page-delete').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const title = this.getAttribute('data-title') || 'halaman ini';
+      const title = this.getAttribute('data-title') || '<?=__('this page')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
         title: <?= json_encode(__('Delete confirmation')) ?>,
-        message: <?= json_encode(__('Delete page "')) ?> + title + '"? Halaman akan dipindahkan ke trash.',
+        message: <?= json_encode(__('Delete page "')) ?> + title + <?= json_encode(__('"? Page will be moved to trash.')) ?>,
         confirmText: <?= json_encode(__('Yes, delete')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){

@@ -75,7 +75,7 @@ try {
 
     $pdo->commit();
 
-    adiwira_redirect_with_flash($returnTo, 'success', __('Page berhasil dihapus permanen.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Page permanently deleted.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -83,5 +83,5 @@ try {
     }
 
     error_log('bin/page/delete_permanent.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal hapus permanen page.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to permanently delete page.'));
 }

@@ -202,7 +202,7 @@ try {
     </div>
 
     <?php if (!$rows): ?>
-      <div class="mdlib-note" style="padding:8px 2px">Belum ada file.</div>
+      <div class="mdlib-note" style="padding:8px 2px"><?= _e('No files yet.') ?></div>
     <?php else: ?>
       <div class="mdlib-grid">
         <?php foreach ($rows as $r): ?>
@@ -279,9 +279,9 @@ try {
         };
 
         if ($p <= 1) {
-            echo '<button type="button" class="disabled" disabled>Prev</button>';
+            echo '<button type="button" class="disabled" disabled>' . __('Previous') . '</button>';
         } else {
-            echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($p - 1)) . '">Prev</button>';
+            echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($p - 1)) . '">' . __('Previous') . '</button>';
         }
 
         $start = max(1, $p - 2);
@@ -306,9 +306,9 @@ try {
         }
 
         if ($p >= $total_pages) {
-            echo '<button type="button" class="disabled" disabled>Next</button>';
+            echo '<button type="button" class="disabled" disabled>' . __('Next') . '</button>';
         } else {
-            echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($p + 1)) . '">Next</button>';
+            echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($p + 1)) . '">' . __('Next') . '</button>';
         }
         ?>
 
@@ -335,7 +335,7 @@ try {
       window.mdlibUi.toast(type, title, message, duration);
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function broadcast(name, detail) {
@@ -387,7 +387,7 @@ try {
       })
       .catch(function(err){
         console.error('mdlib list fetch error', err);
-        uiToast('error', 'Library File', 'Gagal memuat daftar file: ' + String(err.message || err), 6000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Failed to load files:')?> ' + String(err.message || err), 6000);
       });
   }
 
@@ -408,7 +408,7 @@ try {
       const card = btn.closest('.mdlib-card');
       const id = card ? card.getAttribute('data-id') : '';
       if (!id) {
-        uiToast('warning', 'Library File', '<?=__('File ID not found.')?>', 4000);
+        uiToast('warning', '<?=__('Library File')?>', '<?=__('File ID not found.')?>', 4000);
         return;
       }
 
@@ -428,7 +428,7 @@ try {
           })
           .catch(function(err){
             console.error('mdlib single fetch error', err);
-            uiToast('error', 'Library File', 'Gagal memuat detail file: ' + String(err.message || err), 6000);
+            uiToast('error', '<?=__('Library File')?>', '<?=__('Failed to load file details:')?> ' + String(err.message || err), 6000);
           });
       }
       return;

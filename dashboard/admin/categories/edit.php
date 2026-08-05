@@ -219,15 +219,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <input type="text" name="name" value="<?= htmlspecialchars($_POST['name'] ?? $cat['name'], ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
 
-        <label>Slug (opsional)<br>
+        <label><?=_e('Slug (optional)')?><br>
           <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? $cat['slug'], ENT_QUOTES, 'UTF-8') ?>" class="inpud">
         </label>
       </div>
     </div>
 
-    <label>Parent (opsional)<br>
+    <label><?=_e('Parent (optional)')?><br>
       <select name="parent_id" class="inpud">
-        <option value="">-- Tidak ada --</option>
+        <option value=""><?=_e('-- None --')?></option>
         <?php
         $selectedParent = isset($_POST['parent_id']) && $_POST['parent_id'] !== ''
             ? (int)$_POST['parent_id']

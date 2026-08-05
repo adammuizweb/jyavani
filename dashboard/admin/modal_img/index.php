@@ -70,7 +70,7 @@ if (!$embedded):
       });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   window.modalImgToast = window.modalImgToast || modalToast;
@@ -132,7 +132,7 @@ function injectHtmlWithScriptsTo(container, html) {
 
   } catch (err) {
     console.error('injectHtmlWithScriptsTo error', err);
-    if (container) container.innerHTML = '<div style="color:#c00">Gagal memuat konten.</div>';
+    if (container) container.innerHTML = '<div style="color:#c00">' + <?=json_encode(__('Failed to load content.'))?> + '</div>';
   }
 }
 

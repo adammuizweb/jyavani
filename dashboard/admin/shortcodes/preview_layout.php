@@ -114,7 +114,7 @@ try {
         }
 
         if (empty($items)) {
-            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">Tidak ada post yang cocok dengan filter ini.</div>';
+            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('No posts match these filters.') . '</div>';
         }
 
         $attrs = $config;
@@ -144,7 +144,7 @@ try {
         $html = (string)ob_get_clean();
 
         if (trim($html) === '') {
-            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">Template tidak menghasilkan output.</div>';
+            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('Template produced no output.') . '</div>';
         }
 
         adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'preset_config']);
@@ -158,7 +158,7 @@ try {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$row) {
-            adiwira_json(['ok' => false, 'html' => '<div style="padding:1.5rem;color:#e74c3c;">Preset tidak ditemukan.</div>', 'error' => 'Preset not found']);
+            adiwira_json(['ok' => false, 'html' => '<div style="padding:1.5rem;color:#e74c3c;">' . e(__('Preset not found.')) . '</div>', 'error' => __('Preset not found.')]);
             return;
         }
 
@@ -234,7 +234,7 @@ try {
 
         if (empty($items)) {
             $items = [];
-            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">Preset "' . $esc((string)($config['title'] ?? '')) . '" — tidak ada post yang cocok dengan filter ini.</div>';
+            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . sprintf(__('Preset "%s" — no posts match these filters.'), $esc((string)($config['title'] ?? ''))) . '</div>';
         }
 
         $attrs = $config;
@@ -264,7 +264,7 @@ try {
         $html = (string)ob_get_clean();
 
         if (trim($html) === '') {
-            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">Template tidak menghasilkan output.</div>';
+            $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('Template produced no output.') . '</div>';
         }
 
         adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'preset', 'preset_id' => $presetId]);
@@ -275,70 +275,70 @@ try {
     $items = [
         [
             'kind' => 'post',
-            'title' => 'Transformasi Digital Pendidikan di Indonesia 2026',
+            'title' => __('Digital Education Transformation in Indonesia 2026'),
             'slug' => 'transformasi-digital-pendidikan',
             'url' => '/artikel/transformasi-digital-pendidikan/',
             'thumb' => '',
-            'desc' => 'Pemerintah resmi meluncurkan program digitalisasi sekolah yang mencakup 50.000 institusi pendidikan di seluruh Indonesia. Program ini bertujuan meningkatkan akses dan kualitas pembelajaran berbasis teknologi.',
+            'desc' => __('The government officially launched a school digitalization program covering 50,000 educational institutions across Indonesia. The program aims to improve access and quality of technology-based learning.'),
             'date_iso' => '2026-06-26T10:30:00+07:00',
             'date_label' => '26 Jun 2026',
             'raw' => [
-                'title' => 'Transformasi Digital Pendidikan di Indonesia 2026',
+                'title' => __('Digital Education Transformation in Indonesia 2026'),
                 'slug' => 'transformasi-digital-pendidikan',
-                'content' => 'Pemerintah resmi meluncurkan program digitalisasi sekolah...',
+                'content' => __('The government officially launched a school digitalization program...'),
                 'created_at' => '2026-06-26 10:30:00',
                 'author_name' => 'Admin',
             ],
         ],
         [
             'kind' => 'post',
-            'title' => '5 Rekomendasi Wisata Alam Tersembunyi di Jawa Barat',
+            'title' => __('5 Hidden Nature Tourism Recommendations in West Java'),
             'slug' => 'wisata-alam-jawa-barat',
             'url' => '/artikel/wisata-alam-jawa-barat/',
             'thumb' => '',
-            'desc' => 'Jauh dari hiruk pikuk kota, destinasi wisata alam ini menawarkan keindahan yang masih perawan. Cocok untuk kamu yang ingin melepas penat di akhir pekan.',
+            'desc' => __('Away from the hustle and bustle of the city, these nature destinations still offer pristine beauty. Perfect for those wanting to unwind on the weekend.'),
             'date_iso' => '2026-06-25T14:00:00+07:00',
             'date_label' => '25 Jun 2026',
             'raw' => [
-                'title' => '5 Rekomendasi Wisata Alam Tersembunyi di Jawa Barat',
+                'title' => __('5 Hidden Nature Tourism Recommendations in West Java'),
                 'slug' => 'wisata-alam-jawa-barat',
-                'content' => 'Jauh dari hiruk pikuk kota...',
+                'content' => __('Away from the hustle and bustle of the city...'),
                 'created_at' => '2026-06-25 14:00:00',
-                'author_name' => 'Redaksi',
+                'author_name' => __('Editorial'),
             ],
         ],
         [
             'kind' => 'post',
-            'title' => 'Tips Memulai Karir Sebagai Frontend Developer di Tahun 2026',
+            'title' => __('Tips for Starting a Career as a Frontend Developer in 2026'),
             'slug' => 'tips-karir-frontend-developer',
             'url' => '/artikel/tips-karir-frontend-developer/',
             'thumb' => '',
-            'desc' => 'Industri teknologi terus berkembang. Simak panduan lengkap memulai karir sebagai frontend developer dengan roadmap terbaru dan sumber belajar gratis.',
+            'desc' => __('The tech industry keeps evolving. Check out a complete guide to starting a career as a frontend developer with the latest roadmap and free learning resources.'),
             'date_iso' => '2026-06-24T09:15:00+07:00',
             'date_label' => '24 Jun 2026',
             'raw' => [
-                'title' => 'Tips Memulai Karir Sebagai Frontend Developer di Tahun 2026',
+                'title' => __('Tips for Starting a Career as a Frontend Developer in 2026'),
                 'slug' => 'tips-karir-frontend-developer',
-                'content' => 'Industri teknologi terus berkembang...',
+                'content' => __('The tech industry keeps evolving...'),
                 'created_at' => '2026-06-24 09:15:00',
                 'author_name' => 'Admin',
             ],
         ],
         [
             'kind' => 'post',
-            'title' => 'Festival Kuliner Nusantara 2026 Kembali Digelar di Jakarta',
+            'title' => __('The 2026 Nusantara Culinary Festival Returns to Jakarta'),
             'slug' => 'festival-kuliner-nusantara-2026',
             'url' => '/artikel/festival-kuliner-nusantara-2026/',
             'thumb' => '',
-            'desc' => 'Lebih dari 200 stand kuliner dari seluruh Indonesia siap memanjakan pengunjung. Acara berlangsung selama 10 hari di Jakarta Convention Center.',
+            'desc' => __('More than 200 food stalls from across Indonesia are ready to spoil visitors. The event runs for 10 days at the Jakarta Convention Center.'),
             'date_iso' => '2026-06-23T16:45:00+07:00',
             'date_label' => '23 Jun 2026',
             'raw' => [
-                'title' => 'Festival Kuliner Nusantara 2026 Kembali Digelar di Jakarta',
+                'title' => __('The 2026 Nusantara Culinary Festival Returns to Jakarta'),
                 'slug' => 'festival-kuliner-nusantara-2026',
-                'content' => 'Lebih dari 200 stand kuliner...',
+                'content' => __('More than 200 food stalls...'),
                 'created_at' => '2026-06-23 16:45:00',
-                'author_name' => 'Redaksi',
+                'author_name' => __('Editorial'),
             ],
         ],
     ];

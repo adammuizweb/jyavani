@@ -121,7 +121,7 @@ if ($action === 'check-updates') {
     if ($count > 0) {
         adiwira_redirect_with_flash($selfUrl, 'success', $count . ' ' . __('plugin(s) update available.'));
     } else {
-        adiwira_redirect_with_flash($selfUrl, 'info', __('Semua plugin sudah versi terbaru.'));
+        adiwira_redirect_with_flash($selfUrl, 'info', __('All plugins are up to date.'));
     }
 }
 

@@ -29,24 +29,24 @@ try {
 <div class="mdlib-uploader mdlib-uploader--split">
   <div class="mdlib-uploader-left">
     <div class="mdlib-upload-config">
-      <label class="mdlib-config-label">Mode penyimpanan media</label>
+      <label class="mdlib-config-label"><?= _e('Media storage mode') ?></label>
       <select id="mdlib-visibility-select" class="mdlib-select">
-        <option value="auto" selected>Auto — gambar public</option>
-        <option value="public">Public — akses URL langsung</option>
-        <option value="private">Private internal — via protected URL</option>
+        <option value="auto" selected><?= _e('Auto — public image') ?></option>
+        <option value="public"><?= _e('Public — direct URL access') ?></option>
+        <option value="private"><?= _e('Private internal — via protected URL') ?></option>
       </select>
 
       <div class="mdlib-private-options" id="mdlib-private-options">
         <label>
-          Akses private
+          <?= _e('Private access') ?>
           <select id="mdlib-access-scope">
-            <option value="editorial" selected>Editorial</option>
-            <option value="admin">Admin saja</option>
+            <option value="editorial" selected><?= _e('Editorial') ?></option>
+            <option value="admin"><?= _e('Admin Only') ?></option>
           </select>
         </label>
         <label class="mdlib-checkline">
           <input type="checkbox" id="mdlib-is-downloadable" value="1" checked>
-          Izinkan download langsung
+          <?= _e('Allow direct download') ?>
         </label>
       </div>
     </div>
@@ -54,9 +54,9 @@ try {
 
   <div class="mdlib-uploader-right">
     <div id="mdlib-dropzone" class="mdlib-dropzone" role="button" tabindex="0">
-      Tarik gambar ke sini atau klik
+      <?= _e('Drag image here or click') ?>
       <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button"><?= _e('Select file') ?></button>
-      <div class="mdlib-note">Mendukung webp/png/jpg/avif.</div>
+      <div class="mdlib-note"><?= _e('Supports webp/png/jpg/avif.') ?></div>
     </div>
 
     <div id="mdlib-upload-progress" class="mdlib-upload-progress" aria-live="polite"></div>
@@ -124,7 +124,7 @@ try {
       });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts){
@@ -286,7 +286,7 @@ try {
           bar.style.width = '100%';
           showThumb(media.url || data.url || '', media);
 
-          uiToast('success', 'Gallery', '<?=__('Upload successful: ')?>' + file.name, 1800);
+          uiToast('success', '<?=__('Gallery')?>', '<?=__('Upload successful: ')?>' + file.name, 1800);
           broadcast('media:added', media);
           broadcast('media:insert', media);
           resolve(media);
@@ -309,7 +309,7 @@ try {
       xhr.send(fd);
     }).catch(err => {
       console.error('Upload error', err);
-      uiToast('error', 'Gallery', '<?=__('Upload failed: ')?>' + (err.message || 'Unknown'), 5000);
+      uiToast('error', '<?=__('Gallery')?>', '<?=__('Upload failed: ')?>' + (err.message || '<?=__('Unknown')?>'), 5000);
     });
   }
 
@@ -391,7 +391,7 @@ try {
         try { j = txt ? JSON.parse(txt) : null; } catch(e){}
 
         if (!res.ok) {
-          uiToast('error', 'Gallery', 'Gagal hapus: ' + (j && j.error ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+          uiToast('error', '<?=__('Gallery')?>', '<?=__('Failed to delete: ')?>' + (j && j.error ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
@@ -406,15 +406,15 @@ try {
           });
 
           uiToast('success', '<?=__('Gallery')?>', '<?=__('Media deleted successfully.')?>', 2500);
-          if (j.warning) uiToast('warning', 'Gallery', j.warning, 6000);
+          if (j.warning) uiToast('warning', '<?=__('Gallery')?>', j.warning, 6000);
 
           broadcast('media:deleted', payload);
         } else {
-          uiToast('error', 'Gallery', 'Gagal hapus: ' + (j && j.error ? j.error : 'unknown'), 6000);
+          uiToast('error', '<?=__('Gallery')?>', '<?=__('Failed to delete: ')?>' + (j && j.error ? j.error : '<?=__('Unknown')?>'), 6000);
         }
       } catch (err) {
         console.error('Delete error', err);
-        uiToast('error', 'Gallery', 'Network error: ' + (err.message || ''), 6000);
+        uiToast('error', '<?=__('Gallery')?>', '<?=__('Network error:')?> ' + (err.message || ''), 6000);
       }
     });
   }

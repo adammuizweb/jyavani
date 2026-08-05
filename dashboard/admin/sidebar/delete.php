@@ -49,7 +49,7 @@ if (!$zone) {
 if (!empty($zone['is_primary'])) {
     $count = (int)$pdo->query("SELECT COUNT(*) FROM sidebar_zones")->fetchColumn();
     if ($count > 1) {
-        adiwira_redirect_with_flash($returnTo, 'error', __('Tidak bisa menghapus zone primary. Set zone lain sebagai primary terlebih dahulu.'));
+        adiwira_redirect_with_flash($returnTo, 'error', __('Cannot delete the primary zone. Set another zone as primary first.'));
     }
 }
 
@@ -67,5 +67,5 @@ try {
         $pdo->rollBack();
     }
     error_log('sidebar/delete.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal menghapus zone.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete zone.'));
 }

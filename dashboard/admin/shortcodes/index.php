@@ -160,46 +160,45 @@ if ($layoutDir && is_dir($layoutDir)) {
 <div class="sc-help" style="margin-top:2rem;padding:1.2rem;background:var(--adam-surface-3);border-radius:var(--adam-radius,8px);border:1px solid var(--adam-border-soft);font-size:.9rem;color:var(--adam-text);line-height:1.6;">
   <h3 style="margin:0 0 .6rem;font-size:1rem;display:flex;align-items:center;gap:6px;">
     <span style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;background:var(--adam-primary);color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">?</span>
-    Cara Penggunaan Shortcode
+    <?=_e('How to Use Shortcodes')?>
   </h3>
 
-  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">📦 Preset — Simpan Konfigurasi, Pakai Ulang Nanti</h4>
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">📦 <?=_e('Preset — Save Configurations, Reuse Later')?></h4>
   <p style="margin:0 0 .5rem;">
-    Preset adalah <strong>kumpulan pengaturan filter + layout</strong> yang disimpan di database.
-    Gunakan preset untuk menampilkan daftar post/page di halaman manapun tanpa perlu ngatur ulang.
+    <?=_e('A preset is a <strong>collection of filter + layout settings</strong> stored in the database.')?>
+    <?=_e('Use a preset to show a post/page list anywhere without reconfiguring.')?>
   </p>
 
-  <h5 style="margin:.6rem 0 .2rem;font-size:.85rem;">Cara pakai Preset:</h5>
+  <h5 style="margin:.6rem 0 .2rem;font-size:.85rem;"><?=_e('How to use a Preset:')?></h5>
   <table class="adam-table" style="font-size:.85rem;margin-bottom:.6rem;">
-    <thead><tr><th style="width:180px;">Metode</th><th>Contoh</th></tr></thead>
+    <thead><tr><th style="width:180px;"><?=_e('Method')?></th><th><?=_e('Example')?></th></tr></thead>
     <tbody>
-      <tr><td><strong>Shortcode di konten</strong></td><td><code>[[widget:nama_preset]]</code></td></tr>
-      <tr><td><strong>PHP di template tema</strong></td><td><code>&lt;?= widget('nama_preset') ?&gt;</code></td></tr>
-      <tr><td><strong>Sidebar widget</strong></td><td>Tambahkan widget "Post/Page List" di Dashboard → Tampilan → Widget, pilih preset dari dropdown</td></tr>
-      <tr><td><strong>PHP API (ShortcodeQuery)</strong></td><td><code>&lt;?= ShortcodeQuery::posts()-&gt;category('news')-&gt;limit(4)-&gt;render() ?&gt;</code></td></tr>
+      <tr><td><strong><?=_e('Shortcode in content')?></strong></td><td><code>[[widget:nama_preset]]</code></td></tr>
+      <tr><td><strong><?=_e('PHP in theme template')?></strong></td><td><code>&lt;?= widget('nama_preset') ?&gt;</code></td></tr>
+      <tr><td><strong><?=_e('Sidebar widget')?></strong></td><td><?=_e('Add the "Post/Page List" widget under Dashboard → Appearance → Widgets, then choose the preset from the dropdown')?></td></tr>
+      <tr><td><strong><?=_e('PHP API (ShortcodeQuery)')?></strong></td><td><code>&lt;?= ShortcodeQuery::posts()-&gt;category('news')-&gt;limit(4)-&gt;render() ?&gt;</code></td></tr>
     </tbody>
   </table>
 
-  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🧩 Layout — Template Visual untuk Tampilan Post</h4>
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🧩 <?=_e('Layout — Visual Template for Post Display')?></h4>
   <p style="margin:0 0 .5rem;">
-    Layout adalah <strong>file PHP</strong> di <code>views/partials/shortcodes/post_cat/</code> yang mengatur <em>bagaimana</em>
-    post/page dirender (cards, list, slider, dll). Tersedia 4 layout bawaan:
+    <?=_e('A layout is a <strong>PHP file</strong> in <code>views/partials/shortcodes/post_cat/</code> that controls <em>how</em> posts/pages are rendered (cards, list, slider, etc.). 4 built-in layouts are available:')?>
   </p>
   <ul style="margin:0 0 .5rem;padding-left:1.2rem;">
-    <li><code>list</code> — daftar vertikal dengan excerpt</li>
-    <li><code>cards</code> — grid kartu dengan thumbnail</li>
-    <li><code>card2</code> — variasi kartu dengan aksen berbeda</li>
-    <li><code>sliderpage</code> — slider horizontal (carousel)</li>
+    <li><code>list</code> — <?=_e('vertical list with excerpt')?></li>
+    <li><code>cards</code> — <?=_e('card grid with thumbnail')?></li>
+    <li><code>card2</code> — <?=_e('card variant with a different accent')?></li>
+    <li><code>sliderpage</code> — <?=_e('horizontal slider (carousel)')?></li>
   </ul>
   <p style="margin:0;">
-    Kamu bisa bikin layout kustom sendiri lewat tab <strong>Layouts</strong>.
-    File baru otomatis muncul di dropdown layout saat edit preset.
+    <?=_e('You can create your own custom layout via the <strong>Layouts</strong> tab.')?>
+    <?=_e('New files automatically appear in the layout dropdown when editing a preset.')?>
   </p>
 
-  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🔗 Integrasi dengan Sidebar</h4>
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🔗 <?=_e('Sidebar Integration')?></h4>
   <p style="margin:0;">
-    Sidebar widget "Post/Page List" di <strong>Dashboard → Tampilan → Widget</strong> mendukung pemilihan preset langsung.
-    Semua preset dengan status <code>published</code> akan muncul di dropdown pilihan widget.
+    <?=_e('The "Post/Page List" sidebar widget under <strong>Dashboard → Appearance → Widgets</strong> supports direct preset selection.')?>
+    <?=_e('All presets with status <code>published</code> will appear in the widget selection dropdown.')?>
   </p>
 </div>
 

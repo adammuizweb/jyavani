@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!isset($widget_types[$type])) {
             $errors[] = __('Tipe widget tidak valid.');
         } elseif (!$currentZone) {
-            $errors[] = __('Pilih zone terlebih dahulu.');
+            $errors[] = __('Choose a zone first.');
         } else {
             $cfg = $widget_types[$type]['default_config'];
             $newTitle = trim((string)($_POST['new_title'] ?? ''));

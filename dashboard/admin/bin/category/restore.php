@@ -51,7 +51,7 @@ $stmt->execute([':id' => $id]);
 $cat = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$cat) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Kategori tidak ditemukan di trash.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Category not found in trash.'));
 }
 
 if ($role === 'author' && (int)($cat['created_by'] ?? 0) !== $uid) {
@@ -88,9 +88,9 @@ try {
         ':pid' => $parentSql,
     ]);
 
-    adiwira_redirect_with_flash($returnTo, 'success', __('Kategori berhasil direstore.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Category restored successfully.'));
 
 } catch (Throwable $e) {
     error_log('bin/category/restore.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal restore kategori.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to restore category.'));
 }

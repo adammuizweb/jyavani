@@ -461,11 +461,11 @@ foreach ($themes as $t) {
 }
 ?>
 <div class="tm-wrap">
-  <h2 class="tm-title">Theme Manager & Assignments</h2>
+  <h2 class="tm-title"><?= _e('Theme Manager & Assignments') ?></h2>
 
-  <div class="tm-row" role="region" aria-label="Theme management controls">
+  <div class="tm-row" role="region" aria-label="<?= _e('Theme management controls') ?>">
     <div class="tm-scan" aria-hidden="false" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-      <a href="<?= h($browseUrl) ?>" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:.82rem"><?= svg_ico('globe', '', ['style' => 'width:14px;height:14px']) ?> Browse Themes</a>
+      <a href="<?= h($browseUrl) ?>" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:.82rem"><?= svg_ico('globe', '', ['style' => 'width:14px;height:14px']) ?> <?= _e('Browse Themes') ?></a>
 
       <form method="post" style="margin:0;display:inline-flex">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -489,13 +489,13 @@ foreach ($themes as $t) {
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="upload_theme">
 
-      <div class="tm-file" title="Choose a theme .zip to install">
+      <div class="tm-file" title="<?= _e('Choose a theme .zip to install') ?>">
         <label class="tm-file-btn" for="theme_zip_input" id="fileBtn"><?=_e('Choose .zip')?></label>
         <input id="theme_zip_input" type="file" name="theme_zip" accept=".zip" required style="display:none">
         <div class="tm-file-name" id="fileName"><?=_e('No file chosen')?></div>
       </div>
 
-      <div class="tm-mode" role="radiogroup" aria-label="Install mode">
+      <div class="tm-mode" role="radiogroup" aria-label="<?= _e('Install mode') ?>">
         <label>
           <input type="radio" name="install_mode" value="install" checked>
           <span><?=_e('Install')?></span>
@@ -509,7 +509,7 @@ foreach ($themes as $t) {
       <button type="submit" class="tm-install" id="installBtn" disabled><?=_e('Install theme')?></button>
 
       <div class="tm-note" style="margin-left:8px">
-        <?=_e('Select mode:')?> <strong>Install</strong> <?=_e('only adds;')?> <strong>Install &amp; Activate</strong> <?=_e('also makes it active.')?>
+        <?=_e('Select mode:')?> <strong><?=_e('Install')?></strong> <?=_e('only adds;')?> <strong><?=_e('Install & Activate')?></strong> <?=_e('also makes it active.')?>
       </div>
     </form>
   </div>
@@ -953,7 +953,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         e.preventDefault();
         var folder = form.getAttribute('data-folder') || <?= json_encode(__('this theme')) ?>;
         ask('warning', {
-          title: 'Activate theme',
+          title: <?= json_encode(__('Activate theme')) ?>,
           message: <?= json_encode(__('Activate theme "')) ?> + folder + <?= json_encode(__('" and apply to all slots?')) ?>,
           confirmText: <?= json_encode(__('Yes, activate')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>

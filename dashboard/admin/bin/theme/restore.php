@@ -76,5 +76,5 @@ try {
 
 } catch (Throwable $e) {
     error_log('bin/theme/restore.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal restore theme.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to restore theme.'));
 }

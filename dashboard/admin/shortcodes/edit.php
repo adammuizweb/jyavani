@@ -293,28 +293,28 @@ if ($layoutDir && is_dir($layoutDir)) {
 </section>
 
 <div style="margin-top:1rem;display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
-  <span>🧩 <strong>Layout:</strong></span>
+  <span>🧩 <strong><?=_e('Layout:')?></strong></span>
   <span id="edit-layout-name" style="color:var(--adam-accent);font-weight:600;"><?= h($pref_config['layout'] ?? 'list') ?></span>
-  <a id="edit-layout-link" href="<?= h($base . '/?page=admin/shortcodes/layout&file=' . ($pref_config['layout'] ?? 'list') . '.php') ?>" class="adam-link" style="font-size:.8rem;" target="_blank">✏️ Edit Layout Ini</a>
+  <a id="edit-layout-link" href="<?= h($base . '/?page=admin/shortcodes/layout&file=' . ($pref_config['layout'] ?? 'list') . '.php') ?>" class="adam-link" style="font-size:.8rem;" target="_blank">✏️ <?=_e('Edit This Layout')?></a>
   <span style="flex:1"></span>
-  <span style="font-size:.78rem;color:var(--adam-muted,#888);">Preset = filter konten · Layout = tampilan visual</span>
+  <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Preset = content filter · Layout = visual style')?></span>
 </div>
 
 <section class="adam-card" style="margin-top:1rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.6rem;">
-    <h3 style="margin:0;font-size:.95rem;">👁️ Live Preview</h3>
+    <h3 style="margin:0;font-size:.95rem;">👁️ <?=_e('Live Preview')?></h3>
     <span style="display:flex;align-items:center;gap:6px;">
-      <span id="edit-preview-mode" style="font-size:.72rem;background:var(--adam-surface-3);padding:.15rem .45rem;border-radius:3px;color:var(--adam-muted,#888);">preset config</span>
-      <span id="edit-preview-status" style="font-size:.78rem;color:var(--adam-muted,#888);">siap</span>
+      <span id="edit-preview-mode" style="font-size:.72rem;background:var(--adam-surface-3);padding:.15rem .45rem;border-radius:3px;color:var(--adam-muted,#888);"><?=_e('preset config')?></span>
+      <span id="edit-preview-status" style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Ready')?></span>
     </span>
   </div>
   <div id="edit-preview-error" style="display:none;padding:.4rem .7rem;font-size:.82rem;background:#fef0ef;color:#c0392b;border:1px solid #f5c6cb;border-radius:4px;margin-bottom:.5rem;"></div>
   <div id="edit-preview-content" style="min-height:100px;border:1px solid var(--adam-border-soft,#ddd);border-radius:6px;padding:1rem;background:var(--adam-bg,#fff);font-size:.9rem;color:var(--adam-muted,#888);">
-    Tekan tombol "Preview" untuk melihat hasil layout dengan konten real dari database.
+    <?=_e('Press the "Preview" button to render the layout with real database content.')?>
   </div>
   <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
-    <button type="button" id="edit-preview-btn" class="adam-button" style="font-size:.85rem;">🔄 Preview dengan Data Real</button>
-    <span style="font-size:.78rem;color:var(--adam-muted,#888);">Mengambil post real dari database sesuai filter di atas</span>
+    <button type="button" id="edit-preview-btn" class="adam-button" style="font-size:.85rem;">🔄 <?=_e('Preview with Real Data')?></button>
+    <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Fetches real posts from the database according to the filters above')?></span>
   </div>
 </section>
 
@@ -322,10 +322,10 @@ if ($layoutDir && is_dir($layoutDir)) {
   <div style="display:flex;align-items:flex-start;gap:.5rem;">
     <div style="font-size:1.1rem;flex-shrink:0;">💡</div>
     <div>
-      <strong>Korelasi Preset &amp; Layout:</strong><br>
-      <strong>Preset</strong> = "apa yang mau ditampilkan" (kategori, jumlah, urutan, dll).<br>
-      <strong>Layout</strong> = file PHP di <code>app/views/partials/shortcodes/post_cat/</code> yang mengatur "bagaimana tampilannya".<br>
-      Satu layout bisa dipakai oleh banyak preset. Edit layout di <a href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts') ?>" class="adam-link">Layouts Manager</a> → perubahan langsung terlihat di semua preset yang pakai layout tersebut.
+      <?=_e('<strong>How Preset &amp; Layout relate:</strong>')?><br>
+      <?=_e('<strong>Preset</strong> = "what to display" (category, count, order, etc.).')?><br>
+      <?=_e('<strong>Layout</strong> = the PHP file in <code>app/views/partials/shortcodes/post_cat/</code> that controls "how it looks".')?><br>
+      <?= sprintf(__('One layout can be reused by many presets. Edit the layout in the %sLayouts Manager%s → changes instantly apply to every preset using that layout.'), '<a href="' . h($base . '/?page=admin/shortcodes/index&tab=layouts') . '" class="adam-link">', '</a>') ?>
     </div>
   </div>
 </div>
@@ -477,12 +477,12 @@ if ($layoutDir && is_dir($layoutDir)) {
     var config = buildPreviewConfig();
     if (!config.layout) {
       if (window.NewNotifToast) {
-        window.NewNotifToast.show({ type: 'warning', title: 'Preview', message: 'Pilih layout template dulu.' });
+        window.NewNotifToast.show({ type: 'warning', title: <?=json_encode(__('Preview'))?>, message: <?=json_encode(__('Choose a layout template first.'))?> });
       }
       return;
     }
 
-    previewStatus.textContent = 'memuat...';
+    previewStatus.textContent = <?=json_encode(__('Loading...'))?>;
     previewError.style.display = 'none';
 
     var fd = new FormData();
@@ -499,10 +499,10 @@ if ($layoutDir && is_dir($layoutDir)) {
       if (data.ok) {
         previewContent.innerHTML = data.html;
         previewError.style.display = 'none';
-        previewStatus.textContent = 'siap ✔';
+        previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
         previewMode.textContent = '📦 ' + config.layout;
       } else {
-        previewContent.innerHTML = data.html || '<div style="color:#e74c3c;padding:1rem;">Error</div>';
+        previewContent.innerHTML = data.html || '<div style="color:#e74c3c;padding:1rem;">' + <?=json_encode(__('Error'))?> + '</div>';
         if (data.error) {
           previewError.style.display = 'block';
           previewError.textContent = '⚠ ' + data.error;
@@ -511,7 +511,7 @@ if ($layoutDir && is_dir($layoutDir)) {
       }
     })
     .catch(function(err) {
-      previewContent.innerHTML = '<div style="color:#e74c3c;padding:1rem;">Gagal: ' + err.message + '</div>';
+      previewContent.innerHTML = '<div style="color:#e74c3c;padding:1rem;"><?=__('Failed: ')?>' + err.message + '</div>';
       previewError.style.display = 'none';
       previewStatus.textContent = 'error ✗';
     });

@@ -436,7 +436,7 @@ function loadAttempts(page) {
       pagination.innerHTML = data.pagination;
     })
     .catch(function() {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-danger);">Gagal memuat data.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-danger);">' + <?=json_encode(__('Failed to load data.'))?> + '</td></tr>';
     });
 }
 

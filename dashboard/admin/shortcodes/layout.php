@@ -392,7 +392,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <div class="lyo-header-left">
         <h2><?= $isNew ? '📄 ' . _e('New Layout') : '✏️ ' . _e('Edit Layout:') . ' ' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?></h2>
         <?php if ($isNew): ?>
-          <input type="text" id="lyo-name" class="lyo-name-input" placeholder="Nama layout (slug)" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>" autofocus>
+          <input type="text" id="lyo-name" class="lyo-name-input" placeholder="<?=_e('Layout name (slug)')?>" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>" autofocus>
         <?php endif; ?>
       </div>
       <div class="lyo-header-right">
@@ -413,60 +413,60 @@ $snippetWrapper = '<?php if ($wrap): ?>
     </form>
 
 <?php if ($isNew): ?>
-    <div style="font-size:.85rem;font-weight:600;color:var(--adam-muted,#888);margin-bottom:-.5rem;">Pilih template awal:</div>
+    <div style="font-size:.85rem;font-weight:600;color:var(--adam-muted,#888);margin-bottom:-.5rem;"><?=_e('Choose starting template:')?></div>
     <div id="lyo-starter" class="lyo-templates">
       <div class="lyo-tpl-card selected" data-template="0">
         <span class="lyo-tpl-icon">📄</span>
-        <div class="lyo-tpl-title">Blank</div>
-        <div class="lyo-tpl-desc">Mulai dari halaman kosong</div>
+        <div class="lyo-tpl-title"><?=_e('Blank')?></div>
+        <div class="lyo-tpl-desc"><?=_e('Start from a blank page')?></div>
       </div>
       <div class="lyo-tpl-card" data-template="1">
         <span class="lyo-tpl-icon">📋</span>
-        <div class="lyo-tpl-title">Simple List</div>
-        <div class="lyo-tpl-desc">Daftar artikel vertikal dengan excerpt + tanggal</div>
+        <div class="lyo-tpl-title"><?=_e('Simple List')?></div>
+        <div class="lyo-tpl-desc"><?=_e('Vertical article list with excerpt + date')?></div>
       </div>
       <div class="lyo-tpl-card" data-template="2">
         <span class="lyo-tpl-icon">🗂️</span>
-        <div class="lyo-tpl-title">Card Grid</div>
-        <div class="lyo-tpl-desc">Grid kartu dengan thumbnail, excerpt &amp; tanggal</div>
+        <div class="lyo-tpl-title"><?=_e('Card Grid')?></div>
+        <div class="lyo-tpl-desc"><?=_e('Card grid with thumbnail, excerpt & date')?></div>
       </div>
       <div class="lyo-tpl-card" data-template="3">
         <span class="lyo-tpl-icon">🃏</span>
-        <div class="lyo-tpl-title">Card Accent</div>
-        <div class="lyo-tpl-desc">Kartu vertikal dengan aksen gradasi</div>
+        <div class="lyo-tpl-title"><?=_e('Card Accent')?></div>
+        <div class="lyo-tpl-desc"><?=_e('Vertical card with gradient accent')?></div>
       </div>
       <div class="lyo-tpl-card" data-template="4">
         <span class="lyo-tpl-icon">🎠</span>
-        <div class="lyo-tpl-title">Slider</div>
-        <div class="lyo-tpl-desc">Carousel horizontal dengan navigasi</div>
+        <div class="lyo-tpl-title"><?=_e('Slider')?></div>
+        <div class="lyo-tpl-desc"><?=_e('Horizontal carousel with navigation')?></div>
       </div>
     </div>
 <?php endif; ?>
 
     <?php if (!$isNew && !empty($connectedPresets)): ?>
     <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
-      <span>🔗 <strong>Connected Presets:</strong></span>
+      <span>🔗 <strong><?=_e('Connected Presets:')?></strong></span>
       <?php foreach ($connectedPresets as $cp): ?>
         <a href="<?= h($base . '/?page=admin/shortcodes/edit&id=' . (int)$cp['id']) ?>" class="adam-link" style="font-size:.82rem;display:inline-flex;align-items:center;gap:3px;">
           📦 <?= h((string)($cp['title'] ?? $cp['slug'] ?? '')) ?>
         </a><?= $cp !== end($connectedPresets) ? '<span style="color:var(--adam-muted,#888);font-size:.7rem;">|</span>' : '' ?>
       <?php endforeach; ?>
-      <span style="font-size:.78rem;color:var(--adam-muted,#888);margin-left:auto;">Layout ini dipakai oleh <?= count($connectedPresets) ?> preset</span>
+      <span style="font-size:.78rem;color:var(--adam-muted,#888);margin-left:auto;"><?= sprintf(__('This layout is used by %d preset(s)'), count($connectedPresets)) ?></span>
     </div>
     <?php endif; ?>
 
     <?php if (empty($allPresets) || (isset($connectedPresets) && empty($connectedPresets))): ?>
     <?php if (!empty($allPresets)): ?>
     <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
-      <span>🔗 <strong>Preview dengan data real:</strong></span>
+      <span>🔗 <strong><?=_e('Preview with real data:')?></strong></span>
       <select id="preview-preset-select" style="font-size:.82rem;padding:.25rem .5rem;border:1px solid var(--adam-border-soft,#ddd);border-radius:4px;background:var(--adam-bg,#fff);color:var(--adam-text,#333);">
-        <option value="">— Pilih preset —</option>
+        <option value=""><?=_e('— Choose a preset —')?></option>
         <?php foreach ($allPresets as $p): ?>
           <option value="<?= (int)$p['id'] ?>"><?= h((string)($p['title'] ?? $p['slug'] ?? '')) ?></option>
         <?php endforeach; ?>
       </select>
-      <span style="font-size:.78rem;color:var(--adam-muted,#888);">Pilih preset untuk lihat layout dengan konten asli dari DB</span>
-      <button type="button" id="preview-preset-btn" style="font-size:.78rem;padding:.2rem .6rem;border:1px solid var(--adam-accent,#4361ee);border-radius:4px;background:var(--adam-accent,#4361ee);color:#fff;cursor:pointer;">Preview</button>
+      <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Choose a preset to see the layout with real content from the DB')?></span>
+      <button type="button" id="preview-preset-btn" style="font-size:.78rem;padding:.2rem .6rem;border:1px solid var(--adam-accent,#4361ee);border-radius:4px;background:var(--adam-accent,#4361ee);color:#fff;cursor:pointer;"><?=_e('Preview')?></button>
     </div>
     <?php endif; ?>
     <?php endif; ?>
@@ -474,31 +474,31 @@ $snippetWrapper = '<?php if ($wrap): ?>
     <div style="display:flex;align-items:flex-start;gap:.5rem;padding:.6rem .75rem;background:var(--adam-surface-2);border-radius:8px;font-size:.85rem;line-height:1.5;">
       <div style="font-size:1.1rem;flex-shrink:0;">💡</div>
       <div>
-        <strong>Bagaimana Preset & Layout bekerja sama:</strong><br>
-        <strong>Preset</strong> = filter konten (kategori, jumlah, urutan, dll) + pilihan layout.<br>
-        <strong>Layout</strong> = file PHP yang mengatur <em>tampilan visual</em> post.<br>
-        Di halaman <a href="<?= h($preset_list_url) ?>" class="adam-link">edit preset</a>, kamu pilih layout yang mana untuk dipakai.
-        Layout yang sama bisa dipakai oleh banyak preset — jadi cukup buat satu layout, pakai di preset manapun.
+        <?=_e('<strong>How Preset &amp; Layout work together:</strong>')?><br>
+        <?=_e('<strong>Preset</strong> = content filter (category, count, order, etc.) + layout choice.')?><br>
+        <?=_e('<strong>Layout</strong> = the PHP file that controls the post&rsquo;s <em>visual appearance</em>.')?><br>
+        <?= sprintf(__('On the %sedit preset%s page, you pick which layout to use.'), '<a href="' . h($preset_list_url) . '" class="adam-link">', '</a>') ?>
+        <?=_e('The same layout can be reused by many presets — so create one layout and use it in any preset.')?>
       </div>
     </div>
 
     <div class="lyo-toolbar" id="lyo-toolbar">
-      <button data-snippet="0" title="Insert foreach loop">🔁 Loop Items</button>
-      <button data-snippet="1" title="Insert thumbnail block">🖼️ Thumbnail</button>
-      <button data-snippet="2" title="Insert excerpt">📝 Excerpt</button>
-      <button data-snippet="3" title="Insert date">📅 Date</button>
-      <button data-snippet="4" title="Insert kicker">🏷️ Kicker</button>
-      <button data-snippet="5" title="Insert slider nav buttons">🎠 Slider Nav</button>
-      <button data-snippet="6" title="Insert wrapper div">📦 Wrapper</button>
+      <button data-snippet="0" title="<?=_e('Insert foreach loop')?>">🔁 <?=_e('Loop Items')?></button>
+      <button data-snippet="1" title="<?=_e('Insert thumbnail block')?>">🖼️ <?=_e('Thumbnail')?></button>
+      <button data-snippet="2" title="<?=_e('Insert excerpt')?>">📝 <?=_e('Excerpt')?></button>
+      <button data-snippet="3" title="<?=_e('Insert date')?>">📅 <?=_e('Date')?></button>
+      <button data-snippet="4" title="<?=_e('Insert kicker')?>">🏷️ <?=_e('Kicker')?></button>
+      <button data-snippet="5" title="<?=_e('Insert slider nav buttons')?>">🎠 <?=_e('Slider Nav')?></button>
+      <button data-snippet="6" title="<?=_e('Insert wrapper div')?>">📦 <?=_e('Wrapper')?></button>
       <span style="flex:1"></span>
-      <button data-snippet="clear" class="danger" style="border-color:#e74c3c;color:#e74c3c;" title="Clear editor">🗑️ Clear</button>
+      <button data-snippet="clear" class="danger" style="border-color:#e74c3c;color:#e74c3c;" title="<?=_e('Clear editor')?>">🗑️ <?=_e('Clear')?></button>
     </div>
 
     <div class="lyo-editor-area">
       <div class="lyo-editor-pane">
         <div class="lyo-pane-header">
-          <span>&lt;&gt; Code Editor</span>
-          <span style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);">PHP + HTML — klik komponen untuk insert kode</span>
+          <span>&lt;&gt; <?=_e('Code Editor')?></span>
+          <span style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);"><?=_e('PHP + HTML — click a component to insert code')?></span>
         </div>
         <div class="lyo-pane-body">
           <textarea id="cm-textarea" style="width:100%;min-height:440px;padding:.5rem;border:none;resize:none;font-family:monospace;font-size:.85rem;background:var(--adam-bg,#fff);color:var(--adam-text,#333);"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
@@ -506,15 +506,15 @@ $snippetWrapper = '<?php if ($wrap): ?>
       </div>
       <div class="lyo-preview-pane">
         <div class="lyo-pane-header">
-          <span>👁️ Live Preview</span>
+          <span>👁️ <?=_e('Live Preview')?></span>
           <span style="display:flex;align-items:center;gap:6px;">
             <span id="preview-mode" style="font-weight:400;font-size:.7rem;background:var(--adam-surface-3);padding:.1rem .4rem;border-radius:3px;color:var(--adam-muted,#888);">dummy</span>
-            <span id="preview-status" style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);">mengetik...</span>
+            <span id="preview-status" style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);"><?=_e('typing...')?></span>
           </span>
         </div>
         <div class="lyo-error-banner" id="preview-error"></div>
         <div class="lyo-pane-body">
-          <div id="preview-content" style="padding:1rem;"><?= $isNew ? '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">Pilih template starter di atas, lalu edit kode — preview muncul otomatis.</div>' : '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">Memuat preview...</div>' ?></div>
+          <div id="preview-content" style="padding:1rem;"><?= $isNew ? '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">' . __('Choose a starter template above, then edit the code — preview appears automatically.') . '</div>' : '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">' . __('Loading preview...') . '</div>' ?></div>
         </div>
       </div>
     </div>
@@ -527,23 +527,23 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <div class="lyo-var-body" id="lyo-var-body">
         <table class="lyo-var-table">
           <thead>
-            <tr><th style="width:150px;">Variable</th><th style="width:80px;">Type</th><th>Description</th></tr>
+            <tr><th style="width:150px;"><?=_e('Variable')?></th><th style="width:80px;"><?=_e('Type')?></th><th><?=_e('Description')?></th></tr>
           </thead>
           <tbody>
-            <tr><td><code>$items</code></td><td><code>array</code></td><td>Array data post/page. Setiap item punya: <code>title</code>, <code>url</code>, <code>thumb</code>, <code>desc</code>, <code>date_label</code>, <code>date_iso</code>, <code>kind</code>, <code>raw</code></td></tr>
-            <tr><td><code>$attrs</code></td><td><code>array</code></td><td>Atribut filter: <code>source</code>, <code>type</code>, <code>category</code>, <code>limit</code>, <code>offset</code>, <code>order_by</code>, <code>excerpt_len</code>, dll</td></tr>
-            <tr><td><code>$layout</code></td><td><code>string</code></td><td>Nama layout — sama dengan nama file (contoh: <code>cards</code>, <code>list</code>)</td></tr>
-            <tr><td><code>$kicker</code></td><td><code>string</code></td><td>Teks kecil di atas judul, dari sidebar widget (misal: <code>BERITA TERBARU</code>)</td></tr>
-            <tr><td><code>$class_prefix</code></td><td><code>string</code></td><td>Prefix CSS tambahan dari preset untuk kustomisasi tampilan</td></tr>
-            <tr><td><code>$wrap</code></td><td><code>bool</code></td><td>Bungkus dengan <code>&lt;div class="pcat"&gt;</code> (<code>true</code>/<code>false</code>)</td></tr>
-            <tr><td><code>$esc()</code></td><td><code>callable</code></td><td>Fungsi HTML escaping: <code>$esc($text)</code> — wajib untuk semua output user content</td></tr>
-            <tr><td><code>$slider_enabled</code></td><td><code>bool</code></td><td>Mode slider/carousel aktif atau tidak</td></tr>
-            <tr><td><code>$instance_id</code></td><td><code>string</code></td><td>ID unik tiap instance, berguna untuk <code>id</code> HTML</td></tr>
-            <tr><td><code>$limit_visible</code></td><td><code>int</code></td><td>Jumlah item terlihat (untuk slider / lazy load)</td></tr>
+            <tr><td><code>$items</code></td><td><code>array</code></td><td><?=_e('Array of post/page data. Each item has: <code>title</code>, <code>url</code>, <code>thumb</code>, <code>desc</code>, <code>date_label</code>, <code>date_iso</code>, <code>kind</code>, <code>raw</code>')?></td></tr>
+            <tr><td><code>$attrs</code></td><td><code>array</code></td><td><?=_e('Filter attributes: <code>source</code>, <code>type</code>, <code>category</code>, <code>limit</code>, <code>offset</code>, <code>order_by</code>, <code>excerpt_len</code>, etc.')?></td></tr>
+            <tr><td><code>$layout</code></td><td><code>string</code></td><td><?=_e('Layout name — same as the file name (e.g. <code>cards</code>, <code>list</code>)')?></td></tr>
+            <tr><td><code>$kicker</code></td><td><code>string</code></td><td><?=_e('Small text above the title, from the sidebar widget (e.g. <code>LATEST NEWS</code>)')?></td></tr>
+            <tr><td><code>$class_prefix</code></td><td><code>string</code></td><td><?=_e('Extra CSS prefix from the preset for styling customization')?></td></tr>
+            <tr><td><code>$wrap</code></td><td><code>bool</code></td><td><?=_e('Wrap with <code>&lt;div class="pcat"&gt;</code> (<code>true</code>/<code>false</code>)')?></td></tr>
+            <tr><td><code>$esc()</code></td><td><code>callable</code></td><td><?=_e('HTML escaping function: <code>$esc($text)</code> — required for all user content output')?></td></tr>
+            <tr><td><code>$slider_enabled</code></td><td><code>bool</code></td><td><?=_e('Whether slider/carousel mode is active')?></td></tr>
+            <tr><td><code>$instance_id</code></td><td><code>string</code></td><td><?=_e('Unique ID per instance, useful for HTML <code>id</code>')?></td></tr>
+            <tr><td><code>$limit_visible</code></td><td><code>int</code></td><td><?=_e('Number of visible items (for slider / lazy load)')?></td></tr>
           </tbody>
         </table>
         <div style="margin-top:.6rem;font-size:.8rem;color:var(--adam-muted,#888);background:var(--adam-surface-3);padding:.5rem .7rem;border-radius:4px;">
-          <strong>📍 Layout file:</strong> <code>views/partials/shortcodes/post_cat/<span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{nama}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
+          <strong>📍 <?=_e('Layout file:')?></strong> <code>views/partials/shortcodes/post_cat/<span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{' . __('name') . '}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
         </div>
       </div>
     </div>
@@ -638,7 +638,7 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
     if (previewRunning) return;
     var code = getEditorValue();
     if (!code || code.trim() === '') {
-      previewContent.innerHTML = '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">Editor kosong — tulis kode layout untuk melihat preview.</div>';
+      previewContent.innerHTML = '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">        <?=_e('Editor is empty — write some layout code to see the preview.')?></div>';
       previewError.style.display = 'none';
       previewStatus.textContent = 'menunggu input...';
       return;
@@ -663,13 +663,13 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
         previewError.style.display = 'none';
         if (data.mode === 'preset') {
           previewMode.textContent = '📦 ' + (presetSelect ? presetSelect.options[presetSelect.selectedIndex].text : 'preset');
-          previewStatus.textContent = 'siap ✔';
+          previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
         } else {
           previewMode.textContent = 'dummy';
-          previewStatus.textContent = 'siap ✔';
+          previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
         }
       } else {
-        previewContent.innerHTML = data.html || '<div style="color:#e74c3c;padding:1rem;">Preview error</div>';
+        previewContent.innerHTML = data.html || '<div style="color:#e74c3c;padding:1rem;">' + <?=json_encode(__('Preview error'))?> + '</div>';
         if (data.error) {
           previewError.style.display = 'flex';
           previewError.textContent = '⚠ ' + data.error;
@@ -680,7 +680,7 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
       }
     })
     .catch(function(err) {
-      previewContent.innerHTML = '<div style="color:#e74c3c;padding:1rem;">Gagal menghubungi server: ' + err.message + '</div>';
+      previewContent.innerHTML = '<div style="color:#e74c3c;padding:1rem;"><?=__('Failed to reach server:')?> ' + err.message + '</div>';
       previewError.style.display = 'none';
       previewStatus.textContent = 'error ✗';
     })
@@ -750,7 +750,7 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
       var val = parseInt(presetSelect.value);
       if (!val) {
         if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-          window.NewNotifToast.show({ type: 'warning', title: 'Pilih Preset', message: 'Pilih preset dulu dari dropdown.' });
+          window.NewNotifToast.show({ type: 'warning', title: <?=json_encode(__('Choose a Preset'))?>, message: <?=json_encode(__('Choose a preset from the dropdown first.'))?> });
         }
         return;
       }
@@ -783,10 +783,10 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
 
       if (!res.ok || !data.ok) {
         var errors = Array.isArray(data.errors) && data.errors.length
-          ? data.errors : [data.error || data.message || 'Gagal menyimpan.'];
+          ? data.errors : [data.error || data.message || '<?=__('Failed to save.')?>'];
         errors.filter(Boolean).forEach(function(msg){
           if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-            window.NewNotifToast.show({ type: 'error', title: 'Gagal', message: String(msg) });
+            window.NewNotifToast.show({ type: 'error', title: '<?=__('Failed')?>', message: String(msg) });
           } else { alert(String(msg)); }
         });
         return;
@@ -797,7 +797,7 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
       }
 
       if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-        window.NewNotifToast.show({ type: 'success', title: <?= json_encode(__('Success')) ?>, message: data.message || 'Layout berhasil disimpan.' });
+        window.NewNotifToast.show({ type: 'success', title: <?= json_encode(__('Success')) ?>, message: data.message || <?= json_encode(__('Layout saved successfully.')) ?> });
       }
 
       if (data.redirect) {
@@ -805,8 +805,8 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
       }
     } catch (err) {
       if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-        window.NewNotifToast.show({ type: 'error', title: <?= json_encode(__('Network')) ?>, message: 'Terjadi gangguan jaringan.' });
-      } else { alert('Gagal: ' + err.message); }
+        window.NewNotifToast.show({ type: 'error', title: <?= json_encode(__('Network')) ?>, message: '<?=__('Something happened.')?>' });
+      } else { alert('<?=__('Failed: ')?>' + err.message); }
     } finally {
       if (btn) {
         btn.disabled = false;

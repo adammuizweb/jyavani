@@ -26,7 +26,7 @@ $return_to = function_exists('adiwira_safe_return_to')
 
 $layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
 if (!$layoutDir || !is_dir($layoutDir)) {
-    adiwira_redirect_with_flash($return_to, 'error', __('Direktori layout tidak ditemukan.'));
+    adiwira_redirect_with_flash($return_to, 'error', __('Layout directory not found.'));
 }
 
 $fileName = (string)($_POST['file'] ?? '');
@@ -38,22 +38,22 @@ if (!str_ends_with($cleanName, '.php')) {
 // Protect built-in layouts
 $layoutName = pathinfo($cleanName, PATHINFO_FILENAME);
 if (in_array($layoutName, ['cards', 'list', 'card2', 'sliderpage'], true)) {
-    adiwira_redirect_with_flash($return_to, 'error', __('Layout bawaan tidak bisa dihapus.'));
+    adiwira_redirect_with_flash($return_to, 'error', __('Default layout cannot be deleted.'));
 }
 
 $filePath = $layoutDir . DIRECTORY_SEPARATOR . $cleanName;
 $realPath = realpath($filePath);
 
 if (!$realPath || strpos($realPath, $layoutDir) !== 0 || !is_file($realPath)) {
-    adiwira_redirect_with_flash($return_to, 'error', __('File layout tidak ditemukan.'));
+    adiwira_redirect_with_flash($return_to, 'error', __('Layout file not found:') . ' ' . $cleanName);
 }
 
 try {
     if (!unlink($realPath)) {
-        throw new RuntimeException('Gagal menghapus file.');
+        throw new RuntimeException(__('Failed to delete file.'));
     }
     adiwira_redirect_with_flash($return_to, 'success', __('Layout') . ' "' . $cleanName . '" ' . __('deleted successfully.'));
 } catch (Throwable $e) {
     error_log('shortcodes/delete_layout.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($return_to, 'error', __('Gagal menghapus file layout.'));
+    adiwira_redirect_with_flash($return_to, 'error', __('Failed to delete layout file.'));
 }

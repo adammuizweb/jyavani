@@ -25,7 +25,7 @@ if (($identity['ok'] ?? false) !== true) {
 
 $role = (string)($identity['role'] ?? 'guest');
 if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: hanya admin yang boleh restore user.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: only admins can restore users.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
@@ -66,5 +66,5 @@ try {
 
 } catch (Throwable $e) {
     error_log('bin/users/restore.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal restore user.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to restore user.'));
 }

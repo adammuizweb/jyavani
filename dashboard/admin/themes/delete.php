@@ -25,7 +25,7 @@ if (($identity['ok'] ?? false) !== true) {
 
 $role = strtolower(trim((string)($identity['role'] ?? 'guest')));
 if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: menu Themes hanya untuk admin.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: the Themes menu is for admins only.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
@@ -62,5 +62,5 @@ try {
         $pdo->rollBack();
     }
     error_log('themes/delete.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal menghapus theme partial.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete theme partial.'));
 }

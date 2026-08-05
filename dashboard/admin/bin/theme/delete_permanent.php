@@ -75,7 +75,7 @@ try {
 
     $pdo->commit();
 
-    adiwira_redirect_with_flash($returnTo, 'success', __('Theme berhasil dihapus permanen.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Theme permanently deleted.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -83,5 +83,5 @@ try {
     }
 
     error_log('bin/theme/delete_permanent.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal hapus permanen theme.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to permanently delete theme.'));
 }

@@ -88,7 +88,7 @@ $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
       <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
 
       <div style="margin-left:auto;font-size:.9rem;color:#555;">
-        Updated:
+        <?=_e('Updated:')?>
         <span id="updated-at">
           <?= htmlspecialchars(function_exists('format_datetime_indo') ? format_datetime_indo((string)($theme['updated_at'] ?? '-')) : (string)($theme['updated_at'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
         </span>
@@ -134,9 +134,9 @@ $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
 
         <label style="margin-top:.6rem;display:block"><?=_e('Status')?><br>
           <select name="status" class="inpud">
-            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>>Draft</option>
-            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>>Published</option>
-            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>>Private</option>
+            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
+            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
+            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
           </select>
         </label>
 
@@ -246,10 +246,10 @@ $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
       if (!res.ok || !data.ok) {
         const errors = Array.isArray(data.errors) && data.errors.length
           ? data.errors
-          : [data.error || data.message || 'Gagal menyimpan perubahan.'];
+          : [data.error || data.message || <?= json_encode(__('Failed to save changes.')) ?>];
 
         errors.filter(Boolean).forEach(function(msg, idx){
-          notify('error', String(msg), idx === 0 ? 'Gagal menyimpan' : 'Detail error');
+          notify('error', String(msg), idx === 0 ? <?= json_encode(__('Save failed')) ?> : <?= json_encode(__('Detail error')) ?>);
         });
         return;
       }

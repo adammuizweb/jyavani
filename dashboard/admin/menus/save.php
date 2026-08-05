@@ -41,7 +41,7 @@ if ($action === 'create') {
     $slug = trim((string)($_POST['slug'] ?? ''));
 
     if ($name === '' || $slug === '') {
-        adiwira_redirect_with_flash($returnTo, 'error', __('Nama dan slug harus diisi.'));
+        adiwira_redirect_with_flash($returnTo, 'error', __('Name and slug are required.'));
     }
 
     $st = $pdo->prepare("SELECT COUNT(*) FROM menus WHERE slug = :slug");
@@ -64,7 +64,7 @@ if ($action === 'rename') {
     $slug = trim((string)($_POST['slug'] ?? ''));
 
     if ($menuId <= 0 || $name === '' || $slug === '') {
-        adiwira_redirect_with_flash($returnTo, 'error', __('Data tidak lengkap.'));
+        adiwira_redirect_with_flash($returnTo, 'error', __('Incomplete data.'));
     }
 
     $st = $pdo->prepare("SELECT COUNT(*) FROM menus WHERE slug = :slug AND id != :id");
@@ -76,20 +76,20 @@ if ($action === 'rename') {
     $st = $pdo->prepare("UPDATE menus SET name = :name, slug = :slug WHERE id = :id");
     $st->execute([':name' => $name, ':slug' => $slug, ':id' => $menuId]);
 
-    adiwira_redirect_with_flash($returnTo, 'success', __('Menu berhasil diubah.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Menu updated successfully.'));
 }
 
 if ($action === 'set_default') {
     $menuId = (int)($_POST['menu_id'] ?? 0);
     if ($menuId <= 0) {
-        adiwira_redirect_with_flash($returnTo, 'error', __('Menu tidak valid.'));
+        adiwira_redirect_with_flash($returnTo, 'error', __('Invalid menu.'));
     }
 
     $pdo->exec("UPDATE menus SET is_default = 0");
     $st = $pdo->prepare("UPDATE menus SET is_default = 1 WHERE id = :id");
     $st->execute([':id' => $menuId]);
 
-    adiwira_redirect_with_flash($returnTo, 'success', __('Menu default berhasil diubah.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Default menu updated successfully.'));
 }
 
-adiwira_redirect_with_flash($returnTo, 'error', __('Aksi tidak dikenal.'));
+adiwira_redirect_with_flash($returnTo, 'error', __('Unknown action.'));

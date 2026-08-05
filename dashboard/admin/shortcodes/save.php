@@ -49,17 +49,17 @@ if ($isEdit) {
     $session_key = 'sc_save_nonce_' . $id;
     $session_nonce = $_SESSION[$session_key] ?? null;
     if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce, (string)$save_nonce)) {
-        $errors[] = __('Token penyimpanan tidak valid atau sudah digunakan (duplikat). Muat ulang halaman.');
+        $errors[] = __('Save token invalid or already used (duplicate). Reload the page.');
     }
 } else {
     $session_nonce = $_SESSION['sc_add_nonce'] ?? null;
     if (!$session_nonce || $save_nonce === '' || !hash_equals((string)$session_nonce, (string)$save_nonce)) {
-        $errors[] = __('Token penyimpanan tidak valid. Muat ulang halaman.');
+        $errors[] = __('Save token invalid. Reload the page.');
     }
 }
 
 if ($title === '') {
-    $errors[] = __('Nama preset tidak boleh kosong.');
+    $errors[] = __('Preset name cannot be empty.');
 }
 
 $slug = slugify_sc($slug_in !== '' ? $slug_in : $title);
@@ -67,7 +67,7 @@ $slug = slugify_sc($slug_in !== '' ? $slug_in : $title);
 // Decode config
 $config = json_decode($config_json, true);
 if (!is_array($config)) {
-    $errors[] = __('Format konfigurasi tidak valid.');
+    $errors[] = __('Invalid configuration format.');
 }
 
 // Check slug uniqueness
@@ -127,5 +127,5 @@ try {
     }
 } catch (Throwable $e) {
     error_log('shortcodes/save.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($return_to, 'error', 'Gagal menyimpan preset: ' . $e->getMessage());
+    adiwira_redirect_with_flash($return_to, 'error', __('Failed to save preset: ') . $e->getMessage());
 }

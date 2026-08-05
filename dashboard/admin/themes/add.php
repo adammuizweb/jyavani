@@ -162,7 +162,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
 
         <label style="margin-top:.6rem;display:block">
-          Slug (opsional)<br>
+          <?=_e('Slug (optional)')?><br>
           <input
             type="text"
             name="slug"
@@ -177,11 +177,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
 
         <label style="margin-top:.6rem;display:block">
-          Status<br>
+          <?=_e('Status')?><br>
           <select name="status" class="inpud">
-            <option value="draft" <?= $status === 'draft' ? 'selected' : '' ?>>Draft</option>
-            <option value="published" <?= $status === 'published' ? 'selected' : '' ?>>Published</option>
-            <option value="private" <?= $status === 'private' ? 'selected' : '' ?>>Private</option>
+            <option value="draft" <?= $status === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
+            <option value="published" <?= $status === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
+            <option value="private" <?= $status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
           </select>
         </label>
 

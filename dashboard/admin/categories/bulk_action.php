@@ -88,7 +88,7 @@ try {
             $pdo->rollBack();
             respond_categories_bulk(
                 false,
-                'Gagal: ada kategori yang masih punya subkategori aktif. IDs: ' . implode(',', array_slice(array_map('intval', $badParents), 0, 30)),
+                __('Failed: some categories still have active subcategories. IDs: ') . implode(',', array_slice(array_map('intval', $badParents), 0, 30)),
                 400,
                 [],
                 $returnTo
@@ -107,7 +107,7 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond_categories_bulk(true, "Berhasil memindahkan {$affected} kategori ke trash.", 200, ['count' => $affected], $returnTo);
+        respond_categories_bulk(true, sprintf(__('%d category(ies) moved to trash.'), $affected), 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_parent') {

@@ -20,14 +20,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 $identity = adiwira_fetch_identity($pdo);
 if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: belum login.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: not logged in.'));
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
 $role = (string)($identity['role'] ?? 'guest');
 
 if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Akses ditolak: hanya admin.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: admins only.'));
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
@@ -43,7 +43,7 @@ if ($id <= 0) {
 }
 
 if ($id === $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Tidak dapat lock/unlock akun sendiri.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('You cannot lock or unlock your own account.'));
 }
 
 if (!in_array($mode, ['lock', 'unlock'], true)) {
@@ -90,8 +90,8 @@ try {
         );
     }
 
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal memperbarui status user.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to update user status.'));
 } catch (Throwable $e) {
     error_log('[users/toggle_lock] ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal memperbarui status user.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to update user status.'));
 }

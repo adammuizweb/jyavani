@@ -63,7 +63,7 @@ $ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
 $ids = array_values(array_filter($ids, fn($v) => $v !== $uid)); // jangan proses diri sendiri
 
 if (empty($ids)) {
-    adiwira_users_bulk_respond(false, __('Tidak ada user valid dipilih.'), 400, [], $returnTo);
+    adiwira_users_bulk_respond(false, __('No valid user selected.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
@@ -82,7 +82,7 @@ try {
         $cnt = $stmt->rowCount();
 
         $pdo->commit();
-        adiwira_users_bulk_respond(true, "Berhasil menghapus {$cnt} user.", 200, ['count' => $cnt], $returnTo);
+        adiwira_users_bulk_respond(true, sprintf(__('%d user(s) deleted.'), $cnt), 200, ['count' => $cnt], $returnTo);
     }
 
     if ($action === 'change_role') {
@@ -91,7 +91,7 @@ try {
 
         if (!in_array($newRole, $allowed, true)) {
             $pdo->rollBack();
-            adiwira_users_bulk_respond(false, __('Role tujuan tidak valid.'), 400, [], $returnTo);
+            adiwira_users_bulk_respond(false, __('Invalid target role.'), 400, [], $returnTo);
         }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -102,7 +102,7 @@ try {
         $cnt = $stmt->rowCount();
 
         $pdo->commit();
-        adiwira_users_bulk_respond(true, "Berhasil mengubah role {$cnt} user menjadi {$newRole}.", 200, ['count' => $cnt], $returnTo);
+        adiwira_users_bulk_respond(true, sprintf(__('%d user(s) role changed to "%s".'), $cnt, $newRole), 200, ['count' => $cnt], $returnTo);
     }
 
     if ($action === 'lock') {
@@ -113,7 +113,7 @@ try {
         $cnt = $stmt->rowCount();
 
         $pdo->commit();
-        adiwira_users_bulk_respond(true, "Berhasil mengunci {$cnt} user.", 200, ['count' => $cnt], $returnTo);
+        adiwira_users_bulk_respond(true, sprintf(__('%d user(s) locked.'), $cnt), 200, ['count' => $cnt], $returnTo);
     }
 
     if ($action === 'unlock') {
@@ -124,7 +124,7 @@ try {
         $cnt = $stmt->rowCount();
 
         $pdo->commit();
-        adiwira_users_bulk_respond(true, "Berhasil meng-approve / unlock {$cnt} user.", 200, ['count' => $cnt], $returnTo);
+        adiwira_users_bulk_respond(true, sprintf(__('%d user(s) approved / unlocked.'), $cnt), 200, ['count' => $cnt], $returnTo);
     }
 
     $pdo->rollBack();

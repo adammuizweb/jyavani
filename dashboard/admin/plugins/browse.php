@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tmpExtract = PLUGIN_PATH . '/.extract-' . bin2hex(random_bytes(8));
     if (!mkdir($tmpExtract, 0755, true)) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuat temporary directory.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to create temporary directory.'));
     }
 
     $extracted = $zip->extractTo($tmpExtract);
@@ -154,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$extracted) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengekstrak file.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to extract file.'));
     }
 
     if (!is_file($tmpExtract . '/plugin.json')) {
@@ -171,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Pindah ke plugins/{name}/
     if (!rename($tmpExtract, $pluginDir)) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal memindahkan plugin.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to move plugin.'));
     }
 
     // Set permissions

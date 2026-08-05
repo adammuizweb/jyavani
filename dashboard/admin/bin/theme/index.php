@@ -132,9 +132,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
     <select name="status" style="padding:.4rem;">
       <option value=""><?= _e('-- All Status --') ?></option>
-      <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>>Draft</option>
-      <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>>Published</option>
-      <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>>Private</option>
+      <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
+      <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
+      <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
     </select>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -206,9 +206,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
                 <td>
                   <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
-                        role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
+                        role="status" aria-label="<?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?>">
                     <span class="adam-status-icon"><?= $iconSvg ?></span>
-                    <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="adam-status-text"><?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?></span>
                   </span>
                 </td>
 
@@ -298,9 +298,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
               <td>
                 <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
-                      role="status" aria-label="<?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?>">
+                      role="status" aria-label="<?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?>">
                   <span class="adam-status-icon"><?= $iconSvg ?></span>
-                  <span class="adam-status-text"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></span>
+                  <span class="adam-status-text"><?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?></span>
                 </span>
               </td>
 

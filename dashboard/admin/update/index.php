@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $file = $_FILES['update_package'];
         $origName = basename($file['name']);
         if (!str_ends_with(strtolower($origName), '.zip')) {
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Hanya file .zip yang didukung.'));
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Only .zip files are supported.'));
         }
 
         $tmpZip = $file['tmp_name'];

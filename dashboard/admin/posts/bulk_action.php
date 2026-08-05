@@ -127,7 +127,7 @@ try {
         $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
 
         $pdo->commit();
-        respond(true, "Berhasil menghapus {$affected} artikel.", 200, ['count' => $affected], $returnTo);
+        respond(true, sprintf(__('%d article(s) deleted.'), $affected), 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_status') {
@@ -150,7 +150,7 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond(true, "Berhasil mengubah status {$affected} artikel menjadi {$new_status}.", 200, ['count' => $affected], $returnTo);
+        respond(true, sprintf(__('%d article(s) status changed to "%s".'), $affected, $new_status), 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_categories') {

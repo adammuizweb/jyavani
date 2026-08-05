@@ -136,7 +136,7 @@ try {
         $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
 
         $pdo->commit();
-        respond_pages_bulk(true, "Berhasil menghapus {$affected} halaman.", 200, ['count' => $affected], $returnTo);
+        respond_pages_bulk(true, sprintf(__('%d page(s) deleted.'), $affected), 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_status') {
@@ -160,7 +160,7 @@ try {
         $affected = $stmt->rowCount();
 
         $pdo->commit();
-        respond_pages_bulk(true, "Berhasil mengubah status {$affected} halaman menjadi {$new_status}.", 200, ['count' => $affected], $returnTo);
+        respond_pages_bulk(true, sprintf(__('%d page(s) status changed to "%s".'), $affected, $new_status), 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_author') {

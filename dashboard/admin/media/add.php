@@ -99,7 +99,7 @@ $hasVisibility = mdlib_has_column('visibility');
       window.NewNotifToast.show({ type: type, title: title, message: message, duration: duration });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts) {
@@ -195,10 +195,10 @@ $hasVisibility = mdlib_has_column('visibility');
 
       if (!res.ok) {
         const httpMap = {
-          413: 'File terlalu besar. Maksimal 20MB.'
+          413: '<?=__('File too large. Max 20MB.')?>'
         };
         const msg = j?.error || httpMap[res.status] || txt?.replace(/<[^>]+>/g, '').trim() || ('HTTP ' + res.status);
-        uiToast('error', 'Media', '<?=__('Upload failed: ')?>' + msg);
+        uiToast('error', '<?=__('Media')?>', '<?=__('Upload failed: ')?>' + msg);
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 400);
@@ -207,7 +207,7 @@ $hasVisibility = mdlib_has_column('visibility');
       }
 
       if (!j || !j.success) {
-        uiToast('error', 'Media', '<?=__('Upload failed: ')?>' + (j?.error || txt || 'unknown'));
+        uiToast('error', '<?=__('Media')?>', '<?=__('Upload failed: ')?>' + (j?.error || txt || 'unknown'));
         setTimeout(() => {
           row.classList.add('fade');
           setTimeout(() => row.remove(), 400);
@@ -218,7 +218,7 @@ $hasVisibility = mdlib_has_column('visibility');
       bar.style.width = '100%';
       showThumb(j.url, j.media);
 
-      uiToast('success', 'Media', '<?=__('Upload successful: ')?>' + file.name, 1800);
+      uiToast('success', '<?=__('Media')?>', '<?=__('Upload successful: ')?>' + file.name, 1800);
       document.dispatchEvent(new CustomEvent('media:added', { detail: j.media }));
 
       setTimeout(() => {
@@ -302,7 +302,7 @@ $hasVisibility = mdlib_has_column('visibility');
           try { j = txt ? JSON.parse(txt) : null; } catch(e) {}
 
           if (!res.ok) {
-            uiToast('error', 'Media', 'Gagal hapus: ' + (j?.error || txt || ('HTTP ' + res.status)));
+            uiToast('error', '<?=__('Media')?>', '<?=__('Failed to delete: ')?>' + (j?.error || txt || ('HTTP ' + res.status)));
             return;
           }
 
@@ -310,14 +310,14 @@ $hasVisibility = mdlib_has_column('visibility');
             box.remove();
             uiToast('success', '<?=__('Media')?>', '<?=__('Media deleted successfully.')?>');
             if (j.warning) {
-              uiToast('warning', 'Media', j.warning);
+              uiToast('warning', '<?=__('Media')?>', j.warning);
             }
             document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
           } else {
-            uiToast('error', 'Media', 'Gagal hapus: ' + (j?.error || txt || 'unknown'));
+            uiToast('error', '<?=__('Media')?>', '<?=__('Failed to delete: ')?>' + (j?.error || txt || 'unknown'));
           }
         } catch (err) {
-          uiToast('error', 'Media', 'Network error: ' + (err.message || err));
+          uiToast('error', '<?=__('Media')?>', '<?=__('Network error:')?> ' + (err.message || err));
         }
       };
     }

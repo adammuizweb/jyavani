@@ -90,6 +90,14 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 
 $GLOBALS['pdo'] = $pdo;
 
+if (!function_exists('core_dbg')) {
+    function core_dbg(string $msg): void {
+        if (function_exists('app_debug_enabled') && app_debug_enabled()) {
+            error_log("[bootstrap_core] " . $msg);
+        }
+    }
+}
+
 // Auto-fix runtime file permissions (group-writable untuk www-data)
 if (function_exists('ensure_writable_runtime')) {
     ensure_writable_runtime();
@@ -131,19 +139,17 @@ if (is_file($migrationPath)) {
     }
 }
 
+// Ensure UI translation seed data is present (idempotent — INSERT IGNORE only)
+if (function_exists('ensure_ui_translations_seeded')) {
+    $seedResult = ensure_ui_translations_seeded($pdo);
+    core_dbg("ui_translations seed: " . ($seedResult ? 'ok' : 'failed'));
+}
+
 $session_path = rtrim(BACKEND_PATH, '/\\') . DIRECTORY_SEPARATOR . 'session.php';
 if (is_file($session_path)) {
     require_once $session_path;
 } else {
     error_log("bootstrap_core: session.php not found at {$session_path}");
-}
-
-if (!function_exists('core_dbg')) {
-    function core_dbg(string $msg): void {
-        if (function_exists('app_debug_enabled') && app_debug_enabled()) {
-            error_log("[bootstrap_core] " . $msg);
-        }
-    }
 }
 
 core_dbg("loaded BACKEND_PATH=" . BACKEND_PATH . " ; PDO present=" . (isset($pdo) ? '1' : '0'));

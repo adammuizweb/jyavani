@@ -24,24 +24,24 @@ try {
 <div class="mdlib-uploader mdlib-uploader--split">
   <div class="mdlib-uploader-left">
     <div class="mdlib-upload-config">
-      <label class="mdlib-config-label">Mode penyimpanan file</label>
+      <label class="mdlib-config-label"><?= _e('File storage mode') ?></label>
       <select id="mdlib-visibility-select" class="mdlib-select">
-        <option value="auto" selected>Auto — public</option>
-        <option value="public">Public — akses URL langsung</option>
-        <option value="private">Private internal — via protected URL</option>
+        <option value="auto" selected><?= _e('Auto — public') ?></option>
+        <option value="public"><?= _e('Public — direct URL access') ?></option>
+        <option value="private"><?= _e('Private internal — via protected URL') ?></option>
       </select>
 
       <div class="mdlib-private-options" id="mdlib-private-options">
         <label>
-          Akses private
+          <?= _e('Private access') ?>
           <select id="mdlib-access-scope">
-            <option value="editorial" selected>Editorial</option>
-            <option value="admin">Admin saja</option>
+            <option value="editorial" selected><?= _e('Editorial') ?></option>
+            <option value="admin"><?= _e('Admin Only') ?></option>
           </select>
         </label>
         <label class="mdlib-checkline">
           <input type="checkbox" id="mdlib-is-downloadable" value="1">
-          Izinkan download langsung
+          <?= _e('Allow direct download') ?>
         </label>
       </div>
     </div>
@@ -49,7 +49,7 @@ try {
 
   <div class="mdlib-uploader-right">
     <div id="mdlib-dropzone" class="mdlib-dropzone" role="button" tabindex="0">
-      Tarik file ke sini atau klik
+      <?= _e('Drag file here or click') ?>
       <button id="mdlib-browse-btn" class="mdlib-btn mdlib-btn-primary" type="button"><?= _e('Select file') ?></button>
       <div class="mdlib-note">
         pdf, doc/docx, xls/xlsx, ppt/pptx, zip, mp4, webm, mov, txt, rtf, mp3, wav, ogg
@@ -60,7 +60,7 @@ try {
     <div id="mdlib-preview-wrap" class="mdlib-preview-grid" aria-live="polite"></div>
 
     <div class="mdlib-upload-actions" style="margin-top:8px">
-      <button id="mdlib-clear-btn" class="mdlib-btn" type="button" style="display:none;">Bersihkan</button>
+      <button id="mdlib-clear-btn" class="mdlib-btn" type="button" style="display:none;"><?= _e('Clear') ?></button>
     </div>
   </div>
 </div>
@@ -116,7 +116,7 @@ try {
       window.mdlibUi.toast(type, title, message, duration);
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts) {
@@ -319,7 +319,7 @@ try {
           const j = readJsonSafe(txt);
 
           if (!res.ok) {
-            uiToast('error', 'Library File', 'Gagal hapus file: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+            uiToast('error', '<?=__('Library File')?>', '<?=__('Failed to delete file: ')?>' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
             return;
           }
 
@@ -328,7 +328,7 @@ try {
             updateClearButton();
             uiToast('success', '<?=__('Library File')?>', '<?=__('File deleted successfully.')?>', 2200);
             if (j.warning) {
-              uiToast('warning', 'Library File', j.warning, 6000);
+              uiToast('warning', '<?=__('Library File')?>', j.warning, 6000);
             }
 
             const payload = Object.assign({}, j || {}, {
@@ -339,10 +339,10 @@ try {
 
             broadcast('file:deleted', payload);
           } else {
-            uiToast('error', 'Library File', 'Gagal hapus file: ' + ((j && j.error) ? j.error : 'unknown'), 6000);
+            uiToast('error', '<?=__('Library File')?>', '<?=__('Failed to delete file: ')?>' + ((j && j.error) ? j.error : 'unknown'), 6000);
           }
         } catch (err) {
-          uiToast('error', 'Library File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
+          uiToast('error', '<?=__('Library File')?>', '<?=__('Network error:')?> ' + (err && err.message ? err.message : err), 6000);
         }
       });
     }
@@ -376,14 +376,14 @@ try {
       const j = readJsonSafe(txt);
 
       if (!res.ok) {
-        uiToast('error', 'Library File', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
         progress.row.remove();
         updateClearButton();
         return;
       }
 
       if (!j || !j.success) {
-        uiToast('error', 'Library File', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Upload failed: ')?>' + ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         progress.row.remove();
         updateClearButton();
         return;
@@ -404,7 +404,7 @@ try {
 
       showPreview(j.url || fileMeta.url || '', fileMeta);
       broadcast('file:added', fileMeta);
-      uiToast('success', 'Library File', '<?=__('Upload successful: ')?>' + file.name, 1800);
+      uiToast('success', '<?=__('Library File')?>', '<?=__('Upload successful: ')?>' + file.name, 1800);
 
       setTimeout(function(){
         if (progress.row.parentNode) {
@@ -413,7 +413,7 @@ try {
         updateClearButton();
       }, 700);
     } catch (err) {
-      uiToast('error', 'Library File', '<?=__('Upload failed (network): ')?>' + (err && err.message ? err.message : err), 6000);
+      uiToast('error', '<?=__('Library File')?>', '<?=__('Upload failed (network): ')?>' + (err && err.message ? err.message : err), 6000);
       if (progress.row.parentNode) {
         progress.row.parentNode.removeChild(progress.row);
       }

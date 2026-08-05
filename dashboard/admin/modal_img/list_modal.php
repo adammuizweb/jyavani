@@ -205,9 +205,9 @@ try {
           };
 
           if ($page <= 1) {
-              echo '<span class="disabled">Prev</span>';
+              echo '<span class="disabled">' . __('Previous') . '</span>';
           } else {
-              echo '<a href="' . htmlspecialchars($pageUrl($page - 1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page - 1) . '">Prev</a>';
+              echo '<a href="' . htmlspecialchars($pageUrl($page - 1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page - 1) . '">' . __('Previous') . '</a>';
           }
 
           if ($start > 1) {
@@ -229,9 +229,9 @@ try {
           }
 
           if ($page >= $total_pages) {
-              echo '<span class="disabled">Next</span>';
+              echo '<span class="disabled">' . __('Next') . '</span>';
           } else {
-              echo '<a href="' . htmlspecialchars($pageUrl($page + 1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page + 1) . '">Next</a>';
+              echo '<a href="' . htmlspecialchars($pageUrl($page + 1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page + 1) . '">' . __('Next') . '</a>';
           }
           ?>
         </div>
@@ -259,7 +259,7 @@ try {
       window.modalImgToast(type, title, message, duration);
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function broadcast(name, detail) {
@@ -300,7 +300,7 @@ try {
       })
       .catch(function(err){
         console.error('modal_img list fetch error', err);
-        uiToast('error', 'Gallery', 'Gagal memuat gallery: ' + (err.message || err), 6000);
+        uiToast('error', <?= json_encode(__('Gallery')) ?>, <?= json_encode(__('Failed to load gallery:') . ' ') ?> + (err.message || err), 6000);
       });
   }
 
@@ -322,7 +322,7 @@ try {
 
       var id = detailBtn.getAttribute('data-id');
       if (!id) {
-        uiToast('warning', 'Gallery', '<?=__('Media ID not found.')?>', 4000);
+        uiToast('warning', '<?=__('Gallery')?>', '<?=__('Media ID not found.')?>', 4000);
         return;
       }
 

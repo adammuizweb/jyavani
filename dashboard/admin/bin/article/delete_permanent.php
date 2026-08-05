@@ -52,7 +52,7 @@ $stmt->execute([':id' => $id]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Artikel tidak ditemukan di trash.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Article not found in trash.'));
 }
 
 if ($role === 'author' && (int)($post['created_by'] ?? 0) !== $uid) {
@@ -75,7 +75,7 @@ try {
 
     $pdo->commit();
 
-    adiwira_redirect_with_flash($returnTo, 'success', __('Artikel berhasil dihapus permanen.'));
+    adiwira_redirect_with_flash($returnTo, 'success', __('Article permanently deleted.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -83,5 +83,5 @@ try {
     }
 
     error_log('bin/article/delete_permanent.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal hapus permanen artikel.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to permanently delete article.'));
 }

@@ -40,7 +40,7 @@ try {
         $sql = "SELECT * FROM `file` WHERE url = :url";
         $params = [':url' => $url];
     } else {
-        echo "<div style='padding:18px'>File not found</div>";
+        echo "<div style='padding:18px'>" . __('File not found') . "</div>";
         exit;
     }
 
@@ -56,12 +56,12 @@ try {
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     error_log('file/single.php error: ' . $e->getMessage());
-    echo "<div style='padding:18px'>File not found</div>";
+    echo "<div style='padding:18px'>" . __('File not found') . "</div>";
     exit;
 }
 
 if (!$row) {
-    echo "<div style='padding:18px'>File not found</div>";
+    echo "<div style='padding:18px'>" . __('File not found') . "</div>";
     exit;
 }
 
@@ -117,7 +117,7 @@ if (!function_exists('human_filesize')) {
           <span class="badge badge--<?= $isPrivate ? 'warn' : 'ok' ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
           <span class="badge badge--info"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
           <?php if (!$isDownloadable): ?>
-            <span class="badge badge--danger">NO DOWNLOAD</span>
+            <span class="badge badge--danger"><?=_e('NO DOWNLOAD')?></span>
           <?php endif; ?>
         </div>
       </div>
@@ -195,7 +195,7 @@ if (!function_exists('human_filesize')) {
       });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts) {
@@ -261,18 +261,18 @@ if (!function_exists('human_filesize')) {
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+          uiToast('error', '<?=__('File')?>', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
-          uiToast('success', 'File', '<?=__('File updated successfully.')?>', 3000);
+          uiToast('success', '<?=__('File')?>', '<?=__('File updated successfully.')?>', 3000);
           document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
-          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
+          uiToast('error', '<?=__('File')?>', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }
       } catch (err) {
-        uiToast('error', 'File', 'Network error: ' + (err.message || err), 6000);
+        uiToast('error', '<?=__('File')?>', '<?=__('Network error:')?> ' + (err.message || err), 6000);
       } finally {
         saveBtn.disabled = false;
       }
@@ -309,22 +309,22 @@ if (!function_exists('human_filesize')) {
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+          uiToast('error', '<?=__('File')?>', ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
           return;
         }
 
         if (j && j.ok) {
-          uiToast('success', 'File', '<?=__('File deleted successfully.')?>', 3000);
+          uiToast('success', '<?=__('File')?>', '<?=__('File deleted successfully.')?>', 3000);
           if (j.warning) {
-            uiToast('warning', 'File', j.warning, 6000);
+            uiToast('warning', '<?=__('File')?>', j.warning, 6000);
           }
           document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
           closeModalFallback();
         } else {
-          uiToast('error', 'File', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
+          uiToast('error', '<?=__('File')?>', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }
       } catch (err) {
-        uiToast('error', 'File', 'Network error: ' + (err.message || err), 6000);
+        uiToast('error', '<?=__('File')?>', '<?=__('Network error:')?> ' + (err.message || err), 6000);
       } finally {
         deleteBtn.disabled = false;
       }

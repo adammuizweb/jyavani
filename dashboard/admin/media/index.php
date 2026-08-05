@@ -82,7 +82,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts) {
@@ -181,7 +181,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     } catch (err) {
       console.error('refreshListPanel error:', err);
       if (!silent) {
-        uiToast('error', 'Media', 'Gagal memuat daftar media: ' + (err.message || err));
+        uiToast('error', '<?=__('Media')?>', '<?=__('Failed to load media:')?> ' + (err.message || err));
       }
     }
   }
@@ -209,7 +209,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
       };
     } catch (err) {
-      uiToast('error', 'Media', 'Gagal memuat modal: ' + (err.message || err));
+      uiToast('error', '<?=__('Media')?>', '<?=__('Failed to load modal:')?> ' + (err.message || err));
     }
   };
 
@@ -251,9 +251,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     ta.select();
     try {
       document.execCommand('copy');
-      uiToast('success', 'Media', '<?=__('URL copied successfully.')?>');
+      uiToast('success', '<?=__('Media')?>', '<?=__('URL copied successfully.')?>');
     } catch (e) {
-      uiToast('error', 'Media', '<?=__('Failed to copy URL.')?>');
+      uiToast('error', '<?=__('Media')?>', '<?=__('Failed to copy URL.')?>');
     }
     document.body.removeChild(ta);
   }
@@ -294,18 +294,18 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
           const msg = (j?.errors && Array.isArray(j.errors) && j.errors.length)
             ? j.errors.join('\n')
             : (j?.error || txt || ('HTTP ' + res.status));
-          uiToast('error', 'Media', msg);
+          uiToast('error', '<?=__('Media')?>', msg);
           return;
         }
 
         if (j && j.ok) {
-          uiToast('success', 'Media', '<?=__('Media updated successfully.')?>');
+          uiToast('success', '<?=__('Media')?>', '<?=__('Media updated successfully.')?>');
           document.dispatchEvent(new CustomEvent('media:updated', { detail: j }));
         } else {
-          uiToast('error', 'Media', j?.error || txt || 'Terjadi kesalahan.');
+          uiToast('error', '<?=__('Media')?>', j?.error || txt || '<?=__('Something happened.')?>');
         }
       } catch (err) {
-        uiToast('error', 'Media', 'Network error: ' + (err.message || err));
+        uiToast('error', '<?=__('Media')?>', '<?=__('Network error:')?> ' + (err.message || err));
       } finally {
         btn.disabled = false;
       }
@@ -343,22 +343,22 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         const { txt, j } = await readJsonSafe(res);
 
         if (!res.ok) {
-          uiToast('error', 'Media', j?.error || txt || ('HTTP ' + res.status));
+          uiToast('error', '<?=__('Media')?>', j?.error || txt || ('HTTP ' + res.status));
           return;
         }
 
         if (j && j.ok) {
-          uiToast('success', 'Media', '<?=__('Media deleted successfully.')?>');
+          uiToast('success', '<?=__('Media')?>', '<?=__('Media deleted successfully.')?>');
           if (j.warning) {
-            uiToast('warning', 'Media', j.warning);
+            uiToast('warning', '<?=__('Media')?>', j.warning);
           }
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
           window.adamModalClose();
         } else {
-          uiToast('error', 'Media', j?.error || txt || 'Terjadi kesalahan.');
+          uiToast('error', '<?=__('Media')?>', j?.error || txt || '<?=__('Something happened.')?>');
         }
       } catch (err) {
-        uiToast('error', 'Media', 'Network error: ' + (err.message || err));
+        uiToast('error', '<?=__('Media')?>', '<?=__('Network error:')?> ' + (err.message || err));
       }
       return;
     }
@@ -386,7 +386,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         navigator.clipboard.writeText(full).then(() => {
-          uiToast('success', 'Media', '<?=__('URL copied successfully.')?>');
+          uiToast('success', '<?=__('Media')?>', '<?=__('URL copied successfully.')?>');
         }).catch(() => {
           fallbackCopy(full);
         });

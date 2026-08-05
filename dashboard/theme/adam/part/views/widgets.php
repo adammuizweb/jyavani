@@ -30,7 +30,7 @@ function dash_widget_cms_info(PDO $pdo): string
       <tr><td>' . __('Version') . '</td><td><strong>v' . h($version) . '</strong></td></tr>
       <tr><td>' . __('Edition') . '</td><td>' . $editionBadge . '</td></tr>
       <tr><td>' . __('Build') . '</td><td>' . h($build) . '</td></tr>
-      <tr><td>' . __('PHP Required') . '</td><td>' . h($phpReq) . '+ (server: ' . PHP_VERSION . ')</td></tr>
+      <tr><td>' . __('PHP Required') . '</td><td>' . h($phpReq) . '+ (' . __('server:') . ' ' . PHP_VERSION . ')</td></tr>
     </table>
   </div>
 </div>';
@@ -74,7 +74,7 @@ function dash_widget_update_status(PDO $pdo): string
     }
 
     if (!$items) {
-        $items = '<tr><td colspan="3" class="dw-na">' . __('Semua sudah versi terbaru.') . '</td></tr>';
+        $items = '<tr><td colspan="3" class="dw-na">' . __('Everything is up to date.') . '</td></tr>';
     }
 
     return '
@@ -152,7 +152,7 @@ function dash_widget_recent_posts(PDO $pdo): string
         $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
         $items .= '<tr>'
                . '<td><a href="' . h($base) . '/?page=admin/posts/edit&id=' . (int)$r['id'] . '" class="dw-link">' . h(mb_substr((string)$r['title'], 0, 40)) . '</a></td>'
-               . '<td><span class="adam-status ' . h($statusClass) . '"><span class="adam-status-text">' . h(ucfirst($status)) . '</span></span></td>'
+                . '<td><span class="adam-status ' . h($statusClass) . '"><span class="adam-status-text">' . h(__(ucfirst($status))) . '</span></span></td>'
                . '<td class="dw-muted">' . h(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$r['updated_at']) : (string)$r['updated_at']) . '</td>'
                . '</tr>';
     }

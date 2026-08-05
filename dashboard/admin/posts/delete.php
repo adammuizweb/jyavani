@@ -45,7 +45,7 @@ $stmt->execute([':id' => $id]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$post) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Artikel tidak ditemukan.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Article not found.'));
 }
 
 if (in_array($role, ['author', 'editor'], true) && (int)($post['created_by'] ?? 0) !== $uid) {

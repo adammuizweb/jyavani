@@ -76,5 +76,5 @@ try {
 
 } catch (Throwable $e) {
     error_log('bin/page/restore.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Gagal restore page.'));
+    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to restore page.'));
 }

@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
 
     $themeName = (string)($_POST['theme'] ?? '');
     if (!preg_match('/^[a-zA-Z0-9_-]+$/', $themeName)) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Nama theme tidak valid.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid theme name.'));
     }
 
     $themeData = null;
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $dlCtx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS/2.0']]);
     $zipContent = @file_get_contents($downloadUrl, false, $dlCtx);
     if ($zipContent === false) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengunduh theme dari jyavani.com.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download theme from jyavani.com.'));
     }
 
     $tmpZip = tempnam(sys_get_temp_dir(), 'install-') . '.zip';
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
     $tmpExtract = dirname(VIEWS_BASE) . '/.extract-' . bin2hex(random_bytes(8));
     if (!mkdir($tmpExtract, 0755, true)) {
         $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuat temporary directory.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to create temporary directory.'));
     }
 
     $extracted = $zip->extractTo($tmpExtract);
@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
 
     if (!$extracted) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengekstrak file.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to extract file.'));
     }
 
     if (!is_file($tmpExtract . '/theme.json')) {
@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
 
     if (!rename($tmpExtract, $themeDir)) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal memindahkan theme.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to move theme.'));
     }
 
     $chmodIt = new RecursiveIteratorIterator(
@@ -190,10 +190,10 @@ if (isset($_GET['refresh'])) {
 
 <?php if ($error): ?>
 <div class="alert alert-error">
-  <strong>Gagal memuat daftar theme.</strong><br>
+  <strong><?= _e('Failed to load theme list.') ?></strong><br>
   <?= h($error) ?>
   <br><br>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-primary">Coba Lagi</a>
+  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-primary"><?= _e('Try Again') ?></a>
 </div>
 <?php elseif (empty($themes)): ?>
 <div class="empty-state">
@@ -230,7 +230,7 @@ if (isset($_GET['refresh'])) {
         <span class="badge-php">PHP <?= h($p['php_required']) ?></span>
         <?php endif; ?>
         <?php if (!empty($p['author'])): ?>
-        <span>oleh <?= h($p['author']) ?></span>
+        <span><?= _e('by') ?> <?= h($p['author']) ?></span>
         <?php endif; ?>
         <?php if (!empty($p['avg_rating'])): ?>
         <span>★ <?= number_format((float)$p['avg_rating'], 1) ?></span>
@@ -240,16 +240,16 @@ if (isset($_GET['refresh'])) {
     <div class="plugin-card-actions">
       <?php if ($isInstalled): ?>
         <?php if ($hasUpdate): ?>
-        <a href="<?= h($listUrl) ?>" class="btn btn-sm btn-update">Update Tersedia</a>
+        <a href="<?= h($listUrl) ?>" class="btn btn-sm btn-update"><?= _e('Update Available') ?></a>
         <?php else: ?>
-        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> Terpasang</span>
+        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> <?= _e('Installed') ?></span>
         <?php endif; ?>
       <?php else: ?>
       <form method="post" style="display:inline">
         <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="action" value="install">
         <input type="hidden" name="theme" value="<?= h($p['name']) ?>">
-        <button type="submit" class="btn btn-sm btn-primary">+ Install</button>
+        <button type="submit" class="btn btn-sm btn-primary"><?= _e('+ Install') ?></button>
       </form>
       <?php endif; ?>
     </div>

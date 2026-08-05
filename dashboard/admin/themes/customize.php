@@ -373,7 +373,7 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             $out .= '<div class="tz-img-preview" id="' . $srcId . '-preview" style="margin-top:.5rem;' . (empty($config['src']) ? 'display:none;' : '') . '"><img src="' . h((string)($config['src'] ?? '')) . '" alt="" style="max-height:64px; max-width:200px; border-radius:6px; background:rgba(127,127,127,.1); padding:4px;"></div>';
             $out .= '</div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'alt', __('Alt text'), $config['alt'] ?? '') . '</div>';
-            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'link', __('Link URL (opsional)'), $config['link'] ?? '') . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'link', __('Link URL (optional)'), $config['link'] ?? '') . '</div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'max_width', __('Max width px (0 = auto)'), $config['max_width'] ?? 0) . '</div>';
             break;
         case 'tz_social':
@@ -396,9 +396,9 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             break;
         case 'tz_pages':
             $selectedPages = (array)($config['pages'] ?? []);
-            $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Pages yang ditampilkan (kosong = semua)') . '</label>';
+            $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Pages to show (empty = all)') . '</label>';
             if (empty($pagesList)) {
-                $out .= '<p class="muted" style="margin:0; font-size:13px;">' . __('Belum ada page published.') . '</p>';
+                $out .= '<p class="muted" style="margin:0; font-size:13px;">' . __('No pages published yet.') . '</p>';
             } else {
                 $out .= '<div style="max-height:180px; overflow-y:auto; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; padding:.5rem .75rem; display:flex; flex-direction:column; gap:.3rem;">';
                 foreach ($pagesList as $pg) {
@@ -423,16 +423,16 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             $out .= '<textarea class="tz-richtext-area" data-tz-editor="' . h($rtEditorKey) . '" name="' . $rtName . '" rows="5" style="width:100%; padding:6px 10px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px; font-family:inherit; box-sizing:border-box;">' . h((string)($config['html'] ?? '')) . '</textarea></div>';
             break;
         case 'tz_sidebar_zone':
-            $zoneOptions = ['' => __('- Pilih sidebar zone -')];
+            $zoneOptions = ['' => __('- Choose sidebar zone -')];
             foreach ($sidebarZones as $sz) { $zoneOptions[(string)($sz['slug'] ?? '')] = (string)($sz['name'] ?? $sz['slug'] ?? ''); }
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'zone', __('Sidebar Zone'), $config['zone'] ?? '', 'select', $zoneOptions) . '</div>';
-            $out .= '<div><a class="btn btn-sm btn-secondary" style="margin-top:.25rem; display:inline-flex; align-items:center; gap:4px; padding:.3rem .6rem; font-size:12px;" href="' . h($base . '/?page=admin/sidebar/index') . '" target="_blank">' . __('Kelola Sidebar') . ' →</a></div>';
+            $out .= '<div><a class="btn btn-sm btn-secondary" style="margin-top:.25rem; display:inline-flex; align-items:center; gap:4px; padding:.3rem .6rem; font-size:12px;" href="' . h($base . '/?page=admin/sidebar/index') . '" target="_blank">' . __('Manage Sidebars') . ' →</a></div>';
             break;
         case 'tz_nav_menu':
             $menuOptions = ['' => __('Theme default')];
             foreach ($menus as $m) { $menuOptions[(string)($m['slug'] ?? '')] = (string)($m['name'] ?? $m['slug'] ?? ''); }
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'menu', __('Menu'), $config['menu'] ?? 'primary', 'select', $menuOptions) . '</div>';
-            $out .= '<div><a class="btn btn-sm btn-secondary" style="margin-top:.25rem; display:inline-flex; align-items:center; gap:4px; padding:.3rem .6rem; font-size:12px;" href="' . h($base . '/?page=admin/menus/index') . '" target="_blank">' . __('Kelola Menu') . ' →</a></div>';
+            $out .= '<div><a class="btn btn-sm btn-secondary" style="margin-top:.25rem; display:inline-flex; align-items:center; gap:4px; padding:.3rem .6rem; font-size:12px;" href="' . h($base . '/?page=admin/menus/index') . '" target="_blank">' . __('Manage Menus') . ' →</a></div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'menu_class', __('CSS class'), $config['menu_class'] ?? 'menu') . '</div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'depth', __('Depth'), $config['depth'] ?? 1) . '</div>';
             $out .= '<div style="grid-column:1/-1;">' . tz_widget_config_field($zoneSlug, $position, $itemId, 'ul_attr', __('UL attributes'), $config['ul_attr'] ?? '') . '</div>';
@@ -860,10 +860,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
           <div class="tz-band-label"><?= __('Sidebar') ?> <?= $sidebarOn ? '' : '(' . __('nonaktif') . ')' ?></div>
           <div class="tz-band-body">
             <?php if (!$sidebarOn): ?>
-              <p class="muted" style="margin-top:0;"><?= __('Sidebar sedang nonaktif. Aktifkan lewat toggle Show sidebar di partial Main.') ?></p>
+              <p class="muted" style="margin-top:0;"><?= __('Sidebar is disabled. Enable it via the Show sidebar toggle in the Main partial.') ?></p>
             <?php endif; ?>
             <?php if (empty($zones)): ?>
-              <p class="muted" style="margin-top:0;"><?= __('Belum ada sidebar zone.') ?></p>
+              <p class="muted" style="margin-top:0;"><?= __('No sidebar zones yet.') ?></p>
             <?php else: ?>
               <ul class="tz-sidebar-list">
                 <?php foreach ($zones as $sz): ?>
@@ -874,7 +874,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                 <?php endforeach; ?>
               </ul>
             <?php endif; ?>
-            <a class="btn btn-sm btn-secondary" style="margin-top:.5rem; display:inline-block; padding:.35rem .75rem; font-size:13px;" href="<?= h($base . '/?page=admin/sidebar/index') ?>"><?= __('Kelola Sidebar') ?> →</a>
+            <a class="btn btn-sm btn-secondary" style="margin-top:.5rem; display:inline-block; padding:.35rem .75rem; font-size:13px;" href="<?= h($base . '/?page=admin/sidebar/index') ?>"><?= __('Manage Sidebars') ?> →</a>
           </div>
         </aside>
       </div>
@@ -981,7 +981,7 @@ window.TZ_SHORTCODE_PRESETS = <?= json_encode($scPresets, JSON_UNESCAPED_UNICODE
   var tzActiveShortcodeEditor = null;
   function tzBuildShortcodePicker(){
     var presets = (window.TZ_SHORTCODE_PRESETS && window.TZ_SHORTCODE_PRESETS.length) ? window.TZ_SHORTCODE_PRESETS : [];
-    var emptyMsg = <?= json_encode(__('Belum ada shortcode preset. Buat di Shortcode Builder.')) ?>;
+    var emptyMsg = <?= json_encode(__('No shortcode presets yet. Create one in the Shortcode Builder.')) ?>;
     var items = presets.map(function(p){
       var title = p.title || p.slug || ('#' + p.id);
       var slug = p.slug || p.id;
@@ -996,7 +996,7 @@ window.TZ_SHORTCODE_PRESETS = <?= json_encode($scPresets, JSON_UNESCAPED_UNICODE
     return '<div id="tz-sc-modal" style="position:fixed; inset:0; z-index:2000; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45);">'
       + '<div class="tz-sc-box" style="width:min(420px, 92vw); max-height:80vh; overflow:auto; background:var(--adam-bg); border:1px solid var(--adam-border-2); border-radius:10px; padding:1rem; box-shadow:var(--adam-shadow, 0 12px 40px rgba(0,0,0,.15));">'
       + '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem;">'
-      + '<h3 style="margin:0; font-size:1rem;"><?= __('Pilih Shortcode Preset') ?></h3>'
+      + '<h3 style="margin:0; font-size:1rem;"><?= __('Choose Shortcode Preset') ?></h3>'
       + '<button type="button" id="tz-sc-close" style="background:none; border:none; cursor:pointer; font-size:1.25rem; color:var(--adam-muted); line-height:1;">×</button>'
       + '</div>'
       + '<div style="display:flex; flex-direction:column; gap:.5rem;">' + items + '</div>'

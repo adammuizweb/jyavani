@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $tmpExtract = PLUGIN_PATH . '/.extract-' . bin2hex(random_bytes(8));
     if (!mkdir($tmpExtract, 0755, true)) {
         $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal membuat temporary directory.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to create temporary directory.'));
     }
 
     $extracted = $zip->extractTo($tmpExtract);
@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
 
     if (!$extracted) {
         _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Gagal mengekstrak file.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to extract file.'));
     }
 
     // Ensure plugin.json exists in extracted root

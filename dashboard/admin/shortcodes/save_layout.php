@@ -91,7 +91,7 @@ if (trim($content) === '') {
 try {
     $written = file_put_contents($filePath, $content, LOCK_EX);
     if ($written === false) {
-        throw new RuntimeException('Gagal menulis file.');
+        throw new RuntimeException(__('Failed to write file.'));
     }
 
     unset($_SESSION['sc_layout_nonce']);
@@ -108,9 +108,9 @@ try {
         exit;
     }
 
-    adiwira_redirect_with_flash($return_to, 'success', __('Layout berhasil disimpan.'));
+    adiwira_redirect_with_flash($return_to, 'success', __('Layout saved successfully.'));
 } catch (Throwable $e) {
     error_log('shortcodes/save_layout.php error: ' . $e->getMessage());
-    adiwira_json(['ok' => false, 'errors' => ['Gagal menyimpan file layout.']], 500);
+    adiwira_json(['ok' => false, 'errors' => [__('Failed to save layout file.')]], 500);
     exit;
 }

@@ -381,7 +381,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok:true,
         variant:'danger',
         title: <?= json_encode(__('Delete selected users')) ?>,
-        message: <?= json_encode(__('')) ?> + count + ' user akan dipindahkan ke trash. Lanjutkan?',
+        message: <?= json_encode(__('')) ?> + count + <?= json_encode(__(' user(s) will be moved to trash. Continue?')) ?>,
         confirmText: <?= json_encode(__('Yes, delete')) ?>
       };
     }
@@ -392,7 +392,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         ok:true,
         variant:'warning',
         title: <?= json_encode(__('Change user role')) ?>,
-        message: <?= json_encode(__('Change role of ')) ?> + count + ' user menjadi "' + role + '"?',
+        message: <?= json_encode(__('Change role of ')) ?> + count + <?= json_encode(__(' user(s) to')) ?> + ' "' + role + '"?',
         confirmText: <?= json_encode(__('Yes, change')) ?>
       };
     }
@@ -443,7 +443,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.querySelectorAll('.js-user-delete').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
-      const name = this.getAttribute('data-name') || 'user ini';
+      const name = this.getAttribute('data-name') || '<?=__('this user')?>';
       const returnTo = this.getAttribute('data-return-to') || '';
 
       ask('danger', {
@@ -465,17 +465,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     btn.addEventListener('click', function(){
       const formId = this.getAttribute('data-form-id') || '';
       const mode = this.getAttribute('data-mode') || 'lock';
-      const name = this.getAttribute('data-name') || 'user ini';
+      const name = this.getAttribute('data-name') || '<?=__('this user')?>';
       const form = formId ? document.getElementById(formId) : null;
       if (!form) return;
 
       const isUnlock = mode === 'unlock';
       ask('warning', {
-        title: isUnlock ? 'Approve / unlock user' : 'Lock user',
+        title: isUnlock ? <?= json_encode(__('Approve / unlock user')) ?> : <?= json_encode(__('Lock user')) ?>,
         message: isUnlock
-          ? 'Approve / unlock user "' + name + '"?'
-          : 'Lock user "' + name + '"?',
-        confirmText: isUnlock ? 'Ya, unlock' : 'Ya, lock',
+          ? <?= json_encode(__('Approve / unlock user "')) ?> + name + '"?' 
+          : <?= json_encode(__('Lock user "')) ?> + name + '"?',
+        confirmText: isUnlock ? '<?=__('Yes, unlock')?>' : '<?=__('Yes, lock')?>',
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;

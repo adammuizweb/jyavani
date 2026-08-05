@@ -216,7 +216,7 @@ if (!$embedded):
       window.mdlibUi.toast(type, title, message, duration);
       return;
     }
-    alert(message || title || 'Terjadi sesuatu.');
+    alert(message || title || <?= json_encode(__('Something happened.')) ?>);
   }
 
   function uiAsk(variant, opts) {
@@ -305,12 +305,12 @@ if (!$embedded):
       const j = readJsonSafe(txt);
 
       if (!res.ok) {
-        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Error: ')?>' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
         return;
       }
 
       if (!j || !j.ok) {
-        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : 'Save failed'), 6000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Error: ')?>' + ((j && j.error) ? j.error : '<?=__('Save failed')?>'), 6000);
         return;
       }
 
@@ -322,9 +322,9 @@ if (!$embedded):
       }
 
       broadcast('file:updated', j.file || j);
-      uiToast('success', 'Library File', '<?=__('File updated successfully.')?>', 2200);
+      uiToast('success', '<?=__('Library File')?>', '<?=__('File updated successfully.')?>', 2200);
     } catch (err) {
-      uiToast('error', 'Library File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
+      uiToast('error', '<?=__('Library File')?>', '<?=__('Network error:')?> ' + (err && err.message ? err.message : err), 6000);
     } finally {
       btn.disabled = false;
     }
@@ -357,12 +357,12 @@ if (!$embedded):
       const j = readJsonSafe(txt);
 
       if (!res.ok) {
-        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Error: ')?>' + ((j && j.error) ? j.error : (txt || ('HTTP ' + res.status))), 6000);
         return;
       }
 
       if (!j || !j.ok) {
-        uiToast('error', 'Library File', 'Error: ' + ((j && j.error) ? j.error : 'Delete failed'), 6000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Error: ')?>' + ((j && j.error) ? j.error : '<?=__('Delete failed')?>'), 6000);
         return;
       }
 
@@ -379,9 +379,9 @@ if (!$embedded):
 
       broadcast('file:deleted', payload);
 
-      uiToast('success', 'Library File', '<?=__('File deleted successfully.')?>', 2200);
+      uiToast('success', '<?=__('Library File')?>', '<?=__('File deleted successfully.')?>', 2200);
       if (j.warning) {
-        uiToast('warning', 'Library File', j.warning, 6000);
+        uiToast('warning', '<?=__('Library File')?>', j.warning, 6000);
       }
 
       if (typeof window.mdlibBackToLibrary === 'function') {
@@ -389,7 +389,7 @@ if (!$embedded):
         return;
       }
     } catch (err) {
-      uiToast('error', 'Library File', 'Network error: ' + (err && err.message ? err.message : err), 6000);
+      uiToast('error', '<?=__('Library File')?>', '<?=__('Network error:')?> ' + (err && err.message ? err.message : err), 6000);
     } finally {
       btn.disabled = false;
     }
@@ -405,14 +405,14 @@ if (!$embedded):
     const input = document.getElementById('mdlib-file-url');
     const value = input ? (input.value || '').trim() : '';
     if (!value) {
-      uiToast('warning', 'Library File', '<?=__('URL not found.')?>', 4000);
+      uiToast('warning', '<?=__('Library File')?>', '<?=__('URL not found.')?>', 4000);
       return;
     }
 
     try {
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
         await navigator.clipboard.writeText(value);
-        uiToast('success', 'Library File', '<?=__('URL copied successfully.')?>', 1800);
+        uiToast('success', '<?=__('Library File')?>', '<?=__('URL copied successfully.')?>', 1800);
         return;
       }
     } catch(e){}
@@ -421,9 +421,9 @@ if (!$embedded):
       input.select();
       try {
         document.execCommand('copy');
-        uiToast('success', 'Library File', '<?=__('URL copied successfully.')?>', 1800);
+        uiToast('success', '<?=__('Library File')?>', '<?=__('URL copied successfully.')?>', 1800);
       } catch (e) {
-        uiToast('error', 'Library File', 'Gagal menyalin URL.', 4000);
+        uiToast('error', '<?=__('Library File')?>', '<?=__('Failed to copy URL.')?>', 4000);
       }
     }
   });
