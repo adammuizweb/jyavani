@@ -338,6 +338,7 @@ class CategoryController
 
         $categoryIdentity = $category;
         $category = collection_filter_item($category, 'category', $routeContext + ['scope' => 'category', 'category_id' => (int)$categoryIdentity['id']]);
+        $categoryBreadcrumbs = collection_category_breadcrumbs($pdo, $categoryIdentity, $routeContext);
 
         $page       = max(1, (int)$page);
         $offset     = ($page - 1) * 10;
@@ -468,6 +469,7 @@ class CategoryController
             'category_path' => implode('/', $parts),
             'category_url'  => $catBaseUrl,
             'category_index_url' => get_category_index_permalink($pdo),
+            'category_breadcrumbs' => $categoryBreadcrumbs,
             'site_context'  => 'posts_list',
             'q'             => $q,
             'pagination'    => $paginationHtml,

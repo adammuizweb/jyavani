@@ -250,6 +250,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <textarea name="description" style="width:100%;min-height:100px;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['description'] ?? $cat['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
     </label>
 
+    <?php do_action('category_editor_after_fields', $cat, $pdo); ?>
+
     <p>
       <button type="submit" class="adam-button"><?=_e('Save Changes')?></button>
       <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
