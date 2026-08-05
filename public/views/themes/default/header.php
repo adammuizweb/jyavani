@@ -8,7 +8,6 @@ $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 
 $tcLogo = function_exists('theme_mod') ? (string)theme_mod('logo', '') : '';
 $tcMenu = function_exists('theme_mod') ? (string)theme_mod('nav_menu', '') : '';
 $tcShowTheme = !function_exists('theme_mod') || theme_mod('show_theme', true);
-$tcShowLang  = !function_exists('theme_mod') || theme_mod('show_lang', true);
 $tcShowSearch = !function_exists('theme_mod') || theme_mod('show_search', true);
 $navMenuSlug = $tcMenu !== '' ? $tcMenu : 'primary';
 
@@ -109,17 +108,6 @@ $hasControlsZone = function_exists('theme_zone_has_position') && theme_zone_has_
           >
             <option value="light"><?= __('Light') ?></option>
             <option value="dark"><?= __('Dark') ?></option>
-          </select>
-          <?php endif; ?>
-
-          <?php if ($tcShowLang): ?>
-          <select id="lang-switch" class="ctrl-item blur-in onload"
-            data-anime-trigger="load"
-            data-duration="700"
-            data-delay="860"
-          >
-            <option value="id"><?= __('Indonesian') ?></option>
-            <option value="en"><?= __('English') ?></option>
           </select>
           <?php endif; ?>
 

@@ -2,7 +2,7 @@
     "folder": "default",
     "name": "default",
     "description": "Tema bawaan Jyavani — dark mode, i18n, SEO lengkap, slot-based rendering.",
-    "version": "1.3.2",
+    "version": "1.3.3",
     "author": "adammuiz",
     "screenshot": "img.png",
     "color_mode": "both",
@@ -33,10 +33,6 @@
                     "show_theme": {
                         "type": "toggle",
                         "label": "Show theme selector"
-                    },
-                    "show_lang": {
-                        "type": "toggle",
-                        "label": "Show language selector"
                     },
                     "show_search": {
                         "type": "toggle",
@@ -133,7 +129,7 @@
                         "type": "tz_html",
                         "title": "Controller",
                         "config": {
-                            "html": "<select id=\"themeSelect\" class=\"ctrl-item blur-in onload\" data-anime-trigger=\"load\" data-duration=\"1700\" data-delay=\"760\">\n  <option value=\"light\">Light</option>\n  <option value=\"dark\">Dark</option>\n</select>\n<select id=\"lang-switch\" class=\"ctrl-item blur-in onload\" data-anime-trigger=\"load\" data-duration=\"700\" data-delay=\"860\">\n  <option value=\"id\">ID</option>\n  <option value=\"en\">EN</option>\n</select>\n<form method=\"get\" action=\"/\">\n  <input type=\"search\" name=\"s\" class=\"ctrl-item pop\" data-anime-trigger=\"load\" data-duration=\"1000\" data-delay=\"1000\" placeholder=\"Search...\" style=\"width:120px;max-width:140px;\">\n</form>"
+                            "html": "<select id=\"themeSelect\" class=\"ctrl-item blur-in onload\" data-anime-trigger=\"load\" data-duration=\"1700\" data-delay=\"760\">\n  <option value=\"light\">Light</option>\n  <option value=\"dark\">Dark</option>\n</select>\n<form method=\"get\" action=\"/\">\n  <input type=\"search\" name=\"s\" class=\"ctrl-item pop\" data-anime-trigger=\"load\" data-duration=\"1000\" data-delay=\"1000\" placeholder=\"Search...\" style=\"width:120px;max-width:140px;\">\n</form>"
                         }
                     }
                 ]

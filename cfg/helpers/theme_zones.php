@@ -265,11 +265,6 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 'desc'  => __('Light / Dark mode selector.'),
                 'default_config' => array_merge($uni, ['label' => '']),
             ],
-            'tz_lang_switcher' => [
-                'label' => __('Language Switcher'),
-                'desc'  => __('Language selector. Requires content-translation plugin.'),
-                'default_config' => array_merge($uni, ['title' => '']),
-            ],
             'tz_search' => [
                 'label' => __('Search Field'),
                 'desc'  => __('Article search form.'),
@@ -407,12 +402,6 @@ if (!function_exists('theme_zone_ensure_schema')) {
                     <option value="light">' . __('Light') . '</option>
                     <option value="dark">' . __('Dark') . '</option>
                 </select>';
-
-            case 'tz_lang_switcher':
-                if (function_exists('ct_language_switcher')) {
-                    return ct_language_switcher((string)($config['title'] ?? ''), 'select');
-                }
-                return '';
 
             case 'tz_search':
                 $homeUrl = rtrim((string)($site['url'] ?? '/'), '/') . '/';
