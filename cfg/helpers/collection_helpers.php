@@ -121,3 +121,34 @@ function get_category_index_permalink(PDO $pdo): string
 {
     return collection_url(get_category_base($pdo), 'category_index', ['route' => 'category_index']);
 }
+
+function collection_category_breadcrumbs(PDO $pdo, array $category, array $context = []): array
+{
+    $items = [];
+    $current = $category;
+    $visited = [];
+
+    while (!empty($current['id']) && !in_array((int)$current['id'], $visited, true)) {
+        $visited[] = (int)$current['id'];
+        array_unshift($items, $current);
+
+        $parentId = (int)($current['parent_id'] ?? 0);
+        if ($parentId <= 0) break;
+        $stmt = $pdo->prepare('SELECT id, parent_id, name, slug, description FROM categories WHERE id = ? AND is_deleted = 0 LIMIT 1');
+        $stmt->execute([$parentId]);
+        $parent = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$parent) break;
+        $current = $parent;
+    }
+
+    $breadcrumbs = [];
+    foreach ($items as $item) {
+        $display = collection_filter_item($item, 'category', $context + [
+            'scope' => 'category_breadcrumb',
+            'category_id' => (int)$item['id'],
+        ]);
+        $display['url'] = get_category_permalink($pdo, $item);
+        $breadcrumbs[] = $display;
+    }
+    return $breadcrumbs;
+}

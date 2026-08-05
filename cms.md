@@ -174,6 +174,11 @@ extension can apply the same visibility policy to pagination and results. Core
 owns the base query, joins, ordering, and pagination; extensions must not alter
 those concerns through this hook.
 
+`collection_category_breadcrumbs()` builds category breadcrumb records through
+the same `collection_item` contract. The Category editor also exposes
+`category_editor_after_fields` after source fields have loaded, allowing an
+extension to add related controls without changing category CRUD.
+
 ## Defaults and Load Default Layout
 
 The `defaults` block pre-fills gadgets when the admin clicks **Load Default Layout**. This is useful for:
