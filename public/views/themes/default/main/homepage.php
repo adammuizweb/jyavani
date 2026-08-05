@@ -196,7 +196,7 @@ $carouselPosts = array_slice($latestPosts, 0, 8);
     <?php if (!empty($categories)): ?>
         <div class="hp-categories__grid">
             <?php foreach ($categories as $cat):
-                $catUrl = function_exists('get_category_permalink') ? get_category_permalink($cat) : '/category/' . rawurlencode($cat['slug'] ?? '') . '/';
+                $catUrl = function_exists('get_category_permalink') ? get_category_permalink($pdo, $cat) : '/category/' . rawurlencode($cat['slug'] ?? '') . '/';
                 $catIcon = match($cat['slug'] ?? '') {
                     'panduan' => '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
                     'keamanan' => '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
