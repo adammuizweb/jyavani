@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.22",
-    "build": "2026-08-04",
-    "generated": "2026-08-05T03:38:26+00:00",
+    "version": "2.3.23",
+    "build": "2026-08-05",
+    "generated": "2026-08-05T03:49:22+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
