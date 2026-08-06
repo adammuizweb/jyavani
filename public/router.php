@@ -290,6 +290,10 @@ if (preg_match('/^\d{4}$/', $prefix)) {
 // /sitemap.xml
 // /sitemap_posts_1.xml
 // /sitemap_pages_2.xml
+if (preg_match('#^sitemap_([a-z0-9-]+)_(posts|pages)_(\d+)\.xml$#', $pathTrimmed, $m)) {
+    require_once __DIR__ . '/../app/controllers/SitemapController.php';
+    if (SitemapController::renderLocale($pdo, $m[1], $m[2], max(1, (int)$m[3]))) exit;
+}
 if (preg_match('#^sitemap(?:_(posts|pages)_(\d+))?\.xml$#', $pathTrimmed, $m)) {
     require_once __DIR__ . '/../app/controllers/SitemapController.php';
     // matches:

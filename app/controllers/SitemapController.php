@@ -34,9 +34,18 @@ class SitemapController
             $loc = $domain . '/sitemap_pages_' . $i . '.xml';
             echo "  <sitemap>\n    <loc>" . htmlspecialchars($loc, ENT_XML1) . "</loc>\n  </sitemap>\n";
         }
+        foreach (apply_filters('sitemap_index_entries', [], $pdo, $domain, $limit) as $entry) {
+            if (!is_array($entry) || empty($entry['loc'])) continue;
+            echo "  <sitemap>\n    <loc>" . htmlspecialchars((string)$entry['loc'], ENT_XML1) . "</loc>\n  </sitemap>\n";
+        }
 
         echo '</sitemapindex>';
         exit;
+    }
+
+    public static function renderLocale(PDO $pdo, string $locale, string $type, int $pageNum): bool
+    {
+        return apply_filters('sitemap_locale_rendered', false, $locale, $type, $pageNum, $pdo) === true;
     }
 
     // list type = 'posts' or 'pages', pageNum starting from 1

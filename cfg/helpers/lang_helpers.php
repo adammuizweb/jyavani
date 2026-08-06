@@ -2,11 +2,27 @@
 declare(strict_types=1);
 
 $supported_locales = ['en', 'id', 'de'];
+$locale_presets = ['en' => 'English', 'id' => 'Indonesian', 'de' => 'German', 'fr' => 'French', 'es' => 'Spanish', 'it' => 'Italian', 'pt' => 'Portuguese', 'nl' => 'Dutch', 'tr' => 'Turkish', 'ru' => 'Russian', 'ja' => 'Japanese', 'ko' => 'Korean', 'zh' => 'Chinese', 'ar' => 'Arabic'];
 $default_locale = 'en';
 
 function get_supported_locales(): array {
-    global $supported_locales;
-    return $supported_locales;
+    global $supported_locales, $locale_presets;
+    $pdo = $GLOBALS['pdo'] ?? null;
+    $custom = $pdo instanceof PDO && function_exists('settings_get') ? json_decode((string)settings_get($pdo, 'content_custom_locales', '[]'), true) : [];
+    $codes = $supported_locales;
+    foreach (is_array($custom) ? $custom : [] as $code) if (preg_match('/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/', (string)$code)) $codes[] = (string)$code;
+    return array_values(array_unique(array_merge($supported_locales, $codes)));
+}
+
+function content_locale_presets(): array { global $locale_presets; return $locale_presets; }
+
+function register_content_locale(PDO $pdo, string $code): bool {
+    $code = trim($code);
+    if (!preg_match('/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/', $code)) return false;
+    $current = json_decode((string)settings_get($pdo, 'content_custom_locales', '[]'), true);
+    $current = is_array($current) ? $current : [];
+    if (!in_array($code, $current, true)) $current[] = $code;
+    return settings_set($pdo, 'content_custom_locales', json_encode(array_values($current)));
 }
 
 function default_locale(): string {
