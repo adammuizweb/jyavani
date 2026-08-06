@@ -62,6 +62,9 @@ class SearchController
             "(title LIKE :kw OR content LIKE :kw)"
         ];
         $params = [':kw' => '%' . $q . '%'];
+        $searchQuery = apply_filters('search_query_parts', ['where' => $where, 'params' => $params], $pdo, $q);
+        $where = is_array($searchQuery['where'] ?? null) ? $searchQuery['where'] : $where;
+        $params = is_array($searchQuery['params'] ?? null) ? $searchQuery['params'] : $params;
         $whereSql = implode(' AND ', $where);
 
         try {
@@ -92,6 +95,7 @@ class SearchController
             $stm->bindValue(':offset', $offset, PDO::PARAM_INT);
             $stm->execute();
             $results = $stm->fetchAll(PDO::FETCH_ASSOC);
+            $results = apply_filters('search_results', $results, $pdo, $q);
         } catch (Throwable $e) {
             error_log('[SearchController] fetch error: ' . $e->getMessage());
             http_response_code(500);

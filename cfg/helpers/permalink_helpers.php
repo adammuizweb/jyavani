@@ -150,7 +150,8 @@ function get_author_permalink(array $author, int $page = 1, string $query = ''):
     if ($query !== '') {
         $url .= '?' . http_build_query(['q' => $query]);
     }
-    return $url;
+    $filtered = apply_filters('author_permalink', $url, $author, $page, $query);
+    return is_string($filtered) && $filtered !== '' ? $filtered : $url;
 }
 
 function permalink_match_path(string $path, string $structure): ?array

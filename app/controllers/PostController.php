@@ -292,6 +292,11 @@ class PostController
             $params[':q'] = $q;
         }
 
+        $collectionContext = ['scope' => 'article_list', 'table_alias' => 'posts'];
+        $collectionClauses = collection_query_clauses(['where' => [], 'params' => []], $collectionContext);
+        $whereParts = array_merge($whereParts, $collectionClauses['where']);
+        $params = array_merge($params, $collectionClauses['params']);
+
         $whereSql = implode(' AND ', $whereParts);
 
         try {
@@ -325,6 +330,7 @@ class PostController
             $stmt->execute();
 
             $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $posts = collection_filter_rows($posts, $collectionContext);
         } catch (Throwable $e) {
             error_log('[PostController::listArticles] Fetch error: ' . $e->getMessage());
             http_response_code(500);
@@ -522,11 +528,13 @@ class PostController
             }
 
             if (is_array($author)) {
+                $author = apply_filters('author_profile_data', $author, $pdo);
                 $postData['author_id']       = $author['id'] ?? null;
                 $postData['author_name']     = $author['name'] ?? null;
                 $postData['author_username'] = $author['username'] ?? null;
                 $postData['author_email']    = $author['email'] ?? null;
                 $postData['author_img']      = $author['img'] ?? null;
+                $postData['author_bio']      = $author['bio'] ?? null;
                 $postData['author_label']    = $author['name']
                     ?? $author['username']
                     ?? $author['email']
@@ -553,10 +561,14 @@ class PostController
             $cats = $catStmt->fetch(PDO::FETCH_ASSOC) ?: [];
             $postData['category_names'] = $cats['category_names'] ?? '';
             $postData['category_slugs'] = $cats['category_slugs'] ?? '';
+            $catRows = $pdo->prepare('SELECT c.id, c.parent_id, c.name, c.slug, c.description FROM post_categories pc JOIN categories c ON c.id = pc.category_id WHERE pc.post_id = :pid AND c.is_deleted = 0 ORDER BY c.name ASC');
+            $catRows->execute([':pid' => (int)$postData['id']]);
+            $postData['categories'] = $catRows->fetchAll(PDO::FETCH_ASSOC) ?: [];
         } catch (Throwable $e) {
             error_log('[PostController] categories error: ' . $e->getMessage());
             $postData['category_names'] = '';
             $postData['category_slugs'] = '';
+            $postData['categories'] = [];
         }
     }
 

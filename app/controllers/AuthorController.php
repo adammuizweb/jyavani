@@ -302,6 +302,7 @@ class AuthorController
             require __DIR__ . '/../frontend_404.php';
             exit;
         }
+        $user = apply_filters('author_profile_data', $user, $pdo);
 
         // -------------------------
         // Pagination + filter
@@ -322,6 +323,11 @@ class AuthorController
             $where[] = "MATCH(p.title, p.content) AGAINST(:q IN NATURAL LANGUAGE MODE)";
             $params[':q'] = $q;
         }
+
+        $collectionContext = ['scope' => 'author_posts', 'table_alias' => 'p'];
+        $collectionClauses = collection_query_clauses(['where' => [], 'params' => []], $collectionContext);
+        $where = array_merge($where, $collectionClauses['where']);
+        $params = array_merge($params, $collectionClauses['params']);
 
         $whereSQL = implode(' AND ', $where);
 
@@ -368,6 +374,7 @@ class AuthorController
 
             $stmt->execute();
             $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $posts = collection_filter_rows($posts, $collectionContext);
         } catch (Throwable $e) {
             error_log("[AuthorController::showAuthorPosts] fetch error: " . $e->getMessage());
             http_response_code(500);

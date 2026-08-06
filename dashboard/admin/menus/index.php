@@ -45,6 +45,10 @@ if ($selectedMenu && function_exists('menu_build_tree')) {
     $menuTree = menu_build_tree($pdo, $selectedMenuId);
     $menuItems = menu_get_items($pdo, $selectedMenuId);
 }
+$menuTranslations = $selectedMenu && function_exists('ct_menu_item_translations_for_menu')
+    ? ct_menu_item_translations_for_menu($pdo, $selectedMenuId)
+    : [];
+$translationLocales = function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
 
 // Fetch available items for adding to menu
 $articles = [];
@@ -67,7 +71,7 @@ try {
 } catch (Throwable $e) {}
 
 if (!function_exists('render_menu_items_admin')) {
-    function render_menu_items_admin(array $items, int $depth): string {
+    function render_menu_items_admin(array $items, int $depth, array $translations = []): string {
         if (empty($items)) return '';
         $html = '<ul class="menu-sortable"' . ($depth > 0 ? ' style="margin-left:20px;"' : '') . '>';
         foreach ($items as $item) {
@@ -79,7 +83,8 @@ if (!function_exists('render_menu_items_admin')) {
             $targetBlank = !empty($item['target_blank']) ? '1' : '0';
             $hidden = !empty($item['hidden']) ? '1' : '0';
             $hasChildren = !empty($item['children']);
-            $html .= '<li class="menu-item-admin' . ($hidden === '1' ? ' menu-item-hidden' : '') . '" data-id="' . $id . '" data-type="' . $type . '" data-label="' . $label . '" data-target="' . $targetId . '" data-url="' . $url . '" data-target-blank="' . $targetBlank . '" data-hidden="' . $hidden . '">';
+            $localized = htmlspecialchars((string)json_encode($translations[$id] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
+            $html .= '<li class="menu-item-admin' . ($hidden === '1' ? ' menu-item-hidden' : '') . '" data-id="' . $id . '" data-type="' . $type . '" data-label="' . $label . '" data-target="' . $targetId . '" data-url="' . $url . '" data-target-blank="' . $targetBlank . '" data-hidden="' . $hidden . '" data-translations="' . $localized . '">';
             $html .= '<div class="menu-item-bar">';
             $html .= '<span class="menu-item-handle">&#9776;</span>';
             $html .= '<span class="menu-item-label">' . $label . '</span>';
@@ -91,7 +96,7 @@ if (!function_exists('render_menu_items_admin')) {
             $html .= '<button type="button" class="menu-item-remove adam-hapus" title="' . __('Delete') . '">&#10005;</button>';
             $html .= '</div>';
             if ($hasChildren) {
-                $html .= render_menu_items_admin($item['children'], $depth + 1);
+                $html .= render_menu_items_admin($item['children'], $depth + 1, $translations);
             }
             $html .= '</li>';
         }
@@ -165,14 +170,20 @@ if (!function_exists('render_menu_items_admin')) {
               <?=_e('No menu items yet. Add items from the right panel.')?>
             </div>
           <?php else: ?>
-            <?= render_menu_items_admin($menuTree, 0) ?>
+            <?= render_menu_items_admin($menuTree, 0, $menuTranslations) ?>
           <?php endif; ?>
         </div>
 
         <div id="menuItemEditForm" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--adam-border-2);border-radius:12px;background:var(--adam-surface-4);">
           <h4 style="margin:0 0 12px 0;"><?=_e('Edit Item')?></h4>
-          <input type="hidden" id="editItemId" value="">
-          <div style="display:grid;gap:8px;">
+           <input type="hidden" id="editItemId" value="">
+           <div style="display:grid;gap:8px;">
+             <?php if (!empty($translationLocales)): ?>
+             <div>
+               <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('Language')?></label>
+               <select id="editItemLocale" class="pht-select"><option value=""><?=_e('Source language')?></option><?php foreach ($translationLocales as $locale): ?><option value="<?= htmlspecialchars($locale, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($locale), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select>
+             </div>
+             <?php endif; ?>
             <div>
               <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('Label')?></label>
               <input id="editItemLabel" class="pht-input" placeholder="<?=_e('Label menu')?>">
@@ -367,6 +378,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       url: li.getAttribute('data-url') || '',
       targetBlank: li.getAttribute('data-target-blank') === '1',
       hidden: parseInt(li.getAttribute('data-hidden') || '0')
+      ,translations: JSON.parse(li.getAttribute('data-translations') || '{}')
     };
   }
 
@@ -378,6 +390,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-url', data.url || '');
     li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
     li.setAttribute('data-hidden', data.hidden ? '1' : '0');
+    li.setAttribute('data-translations', JSON.stringify(data.translations || {}));
     // Update display
     const labelEl = li.querySelector('.menu-item-label');
     const typeEl = li.querySelector('.menu-item-type');
@@ -500,6 +513,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-url', data.url || '');
     li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
     li.setAttribute('data-hidden', data.hidden ? '1' : '0');
+    li.setAttribute('data-translations', '{}');
 
     ul.appendChild(li);
     toast('success', '<?=__('Item added to menu')?> "' + data.label + '"');
@@ -551,6 +565,28 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var form = document.getElementById('menuItemEditForm');
     form.style.display = '';
     form._targetLi = li;
+    form._editingLocale = '';
+    var localeSelect = document.getElementById('editItemLocale');
+    if (localeSelect) localeSelect.value = '';
+  });
+
+  var localeSelect = document.getElementById('editItemLocale');
+  if (localeSelect) localeSelect.addEventListener('change', function(){
+    var form = document.getElementById('menuItemEditForm');
+    var li = form._targetLi;
+    if (!li) return;
+    var data = getItemData(li);
+    var oldLocale = form._editingLocale || '';
+    if (oldLocale) {
+      data.translations[oldLocale] = {label: document.getElementById('editItemLabel').value.trim(), url: document.getElementById('editItemUrl').value.trim()};
+    }
+    var nextLocale = this.value;
+    var localized = nextLocale ? (data.translations[nextLocale] || {}) : data;
+    document.getElementById('editItemLabel').value = localized.label || '';
+    document.getElementById('editItemUrl').value = localized.url || '';
+    document.getElementById('editItemTargetBlank').checked = data.targetBlank;
+    form._editingLocale = nextLocale;
+    setItemData(li, data);
   });
 
   document.getElementById('saveItemEdit').addEventListener('click', function(){
@@ -559,8 +595,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (!li) return;
 
     var data = getItemData(li);
-    data.label = document.getElementById('editItemLabel').value.trim() || data.label;
-    data.url = document.getElementById('editItemUrl').value.trim();
+    var locale = form._editingLocale || '';
+    if (locale) {
+      data.translations[locale] = {label: document.getElementById('editItemLabel').value.trim(), url: document.getElementById('editItemUrl').value.trim()};
+    } else {
+      data.label = document.getElementById('editItemLabel').value.trim() || data.label;
+      data.url = document.getElementById('editItemUrl').value.trim();
+    }
     data.targetBlank = document.getElementById('editItemTargetBlank').checked;
 
     setItemData(li, data);
@@ -735,6 +776,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
           url: data.url,
           target_blank: data.targetBlank ? 1 : 0,
           hidden: data.hidden ? 1 : 0
+          ,translations: data.translations || {}
         });
         var childUl = li.querySelector(':scope > ul.menu-sortable');
         if (childUl) {

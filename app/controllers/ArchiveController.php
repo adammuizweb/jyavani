@@ -73,6 +73,11 @@ class ArchiveController
         }
         if (!$isLoggedIn) $where[] = "p.status = 'published'";
 
+        $collectionContext = ['scope' => 'archive_posts', 'table_alias' => 'p'];
+        $collectionClauses = collection_query_clauses(['where' => [], 'params' => []], $collectionContext);
+        $where = array_merge($where, $collectionClauses['where']);
+        $params = array_merge($params, $collectionClauses['params']);
+
         $whereSql = implode(' AND ', $where);
 
         // count
@@ -105,6 +110,7 @@ class ArchiveController
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
             $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $posts = collection_filter_rows($posts, $collectionContext);
         } catch (Throwable $e) {
             error_log("[ArchiveController::show] fetch error: " . $e->getMessage());
             http_response_code(500);

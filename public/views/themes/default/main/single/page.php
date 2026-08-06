@@ -24,7 +24,7 @@ $authorName = !empty($post['author_name'])
 
 $authorImg = !empty($post['author_img']) ? $post['author_img'] : null;
 $authorIdOrSlug = $post['author_username'] ?? (isset($post['author_id']) ? (string)$post['author_id'] : '');
-$authorUrl = $authorIdOrSlug !== '' ? "/author/" . rawurlencode($authorIdOrSlug) . "/" : null;
+$authorUrl = $authorIdOrSlug !== '' && function_exists('get_author_permalink') ? get_author_permalink(['username' => $authorIdOrSlug]) : null;
 
 // dates (safe)
 $createdTs = !empty($post['created_at']) ? @strtotime($post['created_at']) : null;

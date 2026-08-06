@@ -53,11 +53,13 @@ class PageController
             $author = $stm->fetch(PDO::FETCH_ASSOC) ?: null;
 
             if (is_array($author)) {
+                $author = apply_filters('author_profile_data', $author, $pdo);
                 $pageData['author_id']       = $author['id'] ?? $pageData['author_id'];
                 $pageData['author_name']     = $author['name'] ?? $pageData['author_name'];
                 $pageData['author_username'] = $author['username'] ?? $pageData['author_username'];
                 $pageData['author_email']    = $author['email'] ?? $pageData['author_email'];
                 $pageData['author_img']      = $author['img'] ?? $pageData['author_img'];
+                $pageData['author_bio']      = $author['bio'] ?? null;
                 $pageData['author_label']    = $author['name']
                                                 ?? $author['username']
                                                 ?? $author['email']
@@ -97,6 +99,11 @@ class PageController
             $params[':q'] = $q;
         }
 
+        $collectionContext = ['scope' => 'page_list', 'table_alias' => 'posts'];
+        $collectionClauses = collection_query_clauses(['where' => [], 'params' => []], $collectionContext);
+        $where = array_merge($where, $collectionClauses['where']);
+        $params = array_merge($params, $collectionClauses['params']);
+
         $whereSql = implode(' AND ', $where);
 
         try {
@@ -126,6 +133,7 @@ class PageController
             $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
             $stmt->execute();
             $pagesRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $pagesRows = collection_filter_rows($pagesRows, $collectionContext);
         } catch (Throwable $e) {
             error_log("[PageController::listPages] Fetch error: " . $e->getMessage());
             http_response_code(500);

@@ -97,10 +97,10 @@ $authorName = !empty($post['author_name'])
 
 $authorImg  = !empty($post['author_img']) ? $post['author_img'] : null;
 $authorSlug = !empty($post['author_username']) ? $post['author_username'] : (!empty($post['author_id']) ? (string)$post['author_id'] : '');
-$authorUrl  = $authorSlug !== '' ? "/author/" . rawurlencode($authorSlug) . "/" : null;
+$authorUrl = $authorSlug !== '' && function_exists('get_author_permalink') ? get_author_permalink(['username' => $authorSlug]) : null;
 
-$categories = [];
-if (!empty($post['category_names']) && !empty($post['category_slugs'])) {
+$categories = is_array($post['categories'] ?? null) ? $post['categories'] : [];
+if (empty($categories) && !empty($post['category_names']) && !empty($post['category_slugs'])) {
     $catNames = explode(', ', (string)$post['category_names']);
     $catSlugs = explode(', ', (string)$post['category_slugs']);
 
@@ -188,13 +188,8 @@ $bcDataAttrs = function (int $dur, int $delay): string {
   <?php if (!empty($categories)): ?>
     <?php
       $firstCat = $categories[0];
-      $fullPath = function_exists('build_category_full_path')
-        ? build_category_full_path((string)$firstCat['slug'], $pdoForCategoryPath)
-        : (string)$firstCat['slug'];
-
-      // encode per-segmen, keep slash
-      $segments = array_map('rawurlencode', explode('/', $fullPath));
-      $catHref  = $catBase . implode('/', $segments) . '/';
+      $firstCat = function_exists('collection_filter_item') ? collection_filter_item($firstCat, 'category', ['scope' => 'post_category']) : $firstCat;
+      $catHref = function_exists('get_category_permalink') ? get_category_permalink($pdoForCategoryPath, $categories[0]) : $catBase . rawurlencode((string)$firstCat['slug']) . '/';
     ?>
     <a href="<?= htmlspecialchars($catHref, ENT_QUOTES, 'UTF-8') ?>"
        class="typewrite onload"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>>
@@ -215,16 +210,11 @@ $bcDataAttrs = function (int $dur, int $delay): string {
     <div class="adam-cat-badges slide-up onload" data-anim-trigger="load">
       <?php foreach ($categories as $cat): ?>
         <?php
-          $fullPath = function_exists('build_category_full_path')
-            ? build_category_full_path((string)$cat['slug'], $pdoForCategoryPath)
-            : (string)$cat['slug'];
-
-          // ensure encoding of each segment but keep slashes
-          $segments = array_map('rawurlencode', explode('/', $fullPath));
-          $href     = $catBase . implode('/', $segments) . '/';
+          $displayCat = function_exists('collection_filter_item') ? collection_filter_item($cat, 'category', ['scope' => 'post_category']) : $cat;
+          $href = function_exists('get_category_permalink') ? get_category_permalink($pdoForCategoryPath, $cat) : $catBase . rawurlencode((string)$cat['slug']) . '/';
         ?>
         <a href="<?= htmlspecialchars($href, ENT_QUOTES, 'UTF-8') ?>" class="cat-badge">
-          <?= htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8') ?>
+          <?= htmlspecialchars((string)$displayCat['name'], ENT_QUOTES, 'UTF-8') ?>
         </a>
       <?php endforeach; ?>
     </div>

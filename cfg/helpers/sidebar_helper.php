@@ -74,7 +74,7 @@ if (!function_exists('sidebar_zone_get_items')) {
                 $cache[$zoneId] = [];
             }
         }
-        return $cache[$zoneId];
+        return apply_filters('sidebar_zone_items', $cache[$zoneId], $zoneId, $pdo);
     }
 }
 

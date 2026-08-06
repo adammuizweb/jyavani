@@ -217,6 +217,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $user['img']   = $imgUrl;
                 $user['bio']   = $bioDb ?? '';
                 $user['phone'] = $phoneDb ?? '';
+                do_action('profile_after_save', (int)$user['id'], $pdo, $_POST);
 
                 profile_redirect_with_flash('success', __('Profile updated successfully.'), $self_url);
             } else {
@@ -315,6 +316,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     rows="4"
                     style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? ($user['bio'] ?? $initialBio), ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
+        <?php do_action('profile_after_fields', $user, $pdo); ?>
 
         <hr style="margin:1.5rem 0; border:0; border-top:1px solid #eee;">
 

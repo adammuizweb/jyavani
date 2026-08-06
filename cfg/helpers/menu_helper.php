@@ -56,7 +56,7 @@ if (!function_exists('menu_get_items')) {
                 $cache[$menuId] = [];
             }
         }
-        return $cache[$menuId];
+        return apply_filters('menu_items', $cache[$menuId], $menuId, $pdo);
     }
 }
 
@@ -94,6 +94,9 @@ if (!function_exists('menu_build_tree')) {
 
 if (!function_exists('menu_resolve_url')) {
     function menu_resolve_url(PDO $pdo, array $item, string $homeUrl = '/'): string {
+        if (!empty($item['manual_url'])) {
+            return (string)$item['manual_url'];
+        }
         if ($item['type'] === 'custom') {
             return !empty($item['url']) ? $item['url'] : '#';
         }

@@ -243,7 +243,8 @@ if (!function_exists('widget_fetch_recent_posts')) {
         $st->bindValue(':lim', $limit, PDO::PARAM_INT);
         $st->execute();
 
-        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $items = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return apply_filters('widget_recent_posts', $items, $pdo, $type, $created_by);
     }
 }
 
@@ -300,7 +301,8 @@ if (!function_exists('widget_fetch_categories')) {
         $st->bindValue(':lim', $limit, PDO::PARAM_INT);
         $st->execute();
 
-        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $items = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return apply_filters('widget_categories', $items, $pdo, $limit, $only_parents);
     }
 }
 
@@ -310,7 +312,9 @@ if (!function_exists('_render_single_widget')) {
         switch ($type) {
             case 'search':
                 return render_widget('search_form', [
-                    'placeholder' => (string)($config['placeholder'] ?? 'Cari...'),
+                    'title'       => (string)($config['title'] ?? 'Search'),
+                    'placeholder' => (string)($config['placeholder'] ?? 'Search articles...'),
+                    'button'      => (string)($config['button'] ?? 'Search'),
                 ], $pdo);
 
             case 'last_posts':

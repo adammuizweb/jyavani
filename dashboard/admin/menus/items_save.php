@@ -57,6 +57,9 @@ if (!is_array($items)) {
 }
 
 try {
+    if (function_exists('ct_ensure_schema')) {
+        ct_ensure_schema($pdo);
+    }
     $pdo->beginTransaction();
 
     // Map temp negative client IDs → real DB IDs (for new items that are parents)
@@ -73,6 +76,7 @@ try {
         $targetId = (int)($item['target_id'] ?? 0);
         $targetBlank = !empty($item['target_blank']) ? 1 : 0;
         $hidden = !empty($item['hidden']) ? 1 : 0;
+        $translations = is_array($item['translations'] ?? null) ? $item['translations'] : [];
 
         if ($label === '') continue;
 
@@ -104,6 +108,7 @@ try {
                 ':mid' => $menuId,
             ]);
             $keepIds[] = (int)$itemId;
+            $savedItemId = (int)$itemId;
         } else {
             // Insert new item
             $st = $pdo->prepare("INSERT INTO menu_items (menu_id, parent_id, sort_order, type, label, url, target_id, target_blank, hidden) VALUES (:mid, :pid, :so, :typ, :lbl, :url, :tid, :tb, :hd)");
@@ -120,12 +125,25 @@ try {
             ]);
             $newId = (int)$pdo->lastInsertId();
             $keepIds[] = $newId;
+            $savedItemId = $newId;
 
             // If this item had a temp negative ID, remember mapping for child references
             if ($itemId !== null && (int)$itemId < 0) {
                 $idMap[(int)$itemId] = $newId;
             }
         }
+
+        if (function_exists('ct_save_menu_item_translation')) {
+            foreach ($translations as $locale => $translation) {
+                if (!is_array($translation)) continue;
+                ct_save_menu_item_translation($pdo, $savedItemId, (string)$locale, $translation);
+            }
+        }
+    }
+
+    if (function_exists('ct_ensure_schema')) {
+        ct_ensure_schema($pdo);
+        $pdo->exec('DELETE mit FROM menu_item_translations mit LEFT JOIN menu_items mi ON mi.id = mit.menu_item_id WHERE mi.id IS NULL');
     }
 
     if (!empty($keepIds)) {

@@ -14,6 +14,9 @@ $errors = [];
 $success_msg = '';
 $base = ADMIN_BASE_PATH;
 $self_url = $base . '/?page=admin/sidebar/index';
+$translationLocales = function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
+$translationLocale = trim((string)($_GET['ct_locale'] ?? ''));
+if (!in_array($translationLocale, $translationLocales, true)) $translationLocale = '';
 
 $hasHelper = function_exists('sidebar_zone_get_all');
 $zones = $hasHelper ? sidebar_zone_get_all($pdo) : [];
@@ -139,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $config = (array)($data['config'] ?? []);
             $title = (string)($config['title'] ?? '');
             $active = !empty($data['active']);
+            $translation = is_array($data['translation'] ?? null) ? $data['translation'] : [];
 
             if ($type === 'last_posts') {
                 $config['limit'] = max(1, min(50, (int)($config['limit'] ?? 5)));
@@ -172,6 +176,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':zid' => $selectedZoneId,
             ]);
             $keepIds[] = $wid;
+            if ($translationLocale !== '' && function_exists('ct_save_sidebar_item_translation')) {
+                ct_save_sidebar_item_translation($pdo, $wid, $translationLocale, $translation);
+            }
         }
 
         if ($selectedZoneId > 0) {
@@ -198,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             default  => __('Widget settings saved successfully.'),
         };
         if (function_exists('adiwira_redirect_with_flash')) {
-            $url = $self_url . '&zone_id=' . $selectedZoneId;
+            $url = $self_url . '&zone_id=' . $selectedZoneId . ($translationLocale !== '' ? '&ct_locale=' . rawurlencode($translationLocale) : '');
             adiwira_redirect_with_flash($url, 'success', $msg);
         }
         $success_msg = $msg;
@@ -217,6 +224,19 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
     <h2 style="margin:0 0 4px;">Sidebar Zones</h2>
     <div class="muted" style="font-size:13px;"><?=__('Create & manage multiple sidebar zones, then select the primary one to display on the front page.')?></div>
   </div>
+
+  <?php if (!empty($translationLocales)): ?>
+  <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+    <label for="ct-sidebar-locale" style="font-weight:600;font-size:13px;"><?=_e('Edit translation')?></label>
+    <select id="ct-sidebar-locale" class="pht-select" onchange="location=this.value">
+      <option value="<?= h($self_url . '&zone_id=' . $selectedZoneId) ?>"><?=_e('Source language')?></option>
+      <?php foreach ($translationLocales as $locale): ?>
+      <option value="<?= h($self_url . '&zone_id=' . $selectedZoneId . '&ct_locale=' . rawurlencode($locale)) ?>" <?= $translationLocale === $locale ? 'selected' : '' ?>><?= h(strtoupper($locale)) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <?php if ($translationLocale !== ''): ?><span class="pht-muted" style="font-size:12px;"><?=_e('Only translated text is saved; widget behavior stays global.')?></span><?php endif; ?>
+  </div>
+  <?php endif; ?>
 
   <?php if ($show_inline_success): ?>
     <div style="background:var(--adam-success);color:#fff;padding:10px 14px;border-radius:var(--adam-radius);margin-bottom:14px;font-size:14px;">&#10004; <?= h($success_msg) ?></div>
@@ -372,7 +392,9 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
           $itemId = (int)$it['id'];
           $type = (string)$it['type'];
           $active = !empty($it['active']);
-          $config = is_array($it['config']) ? $it['config'] : [];
+           $config = is_array($it['config']) ? $it['config'] : [];
+           $itemTranslation = $translationLocale !== '' && function_exists('ct_sidebar_item_translation') ? ct_sidebar_item_translation($pdo, $itemId, $translationLocale) : null;
+           $translationConfig = is_array($itemTranslation['config'] ?? null) ? $itemTranslation['config'] : [];
           $typeInfo = $widget_types[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
           $isOpen = (string)($_GET['edit'] ?? '') === (string)$itemId;
         ?>
@@ -400,16 +422,33 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
             <div class="sw-body" style="border-top:1px solid var(--adam-border);padding:14px;display:<?= $isOpen ? 'block' : 'none' ?>;">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:600px;">
                 <!-- Common: title -->
-                <div style="grid-column:1/-1;">
+                 <div style="grid-column:1/-1;">
                   <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?=_e('Widget Title')?></label>
                   <input type="text" name="widget[<?= $itemId ?>][config][title]" value="<?= h($config['title'] ?? $it['title'] ?? '') ?>" placeholder="<?= h($typeInfo['label']) ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
-                </div>
+                 </div>
 
-                <?php if ($type === 'search'): ?>
+                 <?php if ($translationLocale !== ''): ?>
+                 <div style="grid-column:1/-1;border-top:1px solid var(--adam-border);padding-top:10px;">
+                   <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?= h(strtoupper($translationLocale)) ?> <?=_e('Widget Title')?></label>
+                   <input type="text" name="widget[<?= $itemId ?>][translation][title]" value="<?= h($itemTranslation['title'] ?? '') ?>" placeholder="<?= h($config['title'] ?? $it['title'] ?? '') ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+                 </div>
+                 <?php endif; ?>
+
+                 <?php if ($type === 'search'): ?>
                   <div style="grid-column:1/-1;">
                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;">Placeholder</label>
                     <input type="text" name="widget[<?= $itemId ?>][config][placeholder]" value="<?= h($config['placeholder'] ?? __('Search articles...')) ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
-                  </div>
+                   </div>
+                   <?php if ($translationLocale !== ''): ?>
+                   <div style="grid-column:1/-1;">
+                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?= h(strtoupper($translationLocale)) ?> <?=_e('Placeholder')?></label>
+                     <input type="text" name="widget[<?= $itemId ?>][translation][config][placeholder]" value="<?= h($translationConfig['placeholder'] ?? '') ?>" placeholder="<?= h($config['placeholder'] ?? '') ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+                   </div>
+                   <div style="grid-column:1/-1;">
+                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?= h(strtoupper($translationLocale)) ?> <?=_e('Button text')?></label>
+                     <input type="text" name="widget[<?= $itemId ?>][translation][config][button]" value="<?= h($translationConfig['button'] ?? '') ?>" placeholder="<?= h($config['button'] ?? '') ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+                   </div>
+                   <?php endif; ?>
 
                 <?php elseif ($type === 'last_posts'): ?>
                   <div>
@@ -461,11 +500,17 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
                     </label>
                   </div>
 
-                <?php elseif ($type === 'html'): ?>
+                 <?php elseif ($type === 'html'): ?>
                   <div style="grid-column:1/-1;">
                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?=_e('HTML Content')?></label>
                     <textarea name="widget[<?= $itemId ?>][config][html]" rows="6" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;font-family:monospace;resize:vertical;"><?= h($config['html'] ?? '') ?></textarea>
-                  </div>
+                   </div>
+                   <?php if ($translationLocale !== ''): ?>
+                   <div style="grid-column:1/-1;">
+                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?= h(strtoupper($translationLocale)) ?> <?=_e('HTML Content')?></label>
+                     <textarea name="widget[<?= $itemId ?>][translation][config][html]" rows="6" placeholder="<?= h($config['html'] ?? '') ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;font-family:monospace;resize:vertical;"><?= h($translationConfig['html'] ?? '') ?></textarea>
+                   </div>
+                   <?php endif; ?>
 
                 <?php elseif ($type === 'categories'): ?>
                   <div>

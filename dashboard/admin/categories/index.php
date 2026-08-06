@@ -16,6 +16,7 @@ require_once __DIR__ . '/../_notify.php';
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
     : [];
+$categoryTranslationLocales = function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
 
 // filters
 $search        = trim((string)($_GET['q'] ?? ''));
@@ -411,6 +412,17 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   <?= $indentHtml . $nameHtml ?>
                   <div class="row-actions">
                     <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
+                    <?php if (!empty($categoryTranslationLocales)): ?>
+                      <select aria-label="<?= htmlspecialchars(__('Translations'), ENT_QUOTES, 'UTF-8') ?>" onchange="if(this.value)window.location.href=this.value" style="font-size:11px;padding:1px 4px;">
+                        <option value=""><?= _e('Translations') ?></option>
+                        <?php foreach ($categoryTranslationLocales as $locale):
+                          $translation = function_exists('ct_get_category_translation') ? ct_get_category_translation($pdo, $catId, $locale) : null;
+                          $translationHref = $base . '/?' . http_build_query(['page' => 'admin/tools/content-translation/category-edit', 'category_id' => $catId, 'locale' => $locale]);
+                        ?>
+                          <option value="<?= htmlspecialchars($translationHref, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($locale) . ' - ' . ($translation ? __('Edit') : __('Add')), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    <?php endif; ?>
                     <?php if ($canDelete): ?>
                       <span class="muted-divider">|</span>
                       <button type="button"
