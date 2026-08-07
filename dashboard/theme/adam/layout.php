@@ -136,6 +136,19 @@ foreach ($pa['css'] ?? [] as $css_url) {
 
     <div id="newnotif-confirm-root"></div>
     <div id="newnotif-toast-root" aria-live="polite" aria-atomic="true"></div>
+    <div id="critical-update-modal" class="critical-update-modal" role="alertdialog" aria-modal="true" aria-labelledby="critical-update-title" style="display:none">
+      <div class="critical-update-modal__panel">
+        <span class="critical-update-modal__eyebrow"><?= _e('Critical security update') ?></span>
+        <h2 id="critical-update-title"></h2>
+        <p id="critical-update-message"></p>
+        <p class="critical-update-modal__version"><?= _e('Update to') ?> <strong id="critical-update-version"></strong></p>
+        <div class="critical-update-modal__actions">
+          <a id="critical-update-action" class="adam-button" href="<?= h(ADMIN_BASE_PATH . '/?page=admin/update/index') ?>"><?= _e('Review update') ?></a>
+          <a id="critical-update-details" class="adam-cancle" href="#" target="_blank" rel="noopener" style="display:none"><?= _e('View details') ?></a>
+          <button id="critical-update-dismiss" type="button" class="adam-cancle"><?= _e('Acknowledge') ?></button>
+        </div>
+      </div>
+    </div>
 
     <?php
       if (!empty($dashboard_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {

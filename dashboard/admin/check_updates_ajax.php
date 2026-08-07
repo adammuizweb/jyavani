@@ -23,7 +23,9 @@ if (!empty($_SESSION['cms_update_cache'])) {
     $cmsUpdate = $_SESSION['cms_update_cache'];
 }
 
-if ($forceRefresh || !$cmsUpdate) {
+$cacheTtl = 6 * 60 * 60;
+$lastChecked = is_array($cmsUpdate) ? (int)($cmsUpdate['checked_at'] ?? 0) : 0;
+if ($forceRefresh || !$cmsUpdate || (time() - $lastChecked) >= $cacheTtl) {
     $ctx = stream_context_create([
         'http' => ['timeout' => 10, 'user_agent' => 'JyavaniCMS-Update/' . $localVer],
     ]);
@@ -36,7 +38,20 @@ if ($forceRefresh || !$cmsUpdate) {
                 'has_update' => version_compare($remoteVer, $localVer, '>'),
                 'current'    => $localVer,
                 'latest'     => $remoteVer,
+                'checked_at' => time(),
             ];
+            $advisory = $remote['critical_advisory'] ?? null;
+            if (is_array($advisory) && ($advisory['severity'] ?? '') === 'critical'
+                && is_string($advisory['id'] ?? null) && is_string($advisory['fixed_version'] ?? null)
+                && version_compare($localVer, $advisory['fixed_version'], '<')) {
+                $cmsUpdate['critical_advisory'] = [
+                    'id' => $advisory['id'],
+                    'title' => (string)($advisory['title'] ?? 'Critical security update'),
+                    'message' => (string)($advisory['message'] ?? ''),
+                    'fixed_version' => $advisory['fixed_version'],
+                    'url' => (string)($advisory['url'] ?? ''),
+                ];
+            }
             $_SESSION['cms_update_cache'] = $cmsUpdate;
         }
     }
@@ -86,6 +101,7 @@ adiwira_json([
     'ok'      => true,
     'total'   => $total,
     'cms'     => $cmsUpdate,
+    'critical_advisory' => $cmsUpdate['critical_advisory'] ?? null,
     'plugins' => $plugins,
     'themes'  => $themes,
 ]);

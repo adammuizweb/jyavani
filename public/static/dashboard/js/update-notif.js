@@ -14,6 +14,37 @@ var checkUrlR  = checkUrl + '?refresh=1';
 var shown = false;
 var _lastResult = null;
 
+function showCriticalAdvisory(advisory) {
+  if (!advisory || !advisory.id) return;
+  var storageKey = 'jyavani-critical-advisory:' + advisory.id;
+  try { if (localStorage.getItem(storageKey)) return; } catch (_) {}
+
+  var modal = document.getElementById('critical-update-modal');
+  var title = document.getElementById('critical-update-title');
+  var message = document.getElementById('critical-update-message');
+  var version = document.getElementById('critical-update-version');
+  var details = document.getElementById('critical-update-details');
+  var dismiss = document.getElementById('critical-update-dismiss');
+  if (!modal || !title || !message || !version || !dismiss) return;
+
+  title.textContent = advisory.title || 'Critical security update';
+  message.textContent = advisory.message || '';
+  version.textContent = 'v' + (advisory.fixed_version || '');
+  if (details) {
+    if (typeof advisory.url === 'string' && /^https:\/\//i.test(advisory.url)) {
+      details.href = advisory.url;
+      details.style.display = '';
+    } else {
+      details.style.display = 'none';
+    }
+  }
+  dismiss.onclick = function() {
+    try { localStorage.setItem(storageKey, '1'); } catch (_) {}
+    modal.style.display = 'none';
+  };
+  modal.style.display = 'flex';
+}
+
 function escapeHtml(s) {
   if (typeof s !== 'string') return '';
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -69,6 +100,7 @@ function loadUpdates(refreshMode) {
     if (data) {
       _lastResult = data;
       updateBadge(data.total || 0);
+      showCriticalAdvisory(data.critical_advisory);
       if (shown) renderDropdown(data);
     } else {
       if (shown) renderDropdown(null, err);
@@ -166,6 +198,7 @@ if (bell) {
     if (data) {
       _lastResult = data;
       updateBadge(data.total || 0);
+      showCriticalAdvisory(data.critical_advisory);
     }
   });
 

@@ -5222,6 +5222,37 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   letter-spacing:.02em;
   vertical-align:middle;
 }
+.critical-update-modal{
+  position:fixed;
+  inset:0;
+  z-index:130000;
+  align-items:center;
+  justify-content:center;
+  padding:1rem;
+  background:rgba(69,10,10,.72);
+  backdrop-filter:blur(4px);
+}
+.critical-update-modal__panel{
+  width:min(520px,100%);
+  padding:1.5rem;
+  border:1px solid #ef4444;
+  border-radius:14px;
+  background:var(--adam-card);
+  box-shadow:0 24px 64px rgba(0,0,0,.35);
+}
+.critical-update-modal__eyebrow{
+  display:inline-block;
+  margin-bottom:.55rem;
+  color:#b91c1c;
+  font-size:.72rem;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.critical-update-modal h2{ margin:0 0 .65rem; color:var(--adam-text); font-size:1.2rem; }
+.critical-update-modal p{ margin:.45rem 0; color:var(--adam-text-2); line-height:1.55; white-space:pre-wrap; }
+.critical-update-modal__version{ color:#b91c1c !important; font-size:.9rem; }
+.critical-update-modal__actions{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.2rem; }
 .dw-table{
   width:100%;
   border-collapse:collapse;
