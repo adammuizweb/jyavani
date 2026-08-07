@@ -27,8 +27,10 @@ $context_for_layout = $context_for_layout ?? 'global';
 $db_default_title = ($pdo instanceof PDO && function_exists('settings_get'))
     ? (settings_get($pdo, 'site_title', 'Jyavani') ?? 'Jyavani')
     : 'Jyavani';
+$db_default_title = apply_filters('site_title', (string)$db_default_title, $pdo);
 
 $page_title = $page_title ?? $db_default_title;
+$page_title = apply_filters('document_title', (string)$page_title, $pdo);
 // derive site url for context (used by template context)
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 
@@ -162,6 +164,7 @@ if ($pdo instanceof PDO && function_exists('settings_get')) {
 $siteDesc = ($pdo instanceof PDO && function_exists('settings_get'))
     ? (settings_get($pdo, 'site_description', '') ?? '')
     : '';
+$siteDesc = apply_filters('site_description', (string)$siteDesc, $pdo);
 $metaDesc = $siteDesc;
 $metaImg = '';
 if (isset($post) && is_array($post)) {
@@ -194,6 +197,7 @@ if (isset($post) && is_array($post)) {
         $metaImg = $postImg;
     }
 }
+$metaDesc = apply_filters('document_meta_description', (string)$metaDesc, $post ?? null, $pdo);
 ?>
 <?php if ($metaDesc !== ''): ?>
   <meta name="description" content="<?= htmlspecialchars($metaDesc, ENT_QUOTES, 'UTF-8') ?>">

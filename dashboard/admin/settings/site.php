@@ -189,6 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok11 = settings_set($pdo, 'site_description', $site_description, 1);
 
         if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11) {
+            do_action('site_settings_after_save', $pdo, $_POST);
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
                 exit;
@@ -250,6 +251,8 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
             placeholder="<?=_e('Short description used for meta tags and SEO.')?>"><?= htmlspecialchars($current_site_description, ENT_QUOTES, 'UTF-8') ?></textarea>
           <span class="field-note"><?=_e('Used as fallback for meta description on homepage and other non-article pages.')?></span>
         </div>
+
+        <?php do_action('site_settings_after_general', $pdo); ?>
 
         <div class="form-group">
           <label for="site_host"><?=_e('Site Host (fallback / canonical default)')?></label>

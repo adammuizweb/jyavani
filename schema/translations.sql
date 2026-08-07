@@ -3831,7 +3831,18 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Error.', 'Galat.', 'id'),
 ('default', 'Error.', 'Fehler.', 'de'),
 ('default', 'MIX Theme', 'Tema MIX', 'id'),
-('default', 'MIX Theme', 'MIX-Theme', 'de');
-
+('default', 'MIX Theme', 'MIX-Theme', 'de'),
+('default', 'Translated site identity', 'Identitas situs terjemahan', 'id'),
+('default', 'Translated site identity', 'Übersetzte Website-Identität', 'de'),
+('default', 'Used for the localized homepage title and description.', 'Digunakan untuk judul dan deskripsi beranda sesuai bahasa.', 'id'),
+('default', 'Used for the localized homepage title and description.', 'Wird für den lokalisierten Titel und die Beschreibung der Startseite verwendet.', 'de'),
+('default', 'Site title', 'Judul situs', 'id'),
+('default', 'Site title', 'Website-Titel', 'de'),
+('default', 'Site description', 'Deskripsi situs', 'id'),
+('default', 'Site description', 'Website-Beschreibung', 'de'),
+('default', 'Meta description', 'Deskripsi meta', 'id'),
+('default', 'Meta description', 'Meta-Beschreibung', 'de'),
+('default', 'Leave empty to use an excerpt of the translated content.', 'Kosongkan untuk memakai kutipan dari konten terjemahan.', 'id'),
+('default', 'Leave empty to use an excerpt of the translated content.', 'Leer lassen, um einen Auszug des übersetzten Inhalts zu verwenden.', 'de');
 
 
