@@ -154,8 +154,11 @@ if ($pdo instanceof PDO && function_exists('settings_get')) {
     }
 }
 
+$htmlLang = apply_filters('html_lang_attribute', function_exists('content_default_locale') ? content_default_locale() : get_locale());
+$htmlDir = apply_filters('html_dir_attribute', 'ltr', $htmlLang);
+if (!in_array($htmlDir, ['ltr', 'rtl'], true)) $htmlDir = 'ltr';
 ?><!doctype html>
-<html lang="<?= h(apply_filters('html_lang_attribute', function_exists('content_default_locale') ? content_default_locale() : get_locale())) ?>"<?= $themeClass ? ' class="'.htmlspecialchars($themeClass, ENT_QUOTES, 'UTF-8').'"' : '' ?>>
+<html lang="<?= h($htmlLang) ?>" dir="<?= h($htmlDir) ?>"<?= $themeClass ? ' class="'.htmlspecialchars($themeClass, ENT_QUOTES, 'UTF-8').'"' : '' ?>>
 <head>
   <meta charset="utf-8">
   <title><?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?></title>
