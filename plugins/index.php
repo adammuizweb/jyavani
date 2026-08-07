@@ -173,6 +173,11 @@ function plugin_nav_items(): array {
 
 function plugin_assets(): array {
     $assets = ['css' => [], 'js' => []];
+    $coreDependencies = [
+        'modal-helpers' => '/static/js/add/modal-helpers.js',
+        'media-selector' => '/static/js/add/media-selector.js',
+        'file-selector' => '/static/js/add/file-selector.js',
+    ];
     foreach (plugins_active() as $name => $p) {
         $a = $p['assets'] ?? [];
         foreach (['css', 'js'] as $type) {
@@ -180,8 +185,13 @@ function plugin_assets(): array {
                 $assets[$type][] = $url;
             }
         }
+        foreach ($p['dependencies']['js'] ?? [] as $dependency) {
+            if (is_string($dependency) && isset($coreDependencies[$dependency])) {
+                $assets['js'][] = $coreDependencies[$dependency];
+            }
+        }
     }
-    return $assets;
+    return ['css' => array_values(array_unique($assets['css'])), 'js' => array_values(array_unique($assets['js']))];
 }
 
 function plugin_resolve_route(string $route): ?array {
