@@ -308,7 +308,7 @@ class AuthorController
         // Pagination + filter
         // -------------------------
         $perPage = 10;
-        $pageNum = max(1, (int)$pageNum);
+        $pageNum = max(1, (int)($_GET['page'] ?? $pageNum));
 
         $where = [
             "p.type = 'article'",
