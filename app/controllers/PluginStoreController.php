@@ -34,6 +34,7 @@ class PluginStoreController
                     'changelog' => $latest['changelog'] ?? '',
                     'zip_size' => $latest['zip_size'] ?? 0,
                     'php_required' => $latest['php_required'] ?? '',
+                    'checksum' => $latest['checksum'] ?? '',
                 ];
             } else {
                 unset($updates[$name]);
@@ -104,6 +105,9 @@ class PluginStoreController
         if ($zipContent === false) {
             self::writeProgress($progressToken, 0, 'Gagal mengunduh update.', true, 'Gagal mengunduh update dari store.');
             return ['success' => false, 'error' => 'Gagal mengunduh update dari store.'];
+        }
+        if (empty($update['checksum']) || !hash_equals(strtolower((string)$update['checksum']), hash('sha256', $zipContent))) {
+            return ['success' => false, 'error' => 'Plugin package integrity verification failed.'];
         }
 
         $p(35, 'Unduhan selesai. Memverifikasi paket...');
