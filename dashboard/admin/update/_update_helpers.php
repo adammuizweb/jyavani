@@ -316,15 +316,39 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
             ],
         ]);
 
-        $zipData = @file_get_contents($downloadUrl, false, $ctx);
-        if ($zipData === false) {
+        $input = @fopen($downloadUrl, 'rb', false, $ctx);
+        $output = $input === false ? false : @fopen($tmpZip, 'wb');
+        if ($input === false || $output === false) {
+            if (is_resource($input)) fclose($input);
+            if (is_resource($output)) fclose($output);
+            @unlink($tmpZip);
             if ($progressToken !== '') {
                 _cms_write_progress($progressToken, 0, __('Download failed.'), true, __('Failed to download update package.'));
             }
             return ['success' => false, 'message' => __('Failed to download update package.')];
         }
 
-        file_put_contents($tmpZip, $zipData);
+        $length = 0;
+        foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
+            if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
+        }
+        $downloaded = 0;
+        while (!feof($input)) {
+            $chunk = fread($input, 1024 * 1024);
+            if ($chunk === false || ($chunk !== '' && fwrite($output, $chunk) !== strlen($chunk))) {
+                fclose($input);
+                fclose($output);
+                @unlink($tmpZip);
+                if ($progressToken !== '') _cms_write_progress($progressToken, 0, __('Download failed.'), true, __('Failed to download update package.'));
+                return ['success' => false, 'message' => __('Failed to download update package.')];
+            }
+            $downloaded += strlen($chunk);
+            if ($progressToken !== '' && $length > 0) {
+                _cms_write_progress($progressToken, (int)floor(5 * min(1, $downloaded / $length)), __('Downloading update package…'));
+            }
+        }
+        fclose($input);
+        fclose($output);
 
         if ($progressToken !== '') {
             _cms_write_progress($progressToken, 5, __('Download complete. Extracting…'));

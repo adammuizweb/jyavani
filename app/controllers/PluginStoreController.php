@@ -100,19 +100,18 @@ class PluginStoreController
         }
 
         // Download update
-        $p(18, 'Mengunduh paket update...');
-        $zipContent = @file_get_contents($update['download_url']);
-        if ($zipContent === false) {
+        $tmpZip = self::downloadPackage((string)$update['download_url'], $p);
+        if ($tmpZip === null) {
             self::writeProgress($progressToken, 0, 'Gagal mengunduh update.', true, 'Gagal mengunduh update dari store.');
             return ['success' => false, 'error' => 'Gagal mengunduh update dari store.'];
         }
-        if (empty($update['checksum']) || !hash_equals(strtolower((string)$update['checksum']), hash('sha256', $zipContent))) {
+        if (empty($update['checksum']) || !hash_equals(strtolower((string)$update['checksum']), hash_file('sha256', $tmpZip))) {
+            @unlink($tmpZip);
+            self::writeProgress($progressToken, 0, 'Paket update tidak valid.', true, 'Plugin package integrity verification failed.');
             return ['success' => false, 'error' => 'Plugin package integrity verification failed.'];
         }
 
         $p(35, 'Unduhan selesai. Memverifikasi paket...');
-        $tmpZip = tempnam(sys_get_temp_dir(), 'update-') . '.zip';
-        file_put_contents($tmpZip, $zipContent);
 
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
@@ -146,11 +145,14 @@ class PluginStoreController
 
         // Extract update
         $p(55, 'Memasang file update...');
-        $totalFiles = $zip->numFiles;
-        $extractFailed = false;
-        for ($i = 0; $i < $totalFiles; $i++) {
+        $filesToExtract = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->statIndex($i)['name'] ?? '';
-            if (str_ends_with($filename, '/')) continue;
+            if (!str_ends_with($filename, '/')) $filesToExtract[] = $filename;
+        }
+        $totalFiles = count($filesToExtract);
+        $extractFailed = false;
+        foreach ($filesToExtract as $i => $filename) {
             $relative = preg_replace('#^' . preg_quote($name, '#') . '/#', '', $filename, 1);
             $target = plugin_safe_path($pluginDir, $relative);
             if ($target === null) { $extractFailed = true; break; }
@@ -161,7 +163,7 @@ class PluginStoreController
                 $extractFailed = true;
                 break;
             }
-            if ($progressToken !== '' && $totalFiles > 0 && $i % max(1, intdiv($totalFiles, 10)) === 0) {
+            if ($progressToken !== '' && $totalFiles > 0 && (($i + 1) % max(1, intdiv($totalFiles, 20)) === 0 || $i + 1 === $totalFiles)) {
                 $pct = 55 + (int)(30 * ($i + 1) / $totalFiles);
                 $p($pct, 'Memasang file (' . ($i + 1) . '/' . $totalFiles . ')...');
             }
@@ -294,6 +296,34 @@ class PluginStoreController
             'done' => $done,
             'error' => $error,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
+
+    private static function downloadPackage(string $url, callable $progress): ?string
+    {
+        $progress(18, 'Mengunduh paket update...');
+        $ctx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS-PluginUpdate']]);
+        $input = @fopen($url, 'rb', false, $ctx);
+        if ($input === false) return null;
+        $tmp = tempnam(sys_get_temp_dir(), 'plugin-update-') . '.zip';
+        $output = @fopen($tmp, 'wb');
+        if ($output === false) { fclose($input); return null; }
+
+        $length = 0;
+        foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
+            if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
+        }
+        $downloaded = 0;
+        while (!feof($input)) {
+            $chunk = fread($input, 1024 * 1024);
+            if ($chunk === false) { fclose($input); fclose($output); @unlink($tmp); return null; }
+            if ($chunk === '') continue;
+            if (fwrite($output, $chunk) !== strlen($chunk)) { fclose($input); fclose($output); @unlink($tmp); return null; }
+            $downloaded += strlen($chunk);
+            if ($length > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $length)), 'Mengunduh paket update...');
+        }
+        fclose($input);
+        fclose($output);
+        return $tmp;
     }
 
     private static function fetchVersionInfo(string $url): ?array

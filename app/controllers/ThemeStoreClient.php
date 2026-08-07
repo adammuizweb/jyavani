@@ -96,16 +96,13 @@ class ThemeStoreClient
             $zip->close();
         }
 
-        $p(18, __('Downloading update package...'));
-        $zipContent = @file_get_contents($update['download_url']);
-        if ($zipContent === false) {
+        $tmpZip = self::downloadPackage((string)$update['download_url'], $p);
+        if ($tmpZip === null) {
             self::writeProgress($progressToken, 0, __('Failed to download update.'), true, __('Failed to download update from store.'));
             return ['success' => false, 'error' => __('Failed to download update from store.')];
         }
 
         $p(35, __('Download complete. Verifying package...'));
-        $tmpZip = tempnam(sys_get_temp_dir(), 'update-') . '.zip';
-        file_put_contents($tmpZip, $zipContent);
 
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
@@ -141,18 +138,21 @@ class ThemeStoreClient
         }
 
         $p(55, __('Installing update files...'));
-        $totalFiles = $zip->numFiles;
-        $extractFailed = false;
-        for ($i = 0; $i < $totalFiles; $i++) {
+        $filesToExtract = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
             $filename = $zip->statIndex($i)['name'] ?? '';
-            if (str_ends_with($filename, '/')) continue;
+            if (!str_ends_with($filename, '/')) $filesToExtract[] = $filename;
+        }
+        $totalFiles = count($filesToExtract);
+        $extractFailed = false;
+        foreach ($filesToExtract as $i => $filename) {
             $relative = preg_replace('#^' . preg_quote($folderName, '#') . '/#', '', $filename, 1);
             $target = $themeDir . '/' . $relative;
             $targetDir = dirname($target);
             if (!is_dir($targetDir)) mkdir($targetDir, 0755, true);
             $copied = @copy('zip://' . $tmpZip . '#' . $filename, $target);
             if (!$copied) { $extractFailed = true; break; }
-            if ($progressToken !== '' && $totalFiles > 0 && $i % max(1, intdiv($totalFiles, 10)) === 0) {
+            if ($progressToken !== '' && $totalFiles > 0 && (($i + 1) % max(1, intdiv($totalFiles, 20)) === 0 || $i + 1 === $totalFiles)) {
                 $pct = 55 + (int)(30 * ($i + 1) / $totalFiles);
                 $p($pct, __('Installing file') . ' (' . ($i + 1) . '/' . $totalFiles . ')...');
             }
@@ -267,6 +267,34 @@ class ThemeStoreClient
             'done' => $done,
             'error' => $error,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+    }
+
+    private static function downloadPackage(string $url, callable $progress): ?string
+    {
+        $progress(18, __('Downloading update package...'));
+        $ctx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS-ThemeUpdate']]);
+        $input = @fopen($url, 'rb', false, $ctx);
+        if ($input === false) return null;
+        $tmp = tempnam(sys_get_temp_dir(), 'theme-update-') . '.zip';
+        $output = @fopen($tmp, 'wb');
+        if ($output === false) { fclose($input); return null; }
+
+        $length = 0;
+        foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
+            if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
+        }
+        $downloaded = 0;
+        while (!feof($input)) {
+            $chunk = fread($input, 1024 * 1024);
+            if ($chunk === false) { fclose($input); fclose($output); @unlink($tmp); return null; }
+            if ($chunk === '') continue;
+            if (fwrite($output, $chunk) !== strlen($chunk)) { fclose($input); fclose($output); @unlink($tmp); return null; }
+            $downloaded += strlen($chunk);
+            if ($length > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $length)), __('Downloading update package...'));
+        }
+        fclose($input);
+        fclose($output);
+        return $tmp;
     }
 
     private static function fetchVersionInfo(string $url): ?array
