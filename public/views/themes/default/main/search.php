@@ -46,6 +46,7 @@ $listVars = [
     'q'            => $q,
     'qEsc'         => $qEsc,
     'site_context' => 'posts_list',
+    'is_search'    => true,
 ];
 
 // pdo used by render_slot if needed

@@ -119,7 +119,8 @@ class ThemeStoreClient
         }
 
         $manifest = json_decode($manifestRaw, true);
-        if (!is_array($manifest) || empty($manifest['name']) || $manifest['name'] !== $folderName) {
+        $manifestFolder = is_array($manifest) ? (string)($manifest['folder'] ?? $manifest['name'] ?? '') : '';
+        if (!is_array($manifest) || $manifestFolder !== $folderName) {
             $zip->close(); unlink($tmpZip);
             self::writeProgress($progressToken, 0, __('Invalid theme.json.'), true);
             return ['success' => false, 'error' => __('Invalid theme.json.')];

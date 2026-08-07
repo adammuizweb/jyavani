@@ -19,6 +19,13 @@ $total = isset($total) ? (int)$total : count($posts);
 $perPage = isset($perPage) ? (int)$perPage : 10;
 $pages = max(1, (int)ceil($total / max(1, $perPage)));
 $base = isset($base) ? rtrim($base, '/') . '/' : '/artikel/';
+$q = (string)($q ?? '');
+$isSearch = !empty($is_search);
+$paginationUrl = static function (int $targetPage) use ($isSearch, $base, $q): string {
+    return $isSearch
+        ? '/?' . http_build_query(['s' => (string)($q ?? ''), 'p' => $targetPage])
+        : collection_paginated_url($base, $targetPage, (string)($q ?? ''));
+};
 
 if (!function_exists('_theme_posts_excerpt')) {
     function _theme_posts_excerpt($html, $len = 200) {
@@ -144,13 +151,13 @@ if (!function_exists('_theme_posts_resolve_image')) {
       <div aria-label="Pagination" style="margin-top:1rem;text-align:center">
         <div style="display:inline-flex;gap:.5rem;align-items:center;">
 <?php if ($page > 1): ?>
-  <a href="<?= htmlspecialchars(collection_paginated_url($base, $page - 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px solid #eee;text-decoration:none"><?= __('← Prev') ?></a>
+  <a href="<?= htmlspecialchars($paginationUrl($page - 1), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px solid #eee;text-decoration:none"><?= __('← Prev') ?></a>
 <?php endif; ?>
 
 <span style="padding:.45rem .75rem;border-radius:6px;border:1px solid #eee"><?= sprintf(__('Page %d of %d'), $page, $pages) ?></span>
 
 <?php if ($page < $pages): ?>
-  <a href="<?= htmlspecialchars(collection_paginated_url($base, $page + 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px;text-decoration:none"><?= __('Next →') ?></a>
+  <a href="<?= htmlspecialchars($paginationUrl($page + 1), ENT_QUOTES, 'UTF-8') ?>" style="padding:.45rem .75rem;border-radius:6px;border:1px;text-decoration:none"><?= __('Next →') ?></a>
 <?php endif; ?>
         </div>
       </div>
