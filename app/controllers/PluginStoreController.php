@@ -301,28 +301,16 @@ class PluginStoreController
     private static function downloadPackage(string $url, callable $progress): ?string
     {
         $progress(18, 'Mengunduh paket update...');
-        $ctx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS-PluginUpdate']]);
-        $input = @fopen($url, 'rb', false, $ctx);
-        if ($input === false) return null;
         $tmp = tempnam(sys_get_temp_dir(), 'plugin-update-') . '.zip';
         $output = @fopen($tmp, 'wb');
-        if ($output === false) { fclose($input); return null; }
-
-        $length = 0;
-        foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
-            if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
-        }
-        $downloaded = 0;
-        while (!feof($input)) {
-            $chunk = fread($input, 1024 * 1024);
-            if ($chunk === false) { fclose($input); fclose($output); @unlink($tmp); return null; }
-            if ($chunk === '') continue;
-            if (fwrite($output, $chunk) !== strlen($chunk)) { fclose($input); fclose($output); @unlink($tmp); return null; }
-            $downloaded += strlen($chunk);
-            if ($length > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $length)), 'Mengunduh paket update...');
-        }
-        fclose($input);
+        if ($output === false || !function_exists('curl_init')) { @unlink($tmp); return null; }
+        $curl = curl_init($url);
+        curl_setopt_array($curl, [CURLOPT_FILE => $output, CURLOPT_FOLLOWLOCATION => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_USERAGENT => 'JyavaniCMS-PluginUpdate']);
+        $ok = curl_exec($curl) === true && (int)curl_getinfo($curl, CURLINFO_HTTP_CODE) >= 200 && (int)curl_getinfo($curl, CURLINFO_HTTP_CODE) < 300;
+        curl_close($curl);
         fclose($output);
+        if (!$ok) { @unlink($tmp); return null; }
+        $progress(35, 'Unduhan selesai. Memverifikasi paket...');
         return $tmp;
     }
 
