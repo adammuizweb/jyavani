@@ -81,6 +81,30 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
     $preservePatterns = _get_preserve_patterns();
 
+    // Refuse a partial update: version.json must never advance when a managed
+    // file cannot be replaced by the PHP-FPM user.
+    $writeErrors = [];
+    for ($i = 0; $i < $totalFiles; $i++) {
+        $filename = $zip->getNameIndex($i);
+        if ($filename === false || str_ends_with($filename, '/')) continue;
+        $isPreserved = false;
+        foreach ($preservePatterns as $pattern) {
+            if (preg_match($pattern, $filename)) { $isPreserved = true; break; }
+        }
+        if ($isPreserved || ($remoteFiles !== null && !isset($remoteFiles[$filename]))) continue;
+
+        $targetPath = $projectRoot . '/' . $filename;
+        $writePath = file_exists($targetPath) ? $targetPath : dirname($targetPath);
+        while (!is_dir($writePath) && dirname($writePath) !== $writePath) {
+            $writePath = dirname($writePath);
+        }
+        if (!is_writable($writePath)) $writeErrors[] = $filename;
+    }
+    if ($writeErrors) {
+        $zip->close();
+        return ['success' => false, 'message' => __('Update cannot write:') . ' ' . implode(', ', array_slice($writeErrors, 0, 5))];
+    }
+
     // First pass: count processable files for accurate progress
     if ($progressToken !== '') {
         for ($i = 0; $i < $totalFiles; $i++) {

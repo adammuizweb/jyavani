@@ -510,6 +510,7 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Failed to upload image.', 'Bild konnte nicht hochgeladen werden.', 'de'),
 ('default', 'Failed to write file to disk.', 'Die Datei konnte nicht auf die Festplatte geschrieben werden.', 'de'),
 ('default', 'Failed to write:', 'Fehler beim Schreiben:', 'de'),
+('default', 'Update cannot write:', 'Update kann nicht schreiben:', 'de'),
 ('default', 'Failed: ', 'Fehlgeschlagen:', 'de'),
 ('default', 'Failed: some categories still have subcategories. IDs: ', 'Fehlgeschlagen: Einige Kategorien haben noch Unterkategorien. IDs:', 'de'),
 ('default', 'Failed! Restoring backup...', 'Fehlgeschlagen! Backup wird wiederhergestellt...', 'de'),
@@ -1925,6 +1926,7 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Failed to upload image.', 'Gagal mengunggah gambar.', 'id'),
 ('default', 'Failed to write file to disk.', 'Gagal menulis file ke disk.', 'id'),
 ('default', 'Failed to write:', 'Gagal menulis:', 'id'),
+('default', 'Update cannot write:', 'Pembaruan tidak dapat menulis:', 'id'),
 ('default', 'Failed: ', 'Gagal: ', 'id'),
 ('default', 'Failed: some categories still have subcategories. IDs: ', 'Gagal: beberapa kategori masih punya subkategori. IDs: ', 'id'),
 ('default', 'Failed! Restoring backup...', 'Gagal! Memulihkan cadangan...', 'id'),
@@ -3878,4 +3880,3 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Critical update advisory published.', 'Hinweis zum kritischen Update veröffentlicht.', 'de'),
 ('default', 'Critical update advisory cleared.', 'Peringatan pembaruan kritis dihapus.', 'id'),
 ('default', 'Critical update advisory cleared.', 'Hinweis zum kritischen Update gelöscht.', 'de');
-
