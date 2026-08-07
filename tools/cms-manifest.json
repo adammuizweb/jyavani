@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.37",
+    "version": "2.3.38",
     "build": "2026-08-07",
-    "generated": "2026-08-07T10:36:58+00:00",
+    "generated": "2026-08-07T10:39:05+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
@@ -445,6 +445,6 @@
         "tools/build-package.php": "72533f29953335144be292935860a55d91a2b3558ad1970084b8154b0341c05a",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
-        "tools/generate-manifest.php": "37b74cef2f62c79b5eb1b1d6d4ecab821faa4e18c189a948673661941be6171d"
+        "tools/generate-manifest.php": "b4b7d85b7db3921ffb12930ddf78323836ec80066dfebcc89e29fbdc43d06315"
     }
 }

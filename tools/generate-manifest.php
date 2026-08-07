@@ -60,6 +60,7 @@ const PRESERVE_PATTERNS = [
 
     // Generated / runtime
     '#^tools/cms-manifest\.json$#',
+    '#^var/#',
     '#\.DS_Store$#',
     '#Thumbs\.db$#',
 
@@ -78,7 +79,9 @@ echo "Scanning {$ROOT}...\n";
 
 $files = [];
 $it = new RecursiveIteratorIterator(
-    new RecursiveDirectoryIterator($ROOT, RecursiveDirectoryIterator::SKIP_DOTS)
+    new RecursiveDirectoryIterator($ROOT, RecursiveDirectoryIterator::SKIP_DOTS),
+    RecursiveIteratorIterator::LEAVES_ONLY,
+    RecursiveIteratorIterator::CATCH_GET_CHILD
 );
 
 foreach ($it as $fileinfo) {
