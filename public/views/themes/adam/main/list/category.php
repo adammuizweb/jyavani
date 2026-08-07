@@ -107,13 +107,13 @@ $categoryDescription = (string)($category['description'] ?? '');
         ?>
         <nav class="pagination" aria-label="Pagination">
             <?php if ($page > 1): ?>
-                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page - 1), ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
+                <a class="page-link" href="<?= htmlspecialchars(get_category_permalink($pdo, $category, $page - 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
             <?php endif; ?>
 
             <span class="page-info"><?= sprintf(__('Page %d of %d'), $page, $totalPages) ?></span>
 
             <?php if ($page < $totalPages): ?>
-                <a class="page-link" href="<?= htmlspecialchars($base . '?page=' . ($page + 1), ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
+                <a class="page-link" href="<?= htmlspecialchars(get_category_permalink($pdo, $category, $page + 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
             <?php endif; ?>
         </nav>
     <?php endif; ?>

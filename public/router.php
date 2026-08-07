@@ -194,7 +194,7 @@ if ($prefix === 'author') {
     require_once __DIR__ . '/../app/controllers/AuthorController.php';
 
     $ident = $segments[1] ?? '';
-    $page = (isset($segments[2], $segments[3]) && $segments[2] === 'page') ? (int)$segments[3] : 1;    
+    $page = (isset($segments[2], $segments[3]) && in_array($segments[2], ['p', 'page'], true)) ? (int)$segments[3] : 1;
     $q = trim((string)($_GET['q'] ?? ''));
 
     if ($ident === '') {
@@ -218,7 +218,7 @@ if ($categoryMatch !== null) {
     // detect 'page' segment (e.g. /category/foo/page/2/ or /category/page/2/)
     $page = 1;
     foreach ($segmentsAfter as $idx => $seg) {
-        if ($seg === 'page' && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
+        if (in_array($seg, ['p', 'page'], true) && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
             $page = (int)$segmentsAfter[$idx + 1];
             array_splice($segmentsAfter, $idx, 2);
             break;
@@ -229,8 +229,9 @@ if ($categoryMatch !== null) {
     $slug = implode('/', $segmentsAfter);
 
     // fallback: ?page=N query param (used by inline fallback pagination links)
-    if ($page === 1 && isset($_GET['page']) && ctype_digit((string)$_GET['page'])) {
-        $page = (int)$_GET['page'];
+    $queryPage = $_GET['p'] ?? $_GET['page'] ?? null;
+    if ($page === 1 && $queryPage !== null && ctype_digit((string)$queryPage)) {
+        $page = (int)$queryPage;
     }
 
     // Preserve the resolved dynamic route for controllers and extensions.
@@ -275,10 +276,10 @@ if (preg_match('/^\d{4}$/', $prefix)) {
         // detect /page/2/ after month or year
         $page = 1;
         $pageIndex = $month ? 2 : 1;
-        if (isset($segments[$pageIndex]) && $segments[$pageIndex] === 'page' && isset($segments[$pageIndex + 1])) {
+        if (isset($segments[$pageIndex]) && in_array($segments[$pageIndex], ['p', 'page'], true) && isset($segments[$pageIndex + 1])) {
             $page = (int)$segments[$pageIndex + 1];
-        } elseif (!empty($_GET['page'])) {
-            $page = max(1, (int)$_GET['page']);
+        } elseif (!empty($_GET['p']) || !empty($_GET['page'])) {
+            $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
         }
 
         ArchiveController::show($pdo, $year, $month, $page, null);
@@ -315,12 +316,12 @@ if ($postsListMatch !== null) {
     require_once __DIR__ . '/../app/controllers/PostController.php';
 
     $page = 1;
-    if (!empty($_GET['page'])) {
-        $page = max(1, (int)$_GET['page']);
+    if (!empty($_GET['p']) || !empty($_GET['page'])) {
+        $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
     } else {
         $segmentsAfter = $postsListMatch['rest'] === '' ? [] : explode('/', $postsListMatch['rest']);
         foreach ($segmentsAfter as $idx => $seg) {
-            if ($seg === 'page' && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
+            if (in_array($seg, ['p', 'page'], true) && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
                 $page = (int)$segmentsAfter[$idx + 1];
                 break;
             }
@@ -341,13 +342,13 @@ if ($pagesListMatch !== null) {
     $page = 1;
     $segmentsAfter = $pagesListMatch['rest'] === '' ? [] : explode('/', $pagesListMatch['rest']);
     foreach ($segmentsAfter as $idx => $seg) {
-        if ($seg === 'page' && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
+        if (in_array($seg, ['p', 'page'], true) && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
             $page = (int)$segmentsAfter[$idx + 1];
             break;
         }
     }
-    if (!empty($_GET['page'])) {
-        $page = max(1, (int)$_GET['page']);
+    if (!empty($_GET['p']) || !empty($_GET['page'])) {
+        $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
     }
 
     $q = trim((string)($_GET['q'] ?? ''));
@@ -403,10 +404,10 @@ if (!empty($fallbackToArchive)) {
 
     $page = 1;
     $pageIndex = $month ? 2 : 1;
-    if (isset($segments[$pageIndex]) && $segments[$pageIndex] === 'page' && isset($segments[$pageIndex + 1])) {
+    if (isset($segments[$pageIndex]) && in_array($segments[$pageIndex], ['p', 'page'], true) && isset($segments[$pageIndex + 1])) {
         $page = (int)$segments[$pageIndex + 1];
-    } elseif (!empty($_GET['page'])) {
-        $page = max(1, (int)$_GET['page']);
+    } elseif (!empty($_GET['p']) || !empty($_GET['page'])) {
+        $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
     }
 
     ArchiveController::show($pdo, $year, $month, $page, null);
@@ -416,10 +417,17 @@ if (!empty($fallbackToArchive)) {
 // If category prefix is empty, try resolving path as root-level category
 $catEnabled = function_exists('is_category_enabled') ? is_category_enabled($pdo) : true;
 if (!$catEnabled && function_exists('resolve_category_from_path')) {
-    $catSlug = resolve_category_from_path($pdo, $pathTrimmed);
+    $rootCategoryPath = $pathTrimmed;
+    $page = 1;
+    if (preg_match('#^(.*?)/(?:p|page)/(\d+)$#', $rootCategoryPath, $pageMatch)) {
+        $rootCategoryPath = $pageMatch[1];
+        $page = max(1, (int)$pageMatch[2]);
+    } elseif (!empty($_GET['p']) || !empty($_GET['page'])) {
+        $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
+    }
+    $catSlug = resolve_category_from_path($pdo, $rootCategoryPath);
     if ($catSlug !== null) {
         require_once __DIR__ . '/../app/controllers/CategoryController.php';
-        $page = (int)($_GET['page'] ?? 1);
         $q = trim((string)($_GET['q'] ?? ''));
         CategoryController::showCategory($pdo, $catSlug, $page, $q);
         exit;

@@ -59,10 +59,10 @@ if (!function_exists('search_theme_build_page_url')) {
     {
         $base = trim($base);
         if ($base === '') {
-            return '/?page=' . $targetPage;
+            return '/?p=' . $targetPage;
         }
 
-        return $base . (strpos($base, '?') === false ? '?' : '&') . 'page=' . $targetPage;
+        return $base . (strpos($base, '?') === false ? '?' : '&') . 'p=' . $targetPage;
     }
 }
 ?>

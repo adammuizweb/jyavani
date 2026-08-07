@@ -80,7 +80,7 @@ function collection_paginated_url(string $baseUrl, int $page = 1, string $query 
     $url = $base === '' ? '/' : '/' . $base . '/';
     $page = max(1, $page);
     if ($page > 1) {
-        $url .= 'page/' . $page . '/';
+        $url .= 'p/' . $page . '/';
     }
     if ($query !== '') {
         $url .= '?' . http_build_query(['q' => $query]);

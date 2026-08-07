@@ -18,7 +18,7 @@ if (!empty($_GET['s'])) {
     require_once __DIR__ . '/../app/controllers/SearchController.php';
 
     $q = trim((string)($_GET['s'] ?? ''));
-    $page = max(1, (int)($_GET['page'] ?? 1));
+    $page = max(1, (int)($_GET['p'] ?? $_GET['page'] ?? 1));
 
     // debug (opsional): tulis ke error_log jika perlu
     // error_log("INDEX.PHP: handling ?s= query q={$q} page={$page}");

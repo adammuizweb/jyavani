@@ -90,7 +90,7 @@ if ($archive_label !== '') {
                 <?php if ($page > 1): ?>
                     <?php
                         $prevPage = $page - 1;
-                        $prevUrl = $basePath . ($prevPage === 1 ? '' : '?page=' . $prevPage);
+                        $prevUrl = collection_paginated_url($basePath, $prevPage);
                     ?>
                     <a href="<?= htmlspecialchars($prevUrl, ENT_QUOTES, 'UTF-8') ?>" class="adamz-arch-nav-btn">
                         <?= __('← Prev') ?>
@@ -102,7 +102,7 @@ if ($archive_label !== '') {
                 </span>
 
                 <?php if ($page < $totalPages): ?>
-                    <?php $nextUrl = $basePath . '?page=' . ($page + 1); ?>
+                    <?php $nextUrl = collection_paginated_url($basePath, $page + 1); ?>
                     <a href="<?= htmlspecialchars($nextUrl, ENT_QUOTES, 'UTF-8') ?>" class="adamz-arch-nav-btn">
                         <?= __('Next →') ?>
                     </a>

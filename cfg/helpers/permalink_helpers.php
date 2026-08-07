@@ -145,7 +145,7 @@ function get_author_permalink(array $author, int $page = 1, string $query = ''):
 
     $url = '/author/' . rawurlencode($identifier) . '/';
     if ($page > 1) {
-        $url .= 'page/' . $page . '/';
+        $url .= 'p/' . $page . '/';
     }
     if ($query !== '') {
         $url .= '?' . http_build_query(['q' => $query]);

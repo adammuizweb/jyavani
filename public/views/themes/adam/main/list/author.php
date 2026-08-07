@@ -110,13 +110,13 @@ $authorLink     = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . 
 
   <nav class="pagination" aria-label="Pagination">
     <?php if ($page > 1): ?>
-      <a class="page-prev" href="?page=<?= max(1, $page - 1) ?>"><?= __('← Previous') ?></a>
+      <a class="page-prev" href="<?= htmlspecialchars(get_author_permalink($author, $page - 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>"><?= __('← Previous') ?></a>
     <?php endif; ?>
 
     <span class="page-info"><?= sprintf(__('Page %d / %d'), $page, $pages) ?></span>
 
     <?php if ($page < $pages): ?>
-      <a class="page-next" href="?page=<?= min($pages, $page + 1) ?>"><?= __('Next →') ?></a>
+      <a class="page-next" href="<?= htmlspecialchars(get_author_permalink($author, $page + 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>"><?= __('Next →') ?></a>
     <?php endif; ?>
   </nav>
 

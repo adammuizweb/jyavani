@@ -66,13 +66,13 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
       <nav class="adam-pagination" role="navigation" aria-label="<?= __('Pagination') ?>">
         <div class="adam-pagination__inner">
           <?php if ($page > 1): ?>
-            <a class="adam-pagination__link" href="<?= $base ?>?page=<?= $page-1 ?>" rel="prev"><?= __('← Previous') ?></a>
+            <a class="adam-pagination__link" href="<?= htmlspecialchars(collection_paginated_url($base, $page - 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>" rel="prev"><?= __('← Previous') ?></a>
           <?php endif; ?>
 
           <span class="adam-pagination__info"><?= sprintf(__('Page %d of %d'), $page, $pagesCount) ?></span>
 
           <?php if ($page < $pagesCount): ?>
-            <a class="adam-pagination__link" href="<?= $base ?>?page=<?= $page+1 ?>" rel="next"><?= __('Next →') ?></a>
+            <a class="adam-pagination__link" href="<?= htmlspecialchars(collection_paginated_url($base, $page + 1, (string)($q ?? '')), ENT_QUOTES, 'UTF-8') ?>" rel="next"><?= __('Next →') ?></a>
           <?php endif; ?>
         </div>
       </nav>

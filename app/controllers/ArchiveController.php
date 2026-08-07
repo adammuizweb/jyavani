@@ -46,7 +46,7 @@ class ArchiveController
         $page = max(1, (int)$page);
 
         // Accept query param if router didn't supply a path page (common case for /2025/?page=2)
-        $qsPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : null;
+        $qsPage = isset($_GET['p']) || isset($_GET['page']) ? max(1, (int)($_GET['p'] ?? $_GET['page'])) : null;
         if ($page <= 1 && $qsPage) {
             $page = $qsPage;
         }
@@ -165,12 +165,12 @@ class ArchiveController
         if ($page > 1) {
             $prevPage = $page - 1;
             // previous page: base (page1) or with ?page=N
-            $rel_prev = $baseUrl . ($prevPage === 1 ? '' : '?page=' . $prevPage);
+            $rel_prev = $scheme . '://' . $host . collection_paginated_url($basePath, $prevPage);
         }
 
         if ($page < $totalPages) {
             $nextPage = $page + 1;
-            $rel_next = $baseUrl . '?page=' . $nextPage;
+            $rel_next = $scheme . '://' . $host . collection_paginated_url($basePath, $nextPage);
         }
 
         // prepare vars for templates/slots
@@ -296,11 +296,11 @@ class ArchiveController
 
                 <nav aria-label="Pagination">
                   <?php if ($page > 1): ?>
-                    <a href="<?= htmlspecialchars($basePath . ($page-1 === 1 ? '' : '?page=' . ($page-1)), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
+                    <a href="<?= htmlspecialchars(collection_paginated_url($basePath, $page - 1), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
                   <?php endif; ?>
                   &nbsp; Halaman <?= $page ?> dari <?= $totalPages ?> &nbsp;
                   <?php if ($page < $totalPages): ?>
-                    <a href="<?= htmlspecialchars($basePath . '?page=' . ($page+1), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
+                    <a href="<?= htmlspecialchars(collection_paginated_url($basePath, $page + 1), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
                   <?php endif; ?>
                 </nav>
               <?php endif; ?>

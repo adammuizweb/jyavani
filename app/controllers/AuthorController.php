@@ -308,7 +308,7 @@ class AuthorController
         // Pagination + filter
         // -------------------------
         $perPage = 10;
-        $pageNum = max(1, (int)($_GET['page'] ?? $pageNum));
+        $pageNum = max(1, (int)($_GET['p'] ?? $_GET['page'] ?? $pageNum));
 
         $where = [
             "p.type = 'article'",
@@ -571,7 +571,7 @@ $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' 
                     <?php endif; ?>
                     &nbsp; Halaman <?= $pageNum ?> dari <?= $pages ?> &nbsp;
                     <?php if ($pageNum < $pages): ?>
-                        <a href="<?= htmlspecialchars(function_exists('get_author_permalink') ? get_author_permalink($user, $pageNum + 1, $q) : '/author/' . rawurlencode((string)($user['username'] ?? $user['id'])) . '/page/' . ($pageNum + 1) . '/', ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
+                        <a href="<?= htmlspecialchars(function_exists('get_author_permalink') ? get_author_permalink($user, $pageNum + 1, $q) : '/author/' . rawurlencode((string)($user['username'] ?? $user['id'])) . '/p/' . ($pageNum + 1) . '/', ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
                     <?php endif; ?>
                 </nav>
             </div>

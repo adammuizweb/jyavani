@@ -139,7 +139,7 @@ class SearchController
         // canonical (layout.php membaca $canonical_url)
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $canonical_url = $scheme . '://' . $host . '/?s=' . urlencode($q) . ($page > 1 ? '&page=' . $page : '');
+        $canonical_url = $scheme . '://' . $host . '/?' . http_build_query(array_filter(['s' => $q, 'p' => $page > 1 ? $page : null], fn($value) => $value !== null));
 
         $page_title = 'Pencarian: ' . $qEsc;
 
@@ -207,7 +207,7 @@ class SearchController
                 <?php if ($totalPages > 1): ?>
                     <nav aria-label="Pagination">
                         <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                            <a href="<?= htmlspecialchars($baseUrl . '&page=' . $i, ENT_QUOTES, 'UTF-8') ?>"
+                            <a href="<?= htmlspecialchars($baseUrl . '&p=' . $i, ENT_QUOTES, 'UTF-8') ?>"
                                <?= $i == $page ? 'aria-current="page"' : '' ?>>
                                <?= $i ?>
                             </a>

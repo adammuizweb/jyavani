@@ -229,11 +229,11 @@ if (trim($content_html) === '') {
 
                 <nav aria-label="Pagination" style="margin-top:1rem;">
                   <?php if ($page > 1): ?>
-                    <a href="<?= htmlspecialchars($vars['base'] . '?page=' . ($page - 1), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
+                    <a href="<?= htmlspecialchars(collection_paginated_url($vars['base'], $page - 1, $q), ENT_QUOTES, 'UTF-8') ?>">&larr; Sebelumnya</a>
                   <?php endif; ?>
                   &nbsp; Halaman <?= $page ?> dari <?= $pages ?> &nbsp;
                   <?php if ($page < $pages): ?>
-                    <a href="<?= htmlspecialchars($vars['base'] . '?page=' . ($page + 1), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
+                    <a href="<?= htmlspecialchars(collection_paginated_url($vars['base'], $page + 1, $q), ENT_QUOTES, 'UTF-8') ?>">Berikutnya &rarr;</a>
                   <?php endif; ?>
                 </nav>
               <?php endif; ?>
