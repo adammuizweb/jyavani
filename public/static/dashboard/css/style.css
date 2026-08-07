@@ -5210,6 +5210,18 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   border-radius:8px;
   line-height:1.6;
 }
+.dw-latest{
+  display:inline-block;
+  margin-left:.35rem;
+  padding:.1rem .4rem;
+  border-radius:999px;
+  background:#d1fae5;
+  color:#065f46;
+  font-size:.65rem;
+  font-weight:700;
+  letter-spacing:.02em;
+  vertical-align:middle;
+}
 .dw-table{
   width:100%;
   border-collapse:collapse;

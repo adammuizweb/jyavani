@@ -109,9 +109,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $localVer = $currentVersion['version'] ?? '0.0.0';
         $remoteVer = $remote['version'] ?? '0.0.0';
+        ensure_session_started(true);
+        $_SESSION['cms_update_cache'] = [
+            'has_update' => version_compare($remoteVer, $localVer, '>'),
+            'current' => $localVer,
+            'latest' => $remoteVer,
+        ];
 
         if (version_compare($remoteVer, $localVer, '>')) {
-            ensure_session_started(true);
             $_SESSION['cms_update_remote'] = $remote;
             adiwira_redirect_with_flash($selfUrl, 'success',
                 __('Update available:') . ' v' . htmlspecialchars($localVer) . ' → v' . htmlspecialchars($remoteVer) . '. '
@@ -317,6 +322,9 @@ ensure_session_started(false);
 $pendingUpdate = $_SESSION['cms_update_remote'] ?? null;
 $pendingPackage = $_SESSION['cms_update_package'] ?? null;
 $pendingUrl = $_SESSION['cms_update_remote_url'] ?? $_SESSION['cms_update_base_url'] ?? '';
+$cmsLatest = is_array($_SESSION['cms_update_cache'] ?? null) && array_key_exists('has_update', $_SESSION['cms_update_cache']) && !$_SESSION['cms_update_cache']['has_update']
+    ? '<span class="up-latest">' . __('Latest') . '</span>'
+    : '';
 
 
 // Compute file stats
@@ -347,7 +355,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <div class="up-card-header"><?=_e('Current Installation')?></div>
         <table class="up-table">
             <tr><td><?=_e('CMS')?></td><td><strong><?= htmlspecialchars($currentVersion['name'] ?? 'Jyavani CMS') ?></strong></td></tr>
-            <tr><td><?=_e('Version')?></td><td><strong>v<?= htmlspecialchars($currentVersion['version'] ?? '0.0.0') ?></strong></td></tr>
+            <tr><td><?=_e('Version')?></td><td><strong>v<?= htmlspecialchars($currentVersion['version'] ?? '0.0.0') ?></strong> <?= $cmsLatest ?></td></tr>
             <tr><td><?=_e('Edition')?></td><td><span class="edition-badge"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg><?= htmlspecialchars($currentVersion['edition'] ?? '—') ?></span></td></tr>
             <tr><td><?=_e('Build')?></td><td><?= htmlspecialchars($currentVersion['build'] ?? '—') ?></td></tr>
             <tr><td><?=_e('Core files')?></td><td><?= $totalCore ?> <?=_e('files tracked')?></td></tr>
@@ -531,6 +539,7 @@ html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
   html:not(.theme-light):not(.theme-dark) .up-card-warning { border-color:#d97706; background:#1a1500; }
 }
 .up-card-header { font-size:.9rem; font-weight:600; margin-bottom:.75rem; text-transform:uppercase; letter-spacing:.03em; color:var(--adam-muted); }
+.up-latest { display:inline-block; margin-left:.35rem; padding:.1rem .4rem; border-radius:999px; background:#d1fae5; color:#065f46; font-size:.65rem; font-weight:700; letter-spacing:.02em; vertical-align:middle; }
 .up-table { width:100%; border-collapse:collapse; font-size:.875rem; }
 .up-table td { padding:.35rem .5rem; border-bottom:1px solid var(--adam-surface-3); color:var(--adam-text); }
 .up-table td:first-child { color:var(--adam-muted); width:35%; }

@@ -13,6 +13,9 @@ function dash_widget_cms_info(PDO $pdo): string
     $edition = $ver['edition'] ?? '—';
     $build   = $ver['build'] ?? '—';
     $phpReq  = $ver['php_required'] ?? '8.1';
+    $cmsLatest = is_array($_SESSION['cms_update_cache'] ?? null) && array_key_exists('has_update', $_SESSION['cms_update_cache']) && !$_SESSION['cms_update_cache']['has_update']
+        ? '<span class="dw-latest">' . __('Latest') . '</span>'
+        : '';
 
     $editionBadge = $edition !== '—'
         ? '<span class="edition-badge"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>' . h($edition) . '</span>'
@@ -27,7 +30,7 @@ function dash_widget_cms_info(PDO $pdo): string
   <div class="dw-card-body">
     <table class="dw-table">
       <tr><td>' . __('CMS') . '</td><td><strong>' . h($name) . '</strong></td></tr>
-      <tr><td>' . __('Version') . '</td><td><strong>v' . h($version) . '</strong></td></tr>
+      <tr><td>' . __('Version') . '</td><td><strong>v' . h($version) . '</strong> ' . $cmsLatest . '</td></tr>
       <tr><td>' . __('Edition') . '</td><td>' . $editionBadge . '</td></tr>
       <tr><td>' . __('Build') . '</td><td>' . h($build) . '</td></tr>
       <tr><td>' . __('PHP Required') . '</td><td>' . h($phpReq) . '+ (' . __('server:') . ' ' . PHP_VERSION . ')</td></tr>
