@@ -9,18 +9,25 @@ require_once DASH_PATH . '/admin/_notify.php';
 [$uid, $role] = adiwira_require_role($pdo, ['admin'], false);
 
 if (!function_exists('_rmdir_recursive')) {
-    function _rmdir_recursive(string $dir): void {
-        if (!is_dir($dir)) return;
+    function _rmdir_recursive(string $dir): bool {
+        if (!is_dir($dir)) return true;
         $it = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
         foreach (new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST) as $file) {
             $path = $file->getPathname();
+            @chmod($path, $file->isDir() ? 0777 : 0666);
             if ($file->isLink() || !$file->isDir()) {
                 @unlink($path);
             } else {
                 @rmdir($path);
             }
         }
-        @rmdir($dir);
+        @chmod($dir, 0777);
+        if (@rmdir($dir) || !is_dir($dir)) return true;
+
+        if (function_exists('exec')) {
+            exec('rm -rf ' . escapeshellarg($dir) . ' 2>&1', $output, $code);
+        }
+        return !is_dir($dir);
     }
 }
 
@@ -102,8 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // If a leftover/corrupt plugin directory exists without a valid manifest, remove it
     // so the user can reinstall from the store (e.g. node_modules survived deletion).
-    if (is_dir($pluginDir) && !plugin_manifest($pluginName)) {
-        _rmdir_recursive($pluginDir);
+    if (is_dir($pluginDir) && !plugin_manifest($pluginName) && !_rmdir_recursive($pluginDir)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to remove plugin.'));
     }
 
     if (is_dir($pluginDir)) {
