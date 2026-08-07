@@ -316,6 +316,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
       $isActive = isset($activePlugins[$name]);
       $hasUpdate = isset($availableUpdates[$name]);
       $updateInfo = $hasUpdate ? $availableUpdates[$name] : null;
+      $hasStore = !empty($p['store']) || str_starts_with((string)($p['plugin_uri'] ?? ''), 'https://jyavani.com/plugin/');
     ?>
     <?php
       $iconRaw = $p['icon'] ?? '';
@@ -364,7 +365,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
         <span class="version-text"><?= h($version) ?></span>
         <?php if ($hasUpdate): ?>
           <br><span class="badge badge-update">v<?= h($updateInfo['new_version']) ?></span>
-        <?php elseif (!empty($p['store'])): ?>
+        <?php elseif ($hasStore): ?>
           <br><span class="badge badge-latest"><?=_e('Latest')?></span>
         <?php endif; ?>
       </td>
