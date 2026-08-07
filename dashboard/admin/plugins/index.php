@@ -709,6 +709,7 @@ function startPluginUpdate(pluginName) {
           }, 1500);
         } else {
           setTimeout(function() {
+            if (window.adamRefreshUpdateStatus) window.adamRefreshUpdateStatus();
             window.location.href = '<?= $selfUrl ?>&update_ok=1';
           }, 1000);
         }

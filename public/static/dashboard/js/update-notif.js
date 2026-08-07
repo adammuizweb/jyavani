@@ -121,6 +121,10 @@ function loadUpdates(refreshMode) {
   });
 }
 
+window.adamRefreshUpdateStatus = function() {
+  loadUpdates(false);
+};
+
 function toggleDropdown() {
   shown = !shown;
   dd.style.display = shown ? '' : 'none';
