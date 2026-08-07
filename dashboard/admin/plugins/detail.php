@@ -55,7 +55,7 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
     <?php if ($allPassed): ?>
       <div class="notice notice-success"><?=__('All setup steps completed. The plugin is ready to use.')?></div>
     <?php else: ?>
-      <div class="notice notice-warning"><?=__('Some setup steps are not complete. Run the commands below.')?></div>
+      <div class="notice notice-warning"><?=__('Some setup steps are not complete. Follow the guidance below.')?></div>
     <?php endif; ?>
     <div class="checks-list">
       <?php foreach ($checks as $i => $c): ?>
@@ -63,12 +63,6 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
         <div class="check-icon"><?= $c['passed'] ? '&#10003;' : '&#10007;' ?></div>
         <div class="check-body">
           <div class="check-label"><?= h($c['label']) ?></div>
-          <?php if ($c['command']): ?>
-            <div class="check-command">
-              <code><?= h($c['command']) ?></code>
-              <button type="button" class="btn-copy btn btn-xs btn-ghost" data-cmd="<?= h($c['command']) ?>" title="<?=_e('Copy command')?>"><?= svg_ico('rows-3', '', ['style' => 'width:12px;height:12px']) ?></button>
-            </div>
-          <?php endif; ?>
           <?php if ($c['doc']): ?>
             <div class="check-doc"><?= h($c['doc']) ?></div>
           <?php endif; ?>

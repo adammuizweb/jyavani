@@ -48,6 +48,40 @@ function plugin_manifest(string $name): ?array {
     return is_array($data) ? $data : null;
 }
 
+function plugin_safe_path(string $root, string $relative): ?string {
+    if ($relative === '' || str_contains($relative, "\0") || str_contains($relative, '\\') || str_starts_with($relative, '/') || preg_match('/^[A-Za-z]:/', $relative)) return null;
+    $parts = explode('/', $relative);
+    if (in_array('', $parts, true) || in_array('.', $parts, true) || in_array('..', $parts, true)) return null;
+    $base = realpath($root);
+    if ($base === false) return null;
+    $parentPath = dirname($base . '/' . $relative);
+    while (!file_exists($parentPath) && dirname($parentPath) !== $parentPath) $parentPath = dirname($parentPath);
+    $parent = realpath($parentPath);
+    if ($parent === false || ($parent !== $base && !str_starts_with($parent, $base . DIRECTORY_SEPARATOR))) return null;
+    return $base . '/' . $relative;
+}
+
+function plugin_static_copy(string $pluginDir, array $entries): array {
+    $public = defined('PUBLIC_PATH') ? PUBLIC_PATH : dirname(PLUGIN_PATH) . '/public';
+    $copied = $failed = 0;
+    foreach ($entries as $entry) {
+        $source = plugin_safe_path($pluginDir, (string)($entry['from'] ?? ''));
+        $dest = plugin_static_path(basename($pluginDir), (string)($entry['to'] ?? ''));
+        if (!$source || !$dest || !is_file($source) || is_link($source)) { $failed++; continue; }
+        if (!is_dir(dirname($dest)) && !mkdir(dirname($dest), 0755, true)) { $failed++; continue; }
+        if (is_link($dest) || !@copy($source, $dest)) { $failed++; continue; }
+        $copied++;
+    }
+    return compact('copied', 'failed');
+}
+
+function plugin_static_path(string $name, string $relative): ?string {
+    $prefix = 'static/plugins/' . $name . '/';
+    if (!str_starts_with($relative, $prefix)) return null;
+    $public = defined('PUBLIC_PATH') ? PUBLIC_PATH : dirname(PLUGIN_PATH) . '/public';
+    return plugin_safe_path($public, $relative);
+}
+
 function plugins_all(): array {
     $plugins = [];
     foreach (glob(PLUGIN_PATH . '/*/plugin.json') as $file) {
@@ -218,7 +252,8 @@ function plugin_delete(string $name): bool {
         foreach ($manifest['static']['copy'] as $entry) {
             $dest = $entry['to'] ?? $entry['dest'] ?? '';
             if ($dest !== '') {
-                $abs = $publicPath . '/' . ltrim($dest, '/');
+                $abs = plugin_static_path($name, (string)$dest);
+                if ($abs === null) continue;
                 if (is_file($abs) && !@unlink($abs)) {
                     $errors[] = 'Failed to remove ' . $dest;
                 }
@@ -291,35 +326,27 @@ function plugin_checks(string $name): array {
 
     $results = [];
     $pluginDir = PLUGIN_PATH . '/' . $name;
-    $projectRoot = defined('PROJECT_ROOT') ? PROJECT_ROOT : dirname(PLUGIN_PATH);
-
     foreach ($manifest['setup']['checks'] as $i => $check) {
         $label = $check['label'] ?? 'Check ' . ($i + 1);
-        $cmd = $check['check'] ?? '';
         $tip = $check['doc'] ?? '';
-        $runCmd = $check['command'] ?? '';
-
-        // Replace placeholders
-        $expanded = str_replace(
-            ['{plugin_dir}', '{project_root}'],
-            [$pluginDir, $projectRoot],
-            $cmd
-        );
-
-        // Evaluate check
-        $passed = false;
-        $output = null;
-        if ($expanded !== '') {
-            exec($expanded . ' 2>&1', $output, $exitCode);
-            $passed = $exitCode === 0;
-        }
+        $type = (string)($check['type'] ?? '');
+        $path = plugin_safe_path($pluginDir, (string)($check['path'] ?? ''));
+        $passed = match ($type) {
+            'php_extension' => extension_loaded((string)($check['extension'] ?? '')),
+            'file_exists' => $path !== null && is_file($path),
+            'file_readable' => $path !== null && is_file($path) && is_readable($path),
+            'file_writable' => $path !== null && is_file($path) && is_writable($path),
+            'directory_exists' => $path !== null && is_dir($path),
+            'directory_writable' => $path !== null && is_dir($path) && is_writable($path),
+            default => false,
+        };
 
         $results[] = [
             'label' => $label,
             'passed' => $passed,
-            'command' => str_replace(['{plugin_dir}', '{project_root}'], [$pluginDir, $projectRoot], $runCmd),
+            'command' => '',
             'doc' => $tip,
-            'raw_output' => $output ? implode("\n", $output) : '',
+            'raw_output' => '',
         ];
     }
 

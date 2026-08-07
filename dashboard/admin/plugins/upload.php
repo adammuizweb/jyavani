@@ -121,6 +121,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to create temporary directory.'));
     }
 
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $entry = (string)($zip->statIndex($i)['name'] ?? '');
+        if (str_ends_with($entry, '/')) continue;
+        if (plugin_safe_path($tmpExtract, $entry) === null) {
+            $zip->close();
+            _rmdir_recursive($tmpExtract);
+            adiwira_redirect_with_flash($selfUrl, 'error', __('ZIP contains an invalid file path.'));
+        }
+    }
+
     $extracted = $zip->extractTo($tmpExtract);
     $zip->close();
 
@@ -185,10 +195,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
             $to = $entry['to'] ?? '';
             if ($from === '' || $to === '') continue;
 
-            $source = $pluginDir . '/' . ltrim($from, '/');
-            $dest = $publicPath . '/' . ltrim($to, '/');
+            $source = plugin_safe_path($pluginDir, $from);
+            $dest = plugin_static_path($pluginName, $to);
 
-            if (!is_file($source)) {
+            if (!$source || !$dest || !is_file($source) || is_link($source)) {
                 $failed++;
                 continue;
             }

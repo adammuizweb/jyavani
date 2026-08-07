@@ -5,7 +5,8 @@ declare(strict_types=1);
 // --- Read & normalize environment
 $SESSION_NAME = getenv('SESSION_NAME') ?: 'app_session';
 $SESSION_LIFETIME = (int)(getenv('SESSION_LIFETIME') ?: 7 * 24 * 60 * 60);
-$SESSION_IDLE_TIMEOUT = (int)(getenv('SESSION_IDLE_TIMEOUT') ?: 30 * 60);
+$idleRaw = getenv('SESSION_IDLE_TIMEOUT');
+$SESSION_IDLE_TIMEOUT = ($idleRaw === false || $idleRaw === '') ? 30 * 60 : max(0, (int)$idleRaw);
 
 $SESSION_COOKIE_PATH = getenv('SESSION_COOKIE_PATH') ?: '/';
 $raw_domain = getenv('SESSION_COOKIE_DOMAIN');
@@ -258,6 +259,15 @@ if (!function_exists('is_logged_in')) {
         if (session_status() !== PHP_SESSION_ACTIVE) return false;
         if (empty($_SESSION['user_id'])) return false;
         if (!isset($_SESSION['_fingerprint'])) return false;
+
+        global $SESSION_IDLE_TIMEOUT;
+        $now = time();
+        $lastActivity = (int)($_SESSION['last_activity'] ?? 0);
+        if ($SESSION_IDLE_TIMEOUT > 0 && ($lastActivity <= 0 || $now - $lastActivity > $SESSION_IDLE_TIMEOUT)) {
+            logout_user();
+            return false;
+        }
+        $_SESSION['last_activity'] = $now;
 
         $current_fp = session_fingerprint();
         $stored_fp = $_SESSION['_fingerprint'] ?? null;

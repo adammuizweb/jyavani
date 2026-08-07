@@ -117,6 +117,16 @@ class PluginStoreController
             return ['success' => false, 'error' => 'Paket update tidak valid.'];
         }
 
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entry = (string)($zip->statIndex($i)['name'] ?? '');
+            if (str_ends_with($entry, '/')) continue;
+            $relative = preg_replace('#^' . preg_quote($name, '#') . '/#', '', $entry, 1);
+            if (!function_exists('plugin_safe_path') || plugin_safe_path($pluginDir, $relative) === null) {
+                $zip->close(); unlink($tmpZip);
+                return ['success' => false, 'error' => 'Update package contains an invalid file path.'];
+            }
+        }
+
         // Hapus files lama
         $p(45, 'Membersihkan file lama...');
         $it = new RecursiveIteratorIterator(
@@ -138,7 +148,8 @@ class PluginStoreController
             $filename = $zip->statIndex($i)['name'] ?? '';
             if (str_ends_with($filename, '/')) continue;
             $relative = preg_replace('#^' . preg_quote($name, '#') . '/#', '', $filename, 1);
-            $target = $pluginDir . '/' . $relative;
+            $target = plugin_safe_path($pluginDir, $relative);
+            if ($target === null) { $extractFailed = true; break; }
             $targetDir = dirname($target);
             if (!is_dir($targetDir)) mkdir($targetDir, 0755, true);
             $copied = @copy('zip://' . $tmpZip . '#' . $filename, $target);

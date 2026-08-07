@@ -115,8 +115,9 @@ if ($ajaxAction !== '' && $ajaxPage !== '') {
         }
     }
     // Then check normal dashboard file
-    $ajaxFile = DASH_PATH . '/' . $ajaxPage . '.php';
-    if (is_file($ajaxFile)) {
+    $ajaxFile = realpath(DASH_PATH . '/' . $ajaxPage . '.php');
+    $dashRoot = realpath(DASH_PATH);
+    if ($ajaxFile !== false && $dashRoot !== false && str_starts_with($ajaxFile, $dashRoot . DIRECTORY_SEPARATOR) && is_file($ajaxFile)) {
         require $ajaxFile;
     }
     exit;
