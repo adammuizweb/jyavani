@@ -55,7 +55,6 @@ $zip->addFile($manifestFile, 'cms-manifest.json');
 
 // Exclude tool & preserve files from package
 $excludeFromPackage = [
-    'tools/build-package.php',
     'tools/cms-manifest.json',
     'cfg/.gitignore',
     'cfg/var/.gitignore',

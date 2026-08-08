@@ -51,6 +51,16 @@ const PRESERVE_PATTERNS = [
     '#^plugins/[^/]+/.+#',
     '#^public/static/plugins/#',
 
+    // Community/Store extensions maintained outside the Core package
+    '#^app/controllers/DownloadController\.php$#',
+    '#^dashboard/admin/community/#',
+    '#^public/download/#',
+    '#^public/static/community/#',
+    '#^public/views/community/#',
+    '#^public/views/member/#',
+    '#^schema/community\.sql$#',
+    '#^schema/migrations/008-dev-status-varchar\.sql$#',
+
     // Plugin-installed vendor assets
     '#^public/static/vendor/xterm/#',
     '#^public/static/vendor/jyavani-builder/#',

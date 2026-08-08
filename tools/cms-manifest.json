@@ -2,7 +2,7 @@
     "name": "Jyavani",
     "version": "2.3.49",
     "build": "2026-08-08",
-    "generated": "2026-08-08T01:28:45+00:00",
+    "generated": "2026-08-08T01:34:28+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
@@ -166,7 +166,7 @@
         "dashboard/admin/themes/update_apply.php": "18b4e5dd587b6789b9baa2c7ad870803ea566705ca8f9173f8c504ed878b8120",
         "dashboard/admin/themes/update_progress.php": "cc65adfd5a768e39541e27cf9810d1baca083c7eed8704cb8d8eea7785ce4d28",
         "dashboard/admin/themes/upload.php": "1f7df9cf9499ad6632721479500cc90588ee0d7ca05b1c0ef81d79f59a179aff",
-        "dashboard/admin/update/_update_helpers.php": "2eba4f86be8d2f8ccdca3387554c5cf0f164998bc162d32f939cd5c106fa11d6",
+        "dashboard/admin/update/_update_helpers.php": "8917e425c998c8a264c360e805be57ddc2e0e806b1928be6efe1001057940cfd",
         "dashboard/admin/update/index.php": "d884acd55c6a3e44484f8113409ce6a8e86ab0984ccc9c6015b36a13bf9c1dd4",
         "dashboard/admin/update/update_apply.php": "ce05953edd44e4ea9f546faa88d2e8be7164c3760b839cc2c7805575634e7ca4",
         "dashboard/admin/upload_file.php": "4127b8203eb74d87292bd80924a5106b5e46b869609d7b8033cd4736112759d6",
@@ -442,9 +442,9 @@
         "schema/migrations/010-theme-zone-theme-folder.sql": "15a82325671bb1115de39af895cf2851c131bd6d2041b9942d286df2f37d4b31",
         "schema/migrations/011-remove-static-language-control.sql": "0b7833516e66dcbd32bcf29f3106a6a59ee1abcca7dda9b7cd35ea512c9aa9e7",
         "schema/translations.sql": "e3f551f7aa498fbf89dce38c3acd3af31ad522df89a351cbd160a06a57a5d9b7",
-        "tools/build-package.php": "1d5167508a3f8e6e1a0a6fae298a4b7df80d840b2b2ccd37b94851517ebc2966",
+        "tools/build-package.php": "69f9a31eeaf2154cd197ef0f637240ae2617ac71d09a13ab7d71a1c54f3f2a89",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
-        "tools/generate-manifest.php": "c8efc79bc349c3a81b3e88328a31fefddf7485509c754f992296c64904c6c629"
+        "tools/generate-manifest.php": "4c4c04263849c43e0385dfd293a033061d15cd850ad357813e6e3ca33b4c68a9"
     }
 }

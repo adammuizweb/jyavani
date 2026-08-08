@@ -44,6 +44,14 @@ function _get_preserve_patterns(): array {
         '#^public/views/themes/[^/]+/.+#',
         '#^plugins/[^/]+/.+#',
         '#^plugin-store/#',
+        '#^app/controllers/DownloadController\.php$#',
+        '#^dashboard/admin/community/#',
+        '#^public/download/#',
+        '#^public/static/community/#',
+        '#^public/views/community/#',
+        '#^public/views/member/#',
+        '#^schema/community\.sql$#',
+        '#^schema/migrations/008-dev-status-varchar\.sql$#',
         '#node_modules/#',
         '#\.git/#',
         '#^\.gitignore$#',
@@ -95,7 +103,13 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         if ($isPreserved || ($remoteFiles !== null && !isset($remoteFiles[$filename]))) continue;
 
         $targetPath = $projectRoot . '/' . $filename;
-        $writePath = file_exists($targetPath) ? $targetPath : dirname($targetPath);
+        $remoteHash = is_string($remoteFiles[$filename] ?? null) ? $remoteFiles[$filename] : '';
+        if ($remoteHash !== '' && is_file($targetPath) && hash_equals($remoteHash, (string)hash_file('sha256', $targetPath))) continue;
+        if (file_exists($targetPath)) {
+            if (!is_file($targetPath) || !is_writable($targetPath)) $writeErrors[] = $filename;
+            continue;
+        }
+        $writePath = dirname($targetPath);
         while (!is_dir($writePath) && dirname($writePath) !== $writePath) {
             $writePath = dirname($writePath);
         }
@@ -117,6 +131,9 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
             }
             if ($isPreserved) continue;
             if ($remoteFiles !== null && !isset($remoteFiles[$filename])) continue;
+            $targetPath = $projectRoot . '/' . $filename;
+            $remoteHash = is_string($remoteFiles[$filename] ?? null) ? $remoteFiles[$filename] : '';
+            if ($remoteHash !== '' && is_file($targetPath) && hash_equals($remoteHash, (string)hash_file('sha256', $targetPath))) continue;
             $processable++;
         }
         if ($processable < 1) $processable = 1;
@@ -157,8 +174,10 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         // If manifest provides a file list, only update files listed in it
         if ($remoteFiles !== null && !isset($remoteFiles[$filename])) continue;
 
-        $processedIndex++;
         $targetPath = $projectRoot . '/' . $filename;
+        $remoteHash = is_string($remoteFiles[$filename] ?? null) ? $remoteFiles[$filename] : '';
+        if ($remoteHash !== '' && is_file($targetPath) && hash_equals($remoteHash, (string)hash_file('sha256', $targetPath))) continue;
+        $processedIndex++;
 
         // Backup existing file if it exists
         if (is_file($targetPath)) {
@@ -200,6 +219,12 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     // Read version.json from zip before closing (must be before close in PHP 8.4+)
     $zipVersionJson = $zip->getFromName('version.json');
     $zip->close();
+
+    if ($errors) {
+        $message = __('Update stopped before cleanup and version change:') . ' ' . implode('; ', array_slice($errors, 0, 5));
+        if ($progressToken !== '') _cms_write_progress($progressToken, 0, __('Update failed.'), true, $message);
+        return ['success' => false, 'message' => $message . ' Backup: ' . basename($backupDir)];
+    }
 
     // Delete files that exist locally but not in remote manifest
     $deleted = 0;
