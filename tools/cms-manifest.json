@@ -2,7 +2,7 @@
     "name": "Jyavani",
     "version": "2.3.49",
     "build": "2026-08-08",
-    "generated": "2026-08-08T01:34:28+00:00",
+    "generated": "2026-08-08T01:39:12+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
@@ -166,7 +166,7 @@
         "dashboard/admin/themes/update_apply.php": "18b4e5dd587b6789b9baa2c7ad870803ea566705ca8f9173f8c504ed878b8120",
         "dashboard/admin/themes/update_progress.php": "cc65adfd5a768e39541e27cf9810d1baca083c7eed8704cb8d8eea7785ce4d28",
         "dashboard/admin/themes/upload.php": "1f7df9cf9499ad6632721479500cc90588ee0d7ca05b1c0ef81d79f59a179aff",
-        "dashboard/admin/update/_update_helpers.php": "8917e425c998c8a264c360e805be57ddc2e0e806b1928be6efe1001057940cfd",
+        "dashboard/admin/update/_update_helpers.php": "f65d56f68efa791ecddd2edbb069d715b9efee8c48d4ee1b9e1c7b97c3066d13",
         "dashboard/admin/update/index.php": "d884acd55c6a3e44484f8113409ce6a8e86ab0984ccc9c6015b36a13bf9c1dd4",
         "dashboard/admin/update/update_apply.php": "ce05953edd44e4ea9f546faa88d2e8be7164c3760b839cc2c7805575634e7ca4",
         "dashboard/admin/upload_file.php": "4127b8203eb74d87292bd80924a5106b5e46b869609d7b8033cd4736112759d6",
@@ -198,7 +198,7 @@
         "public/index.php": "7f0da558386272d0294dd19686167bcce0701ce955db38d5199e031b8e95f10b",
         "public/php.ini": "c11712f31c104ad78e2047a8696efa629b3dd6546f7f75a265c079607139b638",
         "public/pondasi/index.php": "87d4c79b0963cf13b2e27c7e7dff774022a9c93b77a79a63e505cc292e58d206",
-        "public/router.php": "06c8553c3fb8cb3d42c0fcfac9e5c447a099282beacf5ea75a2cb3b3f9bc3e25",
+        "public/router.php": "a0bf29607614b04a63e7fbde3d461b1f06d5a2507f596d75f26895db3848d5b0",
         "public/static/assets/css/anime.css": "b8a58a600af57be4ffbead6fd551dcd3098d942aa435cc4a390ffbc6f7c4a6b2",
         "public/static/assets/css/codemirror-blocks.css": "6cd45855775862fea3a1149f4dd1ce6b5c756700aad6bb8cf5002b21e23b995a",
         "public/static/assets/css/fonts.css": "c444a9a1a0af8d1617f4f32f58b1a7f410e32e6001312be68ac4bb9befc28b93",
@@ -445,6 +445,6 @@
         "tools/build-package.php": "69f9a31eeaf2154cd197ef0f637240ae2617ac71d09a13ab7d71a1c54f3f2a89",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
-        "tools/generate-manifest.php": "4c4c04263849c43e0385dfd293a033061d15cd850ad357813e6e3ca33b4c68a9"
+        "tools/generate-manifest.php": "8b2643a447d6907de39fb6be4f1ff5194145f13241819bfc60f44cfed83868fc"
     }
 }

@@ -23,6 +23,10 @@ $pathTrimmed = trim($rawPath, " \t\n\r\0\x0B/");
 // (e.g. locale prefix stripping for translated content routing)
 $pathTrimmed = apply_filters('router_path', $pathTrimmed);
 
+// Optional site-specific routes live outside the managed Core router.
+$siteRouter = BACKEND_PATH . '/site-router.php';
+if (is_file($siteRouter)) require $siteRouter;
+
 // A Service Worker must be served from the origin root to control the whole site.
 // Plugins append their worker event handlers through this filter.
 if ($pathTrimmed === 'sw.js') {

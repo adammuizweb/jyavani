@@ -35,6 +35,7 @@ function _get_preserve_patterns(): array {
         '#^cfg/var/#',
         '#^cfg/session_debug\.log$#',
         '#^cfg/php-noteloc\.ini$#',
+        '#^cfg/site-router\.php$#',
         '#^private_files/#',
         '#^public/static/img/#',
         '#^public/static/files/#',
