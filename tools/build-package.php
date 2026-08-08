@@ -13,7 +13,12 @@ $OUTPUT = $argv[1] ?? $ROOT . '/jyavani-cms-update.zip';
 
 // Generate manifest first
 echo "Generating manifest...\n";
-passthru('php ' . escapeshellarg($ROOT . '/tools/generate-manifest.php'));
+$generateExitCode = 0;
+passthru('php ' . escapeshellarg($ROOT . '/tools/generate-manifest.php'), $generateExitCode);
+if ($generateExitCode !== 0) {
+    echo "ERROR: Manifest generation failed with exit code {$generateExitCode}.\n";
+    exit(1);
+}
 
 $manifestFile = $ROOT . '/tools/cms-manifest.json';
 if (!is_file($manifestFile)) {
@@ -21,7 +26,13 @@ if (!is_file($manifestFile)) {
     exit(1);
 }
 
-$manifest = json_decode(file_get_contents($manifestFile), true);
+$manifest = json_decode((string)file_get_contents($manifestFile), true);
+$versionData = json_decode((string)file_get_contents($ROOT . '/version.json'), true);
+if (!is_array($manifest) || !is_array($manifest['files'] ?? null)
+    || !is_array($versionData) || ($manifest['version'] ?? '') !== ($versionData['version'] ?? null)) {
+    echo "ERROR: Generated manifest is invalid or stale.\n";
+    exit(1);
+}
 $version = $manifest['version'] ?? '0.0.0';
 $files = $manifest['files'] ?? [];
 
@@ -44,7 +55,6 @@ $zip->addFile($manifestFile, 'cms-manifest.json');
 
 // Exclude tool & preserve files from package
 $excludeFromPackage = [
-    'tools/generate-manifest.php',
     'tools/build-package.php',
     'tools/cms-manifest.json',
     'cfg/.gitignore',
