@@ -357,8 +357,23 @@ if (!function_exists('theme_zone_ensure_schema')) {
             case 'tz_pages':
                 $selected = array_filter(array_map('trim', (array)($config['pages'] ?? [])));
                 try {
-                    $rows = $pdo->query("SELECT title, slug FROM posts WHERE type = 'page' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC")
-                        ->fetchAll(PDO::FETCH_ASSOC);
+                    $collectionContext = [
+                        'scope' => 'page_list',
+                        'table_alias' => 'p',
+                        'required_translation_fields' => ['title', 'slug'],
+                        'source' => 'theme_zone',
+                    ];
+                    $collectionClauses = function_exists('collection_query_clauses')
+                        ? collection_query_clauses(['where' => [], 'params' => []], $collectionContext)
+                        : ['where' => [], 'params' => []];
+                    $where = array_merge(["p.type = 'page'", "p.status = 'published'", 'p.is_deleted = 0'], $collectionClauses['where']);
+                    $stmt = $pdo->prepare('SELECT p.id, p.title, p.slug, p.created_at FROM posts p WHERE ' . implode(' AND ', $where) . ' ORDER BY p.title ASC');
+                    foreach ($collectionClauses['params'] as $key => $value) {
+                        $paramType = is_int($value) ? PDO::PARAM_INT : ($value === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+                        $stmt->bindValue($key, $value, $paramType);
+                    }
+                    $stmt->execute();
+                    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 } catch (Throwable $e) {
                     return '';
                 }
@@ -366,6 +381,9 @@ if (!function_exists('theme_zone_ensure_schema')) {
                     $rows = array_values(array_filter($rows, fn($r) => in_array((string)$r['slug'], $selected, true)));
                     $order = array_flip($selected);
                     usort($rows, fn($a, $b) => ($order[(string)$a['slug']] ?? 999) <=> ($order[(string)$b['slug']] ?? 999));
+                }
+                if (function_exists('collection_filter_rows')) {
+                    $rows = collection_filter_rows($rows, $collectionContext);
                 }
                 if (empty($rows)) return '';
                 $listClass = preg_replace('/[^a-zA-Z0-9_\- ]/', '', (string)($config['list_class'] ?? 'tz-pages'));
