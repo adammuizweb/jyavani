@@ -527,11 +527,20 @@ function include_template_file(string $path, array $context = []): string {
     if (!is_file($path)) return '';
     global $pdo;
 
-    // Track which theme folder is currently rendering so theme zones can load
-    // gadgets from the assigned theme instead of always the active theme.
-    $previousFolder = $GLOBALS['__jy_render_theme_folder'] ?? null;
-    if (!empty($context['__jy_theme_folder'])) {
-        $GLOBALS['__jy_render_theme_folder'] = $context['__jy_theme_folder'];
+    // Preserve existence as well as value so nested renders cannot leak globals.
+    $renderGlobals = [
+        '__jy_render_theme_folder' => '__jy_theme_folder',
+        '__jy_render_slot_key' => '__jy_slot_key',
+    ];
+    $previousRenderGlobals = [];
+    foreach ($renderGlobals as $globalKey => $contextKey) {
+        $previousRenderGlobals[$globalKey] = [
+            'exists' => array_key_exists($globalKey, $GLOBALS),
+            'value' => $GLOBALS[$globalKey] ?? null,
+        ];
+        if (isset($context[$contextKey]) && is_string($context[$contextKey])) {
+            $GLOBALS[$globalKey] = $context[$contextKey];
+        }
     }
 
     $__ctx = $context;
@@ -542,21 +551,18 @@ function include_template_file(string $path, array $context = []): string {
         include $path;
     } catch (Throwable $e) {
         ob_end_clean();
-        if ($previousFolder === null) {
-            unset($GLOBALS['__jy_render_theme_folder']);
-        } else {
-            $GLOBALS['__jy_render_theme_folder'] = $previousFolder;
-        }
         error_log('[THEME] include_template_file error: ' . $e->getMessage());
         return '';
+    } finally {
+        foreach ($previousRenderGlobals as $globalKey => $previous) {
+            if ($previous['exists']) {
+                $GLOBALS[$globalKey] = $previous['value'];
+            } else {
+                unset($GLOBALS[$globalKey]);
+            }
+        }
     }
     $html = ob_get_clean();
-
-    if ($previousFolder === null) {
-        unset($GLOBALS['__jy_render_theme_folder']);
-    } else {
-        $GLOBALS['__jy_render_theme_folder'] = $previousFolder;
-    }
 
 if ($pdo instanceof PDO) {
     if (function_exists('widget_expand_shortcodes')) {
@@ -639,6 +645,7 @@ function render_slot($pdoOrNull, string $slot_key, array $context = []): string 
         $path = resolve_theme_file_path($resolved);
         if ($path) {
             $context['__jy_theme_folder'] = $resolved['theme_folder'] ?? ($resolved['folder'] ?? DEFAULT_THEME_FOLDER);
+            $context['__jy_slot_key'] = $slot_key;
             return include_template_file($path, $context);
         } else {
             if (THEME_DEBUG) error_log("[THEME] render_slot - file not found for slot={$slot_key}");

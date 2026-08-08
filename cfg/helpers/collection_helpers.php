@@ -38,6 +38,24 @@ function collection_match_route_base(string $path, array $bases): ?array
     return null;
 }
 
+function collection_redirect_legacy_pagination(): void
+{
+    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
+    $path = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
+    $canonicalPath = preg_replace_callback(
+        '#/page/(\d+)(?=/?$)#',
+        static fn(array $match): string => (int)$match[1] > 1 ? '/p/' . (int)$match[1] : '',
+        $path,
+        1,
+        $count
+    );
+    if ($count !== 1 || !is_string($canonicalPath)) return;
+
+    $query = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+    header('Location: ' . ($canonicalPath === '' ? '/' : $canonicalPath) . ($query !== '' ? '?' . $query : ''), true, 301);
+    exit;
+}
+
 function collection_filter_item(array $item, string $type, array $context = []): array
 {
     $filtered = apply_filters('collection_item', $item, $type, $context);

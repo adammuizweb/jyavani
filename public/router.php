@@ -193,6 +193,7 @@ if ($prefix === 'plugins' && ($segments[1] ?? '') === 'static') {
 if ($prefix === 'author') {
     require_once __DIR__ . '/../app/controllers/AuthorController.php';
 
+    if (($segments[2] ?? '') === 'page' && isset($segments[3])) collection_redirect_legacy_pagination();
     $ident = $segments[1] ?? '';
     $page = (isset($segments[2], $segments[3]) && in_array($segments[2], ['p', 'page'], true)) ? (int)$segments[3] : 1;
     $q = trim((string)($_GET['q'] ?? ''));
@@ -219,6 +220,7 @@ if ($categoryMatch !== null) {
     $page = 1;
     foreach ($segmentsAfter as $idx => $seg) {
         if (in_array($seg, ['p', 'page'], true) && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
+            if ($seg === 'page') collection_redirect_legacy_pagination();
             $page = (int)$segmentsAfter[$idx + 1];
             array_splice($segmentsAfter, $idx, 2);
             break;
@@ -277,6 +279,7 @@ if (preg_match('/^\d{4}$/', $prefix)) {
         $page = 1;
         $pageIndex = $month ? 2 : 1;
         if (isset($segments[$pageIndex]) && in_array($segments[$pageIndex], ['p', 'page'], true) && isset($segments[$pageIndex + 1])) {
+            if ($segments[$pageIndex] === 'page') collection_redirect_legacy_pagination();
             $page = (int)$segments[$pageIndex + 1];
         } elseif (!empty($_GET['p']) || !empty($_GET['page'])) {
             $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
@@ -322,6 +325,7 @@ if ($postsListMatch !== null) {
         $segmentsAfter = $postsListMatch['rest'] === '' ? [] : explode('/', $postsListMatch['rest']);
         foreach ($segmentsAfter as $idx => $seg) {
             if (in_array($seg, ['p', 'page'], true) && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
+                if ($seg === 'page') collection_redirect_legacy_pagination();
                 $page = (int)$segmentsAfter[$idx + 1];
                 break;
             }
@@ -343,6 +347,7 @@ if ($pagesListMatch !== null) {
     $segmentsAfter = $pagesListMatch['rest'] === '' ? [] : explode('/', $pagesListMatch['rest']);
     foreach ($segmentsAfter as $idx => $seg) {
         if (in_array($seg, ['p', 'page'], true) && isset($segmentsAfter[$idx + 1]) && ctype_digit((string)$segmentsAfter[$idx + 1])) {
+            if ($seg === 'page') collection_redirect_legacy_pagination();
             $page = (int)$segmentsAfter[$idx + 1];
             break;
         }
@@ -405,6 +410,7 @@ if (!empty($fallbackToArchive)) {
     $page = 1;
     $pageIndex = $month ? 2 : 1;
     if (isset($segments[$pageIndex]) && in_array($segments[$pageIndex], ['p', 'page'], true) && isset($segments[$pageIndex + 1])) {
+        if ($segments[$pageIndex] === 'page') collection_redirect_legacy_pagination();
         $page = (int)$segments[$pageIndex + 1];
     } elseif (!empty($_GET['p']) || !empty($_GET['page'])) {
         $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
@@ -420,6 +426,7 @@ if (!$catEnabled && function_exists('resolve_category_from_path')) {
     $rootCategoryPath = $pathTrimmed;
     $page = 1;
     if (preg_match('#^(.*?)/(?:p|page)/(\d+)$#', $rootCategoryPath, $pageMatch)) {
+        if (str_contains($rootCategoryPath, '/page/')) collection_redirect_legacy_pagination();
         $rootCategoryPath = $pageMatch[1];
         $page = max(1, (int)$pageMatch[2]);
     } elseif (!empty($_GET['p']) || !empty($_GET['page'])) {

@@ -49,6 +49,7 @@ const PRESERVE_PATTERNS = [
 
     // Plugins
     '#^plugins/[^/]+/.+#',
+    '#^public/static/plugins/#',
 
     // Plugin-installed vendor assets
     '#^public/static/vendor/xterm/#',
@@ -73,6 +74,68 @@ function isPreserved(string $relative): bool {
         if (preg_match($pattern, $relative)) return true;
     }
     return false;
+}
+
+function restorePluginStaticAssets(string $root): int {
+    $restored = 0;
+    $publicRoot = realpath($root . '/public');
+    if ($publicRoot === false) return 0;
+
+    foreach (glob($root . '/plugins/*/plugin.json') ?: [] as $manifestFile) {
+        $pluginDir = dirname($manifestFile);
+        $pluginName = basename($pluginDir);
+        $manifest = json_decode((string)file_get_contents($manifestFile), true);
+        if (!is_array($manifest) || ($manifest['name'] ?? '') !== $pluginName) continue;
+
+        $staticCopy = $manifest['static']['copy'] ?? [];
+        if (!is_array($staticCopy)) continue;
+        foreach ($staticCopy as $entry) {
+            $from = (string)($entry['from'] ?? '');
+            $to = (string)($entry['to'] ?? '');
+            $sourceParts = explode('/', $from);
+            $targetParts = explode('/', $to);
+            if ($from === '' || str_contains($from, "\0") || str_contains($from, '\\') || str_starts_with($from, '/')
+                || str_contains($to, "\0") || str_contains($to, '\\') || str_starts_with($to, '/')
+                || in_array('', $sourceParts, true) || in_array('.', $sourceParts, true) || in_array('..', $sourceParts, true)
+                || in_array('', $targetParts, true) || in_array('.', $targetParts, true) || in_array('..', $targetParts, true)
+                || !str_starts_with($to, 'static/plugins/' . $pluginName . '/')) {
+                continue;
+            }
+
+            $source = realpath($pluginDir . '/' . $from);
+            $pluginRoot = realpath($pluginDir);
+            if ($source === false || $pluginRoot === false || !is_file($source) || is_link($source)
+                || !str_starts_with($source, $pluginRoot . DIRECTORY_SEPARATOR)) {
+                continue;
+            }
+
+            $destination = $publicRoot . '/' . $to;
+            $destinationDir = dirname($destination);
+            $existingParent = $destinationDir;
+            while (!file_exists($existingParent) && dirname($existingParent) !== $existingParent) {
+                $existingParent = dirname($existingParent);
+            }
+            $realExistingParent = realpath($existingParent);
+            if ($realExistingParent === false || ($realExistingParent !== $publicRoot && !str_starts_with($realExistingParent, $publicRoot . DIRECTORY_SEPARATOR))) {
+                continue;
+            }
+            if (!is_dir($destinationDir) && !mkdir($destinationDir, 0755, true)) continue;
+            $realDestinationDir = realpath($destinationDir);
+            if ($realDestinationDir === false || ($realDestinationDir !== $publicRoot && !str_starts_with($realDestinationDir, $publicRoot . DIRECTORY_SEPARATOR))
+                || is_link($destination)) {
+                continue;
+            }
+            if (!is_file($destination) || hash_file('sha256', $source) !== hash_file('sha256', $destination)) {
+                if (copy($source, $destination)) $restored++;
+            }
+        }
+    }
+    return $restored;
+}
+
+$restoredPluginAssets = restorePluginStaticAssets($ROOT);
+if ($restoredPluginAssets > 0) {
+    echo "Restored {$restoredPluginAssets} plugin static assets.\n";
 }
 
 echo "Scanning {$ROOT}...\n";
@@ -132,7 +195,10 @@ $manifest = [
 ];
 
 $outPath = $ROOT . '/tools/cms-manifest.json';
-file_put_contents($outPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+if (file_put_contents($outPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) === false) {
+    fwrite(STDERR, "ERROR: Cannot write manifest: {$outPath}\n");
+    exit(1);
+}
 
 echo "\nDone. {$manifest['total_files']} files hashed.\n";
 echo "Manifest: {$outPath}\n";

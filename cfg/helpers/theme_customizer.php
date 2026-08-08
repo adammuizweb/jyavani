@@ -33,14 +33,25 @@ if (!function_exists('theme_customizer_fields')) {
                 if (!is_array($def)) continue;
                 $type = (string)($def['type'] ?? 'toggle');
                 if (!in_array($type, ['image', 'menu', 'sidebar_zone', 'textarea', 'text', 'toggle'], true)) continue;
-                $fields[(string)$key] = [
+                $field = [
                     'key'   => (string)$key,
                     'type'  => $type,
                     'label' => (string)($def['label'] ?? _theme_customizer_default_label((string)$key)),
                 ];
+                if (array_key_exists('translatable', $def) && is_bool($def['translatable'])) {
+                    $field['translatable'] = $def['translatable'];
+                }
+                if (($def['format'] ?? '') === 'json') {
+                    $field['format'] = 'json';
+                }
+                $fields[(string)$key] = $field;
             }
             if (!empty($fields)) {
-                $out[(string)$sectionKey] = ['label' => $label, 'fields' => $fields];
+                $normalizedSection = ['label' => $label, 'fields' => $fields];
+                if (array_key_exists('slot', $section) && is_string($section['slot'])) {
+                    $normalizedSection['slot'] = $section['slot'];
+                }
+                $out[(string)$sectionKey] = $normalizedSection;
             }
         }
         return $out;
@@ -88,11 +99,25 @@ if (!function_exists('theme_customizer_fields')) {
     }
 
     function theme_mod(string $key, mixed $default = null): mixed {
-        static $mods = null;
-        if ($mods === null) {
-            $mods = theme_mods_all();
+        static $modsByFolder = [];
+        $pdo = ($GLOBALS['pdo'] ?? null) instanceof PDO ? $GLOBALS['pdo'] : null;
+        $folder = (string)($GLOBALS['__jy_render_theme_folder'] ?? '');
+        if ($folder === '') {
+            $folder = function_exists('get_active_theme_folder')
+                ? get_active_theme_folder($pdo)
+                : (defined('DEFAULT_THEME_FOLDER') ? DEFAULT_THEME_FOLDER : 'default');
         }
-        return array_key_exists($key, $mods) ? $mods[$key] : $default;
+        if (!array_key_exists($folder, $modsByFolder)) {
+            $modsByFolder[$folder] = theme_mods_all($pdo, $folder);
+        }
+
+        $value = array_key_exists($key, $modsByFolder[$folder]) ? $modsByFolder[$folder][$key] : $default;
+        $slotKey = is_string($GLOBALS['__jy_render_slot_key'] ?? null)
+            ? $GLOBALS['__jy_render_slot_key']
+            : null;
+        return function_exists('apply_filters')
+            ? apply_filters('theme_mod_value', $value, $key, $folder, $slotKey, $pdo)
+            : $value;
     }
 
     function theme_mods_save(PDO $pdo, string $folder, array $mods): bool {

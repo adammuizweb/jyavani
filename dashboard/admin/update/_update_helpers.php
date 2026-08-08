@@ -38,6 +38,7 @@ function _get_preserve_patterns(): array {
         '#^private_files/#',
         '#^public/static/img/#',
         '#^public/static/files/#',
+        '#^public/static/plugins/#',
         '#^public/sitemaps/#',
         '#^public/pdf/#',
         '#^public/views/themes/[^/]+/.+#',

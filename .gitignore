@@ -19,6 +19,7 @@ cfg/session_debug.log
 # public/adiwira/bootstrap.php
 
 # Plugin-installed assets (copied by Plugin Uploader)
+public/static/plugins/
 public/static/vendor/xterm/
 public/static/js/photo_canvas.js
 
