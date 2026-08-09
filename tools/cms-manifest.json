@@ -1,13 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.49",
-    "build": "2026-08-08",
-    "generated": "2026-08-08T01:39:12+00:00",
+    "version": "2.3.51",
+    "build": "2026-08-09",
+    "generated": "2026-08-09T10:19:32+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
-    "total_files": 438,
+    "total_files": 441,
     "files": {
+        "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
+        "VERSION": "ef45c2eaf50eabc403282f2083ae46468ef448dfc220cd1a1cbf7acf7ca60606",
         "app/bootstrap_core.php": "5bdc0e497939226cd8f7c115c3a0eab0c933895b72f2fd6cd0e2815466c56698",
         "app/bootstrap_theme.php": "ccd0aee7c42bf4f85437e7b898ccec1d1656b1b2df51b2cebad1954ead4d288a",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
@@ -166,9 +168,9 @@
         "dashboard/admin/themes/update_apply.php": "18b4e5dd587b6789b9baa2c7ad870803ea566705ca8f9173f8c504ed878b8120",
         "dashboard/admin/themes/update_progress.php": "cc65adfd5a768e39541e27cf9810d1baca083c7eed8704cb8d8eea7785ce4d28",
         "dashboard/admin/themes/upload.php": "1f7df9cf9499ad6632721479500cc90588ee0d7ca05b1c0ef81d79f59a179aff",
-        "dashboard/admin/update/_update_helpers.php": "f65d56f68efa791ecddd2edbb069d715b9efee8c48d4ee1b9e1c7b97c3066d13",
-        "dashboard/admin/update/index.php": "d884acd55c6a3e44484f8113409ce6a8e86ab0984ccc9c6015b36a13bf9c1dd4",
-        "dashboard/admin/update/update_apply.php": "ce05953edd44e4ea9f546faa88d2e8be7164c3760b839cc2c7805575634e7ca4",
+        "dashboard/admin/update/_update_helpers.php": "542b38668a150a2a59012263e5ce58a25afe07a0fa6ed0ff8df85d8455eb4b19",
+        "dashboard/admin/update/index.php": "14f90f9bdac4822e9a0f32d2d7c59c1e31dc986063cb05b1de6b0475edcce190",
+        "dashboard/admin/update/update_apply.php": "12bd19fa28c92bbac6646b80ca220c10a95de8ada22ca34f799b368cfc67059c",
         "dashboard/admin/upload_file.php": "4127b8203eb74d87292bd80924a5106b5e46b869609d7b8033cd4736112759d6",
         "dashboard/admin/upload_image.php": "da18a3924e49554860d2d7a919415c301d5203766578e68dd1880e1797dceac7",
         "dashboard/admin/users/bulk_action.php": "ca11a6cd2245b083f4d8eef6b2483d6fcbc0bff6b288102702d121a1a0e420c1",
@@ -441,10 +443,11 @@
         "schema/migrations/009-theme-zone-position.sql": "102fc4ab203256fe16cde1fada28a315ab87130ac631f10ca2a8555f7b633647",
         "schema/migrations/010-theme-zone-theme-folder.sql": "15a82325671bb1115de39af895cf2851c131bd6d2041b9942d286df2f37d4b31",
         "schema/migrations/011-remove-static-language-control.sql": "0b7833516e66dcbd32bcf29f3106a6a59ee1abcca7dda9b7cd35ea512c9aa9e7",
-        "schema/translations.sql": "e3f551f7aa498fbf89dce38c3acd3af31ad522df89a351cbd160a06a57a5d9b7",
-        "tools/build-package.php": "69f9a31eeaf2154cd197ef0f637240ae2617ac71d09a13ab7d71a1c54f3f2a89",
+        "schema/translations.sql": "4dfc5d788391152d5535e59fd53b2b0d446fb8cd7968a63b267f0d2db8087ff9",
+        "tools/build-package.php": "320137c8afd89999c26063469ccaa70f9fe74b9cab5117e33ccf68c116b71201",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
-        "tools/generate-manifest.php": "8b2643a447d6907de39fb6be4f1ff5194145f13241819bfc60f44cfed83868fc"
+        "tools/generate-manifest.php": "4a6a36aba78f4ad22508ddc416f039d9e7db34aeaa420dedd036dad5ce1801a9",
+        "version.json": "c969377042e5856bb735cf82389bb69199310ed74710958f6e96f1d98eabba51"
     }
 }
