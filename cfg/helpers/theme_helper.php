@@ -116,6 +116,198 @@ function path_candidate(string $base, string $folder, string $relative): string 
     return $base . DIRECTORY_SEPARATOR . ($folder === '' ? '' : ($folder . DIRECTORY_SEPARATOR)) . $relative;
 }
 
+function theme_context_matches(?string $context, string $pattern): bool {
+    if ($context === null || $context === '') return true;
+    $pattern = trim($pattern);
+    if ($pattern === '' || $pattern === '*') return true;
+    if (str_ends_with($pattern, '*')) return str_starts_with($context, substr($pattern, 0, -1));
+    return $pattern === $context;
+}
+
+function theme_context_list_matches(?string $context, mixed $patterns): bool {
+    if ($context === null || $context === '') return true;
+    if (is_string($patterns)) $patterns = [$patterns];
+    if (!is_array($patterns)) return false;
+    foreach ($patterns as $pattern) {
+        if (is_string($pattern) && theme_context_matches($context, $pattern)) return true;
+    }
+    return false;
+}
+
+function theme_asset_entry_source(mixed $entry, ?string $context = null): ?string {
+    if (is_string($entry)) return $entry !== '' ? $entry : null;
+    if (!is_array($entry)) return null;
+
+    $source = (string)($entry['src'] ?? '');
+    if ($source === '') return null;
+    if ($context !== null && $context !== '') {
+        if (array_key_exists('contexts', $entry) && !theme_context_list_matches($context, $entry['contexts'])) return null;
+        if (array_key_exists('exclude_contexts', $entry) && theme_context_list_matches($context, $entry['exclude_contexts'])) return null;
+    }
+    return $source;
+}
+
+function theme_manifest_asset_sources(array $manifest, string $type, ?string $context = null): array {
+    $entries = $manifest[$type] ?? [];
+    if (!is_array($entries)) return [];
+    $sources = [];
+    foreach ($entries as $entry) {
+        $source = theme_asset_entry_source($entry, $context);
+        if ($source !== null && !in_array($source, $sources, true)) $sources[] = $source;
+    }
+    return $sources;
+}
+
+function theme_manifest_has_asset(array $manifest, string $type, string $needle, ?string $context = null): bool {
+    foreach (theme_manifest_asset_sources($manifest, $type, $context) as $source) {
+        if (stripos($source, $needle) !== false) return true;
+    }
+    return false;
+}
+
+/** Filesystem manifests are authoritative; the DB copy is an installation snapshot. */
+function installed_theme_manifest($pdoOrNull, string $folder): array {
+    static $cache = [];
+    if (array_key_exists($folder, $cache)) return $cache[$folder];
+
+    $manifestPath = path_candidate(VIEWS_BASE, $folder, 'theme.json');
+    if (is_file($manifestPath)) {
+        $cache[$folder] = read_theme_manifest(path_candidate(VIEWS_BASE, $folder, ''));
+        return $cache[$folder];
+    }
+
+    $pdo = $pdoOrNull ?: get_pdo_from_global();
+    $theme = $pdo ? get_theme_by_folder($pdo, $folder) : null;
+    if ($theme && !empty($theme['manifest_json'])) {
+        $manifest = json_decode((string)$theme['manifest_json'], true);
+        if (is_array($manifest)) {
+            $cache[$folder] = $manifest;
+            return $manifest;
+        }
+    }
+    $cache[$folder] = [];
+    return $cache[$folder];
+}
+
+function theme_manifest_core_assets(array $manifest, ?string $context = null): array {
+    $known = ['anime', 'quill', 'fonts', 'swiper'];
+    if (!array_key_exists('core_assets', $manifest)) return $known;
+
+    $config = $manifest['core_assets'];
+    if (is_array($config) && array_is_list($config)) {
+        $selected = $config;
+    } elseif (is_array($config)) {
+        $selected = is_array($config['default'] ?? null) ? $config['default'] : $known;
+        $contexts = $config['contexts'] ?? [];
+        if ($context !== null && is_array($contexts)) {
+            foreach ($contexts as $pattern => $assets) {
+                if (is_string($pattern) && is_array($assets) && theme_context_matches($context, $pattern)) {
+                    $selected = $assets;
+                    if ($pattern === $context) break;
+                }
+            }
+        }
+    } else {
+        return $known;
+    }
+
+    return array_values(array_filter($known, static fn(string $name): bool => in_array($name, $selected, true)));
+}
+
+function resolve_theme_core_assets($pdoOrNull, array $folders, ?string $context = null): array {
+    $known = ['anime', 'quill', 'fonts', 'swiper'];
+    if ($folders === []) return $known;
+
+    $enabled = [];
+    foreach ($folders as $folder) {
+        $manifest = installed_theme_manifest($pdoOrNull, (string)$folder);
+        foreach (theme_manifest_core_assets($manifest, $context) as $asset) $enabled[$asset] = true;
+    }
+    return array_values(array_filter($known, static fn(string $name): bool => isset($enabled[$name])));
+}
+
+function theme_manifest_file_url(string $folder, string $relative, bool $cacheBust = false): ?string {
+    $relative = normalize_relative_path($relative);
+    if ($relative === '') return null;
+    $themeRoot = realpath(path_candidate(VIEWS_BASE, $folder, ''));
+    $publicRoot = realpath(PUBLIC_PATH);
+    $file = realpath(path_candidate(VIEWS_BASE, $folder, $relative));
+    if (!$themeRoot || !$publicRoot || !$file || !is_file($file)) return null;
+    if (!str_starts_with($file, $themeRoot . DIRECTORY_SEPARATOR) || !str_starts_with($file, $publicRoot . DIRECTORY_SEPARATOR)) return null;
+
+    $url = '/' . ltrim(str_replace('\\', '/', substr($file, strlen($publicRoot))), '/');
+    if ($cacheBust) $url .= '?v=' . (@filemtime($file) ?: time());
+    return $url;
+}
+
+function collect_theme_preloads($pdoOrNull, array $folders, ?string $context = null): array {
+    $preloads = [];
+    $seen = [];
+    foreach ($folders as $folder) {
+        $folder = (string)$folder;
+        $manifest = installed_theme_manifest($pdoOrNull, $folder);
+        $entries = $manifest['preloads'] ?? [];
+        if (!is_array($entries)) continue;
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) continue;
+            if ($context !== null && $context !== '') {
+                if (array_key_exists('contexts', $entry) && !theme_context_list_matches($context, $entry['contexts'])) continue;
+                if (array_key_exists('exclude_contexts', $entry) && theme_context_list_matches($context, $entry['exclude_contexts'])) continue;
+            }
+
+            $as = (string)($entry['as'] ?? '');
+            $href = theme_manifest_file_url(
+                $folder,
+                (string)($entry['href'] ?? ''),
+                in_array($as, ['script', 'style'], true)
+            );
+            if ($href === null || !in_array($as, ['fetch', 'font', 'image', 'script', 'style'], true)) continue;
+            $preload = ['rel' => 'preload', 'as' => $as, 'href' => $href];
+
+            foreach (['type', 'media', 'imagesizes'] as $attribute) {
+                if (isset($entry[$attribute]) && is_string($entry[$attribute]) && $entry[$attribute] !== '') {
+                    $preload[$attribute] = $entry[$attribute];
+                }
+            }
+            $priority = (string)($entry['fetchpriority'] ?? '');
+            if (in_array($priority, ['high', 'low', 'auto'], true)) $preload['fetchpriority'] = $priority;
+            $crossorigin = $entry['crossorigin'] ?? null;
+            if ($crossorigin === true || $crossorigin === 'anonymous') $preload['crossorigin'] = 'anonymous';
+            elseif ($crossorigin === 'use-credentials') $preload['crossorigin'] = 'use-credentials';
+
+            $srcset = [];
+            $srcsetEntries = $entry['imagesrcset'] ?? [];
+            if (!is_array($srcsetEntries)) $srcsetEntries = [];
+            foreach ($srcsetEntries as $candidate) {
+                if (!is_array($candidate)) continue;
+                $candidateHref = theme_manifest_file_url($folder, (string)($candidate['href'] ?? ''));
+                $descriptor = (string)($candidate['descriptor'] ?? '');
+                if ($candidateHref && preg_match('/^(?:\d+w|\d+(?:\.\d+)?x)$/', $descriptor)) {
+                    $srcset[] = $candidateHref . ' ' . $descriptor;
+                }
+            }
+            if ($srcset !== []) $preload['imagesrcset'] = implode(', ', $srcset);
+
+            $key = $as . '|' . $href . '|' . ($preload['imagesrcset'] ?? '');
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $preloads[] = $preload;
+            }
+        }
+    }
+    return $preloads;
+}
+
+function echo_theme_preloads($pdoOrNull, array $folders, ?string $context = null): void {
+    foreach (collect_theme_preloads($pdoOrNull, $folders, $context) as $preload) {
+        $attributes = [];
+        foreach ($preload as $name => $value) {
+            $attributes[] = $name . '="' . htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8') . '"';
+        }
+        echo '<link ' . implode(' ', $attributes) . '>' . PHP_EOL;
+    }
+}
+
 /**
  * Return array of theme folders that are relevant for this request.
  * - Collects: folders referenced in assignments (for slots), plus active theme, plus DEFAULT_THEME_FOLDER.
@@ -191,7 +383,7 @@ function get_relevant_theme_folders($pdoOrNull, ?array $slot_keys = null): array
  * Important: this resolves assets *inside each folder explicitly*, so different themes with the
  * same relative filenames will yield different URLs (no accidental override by active theme).
  */
-function collect_theme_asset_urls($pdoOrNull, array $folders): array {
+function collect_theme_asset_urls($pdoOrNull, array $folders, ?string $context = null): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $foundStyles = [];
     $foundScripts = [];
@@ -210,27 +402,19 @@ function collect_theme_asset_urls($pdoOrNull, array $folders): array {
         $webPath = str_replace('\\', '/', substr($fsReal, strlen($publicReal)));
         if ($webPath === '' || $webPath[0] !== '/') $webPath = '/' . ltrim($webPath, '/');
         $v = @filemtime($fsReal) ?: time();
-        return $webPath;
+        return $webPath . '?v=' . $v;
     };
 
     foreach ($folders as $folder) {
-        // fetch manifest (DB snapshot preferred, fallback to FS)
-        $manifest = [];
-        $t = $pdo ? get_theme_by_folder($pdo, $folder) : null;
-        if ($t && !empty($t['manifest_json'])) {
-            $tmp = @json_decode($t['manifest_json'], true);
-            if (is_array($tmp)) $manifest = $tmp;
-        }
-        try {
-            $fsMan = read_theme_manifest(path_candidate(VIEWS_BASE, $folder, ''));
-            if (is_array($fsMan)) $manifest = array_merge($fsMan, $manifest);
-        } catch (Throwable $e) {
-            // ignore
-        }
+        $manifest = installed_theme_manifest($pdo, (string)$folder);
 
         // determine style/script lists for this folder
-        $styles = (!empty($manifest['styles']) && is_array($manifest['styles'])) ? $manifest['styles'] : $styleCandidates;
-        $scripts = (!empty($manifest['scripts']) && is_array($manifest['scripts'])) ? $manifest['scripts'] : $scriptCandidates;
+        $styles = !empty($manifest['styles']) && is_array($manifest['styles'])
+            ? theme_manifest_asset_sources($manifest, 'styles', $context)
+            : $styleCandidates;
+        $scripts = !empty($manifest['scripts']) && is_array($manifest['scripts'])
+            ? theme_manifest_asset_sources($manifest, 'scripts', $context)
+            : $scriptCandidates;
 
         // normalize and resolve each style relative to THIS folder
         foreach ($styles as $s) {
@@ -308,10 +492,10 @@ function collect_theme_asset_urls($pdoOrNull, array $folders): array {
  * Echo <link> tags for relevant theme styles (to be called in <head>).
  * $slot_keys optional: if you only render header+main+footer you can pass them to limit which assignments are considered.
  */
-function echo_relevant_theme_styles($pdoOrNull = null, ?array $slot_keys = null): void {
+function echo_relevant_theme_styles($pdoOrNull = null, ?array $slot_keys = null, ?string $context = null): void {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $folders = get_relevant_theme_folders($pdo, $slot_keys);
-    $assets = collect_theme_asset_urls($pdo, $folders);
+    $assets = collect_theme_asset_urls($pdo, $folders, $context);
     foreach ($assets['styles'] as $cssUrl) {
         echo '<link rel="stylesheet" href="' . htmlspecialchars($cssUrl, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
     }
@@ -320,10 +504,10 @@ function echo_relevant_theme_styles($pdoOrNull = null, ?array $slot_keys = null)
 /**
  * Echo <script> tags for relevant theme scripts (to be called before </body>).
  */
-function echo_relevant_theme_scripts($pdoOrNull = null, ?array $slot_keys = null): void {
+function echo_relevant_theme_scripts($pdoOrNull = null, ?array $slot_keys = null, ?string $context = null): void {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $folders = get_relevant_theme_folders($pdo, $slot_keys);
-    $assets = collect_theme_asset_urls($pdo, $folders);
+    $assets = collect_theme_asset_urls($pdo, $folders, $context);
     foreach ($assets['scripts'] as $jsUrl) {
         echo '<script src="' . htmlspecialchars($jsUrl, ENT_QUOTES, 'UTF-8') . '"></script>' . PHP_EOL;
     }
@@ -773,9 +957,11 @@ function read_theme_manifest(string $folderPath): array {
             // color_mode: "light", "dark", or "both" (default)
             $cm = (string)($j['color_mode'] ?? 'both');
             $manifest['color_mode'] = in_array($cm, ['light', 'dark', 'both'], true) ? $cm : 'both';
-            // optional arrays for assets
+            // optional frontend asset contract
             if (!empty($j['styles']) && is_array($j['styles'])) $manifest['styles'] = $j['styles'];
             if (!empty($j['scripts']) && is_array($j['scripts'])) $manifest['scripts'] = $j['scripts'];
+            if (array_key_exists('core_assets', $j) && is_array($j['core_assets'])) $manifest['core_assets'] = $j['core_assets'];
+            if (array_key_exists('preloads', $j) && is_array($j['preloads'])) $manifest['preloads'] = $j['preloads'];
             // store block for update checking
             if (!empty($j['store']) && is_array($j['store'])) $manifest['store'] = $j['store'];
             // standalone: skip default theme CSS/JS when this theme is active
