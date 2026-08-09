@@ -259,28 +259,53 @@ echo '<link rel="canonical" href="' . htmlspecialchars($resolvedCanonical, ENT_Q
 if (!empty($GLOBALS['rel_prev'])) echo '<link rel="prev" href="'.htmlspecialchars($GLOBALS['rel_prev'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 if (!empty($GLOBALS['rel_next'])) echo '<link rel="next" href="'.htmlspecialchars($GLOBALS['rel_next'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlspecialchars($GLOBALS['robots_meta'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
+
+$layoutThemeFolders = [];
+if (function_exists('get_relevant_theme_folders')) {
+    try {
+        $layoutThemeSlots = ['header', $main_slot, 'footer'];
+        if ($enable_sidebar) $layoutThemeSlots[] = 'sidebar';
+        $layoutThemeFolders = get_relevant_theme_folders($pdo, $layoutThemeSlots);
+    } catch (Throwable $e) {
+        if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] relevant theme detection error: ' . $e->getMessage());
+    }
+}
+$coreFrontendAssets = function_exists('resolve_theme_core_assets')
+    ? resolve_theme_core_assets($pdo, $layoutThemeFolders, $main_slot)
+    : ['anime', 'quill', 'fonts', 'swiper'];
+if (function_exists('echo_theme_preloads')) {
+    echo_theme_preloads($pdo, $layoutThemeFolders, $main_slot);
+}
+$layoutThemeAssets = null;
+if (function_exists('collect_theme_asset_urls')) {
+    try {
+        $layoutThemeAssets = collect_theme_asset_urls($pdo, $layoutThemeFolders, $main_slot);
+    } catch (Throwable $e) {
+        if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] theme asset collection error: ' . $e->getMessage());
+    }
+}
 ?>
 
+<?php if (in_array('anime', $coreFrontendAssets, true)): ?>
 <link rel="stylesheet" href="/static/assets/css/anime.css">
+<?php endif; ?>
+<?php if (in_array('quill', $coreFrontendAssets, true)): ?>
 <link rel="stylesheet" href="/static/vendor/quill/quill.snow.pub.css">
+<?php endif; ?>
+<?php if (in_array('fonts', $coreFrontendAssets, true)): ?>
 <link rel="stylesheet" href="/static/assets/css/fonts.css">
+<?php endif; ?>
 
 <?php
 // If the active theme already ships its own CodeMirror block loader (e.g. portfolio),
 // skip the core loader/CSS to avoid double-wrapping.
 $theme_implements_cm = false;
-if (function_exists('get_active_theme_folder') && function_exists('read_theme_manifest') && function_exists('path_candidate')) {
-    try {
-        $activeTheme = get_active_theme_folder($pdo);
-        $themeManifest = read_theme_manifest(path_candidate(VIEWS_BASE, $activeTheme, ''));
-        foreach ($themeManifest['scripts'] ?? [] as $themeScript) {
-            if (stripos((string)$themeScript, 'codemirror-blocks') !== false) {
-                $theme_implements_cm = true;
-                break;
-            }
+if (is_array($layoutThemeAssets)) {
+    foreach ($layoutThemeAssets['scripts'] ?? [] as $themeScript) {
+        if (stripos((string)$themeScript, 'codemirror-blocks') !== false) {
+            $theme_implements_cm = true;
+            break;
         }
-    } catch (Throwable $e) {
-        if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] theme CM loader detection error: ' . $e->getMessage());
     }
 }
 ?>
@@ -296,9 +321,13 @@ if ($enable_sidebar) {
     $style_slots[] = 'sidebar';
 }
 
-if (function_exists('echo_relevant_theme_styles')) {
+if (is_array($layoutThemeAssets)) {
+    foreach ($layoutThemeAssets['styles'] ?? [] as $cssUrl) {
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($cssUrl, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
+    }
+} elseif (function_exists('echo_relevant_theme_styles')) {
     try {
-        echo_relevant_theme_styles($pdo, $style_slots);
+        echo_relevant_theme_styles($pdo, $style_slots, $main_slot);
     } catch (Throwable $e) {
         if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] echo_relevant_theme_styles error: ' . $e->getMessage());
         // fall through to fallback below
@@ -334,8 +363,10 @@ if (!function_exists('echo_relevant_theme_styles')) {
 }
 ?>
 
+<?php if (in_array('swiper', $coreFrontendAssets, true)): ?>
 <link rel="stylesheet" href="/static/vendor/swiper/swiper-bundle.min.css">
 <script src="/static/vendor/swiper/swiper-bundle.min.js"></script>
+<?php endif; ?>
 <?php do_action('jy_head'); ?>
 <?php
 $pa = function_exists('plugin_assets') ? plugin_assets() : [];
@@ -453,7 +484,9 @@ try {
 }
 ?>
 
+<?php if (in_array('anime', $coreFrontendAssets, true)): ?>
 <script src="/static/assets/js/anime.js"></script>
+<?php endif; ?>
 
 <?php
 // THEME SCRIPTS: request relevant slots too
@@ -462,9 +495,13 @@ if ($enable_sidebar) {
     $script_slots[] = 'sidebar';
 }
 
-if (function_exists('echo_relevant_theme_scripts')) {
+if (is_array($layoutThemeAssets)) {
+    foreach ($layoutThemeAssets['scripts'] ?? [] as $jsUrl) {
+        echo '<script src="' . htmlspecialchars($jsUrl, ENT_QUOTES, 'UTF-8') . '"></script>' . PHP_EOL;
+    }
+} elseif (function_exists('echo_relevant_theme_scripts')) {
     try {
-        echo_relevant_theme_scripts($pdo, $script_slots);
+        echo_relevant_theme_scripts($pdo, $script_slots, $main_slot);
     } catch (Throwable $e) {
         if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[LAYOUT] echo_relevant_theme_scripts error: ' . $e->getMessage());
     }

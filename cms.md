@@ -10,6 +10,55 @@ A theme that supports Customize needs three things:
 2. Template files that call `theme_zone_render_position()` with fallback HTML.
 3. Optionally, `layout.defaults` gadgets that pre-fill the layout when the user clicks **Load Default Layout**.
 
+## Context-aware frontend assets
+
+Legacy themes need no changes: Core continues to load Anime, Quill public CSS, global fonts, and Swiper, and string entries in `styles` and `scripts` remain global. Modern themes can opt into a smaller context-specific payload.
+
+```json
+{
+  "core_assets": {
+    "default": ["anime", "quill", "fonts", "swiper"],
+    "contexts": {
+      "main.homepage": []
+    }
+  },
+  "styles": [
+    "assets/css/style.css",
+    {
+      "src": "assets/css/blocks.css",
+      "exclude_contexts": ["main.homepage"]
+    }
+  ],
+  "scripts": [
+    "assets/js/site.js",
+    {
+      "src": "assets/js/codeblocks.js",
+      "contexts": ["single.*"]
+    }
+  ],
+  "preloads": [
+    {
+      "href": "assets/img/hero-960.webp",
+      "as": "image",
+      "contexts": ["main.homepage"],
+      "fetchpriority": "high",
+      "imagesizes": "100vw",
+      "imagesrcset": [
+        {"href": "assets/img/hero-480.webp", "descriptor": "480w"},
+        {"href": "assets/img/hero-960.webp", "descriptor": "960w"}
+      ]
+    }
+  ]
+}
+```
+
+- Valid Core dependency IDs are `anime`, `quill`, `fonts`, and `swiper`.
+- A missing `core_assets` key preserves the legacy set. An empty list disables all four dependencies.
+- Core uses the union required by all relevant themes. A legacy theme without `core_assets` retains the full set, so themes that opt out completely should also use `"standalone": true`.
+- `contexts` and `exclude_contexts` accept exact slot contexts or a trailing wildcard such as `single.*`.
+- Theme CSS and JavaScript URLs receive a filesystem modification version automatically.
+- Preload paths must resolve to files inside the declaring theme. Preloads intentionally use the original URL so they match image markup exactly.
+
 ## Minimal example
 
 ```json
