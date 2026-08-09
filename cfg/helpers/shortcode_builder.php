@@ -169,6 +169,10 @@ class ShortcodeQuery {
 
 if (!function_exists('load_preset_widgets')) {
   function load_preset_widgets(PDO $pdo): void {
+    static $loadedConnections = [];
+    $connectionId = spl_object_id($pdo);
+    if (isset($loadedConnections[$connectionId])) return;
+
     $stmt = $pdo->prepare("SELECT slug, meta FROM posts WHERE type = 'sc_preset' AND status = 'published' AND is_deleted = 0");
     $stmt->execute();
     $presets = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -191,5 +195,6 @@ if (!function_exists('load_preset_widgets')) {
         }, $config);
       }
     }
+    $loadedConnections[$connectionId] = true;
   }
 }

@@ -108,8 +108,12 @@ if ($isAdmin) {
 
 // Available layouts from global + default
 $layoutOptions = ['list', 'cards', 'card2', 'sliderpage'];
-$layoutDir = realpath(__DIR__ . '/../../../app/views/partials/shortcodes/post_cat');
-if ($layoutDir && is_dir($layoutDir)) {
+$layoutDirs = [realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat')];
+if (function_exists('get_active_theme_folder')) {
+    $activeTheme = get_active_theme_folder($pdo);
+    $layoutDirs[] = realpath(PUBLIC_PATH . '/views/themes/' . $activeTheme . '/partials/shortcodes/post_cat');
+}
+foreach (array_filter(array_unique($layoutDirs)) as $layoutDir) {
     $files = scandir($layoutDir);
     foreach ($files as $f) {
         if (str_ends_with($f, '.php')) {
@@ -120,6 +124,7 @@ if ($layoutDir && is_dir($layoutDir)) {
         }
     }
 }
+sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
 ?>
 <section class="adam-card">
   <h2><?= $isEdit ? _e('Edit Preset') : _e('Add New Preset') ?></h2>

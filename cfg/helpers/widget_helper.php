@@ -201,6 +201,11 @@ if (!function_exists('widget_expand_shortcodes')) {
             return $html;
         }
 
+        $pdo = $pdo ?: widget_get_pdo();
+        if ($pdo instanceof PDO && function_exists('load_preset_widgets')) {
+            load_preset_widgets($pdo);
+        }
+
         return (string)preg_replace_callback(
             '/\[\[\s*widget:([a-z0-9_\-]+)\s*([^\]]*)\]\]/i',
             function ($m) use ($pdo, $context) {

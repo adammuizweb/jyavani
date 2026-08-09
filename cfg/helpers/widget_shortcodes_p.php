@@ -195,6 +195,7 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
 
   $limit = max($limitVisible, $fetch);
   if ($limit < 1) $limit = 6;
+  $limit = min(200, $limit);
 
   $offset = max(0, (int)($attrs['offset'] ?? 0));
 
@@ -228,9 +229,10 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
       return post_cat__empty_html('Helper konten belum tersedia.', $classPrefix);
     }
 
+      $postType = (($attrs['type'] ?? 'article') === 'page') ? 'page' : 'article';
       $posts = cms_posts_by_category($pdo, $catRaw, [
-        'type' => $attrs['type'] ?? 'article',
-        'status' => $attrs['status'] ?? 'published',
+        'type' => $postType,
+        'status' => 'published',
         'include_children' => (($attrs['include_children'] ?? '1') !== '0'),
         'limit' => $limit,
         'offset' => $offset,
@@ -239,6 +241,14 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
         'created_by' => isset($attrs['author']) ? (int)$attrs['author'] : (isset($attrs['created_by']) ? (int)$attrs['created_by'] : null),
         'date_from' => $attrs['date_from'] ?? $attrs['date_after'] ?? null,
         'date_to' => $attrs['date_to'] ?? $attrs['date_before'] ?? null,
+        'collection_context' => [
+          'scope' => 'post_category_shortcode',
+          'table_alias' => 'p',
+          'required_translation_fields' => ['title', 'slug', 'content'],
+          'category' => $catRaw,
+          'layout' => $layout,
+          'source' => $source,
+        ],
       ]);
 
     if (!$posts) {
@@ -255,8 +265,18 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
       $titleRaw = (string)($p['title'] ?? '');
       $slug = (string)($p['slug'] ?? '');
       $url = $slug !== ''
-          ? (function_exists('get_post_permalink') ? $baseUrl . get_post_permalink($p) : post_cat__join_url($baseUrl, $postPath, $slug))
+          ? ($postType === 'page' && function_exists('get_page_permalink')
+              ? $baseUrl . get_page_permalink($p)
+              : (function_exists('get_post_permalink') ? $baseUrl . get_post_permalink($p) : post_cat__join_url($baseUrl, $postPath, $slug)))
           : '#';
+      if ($url !== '#' && function_exists('collection_url')) {
+        $url = collection_url($url, $postType, [
+          'scope' => 'post_category_shortcode',
+          'item' => $p,
+          'category' => $catRaw,
+          'layout' => $layout,
+        ]);
+      }
 
       $thumb = trim((string)($p['thumbnail'] ?? ''));
       if ($thumb !== '' && $baseUrl !== '' && isset($thumb[0]) && $thumb[0] === '/') {

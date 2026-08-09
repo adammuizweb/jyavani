@@ -131,6 +131,7 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   $limit  = isset($opt['limit']) ? (int)$opt['limit'] : 10;
   $offset = isset($opt['offset']) ? (int)$opt['offset'] : 0;
   if ($limit < 1) $limit = 10;
+  $limit = min(200, $limit);
   if ($offset < 0) $offset = 0;
 
   $orderBy = isset($opt['order_by']) ? (string)$opt['order_by'] : 'created_at';
@@ -153,41 +154,52 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   }
 
   $tables = ['posts p'];
-  $where = ["p.is_deleted = 0", "p.status = ?", "p.type = ?"];
-  $params = [$status, $type];
+  $where = ["p.is_deleted = 0", "p.status = :cms_status", "p.type = :cms_type"];
+  $params = [':cms_status' => $status, ':cms_type' => $type];
 
   // Category filter
   $catKey = $opt['category'] ?? null;
   if ($catKey !== null && $catKey !== '') {
     $rootId = cms_category_id($pdo, $catKey);
-    if ($rootId) {
-      $includeChildren = isset($opt['include_children']) ? (bool)$opt['include_children'] : true;
-      $catIds = $includeChildren
-        ? cms_category_descendant_ids($pdo, (int)$rootId, true)
-        : [(int)$rootId];
-      if ($catIds) {
-        $tables[] = 'post_categories pc';
-        $in = implode(',', array_fill(0, count($catIds), '?'));
-        $where[] = "pc.post_id = p.id AND pc.category_id IN ($in)";
-        foreach ($catIds as $cid) $params[] = (int)$cid;
+    if (!$rootId) return [];
+    $includeChildren = isset($opt['include_children']) ? (bool)$opt['include_children'] : true;
+    $catIds = $includeChildren
+      ? cms_category_descendant_ids($pdo, (int)$rootId, true)
+      : [(int)$rootId];
+    if ($catIds) {
+      $tables[] = 'post_categories pc';
+      $placeholders = [];
+      foreach (array_values($catIds) as $index => $cid) {
+        $placeholder = ':cms_category_' . $index;
+        $placeholders[] = $placeholder;
+        $params[$placeholder] = (int)$cid;
       }
+      $where[] = 'pc.post_id = p.id AND pc.category_id IN (' . implode(',', $placeholders) . ')';
     }
   }
 
   // Author filter
   if (array_key_exists('created_by', $opt) && $opt['created_by'] !== null) {
-    $where[] = "p.created_by = ?";
-    $params[] = (int)$opt['created_by'];
+    $where[] = "p.created_by = :cms_created_by";
+    $params[':cms_created_by'] = (int)$opt['created_by'];
   }
 
   // Date range filters
   if (!empty($opt['date_from'])) {
-    $where[] = "p.created_at >= ?";
-    $params[] = (string)$opt['date_from'];
+    $where[] = "p.created_at >= :cms_date_from";
+    $params[':cms_date_from'] = (string)$opt['date_from'];
   }
   if (!empty($opt['date_to'])) {
-    $where[] = "p.created_at <= ?";
-    $params[] = (string)$opt['date_to'];
+    $where[] = "p.created_at <= :cms_date_to";
+    $params[':cms_date_to'] = (string)$opt['date_to'];
+  }
+
+  $collectionContext = is_array($opt['collection_context'] ?? null) ? $opt['collection_context'] : [];
+  if ($collectionContext !== [] && function_exists('collection_query_clauses')) {
+    $collectionContext['table_alias'] = 'p';
+    $clauses = collection_query_clauses(['where' => [], 'params' => []], $collectionContext);
+    $where = array_merge($where, $clauses['where']);
+    $params = array_merge($params, $clauses['params']);
   }
 
   $from = implode(' JOIN ', $tables);
@@ -209,7 +221,10 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
 
   $stmt = $pdo->prepare($sql);
   $stmt->execute($params);
-  return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  return $collectionContext !== [] && function_exists('collection_filter_rows')
+    ? collection_filter_rows($rows, $collectionContext)
+    : $rows;
 }
 
 function cms_posts_by_category(PDO $pdo, $categoryKey, array $opt = []) {
