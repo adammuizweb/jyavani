@@ -384,7 +384,7 @@ add_filter('theme_zone_render_widget', function(string $html, string $type, arra
 
 - Jangan merge ke `main` sebelum user setuju.
 - Commit kecil, pesan jelas (`feat(customize): ...`).
-- Setiap mengubah file core: regenerate `tools/cms-manifest.php` (generate-manifest) sebelum commit.
+- Untuk rilis Core, ikuti `/var/www/md/update.md`; manifest dibuat melalui kandidat terverifikasi dengan `php tools/build-package.php cfg/var/jyavani-cms-update-candidate.zip`.
 - Sync ke jyavani.com / apu.lan / adammuiz.com HANYA setelah di-merge ke main.
 - Jaga kompatibilitas: tema lama tanpa `layout` tetap jalan (fallback hardcode).
 - Tidak ada native `alert/confirm`; toast color semantics; SVG icons only.

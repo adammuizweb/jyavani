@@ -36,7 +36,7 @@ if (is_file($versionFile)) {
 ensure_session_started(false);
 $remote = $_SESSION['cms_update_remote'] ?? null;
 $packageZip = $_SESSION['cms_update_package'] ?? '';
-$baseUrl = $_SESSION['cms_update_remote_url'] ?: ($_SESSION['cms_update_base_url'] ?? '');
+$baseUrl = (string)($_SESSION['cms_update_remote_url'] ?? ($_SESSION['cms_update_base_url'] ?? ''));
 
 if (!$remote) {
     _cms_write_progress($token, 0, __('No update data.'), true, __('No update data in session. Run "Check for Updates" first.'));

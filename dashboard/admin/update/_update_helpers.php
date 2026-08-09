@@ -28,6 +28,57 @@ function _cms_clear_progress(string $token): void {
     if (is_file($f)) @unlink($f);
 }
 
+function _cms_update_failure(string $token, string $message): array {
+    if ($token !== '') {
+        _cms_write_progress($token, 0, __('Update failed.'), true, $message);
+    }
+    return ['success' => false, 'message' => $message];
+}
+
+function _cms_is_preserved(string $path, array $patterns): bool {
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $path)) return true;
+    }
+    return false;
+}
+
+function _cms_track_target(string $targetPath, string $projectRoot, string $backupDir, array &$backupFiles, array &$createdFiles): bool {
+    if (isset($backupFiles[$targetPath]) || isset($createdFiles[$targetPath])) return true;
+    if (!file_exists($targetPath)) {
+        $createdFiles[$targetPath] = true;
+        return true;
+    }
+    if (!is_file($targetPath)) return false;
+
+    $relative = ltrim(substr($targetPath, strlen($projectRoot)), '/');
+    $backupPath = $backupDir . '/' . $relative;
+    $backupParent = dirname($backupPath);
+    if (!is_dir($backupParent) && !@mkdir($backupParent, 0755, true)) return false;
+    if (!@copy($targetPath, $backupPath)) return false;
+    $backupFiles[$targetPath] = $backupPath;
+    return true;
+}
+
+function _cms_rollback_files(array $backupFiles, array $createdFiles): array {
+    $errors = [];
+    foreach ($backupFiles as $targetPath => $backupPath) {
+        if (!is_file($backupPath) || !@copy($backupPath, $targetPath)) $errors[] = $targetPath;
+    }
+    foreach ($createdFiles as $createdFile => $_created) {
+        if (is_file($createdFile) && !@unlink($createdFile)) $errors[] = $createdFile;
+    }
+    return $errors;
+}
+
+function _cms_new_backup_dir(string $projectRoot): string {
+    $base = $projectRoot . '/cfg/var/backup-' . date('Ymd-His');
+    if (!file_exists($base)) return $base;
+    do {
+        $candidate = $base . '-' . bin2hex(random_bytes(3));
+    } while (file_exists($candidate));
+    return $candidate;
+}
+
 // --- Helper: get preserve regex patterns ---
 function _get_preserve_patterns(): array {
     return [
@@ -36,6 +87,7 @@ function _get_preserve_patterns(): array {
         '#^cfg/session_debug\.log$#',
         '#^cfg/php-noteloc\.ini$#',
         '#^cfg/site-router\.php$#',
+        '#^cfg/community-i18n\.php$#',
         '#^private_files/#',
         '#^public/static/img/#',
         '#^public/static/files/#',
@@ -45,6 +97,7 @@ function _get_preserve_patterns(): array {
         '#^public/views/themes/[^/]+/.+#',
         '#^plugins/[^/]+/.+#',
         '#^plugin-store/#',
+        '#^theme-store/#',
         '#^app/controllers/DownloadController\.php$#',
         '#^dashboard/admin/community/#',
         '#^public/download/#',
@@ -53,6 +106,9 @@ function _get_preserve_patterns(): array {
         '#^public/views/member/#',
         '#^schema/community\.sql$#',
         '#^schema/migrations/008-dev-status-varchar\.sql$#',
+        '#^tools/import_core_demo_multilingual\.php$#',
+        '#^tools/localize_community\.php$#',
+        '#^tools/data/#',
         '#node_modules/#',
         '#\.git/#',
         '#^\.gitignore$#',
@@ -67,20 +123,29 @@ function _get_local_manifest(): ?array {
     return is_array($d) ? $d : null;
 }
 
+function _cms_safe_relative_path(string $path): ?string {
+    if ($path === '' || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/')) return null;
+    $segments = explode('/', rtrim($path, '/'));
+    foreach ($segments as $segment) {
+        if ($segment === '' || $segment === '.' || $segment === '..') return null;
+    }
+    return implode('/', $segments);
+}
+
 // --- Helper: apply update from zip ---
 function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, string $currentVer, string $progressToken = ''): array {
     $projectRoot = dirname(DASH_PATH);
-    $backupDir = $projectRoot . '/cfg/var/backup-' . date('Ymd-His');
+    $backupDir = _cms_new_backup_dir($projectRoot);
 
     $zip = new ZipArchive();
     if ($zip->open($zipPath) !== true) {
-        return ['success' => false, 'message' => __('Failed to open ZIP package.')];
+        return _cms_update_failure($progressToken, __('Failed to open ZIP package.'));
     }
 
     $totalFiles = $zip->numFiles;
     if ($totalFiles === 0) {
         $zip->close();
-        return ['success' => false, 'message' => __('Update package is empty.')];
+        return _cms_update_failure($progressToken, __('Update package is empty.'));
     }
 
     // Track file count for progress (only count matching files)
@@ -91,16 +156,55 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
     $preservePatterns = _get_preserve_patterns();
 
+    if ($remoteFiles === null || $remoteFiles === []) {
+        $zip->close();
+        return _cms_update_failure($progressToken, __('Update package manifest is missing or invalid.'));
+    }
+
+    // Validate the complete package before backing up or replacing any files.
+    $seenEntries = [];
+    $verifiedFiles = [];
+    for ($i = 0; $i < $totalFiles; $i++) {
+        $entry = $zip->getNameIndex($i);
+        if ($entry === false) continue;
+        $isDirectory = str_ends_with($entry, '/');
+        $filename = _cms_safe_relative_path($entry);
+        if ($filename === null) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Update package contains an invalid file path.'));
+        }
+        if ($isDirectory) continue;
+        if (isset($seenEntries[$filename])) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Update package contains duplicate files.'));
+        }
+        $seenEntries[$filename] = true;
+
+        if (!isset($remoteFiles[$filename])) continue;
+        $expectedHash = strtolower(trim((string)$remoteFiles[$filename]));
+        $contents = $zip->getFromIndex($i);
+        if (!preg_match('/^[a-f0-9]{64}$/', $expectedHash) || $contents === false
+            || !hash_equals($expectedHash, hash('sha256', $contents))) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Update package integrity verification failed:') . ' ' . $filename);
+        }
+        $verifiedFiles[$filename] = true;
+    }
+
+    foreach ($remoteFiles as $filename => $expectedHash) {
+        if (!is_string($filename) || _cms_safe_relative_path($filename) === null || !isset($verifiedFiles[$filename])) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Update package is missing:') . ' ' . (string)$filename);
+        }
+    }
+
     // Refuse a partial update: version.json must never advance when a managed
     // file cannot be replaced by the PHP-FPM user.
     $writeErrors = [];
     for ($i = 0; $i < $totalFiles; $i++) {
         $filename = $zip->getNameIndex($i);
         if ($filename === false || str_ends_with($filename, '/')) continue;
-        $isPreserved = false;
-        foreach ($preservePatterns as $pattern) {
-            if (preg_match($pattern, $filename)) { $isPreserved = true; break; }
-        }
+        $isPreserved = _cms_is_preserved($filename, $preservePatterns);
         if ($isPreserved || ($remoteFiles !== null && !isset($remoteFiles[$filename]))) continue;
 
         $targetPath = $projectRoot . '/' . $filename;
@@ -118,7 +222,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
     if ($writeErrors) {
         $zip->close();
-        return ['success' => false, 'message' => __('Update cannot write:') . ' ' . implode(', ', array_slice($writeErrors, 0, 5))];
+        return _cms_update_failure($progressToken, __('Update cannot write:') . ' ' . implode(', ', array_slice($writeErrors, 0, 5)));
     }
 
     // First pass: count processable files for accurate progress
@@ -126,10 +230,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         for ($i = 0; $i < $totalFiles; $i++) {
             $filename = $zip->getNameIndex($i);
             if ($filename === false || str_ends_with($filename, '/')) continue;
-            $isPreserved = false;
-            foreach ($preservePatterns as $pattern) {
-                if (preg_match($pattern, $filename)) { $isPreserved = true; break; }
-            }
+            $isPreserved = _cms_is_preserved($filename, $preservePatterns);
             if ($isPreserved) continue;
             if ($remoteFiles !== null && !isset($remoteFiles[$filename])) continue;
             $targetPath = $projectRoot . '/' . $filename;
@@ -141,8 +242,9 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     // Create backup dir
-    if (!is_dir($backupDir)) {
-        @mkdir($backupDir, 0755, true);
+    if (!is_dir($backupDir) && !@mkdir($backupDir, 0755, true)) {
+        $zip->close();
+        return _cms_update_failure($progressToken, __('Failed to create backup directory.'));
     }
 
     if ($progressToken !== '') {
@@ -152,6 +254,8 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     $updated = 0;
     $backedUp = 0;
     $errors = [];
+    $backupFiles = [];
+    $createdFiles = [];
     $processedIndex = 0;
 
     // Extract all files from zip
@@ -163,13 +267,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         if (str_ends_with($filename, '/')) continue;
 
         // Skip preserved paths
-        $isPreserved = false;
-        foreach ($preservePatterns as $pattern) {
-            if (preg_match($pattern, $filename)) {
-                $isPreserved = true;
-                break;
-            }
-        }
+        $isPreserved = _cms_is_preserved($filename, $preservePatterns);
         if ($isPreserved) continue;
 
         // If manifest provides a file list, only update files listed in it
@@ -181,16 +279,12 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         $processedIndex++;
 
         // Backup existing file if it exists
-        if (is_file($targetPath)) {
-            $backupPath = $backupDir . '/' . $filename;
-            $backupParent = dirname($backupPath);
-            if (!is_dir($backupParent)) {
-                @mkdir($backupParent, 0755, true);
-            }
-            if (@copy($targetPath, $backupPath)) {
-                $backedUp++;
-            }
+        $backupCount = count($backupFiles);
+        if (!_cms_track_target($targetPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)) {
+            $errors[] = __('Failed to back up:') . ' ' . $filename;
+            continue;
         }
+        if (count($backupFiles) > $backupCount) $backedUp++;
 
         // Ensure target parent dir exists
         $targetParent = dirname($targetPath);
@@ -222,9 +316,10 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     $zip->close();
 
     if ($errors) {
-        $message = __('Update stopped before cleanup and version change:') . ' ' . implode('; ', array_slice($errors, 0, 5));
-        if ($progressToken !== '') _cms_write_progress($progressToken, 0, __('Update failed.'), true, $message);
-        return ['success' => false, 'message' => $message . ' Backup: ' . basename($backupDir)];
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
+        $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
+        if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
+        return _cms_update_failure($progressToken, $message);
     }
 
     // Delete files that exist locally but not in remote manifest
@@ -237,21 +332,20 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
             $localIdx = 0;
             foreach ($localFiles as $localRelPath => $hash) {
                 if (isset($remoteFiles[$localRelPath])) continue;
-                $isPreserved = false;
-                foreach ($preservePatterns as $pattern) {
-                    if (preg_match($pattern, $localRelPath)) {
-                        $isPreserved = true;
-                        break;
-                    }
-                }
+                $isPreserved = _cms_is_preserved($localRelPath, $preservePatterns);
                 if ($isPreserved) continue;
                 $localPath = $projectRoot . '/' . $localRelPath;
                 if (is_file($localPath)) {
-                    $backupPath = $backupDir . '/' . $localRelPath;
-                    $backupParent = dirname($backupPath);
-                    if (!is_dir($backupParent)) @mkdir($backupParent, 0755, true);
-                    @copy($localPath, $backupPath);
-                    @unlink($localPath);
+                    $backupCount = count($backupFiles);
+                    if (!_cms_track_target($localPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)) {
+                        $errors[] = __('Failed to back up:') . ' ' . $localRelPath;
+                        break;
+                    }
+                    if (count($backupFiles) > $backupCount) $backedUp++;
+                    if (!@unlink($localPath)) {
+                        $errors[] = __('Failed to remove obsolete file:') . ' ' . $localRelPath;
+                        break;
+                    }
                     $deleted++;
                 }
 
@@ -265,6 +359,13 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
                 }
             }
         }
+    }
+
+    if ($errors) {
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
+        $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
+        if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
+        return _cms_update_failure($progressToken, $message);
     }
 
     if ($progressToken !== '') {
@@ -286,15 +387,50 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
             $newVersion = array_merge($newVersion, $zipVersion);
         }
     }
-    file_put_contents($projectRoot . '/version.json', json_encode($newVersion, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    if (!isset($remoteFiles['version.json'])) {
+        $versionPath = $projectRoot . '/version.json';
+        if (!_cms_track_target($versionPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)
+            || @file_put_contents($versionPath, json_encode($newVersion, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) === false) {
+            $errors[] = __('Failed to write:') . ' version.json';
+        }
+    }
+
+    if ($errors) {
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
+        $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
+        if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
+        return _cms_update_failure($progressToken, $message);
+    }
 
     if ($progressToken !== '') {
         _cms_write_progress($progressToken, 91, __('Regenerating manifest…'));
     }
 
     // Regenerate local manifest
-    if (is_file($projectRoot . '/tools/generate-manifest.php')) {
-        @shell_exec('php ' . escapeshellarg($projectRoot . '/tools/generate-manifest.php') . ' 2>&1');
+    $localManifestPath = $projectRoot . '/tools/cms-manifest.json';
+    if (!_cms_track_target($localManifestPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)) {
+        $errors[] = __('Failed to back up:') . ' tools/cms-manifest.json';
+    } elseif (is_file($projectRoot . '/tools/generate-manifest.php')) {
+        $manifestOutput = [];
+        $manifestExitCode = 0;
+        exec('php ' . escapeshellarg($projectRoot . '/tools/generate-manifest.php') . ' 2>&1', $manifestOutput, $manifestExitCode);
+        if ($manifestExitCode !== 0) $errors[] = __('Failed to regenerate local manifest.');
+    }
+
+    foreach ($remoteFiles as $filename => $expectedHash) {
+        if (_cms_is_preserved($filename, $preservePatterns)) continue;
+        $targetPath = $projectRoot . '/' . $filename;
+        if (!is_file($targetPath) || !hash_equals((string)$expectedHash, (string)hash_file('sha256', $targetPath))) {
+            $errors[] = __('Final file verification failed:') . ' ' . $filename;
+            break;
+        }
+    }
+
+    if ($errors) {
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
+        $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
+        if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
+        return _cms_update_failure($progressToken, $message);
     }
 
     if ($progressToken !== '') {
@@ -320,7 +456,6 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
 // --- Helper: remote download + apply ---
 function _apply_cms_update(array $remoteManifest, string $baseUrl, string $currentVer, string $progressToken = ''): array {
     $projectRoot = dirname(DASH_PATH);
-    $backupDir = $projectRoot . '/cfg/var/backup-' . date('Ymd-His');
 
     try {
         // Determine download URL from manifest or from base URL
@@ -376,6 +511,13 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
         }
         fclose($input);
         fclose($output);
+
+        $expectedPackageHash = strtolower(trim((string)($remoteManifest['package_sha256'] ?? '')));
+        if ($expectedPackageHash !== '' && (!preg_match('/^[a-f0-9]{64}$/', $expectedPackageHash)
+            || !hash_equals($expectedPackageHash, (string)hash_file('sha256', $tmpZip)))) {
+            @unlink($tmpZip);
+            return _cms_update_failure($progressToken, __('Package checksum verification failed.'));
+        }
 
         if ($progressToken !== '') {
             _cms_write_progress($progressToken, 5, __('Download complete. Extracting…'));

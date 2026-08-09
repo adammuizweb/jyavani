@@ -178,10 +178,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 __('Package version') . ' (v' . htmlspecialchars($remoteVer) . ') ' . __('is not newer than current version') . ' (v' . htmlspecialchars($localVer) . ').');
         }
 
+        // Persist the upload beyond this request; PHP removes upload temp files at shutdown.
+        $uploadDir = dirname(DASH_PATH) . '/cfg/var/uploads';
+        if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0755, true)) {
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to store update package.'));
+        }
+        $storedZip = $uploadDir . '/cms-update-' . bin2hex(random_bytes(8)) . '.zip';
+        if (!@move_uploaded_file($tmpZip, $storedZip)) {
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to store update package.'));
+        }
+
         // Store in session and redirect to apply
         ensure_session_started(true);
         $_SESSION['cms_update_remote'] = $remoteManifest;
-        $_SESSION['cms_update_package'] = $tmpZip;
+        $_SESSION['cms_update_package'] = $storedZip;
         $_SESSION['cms_update_remote_url'] = '(uploaded package)';
 
         adiwira_redirect_with_flash($selfUrl, 'success',
@@ -196,6 +206,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // --- Clear pending update ---
     if ($action === 'clear_pending') {
         ensure_session_started(true);
+        $pendingPackagePath = (string)($_SESSION['cms_update_package'] ?? '');
+        $uploadRoot = realpath(dirname(DASH_PATH) . '/cfg/var/uploads');
+        $pendingRealPath = $pendingPackagePath !== '' ? realpath($pendingPackagePath) : false;
+        if ($uploadRoot !== false && $pendingRealPath !== false
+            && str_starts_with($pendingRealPath, $uploadRoot . DIRECTORY_SEPARATOR)) {
+            @unlink($pendingRealPath);
+        }
         unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url'], $_SESSION['cms_update_package'], $_SESSION['cms_update_remote_url']);
         adiwira_redirect_with_flash($selfUrl, 'info', __('Pending update cancelled.'));
     }
@@ -222,17 +239,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             @unlink($tmpZip);
             adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download reinstall package.'));
         }
-        file_put_contents($tmpZip, $zipData);
+        if (@file_put_contents($tmpZip, $zipData) === false) {
+            @unlink($tmpZip);
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to store update package.'));
+        }
 
-        $dummyManifest = [
-            'name' => $currentVersion['name'] ?? 'Jyavani CMS',
-            'version' => $currentVersion['version'] ?? '0.0.0',
-            'build' => date('Y-m-d'),
-        ];
-        $result = _apply_cms_update_from_zip($tmpZip, $dummyManifest, $currentVersion['version'] ?? '0.0.0');
+        $zip = new ZipArchive();
+        if ($zip->open($tmpZip) !== true) {
+            @unlink($tmpZip);
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to open ZIP package.'));
+        }
+        $manifestJson = $zip->getFromName('cms-manifest.json');
+        $zip->close();
+        $reinstallManifest = $manifestJson === false ? null : json_decode($manifestJson, true);
+        if (!is_array($reinstallManifest) || !is_array($reinstallManifest['files'] ?? null) || $reinstallManifest['files'] === []) {
+            @unlink($tmpZip);
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid reinstall package manifest.'));
+        }
+
+        $result = _apply_cms_update_from_zip($tmpZip, $reinstallManifest, $currentVersion['version'] ?? '0.0.0');
         @unlink($tmpZip);
 
-        if ($hardReset) {
+        if ($result['success'] && $hardReset) {
             $resetMessages = _reinstall_hard_reset($pdo);
         }
 
@@ -523,6 +551,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
       <div id="cmsProgressBar" style="width:0%;height:100%;background:var(--adam-success);border-radius:999px;transition:width .4s ease"></div>
     </div>
     <div id="cmsProgressPct" style="margin-top:.3rem;font-size:.75rem;color:var(--adam-muted)">0%</div>
+    <button type="button" id="cmsProgressClose" class="btn btn-outline" style="display:none;margin:1rem auto 0"><?=__('Close')?></button>
   </div>
 </div>
 
@@ -665,7 +694,9 @@ function closeResetModal(){
 
 // Progress overlay helpers
 var _cmsPollTimer = null;
+var _cmsWatchdogTimer = null;
 var _cmsToken = '';
+var _cmsUpdateFinished = false;
 
 function closeCmsUpdateModal(){
     var modal = document.getElementById('cmsUpdateConfirmModal');
@@ -699,6 +730,29 @@ function cmsHideProgress() {
     if (overlay) overlay.style.display = 'none';
 }
 
+function cmsStopUpdatePolling() {
+    if (_cmsPollTimer) clearInterval(_cmsPollTimer);
+    if (_cmsWatchdogTimer) clearTimeout(_cmsWatchdogTimer);
+    _cmsPollTimer = null;
+    _cmsWatchdogTimer = null;
+}
+
+function cmsShowUpdateFailure(message) {
+    if (_cmsUpdateFinished) return;
+    _cmsUpdateFinished = true;
+    cmsStopUpdatePolling();
+    var statusEl = document.getElementById('cmsProgressStatus');
+    var detailEl = document.getElementById('cmsProgressDetail');
+    var spinner = document.getElementById('cmsProgressSpinner');
+    var bar = document.getElementById('cmsProgressBar');
+    var closeBtn = document.getElementById('cmsProgressClose');
+    if (statusEl) statusEl.textContent = <?= json_encode(__('Update failed.')) ?>;
+    if (detailEl) detailEl.textContent = message || <?= json_encode(__('Update failed.')) ?>;
+    if (spinner) spinner.style.display = 'none';
+    if (bar) bar.style.background = 'var(--adam-danger)';
+    if (closeBtn) closeBtn.style.display = 'inline-flex';
+}
+
 function cmsMakeToken() {
     var hex = '0123456789abcdef';
     var token = '';
@@ -710,12 +764,23 @@ function cmsStartUpdate() {
     closeCmsUpdateModal();
     var token = cmsMakeToken();
     _cmsToken = token;
+    _cmsUpdateFinished = false;
     cmsShowProgress();
     cmsUpdateProgressBar(1, '<?= __('Preparing...') ?>');
 
     var baseUrl = '<?= $base ?>';
     var progressUrl = '<?= $base ?>' + '/?page=admin/update/index&action=cms_read_progress&token=' + token;
     var applyUrl = '<?= $base ?>' + '/?page=admin/update/update_apply';
+    var closeBtn = document.getElementById('cmsProgressClose');
+    var spinner = document.getElementById('cmsProgressSpinner');
+    var bar = document.getElementById('cmsProgressBar');
+    if (closeBtn) closeBtn.style.display = 'none';
+    if (spinner) spinner.style.display = 'block';
+    if (bar) bar.style.background = 'var(--adam-success)';
+
+    _cmsWatchdogTimer = setTimeout(function() {
+        cmsShowUpdateFailure(<?= json_encode(__('The update did not finish in time. Refresh the page and check the installed version before trying again.')) ?>);
+    }, 10 * 60 * 1000);
 
     _cmsPollTimer = setInterval(function() {
         fetch(progressUrl, {
@@ -725,16 +790,14 @@ function cmsStartUpdate() {
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
+            if (_cmsUpdateFinished) return;
             cmsUpdateProgressBar(data.percentage || 0, data.status || '');
             if (data.done || data.error) {
-                clearInterval(_cmsPollTimer);
-                _cmsPollTimer = null;
+                cmsStopUpdatePolling();
                 if (data.error) {
-                    setTimeout(function() {
-                        cmsHideProgress();
-                        alert('<?= __('Failed: ') ?>' + data.error);
-                    }, 1500);
+                    cmsShowUpdateFailure(data.error);
                 } else {
+                    _cmsUpdateFinished = true;
                     setTimeout(function() {
                         window.location.href = '<?= $selfUrl ?>&cms_update_ok=1';
                     }, 1500);
@@ -761,24 +824,17 @@ function cmsStartUpdate() {
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-        if (!data.ok && data.error && !_cmsPollTimer) {
-            clearInterval(_cmsPollTimer);
-            _cmsPollTimer = null;
-            setTimeout(function() {
-                cmsHideProgress();
-                alert('<?= __('Failed: ') ?>' + data.error);
-            }, 1500);
-        }
+        if (!data.ok) cmsShowUpdateFailure(data.error || <?= json_encode(__('Update failed.')) ?>);
     })
     .catch(function(err) {
-        clearInterval(_cmsPollTimer);
-        _cmsPollTimer = null;
-        setTimeout(function() {
-            cmsHideProgress();
-            alert('<?= __('Failed: ') ?>' + err.message);
-        }, 1500);
+        cmsShowUpdateFailure(err.message);
     });
 }
+
+(function(){
+    var btn = document.getElementById('cmsProgressClose');
+    if (btn) btn.addEventListener('click', cmsHideProgress);
+})();
 
 // Wire up the Apply Update button
 (function(){
