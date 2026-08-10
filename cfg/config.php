@@ -39,6 +39,7 @@ if (!defined('DEFAULT_THEME_FOLDER')) {
 // 6. Frontend helpers (widget sebelum theme, karena theme_helper bisa depend)
 require_once __DIR__ . '/helpers/widget_helper.php';
 require_once __DIR__ . '/helpers/theme_helper.php';
+require_once __DIR__ . '/helpers/theme_sections.php';
 
 // 8. Gunakan helper ini jika ingin gunakan waktu indo
 require_once __DIR__ . '/helpers/time_helpers.php';

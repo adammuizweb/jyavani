@@ -86,23 +86,34 @@ class ThemeController
         //
         // Kalau theme-page kamu mau beda, set di sini:
 
-        $layout_full_width = true;   // paksa pakai container (jadi tidak full width)
-        $enable_sidebar    = false;    // paksa sidebar aktif
-        $sidebar_position  = 'left';  // 'left' atau 'right'
-
-        // (Opsional) kalau mau bisa diatur dari meta JSON pada post theme:
-        // meta contoh: {"layout_full_width":true,"enable_sidebar":false,"sidebar_position":"right"}
+        $themeLayout = [
+            'layout_full_width' => true,
+            'enable_sidebar' => false,
+            'sidebar_position' => 'left',
+        ];
         if (!empty($themeData['meta'])) {
-            $meta = json_decode((string)$themeData['meta'], true);
+            $meta = is_array($themeData['meta'])
+                ? $themeData['meta']
+                : json_decode((string)$themeData['meta'], true);
             if (is_array($meta)) {
-                if (array_key_exists('layout_full_width', $meta)) $layout_full_width = (bool)$meta['layout_full_width'];
-                if (array_key_exists('enable_sidebar', $meta))    $enable_sidebar    = (bool)$meta['enable_sidebar'];
+                if (array_key_exists('layout_full_width', $meta)) $themeLayout['layout_full_width'] = (bool)$meta['layout_full_width'];
+                if (array_key_exists('enable_sidebar', $meta)) $themeLayout['enable_sidebar'] = (bool)$meta['enable_sidebar'];
                 if (!empty($meta['sidebar_position'])) {
                     $pos = strtolower(trim((string)$meta['sidebar_position']));
-                    if (in_array($pos, ['left','right'], true)) $sidebar_position = $pos;
+                    if (in_array($pos, ['left', 'right'], true)) $themeLayout['sidebar_position'] = $pos;
                 }
             }
         }
+        if (function_exists('apply_filters')) {
+            $filteredThemeLayout = apply_filters('theme_layout_options', $themeLayout, $themeData, $GLOBALS['pdo'] ?? null);
+            if (is_array($filteredThemeLayout)) $themeLayout = array_merge($themeLayout, $filteredThemeLayout);
+        }
+
+        $layout_full_width = (bool)$themeLayout['layout_full_width'];
+        $enable_sidebar = (bool)$themeLayout['enable_sidebar'];
+        $sidebar_position = in_array($themeLayout['sidebar_position'] ?? '', ['left', 'right'], true)
+            ? (string)$themeLayout['sidebar_position']
+            : 'left';
 
         // layout.php akan bootstrap lagi, tapi require_once aman.
         require __DIR__ . '/../layout.php';

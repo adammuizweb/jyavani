@@ -24,6 +24,13 @@ if (!function_exists('slugify_sc')) {
 
 $base = ADMIN_BASE_PATH;
 $tab = (string)($_GET['tab'] ?? 'presets');
+if ($tab === 'layouts' && !$isAdmin) {
+    adiwira_require_admin($pdo, false);
+}
+$layoutScope = (string)($_GET['scope'] ?? 'collection');
+if (!in_array($layoutScope, ['collection', 'section'], true) || ($layoutScope === 'section' && !$isAdmin)) {
+    $layoutScope = 'collection';
+}
 
 // --- Presets ---
 $presets = [];
@@ -33,11 +40,17 @@ $presets = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // --- Layouts ---
 $layoutFiles = [];
-$layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
+$activeThemeFolder = function_exists('get_active_theme_folder') ? get_active_theme_folder($pdo) : DEFAULT_THEME_FOLDER;
+$layoutDir = $layoutScope === 'section'
+    ? (function_exists('theme_section_theme_directory') ? theme_section_theme_directory($pdo) : null)
+    : (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
 if ($layoutDir && is_dir($layoutDir)) {
     $files = scandir($layoutDir);
     foreach ($files as $f) {
         if (str_ends_with($f, '.php')) {
+            if ($layoutScope === 'section' && (!function_exists('theme_section_name_is_valid') || !theme_section_name_is_valid(pathinfo($f, PATHINFO_FILENAME)))) {
+                continue;
+            }
             $layoutFiles[] = $f;
         }
     }
@@ -49,7 +62,9 @@ if ($layoutDir && is_dir($layoutDir)) {
 
   <div style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid var(--adam-border,#ddd);">
     <a href="?page=admin/shortcodes/index&tab=presets" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'presets' ? 'bold' : 'normal' ?>;"><?=_e('Presets')?></a>
-    <a href="?page=admin/shortcodes/index&tab=layouts" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'layouts' ? 'bold' : 'normal' ?>;"><?=_e('Layouts')?></a>
+    <?php if ($isAdmin): ?>
+      <a href="?page=admin/shortcodes/index&tab=layouts" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'layouts' ? 'bold' : 'normal' ?>;"><?=_e('Layouts')?></a>
+    <?php endif; ?>
   </div>
 
 <?php if ($tab === 'presets'): ?>
@@ -103,29 +118,40 @@ if ($layoutDir && is_dir($layoutDir)) {
 
 <?php elseif ($tab === 'layouts'): ?>
   <div class="sc-toolbar">
-    <a class="adam-button" href="<?= h($base . '/?page=admin/shortcodes/layout') ?>"><?=_e('+ Add Layout')?></a>
+    <a class="<?= $layoutScope === 'collection' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=collection') ?>"><?=_e('Collection Layouts')?></a>
+    <?php if ($isAdmin): ?>
+      <a class="<?= $layoutScope === 'section' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=section') ?>"><?=_e('Theme Sections')?></a>
+    <?php endif; ?>
+    <span style="flex:1"></span>
+    <a class="adam-button" href="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/layout', 'scope' => $layoutScope])) ?>"><?= $layoutScope === 'section' ? __('+ Add Theme Section') : __('+ Add Layout') ?></a>
   </div>
+
+  <?php if ($layoutScope === 'section'): ?>
+    <p style="margin:-.25rem 0 1rem;color:var(--adam-muted,#666);font-size:.88rem;">
+      <?= sprintf(__('Editing renderers owned by the active theme: %s'), '<code>' . h($activeThemeFolder) . '</code>') ?>
+    </p>
+  <?php endif; ?>
 
   <div class="adam-table-wrapper">
     <table class="adam-table">
       <thead>
         <tr>
           <th><?=_e('File Name')?></th>
-          <th><?=_e('Layout Name')?></th>
+          <th><?= $layoutScope === 'section' ? __('Section Name') : __('Layout Name') ?></th>
           <th><?=_e('Size')?></th>
           <th style="width:140px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($layoutFiles)): ?>
-          <tr><td colspan="4" style="padding:1rem;"><?=_e('No layout templates yet.')?> <a href="<?= h($base . '/?page=admin/shortcodes/layout') ?>"><?=_e('Create one now')?></a>.</td></tr>
+          <tr><td colspan="4" style="padding:1rem;"><?= $layoutScope === 'section' ? __('No theme section renderers yet.') : __('No layout templates yet.') ?> <a href="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/layout', 'scope' => $layoutScope])) ?>"><?=_e('Create one now')?></a>.</td></tr>
         <?php else: ?>
           <?php foreach ($layoutFiles as $f):
             $layoutName = pathinfo($f, PATHINFO_FILENAME);
             $fpath = $layoutDir . DIRECTORY_SEPARATOR . $f;
             $fsize = is_file($fpath) ? filesize($fpath) : 0;
             $fsizeStr = $fsize > 1024 ? round($fsize / 1024, 1) . ' KB' : $fsize . ' B';
-            $editHref = $base . '/?' . http_build_query(['page' => 'admin/shortcodes/layout', 'file' => $f]);
+            $editHref = $base . '/?' . http_build_query(['page' => 'admin/shortcodes/layout', 'scope' => $layoutScope, 'file' => $f]);
           ?>
             <tr class="adam-row">
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h($f) ?></a></td>
@@ -133,7 +159,7 @@ if ($layoutDir && is_dir($layoutDir)) {
               <td><?= $fsizeStr ?></td>
               <td>
                 <a class="adam-ubah" href="<?= h($editHref) ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
-                <?php if (!in_array($layoutName, ['cards', 'list', 'card2', 'sliderpage'], true)): ?>
+                <?php if ($layoutScope === 'section' || !in_array($layoutName, ['cards', 'list', 'card2', 'sliderpage'], true)): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button" class="adam-hapus js-layout-delete" data-file="<?= h($f) ?>" data-name="<?= h($layoutName) ?>"><?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?></button>
                 <?php endif; ?>
@@ -148,7 +174,8 @@ if ($layoutDir && is_dir($layoutDir)) {
   <form id="layout-delete-form" method="post" action="<?= h($base . '/admin/shortcodes/delete_layout.php') ?>" style="display:none;">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="file" id="layout-delete-file">
-    <input type="hidden" name="return_to" value="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts') ?>">
+    <input type="hidden" name="scope" value="<?= h($layoutScope) ?>">
+    <input type="hidden" name="return_to" value="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => $layoutScope])) ?>">
   </form>
 <?php endif; ?>
 </section>
@@ -158,6 +185,18 @@ if ($layoutDir && is_dir($layoutDir)) {
 </style>
 
 <div class="sc-help" style="margin-top:2rem;padding:1.2rem;background:var(--adam-surface-3);border-radius:var(--adam-radius,8px);border:1px solid var(--adam-border-soft);font-size:.9rem;color:var(--adam-text);line-height:1.6;">
+<?php if ($tab === 'layouts' && $layoutScope === 'section'): ?>
+  <h3 style="margin:0 0 .6rem;font-size:1rem;"><?=_e('Theme Section Shortcodes')?></h3>
+  <p><?=_e('Theme Section renderers are PHP templates owned by the active theme and selected with a validated section identifier.')?></p>
+  <table class="adam-table" style="font-size:.85rem;margin-bottom:.6rem;">
+    <thead><tr><th><?=_e('Method')?></th><th><?=_e('Example')?></th></tr></thead>
+    <tbody>
+      <tr><td><?=_e('Shortcode in content')?></td><td><code>[[widget:theme_section name="page.hero" title="Welcome"]]</code></td></tr>
+      <tr><td><?=_e('PHP in theme template')?></td><td><code>&lt;?= render_theme_section('page.hero', ['title' =&gt; 'Welcome'], $pdo) ?&gt;</code></td></tr>
+    </tbody>
+  </table>
+  <p style="margin:0;"><?=_e('Resolution order: active theme, default theme, global section directory, then semantic Core fallback.')?></p>
+<?php else: ?>
   <h3 style="margin:0 0 .6rem;font-size:1rem;display:flex;align-items:center;gap:6px;">
     <span style="width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;background:var(--adam-primary);color:#fff;border-radius:50%;font-size:12px;font-weight:bold;">?</span>
     <?=_e('How to Use Shortcodes')?>
@@ -200,6 +239,7 @@ if ($layoutDir && is_dir($layoutDir)) {
     <?=_e('The "Post/Page List" sidebar widget under <strong>Dashboard → Appearance → Widgets</strong> supports direct preset selection.')?>
     <?=_e('All presets with status <code>published</code> will appear in the widget selection dropdown.')?>
   </p>
+<?php endif; ?>
 </div>
 
 <script>

@@ -493,6 +493,7 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
     var fd = new FormData();
     fd.append('content', '<?= '// auto-loaded from layout file' ?>');
     fd.append('preset_config', JSON.stringify(config));
+    fd.append('csrf_token', <?= json_encode(csrf_token()) ?>);
 
     fetch('<?= $base ?>/admin/shortcodes/preview_layout.php', {
       method: 'POST',

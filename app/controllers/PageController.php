@@ -10,7 +10,8 @@ class PageController
     {
         try {
             $stmt = $pdo->prepare("
-                SELECT id, title, slug, content, created_at, updated_at, created_by, status
+                SELECT id, title, slug, content, type, meta, thumbnail, youtube,
+                       created_at, updated_at, created_by, status
                 FROM posts
                 WHERE slug = :slug 
                   AND type = 'page'
@@ -415,23 +416,32 @@ if (trim($content_html) === '') {
         //
         // Kalau theme-page kamu mau beda, set di sini:
 
-        $layout_full_width = false;   // paksa pakai container (jadi tidak full width)
-        $enable_sidebar    = true;     // sidebar aktif default (bisa diatur via Settings > Sidebar)
-        $sidebar_position  = 'right';  // 'left' atau 'right'
-
-        // (Opsional) kalau mau bisa diatur dari meta JSON pada post theme:
-        // meta contoh: {"layout_full_width":true,"enable_sidebar":false,"sidebar_position":"right"}
-        if (!empty($themeData['meta'])) {
-            $meta = json_decode((string)$themeData['meta'], true);
+        $pageLayout = [
+            'layout_full_width' => false,
+            'enable_sidebar' => true,
+            'sidebar_position' => 'right',
+        ];
+        if (!empty($pageData['meta'])) {
+            $meta = is_array($pageData['meta'])
+                ? $pageData['meta']
+                : json_decode((string)$pageData['meta'], true);
             if (is_array($meta)) {
-                if (array_key_exists('layout_full_width', $meta)) $layout_full_width = (bool)$meta['layout_full_width'];
-                if (array_key_exists('enable_sidebar', $meta))    $enable_sidebar    = (bool)$meta['enable_sidebar'];
+                if (array_key_exists('layout_full_width', $meta)) $pageLayout['layout_full_width'] = (bool)$meta['layout_full_width'];
+                if (array_key_exists('enable_sidebar', $meta)) $pageLayout['enable_sidebar'] = (bool)$meta['enable_sidebar'];
                 if (!empty($meta['sidebar_position'])) {
                     $pos = strtolower(trim((string)$meta['sidebar_position']));
-                    if (in_array($pos, ['left','right'], true)) $sidebar_position = $pos;
+                    if (in_array($pos, ['left', 'right'], true)) $pageLayout['sidebar_position'] = $pos;
                 }
             }
         }
+        $filteredPageLayout = apply_filters('page_layout_options', $pageLayout, $pageData, $pdo);
+        if (is_array($filteredPageLayout)) $pageLayout = array_merge($pageLayout, $filteredPageLayout);
+
+        $layout_full_width = (bool)$pageLayout['layout_full_width'];
+        $enable_sidebar = (bool)$pageLayout['enable_sidebar'];
+        $sidebar_position = in_array($pageLayout['sidebar_position'] ?? '', ['left', 'right'], true)
+            ? (string)$pageLayout['sidebar_position']
+            : 'right';
         
         // END SIDEBAR
 

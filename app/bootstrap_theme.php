@@ -10,7 +10,8 @@ if (!defined('THEME_DEBUG')) {
 }
 
 if (!defined('PUBLIC_PATH')) {
-    define('PUBLIC_PATH', __DIR__);
+    $publicPath = realpath(__DIR__ . '/../public');
+    define('PUBLIC_PATH', $publicPath ?: (__DIR__ . '/../public'));
 }
 
 if (!function_exists('theme_dbg')) {
@@ -22,6 +23,11 @@ if (!function_exists('theme_dbg')) {
 }
 
 theme_dbg("PUBLIC_PATH=" . PUBLIC_PATH);
+
+$hooks_path = realpath(__DIR__ . '/../cfg/helpers/hooks.php') ?: (__DIR__ . '/../cfg/helpers/hooks.php');
+if (!function_exists('apply_filters') && is_file($hooks_path)) {
+    require_once $hooks_path;
+}
 
 $theme_helper_path = realpath(__DIR__ . '/../cfg/helpers/theme_helper.php') ?: (__DIR__ . '/../cfg/helpers/theme_helper.php');
 if (is_file($theme_helper_path)) {
@@ -37,6 +43,12 @@ if (is_file($widget_helper_path)) {
     theme_dbg("widget_helper loaded from {$widget_helper_path}");
 } else {
     theme_dbg("widget_helper NOT FOUND at {$widget_helper_path} (continuing)");
+}
+
+$theme_sections_path = realpath(__DIR__ . '/../cfg/helpers/theme_sections.php') ?: (__DIR__ . '/../cfg/helpers/theme_sections.php');
+if (is_file($theme_sections_path)) {
+    require_once $theme_sections_path;
+    theme_dbg("theme_sections loaded from {$theme_sections_path}");
 }
 
 if (!function_exists('render_assigned_slot')) {

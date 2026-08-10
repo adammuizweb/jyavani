@@ -107,13 +107,13 @@ if (!function_exists('widget_find_view')) {
 }
 
 if (!function_exists('render_widget')) {
-    function render_widget(string $name, array $vars = [], ?PDO $pdo = null): string
+    function render_widget(string $name, array $vars = [], ?PDO $pdo = null, array $context = []): string
     {
         $pdo = $pdo ?: widget_get_pdo();
 
         $path = widget_find_view($name, $pdo);
         if ($path) {
-            $vars = array_merge([
+            $vars = array_merge($context, [
                 '__pdo' => $pdo,
                 '__widget_name' => $name,
             ], $vars);
@@ -140,8 +140,9 @@ if (!function_exists('render_widget')) {
         ) {
             $handler = $GLOBALS['_widget_shortcode_handlers'][$name];
             $attrs = array_merge($handler['defaults'], $vars);
+            $handlerContext = array_merge($context, ['__widget_name' => $name]);
             try {
-                return ($handler['fn'])($pdo, $attrs, $vars);
+                return ($handler['fn'])($pdo, $attrs, $handlerContext);
             } catch (Throwable $e) {
                 error_log('[widget_helper] render_widget shortcode handler error: ' . $e->getMessage());
                 return '';
@@ -211,8 +212,7 @@ if (!function_exists('widget_expand_shortcodes')) {
             function ($m) use ($pdo, $context) {
                 $name = (string)$m[1];
                 $attrs = widget_parse_attrs((string)($m[2] ?? ''));
-                $vars = array_merge($context, $attrs);
-                return render_widget($name, $vars, $pdo);
+                return render_widget($name, $attrs, $pdo, $context);
             },
             $html
         );
