@@ -7,6 +7,42 @@ require_once __DIR__ . '/env.php';
 // 2. Load isi .env
 load_env(__DIR__ . '/.env');
 
+function app_is_absolute_path(string $path): bool {
+    return str_starts_with($path, '/') || preg_match('/^[A-Za-z]:[\\\\\/]/', $path) === 1;
+}
+
+function app_resolve_public_path(string $projectRoot): string {
+    $configured = trim((string)env('PUBLIC_PATH', ''));
+    if ($configured !== '') {
+        if (!app_is_absolute_path($configured)) {
+            throw new RuntimeException('PUBLIC_PATH must be an absolute directory path.');
+        }
+        $resolved = realpath($configured);
+        if ($resolved === false || !is_dir($resolved)) {
+            throw new RuntimeException('PUBLIC_PATH does not exist or is not a directory: ' . $configured);
+        }
+        return rtrim($resolved, '/\\');
+    }
+
+    $candidates = [];
+    if (!empty($_SERVER['SCRIPT_FILENAME'])) $candidates[] = dirname((string)$_SERVER['SCRIPT_FILENAME']);
+    foreach (['public_html', 'public', 'www', 'htdocs'] as $directory) {
+        $candidates[] = $projectRoot . '/' . $directory;
+    }
+    foreach (array_unique($candidates) as $candidate) {
+        $resolved = realpath($candidate);
+        if ($resolved !== false && is_dir($resolved)
+            && (is_file($resolved . '/router.php') || is_file($resolved . '/index.php'))) {
+            return rtrim($resolved, '/\\');
+        }
+    }
+    throw new RuntimeException('PUBLIC_PATH could not be detected. Set it to an existing absolute directory.');
+}
+
+if (!defined('PUBLIC_PATH')) {
+    define('PUBLIC_PATH', app_resolve_public_path(dirname(__DIR__)));
+}
+
 require_once __DIR__ . '/helpers/hooks.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';
 app_configure_error_reporting();
@@ -24,10 +60,6 @@ require_once __DIR__ . '/db.php';
 define('cfg_PATH', __DIR__);
 
 // 5. Konstanta path untuk public (dibutuhkan oleh theme_helper & widget_helper)
-if (!defined('PUBLIC_PATH')) {
-    $publicGuess = realpath(__DIR__ . '/../public');
-    define('PUBLIC_PATH', $publicGuess ?: (__DIR__ . '/../public'));
-}
 if (!defined('VIEWS_BASE')) {
     $appViews = realpath(PUBLIC_PATH . '/views/themes');
     define('VIEWS_BASE', $appViews ?: (PUBLIC_PATH . '/views/themes'));

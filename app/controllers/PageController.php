@@ -262,20 +262,6 @@ $pdo = $layout_pdo;
         $enable_sidebar    = true;    // paksa sidebar aktif
         $sidebar_position  = 'right';  // 'left' atau 'right'
 
-        // (Opsional) kalau mau bisa diatur dari meta JSON pada post theme:
-        // meta contoh: {"layout_full_width":true,"enable_sidebar":false,"sidebar_position":"right"}
-        if (!empty($themeData['meta'])) {
-            $meta = json_decode((string)$themeData['meta'], true);
-            if (is_array($meta)) {
-                if (array_key_exists('layout_full_width', $meta)) $layout_full_width = (bool)$meta['layout_full_width'];
-                if (array_key_exists('enable_sidebar', $meta))    $enable_sidebar    = (bool)$meta['enable_sidebar'];
-                if (!empty($meta['sidebar_position'])) {
-                    $pos = strtolower(trim((string)$meta['sidebar_position']));
-                    if (in_array($pos, ['left','right'], true)) $sidebar_position = $pos;
-                }
-            }
-        }
-        
         // END SIDEBAR
 
         // ensure layout picks up $content_html

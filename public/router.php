@@ -198,6 +198,7 @@ if ($prefix === 'author') {
     require_once __DIR__ . '/../app/controllers/AuthorController.php';
 
     if (($segments[2] ?? '') === 'page' && isset($segments[3])) collection_redirect_legacy_pagination();
+    collection_redirect_legacy_query_pagination();
     $ident = $segments[1] ?? '';
     $page = (isset($segments[2], $segments[3]) && in_array($segments[2], ['p', 'page'], true)) ? (int)$segments[3] : 1;
     $q = trim((string)($_GET['q'] ?? ''));
@@ -215,6 +216,8 @@ $categoryRoutes = function_exists('get_category_routes') ? get_category_routes($
 $categoryMatch = collection_match_route_base($pathTrimmed, $categoryRoutes);
 if ($categoryMatch !== null) {
     require_once __DIR__ . '/../app/controllers/CategoryController.php';
+
+    collection_redirect_legacy_query_pagination();
 
     // collect segments after category prefix
     $segmentsAfter = $categoryMatch['rest'] === '' ? [] : explode('/', $categoryMatch['rest']);
@@ -282,6 +285,7 @@ if (preg_match('/^\d{4}$/', $prefix)) {
         // detect /page/2/ after month or year
         $page = 1;
         $pageIndex = $month ? 2 : 1;
+        collection_redirect_legacy_query_pagination();
         if (isset($segments[$pageIndex]) && in_array($segments[$pageIndex], ['p', 'page'], true) && isset($segments[$pageIndex + 1])) {
             if ($segments[$pageIndex] === 'page') collection_redirect_legacy_pagination();
             $page = (int)$segments[$pageIndex + 1];
@@ -298,7 +302,7 @@ if (preg_match('/^\d{4}$/', $prefix)) {
 // /sitemap.xml
 // /sitemap_posts_1.xml
 // /sitemap_pages_2.xml
-if (preg_match('#^sitemap_([a-z0-9-]+)_(posts|pages|themes)_(\d+)\.xml$#', $pathTrimmed, $m)) {
+if (preg_match('#^sitemap_([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)_(\d+)\.xml$#', $pathTrimmed, $m)) {
     require_once __DIR__ . '/../app/controllers/SitemapController.php';
     if (SitemapController::renderLocale($pdo, $m[1], $m[2], max(1, (int)$m[3]))) exit;
 }
@@ -322,6 +326,7 @@ $postsListMatch = collection_match_route_base($pathTrimmed, $postsListRoutes);
 if ($postsListMatch !== null) {
     require_once __DIR__ . '/../app/controllers/PostController.php';
 
+    collection_redirect_legacy_query_pagination();
     $page = 1;
     if (!empty($_GET['p']) || !empty($_GET['page'])) {
         $page = max(1, (int)($_GET['p'] ?? $_GET['page']));
@@ -347,6 +352,7 @@ $pagesListMatch = collection_match_route_base($pathTrimmed, $pagesListRoutes);
 if ($pagesListMatch !== null) {
     require_once __DIR__ . '/../app/controllers/PageController.php';
 
+    collection_redirect_legacy_query_pagination();
     $page = 1;
     $segmentsAfter = $pagesListMatch['rest'] === '' ? [] : explode('/', $pagesListMatch['rest']);
     foreach ($segmentsAfter as $idx => $seg) {
@@ -425,6 +431,7 @@ if (!empty($fallbackToArchive)) {
 
     $page = 1;
     $pageIndex = $month ? 2 : 1;
+    collection_redirect_legacy_query_pagination();
     if (isset($segments[$pageIndex]) && in_array($segments[$pageIndex], ['p', 'page'], true) && isset($segments[$pageIndex + 1])) {
         if ($segments[$pageIndex] === 'page') collection_redirect_legacy_pagination();
         $page = (int)$segments[$pageIndex + 1];
@@ -450,6 +457,7 @@ if (!$catEnabled && function_exists('resolve_category_from_path')) {
     }
     $catSlug = resolve_category_from_path($pdo, $rootCategoryPath);
     if ($catSlug !== null) {
+        collection_redirect_legacy_query_pagination();
         require_once __DIR__ . '/../app/controllers/CategoryController.php';
         $q = trim((string)($_GET['q'] ?? ''));
         CategoryController::showCategory($pdo, $catSlug, $page, $q);
@@ -489,6 +497,20 @@ if (function_exists('content_route_resolve')) {
                 PostController::renderArticle($routed, $pdo);
                 break;
         }
+        exit;
+    }
+}
+
+/**
+ * Last-chance extension redirect for unresolved frontend content paths.
+ * The returned root-relative or absolute target may already contain a query;
+ * the request query is then appended with the correct separator.
+ */
+$unresolvedRedirect = apply_filters('unresolved_content_redirect_url', '', $pathTrimmed, $pdo);
+if (is_string($unresolvedRedirect) && $unresolvedRedirect !== '') {
+    $target = url_append_query_string($unresolvedRedirect, (string)($_SERVER['QUERY_STRING'] ?? ''));
+    if ($target !== '') {
+        header('Location: ' . $target, true, 301);
         exit;
     }
 }

@@ -35,15 +35,14 @@ $isDevSelfCheck = $localHost !== '' && strcasecmp($updateHost ?: '', $localHost)
 $versionFile = dirname(DASH_PATH) . '/version.json';
 $currentVersion = ['version' => '0.0.0', 'name' => 'Jyavani CMS', 'build' => '', 'edition' => ''];
 if (is_file($versionFile)) {
-    $v = json_decode(file_get_contents($versionFile), true);
-    if (is_array($v)) $currentVersion = array_merge($currentVersion, $v);
+    $currentVersion = array_merge($currentVersion, _cms_decode_json_array((string)file_get_contents($versionFile), 'version.json'));
 }
 
 // Load local manifest
 $manifestFile = dirname(DASH_PATH) . '/tools/cms-manifest.json';
 $localManifest = null;
 if (is_file($manifestFile)) {
-    $localManifest = json_decode(file_get_contents($manifestFile), true);
+    $localManifest = _cms_decode_json_array((string)file_get_contents($manifestFile), 'tools/cms-manifest.json');
 }
 
 // Pre-flight permission check — warn if www-data can't write key paths
@@ -57,7 +56,11 @@ $permTestPaths = [
 ];
 $projectRoot = dirname(DASH_PATH);
 foreach ($permTestPaths as $rel) {
-    $abs = $projectRoot . '/' . $rel;
+    $abs = _cms_target_path($rel, $projectRoot);
+    if ($abs === null) {
+        $permErrors[] = $rel;
+        continue;
+    }
     if (file_exists($abs) && !is_writable($abs)) {
         $permErrors[] = $rel;
     }
@@ -102,10 +105,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to fetch update info from URL:') . ' ' . htmlspecialchars($inputUrl));
         }
 
-        $remote = json_decode($remoteJson, true);
-        if (!is_array($remote) || !isset($remote['version'])) {
+        try {
+            $remote = _cms_decode_json_array($remoteJson, 'remote update response');
+        } catch (Throwable $error) {
             adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid remote response format (expected: version).'));
         }
+        if (!isset($remote['version'])) adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid remote response format (expected: version).'));
 
         $localVer = $currentVersion['version'] ?? '0.0.0';
         $remoteVer = $remote['version'] ?? '0.0.0';
@@ -160,10 +165,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             adiwira_redirect_with_flash($selfUrl, 'error', __('cms-manifest.json not found in the update package.'));
         }
 
-        $remoteManifest = json_decode($manifestJson, true);
-        $remoteVersion = $versionJson ? json_decode($versionJson, true) : null;
-
-        if (!is_array($remoteManifest) || !isset($remoteManifest['version'])) {
+        try {
+            $remoteManifest = _cms_decode_json_array($manifestJson, 'cms-manifest.json');
+            if ($versionJson !== false) _cms_decode_json_array($versionJson, 'version.json');
+        } catch (Throwable $error) {
+            $zip->close();
+            adiwira_redirect_with_flash($selfUrl, 'error', $error->getMessage());
+        }
+        if (!isset($remoteManifest['version'])) {
             $zip->close();
             adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid cms-manifest.json format.'));
         }
@@ -225,6 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $hardReset = !empty($_POST['hard_reset']);
+        if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
         $tmpZip = sys_get_temp_dir() . '/cms-reinstall-' . bin2hex(random_bytes(8)) . '.zip';
         $ctx = stream_context_create([
@@ -251,7 +261,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $manifestJson = $zip->getFromName('cms-manifest.json');
         $zip->close();
-        $reinstallManifest = $manifestJson === false ? null : json_decode($manifestJson, true);
+        try {
+            $reinstallManifest = $manifestJson === false ? null : _cms_decode_json_array($manifestJson, 'cms-manifest.json');
+        } catch (Throwable $error) {
+            $reinstallManifest = null;
+        }
         if (!is_array($reinstallManifest) || !is_array($reinstallManifest['files'] ?? null) || $reinstallManifest['files'] === []) {
             @unlink($tmpZip);
             adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid reinstall package manifest.'));
@@ -374,7 +388,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <li style="margin-bottom:.25rem"><code><?= htmlspecialchars($p) ?></code></li>
         <?php endforeach; ?>
     </ul>
-    <p class="up-hint"><?=_e('Fix:')?> <code>sudo chgrp -R www-data <?= htmlspecialchars($projectRoot) ?> && sudo chmod -R g+w <?= htmlspecialchars($projectRoot) ?></code></p>
+    <p class="up-hint"><?=_e('Fix:')?> <code>sudo chgrp -R www-data <?= htmlspecialchars($projectRoot) ?> <?= htmlspecialchars((string)PUBLIC_PATH) ?> &amp;&amp; sudo chmod -R g+w <?= htmlspecialchars($projectRoot) ?> <?= htmlspecialchars((string)PUBLIC_PATH) ?></code></p>
 </div>
 <?php endif; ?>
 

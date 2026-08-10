@@ -407,7 +407,7 @@ $imgSrcRaw = !empty($post['display_image'])
   </div>
 <?php endif; ?>
 
-<div class="adam-post-body">
+<div class="adam-post-body editor-content">
   <?= apply_filters('post_content', (string)($post['content'] ?? ''), $post ?? []) ?>
 </div>
 

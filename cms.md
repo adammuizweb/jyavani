@@ -232,6 +232,12 @@ Content URL builders finish through `content_permalink`, receiving the generated
 URL, the source content row, and its type (`post` or `page`). Extensions may
 return an alias URL without changing permalink structures or content identity.
 
+After all Core content routes fail to resolve, extensions may return a redirect
+target through `unresolved_content_redirect_url`, which receives the empty
+target, normalized request path, and `PDO` connection. A returned root-relative
+or absolute URL may include its own query string; Core safely appends the current
+request query with `&` rather than adding a second `?`.
+
 ## Canonical Content Routes
 
 Articles, pages, and Theme Templates may have an optional nested public path in

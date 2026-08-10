@@ -38,9 +38,8 @@ function collection_match_route_base(string $path, array $bases): ?array
     return null;
 }
 
-function collection_redirect_legacy_pagination(): void
+function collection_legacy_path_pagination_url(string $requestUri): ?string
 {
-    $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '');
     $path = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '');
     $canonicalPath = preg_replace_callback(
         '#/page/(\d+)(?=/?$)#',
@@ -49,10 +48,57 @@ function collection_redirect_legacy_pagination(): void
         1,
         $count
     );
-    if ($count !== 1 || !is_string($canonicalPath)) return;
+    if ($count !== 1 || !is_string($canonicalPath)) return null;
 
     $query = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
-    header('Location: ' . ($canonicalPath === '' ? '/' : $canonicalPath) . ($query !== '' ? '?' . $query : ''), true, 301);
+    return ($canonicalPath === '' ? '/' : $canonicalPath) . ($query !== '' ? '?' . $query : '');
+}
+
+function collection_redirect_legacy_pagination(): void
+{
+    $target = collection_legacy_path_pagination_url((string)($_SERVER['REQUEST_URI'] ?? ''));
+    if ($target === null) return;
+    header('Location: ' . $target, true, 301);
+    exit;
+}
+
+function collection_legacy_query_pagination_url(string $requestUri): ?string
+{
+    $query = (string)(parse_url($requestUri, PHP_URL_QUERY) ?? '');
+    if ($query === '') return null;
+
+    $parts = explode('&', $query);
+    $page = null;
+    $hasCanonicalPage = false;
+    foreach ($parts as $part) {
+        [$rawKey, $rawValue] = array_pad(explode('=', $part, 2), 2, '');
+        $key = rawurldecode(str_replace('+', ' ', $rawKey));
+        if ($key === 'p') $hasCanonicalPage = true;
+        if ($key === 'page') {
+            $value = rawurldecode(str_replace('+', ' ', $rawValue));
+            if ($page === null && preg_match('/^\d+$/', $value)) $page = max(1, (int)$value);
+        }
+    }
+    if ($hasCanonicalPage || $page === null) return null;
+
+    $remaining = array_values(array_filter($parts, static function (string $part): bool {
+        $rawKey = explode('=', $part, 2)[0];
+        return rawurldecode(str_replace('+', ' ', $rawKey)) !== 'page';
+    }));
+    $path = (string)(parse_url($requestUri, PHP_URL_PATH) ?? '/');
+    if (!preg_match('#/p/\d+/?$#', $path)) {
+        $path = $page > 1 ? rtrim($path, '/') . '/p/' . $page . '/' : rtrim($path, '/') . '/';
+    }
+    if ($path === '') $path = '/';
+
+    return $path . ($remaining !== [] ? '?' . implode('&', $remaining) : '');
+}
+
+function collection_redirect_legacy_query_pagination(): void
+{
+    $target = collection_legacy_query_pagination_url((string)($_SERVER['REQUEST_URI'] ?? ''));
+    if ($target === null) return;
+    header('Location: ' . $target, true, 301);
     exit;
 }
 

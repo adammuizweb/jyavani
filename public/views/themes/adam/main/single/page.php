@@ -68,7 +68,7 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
     <div class="tz-single-page-before"><?= theme_zone_render_position($pdo, 'single.page', 'before_content') ?></div>
   <?php endif; ?>
 
-  <main class="post-content" itemprop="articleBody">
+  <main class="post-content editor-content" itemprop="articleBody">
     <?= apply_filters('post_content', (string)($post['content'] ?? ''), $post ?? []) ?>
   </main>
 

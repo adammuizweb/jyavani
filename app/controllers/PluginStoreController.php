@@ -301,17 +301,60 @@ class PluginStoreController
     private static function downloadPackage(string $url, callable $progress): ?string
     {
         $progress(18, 'Mengunduh paket update...');
-        $tmp = tempnam(sys_get_temp_dir(), 'plugin-update-') . '.zip';
-        $output = @fopen($tmp, 'wb');
-        if ($output === false || !function_exists('curl_init')) { @unlink($tmp); return null; }
-        $curl = curl_init($url);
-        curl_setopt_array($curl, [CURLOPT_FILE => $output, CURLOPT_FOLLOWLOCATION => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_USERAGENT => 'JyavaniCMS-PluginUpdate']);
-        $ok = curl_exec($curl) === true && (int)curl_getinfo($curl, CURLINFO_HTTP_CODE) >= 200 && (int)curl_getinfo($curl, CURLINFO_HTTP_CODE) < 300;
-        curl_close($curl);
-        fclose($output);
+        $tmp = tempnam(sys_get_temp_dir(), 'plugin-update-');
+        if ($tmp === false) return null;
+
+        if (function_exists('curl_init')) {
+            $output = @fopen($tmp, 'wb');
+            if ($output === false) { @unlink($tmp); return null; }
+            $curl = curl_init($url);
+            curl_setopt_array($curl, [CURLOPT_FILE => $output, CURLOPT_FOLLOWLOCATION => true, CURLOPT_CONNECTTIMEOUT => 15, CURLOPT_TIMEOUT => 120, CURLOPT_USERAGENT => 'JyavaniCMS-PluginUpdate']);
+            $ok = curl_exec($curl) === true && (int)curl_getinfo($curl, CURLINFO_HTTP_CODE) >= 200 && (int)curl_getinfo($curl, CURLINFO_HTTP_CODE) < 300;
+            curl_close($curl);
+            $ok = fclose($output) && $ok && filesize($tmp) > 0;
+        } else {
+            $ok = self::downloadPackageWithStream($url, $tmp, $progress);
+        }
         if (!$ok) { @unlink($tmp); return null; }
         $progress(35, 'Unduhan selesai. Memverifikasi paket...');
         return $tmp;
+    }
+
+    private static function downloadPackageWithStream(string $url, string $tmp, callable $progress): bool
+    {
+        $ctx = stream_context_create(['http' => [
+            'timeout' => 120,
+            'user_agent' => 'JyavaniCMS-PluginUpdate',
+            'follow_location' => 1,
+            'max_redirects' => 5,
+            'ignore_errors' => true,
+        ]]);
+        $input = @fopen($url, 'rb', false, $ctx);
+        if ($input === false) return false;
+
+        $headers = (array)(stream_get_meta_data($input)['wrapper_data'] ?? []);
+        $status = 0;
+        $length = 0;
+        foreach ($headers as $header) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#i', (string)$header, $match)) $status = (int)$match[1];
+            if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
+        }
+        if ($status < 200 || $status >= 300) { fclose($input); return false; }
+
+        $output = @fopen($tmp, 'wb');
+        if ($output === false) { fclose($input); return false; }
+        $downloaded = 0;
+        $ok = true;
+        while (!feof($input)) {
+            $chunk = fread($input, 1024 * 1024);
+            if ($chunk === false) { $ok = false; break; }
+            if ($chunk === '') continue;
+            if (fwrite($output, $chunk) !== strlen($chunk)) { $ok = false; break; }
+            $downloaded += strlen($chunk);
+            if ($length > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $length)), 'Mengunduh paket update...');
+        }
+        fclose($input);
+        return fclose($output) && $ok && $downloaded > 0;
     }
 
     private static function fetchVersionInfo(string $url): ?array

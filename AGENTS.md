@@ -628,6 +628,7 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 - **Release workflow:** `/var/www/md/update.md` defines version bump semantics, candidate build, commit, push, canonical package publication, and endpoint verification.
 - **Build tools:** `tools/build-package.php [output-path]` regenerates the manifest and builds a verified ZIP atomically; `tools/generate-manifest.php` only regenerates `tools/cms-manifest.json`.
 - **Server setup guide** at `SERVER_SETUP.md`
+- `PUBLIC_PATH` is resolved once in `cfg/config.php` after `.env` loading. It must be an existing absolute deployed web root; updater manifests still use canonical `public/...` paths.
 - `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
 - Timezone: `Asia/Jakarta`
 - `.gitignore` excludes: `.env`, `private_files/`, `cfg/var/sessions/`, `public/static/img/{year}/`

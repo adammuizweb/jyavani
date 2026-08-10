@@ -111,6 +111,8 @@ Isi minimal:
 DB_NAME=[db_name]
 DB_USER=[db_user]
 DB_PASS=[db_pass]
+DB_SESSION_WAIT_TIMEOUT=
+PUBLIC_PATH=/absolute/path/to/project/public
 SESSION_SAVE_PATH=/path/to/project/cfg/var/sessions
 SESSION_NAME=[session_name]
 SESSION_COOKIE_DOMAIN=[domain]
@@ -120,6 +122,10 @@ FORCE_HTTPS=1
 SESSION_ALLOW_INSECURE_COOKIES=0
 SESSION_SECRET=<random-64-char-hex>
 ```
+
+`PUBLIC_PATH` must be an existing absolute directory. For split deployments it may point to a sibling web root such as `/home/account/public_html`; logical release paths remain `public/...`. Configure nginx `root` to the same directory. If `cfg/` cannot be found relative to the public installer, expose `BACKEND_PATH=/absolute/path/to/project/cfg` to PHP-FPM so fresh-install bootstrap can locate it.
+
+`DB_SESSION_WAIT_TIMEOUT` is optional. When set, it must be an integer from 1 to 31536000 and configures only the current MySQL session's idle timeout.
 
 **Catatan per env:**
 - `FORCE_HTTPS=1` + `SESSION_ALLOW_INSECURE_COOKIES=0` → cookie dengan flag Secure (wajib HTTPS)

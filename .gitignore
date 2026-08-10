@@ -3,6 +3,7 @@
 .lampz.pid
 .lampz-php.log
 cfg/*.env
+!cfg/env.php
 cfg/php-noteloc.ini
 jyavani.code-profile
 # Runtime data (do not commit)
@@ -47,6 +48,8 @@ tests/*
 !tests/theme_section_dashboard_contract.php
 !tests/content_route_contract.php
 !tests/content_route_dashboard_contract.php
+!tests/cms_update_contract.php
+!tests/core_behavior_contract.php
 
 jyavani-cms-update.zip
 photo-gallery-*.zip

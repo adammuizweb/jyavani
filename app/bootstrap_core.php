@@ -1,8 +1,27 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * bootstrap_core.php
+ */
+
+if (!defined('BACKEND_PATH')) {
+    $env_backend = getenv('BACKEND_PATH') ?: '';
+    if ($env_backend !== '') {
+        define('BACKEND_PATH', $env_backend);
+    } else {
+        $guess = realpath(__DIR__ . '/../cfg');
+        if ($guess !== false) {
+            define('BACKEND_PATH', $guess);
+        } else {
+            http_response_code(500);
+            die('Backend path not configured.');
+        }
+    }
+}
+
 // ---- Fresh-install welcome guard ----
-$envFile = realpath(__DIR__ . '/../cfg') . '/.env';
+$envFile = rtrim(BACKEND_PATH, '/\\') . '/.env';
 if (!is_file($envFile)) {
     http_response_code(200);
     header('Content-Type: text/html; charset=utf-8');
@@ -23,54 +42,6 @@ if (!is_file($envFile)) {
         . '<p>Silakan lanjutkan proses instalasi melalui tautan di bawah ini.</p>'
         . '<a href="/pondasi/">Mulai Instalasi →</a></html>';
     exit;
-}
-
-/**
- * bootstrap_core.php
- */
-
-// Auto-detect public directory (works with public, public_html, www, etc.)
-if (!defined('PUBLIC_PATH')) {
-    $pubPath = null;
-    // Best: entry point script location
-    if (!empty($_SERVER['SCRIPT_FILENAME'])) {
-        $scriptDir = dirname($_SERVER['SCRIPT_FILENAME']);
-        if (is_file($scriptDir . '/index.php') || is_file($scriptDir . '/router.php')) {
-            $pubPath = realpath($scriptDir);
-        }
-    }
-    // Fallback: try common public directory names
-    if (!$pubPath) {
-        $candidates = ['public_html', 'public', 'www', 'htdocs'];
-        foreach ($candidates as $dir) {
-            $p = realpath(__DIR__ . '/../' . $dir);
-            if ($p !== false && (is_file($p . '/index.php') || is_file($p . '/router.php'))) {
-                $pubPath = $p;
-                break;
-            }
-        }
-    }
-    // Last resort
-    if (!$pubPath) {
-        $guess = realpath(__DIR__ . '/../public');
-        $pubPath = $guess ?: (__DIR__ . '/../public');
-    }
-    define('PUBLIC_PATH', $pubPath);
-}
-
-if (!defined('BACKEND_PATH')) {
-    $env_backend = getenv('BACKEND_PATH') ?: '';
-    if ($env_backend !== '') {
-        define('BACKEND_PATH', $env_backend);
-    } else {
-        $guess = realpath(__DIR__ . '/../cfg');
-        if ($guess !== false) {
-            define('BACKEND_PATH', $guess);
-        } else {
-            http_response_code(500);
-            die('Backend path not configured.');
-        }
-    }
 }
 
 $core_config = rtrim(BACKEND_PATH, '/\\') . DIRECTORY_SEPARATOR . 'config.php';

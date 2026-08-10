@@ -4,6 +4,10 @@ DB_PORT=3306
 DB_NAME=
 DB_USER=
 DB_PASS=
+DB_SESSION_WAIT_TIMEOUT=
+
+# Absolute deployment web root; leave empty to auto-detect public/, public_html/, www/, or htdocs/.
+PUBLIC_PATH=
 
 # reCAPTCHA (v2 checkbox)
 RECAPTCHA_SITEKEY=

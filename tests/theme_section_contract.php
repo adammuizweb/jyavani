@@ -116,6 +116,21 @@ try {
     $check(!str_contains($unsafeHtml, 'javascript:'), 'semantic fallback rejects unsafe URL schemes');
     $check(theme_section_safe_url('/safe/path') === '/safe/path', 'relative section URLs remain supported');
 
+    $slotContext = null;
+    add_filter('resolve_template', static function (mixed $resolved, string $slotKey): mixed {
+        if ($slotKey !== 'main.contract') return $resolved;
+        return ['type' => 'custom_post', 'post' => ['type' => 'theme', 'content' => 'unfiltered']];
+    });
+    add_filter('theme_slot_post_data', static function (array $post, string $slotKey, mixed $slotPdo, array $context) use (&$slotContext): array {
+        if ($slotKey !== 'main.contract') return $post;
+        $slotContext = $context;
+        $post['content'] = 'filtered {{page.slug}}';
+        return $post;
+    });
+    $slotHtml = render_slot($pdo, 'main.contract', ['page' => ['slug' => 'slot-context']]);
+    $check($slotHtml === 'filtered slot-context', 'custom Theme post adapters run before rendering');
+    $check(($slotContext['page']['slug'] ?? '') === 'slot-context', 'custom Theme post adapters receive render context');
+
     add_filter('theme_section_layout_candidates', static function (array $candidates) use ($outsideFile): array {
         array_unshift($candidates, $outsideFile);
         return $candidates;

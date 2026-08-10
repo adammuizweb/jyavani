@@ -8,19 +8,27 @@ function _cms_progress_file(string $token): string {
 }
 
 function _cms_write_progress(string $token, int $pct, string $status, bool $done = false, ?string $error = null): void {
-    @file_put_contents(_cms_progress_file($token), json_encode([
-        'percentage' => $pct,
-        'status' => $status,
-        'done' => $done,
-        'error' => $error,
-    ]), LOCK_EX);
+    try {
+        $json = json_encode([
+            'percentage' => $pct,
+            'status' => $status,
+            'done' => $done,
+            'error' => $error,
+        ], JSON_THROW_ON_ERROR);
+        @file_put_contents(_cms_progress_file($token), $json, LOCK_EX);
+    } catch (JsonException $ignored) {
+    }
 }
 
 function _cms_read_progress(string $token): ?array {
     $f = _cms_progress_file($token);
     if (!is_file($f)) return null;
-    $d = json_decode(file_get_contents($f), true);
-    return is_array($d) ? $d : null;
+    try {
+        $d = json_decode((string)file_get_contents($f), true, 512, JSON_THROW_ON_ERROR);
+        return is_array($d) ? $d : null;
+    } catch (JsonException $error) {
+        return null;
+    }
 }
 
 function _cms_clear_progress(string $token): void {
@@ -42,29 +50,40 @@ function _cms_is_preserved(string $path, array $patterns): bool {
     return false;
 }
 
-function _cms_track_target(string $targetPath, string $projectRoot, string $backupDir, array &$backupFiles, array &$createdFiles): bool {
-    if (isset($backupFiles[$targetPath]) || isset($createdFiles[$targetPath])) return true;
-    if (!file_exists($targetPath)) {
-        $createdFiles[$targetPath] = true;
+function _cms_track_target(string $logicalPath, string $targetPath, string $backupDir, array &$backupFiles, array &$createdFiles): bool {
+    if (isset($backupFiles[$logicalPath]) || isset($createdFiles[$logicalPath])) return true;
+    if (!file_exists($targetPath) && !is_link($targetPath)) {
+        $createdFiles[$logicalPath] = $targetPath;
         return true;
     }
-    if (!is_file($targetPath)) return false;
+    if (!is_file($targetPath) || is_link($targetPath)) return false;
 
-    $relative = ltrim(substr($targetPath, strlen($projectRoot)), '/');
-    $backupPath = $backupDir . '/' . $relative;
+    $backupPath = $backupDir . '/' . $logicalPath;
     $backupParent = dirname($backupPath);
     if (!is_dir($backupParent) && !@mkdir($backupParent, 0755, true)) return false;
     if (!@copy($targetPath, $backupPath)) return false;
-    $backupFiles[$targetPath] = $backupPath;
+    $backupFiles[$logicalPath] = ['target' => $targetPath, 'backup' => $backupPath];
     return true;
 }
 
-function _cms_rollback_files(array $backupFiles, array $createdFiles): array {
+function _cms_rollback_files(array $backupFiles, array $createdFiles, string $projectRoot): array {
     $errors = [];
-    foreach ($backupFiles as $targetPath => $backupPath) {
+    foreach ($backupFiles as $logicalPath => $record) {
+        $targetPath = (string)($record['target'] ?? '');
+        $backupPath = (string)($record['backup'] ?? '');
+        if (_cms_target_path((string)$logicalPath, $projectRoot) !== $targetPath) {
+            $errors[] = (string)$logicalPath;
+            continue;
+        }
+        $targetParent = dirname($targetPath);
+        if (!is_dir($targetParent)) @mkdir($targetParent, 0755, true);
         if (!is_file($backupPath) || !@copy($backupPath, $targetPath)) $errors[] = $targetPath;
     }
-    foreach ($createdFiles as $createdFile => $_created) {
+    foreach ($createdFiles as $logicalPath => $createdFile) {
+        if (_cms_target_path((string)$logicalPath, $projectRoot) !== $createdFile) {
+            $errors[] = (string)$logicalPath;
+            continue;
+        }
         if (is_file($createdFile) && !@unlink($createdFile)) $errors[] = $createdFile;
     }
     return $errors;
@@ -119,8 +138,17 @@ function _get_preserve_patterns(): array {
 function _get_local_manifest(): ?array {
     $f = dirname(DASH_PATH) . '/tools/cms-manifest.json';
     if (!is_file($f)) return null;
-    $d = json_decode(file_get_contents($f), true);
-    return is_array($d) ? $d : null;
+    return _cms_decode_json_array((string)file_get_contents($f), 'tools/cms-manifest.json');
+}
+
+function _cms_decode_json_array(string $json, string $label): array {
+    try {
+        $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException $error) {
+        throw new RuntimeException('Invalid ' . $label . ': ' . $error->getMessage(), 0, $error);
+    }
+    if (!is_array($decoded)) throw new RuntimeException('Invalid ' . $label . ': expected a JSON object.');
+    return $decoded;
 }
 
 function _cms_safe_relative_path(string $path): ?string {
@@ -132,11 +160,45 @@ function _cms_safe_relative_path(string $path): ?string {
     return implode('/', $segments);
 }
 
+function _cms_target_path(string $logicalPath, string $projectRoot): ?string {
+    $safe = _cms_safe_relative_path($logicalPath);
+    if ($safe === null || $safe !== $logicalPath) return null;
+
+    if ($logicalPath === 'public' || str_starts_with($logicalPath, 'public/')) {
+        $root = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : $projectRoot . '/public';
+        $relative = $logicalPath === 'public' ? '' : substr($logicalPath, 7);
+    } else {
+        $root = $projectRoot;
+        $relative = $logicalPath;
+    }
+
+    $rootReal = realpath($root);
+    if ($rootReal === false || !is_dir($rootReal)) return null;
+    $rootReal = rtrim($rootReal, '/\\');
+    $target = $rootReal;
+    $segments = $relative === '' ? [] : explode('/', $relative);
+    foreach ($segments as $index => $segment) {
+        $target .= DIRECTORY_SEPARATOR . $segment;
+        if (is_link($target)) return null;
+        if (file_exists($target)) {
+            $real = realpath($target);
+            if ($real === false || ($real !== $rootReal && !str_starts_with($real, $rootReal . DIRECTORY_SEPARATOR))) return null;
+            if ($index < count($segments) - 1 && !is_dir($target)) return null;
+        }
+    }
+    return $target;
+}
+
+function _cms_zip_entry_is_symlink(ZipArchive $zip, int $index): bool {
+    $opsys = 0;
+    $attributes = 0;
+    if (!$zip->getExternalAttributesIndex($index, $opsys, $attributes)) return false;
+    return (($attributes >> 16) & 0170000) === 0120000;
+}
+
 // --- Helper: apply update from zip ---
 function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, string $currentVer, string $progressToken = ''): array {
-    $projectRoot = dirname(DASH_PATH);
-    $backupDir = _cms_new_backup_dir($projectRoot);
-
+    $projectRoot = realpath(dirname(DASH_PATH)) ?: dirname(DASH_PATH);
     $zip = new ZipArchive();
     if ($zip->open($zipPath) !== true) {
         return _cms_update_failure($progressToken, __('Failed to open ZIP package.'));
@@ -148,25 +210,34 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         return _cms_update_failure($progressToken, __('Update package is empty.'));
     }
 
-    // Track file count for progress (only count matching files)
-    $processable = 0;
-    $remoteFiles = null;
-    if (isset($remoteManifest['files']) && is_array($remoteManifest['files'])) {
-        $remoteFiles = $remoteManifest['files'];
-    }
+    $remoteFiles = is_array($remoteManifest['files'] ?? null) ? $remoteManifest['files'] : null;
     $preservePatterns = _get_preserve_patterns();
-
     if ($remoteFiles === null || $remoteFiles === []) {
         $zip->close();
         return _cms_update_failure($progressToken, __('Update package manifest is missing or invalid.'));
     }
 
-    // Validate the complete package before backing up or replacing any files.
+    foreach ($remoteFiles as $filename => $expectedHash) {
+        if (!is_string($filename) || _cms_safe_relative_path($filename) !== $filename
+            || $filename === 'tools/cms-manifest.json'
+            || !is_string($expectedHash) || $expectedHash !== strtolower(trim($expectedHash))
+            || !preg_match('/^[a-f0-9]{64}$/', $expectedHash)) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Update package manifest contains an invalid path or hash.'));
+        }
+        $remoteFiles[$filename] = strtolower(trim($expectedHash));
+    }
+
+    // Validate every archive entry and every managed hash before mutating disk.
     $seenEntries = [];
     $verifiedFiles = [];
     for ($i = 0; $i < $totalFiles; $i++) {
         $entry = $zip->getNameIndex($i);
         if ($entry === false) continue;
+        if (_cms_zip_entry_is_symlink($zip, $i)) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Update package contains a symbolic link.'));
+        }
         $isDirectory = str_ends_with($entry, '/');
         $filename = _cms_safe_relative_path($entry);
         if ($filename === null) {
@@ -181,43 +252,110 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         $seenEntries[$filename] = true;
 
         if (!isset($remoteFiles[$filename])) continue;
-        $expectedHash = strtolower(trim((string)$remoteFiles[$filename]));
         $contents = $zip->getFromIndex($i);
-        if (!preg_match('/^[a-f0-9]{64}$/', $expectedHash) || $contents === false
-            || !hash_equals($expectedHash, hash('sha256', $contents))) {
+        if ($contents === false || !hash_equals($remoteFiles[$filename], hash('sha256', $contents))) {
             $zip->close();
             return _cms_update_failure($progressToken, __('Update package integrity verification failed:') . ' ' . $filename);
         }
-        $verifiedFiles[$filename] = true;
+        $verifiedFiles[$filename] = $i;
     }
 
-    foreach ($remoteFiles as $filename => $expectedHash) {
-        if (!is_string($filename) || _cms_safe_relative_path($filename) === null || !isset($verifiedFiles[$filename])) {
+    foreach ($remoteFiles as $filename => $_expectedHash) {
+        if (!isset($verifiedFiles[$filename])) {
             $zip->close();
-            return _cms_update_failure($progressToken, __('Update package is missing:') . ' ' . (string)$filename);
+            return _cms_update_failure($progressToken, __('Update package is missing:') . ' ' . $filename);
         }
     }
 
-    // Refuse a partial update: version.json must never advance when a managed
-    // file cannot be replaced by the PHP-FPM user.
-    $writeErrors = [];
-    for ($i = 0; $i < $totalFiles; $i++) {
-        $filename = $zip->getNameIndex($i);
-        if ($filename === false || str_ends_with($filename, '/')) continue;
-        $isPreserved = _cms_is_preserved($filename, $preservePatterns);
-        if ($isPreserved || ($remoteFiles !== null && !isset($remoteFiles[$filename]))) continue;
+    $packageVersion = null;
+    $zipVersionJson = $zip->getFromName('version.json');
+    if ($zipVersionJson !== false) {
+        try {
+            $packageVersion = _cms_decode_json_array($zipVersionJson, 'package version.json');
+        } catch (Throwable $error) {
+            $zip->close();
+            return _cms_update_failure($progressToken, $error->getMessage());
+        }
+    }
 
-        $targetPath = $projectRoot . '/' . $filename;
-        $remoteHash = is_string($remoteFiles[$filename] ?? null) ? $remoteFiles[$filename] : '';
-        if ($remoteHash !== '' && is_file($targetPath) && hash_equals($remoteHash, (string)hash_file('sha256', $targetPath))) continue;
+    try {
+        $localManifest = _get_local_manifest();
+    } catch (Throwable $error) {
+        $zip->close();
+        return _cms_update_failure($progressToken, $error->getMessage());
+    }
+    $localFiles = is_array($localManifest['files'] ?? null) ? $localManifest['files'] : [];
+    foreach ($localFiles as $filename => $_hash) {
+        if (!is_string($filename) || _cms_safe_relative_path($filename) !== $filename) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Local manifest contains an invalid path.'));
+        }
+    }
+
+    $changed = [];
+    $obsolete = [];
+    $writeErrors = [];
+    foreach ($remoteFiles as $filename => $remoteHash) {
+        if (_cms_is_preserved($filename, $preservePatterns)) continue;
+        $targetPath = _cms_target_path($filename, $projectRoot);
+        if ($targetPath === null) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Unsafe update target:') . ' ' . $filename);
+        }
+        if (is_file($targetPath) && hash_equals($remoteHash, (string)hash_file('sha256', $targetPath))) continue;
+        $changed[$filename] = $targetPath;
+    }
+    foreach ($localFiles as $filename => $_hash) {
+        if (isset($remoteFiles[$filename]) || _cms_is_preserved($filename, $preservePatterns)) continue;
+        $targetPath = _cms_target_path($filename, $projectRoot);
+        if ($targetPath === null) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Unsafe obsolete target:') . ' ' . $filename);
+        }
+        if (is_file($targetPath)) $obsolete[$filename] = $targetPath;
+    }
+
+    $manifestLogicalPath = 'tools/cms-manifest.json';
+    $manifestPath = _cms_target_path($manifestLogicalPath, $projectRoot);
+    if ($manifestPath === null) {
+        $zip->close();
+        return _cms_update_failure($progressToken, __('Unsafe update target:') . ' ' . $manifestLogicalPath);
+    }
+
+    $versionContents = null;
+    if (!isset($remoteFiles['version.json'])) {
+        $newVersion = [
+            'name' => $remoteManifest['name'] ?? 'Jyavani CMS',
+            'version' => $remoteManifest['version'] ?? $currentVer,
+            'build' => $remoteManifest['build'] ?? date('Y-m-d'),
+            'edition' => $remoteManifest['edition'] ?? 'Phoenix',
+            'php_required' => $remoteManifest['php_required'] ?? '8.1',
+            'mysql_required' => $remoteManifest['mysql_required'] ?? '5.7',
+        ];
+        if ($packageVersion !== null) $newVersion = array_merge($newVersion, $packageVersion);
+        try {
+            $versionContents = json_encode($newVersion, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+        } catch (JsonException $error) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Failed to encode version.json:') . ' ' . $error->getMessage());
+        }
+        $versionPath = _cms_target_path('version.json', $projectRoot);
+        if ($versionPath === null) {
+            $zip->close();
+            return _cms_update_failure($progressToken, __('Unsafe update target:') . ' version.json');
+        }
+        if (!is_file($versionPath) || !hash_equals(hash('sha256', $versionContents), (string)hash_file('sha256', $versionPath))) {
+            $changed['version.json'] = $versionPath;
+        }
+    }
+
+    foreach ($changed + $obsolete + [$manifestLogicalPath => $manifestPath] as $filename => $targetPath) {
         if (file_exists($targetPath)) {
-            if (!is_file($targetPath) || !is_writable($targetPath)) $writeErrors[] = $filename;
+            if (!is_file($targetPath) || is_link($targetPath) || !is_writable($targetPath)) $writeErrors[] = $filename;
             continue;
         }
         $writePath = dirname($targetPath);
-        while (!is_dir($writePath) && dirname($writePath) !== $writePath) {
-            $writePath = dirname($writePath);
-        }
+        while (!is_dir($writePath) && dirname($writePath) !== $writePath) $writePath = dirname($writePath);
         if (!is_writable($writePath)) $writeErrors[] = $filename;
     }
     if ($writeErrors) {
@@ -225,23 +363,12 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         return _cms_update_failure($progressToken, __('Update cannot write:') . ' ' . implode(', ', array_slice($writeErrors, 0, 5)));
     }
 
-    // First pass: count processable files for accurate progress
-    if ($progressToken !== '') {
-        for ($i = 0; $i < $totalFiles; $i++) {
-            $filename = $zip->getNameIndex($i);
-            if ($filename === false || str_ends_with($filename, '/')) continue;
-            $isPreserved = _cms_is_preserved($filename, $preservePatterns);
-            if ($isPreserved) continue;
-            if ($remoteFiles !== null && !isset($remoteFiles[$filename])) continue;
-            $targetPath = $projectRoot . '/' . $filename;
-            $remoteHash = is_string($remoteFiles[$filename] ?? null) ? $remoteFiles[$filename] : '';
-            if ($remoteHash !== '' && is_file($targetPath) && hash_equals($remoteHash, (string)hash_file('sha256', $targetPath))) continue;
-            $processable++;
-        }
-        if ($processable < 1) $processable = 1;
+    $backupDir = _cms_new_backup_dir($projectRoot);
+    $backupLogicalPath = ltrim(substr($backupDir, strlen($projectRoot)), '/\\');
+    if (_cms_target_path($backupLogicalPath, $projectRoot) !== $backupDir) {
+        $zip->close();
+        return _cms_update_failure($progressToken, __('Unsafe backup directory.'));
     }
-
-    // Create backup dir
     if (!is_dir($backupDir) && !@mkdir($backupDir, 0755, true)) {
         $zip->close();
         return _cms_update_failure($progressToken, __('Failed to create backup directory.'));
@@ -251,6 +378,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         _cms_write_progress($progressToken, 1, __('Backing up existing files…'));
     }
 
+    $processable = max(1, count($changed));
     $updated = 0;
     $backedUp = 0;
     $errors = [];
@@ -258,49 +386,32 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     $createdFiles = [];
     $processedIndex = 0;
 
-    // Extract all files from zip
-    for ($i = 0; $i < $totalFiles; $i++) {
-        $filename = $zip->getNameIndex($i);
-        if ($filename === false) continue;
-
-        // Skip directories
-        if (str_ends_with($filename, '/')) continue;
-
-        // Skip preserved paths
-        $isPreserved = _cms_is_preserved($filename, $preservePatterns);
-        if ($isPreserved) continue;
-
-        // If manifest provides a file list, only update files listed in it
-        if ($remoteFiles !== null && !isset($remoteFiles[$filename])) continue;
-
-        $targetPath = $projectRoot . '/' . $filename;
-        $remoteHash = is_string($remoteFiles[$filename] ?? null) ? $remoteFiles[$filename] : '';
-        if ($remoteHash !== '' && is_file($targetPath) && hash_equals($remoteHash, (string)hash_file('sha256', $targetPath))) continue;
+    foreach ($changed as $filename => $targetPath) {
         $processedIndex++;
-
-        // Backup existing file if it exists
         $backupCount = count($backupFiles);
-        if (!_cms_track_target($targetPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)) {
+        if (!_cms_track_target($filename, $targetPath, $backupDir, $backupFiles, $createdFiles)) {
             $errors[] = __('Failed to back up:') . ' ' . $filename;
-            continue;
+            break;
         }
         if (count($backupFiles) > $backupCount) $backedUp++;
-
-        // Ensure target parent dir exists
         $targetParent = dirname($targetPath);
-        if (!is_dir($targetParent)) {
-            @mkdir($targetParent, 0755, true);
+        if (!is_dir($targetParent) && !@mkdir($targetParent, 0755, true)) {
+            $errors[] = __('Failed to create directory:') . ' ' . $filename;
+            break;
         }
-
-        // Extract file
-        $extracted = @file_put_contents($targetPath, $zip->getFromIndex($i));
-        if ($extracted === false) {
+        if (_cms_target_path($filename, $projectRoot) !== $targetPath) {
+            $errors[] = __('Unsafe update target:') . ' ' . $filename;
+            break;
+        }
+        $contents = $filename === 'version.json' && !isset($remoteFiles['version.json'])
+            ? $versionContents
+            : $zip->getFromIndex($verifiedFiles[$filename]);
+        if (!is_string($contents) || @file_put_contents($targetPath, $contents, LOCK_EX) === false) {
             $errors[] = __('Failed to write:') . ' ' . $filename;
+            break;
         } else {
             $updated++;
         }
-
-        // Write progress every ~5%
         if ($progressToken !== '' && $processable > 0) {
             $pct = 2 + (int)round(($processedIndex / $processable) * 73);
             if ($pct > 75) $pct = 75;
@@ -310,124 +421,96 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
             }
         }
     }
-
-    // Read version.json from zip before closing (must be before close in PHP 8.4+)
-    $zipVersionJson = $zip->getFromName('version.json');
     $zip->close();
 
     if ($errors) {
-        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles, $projectRoot);
         $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
         if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
         return _cms_update_failure($progressToken, $message);
     }
 
-    // Delete files that exist locally but not in remote manifest
     $deleted = 0;
-    if ($remoteFiles !== null) {
-        $localManifest = _get_local_manifest();
-        if ($localManifest) {
-            $localFiles = $localManifest['files'] ?? [];
-            $totalLocal = count($localFiles);
-            $localIdx = 0;
-            foreach ($localFiles as $localRelPath => $hash) {
-                if (isset($remoteFiles[$localRelPath])) continue;
-                $isPreserved = _cms_is_preserved($localRelPath, $preservePatterns);
-                if ($isPreserved) continue;
-                $localPath = $projectRoot . '/' . $localRelPath;
-                if (is_file($localPath)) {
-                    $backupCount = count($backupFiles);
-                    if (!_cms_track_target($localPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)) {
-                        $errors[] = __('Failed to back up:') . ' ' . $localRelPath;
-                        break;
-                    }
-                    if (count($backupFiles) > $backupCount) $backedUp++;
-                    if (!@unlink($localPath)) {
-                        $errors[] = __('Failed to remove obsolete file:') . ' ' . $localRelPath;
-                        break;
-                    }
-                    $deleted++;
-                }
-
-                if ($progressToken !== '' && $totalLocal > 0) {
-                    $localIdx++;
-                    $pct = 75 + (int)round(($localIdx / $totalLocal) * 10);
-                    if ($pct > 85) $pct = 85;
-                    if ($localIdx % max(1, intdiv($totalLocal, 10)) === 0) {
-                        _cms_write_progress($progressToken, $pct, __('Removing obsolete files…'));
-                    }
-                }
-            }
+    $obsoleteIndex = 0;
+    foreach ($obsolete as $filename => $targetPath) {
+        $backupCount = count($backupFiles);
+        if (!_cms_track_target($filename, $targetPath, $backupDir, $backupFiles, $createdFiles)) {
+            $errors[] = __('Failed to back up:') . ' ' . $filename;
+            break;
+        }
+        if (count($backupFiles) > $backupCount) $backedUp++;
+        if (_cms_target_path($filename, $projectRoot) !== $targetPath || !@unlink($targetPath)) {
+            $errors[] = __('Failed to remove obsolete file:') . ' ' . $filename;
+            break;
+        }
+        $deleted++;
+        $obsoleteIndex++;
+        if ($progressToken !== '' && $obsolete !== []) {
+            $pct = 75 + (int)round(($obsoleteIndex / count($obsolete)) * 10);
+            _cms_write_progress($progressToken, min(85, $pct), __('Removing obsolete files…'));
         }
     }
 
     if ($errors) {
-        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles, $projectRoot);
         $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
         if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
         return _cms_update_failure($progressToken, $message);
     }
 
     if ($progressToken !== '') {
-        _cms_write_progress($progressToken, 86, __('Updating version info…'));
-    }
-
-    // Update version.json — merge from remote manifest + zip version.json
-    $newVersion = [
-        'name' => $remoteManifest['name'] ?? 'Jyavani CMS',
-        'version' => $remoteManifest['version'] ?? $currentVer,
-        'build' => $remoteManifest['build'] ?? date('Y-m-d'),
-        'edition' => $remoteManifest['edition'] ?? 'Phoenix',
-        'php_required' => $remoteManifest['php_required'] ?? '8.1',
-        'mysql_required' => $remoteManifest['mysql_required'] ?? '5.7',
-    ];
-    if ($zipVersionJson !== false) {
-        $zipVersion = json_decode($zipVersionJson, true);
-        if (is_array($zipVersion)) {
-            $newVersion = array_merge($newVersion, $zipVersion);
-        }
-    }
-    if (!isset($remoteFiles['version.json'])) {
-        $versionPath = $projectRoot . '/version.json';
-        if (!_cms_track_target($versionPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)
-            || @file_put_contents($versionPath, json_encode($newVersion, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)) === false) {
-            $errors[] = __('Failed to write:') . ' version.json';
-        }
-    }
-
-    if ($errors) {
-        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
-        $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
-        if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
-        return _cms_update_failure($progressToken, $message);
-    }
-
-    if ($progressToken !== '') {
-        _cms_write_progress($progressToken, 91, __('Regenerating manifest…'));
-    }
-
-    // Regenerate local manifest
-    $localManifestPath = $projectRoot . '/tools/cms-manifest.json';
-    if (!_cms_track_target($localManifestPath, $projectRoot, $backupDir, $backupFiles, $createdFiles)) {
-        $errors[] = __('Failed to back up:') . ' tools/cms-manifest.json';
-    } elseif (is_file($projectRoot . '/tools/generate-manifest.php')) {
-        $manifestOutput = [];
-        $manifestExitCode = 0;
-        exec('php ' . escapeshellarg($projectRoot . '/tools/generate-manifest.php') . ' 2>&1', $manifestOutput, $manifestExitCode);
-        if ($manifestExitCode !== 0) $errors[] = __('Failed to regenerate local manifest.');
+        _cms_write_progress($progressToken, 91, __('Verifying installed files…'));
     }
 
     foreach ($remoteFiles as $filename => $expectedHash) {
         if (_cms_is_preserved($filename, $preservePatterns)) continue;
-        $targetPath = $projectRoot . '/' . $filename;
-        if (!is_file($targetPath) || !hash_equals((string)$expectedHash, (string)hash_file('sha256', $targetPath))) {
+        $targetPath = _cms_target_path($filename, $projectRoot);
+        if ($targetPath === null || !is_file($targetPath)
+            || !hash_equals((string)$expectedHash, (string)hash_file('sha256', $targetPath))) {
             $errors[] = __('Final file verification failed:') . ' ' . $filename;
             break;
         }
     }
 
     if ($errors) {
-        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles);
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles, $projectRoot);
+        $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
+        if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
+        return _cms_update_failure($progressToken, $message);
+    }
+
+    if ($progressToken !== '') _cms_write_progress($progressToken, 95, __('Installing verified manifest…'));
+    try {
+        $manifestContents = json_encode($remoteManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    } catch (JsonException $error) {
+        $errors[] = __('Failed to encode update manifest:') . ' ' . $error->getMessage();
+        $manifestContents = '';
+    }
+    if (!$errors) {
+        $backupCount = count($backupFiles);
+        if (!_cms_track_target($manifestLogicalPath, $manifestPath, $backupDir, $backupFiles, $createdFiles)) {
+            $errors[] = __('Failed to back up:') . ' ' . $manifestLogicalPath;
+        } else {
+            if (count($backupFiles) > $backupCount) $backedUp++;
+            try {
+                do {
+                    $manifestTemp = $manifestPath . '.tmp-' . bin2hex(random_bytes(6));
+                } while (file_exists($manifestTemp) || is_link($manifestTemp));
+                if (@file_put_contents($manifestTemp, $manifestContents, LOCK_EX) === false
+                    || _cms_target_path($manifestLogicalPath, $projectRoot) !== $manifestPath
+                    || !@rename($manifestTemp, $manifestPath)) {
+                    @unlink($manifestTemp);
+                    $errors[] = __('Failed to install local manifest.');
+                }
+            } catch (Throwable $error) {
+                if (isset($manifestTemp)) @unlink($manifestTemp);
+                $errors[] = __('Failed to install local manifest:') . ' ' . $error->getMessage();
+            }
+        }
+    }
+
+    if ($errors) {
+        $rollbackErrors = _cms_rollback_files($backupFiles, $createdFiles, $projectRoot);
         $message = __('Update failed. Existing files were restored.') . ' ' . implode('; ', array_slice($errors, 0, 5));
         if ($rollbackErrors) $message .= ' ' . __('Rollback incomplete:') . ' ' . implode(', ', array_slice($rollbackErrors, 0, 5));
         return _cms_update_failure($progressToken, $message);
@@ -438,10 +521,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     $msg = __('Update complete:') . ' ' . $updated . ' ' . __('files updated') . ', ' . $backedUp . ' ' . __('files backed up') . '.';
-    if (!empty($errors)) {
-        $msg .= ' Error: ' . implode('; ', array_slice($errors, 0, 5));
-    }
-    if (isset($deleted) && $deleted > 0) {
+    if ($deleted > 0) {
         $msg .= ' ' . $deleted . ' ' . __('obsolete files removed') . '.';
     }
     $msg .= ' Backup: ' . basename($backupDir);

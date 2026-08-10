@@ -645,9 +645,6 @@ function resolve_template($pdoOrNull, string $slot_key): array {
             if (!empty($assign['custom_post_id'])) {
                 $post = get_post_by_id($pdo, (int)$assign['custom_post_id']);
                 if ($post && (($post['type'] ?? '') === 'theme')) {
-                    // Extensions can adapt a custom theme post for this rendering context.
-                    $filtered = apply_filters('theme_slot_post_data', $post, $slot_key, $pdo, $context);
-                    if (is_array($filtered)) $post = $filtered;
                     return ['type' => 'custom_post', 'post' => $post];
                 }
             }
@@ -824,7 +821,9 @@ function render_slot($pdoOrNull, string $slot_key, array $context = []): string 
     $resolved = resolve_template($pdo, $slot_key);
 
     if ($resolved['type'] === 'custom_post') {
-        return render_custom_post_template($resolved['post'], $context);
+        // Apply post adapters here because this layer owns the render context.
+        $post = apply_filters('theme_slot_post_data', $resolved['post'], $slot_key, $pdo, $context);
+        return render_custom_post_template(is_array($post) ? $post : $resolved['post'], $context);
     } elseif ($resolved['type'] === 'theme_file') {
         $path = resolve_theme_file_path($resolved);
         if ($path) {

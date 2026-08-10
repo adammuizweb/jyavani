@@ -18,3 +18,15 @@ function url_for(string $path = '', ?string $locale = null) : string {
     // Avoid double slashes: '/id/' + '/slug' -> '/id/slug'
     return '/' . $locale . rtrim($path, '/');
 }
+
+/** Append a raw query string before any fragment without creating a second question mark. */
+function url_append_query_string(string $url, string $query): string {
+    if ($query === '') return $url;
+    if (preg_match('/[\r\n\0]/', $url)) return '';
+
+    [$base, $fragment] = array_pad(explode('#', $url, 2), 2, null);
+    $separator = str_contains($base, '?')
+        ? (str_ends_with($base, '?') || str_ends_with($base, '&') ? '' : '&')
+        : '?';
+    return $base . $separator . $query . ($fragment !== null ? '#' . $fragment : '');
+}

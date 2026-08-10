@@ -6,8 +6,17 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 
 // ---------- paths ----------
-$projectRoot = realpath(__DIR__ . '/../..');
-$cfgDir = $projectRoot . '/cfg';
+$configuredBackend = trim((string)getenv('BACKEND_PATH'));
+$cfgDir = $configuredBackend !== '' ? realpath($configuredBackend) : realpath(__DIR__ . '/../../cfg');
+if ($cfgDir === false || !is_dir($cfgDir)) {
+    throw new RuntimeException('Backend path not configured. Set BACKEND_PATH to the absolute cfg directory.');
+}
+$projectRoot = dirname($cfgDir);
+$publicDir = realpath(__DIR__ . '/..');
+if ($publicDir === false) throw new RuntimeException('Public directory could not be resolved.');
+if (str_contains($publicDir, "\n") || str_contains($publicDir, "\r") || str_contains($publicDir, "\0")) {
+    throw new RuntimeException('Public directory contains unsupported characters.');
+}
 $envFile = $cfgDir . '/.env';
 $schemaDir = $projectRoot . '/schema';
 $sessionDir = $cfgDir . '/var/sessions';
@@ -237,6 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "DB_HOST={$dbFields['DB_HOST']}\nDB_PORT={$dbFields['DB_PORT']}\n"
                     . "DB_NAME={$dbFields['DB_NAME']}\nDB_USER={$dbFields['DB_USER']}\n"
                     . "DB_PASS={$dbFields['DB_PASS']}\n"
+                    . "\n# Absolute deployed web root (may be outside the project directory)\nPUBLIC_PATH={$publicDir}\n"
                     . "\n# reCAPTCHA (v2 checkbox)\nRECAPTCHA_SITEKEY=\nRECAPTCHA_SECRET=\n"
                     . "\n# Web Debug 1 for activate\nAPP_DEBUG=0\n"
                     . "\n# Session / Cookie\nSESSION_SAVE_PATH={$sessionDir}\n"
@@ -266,7 +276,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     $demoAssetsDir = $schemaDir . '/demo-assets';
-                    $publicDir = $projectRoot . '/public';
                     copy_demo_assets($demoAssetsDir, $publicDir);
                 }
 
