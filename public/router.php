@@ -298,11 +298,11 @@ if (preg_match('/^\d{4}$/', $prefix)) {
 // /sitemap.xml
 // /sitemap_posts_1.xml
 // /sitemap_pages_2.xml
-if (preg_match('#^sitemap_([a-z0-9-]+)_(posts|pages)_(\d+)\.xml$#', $pathTrimmed, $m)) {
+if (preg_match('#^sitemap_([a-z0-9-]+)_(posts|pages|themes)_(\d+)\.xml$#', $pathTrimmed, $m)) {
     require_once __DIR__ . '/../app/controllers/SitemapController.php';
     if (SitemapController::renderLocale($pdo, $m[1], $m[2], max(1, (int)$m[3]))) exit;
 }
-if (preg_match('#^sitemap(?:_(posts|pages)_(\d+))?\.xml$#', $pathTrimmed, $m)) {
+if (preg_match('#^sitemap(?:_(posts|pages|themes)_(\d+))?\.xml$#', $pathTrimmed, $m)) {
     require_once __DIR__ . '/../app/controllers/SitemapController.php';
     // matches:
     // m[0] full, m[1] = 'posts' or 'pages' or null, m[2] = number or null
@@ -386,6 +386,18 @@ $isLoggedIn = (function_exists('is_logged_in') && is_logged_in());
 if (function_exists('permalink_resolve')) {
     $resolved = permalink_resolve($pdo, $pathTrimmed);
     if ($resolved) {
+        $canonicalRoute = function_exists('content_route_find_canonical')
+            ? content_route_find_canonical($pdo, (int)($resolved['id'] ?? 0))
+            : null;
+        $routeUrl = $canonicalRoute
+            ? (($resolved['type'] ?? '') === 'page' && function_exists('get_page_permalink')
+                ? get_page_permalink($resolved)
+                : get_post_permalink($resolved))
+            : null;
+        if (is_string($routeUrl) && trim($routeUrl, '/') !== trim($pathTrimmed, '/')) {
+            header('Location: ' . $routeUrl, true, 301);
+            exit;
+        }
         $type = $resolved['type'] ?? 'article';
         switch ($type) {
             case 'theme':
@@ -441,6 +453,42 @@ if (!$catEnabled && function_exists('resolve_category_from_path')) {
         require_once __DIR__ . '/../app/controllers/CategoryController.php';
         $q = trim((string)($_GET['q'] ?? ''));
         CategoryController::showCategory($pdo, $catSlug, $page, $q);
+        exit;
+    }
+}
+
+// Explicit canonical and historical content routes. These intentionally run
+// after infrastructure, collections, plugins, and root categories.
+if (function_exists('content_route_resolve')) {
+    try {
+        $routeLocale = (string)apply_filters('content_route_request_locale', '');
+        $visibility = $isLoggedIn ? 'editorial' : 'public';
+        $routed = content_route_resolve($pdo, $pathTrimmed, $routeLocale, $visibility);
+    } catch (Throwable $e) {
+        error_log('[content_routes] resolve error: ' . $e->getMessage());
+        $routed = null;
+    }
+    if (is_array($routed)) {
+        if (empty($routed['route_is_canonical']) && !empty($routed['canonical_path'])) {
+            $target = content_route_public_path((string)$routed['canonical_path'], (string)($routed['route_locale'] ?? ''));
+            $query = (string)($_SERVER['QUERY_STRING'] ?? '');
+            if ($query !== '') $target .= '?' . $query;
+            header('Location: ' . $target, true, 301);
+            exit;
+        }
+        switch ((string)($routed['type'] ?? '')) {
+            case 'theme':
+                require_once __DIR__ . '/../app/controllers/ThemeController.php';
+                ThemeController::renderTheme($routed);
+                break;
+            case 'page':
+                require_once __DIR__ . '/../app/controllers/PageController.php';
+                PageController::renderPage($pdo, (string)$routed['slug']);
+                break;
+            case 'article':
+                PostController::renderArticle($routed, $pdo);
+                break;
+        }
         exit;
     }
 }

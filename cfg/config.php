@@ -90,6 +90,7 @@ require_once __DIR__ . '/helpers/menu_helper.php';
 require_once __DIR__ . '/helpers/auth_helpers.php';
 
 // 24. helpers untuk custom permalink structure
+require_once __DIR__ . '/helpers/content_route_helpers.php';
 require_once __DIR__ . '/helpers/permalink_helpers.php';
 
 // 25. Generic collection routing, data, and URL extension helpers

@@ -229,10 +229,10 @@ class PostController
     {
         try {
             if ($isLoggedIn) {
-                $stmt = $pdo->prepare("SELECT * FROM posts WHERE slug = :slug AND is_deleted = 0 LIMIT 1");
+                $stmt = $pdo->prepare("SELECT * FROM posts WHERE slug = :slug AND type IN ('article','page','theme') AND is_deleted = 0 ORDER BY id LIMIT 1");
                 $stmt->execute([':slug' => $slug]);
             } else {
-                $stmt = $pdo->prepare("SELECT * FROM posts WHERE slug = :slug AND is_deleted = 0 AND status = 'published' LIMIT 1");
+                $stmt = $pdo->prepare("SELECT * FROM posts WHERE slug = :slug AND type IN ('article','page','theme') AND is_deleted = 0 AND status = 'published' ORDER BY id LIMIT 1");
                 $stmt->execute([':slug' => $slug]);
             }
 
@@ -250,6 +250,19 @@ class PostController
             $context_for_layout = '404';
             $content_html = '';
             require __DIR__ . '/../layout.php';
+            exit;
+        }
+
+        $canonicalRoute = function_exists('content_route_find_canonical')
+            ? content_route_find_canonical($pdo, (int)($row['id'] ?? 0))
+            : null;
+        $routeUrl = $canonicalRoute
+            ? (($row['type'] ?? '') === 'page' && function_exists('get_page_permalink')
+                ? get_page_permalink($row)
+                : get_post_permalink($row))
+            : null;
+        if (is_string($routeUrl) && trim($routeUrl, '/') !== trim($slug, '/')) {
+            header('Location: ' . $routeUrl, true, 301);
             exit;
         }
 

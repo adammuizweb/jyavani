@@ -114,14 +114,14 @@ if (!function_exists('menu_resolve_url')) {
         try {
             switch ($item['type']) {
                 case 'article':
-                    $st = $pdo->prepare("SELECT slug, created_at FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 LIMIT 1");
+                    $st = $pdo->prepare("SELECT id, slug, created_at FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 LIMIT 1");
                     $st->execute([':id' => $targetId]);
                     $row = $st->fetch(PDO::FETCH_ASSOC);
                     $urlCache[$cacheKey] = $row ? (function_exists('get_post_permalink') ? get_post_permalink($row) : '/' . rawurlencode($row['slug']) . '/') : '#';
                     break;
 
                 case 'page':
-                    $st = $pdo->prepare("SELECT slug, created_at FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 LIMIT 1");
+                    $st = $pdo->prepare("SELECT id, slug, created_at FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 LIMIT 1");
                     $st->execute([':id' => $targetId]);
                     $row = $st->fetch(PDO::FETCH_ASSOC);
                     $urlCache[$cacheKey] = $row ? (function_exists('get_page_permalink') ? get_page_permalink($row) : '/' . rawurlencode($row['slug']) . '/') : '#';
@@ -136,7 +136,7 @@ if (!function_exists('menu_resolve_url')) {
                     break;
 
                 case 'theme':
-                    $st = $pdo->prepare("SELECT slug, created_at FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 LIMIT 1");
+                    $st = $pdo->prepare("SELECT id, slug, created_at FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 LIMIT 1");
                     $st->execute([':id' => $targetId]);
                     $row = $st->fetch(PDO::FETCH_ASSOC);
                     $urlCache[$cacheKey] = $row ? (function_exists('get_post_permalink') ? get_post_permalink($row) : '/' . rawurlencode($row['slug']) . '/') : '#';

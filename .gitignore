@@ -45,6 +45,8 @@ tests/
 tests/*
 !tests/theme_section_contract.php
 !tests/theme_section_dashboard_contract.php
+!tests/content_route_contract.php
+!tests/content_route_dashboard_contract.php
 
 jyavani-cms-update.zip
 photo-gallery-*.zip
