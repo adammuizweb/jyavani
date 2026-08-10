@@ -10,14 +10,24 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_editorial($pdo, false);
+[$uid, $role] = adiwira_require_admin($pdo, false);
 
 $base = ADMIN_BASE_PATH;
+$layoutScope = (string)($_REQUEST['scope'] ?? 'collection');
+if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'collection';
+$isSectionScope = $layoutScope === 'section';
+$layoutsReturn = $base . '/?' . http_build_query([
+    'page' => 'admin/shortcodes/index',
+    'tab' => 'layouts',
+    'scope' => $layoutScope,
+]);
 $return_to = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/?page=admin/shortcodes/index&tab=layouts')
-    : ($base . '/?page=admin/shortcodes/index&tab=layouts');
+    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $layoutsReturn)
+    : $layoutsReturn;
 
-$layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
+$layoutDir = $isSectionScope
+    ? (function_exists('theme_section_theme_directory') ? theme_section_theme_directory($pdo, true) : null)
+    : (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
 if (!$layoutDir || !is_dir($layoutDir)) {
     echo '<section class="adam-card"><p>' . __('Layout directory not found.') . '</p></section>';
     return;
@@ -32,10 +42,14 @@ if (!$isNew) {
     if (!str_ends_with($cleanName, '.php')) {
         $cleanName .= '.php';
     }
+    if ($isSectionScope && (!function_exists('theme_section_name_is_valid') || !theme_section_name_is_valid(pathinfo($cleanName, PATHINFO_FILENAME)))) {
+        echo '<section class="adam-card"><p>' . __('Invalid section name.') . '</p></section>';
+        return;
+    }
     $filePath = $layoutDir . DIRECTORY_SEPARATOR . $cleanName;
     $realPath = realpath($filePath);
 
-    if (!$realPath || strpos($realPath, $layoutDir) !== 0 || !is_file($realPath)) {
+    if (!$realPath || !theme_section_path_is_within($realPath, $layoutDir) || !is_file($realPath)) {
         echo '<section class="adam-card"><p>' . __('Layout file not found:') . ' ' . htmlspecialchars($cleanName, ENT_QUOTES, 'UTF-8') . '</p></section>';
         return;
     }
@@ -60,7 +74,7 @@ $preset_list_url = $base . '/?page=admin/shortcodes/index&tab=presets';
 // --- Connected Presets (presets that use THIS layout) ---
 $connectedPresets = [];
 $allPresets = [];
-if (!$isNew) {
+if (!$isSectionScope && !$isNew) {
     try {
         $stmt = $pdo->prepare("SELECT id, title, slug, meta FROM posts WHERE type = 'sc_preset' AND is_deleted = 0 ORDER BY title ASC");
         $stmt->execute();
@@ -73,7 +87,7 @@ if (!$isNew) {
             }
         }
     } catch (Throwable $e) {}
-} else {
+} elseif (!$isSectionScope) {
     try {
         $stmt = $pdo->prepare("SELECT id, title, slug FROM posts WHERE type = 'sc_preset' AND is_deleted = 0 ORDER BY title ASC");
         $stmt->execute();
@@ -83,6 +97,37 @@ if (!$isNew) {
 
 // --- Starter Templates ---
 $tplClean = '';
+
+$tplSection = '<?php
+$title = trim((string)($attrs[\'title\'] ?? __(\'Section title\')));
+$summary = trim((string)($attrs[\'summary\'] ?? __(\'Section summary\')));
+?>
+<section class="theme-section" data-theme-section="<?= $esc($section) ?>">
+  <?php if ($title !== \'\'): ?>
+    <h2><?= $esc($title) ?></h2>
+  <?php endif; ?>
+  <?php if ($summary !== \'\'): ?>
+    <p><?= $esc($summary) ?></p>
+  <?php endif; ?>
+</section>';
+
+$snippetSectionTitle = '<?php $title = trim((string)($attrs[\'title\'] ?? \'\')); ?>
+<?php if ($title !== \'\'): ?>
+  <h2><?= $esc($title) ?></h2>
+<?php endif; ?>';
+
+$snippetSectionSummary = '<?php $summary = trim((string)($attrs[\'summary\'] ?? \'\')); ?>
+<?php if ($summary !== \'\'): ?>
+  <p><?= $esc($summary) ?></p>
+<?php endif; ?>';
+
+$snippetSectionLink = '<?php
+$url = $safe_url($attrs[\'url\'] ?? \'\');
+$label = trim((string)($attrs[\'link_label\'] ?? __(\'Learn more\')));
+?>
+<?php if ($url !== \'\'): ?>
+  <a href="<?= $esc($url) ?>"><?= $esc($label) ?></a>
+<?php endif; ?>';
 
 $tplList = '<div class="pcat__list">
 <?php foreach ($items as $it): ?>
@@ -390,9 +435,11 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
     <div class="lyo-header">
       <div class="lyo-header-left">
-        <h2><?= $isNew ? '📄 ' . _e('New Layout') : '✏️ ' . _e('Edit Layout:') . ' ' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?></h2>
+        <h2><?= $isNew
+            ? '📄 ' . ($isSectionScope ? __('New Theme Section') : __('New Layout'))
+            : '✏️ ' . ($isSectionScope ? __('Edit Theme Section:') : __('Edit Layout:')) . ' ' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?></h2>
         <?php if ($isNew): ?>
-          <input type="text" id="lyo-name" class="lyo-name-input" placeholder="<?=_e('Layout name (slug)')?>" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>" autofocus>
+          <input type="text" id="lyo-name" class="lyo-name-input" placeholder="<?= $isSectionScope ? __('Section name (for example: page.hero)') : __('Layout name (slug)') ?>" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>" autofocus>
         <?php endif; ?>
       </div>
       <div class="lyo-header-right">
@@ -405,6 +452,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="save_nonce" value="<?= htmlspecialchars($save_nonce, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="scope" value="<?= htmlspecialchars($layoutScope, ENT_QUOTES, 'UTF-8') ?>">
       <?php if (!$isNew): ?>
         <input type="hidden" name="file" value="<?= htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?>">
       <?php endif; ?>
@@ -420,6 +468,13 @@ $snippetWrapper = '<?php if ($wrap): ?>
         <div class="lyo-tpl-title"><?=_e('Blank')?></div>
         <div class="lyo-tpl-desc"><?=_e('Start from a blank page')?></div>
       </div>
+      <?php if ($isSectionScope): ?>
+      <div class="lyo-tpl-card" data-template="1">
+        <span class="lyo-tpl-icon">▤</span>
+        <div class="lyo-tpl-title"><?=_e('Semantic Section')?></div>
+        <div class="lyo-tpl-desc"><?=_e('Title and summary from shortcode attributes')?></div>
+      </div>
+      <?php else: ?>
       <div class="lyo-tpl-card" data-template="1">
         <span class="lyo-tpl-icon">📋</span>
         <div class="lyo-tpl-title"><?=_e('Simple List')?></div>
@@ -440,6 +495,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
         <div class="lyo-tpl-title"><?=_e('Slider')?></div>
         <div class="lyo-tpl-desc"><?=_e('Horizontal carousel with navigation')?></div>
       </div>
+      <?php endif; ?>
     </div>
 <?php endif; ?>
 
@@ -455,7 +511,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
     </div>
     <?php endif; ?>
 
-    <?php if (empty($allPresets) || (isset($connectedPresets) && empty($connectedPresets))): ?>
+    <?php if (!$isSectionScope && (empty($allPresets) || (isset($connectedPresets) && empty($connectedPresets)))): ?>
     <?php if (!empty($allPresets)): ?>
     <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
       <span>🔗 <strong><?=_e('Preview with real data:')?></strong></span>
@@ -474,15 +530,25 @@ $snippetWrapper = '<?php if ($wrap): ?>
     <div style="display:flex;align-items:flex-start;gap:.5rem;padding:.6rem .75rem;background:var(--adam-surface-2);border-radius:8px;font-size:.85rem;line-height:1.5;">
       <div style="font-size:1.1rem;flex-shrink:0;">💡</div>
       <div>
+        <?php if ($isSectionScope): ?>
+        <?=_e('<strong>Theme Sections</strong> render reusable page sections from <code>[[widget:theme_section name=&quot;page.hero&quot;]]</code>.')?><br>
+        <?=_e('This renderer belongs to the active theme. Core automatically falls back to the default theme, then the global section directory.')?>
+        <?php else: ?>
         <?=_e('<strong>How Preset &amp; Layout work together:</strong>')?><br>
         <?=_e('<strong>Preset</strong> = content filter (category, count, order, etc.) + layout choice.')?><br>
         <?=_e('<strong>Layout</strong> = the PHP file that controls the post&rsquo;s <em>visual appearance</em>.')?><br>
         <?= sprintf(__('On the %sedit preset%s page, you pick which layout to use.'), '<a href="' . h($preset_list_url) . '" class="adam-link">', '</a>') ?>
         <?=_e('The same layout can be reused by many presets — so create one layout and use it in any preset.')?>
+        <?php endif; ?>
       </div>
     </div>
 
     <div class="lyo-toolbar" id="lyo-toolbar">
+      <?php if ($isSectionScope): ?>
+      <button data-snippet="0" title="<?=_e('Insert section title')?>"><?=_e('Title')?></button>
+      <button data-snippet="1" title="<?=_e('Insert section summary')?>"><?=_e('Summary')?></button>
+      <button data-snippet="2" title="<?=_e('Insert section link')?>"><?=_e('Link')?></button>
+      <?php else: ?>
       <button data-snippet="0" title="<?=_e('Insert foreach loop')?>">🔁 <?=_e('Loop Items')?></button>
       <button data-snippet="1" title="<?=_e('Insert thumbnail block')?>">🖼️ <?=_e('Thumbnail')?></button>
       <button data-snippet="2" title="<?=_e('Insert excerpt')?>">📝 <?=_e('Excerpt')?></button>
@@ -490,6 +556,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <button data-snippet="4" title="<?=_e('Insert kicker')?>">🏷️ <?=_e('Kicker')?></button>
       <button data-snippet="5" title="<?=_e('Insert slider nav buttons')?>">🎠 <?=_e('Slider Nav')?></button>
       <button data-snippet="6" title="<?=_e('Insert wrapper div')?>">📦 <?=_e('Wrapper')?></button>
+      <?php endif; ?>
       <span style="flex:1"></span>
       <button data-snippet="clear" class="danger" style="border-color:#e74c3c;color:#e74c3c;" title="<?=_e('Clear editor')?>">🗑️ <?=_e('Clear')?></button>
     </div>
@@ -530,6 +597,15 @@ $snippetWrapper = '<?php if ($wrap): ?>
             <tr><th style="width:150px;"><?=_e('Variable')?></th><th style="width:80px;"><?=_e('Type')?></th><th><?=_e('Description')?></th></tr>
           </thead>
           <tbody>
+            <?php if ($isSectionScope): ?>
+            <tr><td><code>$section</code></td><td><code>string</code></td><td><?=_e('Validated section identifier, matching the renderer file name')?></td></tr>
+            <tr><td><code>$attrs</code></td><td><code>array</code></td><td><?=_e('Merged registered defaults and shortcode attributes')?></td></tr>
+            <tr><td><code>$context</code></td><td><code>array</code></td><td><?=_e('Current page or post rendering context')?></td></tr>
+            <tr><td><code>$definition</code></td><td><code>array</code></td><td><?=_e('Registered section label, description, defaults, and fallback')?></td></tr>
+            <tr><td><code>$pdo</code></td><td><code>PDO|null</code></td><td><?=_e('Current database connection')?></td></tr>
+            <tr><td><code>$esc()</code></td><td><code>callable</code></td><td><?=_e('HTML escaping function: <code>$esc($text)</code> — required for all user content output')?></td></tr>
+            <tr><td><code>$safe_url()</code></td><td><code>callable</code></td><td><?=_e('URL sanitizer for links from shortcode attributes')?></td></tr>
+            <?php else: ?>
             <tr><td><code>$items</code></td><td><code>array</code></td><td><?=_e('Array of post/page data. Each item has: <code>title</code>, <code>url</code>, <code>thumb</code>, <code>desc</code>, <code>date_label</code>, <code>date_iso</code>, <code>kind</code>, <code>raw</code>')?></td></tr>
             <tr><td><code>$attrs</code></td><td><code>array</code></td><td><?=_e('Filter attributes: <code>source</code>, <code>type</code>, <code>category</code>, <code>limit</code>, <code>offset</code>, <code>order_by</code>, <code>excerpt_len</code>, etc.')?></td></tr>
             <tr><td><code>$layout</code></td><td><code>string</code></td><td><?=_e('Layout name — same as the file name (e.g. <code>cards</code>, <code>list</code>)')?></td></tr>
@@ -540,10 +616,11 @@ $snippetWrapper = '<?php if ($wrap): ?>
             <tr><td><code>$slider_enabled</code></td><td><code>bool</code></td><td><?=_e('Whether slider/carousel mode is active')?></td></tr>
             <tr><td><code>$instance_id</code></td><td><code>string</code></td><td><?=_e('Unique ID per instance, useful for HTML <code>id</code>')?></td></tr>
             <tr><td><code>$limit_visible</code></td><td><code>int</code></td><td><?=_e('Number of visible items (for slider / lazy load)')?></td></tr>
+            <?php endif; ?>
           </tbody>
         </table>
         <div style="margin-top:.6rem;font-size:.8rem;color:var(--adam-muted,#888);background:var(--adam-surface-3);padding:.5rem .7rem;border-radius:4px;">
-          <strong>📍 <?=_e('Layout file:')?></strong> <code>views/partials/shortcodes/post_cat/<span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{' . __('name') . '}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
+          <strong>📍 <?=_e('Layout file:')?></strong> <code><?= $isSectionScope ? 'views/themes/' . htmlspecialchars(get_active_theme_folder($pdo), ENT_QUOTES, 'UTF-8') . '/partials/shortcodes/section/' : 'views/partials/shortcodes/post_cat/' ?><span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{' . __('name') . '}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
         </div>
       </div>
     </div>
@@ -554,8 +631,8 @@ $snippetWrapper = '<?php if ($wrap): ?>
 <input type="hidden" id="editor-codemirror" checked>
 
 <script>
-var DEFAULT_TEMPLATES = <?= json_encode([$tplClean, $tplList, $tplCards, $tplCard2, $tplSlider]) ?>;
-var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt, $snippetDate, $snippetKicker, $snippetSlider, $snippetWrapper]) ?>;
+var DEFAULT_TEMPLATES = <?= json_encode($isSectionScope ? [$tplClean, $tplSection] : [$tplClean, $tplList, $tplCards, $tplCard2, $tplSlider]) ?>;
+var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippetSectionSummary, $snippetSectionLink] : [$snippetForeach, $snippetThumb, $snippetExcerpt, $snippetDate, $snippetKicker, $snippetSlider, $snippetWrapper]) ?>;
 
 (function(){
   var form = document.getElementById('layout-form');
@@ -649,6 +726,9 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
 
     var fd = new FormData();
     fd.append('content', code);
+    fd.append('csrf_token', <?= json_encode(csrf_token()) ?>);
+    fd.append('scope', <?= json_encode($layoutScope) ?>);
+    fd.append('section_name', lyoName ? lyoName.value : <?= json_encode($pref_layout_name) ?>);
     if (currentPresetId > 0) fd.append('preset_id', String(currentPresetId));
 
     fetch('<?= $base ?>/admin/shortcodes/preview_layout.php', {
@@ -665,7 +745,7 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
           previewMode.textContent = '📦 ' + (presetSelect ? presetSelect.options[presetSelect.selectedIndex].text : 'preset');
           previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
         } else {
-          previewMode.textContent = 'dummy';
+          previewMode.textContent = data.mode === 'section' ? <?= json_encode(__('Theme Section')) ?> : 'dummy';
           previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
         }
       } else {
@@ -698,7 +778,7 @@ var SNIPPETS = <?= json_encode([$snippetForeach, $snippetThumb, $snippetExcerpt,
     var code = DEFAULT_TEMPLATES[idx] || '';
     setEditorValue(code);
     if (lyoName && !lyoName.value) {
-      var names = ['', 'list', 'cards', 'card2', 'sliderpage'];
+      var names = <?= json_encode($isSectionScope ? ['', ''] : ['', 'list', 'cards', 'card2', 'sliderpage']) ?>;
       if (names[idx]) lyoName.value = names[idx];
     }
   }

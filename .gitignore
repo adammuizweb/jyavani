@@ -39,8 +39,12 @@ private_files/
 public/static/files/2025
 public/static/files/2026
 
-# Playwright E2E tests (local dev tooling)
+# Playwright E2E tests are local; PHP contract tests are versioned.
 tests/
+!tests/
+tests/*
+!tests/theme_section_contract.php
+!tests/theme_section_dashboard_contract.php
 
 jyavani-cms-update.zip
 photo-gallery-*.zip

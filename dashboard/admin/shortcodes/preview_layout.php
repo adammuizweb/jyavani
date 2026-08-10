@@ -7,9 +7,22 @@ require_once __DIR__ . '/../_notify.php';
 adiwira_cosmetic_404_on_direct_open();
 
 [$uid, $role] = adiwira_require_editorial($pdo, true);
+$layoutScope = (string)($_POST['scope'] ?? 'collection');
+if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'collection';
+$isSectionScope = $layoutScope === 'section';
+$presetConfigJson = (string)($_POST['preset_config'] ?? '');
+$isValidatedPresetPreview = !$isSectionScope && $presetConfigJson !== '';
+if ($role !== 'admin' && !$isValidatedPresetPreview) {
+    adiwira_require_admin($pdo, true);
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => 'Method not allowed'], 405);
+    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
+}
+
+$csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+if (!adiwira_csrf_validate($csrf)) {
+    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
 $content = (string)($_POST['content'] ?? '');
@@ -23,16 +36,68 @@ if (!is_dir($tmpDir)) {
 }
 
 $tmpFile = $tmpDir . '/tmp_layout_preview_' . bin2hex(random_bytes(8)) . '.php';
+register_shutdown_function(static function () use ($tmpFile): void {
+    if (is_file($tmpFile)) @unlink($tmpFile);
+});
 $presetId = (int)($_POST['preset_id'] ?? 0);
-$presetConfigJson = (string)($_POST['preset_config'] ?? '');
 
 try {
-    file_put_contents($tmpFile, $content, LOCK_EX);
-
     $esc = static function (string $v): string {
         return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
     };
+    $safeUrl = static function (mixed $value): string {
+        return function_exists('theme_section_safe_url') ? theme_section_safe_url($value) : '';
+    };
     $sliderEnabled = false;
+
+    if ($isSectionScope) {
+        $sectionName = strtolower(trim((string)($_POST['section_name'] ?? '')));
+        if ($sectionName === '') $sectionName = 'preview.section';
+        if (!function_exists('theme_section_name_is_valid') || !theme_section_name_is_valid($sectionName)) {
+            adiwira_json(['ok' => false, 'error' => __('Invalid section name.')], 400);
+        }
+
+        $attrs = [
+            'title' => __('Theme Section Preview'),
+            'summary' => __('Shortcode attributes and page context are available to this active-theme renderer.'),
+            'url' => '#preview',
+            'link_label' => __('Learn more'),
+        ];
+        $context = [
+            'type' => 'theme',
+            'title' => __('Preview Page'),
+            'slug' => 'preview-page',
+        ];
+        $definition = function_exists('theme_section_definition') ? theme_section_definition($sectionName) : [];
+        $section = $sectionName;
+        $section_name = $sectionName;
+
+        if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
+            throw new RuntimeException(__('Failed to prepare template preview.'));
+        }
+
+        ob_start();
+        (static function () use ($tmpFile, $section, $section_name, $attrs, $context, $definition, $esc, $safeUrl, $pdo): void {
+            extract([
+                'section' => $section,
+                'section_name' => $section_name,
+                'attrs' => $attrs,
+                'context' => $context,
+                'definition' => $definition,
+                'esc' => $esc,
+                'safe_url' => $safeUrl,
+                'pdo' => $pdo,
+            ], EXTR_SKIP);
+            include $tmpFile;
+        })();
+        $html = (string)ob_get_clean();
+        if (trim($html) === '') {
+            $html = '<div style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('Template produced no output.') . '</div>';
+        }
+
+        adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'section']);
+        return;
+    }
 
     // --- MODE A: Preview from inline config (used by preset editor, unsaved data) ---
     if ($presetConfigJson !== '') {
@@ -43,10 +108,16 @@ try {
 
         // Load the actual layout template from file
         $layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
-        $layoutFile = $layoutDir . DIRECTORY_SEPARATOR . preg_replace('/[^a-z0-9_-]/', '', $layoutName) . '.php';
-        if ($layoutDir && is_file($layoutFile)) {
-            $content = file_get_contents($layoutFile);
-            file_put_contents($tmpFile, $content, LOCK_EX);
+        $layoutFile = $layoutDir
+            ? $layoutDir . DIRECTORY_SEPARATOR . preg_replace('/[^a-z0-9_-]/', '', $layoutName) . '.php'
+            : '';
+        $layoutReal = $layoutFile !== '' ? realpath($layoutFile) : false;
+        if (!$layoutDir || !$layoutReal || !is_file($layoutReal) || !theme_section_path_is_within($layoutReal, $layoutDir)) {
+            adiwira_json(['ok' => false, 'error' => __('Layout template not found.')], 404);
+        }
+        $layoutContent = file_get_contents($layoutReal);
+        if ($layoutContent === false || file_put_contents($tmpFile, $layoutContent, LOCK_EX) === false) {
+            throw new RuntimeException(__('Failed to prepare template preview.'));
         }
 
         $type = (string)($config['type'] ?? 'article');
@@ -149,6 +220,10 @@ try {
 
         adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'preset_config']);
         return;
+    }
+
+    if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
+        throw new RuntimeException(__('Failed to prepare template preview.'));
     }
 
     // --- MODE B: Preview with a real preset (real posts from DB) ---
