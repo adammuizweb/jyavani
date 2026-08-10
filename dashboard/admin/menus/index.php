@@ -53,6 +53,7 @@ $translationLocales = function_exists('ct_enabled_locales') ? ct_enabled_locales
 // Fetch available items for adding to menu
 $articles = [];
 $pages = [];
+$themePages = [];
 $categories = [];
 
 try {
@@ -63,6 +64,11 @@ try {
 try {
     $st = $pdo->query("SELECT id, title, slug FROM posts WHERE type='page' AND is_deleted=0 ORDER BY title ASC LIMIT 200");
     $pages = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (Throwable $e) {}
+
+try {
+    $st = $pdo->query("SELECT p.id, p.title, p.slug, cr.path AS public_path FROM posts p INNER JOIN content_routes cr ON cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1 WHERE p.type='theme' AND p.status='published' AND p.is_deleted=0 ORDER BY p.title ASC LIMIT 200");
+    $themePages = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {}
 
 try {
@@ -242,6 +248,7 @@ if (!function_exists('render_menu_items_admin')) {
           <button type="button" class="add-item-tab adam-button" data-tab="custom" style="padding:4px 10px;font-size:12px;"><?=_e('Custom Link')?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="article" style="padding:4px 10px;font-size:12px;"><?=_e('Articles')?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="page" style="padding:4px 10px;font-size:12px;"><?= _e('Page') ?></button>
+          <button type="button" class="add-item-tab adam-button" data-tab="theme" style="padding:4px 10px;font-size:12px;"><?=_e('Theme pages')?></button>
           <button type="button" class="add-item-tab adam-button" data-tab="category" style="padding:4px 10px;font-size:12px;"><?= _e('Categories') ?></button>
         </div>
 
@@ -281,6 +288,22 @@ if (!function_exists('render_menu_items_admin')) {
               <?php foreach ($pages as $p): ?>
                 <div class="source-item" data-id="<?= (int)$p['id'] ?>" data-type="page" data-label="<?= htmlspecialchars((string)($p['title'] ?: $p['slug']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
                   <?= htmlspecialchars((string)($p['title'] ?: $p['slug']), ENT_QUOTES, 'UTF-8') ?>
+                </div>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <!-- Public Theme pages -->
+        <div class="add-item-panel" id="panel-theme" style="display:none;">
+          <input type="text" id="themeSearch" class="pht-input" placeholder="<?=_e('Search Theme pages...')?>" style="margin-bottom:8px;">
+          <div class="source-list" id="themeList" style="max-height:200px;overflow-y:auto;">
+            <?php if (empty($themePages)): ?>
+              <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No public Theme pages.')?></div>
+            <?php else: ?>
+              <?php foreach ($themePages as $themePage): ?>
+                <div class="source-item" data-id="<?= (int)$themePage['id'] ?>" data-type="theme" data-label="<?= htmlspecialchars((string)($themePage['title'] ?: $themePage['public_path']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
+                  <?= htmlspecialchars((string)($themePage['title'] ?: $themePage['public_path']), ENT_QUOTES, 'UTF-8') ?>
                 </div>
               <?php endforeach; ?>
             <?php endif; ?>
@@ -487,6 +510,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   }
   setupSearch('articleSearch', 'articleList');
   setupSearch('pageSearch', 'pageList');
+  setupSearch('themeSearch', 'themeList');
   setupSearch('categorySearch', 'categoryList');
 
   // =============== Add item to menu ===============

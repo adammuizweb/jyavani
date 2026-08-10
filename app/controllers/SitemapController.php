@@ -16,6 +16,7 @@ class SitemapController
         // counts
         $postCount = (int) self::countByType($pdo, 'article');
         $pageCount = (int) self::countByType($pdo, 'page');
+        $themeCount = (int)self::countRoutedThemes($pdo);
 
         $postMaps = max(1, (int)ceil($postCount / $limit));
         $pageMaps = max(1, (int)ceil($pageCount / $limit));
@@ -32,6 +33,10 @@ class SitemapController
         }
         for ($i = 1; $i <= $pageMaps; $i++) {
             $loc = $domain . '/sitemap_pages_' . $i . '.xml';
+            echo "  <sitemap>\n    <loc>" . htmlspecialchars($loc, ENT_XML1) . "</loc>\n  </sitemap>\n";
+        }
+        for ($i = 1; $i <= (int)ceil($themeCount / $limit); $i++) {
+            $loc = $domain . '/sitemap_themes_' . $i . '.xml';
             echo "  <sitemap>\n    <loc>" . htmlspecialchars($loc, ENT_XML1) . "</loc>\n  </sitemap>\n";
         }
         foreach (apply_filters('sitemap_index_entries', [], $pdo, $domain, $limit) as $entry) {
@@ -59,18 +64,27 @@ class SitemapController
         $domain = self::domain();
 
         // map type -> DB type
-        $dbType = $type === 'posts' ? 'article' : 'page';
+        $dbType = match ($type) {
+            'posts' => 'article',
+            'themes' => 'theme',
+            default => 'page',
+        };
 
         $stmt = $pdo->prepare("
-            SELECT slug, created_at, COALESCE(updated_at, created_at) AS changed_at
-            FROM posts
-            WHERE type = :type
-              AND is_deleted = 0
-              AND status = 'published'
-            ORDER BY created_at DESC
+            SELECT p.id, p.slug, p.created_at, COALESCE(p.updated_at, p.created_at) AS changed_at
+            FROM posts p
+            WHERE p.type = :type
+              AND p.is_deleted = 0
+              AND p.status = 'published'
+              AND (:type_filter <> 'theme' OR EXISTS (
+                  SELECT 1 FROM content_routes cr
+                  WHERE cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1
+              ))
+            ORDER BY p.created_at DESC
             LIMIT :limit OFFSET :offset
         ");
         $stmt->bindValue(':type', $dbType);
+        $stmt->bindValue(':type_filter', $dbType);
         $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
         $stmt->execute();
@@ -82,7 +96,7 @@ class SitemapController
         foreach ($rows as $r) {
             $slug = trim($r['slug'], '/');
             if ($slug === '') continue;
-            if (function_exists('get_post_permalink') && $dbType === 'article') {
+            if (function_exists('get_post_permalink') && in_array($dbType, ['article', 'theme'], true)) {
                 $loc = $domain . get_post_permalink($r);
             } elseif (function_exists('get_page_permalink') && $dbType === 'page') {
                 $loc = $domain . get_page_permalink($r);
@@ -114,6 +128,12 @@ class SitemapController
     {
         $stmt = $pdo->prepare("SELECT COUNT(*) FROM posts WHERE type = :type AND is_deleted = 0 AND status = 'published'");
         $stmt->execute([':type' => $type]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    private static function countRoutedThemes(PDO $pdo): int
+    {
+        $stmt = $pdo->query("SELECT COUNT(*) FROM posts p WHERE p.type = 'theme' AND p.is_deleted = 0 AND p.status = 'published' AND EXISTS (SELECT 1 FROM content_routes cr WHERE cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1)");
         return (int)$stmt->fetchColumn();
     }
 }

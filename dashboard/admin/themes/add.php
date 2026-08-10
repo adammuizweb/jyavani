@@ -45,6 +45,7 @@ $errors = [];
 
 $title   = trim((string)($_POST['title'] ?? ''));
 $slug    = trim((string)($_POST['slug'] ?? ''));
+$publicPath = trim((string)($_POST['public_path'] ?? ''));
 $content = (string)($_POST['content'] ?? '');
 $status  = in_array((string)($_POST['status'] ?? ''), ['draft', 'published', 'private'], true)
     ? (string)$_POST['status']
@@ -77,10 +78,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    if (empty($errors)) {
-        unset($_SESSION[$nonce_key]); // invalidate once used
-
+    if ($publicPath !== '' && empty($errors)) {
         try {
+            $publicPath = content_route_normalize_path($publicPath);
+            $conflict = content_route_path_conflict($pdo, $publicPath);
+            if ($conflict !== null) $errors[] = __('Public path is already used or reserved.');
+        } catch (Throwable $e) {
+            $errors[] = __('Public path must contain lowercase letters, numbers, hyphens, underscores, and slashes only.');
+        }
+    }
+
+    if (empty($errors)) {
+        try {
+            $pdo->beginTransaction();
             $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
             $themeMeta = [];
             if ($metaDescription !== '') {
@@ -109,11 +119,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
+                $postId = (int)$pdo->lastInsertId();
+                if ($publicPath !== '') content_route_set_canonical($pdo, $postId, $publicPath);
+                do_action('admin_theme_after_add', $postId, $pdo, $_POST);
+                $pdo->commit();
+                unset($_SESSION[$nonce_key]);
                 adiwira_redirect_with_flash($return_to, 'success', __('Theme partial berhasil disimpan.'));
             }
 
             $errors[] = __('Failed to save to database.');
         } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('themes/add.php error: ' . $e->getMessage());
             $errors[] = __('Terjadi kesalahan saat menyimpan data.');
         }
@@ -162,13 +178,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
 
         <label style="margin-top:.6rem;display:block">
-          <?=_e('Slug (optional)')?><br>
+          <?=_e('Internal slug (optional)')?><br>
           <input
             type="text"
             name="slug"
             value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
             class="inpud"
           >
+        </label>
+
+        <label style="margin-top:.6rem;display:block">
+          <?=_e('Public path (optional)')?><br>
+          <input type="text" name="public_path" value="<?= htmlspecialchars($publicPath, ENT_QUOTES, 'UTF-8') ?>" class="inpud" placeholder="showcase/themes/example">
+          <small class="adam-muted"><?=_e('Nested public URL. Leave empty for assignment-only partials.')?></small>
         </label>
 
         <label style="margin-top:.6rem;display:block">

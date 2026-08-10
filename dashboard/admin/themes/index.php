@@ -39,13 +39,13 @@ if ($filter_status !== '') {
 }
 
 if ($search !== '') {
-    $where[] = "(p.title LIKE :search OR p.slug LIKE :search)";
+    $where[] = "(p.title LIKE :search OR p.slug LIKE :search OR cr.path LIKE :search)";
     $params[':search'] = '%' . $search . '%';
 }
 
 $where_sql = implode(' AND ', $where);
 
-$count_sql = "SELECT COUNT(*) FROM posts p WHERE $where_sql";
+$count_sql = "SELECT COUNT(*) FROM posts p LEFT JOIN content_routes cr ON cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1 WHERE $where_sql";
 $countStmt = $pdo->prepare($count_sql);
 foreach ($params as $k => $v) {
     $countStmt->bindValue($k, $v);
@@ -55,8 +55,9 @@ $total = (int)$countStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
 
 $sql = "
-  SELECT p.id, p.title, p.slug, p.status, p.created_at, p.updated_at, p.created_by
+  SELECT p.id, p.title, p.slug, p.status, p.created_at, p.updated_at, p.created_by, cr.path AS public_path
   FROM posts p
+  LEFT JOIN content_routes cr ON cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1
   WHERE $where_sql
   ORDER BY p.created_at DESC
   LIMIT :limit OFFSET :offset
@@ -125,7 +126,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <form method="get" class="toolbar-filter">
       <input type="hidden" name="page" value="admin/themes/index">
-      <input type="text" name="q" placeholder="<?= _e('Search title or slug...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
+      <input type="text" name="q" placeholder="<?= _e('Search title, internal slug, or public path...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
 
       <select name="status" class="inp">
         <option value=""><?= _e('-- All Status --') ?></option>
@@ -172,7 +173,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <div class="cols-toggle ml-auto">
           <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
           <div class="cols-dropdown">
-            <label class="cols-opt"><input type="checkbox" data-col="col-slug" checked> <?=_e('Slug')?></label>
+            <label class="cols-opt"><input type="checkbox" data-col="col-slug" checked> <?=_e('Internal slug')?></label>
+            <label class="cols-opt"><input type="checkbox" data-col="col-public-path" checked> <?=_e('Public path')?></label>
             <label class="cols-opt"><input type="checkbox" data-col="col-status" checked> <?=_e('Status')?></label>
             <label class="cols-opt"><input type="checkbox" data-col="col-created" checked> <?=_e('Created')?></label>
           </div>
@@ -186,14 +188,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <tr>
           <?php if ($isAdmin): ?><th class="th-narrow"></th><?php endif; ?>
           <th><?= _e('Name') ?></th>
-          <th class="col-slug"><?=_e('Slug')?></th>
+          <th class="col-slug"><?=_e('Internal slug')?></th>
+          <th class="col-public-path"><?=_e('Public path')?></th>
           <th class="col-status"><?=_e('Status')?></th>
           <th class="col-created"><?= _e('Created') ?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($themes)): ?>
-          <tr class="empty-state"><td colspan="<?= $isAdmin ? 5 : 4 ?>"><?=_e('No theme partials.')?></td></tr>
+          <tr class="empty-state"><td colspan="<?= $isAdmin ? 6 : 5 ?>"><?=_e('No theme partials.')?></td></tr>
         <?php else: ?>
           <?php foreach ($themes as $t): ?>
             <?php
@@ -244,6 +247,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               </td>
 
               <td class="col-slug"><?= htmlspecialchars((string)($t['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+              <td class="col-public-path"><?= ($t['public_path'] ?? '') !== '' ? '<code>/' . htmlspecialchars((string)$t['public_path'], ENT_QUOTES, 'UTF-8') . '/</code>' : '<span class="adam-muted">' . __('Assignment only') . '</span>' ?></td>
 
               <td class="col-status">
                 <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"

@@ -179,6 +179,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $register_path = trim($new_register_path, '/');
     }
 
+    foreach ([[$admin_path, true], [$login_path, false], [$register_path, false]] as [$authPath, $prefixMatch]) {
+        if ($authPath !== '' && function_exists('content_route_conflicts_with_setting_path')
+            && content_route_conflicts_with_setting_path($pdo, $authPath, $prefixMatch)) {
+            $errors[] = __('Path conflicts with an existing content route.');
+            break;
+        }
+    }
+
     if ($new_max_attempts === '' || (int)$new_max_attempts < 1) {
         $errors[] = __('Maximum failed login attempts must be at least 1.');
     } else {

@@ -76,6 +76,7 @@ $id         = (int)($_POST['id'] ?? 0);
 $save_nonce = (string)($_POST['save_nonce'] ?? '');
 $title      = trim((string)($_POST['title'] ?? ''));
 $slug_in    = trim((string)($_POST['slug'] ?? ''));
+$publicPath = trim((string)($_POST['public_path'] ?? ''));
 $content    = (string)($_POST['content'] ?? '');
 $statusIn   = (string)($_POST['status'] ?? 'draft');
 $status     = in_array($statusIn, ['draft','published','private'], true) ? $statusIn : 'draft';
@@ -133,6 +134,16 @@ if (empty($errors)) {
     }
 }
 
+if ($publicPath !== '' && empty($errors)) {
+    try {
+        $publicPath = content_route_normalize_path($publicPath);
+        $conflict = content_route_path_conflict($pdo, $publicPath, '', $id);
+        if ($conflict !== null) $errors[] = __('Public path is already used or reserved.');
+    } catch (Throwable $e) {
+        $errors[] = __('Public path must contain lowercase letters, numbers, hyphens, underscores, and slashes only.');
+    }
+}
+
 if (empty($errors)) {
     $s = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND id != :id LIMIT 1");
     $s->execute([':slug' => $slug, ':id' => $id]);
@@ -148,6 +159,7 @@ if (!empty($errors)) {
 unset($_SESSION[$session_key]);
 
 try {
+    $pdo->beginTransaction();
     $themeMeta = !empty($theme['meta']) ? json_decode($theme['meta'], true) : [];
     if (!is_array($themeMeta)) $themeMeta = [];
     $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
@@ -196,6 +208,13 @@ try {
     if (!$ok) {
         throw new RuntimeException('DB error saat menyimpan.');
     }
+    if ($publicPath === '') {
+        content_route_delete_for_post($pdo, $id);
+    } else {
+        content_route_set_canonical($pdo, $id, $publicPath);
+    }
+    do_action('admin_theme_after_edit', $id, $pdo, $_POST);
+    $pdo->commit();
 
     $stmt2 = $pdo->prepare("SELECT id, slug, title, status, updated_at FROM posts WHERE id = :id LIMIT 1");
     $stmt2->execute([':id' => $id]);
@@ -216,6 +235,7 @@ try {
     ]);
 
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('themes/save.php error: ' . $e->getMessage());
     theme_save_error_response(['Server error'], $edit_return, 500);
 }

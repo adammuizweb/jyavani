@@ -164,6 +164,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($category_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $category_path)) {
         $errors[] = __('Category path may only contain lowercase letters, numbers, slashes, underscores, and hyphens.');
     }
+    foreach ([$posts_list_path, $pages_list_path, $category_path] as $publicBase) {
+        if ($publicBase !== '' && function_exists('content_route_conflicts_with_setting_path')
+            && content_route_conflicts_with_setting_path($pdo, $publicBase, true)) {
+            $errors[] = __('Path conflicts with an existing content route.');
+            break;
+        }
+    }
 
     if (!in_array($current_site_language, get_supported_locales(), true)) {
         $current_site_language = 'en';

@@ -232,6 +232,26 @@ Content URL builders finish through `content_permalink`, receiving the generated
 URL, the source content row, and its type (`post` or `page`). Extensions may
 return an alias URL without changing permalink structures or content identity.
 
+## Canonical Content Routes
+
+Articles, pages, and Theme Templates may have an optional nested public path in
+`content_routes`, separate from their editor-facing internal slug. Theme
+Template editors manage this through **Public path**; assignment-only partials
+leave it empty.
+
+- Paths use lowercase ASCII slug segments such as `academic/biomedical`.
+- One canonical path is allowed per content record and locale.
+- Changing a canonical path retains the previous path as a permanent redirect.
+- Internal slug requests redirect to the canonical public path.
+- Collection, authentication, plugin, physical, and other reserved routes cannot
+  be claimed by content.
+- Only published routed Theme Templates appear in the Theme sitemap and Menu
+  Manager source list.
+
+Core helpers are defined in `cfg/helpers/content_route_helpers.php`. Use
+`content_route_set_canonical()` rather than writing route rows directly so path
+history, collision checks, and transaction behavior remain consistent.
+
 ## Defaults and Load Default Layout
 
 The `defaults` block pre-fills gadgets when the admin clicks **Load Default Layout**. This is useful for:

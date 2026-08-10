@@ -63,6 +63,15 @@ function get_post_permalink(array $post): string
         return '/' . rawurlencode($post['slug'] ?? '') . '/';
     }
 
+    $postId = (int)($post['id'] ?? 0);
+    $routeUrl = $postId > 0 && function_exists('content_route_canonical_url')
+        ? content_route_canonical_url($pdo, $postId)
+        : null;
+    if (is_string($routeUrl) && $routeUrl !== '') {
+        $filtered = apply_filters('content_permalink', $routeUrl, $post, 'post');
+        return is_string($filtered) && $filtered !== '' ? $filtered : $routeUrl;
+    }
+
     $structure = get_permalink_structure($pdo, 'post');
 
     $slug = rawurlencode($post['slug'] ?? '');
@@ -105,6 +114,15 @@ function get_page_permalink(array $page): string
     $pdo = $GLOBALS['pdo'] ?? null;
     if (!$pdo) {
         return '/' . $slug . '/';
+    }
+
+    $pageId = (int)($page['id'] ?? 0);
+    $routeUrl = $pageId > 0 && function_exists('content_route_canonical_url')
+        ? content_route_canonical_url($pdo, $pageId)
+        : null;
+    if (is_string($routeUrl) && $routeUrl !== '') {
+        $filtered = apply_filters('content_permalink', $routeUrl, $page, 'page');
+        return is_string($filtered) && $filtered !== '' ? $filtered : $routeUrl;
     }
 
     $structure = get_permalink_structure($pdo, 'page');

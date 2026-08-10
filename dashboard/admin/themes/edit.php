@@ -69,6 +69,10 @@ $pref_title   = (string)($theme['title'] ?? '');
 $pref_slug    = (string)($theme['slug'] ?? '');
 $pref_content = (string)($theme['content'] ?? '');
 $pref_status  = (string)($theme['status'] ?? 'draft');
+$canonicalRoute = function_exists('content_route_find_canonical')
+    ? content_route_find_canonical($pdo, (int)$theme['id'])
+    : null;
+$pref_public_path = (string)($canonicalRoute['path'] ?? '');
 
 $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
     ? (settings_get($pdo, 'enable_custom_meta', '0') === '1')
@@ -111,10 +115,17 @@ $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
                  class="inpud">
         </label>
 
-        <label style="margin-top:.6rem;display:block"><?=_e('Slug (optional)')?><br>
+        <label style="margin-top:.6rem;display:block"><?=_e('Internal slug (optional)')?><br>
           <input type="text" name="slug"
                  value="<?= htmlspecialchars($pref_slug, ENT_QUOTES, 'UTF-8') ?>"
                  class="inpud">
+        </label>
+
+        <label style="margin-top:.6rem;display:block"><?=_e('Public path (optional)')?><br>
+          <input type="text" name="public_path"
+                 value="<?= htmlspecialchars($pref_public_path, ENT_QUOTES, 'UTF-8') ?>"
+                 class="inpud" placeholder="showcase/themes/example">
+          <small class="adam-muted"><?=_e('Changing this path keeps the previous URL as a permanent redirect.')?></small>
         </label>
 
         <?php if ($enable_custom_meta):
