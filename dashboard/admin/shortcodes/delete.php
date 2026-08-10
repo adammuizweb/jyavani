@@ -10,19 +10,21 @@ adiwira_cosmetic_404_on_direct_open();
 
 [$uid, $role] = adiwira_require_editorial($pdo, true);
 
+$defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/shortcodes/index&tab=presets';
+$return_to = function_exists('adiwira_safe_return_to')
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    : $defaultReturnTo;
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
 $csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
 if (!adiwira_csrf_validate($csrf)) {
-    adiwira_redirect_with_flash((string)($_POST['return_to'] ?? ADMIN_BASE_PATH . '/?page=admin/shortcodes/index&tab=presets'), 'error', 'CSRF invalid.');
+    adiwira_redirect_with_flash($return_to, 'error', __('Invalid CSRF token.'));
 }
 
 $id = (int)($_POST['id'] ?? 0);
-$return_to = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), ADMIN_BASE_PATH . '/?page=admin/shortcodes/index&tab=presets')
-    : ADMIN_BASE_PATH . '/?page=admin/shortcodes/index&tab=presets';
 
 if ($id <= 0) {
     adiwira_redirect_with_flash($return_to, 'error', __('Invalid ID.'));
@@ -41,6 +43,11 @@ try {
     $stmt->execute($params);
 
     if ($stmt->rowCount() > 0) {
+        try {
+            do_action('admin_shortcode_preset_after_delete', $id, $pdo);
+        } catch (Throwable $hookError) {
+            error_log('admin_shortcode_preset_after_delete hook error: ' . $hookError->getMessage());
+        }
         adiwira_redirect_with_flash($return_to, 'success', __('Preset moved to trash successfully.'));
     } else {
         adiwira_redirect_with_flash($return_to, 'error', __('Preset not found.'));

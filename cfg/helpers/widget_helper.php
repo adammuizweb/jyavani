@@ -157,11 +157,15 @@ if (!function_exists('register_widget_shortcode_handler')) {
     function register_widget_shortcode_handler(
         string   $widgetName,
         callable $renderFn,
-        array    $defaults = []
+        array    $defaults = [],
+        string   $origin = 'static',
+        int      $originId = 0
     ): void {
         $GLOBALS['_widget_shortcode_handlers'][$widgetName] = [
             'fn'       => $renderFn,
             'defaults' => $defaults,
+            'origin'   => $origin,
+            'origin_id' => $originId,
         ];
     }
 }

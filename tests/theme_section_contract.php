@@ -94,6 +94,15 @@ try {
     $activeHtml = render_theme_section($name, ['title' => '<Active>'], $pdo);
     $check(str_contains($activeHtml, 'data-source="active"'), 'active theme renderer has first priority');
     $check(str_contains($activeHtml, '&lt;Active&gt;'), 'theme renderer receives the escaping helper');
+    $descriptor = theme_section_source_descriptor($name, $pdo);
+    $firstFingerprint = theme_section_source_fingerprint($name, $pdo);
+    $check(($descriptor['identity'] ?? '') === 'theme_section:' . $name, 'source descriptor exposes stable section identity');
+    $check(($descriptor['definition']['label'] ?? '') === 'Contract Hero', 'source descriptor exposes the registered definition');
+    $check(count($descriptor['composition_order'] ?? []) >= 2, 'source descriptor exposes renderer composition order and Core fallback');
+    $check(strlen((string)($descriptor['renderer']['revision'] ?? '')) === 64, 'file renderer revision is a SHA-256 content identity');
+    file_put_contents($activeFile, '<article data-source="active-v2"><?= $esc($attrs[\'title\'] ?? \'\') ?></article>');
+    $check(theme_section_source_fingerprint($name, $pdo) !== $firstFingerprint, 'source fingerprint changes when renderer content changes');
+    file_put_contents($activeFile, '<article data-source="active" data-context="<?= $esc($context[\'page\'][\'slug\'] ?? \'\') ?>" data-attr-page="<?= isset($attrs[\'page\']) ? \'yes\' : \'no\' ?>"><?= $esc($attrs[\'title\'] ?? \'\') ?></article>');
 
     $shortcodeHtml = widget_expand_shortcodes('[[widget:theme_section name="' . $name . '"]]', $pdo, [
         'page' => ['slug' => 'context-page'],

@@ -156,6 +156,67 @@ function theme_section_resolve_layout(string $name, ?PDO $pdo = null): ?string
     return null;
 }
 
+function theme_section_source_descriptor(string $name, ?PDO $pdo = null): array
+{
+    $name = strtolower(trim($name));
+    if (!theme_section_name_is_valid($name)) return [];
+
+    $directories = theme_section_layout_directories($pdo);
+    $composition = [];
+    $publicRoot = realpath((string)PUBLIC_PATH);
+    foreach ($directories as $index => $directory) {
+        $relative = $publicRoot && theme_section_path_is_within($directory, $publicRoot)
+            ? ltrim(substr($directory, strlen($publicRoot)), DIRECTORY_SEPARATOR)
+            : $directory;
+        $composition[] = [
+            'position' => $index,
+            'identity' => 'directory:' . str_replace(DIRECTORY_SEPARATOR, '/', $relative),
+        ];
+    }
+    $composition[] = ['position' => count($composition), 'identity' => 'core:fallback'];
+
+    $layout = theme_section_resolve_layout($name, $pdo);
+    $rendererIdentity = 'core:fallback';
+    $revision = 'core-theme-section-fallback-v1';
+    if ($layout) {
+        foreach ($directories as $index => $directory) {
+            if (theme_section_path_is_within($layout, $directory)) {
+                $rendererIdentity = (string)($composition[$index]['identity'] ?? ('renderer:' . $index));
+                break;
+            }
+        }
+        $hash = hash_file('sha256', $layout);
+        $revision = is_string($hash) ? $hash : '';
+    }
+
+    return [
+        'identity' => 'theme_section:' . $name,
+        'definition' => theme_section_definition($name),
+        'composition_order' => $composition,
+        'renderer' => ['identity' => $rendererIdentity, 'revision' => $revision],
+    ];
+}
+
+function theme_section_source_fingerprint(string $name, ?PDO $pdo = null): string
+{
+    $normalize = static function (mixed $value) use (&$normalize): mixed {
+        if (is_array($value)) {
+            if (!array_is_list($value)) ksort($value);
+            foreach ($value as $key => $item) $value[$key] = $normalize($item);
+            return $value;
+        }
+        if ($value instanceof Closure) return 'callable:closure';
+        if (is_object($value)) return 'object:' . get_class($value);
+        if (is_resource($value)) return 'resource:' . get_resource_type($value);
+        if (is_callable($value)) return 'callable:' . (is_string($value) ? $value : 'array');
+        return $value;
+    };
+    $descriptor = theme_section_source_descriptor($name, $pdo);
+    if ($descriptor === []) return '';
+    $encoded = json_encode($normalize($descriptor), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    return is_string($encoded) ? hash('sha256', $encoded) : '';
+}
+
 function theme_section_default_label(string $name): string
 {
     return ucwords(str_replace(['.', '_', '-'], ' ', $name));

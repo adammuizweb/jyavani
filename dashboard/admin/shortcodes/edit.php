@@ -13,15 +13,6 @@ require_once __DIR__ . '/../_notify.php';
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 $isAdmin = ($role === 'admin');
 
-if (!function_exists('slugify_sc')) {
-    function slugify_sc(string $text): string {
-        $text = mb_strtolower($text, 'UTF-8');
-        $text = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', $text);
-        $text = preg_replace('/[-]{2,}/', '-', $text);
-        return trim((string)$text, '-') ?: bin2hex(random_bytes(4));
-    }
-}
-
 $base = ADMIN_BASE_PATH;
 $return_to = function_exists('adiwira_safe_return_to')
     ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/?page=admin/shortcodes/index&tab=presets')
@@ -34,23 +25,7 @@ $preset = null;
 $pref_title = '';
 $pref_slug = '';
 $pref_status = 'published';
-$pref_config = [
-    'source' => 'posts',
-    'type' => 'article',
-    'category' => '',
-    'author' => null,
-    'limit' => 5,
-    'offset' => 0,
-    'order_by' => 'created_at',
-    'order_dir' => 'DESC',
-    'layout' => 'list',
-    'include_children' => '1',
-    'excerpt_len' => 90,
-    'class_prefix' => '',
-    'wrap' => '1',
-    'date_from' => null,
-    'date_to' => null,
-];
+$pref_config = shortcode_preset_default_config($pdo);
 
 if ($isEdit) {
     $sql = "SELECT * FROM posts WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0";
@@ -74,13 +49,7 @@ if ($isEdit) {
     $pref_slug = (string)($preset['slug'] ?? '');
     $pref_status = (string)($preset['status'] ?? 'draft');
 
-    $meta = (string)($preset['meta'] ?? '');
-    if ($meta !== '') {
-        $decoded = json_decode($meta, true);
-        if (is_array($decoded)) {
-            $pref_config = array_merge($pref_config, $decoded);
-        }
-    }
+    $pref_config = shortcode_preset_config_loaded((string)($preset['meta'] ?? ''), $preset, $pdo);
 }
 
 $save_nonce = bin2hex(random_bytes(12));
@@ -114,7 +83,7 @@ if (function_exists('get_active_theme_folder')) {
     $layoutDirs[] = realpath(PUBLIC_PATH . '/views/themes/' . $activeTheme . '/partials/shortcodes/post_cat');
 }
 foreach (array_filter(array_unique($layoutDirs)) as $layoutDir) {
-    $files = scandir($layoutDir);
+    $files = scandir($layoutDir) ?: [];
     foreach ($files as $f) {
         if (str_ends_with($f, '.php')) {
             $name = pathinfo($f, PATHINFO_FILENAME);
@@ -294,6 +263,7 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
         </label>
       </div>
     </div>
+    <?php do_action('shortcode_preset_editor_fields', $pref_config, $preset, $pdo, ['is_admin' => $isAdmin, 'user_id' => $uid]); ?>
   </form>
 </section>
 
@@ -337,6 +307,10 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
 
 <script>
 (function(){
+  var basePresetConfig = <?= json_encode($pref_config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  function presetConfigCopy() {
+    return JSON.parse(JSON.stringify(basePresetConfig || {}));
+  }
   var form = document.getElementById('sc-form');
   var btn = document.getElementById('btn-save');
   var orderSelect = document.getElementById('filter-order');
@@ -354,7 +328,7 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
       if (btn) btn.disabled = true;
 
       // Build config JSON
-      var config = {};
+      var config = presetConfigCopy();
 
       // Remove hidden config_json field value - we'll rebuild
       var configField = document.getElementById('config-json');
@@ -363,10 +337,10 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
       if (type) config.type = type.value;
 
       var cat = document.querySelector('[name="filter_category"]');
-      if (cat && cat.value) config.category = cat.value;
+      if (cat) config.category = cat.value;
 
       var author = document.querySelector('[name="filter_author"]');
-      if (author && author.value) config.author = parseInt(author.value, 10);
+      if (author) config.author = author.value ? parseInt(author.value, 10) : null;
 
       var limit = document.querySelector('[name="filter_limit"]');
       if (limit) config.limit = parseInt(limit.value, 10) || 5;
@@ -398,16 +372,16 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
       }
 
       var df = document.querySelector('[name="filter_date_from"]');
-      if (df && df.value) config.date_from = df.value;
+      if (df) config.date_from = df.value || null;
 
       var dt = document.querySelector('[name="filter_date_to"]');
-      if (dt && dt.value) config.date_to = dt.value;
+      if (dt) config.date_to = dt.value || null;
 
       var layout = document.querySelector('[name="filter_layout"]');
       if (layout) config.layout = layout.value;
 
       var cp = document.querySelector('[name="filter_class_prefix"]');
-      if (cp && cp.value) config.class_prefix = cp.value;
+      if (cp) config.class_prefix = cp.value;
 
       var wrap = document.querySelector('[name="filter_wrap"]');
       if (wrap) config.wrap = wrap.value;
@@ -427,15 +401,15 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
   var layoutNameSpan = document.getElementById('edit-layout-name');
 
   function buildPreviewConfig() {
-    var config = {};
+    var config = presetConfigCopy();
     var type = document.querySelector('[name="filter_type"]');
     if (type) config.type = type.value;
 
     var cat = document.querySelector('[name="filter_category"]');
-    if (cat && cat.value) config.category = cat.value;
+    if (cat) config.category = cat.value;
 
     var author = document.querySelector('[name="filter_author"]');
-    if (author && author.value) config.author = parseInt(author.value, 10);
+    if (author) config.author = author.value ? parseInt(author.value, 10) : null;
 
     var limit = document.querySelector('[name="filter_limit"]');
     if (limit) config.limit = parseInt(limit.value, 10) || 5;
@@ -465,13 +439,13 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
     }
 
     var df = document.querySelector('[name="filter_date_from"]');
-    if (df && df.value) config.date_from = df.value;
+    if (df) config.date_from = df.value || null;
     var dt = document.querySelector('[name="filter_date_to"]');
-    if (dt && dt.value) config.date_to = dt.value;
+    if (dt) config.date_to = dt.value || null;
 
     if (layoutSelect) config.layout = layoutSelect.value;
     var cp = document.querySelector('[name="filter_class_prefix"]');
-    if (cp && cp.value) config.class_prefix = cp.value;
+    if (cp) config.class_prefix = cp.value;
     var wrap = document.querySelector('[name="filter_wrap"]');
     if (wrap) config.wrap = wrap.value;
 

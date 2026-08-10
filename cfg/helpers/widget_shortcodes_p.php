@@ -64,9 +64,12 @@ function post_cat__safe_layout(string $layout): string {
   return $layout !== '' ? $layout : 'cards';
 }
 
-function post_cat__safe_source(string $source): string {
+function post_cat__safe_source(string $source, array $context = [], ?PDO $pdo = null): string {
   $source = strtolower(trim($source));
-  return in_array($source, ['posts', 'shop_products', 'shop_categories'], true) ? $source : 'posts';
+  $sources = function_exists('shortcode_preset_sources')
+    ? shortcode_preset_sources($context, $pdo)
+    : ['posts', 'shop_products', 'shop_categories'];
+  return in_array($source, $sources, true) ? $source : 'posts';
 }
 
 function post_cat__excerpt(string $html, int $maxLen): string {
@@ -171,7 +174,7 @@ function post_cat__render_template(string $path, array $vars): string {
 }
 
 function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): string {
-  $source = post_cat__safe_source((string)($attrs['source'] ?? 'posts'));
+  $source = post_cat__safe_source((string)($attrs['source'] ?? 'posts'), ['scope' => 'runtime', 'attrs' => $attrs], $pdo);
 
   $catRaw = (string)($attrs['category'] ?? 'news');
   $catKey = post_cat__slug($catRaw);
