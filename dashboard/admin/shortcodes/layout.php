@@ -355,7 +355,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
 .lyo-editor-area {
   display:flex;gap:0;border:1px solid var(--adam-border-soft,var(--adam-border,#ddd));
-  border-radius:8px;overflow:hidden;min-height:480px;
+  border-radius:8px;overflow:hidden;height:clamp(520px,68vh,760px);min-height:520px;
 }
 .lyo-editor-pane {
   flex:1 1 55%;min-width:0;display:flex;flex-direction:column;
@@ -371,14 +371,30 @@ $snippetWrapper = '<?php if ($wrap): ?>
   border-bottom:1px solid var(--adam-border-soft,var(--adam-border,#ddd));
   color:var(--adam-muted,#888);
 }
+.lyo-pane-meta { display:flex;align-items:center;gap:6px;min-width:0; }
+.lyo-pane-toggle {
+  flex:0 0 auto;width:26px;height:26px;padding:0;border:1px solid var(--adam-border-soft,var(--adam-border,#ddd));
+  border-radius:4px;background:var(--adam-surface-3,var(--adam-card,#fff));color:var(--adam-text,#333);
+  cursor:pointer;font-size:1rem;line-height:1;
+}
+.lyo-pane-toggle:hover { border-color:var(--adam-accent,#4361ee);color:var(--adam-accent,#4361ee); }
+.lyo-editor-pane.is-minimized,.lyo-preview-pane.is-minimized { flex:0 0 44px; }
+.lyo-editor-pane.is-minimized .lyo-pane-header,.lyo-preview-pane.is-minimized .lyo-pane-header {
+  height:100%;box-sizing:border-box;padding:.5rem;justify-content:center;align-items:flex-start;border-bottom:0;
+}
+.lyo-editor-pane.is-minimized .lyo-pane-title,.lyo-preview-pane.is-minimized .lyo-pane-title,
+.lyo-editor-pane.is-minimized .lyo-pane-meta > :not(.lyo-pane-toggle),.lyo-preview-pane.is-minimized .lyo-pane-meta > :not(.lyo-pane-toggle),
+.lyo-editor-pane.is-minimized .lyo-pane-body,.lyo-preview-pane.is-minimized .lyo-pane-body,
+.lyo-preview-pane.is-minimized .lyo-error-banner { display:none; }
 .lyo-pane-body {
-  flex:1;overflow:auto;position:relative;
+  flex:1;min-height:0;overflow:auto;position:relative;
 }
 .lyo-pane-body .CodeMirror {
-  height:100% !important;min-height:440px;
+  height:100% !important;min-height:0;
 }
+#preview-content { box-sizing:border-box;height:100%;padding:1rem; }
 .lyo-section-preview-frame {
-  display:block;width:100%;min-height:620px;border:0;background:#fff;
+  display:block;width:100%;height:100%;min-height:0;border:0;background:#fff;
 }
 
 .lyo-toolbar {
@@ -429,8 +445,13 @@ $snippetWrapper = '<?php if ($wrap): ?>
 }
 
 @media (max-width:768px) {
-  .lyo-editor-area { flex-direction:column; }
+  .lyo-editor-area { flex-direction:column;height:auto;min-height:0; }
+  .lyo-editor-pane,.lyo-preview-pane { flex:0 0 480px; }
   .lyo-editor-pane { border-right:none;border-bottom:1px solid var(--adam-border-soft,var(--adam-border,#ddd)); }
+  .lyo-editor-pane.is-minimized,.lyo-preview-pane.is-minimized { flex:0 0 44px; }
+  .lyo-editor-pane.is-minimized .lyo-pane-header,.lyo-preview-pane.is-minimized .lyo-pane-header {
+    align-items:center;justify-content:flex-end;
+  }
 }
 </style>
 
@@ -586,26 +607,30 @@ $snippetWrapper = '<?php if ($wrap): ?>
     </div>
 
     <div class="lyo-editor-area">
-      <div class="lyo-editor-pane">
+      <div class="lyo-editor-pane" id="lyo-editor-pane">
         <div class="lyo-pane-header">
-          <span>&lt;&gt; <?=_e('Code Editor')?></span>
-          <span style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);"><?=_e('PHP + HTML — click a component to insert code')?></span>
+          <span class="lyo-pane-title">&lt;&gt; <?=_e('Code Editor')?></span>
+          <span class="lyo-pane-meta">
+            <span style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);"><?=_e('PHP + HTML — click a component to insert code')?></span>
+            <button type="button" class="lyo-pane-toggle" data-pane-toggle="lyo-editor-pane" aria-expanded="true" aria-label="<?= htmlspecialchars(__('Code Editor'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Code Editor'), ENT_QUOTES, 'UTF-8') ?>">-</button>
+          </span>
         </div>
         <div class="lyo-pane-body">
           <textarea id="cm-textarea" style="width:100%;min-height:440px;padding:.5rem;border:none;resize:none;font-family:monospace;font-size:.85rem;background:var(--adam-bg,#fff);color:var(--adam-text,#333);"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
         </div>
       </div>
-      <div class="lyo-preview-pane">
+      <div class="lyo-preview-pane" id="lyo-preview-pane">
         <div class="lyo-pane-header">
-          <span>👁️ <?=_e('Live Preview')?></span>
-          <span style="display:flex;align-items:center;gap:6px;">
+          <span class="lyo-pane-title">👁️ <?=_e('Live Preview')?></span>
+          <span class="lyo-pane-meta">
             <span id="preview-mode" style="font-weight:400;font-size:.7rem;background:var(--adam-surface-3);padding:.1rem .4rem;border-radius:3px;color:var(--adam-muted,#888);">dummy</span>
             <span id="preview-status" style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);"><?=_e('typing...')?></span>
+            <button type="button" class="lyo-pane-toggle" data-pane-toggle="lyo-preview-pane" aria-expanded="true" aria-label="<?= htmlspecialchars(__('Live Preview'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Live Preview'), ENT_QUOTES, 'UTF-8') ?>">-</button>
           </span>
         </div>
         <div class="lyo-error-banner" id="preview-error"></div>
         <div class="lyo-pane-body">
-          <div id="preview-content" style="padding:1rem;"><?= $isNew ? '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">' . __('Choose a starter template above, then edit the code — preview appears automatically.') . '</div>' : '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">' . __('Loading preview...') . '</div>' ?></div>
+          <div id="preview-content"><?= $isNew ? '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">' . __('Choose a starter template above, then edit the code — preview appears automatically.') . '</div>' : '<div style="color:var(--adam-muted,#888);text-align:center;padding:3rem 1rem;font-size:.9rem;">' . __('Loading preview...') . '</div>' ?></div>
         </div>
       </div>
     </div>
@@ -654,6 +679,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
 <input type="hidden" id="editor-codemirror" checked>
 
+<script src="/static/js/edit/codemirror.js"></script>
 <script>
 var DEFAULT_TEMPLATES = <?= json_encode($isSectionScope ? [$tplClean, $tplSection] : [$tplClean, $tplList, $tplCards, $tplCard2, $tplSlider]) ?>;
 var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippetSectionSummary, $snippetSectionLink] : [$snippetForeach, $snippetThumb, $snippetExcerpt, $snippetDate, $snippetKicker, $snippetSlider, $snippetWrapper]) ?>;
@@ -780,7 +806,7 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
           previewContent.innerHTML = '';
           var frame = document.createElement('iframe');
           frame.className = 'lyo-section-preview-frame';
-          frame.setAttribute('sandbox', '');
+          frame.setAttribute('sandbox', 'allow-same-origin');
           frame.setAttribute('title', <?= json_encode(__('Theme Section Preview')) ?>);
           frame.srcdoc = data.document;
           previewContent.appendChild(frame);
@@ -871,6 +897,34 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
       varBody.classList.toggle('open');
     });
   }
+
+  function setPaneMinimized(pane, minimized) {
+    if (!pane) return;
+    pane.classList.toggle('is-minimized', minimized);
+    var toggle = pane.querySelector('[data-pane-toggle]');
+    if (toggle) {
+      toggle.textContent = minimized ? '+' : '-';
+      toggle.setAttribute('aria-expanded', minimized ? 'false' : 'true');
+    }
+    if (!minimized) {
+      var cmHelper = window.ADIWIRA && window.ADIWIRA.codemirror;
+      var cm = cmHelper && typeof cmHelper.getInstance === 'function' ? cmHelper.getInstance() : null;
+      if (cm && typeof cm.refresh === 'function') window.setTimeout(function(){ cm.refresh(); }, 0);
+    }
+  }
+
+  document.querySelectorAll('[data-pane-toggle]').forEach(function(toggle) {
+    toggle.addEventListener('click', function() {
+      var pane = document.getElementById(this.getAttribute('data-pane-toggle'));
+      if (!pane) return;
+      var minimize = !pane.classList.contains('is-minimized');
+      if (minimize) {
+        var sibling = pane.parentElement ? pane.parentElement.querySelector('.is-minimized') : null;
+        if (sibling && sibling !== pane) setPaneMinimized(sibling, false);
+      }
+      setPaneMinimized(pane, minimize);
+    });
+  });
 
   if (presetBtn && presetSelect) {
     presetBtn.addEventListener('click', function() {

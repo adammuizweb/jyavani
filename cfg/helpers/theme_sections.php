@@ -254,10 +254,19 @@ function theme_section_preview_document_shell(?PDO $pdo = null, array $context =
         : $shell;
 }
 
+function theme_section_preview_sanitize_html(string $html): string
+{
+    $htmlWithoutScripts = preg_replace('~<script\b[^>]*>.*?</script\s*>~is', '', $html);
+    if (!is_string($htmlWithoutScripts)) return '';
+
+    $htmlWithoutScriptTags = preg_replace('~</?script\b[^>]*>~is', '', $htmlWithoutScripts);
+    return is_string($htmlWithoutScriptTags) ? $htmlWithoutScriptTags : '';
+}
+
 function theme_section_preview_document(string $html, ?PDO $pdo = null, array $context = []): string
 {
     $shell = theme_section_preview_document_shell($pdo, $context);
-    return $shell['before'] . $html . $shell['after'];
+    return $shell['before'] . theme_section_preview_sanitize_html($html) . $shell['after'];
 }
 
 function theme_section_default_label(string $name): string

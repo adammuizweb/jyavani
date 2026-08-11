@@ -39,7 +39,8 @@ $check(str_contains($source['save'], 'shortcode_layout_atomic_save($pdo') && str
 $check(str_contains($source['manager'], 'file_exists($target) || is_link($target)'), 'new section saves reject pre-existing symbolic links');
 $check(str_contains($source['delete'], 'shortcode_layout_delete_files') && str_contains($source['manager'], 'theme_section_path_is_within($path, $directory)'), 'section deletes enforce directory containment');
 $check(str_contains($source['preview'], 'adiwira_csrf_validate($csrf)'), 'PHP template preview requires CSRF validation');
-$check(str_contains($source['preview'], 'theme_section_preview_document') && str_contains($source['editor'], 'data.document') && str_contains($source['editor'], "frame.setAttribute('sandbox', '')"), 'Theme Section preview loads its isolated theme-styled document in a sandboxed frame');
+$check(str_contains($source['preview'], 'theme_section_preview_document') && str_contains($source['editor'], 'data.document') && str_contains($source['editor'], "frame.setAttribute('sandbox', 'allow-same-origin')"), 'Theme Section preview loads its script-free theme-styled document with same-origin assets in a sandboxed frame');
+$check(str_contains($source['editor'], '/static/js/edit/codemirror.js') && substr_count($source['editor'], 'data-pane-toggle=') >= 2, 'Theme Section editor initializes CodeMirror and exposes independent pane controls');
 $check(str_contains($source['preview'], '$isValidatedPresetPreview'), 'editorial preview is limited to validated preset layouts');
 $check(str_contains($source['preview'], "file_get_contents(\$layoutReal)"), 'preset preview replaces posted code with a validated layout file');
 $check(strpos($source['preview'], 'file_put_contents($tmpFile, $content') > strpos($source['preview'], 'if ($isSectionScope) {'), 'editorial preset preview does not write posted PHP before validating its layout');

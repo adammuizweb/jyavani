@@ -124,6 +124,8 @@ try {
     $unsafeHtml = render_theme_section($name, ['url' => 'javascript:alert(1)', 'link_label' => 'Unsafe'], $pdo);
     $check(!str_contains($unsafeHtml, 'javascript:'), 'semantic fallback rejects unsafe URL schemes');
     $check(theme_section_safe_url('/safe/path') === '/safe/path', 'relative section URLs remain supported');
+    $previewHtml = theme_section_preview_sanitize_html('<section>Safe<script>alert(1)</script></section>');
+    $check($previewHtml === '<section>Safe</section>', 'preview documents remove renderer scripts before entering the sandbox');
 
     $slotContext = null;
     add_filter('resolve_template', static function (mixed $resolved, string $slotKey): mixed {
