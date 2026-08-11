@@ -1,7 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.57",
-    "build": "2026-08-10",
+    "version": "2.3.58",
+    "build": "2026-08-11",
+    "changelog": "Harden collection layout management and add Content Translation preset lifecycle, runtime, and preview integration hooks.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
