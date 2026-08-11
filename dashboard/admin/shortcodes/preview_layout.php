@@ -3,15 +3,20 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/_layout_manager.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
 [$uid, $role] = adiwira_require_editorial($pdo, true);
-$layoutScope = (string)($_POST['scope'] ?? 'collection');
+$presetIdInput = $_POST['preset_id'] ?? 0;
+$presetId = (is_string($presetIdInput) || is_int($presetIdInput))
+    ? (filter_var($presetIdInput, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0)
+    : 0;
+$layoutScope = is_string($_POST['scope'] ?? null) ? $_POST['scope'] : 'collection';
 if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'collection';
 $isSectionScope = $layoutScope === 'section';
-$presetConfigJson = (string)($_POST['preset_config'] ?? '');
-$isValidatedPresetPreview = !$isSectionScope && $presetConfigJson !== '';
+$presetConfigJson = is_string($_POST['preset_config'] ?? null) ? $_POST['preset_config'] : '';
+$isValidatedPresetPreview = !$isSectionScope && ($presetConfigJson !== '' || $presetId > 0);
 if ($role !== 'admin' && !$isValidatedPresetPreview) {
     adiwira_require_admin($pdo, true);
 }
@@ -20,12 +25,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
 }
 
-$csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+$csrfInput = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+$csrf = is_string($csrfInput) ? $csrfInput : '';
 if (!adiwira_csrf_validate($csrf)) {
     adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
-$content = (string)($_POST['content'] ?? '');
+$content = is_string($_POST['content'] ?? null) ? $_POST['content'] : '';
 if (trim($content) === '') {
     adiwira_json(['ok' => false, 'html' => '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">Template kosong — tulis kode layout di editor.</div>']);
 }
@@ -39,8 +45,6 @@ $tmpFile = $tmpDir . '/tmp_layout_preview_' . bin2hex(random_bytes(8)) . '.php';
 register_shutdown_function(static function () use ($tmpFile): void {
     if (is_file($tmpFile)) @unlink($tmpFile);
 });
-$presetId = (int)($_POST['preset_id'] ?? 0);
-
 try {
     $esc = static function (string $v): string {
         return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
@@ -51,7 +55,7 @@ try {
     $sliderEnabled = false;
 
     if ($isSectionScope) {
-        $sectionName = strtolower(trim((string)($_POST['section_name'] ?? '')));
+        $sectionName = is_string($_POST['section_name'] ?? null) ? strtolower(trim($_POST['section_name'])) : '';
         if ($sectionName === '') $sectionName = 'preview.section';
         if (!function_exists('theme_section_name_is_valid') || !theme_section_name_is_valid($sectionName)) {
             adiwira_json(['ok' => false, 'error' => __('Invalid section name.')], 400);
@@ -102,17 +106,39 @@ try {
     // --- MODE A: Preview from inline config (used by preset editor, unsaved data) ---
     if ($presetConfigJson !== '') {
         $config = json_decode($presetConfigJson, true);
-        if (!is_array($config)) $config = [];
+        if (!is_array($config)) {
+            adiwira_json(['ok' => false, 'error' => __('Invalid preset configuration.')], 400);
+        }
+        $previewContext = ['mode' => 'inline', 'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts'];
+        $validation = shortcode_preset_prepare_preview_config($config, $role === 'admin', $previewContext, $pdo);
+        if ($validation['errors'] !== []) {
+            adiwira_json(['ok' => false, 'error' => (string)$validation['errors'][0], 'errors' => $validation['errors']], 422);
+        }
+        $config = $validation['config'];
+        $previewResult = shortcode_preset_preview_result(null, $config, $previewContext, $pdo);
+        if ($previewResult !== null) {
+            adiwira_json(array_merge(['ok' => true], $previewResult));
+            return;
+        }
+        if (($config['source'] ?? 'posts') !== 'posts') {
+            $html = function_exists('post_cat_shortcode_render')
+                ? post_cat_shortcode_render($pdo, $config, ['scope' => 'preset_preview'])
+                : '';
+            adiwira_json([
+                'ok' => true,
+                'html' => $html !== '' ? $html : '<div class="pcat__empty">' . __('No items are available for this preset source.') . '</div>',
+                'mode' => 'preset_source',
+            ]);
+            return;
+        }
 
-        $layoutName = (string)($config['layout'] ?? 'list');
+        $layoutName = is_string($config['layout'] ?? null) ? $config['layout'] : 'list';
 
         // Load the actual layout template from file
-        $layoutDir = (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
-        $layoutFile = $layoutDir
-            ? $layoutDir . DIRECTORY_SEPARATOR . preg_replace('/[^a-z0-9_-]/', '', $layoutName) . '.php'
-            : '';
-        $layoutReal = $layoutFile !== '' ? realpath($layoutFile) : false;
-        if (!$layoutDir || !$layoutReal || !is_file($layoutReal) || !theme_section_path_is_within($layoutReal, $layoutDir)) {
+        $layoutReal = shortcode_collection_layout_name_is_valid($layoutName)
+            ? post_cat__find_layout_template($pdo, $layoutName)
+            : null;
+        if (!$layoutReal) {
             adiwira_json(['ok' => false, 'error' => __('Layout template not found.')], 404);
         }
         $layoutContent = file_get_contents($layoutReal);
@@ -133,7 +159,7 @@ try {
         $dateFrom = $config['date_from'] ?? null;
         $dateTo = $config['date_to'] ?? null;
         $authorId = isset($config['author']) ? (int)$config['author'] : (isset($config['created_by']) ? (int)$config['created_by'] : null);
-        $kicker = trim((string)($config['kicker'] ?? ''));
+        $kicker = post_cat__resolve_kicker($config, $catRaw);
         $sliderEnabled = strpos($layoutName, 'slider') !== false;
 
         $items = [];
@@ -189,7 +215,7 @@ try {
         }
 
         $attrs = $config;
-        $attrs['source'] = 'posts';
+        $attrs['source'] = $config['source'] ?? 'posts';
         $layout = $layoutName ?: 'list';
         $limitVisible = (int)($config['limit'] ?? 5);
 
@@ -222,14 +248,13 @@ try {
         return;
     }
 
-    if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
-        throw new RuntimeException(__('Failed to prepare template preview.'));
-    }
-
     // --- MODE B: Preview with a real preset (real posts from DB) ---
     if ($presetId > 0) {
-        $stmt = $pdo->prepare("SELECT meta FROM posts WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0 LIMIT 1");
-        $stmt->execute([':id' => $presetId]);
+        $ownershipSql = $role === 'admin' ? '' : ' AND created_by = :created_by';
+        $stmt = $pdo->prepare("SELECT meta, created_by FROM posts WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0" . $ownershipSql . " LIMIT 1");
+        $params = [':id' => $presetId];
+        if ($role !== 'admin') $params[':created_by'] = $uid;
+        $stmt->execute($params);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$row) {
@@ -237,8 +262,40 @@ try {
             return;
         }
 
-        $config = json_decode((string)($row['meta'] ?? '{}'), true);
-        if (!is_array($config)) $config = [];
+        $config = shortcode_preset_config_loaded((string)($row['meta'] ?? '{}'), $row, $pdo);
+        $previewContext = ['mode' => 'stored', 'preset_id' => $presetId, 'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts'];
+        $validation = shortcode_preset_prepare_preview_config($config, $role === 'admin', $previewContext, $pdo);
+        if ($validation['errors'] !== []) {
+            adiwira_json(['ok' => false, 'error' => (string)$validation['errors'][0], 'errors' => $validation['errors']], 422);
+        }
+        $config = $validation['config'];
+        $previewResult = shortcode_preset_preview_result(null, $config, $previewContext + ['template_content' => $content], $pdo);
+        if ($previewResult !== null) {
+            adiwira_json(array_merge(['ok' => true, 'preset_id' => $presetId], $previewResult));
+            return;
+        }
+        if (($config['source'] ?? 'posts') !== 'posts') {
+            $html = function_exists('post_cat_shortcode_render')
+                ? post_cat_shortcode_render($pdo, $config, ['scope' => 'preset_preview', 'preset_id' => $presetId])
+                : '';
+            adiwira_json([
+                'ok' => true,
+                'html' => $html !== '' ? $html : '<div class="pcat__empty">' . __('No items are available for this preset source.') . '</div>',
+                'mode' => 'preset_source',
+                'preset_id' => $presetId,
+            ]);
+            return;
+        }
+
+        if ($role !== 'admin') {
+            $storedLayout = post_cat__find_layout_template($pdo, (string)($config['layout'] ?? ''));
+            $storedContent = $storedLayout ? file_get_contents($storedLayout) : false;
+            if (!is_string($storedContent)) throw new RuntimeException(__('Failed to prepare template preview.'));
+            $content = $storedContent;
+        }
+        if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
+            throw new RuntimeException(__('Failed to prepare template preview.'));
+        }
 
         $type = (string)($config['type'] ?? 'article');
         $catRaw = (string)($config['category'] ?? '');
@@ -253,7 +310,7 @@ try {
         $dateFrom = $config['date_from'] ?? null;
         $dateTo = $config['date_to'] ?? null;
         $authorId = isset($config['author']) ? (int)$config['author'] : (isset($config['created_by']) ? (int)$config['created_by'] : null);
-        $kicker = trim((string)($config['kicker'] ?? ''));
+        $kicker = post_cat__resolve_kicker($config, $catRaw);
 
         // Enable slider if layout has "slider" in the name
         $layoutName = (string)($config['layout'] ?? 'list');
@@ -313,7 +370,7 @@ try {
         }
 
         $attrs = $config;
-        $attrs['source'] = 'posts';
+        $attrs['source'] = $config['source'] ?? 'posts';
         $layout = $layoutName ?: 'list';
         $limitVisible = (int)($config['limit'] ?? 5);
 
@@ -347,6 +404,9 @@ try {
     }
 
     // --- MODE D: Dummy data preview (no preset) ---
+    if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
+        throw new RuntimeException(__('Failed to prepare template preview.'));
+    }
     $items = [
         [
             'kind' => 'post',

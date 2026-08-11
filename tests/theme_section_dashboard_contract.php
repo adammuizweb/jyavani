@@ -7,6 +7,7 @@ $files = [
     'editor' => $root . '/dashboard/admin/shortcodes/layout.php',
     'save' => $root . '/dashboard/admin/shortcodes/save_layout.php',
     'delete' => $root . '/dashboard/admin/shortcodes/delete_layout.php',
+    'manager' => $root . '/dashboard/admin/shortcodes/_layout_manager.php',
     'preview' => $root . '/dashboard/admin/shortcodes/preview_layout.php',
     'preset' => $root . '/dashboard/admin/shortcodes/edit.php',
 ];
@@ -22,7 +23,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 };
 
 $check(str_contains($source['index'], "['collection', 'section']"), 'layouts index exposes explicit collection and section scopes');
-$check(str_contains($source['index'], 'theme_section_theme_directory($pdo)'), 'section listing reads only the active-theme directory');
+$check(str_contains($source['index'], 'shortcode_layout_list($pdo, $layoutScope)') && str_contains($source['manager'], 'theme_section_theme_directory($pdo)'), 'section listing reads only the active-theme directory');
 $check(str_contains($source['editor'], "adiwira_require_admin(\$pdo, false)"), 'PHP layout editor is restricted to administrators');
 
 foreach (['save', 'delete', 'preview'] as $endpoint) {
@@ -33,9 +34,9 @@ foreach (['save', 'delete', 'preview'] as $endpoint) {
 }
 
 $check(str_contains($source['save'], 'theme_section_name_is_valid($newName)'), 'new section files require a validated identifier');
-$check(str_contains($source['save'], 'theme_section_theme_directory($pdo, true)'), 'section saves target the active-theme-owned directory');
-$check(str_contains($source['save'], 'is_link($filePath)'), 'new section saves reject pre-existing symbolic links');
-$check(str_contains($source['delete'], 'theme_section_path_is_within($realPath, $layoutDir)'), 'section deletes enforce directory containment');
+$check(str_contains($source['save'], 'shortcode_layout_atomic_save($pdo') && str_contains($source['manager'], 'theme_section_theme_directory($pdo, true)'), 'section saves target the active-theme-owned directory through the atomic manager');
+$check(str_contains($source['manager'], 'file_exists($target) || is_link($target)'), 'new section saves reject pre-existing symbolic links');
+$check(str_contains($source['delete'], 'shortcode_layout_delete_files') && str_contains($source['manager'], 'theme_section_path_is_within($path, $directory)'), 'section deletes enforce directory containment');
 $check(str_contains($source['preview'], 'adiwira_csrf_validate($csrf)'), 'PHP template preview requires CSRF validation');
 $check(str_contains($source['preview'], '$isValidatedPresetPreview'), 'editorial preview is limited to validated preset layouts');
 $check(str_contains($source['preview'], "file_get_contents(\$layoutReal)"), 'preset preview replaces posted code with a validated layout file');
@@ -45,8 +46,8 @@ $check(str_contains($source['save'], "'application/json'"), 'AJAX layout saves e
 $check(str_contains($source['preview'], 'register_shutdown_function'), 'preview temporary files are removed even when the JSON responder exits');
 $check(!str_contains($source['preview'], "\$_POST['file']"), 'preview does not accept a filesystem path from the request');
 $check(str_contains($source['preset'], "fd.append('csrf_token'"), 'preset preview sends the required CSRF token');
-$check(str_contains($source['save'], '/views/partials/shortcodes/post_cat'), 'legacy collection save path remains supported');
-$check(str_contains($source['delete'], '/views/partials/shortcodes/post_cat'), 'legacy collection delete path remains supported');
+$check(str_contains($source['save'], 'shortcode_layout_atomic_save($pdo') && str_contains($source['manager'], "shortcode_layout_directory(\$pdo, 'collection')") && str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'collection saves use the shared canonical legacy directory');
+$check(str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'legacy collection delete path remains supported');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

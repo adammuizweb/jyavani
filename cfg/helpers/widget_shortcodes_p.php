@@ -39,6 +39,35 @@ function post_cat__parse_attrs(string $attrRaw): array {
   return $attrs;
 }
 
+function post_cat_shortcode_normalize_brackets(string $content): string {
+  return (string)preg_replace_callback(
+    '/&#(?:0*91|x0*5b|0*93|x0*5d);/i',
+    static fn(array $match): string => preg_match('/(?:91|5b);$/i', $match[0]) === 1 ? '[' : ']',
+    $content
+  );
+}
+
+/** Return direct and widget collection shortcodes with their explicitly parsed attrs. */
+function post_cat_shortcode_references(string $content): array {
+  $content = post_cat_shortcode_normalize_brackets($content);
+  $references = [];
+  if (preg_match_all('/\[post_cat_shortcode\b([^\]]*)\]/i', $content, $direct, PREG_SET_ORDER)) {
+    foreach ($direct as $match) {
+      $references[] = ['name' => 'post_cat_shortcode', 'attrs' => post_cat__parse_attrs(trim((string)($match[1] ?? '')))];
+    }
+  }
+  if (preg_match_all('/\[\[\s*widget:(post_cat_shortcode|post_list|post_cards|post_slider)\s*([^\]]*)\]\]/i', $content, $widgets, PREG_SET_ORDER)) {
+    foreach ($widgets as $match) {
+      $attributeText = trim((string)($match[2] ?? ''));
+      $references[] = [
+        'name' => strtolower((string)$match[1]),
+        'attrs' => function_exists('widget_parse_attrs') ? widget_parse_attrs($attributeText) : post_cat__parse_attrs($attributeText),
+      ];
+    }
+  }
+  return $references;
+}
+
 function post_cat__bool($v, bool $default = false): bool {
   if ($v === null) return $default;
   $s = strtolower(trim((string)$v));
@@ -58,10 +87,11 @@ function post_cat__slug(string $s): string {
 }
 
 function post_cat__safe_layout(string $layout): string {
-  $layout = strtolower(trim($layout));
-  $layout = preg_replace('/[^a-z0-9_-]/', '', $layout);
-  $layout = substr((string)$layout, 0, 40);
-  return $layout !== '' ? $layout : 'cards';
+  $layout = trim($layout);
+  $valid = function_exists('shortcode_collection_layout_name_is_valid')
+    ? shortcode_collection_layout_name_is_valid($layout)
+    : ($layout !== '' && strlen($layout) <= 40 && preg_match('/\A[a-z0-9_-]+\z/', $layout) === 1);
+  return $valid ? $layout : 'cards';
 }
 
 function post_cat__safe_source(string $source, array $context = [], ?PDO $pdo = null): string {
@@ -70,6 +100,15 @@ function post_cat__safe_source(string $source, array $context = [], ?PDO $pdo = 
     ? shortcode_preset_sources($context, $pdo)
     : ['posts', 'shop_products', 'shop_categories'];
   return in_array($source, $sources, true) ? $source : 'posts';
+}
+
+function post_cat__resolve_kicker(array $attrs, string $category): string {
+  if (array_key_exists('kicker', $attrs)) return trim((string)$attrs['kicker']);
+  $category = trim($category);
+  if ($category === '') return '';
+  $key = post_cat__slug($category);
+  if ($key === '') $key = strtolower($category);
+  return strtoupper(str_replace(['-', '_'], ' ', $key));
 }
 
 function post_cat__excerpt(string $html, int $maxLen): string {
@@ -117,17 +156,24 @@ function post_cat__empty_html(string $message, string $classPrefix = ''): string
  * 2) views/themes/<folder>/partials/shortcodes/post_cat/<layout>.php  (theme override)
  */
 function post_cat__find_layout_template(PDO $pdo, string $layout): ?string {
-  $layout = post_cat__safe_layout($layout);
+  if (post_cat__safe_layout($layout) !== $layout) return null;
   $rel = 'partials/shortcodes/post_cat/' . $layout . '.php';
 
   // 1) Global path
   $globalBase = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : null;
   if ($globalBase) {
-    $globalPath = rtrim($globalBase, "/\\") . DIRECTORY_SEPARATOR
+    $publicReal = realpath($globalBase);
+    $globalDirectory = rtrim($globalBase, "/\\") . DIRECTORY_SEPARATOR
       . 'views' . DIRECTORY_SEPARATOR
-      . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+      . 'partials' . DIRECTORY_SEPARATOR . 'shortcodes' . DIRECTORY_SEPARATOR . 'post_cat';
+    $directoryReal = !is_link($globalDirectory) ? realpath($globalDirectory) : false;
+    $globalPath = $globalDirectory . DIRECTORY_SEPARATOR . $layout . '.php';
     $real = realpath($globalPath);
-    if ($real && is_file($real)) {
+    $withinPublic = $publicReal && $directoryReal
+      && ($directoryReal === $publicReal || str_starts_with($directoryReal, rtrim($publicReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR));
+    $withinDirectory = $directoryReal && $real
+      && str_starts_with($real, rtrim($directoryReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
+    if ($withinPublic && $withinDirectory && !is_link($globalPath) && is_file($real)) {
       return $real;
     }
   }
@@ -152,13 +198,46 @@ function post_cat__find_layout_template(PDO $pdo, string $layout): ?string {
           . trim((string)$folder, "/\\") . DIRECTORY_SEPARATOR
           . str_replace('/', DIRECTORY_SEPARATOR, $rel);
 
-    $real = realpath($candidate);
-    if ($real && $baseReal && strpos($real, $baseReal) === 0 && is_file($real)) {
+    $candidateDirectory = dirname($candidate);
+    $directoryReal = !is_link($candidateDirectory) ? realpath($candidateDirectory) : false;
+    $real = !is_link($candidate) ? realpath($candidate) : false;
+    if ($real && $baseReal && $directoryReal
+        && str_starts_with($directoryReal, rtrim($baseReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
+        && str_starts_with($real, rtrim($directoryReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
+        && is_file($real)) {
       return $real;
     }
   }
 
   return null;
+}
+
+function post_cat__layout_names(PDO $pdo): array {
+  $names = shortcode_collection_layout_builtin_names();
+  $directories = [defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : false];
+  if (defined('VIEWS_BASE')) {
+    $folders = function_exists('get_relevant_theme_folders')
+      ? get_relevant_theme_folders($pdo, null)
+      : [defined('DEFAULT_THEME_FOLDER') ? DEFAULT_THEME_FOLDER : 'default'];
+    foreach ($folders as $folder) {
+      $directories[] = realpath(rtrim((string)VIEWS_BASE, '/\\') . '/' . $folder . '/partials/shortcodes/post_cat');
+    }
+  }
+
+  foreach (array_filter(array_unique($directories)) as $directory) {
+    if (is_link($directory)) continue;
+    foreach (scandir($directory) ?: [] as $filename) {
+      $name = shortcode_collection_layout_name_from_filename($filename);
+      if ($name !== null) $names[] = $name;
+    }
+  }
+
+  $names = array_values(array_unique(array_filter(
+    $names,
+    static fn(string $name): bool => post_cat__find_layout_template($pdo, $name) !== null
+  )));
+  sort($names, SORT_STRING);
+  return $names;
 }
 
 function post_cat__render_template(string $path, array $vars): string {
@@ -213,10 +292,7 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
   $infinite = post_cat__bool($attrs['infinite'] ?? '1', true);
 
   $baseUrl = rtrim((string)($ctx['base_url'] ?? ''), '/');
-  $kicker = trim((string)($attrs['kicker'] ?? ''));
-  if ($kicker === '' && !array_key_exists('kicker', $attrs)) {
-    $kicker = strtoupper(str_replace(['-','_'], ' ', $catKey));
-  }
+  $kicker = post_cat__resolve_kicker($attrs, $catRaw);
 
   $excerptLen = (int)($attrs['excerpt'] ?? $attrs['excerpt_len'] ?? 90);
   if ($excerptLen < 20) $excerptLen = 90;
@@ -548,11 +624,7 @@ function post_cat_shortcode_expand($html, $pdo, array $ctx = []) {
 
   $html = (string)$html;
 
-  $html = str_replace(
-    ['&#91;', '&#93;', '&#x5B;', '&#x5D;', '&#091;', '&#093;'],
-    ['[', ']', '[', ']', '[', ']'],
-    $html
-  );
+  $html = post_cat_shortcode_normalize_brackets($html);
 
   if (strpos($html, '[post_cat_shortcode') === false) {
     return $html;

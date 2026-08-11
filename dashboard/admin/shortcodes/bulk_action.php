@@ -12,27 +12,31 @@ adiwira_cosmetic_404_on_direct_open();
 
 $defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/shortcodes/index&tab=presets';
 $returnTo = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
+    ? adiwira_safe_return_to($_POST['return_to'] ?? null, $defaultReturnTo)
     : $defaultReturnTo;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
 }
 
-$csrf = (string)($_POST['csrf_token'] ?? '');
+$csrf = is_string($_POST['csrf_token'] ?? null) ? $_POST['csrf_token'] : '';
 if (!adiwira_csrf_validate($csrf)) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 }
 
-$ids = array_values(array_unique(array_filter(
-    array_map('intval', is_array($_POST['ids'] ?? null) ? $_POST['ids'] : []),
-    static fn(int $id): bool => $id > 0
-)));
+$rawIds = is_array($_POST['ids'] ?? null) ? $_POST['ids'] : [];
+$ids = [];
+foreach ($rawIds as $rawId) {
+    if (!is_string($rawId) && !is_int($rawId)) continue;
+    $validId = filter_var($rawId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($validId !== false) $ids[] = (int)$validId;
+}
+$ids = array_values(array_unique($ids));
 if ($ids === []) {
     adiwira_redirect_with_flash($returnTo, 'error', __('No presets selected.'));
 }
 
-$action = (string)($_POST['action'] ?? '');
+$action = is_string($_POST['action'] ?? null) ? $_POST['action'] : '';
 $statuses = ['publish' => 'published', 'draft' => 'draft', 'private' => 'private'];
 if (!isset($statuses[$action]) && $action !== 'delete') {
     adiwira_redirect_with_flash($returnTo, 'error', __('Unknown bulk action.'));
@@ -50,6 +54,11 @@ try {
         $select = $pdo->prepare("SELECT id FROM posts WHERE id IN ($placeholders) AND type = 'sc_preset' AND is_deleted = 0$ownership FOR UPDATE");
         $select->execute($params);
         $deletedIds = array_map('intval', $select->fetchAll(PDO::FETCH_COLUMN, 0));
+
+        foreach ($deletedIds as $deletedId) {
+            // A listener failure aborts all source and dependent-row changes.
+            shortcode_preset_before_delete($pdo, $deletedId);
+        }
 
         $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW() WHERE id IN ($placeholders) AND type = 'sc_preset' AND is_deleted = 0$ownership");
         $stmt->execute($params);
@@ -79,5 +88,8 @@ try {
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('shortcodes/bulk_action.php error: ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Bulk action failed.'));
+    $message = $e instanceof ShortcodePresetDeletionBlockedException
+        ? $e->getMessage()
+        : __('Bulk action failed.');
+    adiwira_redirect_with_flash($returnTo, 'error', $message);
 }

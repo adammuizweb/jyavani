@@ -292,37 +292,43 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             (title, slug, content, type, meta, youtube, thumbnail, status, created_by, created_at, updated_at)
             VALUES
             (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :status, :created_by, :created_at, :updated_at)";
-        $stmt = $pdo->prepare($insertSql);
+        try {
+            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $status, $uid, $final_created, $final_updated, $category_ids): int {
+                $stmt = $pdo->prepare($insertSql);
+                $ok = $stmt->execute([
+                    ':title'      => $title,
+                    ':slug'       => $slug,
+                    ':content'    => $content,
+                    ':meta'       => $metaVal,
+                    ':youtube'    => $youtube,
+                    ':thumbnail'  => $thumbnail,
+                    ':status'     => $status,
+                    ':created_by' => $uid,
+                    ':created_at' => $final_created,
+                    ':updated_at' => $final_updated,
+                ]);
+                if (!$ok) return 0;
 
-        $ok = $stmt->execute([
-            ':title'      => $title,
-            ':slug'       => $slug,
-            ':content'    => $content,
-            ':meta'       => $metaVal,
-            ':youtube'    => $youtube,
-            ':thumbnail'  => $thumbnail,
-            ':status'     => $status,
-            ':created_by' => $uid,
-            ':created_at' => $final_created,
-            ':updated_at' => $final_updated,
-        ]);
-
-        if ($ok) {
-            $post_id = (int)$pdo->lastInsertId();
-
-            if (!empty($category_ids)) {
-                $assignStmt = $pdo->prepare("INSERT INTO post_categories (post_id, category_id, assigned_by) VALUES (:post_id, :category_id, :by)");
-                foreach ($category_ids as $cid) {
-                    $assignStmt->execute([
-                        ':post_id'    => $post_id,
-                        ':category_id'=> (int)$cid,
-                        ':by'         => $uid
-                    ]);
+                $postId = (int)$pdo->lastInsertId();
+                if (!empty($category_ids)) {
+                    $assignStmt = $pdo->prepare("INSERT INTO post_categories (post_id, category_id, assigned_by) VALUES (:post_id, :category_id, :by)");
+                    foreach ($category_ids as $cid) {
+                        $assignStmt->execute([
+                            ':post_id' => $postId,
+                            ':category_id' => (int)$cid,
+                            ':by' => $uid,
+                        ]);
+                    }
                 }
-            }
+                return $postId;
+            });
+        } catch (Throwable $error) {
+            error_log('posts/add.php error: ' . $error->getMessage());
+            $post_id = 0;
+        }
 
+        if ($post_id > 0) {
             do_action('admin_post_after_add', $post_id, $pdo, $_POST);
-
             adiwira_redirect_with_flash($return_to, 'success', __('Article saved successfully.'));
         }
 

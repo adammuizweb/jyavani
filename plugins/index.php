@@ -10,6 +10,175 @@ define('PLUGIN_DISABLED_JSON', BACKEND_PATH . '/var/plugins-disabled.json');
 
 // --- Frontend Route Registry ---
 $GLOBALS['_plugin_frontend_routes'] = [];
+$GLOBALS['_plugin_requirement_diagnostics'] = [];
+$GLOBALS['_plugin_last_error'] = '';
+
+function plugin_current_jyavani_version(): string {
+    static $version = null;
+    if ($version !== null) return $version;
+    $file = dirname(__DIR__) . '/VERSION';
+    $version = is_file($file) ? trim((string)file_get_contents($file)) : '0.0.0';
+    return preg_match('/^\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?$/', $version) ? $version : '0.0.0';
+}
+
+function plugin_version_requirement_met(string $current, string $requirement): bool {
+    $requirement = trim($requirement);
+    if ($requirement === '') return true;
+    if (preg_match('/\A(>=|<=|>|<|==|=)?\s*(\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\z/', $requirement, $match) !== 1) return false;
+    return version_compare($current, $match[2], $match[1] === '' || $match[1] === '=' ? '>=' : $match[1]);
+}
+
+function plugin_canonical_version_requirement(string $requirement): ?string {
+    $requirement = trim($requirement);
+    if (preg_match('/\A(>=|<=|>|<|==|=)?\s*(\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\z/', $requirement, $match) !== 1) return null;
+    $operator = $match[1] === '' || $match[1] === '=' ? '>=' : $match[1];
+    return $operator . $match[2];
+}
+
+/** Normalize canonical and legacy top-level requirement metadata. */
+function plugin_normalize_requirements(array $manifest): array {
+    $errors = [];
+    $value = $manifest['requires'] ?? [];
+    $requires = is_array($value) ? $value : [];
+    if (array_key_exists('requires', $manifest) && !is_array($value)) $errors[] = 'Invalid plugin requirements declaration';
+
+    foreach (['jyavani_required' => 'jyavani', 'php_required' => 'php'] as $legacy => $canonical) {
+        if (!array_key_exists($legacy, $manifest)) continue;
+        $legacyValue = $manifest[$legacy];
+        if (!is_string($legacyValue)) {
+            $errors[] = 'Invalid ' . ($canonical === 'php' ? 'PHP' : 'Jyavani') . ' requirement';
+            continue;
+        }
+        $legacyValue = trim($legacyValue);
+        $canonicalValue = is_string($requires[$canonical] ?? null) ? plugin_canonical_version_requirement($requires[$canonical]) : null;
+        $legacyCanonical = plugin_canonical_version_requirement($legacyValue);
+        if (isset($requires[$canonical]) && ($canonicalValue === null || $legacyCanonical === null || $canonicalValue !== $legacyCanonical)) {
+            $errors[] = 'Conflicting ' . ($canonical === 'php' ? 'PHP' : 'Jyavani') . ' requirements';
+        } elseif (!isset($requires[$canonical]) && $legacyValue !== '') {
+            $requires[$canonical] = $legacyValue;
+        }
+    }
+    if (!array_key_exists('extensions', $requires) && array_key_exists('extensions_required', $manifest)) {
+        $requires['extensions'] = $manifest['extensions_required'];
+    }
+    return ['requires' => $requires, 'errors' => array_values(array_unique($errors))];
+}
+
+/** Store packages must carry every advertised requirement unchanged. */
+function plugin_package_requirement_errors(array $catalog, array $package): array {
+    $catalogMeta = plugin_normalize_requirements($catalog);
+    $packageMeta = plugin_normalize_requirements($package);
+    $errors = array_merge($catalogMeta['errors'], $packageMeta['errors']);
+    foreach (['jyavani', 'php'] as $key) {
+        $advertised = $catalogMeta['requires'][$key] ?? null;
+        $declared = $packageMeta['requires'][$key] ?? null;
+        if ($advertised !== null && $advertised !== '' && (!is_string($declared)
+            || plugin_canonical_version_requirement((string)$advertised) !== plugin_canonical_version_requirement($declared))) {
+            $errors[] = 'Package ' . $key . ' requirement does not match the store catalog';
+        }
+    }
+    $catalogExtensions = $catalogMeta['requires']['extensions'] ?? [];
+    $packageExtensions = $packageMeta['requires']['extensions'] ?? [];
+    if (is_string($catalogExtensions)) $catalogExtensions = array_filter(array_map('trim', explode(',', $catalogExtensions)));
+    if (is_string($packageExtensions)) $packageExtensions = array_filter(array_map('trim', explode(',', $packageExtensions)));
+    if (is_array($catalogExtensions) && $catalogExtensions !== []) {
+        $normalize = static function (array $extensions): array {
+            $result = [];
+            foreach ($extensions as $key => $value) $result[(string)(is_int($key) ? $value : $key)] = is_int($key) ? '' : (string)$value;
+            ksort($result, SORT_STRING);
+            return $result;
+        };
+        $advertised = $normalize($catalogExtensions);
+        $declared = is_array($packageExtensions) ? $normalize($packageExtensions) : [];
+        foreach ($advertised as $extension => $minimum) {
+            if (!array_key_exists($extension, $declared) || $declared[$extension] !== $minimum) {
+                $errors[] = 'Package extension requirements do not match the store catalog';
+                break;
+            }
+        }
+    }
+    return array_values(array_unique($errors));
+}
+
+/** Return requirement checks in the same shape as plugin setup checks. */
+function plugin_requirement_checks(array $manifest): array {
+    $metadata = plugin_normalize_requirements($manifest);
+    $requires = $metadata['requires'];
+    $checks = [];
+    foreach ($metadata['errors'] as $error) $checks[] = ['label' => $error, 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
+    $jyavani = is_string($requires['jyavani'] ?? null) ? trim($requires['jyavani']) : '';
+    if (array_key_exists('jyavani', $requires) && !is_string($requires['jyavani'])) {
+        $checks[] = ['label' => 'Invalid Jyavani requirement', 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
+    }
+    if ($jyavani !== '') {
+        $checks[] = [
+            'label' => 'Jyavani ' . $jyavani . ' (installed: ' . plugin_current_jyavani_version() . ')',
+            'passed' => plugin_version_requirement_met(plugin_current_jyavani_version(), $jyavani),
+            'command' => '', 'doc' => '', 'raw_output' => '',
+        ];
+    }
+    $php = is_string($requires['php'] ?? null) ? trim($requires['php']) : '';
+    if (array_key_exists('php', $requires) && !is_string($requires['php'])) {
+        $checks[] = ['label' => 'Invalid PHP requirement', 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
+    }
+    if ($php !== '') {
+        $checks[] = [
+            'label' => 'PHP ' . $php . ' (installed: ' . PHP_VERSION . ')',
+            'passed' => plugin_version_requirement_met(PHP_VERSION, $php),
+            'command' => '', 'doc' => '', 'raw_output' => '',
+        ];
+    }
+    $extensions = $requires['extensions'] ?? [];
+    if (is_string($extensions)) $extensions = array_filter(array_map('trim', explode(',', $extensions)));
+    if (!is_array($extensions)) {
+        $checks[] = ['label' => 'Invalid PHP extension requirements', 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
+        $extensions = [];
+    }
+    if (is_array($extensions)) {
+        foreach ($extensions as $key => $value) {
+            $extension = is_int($key) ? $value : $key;
+            $minimum = is_int($key) ? '' : $value;
+            if (!is_string($extension) || preg_match('/\A[a-zA-Z0-9_-]+\z/', $extension) !== 1) {
+                $checks[] = ['label' => 'Invalid PHP extension requirement', 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
+                continue;
+            }
+            $loaded = extension_loaded($extension);
+            $passed = $loaded;
+            if ($loaded && is_string($minimum) && trim($minimum) !== '') {
+                $extensionVersion = phpversion($extension);
+                $passed = is_string($extensionVersion) && plugin_version_requirement_met($extensionVersion, $minimum);
+            }
+            $checks[] = [
+                'label' => 'PHP extension: ' . $extension . (is_string($minimum) && $minimum !== '' ? ' ' . $minimum : ''),
+                'passed' => $passed, 'command' => '', 'doc' => '', 'raw_output' => '',
+            ];
+        }
+    }
+    return $checks;
+}
+
+function plugin_requirement_errors(array $manifest): array {
+    return array_values(array_map(
+        static fn(array $check): string => $check['label'],
+        array_filter(plugin_requirement_checks($manifest), static fn(array $check): bool => !$check['passed'])
+    ));
+}
+
+function plugin_requirements_error_message(array $manifest): string {
+    $errors = plugin_requirement_errors($manifest);
+    if ($errors === []) return '';
+    $template = function_exists('__') ? __('Plugin requirements are not met: %s.') : 'Plugin requirements are not met: %s.';
+    return sprintf($template, implode('; ', $errors));
+}
+
+function plugin_requirement_diagnostics(): array {
+    plugins_active();
+    return $GLOBALS['_plugin_requirement_diagnostics'];
+}
+
+function plugin_last_error(): string {
+    return (string)($GLOBALS['_plugin_last_error'] ?? '');
+}
 
 function register_frontend_route(string $prefix, callable|string $handler): void {
     $GLOBALS['_plugin_frontend_routes'][$prefix] = $handler;
@@ -42,6 +211,7 @@ function plugin_load_active(): void {
 }
 
 function plugin_manifest(string $name): ?array {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return null;
     $file = PLUGIN_PATH . '/' . $name . '/plugin.json';
     if (!is_file($file)) return null;
     $data = json_decode(file_get_contents($file), true);
@@ -61,18 +231,118 @@ function plugin_safe_path(string $root, string $relative): ?string {
     return $base . '/' . $relative;
 }
 
-function plugin_static_copy(string $pluginDir, array $entries): array {
-    $public = defined('PUBLIC_PATH') ? PUBLIC_PATH : dirname(PLUGIN_PATH) . '/public';
-    $copied = $failed = 0;
+function plugin_sync_directory(string $directory): void {
+    if (!function_exists('fsync')) return;
+    $handle = @fopen($directory, 'rb');
+    if (!is_resource($handle)) return;
+    @fsync($handle);
+    fclose($handle);
+}
+
+function plugin_static_copy(string $pluginDir, array $entries, array $oldEntries = []): array {
+    $errors = [];
+    $pluginName = basename($pluginDir);
+    $validated = [];
     foreach ($entries as $entry) {
-        $source = plugin_safe_path($pluginDir, (string)($entry['from'] ?? ''));
-        $dest = plugin_static_path(basename($pluginDir), (string)($entry['to'] ?? ''));
-        if (!$source || !$dest || !is_file($source) || is_link($source)) { $failed++; continue; }
-        if (!is_dir(dirname($dest)) && !mkdir(dirname($dest), 0755, true)) { $failed++; continue; }
-        if (is_link($dest) || !@copy($source, $dest)) { $failed++; continue; }
-        $copied++;
+        if (!is_array($entry)) { $errors[] = 'Invalid static.copy entry.'; continue; }
+        $from = is_string($entry['from'] ?? null) ? $entry['from'] : '';
+        $to = is_string($entry['to'] ?? null) ? $entry['to'] : '';
+        $source = plugin_safe_path($pluginDir, $from);
+        $dest = plugin_static_path($pluginName, $to);
+        if (!$source || !$dest || !is_file($source) || is_link($source) || is_link($dest)
+            || (file_exists($dest) && !is_file($dest))) {
+            $errors[] = 'Invalid static copy: ' . ($to !== '' ? $to : $from);
+        } elseif (isset($validated[$dest])) {
+            $errors[] = 'Duplicate static copy destination: ' . $to;
+        } else {
+            $validated[$dest] = ['source' => $source, 'dest' => $dest];
+        }
     }
-    return compact('copied', 'failed');
+    $oldDestinations = [];
+    foreach ($oldEntries as $entry) {
+        $to = is_array($entry) && is_string($entry['to'] ?? null) ? $entry['to'] : '';
+        $dest = plugin_static_path($pluginName, $to);
+        if (!$dest || is_link($dest)) $errors[] = 'Invalid previous static copy: ' . $to;
+        else $oldDestinations[$dest] = true;
+    }
+    if ($errors !== []) return ['copied' => 0, 'removed' => 0, 'failed' => count($errors), 'rollback_incomplete' => false, 'errors' => $errors];
+
+    $changes = [];
+    $copied = 0;
+    $removed = 0;
+    try {
+        foreach ($validated as $item) {
+            $destDir = dirname($item['dest']);
+            if (!is_dir($destDir) && !@mkdir($destDir, 0755, true) && !is_dir($destDir)) throw new RuntimeException('Could not create static directory.');
+            if (is_link($destDir) || is_link($item['dest'])) throw new RuntimeException('Static destination is a symlink.');
+            $token = bin2hex(random_bytes(8));
+            $temporary = $destDir . '/.plugin-copy-' . $token . '.tmp';
+            $backup = $destDir . '/.plugin-copy-' . $token . '.bak';
+            $input = @fopen($item['source'], 'rb');
+            $output = @fopen($temporary, 'x+b');
+            if (!$input || !$output || stream_copy_to_stream($input, $output) === false || !fflush($output)
+                || (function_exists('fsync') && !fsync($output))) {
+                if (is_resource($input)) fclose($input);
+                if (is_resource($output)) fclose($output);
+                @unlink($temporary);
+                throw new RuntimeException('Could not copy declared static file.');
+            }
+            fclose($input);
+            fclose($output);
+            @chmod($temporary, 0644);
+            $hadExisting = is_file($item['dest']);
+            $backupHash = $hadExisting ? hash_file('sha256', $item['dest']) : null;
+            if ($hadExisting && !rename($item['dest'], $backup)) {
+                @unlink($temporary);
+                throw new RuntimeException('Could not back up existing static file.');
+            }
+            $changes[] = ['action' => 'publish', 'dest' => $item['dest'], 'backup' => $hadExisting ? $backup : null, 'backup_hash' => $backupHash];
+            if (!rename($temporary, $item['dest'])) {
+                @unlink($temporary);
+                throw new RuntimeException('Could not publish declared static file.');
+            }
+            plugin_sync_directory($destDir);
+            $copied++;
+        }
+        foreach (array_diff_key($oldDestinations, $validated) as $dest => $_unused) {
+            if (!is_file($dest)) continue;
+            $backup = dirname($dest) . '/.plugin-copy-' . bin2hex(random_bytes(8)) . '.bak';
+            $backupHash = hash_file('sha256', $dest);
+            if (!rename($dest, $backup)) throw new RuntimeException('Could not stage obsolete static file removal.');
+            plugin_sync_directory(dirname($dest));
+            $changes[] = ['action' => 'remove', 'dest' => $dest, 'backup' => $backup, 'backup_hash' => $backupHash];
+            $removed++;
+        }
+        foreach ($changes as $change) {
+            if ($change['backup'] !== null && is_file($change['backup']) && !@unlink($change['backup'])) {
+                error_log('plugin static backup cleanup failed: ' . $change['backup']);
+            }
+        }
+        return ['copied' => $copied, 'removed' => $removed, 'failed' => 0, 'rollback_incomplete' => false, 'errors' => []];
+    } catch (Throwable $error) {
+        $rollbackErrors = [];
+        foreach (array_reverse($changes) as $change) {
+            if ($change['action'] === 'publish' && (file_exists($change['dest']) || is_link($change['dest']))) {
+                if (!@unlink($change['dest']) || file_exists($change['dest']) || is_link($change['dest'])) $rollbackErrors[] = 'Could not remove replacement ' . $change['dest'];
+            }
+            if ($change['backup'] !== null && is_file($change['backup'])) {
+                $restored = @rename($change['backup'], $change['dest']);
+                $restoredHash = $restored && is_file($change['dest']) ? hash_file('sha256', $change['dest']) : false;
+                if (!$restored || !is_string($restoredHash) || !is_string($change['backup_hash'])
+                    || !hash_equals($change['backup_hash'], $restoredHash)) {
+                    $rollbackErrors[] = 'Could not verify restored content for ' . $change['dest'];
+                } else {
+                    plugin_sync_directory(dirname($change['dest']));
+                }
+            } elseif ($change['action'] === 'publish' && (file_exists($change['dest']) || is_link($change['dest']))) {
+                $rollbackErrors[] = 'New destination remains after rollback ' . $change['dest'];
+            }
+        }
+        foreach ($rollbackErrors as $rollbackError) error_log('plugin static copy rollback failed: ' . $rollbackError);
+        $errors[] = $error->getMessage();
+        if ($rollbackErrors !== []) $errors[] = 'Static asset rollback was incomplete: ' . implode('; ', $rollbackErrors);
+        return ['copied' => 0, 'removed' => 0, 'failed' => max(1, count($entries)), 'rollback_incomplete' => $rollbackErrors !== [], 'errors' => $errors];
+    }
 }
 
 function plugin_static_path(string $name, string $relative): ?string {
@@ -86,7 +356,8 @@ function plugins_all(): array {
     $plugins = [];
     foreach (glob(PLUGIN_PATH . '/*/plugin.json') as $file) {
         $data = json_decode(file_get_contents($file), true);
-        if (is_array($data) && !empty($data['name'])) {
+        $folder = basename(dirname($file));
+        if (is_array($data) && ($data['name'] ?? null) === $folder && preg_match('/\A[a-zA-Z0-9_-]+\z/', $folder) === 1) {
             $plugins[$data['name']] = $data;
         }
     }
@@ -104,7 +375,11 @@ function plugins_active(): array {
         if (is_array($d)) $disabled = $d;
     }
     foreach ($all as $name => $p) {
-        if (!in_array($name, $disabled, true)) {
+        $requirementError = plugin_requirements_error_message($p);
+        if ($requirementError !== '') {
+            $GLOBALS['_plugin_requirement_diagnostics'][$name] = $requirementError;
+            error_log("[plugin-loader] Plugin '{$name}' skipped: {$requirementError}");
+        } elseif (!in_array($name, $disabled, true)) {
             $cache[$name] = $p;
         }
     }
@@ -114,23 +389,36 @@ function plugins_active(): array {
 // --- Plugin Manager helpers ---
 
 function plugin_enable(string $name): bool {
+    $manifest = plugin_manifest($name);
+    $error = $manifest ? plugin_requirements_error_message($manifest) : 'Plugin manifest is invalid.';
+    if ($error !== '') {
+        $GLOBALS['_plugin_last_error'] = $error;
+        $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;
+        return false;
+    }
     $disabled = [];
     if (is_file(PLUGIN_DISABLED_JSON)) {
-        $disabled = json_decode(file_get_contents(PLUGIN_DISABLED_JSON), true) ?? [];
+        $decoded = json_decode((string)file_get_contents(PLUGIN_DISABLED_JSON), true);
+        if (is_array($decoded)) $disabled = $decoded;
     }
     $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
-    return file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
+    $ok = file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
+    $GLOBALS['_plugin_last_error'] = $ok ? '' : 'Failed to update plugin state.';
+    return $ok;
 }
 
 function plugin_disable(string $name): bool {
     $disabled = [];
     if (is_file(PLUGIN_DISABLED_JSON)) {
-        $disabled = json_decode(file_get_contents(PLUGIN_DISABLED_JSON), true) ?? [];
+        $decoded = json_decode((string)file_get_contents(PLUGIN_DISABLED_JSON), true);
+        if (is_array($decoded)) $disabled = $decoded;
     }
     if (!in_array($name, $disabled, true)) {
         $disabled[] = $name;
     }
-    return file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
+    $ok = file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
+    $GLOBALS['_plugin_last_error'] = $ok ? '' : 'Failed to update plugin state.';
+    return $ok;
 }
 
 function plugin_is_active(string $name): bool {
@@ -258,22 +546,32 @@ function plugin_delete(string $name): bool {
 
     // Remove static.copy files first
     if ($manifest && isset($manifest['static']['copy'])) {
-        $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
-        foreach ($manifest['static']['copy'] as $entry) {
-            $dest = $entry['to'] ?? $entry['dest'] ?? '';
-            if ($dest !== '') {
-                $abs = plugin_static_path($name, (string)$dest);
-                if ($abs === null) continue;
-                if (is_file($abs) && !@unlink($abs)) {
-                    $errors[] = 'Failed to remove ' . $dest;
+        $staticEntries = $manifest['static']['copy'];
+        if (!is_array($staticEntries)) {
+            $errors[] = 'Invalid static.copy declaration';
+        } else {
+            $destinations = [];
+            foreach ($staticEntries as $entry) {
+                $dest = is_array($entry) && is_string($entry['to'] ?? null) ? $entry['to'] : '';
+                $abs = plugin_static_path($name, $dest);
+                if (!$abs || is_link($abs)) {
+                    $errors[] = 'Invalid static destination ' . $dest;
+                } else {
+                    $destinations[$abs] = $dest;
                 }
-                // Remove empty parent dirs
-                $parent = dirname($abs);
-                if (is_dir($parent) && count(scandir($parent)) <= 2) {
-                    @rmdir($parent);
+            }
+            if ($errors === []) {
+                foreach ($destinations as $abs => $dest) {
+                    if (is_file($abs) && (!@unlink($abs) || file_exists($abs))) $errors[] = 'Failed to remove ' . $dest;
+                    $parent = dirname($abs);
+                    if (is_dir($parent) && count(scandir($parent)) <= 2) @rmdir($parent);
                 }
             }
         }
+    }
+    if ($errors !== []) {
+        foreach ($errors as $error) error_log("[plugin_delete] {$error}");
+        return false;
     }
 
     // Remove plugin directory recursively
@@ -332,11 +630,11 @@ function plugin_delete(string $name): bool {
 // --- Setup checks (for plugin detail page) ---
 function plugin_checks(string $name): array {
     $manifest = plugin_manifest($name);
-    if (!$manifest || !isset($manifest['setup']['checks'])) return [];
+    if (!$manifest) return [];
 
-    $results = [];
+    $results = plugin_requirement_checks($manifest);
     $pluginDir = PLUGIN_PATH . '/' . $name;
-    foreach ($manifest['setup']['checks'] as $i => $check) {
+    foreach (($manifest['setup']['checks'] ?? []) as $i => $check) {
         $label = $check['label'] ?? 'Check ' . ($i + 1);
         $tip = $check['doc'] ?? '';
         $type = (string)($check['type'] ?? '');

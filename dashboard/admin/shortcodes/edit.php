@@ -15,7 +15,7 @@ $isAdmin = ($role === 'admin');
 
 $base = ADMIN_BASE_PATH;
 $return_to = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $base . '/?page=admin/shortcodes/index&tab=presets')
+    ? adiwira_safe_return_to($_REQUEST['return_to'] ?? null, $base . '/?page=admin/shortcodes/index&tab=presets')
     : ($base . '/?page=admin/shortcodes/index&tab=presets');
 
 $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
@@ -75,25 +75,8 @@ if ($isAdmin) {
     } catch (Throwable $e) {}
 }
 
-// Available layouts from global + default
-$layoutOptions = ['list', 'cards', 'card2', 'sliderpage'];
-$layoutDirs = [realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat')];
-if (function_exists('get_active_theme_folder')) {
-    $activeTheme = get_active_theme_folder($pdo);
-    $layoutDirs[] = realpath(PUBLIC_PATH . '/views/themes/' . $activeTheme . '/partials/shortcodes/post_cat');
-}
-foreach (array_filter(array_unique($layoutDirs)) as $layoutDir) {
-    $files = scandir($layoutDir) ?: [];
-    foreach ($files as $f) {
-        if (str_ends_with($f, '.php')) {
-            $name = pathinfo($f, PATHINFO_FILENAME);
-            if (!in_array($name, $layoutOptions, true)) {
-                $layoutOptions[] = $name;
-            }
-        }
-    }
-}
-sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
+// Use the same filename contract and resolver as frontend rendering.
+$layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_names($pdo) : [];
 ?>
 <section class="adam-card">
   <h2><?= $isEdit ? _e('Edit Preset') : _e('Add New Preset') ?></h2>
@@ -448,6 +431,10 @@ sort($layoutOptions, SORT_NATURAL | SORT_FLAG_CASE);
     if (cp) config.class_prefix = cp.value;
     var wrap = document.querySelector('[name="filter_wrap"]');
     if (wrap) config.wrap = wrap.value;
+
+    document.dispatchEvent(new CustomEvent('shortcode-preset-preview-config', {
+      detail: { config: config, form: form }
+    }));
 
     return config;
   }

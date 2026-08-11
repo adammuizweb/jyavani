@@ -329,7 +329,9 @@ if ($metaDescription !== '') {
 $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNICODE) : null;
 
 try {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid): void {
     $pdo->beginTransaction();
+    try {
 
     $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
 
@@ -372,6 +374,11 @@ try {
     }
 
     $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+    });
 
     do_action('admin_post_after_edit', $id, $pdo, $_POST);
 
@@ -388,7 +395,6 @@ try {
     ]);
 
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('posts/save.php error: ' . $e->getMessage());
     save_error_response(['Gagal menyimpan posting.'], $edit_return, 500);
 }

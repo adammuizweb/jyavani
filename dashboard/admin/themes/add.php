@@ -90,7 +90,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (empty($errors)) {
         try {
-            $pdo->beginTransaction();
             $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
             $themeMeta = [];
             if ($metaDescription !== '') {
@@ -102,27 +101,37 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ? (int)$_POST['created_by']
                 : $user_id;
 
-            $stmt = $pdo->prepare("
-                INSERT INTO posts
-                    (title, slug, content, type, status, meta, created_by, created_at, updated_at)
-                VALUES
-                    (:title, :slug, :content, 'theme', :status, :meta, :uid, NOW(), NOW())
-            ");
+            $postId = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $status, $finalMeta, $authorId, $publicPath): int {
+                $pdo->beginTransaction();
+                try {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO posts
+                            (title, slug, content, type, status, meta, created_by, created_at, updated_at)
+                        VALUES
+                            (:title, :slug, :content, 'theme', :status, :meta, :uid, NOW(), NOW())
+                    ");
+                    if (!$stmt->execute([
+                        ':title'   => $title,
+                        ':slug'    => $slug,
+                        ':content' => $content,
+                        ':status'  => $status,
+                        ':meta'    => $finalMeta,
+                        ':uid'     => $authorId,
+                    ])) {
+                        throw new RuntimeException('Failed to save theme partial.');
+                    }
+                    $postId = (int)$pdo->lastInsertId();
+                    if ($publicPath !== '') content_route_set_canonical($pdo, $postId, $publicPath);
+                    $pdo->commit();
+                    return $postId;
+                } catch (Throwable $error) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    throw $error;
+                }
+            });
 
-            $ok = $stmt->execute([
-                ':title'   => $title,
-                ':slug'    => $slug,
-                ':content' => $content,
-                ':status'  => $status,
-                ':meta'    => $finalMeta,
-                ':uid'     => $authorId,
-            ]);
-
-            if ($ok) {
-                $postId = (int)$pdo->lastInsertId();
-                if ($publicPath !== '') content_route_set_canonical($pdo, $postId, $publicPath);
+            if ($postId > 0) {
                 do_action('admin_theme_after_add', $postId, $pdo, $_POST);
-                $pdo->commit();
                 unset($_SESSION[$nonce_key]);
                 adiwira_redirect_with_flash($return_to, 'success', __('Theme partial berhasil disimpan.'));
             }

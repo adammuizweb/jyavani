@@ -159,7 +159,6 @@ if (!empty($errors)) {
 unset($_SESSION[$session_key]);
 
 try {
-    $pdo->beginTransaction();
     $themeMeta = !empty($theme['meta']) ? json_decode($theme['meta'], true) : [];
     if (!is_array($themeMeta)) $themeMeta = [];
     $metaDescription = trim((string)($_POST['meta_description'] ?? ''));
@@ -172,22 +171,6 @@ try {
         }
     }
     $finalMeta = !empty($themeMeta) ? json_encode($themeMeta, JSON_UNESCAPED_UNICODE) : null;
-
-    $upd = $pdo->prepare("
-        UPDATE posts
-        SET title = :title,
-            slug = :slug,
-            content = :content,
-            status = :status,
-            meta = :meta,
-            " . ($isAdmin ? "created_by = :author_id," : "") . "
-            updated_at = NOW()
-        WHERE id = :id
-          AND type = 'theme'
-          AND is_deleted = 0
-          " . (!$isAdmin ? "AND created_by = :uid" : "") . "
-        LIMIT 1
-    ");
 
     $params = [
         ':title'   => $title,
@@ -204,17 +187,35 @@ try {
         $params[':uid'] = $user_id;
     }
 
-    $ok = $upd->execute($params);
-    if (!$ok) {
-        throw new RuntimeException('DB error saat menyimpan.');
-    }
-    if ($publicPath === '') {
-        content_route_delete_for_post($pdo, $id);
-    } else {
-        content_route_set_canonical($pdo, $id, $publicPath);
-    }
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $isAdmin, $params, $publicPath, $id): void {
+        $pdo->beginTransaction();
+        try {
+            $upd = $pdo->prepare("
+                UPDATE posts
+                SET title = :title,
+                    slug = :slug,
+                    content = :content,
+                    status = :status,
+                    meta = :meta,
+                    " . ($isAdmin ? "created_by = :author_id," : "") . "
+                    updated_at = NOW()
+                WHERE id = :id
+                  AND type = 'theme'
+                  AND is_deleted = 0
+                  " . (!$isAdmin ? "AND created_by = :uid" : "") . "
+                LIMIT 1
+            ");
+            if (!$upd->execute($params)) throw new RuntimeException('DB error saat menyimpan.');
+            if ($publicPath === '') content_route_delete_for_post($pdo, $id);
+            else content_route_set_canonical($pdo, $id, $publicPath);
+            $pdo->commit();
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $error;
+        }
+    });
+
     do_action('admin_theme_after_edit', $id, $pdo, $_POST);
-    $pdo->commit();
 
     $stmt2 = $pdo->prepare("SELECT id, slug, title, status, updated_at FROM posts WHERE id = :id LIMIT 1");
     $stmt2->execute([':id' => $id]);

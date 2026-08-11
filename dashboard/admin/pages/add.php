@@ -258,27 +258,28 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
         $metaVal = !empty($pageMeta) ? json_encode($pageMeta, JSON_UNESCAPED_UNICODE) : null;
 
         try {
-            $stmt = $pdo->prepare("
-                INSERT INTO posts
-                (title, slug, content, type, meta, thumbnail, status, created_by, created_at, updated_at)
-                VALUES
-                (:title, :slug, :content, 'page', :meta, :thumbnail, :status, :created_by, :created_at, :updated_at)
-            ");
+            $page_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $metaVal, $thumbnail, $status, $uid, $final_created, $final_updated): int {
+                $stmt = $pdo->prepare("
+                    INSERT INTO posts
+                    (title, slug, content, type, meta, thumbnail, status, created_by, created_at, updated_at)
+                    VALUES
+                    (:title, :slug, :content, 'page', :meta, :thumbnail, :status, :created_by, :created_at, :updated_at)
+                ");
+                $ok = $stmt->execute([
+                    ':title'      => $title,
+                    ':slug'       => $slug,
+                    ':content'    => $content,
+                    ':meta'       => $metaVal,
+                    ':thumbnail'  => $thumbnail,
+                    ':status'     => $status,
+                    ':created_by' => $uid,
+                    ':created_at' => $final_created,
+                    ':updated_at' => $final_updated,
+                ]);
+                return $ok ? (int)$pdo->lastInsertId() : 0;
+            });
 
-            $ok = $stmt->execute([
-                ':title'      => $title,
-                ':slug'       => $slug,
-                ':content'    => $content,
-                ':meta'       => $metaVal,
-                ':thumbnail'  => $thumbnail,
-                ':status'     => $status,
-                ':created_by' => $uid,
-                ':created_at' => $final_created,
-                ':updated_at' => $final_updated,
-            ]);
-
-            if ($ok) {
-                $page_id = (int)$pdo->lastInsertId();
+            if ($page_id > 0) {
                 do_action('admin_page_after_add', $page_id, $pdo, $_POST);
                 adiwira_redirect_with_flash($return_to, 'success', __('Page saved successfully.'));
             }

@@ -37,7 +37,7 @@ if ($action === 'toggle' && $pluginName !== '') {
         if (plugin_enable($pluginName)) {
             adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . __('activated.'));
         }
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to activate plugin.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to activate plugin.'));
     }
 }
 
@@ -142,6 +142,7 @@ if ($action === 'apply-update' && $pluginName !== '') {
 // --- Collect plugin data ---
 $allPlugins = plugins_all();
 $activePlugins = plugins_active();
+$requirementDiagnostics = plugin_requirement_diagnostics();
 $availableUpdates = PluginStoreController::getCachedUpdates();
 $hasStoreUrl = false;
 foreach ($allPlugins as $name => $p) {
@@ -314,8 +315,10 @@ $buildUrl = function(array $overrides = []) use ($base): string {
       $authorUri = $p['author_uri'] ?? '';
       $pluginUri = $p['plugin_uri'] ?? '';
       $isActive = isset($activePlugins[$name]);
+      $requirementDiagnostic = $requirementDiagnostics[$name] ?? '';
       $hasUpdate = isset($availableUpdates[$name]);
       $updateInfo = $hasUpdate ? $availableUpdates[$name] : null;
+      $updateCompatible = !$hasUpdate || (($updateInfo['compatible'] ?? true) === true);
       $hasStore = !empty($p['store']) || str_starts_with((string)($p['plugin_uri'] ?? ''), 'https://jyavani.com/plugin/');
     ?>
     <?php
@@ -347,7 +350,8 @@ $buildUrl = function(array $overrides = []) use ($base): string {
           <?php endif; ?>
           <div>
             <a href="<?= h($base) ?>/?page=admin/plugins/detail&name=<?= h($name) ?>" class="plugin-name-link"><?= h($title) ?></a>
-            <?php if ($desc): ?><br><span class="text-muted" style="font-size:0.85rem"><?= h($desc) ?></span><?php endif; ?>
+             <?php if ($desc): ?><br><span class="text-muted" style="font-size:0.85rem"><?= h($desc) ?></span><?php endif; ?>
+            <?php if ($requirementDiagnostic !== ''): ?><br><span style="font-size:.8rem;color:var(--adam-danger)"><?= h($requirementDiagnostic) ?></span><?php endif; ?>
             <?php if ($author): ?><br><span class="plugin-meta">
               <?php if ($authorUri): ?>
                 <a href="<?= h($authorUri) ?>" target="_blank" rel="noopener" class="plugin-meta-link"><?= svg_ico('user', 'lucide-icon-xs') ?> <?= h($author) ?></a>
@@ -365,12 +369,15 @@ $buildUrl = function(array $overrides = []) use ($base): string {
         <span class="version-text"><?= h($version) ?></span>
         <?php if ($hasUpdate): ?>
           <br><span class="badge badge-update">v<?= h($updateInfo['new_version']) ?></span>
+          <?php if (!$updateCompatible): ?><br><span style="font-size:.72rem;color:var(--adam-danger)"><?= h(implode('; ', (array)($updateInfo['compatibility_errors'] ?? []))) ?></span><?php endif; ?>
         <?php elseif ($hasStore): ?>
           <br><span class="badge badge-latest"><?=_e('Latest')?></span>
         <?php endif; ?>
       </td>
       <td>
-        <?php if ($isActive): ?>
+        <?php if ($requirementDiagnostic !== ''): ?>
+          <span class="badge badge-update"><?=_e('Incompatible')?></span>
+        <?php elseif ($isActive): ?>
           <span class="badge badge-success"><?=_e('Active')?></span>
         <?php else: ?>
           <span class="badge badge-muted"><?=_e('Inactive')?></span>
@@ -378,7 +385,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
       </td>
       <td class="td-actions">
         <div class="action-btns">
-          <?php if ($hasUpdate): ?>
+          <?php if ($hasUpdate && $updateCompatible): ?>
           <form method="post" class="form-inline js-confirm-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="action" value="apply-update">

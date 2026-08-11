@@ -93,27 +93,48 @@ if (!function_exists('adiwira_flash_pull')) {
 }
 
 if (!function_exists('adiwira_safe_return_to')) {
-    function adiwira_safe_return_to(?string $candidate, ?string $fallback = null): string
+    function adiwira_safe_return_to(mixed $candidate, mixed $fallback = null): string
     {
-        $fallback = trim((string)$fallback);
-        if ($fallback === '') {
-            $fallback = (defined('ADMIN_BASE_PATH') ? ADMIN_BASE_PATH : '/adiwira') . '/';
-        }
+        $adminBase = '/' . trim(defined('ADMIN_BASE_PATH') ? (string)ADMIN_BASE_PATH : '/adiwira', '/');
+        $default = $adminBase . '/';
+        $normalize = static function (mixed $value) use ($adminBase): ?string {
+            if (!is_string($value)) return null;
+            $value = trim($value);
+            if ($value === '' || $value[0] !== '/' || str_contains($value, '\\')
+                || preg_match('/[\x00-\x1F\x7F]/', $value) === 1) return null;
 
-        $candidate = trim((string)$candidate);
-        if ($candidate === '') {
-            return $fallback;
-        }
+            $decoded = $value;
+            for ($i = 0; $i < 5; $i++) {
+                $next = rawurldecode($decoded);
+                if ($next === $decoded) break;
+                $decoded = $next;
+            }
+            if (rawurldecode($decoded) !== $decoded) return null;
+            if (str_contains($decoded, '\\')
+                || preg_match('/[\x00-\x1F\x7F]/', $decoded) === 1
+                || str_starts_with($decoded, '//')
+                || preg_match('#^(?:[a-z][a-z0-9+\-.]*:)?//#i', $decoded) === 1) {
+                return null;
+            }
 
-        if (preg_match('#^(?:[a-z][a-z0-9+\-.]*:)?//#i', $candidate)) {
-            return $fallback;
-        }
+            $parts = parse_url($decoded);
+            if (!is_array($parts) || isset($parts['scheme'], $parts['host'], $parts['user'], $parts['port'])) return null;
+            $path = $parts['path'] ?? '';
+            if (!is_string($path)) return null;
+            foreach (explode('/', $path) as $segment) {
+                if ($segment === '.' || $segment === '..') return null;
+            }
+            $path = (string)preg_replace('#/{2,}#', '/', $path);
+            if ($path !== $adminBase && !str_starts_with($path, $adminBase . '/')) return null;
 
-        if ($candidate[0] !== '/') {
-            return $fallback;
-        }
+            $normalized = $path;
+            if (isset($parts['query']) && $parts['query'] !== '') $normalized .= '?' . $parts['query'];
+            if (isset($parts['fragment']) && $parts['fragment'] !== '') $normalized .= '#' . $parts['fragment'];
+            return $normalized;
+        };
 
-        return $candidate;
+        $safeFallback = $normalize($fallback) ?? $default;
+        return $normalize($candidate) ?? $safeFallback;
     }
 }
 

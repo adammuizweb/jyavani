@@ -9,16 +9,17 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/_layout_manager.php';
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 $isAdmin = ($role === 'admin');
 
 $base = ADMIN_BASE_PATH;
-$tab = (string)($_GET['tab'] ?? 'presets');
+$tab = is_string($_GET['tab'] ?? null) ? $_GET['tab'] : 'presets';
 if ($tab === 'layouts' && !$isAdmin) {
     adiwira_require_admin($pdo, false);
 }
-$layoutScope = (string)($_GET['scope'] ?? 'collection');
+$layoutScope = is_string($_GET['scope'] ?? null) ? $_GET['scope'] : 'collection';
 if (!in_array($layoutScope, ['collection', 'section'], true) || ($layoutScope === 'section' && !$isAdmin)) {
     $layoutScope = 'collection';
 }
@@ -89,23 +90,45 @@ $buildPresetPaginationItems = static function (int $current, int $total, int $ma
 $presetPagingItems = $buildPresetPaginationItems($presetFilters['p'], $presetPages, 9);
 
 // --- Layouts ---
-$layoutFiles = [];
 $activeThemeFolder = function_exists('get_active_theme_folder') ? get_active_theme_folder($pdo) : DEFAULT_THEME_FOLDER;
-$layoutDir = $layoutScope === 'section'
-    ? (function_exists('theme_section_theme_directory') ? theme_section_theme_directory($pdo) : null)
-    : (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
-if ($layoutDir && is_dir($layoutDir)) {
-    $files = scandir($layoutDir);
-    foreach ($files as $f) {
-        if (str_ends_with($f, '.php')) {
-            if ($layoutScope === 'section' && (!function_exists('theme_section_name_is_valid') || !theme_section_name_is_valid(pathinfo($f, PATHINFO_FILENAME)))) {
-                continue;
-            }
-            $layoutFiles[] = $f;
-        }
-    }
-    sort($layoutFiles);
+$layoutFilters = shortcode_layout_list_filters($_GET, $layoutScope);
+$layoutManagerError = '';
+try {
+    $layoutEntries = shortcode_layout_list($pdo, $layoutScope);
+} catch (Throwable $error) {
+    error_log('shortcode layout list failed: ' . $error->getMessage());
+    $layoutEntries = [];
+    $layoutManagerError = __('Layout manager is temporarily unavailable. No layout changes were made.');
 }
+$layoutEntries = array_values(array_filter($layoutEntries, static function (array $layout) use ($layoutFilters, $layoutScope): bool {
+    if ($layoutFilters['q'] !== ''
+        && stripos((string)$layout['file'], $layoutFilters['q']) === false
+        && stripos((string)$layout['name'], $layoutFilters['q']) === false) {
+        return false;
+    }
+    if ($layoutFilters['filter'] === '') return true;
+    if ($layoutScope === 'section') {
+        return $layoutFilters['filter'] === ($layout['registered'] ? 'registered' : 'unregistered');
+    }
+    return $layoutFilters['filter'] === ($layout['builtin'] ? 'builtin' : 'custom');
+}));
+$layoutPerPage = 15;
+$layoutTotal = count($layoutEntries);
+$layoutPages = max(1, (int)ceil($layoutTotal / $layoutPerPage));
+$layoutFilters['p'] = min($layoutFilters['p'], $layoutPages);
+$layoutOffset = ($layoutFilters['p'] - 1) * $layoutPerPage;
+$layoutEntries = array_slice($layoutEntries, $layoutOffset, $layoutPerPage);
+$layoutQuery = ['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => $layoutScope];
+if ($layoutFilters['q'] !== '') $layoutQuery['q'] = $layoutFilters['q'];
+if ($layoutFilters['filter'] !== '') $layoutQuery['filter'] = $layoutFilters['filter'];
+if ($layoutFilters['p'] > 1) $layoutQuery['p'] = $layoutFilters['p'];
+$layoutReturnTo = $base . '/?' . http_build_query($layoutQuery);
+$layoutAddHref = $base . '/?' . http_build_query([
+    'page' => 'admin/shortcodes/layout',
+    'scope' => $layoutScope,
+    'return_to' => $layoutReturnTo,
+]);
+$layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPages, 9);
 ?>
 <section class="adam-card">
   <h2><?=_e('Shortcode Builder')?></h2>
@@ -232,13 +255,16 @@ if ($layoutDir && is_dir($layoutDir)) {
   </form>
 
 <?php elseif ($tab === 'layouts'): ?>
+  <?php if ($layoutManagerError !== ''): ?>
+    <p role="alert" style="padding:.65rem .8rem;border:1px solid var(--adam-danger,#b42318);color:var(--adam-danger,#b42318);border-radius:6px;"><?= h($layoutManagerError) ?></p>
+  <?php endif; ?>
   <div class="sc-toolbar">
     <a class="<?= $layoutScope === 'collection' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=collection') ?>"><?=_e('Collection Layouts')?></a>
     <?php if ($isAdmin): ?>
       <a class="<?= $layoutScope === 'section' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=section') ?>"><?=_e('Theme Sections')?></a>
     <?php endif; ?>
     <span style="flex:1"></span>
-    <a class="adam-button" href="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/layout', 'scope' => $layoutScope])) ?>"><?= $layoutScope === 'section' ? __('+ Add Theme Section') : __('+ Add Layout') ?></a>
+    <a class="adam-button" href="<?= h($layoutAddHref) ?>"><?= $layoutScope === 'section' ? __('+ Add Theme Section') : __('+ Add Layout') ?></a>
   </div>
 
   <?php if ($layoutScope === 'section'): ?>
@@ -246,35 +272,91 @@ if ($layoutDir && is_dir($layoutDir)) {
       <?= sprintf(__('Editing renderers owned by the active theme: %s'), '<code>' . h($activeThemeFolder) . '</code>') ?>
     </p>
   <?php endif; ?>
+  <p style="margin:-.25rem 0 1rem;color:var(--adam-muted,#666);font-size:.82rem;">
+    <?=_e('Layout removal moves files one at a time under an operation lock. After interruption, Core restores the group on the next manager operation when destinations are unchanged; conflicts stay retained for recovery and are logged.')?>
+  </p>
 
+  <div class="sc-toolbar">
+    <form method="get" class="sc-filter-form">
+      <input type="hidden" name="page" value="admin/shortcodes/index">
+      <input type="hidden" name="tab" value="layouts">
+      <input type="hidden" name="scope" value="<?= h($layoutScope) ?>">
+      <input type="search" name="q" value="<?= h($layoutFilters['q']) ?>" maxlength="120" placeholder="<?= h(__('Search layout file or name…')) ?>" class="inpud">
+      <select name="filter" class="inpud">
+        <option value=""><?= $layoutScope === 'section' ? __('All registration statuses') : __('All layout types') ?></option>
+        <?php if ($layoutScope === 'section'): ?>
+          <option value="registered" <?= $layoutFilters['filter'] === 'registered' ? 'selected' : '' ?>><?=_e('Registered')?></option>
+          <option value="unregistered" <?= $layoutFilters['filter'] === 'unregistered' ? 'selected' : '' ?>><?=_e('Unregistered')?></option>
+        <?php else: ?>
+          <option value="builtin" <?= $layoutFilters['filter'] === 'builtin' ? 'selected' : '' ?>><?=_e('Built-in')?></option>
+          <option value="custom" <?= $layoutFilters['filter'] === 'custom' ? 'selected' : '' ?>><?=_e('Custom')?></option>
+        <?php endif; ?>
+      </select>
+      <button type="submit" class="adam-button"><?=_e('Apply')?></button>
+      <a class="adam-cancle" href="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => $layoutScope])) ?>"><?=_e('Reset')?></a>
+    </form>
+  </div>
+
+  <form id="layout-bulk-form" method="post" action="<?= h($base . '/admin/shortcodes/bulk_layout_action.php') ?>">
+    <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="scope" value="<?= h($layoutScope) ?>">
+    <input type="hidden" name="return_to" value="<?= h($layoutReturnTo) ?>">
+    <div class="sc-bulk-bar">
+      <label><input type="checkbox" id="layout-select-all"> <?=_e('Select all on page')?></label>
+      <select name="action" class="inpud" required>
+        <option value=""><?=_e('-- Bulk action --')?></option>
+        <option value="delete"><?=_e('Remove to quarantine')?></option>
+      </select>
+      <button type="submit" class="adam-button"><?=_e('Apply')?></button>
+      <small><?=_e('Bulk only affects checked items.')?></small>
+    </div>
   <div class="adam-table-wrapper">
     <table class="adam-table">
       <thead>
         <tr>
+          <th style="width:32px"><span class="sr-only"><?=_e('Select')?></span></th>
           <th><?=_e('File Name')?></th>
           <th><?= $layoutScope === 'section' ? __('Section Name') : __('Layout Name') ?></th>
+          <th><?=_e('Type')?></th>
           <th><?=_e('Size')?></th>
           <th style="width:140px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
-        <?php if (empty($layoutFiles)): ?>
-          <tr><td colspan="4" style="padding:1rem;"><?= $layoutScope === 'section' ? __('No theme section renderers yet.') : __('No layout templates yet.') ?> <a href="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/layout', 'scope' => $layoutScope])) ?>"><?=_e('Create one now')?></a>.</td></tr>
+        <?php if (empty($layoutEntries)): ?>
+          <tr><td colspan="6" style="padding:1rem;"><?=_e('No layouts found.')?> <a href="<?= h($layoutAddHref) ?>"><?=_e('Create one now')?></a>.</td></tr>
         <?php else: ?>
-          <?php foreach ($layoutFiles as $f):
-            $layoutName = pathinfo($f, PATHINFO_FILENAME);
-            $fpath = $layoutDir . DIRECTORY_SEPARATOR . $f;
-            $fsize = is_file($fpath) ? filesize($fpath) : 0;
+          <?php foreach ($layoutEntries as $layout):
+            $f = (string)$layout['file'];
+            $layoutName = (string)$layout['name'];
+            $fsize = (int)$layout['size'];
             $fsizeStr = $fsize > 1024 ? round($fsize / 1024, 1) . ' KB' : $fsize . ' B';
-            $editHref = $base . '/?' . http_build_query(['page' => 'admin/shortcodes/layout', 'scope' => $layoutScope, 'file' => $f]);
+            $canDelete = !$layout['builtin'];
+            $typeLabel = $layoutScope === 'section'
+              ? ($layout['registered'] ? __('Registered') : __('Unregistered'))
+              : ($layout['builtin'] ? __('Built-in') : __('Custom'));
+            $editHref = $base . '/?' . http_build_query([
+              'page' => 'admin/shortcodes/layout',
+              'scope' => $layoutScope,
+              'file' => $f,
+              'return_to' => $layoutReturnTo,
+            ]);
           ?>
             <tr class="adam-row">
+              <td>
+                <?php if ($canDelete): ?>
+                  <input type="checkbox" class="layout-row-check" name="files[]" value="<?= h($f) ?>" aria-label="<?= h(sprintf(__('Select %s'), $layoutName)) ?>">
+                <?php else: ?>
+                  <span class="sr-only"><?=_e('Built-in')?></span>
+                <?php endif; ?>
+              </td>
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h($f) ?></a></td>
               <td><code><?= h($layoutName) ?></code></td>
-              <td><?= $fsizeStr ?></td>
+              <td><?= h($typeLabel) ?></td>
+              <td><?= h($fsizeStr) ?></td>
               <td>
                 <a class="adam-ubah" href="<?= h($editHref) ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
-                <?php if ($layoutScope === 'section' || !in_array($layoutName, ['cards', 'list', 'card2', 'sliderpage'], true)): ?>
+                <?php if ($canDelete): ?>
                   &nbsp;<span class="muted-divider">|</span>&nbsp;
                   <button type="button" class="adam-hapus js-layout-delete" data-file="<?= h($f) ?>" data-name="<?= h($layoutName) ?>"><?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?></button>
                 <?php endif; ?>
@@ -285,12 +367,35 @@ if ($layoutDir && is_dir($layoutDir)) {
       </tbody>
     </table>
   </div>
+  </form>
+  <p id="layout-bulk-feedback" role="status" aria-live="polite" tabindex="-1" style="display:none;margin:.5rem 0;color:var(--adam-danger,#b42318);"></p>
+
+  <?php if ($layoutPages > 1): ?>
+    <nav class="adam-pagination pagination-wrap">
+      <?php foreach ($layoutPagingItems as $item):
+        if ($item === '...') {
+          echo '<span class="dots">…</span> ';
+          continue;
+        }
+        $pageNumber = (int)$item;
+        $pageQuery = $layoutQuery;
+        $pageQuery['p'] = $pageNumber;
+        $pageLink = $base . '/?' . http_build_query($pageQuery);
+      ?>
+        <?php if ($pageNumber === $layoutFilters['p']): ?>
+          <strong><?= $pageNumber ?></strong>
+        <?php else: ?>
+          <a href="<?= h($pageLink) ?>"><?= $pageNumber ?></a>
+        <?php endif; ?>
+      <?php endforeach; ?>
+    </nav>
+  <?php endif; ?>
 
   <form id="layout-delete-form" method="post" action="<?= h($base . '/admin/shortcodes/delete_layout.php') ?>" style="display:none;">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="file" id="layout-delete-file">
     <input type="hidden" name="scope" value="<?= h($layoutScope) ?>">
-    <input type="hidden" name="return_to" value="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => $layoutScope])) ?>">
+    <input type="hidden" name="return_to" value="<?= h($layoutReturnTo) ?>">
   </form>
 <?php endif; ?>
 </section>
@@ -338,13 +443,15 @@ if ($layoutDir && is_dir($layoutDir)) {
 
   <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🧩 <?=_e('Layout — Visual Template for Post Display')?></h4>
   <p style="margin:0 0 .5rem;">
-    <?=_e('A layout is a <strong>PHP file</strong> in <code>views/partials/shortcodes/post_cat/</code> that controls <em>how</em> posts/pages are rendered (cards, list, slider, etc.). 4 built-in layouts are available:')?>
+    <?=_e('A layout is a <strong>PHP file</strong> in <code>views/partials/shortcodes/post_cat/</code> that controls <em>how</em> posts/pages are rendered. Six built-in layouts are available:')?>
   </p>
   <ul style="margin:0 0 .5rem;padding-left:1.2rem;">
     <li><code>list</code> — <?=_e('vertical list with excerpt')?></li>
     <li><code>cards</code> — <?=_e('card grid with thumbnail')?></li>
     <li><code>card2</code> — <?=_e('card variant with a different accent')?></li>
     <li><code>sliderpage</code> — <?=_e('horizontal slider (carousel)')?></li>
+    <li><code>grid</code> — <?=_e('compact content grid')?></li>
+    <li><code>mini</code> — <?=_e('minimal content list')?></li>
   </ul>
   <p style="margin:0;">
     <?=_e('You can create your own custom layout via the <strong>Layouts</strong> tab.')?>
@@ -384,6 +491,51 @@ if ($layoutDir && is_dir($layoutDir)) {
     return Promise.resolve(window.confirm(opts.message || '<?=__('Continue?')?>'));
   }
 
+  var layoutSelectAll = document.getElementById('layout-select-all');
+  var layoutChecks = Array.prototype.slice.call(document.querySelectorAll('.layout-row-check'));
+  if (layoutSelectAll) {
+    layoutSelectAll.addEventListener('change', function(){
+      layoutChecks.forEach(function(check){ check.checked = layoutSelectAll.checked; });
+    });
+    layoutChecks.forEach(function(check){
+      check.addEventListener('change', function(){
+        layoutSelectAll.checked = layoutChecks.length > 0 && layoutChecks.every(function(item){ return item.checked; });
+      });
+    });
+  }
+
+  var layoutBulkForm = document.getElementById('layout-bulk-form');
+  var layoutBulkFeedback = document.getElementById('layout-bulk-feedback');
+  function layoutNotice(message) {
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: 'warning', title: <?= json_encode(__('Layouts')) ?>, message: message });
+      return;
+    }
+    if (layoutBulkFeedback) {
+      layoutBulkFeedback.textContent = message;
+      layoutBulkFeedback.style.display = 'block';
+      layoutBulkFeedback.focus();
+    }
+  }
+  if (layoutBulkForm) {
+    layoutBulkForm.addEventListener('submit', function(event){
+      event.preventDefault();
+      var selected = layoutChecks.filter(function(check){ return check.checked; }).length;
+      if (selected === 0) {
+        layoutNotice(<?= json_encode(__('No layouts selected.')) ?>);
+        return;
+      }
+      ask('danger', {
+        title: <?= json_encode(__('Remove selected layouts')) ?>,
+        message: <?= json_encode(__('Remove %d selected layout(s) from active use and move them to non-public quarantine?')) ?>.replace('%d', String(selected)),
+        confirmText: <?= json_encode(__('Yes, remove')) ?>,
+        cancelText: <?= json_encode(__('Cancel')) ?>
+      }).then(function(ok){
+        if (ok) layoutBulkForm.submit();
+      });
+    });
+  }
+
   var deleteForm = document.getElementById('preset-delete-form');
   if (deleteForm) {
     document.querySelectorAll('.js-preset-delete').forEach(function(btn){
@@ -412,8 +564,8 @@ if ($layoutDir && is_dir($layoutDir)) {
         var name = this.getAttribute('data-name') || '<?=__('this layout')?>';
         ask('danger', {
           title: '<?=__('Delete layout')?>',
-          message: '<?=__('Delete layout file')?> "' + name + '"? <?=__('File will be permanently deleted.')?>',
-          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          message: '<?=__('Remove layout file')?> "' + name + '"? <?=__('The file will be moved to non-public quarantine.')?>',
+          confirmText: <?= json_encode(__('Yes, remove')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;

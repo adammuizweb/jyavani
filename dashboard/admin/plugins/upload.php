@@ -159,6 +159,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         _rmdir_recursive($tmpExtract);
         adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json setelah ekstrak tidak valid.'));
     }
+    $requirementError = plugin_requirements_error_message($extractedManifest);
+    if ($requirementError !== '') {
+        _rmdir_recursive($tmpExtract);
+        adiwira_redirect_with_flash($selfUrl, 'error', $requirementError);
+    }
 
     // Move to plugins/{name}/
     if (!rename($tmpExtract, $pluginDir)) {
@@ -192,50 +197,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $flashMessages = [];
     $flashType = 'success';
 
+    // Keep the plugin inactive until every declared asset is published.
+    $activatePlugin = $installAction === 'upload_activate';
+    if (!plugin_disable($pluginName)) {
+        _rmdir_recursive($pluginDir);
+        adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to update plugin state.'));
+    }
+
     // --- Copy static files ---
     $staticCopy = $extractedManifest['static']['copy'] ?? [];
-    if (!empty($staticCopy) && is_array($staticCopy)) {
-        $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
-        $copied = 0;
-        $failed = 0;
-        foreach ($staticCopy as $entry) {
-            $from = $entry['from'] ?? '';
-            $to = $entry['to'] ?? '';
-            if ($from === '' || $to === '') continue;
-
-            $source = plugin_safe_path($pluginDir, $from);
-            $dest = plugin_static_path($pluginName, $to);
-
-            if (!$source || !$dest || !is_file($source) || is_link($source)) {
-                $failed++;
-                continue;
-            }
-
-            $destDir = dirname($dest);
-            if (!is_dir($destDir)) {
-                @mkdir($destDir, 0755, true);
-            }
-
-            if (@copy($source, $dest)) {
-                $copied++;
-            } else {
-                $failed++;
-            }
+    if (!is_array($staticCopy)) {
+        _rmdir_recursive($pluginDir);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because static.copy is invalid.'));
+    }
+    if ($staticCopy !== []) {
+        $copyResult = plugin_static_copy($pluginDir, $staticCopy);
+        if ($copyResult['failed'] > 0) {
+            _rmdir_recursive($pluginDir);
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because declared static files could not be copied.'));
         }
-        if ($copied > 0) {
-            $flashMessages[] = $copied . ' ' . __('static files copied.');
-        }
-        if ($failed > 0) {
-            $flashMessages[] = $failed . ' ' . __('static files failed to copy.');
-        }
+        $flashMessages[] = $copyResult['copied'] . ' ' . __('static files copied.');
     }
 
     // --- Enable / disable plugin ---
-    if ($installAction === 'upload_activate' && function_exists('plugin_enable')) {
-        plugin_enable($pluginName);
+    if ($activatePlugin) {
+        if (!plugin_enable($pluginName)) {
+            adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to activate plugin.'));
+        }
         $flashMessages[] = __('Plugin activated.') . ' "' . htmlspecialchars($manifest['title'] ?? $pluginName) . '"';
-    } elseif (function_exists('plugin_disable')) {
-        plugin_disable($pluginName);
     }
 
     $finalMsg = implode(' ', $flashMessages);

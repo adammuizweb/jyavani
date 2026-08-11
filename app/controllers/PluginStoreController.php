@@ -27,6 +27,17 @@ class PluginStoreController
             }
             $anyFetched = true;
             if (version_compare($latest['version'] ?? '0.0.0', $currentVersion, '>')) {
+                $latestRequirements = is_array($latest['requires'] ?? null) ? $latest['requires'] : [];
+                if (is_string($latest['jyavani_required'] ?? null) && $latest['jyavani_required'] !== '') {
+                    $latestRequirements['jyavani'] = $latest['jyavani_required'];
+                }
+                if (is_string($latest['php_required'] ?? null) && $latest['php_required'] !== '') {
+                    $latestRequirements['php'] = $latest['php_required'];
+                }
+                $requirementManifest = ['requires' => $latestRequirements];
+                $compatibilityErrors = function_exists('plugin_requirement_errors')
+                    ? plugin_requirement_errors($requirementManifest)
+                    : [];
                 $updates[$name] = [
                     'current_version' => $currentVersion,
                     'new_version' => $latest['version'],
@@ -34,6 +45,10 @@ class PluginStoreController
                     'changelog' => $latest['changelog'] ?? '',
                     'zip_size' => $latest['zip_size'] ?? 0,
                     'php_required' => $latest['php_required'] ?? '',
+                    'jyavani_required' => $latestRequirements['jyavani'] ?? '',
+                    'requires' => $latestRequirements,
+                    'compatible' => $compatibilityErrors === [],
+                    'compatibility_errors' => $compatibilityErrors,
                     'checksum' => $latest['checksum'] ?? '',
                 ];
             } else {
@@ -58,6 +73,9 @@ class PluginStoreController
 
     public static function applyUpdate(PDO $pdo, string $name, string $progressToken = ''): array
     {
+        if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) {
+            return ['success' => false, 'error' => 'Invalid plugin name.'];
+        }
         $updates = self::getCachedUpdates();
         if (!isset($updates[$name])) {
             if ($progressToken !== '') {
@@ -67,6 +85,11 @@ class PluginStoreController
         }
 
         $update = $updates[$name];
+        if (($update['compatible'] ?? true) !== true) {
+            $error = 'Plugin update requirements are not met: ' . implode('; ', (array)($update['compatibility_errors'] ?? [])) . '.';
+            if ($progressToken !== '') self::writeProgress($progressToken, 0, $error, true, $error);
+            return ['success' => false, 'error' => $error];
+        }
         $pluginDir = (defined('PLUGIN_PATH') ? PLUGIN_PATH : __DIR__ . '/../../plugins') . '/' . $name;
         if (!is_dir($pluginDir)) {
             if ($progressToken !== '') {
@@ -74,6 +97,12 @@ class PluginStoreController
             }
             return ['success' => false, 'error' => 'Plugin directory not found.'];
         }
+        $oldManifest = function_exists('plugin_manifest') ? plugin_manifest($name) : null;
+        $oldStaticValue = $oldManifest['static']['copy'] ?? [];
+        if (!is_array($oldStaticValue)) {
+            return ['success' => false, 'error' => 'Installed plugin static.copy is invalid; update cannot safely track old destinations.'];
+        }
+        $oldStaticCopy = $oldStaticValue;
 
         $p = function ($pct, $status) use ($progressToken) {
             if ($progressToken !== '') self::writeProgress($progressToken, $pct, $status);
@@ -83,21 +112,48 @@ class PluginStoreController
 
         // Backup
         $p(8, 'Membackup plugin saat ini...');
-        $backupDir = dirname(self::transientFile()) . '/plugin-backups/' . $name . '-' . $update['current_version'];
-        if (!is_dir($backupDir)) mkdir($backupDir, 0755, true);
+        $backupVersion = preg_replace('/[^0-9A-Za-z._-]+/', '-', (string)$update['current_version']);
+        $backupDir = dirname(self::transientFile()) . '/plugin-backups/' . $name . '-' . trim($backupVersion, '-');
+        if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true) && !is_dir($backupDir)) {
+            return ['success' => false, 'error' => 'Failed to create plugin backup directory.'];
+        }
         $backupFile = $backupDir . '/backup.zip';
         $zip = new ZipArchive();
-        if ($zip->open($backupFile, ZipArchive::CREATE) === true) {
-            $files = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
-                RecursiveIteratorIterator::LEAVES_ONLY
-            );
-            foreach ($files as $file) {
-                $localPath = substr($file->getPathname(), strlen($pluginDir) + 1);
-                $zip->addFile($file->getPathname(), $localPath);
-            }
-            $zip->close();
+        if ($zip->open($backupFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return ['success' => false, 'error' => 'Failed to create plugin backup.'];
         }
+        $backupOk = true;
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY
+        );
+        foreach ($files as $file) {
+            $localPath = substr($file->getPathname(), strlen($pluginDir) + 1);
+            if (!$zip->addFile($file->getPathname(), $localPath)) $backupOk = false;
+        }
+        if (!$zip->close() || !$backupOk || !is_file($backupFile)) {
+            return ['success' => false, 'error' => 'Failed to create complete plugin backup.'];
+        }
+        $restoreBackup = static function () use ($pluginDir, $backupFile): bool {
+            try {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
+                    RecursiveIteratorIterator::CHILD_FIRST
+                );
+                foreach ($iterator as $file) {
+                    if ($file->isDir() && !$file->isLink()) @rmdir($file->getPathname());
+                    else @unlink($file->getPathname());
+                }
+                $backup = new ZipArchive();
+                if ($backup->open($backupFile) !== true) return false;
+                $ok = $backup->extractTo($pluginDir);
+                $backup->close();
+                return $ok;
+            } catch (Throwable $error) {
+                error_log('plugin update restore failed: ' . $error->getMessage());
+                return false;
+            }
+        };
 
         // Download update
         $tmpZip = self::downloadPackage((string)$update['download_url'], $p);
@@ -120,6 +176,33 @@ class PluginStoreController
             return ['success' => false, 'error' => 'Paket update tidak valid.'];
         }
 
+        $manifestEntry = $zip->locateName('plugin.json', ZipArchive::FL_NOCASE) !== false
+            ? 'plugin.json'
+            : $name . '/plugin.json';
+        $packageManifestRaw = $zip->getFromName($manifestEntry);
+        $packageManifest = $packageManifestRaw !== false ? json_decode($packageManifestRaw, true) : null;
+        if (!is_array($packageManifest) || ($packageManifest['name'] ?? '') !== $name
+            || !is_string($packageManifest['version'] ?? null)
+            || version_compare($packageManifest['version'], (string)$update['new_version'], '!=')) {
+            $zip->close(); @unlink($tmpZip);
+            return ['success' => false, 'error' => 'Update package plugin.json is invalid or does not match the advertised plugin version.'];
+        }
+        $packageRequirementError = function_exists('plugin_requirements_error_message')
+            ? plugin_requirements_error_message($packageManifest)
+            : '';
+        if ($packageRequirementError !== '') {
+            $zip->close(); @unlink($tmpZip);
+            return ['success' => false, 'error' => $packageRequirementError];
+        }
+        if (function_exists('plugin_package_requirement_errors')) {
+            $advertisedManifest = ['requires' => is_array($update['requires'] ?? null) ? $update['requires'] : []];
+            $metadataErrors = plugin_package_requirement_errors($advertisedManifest, $packageManifest);
+            if ($metadataErrors !== []) {
+                $zip->close(); @unlink($tmpZip);
+                return ['success' => false, 'error' => 'Update package requirements do not match store metadata: ' . implode('; ', $metadataErrors) . '.'];
+            }
+        }
+
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $entry = (string)($zip->statIndex($i)['name'] ?? '');
             if (str_ends_with($entry, '/')) continue;
@@ -136,11 +219,20 @@ class PluginStoreController
             new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST
         );
+        $deleteFailed = false;
         foreach ($it as $f) {
             $rel = substr($f->getPathname(), strlen($pluginDir) + 1);
             if ($rel === '.store.json' || str_starts_with($rel, '.git/')) continue;
-            if ($f->isDir()) @rmdir($f->getPathname());
-            else @unlink($f->getPathname());
+            if ($f->isDir()) {
+                if (!@rmdir($f->getPathname()) && is_dir($f->getPathname())) $deleteFailed = true;
+            } elseif (!@unlink($f->getPathname()) && file_exists($f->getPathname())) {
+                $deleteFailed = true;
+            }
+        }
+        if ($deleteFailed) {
+            $zip->close(); @unlink($tmpZip);
+            $restored = $restoreBackup();
+            return ['success' => false, 'error' => $restored ? 'Failed to replace old plugin files; backup restored.' : 'Failed to replace old plugin files and backup restoration failed.'];
         }
 
         // Extract update
@@ -157,7 +249,7 @@ class PluginStoreController
             $target = plugin_safe_path($pluginDir, $relative);
             if ($target === null) { $extractFailed = true; break; }
             $targetDir = dirname($target);
-            if (!is_dir($targetDir)) mkdir($targetDir, 0755, true);
+            if (!is_dir($targetDir) && !mkdir($targetDir, 0755, true) && !is_dir($targetDir)) { $extractFailed = true; break; }
             $copied = @copy('zip://' . $tmpZip . '#' . $filename, $target);
             if (!$copied) {
                 $extractFailed = true;
@@ -172,21 +264,45 @@ class PluginStoreController
 
         if ($extractFailed) {
             $p(0, 'Gagal! Mengembalikan backup...');
-            if (is_file($backupFile)) {
-                $bz = new ZipArchive();
-                if ($bz->open($backupFile) === true) {
-                    $bz->extractTo($pluginDir);
-                    $bz->close();
-                }
-            }
+            $restored = $restoreBackup();
             unlink($tmpZip);
             self::writeProgress($progressToken, 0, 'Gagal mengekstrak update. Backup sudah dikembalikan.', true, 'Gagal mengekstrak update. Backup sudah dikembalikan.');
-            return ['success' => false, 'error' => 'Gagal mengekstrak update. Backup sudah dikembalikan.'];
+            return ['success' => false, 'error' => $restored ? 'Gagal mengekstrak update. Backup sudah dikembalikan.' : 'Gagal mengekstrak update dan pemulihan backup gagal.'];
         }
 
         unlink($tmpZip);
 
-        // Hapus backup setelah update sukses
+        // Re-read the package manifest; never manufacture compatibility metadata.
+        $p(88, __('Verifying plugin manifest...'));
+        $manifestPath = $pluginDir . '/plugin.json';
+        $manifest = is_file($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : null;
+        if (!is_array($manifest) || ($manifest['name'] ?? '') !== $name
+            || ($manifest['version'] ?? '') !== $update['new_version']
+            || plugin_requirements_error_message($manifest) !== '') {
+            $restored = $restoreBackup();
+            return ['success' => false, 'error' => $restored ? 'Installed plugin manifest failed verification; backup restored.' : 'Installed plugin manifest failed verification and backup restoration failed.'];
+        }
+
+        // Copy static files (respects PUBLIC_PATH for public_html/public/etc)
+        $staticCopy = $manifest['static']['copy'] ?? [];
+        if (!is_array($staticCopy)) {
+            $restored = $restoreBackup();
+            return ['success' => false, 'error' => $restored ? 'Plugin static.copy is invalid; backup restored.' : 'Plugin static.copy is invalid and backup restoration failed.'];
+        }
+        if ($staticCopy !== [] || $oldStaticCopy !== []) {
+            $p(90, __('Copying static files...'));
+            $copyResult = plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy);
+            if ($copyResult['failed'] > 0) {
+                $restored = $restoreBackup();
+                $staticRollbackFailed = ($copyResult['rollback_incomplete'] ?? false) === true;
+                if ($staticRollbackFailed) {
+                    return ['success' => false, 'error' => 'Declared static files failed and static asset rollback was incomplete. Manual recovery is required.'];
+                }
+                return ['success' => false, 'error' => $restored ? 'Declared static files failed to copy; backup restored.' : 'Declared static files failed to copy and backup restoration failed.'];
+            }
+        }
+
+        // Delete the rollback archive only after manifest and static assets succeed.
         if (is_dir($backupDir)) {
             $dit = new RecursiveIteratorIterator(
                 new RecursiveDirectoryIterator($backupDir, RecursiveDirectoryIterator::SKIP_DOTS),
@@ -197,33 +313,6 @@ class PluginStoreController
                 else @unlink($f->getPathname());
             }
             @rmdir($backupDir);
-        }
-
-        // Update plugin.json version
-        $p(88, __('Updating plugin manifest...'));
-        $manifestPath = $pluginDir . '/plugin.json';
-        $manifest = is_file($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : null;
-        if ($manifest) {
-            $manifest['version'] = $update['new_version'];
-            file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        }
-
-        // Copy static files (respects PUBLIC_PATH for public_html/public/etc)
-        $staticCopy = $manifest['static']['copy'] ?? [];
-        if (!empty($staticCopy) && is_array($staticCopy)) {
-            $p(90, __('Copying static files...'));
-            $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
-            foreach ($staticCopy as $entry) {
-                $from = $entry['from'] ?? '';
-                $to = $entry['to'] ?? '';
-                if ($from === '' || $to === '') continue;
-                $source = $pluginDir . '/' . ltrim($from, '/');
-                $dest = $publicPath . '/' . ltrim($to, '/');
-                if (!is_file($source)) continue;
-                $destDir = dirname($dest);
-                if (!is_dir($destDir)) @mkdir($destDir, 0755, true);
-                @copy($source, $dest);
-            }
         }
 
         $p(95, 'Menyelesaikan...');
@@ -392,6 +481,7 @@ class PluginStoreController
             $rows = $stmt ? $stmt->fetchAll() : [];
             foreach ($rows as $row) {
                 $name = $row['name'];
+                $packageRequirements = self::packageRequirements((string)($row['zip_file'] ?? ''), $name);
                 $plugins[] = [
                     'name' => $name,
                     'title' => $row['title'] ?: $name,
@@ -403,6 +493,8 @@ class PluginStoreController
                     'banner' => self::storeStaticUrl($name, (string)$row['banner']),
                     'plugin_uri' => $row['homepage'] ?: '',
                     'download_url' => self::storeDownloadUrl($name),
+                    'jyavani_required' => $packageRequirements['jyavani'] ?? '',
+                    'requires' => $packageRequirements,
                 ];
             }
         } catch (Throwable $e) {
@@ -470,7 +562,7 @@ class PluginStoreController
 
         try {
             $stmt = $pdo->prepare(
-                "SELECT pv.version, pv.changelog, pv.zip_size, pv.php_required
+                "SELECT pv.version, pv.changelog, pv.zip_size, pv.php_required, pv.zip_file
                  FROM plugins p
                  LEFT JOIN plugin_versions pv ON pv.plugin_id = p.id AND pv.is_current = 1
                  WHERE p.name = ? AND p.status = 'approved' AND p.is_deleted = 0
@@ -482,12 +574,18 @@ class PluginStoreController
                 echo json_encode(['error' => 'Plugin not found.']);
                 exit;
             }
+            $packageRequirements = self::packageRequirements((string)($row['zip_file'] ?? ''), $name);
+            $packagePath = __DIR__ . '/../../' . (string)($row['zip_file'] ?? '');
+            $checksum = is_file($packagePath) ? hash_file('sha256', $packagePath) : false;
             echo json_encode([
                 'version' => $row['version'],
                 'download_url' => self::storeDownloadUrl($name),
                 'changelog' => $row['changelog'] ?: '',
                 'zip_size' => (int)($row['zip_size'] ?: 0),
                 'php_required' => $row['php_required'] ?: '8.1',
+                'jyavani_required' => $packageRequirements['jyavani'] ?? '',
+                'requires' => $packageRequirements,
+                'checksum' => is_string($checksum) ? $checksum : '',
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Throwable $e) {
@@ -537,6 +635,28 @@ class PluginStoreController
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?: 'jyavani.com';
         return $scheme . '://' . $host . '/plugin-store/download/' . rawurlencode($name) . '/';
+    }
+
+    private static function packageRequirements(string $relativeZip, string $name): array
+    {
+        if ($relativeZip === '' || !class_exists('ZipArchive')) return [];
+        $root = realpath(__DIR__ . '/../../');
+        $path = $root ? realpath($root . '/' . ltrim($relativeZip, '/')) : false;
+        if (!$root || !$path || ($path !== $root && !str_starts_with($path, $root . DIRECTORY_SEPARATOR))) return [];
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true) return [];
+        $raw = $zip->getFromName('plugin.json');
+        if ($raw === false) $raw = $zip->getFromName($name . '/plugin.json');
+        $zip->close();
+        $manifest = $raw !== false ? json_decode($raw, true) : null;
+        if (!is_array($manifest)) return [];
+        if (function_exists('plugin_normalize_requirements')) {
+            return plugin_normalize_requirements($manifest)['requires'];
+        }
+        $requires = is_array($manifest['requires'] ?? null) ? $manifest['requires'] : [];
+        if (!isset($requires['jyavani']) && is_string($manifest['jyavani_required'] ?? null)) $requires['jyavani'] = trim($manifest['jyavani_required']);
+        if (!isset($requires['php']) && is_string($manifest['php_required'] ?? null)) $requires['php'] = trim($manifest['php_required']);
+        return $requires;
     }
 
     private static function storeStaticUrl(string $name, string $file): string

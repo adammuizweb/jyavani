@@ -40,6 +40,12 @@ final class PresetContractPdo extends PDO
     }
 }
 
+final class PresetTransactionContractPdo extends PDO
+{
+    public function __construct(public bool $active) {}
+    public function inTransaction(): bool { return $this->active; }
+}
+
 $root = dirname(__DIR__);
 define('PUBLIC_PATH', $root . '/public');
 define('VIEWS_BASE', PUBLIC_PATH . '/views/themes');
@@ -52,7 +58,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
     if (!$condition) $failures[] = $message;
 };
 
-$invalidFilters = shortcode_preset_list_filters(['p' => '2oops', 'status' => 'deleted', 'owner' => '9'], false);
+$invalidFilters = shortcode_preset_list_filters(['p' => ['2'], 'q' => ['bad'], 'status' => ['deleted'], 'owner' => ['9']], false);
 $check($invalidFilters === ['p' => 1, 'q' => '', 'status' => '', 'owner' => 0], 'list filters reject malformed pages, statuses, and non-admin owner filters');
 $filters = shortcode_preset_list_filters(['p' => '3', 'q' => '  hero_100%  ', 'status' => 'private', 'owner' => '9'], true);
 $check($filters['p'] === 3 && $filters['owner'] === 9 && $filters['status'] === 'private', 'admin list filters retain validated pagination, owner, and status');
@@ -100,19 +106,77 @@ $validation = shortcode_preset_validate_config(array_merge($loaded, [
 $check(count($validation['errors']) >= 2, 'server validation enforces non-admin author and date-range restrictions');
 $check(($validation['config']['plugin_key']['kept'] ?? false) === true, 'validation preserves unknown plugin config keys');
 
+$previewHookCalls = 0;
+add_filter('shortcode_preset_preview_config', static function (array $config) use (&$previewHookCalls): array {
+    $previewHookCalls++;
+    return $config;
+});
+$invalidAuthorPreview = shortcode_preset_prepare_preview_config(['source' => 'plugin_feed', 'layout' => 'list'], false);
+$check($invalidAuthorPreview['errors'] !== [] && $previewHookCalls === 0, 'invalid non-admin inline preview fails before preview source hooks');
+$validAdminPreview = shortcode_preset_prepare_preview_config(['source' => 'plugin_feed', 'layout' => 'list'], true);
+$check($validAdminPreview['errors'] === [] && $previewHookCalls === 1, 'admin plugin-source inline preview remains available after validation');
+$check(post_cat__resolve_kicker([], '') === '', 'missing kicker with an empty category remains empty');
+$check(post_cat__resolve_kicker([], 'world-news') === 'WORLD NEWS', 'missing kicker resolves from a nonempty category');
+$check(post_cat__resolve_kicker(['kicker' => ''], 'world-news') === '', 'explicit empty kicker suppresses automatic category resolution');
+
 $pdo = new PresetContractPdo();
 register_widget_shortcode_handler('static_collision', static fn(): string => 'static');
-$runtimeSeen = false;
-add_filter('shortcode_preset_runtime_config', static function (array $config) use (&$runtimeSeen): array {
-    $runtimeSeen = true;
-    $config['runtime_hook'] = true;
+$runtimeLocales = [];
+add_filter('shortcode_preset_runtime_config', static function (array $config) use (&$runtimeLocales): array {
+    $runtimeLocales[] = $GLOBALS['preset_contract_locale'] ?? 'unset';
+    $config['runtime_locale'] = $GLOBALS['preset_contract_locale'] ?? 'unset';
     return $config;
 });
 load_preset_widgets($pdo);
 $check(($GLOBALS['_widget_shortcode_handlers']['static_collision']['origin'] ?? '') === 'static', 'runtime presets do not replace statically registered widgets');
 $check(($GLOBALS['_widget_shortcode_handlers']['runtime_preset']['origin'] ?? '') === 'preset', 'valid published presets register at runtime');
 $check(!isset($GLOBALS['_widget_shortcode_handlers']['invalid.dot']), 'runtime rejects preset slugs outside parser grammar');
-$check($runtimeSeen && (($GLOBALS['_widget_shortcode_handlers']['runtime_preset']['defaults']['runtime_hook'] ?? false) === true), 'runtime config filter runs before registration');
+$check($runtimeLocales === [], 'runtime config filter is not captured during early preset registration');
+$runtimeHandler = $GLOBALS['_widget_shortcode_handlers']['runtime_preset']['fn'];
+$GLOBALS['preset_contract_locale'] = 'en';
+$runtimeHandler($pdo, [], []);
+$GLOBALS['preset_contract_locale'] = 'id';
+$runtimeHandler($pdo, [], []);
+$check($runtimeLocales === ['en', 'id'], 'runtime config filter evaluates at each render after locale routing');
+
+$previewEventConfig = null;
+add_filter('shortcode_preset_preview_config', static function (array $config, array $context): array {
+    $config['preview_locale'] = $context['locale'] ?? '';
+    return $config;
+}, 10, 2);
+add_action('shortcode_preset_preview_configured', static function (array $config) use (&$previewEventConfig): void {
+    $previewEventConfig = $config;
+});
+$previewConfig = shortcode_preset_preview_config(['layout' => 'list'], ['locale' => 'de']);
+$check(($previewConfig['preview_locale'] ?? '') === 'de' && $previewEventConfig === $previewConfig, 'preview config filter and event expose the final plugin-extended config');
+add_filter('shortcode_preset_preview_result', static function (?array $result, array $config): ?array {
+    return ($config['source'] ?? '') === 'plugin_feed'
+        ? ['html' => '<p>plugin preview</p>', 'mode' => 'plugin_feed']
+        : $result;
+}, 10, 2);
+$pluginPreview = shortcode_preset_preview_result(null, ['source' => 'plugin_feed'], ['mode' => 'inline']);
+$check(($pluginPreview['html'] ?? '') === '<p>plugin preview</p>' && ($pluginPreview['mode'] ?? '') === 'plugin_feed', 'plugin-defined preset sources can return source-aware preview HTML without Core post queries');
+
+$preDeleteSeen = false;
+add_action('admin_shortcode_preset_before_delete', static function (int $presetId, PDO $transaction) use (&$preDeleteSeen): void {
+    $preDeleteSeen = $presetId === 88 && $transaction->inTransaction();
+    throw new RuntimeException('dependent cleanup failed');
+});
+$blocked = null;
+try {
+    shortcode_preset_before_delete(new PresetTransactionContractPdo(true), 88);
+} catch (Throwable $error) {
+    $blocked = $error;
+}
+$check($preDeleteSeen && $blocked instanceof ShortcodePresetDeletionBlockedException && $blocked->getPrevious() instanceof RuntimeException, 'pre-delete hook runs in the active transaction and propagates dependent cleanup failure');
+$check($blocked instanceof ShortcodePresetDeletionBlockedException && !str_contains($blocked->getMessage(), 'dependent cleanup failed'), 'pre-delete listener internals are retained as the previous exception but redacted from the public message');
+$requiresTransaction = false;
+try {
+    shortcode_preset_before_delete(new PresetTransactionContractPdo(false), 88);
+} catch (LogicException $error) {
+    $requiresTransaction = true;
+}
+$check($requiresTransaction, 'pre-delete contract rejects invocation outside a database transaction');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

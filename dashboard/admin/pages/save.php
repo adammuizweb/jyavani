@@ -366,6 +366,7 @@ if ($metaDescription !== '') {
 $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNICODE) : null;
 
 try {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id): void {
     $upd = $pdo->prepare("
         UPDATE posts
         SET title      = :title,
@@ -399,6 +400,7 @@ try {
     if (!$ok) {
         throw new RuntimeException('DB update failed.');
     }
+    });
 
     do_action('admin_page_after_edit', $id, $pdo, $_POST);
 

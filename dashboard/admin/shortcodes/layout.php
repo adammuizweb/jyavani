@@ -9,11 +9,12 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/_layout_manager.php';
 
 [$uid, $role] = adiwira_require_admin($pdo, false);
 
 $base = ADMIN_BASE_PATH;
-$layoutScope = (string)($_REQUEST['scope'] ?? 'collection');
+$layoutScope = is_string($_REQUEST['scope'] ?? null) ? $_REQUEST['scope'] : 'collection';
 if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'collection';
 $isSectionScope = $layoutScope === 'section';
 $layoutsReturn = $base . '/?' . http_build_query([
@@ -22,34 +23,34 @@ $layoutsReturn = $base . '/?' . http_build_query([
     'scope' => $layoutScope,
 ]);
 $return_to = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_REQUEST['return_to'] ?? ''), $layoutsReturn)
+    ? adiwira_safe_return_to($_REQUEST['return_to'] ?? null, $layoutsReturn)
     : $layoutsReturn;
 
 $layoutDir = $isSectionScope
     ? (function_exists('theme_section_theme_directory') ? theme_section_theme_directory($pdo, true) : null)
-    : (defined('PUBLIC_PATH') ? realpath(PUBLIC_PATH . '/views/partials/shortcodes/post_cat') : realpath(__DIR__ . '/../../../public/views/partials/shortcodes/post_cat'));
+    : shortcode_layout_directory($pdo, 'collection');
 if (!$layoutDir || !is_dir($layoutDir)) {
     echo '<section class="adam-card"><p>' . __('Layout directory not found.') . '</p></section>';
     return;
 }
 
-$fileName = (string)($_GET['file'] ?? $_POST['file'] ?? '');
+$fileInput = $_GET['file'] ?? $_POST['file'] ?? '';
+$fileName = is_string($fileInput) ? $fileInput : '';
 $isNew = $fileName === '';
 $filePath = '';
 
 if (!$isNew) {
-    $cleanName = preg_replace('/[^a-z0-9_\-\.]/i', '', basename($fileName));
-    if (!str_ends_with($cleanName, '.php')) {
-        $cleanName .= '.php';
+    $cleanName = shortcode_layout_file_is_valid($fileName, $layoutScope) ? $fileName : '';
+    if ($cleanName === '') {
+        echo '<section class="adam-card"><p>' . __('Invalid file path.') . '</p></section>';
+        return;
     }
     if ($isSectionScope && (!function_exists('theme_section_name_is_valid') || !theme_section_name_is_valid(pathinfo($cleanName, PATHINFO_FILENAME)))) {
         echo '<section class="adam-card"><p>' . __('Invalid section name.') . '</p></section>';
         return;
     }
-    $filePath = $layoutDir . DIRECTORY_SEPARATOR . $cleanName;
-    $realPath = realpath($filePath);
-
-    if (!$realPath || !theme_section_path_is_within($realPath, $layoutDir) || !is_file($realPath)) {
+    $realPath = shortcode_layout_resolve_file($layoutDir, $cleanName, $layoutScope);
+    if (!$realPath) {
         echo '<section class="adam-card"><p>' . __('Layout file not found:') . ' ' . htmlspecialchars($cleanName, ENT_QUOTES, 'UTF-8') . '</p></section>';
         return;
     }
@@ -60,7 +61,7 @@ if (!$isNew) {
 $pref_content = '';
 $pref_layout_name = '';
 if ($isNew) {
-    $pref_layout_name = trim((string)($_GET['name'] ?? ''));
+    $pref_layout_name = is_string($_GET['name'] ?? null) ? trim($_GET['name']) : '';
 } else {
     $pref_content = file_get_contents($filePath);
     $pref_layout_name = pathinfo($fileName, PATHINFO_FILENAME);
@@ -459,6 +460,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <input type="hidden" name="layout_name" id="hidden-layout-name" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>">
       <textarea id="content-textarea" name="content" style="display:none;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
     </form>
+    <p id="layout-save-feedback" role="status" aria-live="polite" tabindex="-1" style="display:none;margin:0;color:var(--adam-danger,#b42318);"></p>
 
 <?php if ($isNew): ?>
     <div style="font-size:.85rem;font-weight:600;color:var(--adam-muted,#888);margin-bottom:-.5rem;"><?=_e('Choose starting template:')?></div>
@@ -649,12 +651,25 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
   var hiddenName = document.getElementById('hidden-layout-name');
   var presetSelect = document.getElementById('preview-preset-select');
   var presetBtn = document.getElementById('preview-preset-btn');
+  var saveFeedback = document.getElementById('layout-save-feedback');
 
   var nonceField = document.querySelector('[name="save_nonce"]');
   var isNew = <?= $isNew ? 'true' : 'false' ?>;
   var previewTimer = null;
   var previewRunning = false;
   var currentPresetId = 0;
+
+  function saveNotice(type, title, message) {
+    if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+      window.NewNotifToast.show({ type: type, title: title, message: message });
+      return;
+    }
+    if (saveFeedback) {
+      saveFeedback.textContent = message;
+      saveFeedback.style.display = 'block';
+      saveFeedback.focus();
+    }
+  }
 
   function getEditorValue() {
     if (window.ADIWIRA && window.ADIWIRA.cm && typeof window.ADIWIRA.cm.getValue === 'function') {
@@ -865,9 +880,7 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
         var errors = Array.isArray(data.errors) && data.errors.length
           ? data.errors : [data.error || data.message || '<?=__('Failed to save.')?>'];
         errors.filter(Boolean).forEach(function(msg){
-          if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-            window.NewNotifToast.show({ type: 'error', title: '<?=__('Failed')?>', message: String(msg) });
-          } else { alert(String(msg)); }
+          saveNotice('error', <?= json_encode(__('Failed')) ?>, String(msg));
         });
         return;
       }
@@ -884,9 +897,7 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
         window.location.href = data.redirect;
       }
     } catch (err) {
-      if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-        window.NewNotifToast.show({ type: 'error', title: <?= json_encode(__('Network')) ?>, message: '<?=__('Something happened.')?>' });
-      } else { alert('<?=__('Failed: ')?>' + err.message); }
+      saveNotice('error', <?= json_encode(__('Network')) ?>, <?= json_encode(__('Something happened.')) ?> + ' ' + err.message);
     } finally {
       if (btn) {
         btn.disabled = false;

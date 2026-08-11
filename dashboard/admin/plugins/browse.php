@@ -104,6 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$pluginData) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin not found in store.') . ' "' . h($pluginName) . '"');
     }
+    $catalogRequirementError = plugin_requirements_error_message($pluginData);
+    if ($catalogRequirementError !== '') {
+        adiwira_redirect_with_flash($selfUrl, 'error', $catalogRequirementError);
+    }
 
     $pluginDir = PLUGIN_PATH . '/' . $pluginName;
 
@@ -147,6 +151,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $zip->close(); @unlink($tmpZip);
         adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak valid.'));
     }
+    $packageRequirementErrors = plugin_package_requirement_errors($pluginData, $manifest);
+    if ($packageRequirementErrors !== []) {
+        $zip->close(); @unlink($tmpZip);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin package requirements do not match the store catalog.') . ' ' . implode('; ', $packageRequirementErrors));
+    }
 
     // Ekstrak ke temp
     $tmpExtract = PLUGIN_PATH . '/.extract-' . bin2hex(random_bytes(8));
@@ -183,6 +192,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         _rmdir_recursive($tmpExtract);
         adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json setelah ekstrak tidak valid.'));
     }
+    $requirementError = plugin_requirements_error_message($extractedManifest);
+    if ($requirementError !== '') {
+        _rmdir_recursive($tmpExtract);
+        adiwira_redirect_with_flash($selfUrl, 'error', $requirementError);
+    }
 
     // Pindah ke plugins/{name}/
     if (!rename($tmpExtract, $pluginDir)) {
@@ -212,31 +226,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
     }
 
+    $activatePlugin = $installAction === 'install_activate';
+    if (!plugin_disable($pluginName)) {
+        _rmdir_recursive($pluginDir);
+        adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to update plugin state.'));
+    }
+
     // Copy static files
     $staticCopy = $extractedManifest['static']['copy'] ?? [];
-    if (!empty($staticCopy) && is_array($staticCopy)) {
-        $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : (dirname(PLUGIN_PATH) . '/public');
-        foreach ($staticCopy as $entry) {
-            $from = $entry['from'] ?? '';
-            $to = $entry['to'] ?? '';
-            if ($from === '' || $to === '') continue;
-            $source = plugin_safe_path($pluginDir, $from);
-            $dest = plugin_static_path($pluginName, $to);
-            if (!$source || !$dest || !is_file($source) || is_link($source)) continue;
-            $destDir = dirname($dest);
-            if (!is_dir($destDir)) @mkdir($destDir, 0755, true);
-            @copy($source, $dest);
+    if (!is_array($staticCopy)) {
+        _rmdir_recursive($pluginDir);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because static.copy is invalid.'));
+    }
+    if ($staticCopy !== []) {
+        $copyResult = plugin_static_copy($pluginDir, $staticCopy);
+        if ($copyResult['failed'] > 0) {
+            _rmdir_recursive($pluginDir);
+            adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because declared static files could not be copied.'));
         }
     }
 
-    // Hapus cache agar daftar plugin terbaru
-    if ($installAction === 'install_activate') {
-        plugin_enable($pluginName);
-    } else {
-        plugin_disable($pluginName);
+    if ($activatePlugin && !plugin_enable($pluginName)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to activate plugin.'));
     }
 
-    $msg = ($installAction === 'install_activate')
+    // Hapus cache agar daftar plugin terbaru
+    $msg = $activatePlugin
         ? __('Plugin installed and activated from store.')
         : __('Plugin installed from store.');
     adiwira_redirect_with_flash($listUrl, 'success', $msg . ' "' . h($manifest['title'] ?? $pluginName) . '"');
