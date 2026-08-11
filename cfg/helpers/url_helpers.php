@@ -30,3 +30,10 @@ function url_append_query_string(string $url, string $query): string {
         : '?';
     return $base . $separator . $query . ($fragment !== null ? '#' . $fragment : '');
 }
+
+/** File-like request paths must not receive collection-style trailing slashes. */
+function url_path_is_file_like(string $path): bool {
+    $path = parse_url($path, PHP_URL_PATH);
+    if (!is_string($path)) return false;
+    return preg_match('#(?:^|/)[^/]+\.(?:[a-z0-9]{1,10}|webmanifest)$#i', $path) === 1;
+}

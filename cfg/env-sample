@@ -46,3 +46,7 @@ SESSION_SECRET=
 
 # Token secret for private file signed URLs (optional — falls back to SESSION_SECRET)
 PRIVATE_FILE_TOKEN_SECRET=
+
+# Plugin install.sh runner (hard-capped by Core at 900 seconds / 1 MiB output)
+PLUGIN_INSTALL_TIMEOUT_SECONDS=120
+PLUGIN_INSTALL_OUTPUT_LIMIT=65536

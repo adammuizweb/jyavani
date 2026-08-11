@@ -73,8 +73,12 @@ $upload = (string)file_get_contents($root . '/dashboard/admin/plugins/upload.php
 $browse = (string)file_get_contents($root . '/dashboard/admin/plugins/browse.php');
 $manager = (string)file_get_contents($root . '/dashboard/admin/plugins/index.php');
 $updater = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
-$check(str_contains($registry, 'plugin_requirements_error_message($p)') && str_contains($registry, 'plugin_requirements_error_message($manifest)'), 'active loading and activation share the requirement validator');
-$check(str_contains($upload, 'plugin_requirements_error_message($extractedManifest)') && str_contains($browse, 'plugin_requirements_error_message($extractedManifest)'), 'ZIP upload and store install inspect package requirements before installation');
+$check(substr_count($registry, 'plugin_resolve_active_plugins(') >= 3
+    && str_contains($registry, 'plugin_requirement_errors_without_plugin_state($all[$name])'),
+    'active loading and activation share the dependency-aware requirement resolver');
+$check(str_contains($upload, 'plugin_install_requirements_error_message($extractedManifest, $activatePlugin)')
+    && str_contains($browse, 'plugin_install_requirements_error_message($extractedManifest, $activatePlugin)'),
+    'ZIP upload and store install enforce activation-aware package requirements');
 $check(str_contains($manager, 'plugin_last_error()') && str_contains($manager, 'plugin_requirement_diagnostics()'), 'plugin manager surfaces activation and existing incompatibility diagnostics');
 $manifestCheck = strpos($updater, '$packageManifestRaw = $zip->getFromName');
 $destructiveUpdate = strpos($updater, '// Hapus files lama');
@@ -83,7 +87,9 @@ $check(str_contains($updater, "'jyavani_required'") && str_contains($updater, "'
 $check(str_contains($updater, 'plugin_package_requirement_errors($advertisedManifest, $packageManifest)'), 'update package requirements must match advertised store metadata');
 $check(str_contains($updater, "'checksum' => is_string(\$checksum) ? \$checksum : ''"), 'store version metadata publishes the package checksum required by the updater');
 $check(str_contains($updater, 'plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy)') && str_contains($updater, "'rollback_incomplete'"), 'updates track old and new static destinations and report incomplete static rollback');
-$check(str_contains($browse, 'plugin_package_requirement_errors($pluginData, $manifest)') && str_contains($browse, 'plugin_requirements_error_message($pluginData)'), 'store initial install enforces catalog and extracted package requirements');
+$check(str_contains($browse, 'plugin_package_requirement_errors($pluginData, $manifest)')
+    && str_contains($browse, 'plugin_install_requirements_error_message($pluginData, $activatePlugin)'),
+    'store initial install enforces catalog parity and activation-aware requirements');
 $staticCleanup = strpos($registry, '// Remove plugin directory recursively');
 $check(str_contains($registry, "if (is_file(\$abs) && (!@unlink(\$abs) || file_exists(\$abs)))") && strpos($registry, 'if ($errors !== [])', strpos($registry, 'function plugin_delete')) < $staticCleanup, 'uninstall verifies declared static removal and stops before plugin deletion when cleanup is incomplete');
 

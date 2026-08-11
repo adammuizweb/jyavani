@@ -5,13 +5,21 @@ define('PLUGIN_SYSTEM_LOADED', true);
 // Plugin Registry — Jyavani CMS Plugin System v2.0
 // Loaded after bootstrap in dashboard/index.php
 
-define('PLUGIN_PATH', __DIR__);
-define('PLUGIN_DISABLED_JSON', BACKEND_PATH . '/var/plugins-disabled.json');
+if (!defined('PLUGIN_PATH')) define('PLUGIN_PATH', __DIR__);
+if (!defined('PLUGIN_DISABLED_JSON')) define('PLUGIN_DISABLED_JSON', BACKEND_PATH . '/var/plugins-disabled.json');
 
 // --- Frontend Route Registry ---
 $GLOBALS['_plugin_frontend_routes'] = [];
 $GLOBALS['_plugin_requirement_diagnostics'] = [];
 $GLOBALS['_plugin_last_error'] = '';
+$GLOBALS['_plugin_active_cache'] = null;
+$GLOBALS['_plugin_load_diagnostics'] = [];
+$GLOBALS['_plugin_loader_ran'] = false;
+
+function plugin_message(string $message, mixed ...$values): string {
+    $translated = function_exists('__') ? __($message) : $message;
+    return $values === [] ? $translated : sprintf($translated, ...$values);
+}
 
 function plugin_current_jyavani_version(): string {
     static $version = null;
@@ -21,18 +29,68 @@ function plugin_current_jyavani_version(): string {
     return preg_match('/^\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?$/', $version) ? $version : '0.0.0';
 }
 
-function plugin_version_requirement_met(string $current, string $requirement): bool {
+function plugin_parse_version_constraint(string $requirement): ?array {
     $requirement = trim($requirement);
-    if ($requirement === '') return true;
-    if (preg_match('/\A(>=|<=|>|<|==|=)?\s*(\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\z/', $requirement, $match) !== 1) return false;
-    return version_compare($current, $match[2], $match[1] === '' || $match[1] === '=' ? '>=' : $match[1]);
+    if ($requirement === '') return [];
+    $groups = preg_split('/\s*\|\|\s*/', $requirement);
+    if (!is_array($groups) || in_array('', $groups, true)) return null;
+    $parsed = [];
+    foreach ($groups as $group) {
+        $clauses = preg_split('/\s*,\s*|\s+(?=(?:\^|~|>=|<=|>|<|==|=)?\s*\d)/', trim($group));
+        if (!is_array($clauses) || $clauses === [] || in_array('', $clauses, true)) return null;
+        $parsedGroup = [];
+        foreach ($clauses as $clause) {
+            if (preg_match('/\A(\^|~|>=|<=|>|<|==|=)?\s*(\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\z/', $clause, $match) !== 1) return null;
+            $parsedGroup[] = [$match[1] ?? '', $match[2]];
+        }
+        $parsed[] = $parsedGroup;
+    }
+    return $parsed;
+}
+
+function plugin_version_requirement_met(string $current, string $requirement): bool {
+    if (preg_match('/\A\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?\z/', $current) !== 1) return false;
+    $groups = plugin_parse_version_constraint($requirement);
+    if ($groups === null) return false;
+    if ($groups === []) return true;
+    foreach ($groups as $clauses) {
+        $passed = true;
+        foreach ($clauses as [$operator, $version]) {
+            if ($operator === '^' || $operator === '~') {
+                $numbers = array_map('intval', explode('.', preg_split('/[-+]/', $version, 2)[0]));
+                $numbers = array_pad($numbers, 3, 0);
+                if ($operator === '^') {
+                    if ($numbers[0] > 0) $upper = ($numbers[0] + 1) . '.0.0';
+                    elseif ($numbers[1] > 0) $upper = '0.' . ($numbers[1] + 1) . '.0';
+                    else $upper = '0.0.' . ($numbers[2] + 1);
+                } else {
+                    $upper = $numbers[0] . '.' . ($numbers[1] + 1) . '.0';
+                }
+                if (!version_compare($current, $version, '>=') || !version_compare($current, $upper, '<')) $passed = false;
+            } else {
+                $comparison = $operator === '' || $operator === '=' ? '>=' : $operator;
+                if (!version_compare($current, $version, $comparison)) $passed = false;
+            }
+            if (!$passed) break;
+        }
+        if ($passed) return true;
+    }
+    return false;
 }
 
 function plugin_canonical_version_requirement(string $requirement): ?string {
-    $requirement = trim($requirement);
-    if (preg_match('/\A(>=|<=|>|<|==|=)?\s*(\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\z/', $requirement, $match) !== 1) return null;
-    $operator = $match[1] === '' || $match[1] === '=' ? '>=' : $match[1];
-    return $operator . $match[2];
+    $groups = plugin_parse_version_constraint($requirement);
+    if ($groups === null) return null;
+    if ($groups === []) return '';
+    $canonical = [];
+    foreach ($groups as $clauses) {
+        $values = [];
+        foreach ($clauses as [$operator, $version]) {
+            $values[] = ($operator === '' || $operator === '=' ? '>=' : $operator) . $version;
+        }
+        $canonical[] = implode(' ', $values);
+    }
+    return implode(' || ', $canonical);
 }
 
 /** Normalize canonical and legacy top-level requirement metadata. */
@@ -61,10 +119,24 @@ function plugin_normalize_requirements(array $manifest): array {
     if (!array_key_exists('extensions', $requires) && array_key_exists('extensions_required', $manifest)) {
         $requires['extensions'] = $manifest['extensions_required'];
     }
+    if (array_key_exists('plugins', $requires)) {
+        $plugins = $requires['plugins'];
+        if (!is_array($plugins) || ($plugins !== [] && array_is_list($plugins))) {
+            $errors[] = plugin_message('Invalid plugin dependency declaration. Expected an object mapping plugin slugs to version constraints.');
+        } else {
+            foreach ($plugins as $slug => $constraint) {
+                if (!is_string($slug) || preg_match('/\A[a-zA-Z0-9_-]+\z/', $slug) !== 1) {
+                    $errors[] = plugin_message('Invalid plugin dependency name: %s.', (string)$slug);
+                } elseif (!is_string($constraint) || trim($constraint) === '' || plugin_canonical_version_requirement($constraint) === null) {
+                    $errors[] = plugin_message('Invalid version constraint for required plugin "%s".', $slug);
+                }
+            }
+        }
+    }
     return ['requires' => $requires, 'errors' => array_values(array_unique($errors))];
 }
 
-/** Store packages must carry every advertised requirement unchanged. */
+/** Store and package plugin dependency metadata must match exactly. */
 function plugin_package_requirement_errors(array $catalog, array $package): array {
     $catalogMeta = plugin_normalize_requirements($catalog);
     $packageMeta = plugin_normalize_requirements($package);
@@ -97,11 +169,23 @@ function plugin_package_requirement_errors(array $catalog, array $package): arra
             }
         }
     }
+    $catalogPlugins = is_array($catalogMeta['requires']['plugins'] ?? null) ? $catalogMeta['requires']['plugins'] : [];
+    $packagePlugins = is_array($packageMeta['requires']['plugins'] ?? null) ? $packageMeta['requires']['plugins'] : [];
+    foreach (array_unique(array_merge(array_keys($catalogPlugins), array_keys($packagePlugins))) as $slug) {
+        if (!array_key_exists($slug, $catalogPlugins)) {
+            $errors[] = plugin_message('Plugin dependency "%s" is declared by the package but missing from store metadata.', (string)$slug);
+        } elseif (!array_key_exists($slug, $packagePlugins)) {
+            $errors[] = plugin_message('Plugin dependency "%s" is declared by the store but missing from the package.', (string)$slug);
+        } elseif (!is_string($catalogPlugins[$slug]) || !is_string($packagePlugins[$slug])
+            || plugin_canonical_version_requirement($catalogPlugins[$slug]) !== plugin_canonical_version_requirement($packagePlugins[$slug])) {
+            $errors[] = plugin_message('Plugin dependency "%s" has a package constraint that does not match store metadata.', (string)$slug);
+        }
+    }
     return array_values(array_unique($errors));
 }
 
 /** Return requirement checks in the same shape as plugin setup checks. */
-function plugin_requirement_checks(array $manifest): array {
+function plugin_requirement_checks(array $manifest, bool $checkPluginState = true): array {
     $metadata = plugin_normalize_requirements($manifest);
     $requires = $metadata['requires'];
     $checks = [];
@@ -154,6 +238,33 @@ function plugin_requirement_checks(array $manifest): array {
             ];
         }
     }
+    if ($checkPluginState && is_array($requires['plugins'] ?? null)) {
+        $all = plugins_all();
+        $disabled = plugin_disabled_names();
+        foreach ($requires['plugins'] as $slug => $constraint) {
+            if (!is_string($slug) || preg_match('/\A[a-zA-Z0-9_-]+\z/', $slug) !== 1
+                || !is_string($constraint) || plugin_canonical_version_requirement($constraint) === null) continue;
+            $dependency = $all[$slug] ?? null;
+            if (!is_array($dependency)) {
+                $label = plugin_message('Required plugin "%s" is not installed.', $slug);
+                $passed = false;
+            } elseif (in_array($slug, $disabled, true)) {
+                $label = plugin_message('Required plugin "%s" is inactive.', $slug);
+                $passed = false;
+            } else {
+                $version = $dependency['version'] ?? null;
+                $passed = is_string($version) && plugin_version_requirement_met($version, $constraint);
+                $label = !is_string($version)
+                    ? plugin_message('Required plugin "%s" has an invalid version.', $slug)
+                    : plugin_message('Required plugin "%s" version %s does not satisfy %s.', $slug, $version, $constraint);
+                if ($passed && !array_key_exists($slug, plugins_active())) {
+                    $passed = false;
+                    $label = plugin_message('Required plugin "%s" could not be loaded.', $slug);
+                }
+            }
+            if (!$passed) $checks[] = ['label' => $label, 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
+        }
+    }
     return $checks;
 }
 
@@ -168,12 +279,36 @@ function plugin_requirements_error_message(array $manifest): string {
     $errors = plugin_requirement_errors($manifest);
     if ($errors === []) return '';
     $template = function_exists('__') ? __('Plugin requirements are not met: %s.') : 'Plugin requirements are not met: %s.';
-    return sprintf($template, implode('; ', $errors));
+    return sprintf($template, rtrim(implode('; ', $errors), '.'));
+}
+
+function plugin_install_requirements_error_message(array $manifest, bool $activate): string {
+    $errors = $activate
+        ? plugin_requirement_errors($manifest)
+        : plugin_requirement_errors_without_plugin_state($manifest);
+    return plugin_requirements_error_message_from_errors($errors);
 }
 
 function plugin_requirement_diagnostics(): array {
     plugins_active();
     return $GLOBALS['_plugin_requirement_diagnostics'];
+}
+
+function plugin_load_diagnostics(): array {
+    return $GLOBALS['_plugin_load_diagnostics'];
+}
+
+function plugin_disabled_names(): array {
+    if (!is_file(PLUGIN_DISABLED_JSON)) return [];
+    $disabled = json_decode((string)file_get_contents(PLUGIN_DISABLED_JSON), true);
+    return is_array($disabled) ? array_values(array_filter($disabled, 'is_string')) : [];
+}
+
+function plugin_reset_runtime_cache(): void {
+    $GLOBALS['_plugin_active_cache'] = null;
+    $GLOBALS['_plugin_requirement_diagnostics'] = [];
+    $GLOBALS['_plugin_load_diagnostics'] = [];
+    $GLOBALS['_plugin_loader_ran'] = false;
 }
 
 function plugin_last_error(): string {
@@ -194,19 +329,48 @@ function match_frontend_route(string $prefix): callable|string|null {
 
 // --- Plugin auto-loader: require plugin.php for each active plugin ---
 function plugin_load_active(): void {
+    if ($GLOBALS['_plugin_loader_ran']) return;
+    $GLOBALS['_plugin_loader_ran'] = true;
     $active = plugins_active();
+    $loaded = [];
+    $runtimeActive = [];
     foreach ($active as $name => $p) {
+        $requires = plugin_normalize_requirements($p)['requires']['plugins'] ?? [];
+        $unloadedDependencies = [];
+        foreach (is_array($requires) ? array_keys($requires) : [] as $dependencyName) {
+            if (!isset($loaded[$dependencyName])) $unloadedDependencies[] = $dependencyName;
+        }
+        if ($unloadedDependencies !== []) {
+            $error = plugin_message(
+                'Plugin "%s" was not loaded because these dependency entrypoints failed: %s.',
+                $name,
+                implode(', ', $unloadedDependencies)
+            );
+            $GLOBALS['_plugin_load_diagnostics'][$name] = $error;
+            $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;
+            error_log("[plugin-loader] Plugin '{$name}' skipped: {$error}");
+            continue;
+        }
         $mainFile = PLUGIN_PATH . '/' . $name . '/plugin.php';
         if (is_file($mainFile)) {
-            try { @// suppress warnings for corrupt plugins
+            $hooksBeforeLoad = $GLOBALS['_hooks'] ?? null;
+            $routesBeforeLoad = $GLOBALS['_plugin_frontend_routes'];
+            try {
                 require_once $mainFile;
             } catch (\Throwable $e) {
-                error_log("[plugin-loader] Failed to load plugin '{$name}': {$e->getMessage()}");
-                // Skip corrupt plugin, continue loading others
+                if (is_array($hooksBeforeLoad)) $GLOBALS['_hooks'] = $hooksBeforeLoad;
+                $GLOBALS['_plugin_frontend_routes'] = $routesBeforeLoad;
+                $error = plugin_message('Plugin "%s" entrypoint failed: %s.', $name, $e->getMessage());
+                $GLOBALS['_plugin_load_diagnostics'][$name] = $error;
+                $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;
+                error_log("[plugin-loader] {$error}");
                 continue;
             }
         }
+        $loaded[$name] = true;
+        $runtimeActive[$name] = $p;
     }
+    $GLOBALS['_plugin_active_cache'] = $runtimeActive;
     do_action('plugins_loaded');
 }
 
@@ -216,6 +380,34 @@ function plugin_manifest(string $name): ?array {
     if (!is_file($file)) return null;
     $data = json_decode(file_get_contents($file), true);
     return is_array($data) ? $data : null;
+}
+
+/** Resolve only the top-level image icon explicitly declared by plugin.json. */
+function plugin_declared_icon_file(string $name, string $file): ?array {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1 || $file === '' || str_contains($file, "\0")
+        || str_contains($file, '\\') || basename($file) !== $file) return null;
+    $manifest = plugin_manifest($name);
+    $declared = is_array($manifest) && is_string($manifest['icon'] ?? null) ? $manifest['icon'] : '';
+    if ($declared === '' || basename($declared) !== $declared || !hash_equals($declared, $file)) return null;
+    $extension = strtolower((string)pathinfo($declared, PATHINFO_EXTENSION));
+    $mimeTypes = [
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'avif' => 'image/avif',
+        'svg' => 'image/svg+xml',
+        'ico' => 'image/x-icon',
+    ];
+    if (!isset($mimeTypes[$extension])) return null;
+    $pluginRoot = realpath(PLUGIN_PATH);
+    $pluginDir = realpath(PLUGIN_PATH . '/' . $name);
+    if ($pluginRoot === false || $pluginDir === false
+        || ($pluginDir !== $pluginRoot && !str_starts_with($pluginDir, $pluginRoot . DIRECTORY_SEPARATOR))) return null;
+    $path = plugin_safe_path($pluginDir, $declared);
+    if ($path === null || !is_file($path) || is_link($path)) return null;
+    return ['path' => $path, 'mime' => $mimeTypes[$extension]];
 }
 
 function plugin_safe_path(string $root, string $relative): ?string {
@@ -352,6 +544,130 @@ function plugin_static_path(string $name, string $relative): ?string {
     return plugin_safe_path($public, $relative);
 }
 
+/** Execute only the conventional install.sh with bounded runtime and captured output. */
+function plugin_run_install_script(string $pluginDir, ?int $timeoutSeconds = null, ?int $outputLimit = null): array {
+    $root = realpath(PLUGIN_PATH);
+    $directory = realpath($pluginDir);
+    if ($root === false || $directory === false
+        || ($directory !== $root && !str_starts_with($directory, $root . DIRECTORY_SEPARATOR))) {
+        return ['success' => false, 'ran' => false, 'error' => plugin_message('Plugin install directory is invalid.'), 'output' => '', 'timed_out' => false, 'truncated' => false, 'process_group' => false];
+    }
+    $script = $directory . '/install.sh';
+    if (!file_exists($script)) return ['success' => true, 'ran' => false, 'error' => '', 'output' => '', 'timed_out' => false, 'truncated' => false, 'process_group' => false];
+    if (!is_file($script) || is_link($script)) {
+        return ['success' => false, 'ran' => false, 'error' => plugin_message('Plugin install.sh is not a safe regular file.'), 'output' => '', 'timed_out' => false, 'truncated' => false, 'process_group' => false];
+    }
+    if (!function_exists('proc_open')) {
+        return ['success' => false, 'ran' => false, 'error' => plugin_message('Plugin install.sh could not run because process execution is unavailable.'), 'output' => '', 'timed_out' => false, 'truncated' => false, 'process_group' => false];
+    }
+    if (!is_executable($script) && !@chmod($script, 0755)) {
+        return ['success' => false, 'ran' => false, 'error' => plugin_message('Plugin install.sh is not executable.'), 'output' => '', 'timed_out' => false, 'truncated' => false, 'process_group' => false];
+    }
+
+    $timeoutEnvironment = getenv('PLUGIN_INSTALL_TIMEOUT_SECONDS');
+    $limitEnvironment = getenv('PLUGIN_INSTALL_OUTPUT_LIMIT');
+    $configuredTimeout = defined('PLUGIN_INSTALL_TIMEOUT_SECONDS')
+        ? (int)PLUGIN_INSTALL_TIMEOUT_SECONDS
+        : (is_string($timeoutEnvironment) && ctype_digit($timeoutEnvironment) ? (int)$timeoutEnvironment : 120);
+    $configuredLimit = defined('PLUGIN_INSTALL_OUTPUT_LIMIT')
+        ? (int)PLUGIN_INSTALL_OUTPUT_LIMIT
+        : (is_string($limitEnvironment) && ctype_digit($limitEnvironment) ? (int)$limitEnvironment : 65536);
+    $timeoutSeconds = max(1, min(900, $timeoutSeconds ?? $configuredTimeout));
+    $outputLimit = max(1024, min(1048576, $outputLimit ?? $configuredLimit));
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $setsid = null;
+    foreach (['/usr/bin/setsid', '/bin/setsid'] as $candidate) {
+        if (is_file($candidate) && is_executable($candidate)) {
+            $setsid = $candidate;
+            break;
+        }
+    }
+    $usesProcessGroup = $setsid !== null && function_exists('posix_kill');
+    $command = $setsid !== null ? [$setsid, $script] : [$script];
+    $pipes = [];
+    $process = @proc_open($command, $descriptors, $pipes, $directory, null, ['bypass_shell' => true]);
+    if (!is_resource($process)) {
+        return ['success' => false, 'ran' => false, 'error' => plugin_message('Plugin install.sh process could not be started.'), 'output' => '', 'timed_out' => false, 'truncated' => false, 'process_group' => false];
+    }
+    fclose($pipes[0]);
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+    $output = '';
+    $truncated = false;
+    $timedOut = false;
+    $exitCode = null;
+    $initialStatus = proc_get_status($process);
+    $processId = (int)($initialStatus['pid'] ?? 0);
+    if ($processId <= 0) $usesProcessGroup = false;
+    $deadline = microtime(true) + $timeoutSeconds;
+    $capture = static function (string $chunk) use (&$output, &$truncated, $outputLimit): void {
+        if ($chunk === '') return;
+        $remaining = $outputLimit - strlen($output);
+        if ($remaining > 0) $output .= substr($chunk, 0, $remaining);
+        if (strlen($chunk) > max(0, $remaining)) $truncated = true;
+    };
+
+    while (true) {
+        foreach ([1, 2] as $pipeIndex) {
+            $chunk = stream_get_contents($pipes[$pipeIndex]);
+            if (is_string($chunk)) $capture($chunk);
+        }
+        $status = proc_get_status($process);
+        if (!$status['running']) {
+            $exitCode = (int)$status['exitcode'];
+            break;
+        }
+        if (microtime(true) >= $deadline) {
+            $timedOut = true;
+            if ($usesProcessGroup) @posix_kill(-$processId, 15);
+            else @proc_terminate($process);
+            $graceDeadline = microtime(true) + 0.5;
+            do {
+                usleep(50000);
+                foreach ([1, 2] as $pipeIndex) {
+                    $chunk = stream_get_contents($pipes[$pipeIndex]);
+                    if (is_string($chunk)) $capture($chunk);
+                }
+                $status = proc_get_status($process);
+                $groupRunning = $usesProcessGroup && @posix_kill(-$processId, 0);
+            } while (microtime(true) < $graceDeadline && ($status['running'] || $groupRunning));
+            if ($usesProcessGroup) @posix_kill(-$processId, 9);
+            elseif ($status['running']) @proc_terminate($process, 9);
+            break;
+        }
+        usleep(50000);
+    }
+    foreach ([1, 2] as $pipeIndex) {
+        $chunk = stream_get_contents($pipes[$pipeIndex]);
+        if (is_string($chunk)) $capture($chunk);
+        fclose($pipes[$pipeIndex]);
+    }
+    $closeCode = proc_close($process);
+    if ($exitCode === null || $exitCode < 0) $exitCode = $closeCode;
+    $detail = trim($output);
+    if ($truncated) $detail .= ($detail === '' ? '' : "\n") . plugin_message('[installer output truncated]');
+
+    if ($timedOut) {
+        $error = plugin_message(
+            'Plugin install.sh timed out after %s seconds. The process was stopped, but changes made by the script may remain.',
+            (string)$timeoutSeconds
+        );
+        return ['success' => false, 'ran' => true, 'error' => $error . ($detail !== '' ? ' ' . $detail : ''), 'output' => $output, 'timed_out' => true, 'truncated' => $truncated, 'process_group' => $usesProcessGroup];
+    }
+    if ($exitCode !== 0) {
+        $error = plugin_message(
+            'Plugin install.sh failed with exit code %s. Changes made outside the plugin directory may remain.',
+            (string)$exitCode
+        );
+        return ['success' => false, 'ran' => true, 'error' => $error . ($detail !== '' ? ' ' . $detail : ''), 'output' => $output, 'timed_out' => false, 'truncated' => $truncated, 'process_group' => $usesProcessGroup];
+    }
+    return ['success' => true, 'ran' => true, 'error' => '', 'output' => $output, 'timed_out' => false, 'truncated' => $truncated, 'process_group' => $usesProcessGroup];
+}
+
 function plugins_all(): array {
     $plugins = [];
     foreach (glob(PLUGIN_PATH . '/*/plugin.json') as $file) {
@@ -364,60 +680,201 @@ function plugins_all(): array {
     return $plugins;
 }
 
-function plugins_active(): array {
-    static $cache = null;
-    if ($cache !== null) return $cache;
-    $cache = [];
-    $all = plugins_all();
-    $disabled = [];
-    if (is_file(PLUGIN_DISABLED_JSON)) {
-        $d = json_decode(file_get_contents(PLUGIN_DISABLED_JSON), true);
-        if (is_array($d)) $disabled = $d;
-    }
-    foreach ($all as $name => $p) {
-        $requirementError = plugin_requirements_error_message($p);
-        if ($requirementError !== '') {
-            $GLOBALS['_plugin_requirement_diagnostics'][$name] = $requirementError;
-            error_log("[plugin-loader] Plugin '{$name}' skipped: {$requirementError}");
-        } elseif (!in_array($name, $disabled, true)) {
-            $cache[$name] = $p;
+/** Resolve enabled plugins into dependency-first order without loading invalid graph branches. */
+function plugin_resolve_active_plugins(array $all, array $disabled): array {
+    $ordered = [];
+    $diagnostics = [];
+    $state = [];
+    $stack = [];
+    $addDiagnostic = static function (string $name, string $message) use (&$diagnostics): void {
+        if ($message === '') return;
+        $diagnostics[$name] = isset($diagnostics[$name])
+            ? $diagnostics[$name] . ' ' . $message
+            : $message;
+    };
+    $visit = function (string $name) use (&$visit, &$ordered, &$diagnostics, &$state, &$stack, $all, $disabled, $addDiagnostic): bool {
+        if (($state[$name] ?? 0) === 2) return isset($ordered[$name]);
+        if (($state[$name] ?? 0) === 1) {
+            $start = array_search($name, $stack, true);
+            $cycle = array_slice($stack, $start === false ? 0 : $start);
+            $cycle[] = $name;
+            $message = plugin_message('Plugin dependency cycle detected: %s.', implode(' -> ', $cycle));
+            foreach (array_unique($cycle) as $cycleName) $addDiagnostic($cycleName, $message);
+            return false;
         }
+        if (!isset($all[$name]) || in_array($name, $disabled, true)) return false;
+
+        $state[$name] = 1;
+        $stack[] = $name;
+        $valid = true;
+        $baseErrors = plugin_requirement_errors_without_plugin_state($all[$name]);
+        if ($baseErrors !== []) {
+            $addDiagnostic($name, plugin_requirements_error_message_from_errors($baseErrors));
+            $valid = false;
+        } else {
+            $requires = plugin_normalize_requirements($all[$name])['requires']['plugins'] ?? [];
+            foreach (is_array($requires) ? $requires : [] as $dependencyName => $constraint) {
+                if (!is_string($dependencyName) || !is_string($constraint)) continue;
+                if (!isset($all[$dependencyName])) {
+                    $addDiagnostic($name, plugin_requirements_error_message_from_errors([
+                        plugin_message('Required plugin "%s" is not installed.', $dependencyName),
+                    ]));
+                    $valid = false;
+                    continue;
+                }
+                if (in_array($dependencyName, $disabled, true)) {
+                    $addDiagnostic($name, plugin_requirements_error_message_from_errors([
+                        plugin_message('Required plugin "%s" is inactive.', $dependencyName),
+                    ]));
+                    $valid = false;
+                    continue;
+                }
+                $dependencyVersion = $all[$dependencyName]['version'] ?? null;
+                if (!is_string($dependencyVersion) || !plugin_version_requirement_met($dependencyVersion, $constraint)) {
+                    $error = !is_string($dependencyVersion)
+                        ? plugin_message('Required plugin "%s" has an invalid version.', $dependencyName)
+                        : plugin_message('Required plugin "%s" version %s does not satisfy %s.', $dependencyName, $dependencyVersion, $constraint);
+                    $addDiagnostic($name, plugin_requirements_error_message_from_errors([$error]));
+                    $valid = false;
+                    continue;
+                }
+                if (!$visit($dependencyName)) {
+                    $addDiagnostic($name, plugin_requirements_error_message_from_errors([
+                        plugin_message('Required plugin "%s" could not be loaded.', $dependencyName),
+                    ]));
+                    $valid = false;
+                }
+            }
+        }
+        array_pop($stack);
+        $state[$name] = 2;
+        if ($valid && !isset($diagnostics[$name])) $ordered[$name] = $all[$name];
+        return isset($ordered[$name]);
+    };
+
+    foreach ($all as $name => $_manifest) {
+        if (!in_array($name, $disabled, true)) $visit($name);
     }
-    return $cache;
+    return ['active' => $ordered, 'diagnostics' => $diagnostics];
+}
+
+/** Order a selected set for activation, or reverse it for removal/deactivation. */
+function plugin_order_names_by_dependencies(array $names, bool $dependencyFirst = true): array {
+    $selected = [];
+    foreach ($names as $name) {
+        if (is_string($name) && preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) === 1) $selected[$name] = true;
+    }
+    $all = plugins_all();
+    $ordered = [];
+    $state = [];
+    $visit = function (string $name) use (&$visit, &$ordered, &$state, $selected, $all): void {
+        if (($state[$name] ?? 0) !== 0) return;
+        $state[$name] = 1;
+        $requires = isset($all[$name]) ? (plugin_normalize_requirements($all[$name])['requires']['plugins'] ?? []) : [];
+        foreach (is_array($requires) ? array_keys($requires) : [] as $dependencyName) {
+            if (isset($selected[$dependencyName])) $visit($dependencyName);
+        }
+        $state[$name] = 2;
+        $ordered[] = $name;
+    };
+    foreach (array_keys($selected) as $name) $visit($name);
+    return $dependencyFirst ? $ordered : array_reverse($ordered);
+}
+
+function plugin_requirement_errors_without_plugin_state(array $manifest): array {
+    return array_values(array_map(
+        static fn(array $check): string => $check['label'],
+        array_filter(plugin_requirement_checks($manifest, false), static fn(array $check): bool => !$check['passed'])
+    ));
+}
+
+function plugin_requirements_error_message_from_errors(array $errors): string {
+    if ($errors === []) return '';
+    return plugin_message('Plugin requirements are not met: %s.', rtrim(implode('; ', $errors), '.'));
+}
+
+function plugins_active(): array {
+    if (is_array($GLOBALS['_plugin_active_cache'])) return $GLOBALS['_plugin_active_cache'];
+    $resolved = plugin_resolve_active_plugins(plugins_all(), plugin_disabled_names());
+    $GLOBALS['_plugin_active_cache'] = $resolved['active'];
+    $GLOBALS['_plugin_requirement_diagnostics'] = $resolved['diagnostics'];
+    foreach ($resolved['diagnostics'] as $name => $error) error_log("[plugin-loader] Plugin '{$name}' skipped: {$error}");
+    return $GLOBALS['_plugin_active_cache'];
 }
 
 // --- Plugin Manager helpers ---
 
 function plugin_enable(string $name): bool {
     $manifest = plugin_manifest($name);
-    $error = $manifest ? plugin_requirements_error_message($manifest) : 'Plugin manifest is invalid.';
-    if ($error !== '') {
+    if (!$manifest) {
+        $GLOBALS['_plugin_last_error'] = plugin_message('Plugin manifest is invalid.');
+        return false;
+    }
+    $disabled = plugin_disabled_names();
+    $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
+    $resolved = plugin_resolve_active_plugins(plugins_all(), $disabled);
+    if (!isset($resolved['active'][$name])) {
+        $error = $resolved['diagnostics'][$name] ?? plugin_message('Plugin could not be activated because its dependencies are unavailable.');
         $GLOBALS['_plugin_last_error'] = $error;
         $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;
         return false;
     }
-    $disabled = [];
-    if (is_file(PLUGIN_DISABLED_JSON)) {
-        $decoded = json_decode((string)file_get_contents(PLUGIN_DISABLED_JSON), true);
-        if (is_array($decoded)) $disabled = $decoded;
-    }
-    $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
     $ok = file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
-    $GLOBALS['_plugin_last_error'] = $ok ? '' : 'Failed to update plugin state.';
+    $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to update plugin state.');
+    if ($ok) plugin_reset_runtime_cache();
     return $ok;
 }
 
-function plugin_disable(string $name): bool {
-    $disabled = [];
-    if (is_file(PLUGIN_DISABLED_JSON)) {
-        $decoded = json_decode((string)file_get_contents(PLUGIN_DISABLED_JSON), true);
-        if (is_array($decoded)) $disabled = $decoded;
+function plugin_active_dependents(string $name): array {
+    $dependents = [];
+    foreach (plugins_active() as $pluginName => $manifest) {
+        if ($pluginName === $name) continue;
+        $requires = plugin_normalize_requirements($manifest)['requires']['plugins'] ?? [];
+        if (is_array($requires) && array_key_exists($name, $requires)) $dependents[] = $pluginName;
     }
+    sort($dependents, SORT_STRING);
+    return $dependents;
+}
+
+function plugin_replacement_dependency_errors(string $name, string $newVersion): array {
+    if (preg_match('/\A\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?\z/', $newVersion) !== 1) {
+        return [plugin_message('Plugin "%s" has an invalid replacement version.', $name)];
+    }
+    $errors = [];
+    foreach (plugins_active() as $pluginName => $manifest) {
+        if ($pluginName === $name) continue;
+        $requires = plugin_normalize_requirements($manifest)['requires']['plugins'] ?? [];
+        $constraint = is_array($requires) ? ($requires[$name] ?? null) : null;
+        if (is_string($constraint) && !plugin_version_requirement_met($newVersion, $constraint)) {
+            $errors[] = plugin_message(
+                'Plugin "%s" requires %s %s, so %s cannot be installed.',
+                $pluginName,
+                $name,
+                $constraint,
+                $newVersion
+            );
+        }
+    }
+    return $errors;
+}
+
+function plugin_disable(string $name): bool {
+    $dependents = plugin_active_dependents($name);
+    if ($dependents !== []) {
+        $GLOBALS['_plugin_last_error'] = plugin_message(
+            'Plugin "%s" cannot be deactivated because these active plugins depend on it: %s.',
+            $name,
+            implode(', ', $dependents)
+        );
+        return false;
+    }
+    $disabled = plugin_disabled_names();
     if (!in_array($name, $disabled, true)) {
         $disabled[] = $name;
     }
     $ok = file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
-    $GLOBALS['_plugin_last_error'] = $ok ? '' : 'Failed to update plugin state.';
+    $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to update plugin state.');
+    if ($ok) plugin_reset_runtime_cache();
     return $ok;
 }
 
@@ -521,6 +978,16 @@ function plugin_uninstall(string $name, bool $keepData = true): bool {
     $pluginDir = PLUGIN_PATH . '/' . $name;
     if (!is_dir($pluginDir)) return false;
 
+    $dependents = plugin_active_dependents($name);
+    if ($dependents !== []) {
+        $GLOBALS['_plugin_last_error'] = plugin_message(
+            'Plugin "%s" cannot be uninstalled because these active plugins depend on it: %s.',
+            $name,
+            implode(', ', $dependents)
+        );
+        return false;
+    }
+
     // Fire uninstall hook for data cleanup (only if NOT keeping data)
     // Try-catch: jika plugin corrupt, hook mungkin tidak ter-register — skip saja
     if (!$keepData) {
@@ -539,6 +1006,16 @@ function plugin_uninstall(string $name, bool $keepData = true): bool {
 function plugin_delete(string $name): bool {
     $pluginDir = PLUGIN_PATH . '/' . $name;
     if (!is_dir($pluginDir)) return false;
+
+    $dependents = plugin_active_dependents($name);
+    if ($dependents !== []) {
+        $GLOBALS['_plugin_last_error'] = plugin_message(
+            'Plugin "%s" cannot be uninstalled because these active plugins depend on it: %s.',
+            $name,
+            implode(', ', $dependents)
+        );
+        return false;
+    }
 
     // Load manifest for static.copy paths
     $manifest = plugin_manifest($name);
@@ -571,6 +1048,7 @@ function plugin_delete(string $name): bool {
     }
     if ($errors !== []) {
         foreach ($errors as $error) error_log("[plugin_delete] {$error}");
+        $GLOBALS['_plugin_last_error'] = plugin_message('Failed to uninstall plugin.') . ' ' . implode('; ', $errors);
         return false;
     }
 
@@ -619,12 +1097,14 @@ function plugin_delete(string $name): bool {
 
     // Clean up disabled state
     if (is_file(PLUGIN_DISABLED_JSON)) {
-        $disabled = json_decode(file_get_contents(PLUGIN_DISABLED_JSON), true) ?? [];
+        $disabled = plugin_disabled_names();
         $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
         file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX);
     }
-
-    return empty($errors);
+    $ok = empty($errors);
+    $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to uninstall plugin.') . ' ' . implode('; ', $errors);
+    if ($ok) plugin_reset_runtime_cache();
+    return $ok;
 }
 
 // --- Setup checks (for plugin detail page) ---

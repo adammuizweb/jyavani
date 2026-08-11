@@ -32,7 +32,7 @@ if ($action === 'toggle' && $pluginName !== '') {
         if (plugin_disable($pluginName)) {
             adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . __('deactivated.'));
         }
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to deactivate plugin.'));
+        adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to deactivate plugin.'));
     } else {
         if (plugin_enable($pluginName)) {
             adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . __('activated.'));
@@ -57,7 +57,7 @@ if ($action === 'delete' && $pluginName !== '') {
         $msg = __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . ($keepData ? __('uninstalled. Data kept.') : __('uninstalled completely.'));
         adiwira_redirect_with_flash($selfUrl, 'success', $msg);
     }
-    adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to uninstall plugin.'));
+    adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to uninstall plugin.'));
 }
 
 // Bulk actions
@@ -68,9 +68,12 @@ if ($action === 'bulk' && !empty($_POST['bulk_action']) && !empty($_POST['plugin
     }
     $bulkAction = (string)$_POST['bulk_action'];
     $pluginNames = array_map('strval', (array)$_POST['plugins']);
+    if ($bulkAction === 'activate') $pluginNames = plugin_order_names_by_dependencies($pluginNames, true);
+    if (in_array($bulkAction, ['deactivate', 'uninstall'], true)) $pluginNames = plugin_order_names_by_dependencies($pluginNames, false);
     $success = 0;
     $failed = 0;
     $skipped = 0;
+    $failureMessages = [];
 
     foreach ($pluginNames as $pn) {
         $manifest = plugin_manifest($pn);
@@ -81,19 +84,19 @@ if ($action === 'bulk' && !empty($_POST['bulk_action']) && !empty($_POST['plugin
             case 'activate':
                 if (!plugin_is_active($pn) && plugin_enable($pn)) { $success++; }
                 elseif (plugin_is_active($pn)) { $skipped++; }
-                else { $failed++; }
+                else { $failed++; if (plugin_last_error() !== '') $failureMessages[] = plugin_last_error(); }
                 break;
 
             case 'deactivate':
                 if (plugin_is_active($pn) && plugin_disable($pn)) { $success++; }
                 elseif (!plugin_is_active($pn)) { $skipped++; }
-                else { $failed++; }
+                else { $failed++; if (plugin_last_error() !== '') $failureMessages[] = plugin_last_error(); }
                 break;
 
             case 'uninstall':
                 // Bulk uninstall always keeps data — destructive cleanup must be done individually
                 if (plugin_uninstall($pn, true)) { $success++; }
-                else { $failed++; }
+                else { $failed++; if (plugin_last_error() !== '') $failureMessages[] = plugin_last_error(); }
                 break;
 
             default:
@@ -106,6 +109,7 @@ if ($action === 'bulk' && !empty($_POST['bulk_action']) && !empty($_POST['plugin
     if ($skipped > 0) $parts[] = $skipped . ' ' . __('skipped (already in target state)');
     if ($failed > 0) $parts[] = $failed . ' ' . __('failed');
     $msg = ucfirst($bulkAction) . ': ' . implode(', ', $parts) . '.';
+    if ($failureMessages !== []) $msg .= ' ' . implode(' ', array_unique($failureMessages));
     $type = $failed > 0 ? 'warning' : 'success';
     adiwira_redirect_with_flash($selfUrl, $type, $msg);
 }

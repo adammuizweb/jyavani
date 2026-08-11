@@ -81,3 +81,19 @@ function has_filter(string $name, ?callable $callback = null): bool {
     }
     return false;
 }
+
+/** Build the root service worker. Core lifecycle code remains when no plugin contributes handlers. */
+function core_service_worker_script(): string {
+    $core = <<<'JS'
+"use strict";
+self.addEventListener("install", function (event) {
+    event.waitUntil(self.skipWaiting());
+});
+self.addEventListener("activate", function (event) {
+    event.waitUntil(self.clients.claim());
+});
+JS;
+    $contribution = apply_filters('service_worker_script', '');
+    if (!is_string($contribution) || trim($contribution) === '') return $core . "\n";
+    return $core . "\n" . trim($contribution) . "\n";
+}

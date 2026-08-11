@@ -9,6 +9,9 @@ RewriteRule ^(.+\.(?:css|js|mjs|map|webp|avif|png|jpg|jpeg|gif|svg|ico|json|webm
 # Blokir dot-files
 RewriteRule (^|/)\. - [F,L]
 
+# Root PWA endpoints are dynamic and must replace any stale physical files.
+RewriteRule ^(?:sw\.js|manifest\.webmanifest)$ router.php [L,QSA]
+
 # Jika file / folder nyata, jangan rewrite
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

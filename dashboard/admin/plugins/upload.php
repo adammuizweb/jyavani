@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     if (!in_array($installAction, ['upload', 'upload_activate'], true)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid action.'));
     }
+    $activatePlugin = $installAction === 'upload_activate';
 
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
@@ -159,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         _rmdir_recursive($tmpExtract);
         adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json setelah ekstrak tidak valid.'));
     }
-    $requirementError = plugin_requirements_error_message($extractedManifest);
+    $requirementError = plugin_install_requirements_error_message($extractedManifest, $activatePlugin);
     if ($requirementError !== '') {
         _rmdir_recursive($tmpExtract);
         adiwira_redirect_with_flash($selfUrl, 'error', $requirementError);
@@ -198,7 +199,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     $flashType = 'success';
 
     // Keep the plugin inactive until every declared asset is published.
-    $activatePlugin = $installAction === 'upload_activate';
     if (!plugin_disable($pluginName)) {
         _rmdir_recursive($pluginDir);
         adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to update plugin state.'));
@@ -217,6 +217,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
             adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because declared static files could not be copied.'));
         }
         $flashMessages[] = $copyResult['copied'] . ' ' . __('static files copied.');
+    }
+
+    $installResult = plugin_run_install_script($pluginDir);
+    if (!$installResult['success']) {
+        $installError = $installResult['error'];
+        $cleanupMessage = '';
+        if (!$installResult['ran']) {
+            $cleaned = plugin_delete($pluginName);
+            if (!$cleaned) $cleanupMessage = ' ' . __('Plugin cleanup also failed; manual recovery is required.');
+        } else {
+            $cleanupMessage = ' ' . __('The plugin remains installed but inactive for inspection; install.sh may have made changes outside its directory.');
+        }
+        adiwira_redirect_with_flash(
+            $selfUrl,
+            'error',
+            $installError . $cleanupMessage
+        );
     }
 
     // --- Enable / disable plugin ---

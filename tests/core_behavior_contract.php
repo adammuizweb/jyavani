@@ -46,12 +46,15 @@ $check(
     'request queries are inserted before redirect fragments'
 );
 $check(url_append_query_string("/unsafe\r\nX-Test: yes", 'a=1') === '', 'redirect targets reject header control bytes');
+$check(url_path_is_file_like('/manifest.webmanifest') && url_path_is_file_like('/sw.js'), 'webmanifest and service-worker paths are recognized as file-like');
 
 $router = (string)file_get_contents($root . '/public/router.php');
 $css = (string)file_get_contents($root . '/public/static/vendor/quill/quill.snow.pub.css');
 $themeStore = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.php');
 $updatesEndpoint = (string)file_get_contents($root . '/dashboard/admin/check_updates_ajax.php');
 $updatesCaller = (string)file_get_contents($root . '/public/static/dashboard/js/update-notif.js');
+$htaccess = (string)file_get_contents($root . '/public/.htaccess');
+$serverSetup = (string)file_get_contents($root . '/SERVER_SETUP.md');
 
 $check(substr_count($router, 'collection_redirect_legacy_query_pagination();') >= 7, 'all routed collection families canonicalize legacy query pagination');
 $check(str_contains($router, "([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)"), 'locale sitemap routes accept normalized BCP-style subtags');
@@ -59,6 +62,9 @@ $check(preg_match('#^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$#', 'pt-BR') === 1, 'pt-BR
 $check(str_contains($router, "apply_filters('unresolved_content_redirect_url'"), 'router exposes the generic unresolved content redirect hook');
 $check(strpos($router, "apply_filters('unresolved_content_redirect_url'") < strpos($router, 'PostController::dispatchBySlug'), 'unresolved redirect extensions run before the legacy 404 fallback');
 $check(str_contains($router, 'url_append_query_string($unresolvedRedirect'), 'unresolved redirects use query-aware URL composition');
+$check(str_contains($router, 'if (!url_path_is_file_like($rawPath))'), 'router canonicalization lets file-like webmanifest paths reach dynamic routes');
+$check(str_contains($htaccess, '^(?:sw\.js|manifest\.webmanifest)$ router.php'), 'Apache routes exact root PWA endpoints before stale physical files');
+$check(str_contains($serverSetup, 'location = /manifest.webmanifest') && str_contains($serverSetup, '$document_root/router.php'), 'nginx example routes the dynamic root manifest through Core');
 
 $check(!preg_match('/^(?:h[1-6]|a)\s*(?:,|\{)/m', $css), 'public Quill heading and link rules have no bare theme selectors');
 $check(str_contains($css, '.editor-content h1') && str_contains($css, '.editor-content a'), 'public Quill typography uses the generic editor-content scope');

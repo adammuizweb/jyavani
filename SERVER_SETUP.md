@@ -66,6 +66,28 @@ server {
         try_files $uri $uri/ /router.php?$args;
     }
 
+    # Always execute Core's root worker route; do not serve a stale physical sw.js.
+    location = /sw.js {
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/router.php;
+        fastcgi_param HTTPS on;
+    }
+
+    # Dynamic manifest plugins use this root URL; bypass stale physical files.
+    location = /manifest.webmanifest {
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/router.php;
+        fastcgi_param HTTPS on;
+    }
+
+    # Some nginx installations do not include webmanifest in mime.types.
+    location ~* \.webmanifest$ {
+        default_type application/manifest+json;
+        try_files $uri =404;
+    }
+
     location ~ \.php$ {
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/php8.4-fpm.sock;
@@ -85,6 +107,10 @@ server {
     }
 }
 ```
+
+`location = /sw.js` must remain an exact root route and must execute `router.php`, even if a physical `public/sw.js` remains from an older plugin. Core supplies the install/activate lifecycle and appends active plugin contributions. When no plugin contributes code, Core still returns a lifecycle-only worker so browsers replace stale push handlers. `location = /manifest.webmanifest` must likewise execute `router.php` so an active plugin route can generate it and stale files cannot take precedence. Verify both endpoints with `curl -I`; responses must be `200`, use the expected JavaScript/manifest MIME, and must not be HTML.
+
+The web manifest must be served as `application/manifest+json`. If the system-wide `/etc/nginx/mime.types` already maps `webmanifest`, the dedicated location is still safe; alternatively add `application/manifest+json webmanifest;` to the `types` block and omit that location.
 
 **Penting:** Baris `fastcgi_param HTTPS on;` diperlukan jika memakai reverse proxy yang terminate HTTPS (Cloudflare Tunnel, ngrok, dll). Tanpa ini:
 - `$_SERVER['HTTPS']` tidak terisi → cookie session tidak mendapat flag `Secure`
@@ -121,11 +147,15 @@ SESSION_PHP_COOKIE_DISABLED=1
 FORCE_HTTPS=1
 SESSION_ALLOW_INSECURE_COOKIES=0
 SESSION_SECRET=<random-64-char-hex>
+PLUGIN_INSTALL_TIMEOUT_SECONDS=120
+PLUGIN_INSTALL_OUTPUT_LIMIT=65536
 ```
 
 `PUBLIC_PATH` must be an existing absolute directory. For split deployments it may point to a sibling web root such as `/home/account/public_html`; logical release paths remain `public/...`. Configure nginx `root` to the same directory. If `cfg/` cannot be found relative to the public installer, expose `BACKEND_PATH=/absolute/path/to/project/cfg` to PHP-FPM so fresh-install bootstrap can locate it.
 
 `DB_SESSION_WAIT_TIMEOUT` is optional. When set, it must be an integer from 1 to 31536000 and configures only the current MySQL session's idle timeout.
+
+`PLUGIN_INSTALL_TIMEOUT_SECONDS` and `PLUGIN_INSTALL_OUTPUT_LIMIT` bound the fixed plugin `install.sh` runner. Defaults are 120 seconds and 65536 bytes; Core hard-caps them at 900 seconds and 1048576 bytes.
 
 **Catatan per env:**
 - `FORCE_HTTPS=1` + `SESSION_ALLOW_INSECURE_COOKIES=0` → cookie dengan flag Secure (wajib HTTPS)

@@ -19,6 +19,16 @@ $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $rawPath = rawurldecode($rawPath);
 $pathTrimmed = trim($rawPath, " \t\n\r\0\x0B/");
 
+// Core always serves a root-scoped worker. With no plugin contributions this
+// lifecycle-only response replaces any stale worker left by a disabled plugin.
+if ($pathTrimmed === 'sw.js') {
+    header('Content-Type: application/javascript; charset=utf-8');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Service-Worker-Allowed: /');
+    echo core_service_worker_script();
+    exit;
+}
+
 // Allow plugins to rewrite the request path before route matching
 // (e.g. locale prefix stripping for translated content routing)
 $pathTrimmed = apply_filters('router_path', $pathTrimmed);
@@ -26,19 +36,6 @@ $pathTrimmed = apply_filters('router_path', $pathTrimmed);
 // Optional site-specific routes live outside the managed Core router.
 $siteRouter = BACKEND_PATH . '/site-router.php';
 if (is_file($siteRouter)) require $siteRouter;
-
-// A Service Worker must be served from the origin root to control the whole site.
-// Plugins append their worker event handlers through this filter.
-if ($pathTrimmed === 'sw.js') {
-    $script = apply_filters('service_worker_script', '');
-    if ($script !== '') {
-        header('Content-Type: application/javascript; charset=utf-8');
-        header('Cache-Control: no-cache, no-store, must-revalidate');
-        header('Service-Worker-Allowed: /');
-        echo $script;
-        exit;
-    }
-}
 
 // homepage
 if ($pathTrimmed === '') {
@@ -83,8 +80,8 @@ if (is_file($absFile) || is_dir($absFile)) {
 // trailing slash — BUT skip requests that look like files (have an extension)
 // i.e. /sitemap.xml  or /static/script.js should NOT be redirected to /sitemap.xml/
 if (substr($rawPath, -1) !== '/') {
-    // skip if request looks like a file with extension (contains dot after last slash)
-    if (!preg_match('#/[^/]+\.[a-z0-9]{1,10}$#i', $rawPath)) {
+    // Skip file-like paths, including the longer .webmanifest extension.
+    if (!url_path_is_file_like($rawPath)) {
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
         // Canonicalize the *requested* path (rawPath), not the plugin-rewritten
@@ -175,17 +172,14 @@ if ($prefix === 'private') {
 if ($prefix === 'plugins' && ($segments[1] ?? '') === 'static') {
     $pluginName = $segments[2] ?? '';
     $pluginFile = $segments[3] ?? '';
-    if ($pluginName !== '' && $pluginFile !== '') {
-        $pluginName = basename($pluginName);
-        $pluginFile = basename($pluginFile);
-        $absFile = realpath(PLUGIN_PATH . '/' . $pluginName . '/' . $pluginFile);
-        $absBase = realpath(PLUGIN_PATH) . '/';
-        if ($absFile !== false && str_starts_with($absFile, $absBase) && is_file($absFile)) {
-            $mime = (function_exists('mime_content_type')) ? mime_content_type($absFile) : 'application/octet-stream';
-            header('Content-Type: ' . $mime);
+    if (count($segments) === 4) {
+        $icon = plugin_declared_icon_file($pluginName, $pluginFile);
+        if ($icon !== null) {
+            header('Content-Type: ' . $icon['mime']);
+            header('X-Content-Type-Options: nosniff');
             header('Cache-Control: public, max-age=86400');
-            header('Content-Length: ' . filesize($absFile));
-            readfile($absFile);
+            header('Content-Length: ' . filesize($icon['path']));
+            readfile($icon['path']);
             exit;
         }
     }

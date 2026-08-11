@@ -578,6 +578,7 @@ Third-party features installed as removable plugins via `plugins/{name}/plugin.j
 - `admin.nav[]`: `label`, `icon`, `page`, `parent` (`"settings"` / `"tools"`), `roles`
 - `static.copy[]`: `from` (relative to plugin dir), `to` (relative to `public/`) — files copied on upload
 - `assets.css` / `assets.js`: URLs loaded on admin pages
+- `requires.plugins`: object mapping required plugin slugs to semver constraints, e.g. `{"content-api": "^1.2.0"}`. Required plugins must be installed, active, compatible, and loadable before the dependent can activate.
 
 ### Plugin Uploader
 
@@ -588,11 +589,15 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 2. Server validates `plugin.json` exists with valid `name`
 3. Extracts to `plugins/{name}/`
 4. Copies files declared in `static.copy[]` to `public/` (e.g., xterm JS/CSS → `public/static/vendor/xterm/`)
-5. Runs `install.sh` if present and executable
-6. Enables the plugin automatically (or shows Install vs Install & Activate buttons)
+5. Runs the fixed `install.sh` convention with a bounded timeout/output capture; manifests cannot provide shell commands
+6. Enables the plugin only for activation actions; install-only may stage an inactive plugin before its plugin dependencies are available
 7. Redirects to Plugin Manager with success toast
 
 **Two-button UI on Plugin Store:** `Install` (extract + disable) vs `Install & Activate` (extract + enable). Install-only mode calls `plugin_disable($name)` after extraction.
+
+Core always serves `/sw.js` through `public/router.php`. Core owns `install`/`activate` lifecycle handlers (`skipWaiting` and `clients.claim`), while active plugins append handlers through the `service_worker_script` filter. With no contributions, the lifecycle-only worker replaces stale plugin workers.
+
+The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Deployments can set `PLUGIN_INSTALL_TIMEOUT_SECONDS` and `PLUGIN_INSTALL_OUTPUT_LIMIT`; Core hard-caps these at 900 seconds and 1 MiB. On supported Unix hosts Core starts a fixed `setsid` process group and terminates the full group on timeout; other hosts retain direct-process termination as a portability fallback.
 
 ### Plugin Browser (Store)
 

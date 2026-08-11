@@ -85,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($installAction, ['install', 'install_activate'], true)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid action.'));
     }
+    $activatePlugin = $installAction === 'install_activate';
 
     $csrf = (string)($_POST['csrf_token'] ?? '');
     if (!csrf_check($csrf)) {
@@ -104,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$pluginData) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin not found in store.') . ' "' . h($pluginName) . '"');
     }
-    $catalogRequirementError = plugin_requirements_error_message($pluginData);
+    $catalogRequirementError = plugin_install_requirements_error_message($pluginData, $activatePlugin);
     if ($catalogRequirementError !== '') {
         adiwira_redirect_with_flash($selfUrl, 'error', $catalogRequirementError);
     }
@@ -192,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         _rmdir_recursive($tmpExtract);
         adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json setelah ekstrak tidak valid.'));
     }
-    $requirementError = plugin_requirements_error_message($extractedManifest);
+    $requirementError = plugin_install_requirements_error_message($extractedManifest, $activatePlugin);
     if ($requirementError !== '') {
         _rmdir_recursive($tmpExtract);
         adiwira_redirect_with_flash($selfUrl, 'error', $requirementError);
@@ -226,7 +227,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
     }
 
-    $activatePlugin = $installAction === 'install_activate';
     if (!plugin_disable($pluginName)) {
         _rmdir_recursive($pluginDir);
         adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to update plugin state.'));
@@ -244,6 +244,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             _rmdir_recursive($pluginDir);
             adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because declared static files could not be copied.'));
         }
+    }
+
+    $installResult = plugin_run_install_script($pluginDir);
+    if (!$installResult['success']) {
+        $installError = $installResult['error'];
+        $cleanupMessage = '';
+        if (!$installResult['ran']) {
+            $cleaned = plugin_delete($pluginName);
+            if (!$cleaned) $cleanupMessage = ' ' . __('Plugin cleanup also failed; manual recovery is required.');
+        } else {
+            $cleanupMessage = ' ' . __('The plugin remains installed but inactive for inspection; install.sh may have made changes outside its directory.');
+        }
+        adiwira_redirect_with_flash(
+            $selfUrl,
+            'error',
+            $installError . $cleanupMessage
+        );
     }
 
     if ($activatePlugin && !plugin_enable($pluginName)) {

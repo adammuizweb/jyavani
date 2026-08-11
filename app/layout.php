@@ -229,6 +229,9 @@ $metaDesc = apply_filters('document_meta_description', (string)$metaDesc, $post 
 $faviconUrl = ($pdo instanceof PDO && function_exists('settings_get'))
     ? (settings_get($pdo, 'favicon_url', '') ?? '')
     : '';
+$appleTouchIconUrl = apply_filters('apple_touch_icon_url', '/static/img/favicon/apple-touch-icon.png', $pdo);
+$webManifestUrl = apply_filters('web_manifest_url', '/static/img/favicon/site.webmanifest', $pdo);
+$themeColor = apply_filters('theme_color', '#ffffff', $pdo);
 if ($faviconUrl !== ''): ?>
   <link rel="icon" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
 <?php else: ?>
@@ -236,11 +239,17 @@ if ($faviconUrl !== ''): ?>
   <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon/favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon/favicon-32x32.png">
   <link rel="icon" href="/static/img/favicon/jyavani.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/static/img/favicon/apple-touch-icon.png">
-  <link rel="manifest" href="/static/img/favicon/site.webmanifest">
+<?php endif; ?>
+<?php if (is_string($appleTouchIconUrl) && $appleTouchIconUrl !== ''): ?>
+  <link rel="apple-touch-icon" href="<?= htmlspecialchars($appleTouchIconUrl, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
+<?php if (is_string($webManifestUrl) && $webManifestUrl !== ''): ?>
+  <link rel="manifest" href="<?= htmlspecialchars($webManifestUrl, ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
   
-<meta name="theme-color" content="#ffffff">
+<?php if (is_string($themeColor) && $themeColor !== ''): ?>
+<meta name="theme-color" content="<?= htmlspecialchars($themeColor, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
 
 <?php
 // Canonical URL can be adjusted by plugins for localized or aliased content.

@@ -35,9 +35,20 @@ class PluginStoreController
                     $latestRequirements['php'] = $latest['php_required'];
                 }
                 $requirementManifest = ['requires' => $latestRequirements];
-                $compatibilityErrors = function_exists('plugin_requirement_errors')
-                    ? plugin_requirement_errors($requirementManifest)
-                    : [];
+                $strictPluginDependencies = function_exists('plugin_is_active') ? plugin_is_active($name) : true;
+                if ($strictPluginDependencies && function_exists('plugin_requirement_errors')) {
+                    $compatibilityErrors = plugin_requirement_errors($requirementManifest);
+                } elseif (function_exists('plugin_requirement_errors_without_plugin_state')) {
+                    $compatibilityErrors = plugin_requirement_errors_without_plugin_state($requirementManifest);
+                } else {
+                    $compatibilityErrors = [];
+                }
+                if (function_exists('plugin_replacement_dependency_errors')) {
+                    $compatibilityErrors = array_merge(
+                        $compatibilityErrors,
+                        plugin_replacement_dependency_errors($name, (string)($latest['version'] ?? ''))
+                    );
+                }
                 $updates[$name] = [
                     'current_version' => $currentVersion,
                     'new_version' => $latest['version'],
@@ -85,8 +96,21 @@ class PluginStoreController
         }
 
         $update = $updates[$name];
-        if (($update['compatible'] ?? true) !== true) {
-            $error = 'Plugin update requirements are not met: ' . implode('; ', (array)($update['compatibility_errors'] ?? [])) . '.';
+        $strictPluginDependencies = function_exists('plugin_is_active') ? plugin_is_active($name) : true;
+        $requirementManifest = ['requires' => is_array($update['requires'] ?? null) ? $update['requires'] : []];
+        $currentCompatibilityErrors = $strictPluginDependencies && function_exists('plugin_requirement_errors')
+            ? plugin_requirement_errors($requirementManifest)
+            : (function_exists('plugin_requirement_errors_without_plugin_state')
+                ? plugin_requirement_errors_without_plugin_state($requirementManifest)
+                : []);
+        if (function_exists('plugin_replacement_dependency_errors')) {
+            $currentCompatibilityErrors = array_merge(
+                $currentCompatibilityErrors,
+                plugin_replacement_dependency_errors($name, (string)($update['new_version'] ?? ''))
+            );
+        }
+        if ($currentCompatibilityErrors !== []) {
+            $error = 'Plugin update requirements are not met: ' . implode('; ', $currentCompatibilityErrors) . '.';
             if ($progressToken !== '') self::writeProgress($progressToken, 0, $error, true, $error);
             return ['success' => false, 'error' => $error];
         }
@@ -187,8 +211,8 @@ class PluginStoreController
             $zip->close(); @unlink($tmpZip);
             return ['success' => false, 'error' => 'Update package plugin.json is invalid or does not match the advertised plugin version.'];
         }
-        $packageRequirementError = function_exists('plugin_requirements_error_message')
-            ? plugin_requirements_error_message($packageManifest)
+        $packageRequirementError = function_exists('plugin_install_requirements_error_message')
+            ? plugin_install_requirements_error_message($packageManifest, $strictPluginDependencies)
             : '';
         if ($packageRequirementError !== '') {
             $zip->close(); @unlink($tmpZip);
@@ -200,6 +224,13 @@ class PluginStoreController
             if ($metadataErrors !== []) {
                 $zip->close(); @unlink($tmpZip);
                 return ['success' => false, 'error' => 'Update package requirements do not match store metadata: ' . implode('; ', $metadataErrors) . '.'];
+            }
+        }
+        if (function_exists('plugin_replacement_dependency_errors')) {
+            $replacementErrors = plugin_replacement_dependency_errors($name, (string)$packageManifest['version']);
+            if ($replacementErrors !== []) {
+                $zip->close(); @unlink($tmpZip);
+                return ['success' => false, 'error' => implode('; ', $replacementErrors)];
             }
         }
 
@@ -278,7 +309,7 @@ class PluginStoreController
         $manifest = is_file($manifestPath) ? json_decode(file_get_contents($manifestPath), true) : null;
         if (!is_array($manifest) || ($manifest['name'] ?? '') !== $name
             || ($manifest['version'] ?? '') !== $update['new_version']
-            || plugin_requirements_error_message($manifest) !== '') {
+            || plugin_install_requirements_error_message($manifest, $strictPluginDependencies) !== '') {
             $restored = $restoreBackup();
             return ['success' => false, 'error' => $restored ? 'Installed plugin manifest failed verification; backup restored.' : 'Installed plugin manifest failed verification and backup restoration failed.'];
         }
@@ -302,6 +333,22 @@ class PluginStoreController
             }
         }
 
+        $p(93, __('Running plugin installer...'));
+        $installResult = plugin_run_install_script($pluginDir);
+        if (!$installResult['success']) {
+            $installError = $installResult['error'];
+            $restored = $restoreBackup();
+            $staticRestored = true;
+            if ($restored && ($staticCopy !== [] || $oldStaticCopy !== [])) {
+                $staticRestoreResult = plugin_static_copy($pluginDir, $oldStaticCopy, $staticCopy);
+                $staticRestored = $staticRestoreResult['failed'] === 0;
+            }
+            $suffix = $restored && $staticRestored
+                ? ' ' . __('Managed plugin files were restored, but install.sh changes outside the plugin directory may remain.')
+                : ' ' . __('Managed plugin file restoration was incomplete, and install.sh changes outside the plugin directory may remain. Manual recovery is required.');
+            return ['success' => false, 'error' => $installError . $suffix];
+        }
+
         // Delete the rollback archive only after manifest and static assets succeed.
         if (is_dir($backupDir)) {
             $dit = new RecursiveIteratorIterator(
@@ -319,6 +366,7 @@ class PluginStoreController
         $transient = self::readTransient();
         unset($transient['updates'][$name]);
         self::writeTransient($transient);
+        if (function_exists('plugin_reset_runtime_cache')) plugin_reset_runtime_cache();
 
         self::writeProgress($progressToken, 100, 'Selesai!', true);
 
