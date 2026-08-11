@@ -99,7 +99,10 @@ try {
             $html = '<div style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('Template produced no output.') . '</div>';
         }
 
-        adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'section']);
+        $document = function_exists('theme_section_preview_document')
+            ? theme_section_preview_document($html, $pdo, ['section' => $sectionName])
+            : $html;
+        adiwira_json(['ok' => true, 'html' => $html, 'document' => $document, 'mode' => 'section']);
         return;
     }
 

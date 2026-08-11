@@ -377,6 +377,9 @@ $snippetWrapper = '<?php if ($wrap): ?>
 .lyo-pane-body .CodeMirror {
   height:100% !important;min-height:440px;
 }
+.lyo-section-preview-frame {
+  display:block;width:100%;min-height:620px;border:0;background:#fff;
+}
 
 .lyo-toolbar {
   display:flex;flex-wrap:wrap;gap:4px;padding:.4rem .75rem;
@@ -462,6 +465,24 @@ $snippetWrapper = '<?php if ($wrap): ?>
     </form>
     <p id="layout-save-feedback" role="status" aria-live="polite" tabindex="-1" style="display:none;margin:0;color:var(--adam-danger,#b42318);"></p>
 
+    <?php
+    $editorQuery = [
+        'page' => 'admin/shortcodes/layout',
+        'scope' => $layoutScope,
+    ];
+    if (!$isNew) $editorQuery['file'] = $fileName;
+    // Plugins can add contextual controls without taking ownership of the editor.
+    do_action('shortcode_layout_editor_after_header', [
+        'scope' => $layoutScope,
+        'is_new' => $isNew,
+        'file' => $fileName,
+        'name' => $pref_layout_name,
+        'path' => $filePath,
+        'return_to' => $return_to,
+        'editor_url' => $base . '/?' . http_build_query($editorQuery),
+    ], $pdo);
+    ?>
+
 <?php if ($isNew): ?>
     <div style="font-size:.85rem;font-weight:600;color:var(--adam-muted,#888);margin-bottom:-.5rem;"><?=_e('Choose starting template:')?></div>
     <div id="lyo-starter" class="lyo-templates">
@@ -534,7 +555,8 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <div>
         <?php if ($isSectionScope): ?>
         <?=_e('<strong>Theme Sections</strong> render reusable page sections from <code>[[widget:theme_section name=&quot;page.hero&quot;]]</code>.')?><br>
-        <?=_e('This renderer belongs to the active theme. Core automatically falls back to the default theme, then the global section directory.')?>
+        <?=_e('This renderer belongs to the active theme. Core automatically falls back to the default theme, then the global section directory.')?><br>
+        <?=_e('Live Preview loads active-theme styles in an isolated frame. Interactive theme scripts do not run in preview.')?>
         <?php else: ?>
         <?=_e('<strong>How Preset &amp; Layout work together:</strong>')?><br>
         <?=_e('<strong>Preset</strong> = content filter (category, count, order, etc.) + layout choice.')?><br>
@@ -754,7 +776,17 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
-        previewContent.innerHTML = data.html;
+        if (data.mode === 'section' && typeof data.document === 'string') {
+          previewContent.innerHTML = '';
+          var frame = document.createElement('iframe');
+          frame.className = 'lyo-section-preview-frame';
+          frame.setAttribute('sandbox', '');
+          frame.setAttribute('title', <?= json_encode(__('Theme Section Preview')) ?>);
+          frame.srcdoc = data.document;
+          previewContent.appendChild(frame);
+        } else {
+          previewContent.innerHTML = data.html;
+        }
         previewError.style.display = 'none';
         if (data.mode === 'preset') {
           previewMode.textContent = '📦 ' + (presetSelect ? presetSelect.options[presetSelect.selectedIndex].text : 'preset');

@@ -217,6 +217,49 @@ function theme_section_source_fingerprint(string $name, ?PDO $pdo = null): strin
     return is_string($encoded) ? hash('sha256', $encoded) : '';
 }
 
+function theme_section_preview_document_shell(?PDO $pdo = null, array $context = []): array
+{
+    $folder = is_string($context['theme_folder'] ?? null) ? trim($context['theme_folder']) : '';
+    if ($folder === '' && function_exists('get_active_theme_folder')) $folder = (string)get_active_theme_folder($pdo);
+    if (preg_match('/\A[a-z0-9][a-z0-9_-]*\z/i', $folder) !== 1) $folder = DEFAULT_THEME_FOLDER;
+
+    $styles = function_exists('collect_theme_asset_urls')
+        ? (array)(collect_theme_asset_urls($pdo, [$folder], 'theme_section_preview')['styles'] ?? [])
+        : [];
+    $filteredStyles = apply_filters('theme_section_preview_styles', $styles, $folder, $pdo, $context);
+    if (is_array($filteredStyles)) $styles = $filteredStyles;
+
+    $links = '';
+    $seenStyles = [];
+    foreach ($styles as $url) {
+        if (!is_string($url) || $url === '' || preg_match('/[\x00-\x1F\x7F]/', $url)) continue;
+        if ((str_starts_with($url, '/') && str_starts_with($url, '//'))
+            || (!str_starts_with($url, '/') && preg_match('#\Ahttps://#i', $url) !== 1)) continue;
+        if (isset($seenStyles[$url])) continue;
+        $seenStyles[$url] = true;
+        $links .= '<link rel="stylesheet" href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">';
+    }
+    $lang = is_string($context['locale'] ?? null) ? trim($context['locale']) : 'en';
+    if (preg_match('/\A[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\z/', $lang) !== 1) $lang = 'en';
+
+    $shell = [
+        'before' => '<!doctype html><html lang="' . htmlspecialchars($lang, ENT_QUOTES, 'UTF-8') . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/">' . $links . '<style>html,body{margin:0;min-height:100%}body{overflow-x:hidden}.scroll-reveal{opacity:1!important;transform:none!important}</style></head><body data-theme-section-preview="' . htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') . '">',
+        'after' => '</body></html>',
+    ];
+    $filteredShell = apply_filters('theme_section_preview_document_shell', $shell, $folder, $pdo, $context);
+    return is_array($filteredShell)
+        && is_string($filteredShell['before'] ?? null)
+        && is_string($filteredShell['after'] ?? null)
+        ? $filteredShell
+        : $shell;
+}
+
+function theme_section_preview_document(string $html, ?PDO $pdo = null, array $context = []): string
+{
+    $shell = theme_section_preview_document_shell($pdo, $context);
+    return $shell['before'] . $html . $shell['after'];
+}
+
 function theme_section_default_label(string $name): string
 {
     return ucwords(str_replace(['.', '_', '-'], ' ', $name));

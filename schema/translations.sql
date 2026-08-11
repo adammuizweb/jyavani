@@ -3948,6 +3948,8 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', '<strong>Theme Sections</strong> render reusable page sections from <code>[[widget:theme_section name=&quot;page.hero&quot;]]</code>.', '<strong>Theme-Abschnitte</strong> rendern wiederverwendbare Seitenabschnitte aus <code>[[widget:theme_section name=&quot;page.hero&quot;]]</code>.', 'de'),
 ('default', 'This renderer belongs to the active theme. Core automatically falls back to the default theme, then the global section directory.', 'Renderer ini milik tema aktif. Core secara otomatis beralih ke tema bawaan, lalu direktori bagian global.', 'id'),
 ('default', 'This renderer belongs to the active theme. Core automatically falls back to the default theme, then the global section directory.', 'Dieser Renderer gehört zum aktiven Theme. Core weicht automatisch auf das Standard-Theme und danach auf das globale Abschnittsverzeichnis aus.', 'de'),
+('default', 'Live Preview loads active-theme styles in an isolated frame. Interactive theme scripts do not run in preview.', 'Live Preview memuat gaya tema aktif dalam frame terisolasi. Skrip interaktif tema tidak dijalankan dalam preview.', 'id'),
+('default', 'Live Preview loads active-theme styles in an isolated frame. Interactive theme scripts do not run in preview.', 'Die Live-Vorschau lädt die Stile des aktiven Themes in einem isolierten Frame. Interaktive Theme-Skripte werden in der Vorschau nicht ausgeführt.', 'de'),
 ('default', 'Insert section title', 'Sisipkan judul bagian', 'id'),
 ('default', 'Insert section title', 'Abschnittstitel einfügen', 'de'),
 ('default', 'Insert section summary', 'Sisipkan ringkasan bagian', 'id'),
