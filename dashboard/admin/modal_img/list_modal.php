@@ -28,7 +28,9 @@ $baseUrl = rtrim($proto . '://' . $host, '/');
 
 $search   = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $page     = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$per_page = isset($_GET['per_page']) ? max(1, min(200, (int)$_GET['per_page'])) : 10;
+$perPageOptions = [20, 50, 100, 200];
+$requestedPerPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
+$per_page = in_array($requestedPerPage, $perPageOptions, true) ? $requestedPerPage : 20;
 $filterVisibility = isset($_GET['visibility']) ? strtolower(trim((string)$_GET['visibility'])) : '';
 if (!in_array($filterVisibility, ['public','private'], true)) $filterVisibility = '';
 
@@ -118,6 +120,14 @@ try {
       <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
       <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
     </select>
+    <label class="mdlib-page-size">
+      <span><?= _e('Items per page') ?></span>
+      <select id="mdlib-per-page" class="mdlib-select" aria-label="<?= _e('Items per page') ?>">
+        <?php foreach ($perPageOptions as $option): ?>
+          <option value="<?= $option ?>" <?= $per_page === $option ? 'selected' : '' ?>><?= $option ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
     <button id="mdlib-search-btn" class="mdlib-btn" type="button"><?= _e('Search') ?></button>
   </div>
 
@@ -167,7 +177,7 @@ try {
                data-storage-disk="<?= htmlspecialchars($storageDisk, ENT_QUOTES, 'UTF-8') ?>"
                data-access-scope="<?= htmlspecialchars($accessScope, ENT_QUOTES, 'UTF-8') ?>"
                data-is-downloadable="<?= (int)$isDownloadable ?>">
-            <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($alt ?: $title, ENT_QUOTES, 'UTF-8') ?>">
+            <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($alt ?: $title, ENT_QUOTES, 'UTF-8') ?>" loading="lazy" decoding="async">
             <div class="mdlib-pic-info">
               <div class="mdlib-pic-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></div>
               <div class="mdlib-pic-sub"><?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?></div>
@@ -187,13 +197,9 @@ try {
       <div class="mdlib-flex-between">
         <div class="mdlib-pager" id="mdlib-pager">
           <?php
-          $max_links = 7;
-          $half = (int) floor($max_links / 2);
-          $start = max(1, $page - $half);
-          $end = min($total_pages, $start + $max_links - 1);
-          if (($end - $start + 1) < $max_links) {
-              $start = max(1, $end - $max_links + 1);
-          }
+          $pageNumbers = $total_pages <= 5 ? range(1, $total_pages) : [1, 2, $page, $total_pages - 1, $total_pages];
+          $pageNumbers = array_values(array_unique(array_filter($pageNumbers, static fn(int $number): bool => $number >= 1 && $number <= $total_pages)));
+          sort($pageNumbers);
 
           $pageUrl = function(int $p, string $q, int $perPage, string $vf): string {
               $parts = [];
@@ -210,22 +216,15 @@ try {
               echo '<a href="' . htmlspecialchars($pageUrl($page - 1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . ($page - 1) . '">' . __('Previous') . '</a>';
           }
 
-          if ($start > 1) {
-              echo '<a href="' . htmlspecialchars($pageUrl(1, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="1">1</a>';
-              if ($start > 2) echo '<span class="disabled">…</span>';
-          }
-
-          for ($i = $start; $i <= $end; $i++) {
-              if ($i === $page) {
-                  echo '<span class="current" data-page="' . $i . '">' . $i . '</span>';
+          $previousNumber = 0;
+          foreach ($pageNumbers as $number) {
+              if ($previousNumber > 0 && $number > $previousNumber + 1) echo '<span class="disabled">…</span>';
+              if ($number === $page) {
+                  echo '<span class="current" data-page="' . $number . '">' . $number . '</span>';
               } else {
-                  echo '<a href="' . htmlspecialchars($pageUrl($i, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . $i . '">' . $i . '</a>';
+                  echo '<a href="' . htmlspecialchars($pageUrl($number, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . $number . '">' . $number . '</a>';
               }
-          }
-
-          if ($end < $total_pages) {
-              if ($end < $total_pages - 1) echo '<span class="disabled">…</span>';
-              echo '<a href="' . htmlspecialchars($pageUrl($total_pages, $search, $per_page, $filterVisibility), ENT_QUOTES, 'UTF-8') . '" data-page="' . $total_pages . '">' . $total_pages . '</a>';
+              $previousNumber = $number;
           }
 
           if ($page >= $total_pages) {
@@ -253,6 +252,9 @@ try {
     return;
   }
   root.dataset.modalimgBound = '1';
+  var requestSequence = 0;
+  var activeController = null;
+  var galleryBackup = '';
 
   function uiToast(type, title, message, duration){
     if (typeof window.modalImgToast === 'function') {
@@ -280,27 +282,64 @@ try {
     var parser = new DOMParser();
     var doc = parser.parseFromString(String(html || ''), 'text/html');
     var nextRoot = doc.getElementById('mdlib-list-root');
-    if (!nextRoot) return;
+    if (!nextRoot) throw new Error('Invalid gallery response');
 
     root.innerHTML = nextRoot.innerHTML;
   }
 
+  function imageSkeleton() {
+    var cards = '';
+    for (var i = 0; i < 8; i++) {
+      cards += '<div class="mdlib-skeleton-card"><span class="mdlib-skeleton-thumb adam-shimmer"></span><span class="mdlib-skeleton-line adam-shimmer"></span><span class="mdlib-skeleton-line mdlib-skeleton-line--short adam-shimmer"></span></div>';
+    }
+    return '<div class="mdlib-list-skeleton mdlib-list-skeleton--image" aria-hidden="true">' + cards + '</div>';
+  }
+
+  function buildListUrl(page) {
+    var input = root.querySelector('#mdlib-search');
+    var visibility = root.querySelector('#mdlib-visibility-filter');
+    var perPage = root.querySelector('#mdlib-per-page');
+    var url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?q=' + encodeURIComponent(input ? input.value || '' : '') + '&page=' + encodeURIComponent(page || 1) + '&per_page=' + encodeURIComponent(perPage ? perPage.value : '<?= (int)$per_page ?>');
+    if (visibility && visibility.value) url += '&visibility=' + encodeURIComponent(visibility.value);
+    return url;
+  }
+
   function requestList(url) {
+    var requestId = ++requestSequence;
+    if (activeController) activeController.abort();
+    activeController = typeof AbortController === 'function' ? new AbortController() : null;
+    var gallery = root.querySelector('#mdlib-gallery-container');
+    if (gallery) {
+      if (gallery.getAttribute('aria-busy') !== 'true') galleryBackup = gallery.innerHTML;
+      gallery.setAttribute('aria-busy', 'true');
+      gallery.innerHTML = imageSkeleton();
+    }
     return fetch(withTs(url), {
       credentials: 'include',
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: activeController ? activeController.signal : undefined
     })
       .then(function(res){
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.text();
       })
       .then(function(html){
+        if (requestId !== requestSequence) return;
         replaceRootOnly(html);
         broadcast('modal:gallery:updated', {});
       })
       .catch(function(err){
+        if (requestId !== requestSequence || err.name === 'AbortError') return;
         console.error('modal_img list fetch error', err);
+        var currentGallery = root.querySelector('#mdlib-gallery-container');
+        if (currentGallery) currentGallery.innerHTML = galleryBackup;
         uiToast('error', <?= json_encode(__('Gallery')) ?>, <?= json_encode(__('Failed to load gallery:') . ' ') ?> + (err.message || err), 6000);
+      })
+      .finally(function(){
+        if (requestId !== requestSequence) return;
+        activeController = null;
+        var currentGallery = root.querySelector('#mdlib-gallery-container');
+        if (currentGallery) currentGallery.removeAttribute('aria-busy');
       });
   }
 
@@ -406,29 +445,15 @@ try {
     var searchBtn = target.closest && target.closest('#mdlib-search-btn');
     if (searchBtn) {
       ev.preventDefault();
-      var q = '';
-      var input = root.querySelector('#mdlib-search');
-      if (input) q = input.value || '';
-      var vf = '';
-      var vfEl = root.querySelector('#mdlib-visibility-filter');
-      if (vfEl) vf = vfEl.value || '';
-      var url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>';
-      if (vf) url += '&visibility=' + encodeURIComponent(vf);
-      requestList(url);
+      requestList(buildListUrl(1));
       return;
     }
   }, false);
 
   root.addEventListener('change', function(ev){
     var target = ev.target;
-    if (target && target.id === 'mdlib-visibility-filter') {
-      var q = '';
-      var input = root.querySelector('#mdlib-search');
-      if (input) q = input.value || '';
-      var vf = target.value || '';
-      var url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>';
-      if (vf) url += '&visibility=' + encodeURIComponent(vf);
-      requestList(url);
+    if (target && (target.id === 'mdlib-visibility-filter' || target.id === 'mdlib-per-page')) {
+      requestList(buildListUrl(1));
     }
   });
 
@@ -438,13 +463,7 @@ try {
 
     if (ev.key === 'Enter') {
       ev.preventDefault();
-      var q = target.value || '';
-      var vf = '';
-      var vfEl = root.querySelector('#mdlib-visibility-filter');
-      if (vfEl) vf = vfEl.value || '';
-      var url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?q=' + encodeURIComponent(q) + '&page=1&per_page=<?= (int)$per_page ?>';
-      if (vf) url += '&visibility=' + encodeURIComponent(vf);
-      requestList(url);
+      requestList(buildListUrl(1));
     }
   }, false);
 })();

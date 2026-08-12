@@ -55,6 +55,7 @@ tests/*
 !tests/shortcode_layout_dashboard_contract.php
 !tests/plugin_requirement_contract.php
 !tests/plugin_dependency_contract.php
+!tests/modal_library_contract.php
 
 jyavani-cms-update.zip
 photo-gallery-*.zip

@@ -60,7 +60,7 @@ if (!$embedded):
   </div>
 
   <div id="mdlib-panel-library" class="mdlib-panel" style="display:none;">
-    <div id="mdlib-library-host" class="mdlib-loading"><?=_e('Loading library…')?></div>
+    <div id="mdlib-library-host"></div>
   </div>
 </div>
 
@@ -155,6 +155,9 @@ if (!$embedded):
   root.dataset.mdlibReady = '1';
 
   let lastListUrl = '<?= ADMIN_BASE_PATH ?>/admin/modal_file/list_modal.php';
+  let lastListFragment = null;
+  let listRequestSequence = 0;
+  let listRequestController = null;
 
   function uiToast(type, title, message, duration){
     window.mdlibUi.toast(type, title, message, duration);
@@ -162,6 +165,14 @@ if (!$embedded):
 
   function getHost() {
     return document.getElementById('mdlib-library-host');
+  }
+
+  function fileListSkeleton() {
+    let cards = '';
+    for (let i = 0; i < 6; i++) {
+      cards += '<div class="mdlib-skeleton-card"><span class="mdlib-skeleton-icon adam-shimmer"></span><span class="mdlib-skeleton-copy"><span class="mdlib-skeleton-line adam-shimmer"></span><span class="mdlib-skeleton-line mdlib-skeleton-line--short adam-shimmer"></span></span></div>';
+    }
+    return '<div class="mdlib-list-skeleton mdlib-list-skeleton--file" aria-hidden="true">' + cards + '</div>';
   }
 
   function getInitialTab() {
@@ -232,28 +243,48 @@ if (!$embedded):
 
   async function fetchIntoLibrary(url, loadingText) {
     const host = getHost();
-    if (!host) return;
+    if (!host) return false;
 
-    host.innerHTML = '<div class="mdlib-loading">' + (loadingText || <?= json_encode(__('Loading…')) ?>) + '</div>';
+    const requestId = ++listRequestSequence;
+    if (listRequestController) listRequestController.abort();
+    listRequestController = typeof AbortController === 'function' ? new AbortController() : null;
+    if (host.getAttribute('data-loaded') === '1' && host.getAttribute('data-view') === 'list'
+        && host.getAttribute('aria-busy') !== 'true') {
+      lastListFragment = document.createDocumentFragment();
+      while (host.firstChild) lastListFragment.appendChild(host.firstChild);
+    }
 
     let finalUrl = String(url || '');
-    if (!finalUrl) return;
+    if (!finalUrl) return false;
+
+    host.setAttribute('aria-busy', 'true');
+    host.innerHTML = fileListSkeleton();
 
     if (finalUrl.indexOf('_ts=') === -1) {
       finalUrl += (finalUrl.indexOf('?') >= 0 ? '&' : '?') + '_ts=' + Date.now();
     }
 
-    const res = await fetch(finalUrl, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
+    try {
+      const res = await fetch(finalUrl, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: listRequestController ? listRequestController.signal : undefined
+      });
 
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      const html = await res.text();
+      if (requestId !== listRequestSequence) return false;
+      injectHtmlWithScripts(host, html);
+      lastListFragment = null;
+      host.removeAttribute('aria-busy');
+      listRequestController = null;
+      return true;
+    } catch (err) {
+      if (requestId !== listRequestSequence || (err && err.name === 'AbortError')) return false;
+      listRequestController = null;
+      throw err;
     }
-
-    const html = await res.text();
-    injectHtmlWithScripts(host, html);
   }
 
   async function loadList(force, url) {
@@ -265,14 +296,24 @@ if (!$embedded):
     const loaded = host.getAttribute('data-loaded') === '1';
     if (!force && loaded && host.getAttribute('data-view') === 'list' && !url) return;
 
-    host.setAttribute('data-view', 'list');
-
     try {
-      await fetchIntoLibrary(lastListUrl, <?= json_encode(__('Loading file list…')) ?>);
-      host.setAttribute('data-loaded', '1');
+      const replaced = await fetchIntoLibrary(lastListUrl, <?= json_encode(__('Loading file list…')) ?>);
+      if (replaced) {
+        host.setAttribute('data-view', 'list');
+        host.setAttribute('data-loaded', '1');
+      }
     } catch (err) {
+      if (err && err.name === 'AbortError') return;
       console.error('mdlib loadList error', err);
-      host.innerHTML = '<div class="mdlib-loading" style="color:#dc2626"><?=__('Failed to load file library.')?></div>';
+      host.removeAttribute('aria-busy');
+      if (lastListFragment) {
+        host.replaceChildren(lastListFragment);
+        lastListFragment = null;
+        host.setAttribute('data-loaded', '1');
+      } else {
+        host.removeAttribute('data-loaded');
+        host.innerHTML = '<div class="mdlib-loading" style="color:#dc2626"><?=__('Failed to load file library.')?></div>';
+      }
       uiToast('error', 'Library File', <?= json_encode(__('Failed to load file list:')) ?> + ' ' + (err.message || err), 6000);
     }
   }
@@ -354,9 +395,7 @@ if (!$embedded):
   };
   window.mdlibLoadIntoRoot = function(url){
     setActive('library');
-    return fetchIntoLibrary(url, <?= json_encode(__('Loading…')) ?>).catch(function(err){
-      uiToast('error', 'Library File', <?= json_encode(__('Failed to load content:')) ?> + ' ' + (err.message || err), 6000);
-    });
+    return loadList(true, url || lastListUrl);
   };
 
   root.addEventListener('click', function(ev){

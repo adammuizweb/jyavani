@@ -18,7 +18,9 @@ $baseUrl = rtrim($proto . '://' . $host, '/');
 
 $q        = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $p        = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
-$per_page = isset($_GET['per_page']) ? max(1, min(100, (int)$_GET['per_page'])) : 12;
+$perPageOptions = [20, 50, 100, 200];
+$requestedPerPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
+$per_page = in_array($requestedPerPage, $perPageOptions, true) ? $requestedPerPage : 20;
 $filterVisibility = isset($_GET['visibility']) ? strtolower(trim((string)$_GET['visibility'])) : '';
 if (!in_array($filterVisibility, ['public','private'], true)) $filterVisibility = '';
 
@@ -198,6 +200,14 @@ try {
         <option value="public" <?= $filterVisibility === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
         <option value="private" <?= $filterVisibility === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
+      <label class="mdlib-page-size">
+        <span><?= _e('Items per page') ?></span>
+        <select class="mdlib-select" id="mdlib-per-page" aria-label="<?= _e('Items per page') ?>">
+          <?php foreach ($perPageOptions as $option): ?>
+            <option value="<?= $option ?>" <?= $per_page === $option ? 'selected' : '' ?>><?= $option ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
       <button class="mdlib-btn mdlib-btn-primary" type="button" data-mdlib-action="search"><?= _e('Search') ?></button>
     </div>
 
@@ -284,25 +294,18 @@ try {
             echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($p - 1)) . '">' . __('Previous') . '</button>';
         }
 
-        $start = max(1, $p - 2);
-        $end   = min($total_pages, $p + 2);
-
-        if ($start > 1) {
-            echo '<button type="button" data-mdlib-href="' . mdlib_e($mk(1)) . '">1</button>';
-            if ($start > 2) echo '<span class="disabled">…</span>';
-        }
-
-        for ($i = $start; $i <= $end; $i++) {
-            if ($i === $p) {
-                echo '<button type="button" class="current" disabled>' . (int)$i . '</button>';
+        $pageNumbers = $total_pages <= 5 ? range(1, $total_pages) : [1, 2, $p, $total_pages - 1, $total_pages];
+        $pageNumbers = array_values(array_unique(array_filter($pageNumbers, static fn(int $number): bool => $number >= 1 && $number <= $total_pages)));
+        sort($pageNumbers);
+        $previousNumber = 0;
+        foreach ($pageNumbers as $number) {
+            if ($previousNumber > 0 && $number > $previousNumber + 1) echo '<span class="disabled">…</span>';
+            if ($number === $p) {
+                echo '<button type="button" class="current" disabled>' . (int)$number . '</button>';
             } else {
-                echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($i)) . '">' . (int)$i . '</button>';
+                echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($number)) . '">' . (int)$number . '</button>';
             }
-        }
-
-        if ($end < $total_pages) {
-            if ($end < $total_pages - 1) echo '<span class="disabled">…</span>';
-            echo '<button type="button" data-mdlib-href="' . mdlib_e($mk($total_pages)) . '">' . (int)$total_pages . '</button>';
+            $previousNumber = $number;
         }
 
         if ($p >= $total_pages) {
@@ -359,6 +362,14 @@ try {
     wrap.innerHTML = parseIncomingHtml(html);
   }
 
+  function fileSkeleton() {
+    var cards = '';
+    for (var i = 0; i < 6; i++) {
+      cards += '<div class="mdlib-skeleton-card"><span class="mdlib-skeleton-icon adam-shimmer"></span><span class="mdlib-skeleton-copy"><span class="mdlib-skeleton-line adam-shimmer"></span><span class="mdlib-skeleton-line mdlib-skeleton-line--short adam-shimmer"></span></span></div>';
+    }
+    return '<div class="mdlib-list-skeleton mdlib-list-skeleton--file" aria-hidden="true">' + cards + '</div>';
+  }
+
   function withTs(url) {
     const hasQuery = url.indexOf('?') !== -1;
     return url + (hasQuery ? '&' : '?') + '_ts=' + Date.now();
@@ -367,7 +378,8 @@ try {
   function buildListUrl(page) {
     const q = (document.getElementById('mdlib-search')?.value || '').trim();
     const visibility = (document.getElementById('mdlib-visibility-filter')?.value || '').trim();
-    let url = '<?= ADMIN_BASE_PATH ?>/admin/modal_file/list_modal.php?q=' + encodeURIComponent(q) + '&p=' + encodeURIComponent(page || 1) + '&per_page=<?= (int)$per_page ?>';
+    const perPage = (document.getElementById('mdlib-per-page')?.value || '<?= (int)$per_page ?>').trim();
+    let url = '<?= ADMIN_BASE_PATH ?>/admin/modal_file/list_modal.php?q=' + encodeURIComponent(q) + '&p=' + encodeURIComponent(page || 1) + '&per_page=' + encodeURIComponent(perPage);
     if (visibility) url += '&visibility=' + encodeURIComponent(visibility);
     return url;
   }
@@ -377,6 +389,12 @@ try {
       return window.mdlibLoadIntoRoot(url);
     }
 
+    const list = wrap.querySelector('#mdlib-lib');
+    const previousHtml = list ? list.innerHTML : '';
+    if (list) {
+      list.setAttribute('aria-busy', 'true');
+      list.innerHTML = fileSkeleton();
+    }
     return fetch(withTs(url), { credentials: 'include', cache: 'no-store' })
       .then(function(res){
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -387,7 +405,13 @@ try {
       })
       .catch(function(err){
         console.error('mdlib list fetch error', err);
+        const currentList = wrap.querySelector('#mdlib-lib');
+        if (currentList) currentList.innerHTML = previousHtml;
         uiToast('error', '<?=__('Library File')?>', '<?=__('Failed to load files:')?> ' + String(err.message || err), 6000);
+      })
+      .finally(function(){
+        const currentList = wrap.querySelector('#mdlib-lib');
+        if (currentList) currentList.removeAttribute('aria-busy');
       });
   }
 
@@ -482,7 +506,7 @@ try {
 
   wrap.addEventListener('change', function(ev){
     const target = ev.target;
-    if (target && target.id === 'mdlib-visibility-filter') requestList(buildListUrl(1));
+    if (target && (target.id === 'mdlib-visibility-filter' || target.id === 'mdlib-per-page')) requestList(buildListUrl(1));
   });
 
   wrap.addEventListener('keydown', function(ev){
