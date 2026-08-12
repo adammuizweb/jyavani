@@ -85,6 +85,8 @@ try {
         'public/assets/unchanged.txt' => "same\n",
         'app/core.php' => "old core\n",
         'version.json' => "{\"version\":\"1.0.0\"}\n",
+        'public/views/themes/default/canary.txt' => "old default theme\n",
+        'public/views/themes/adam/canary.txt' => "adam Store theme\n",
         'public/views/themes/custom/canary.txt' => "theme canary\n",
         'public/static/plugins/custom/canary.txt' => "static plugin canary\n",
         'plugins/custom/canary.txt' => "plugin canary\n",
@@ -105,6 +107,7 @@ try {
         'public/assets/unchanged.txt' => "same\n",
         'app/core.php' => "new core\n",
         'version.json' => "{\"version\":\"1.0.0\"}\n",
+        'public/views/themes/default/canary.txt' => "new default theme\n",
         'public/views/themes/custom/canary.txt' => "replace theme\n",
         'public/static/plugins/custom/canary.txt' => "replace static plugin\n",
         'plugins/custom/canary.txt' => "replace plugin\n",
@@ -121,6 +124,8 @@ try {
     $check(!file_exists($publicRoot . '/assets/obsolete.txt'), 'obsolete mapped public file is deleted');
     $check(file_get_contents($projectRoot . '/app/core.php') === "new core\n", 'non-public file remains rooted in the project');
     $check(!file_exists($projectRoot . '/public/assets/changed.txt'), 'mapped files are not written to the source public directory');
+    $check(file_get_contents($publicRoot . '/views/themes/default/canary.txt') === "new default theme\n", 'default system theme is updated by Core');
+    $check(file_get_contents($publicRoot . '/views/themes/adam/canary.txt') === "adam Store theme\n", 'adam Store theme from an older Core manifest is preserved when absent from the new manifest');
     $check(file_get_contents($publicRoot . '/views/themes/custom/canary.txt') === "theme canary\n", 'theme canary is preserved by logical path');
     $check(file_get_contents($publicRoot . '/static/plugins/custom/canary.txt') === "static plugin canary\n", 'plugin static canary is preserved by logical path');
     $check(file_get_contents($projectRoot . '/plugins/custom/canary.txt') === "plugin canary\n", 'plugin canary is preserved');

@@ -200,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // step 2 → 3: create admin user
-    if ($step === 2) {
+    elseif ($step === 2) {
         $siteTitle  = trim($_POST['site_title'] ?? '');
         $siteDesc   = trim($_POST['site_description'] ?? '');
         $siteUrl    = trim($_POST['site_url'] ?? '');

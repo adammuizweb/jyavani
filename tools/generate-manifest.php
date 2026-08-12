@@ -38,15 +38,16 @@ const PRESERVE_PATTERNS = [
     '#^INSTALL\.md$#',
     '#^SERVER_SETUP\.md$#',
 
-    // Uploaded content
-    '#^public/static/img/#',
+    // Uploaded content. Root image assets are bundled Core branding; dated
+    // directories hold site uploads and must survive updates.
+    '#^public/static/img/\d{4}/#',
     '#^public/static/files/#',
     '#^public/sitemaps/#',
     '#^private_files/#',
 
-    // Themes (user-installed, keep during update)
-    '#^public/views/themes/[^/]+$#',          // theme dirs
-    '#^public/views/themes/[^/]+/.+#',        // theme files
+    // User-installed themes are preserved; only the default system theme ships with Core.
+    '#^public/views/themes/(?!default(?:/|$))[^/]+$#',
+    '#^public/views/themes/(?!default(?:/|$))[^/]+/.+#',
 
     // Plugins
     '#^plugins/[^/]+/.+#',

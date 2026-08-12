@@ -4304,4 +4304,8 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Powered by Jyavani CMS', 'Didukung oleh Jyavani CMS', 'id'),
 ('default', 'Powered by Jyavani CMS', 'Unterstützt von Jyavani CMS', 'de'),
 ('default', 'Jyavani CMS', 'Jyavani CMS', 'id'),
-('default', 'Jyavani CMS', 'Jyavani CMS', 'de');
+('default', 'Jyavani CMS', 'Jyavani CMS', 'de'),
+('default', 'Uploaded media', 'Media unggahan', 'id'),
+('default', 'Uploaded media', 'Hochgeladene Medien', 'de'),
+('default', 'Installed third-party themes', 'Tema pihak ketiga terinstal', 'id'),
+('default', 'Installed third-party themes', 'Installierte Drittanbieter-Themes', 'de');

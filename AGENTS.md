@@ -108,7 +108,7 @@ All controllers are in `app/controllers/`, all are static methods.
 
 ## Theme system
 
-- Themes in `public/views/themes/{default, adam}/` with same file structure
+- The Core-managed system theme lives in `public/views/themes/default/`; additional themes such as `adam` are installed and updated through the Theme Store
 - Slot-based rendering: `assignments` table maps `slot_key` → theme_id or custom_post_id
 - `render_slot($pdo, 'slot_key', ...)` → `resolve_template()` → slot-to-file mapping + variable interpolation
 - Slots: `header`, `footer`, `sidebar`, `main.homepage`, `list.post`, `single.post`, etc.

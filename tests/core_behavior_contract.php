@@ -70,11 +70,9 @@ $check(str_contains($serverSetup, 'location = /manifest.webmanifest') && str_con
 
 $check(!preg_match('/^(?:h[1-6]|a)\s*(?:,|\{)/m', $css), 'public Quill heading and link rules have no bare theme selectors');
 $check(str_contains($css, '.editor-content h1') && str_contains($css, '.editor-content a'), 'public Quill typography uses the generic editor-content scope');
-foreach (['default', 'adam'] as $theme) {
-    $page = (string)file_get_contents($root . '/public/views/themes/' . $theme . '/main/single/page.php');
-    $post = (string)file_get_contents($root . '/public/views/themes/' . $theme . '/main/single/post.php');
-    $check(str_contains($page, 'editor-content') && str_contains($post, 'editor-content'), $theme . ' theme marks rendered editor content');
-}
+$page = (string)file_get_contents($root . '/public/views/themes/default/main/single/page.php');
+$post = (string)file_get_contents($root . '/public/views/themes/default/main/single/post.php');
+$check(str_contains($page, 'editor-content') && str_contains($post, 'editor-content'), 'default theme marks rendered editor content');
 
 $check(str_contains($themeStore, "\$manifest['folder'] ?? \$manifest['name'] ?? ''"), 'theme update manifests remain folder-first');
 $check(str_contains($updatesEndpoint, 'PluginStoreController::getCachedUpdates()'), 'plugin update notifications export cached plugin updates');

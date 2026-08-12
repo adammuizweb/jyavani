@@ -50,8 +50,8 @@ c. `dashboard/admin/shortcodes` — gadget HTML/shortcode bisa memakai shortcode
    bawaan tema seperti sekarang (tidak ada halaman rusak).
 5. **Customize harus theme-aware** — selalu membaca manifest tema aktif; konfigurasi
    gadget harus **per-tema** (pindah tema tidak membawa gadget tema lain).
-6. **Dua tema referensi**: `default` dan `adam` di-update sebagai contoh canonical
-   supaya developer tema lain paham algoritmanya.
+6. **Tema referensi Core**: hanya `default` yang di-update sebagai contoh canonical.
+   Theme lain, termasuk `adam`, dikelola melalui Theme Store.
 7. Schema di `/var/www/jyavani.lan/schema` harus menyesuaikan (migration baru, plus
    update `schema/default.sql`).
 
@@ -68,7 +68,8 @@ Sudah ada:
   Main row + Sidebar → Footer band), select partials, drag & drop antar-position,
   gadget config form dengan alignment icon buttons + title tag selector.
 - `theme_mods_{folder}` (JSON di settings) untuk Theme Customizer fields.
-- Header/footer default & adam sudah zone-aware dengan fallback hardcode.
+- Header/footer `default` sudah zone-aware dengan fallback hardcode; implementasi theme
+  Store seperti `adam` mengikuti kontrak yang sama di paket themenya sendiri.
 - Semua gadget renderer sudah menggunakan `theme_zone_render_title()` + `width:100%` agar
   `text-align` berfungsi dalam flex container dengan `align-items:center`.
 
@@ -125,15 +126,15 @@ Konsekuensi desain:
 - **Fase 1:** ✅ Per-theme scoping gadget (`theme_folder` di `theme_zone_items`, migrasi
   `010-theme-zone-theme-folder.sql` + backfill, runtime `ensure_schema` ikut ALTER,
   admin menampilkan gadget inactive). Done 2026-07-21.
-- **Fase 2:** ✅ Zone `single.post` + `list.post` + partials; default & adam jadi contoh.
+- **Fase 2:** ✅ Zone `single.post` + `list.post` + partials; `default` menjadi contoh Core.
   Done 2026-07-21:
-  - `theme.json` (default + adam): zone `single.post` (positions `before_content`/`after_content`)
+  - `theme.json` `default`: zone `single.post` (positions `before_content`/`after_content`)
     dan `list.post` (`before_loop`/`after_loop`).
   - Gadget baru: `tz_post_author` (config `show_avatar`) dan `tz_post_meta`
     (`show_date`/`show_updated`/`show_read_time`).
   - **Kontrak konteks post:** template single WAJIB set `$GLOBALS['jy_current_post'] = $post;`
     sebelum render zone; gadget post-aware membaca global itu. Tanpa konteks, gadget render `''`.
-  - Template single (default + adam) render `single.post/before_content` sebelum `.adam-post-body`
+  - Template single `default` render `single.post/before_content` sebelum `.adam-post-body`
     dan `single.post/after_content` sesudahnya. Template list render `list.post/before_loop`
     sebelum loop dan `list.post/after_loop` setelah pagination.
   - Admin Customize: tab sekarang **dinamis dari `theme.json`** (bukan hardcode header/main/footer);
@@ -165,7 +166,7 @@ Konsekuensi desain:
   - **Panel Sidebar**: status aktif/nonaktif (`theme_mod('show_sidebar')`), daftar sidebar zones,
     link cepat ke `?page=admin/sidebar/index` (integrasi Sidebar Settings).
   - **Footer 3 kolom**: positions `left`/`middle`/`right` (label Logo/Pages/Contact, `columns: 3`)
-    di theme.json default + adam; `footer.php` render grid 3 kolom bila ada isinya, fallback ke
+    di theme.json `default`; `footer.php` render grid 3 kolom bila ada isinya, fallback ke
     position `main` lama, lalu fallback hardcode — backward compatible.
 
 - **Fase 3c:** ✅ Global Settings modal + partials lengkap dari filesystem. Done 2026-07-21:
@@ -178,7 +179,7 @@ Konsekuensi desain:
   - Partial tanpa deklarasi di theme.json memakai konvensi positions dari
     `theme_zone_partial_positions()`: `single.*` → before_content/after_content;
     `list.*`/`index.*`/`main.search` → before_loop/after_loop; lainnya → before/after.
-  - Hook render ditambahkan ke 11 partial (default + adam): single/page, list/page,
+  - Hook render ditambahkan ke 11 partial `default`: single/page, list/page,
     list/category, list/archive, list/author, index/category, index/author, homepage,
     search, 404, download-intro. `single/page.php` juga set `$GLOBALS['jy_current_post']`.
   - Tombol Load Default Layout hanya tampil jika zone declare `defaults` (atau header/footer).

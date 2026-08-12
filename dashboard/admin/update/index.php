@@ -546,8 +546,8 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <li><code>cfg/.env</code> &mdash; database &amp; session config</li>
         <li><code>cfg/var/</code> &mdash; sessions, tokens, runtime data</li>
         <li><code>private_files/</code> &mdash; protected files</li>
-        <li><code>public/static/img/</code> &amp; <code>files/</code> &mdash; uploaded media</li>
-        <li><code>public/views/themes/</code> &mdash; installed themes</li>
+        <li><code>public/static/img/YYYY/</code> &amp; <code>files/</code> &mdash; <?=_e('Uploaded media')?></li>
+        <li><code>public/views/themes/</code> &mdash; <?=_e('Installed third-party themes')?></li>
         <li><code>plugins/</code> &mdash; installed plugins</li>
         <li><code>public/pdf/</code> &mdash; PWA / static PDF files</li>
         <li><code>public/sitemaps/</code> &mdash; generated sitemaps</li>

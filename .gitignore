@@ -33,29 +33,15 @@ public/static/img/2026
 # Ignore installed themes — install via Store Browse only
 public/views/themes/*
 !public/views/themes/default/
-!public/views/themes/adam/
 
 # Uploaded / private files (runtime data)
 private_files/
 public/static/files/2025
 public/static/files/2026
 
-# Playwright E2E tests are local; PHP contract tests are versioned.
-tests/
-!tests/
-tests/*
-!tests/theme_section_contract.php
-!tests/theme_section_dashboard_contract.php
-!tests/content_route_contract.php
-!tests/content_route_dashboard_contract.php
-!tests/cms_update_contract.php
-!tests/core_behavior_contract.php
-!tests/shortcode_preset_contract.php
-!tests/shortcode_preset_dashboard_contract.php
-!tests/shortcode_layout_dashboard_contract.php
-!tests/plugin_requirement_contract.php
-!tests/plugin_dependency_contract.php
-!tests/modal_library_contract.php
+# PHP contract tests are versioned; browser tests and local security notes are not.
+tests/playwright/
+tests/security1p.md
 
 jyavani-cms-update.zip
 photo-gallery-*.zip
