@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.62",
+    "version": "2.3.63",
     "build": "2026-08-12",
-    "changelog": "Improve Media and File detail workspaces and add compact pagination with selectable 20, 50, 100, or 200 item page sizes to both managers.",
+    "changelog": "Redesign the responsive login page with Jyavani branding, accessible password controls, and dedicated hooks for plugin customization.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

@@ -94,6 +94,8 @@ All controllers are in `app/controllers/`, all are static methods.
 - **Login:** `dashboard/gerbank/melbu/index.php` (outside web root) — standalone HTML page, configurable brute-force protection, reCAPTCHA toggle, blocked IP/email detection. Guard checks `login_path` setting against request URI.
 - **Register:** `dashboard/gerbank/daptar/index.php` (outside web root) — standalone HTML page, can be disabled entirely (`registration_enabled`), optional admin approval (`is_locked`), reCAPTCHA toggle. Guard checks `register_path` setting.
 - Both use `get_admin_path($pdo)` for redirects after login/register.
+- Login customization filters: `jy_login_title`, `jy_login_logo_url`, and `jy_login_logo_link`.
+- Login extension actions: `jy_login_head`, `jy_login_before_form`, `jy_login_form`, `jy_login_after_form`, and `jy_login_footer`. Each receives the active `PDO` instance.
 
 ### Settings (`settings/auth.php`)
 

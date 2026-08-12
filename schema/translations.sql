@@ -4296,4 +4296,12 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Managed plugin files were restored, but install.sh changes outside the plugin directory may remain.', 'File plugin yang dikelola telah dipulihkan, tetapi perubahan install.sh di luar direktori plugin mungkin tetap ada.', 'id'),
 ('default', 'Managed plugin files were restored, but install.sh changes outside the plugin directory may remain.', 'Verwaltete Plugin-Dateien wurden wiederhergestellt, aber Änderungen von install.sh außerhalb des Plugin-Verzeichnisses können bestehen bleiben.', 'de'),
 ('default', 'Managed plugin file restoration was incomplete, and install.sh changes outside the plugin directory may remain. Manual recovery is required.', 'Pemulihan file plugin yang dikelola tidak lengkap, dan perubahan install.sh di luar direktori plugin mungkin tetap ada. Pemulihan manual diperlukan.', 'id'),
-('default', 'Managed plugin file restoration was incomplete, and install.sh changes outside the plugin directory may remain. Manual recovery is required.', 'Die Wiederherstellung verwalteter Plugin-Dateien war unvollständig, und Änderungen von install.sh außerhalb des Plugin-Verzeichnisses können bestehen bleiben. Eine manuelle Wiederherstellung ist erforderlich.', 'de');
+('default', 'Managed plugin file restoration was incomplete, and install.sh changes outside the plugin directory may remain. Manual recovery is required.', 'Die Wiederherstellung verwalteter Plugin-Dateien war unvollständig, und Änderungen von install.sh außerhalb des Plugin-Verzeichnisses können bestehen bleiben. Eine manuelle Wiederherstellung ist erforderlich.', 'de'),
+('default', 'Back to website', 'Kembali ke situs', 'id'),
+('default', 'Back to website', 'Zurück zur Website', 'de'),
+('default', 'Use your account to access the dashboard.', 'Gunakan akun Anda untuk mengakses dasbor.', 'id'),
+('default', 'Use your account to access the dashboard.', 'Verwenden Sie Ihr Konto, um auf das Dashboard zuzugreifen.', 'de'),
+('default', 'Powered by Jyavani CMS', 'Didukung oleh Jyavani CMS', 'id'),
+('default', 'Powered by Jyavani CMS', 'Unterstützt von Jyavani CMS', 'de'),
+('default', 'Jyavani CMS', 'Jyavani CMS', 'id'),
+('default', 'Jyavani CMS', 'Jyavani CMS', 'de');

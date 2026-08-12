@@ -55,6 +55,8 @@ $updatesEndpoint = (string)file_get_contents($root . '/dashboard/admin/check_upd
 $updatesCaller = (string)file_get_contents($root . '/public/static/dashboard/js/update-notif.js');
 $htaccess = (string)file_get_contents($root . '/public/.htaccess');
 $serverSetup = (string)file_get_contents($root . '/SERVER_SETUP.md');
+$login = (string)file_get_contents($root . '/dashboard/gerbank/melbu/index.php');
+$loginCss = (string)file_get_contents($root . '/public/static/dashboard/css/login.css');
 
 $check(substr_count($router, 'collection_redirect_legacy_query_pagination();') >= 7, 'all routed collection families canonicalize legacy query pagination');
 $check(str_contains($router, "([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)"), 'locale sitemap routes accept normalized BCP-style subtags');
@@ -77,6 +79,16 @@ foreach (['default', 'adam'] as $theme) {
 $check(str_contains($themeStore, "\$manifest['folder'] ?? \$manifest['name'] ?? ''"), 'theme update manifests remain folder-first');
 $check(str_contains($updatesEndpoint, 'PluginStoreController::getCachedUpdates()'), 'plugin update notifications export cached plugin updates');
 $check(str_contains($updatesCaller, 'data.plugins.forEach'), 'update notification caller renders exported plugin updates');
+
+foreach (['jy_login_head', 'jy_login_before_form', 'jy_login_form', 'jy_login_after_form', 'jy_login_footer'] as $hook) {
+    $check(str_contains($login, "do_action('{$hook}'"), "login exposes {$hook}");
+}
+foreach (['jy_login_title', 'jy_login_logo_url', 'jy_login_logo_link'] as $filter) {
+    $check(str_contains($login, "apply_filters('{$filter}'"), "login exposes {$filter}");
+}
+$check(str_contains($login, '/static/img/jyavani.svg') && str_contains($login, 'rel="icon"'), 'login uses the canonical Jyavani logo and favicon');
+$check(str_contains($login, '/static/dashboard/css/login.css') && str_contains($loginCss, '@media (max-width: 480px)'), 'login loads its dedicated responsive stylesheet');
+$check(str_contains($login, 'autocomplete="current-password"') && str_contains($login, 'name="csrf_token"'), 'login preserves password autocomplete and CSRF protection');
 
 $downloadWithStream = new ReflectionMethod(PluginStoreController::class, 'downloadPackageWithStream');
 $serveOnce = static function (int $status, string $body) use ($downloadWithStream): array {

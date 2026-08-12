@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.62",
+    "version": "2.3.63",
     "build": "2026-08-12",
-    "generated": "2026-08-12T01:56:59+00:00",
+    "generated": "2026-08-12T02:18:44+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
-    "total_files": 448,
+    "total_files": 449,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "af4572452136acedd447cbe9424d4014d665be0db32cadcb391fad7423244f7e",
+        "VERSION": "03d3ac0dfbe3a3909f24cba86e13b41b50a9f9f2433fc9845fd50aaf12aae5b8",
         "app/bootstrap_core.php": "de1474c1e11e219eb942276a17bbd3ee4ec6e706e94ed2899de69296a9f24889",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
@@ -187,7 +187,7 @@
         "dashboard/bootstrap.php": "2c5136ccf7dc5888a91b2d9234e63003d835daff346cace2d0a92850c1f9eb16",
         "dashboard/gerbank/daptar/index.php": "fc49b0efcbcf5257b529dfe7c29d1afa0273864f750953d99c55f050409e6968",
         "dashboard/gerbank/index.php": "7b879957490d75df8a47c09815a5f86d09b286cce782c9207cdb9b37160eace9",
-        "dashboard/gerbank/melbu/index.php": "dd9dc6475099d53c0a9acda75deb91d727f5621248d6b3fc6d610803f66a8f22",
+        "dashboard/gerbank/melbu/index.php": "e3b0492721aa3030c81458be430a1c3791d6cc1adeb5ae1a532ce6e7a91bdd22",
         "dashboard/index.php": "8de987514498cffdd0ff8ffb7a618caef0bd254b7d0a669f61468364a58f3abe",
         "dashboard/logout.php": "7cc432154797bd3bb856d4720801ac55ce5155dd64e27229d75e8dcaf3b9dfb8",
         "dashboard/theme/adam/index.php": "880a2b940cf9d5226b306d47a50886e51846b726128267ef61f857a500ac4c4d",
@@ -237,6 +237,7 @@
         "public/static/components/toast/toast.css": "46c17b4ba5e6794621c3404680e85efd40ec222896508788007dc69b4b386e9e",
         "public/static/components/toast/toast.js": "83b6980acdbe34b927de7c2ba1fb1b00ce56b1d263a02b50be2eba503ded3284",
         "public/static/dashboard/css/aside.css": "4ba4ad8f9f1ae9ca9c5145710c01ddac67f6a706a9f64d2d7998cc17504409cd",
+        "public/static/dashboard/css/login.css": "b24a2413e2a8971ffd93e2886f6e4eb70dae38adc03718b3cb60bc545f990217",
         "public/static/dashboard/css/notif.css": "f60a9a8a27ad61b8eef4a90adce56f952e773163dccdda55fd8b067fd6a1ec46",
         "public/static/dashboard/css/style.css": "a4dc14685f6669ae1bfda9f6ac4389ba33354eb8f891ccdd8b818ec1c1e40e6d",
         "public/static/dashboard/js/accordion.js": "53df12e1ef62951730703206027b5e72a8654378e77fa3dd0c3f4e89c123783f",
@@ -450,11 +451,11 @@
         "schema/migrations/010-theme-zone-theme-folder.sql": "15a82325671bb1115de39af895cf2851c131bd6d2041b9942d286df2f37d4b31",
         "schema/migrations/011-remove-static-language-control.sql": "0b7833516e66dcbd32bcf29f3106a6a59ee1abcca7dda9b7cd35ea512c9aa9e7",
         "schema/migrations/012-content-routes.sql": "f7bd6d876afb73d058a5c8410c275f82a6fdf79e1c931217290ebe869e7d67dc",
-        "schema/translations.sql": "6af89b8aed88a9a12010ac834415a3b31f3796c204d2357a2fa0a8593fa29d66",
+        "schema/translations.sql": "d49978c2809f089ed06ee34f637263ea54a13b1797b9ccdb86bb00e23817dbd1",
         "tools/build-package.php": "320137c8afd89999c26063469ccaa70f9fe74b9cab5117e33ccf68c116b71201",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "952f9e97a35d4e72aaee963ca4bd00b29fce845ed6dd79592acd9626f160af11",
-        "version.json": "386d52f9b0857850abcab5e54ecd46deaa271ff15dd3aa112028d07fae76e63d"
+        "version.json": "3c9410a38d9c4dafb27ff28411d6183cf2f7e459010bcc1525169b034910a5ce"
     }
 }

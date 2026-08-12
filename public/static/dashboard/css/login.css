@@ -1,0 +1,321 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  color: #27232a;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+}
+
+body.jy-login-page {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(207, 171, 87, .18), transparent 28rem),
+    radial-gradient(circle at 88% 92%, rgba(212, 45, 65, .12), transparent 30rem),
+    #f5f2ed;
+}
+
+.jy-login-page::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(rgba(55, 45, 40, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(55, 45, 40, .035) 1px, transparent 1px);
+  background-size: 32px 32px;
+  content: "";
+  mask-image: linear-gradient(to bottom, #000, transparent 75%);
+}
+
+.jy-login {
+  display: flex;
+  width: min(100% - 32px, 430px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 46px 0 28px;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.jy-login__brand {
+  display: flex;
+  margin-bottom: 22px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.jy-login__logo-link {
+  display: grid;
+  width: 48px;
+  height: 54px;
+  place-items: center;
+  border-radius: 14px;
+  outline-offset: 4px;
+  transition: transform .18s ease;
+}
+
+.jy-login__logo-link:hover {
+  transform: translateY(-2px);
+}
+
+.jy-login__logo {
+  display: block;
+  width: 38px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.jy-login__product {
+  color: #342d31;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+
+.jy-login__card {
+  position: relative;
+  overflow: hidden;
+  padding: 36px;
+  border: 1px solid rgba(77, 61, 56, .12);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 24px 70px rgba(57, 38, 39, .12), 0 2px 8px rgba(57, 38, 39, .05);
+  backdrop-filter: blur(18px);
+}
+
+.jy-login__card::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #d42d41 0 68%, #cfab57 68%);
+  content: "";
+}
+
+.jy-login__intro {
+  margin-bottom: 26px;
+}
+
+.jy-login__eyebrow {
+  overflow: hidden;
+  margin: 0 0 7px;
+  color: #9d2738 !important;
+  font-size: 11px !important;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.jy-login__intro h1 {
+  margin: 0;
+  color: #272126;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(30px, 8vw, 38px);
+  line-height: 1.1;
+  letter-spacing: -.035em;
+}
+
+.jy-login__intro p:not(.jy-login__eyebrow) {
+  margin: 10px 0 0;
+  color: #716971;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.jy-login__notice {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.jy-login__notice--error {
+  border-color: #f0b6bd;
+  background: #fff1f2;
+  color: #872131;
+}
+
+.jy-login__notice--info {
+  border-color: #b7d8ed;
+  background: #eff8ff;
+  color: #155177;
+}
+
+.jy-login__form label {
+  display: block;
+  margin: 16px 0 7px;
+  color: #403a40;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.jy-login__form > label:first-of-type {
+  margin-top: 0;
+}
+
+.jy-login__form input:not([type="hidden"]) {
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid #d5cfd2;
+  border-radius: 10px;
+  outline: 0;
+  background: #fff;
+  color: #272126;
+  font: inherit;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.jy-login__form input:not([type="hidden"]):focus {
+  border-color: #b9273a;
+  box-shadow: 0 0 0 3px rgba(212, 45, 65, .12);
+}
+
+.jy-login__password {
+  position: relative;
+}
+
+.jy-login__password input {
+  padding-right: 48px !important;
+}
+
+.jy-login__password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #766d73;
+  cursor: pointer;
+}
+
+.jy-login__password-toggle:hover,
+.jy-login__password-toggle:focus-visible {
+  background: #f5eff0;
+  color: #9d2738;
+}
+
+.jy-login__password-toggle svg {
+  fill: currentColor;
+}
+
+.jy-login__captcha {
+  overflow-x: auto;
+  margin-top: 18px;
+}
+
+.jy-login__submit {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 22px;
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: #c92c40;
+  box-shadow: 0 8px 18px rgba(166, 32, 50, .2);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.jy-login__submit:hover {
+  transform: translateY(-1px);
+  background: #a92134;
+  box-shadow: 0 10px 24px rgba(166, 32, 50, .25);
+}
+
+.jy-login__submit:focus-visible,
+.jy-login__back:focus-visible,
+.jy-login__logo-link:focus-visible {
+  outline: 3px solid rgba(207, 171, 87, .65);
+}
+
+.jy-login__help {
+  display: grid;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #eee8e9;
+  text-align: center;
+  gap: 5px;
+}
+
+.jy-login__help small {
+  color: #756d72;
+  font-size: 12px;
+}
+
+.jy-login__help a,
+.jy-login__back {
+  color: #922538;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.jy-login__help a:hover,
+.jy-login__back:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.jy-login__back {
+  display: flex;
+  width: fit-content;
+  margin: 22px auto 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.jy-login__footer {
+  min-height: 18px;
+  margin-top: 20px;
+  color: #837a7f;
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+@media (max-width: 480px) {
+  .jy-login {
+    width: min(100% - 24px, 430px);
+    padding: 28px 0 20px;
+    justify-content: flex-start;
+  }
+
+  .jy-login__brand {
+    margin-bottom: 16px;
+  }
+
+  .jy-login__card {
+    padding: 30px 22px 26px;
+    border-radius: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

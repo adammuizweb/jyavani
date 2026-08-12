@@ -281,42 +281,53 @@ $attempt = ($email !== '') ? get_login_attempt($pdo, $email, $ip) : $attempt;
 $attempts = (int)($attempt['attempts'] ?? $attempts);
 $show_captcha = $show_captcha || ($attempts >= $captcha_threshold);
 $show_help = $show_help || ($attempts >= $captcha_threshold);
+
+$siteTitle = (string)(settings_get($pdo, 'site_title', 'Jyavani CMS') ?? 'Jyavani CMS');
+$loginTitle = (string)apply_filters('jy_login_title', __('Sign In'), $pdo);
+$loginLogoUrl = (string)apply_filters('jy_login_logo_url', '/static/img/jyavani.svg', $pdo);
+$loginLogoLink = (string)apply_filters('jy_login_logo_link', '/', $pdo);
 ?>
 <!doctype html>
 <html lang="<?=h(get_locale())?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?php _e('Login'); ?></title>
+<meta name="color-scheme" content="light">
+<title><?=h($loginTitle)?> &lsaquo; <?=h($siteTitle)?></title>
+<link rel="icon" href="<?=h($loginLogoUrl)?>" type="image/svg+xml">
+<link rel="stylesheet" href="/static/dashboard/css/login.css">
 <?php if ($recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <?php endif; ?>
-<style>
-  body { font-family: system-ui, -apple-system, Roboto, 'Segoe UI', Arial; background:#f6f8fa; }
-  .card { width:360px; margin:60px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 8px 30px rgba(20,30,50,0.06); }
-  .error { background:#fff1f0; color:#8a1f1f; padding:10px; border-radius:6px; margin-bottom:12px; }
-  .info { background:#eef7ff; color:#064e9b; padding:10px; border-radius:6px; margin-bottom:12px; }
-  label { font-size:13px; color:#333; display:block; margin-top:8px; }
-  input { width:100%; padding:10px; margin-top:6px; border:1px solid #d7dbe6; border-radius:6px; box-sizing:border-box; }
-  button { width:100%; padding:10px; margin-top:12px; background:#0b76ef; color:#fff; border:none; border-radius:8px; font-weight:600; cursor:pointer; }
-  .help { text-align:center; margin-top:12px; font-size:14px; }
-  .help a { color:#0a7d0a; font-weight:700; text-decoration:none; }
-  small.muted { display:block; margin-top:10px; color:#666; font-size:13px; text-align:center; }
-</style>
+<?php do_action('jy_login_head', $pdo); ?>
 </head>
-<body>
-  <main class="card" role="main" aria-labelledby="login-title">
-    <h2 id="login-title" style="margin:0 0 10px 0;"><?php _e('Sign In'); ?></h2>
+<body class="jy-login-page">
+  <main class="jy-login" role="main" aria-labelledby="login-title">
+    <header class="jy-login__brand">
+      <a class="jy-login__logo-link" href="<?=h($loginLogoLink)?>" aria-label="<?=h(__('Back to website'))?>">
+        <img class="jy-login__logo" src="<?=h($loginLogoUrl)?>" alt="<?=h(__('Jyavani CMS'))?>">
+      </a>
+      <span class="jy-login__product"><?=h(__('Jyavani CMS'))?></span>
+    </header>
+
+    <section class="jy-login__card">
+      <div class="jy-login__intro">
+        <p class="jy-login__eyebrow"><?=h($siteTitle)?></p>
+        <h1 id="login-title"><?=h($loginTitle)?></h1>
+        <p><?=h(__('Use your account to access the dashboard.'))?></p>
+      </div>
 
     <?php if (!empty($errors)): ?>
-      <div class="error" role="alert"><?php echo implode('<br>', array_map(static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'), $errors)); ?></div>
+      <div class="jy-login__notice jy-login__notice--error" role="alert"><?php echo implode('<br>', array_map(static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'), $errors)); ?></div>
     <?php endif; ?>
 
     <?php if (!empty($info)): ?>
-      <div class="info"><?php echo htmlspecialchars($info, ENT_QUOTES, 'UTF-8'); ?></div>
+      <div class="jy-login__notice jy-login__notice--info" role="status"><?php echo htmlspecialchars($info, ENT_QUOTES, 'UTF-8'); ?></div>
     <?php endif; ?>
 
-    <form method="post" action="">
+    <?php do_action('jy_login_before_form', $pdo); ?>
+
+    <form class="jy-login__form" method="post" action="">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_value, ENT_QUOTES, 'UTF-8'); ?>">
 
       <label for="email"><?php _e('Email'); ?></label>
@@ -328,34 +339,66 @@ $show_help = $show_help || ($attempts >= $captcha_threshold);
         required
         autocomplete="email"
         autofocus
+        inputmode="email"
       >
 
       <label for="password"><?php _e('Password'); ?></label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        required
-        autocomplete="current-password"
-      >
+      <div class="jy-login__password">
+        <input
+          id="password"
+          name="password"
+          type="password"
+          required
+          autocomplete="current-password"
+        >
+        <button class="jy-login__password-toggle" type="button" aria-label="<?=h(__('Show password'))?>" aria-controls="password" aria-pressed="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path d="M2.2 12s3.5-6 9.8-6 9.8 6 9.8 6-3.5 6-9.8 6-9.8-6-9.8-6Zm9.8 3.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/></svg>
+        </button>
+      </div>
 
       <?php if ($show_captcha && $recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
-        <div style="margin-top:12px;">
+        <div class="jy-login__captcha">
           <div class="g-recaptcha" data-sitekey="<?php echo htmlspecialchars($RECAPTCHA_SITEKEY, ENT_QUOTES, 'UTF-8'); ?>"></div>
         </div>
       <?php endif; ?>
 
-      <button type="submit"><?php _e('Login'); ?></button>
+      <?php do_action('jy_login_form', $pdo); ?>
+
+      <button class="jy-login__submit" type="submit"><?php _e('Login'); ?></button>
     </form>
 
+    <?php do_action('jy_login_after_form', $pdo); ?>
+
     <?php if ($show_help): ?>
-      <div class="help">
-        <small class="muted"><?php _e('Need help after several attempts?'); ?></small>
+      <div class="jy-login__help">
+        <small><?php _e('Need help after several attempts?'); ?></small>
         <a href="<?php echo htmlspecialchars($WHATSAPP_HELP_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php _e('Contact Admin via WhatsApp'); ?></a>
       </div>
     <?php endif; ?>
 
-    <small class="muted" style="margin-top:14px;display:block;text-align:center;">.</small>
+      <a class="jy-login__back" href="<?=h($loginLogoLink)?>">
+        <span aria-hidden="true">&larr;</span> <?=h(__('Back to website'))?>
+      </a>
+    </section>
+
+    <footer class="jy-login__footer">
+      <span><?=h(__('Powered by Jyavani CMS'))?></span>
+      <?php do_action('jy_login_footer', $pdo); ?>
+    </footer>
   </main>
+  <script>
+  (() => {
+    const toggle = document.querySelector('.jy-login__password-toggle');
+    const password = document.getElementById('password');
+    if (!toggle || !password) return;
+    toggle.addEventListener('click', () => {
+      const reveal = password.type === 'password';
+      password.type = reveal ? 'text' : 'password';
+      toggle.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+      toggle.setAttribute('aria-label', reveal ? <?=json_encode(__('Hide password'))?> : <?=json_encode(__('Show password'))?>);
+      password.focus();
+    });
+  })();
+  </script>
 </body>
 </html>
