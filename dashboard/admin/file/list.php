@@ -60,41 +60,22 @@ if (!function_exists('modalfilez_client_url')) {
 
 if (!function_exists('build_pagination_items')) {
     function build_pagination_items(int $current, int $total_pages, int $max_visible = 9): array {
-        if ($total_pages <= $max_visible) return range(1, $total_pages);
+        if ($total_pages <= 7) return range(1, $total_pages);
+
+        $pages = [1, 2, $current - 1, $current, $current + 1, $total_pages - 1, $total_pages];
+        $pages = array_values(array_unique(array_filter(
+            $pages,
+            static fn(int $number): bool => $number >= 1 && $number <= $total_pages
+        )));
+        sort($pages);
 
         $items = [];
-        $reserved = 6;
-        $middle_slots = max(1, $max_visible - $reserved);
-        $half = (int) floor($middle_slots / 2);
-        $start = max(3, $current - $half);
-        $end = min($total_pages - 2, $current + $half);
-
-        if ($start === 3) $end = min($total_pages - 2, $start + $middle_slots - 1);
-        if ($end === $total_pages - 2) $start = max(3, $end - $middle_slots + 1);
-
-        $items[] = 1;
-        $items[] = 2;
-        if ($start > 3) $items[] = '...';
-        for ($i = $start; $i <= $end; $i++) $items[] = $i;
-        if ($end < $total_pages - 2) $items[] = '...';
-        $items[] = $total_pages - 1;
-        $items[] = $total_pages;
-
-        while (count($items) > $max_visible) {
-            for ($i = 0; $i < count($items); $i++) {
-                if (
-                    is_int($items[$i]) &&
-                    $items[$i] !== 1 &&
-                    $items[$i] !== 2 &&
-                    $items[$i] !== $total_pages - 1 &&
-                    $items[$i] !== $total_pages
-                ) {
-                    array_splice($items, $i, 1);
-                    break;
-                }
-            }
+        $previous = 0;
+        foreach ($pages as $number) {
+            if ($previous > 0 && $number > $previous + 1) $items[] = '...';
+            $items[] = $number;
+            $previous = $number;
         }
-
         return $items;
     }
 }
@@ -115,8 +96,9 @@ $hasVisibility = mdlib_has_column('visibility');
 $search   = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $visFilter = $hasVisibility ? trim((string)($_GET['v'] ?? '')) : '';
 $page     = max(1, (int)($_GET['p'] ?? 1));
-$per_page = 10;
-$offset   = ($page - 1) * $per_page;
+$perPageOptions = [20, 50, 100, 200];
+$requestedPerPage = (int)($_GET['per_page'] ?? 20);
+$per_page = in_array($requestedPerPage, $perPageOptions, true) ? $requestedPerPage : 20;
 
 $where = [];
 $params = [];
@@ -152,6 +134,10 @@ try {
     $total = 0;
 }
 
+$total_pages = max(1, (int)ceil($total / $per_page));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $per_page;
+
 $rows = [];
 if ($total > 0) {
     $sql = "SELECT * FROM `file` $where_sql ORDER BY id DESC LIMIT :limit OFFSET :offset";
@@ -168,7 +154,6 @@ if ($total > 0) {
     }
 }
 
-$total_pages = max(1, (int) ceil($total / $per_page));
 $paging_items = build_pagination_items($page, $total_pages, 9);
 ?>
 
@@ -188,6 +173,15 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     </select>
     <?php endif; ?>
 
+    <label class="media-page-size" for="media-per-page">
+      <span><?= _e('Items per page') ?></span>
+      <select id="media-per-page" class="media-page-select" aria-label="<?= _e('Items per page') ?>">
+        <?php foreach ($perPageOptions as $option): ?>
+          <option value="<?= $option ?>" <?= $per_page === $option ? 'selected' : '' ?>><?= $option ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+
     <input
       type="text"
       id="media-search"
@@ -198,7 +192,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     >
     <button id="media-search-btn" class="btn" type="button"><?= _e('Search') ?></button>
 
-    <div style="margin-left:auto" class="small">Total: <?= (int)$total ?></div>
+    <div class="media-list-total small"><?= _e('Total') ?>: <?= (int)$total ?></div>
   </div>
 
   <?php if (empty($rows)): ?>
@@ -265,8 +259,12 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       </tbody>
     </table>
 
-    <?php if ($total_pages > 1): ?>
-      <div class="media-pagination" role="navigation" aria-label="Pagination">
+    <div class="media-list-footer">
+      <?php if ($total_pages > 1): ?>
+      <nav class="media-pagination" aria-label="<?= _e('Pagination') ?>">
+        <?php if ($page > 1): ?>
+          <a href="#" class="media-page-link media-page-nav" rel="prev" data-page="<?= $page - 1 ?>" data-q="<?= e($search) ?>" data-v="<?= e($visFilter) ?>" data-per-page="<?= $per_page ?>"><?= _e('Previous') ?></a>
+        <?php endif; ?>
         <?php foreach ($paging_items as $item): ?>
           <?php
             if ($item === '...') {
@@ -276,12 +274,19 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
             $i = (int) $item;
           ?>
           <?php if ($i === $page): ?>
-            <strong data-page="<?= $i ?>"><?= $i ?></strong>
+            <strong data-page="<?= $i ?>" aria-current="page"><?= $i ?></strong>
           <?php else: ?>
-            <a href="#" class="media-page-link" data-page="<?= $i ?>" data-q="<?= e($search) ?>" data-v="<?= e($visFilter) ?>"><?= $i ?></a>
+            <a href="#" class="media-page-link" data-page="<?= $i ?>" data-q="<?= e($search) ?>" data-v="<?= e($visFilter) ?>" data-per-page="<?= $per_page ?>"><?= $i ?></a>
           <?php endif; ?>
         <?php endforeach; ?>
+        <?php if ($page < $total_pages): ?>
+          <a href="#" class="media-page-link media-page-nav" rel="next" data-page="<?= $page + 1 ?>" data-q="<?= e($search) ?>" data-v="<?= e($visFilter) ?>" data-per-page="<?= $per_page ?>"><?= _e('Next') ?></a>
+        <?php endif; ?>
+      </nav>
+      <?php endif; ?>
+      <div class="media-list-range small">
+        <?= $total > 0 ? (int)($offset + 1) . '&ndash;' . (int)min($offset + $per_page, $total) : '0' ?> / <?= (int)$total ?>
       </div>
-    <?php endif; ?>
+    </div>
   <?php endif; ?>
 </div>

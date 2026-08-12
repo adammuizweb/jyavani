@@ -115,7 +115,7 @@ if (!function_exists('modalimg_human_filesize')) {
     }
 }
 ?>
-<div class="mdlib-media-wrap">
+<div class="mdlib-media-wrap asset-detail asset-detail--modal">
   <div class="mdlib-media-left">
     <div class="mdlib-img-frame" title="<?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -140,6 +140,13 @@ if (!function_exists('modalimg_human_filesize')) {
     <form id="mdlib-media-edit-form">
       <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+
+      <div class="asset-detail-kicker"><?=_e('Media')?> / <?=_e('Details')?></div>
+      <div class="asset-detail-title"><?= htmlspecialchars((string)($r['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></div>
+      <div class="asset-detail-subtitle"><?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
+      <a class="asset-detail-open" href="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+
+      <div class="asset-detail-form">
 
       <div class="mdlib-field">
         <label for="mdlib-field-title"><?=_e('Title')?></label>
@@ -183,7 +190,7 @@ if (!function_exists('modalimg_human_filesize')) {
         <select id="mdlib-field-access-scope" class="mdlib-select" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
           <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
             <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
-            <option value="admin"><?=_e('Admin Only')?></option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
         </select>
         <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public media always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
       </div>
@@ -203,6 +210,7 @@ if (!function_exists('modalimg_human_filesize')) {
           <input type="text" id="mdlib-url-path" class="mdlib-url" readonly value="<?= htmlspecialchars((string)(parse_url((string)($r['url'] ?? ''), PHP_URL_PATH) ?: ($r['url'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
           <button type="button" class="mdlib-btn-copy" data-action="copy-url"><?=_e('Copy')?></button>
         </div>
+      </div>
       </div>
 
       <input type="hidden" name="url" value="<?= htmlspecialchars((string)($r['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">

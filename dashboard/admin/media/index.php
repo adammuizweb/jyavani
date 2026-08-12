@@ -71,6 +71,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const tabs = document.querySelectorAll('.tab-btn');
   const modalBackdrop = document.getElementById('adam-modal-backdrop');
   const modalBox = document.getElementById('adam-modal');
+  let listRequestSequence = 0;
+  let listController = null;
 
   function uiToast(type, title, message, duration) {
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
@@ -143,24 +145,40 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (!panel) return;
 
     const qEl = document.getElementById('media-search');
-    const q = qEl ? (qEl.value || '').trim() : '';
+    const q = typeof opts.q === 'string' ? opts.q.trim() : (qEl ? (qEl.value || '').trim() : '');
 
     const vEl = document.getElementById('visibility-filter');
     const v = vEl ? vEl.value : '';
 
+    const perPageEl = document.getElementById('media-per-page');
+    const requestedPerPage = opts.perPage != null
+      ? parseInt(String(opts.perPage), 10)
+      : (perPageEl ? parseInt(perPageEl.value || '20', 10) : 20);
+    const perPage = [20, 50, 100, 200].includes(requestedPerPage) ? requestedPerPage : 20;
+
     const activePageEl = panel.querySelector('.media-pagination strong');
-    const p = forcePage1 ? 1 : (activePageEl ? parseInt(activePageEl.textContent || '1', 10) : 1);
+    const requestedPage = opts.page != null ? parseInt(String(opts.page), 10) : NaN;
+    const p = forcePage1
+      ? 1
+      : (Number.isFinite(requestedPage) && requestedPage > 0
+        ? requestedPage
+        : (activePageEl ? parseInt(activePageEl.textContent || '1', 10) : 1));
 
     const url = '<?= ADMIN_BASE_PATH ?>/admin/media/list.php?q='
       + encodeURIComponent(q)
       + '&p=' + encodeURIComponent((Number.isFinite(p) && p > 0) ? p : 1)
+      + '&per_page=' + encodeURIComponent(perPage)
       + (v ? '&v=' + encodeURIComponent(v) : '')
       + '&_ts=' + Date.now();
 
     try {
+      const requestId = ++listRequestSequence;
+      if (listController) listController.abort();
+      listController = typeof AbortController === 'function' ? new AbortController() : null;
       const res = await fetch(url, {
         credentials: 'include',
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: listController ? listController.signal : undefined
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
 
@@ -169,6 +187,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const doc = parser.parseFromString(html, 'text/html');
       const fresh = doc.querySelector('.media-list');
       const cur = panel.querySelector('.media-list');
+      if (requestId !== listRequestSequence) return;
 
       if (fresh && cur) {
         cur.replaceWith(fresh);
@@ -179,6 +198,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         panel.innerHTML = html;
       }
     } catch (err) {
+      if (err && err.name === 'AbortError') return;
       console.error('refreshListPanel error:', err);
       if (!silent) {
         uiToast('error', '<?=__('Media')?>', '<?=__('Failed to load media:')?> ' + (err.message || err));

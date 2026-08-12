@@ -90,13 +90,16 @@ if (!function_exists('human_filesize')) {
     }
 }
 ?>
-<div class="single-file">
-  <div class="single-file-card">
+<div class="single-file asset-detail">
+  <div class="single-file-card asset-detail-card">
     <div class="single-file-header">
       <div class="single-file-thumb-wrap">
         <div class="file-thumb file-thumb--large"><?= htmlspecialchars($ext, ENT_QUOTES, 'UTF-8') ?></div>
       </div>
       <div class="file-meta">
+        <div class="asset-detail-kicker"><?=_e('File Detail')?></div>
+        <h3 class="asset-detail-title"><?= htmlspecialchars((string)($row['title'] ?: $row['filename']), ENT_QUOTES, 'UTF-8') ?></h3>
+        <div class="asset-detail-subtitle"><?= htmlspecialchars((string)($row['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
         <div class="file-meta-row">
           <span class="file-meta-label"><?=_e('Filename')?></span>
           <span class="file-meta-value"><?= htmlspecialchars((string)($row['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
@@ -120,14 +123,15 @@ if (!function_exists('human_filesize')) {
             <span class="badge badge--danger"><?=_e('NO DOWNLOAD')?></span>
           <?php endif; ?>
         </div>
+        <a class="asset-detail-open" href="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
       </div>
     </div>
 
     <div class="single-file-body">
-      <div class="single-file-section">
+      <div class="single-file-section asset-detail-editor">
         <div class="file-section-title"><?=_e('Metadata')?></div>
 
-        <form id="file-edit-form">
+        <form id="file-edit-form" class="asset-detail-fields">
           <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -141,35 +145,35 @@ if (!function_exists('human_filesize')) {
           <input id="file-field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($row['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
           <label for="file-field-access-scope"><?=_e('Access Scope')?></label>
-          <select id="file-field-access-scope" name="access_scope">
+          <select id="file-field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
             <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
             <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
             <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
           </select>
+          <?php if ($visibility === 'public'): ?><div class="file-url-hint"><?=_e('Public file always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
 
           <label class="file-check-label">
             <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
             <?=_e('Allow download')?>
           </label>
+
+          <div class="actions">
+            <button id="file-save-btn" class="btn" type="button"><?=_e('Save')?></button>
+            <button id="file-delete-btn" class="btn danger" type="button"><?=_e('Delete')?></button>
+          </div>
         </form>
       </div>
 
       <div class="single-file-section">
         <div class="file-section-title"><?=_e('File URL')?></div>
         <div class="url-row">
-          <span class="url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-          <input type="text" class="url-path" readonly value="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>">
+          <span class="url-prefix" id="file-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
+          <input type="text" class="url-path" id="file-url-path" readonly value="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>">
           <button type="button" class="copy-btn" data-action="copy-url"><?=_e('Copy')?></button>
         </div>
-        <div class="file-url-hint">
-          <a href="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?></a>
-        </div>
+        <div class="file-url-hint"><?=_e('This URL will be used when inserting.')?></div>
       </div>
 
-      <div class="actions">
-        <button id="file-save-btn" class="btn" type="button"><?=_e('Save')?></button>
-        <button id="file-delete-btn" class="btn danger" type="button"><?=_e('Delete')?></button>
-      </div>
     </div>
   </div>
 </div>

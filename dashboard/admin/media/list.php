@@ -67,8 +67,9 @@ if (!function_exists('modalfilez_client_url')) {
 $search   = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $visFilter = $hasVisibility ? trim((string)($_GET['v'] ?? '')) : '';
 $page     = max(1, (int)($_GET['p'] ?? 1));
-$per_page = 20;
-$offset   = ($page - 1) * $per_page;
+$perPageOptions = [20, 50, 100, 200];
+$requestedPerPage = (int)($_GET['per_page'] ?? 20);
+$per_page = in_array($requestedPerPage, $perPageOptions, true) ? $requestedPerPage : 20;
 
 $where = [];
 $params = [];
@@ -103,6 +104,10 @@ try {
     $total = 0;
 }
 
+$total_pages = max(1, (int)ceil($total / $per_page));
+$page = min($page, $total_pages);
+$offset = ($page - 1) * $per_page;
+
 $rows = [];
 if ($total > 0) {
     $sql = "SELECT * FROM media $where_sql ORDER BY id DESC LIMIT :limit OFFSET :offset";
@@ -123,40 +128,26 @@ if ($total > 0) {
 
 if (!function_exists('build_pagination_items')) {
     function build_pagination_items(int $current, int $total_pages, int $max_visible = 9): array {
-        if ($total_pages <= $max_visible) return range(1, $total_pages);
+        if ($total_pages <= 7) return range(1, $total_pages);
+
+        $pages = [1, 2, $current - 1, $current, $current + 1, $total_pages - 1, $total_pages];
+        $pages = array_values(array_unique(array_filter(
+            $pages,
+            static fn(int $number): bool => $number >= 1 && $number <= $total_pages
+        )));
+        sort($pages);
 
         $items = [];
-        $reserved = 6;
-        $middle_slots = max(1, $max_visible - $reserved);
-        $half = (int)floor($middle_slots / 2);
-        $start = max(3, $current - $half);
-        $end = min($total_pages - 2, $current + $half);
-
-        if ($start === 3) $end = min($total_pages - 2, $start + $middle_slots - 1);
-        if ($end === $total_pages - 2) $start = max(3, $end - $middle_slots + 1);
-
-        $items[] = 1;
-        $items[] = 2;
-        if ($start > 3) $items[] = '...';
-        for ($i = $start; $i <= $end; $i++) $items[] = $i;
-        if ($end < $total_pages - 2) $items[] = '...';
-        $items[] = $total_pages - 1;
-        $items[] = $total_pages;
-
-        while (count($items) > $max_visible) {
-            for ($i = 0; $i < count($items); $i++) {
-                if (is_int($items[$i]) && $items[$i] !== 1 && $items[$i] !== 2 && $items[$i] !== $total_pages - 1 && $items[$i] !== $total_pages) {
-                    array_splice($items, $i, 1);
-                    break;
-                }
-            }
+        $previous = 0;
+        foreach ($pages as $number) {
+            if ($previous > 0 && $number > $previous + 1) $items[] = '...';
+            $items[] = $number;
+            $previous = $number;
         }
-
         return $items;
     }
 }
 
-$total_pages = max(1, (int)ceil($total / $per_page));
 $paging_items = build_pagination_items($page, $total_pages, 9);
 ?>
 <div class="media-list">
@@ -175,10 +166,19 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     </select>
     <?php endif; ?>
 
+    <label class="media-page-size" for="media-per-page">
+      <span><?= _e('Items per page') ?></span>
+      <select id="media-per-page" class="media-page-select" aria-label="<?= _e('Items per page') ?>">
+        <?php foreach ($perPageOptions as $option): ?>
+          <option value="<?= $option ?>" <?= $per_page === $option ? 'selected' : '' ?>><?= $option ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+
     <input type="text" id="media-search" class="search" placeholder="<?= _e('Search title / filename / caption') ?>" value="<?= e($search) ?>" style="margin-left:12px;">
     <button id="media-search-btn" class="btn"><?= _e('Search') ?></button>
 
-    <div style="margin-left:auto" class="small">Total: <?= $total ?></div>
+    <div class="media-list-total small"><?= _e('Total') ?>: <?= $total ?></div>
   </div>
 
   <?php if (empty($rows)): ?>
@@ -236,30 +236,47 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       </tbody>
     </table>
 
-    <?php if ($total_pages > 1): ?>
-      <div class="media-pagination" role="navigation" aria-label="Pagination">
+    <div class="media-list-footer">
+      <?php if ($total_pages > 1): ?>
+      <nav class="media-pagination" aria-label="<?= _e('Pagination') ?>">
+        <?php if ($page > 1): ?>
+          <a href="#" class="media-page-link media-page-nav" rel="prev" data-page="<?= $page - 1 ?>" data-q="<?= e($search) ?>" data-v="<?= e($visFilter) ?>" data-per-page="<?= $per_page ?>"><?= _e('Previous') ?></a>
+        <?php endif; ?>
         <?php foreach ($paging_items as $item): ?>
           <?php if ($item === '...'): ?>
             <span class="dots">…</span>
           <?php else: ?>
             <?php $i = (int)$item; ?>
             <?php if ($i === $page): ?>
-              <strong><?= $i ?></strong>
+              <strong data-page="<?= $i ?>" aria-current="page"><?= $i ?></strong>
             <?php else: ?>
               <a href="#"
                  class="media-page-link"
                  data-page="<?= $i ?>"
                  data-q="<?= e($search) ?>"
-                 data-v="<?= e($visFilter) ?>"><?= $i ?></a>
+                 data-v="<?= e($visFilter) ?>"
+                 data-per-page="<?= $per_page ?>"><?= $i ?></a>
             <?php endif; ?>
           <?php endif; ?>
         <?php endforeach; ?>
+        <?php if ($page < $total_pages): ?>
+          <a href="#" class="media-page-link media-page-nav" rel="next" data-page="<?= $page + 1 ?>" data-q="<?= e($search) ?>" data-v="<?= e($visFilter) ?>" data-per-page="<?= $per_page ?>"><?= _e('Next') ?></a>
+        <?php endif; ?>
+      </nav>
+      <?php endif; ?>
+      <div class="media-list-range small">
+        <?= $total > 0 ? (int)($offset + 1) . '&ndash;' . (int)min($offset + $per_page, $total) : '0' ?> / <?= (int)$total ?>
       </div>
-    <?php endif; ?>
+    </div>
   <?php endif; ?>
 </div>
 <script>
 (function(){
+  if (window.__ADIWIRA_MEDIA_LIST_DELEGATES__) return;
+  window.__ADIWIRA_MEDIA_LIST_DELEGATES__ = true;
+  let listRequestSequence = 0;
+  let listController = null;
+
   function uiToast(type, title, message) {
     if (window.mediaUi && typeof window.mediaUi.toast === 'function') {
       window.mediaUi.toast(type, title, message);
@@ -311,12 +328,20 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     else window.open(url, '_blank');
   }
 
-  async function reloadListFragment(q = '', p = 1, silent = false) {
+  async function reloadListFragment(q = '', p = 1, silent = false, requestedPerPage = null) {
     try {
       const vEl = document.getElementById('visibility-filter');
       const v = vEl ? vEl.value : '';
-      const url = '<?= ADMIN_BASE_PATH ?>/admin/media/list.php?q=' + encodeURIComponent(q) + '&p=' + encodeURIComponent(p) + (v ? '&v=' + encodeURIComponent(v) : '') + '&_ts=' + Date.now();
-      const res = await fetch(url, { credentials: 'include', cache:'no-store' });
+      const perPageEl = document.getElementById('media-per-page');
+      const perPage = requestedPerPage || (perPageEl ? perPageEl.value : '<?= (int)$per_page ?>');
+      if (window.mediaUi && typeof window.mediaUi.refreshListPanel === 'function') {
+        return window.mediaUi.refreshListPanel({ silent: silent, q: q, page: p, perPage: perPage });
+      }
+      const url = '<?= ADMIN_BASE_PATH ?>/admin/media/list.php?q=' + encodeURIComponent(q) + '&p=' + encodeURIComponent(p) + '&per_page=' + encodeURIComponent(perPage) + (v ? '&v=' + encodeURIComponent(v) : '') + '&_ts=' + Date.now();
+      const requestId = ++listRequestSequence;
+      if (listController) listController.abort();
+      listController = typeof AbortController === 'function' ? new AbortController() : null;
+      const res = await fetch(url, { credentials: 'include', cache:'no-store', signal: listController ? listController.signal : undefined });
       if (!res.ok) throw new Error('HTTP ' + res.status);
 
       const html = await res.text();
@@ -324,6 +349,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       const doc = parser.parseFromString(html, 'text/html');
       const newFrag = doc.querySelector('.media-list');
       const old = document.querySelector('.media-list');
+      if (requestId !== listRequestSequence) return;
 
       if (newFrag && old) {
         old.replaceWith(newFrag);
@@ -332,6 +358,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
         if (panel) panel.innerHTML = html;
       }
     } catch (err) {
+      if (err && err.name === 'AbortError') return;
       console.error('Gagal load list.php:', err);
       if (!silent) uiToast('error', '<?=__('Media')?>', '<?=__('Failed to load media:')?> ' + (err.message || err));
     }
@@ -360,7 +387,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       ev.preventDefault();
       const p = t.dataset.page ? parseInt(t.dataset.page, 10) : 1;
       const q = t.dataset.q || (document.getElementById('media-search') ? document.getElementById('media-search').value.trim() : '');
-      await reloadListFragment(q, p, false);
+      await reloadListFragment(q, p, false, t.dataset.perPage || null);
       return;
     }
 
@@ -408,11 +435,6 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
           }
 
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: { ids: checked, result: j } }));
-
-          const currentQ = document.getElementById('media-search') ? document.getElementById('media-search').value.trim() : '';
-          const currentPageEl = document.querySelector('.media-pagination strong');
-          const currentPage = currentPageEl ? parseInt(currentPageEl.textContent, 10) : 1;
-          await reloadListFragment(currentQ, currentPage, true);
         } else {
           uiToast('error', '<?=__('Media')?>', j?.error || txt || '<?=__('Something happened.')?>');
         }
@@ -429,7 +451,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       const checked = t.checked;
       document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = checked);
     }
-    if (t.matches('#visibility-filter')) {
+    if (t.matches('#visibility-filter, #media-per-page')) {
       reloadListFragment(currentQ(), 1, false);
     }
   }, false);
@@ -442,14 +464,5 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
     return el ? parseInt(el.textContent, 10) : 1;
   }
 
-  document.addEventListener('media:updated', function(){
-    reloadListFragment(currentQ(), currentPage(), true);
-  });
-  document.addEventListener('media:deleted', function(){
-    reloadListFragment(currentQ(), currentPage(), true);
-  });
-  document.addEventListener('media:added', function(){
-    reloadListFragment(currentQ(), 1, true);
-  });
 })();
 </script>

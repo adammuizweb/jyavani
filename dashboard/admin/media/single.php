@@ -97,8 +97,8 @@ if (!function_exists('modalfilez_client_url')) {
 }
 $displayClientUrl = modalfilez_client_url($r);
 ?>
-<div class="media-single-wrap">
-  <div class="media-single-card">
+<div class="media-single-wrap asset-detail">
+  <div class="media-single-card asset-detail-card">
     <div class="media-grid">
       <div class="media-left">
         <div class="img-frame" title="<?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?>">
@@ -142,9 +142,13 @@ $displayClientUrl = modalfilez_client_url($r);
       </div>
 
       <div class="media-right">
+        <div class="asset-detail-kicker"><?=_e('Media')?> / <?=_e('Details')?></div>
+        <h3 class="asset-detail-title"><?= htmlspecialchars((string)($r['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></h3>
+        <div class="asset-detail-subtitle"><?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?></div>
+        <a class="asset-detail-open" href="<?= htmlspecialchars($displayClientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
         <div class="media-section-title"><?=_e('Metadata')?></div>
 
-        <form id="media-edit-form" data-media-id="<?= (int)$r['id'] ?>">
+        <form id="media-edit-form" class="asset-detail-fields" data-media-id="<?= (int)$r['id'] ?>">
           <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -157,12 +161,24 @@ $displayClientUrl = modalfilez_client_url($r);
           <label for="field-caption"><?=_e('Caption')?></label>
           <textarea id="field-caption" name="caption" rows="3"><?= htmlspecialchars((string)($r['caption'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
 
+          <label for="field-credit"><?=_e('Credit')?></label>
+          <input id="field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($r['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+
+          <label for="field-target-url"><?=_e('Target URL')?></label>
+          <input id="field-target-url" type="text" name="target_url" value="<?= htmlspecialchars($linkUrlValue, ENT_QUOTES, 'UTF-8') ?>">
+
           <label for="field-access-scope"><?=_e('Access Scope')?></label>
-          <select id="field-access-scope" name="access_scope">
+          <select id="field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
             <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
             <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
             <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
           </select>
+          <?php if ($visibility === 'public'): ?><div class="file-url-hint"><?=_e('Public media always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
+
+          <label class="file-check-label">
+            <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+            <?=_e('Allow download')?>
+          </label>
 
           <label for="field-target-attr"><?=_e('Open behavior')?></label>
           <select id="field-target-attr" name="target_attribute">

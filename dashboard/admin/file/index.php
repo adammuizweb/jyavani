@@ -81,6 +81,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const panelList = document.getElementById('file-panel-list');
   const modalBackdrop = document.getElementById('adam-modal-backdrop');
   const modalBox = document.getElementById('adam-modal');
+  let listRequestSequence = 0;
+  let listController = null;
 
   function uiToast(type, title, message, duration) {
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
@@ -153,6 +155,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     return vEl ? vEl.value : '';
   }
 
+  function getCurrentPerPage() {
+    const perPageEl = panelList ? panelList.querySelector('#media-per-page') : null;
+    const perPage = perPageEl ? parseInt(perPageEl.value || '20', 10) : 20;
+    return [20, 50, 100, 200].includes(perPage) ? perPage : 20;
+  }
+
   function getCurrentPage() {
     const activeEl = panelList ? panelList.querySelector('.media-pagination strong[data-page]') : null;
     if (!activeEl) return 1;
@@ -194,17 +202,23 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     const p = forcePage1 ? 1 : getCurrentPage();
 
     const v = getCurrentVisibility();
+    const perPage = getCurrentPerPage();
 
     const url = '<?= ADMIN_BASE_PATH ?>/admin/file/list.php'
       + '?q=' + encodeURIComponent(q)
       + '&p=' + encodeURIComponent(p)
+      + '&per_page=' + encodeURIComponent(perPage)
       + (v ? '&v=' + encodeURIComponent(v) : '')
       + '&_ts=' + Date.now();
 
     try {
+      const requestId = ++listRequestSequence;
+      if (listController) listController.abort();
+      listController = typeof AbortController === 'function' ? new AbortController() : null;
       const res = await fetch(url, {
         credentials: 'include',
-        cache: 'no-store'
+        cache: 'no-store',
+        signal: listController ? listController.signal : undefined
       });
 
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -213,6 +227,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
       const fresh = doc.querySelector('.media-list');
+      if (requestId !== listRequestSequence) return;
 
       if (fresh) {
         panelList.innerHTML = '';
@@ -221,6 +236,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         panelList.innerHTML = html;
       }
     } catch (err) {
+      if (err && err.name === 'AbortError') return;
       console.error('refreshFileListPanel error:', err);
       if (!silent) uiToast('error', '<?=__('File')?>', '<?=__('Failed to load files:')?> ' + (err.message || err), 6000);
     }
@@ -321,17 +337,23 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const q = pageLink.getAttribute('data-q') || getCurrentQuery();
       const p = parseInt(pageLink.getAttribute('data-page') || '1', 10) || 1;
       const v = pageLink.getAttribute('data-v') || getCurrentVisibility();
+      const perPage = parseInt(pageLink.getAttribute('data-per-page') || String(getCurrentPerPage()), 10) || 20;
 
       try {
+        const requestId = ++listRequestSequence;
+        if (listController) listController.abort();
+        listController = typeof AbortController === 'function' ? new AbortController() : null;
         const url = '<?= ADMIN_BASE_PATH ?>/admin/file/list.php'
           + '?q=' + encodeURIComponent(q)
           + '&p=' + encodeURIComponent(p)
+          + '&per_page=' + encodeURIComponent(perPage)
           + (v ? '&v=' + encodeURIComponent(v) : '')
           + '&_ts=' + Date.now();
 
         const res = await fetch(url, {
           credentials: 'include',
-          cache: 'no-store'
+          cache: 'no-store',
+          signal: listController ? listController.signal : undefined
         });
 
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -340,12 +362,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const fresh = doc.querySelector('.media-list');
+        if (requestId !== listRequestSequence) return;
 
         if (fresh && panelList) {
           panelList.innerHTML = '';
           panelList.appendChild(fresh);
         }
       } catch (err) {
+        if (err && err.name === 'AbortError') return;
         uiToast('error', '<?=__('File')?>', '<?=__('Failed to load file page:')?> ' + (err.message || err), 6000);
       }
       return;
@@ -569,7 +593,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         cb.checked = checked;
       });
     }
-    if (target && target.id === 'visibility-filter') {
+    if (target && (target.id === 'visibility-filter' || target.id === 'media-per-page')) {
       activateTab('list');
       refreshFileListPanel({ silent: false, forcePage1: true });
     }

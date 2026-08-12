@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.61",
+    "version": "2.3.62",
     "build": "2026-08-12",
-    "changelog": "Improve Media and File Library modals with compact pagination, selectable page sizes, skeleton loading, lazy thumbnails, and resilient AJAX navigation.",
+    "changelog": "Improve Media and File detail workspaces and add compact pagination with selectable 20, 50, 100, or 200 item page sizes to both managers.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

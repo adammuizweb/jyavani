@@ -117,7 +117,7 @@ if (!$embedded):
 <?php endif; ?>
 
 <div id="mdlib-single-wrap">
-  <div class="mdlib-single">
+  <div class="mdlib-single asset-detail asset-detail--modal">
     <form
       id="mdlib-file-edit-form"
       data-id="<?= (int)$r['id'] ?>"
@@ -136,12 +136,13 @@ if (!$embedded):
       <div class="mdlib-s-top">
         <div class="mdlib-s-ico"><?= htmlspecialchars($ico, ENT_QUOTES, 'UTF-8') ?></div>
         <div class="mdlib-s-meta">
+          <div class="asset-detail-kicker"><?=_e('File Detail')?></div>
           <div class="mdlib-name" title="<?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?>">
             <?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?>
           </div>
           <div class="mdlib-s-sub">
-            <?= htmlspecialchars($mime ?: '�', ENT_QUOTES, 'UTF-8') ?>
-            � <?= htmlspecialchars(mdlib_single_human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?>
+            <?= htmlspecialchars($mime ?: '-', ENT_QUOTES, 'UTF-8') ?>
+            &bull; <?= htmlspecialchars(mdlib_single_human_filesize((int)($r['size'] ?? 0)), ENT_QUOTES, 'UTF-8') ?>
           </div>
           <div class="mdlib-badges" style="margin-top:6px">
             <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
@@ -149,12 +150,11 @@ if (!$embedded):
             <?php if (!$isDownloadable): ?><span class="mdlib-pill"><?=__('NO DOWNLOAD')?></span><?php endif; ?>
             <?php if ($storageDisk !== 'public'): ?><span class="mdlib-pill"><?=__('STORAGE:')?> <?= htmlspecialchars(strtoupper($storageDisk), ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
           </div>
-          <div class="mdlib-note" style="margin-top:6px">
-            <a href="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $visibility === 'private' ? __('View (Protected)') : __('Open/Download') ?></a>
-          </div>
+          <a class="asset-detail-open" href="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $visibility === 'private' ? __('View (Protected)') : __('Open/Download') ?> <span aria-hidden="true">&nearr;</span></a>
         </div>
       </div>
 
+      <div class="asset-detail-form">
       <div class="mdlib-row">
         <label class="mdlib-label"><?=_e('Title')?></label>
         <input class="mdlib-input" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -175,7 +175,7 @@ if (!$embedded):
         <select class="mdlib-input" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
           <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
             <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
-            <option value="admin"><?=_e('Admin Only')?></option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
         </select>
         <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public file always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
       </div>
@@ -194,6 +194,7 @@ if (!$embedded):
           <button type="button" class="mdlib-btn" data-mdlib-action="copy-url"><?=_e('Copy')?></button>
         </div>
         <div class="mdlib-note"><?=_e('This URL will be used when inserting.')?></div>
+      </div>
       </div>
 
       <div class="mdlib-actions">
@@ -256,8 +257,8 @@ if (!$embedded):
       credit: (form.querySelector('input[name="credit"]')?.value || '').trim(),
       visibility: form.dataset.visibility || 'public',
       storage_disk: form.dataset.storageDisk || 'public',
-      access_scope: form.dataset.accessScope || 'public',
-      is_downloadable: form.dataset.isDownloadable || '1'
+      access_scope: (form.querySelector('select[name="access_scope"]')?.value || form.dataset.accessScope || 'public'),
+      is_downloadable: form.querySelector('input[name="is_downloadable"]')?.checked ? '1' : '0'
     };
   }
 
@@ -319,6 +320,8 @@ if (!$embedded):
         form.dataset.url = j.file.url || form.dataset.url || '';
         form.dataset.mime = j.file.mime || form.dataset.mime || '';
         form.dataset.size = j.file.size || form.dataset.size || '';
+        form.dataset.accessScope = j.file.access_scope || form.dataset.accessScope || 'public';
+        form.dataset.isDownloadable = String(j.file.is_downloadable ?? form.dataset.isDownloadable ?? '1');
       }
 
       broadcast('file:updated', j.file || j);
