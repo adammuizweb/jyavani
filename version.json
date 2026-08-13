@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.64",
-    "build": "2026-08-12",
-    "changelog": "Fix the Pondasi fresh-install flow, include required Core themes and branding assets in release packages, and move non-default themes to the Theme Store boundary.",
+    "version": "2.3.65",
+    "build": "2026-08-14",
+    "changelog": "Enforce role-based private asset access, harden plugin icon delivery, and refresh the bundled demo documentation screenshots.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
