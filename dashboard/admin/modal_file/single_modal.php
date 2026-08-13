@@ -146,7 +146,7 @@ if (!$embedded):
           </div>
           <div class="mdlib-badges" style="margin-top:6px">
             <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-            <span class="mdlib-pill"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="mdlib-pill"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
             <?php if (!$isDownloadable): ?><span class="mdlib-pill"><?=__('NO DOWNLOAD')?></span><?php endif; ?>
             <?php if ($storageDisk !== 'public'): ?><span class="mdlib-pill"><?=__('STORAGE:')?> <?= htmlspecialchars(strtoupper($storageDisk), ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
           </div>
@@ -174,8 +174,8 @@ if (!$embedded):
         <label class="mdlib-label"><?=_e('Access Scope')?></label>
         <select class="mdlib-input" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
           <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
-            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
         </select>
         <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public file always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
       </div>

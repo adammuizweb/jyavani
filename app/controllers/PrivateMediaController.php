@@ -60,27 +60,6 @@ class PrivateMediaController
         return $realFile;
     }
 
-    private static function adminOk(PDO $pdo): bool
-    {
-        try {
-            if (function_exists('adiwira_fetch_identity')) {
-                $identity = adiwira_fetch_identity($pdo);
-                if (($identity['ok'] ?? false) === true) {
-                    $role = strtolower((string)($identity['role'] ?? ''));
-                    return in_array($role, ['admin', 'editor', 'author'], true);
-                }
-            }
-
-            if (function_exists('is_logged_in') && is_logged_in()) {
-                return true;
-            }
-        } catch (Throwable $e) {
-            error_log('[PrivateMediaController] adminOk error: ' . $e->getMessage());
-        }
-
-        return false;
-    }
-
     private static function fetchMedia(PDO $pdo, int $id): ?array
     {
         if ($id <= 0) return null;
@@ -102,7 +81,7 @@ class PrivateMediaController
             return true;
         }
 
-        return self::adminOk($pdo);
+        return content_access_scope_allows($pdo, $scope);
     }
 
     public static function view(PDO $pdo): void

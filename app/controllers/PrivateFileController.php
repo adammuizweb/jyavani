@@ -71,27 +71,6 @@ class PrivateFileController
         return $realFile;
     }
 
-    private static function adminOk(PDO $pdo): bool
-    {
-        try {
-            if (function_exists('adiwira_fetch_identity')) {
-                $identity = adiwira_fetch_identity($pdo);
-                if (($identity['ok'] ?? false) === true) {
-                    $role = strtolower((string)($identity['role'] ?? ''));
-                    return in_array($role, ['admin', 'editor', 'author'], true);
-                }
-            }
-
-            if (function_exists('is_logged_in') && is_logged_in()) {
-                return true;
-            }
-        } catch (Throwable $e) {
-            error_log('[PrivateFileController] adminOk error: ' . $e->getMessage());
-        }
-
-        return false;
-    }
-
     private static function fetchFile(PDO $pdo, int $id): ?array
     {
         if ($id <= 0) {
@@ -111,22 +90,11 @@ class PrivateFileController
         $disk = strtolower((string)($file['storage_disk'] ?? 'public'));
         $scope = strtolower((string)($file['access_scope'] ?? 'public'));
 
-        $adminOk = self::adminOk($pdo);
-
-        $allowed = false;
-
         if ($visibility === 'public' && $disk === 'public' && $scope === 'public') {
-            $allowed = true;
-        } elseif ($scope === 'admin') {
-            $allowed = $adminOk;
-        } else {
-            $allowed = $adminOk;
+            return ['allowed' => true];
         }
 
-        return [
-            'allowed' => $allowed,
-            'admin_ok' => $adminOk,
-        ];
+        return ['allowed' => content_access_scope_allows($pdo, $scope)];
     }
 
     private static function publicUrl(array $file): string

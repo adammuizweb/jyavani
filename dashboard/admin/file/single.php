@@ -118,7 +118,7 @@ if (!function_exists('human_filesize')) {
         </div>
         <div class="file-meta-badges">
           <span class="badge badge--<?= $isPrivate ? 'warn' : 'ok' ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-          <span class="badge badge--info"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+          <span class="badge badge--info"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
           <?php if (!$isDownloadable): ?>
             <span class="badge badge--danger"><?=_e('NO DOWNLOAD')?></span>
           <?php endif; ?>
@@ -147,8 +147,8 @@ if (!function_exists('human_filesize')) {
           <label for="file-field-access-scope"><?=_e('Access Scope')?></label>
           <select id="file-field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
             <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
-            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
           </select>
           <?php if ($visibility === 'public'): ?><div class="file-url-hint"><?=_e('Public file always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
 

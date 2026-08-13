@@ -45,8 +45,8 @@ $hasVisibility = mdlib_has_column('visibility');
       <div style="display:inline-block;margin-right:8px">
         <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Access Scope')?></label>
         <select id="file-access-scope" style="padding:3px 6px;font-size:12px">
-          <option value="editorial"><?=_e('Editorial')?></option>
-          <option value="admin"><?=_e('Admin Only')?></option>
+          <option value="editorial"><?=_e('Content Team')?></option>
+          <option value="admin"><?=_e('Administrator')?></option>
         </select>
       </div>
       <div style="display:inline-block">

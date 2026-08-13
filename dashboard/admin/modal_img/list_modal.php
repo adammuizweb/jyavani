@@ -183,7 +183,7 @@ try {
               <div class="mdlib-pic-sub"><?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?></div>
               <div class="mdlib-badges" style="margin-top:4px">
                 <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-                <span class="mdlib-pill"><?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="mdlib-pill"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
               </div>
             </div>
             <div class="mdlib-pic-actions">

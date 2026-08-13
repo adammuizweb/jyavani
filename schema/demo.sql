@@ -335,7 +335,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 
 <p><strong>Public</strong> — File bisa diakses oleh siapa saja yang mengetahui URL. Cocok untuk gambar artikel, thumbnail, dan konten publik lainnya.</p>
 
-<p><strong>Private</strong> — File hanya bisa diakses oleh user yang login. Cocok untuk dokumen sensitif, lampiran internal, atau konten yang hanya untuk member.</p>
+<p><strong>Private</strong> — Gambar disimpan di luar web root dan hanya dapat dimuat oleh Tim Konten atau Administrator, sesuai Access Scope yang dipilih.</p>
 
 <p><strong>Storage Disk</strong> — CMS juga mendukung dua tipe storage: public disk (file disimpan di folder yang bisa diakses langsung) dan private disk (file disimpan di luar web root, diakses via PHP stream).</p>
 
@@ -350,9 +350,9 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 
 <h3>Via Shortcode</h3>
 
-<p>Untuk file yang membutuhkan akses terproteksi, gunakan shortcode:</p>
-<pre><code>[private_pdf id="123"]</code></pre>
-<p>Shortcode ini akan generate link download dengan token akses yang aman.</p>
+<p>Untuk PDF dari menu <strong>File</strong>, gunakan ID file yang benar pada shortcode:</p>
+<pre><code>[private_pdf id="123" mode="card"]</code></pre>
+<p>Ganti <code>123</code> dengan ID pada File Library. Gunakan <code>mode="embed"</code> untuk viewer PDF, <code>mode="card"</code> untuk kartu, atau <code>mode="link"</code> untuk tautan. Gambar private dari Media Library tidak memakai shortcode ini; sisipkan URL terproteksi yang diberikan Media Picker.</p>
 
 <h3>Via Media Picker</h3>
 
@@ -1046,10 +1046,10 @@ add_filter(\'the_content\', \'my_plugin_add_copyright\');
 <h2>User Roles dan Permissions</h2>
 <p>Sistem role-based access control memastikan setiap pengguna hanya bisa mengakses fitur sesuai tanggung jawabnya. Admin memiliki akses penuh, Editor bisa mengelola konten, dan Author hanya bisa mengedit konten miliknya sendiri.</p>
 
-<img src="/static/img/2026/07/user-roles-screenshot.jpg" alt="Users list showing different roles and permission levels" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+<img src="/static/img/2026/07/users-list-screenshot.jpg" alt="Users list showing five demo accounts with admin, editor, and author roles" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
 
-<h2>Private Files dengan Token</h2>
-<p>Jyavani CMS mendukung file private yang hanya bisa diakses melalui URL dengan token khusus. File private tidak bisa diakses langsung melalui URL publik, sehingga cocok untuk dokumen berbayar, konten eksklusif, atau materi internal.</p>
+<h2>Private Files dan Media</h2>
+<p>File dan gambar private disimpan di luar web root serta diperiksa berdasarkan sesi dan Access Scope. Scope Tim Konten mengizinkan author, editor, dan admin, sedangkan scope Administrator hanya mengizinkan admin. Viewer PDF membuat token HMAC sementara untuk mengambil stream raw secara internal; token tersebut bukan tautan berbagi publik.</p>
 
 <h2>HTTPS dan SSL</h2>
 <p>Penggunaan HTTPS sangat direkomendasikan untuk setiap website. Jyavani CMS bekerja optimal di HTTPS dan otomatis memaksa cookie secure flag saat protokol HTTPS aktif. Pastikan Anda memasang sertifikat SSL yang valid.</p>
@@ -1489,14 +1489,14 @@ git pull origin main</pre>
 <hr>
 <p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
 ', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, '2026-07-25 00:09:41', '2026-07-25 08:20:11', 0, NULL, 0),
-(289, 'Private Files dan Media — Aset Digital dengan Akses Terbatas', 'private-files-dan-media', '<p>Tidak semua konten website boleh dilihat oleh publik. Ada banyak situasi di mana Anda perlu membatasi akses file — misalnya dokumen internal perusahaan, materi kursus berbayar, file hasil download untuk member, atau gambar pribadi yang hanya boleh diakses oleh pengguna tertentu. Jyavani CMS menyediakan fitur <strong>Private Files</strong> dan <strong>Private Media</strong> yang memungkinkan Anda mengupload aset digital dengan akses terbatas.</p>
+(289, 'Private Files dan Media — Aset Digital dengan Akses Terbatas', 'private-files-dan-media', '<p>Tidak semua aset website boleh dilihat oleh publik. Dokumen internal, materi kerja, dan gambar yang masih ditinjau perlu disimpan di luar web root serta hanya dikirim setelah sesi dan role pengguna diperiksa. Jyavani CMS menyediakan <strong>Private Files</strong> dan <strong>Private Media</strong> untuk kebutuhan internal Tim Konten atau Administrator.</p>
 
 <h2>Perbedaan Private Files dan Private Media</h2>
 <p>Jyavani CMS memisahkan pengelolaan file dan media untuk memberikan fleksibilitas yang lebih besar. Berikut perbedaan utama keduanya:</p>
 
 <ul>
-  <li><strong>Private Files</strong> — dikelola melalui menu <strong>Files</strong> di dashboard. Cocok untuk dokumen, PDF, arsip, spreadsheet, atau file yang tidak perlu ditampilkan langsung di konten artikel. File disimpan di private disk dan diakses melalui URL dengan token atau kondisi akses tertentu.</li>
-  <li><strong>Private Media</strong> — dikelola melalui <strong>Media Library</strong>. Cocok untuk gambar, video, atau audio yang mungkin ingin Anda sisipkan di artikel namun hanya boleh dilihat oleh pengguna tertentu, seperti member berlangganan atau user yang sudah login.</li>
+  <li><strong>Private Files</strong> — dikelola melalui menu <strong>Files</strong>. Cocok untuk PDF, dokumen, arsip, spreadsheet, video, dan audio. File private disimpan di <code>private_files/files/</code> dan dibuka melalui controller terproteksi.</li>
+  <li><strong>Private Media</strong> — dikelola melalui <strong>Media Library</strong> dan khusus untuk gambar. Gambar private disimpan di <code>private_files/media/</code> dan disisipkan melalui URL terproteksi dari Media Picker.</li>
 </ul>
 
 <p>Keduanya mendukung pengaturan visibility <strong>private</strong>, sehingga file tidak bisa diakses hanya dengan mengetahui URL publiknya. Sistem akan memeriksa apakah pengguna memiliki hak akses sebelum mengirimkan file ke browser.</p>
@@ -1510,12 +1510,12 @@ git pull origin main</pre>
 
 <ul>
   <li><strong>Visibility: Private</strong> — agar file tidak bisa diakses publik</li>
-  <li><strong>Title dan Description</strong> — untuk memudahkan identifikasi file di masa depan</li>
-  <li><strong>Access Scope</strong> — siapa saja yang boleh mengakses file, misalnya <code>logged_in</code>, <code>author</code>, <code>admin</code>, atau role tertentu</li>
+  <li><strong>Title, Caption, dan Credit</strong> — untuk memudahkan identifikasi file</li>
+  <li><strong>Access Scope</strong> — pilih Tim Konten atau Administrator</li>
 </ul>
 
 <h2>Private Media — Gambar dan Aset Visual Terbatas</h2>
-<p>Media Library di Jyavani CMS tidak hanya untuk file publik. Setiap media yang diupload juga bisa diatur visibility-nya menjadi private. Fitur ini berguna untuk website membership, kursus online, galeri pribadi, atau konten premium yang hanya boleh diakses oleh pengguna berlangganan.</p>
+<p>Media Library tidak hanya untuk gambar publik. Setiap gambar yang diupload dapat diatur menjadi private agar hanya Tim Konten atau Administrator yang dapat memuatnya. Core saat ini tidak menyediakan scope member atau subscriber.</p>
 
 <img src="/static/img/2026/07/media-list-screenshot.jpg" alt="Media Library list page showing visibility column for private and public media" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
 
@@ -1535,32 +1535,32 @@ git pull origin main</pre>
 </ol>
 
 <h2>Access Scope dan Hak Akses</h2>
-<p>Jyavani CMS memungkinkan Anda mengontrol siapa yang boleh mengakses file private dengan beberapa tingkat akses. Beberapa contoh scope yang umum digunakan:</p>
+<p>Jyavani CMS menggunakan tiga nilai scope yang tetap dan mudah dipahami:</p>
 
 <ul>
-  <li><code>public</code> — file bisa diakses siapa saja, tanpa login</li>
-  <li><code>logged_in</code> — hanya user yang sudah login, tanpa memandang role</li>
-  <li><code>author</code> — hanya author dari konten terkait atau user yang memiliki relasi tertentu</li>
-  <li><code>admin</code> — hanya admin yang bisa mengakses</li>
-  <li><code>role:editor</code> — hanya user dengan role editor ke atas</li>
+  <li><strong>Public</strong> (<code>public</code>) — aset public disk dapat diakses siapa saja tanpa login</li>
+  <li><strong>Tim Konten</strong> (<code>editorial</code>) — role author, editor, dan admin</li>
+  <li><strong>Administrator</strong> (<code>admin</code>) — hanya role admin</li>
 </ul>
 
-<p>Pemilihan access scope yang tepat sangat penting untuk menjaga keamanan konten. Jika file hanya untuk internal, gunakan scope admin atau role yang spesifik. Jika untuk konten premium, gunakan logged_in atau role member.</p>
+<p>Nilai <code>editorial</code> adalah identifier internal untuk Tim Konten dan bukan nama role editor. File private tidak dapat memakai scope Public; pilih scope paling sempit yang memenuhi kebutuhan.</p>
 
 <h2>Menggunakan Private Files di Artikel atau Halaman</h2>
-<p>Untuk menyisipkan private file atau media ke dalam artikel, Anda bisa menggunakan shortcode yang disediakan CMS. Shortcode akan menghasilkan link download yang aman dengan token, atau embed media yang hanya bisa di-render jika pengguna memiliki akses.</p>
+<p>Private File dan Private Media menggunakan cara penyisipan yang berbeda. ID shortcode selalu berasal dari menu <strong>Files</strong>, bukan dari Media Library.</p>
 
-<pre>&lt;code&gt;[private_pdf id="123"]&lt;/code&gt; — tampilkan link download PDF private
-&lt;code&gt;[private_image id="456"]&lt;/code&gt; — tampilkan gambar private dengan proteksi</pre>
+<pre><code>[private_pdf id="123" mode="embed"]
+[private_pdf id="123" mode="card"]
+[private_file id="124" mode="button"]
+[private_file id="124" mode="link"]</code></pre>
 
-<p>Shortcode ini akan mengecek status login dan role pengunjung sebelum menampilkan file. Jika pengunjung tidak memiliki akses, maka shortcode tidak akan menampilkan apapun atau menampilkan pesan bahwa konten memerlukan akses khusus.</p>
+<p>Shortcode memeriksa sesi dan role sebelum menghasilkan viewer, kartu, tombol, atau tautan. Jika pengguna tidak memiliki izin, shortcode tidak menghasilkan tampilan. Untuk gambar private, gunakan Media Picker; CMS akan menyisipkan URL <code>/private/media/view/?id=...</code> secara langsung.</p>
 
 <h2>Keamanan Private Storage</h2>
 <p>File private di Jyavani CMS disimpan di lokasi yang berbeda dari file publik. Beberapa aspek keamanannya meliputi:</p>
 
 <ul>
   <li><strong>Private disk</strong> — file private disimpan di luar web root atau di folder yang dilindungi, sehingga tidak bisa diakses langsung melalui URL publik</li>
-  <li><strong>Tokenized access</strong> — jika URL file perlu dibagikan, CMS bisa menghasilkan URL dengan token yang kadaluwarsa</li>
+  <li><strong>Token PDF internal</strong> — viewer PDF membuat token HMAC sementara untuk mengambil stream raw; token ini bukan tautan berbagi publik</li>
   <li><strong>Session validation</strong> — setiap akses file private diperiksa melawan session dan role pengguna</li>
   <li><strong>No directory listing</strong> — folder private tidak memiliki index listing, sehingga penyerang tidak bisa melihat daftar file dengan mudah</li>
 </ul>
@@ -1569,11 +1569,10 @@ git pull origin main</pre>
 <p>Fitur private files dan media sangat cocok untuk berbagai skenario:</p>
 
 <ul>
-  <li><strong>Website membership</strong> — e-book, video tutorial, atau materi kursus hanya untuk member berbayar</li>
-  <li><strong>Portal karyawan</strong> — dokumen internal, SOP, atau laporan yang hanya untuk karyawan</li>
-  <li><strong>Galeri pribadi atau klien</strong> — foto atau video yang hanya boleh dilihat klien atau keluarga tertentu</li>
-  <li><strong>Konten premium</strong> — file bonus, cheat sheet, atau template yang hanya untuk subscriber</li>
-  <li><strong>Arsip rahasia</strong> — dokumen legal, kontrak, atau data sensitif yang memerlukan kontrol akses ketat</li>
+  <li><strong>Materi editorial</strong> — gambar dan dokumen yang sedang ditinjau Tim Konten</li>
+  <li><strong>Dokumen administrator</strong> — laporan atau konfigurasi yang hanya boleh dibuka admin</li>
+  <li><strong>Lampiran internal</strong> — PDF, spreadsheet, arsip, video, atau audio untuk operasional pengelola situs</li>
+  <li><strong>Aset sebelum publikasi</strong> — media yang belum siap ditempatkan pada public disk</li>
 </ul>
 
 <h2>Best Practices Private Files dan Media</h2>
@@ -1583,11 +1582,11 @@ git pull origin main</pre>
   <li><strong>Gunakan HTTPS</strong> — pastikan website berjalan di HTTPS agar file tidak diintercept saat transit</li>
   <li><strong>Review daftar file private secara berkala</strong> — hapus file yang sudah tidak diperlukan untuk mengurangi exposure</li>
   <li><strong>Backup private files</strong> — private disk juga perlu dibackup karena berisi data penting</li>
-  <li><strong>Hindari membagikan URL private langsung</strong> — gunakan fitur token atau shortcode untuk akses yang lebih terkontrol</li>
+  <li><strong>Jangan membagikan URL private sebagai tautan publik</strong> — akses tetap bergantung pada sesi dan role pengguna</li>
 </ul>
 
 <h2>Kesimpulan</h2>
-<p>Jyavani CMS memberikan kontrol penuh atas aset digital Anda melalui fitur Private Files dan Private Media. Dengan pengaturan visibility private dan access scope yang fleksibel, Anda bisa membatasi akses file sesuai kebutuhan. Fitur ini membuat Jyavani CMS tidak hanya cocok untuk blog publik, tetapi juga untuk website internal, membership, atau organisasi yang menangani data sensitif.</p>
+<p>Private Files dan Private Media melindungi aset internal pengelola situs dengan penyimpanan di luar web root, pemeriksaan sesi, dan scope Tim Konten atau Administrator. Fitur Core ini ditujukan untuk workflow internal; akses member atau subscriber memerlukan fitur tambahan yang belum disediakan oleh Core.</p>
 
 <hr>
 <p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
@@ -1606,46 +1605,46 @@ INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `h
 (75, '/static/img/2026/07/screenshots/media-list.jpg', 'media-list.png', 'image/png', 'png', 176435, 1280, 720, 'media-list', 'Screenshot media-list', NULL, NULL, 'public', 'public', '2026/07/screenshots/media-list.png', 'public', 1, 1, '2026-07-24 10:47:06', NULL, NULL, NULL),
 (76, '/static/img/2026/07/screenshots/media-upload.jpg', 'media-upload.png', 'image/png', 'png', 75882, 1280, 720, 'media-upload', 'Screenshot media-upload', NULL, NULL, 'public', 'public', '2026/07/screenshots/media-upload.png', 'public', 1, 1, '2026-07-24 10:47:06', NULL, NULL, NULL),
 (77, '/static/img/2026/07/menu-manager-thumb.jpg', 'menu-manager-thumb.png', 'image/png', 'png', 306864, 1024, 559, 'Menu Manager Thumbnail', 'Thumbnail for Menu Manager article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 11:05:59', NULL, NULL, NULL),
-(78, '/static/img/2026/07/menu-manager-screenshot.jpg', 'menu-manager-screenshot.png', 'image/png', 'png', 143620, 1280, 1190, 'Menu Manager Screenshot', 'Menu Manager list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 11:05:59', NULL, NULL, NULL),
-(79, '/static/img/2026/07/menu-manager-items-screenshot.jpg', 'menu-manager-items-screenshot.png', 'image/png', 'png', 59866, 1280, 1190, 'Menu Items Screenshot', 'Menu items list screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 11:05:59', NULL, NULL, NULL),
-(80, '/static/img/2026/07/theme-customizer-menu-screenshot.jpg', 'theme-customizer-menu-screenshot.png', 'image/png', 'png', 242101, 1280, 1763, 'Theme Customizer Menu Screenshot', 'Theme Customizer menu assignment screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 11:05:59', NULL, NULL, NULL),
+(78, '/static/img/2026/07/menu-manager-screenshot.jpg', 'menu-manager-screenshot.jpg', 'image/jpeg', 'jpg', 91556, 1280, 720, 'Menu Manager Screenshot', 'Menu Manager list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 11:05:59', NULL, NULL, NULL),
+(79, '/static/img/2026/07/menu-manager-items-screenshot.jpg', 'menu-manager-items-screenshot.jpg', 'image/jpeg', 'jpg', 94241, 1280, 720, 'Menu Items Screenshot', 'Menu items list screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 11:05:59', NULL, NULL, NULL),
+(80, '/static/img/2026/07/theme-customizer-menu-screenshot.jpg', 'theme-customizer-menu-screenshot.jpg', 'image/jpeg', 'jpg', 89144, 1280, 720, 'Theme Customizer Menu Screenshot', 'Theme Customizer menu assignment screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 11:05:59', NULL, NULL, NULL),
 (81, '/static/img/2026/07/theme-system-thumb.jpg', 'theme-system-thumb.png', 'image/png', 'png', 358203, 1024, 559, 'Theme System Thumbnail', 'Thumbnail for Theme System article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 17:36:22', NULL, NULL, NULL),
-(82, '/static/img/2026/07/themes-list-screenshot.jpg', 'themes-list-screenshot.png', 'image/png', 'png', 102667, 1280, 1190, 'Themes List Screenshot', 'Theme Manager list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 17:36:22', '2026-07-24 17:36:57', NULL, NULL),
-(84, '/static/img/2026/07/theme-customizer-screenshot.jpg', 'theme-customizer-screenshot.png', 'image/png', 'png', 101093, 1280, 800, 'Theme Customizer Screenshot', 'Theme Customizer interface screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 17:36:22', '2026-07-24 17:36:57', NULL, NULL),
+(82, '/static/img/2026/07/themes-list-screenshot.jpg', 'themes-list-screenshot.jpg', 'image/jpeg', 'jpg', 111777, 1280, 720, 'Themes List Screenshot', 'Theme Manager list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 17:36:22', '2026-07-24 17:36:57', NULL, NULL),
+(84, '/static/img/2026/07/theme-customizer-screenshot.jpg', 'theme-customizer-screenshot.jpg', 'image/jpeg', 'jpg', 226310, 1280, 1763, 'Theme Customizer Screenshot', 'Theme Customizer interface screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 17:36:22', '2026-07-24 17:36:57', NULL, NULL),
 (85, '/static/img/2026/07/plugin-system-thumb.jpg', 'plugin-system-thumb.png', 'image/png', 'png', 1652112, 1402, 1122, 'Plugin System Thumbnail', 'Thumbnail for Plugin System article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 18:43:04', NULL, NULL, NULL),
-(86, '/static/img/2026/07/plugin-manager-screenshot.jpg', 'plugin-manager-screenshot.png', 'image/png', 'png', 116736, 1280, 1190, 'Plugin Manager Screenshot', 'Plugin Manager list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 18:43:04', '2026-07-24 18:43:15', NULL, NULL),
-(88, '/static/img/2026/07/plugin-store-screenshot.jpg', 'plugin-store-screenshot.png', 'image/png', 'png', 120832, 1280, 1190, 'Plugin Store Screenshot', 'Plugin Store browse page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 18:43:04', '2026-07-24 18:43:15', NULL, NULL),
+(86, '/static/img/2026/07/plugin-manager-screenshot.jpg', 'plugin-manager-screenshot.jpg', 'image/jpeg', 'jpg', 127366, 1280, 720, 'Plugin Manager Screenshot', 'Plugin Manager list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 18:43:04', '2026-07-24 18:43:15', NULL, NULL),
+(88, '/static/img/2026/07/plugin-store-screenshot.jpg', 'plugin-store-screenshot.jpg', 'image/jpeg', 'jpg', 152884, 1280, 720, 'Plugin Store Screenshot', 'Plugin Store browse page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 18:43:04', '2026-07-24 18:43:15', NULL, NULL),
 (89, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'settings-dashboard-thumb.png', 'image/png', 'png', 211017, 1024, 559, 'Settings Dashboard Thumbnail', 'Thumbnail for Settings Dashboard article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:00:47', NULL, NULL, NULL),
-(90, '/static/img/2026/07/site-settings-screenshot.jpg', 'site-settings-screenshot.png', 'image/png', 'png', 222775, 1280, 1763, 'Site Settings Screenshot', 'Site Settings page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:00:47', '2026-07-24 19:00:56', NULL, NULL),
-(92, '/static/img/2026/07/sidebar-settings-screenshot.jpg', 'sidebar-settings-screenshot.png', 'image/png', 'png', 95725, 1280, 1190, 'Sidebar Settings Screenshot', 'Sidebar settings page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:00:47', '2026-07-24 19:00:56', NULL, NULL),
-(93, '/static/img/2026/07/user-management-thumb.jpg', 'user-management-thumb.png', 'image/png', 'png', 386066, 1024, 559, 'User Management Thumbnail', 'Thumbnail for User Management article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:07:46', NULL, NULL, NULL),
-(94, '/static/img/2026/07/users-list-screenshot.jpg', 'users-list-screenshot.png', 'image/png', 'png', 178536, 1280, 1763, 'Users List Screenshot', 'Users list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:07:46', '2026-07-24 19:07:57', NULL, NULL),
-(96, '/static/img/2026/07/add-user-screenshot.jpg', 'add-user-screenshot.png', 'image/png', 'png', 128229, 1280, 1190, 'Add User Screenshot', 'Add user form screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:07:46', '2026-07-24 19:07:57', NULL, NULL),
+(90, '/static/img/2026/07/site-settings-screenshot.jpg', 'site-settings-screenshot.jpg', 'image/jpeg', 'jpg', 141266, 1280, 1262, 'Site Settings Screenshot', 'Site Settings page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:00:47', '2026-07-24 19:00:56', NULL, NULL),
+(92, '/static/img/2026/07/sidebar-settings-screenshot.jpg', 'sidebar-settings-screenshot.jpg', 'image/jpeg', 'jpg', 93027, 1280, 720, 'Sidebar Settings Screenshot', 'Sidebar settings page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:00:47', '2026-07-24 19:00:56', NULL, NULL),
+(93, '/static/img/2026/07/user-management-thumb.jpg', 'user-management-thumb.jpg', 'image/jpeg', 'jpg', 86524, 1024, 559, 'User Management Thumbnail', 'Thumbnail for User Management article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:07:46', NULL, NULL, NULL),
+(94, '/static/img/2026/07/users-list-screenshot.jpg', 'users-list-screenshot.jpg', 'image/jpeg', 'jpg', 115002, 1280, 720, 'Users List Screenshot', 'Users list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:07:46', '2026-07-24 19:07:57', NULL, NULL),
+(96, '/static/img/2026/07/add-user-screenshot.jpg', 'add-user-screenshot.jpg', 'image/jpeg', 'jpg', 77822, 1280, 720, 'Add User Screenshot', 'Add user form screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:07:46', '2026-07-24 19:07:57', NULL, NULL),
 (97, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'seo-meta-tags-thumb.png', 'image/png', 'png', 427001, 1024, 559, 'SEO Meta Tags Thumbnail', 'Thumbnail for SEO article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:16:07', NULL, NULL, NULL),
-(98, '/static/img/2026/07/meta-tags-screenshot.jpg', 'meta-tags-screenshot.png', 'image/png', 'png', 521216, 1280, 1763, 'Meta Tags Screenshot', 'Meta tags field in post editor', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:16:07', '2026-07-24 19:16:16', NULL, NULL),
+(98, '/static/img/2026/07/meta-tags-screenshot.jpg', 'meta-tags-screenshot.jpg', 'image/jpeg', 'jpg', 76904, 1280, 720, 'Meta Tags Screenshot', 'Meta tags field in post editor', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:16:07', '2026-07-24 19:16:16', NULL, NULL),
 (100, '/static/img/2026/07/sitemap-screenshot.jpg', 'sitemap-screenshot.png', 'image/png', 'png', 156672, 1280, 800, 'Sitemap Screenshot', 'sitemap.xml preview', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 19:16:07', '2026-07-24 19:16:16', NULL, NULL),
 (101, '/static/img/2026/07/widget-shortcodes-thumb.jpg', 'widget-shortcodes-thumb.png', 'image/png', 'png', 370305, 1024, 559, 'Widget dan Shortcodes Thumbnail', 'Thumbnail for Widget dan Shortcodes article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:33:31', NULL, NULL, NULL),
-(102, '/static/img/2026/07/shortcode-builder-screenshot.jpg', 'shortcode-builder-screenshot.png', 'image/png', 'png', 239616, 1280, 1763, 'Shortcode Builder Screenshot', 'Shortcode builder interface', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:33:31', '2026-07-24 23:33:39', NULL, NULL),
-(104, '/static/img/2026/07/widget-settings-screenshot.jpg', 'widget-settings-screenshot.png', 'image/png', 'png', 241664, 1280, 1763, 'Widget Settings Screenshot', 'Widget settings page', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:33:31', '2026-07-24 23:33:39', NULL, NULL),
-(105, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'keamanan-cms-thumb.png', 'image/png', 'png', 560233, 1024, 559, 'Keamanan CMS Thumbnail', 'Thumbnail for Keamanan CMS article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:45:59', NULL, NULL, NULL),
-(106, '/static/img/2026/07/auth-settings-screenshot.jpg', 'auth-settings-screenshot.png', 'image/png', 'png', 192775, 1280, 1190, 'Auth Settings Screenshot', 'Auth settings page with custom admin path', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:45:59', '2026-07-24 23:46:08', NULL, NULL),
-(108, '/static/img/2026/07/login-page-screenshot.jpg', 'login-page-screenshot.png', 'image/png', 'png', 178536, 1280, 1763, 'Login Page Screenshot', 'Custom login page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:45:59', '2026-07-24 23:46:08', NULL, NULL),
+(102, '/static/img/2026/07/shortcode-builder-screenshot.jpg', 'shortcode-builder-screenshot.jpg', 'image/jpeg', 'jpg', 88566, 1280, 720, 'Shortcode Builder Screenshot', 'Shortcode builder interface', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:33:31', '2026-07-24 23:33:39', NULL, NULL),
+(104, '/static/img/2026/07/widget-settings-screenshot.jpg', 'widget-settings-screenshot.jpg', 'image/jpeg', 'jpg', 87122, 1280, 720, 'Widget Settings Screenshot', 'Widget settings page', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:33:31', '2026-07-24 23:33:39', NULL, NULL),
+(105, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'keamanan-cms-thumb.jpg', 'image/jpeg', 'jpg', 70925, 1024, 559, 'Keamanan CMS Thumbnail', 'Thumbnail for Keamanan CMS article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:45:59', NULL, NULL, NULL),
+(106, '/static/img/2026/07/auth-settings-screenshot.jpg', 'auth-settings-screenshot.jpg', 'image/jpeg', 'jpg', 78634, 1280, 720, 'Auth Settings Screenshot', 'Auth settings page with custom admin path', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:45:59', '2026-07-24 23:46:08', NULL, NULL),
+(108, '/static/img/2026/07/login-page-screenshot.jpg', 'login-page-screenshot.jpg', 'image/jpeg', 'jpg', 50546, 1280, 720, 'Login Page Screenshot', 'Custom login page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-24 23:45:59', '2026-07-24 23:46:08', NULL, NULL),
 (109, '/static/img/2026/07/sistem-soft-delete-thumb.jpg', 'sistem-soft-delete-thumb.png', 'image/png', 'png', 208635, 1024, 559, 'Sistem Soft Delete Thumbnail', 'Thumbnail for Sistem Soft Delete article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:03:17', NULL, NULL, NULL),
-(110, '/static/img/2026/07/bin-screenshot.jpg', 'bin-screenshot.png', 'image/png', 'png', 162008, 1905, 1190, 'Recycle Bin Screenshot', 'Thumbnail for Sistem Soft Delete article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:03:17', '2026-07-25 08:01:27', NULL, NULL),
+(110, '/static/img/2026/07/bin-screenshot.jpg', 'bin-screenshot.jpg', 'image/jpeg', 'jpg', 113956, 1280, 720, 'Recycle Bin Screenshot', 'Thumbnail for Sistem Soft Delete article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:03:17', '2026-07-25 08:01:27', NULL, NULL),
 (111, '/static/img/2026/07/sistem-reinstall-update-thumb.jpg', 'sistem-reinstall-update-thumb.png', 'image/png', 'png', 0, 1024, 559, 'Sistem Reinstall Update Thumbnail', 'Thumbnail for Sistem Reinstall dan Update article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:06:50', NULL, NULL, NULL),
-(112, '/static/img/2026/07/update-page-screenshot.jpg', 'update-page-screenshot.png', 'image/png', 'png', 240434, 1905, 1190, 'Update Page Screenshot', 'Update and maintenance page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:06:50', '2026-07-25 08:01:27', NULL, NULL),
+(112, '/static/img/2026/07/update-page-screenshot.jpg', 'update-page-screenshot.jpg', 'image/jpeg', 'jpg', 107156, 1280, 720, 'Update Page Screenshot', 'Update and maintenance page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:06:50', '2026-07-25 08:01:27', NULL, NULL),
 (113, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'memulai-jyavani-thumb.png', 'image/png', 'png', 0, 1024, 559, 'Memulai dengan Jyavani Thumbnail', 'Thumbnail for Memulai dengan Jyavani article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:09:41', NULL, NULL, NULL),
 (114, '/static/img/2026/07/dashboard-screenshot.jpg', 'dashboard-screenshot.png', 'image/png', 'png', 150802, 1911, 923, 'Dashboard Screenshot', 'Jyavani CMS dashboard screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:09:41', '2026-07-25 08:01:27', NULL, NULL),
-(115, '/static/img/2026/07/add-post-screenshot.jpg', 'add-post-screenshot.png', 'image/png', 'png', 151108, 1905, 1414, 'Add Post Screenshot', 'Add new post form screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:09:41', '2026-07-25 08:01:27', NULL, NULL),
+(115, '/static/img/2026/07/add-post-screenshot.jpg', 'add-post-screenshot.jpg', 'image/jpeg', 'jpg', 82706, 1280, 720, 'Add Post Screenshot', 'Add new post form screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 00:09:41', '2026-07-25 08:01:27', NULL, NULL),
 (117, '/static/img/2026/07/private-files-thumb.jpg', 'private-files-thumb.png', 'image/png', 'png', 0, 1536, 1024, 'Private Files Thumbnail', 'Thumbnail for Private Files and Media article', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:01:03', NULL, NULL, NULL),
 (118, '/static/img/2026/07/files-list-screenshot.jpg', 'files-list-screenshot.png', 'image/png', 'png', 0, 1905, 1190, 'Private Files List Screenshot', 'Private Files list page screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:01:03', NULL, NULL, NULL),
-(119, '/static/img/2026/07/media-list-screenshot.jpg', 'media-list-screenshot.png', 'image/png', 'png', 0, 1905, 1190, 'Media List Screenshot', 'Media Library list page with visibility column', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:01:03', NULL, NULL, NULL),
+(119, '/static/img/2026/07/media-list-screenshot.jpg', 'media-list-screenshot.jpg', 'image/jpeg', 'jpg', 114224, 1280, 720, 'Media List Screenshot', 'Media Library list page with visibility column', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:01:03', NULL, NULL, NULL),
 (120, '/static/img/2026/07/media-library-thumb-gen.jpg', 'media-library-thumb-gen.png', 'image/png', 'png', 369059, 1024, 559, 'Media Library Thumbnail', 'Thumbnail for Media Library article', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/media-library-thumb-gen.jpg', 'public', 1, 1, '2026-07-25 09:22:03', '2026-07-25 09:22:03', NULL, NULL),
-(121, '/static/img/2026/07/user-profile-screenshot.jpg', 'user-profile-screenshot.png', 'image/png', 'png', 128229, 1274, 1190, 'User Profile Screenshot', 'User Profile Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/user-profile-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
+(121, '/static/img/2026/07/user-profile-screenshot.jpg', 'user-profile-screenshot.jpg', 'image/jpeg', 'jpg', 77212, 1280, 720, 'User Profile Screenshot', 'User Profile Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
 (122, '/static/img/2026/07/og-tags-screenshot.jpg', 'og-tags-screenshot.png', 'image/png', 'png', 152524, 1280, 720, 'OG Tags Screenshot', 'OG Tags Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/og-tags-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
-(123, '/static/img/2026/07/permalink-settings-screenshot.jpg', 'permalink-settings-screenshot.png', 'image/png', 'png', 95725, 1274, 1190, 'Permalink Settings Screenshot', 'Permalink Settings Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/permalink-settings-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
-(124, '/static/img/2026/07/plugin-upload-screenshot.jpg', 'plugin-upload-screenshot.png', 'image/png', 'png', 118398, 1274, 1190, 'Plugin Upload Screenshot', 'Plugin Upload Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/plugin-upload-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
-(125, '/static/img/2026/07/layout-editor-screenshot.jpg', 'layout-editor-screenshot.png', 'image/png', 'png', 241444, 1274, 1749, 'Layout Editor Screenshot', 'Layout Editor Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/layout-editor-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
+(123, '/static/img/2026/07/permalink-settings-screenshot.jpg', 'permalink-settings-screenshot.jpg', 'image/jpeg', 'jpg', 83047, 1280, 720, 'Permalink Settings Screenshot', 'Permalink Settings Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
+(124, '/static/img/2026/07/plugin-upload-screenshot.jpg', 'plugin-upload-screenshot.jpg', 'image/jpeg', 'jpg', 55006, 1280, 720, 'Plugin Upload Screenshot', 'Plugin Upload Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
+(125, '/static/img/2026/07/layout-editor-screenshot.jpg', 'layout-editor-screenshot.jpg', 'image/jpeg', 'jpg', 177915, 1280, 1000, 'Layout Editor Screenshot', 'Layout Editor Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
 (126, '/static/img/2026/07/user-roles-screenshot.jpg', 'user-roles-screenshot.png', 'image/png', 'png', 178536, 1274, 1190, 'User Roles Screenshot', 'User Roles Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/user-roles-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL);
 
 INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigned_at`) VALUES

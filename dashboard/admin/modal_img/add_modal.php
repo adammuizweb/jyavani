@@ -40,8 +40,8 @@ try {
         <label>
           <?= _e('Private access') ?>
           <select id="mdlib-access-scope">
-            <option value="editorial" selected><?= _e('Editorial') ?></option>
-            <option value="admin"><?= _e('Admin Only') ?></option>
+            <option value="editorial" selected><?= _e('Content Team') ?></option>
+            <option value="admin"><?= _e('Administrator') ?></option>
           </select>
         </label>
         <label class="mdlib-checkline">

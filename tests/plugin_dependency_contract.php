@@ -142,6 +142,9 @@ $check(substr_count($updateSource, 'plugin_install_requirements_error_message($m
 $check(str_contains($managerSource, 'plugin_order_names_by_dependencies($pluginNames, true)')
     && str_contains($managerSource, "plugin_order_names_by_dependencies(\$pluginNames, false)"),
     'the plugin manager applies dependency ordering to bulk state changes');
+$check(str_contains($managerSource, "'/plugins/icon/' . rawurlencode(\$name) . '/'")
+    && !str_contains($managerSource, "'/plugins/static/' . rawurlencode(\$name)"),
+    'plugin manager uses an extensionless icon URL that reaches Core behind static nginx rules');
 
 $layout = (string)file_get_contents($root . '/app/layout.php');
 $faviconBranch = strpos($layout, 'if ($faviconUrl !== \'\'):');
@@ -167,6 +170,10 @@ $check(str_contains($router, 'echo core_service_worker_script();')
 $check(str_contains($router, 'plugin_declared_icon_file($pluginName, $pluginFile)')
     && !str_contains($router, "mime_content_type(\$absFile)"),
     'plugin compatibility static route delegates to declared-icon validation with fixed MIME types');
+$check(str_contains($router, "(\$segments[1] ?? '') === 'icon'")
+    && str_contains($router, "is_string(\$manifest['icon'] ?? null)")
+    && str_contains($router, 'plugin_declared_icon_file($pluginName, $pluginFile)'),
+    'extensionless plugin icon route serves only the manifest-declared image');
 
 $remove = static function (string $path) use (&$remove): void {
     if (!is_dir($path)) return;

@@ -330,7 +330,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
       if ($iconRaw !== '' && !str_starts_with($iconRaw, 'http://') && !str_starts_with($iconRaw, 'https://')) {
           $iconFile = PLUGIN_PATH . '/' . $name . '/' . $iconRaw;
           if (is_file($iconFile)) {
-              $iconUrl = '/plugins/static/' . rawurlencode($name) . '/' . rawurlencode($iconRaw);
+              $iconUrl = '/plugins/icon/' . rawurlencode($name) . '/';
           } else {
               $iconUrl = '';
           }

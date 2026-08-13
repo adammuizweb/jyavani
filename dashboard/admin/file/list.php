@@ -234,7 +234,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
               <?php endif; ?>
               <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
                 <span class="badge" style="background:<?= $isPrivate ? '#fef3c7' : '#dcfce7' ?>;color:<?= $isPrivate ? '#92400e' : '#166534' ?>;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($visibility)) ?></span>
-                <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(strtoupper($accessScope)) ?></span>
+                <span class="badge" style="padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?= e(content_access_scope_label($accessScope)) ?></span>
                 <?php if (!$isDownloadable): ?>
                   <span class="badge" style="background:#fee2e2;color:#991b1b;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:800"><?=__('NO DOWNLOAD')?></span>
                 <?php endif; ?>

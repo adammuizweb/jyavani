@@ -65,3 +65,50 @@ if (!function_exists('require_role')) {
         }
     }
 }
+
+if (!function_exists('content_access_scope_allows_role')) {
+    function content_access_scope_allows_role(?string $role, string $scope): bool
+    {
+        $role = strtolower(trim((string)$role));
+        $scope = strtolower(trim($scope));
+
+        if (in_array($scope, ['employee', 'both'], true)) {
+            $scope = 'editorial';
+        }
+
+        if ($scope === 'admin') {
+            return $role === 'admin';
+        }
+
+        if ($scope === 'editorial') {
+            return in_array($role, ['author', 'editor', 'admin'], true);
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('content_access_scope_allows')) {
+    function content_access_scope_allows(PDO $pdo, string $scope): bool
+    {
+        if (!function_exists('is_logged_in') || !is_logged_in()) {
+            return false;
+        }
+
+        return content_access_scope_allows_role(current_user_role($pdo), $scope);
+    }
+}
+
+if (!function_exists('content_access_scope_label')) {
+    function content_access_scope_label(string $scope): string
+    {
+        $scope = strtolower(trim($scope));
+        if (in_array($scope, ['editorial', 'employee', 'both'], true)) {
+            return function_exists('__') ? __('Content Team') : 'Content Team';
+        }
+        if ($scope === 'admin') {
+            return function_exists('__') ? __('Administrator') : 'Administrator';
+        }
+        return function_exists('__') ? __('Public') : 'Public';
+    }
+}

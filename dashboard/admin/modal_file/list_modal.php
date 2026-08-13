@@ -267,7 +267,7 @@ try {
               </div>
               <div class="mdlib-badges">
                 <span class="mdlib-pill mdlib-pill-<?= mdlib_e($visibility) ?>"><?= mdlib_e(strtoupper($visibility)) ?></span>
-                <span class="mdlib-pill"><?= mdlib_e(strtoupper($accessScope)) ?></span>
+                <span class="mdlib-pill"><?= mdlib_e(content_access_scope_label($accessScope)) ?></span>
                 <?php if (!$isDownloadable): ?><span class="mdlib-pill">NO DOWNLOAD</span><?php endif; ?>
               </div>
               <div class="mdlib-actions">

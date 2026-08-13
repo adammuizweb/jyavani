@@ -168,7 +168,27 @@ if ($prefix === 'private') {
     exit;
 }
 
-// PLUGIN STATIC — serve plugin icon/files from plugins/ (outside web root)
+// Extensionless icon route avoids static-server rules intercepting .png/.svg URLs.
+if ($prefix === 'plugins' && ($segments[1] ?? '') === 'icon') {
+    $pluginName = $segments[2] ?? '';
+    $manifest = count($segments) === 3 ? plugin_manifest($pluginName) : null;
+    $pluginFile = is_array($manifest) && is_string($manifest['icon'] ?? null)
+        ? $manifest['icon']
+        : '';
+    $icon = plugin_declared_icon_file($pluginName, $pluginFile);
+    if ($icon !== null) {
+        header('Content-Type: ' . $icon['mime']);
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: public, max-age=86400');
+        header('Content-Length: ' . filesize($icon['path']));
+        readfile($icon['path']);
+        exit;
+    }
+    http_response_code(404);
+    exit;
+}
+
+// Compatibility route for servers that forward static-looking paths to Core.
 if ($prefix === 'plugins' && ($segments[1] ?? '') === 'static') {
     $pluginName = $segments[2] ?? '';
     $pluginFile = $segments[3] ?? '';

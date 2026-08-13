@@ -49,25 +49,6 @@ if (!function_exists('private_file_sc_fetch')) {
     }
 }
 
-if (!function_exists('private_file_sc_admin_ok')) {
-    function private_file_sc_admin_ok(PDO $pdo): bool
-    {
-        try {
-            if (function_exists('adiwira_fetch_identity')) {
-                $identity = adiwira_fetch_identity($pdo);
-                if (($identity['ok'] ?? false) === true) {
-                    $role = strtolower((string)($identity['role'] ?? ''));
-                    return in_array($role, ['admin', 'editor', 'author'], true);
-                }
-            }
-
-            return function_exists('is_logged_in') && is_logged_in();
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
-}
-
 if (!function_exists('private_file_sc_can_access')) {
     function private_file_sc_can_access(PDO $pdo, array $file): bool
     {
@@ -79,11 +60,7 @@ if (!function_exists('private_file_sc_can_access')) {
             return true;
         }
 
-        $adminOk = private_file_sc_admin_ok($pdo);
-
-        if ($scope === 'admin') return $adminOk;
-
-        return $adminOk;
+        return content_access_scope_allows($pdo, $scope);
     }
 }
 
@@ -236,23 +213,36 @@ if (!function_exists('private_file_shortcode_expand')) {
             return $html;
         }
 
-        $pattern = '/\[(private_pdf|private_file|protected_file)\b([^\]]*)\]/i';
+        $shortcodePattern = '/\[(private_pdf|private_file|protected_file)\b([^\]]*)\]/i';
+        $protectedPattern = '/(<pre\b[^>]*>.*?<\/pre\s*>|<code\b[^>]*>.*?<\/code\s*>|<script\b[^>]*>.*?<\/script\s*>|<style\b[^>]*>.*?<\/style\s*>|<textarea\b[^>]*>.*?<\/textarea\s*>)/is';
+        $parts = preg_split($protectedPattern, $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if ($parts === false) {
+            return $html;
+        }
 
-        return preg_replace_callback($pattern, function (array $m) use ($pdo) {
-            $tag = strtolower((string)$m[1]);
-            $attrs = private_file_sc_attrs((string)($m[2] ?? ''));
-            $id = max(0, (int)($attrs['id'] ?? $attrs['file_id'] ?? 0));
-            $mode = strtolower((string)($attrs['mode'] ?? ''));
-
-            if ($mode === '') {
-                $mode = ($tag === 'private_pdf') ? 'embed' : 'card';
+        foreach ($parts as $index => $part) {
+            if ($index % 2 === 1) {
+                continue;
             }
 
-            if ($id <= 0) {
-                return '';
-            }
+            $parts[$index] = preg_replace_callback($shortcodePattern, function (array $m) use ($pdo) {
+                $tag = strtolower((string)$m[1]);
+                $attrs = private_file_sc_attrs((string)($m[2] ?? ''));
+                $id = max(0, (int)($attrs['id'] ?? $attrs['file_id'] ?? 0));
+                $mode = strtolower((string)($attrs['mode'] ?? ''));
 
-            return private_file_sc_render($pdo, $id, $mode);
-        }, $html) ?? $html;
+                if ($mode === '') {
+                    $mode = ($tag === 'private_pdf') ? 'embed' : 'card';
+                }
+
+                if ($id <= 0) {
+                    return '';
+                }
+
+                return private_file_sc_render($pdo, $id, $mode);
+            }, $part) ?? $part;
+        }
+
+        return implode('', $parts);
     }
 }

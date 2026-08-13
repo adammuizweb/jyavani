@@ -130,7 +130,7 @@ if (!function_exists('modalimg_human_filesize')) {
       <?php endif; ?>
       <?php if ($hasVisibility): ?>
         <div><strong><?=_e('Visibility:')?></strong> <?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></div>
-        <div><strong><?=_e('Scope:')?></strong> <?= htmlspecialchars(strtoupper($accessScope), ENT_QUOTES, 'UTF-8') ?></div>
+        <div><strong><?=_e('Scope:')?></strong> <?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></div>
       <?php endif; ?>
       <div class="mdlib-meta-time"><?=_e('Uploaded:')?> <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
     </div>
@@ -189,8 +189,8 @@ if (!function_exists('modalimg_human_filesize')) {
         <label for="mdlib-field-access-scope"><?=_e('Access Scope')?></label>
         <select id="mdlib-field-access-scope" class="mdlib-select" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
           <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Editorial')?></option>
-            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Admin Only')?></option>
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
+            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
         </select>
         <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public media always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
       </div>
