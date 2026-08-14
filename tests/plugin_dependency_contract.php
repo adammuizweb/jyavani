@@ -156,6 +156,8 @@ $manifestOutput = strpos($layout, 'is_string($webManifestUrl)');
 $check($appleFilter !== false && $manifestFilter !== false && $themeColorFilter !== false && $faviconBranch !== false
     && $appleFilter < $faviconBranch && $appleOutput > $faviconBranch && $manifestOutput > $faviconBranch,
     'web manifest, apple touch icon, and theme color are independently filterable');
+$check(str_contains($layout, "apply_filters('web_manifest_url', '', \$pdo)"),
+    'Core does not advertise an installable web manifest without a PWA plugin contribution');
 
 $worker = core_service_worker_script();
 $check(str_contains($worker, 'self.skipWaiting()') && str_contains($worker, 'self.clients.claim()')

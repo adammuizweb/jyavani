@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.65",
+    "version": "2.3.66",
     "build": "2026-08-14",
-    "changelog": "Enforce role-based private asset access, harden plugin icon delivery, and refresh the bundled demo documentation screenshots.",
+    "changelog": "Require an active PWA plugin before advertising an installable web app manifest.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

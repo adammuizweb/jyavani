@@ -230,7 +230,7 @@ $faviconUrl = ($pdo instanceof PDO && function_exists('settings_get'))
     ? (settings_get($pdo, 'favicon_url', '') ?? '')
     : '';
 $appleTouchIconUrl = apply_filters('apple_touch_icon_url', '/static/img/favicon/apple-touch-icon.png', $pdo);
-$webManifestUrl = apply_filters('web_manifest_url', '/static/img/favicon/site.webmanifest', $pdo);
+$webManifestUrl = apply_filters('web_manifest_url', '', $pdo);
 $themeColor = apply_filters('theme_color', '#ffffff', $pdo);
 if ($faviconUrl !== ''): ?>
   <link rel="icon" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
