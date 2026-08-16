@@ -1,0 +1,46 @@
+@keyframes spin { to { transform:rotate(360deg); } }
+.pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; color:var(--adam-text); }
+.pg-subtitle { color:var(--adam-muted); font-size:.9rem; margin:0 0 1.5rem; }
+.up-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+@media (max-width:768px){ .up-grid { grid-template-columns:1fr; } }
+.up-card { border:1px solid var(--adam-border); border-radius:var(--adam-radius); padding:1rem; background:var(--adam-card); }
+.up-card-warning { border-color:#f59e0b; background:#fffbeb; }
+html.theme-dark .up-card-warning { border-color:#d97706; background:#1a1500; }
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .up-card-warning { border-color:#d97706; background:#1a1500; }
+}
+.up-card-header { font-size:.9rem; font-weight:600; margin-bottom:.75rem; text-transform:uppercase; letter-spacing:.03em; color:var(--adam-muted); }
+.up-latest { display:inline-block; margin-left:.35rem; padding:.1rem .4rem; border-radius:999px; background:#d1fae5; color:#065f46; font-size:.65rem; font-weight:700; letter-spacing:.02em; vertical-align:middle; }
+.up-table { width:100%; border-collapse:collapse; font-size:.875rem; }
+.up-table td { padding:.35rem .5rem; border-bottom:1px solid var(--adam-surface-3); color:var(--adam-text); }
+.up-table td:first-child { color:var(--adam-muted); width:35%; }
+.up-form { display:flex; flex-direction:column; gap:.6rem; }
+.up-label { font-size:.8rem; font-weight:500; color:var(--adam-text-2); }
+.up-input { padding:.5rem .65rem; border:1px solid var(--adam-border-2); border-radius:6px; font-size:.85rem; font-family:inherit; background:var(--adam-card); color:var(--adam-text); }
+.up-input:focus { outline:none; border-color:var(--adam-primary); box-shadow:0 0 0 2px var(--adam-primary-soft); }
+.up-hint { font-size:.8rem; color:var(--adam-muted-2); margin:.25rem 0; }
+.up-hint code { background:var(--adam-surface-3); padding:.1rem .3rem; border-radius:3px; font-size:.78rem; }
+.up-flex { display:flex; gap:.5rem; margin-top:.5rem; }
+.up-file-row { display:flex; gap:.5rem; align-items:center; }
+.up-list { margin:.5rem 0; padding-left:1.25rem; font-size:.85rem; color:var(--adam-text-2); }
+.up-list li { margin-bottom:.3rem; }
+.up-list code { background:var(--adam-surface-3); padding:.1rem .3rem; border-radius:3px; font-size:.8rem; }
+.up-checkline { display:flex; gap:.5rem; align-items:center; font-size:.85rem; color:var(--adam-text-2); cursor:pointer; padding:.3rem 0; }
+.up-checkline input[type=checkbox] { accent-color:var(--adam-danger); width:16px; height:16px; }
+.btn { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .75rem; font-size:.8rem; font-weight:500; border-radius:6px; cursor:pointer; border:1px solid transparent; font-family:inherit; line-height:1; text-decoration:none; }
+.btn-primary { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
+.btn-primary:hover { background:var(--adam-primary-600); }
+.btn-outline { background:transparent; color:var(--adam-muted); border-color:var(--adam-border-2); }
+.btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
+.btn-danger { background:var(--adam-danger); color:#fff; border-color:var(--adam-danger); }
+.btn-danger:hover { background:var(--adam-danger-600); }
+.reset-checklist { list-style:none; padding:0; margin:0 0 .5rem; font-size:.88rem; }
+.reset-checklist li { padding:.2rem 0; line-height:1.4; }
+.reset-cb label { display:flex; gap:.5rem; align-items:center; cursor:pointer; padding:.25rem .4rem; border-radius:6px; transition:background .12s; }
+.reset-cb label:hover { background:var(--adam-hover); }
+.reset-cb input[type=checkbox] { accent-color:var(--adam-danger); width:15px; height:15px; }
+.up-dev-notice { margin:-.5rem 0 1rem; padding:.6rem .75rem; border-radius:6px; font-size:.8rem; border:1px solid #f59e0b; background:#fffbeb; color:#92400e; }
+html.theme-dark .up-dev-notice { border-color:#d97706; background:#1a1500; color:#fbbf24; }
+@media (prefers-color-scheme: dark){ html:not(.theme-light):not(.theme-dark) .up-dev-notice { border-color:#d97706; background:#1a1500; color:#fbbf24; } }
+#resetApplyBtn:disabled { background:var(--adam-muted); border-color:var(--adam-border-2); color:#fff; cursor:not-allowed; opacity:1; }
+#resetApplyBtn:disabled:hover { background:var(--adam-muted); }
