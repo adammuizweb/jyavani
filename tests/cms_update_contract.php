@@ -78,6 +78,32 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
     if (!$condition) $failures[] = $message;
 };
 
+$updatePageSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/index.php');
+$updateActionsSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/_update_actions.php');
+$updateScriptSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/js/update.js');
+$check(
+    str_contains($updatePageSource, "require_once __DIR__ . '/_update_actions.php';")
+        && str_contains($updatePageSource, 'cms_update_handle_post('),
+    'update page delegates request mutations to the action module'
+);
+$check(
+    str_contains($updateActionsSource, 'function cms_update_check_remote(')
+        && str_contains($updateActionsSource, 'function cms_update_store_upload(')
+        && str_contains($updateActionsSource, 'function cms_update_reinstall('),
+    'update actions remain separated by use case'
+);
+$check(
+    !str_contains($updatePageSource, '<style>')
+        && str_contains($updatePageSource, '/static/dashboard/css/update.css'),
+    'update page styling is served from its static stylesheet'
+);
+$check(
+    !str_contains($updateScriptSource, '<?')
+        && str_contains($updatePageSource, 'window.CMS_UPDATE_CONFIG')
+        && str_contains($updatePageSource, '/static/dashboard/js/update.js'),
+    'update behavior uses a static script with explicit server configuration'
+);
+
 try {
     $oldFiles = [
         'public/assets/changed.txt' => "old changed\n",
