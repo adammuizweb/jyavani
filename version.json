@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.66",
-    "build": "2026-08-14",
-    "changelog": "Require an active PWA plugin before advertising an installable web app manifest.",
+    "version": "2.3.67",
+    "build": "2026-08-16",
+    "changelog": "Refactor the CMS Update Manager into focused actions, reset service, and static dashboard assets.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
