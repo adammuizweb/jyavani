@@ -128,11 +128,11 @@ if (!function_exists('menu_resolve_url')) {
                     break;
 
                 case 'category':
-                    $st = $pdo->prepare("SELECT slug FROM categories WHERE id = :id AND is_deleted = 0 LIMIT 1");
+                    $st = $pdo->prepare("SELECT id, parent_id, slug FROM categories WHERE id = :id AND is_deleted = 0 LIMIT 1");
                     $st->execute([':id' => $targetId]);
                     $row = $st->fetch(PDO::FETCH_ASSOC);
                     $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/';
-                    $urlCache[$cacheKey] = $row ? $catBase . rawurlencode($row['slug']) . '/' : '#';
+                    $urlCache[$cacheKey] = $row ? (function_exists('get_category_permalink') ? get_category_permalink($pdo, $row) : $catBase . rawurlencode($row['slug']) . '/') : '#';
                     break;
 
                 case 'theme':

@@ -28,18 +28,6 @@ class CategoryController
         return '';
     }
 
-    private static function resolveCategoryBySlug(PDO $pdo, string $slug)
-    {
-        try {
-            $stmt = $pdo->prepare("SELECT * FROM categories WHERE slug = :slug AND is_deleted = 0 LIMIT 1");
-            $stmt->execute([':slug' => $slug]);
-            return $stmt->fetch(PDO::FETCH_ASSOC) ?: false;
-        } catch (Throwable $e) {
-            error_log("[CategoryController::resolveCategoryBySlug] DB error: " . $e->getMessage());
-            return false;
-        }
-    }
-
     private static function resolveCategoryByPath(PDO $pdo, array $pathParts)
     {
         $parentId = null;
@@ -242,7 +230,7 @@ class CategoryController
             unset($cat);
             $cats = collection_filter_rows($cats, $routeContext + ['scope' => 'category_index']);
 
-            $page_title = 'Kategori';
+            $page_title = __('Categories');
             $vars = [
                 'categories'   => $cats,
                 'site_context' => 'categories_parents_list',
@@ -315,25 +303,13 @@ class CategoryController
         // =========================
         $parts = array_values(array_filter(array_map('trim', explode('/', $slug)), fn($v) => $v !== ''));
         if (empty($parts)) {
-            http_response_code(404);
-            $page_title = 'Kategori tidak ditemukan';
-            $content_html = '<h1>404 — Kategori tidak ditemukan</h1>';
-            require __DIR__ . '/../layout.php';
-            exit;
+            require __DIR__ . '/../frontend_404.php';
         }
 
         $category = self::resolveCategoryByPath($pdo, $parts);
-        if (!$category) {
-            $last = (string)end($parts);
-            $category = self::resolveCategoryBySlug($pdo, $last);
-        }
 
         if (!$category) {
-            http_response_code(404);
-            $page_title = 'Kategori tidak ditemukan';
-            $content_html = '<h1>404 — Kategori tidak ditemukan</h1>';
-            require __DIR__ . '/../layout.php';
-            exit;
+            require __DIR__ . '/../frontend_404.php';
         }
 
         $categoryIdentity = $category;

@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.67",
-    "build": "2026-08-16",
-    "changelog": "Refactor the CMS Update Manager into focused actions, reset service, and static dashboard assets.",
+    "version": "2.3.68",
+    "build": "2026-08-17",
+    "changelog": "Fix hierarchical category routing, menu permalinks, localized category indexes, and themed category 404 pages.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

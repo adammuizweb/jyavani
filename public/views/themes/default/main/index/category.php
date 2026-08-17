@@ -6,6 +6,7 @@
 ?>
 <div class="container category-index">
     <h1 class="page-title"><?= __('Categories') ?></h1>
+    <p class="category-index-subtitle"><?= __('Explore topics written by our authors.') ?></p>
 
     <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'index.category', 'before_loop')): ?>
         <div class="tz-index-category-before"><?= theme_zone_render_position($pdo, 'index.category', 'before_loop') ?></div>
@@ -28,6 +29,7 @@
                         </div>
 
                         <div class="category-meta">
+                            <span class="category-count"><?= sprintf(__('%d posts'), (int)($cat['post_count'] ?? 0)) ?></span>
                             <span class="arrow">›</span>
                         </div>
                     </a>
