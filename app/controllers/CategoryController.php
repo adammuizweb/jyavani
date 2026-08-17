@@ -513,7 +513,7 @@ class CategoryController
             $content_html = ob_get_clean();
         }
 
-        $page_title = htmlspecialchars($category['name'] . ' — Kategori', ENT_QUOTES, 'UTF-8');
+        $page_title = $category['name'] . ' — ' . __('Category');
         $context_for_layout = 'list.category';
         require __DIR__ . '/../layout.php';
         exit;

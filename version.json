@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.68",
+    "version": "2.3.69",
     "build": "2026-08-17",
-    "changelog": "Fix hierarchical category routing, menu permalinks, localized category indexes, and themed category 404 pages.",
+    "changelog": "Fix double-escaped category document titles and use the translatable category label.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

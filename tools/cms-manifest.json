@@ -1,20 +1,20 @@
 {
     "name": "Jyavani",
-    "version": "2.3.68",
+    "version": "2.3.69",
     "build": "2026-08-17",
-    "generated": "2026-08-17T08:03:59+00:00",
+    "generated": "2026-08-17T08:54:06+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 491,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "45b7212b008229d4260538b1795bc2510e9fa557fdcf680b4c227aff50307d52",
+        "VERSION": "3622c488a051ffa8f7189fcb62bb7e609d4e007a7ec40f242306e372d5c0a6ae",
         "app/bootstrap_core.php": "de1474c1e11e219eb942276a17bbd3ee4ec6e706e94ed2899de69296a9f24889",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
         "app/controllers/AuthorController.php": "570df25462ee68f2533c31aecc7db9b8e333572818167769582b0b76fc3ba63a",
-        "app/controllers/CategoryController.php": "7ffc260e96d26ecd5bef8e628e4bbf15453b62124f72d2d2560a53c7899d7cd6",
+        "app/controllers/CategoryController.php": "2f7586d0ea23b4ee7f42aaf26ca3494ddd42f32b76005dd33279049a6085945c",
         "app/controllers/PageController.php": "4bbdfd6182b8e687b13445ab10d7738b1367fe326f8cf0eb52872a3cebc1fd7e",
         "app/controllers/PluginStoreController.php": "00a2c96fdae25df8c3f485a051d283831e84f5bcb748fbc4202ceeb501761d52",
         "app/controllers/PostController.php": "5cc5f64f887f9c352f3c00b9beda80b5e5c07541a10087baf723c1535b479805",
@@ -498,6 +498,6 @@
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "9a7d13c5c515956022caf74ad0dd8d2f498f6b9866091fbd05ce9cb4bb262213",
-        "version.json": "c70b6eee0d90cd256581b59363573488b089418515d5663fe1a5c9fa3ece0a67"
+        "version.json": "877a64363c39e773b319e6e1c189673726526d6aec58f38449683db53563b8fc"
     }
 }
