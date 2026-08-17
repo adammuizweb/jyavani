@@ -14,6 +14,25 @@ $copyright = $tcFooterText !== '' ? $tcFooterText : __('©') . ' <span id="year"
 $hasFooterZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'main');
 $hasCopyrightZone = function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'footer', 'copyright');
 $footerRows = [1 => ['about', 'pages', 'social'], 2 => ['copyright']];
+$tzFooterLayout = function_exists('theme_zone_layout') && function_exists('get_active_theme_folder')
+    ? (theme_zone_layout(get_active_theme_folder($pdo))['footer'] ?? [])
+    : [];
+$footerAlignment = static function (string $position) use ($pdo, $tzFooterLayout): array {
+    $fallback = (string)($tzFooterLayout['positions'][$position]['align'] ?? 'left');
+    if (!in_array($fallback, ['left', 'center', 'right'], true)) $fallback = 'left';
+    $titleAlign = $fallback;
+    $contentAlign = $fallback;
+    if (function_exists('theme_zone_position_items')) {
+        $items = theme_zone_position_items($pdo, 'footer', $position);
+        $config = !empty($items) ? json_decode((string)($items[0]['config'] ?? '{}'), true) : [];
+        if (is_array($config)) {
+            if (in_array($config['_align_title'] ?? '', ['left', 'center', 'right'], true)) $titleAlign = $config['_align_title'];
+            if (in_array($config['_align_content'] ?? '', ['left', 'center', 'right'], true)) $contentAlign = $config['_align_content'];
+        }
+    }
+    $flexAlign = ['left' => 'flex-start', 'center' => 'center', 'right' => 'flex-end'][$contentAlign];
+    return [$titleAlign, $contentAlign, $flexAlign];
+};
 $hasFooterCols = false;
 if (function_exists('theme_zone_has_position')) {
     foreach ($footerRows as $rowPositions) {
@@ -41,20 +60,12 @@ if (function_exists('theme_zone_has_position')) {
           }
           if (!$rowHas) continue;
 
-          // Alignment per position dari theme.json ("align": left|center|right; default center)
-          $tzFooterLayout = function_exists('theme_zone_layout') && function_exists('get_active_theme_folder')
-              ? (theme_zone_layout(get_active_theme_folder($pdo))['footer'] ?? [])
-              : [];
-          $tzAlignMap = ['left' => ['flex-start', 'left'], 'right' => ['flex-end', 'right'], 'center' => ['center', 'center']];
           ?>
-          <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); justify-items:center; gap:1.25rem; width:100%; box-sizing:border-box; margin-top:10px; margin-bottom:1rem; padding:0 16px;">
+          <div class="footer-cols footer-row-<?= count($rowPositions) > 1 ? 'multi' : 'single' ?>">
             <?php foreach ($rowPositions as $fp): ?>
               <?php if (theme_zone_has_position($pdo, 'footer', $fp)): ?>
-                <?php
-                $fpAlign = (string)($tzFooterLayout['positions'][$fp]['align'] ?? 'center');
-                [$fpItems, $fpText] = $tzAlignMap[$fpAlign] ?? $tzAlignMap['center'];
-                ?>
-                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="display:flex; flex-direction:column; align-items:<?= $fpItems ?>; text-align:<?= $fpText ?>; gap:.35rem;">
+                <?php [$fpTitleAlign, $fpContentAlign, $fpFlexAlign] = $footerAlignment($fp); ?>
+                <div class="footer-col footer-zone-<?= htmlspecialchars($fp, ENT_QUOTES, 'UTF-8') ?>" style="--footer-title-align:<?= $fpTitleAlign ?>;--footer-content-align:<?= $fpContentAlign ?>;--footer-flex-align:<?= $fpFlexAlign ?>;">
                   <?= theme_zone_render_position($pdo, 'footer', $fp) ?>
                 </div>
               <?php endif; ?>
@@ -114,8 +125,9 @@ if (function_exists('theme_zone_has_position')) {
 
     <!-- Baris bawah: gadget copyright jika ada, fallback hardcoded -->
     <?php if ($hasCopyrightZone): ?>
+    <?php [$copyrightTitleAlign, $copyrightContentAlign, $copyrightFlexAlign] = $footerAlignment('copyright'); ?>
     <div class="footer-row-bottom">
-      <div class="footer-zone-copyright copyright-text">
+      <div class="footer-zone-copyright copyright-text" style="--footer-title-align:<?= $copyrightTitleAlign ?>;--footer-content-align:<?= $copyrightContentAlign ?>;--footer-flex-align:<?= $copyrightFlexAlign ?>;">
         <?= theme_zone_render_position($pdo, 'footer', 'copyright') ?>
       </div>
     </div>
