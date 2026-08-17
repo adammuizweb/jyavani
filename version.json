@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.69",
+    "version": "2.3.70",
     "build": "2026-08-17",
-    "changelog": "Fix double-escaped category document titles and use the translatable category label.",
+    "changelog": "Fix double-escaped search document titles for queries containing HTML-special characters.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

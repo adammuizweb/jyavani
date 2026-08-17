@@ -141,7 +141,7 @@ class SearchController
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         $canonical_url = $scheme . '://' . $host . '/?' . http_build_query(array_filter(['s' => $q, 'p' => $page > 1 ? $page : null], fn($value) => $value !== null));
 
-        $page_title = 'Pencarian: ' . $qEsc;
+        $page_title = __('Search') . ': ' . $q;
 
         // ==========================================
         // CARA 1: SEARCH punyai konteks sendiri
