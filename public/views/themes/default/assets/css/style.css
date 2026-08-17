@@ -4,7 +4,7 @@
      selalu deterministik dan mencegah flash saat load.
    - Perubahan: reorganized and documented only. No functional values changed.
    ========================================================================== */
-   
+
    /* =========================================================
    THEME + CORE
 ========================================================= */
@@ -2937,7 +2937,7 @@ table a:hover{
 }
 
 
-   
+
 /* ============================
    LOGO ANIMATION (jyavani)
    - Keep animation timings, colors, delays exactly as before.

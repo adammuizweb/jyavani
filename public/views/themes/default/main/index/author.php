@@ -15,7 +15,7 @@
     <p><?= __('No authors.') ?></p>
   <?php else: ?>
     <div class="authors-grid">
-      <?php foreach ($authors as $a): 
+      <?php foreach ($authors as $a):
         $link = function_exists('get_author_permalink')
           ? get_author_permalink($a)
           : (!empty($a['username']) ? '/author/' . rawurlencode($a['username']) . '/' : '/author/' . rawurlencode($a['id']) . '/');

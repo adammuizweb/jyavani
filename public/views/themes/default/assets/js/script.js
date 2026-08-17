@@ -1,4 +1,4 @@
-// Script Navigasi 
+// Script Navigasi
 /* /static/assets/js/script.js
    Combined: theme handling (system/light/dark) + navigation/mobile menu
    - Assumes there's an inline head script that sets data-theme-initialized early.
@@ -179,5 +179,5 @@
 
 // footer
 (function(){ var y = new Date().getFullYear(); var el = document.getElementById('year'); if(el) el.textContent = y; })();
-  
-// END 
+
+// END
