@@ -20,18 +20,8 @@
                 <?php $categoryUrl = function_exists('get_category_permalink') ? get_category_permalink($pdo, $cat) : '/category/' . rawurlencode($cat['slug']) . '/'; ?>
                 <li class="category-item">
                     <a class="category-link" href="<?= htmlspecialchars($categoryUrl, ENT_QUOTES, 'UTF-8') ?>">
-                        <div class="category-body">
-                            <h3 class="category-name"><?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?></h3>
-
-                            <?php if (!empty($cat['description'])): ?>
-                                <p class="category-desc"><?= nl2br(htmlspecialchars($cat['description'], ENT_QUOTES, 'UTF-8')) ?></p>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="category-meta">
-                            <span class="category-count"><?= sprintf(__('%d posts'), (int)($cat['post_count'] ?? 0)) ?></span>
-                            <span class="arrow">›</span>
-                        </div>
+                        <span class="category-name"><?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?></span>
+                        <span class="category-count"><?= (int)($cat['post_count'] ?? 0) ?></span>
                     </a>
                 </li>
             <?php endforeach; ?>
@@ -44,99 +34,80 @@
 </div>
 
 <style>
-/* Layout container - keep consistent with site, but ensure readable width */
 .container.category-index {
-    max-width: 1120px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 2rem 1rem;
     box-sizing: border-box;
 }
 
-/* Page title */
 .page-title {
-    margin: 0 0 1.25rem 0;
-    font-size: 2rem;
-    line-height: 1.1;
+    margin: 0 0 .5rem;
+    font-size: 1.75rem;
+    line-height: 1.2;
 }
 
-/* Grid list for categories */
+.category-index-subtitle {
+    margin: 0 0 2rem;
+    opacity: .55;
+    font-size: .95rem;
+}
+
 .category-list {
     list-style: none;
     padding: 0;
     margin: 0;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 0.75rem;
-}
-
-/* Card-like items */
-.category-item {
-    border: 1px solid;
-    border-radius: 8px;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 12px;
     overflow: hidden;
-    transition: transform .12s ease, box-shadow .12s ease;
-    box-shadow: 0 0 0 rgba(0,0,0,0); /* for smoother hover transition */
 }
 
-/* Link covers whole card */
+.category-item {
+    background: var(--surface);
+}
+
 .category-link {
     display: flex;
-    color: var(--accent);
+    align-items: center;
     justify-content: space-between;
-    align-items: flex-start;
+    padding: .85rem 1.25rem;
     text-decoration: none;
-    padding: 1rem 1.1rem;
-    height: 100%;
-    text-decoration: none;
+    color: var(--text);
+    transition: background .15s ease;
 }
 
-/* Hover / focus states */
-.category-item:hover,
-.category-item:focus-within {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(31,41,55,0.06);
+.category-link:hover,
+.category-link:focus-visible {
+    background: var(--surface-hover);
     text-decoration: none;
+    outline: none;
 }
-
-/* Category content */
-.category-body { flex: 1; min-width: 0; }
 
 .category-name {
-    margin: 0 0 0.35rem 0;
-    font-size: 1.05rem;
-    word-break: break-word;
-}
-
-/* description */
-.category-desc {
     margin: 0;
-    font-size: 0.95rem;
-    line-height: 1.4;
-    max-height: 3.6em; /* roughly 2 lines */
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 1rem;
+    font-weight: 500;
 }
 
-/* Right-side meta (chevron) */
-.category-meta {
-    flex: 0 0 28px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size: 1.25rem;
+.category-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+    flex-shrink: 0;
 }
 
-/* clickable area visual affordance */
-.category-link:focus,
-.category-link:hover {
-    outline: none;
-    text-decoration: none;
-}
-
-/* small screens: tighter spacing */
 @media (max-width: 520px) {
     .container.category-index { padding: 1.25rem .75rem; }
-    .category-list { gap: 0.5rem; grid-template-columns: 1fr; }
-    .category-link { padding: .9rem; }
+    .category-link { padding: .75rem 1rem; }
 }
 </style>
