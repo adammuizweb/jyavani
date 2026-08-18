@@ -119,6 +119,7 @@ $check(str_contains($schema, "('core.dashboard.access','core'") && str_contains(
 $check(str_contains($migration, "enum('none','author','editor','admin')") && str_contains($schema, "enum('none','author','editor','admin')"), 'legacy role bridge has a fail-closed none value');
 $check(str_contains($installer, "'site_owner.installed'") && str_contains($installer, 'is_site_owner = 1'), 'Pondasi creates and audits the initial Site Owner');
 $check(str_contains($guard, 'adiwira_require_permission') && str_contains($guard, 'adiwira_authorize_resource'), 'dashboard exposes permission and resource guards');
+$check(str_contains($guard, 'if (headers_sent())') && str_contains($guard, 'The requested dashboard page is unavailable.'), 'late dashboard denials render safely after layout output');
 $check(str_contains($dashboard, "current_user_can(\$pdo, 'core.dashboard.access')"), 'dashboard entry requires an explicit permission');
 $check(str_contains($userDelete, 'authorization_change_user_status') && str_contains($userLock, 'authorization_change_user_status') && str_contains($profile, 'authorization_change_user_status'), 'single-user mutations use the atomic Site Owner invariant');
 $check(str_contains($recovery, 'authorization_recover_site_owner') && str_contains($recovery, "PHP_SAPI !== 'cli'") && str_contains($authorizationHelper, "'site_owner.recovered'"), 'Site Owner recovery is CLI-only, centralized, and audited');

@@ -103,6 +103,15 @@ $check(
         && str_contains($updatePageSource, '/static/dashboard/js/update.js'),
     'update behavior uses a static script with explicit server configuration'
 );
+$check(
+    strpos($updatePageSource, 'cms_update_handle_progress_request();')
+        < strpos($updatePageSource, 'adiwira_require_site_owner($pdo, false);'),
+    'update progress remains readable during the first Site Owner migration'
+);
+$check(
+    str_contains($updatePageSource, "'successUrl' => \$base . '/?cms_update_ok=1'"),
+    'successful updates return to the authorized dashboard entry point'
+);
 
 try {
     $oldFiles = [

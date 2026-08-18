@@ -7,13 +7,14 @@ require_once DASH_PATH . '/admin/_guard.php';
 require_once DASH_PATH . '/admin/_notify.php';
 
 [$uid] = adiwira_require_permission($pdo, 'core.updates.manage', false);
-adiwira_require_site_owner($pdo, false);
 
 // Load shared helpers
 require_once __DIR__ . '/_update_helpers.php';
 require_once __DIR__ . '/_update_actions.php';
 
+// Let the authenticated updater finish polling after an authorization migration.
 cms_update_handle_progress_request();
+adiwira_require_site_owner($pdo, false);
 $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/update/index';
 
@@ -277,7 +278,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
 window.CMS_UPDATE_CONFIG = <?= json_encode([
     'progressUrl' => $base . '/?page=admin/update/index&action=cms_read_progress&token=',
     'applyUrl' => $base . '/?page=admin/update/update_apply',
-    'successUrl' => $selfUrl . '&cms_update_ok=1',
+    'successUrl' => $base . '/?cms_update_ok=1',
     'selfUrl' => $selfUrl,
     'csrfToken' => csrf_token(),
     'done' => __('Done!'),

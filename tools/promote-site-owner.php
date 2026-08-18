@@ -13,9 +13,40 @@ if ($identifier === '' || !array_key_exists('confirm', $options)) {
     exit(2);
 }
 
-require_once dirname(__DIR__) . '/app/bootstrap_core.php';
+$root = dirname(__DIR__);
+require_once $root . '/cfg/env.php';
+load_env($root . '/cfg/.env');
+
+$connect = static function (string $host): PDO {
+    $dsn = 'mysql:host=' . $host
+        . ';dbname=' . env('DB_NAME')
+        . ';port=' . env('DB_PORT', 3306)
+        . ';charset=utf8mb4';
+    return new PDO($dsn, env('DB_USER'), env('DB_PASS'), [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+};
 
 try {
+    $dbHost = (string)env('DB_HOST', 'localhost');
+    try {
+        $pdo = $connect($dbHost);
+    } catch (PDOException $e) {
+        if ($dbHost !== 'localhost') {
+            throw $e;
+        }
+        $pdo = $connect('127.0.0.1');
+    }
+
+    require_once $root . '/cfg/helpers/migration_helper.php';
+    foreach (migration_run_pending($pdo) as $status) {
+        if (str_starts_with((string)$status, 'error')) {
+            throw new RuntimeException('Pending schema migration failed.');
+        }
+    }
+    require_once $root . '/cfg/helpers/authorization.php';
+
     $stmt = $pdo->prepare(
         'SELECT id, email, username, is_site_owner
          FROM users

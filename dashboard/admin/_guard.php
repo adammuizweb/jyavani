@@ -36,6 +36,11 @@ if (!function_exists('adiwira_json')) {
 if (!function_exists('adiwira_render_404')) {
     function adiwira_render_404(): void
     {
+        if (headers_sent()) {
+            echo '<section class="adam-empty"><h2>' . __('Page not found') . '</h2>'
+                . '<p>' . __('The requested dashboard page is unavailable.') . '</p></section>';
+            exit;
+        }
         http_response_code(404);
         require FRONTEND_404_PATH;
         exit;
