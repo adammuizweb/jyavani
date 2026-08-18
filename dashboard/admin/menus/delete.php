@@ -19,15 +19,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$role = (string)($identity['role'] ?? 'guest');
-if (!in_array($role, ['editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak memiliki akses.'));
-}
+adiwira_require_permission($pdo, 'core.menus.manage', false);
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {

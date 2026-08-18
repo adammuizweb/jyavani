@@ -18,17 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
+[$uid] = adiwira_require_login($pdo, true);
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
@@ -55,12 +45,27 @@ if (!$page) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Page not found.'));
 }
 
-if (in_array($role, ['author', 'editor'], true) && (int)($page['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: you can only delete your own pages.'));
+if (!user_can($pdo, $uid, 'core.pages.trash', ['owner_id' => (int)($page['created_by'] ?? 0)])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) {
+        $pdo->rollBack();
+        adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+    }
+    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $lockedPage = $lock->fetch(PDO::FETCH_ASSOC);
+    if (!authorization_lock_owner_contexts($pdo, [(int)($lockedPage['created_by'] ?? 0)])) {
+        $pdo->rollBack();
+        adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+    }
+    if (!$lockedPage || !user_can($pdo, $uid, 'core.pages.trash', ['owner_id' => (int)$lockedPage['created_by']])) {
+        $pdo->rollBack();
+        adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+    }
 
     $stmt = $pdo->prepare("
         UPDATE posts

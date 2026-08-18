@@ -18,15 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$role = (string)($identity['role'] ?? 'guest');
-if (!in_array($role, ['editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Your role does not have access to delete this category.'));
-}
+[$uid] = adiwira_require_login($pdo, false);
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
@@ -39,15 +31,19 @@ if ($id <= 0) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT id
+    SELECT id, created_by
     FROM categories
     WHERE id = :id
       AND is_deleted = 0
     LIMIT 1
 ");
 $stmt->execute([':id' => $id]);
-if (!$stmt->fetchColumn()) {
+$category = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$category) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Category not found.'));
+}
+if (!user_can($pdo, $uid, 'core.categories.trash', ['owner_id' => (int)($category['created_by'] ?? 0)])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 $child = $pdo->prepare("

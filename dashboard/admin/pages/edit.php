@@ -11,7 +11,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$me, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$me] = adiwira_require_login($pdo, false);
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -93,15 +93,27 @@ if (!$post) {
     return;
 }
 
-// admin bebas, author/editor hanya miliknya sendiri
-if ($role !== 'admin' && (int)($post['created_by'] ?? 0) !== $me) {
+if (!user_can($pdo, $me, 'core.pages.update', ['owner_id' => (int)($post['created_by'] ?? 0)])) {
     http_response_code(403);
-    echo '<p>' . __('Access denied: you can only edit your own pages.') . '</p>';
+    echo '<p>' . __('Access denied.') . '</p>';
     return;
 }
+if ((string)($post['status'] ?? 'draft') !== 'draft'
+    && !user_can($pdo, $me, 'core.pages.publish', ['owner_id' => (int)($post['created_by'] ?? 0)])) {
+    http_response_code(403);
+    echo '<p>' . __('Access denied.') . '</p>';
+    return;
+}
+$ownerContext = ['owner_id' => (int)($post['created_by'] ?? 0)];
+$canPublish = user_can($pdo, $me, 'core.pages.publish', $ownerContext);
+$canChangeOwner = user_can($pdo, $me, 'core.pages.change_owner', $ownerContext);
+$canChangeDates = user_can($pdo, $me, 'core.pages.change_dates', $ownerContext);
+$canUseUnfilteredHtml = user_can($pdo, $me, 'core.pages.unfiltered_html');
 
-// users admin-only
-$users = ($role === 'admin') ? fetch_users_for_dropdown($pdo) : [];
+$users = $canChangeOwner ? array_values(array_filter(
+    fetch_users_for_dropdown($pdo),
+    static fn(array $user): bool => user_can($pdo, $me, 'core.pages.change_owner', ['owner_id' => (int)$user['id']])
+)) : [];
 
 // prefer POST value kalau ada redisplay
 $val = function($key, $default = '') {
@@ -111,6 +123,7 @@ $val = function($key, $default = '') {
 $title      = (string)$val('title', $post['title'] ?? '');
 $slug       = (string)$val('slug', $post['slug'] ?? '');
 $content    = (string)$val('content', $post['content'] ?? '');
+$content = $canUseUnfilteredHtml ? $content : cms_sanitize_restricted_html($content);
 $status     = (string)$val('status', $post['status'] ?? 'draft');
 $thumbnail  = (string)$val('thumbnail', $post['thumbnail'] ?? '');
 $created_by = (int)$val('created_by', $post['created_by'] ?? 0);
@@ -165,7 +178,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
         <label style="display:block;margin-top:.6rem">
           <?=_e('Thumbnail')?><br>
           <div class="thumb-row">
-            <?php if ($role === 'author'): ?>
+            <?php if (!$canUseUnfilteredHtml): ?>
             <input type="hidden"
                    id="thumbnail-input"
                    name="thumbnail"
@@ -185,7 +198,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>
-            <?php if ($role !== 'author'): ?>
+            <?php if ($canUseUnfilteredHtml): ?>
             <button type="button"
                     id="btn-toggle-url-input"
                     class="thumb-url-btn"><?=_e('Insert via URL')?></button>
@@ -230,7 +243,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
 
     <div id="quill-area" class="adam-quill adam-quill--auto" style="margin-top:.6rem;">
       <div id="quill-toolbar"></div>
-      <div id="quill-editor"><?= $content ? $content : '' ?></div>
+      <div id="quill-editor"></div>
     </div>
 
     <div id="codemirror-area" style="margin-top:.6rem;display:none;">
@@ -245,12 +258,14 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
       <label for="status"><?=_e('Status')?></label>
       <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
         <option value="draft" <?= ($status === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <option value="published" <?= ($status === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
-        <option value="private" <?= ($status === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
+        <?php if ($canPublish): ?>
+          <option value="published" <?= ($status === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
+          <option value="private" <?= ($status === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
+        <?php endif; ?>
       </select>
     </div>
 
-    <?php if ($role === 'admin'): ?>
+    <?php if ($canChangeOwner): ?>
       <label style="display:block;margin-top:.6rem">
         <?=_e('Created By')?><br>
         <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
@@ -269,11 +284,13 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
             }
           ?>
         </select>
-        <div style="font-size:12px;color:#666;margin-top:6px"><?= _e('Admin only.') ?></div>
+        <div style="font-size:12px;color:#666;margin-top:6px"><?= _e('Requires permission to change the owner.') ?></div>
       </label>
+    <?php endif; ?>
 
+    <?php if ($canChangeDates): ?>
       <label style="display:block;margin-top:.6rem">
-        Created At<br>
+        <?=_e('Created At')?><br>
         <input type="datetime-local"
                name="created_at"
                value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>"
@@ -282,15 +299,13 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
       </label>
 
       <label style="display:block;margin-top:.6rem">
-        Updated At<br>
+        <?=_e('Updated At')?><br>
         <input type="datetime-local"
                name="updated_at"
                value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>"
                style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
         <div style="font-size:12px;color:#666;margin-top:4px"><?= _e('Leave empty to use current time.') ?></div>
       </label>
-    <?php else: ?>
-      <div style="margin-top:.8rem;color:#666;font-size:12px"><?= _e('Creator cannot be changed. Timestamp can only be edited by admin.') ?></div>
     <?php endif; ?>
 
     <?php

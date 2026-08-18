@@ -92,13 +92,32 @@ if (!function_exists('menu_build_tree')) {
     }
 }
 
+if (!function_exists('menu_url_is_safe')) {
+    function menu_url_is_safe(string $url): bool {
+        $url = trim($url);
+        if ($url === '' || preg_match('/[\x00-\x20\x7f\\\\]/', $url) === 1 || str_starts_with($url, '//')) {
+            return false;
+        }
+        if (str_starts_with($url, '/') || str_starts_with($url, '#') || str_starts_with($url, '?')) {
+            return true;
+        }
+        $scheme = strtolower((string)(parse_url($url, PHP_URL_SCHEME) ?? ''));
+        if ($scheme === '') {
+            return preg_match('/^[A-Za-z0-9._~!$&\'()*+,;=:@%\/-]+(?:\?[A-Za-z0-9._~!$&\'()*+,;=:@%\/?-]*)?(?:#[A-Za-z0-9._~!$&\'()*+,;=:@%\/?-]*)?$/', $url) === 1;
+        }
+        return in_array($scheme, ['http', 'https', 'mailto', 'tel'], true);
+    }
+}
+
 if (!function_exists('menu_resolve_url')) {
     function menu_resolve_url(PDO $pdo, array $item, string $homeUrl = '/'): string {
         if (!empty($item['manual_url'])) {
-            return (string)$item['manual_url'];
+            $manualUrl = (string)$item['manual_url'];
+            return menu_url_is_safe($manualUrl) ? $manualUrl : '#';
         }
         if ($item['type'] === 'custom') {
-            return !empty($item['url']) ? $item['url'] : '#';
+            $customUrl = (string)($item['url'] ?? '');
+            return menu_url_is_safe($customUrl) ? $customUrl : '#';
         }
 
         $targetId = (int)($item['target_id'] ?? 0);

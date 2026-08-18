@@ -1,46 +1,29 @@
 <?php
 declare(strict_types=1);
 
-// /adiwira/admin/pages/bulk_action.php
-if (!defined('DASHBOARD_CONTEXT')) {
-    define('DASHBOARD_CONTEXT', true);
-}
+if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
-
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], true);
+[$uid] = adiwira_require_login($pdo, true);
 
 if (!function_exists('is_ajax_request')) {
     function is_ajax_request(): bool {
-        $xrw = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
-        $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
-        return ($xrw === 'xmlhttprequest') || (strpos($accept, 'application/json') !== false);
+        return strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest'
+            || str_contains(strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
     }
 }
 
 $defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/pages/index';
-$returnTo = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
-    : $defaultReturnTo;
+$returnTo = adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo);
 
 if (!function_exists('respond_pages_bulk')) {
-    function respond_pages_bulk(bool $ok, string $message = '', int $httpCode = 200, array $extra = [], ?string $redirect = null): void {
-        $redirect = $redirect ?: ADMIN_BASE_PATH . '/?page=admin/pages/index';
-
+    function respond_pages_bulk(bool $ok, string $message, int $httpCode, array $extra, string $redirect): void {
         if (is_ajax_request()) {
-            http_response_code($httpCode);
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(array_merge([
-                'ok' => $ok,
-                'message' => $message,
-                'redirect' => $redirect,
-            ], $extra), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            exit;
+            adiwira_json(array_merge(['ok' => $ok, 'message' => $message, 'redirect' => $redirect], $extra), $httpCode);
         }
-
         adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message);
     }
 }
@@ -48,226 +31,113 @@ if (!function_exists('respond_pages_bulk')) {
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     respond_pages_bulk(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
-
-if (!function_exists('parse_datetime_local')) {
-    function parse_datetime_local(string $value): ?DateTimeImmutable {
-        $value = trim($value);
-        if ($value === '') {
-            return null;
-        }
-        if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2})?$/', $value)) {
-            return null;
-        }
-        $normalized = str_replace('T', ' ', $value);
-        if (strlen($normalized) === 16) {
-            $normalized .= ':00';
-        }
-        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $normalized, $m)) {
-            return null;
-        }
-        if (!checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
-            return null;
-        }
-        if ((int)$m[4] > 23 || (int)$m[5] > 59 || (int)$m[6] > 59) {
-            return null;
-        }
-        $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $normalized);
-        if (!$dt) {
-            return null;
-        }
-        return $dt;
-    }
+if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ''))) {
+    respond_pages_bulk(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
-$token = (string)($_POST['csrf_token'] ?? '');
-if (!adiwira_csrf_validate($token)) {
-    respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
-}
-
-$ids = $_POST['ids'] ?? [];
-if (!is_array($ids) || empty($ids)) {
-    respond(false, __('No pages selected.'), 400, [], $returnTo);
-}
-
-$ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
-if (empty($ids)) {
-    respond(false, __('Invalid page ID.'), 400, [], $returnTo);
-}
-
-// author/editor hanya boleh bulk page miliknya sendiri
-if ($role !== 'admin') {
-    $in = implode(',', array_fill(0, count($ids), '?'));
-    $stmtOwn = $pdo->prepare("
-        SELECT id
-        FROM posts
-        WHERE id IN ($in)
-          AND type = 'page'
-          AND is_deleted = 0
-          AND created_by = ?
-    ");
-    $stmtOwn->execute(array_merge($ids, [$uid]));
-    $ownIds = $stmtOwn->fetchAll(PDO::FETCH_COLUMN, 0);
-    $ids = array_values(array_filter(array_map('intval', $ownIds), fn($v) => $v > 0));
-
-    if (empty($ids)) {
-        respond(false, __('No pages you can modify.'), 403, [], $returnTo);
-    }
-}
+$ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])), static fn(int $id): bool => $id > 0)));
+if ($ids === []) respond_pages_bulk(false, __('No pages selected.'), 400, [], $returnTo);
 
 $action = (string)($_POST['action'] ?? '');
-if ($action === '') {
-    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
+$requiredPermission = match ($action) {
+    'delete' => 'core.pages.trash',
+    'change_status' => 'core.pages.update',
+    'change_author' => 'core.pages.change_owner',
+    'change_date' => 'core.pages.change_dates',
+    default => '',
+};
+if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPermission) === null) {
+    respond_pages_bulk(false, __('Access denied.'), 403, [], $returnTo);
 }
 
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
+
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $selectedStmt = $pdo->prepare("SELECT id, status, created_by FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $selectedStmt->execute($ids);
+    $selectedPages = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (count($selectedPages) !== count($ids)) throw new DomainException('Page selection changed.');
+    if (!authorization_lock_owner_contexts($pdo, array_column($selectedPages, 'created_by'))) {
+        throw new DomainException('Page owner context lock failed.');
+    }
+    foreach ($selectedPages as $page) {
+        if (!user_can($pdo, $uid, $requiredPermission, ['owner_id' => (int)$page['created_by']])) {
+            throw new DomainException('Page permission changed.');
+        }
+    }
 
     if ($action === 'delete') {
-        $in = implode(',', array_fill(0, count($ids), '?'));
-
-        $stmt = $pdo->prepare("
-            UPDATE posts
-            SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW()
-            WHERE type = 'page' AND id IN ($in) AND is_deleted = 0
-        ");
+        $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
         $stmt->execute($ids);
         $affected = $stmt->rowCount();
-
         $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
-
         $pdo->commit();
         respond_pages_bulk(true, sprintf(__('%d page(s) deleted.'), $affected), 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_status') {
-        $new_status = (string)($_POST['status'] ?? '');
-        $allowed = ['draft', 'published', 'private'];
-
-        if (!in_array($new_status, $allowed, true)) {
-            $pdo->rollBack();
-            respond(false, __('Invalid status.'), 400, [], $returnTo);
+        $newStatus = (string)($_POST['status'] ?? '');
+        if (!in_array($newStatus, ['draft', 'published', 'private'], true)) throw new InvalidArgumentException('Invalid status.');
+        if ($newStatus !== 'draft' || array_filter($selectedPages, static fn(array $page): bool => (string)$page['status'] !== 'draft')) {
+            foreach ($selectedPages as $page) {
+                if (!user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => (int)$page['created_by']])) {
+                    throw new DomainException('Page publish permission changed.');
+                }
+            }
         }
-
-        $in = implode(',', array_fill(0, count($ids), '?'));
-        $params = array_merge([$new_status], $ids);
-
-        $stmt = $pdo->prepare("
-            UPDATE posts
-            SET status = ?, updated_at = NOW()
-            WHERE type = 'page' AND id IN ($in) AND is_deleted = 0
-        ");
-        $stmt->execute($params);
+        $stmt = $pdo->prepare("UPDATE posts SET status = ?, updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
+        $stmt->execute(array_merge([$newStatus], $ids));
         $affected = $stmt->rowCount();
-
         $pdo->commit();
-        respond_pages_bulk(true, sprintf(__('%d page(s) status changed to "%s".'), $affected, $new_status), 200, ['count' => $affected], $returnTo);
+        respond_pages_bulk(true, sprintf(__('%d page(s) status changed to "%s".'), $affected, $newStatus), 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'change_author') {
-        if ($role !== 'admin') {
-            $pdo->rollBack();
-            respond(false, __('Access denied: only admin can change author.'), 403, [], $returnTo);
+        $authorId = (int)($_POST['author_id'] ?? 0);
+        if ($authorId <= 0) throw new InvalidArgumentException('Invalid author.');
+        $ownerLock = $pdo->prepare('SELECT id FROM users WHERE id = :id AND is_deleted = 0 AND is_locked = 0 FOR UPDATE');
+        $ownerLock->execute([':id' => $authorId]);
+        if (!$ownerLock->fetchColumn()) throw new InvalidArgumentException('Author not found.');
+        if (!user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $authorId])) {
+            throw new DomainException('Page owner target permission changed.');
         }
-
-        $author_id = (int)($_POST['author_id'] ?? 0);
-        if ($author_id <= 0) {
-            $pdo->rollBack();
-            respond(false, __('Invalid author.'), 400, [], $returnTo);
-        }
-
-        $v = $pdo->prepare("
-            SELECT id
-            FROM users
-            WHERE id = ?
-              AND is_deleted = 0
-              AND is_locked = 0
-            LIMIT 1
-        ");
-        $v->execute([$author_id]);
-        if (!$v->fetchColumn()) {
-            $pdo->rollBack();
-            respond(false, __('Author not found.'), 400, [], $returnTo);
-        }
-
-        $in = implode(',', array_fill(0, count($ids), '?'));
-        $params = array_merge([$author_id], $ids);
-
-        $stmt = $pdo->prepare("
-            UPDATE posts
-            SET created_by = ?, updated_at = NOW()
-            WHERE type = 'page' AND id IN ($in) AND is_deleted = 0
-        ");
-        $stmt->execute($params);
+        $stmt = $pdo->prepare("UPDATE posts SET created_by = ?, updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
+        $stmt->execute(array_merge([$authorId], $ids));
         $affected = $stmt->rowCount();
-
         $pdo->commit();
         respond_pages_bulk(true, __('Author changed for') . " {$affected} " . __('pages.'), 200, ['count' => $affected], $returnTo);
     }
 
-    if ($action === 'change_date') {
-        if ($role !== 'admin') {
-            $pdo->rollBack();
-            respond_pages_bulk(false, __('Access denied: only admin can change date.'), 403, [], $returnTo);
+    $createdAt = trim((string)($_POST['created_at'] ?? ''));
+    $updatedAt = trim((string)($_POST['updated_at'] ?? ''));
+    if ($createdAt === '' && $updatedAt === '') throw new InvalidArgumentException('Please enter at least one date.');
+    $fields = [];
+    $values = [];
+    foreach (['created_at' => $createdAt, 'updated_at' => $updatedAt] as $field => $value) {
+        if ($value === '') continue;
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, new DateTimeZone('Asia/Jakarta'));
+        $errors = DateTimeImmutable::getLastErrors();
+        if (!$date || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+            throw new InvalidArgumentException('Invalid date format.');
         }
-
-        $created_at = trim((string)($_POST['created_at'] ?? ''));
-        $updated_at = trim((string)($_POST['updated_at'] ?? ''));
-
-        if ($created_at === '' && $updated_at === '') {
-            $pdo->rollBack();
-            respond_pages_bulk(false, __('Please enter at least one date.'), 400, [], $returnTo);
-        }
-
-        $fields = [];
-        $params = [];
-
-        if ($created_at !== '') {
-            $dt = parse_datetime_local($created_at);
-            if (!$dt) {
-                $pdo->rollBack();
-                respond_pages_bulk(false, __('Invalid date format.'), 400, [], $returnTo);
-            }
-            $fields[] = 'created_at = ?';
-            $params[] = $dt->format('Y-m-d H:i:s');
-        }
-
-        if ($updated_at !== '') {
-            $dt = parse_datetime_local($updated_at);
-            if (!$dt) {
-                $pdo->rollBack();
-                respond_pages_bulk(false, __('Invalid date format.'), 400, [], $returnTo);
-            }
-            $fields[] = 'updated_at = ?';
-            $params[] = $dt->format('Y-m-d H:i:s');
-        }
-
-        if ($created_at !== '' && $updated_at === '') {
-            $fields[] = 'updated_at = updated_at';
-        }
-
-        $in = implode(',', array_fill(0, count($ids), '?'));
-        $set = implode(', ', $fields);
-        $params = array_merge($params, $ids);
-
-        $stmt = $pdo->prepare("
-            UPDATE posts
-            SET {$set}
-            WHERE type = 'page' AND id IN ($in) AND is_deleted = 0
-        ");
-        $stmt->execute($params);
-        $affected = $stmt->rowCount();
-
-        $pdo->commit();
-        respond_pages_bulk(true, __('Date changed for') . " {$affected} " . __('pages.'), 200, ['count' => $affected], $returnTo);
+        $fields[] = "$field = ?";
+        $values[] = $date->format('Y-m-d H:i:s');
     }
-
-    $pdo->rollBack();
-    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
-
+    $stmt = $pdo->prepare('UPDATE posts SET ' . implode(', ', $fields) . " WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
+    $stmt->execute(array_merge($values, $ids));
+    $affected = $stmt->rowCount();
+    $pdo->commit();
+    respond_pages_bulk(true, __('Date changed for') . " {$affected} " . __('pages.'), 200, ['count' => $affected], $returnTo);
+} catch (InvalidArgumentException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    respond_pages_bulk(false, __($e->getMessage()), 400, [], $returnTo);
+} catch (DomainException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    respond_pages_bulk(false, __('Access denied.'), 403, [], $returnTo);
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('pages/bulk_action.php error: ' . $e->getMessage());
-    respond(false, __('An error occurred during bulk action.'), 500, [], $returnTo);
+    respond_pages_bulk(false, __('An error occurred during bulk action.'), 500, [], $returnTo);
 }

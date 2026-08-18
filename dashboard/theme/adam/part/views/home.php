@@ -8,13 +8,27 @@ require_once __DIR__ . '/widgets.php';
 
 $base = ADMIN_BASE_PATH;
 
-$widgets = apply_filters('dashboard_widgets', [
+$statsScope = function_exists('current_user_permission_scope')
+    ? current_user_permission_scope($pdo, 'core.dashboard.stats.read')
+    : null;
+$canManageDashboardLayout = function_exists('current_user_can')
+    && current_user_can($pdo, 'core.dashboard.layout.manage');
+$widgets = [
     'cms_info'      => ['title' => __('CMS Info'),      'render' => 'dash_widget_cms_info'],
-    'update_status' => ['title' => __('Update Status'),  'render' => 'dash_widget_update_status'],
-    'quick_stats'   => ['title' => __('Quick Stats'),    'render' => 'dash_widget_quick_stats'],
-    'recent_posts'  => ['title' => __('Recent Posts'),   'render' => 'dash_widget_recent_posts'],
-    'system_info'   => ['title' => __('System Info'),    'render' => 'dash_widget_system_info'],
-]);
+];
+if ($statsScope !== null) {
+    $widgets['quick_stats'] = ['title' => __('Quick Stats'), 'render' => 'dash_widget_quick_stats'];
+    $widgets['recent_posts'] = ['title' => __('Recent Posts'), 'render' => 'dash_widget_recent_posts'];
+}
+if ($statsScope === 'any') {
+    $widgets['system_info'] = ['title' => __('System Info'), 'render' => 'dash_widget_system_info'];
+}
+$homeActor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
+if ($homeActor !== null && $homeActor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.updates.manage')) {
+    $widgets['update_status'] = ['title' => __('Update Status'), 'render' => 'dash_widget_update_status'];
+}
+$widgets = apply_filters('dashboard_widgets', $widgets);
 
 $layoutJson = settings_get($pdo, 'dashboard_widget_layout', '');
 $order = $layoutJson ? json_decode($layoutJson, true) : null;
@@ -72,7 +86,7 @@ if ($cur) $segments[] = ['normal' => $cur];
   <div class="dw-heading">
     <h2 class="dw-heading-title"><?=_e('Dashboard')?></h2>
     <div class="dw-heading-actions">
-      <button type="button" class="adam-button" id="dw-arrange-toggle" data-active="0"><?=_e('Arrange Widgets')?></button>
+      <?php if ($canManageDashboardLayout): ?><button type="button" class="adam-button" id="dw-arrange-toggle" data-active="0"><?=_e('Arrange Widgets')?></button><?php endif; ?>
     </div>
   </div>
 
@@ -102,14 +116,14 @@ if ($cur) $segments[] = ['normal' => $cur];
     ?>
   </div>
 
-  <form id="dw-layout-form" method="post" action="<?=h($base)?>/admin/save_dashboard_layout.php" style="display:none">
+  <?php if ($canManageDashboardLayout): ?><form id="dw-layout-form" method="post" action="<?=h($base)?>/admin/save_dashboard_layout.php" style="display:none">
     <input type="hidden" name="csrf_token" value="<?=h(csrf_token())?>">
     <input type="hidden" name="layout" id="dw-layout-input" value="">
   </form>
   <div id="dw-widget-panel" style="display:none">
     <h3><?=_e('Widget Manager')?></h3>
     <div id="dw-widget-list" data-keys='<?=h(json_encode(array_keys($widgets)))?>'></div>
-  </div>
+  </div><?php endif; ?>
 </div>
 
 <script src="/static/dashboard/js/dashboard-widgets.js" defer></script>

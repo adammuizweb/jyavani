@@ -9,7 +9,10 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_permission($pdo, 'core.posts.create', false);
+$canPublish = user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $uid]);
+$canChangeDates = user_can($pdo, $uid, 'core.posts.change_dates', ['owner_id' => $uid]);
+$canUseUnfilteredHtml = user_can($pdo, $uid, 'core.posts.unfiltered_html');
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -23,6 +26,7 @@ if (!function_exists('slugify')) {
 
 if (!function_exists('sanitize_author_html')) {
     function sanitize_author_html(string $html): string {
+        if (function_exists('cms_sanitize_restricted_html')) return cms_sanitize_restricted_html($html);
         $html = trim($html);
         if ($html === '') return '';
 
@@ -147,9 +151,23 @@ if (!function_exists('sanitize_author_html')) {
     }
 }
 
-$stmt = $pdo->prepare("SELECT id, name, parent_id FROM categories WHERE is_deleted = 0 ORDER BY parent_id ASC, name ASC");
-$stmt->execute();
+$categoryReadCondition = authorization_owner_scope_condition(
+    $pdo,
+    $uid,
+    'core.categories.read',
+    'categories.created_by',
+    'post_add_category_read'
+);
+$categoryReadWhere = $categoryReadCondition !== null ? ' AND (' . $categoryReadCondition['sql'] . ')' : ' AND 1=0';
+$stmt = $pdo->prepare("SELECT id, name, parent_id FROM categories WHERE is_deleted = 0 $categoryReadWhere ORDER BY parent_id ASC, name ASC");
+$stmt->execute($categoryReadCondition['params'] ?? []);
 $all_categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$visibleCategoryIds = array_fill_keys(array_map(static fn(array $category): int => (int)$category['id'], $all_categories), true);
+foreach ($all_categories as &$visibleCategory) {
+    $parentId = (int)($visibleCategory['parent_id'] ?? 0);
+    if ($parentId > 0 && !isset($visibleCategoryIds[$parentId])) $visibleCategory['parent_id'] = 0;
+}
+unset($visibleCategory);
 
 if (!function_exists('render_category_tree')) {
     function render_category_tree(array $categories, array $selected = [], int $parent_id = 0, int $depth = 0): void {
@@ -224,7 +242,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
     if ($title === '') $errors[] = __('Title is required.');
 
-    if ($role === 'author') {
+    if (!$canUseUnfilteredHtml) {
         $content = sanitize_author_html($content);
         if (function_exists('normalize_links_in_html')) {
             $content = normalize_links_in_html($content);
@@ -248,6 +266,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $created_at_in = trim((string)($_POST['created_at'] ?? ''));
     $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 
+    if ($status !== 'draft' && !$canPublish) {
+        $errors[] = __('Access denied.');
+    }
+    if (($created_at_in !== '' || $updated_at_in !== '') && !$canChangeDates) {
+        $errors[] = __('Access denied.');
+    }
+
     $created_at_parsed = null;
     $updated_at_parsed = null;
 
@@ -261,18 +286,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if ($updated_at_parsed === null) $errors[] = __('Invalid Updated At format.');
     }
 
-    $category_ids = array_values(array_filter(array_map('intval', $category_ids), fn($v) => $v > 0));
+    $category_ids = array_values(array_unique(array_filter(array_map('intval', $category_ids), fn($v) => $v > 0)));
     if (!empty($category_ids)) {
         $ph = implode(',', array_fill(0, count($category_ids), '?'));
-        $v = $pdo->prepare("SELECT id FROM categories WHERE id IN ($ph) AND is_deleted=0");
+        $v = $pdo->prepare("SELECT id, created_by FROM categories WHERE id IN ($ph) AND is_deleted=0");
         $v->execute($category_ids);
-        $found = $v->fetchAll(PDO::FETCH_COLUMN, 0);
-        $category_ids = array_values(array_intersect($category_ids, array_map('intval', $found)));
+        $categoryRows = $v->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (count($categoryRows) !== count($category_ids)) {
+            $errors[] = __('Invalid category.');
+        }
+        foreach ($categoryRows as $categoryRow) {
+            if (!user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($categoryRow['created_by'] ?? 0)])) {
+                $errors[] = __('Access denied.');
+                break;
+            }
+        }
     }
 
     if (empty($errors)) {
         $final_created = $created_at_parsed ?? (new DateTime('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
         $final_updated = $updated_at_parsed ?? (new DateTime('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+        $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
         $sidebarOverride = (string)($_POST['sidebar_override'] ?? '');
         if ($sidebarOverride !== '' && !in_array($sidebarOverride, ['right', 'left', 'hide'], true)) {
@@ -293,7 +327,44 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             VALUES
             (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :status, :created_by, :created_at, :updated_at)";
         try {
-            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $status, $uid, $final_created, $final_updated, $category_ids): int {
+            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $status, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission): int {
+                $pdo->beginTransaction();
+                try {
+                if (!authorization_lock_actor_permissions($pdo, $uid)) {
+                    throw new DomainException('Post actor permission lock failed.');
+                }
+                if (!user_can($pdo, $uid, 'core.posts.unfiltered_html')) {
+                    $content = cms_sanitize_restricted_html($content);
+                }
+                if (!user_can($pdo, $uid, 'core.posts.create')) {
+                    throw new DomainException('Post create permission changed.');
+                }
+                if ($status !== 'draft' && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $uid])) {
+                    throw new DomainException('Post publish permission changed.');
+                }
+                if ($requiresDatePermission && !user_can($pdo, $uid, 'core.posts.change_dates', ['owner_id' => $uid])) {
+                    throw new DomainException('Post date permission changed.');
+                }
+                $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
+                $slugLock->execute([':slug' => $slug]);
+                if ($slugLock->fetchColumn()) throw new DomainException('Post slug changed.');
+                if (!empty($category_ids)) {
+                    $categoryPlaceholders = implode(',', array_fill(0, count($category_ids), '?'));
+                    $categoryLock = $pdo->prepare("SELECT id, created_by FROM categories WHERE id IN ($categoryPlaceholders) AND is_deleted = 0 FOR UPDATE");
+                    $categoryLock->execute($category_ids);
+                    $lockedCategories = $categoryLock->fetchAll(PDO::FETCH_ASSOC) ?: [];
+                    if (count($lockedCategories) !== count($category_ids)) {
+                        throw new DomainException('Category selection changed.');
+                    }
+                    if (!authorization_lock_owner_contexts($pdo, array_column($lockedCategories, 'created_by'))) {
+                        throw new DomainException('Category owner context lock failed.');
+                    }
+                    foreach ($lockedCategories as $lockedCategory) {
+                        if (!user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($lockedCategory['created_by'] ?? 0)])) {
+                            throw new DomainException('Category permission changed.');
+                        }
+                    }
+                }
                 $stmt = $pdo->prepare($insertSql);
                 $ok = $stmt->execute([
                     ':title'      => $title,
@@ -307,7 +378,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     ':created_at' => $final_created,
                     ':updated_at' => $final_updated,
                 ]);
-                if (!$ok) return 0;
+                if (!$ok) throw new RuntimeException('Post insert failed.');
 
                 $postId = (int)$pdo->lastInsertId();
                 if (!empty($category_ids)) {
@@ -320,7 +391,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         ]);
                     }
                 }
+                $pdo->commit();
                 return $postId;
+                } catch (Throwable $error) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    throw $error;
+                }
             });
         } catch (Throwable $error) {
             error_log('posts/add.php error: ' . $error->getMessage());
@@ -413,7 +489,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <label><?=_e('Thumbnail')?><br>
           <div class="thumb-row">
-            <?php if ($role === 'author'): ?>
+            <?php if (!$canUseUnfilteredHtml): ?>
             <input type="hidden" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
             <?php else: ?>
@@ -427,7 +503,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>
-            <?php if ($role !== 'author'): ?>
+            <?php if ($canUseUnfilteredHtml): ?>
             <button type="button" id="btn-toggle-url-input" class="thumb-url-btn"><?=_e('Insert via URL')?></button>
             <?php endif; ?>
             <button type="button" id="thumbnail-clear" class="thumb-clear-btn" title="<?=_e('Clear')?>" style="<?= empty($_POST['thumbnail']) ? 'display:none' : '' ?>">&times;</button>
@@ -457,12 +533,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <label for="status"><?=_e('Status')?></label>
       <select name="status" id="status" class="inp">
         <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
-        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
+        <?php if ($canPublish): ?><option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
+        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option><?php endif; ?>
       </select>
     </div>
 
-    <label class="form-group"><?=_e('Created At (optional)')?><br>
+    <?php if ($canChangeDates): ?><label class="form-group"><?=_e('Created At (optional)')?><br>
       <input type="datetime-local" name="created_at" value="<?= htmlspecialchars((string)$created_val, ENT_QUOTES, 'UTF-8') ?>" class="inp">
       <div class="field-note"><?=_e('Leave empty to use current time (GMT+7).')?></div>
     </label>
@@ -470,7 +546,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     <label class="form-group"><?=_e('Updated At (optional)')?><br>
       <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars((string)$updated_val, ENT_QUOTES, 'UTF-8') ?>" class="inp">
       <div class="field-note"><?=_e('Leave empty to use current time (GMT+7).')?></div>
-    </label>
+    </label><?php endif; ?>
 
     <div class="section-divider">
       <div class="section-label"><?= svg_ico('columns-2') ?> <?=_e('Sidebar Position')?></div>

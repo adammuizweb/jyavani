@@ -11,8 +11,7 @@ require_once __DIR__ . '/../../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-// bulk kategori hanya untuk editor + admin
-[$uid, $role] = adiwira_require_role($pdo, ['editor', 'admin'], true);
+[$uid] = adiwira_require_login($pdo, true);
 
 if (!function_exists('is_ajax_request')) {
     function is_ajax_request(): bool {
@@ -60,7 +59,7 @@ if (!is_array($ids) || empty($ids)) {
     respond_category_bin_bulk(false, __('No categories selected.'), 400, [], $returnTo);
 }
 
-$ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
+$ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
 if (empty($ids)) {
     respond_category_bin_bulk(false, __('Invalid category ID.'), 400, [], $returnTo);
 }
@@ -69,11 +68,44 @@ $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
     respond_category_bin_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
+$requiredPermission = match ($action) {
+    'restore' => 'core.categories.restore',
+    'delete_permanent' => 'core.categories.purge',
+    default => '',
+};
+if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPermission) === null) {
+    respond_category_bin_bulk(false, __('Access denied.'), 403, [], $returnTo);
+}
 
 $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
     $pdo->beginTransaction();
+
+    $selectedStmt = $pdo->prepare("
+        SELECT id, created_by
+        FROM categories
+        WHERE id IN ($in)
+          AND is_deleted = 1
+        FOR UPDATE
+    ");
+    $selectedStmt->execute($ids);
+    $selectedCategories = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (count($selectedCategories) !== count($ids)) {
+        $pdo->rollBack();
+        respond_category_bin_bulk(false, __('Category not found in trash.'), 404, [], $returnTo);
+    }
+    foreach ($selectedCategories as $selectedCategory) {
+        if (!user_can(
+            $pdo,
+            $uid,
+            $requiredPermission,
+            ['owner_id' => (int)($selectedCategory['created_by'] ?? 0)]
+        )) {
+            $pdo->rollBack();
+            respond_category_bin_bulk(false, __('Access denied.'), 403, [], $returnTo);
+        }
+    }
 
     if ($action === 'restore') {
         // restore + null-kan parent kalau parent masih deleted / parent hilang

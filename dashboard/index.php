@@ -10,14 +10,6 @@ if (is_file($guardFile)) {
     require_once $guardFile;
 }
 
-// Load plugin registry + active plugins
-$pluginLoader = __DIR__ . '/../plugins/index.php';
-if (is_file($pluginLoader)) {
-    require_once $pluginLoader;
-    plugin_load_active();
-    do_action('admin_init');
-}
-
 // Path guard: 404 if request URI doesn't match configured admin path
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $requestPath = '/' . trim($requestPath, '/');
@@ -83,6 +75,21 @@ try {
     exit;
 }
 
+// Gate 3: an active account still needs an explicit dashboard grant.
+if (!function_exists('current_user_can') || !current_user_can($pdo, 'core.dashboard.access')) {
+    http_response_code(404);
+    require FRONTEND_404_PATH;
+    exit;
+}
+
+// Load plugin code only after identity and dashboard authorization succeed.
+$pluginLoader = __DIR__ . '/../plugins/index.php';
+if (is_file($pluginLoader)) {
+    require_once $pluginLoader;
+    plugin_load_active();
+    do_action('admin_init');
+}
+
 // dashboard context
 define('DASHBOARD_CONTEXT', true);
 
@@ -93,9 +100,12 @@ if (function_exists('set_locale') && function_exists('admin_ui_locale')) {
 
 // sinkronkan role dari DB -> session
 if (is_array($user)) {
-    $role = $user['role'] ?? $user['user_role'] ?? null;
+    $role = function_exists('authorization_active_legacy_role')
+        ? authorization_active_legacy_role($pdo, (int)($user['id'] ?? 0))
+        : ($user['role'] ?? $user['user_role'] ?? null);
     if (is_string($role) && $role !== '') {
         $_SESSION['user_role'] = strtolower(trim($role));
+        $user['role'] = strtolower(trim($role));
     }
 }
 

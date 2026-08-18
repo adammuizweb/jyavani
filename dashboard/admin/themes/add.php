@@ -104,6 +104,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $postId = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $status, $finalMeta, $authorId, $publicPath): int {
                 $pdo->beginTransaction();
                 try {
+                    $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
+                    $slugLock->execute([':slug' => $slug]);
+                    if ($slugLock->fetchColumn()) throw new DomainException('Theme slug changed.');
                     $stmt = $pdo->prepare("
                         INSERT INTO posts
                             (title, slug, content, type, status, meta, created_by, created_at, updated_at)

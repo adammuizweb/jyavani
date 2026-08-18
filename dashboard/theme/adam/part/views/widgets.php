@@ -98,16 +98,58 @@ function dash_widget_update_status(PDO $pdo): string
 
 function dash_widget_quick_stats(PDO $pdo): string
 {
-    try {
-        $posts = (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE type='article' AND is_deleted=0")->fetchColumn();
-        $pages = (int)$pdo->query("SELECT COUNT(*) FROM posts WHERE type='page' AND is_deleted=0")->fetchColumn();
-        $cats  = (int)$pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn();
-        $users = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
-    } catch (Throwable $e) {
-        $posts = $pages = $cats = $users = 0;
-    }
-
+    $uid = (int)($_SESSION['user_id'] ?? 0);
     $base = ADMIN_BASE_PATH;
+    $stats = [];
+    $countScoped = static function(
+        string $table,
+        string $where,
+        string $ownerColumn,
+        string $readPermission,
+        string $prefix
+    ) use ($pdo, $uid): ?int {
+        $statsCondition = authorization_owner_scope_condition(
+            $pdo,
+            $uid,
+            'core.dashboard.stats.read',
+            $ownerColumn,
+            $prefix . '_stats'
+        );
+        $readCondition = authorization_owner_scope_condition(
+            $pdo,
+            $uid,
+            $readPermission,
+            $ownerColumn,
+            $prefix . '_read'
+        );
+        if ($statsCondition === null || $readCondition === null) return null;
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM $table WHERE $where"
+            . ' AND (' . $statsCondition['sql'] . ')'
+            . ' AND (' . $readCondition['sql'] . ')'
+        );
+        $stmt->execute(array_merge($statsCondition['params'], $readCondition['params']));
+        return (int)$stmt->fetchColumn();
+    };
+
+    try {
+        $resources = [
+            ['posts', "type='article' AND is_deleted=0", 'posts.created_by', 'core.posts.read', 'widget_posts', 'admin/posts/index', __('Posts')],
+            ['posts', "type='page' AND is_deleted=0", 'posts.created_by', 'core.pages.read', 'widget_pages', 'admin/pages/index', __('Pages')],
+            ['categories', 'is_deleted=0', 'categories.created_by', 'core.categories.read', 'widget_categories', 'admin/categories/index', __('Categories')],
+            ['users', 'is_deleted=0', 'users.id', 'core.users.read', 'widget_users', 'admin/users/index', __('Users')],
+        ];
+        foreach ($resources as [$table, $where, $ownerColumn, $permission, $prefix, $route, $label]) {
+            $count = $countScoped($table, $where, $ownerColumn, $permission, $prefix);
+            if ($count === null) continue;
+            $stats[] = '<a href="' . h($base) . '/?page=' . h($route) . '" class="dw-stat">'
+                . '<span class="dw-stat-num">' . $count . '</span>'
+                . '<span class="dw-stat-label">' . h($label) . '</span></a>';
+        }
+    } catch (Throwable $e) {
+        $stats = [];
+    }
+    if ($stats === []) return '';
 
     return '
 <div class="dw-card">
@@ -117,22 +159,7 @@ function dash_widget_quick_stats(PDO $pdo): string
   </div>
   <div class="dw-card-body">
     <div class="dw-stats">
-      <a href="' . h($base) . '/?page=admin/posts/index" class="dw-stat">
-        <span class="dw-stat-num">' . $posts . '</span>
-        <span class="dw-stat-label">' . __('Posts') . '</span>
-      </a>
-      <a href="' . h($base) . '/?page=admin/pages/index" class="dw-stat">
-        <span class="dw-stat-num">' . $pages . '</span>
-        <span class="dw-stat-label">' . __('Pages') . '</span>
-      </a>
-      <a href="' . h($base) . '/?page=admin/categories/index" class="dw-stat">
-        <span class="dw-stat-num">' . $cats . '</span>
-        <span class="dw-stat-label">' . __('Categories') . '</span>
-      </a>
-      <a href="' . h($base) . '/?page=admin/users/index" class="dw-stat">
-        <span class="dw-stat-num">' . $users . '</span>
-        <span class="dw-stat-label">' . __('Users') . '</span>
-      </a>
+      ' . implode('', $stats) . '
     </div>
   </div>
 </div>';
@@ -140,8 +167,32 @@ function dash_widget_quick_stats(PDO $pdo): string
 
 function dash_widget_recent_posts(PDO $pdo): string
 {
+    $uid = (int)($_SESSION['user_id'] ?? 0);
+    $statsCondition = authorization_owner_scope_condition(
+        $pdo,
+        $uid,
+        'core.dashboard.stats.read',
+        'posts.created_by',
+        'widget_recent_stats'
+    );
+    $readCondition = authorization_owner_scope_condition(
+        $pdo,
+        $uid,
+        'core.posts.read',
+        'posts.created_by',
+        'widget_recent_read'
+    );
+    if ($statsCondition === null || $readCondition === null) return '';
     try {
-        $st = $pdo->query("SELECT id, title, status, created_at, updated_at FROM posts WHERE type='article' AND is_deleted=0 ORDER BY updated_at DESC LIMIT 5");
+        $st = $pdo->prepare(
+            "SELECT id, title, status, created_by, created_at, updated_at
+             FROM posts
+             WHERE type='article' AND is_deleted=0
+               AND ({$statsCondition['sql']})
+               AND ({$readCondition['sql']})
+             ORDER BY updated_at DESC LIMIT 5"
+        );
+        $st->execute(array_merge($statsCondition['params'], $readCondition['params']));
         $rows = $st->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
         $rows = [];
@@ -153,8 +204,15 @@ function dash_widget_recent_posts(PDO $pdo): string
     foreach ($rows as $r) {
         $status = strtolower(trim((string)($r['status'] ?? 'unknown')));
         $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
+        $ownerId = (int)($r['created_by'] ?? 0);
+        $canUpdate = user_can($pdo, $uid, 'core.posts.update', ['owner_id' => $ownerId])
+            && ($status === 'draft' || user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $ownerId]));
+        $title = h(mb_substr((string)$r['title'], 0, 40));
+        $titleCell = $canUpdate
+            ? '<a href="' . h($base) . '/?page=admin/posts/edit&id=' . (int)$r['id'] . '" class="dw-link">' . $title . '</a>'
+            : $title;
         $items .= '<tr>'
-               . '<td><a href="' . h($base) . '/?page=admin/posts/edit&id=' . (int)$r['id'] . '" class="dw-link">' . h(mb_substr((string)$r['title'], 0, 40)) . '</a></td>'
+               . '<td>' . $titleCell . '</td>'
                 . '<td><span class="adam-status ' . h($statusClass) . '"><span class="adam-status-text">' . h(__(ucfirst($status))) . '</span></span></td>'
                . '<td class="dw-muted">' . h(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$r['updated_at']) : (string)$r['updated_at']) . '</td>'
                . '</tr>';

@@ -11,8 +11,14 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../../_guard.php';
 require_once __DIR__ . '/../../_notify.php';
 
-// bin users hanya admin
-[$uid, $role] = adiwira_require_role($pdo, ['admin'], false);
+[$uid, $role] = adiwira_require_login($pdo, false);
+$canRestoreUsers = user_can($pdo, $uid, 'core.users.restore');
+$canPurgeUsers = user_can($pdo, $uid, 'core.users.purge');
+if (!$canRestoreUsers && !$canPurgeUsers) {
+    adiwira_render_404();
+}
+$currentActor = authorization_actor($pdo, $uid);
+$actorIsSiteOwner = $currentActor !== null && $currentActor['is_site_owner'] === true;
 
 // fallback bila masih ada route lama kirim ?msg= / ?err=
 $page_toasts = function_exists('adiwira_collect_query_toasts')
@@ -65,7 +71,7 @@ if ($page_num > $pages) {
 
 // data
 $sql = "
-    SELECT id, email, username, name, role, img, bio, phone, created_at, updated_at, is_locked
+    SELECT id, email, username, name, role, is_site_owner, img, bio, phone, created_at, updated_at, is_locked
     FROM users
     WHERE $where_sql
     ORDER BY updated_at DESC, id DESC
@@ -170,8 +176,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <select id="bulkActionBinUsers" name="action" style="padding:.4rem;">
         <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="restore"><?=_e('Restore')?></option>
-        <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
+        <?php if ($canRestoreUsers): ?><option value="restore"><?=_e('Restore')?></option><?php endif; ?>
+        <?php if ($canPurgeUsers): ?><option value="delete_permanent"><?=_e('Delete Permanently')?></option><?php endif; ?>
       </select>
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -201,11 +207,20 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             <?php
               $img = !empty($u['img']) ? (string)$u['img'] : '/static/img/person.svg';
               $isLocked = (int)($u['is_locked'] ?? 0) === 1;
+              $isSiteOwner = (int)($u['is_site_owner'] ?? 0) === 1;
+              $ownerAllowsMutation = !$isSiteOwner || $actorIsSiteOwner;
+              $canRestoreUser = $ownerAllowsMutation && user_can($pdo, $uid, 'core.users.restore', ['owner_id' => (int)$u['id']]);
+              $canPurgeUser = $ownerAllowsMutation && user_can($pdo, $uid, 'core.users.purge', ['owner_id' => (int)$u['id']]);
+              $canMutateUser = $canRestoreUser || $canPurgeUser;
               $labelName = (string)($u['name'] ?? ($u['email'] ?? 'User'));
             ?>
             <tr class="adam-row">
               <td style="text-align:center;">
-                <input type="checkbox" class="bulkCheckboxBinUsers" name="ids[]" value="<?= (int)$u['id'] ?>">
+                <?php if ($canMutateUser): ?>
+                  <input type="checkbox" class="bulkCheckboxBinUsers" name="ids[]" value="<?= (int)$u['id'] ?>">
+                <?php else: ?>
+                  &mdash;
+                <?php endif; ?>
               </td>
 
               <td style="width:56px">
@@ -228,7 +243,12 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                 <small style="color:var(--adam-muted)"><?= htmlspecialchars((string)($u['username'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></small>
               </td>
 
-              <td><?= htmlspecialchars((string)($u['role'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+              <td>
+                <?= htmlspecialchars((string)($u['role'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                <?php if ($isSiteOwner): ?>
+                  <span style="display:inline-block;margin-left:.35rem;padding:.16rem .45rem;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;font-size:11px;font-weight:700;"><?= _e('Site Owner') ?></span>
+                <?php endif; ?>
+              </td>
 
               <td>
                 <?php if ($isLocked): ?>
@@ -245,23 +265,27 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               </td>
 
               <td>
-                <button type="button"
+                <?php if ($canMutateUser): ?>
+                  <?php if ($canRestoreUser): ?><button type="button"
                         class="adam-link-button js-bin-user-restore"
                         data-id="<?= (int)$u['id'] ?>"
                         data-title="<?= htmlspecialchars($labelName, ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                   <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
-                </button>
+                  </button><?php endif; ?>
 
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
+                  <?php if ($canRestoreUser && $canPurgeUser): ?>&nbsp;<span class="muted-divider">|</span>&nbsp;<?php endif; ?>
 
-                <button type="button"
+                  <?php if ($canPurgeUser): ?><button type="button"
                         class="adam-link-button js-bin-user-delete-permanent"
                         data-id="<?= (int)$u['id'] ?>"
                         data-title="<?= htmlspecialchars($labelName, ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                   <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
-                </button>
+                  </button><?php endif; ?>
+                <?php else: ?>
+                  <span style="color:var(--adam-muted);font-size:12px"><?= _e('Protected') ?></span>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>

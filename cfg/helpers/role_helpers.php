@@ -20,9 +20,13 @@ if (!function_exists('current_user_role')) {
         }
 
         $role = $_SESSION['user_role'] ?? null;
-        $uid  = (int)($_SESSION['user_id'] ?? 0);
+        $uid = (int)($_SESSION['user_id'] ?? 0);
 
-        if (!$role && $uid > 0 && $pdo instanceof PDO) {
+        if ($uid > 0 && $pdo instanceof PDO && function_exists('authorization_active_legacy_role')) {
+            $role = authorization_active_legacy_role($pdo, $uid);
+            $_SESSION['user_role'] = $role;
+            $_SESSION['user_role_checked_at'] = time();
+        } elseif (!$role && $uid > 0 && $pdo instanceof PDO) {
             $stmt = $pdo->prepare("SELECT role FROM users WHERE id = :id LIMIT 1");
             $stmt->execute([':id' => $uid]);
             $role = $stmt->fetchColumn() ?: null;

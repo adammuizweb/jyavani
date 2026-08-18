@@ -190,6 +190,9 @@ try {
     shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $isAdmin, $params, $publicPath, $id): void {
         $pdo->beginTransaction();
         try {
+            $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND id != :id AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
+            $slugLock->execute([':slug' => (string)$params[':slug'], ':id' => $id]);
+            if ($slugLock->fetchColumn()) throw new DomainException('Theme slug changed.');
             $upd = $pdo->prepare("
                 UPDATE posts
                 SET title = :title,

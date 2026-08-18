@@ -9,7 +9,7 @@ require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], true);
+[$uid] = adiwira_require_login($pdo, true);
 
 if (!function_exists('adiwira_request_wants_json')) {
     function adiwira_request_wants_json(): bool {
@@ -63,6 +63,7 @@ if (!adiwira_csrf_validate($csrf)) {
 
 if (!function_exists('sanitize_author_html')) {
     function sanitize_author_html(string $html): string {
+        if (function_exists('cms_sanitize_restricted_html')) return cms_sanitize_restricted_html($html);
         $html = trim($html);
         if ($html === '') return '';
 
@@ -217,8 +218,8 @@ $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 $created_by_in = (int)($_POST['created_by'] ?? 0);
 $categories    = (array)($_POST['categories'] ?? []);
 $return_to     = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), '<?= ADMIN_BASE_PATH ?>/?page=admin/posts/index')
-    : '<?= ADMIN_BASE_PATH ?>/?page=admin/posts/index';
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), ADMIN_BASE_PATH . '/?page=admin/posts/index')
+    : ADMIN_BASE_PATH . '/?page=admin/posts/index';
 $edit_return   = ADMIN_BASE_PATH . '/?' . http_build_query([
     'page' => 'admin/posts/edit',
     'id' => $id,
@@ -230,7 +231,7 @@ if ($id <= 0) $errors[] = __('Invalid ID.');
 $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
 if ($title === '') $errors[] = __('Title is required.');
 
-if ($role === 'author') {
+if (!user_can($pdo, $uid, 'core.posts.unfiltered_html')) {
     $content = sanitize_author_html($content);
 
     if (function_exists('normalize_links_in_html')) {
@@ -252,20 +253,26 @@ $slug = preg_replace('/[-]{2,}/', '-', (string)$slug);
 $slug = trim((string)$slug, '-');
 if ($slug === '') $slug = bin2hex(random_bytes(4));
 
-$st = $pdo->prepare("\n    SELECT id, slug, created_by, created_at, meta\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
+$st = $pdo->prepare("\n    SELECT id, slug, status, created_by, created_at, updated_at, meta\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
 $st->execute([':id' => $id]);
 $existing = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$existing) $errors[] = __('Post not found.');
 
-if (empty($errors) && $role !== 'admin') {
-    if ((int)($existing['created_by'] ?? 0) !== $uid) {
-        $errors[] = __('Access denied: you can only save your own posts.');
-    }
+if (empty($errors) && !user_can($pdo, $uid, 'core.posts.update', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
+    $errors[] = __('Access denied.');
+}
+if (empty($errors) && ((string)($existing['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+    && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
+    $errors[] = __('Access denied.');
+}
+if (empty($errors) && ($created_at_in !== '' || $updated_at_in !== '')
+    && !user_can($pdo, $uid, 'core.posts.change_dates', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
+    $errors[] = __('Access denied.');
 }
 
 if (empty($errors)) {
-    $q = $pdo->prepare("\n        SELECT id\n        FROM posts\n        WHERE slug = :slug\n          AND id != :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
+    $q = $pdo->prepare("\n        SELECT id\n        FROM posts\n        WHERE slug = :slug\n          AND id != :id\n          AND type IN ('article', 'page', 'theme')\n          AND is_deleted = 0\n        LIMIT 1\n    ");
     $q->execute([
         ':slug' => $slug,
         ':id'   => $id,
@@ -298,12 +305,17 @@ $final_created = $pc ?: (string)($existing['created_at'] ?? $now);
 $final_updated = $pu ?: $now;
 
 $final_creator = (int)($existing['created_by'] ?? $uid);
-if ($role === 'admin' && $created_by_in > 0) {
+if ($created_by_in > 0 && $created_by_in !== $final_creator
+    && user_can($pdo, $uid, 'core.posts.change_owner', ['owner_id' => $final_creator])) {
     $chk = $pdo->prepare("\n        SELECT id\n        FROM users\n        WHERE id = :id\n          AND is_deleted = 0\n          AND is_locked = 0\n        LIMIT 1\n    ");
     $chk->execute([':id' => $created_by_in]);
     if ($chk->fetchColumn()) {
         $final_creator = $created_by_in;
+    } else {
+        save_error_response([__('Author not found.')], $edit_return, 400);
     }
+} elseif ($created_by_in > 0 && $created_by_in !== $final_creator) {
+    save_error_response([__('Access denied.')], $edit_return, 403);
 }
 
 $sidebarOverride = (string)($_POST['sidebar_override'] ?? '');
@@ -327,11 +339,50 @@ if ($metaDescription !== '') {
     }
 }
 $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNICODE) : null;
+$requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in): void {
     $pdo->beginTransaction();
     try {
+
+    if (!authorization_lock_actor_permissions($pdo, $uid)) {
+        throw new DomainException('Post actor permission lock failed.');
+    }
+    if (!user_can($pdo, $uid, 'core.posts.unfiltered_html')) {
+        $content = cms_sanitize_restricted_html($content);
+    }
+
+    $lock = $pdo->prepare("SELECT created_by, status, created_at FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
+    $lockedOwnerId = (int)($lockedPost['created_by'] ?? 0);
+    if (!authorization_lock_owner_contexts($pdo, [$lockedOwnerId])) {
+        throw new DomainException('Post owner context lock failed.');
+    }
+    if (!$lockedPost || !user_can($pdo, $uid, 'core.posts.update', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Post update permission changed.');
+    }
+    if (((string)($lockedPost['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+        && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Post publish permission changed.');
+    }
+    if ($requiresDatePermission && !user_can($pdo, $uid, 'core.posts.change_dates', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Post date permission changed.');
+    }
+    if ($final_creator !== $lockedOwnerId
+        && !user_can($pdo, $uid, 'core.posts.change_owner', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Post owner permission changed.');
+    }
+    if ($final_creator !== $lockedOwnerId) {
+        $ownerLock = $pdo->prepare('SELECT id FROM users WHERE id = :id AND is_deleted = 0 AND is_locked = 0 FOR UPDATE');
+        $ownerLock->execute([':id' => $final_creator]);
+        if (!$ownerLock->fetchColumn()) throw new DomainException('Post owner target changed.');
+    }
+    $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND id != :id AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
+    $slugLock->execute([':slug' => $slug, ':id' => $id]);
+    if ($slugLock->fetchColumn()) throw new DomainException('Post slug changed.');
+    $effectiveCreatedAt = $created_at_in !== '' ? $final_created : (string)$lockedPost['created_at'];
 
     $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
 
@@ -344,21 +395,47 @@ try {
         ':status'     => $status,
         ':meta'       => $finalMeta,
         ':created_by' => $final_creator,
-        ':created_at' => $final_created,
+        ':created_at' => $effectiveCreatedAt,
         ':updated_at' => $final_updated,
         ':id'         => $id,
     ]);
 
     if (!$ok) throw new RuntimeException('DB update failed.');
 
-    $cats = array_values(array_filter(array_map('intval', $categories), fn($v) => $v > 0));
+    $cats = array_values(array_unique(array_filter(array_map('intval', $categories), fn($v) => $v > 0)));
+    $protectedCategoryIds = [];
+    $currentCategoryStmt = $pdo->prepare(
+        'SELECT c.id, c.created_by
+         FROM post_categories pc
+         JOIN categories c ON c.id = pc.category_id
+         WHERE pc.post_id = :post_id'
+    );
+    $currentCategoryStmt->execute([':post_id' => $id]);
+    $currentCategoryRows = $currentCategoryStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (!authorization_lock_owner_contexts($pdo, array_column($currentCategoryRows, 'created_by'))) {
+        throw new DomainException('Category owner context lock failed.');
+    }
+    foreach ($currentCategoryRows as $currentCategory) {
+        if (!user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($currentCategory['created_by'] ?? 0)])) {
+            $protectedCategoryIds[] = (int)$currentCategory['id'];
+        }
+    }
     if (!empty($cats)) {
         $ph = implode(',', array_fill(0, count($cats), '?'));
-        $v = $pdo->prepare("SELECT id FROM categories WHERE id IN ($ph) AND is_deleted = 0");
+        $v = $pdo->prepare("SELECT id, created_by FROM categories WHERE id IN ($ph) AND is_deleted = 0 FOR UPDATE");
         $v->execute($cats);
-        $found = $v->fetchAll(PDO::FETCH_COLUMN, 0);
-        $cats = array_values(array_intersect($cats, array_map('intval', $found)));
+        $categoryRows = $v->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (count($categoryRows) !== count($cats)) throw new DomainException('Category selection changed.');
+        if (!authorization_lock_owner_contexts($pdo, array_column($categoryRows, 'created_by'))) {
+            throw new DomainException('Category owner context lock failed.');
+        }
+        foreach ($categoryRows as $categoryRow) {
+            if (!user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($categoryRow['created_by'] ?? 0)])) {
+                throw new DomainException('Category permission changed.');
+            }
+        }
     }
+    $cats = array_values(array_unique(array_merge($cats, $protectedCategoryIds)));
 
     $pdo->prepare("DELETE FROM post_categories WHERE post_id = :pid")->execute([':pid' => $id]);
 

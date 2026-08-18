@@ -3,7 +3,8 @@ declare(strict_types=1);
 ob_start();
 require_once __DIR__ . '/../_guard.php';
 adiwira_cosmetic_404_on_direct_open();
-[$uid, $role] = adiwira_require_admin($pdo, true);
+[$uid] = adiwira_require_permission($pdo, 'core.plugins.manage', true);
+adiwira_require_site_owner($pdo, true);
 session_write_close();
 
 $token = (string)($_GET['token'] ?? '');

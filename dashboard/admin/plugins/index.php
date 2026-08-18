@@ -7,7 +7,8 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) adiwira_admin_404()
 require_once DASH_PATH . '/admin/_guard.php';
 require_once DASH_PATH . '/admin/_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['admin'], false);
+[$uid] = adiwira_require_permission($pdo, 'core.plugins.manage', false);
+adiwira_require_site_owner($pdo, false);
 
 require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
 

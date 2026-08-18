@@ -1590,7 +1590,80 @@ git pull origin main</pre>
 
 <hr>
 <p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/private-files-thumb.jpg', 'published', 1, '2026-07-25 09:01:03', '2026-07-25 09:01:03', 0, NULL, 0);
+', 'article', NULL, NULL, '/static/img/2026/07/private-files-thumb.jpg', 'published', 1, '2026-07-25 09:01:03', '2026-07-25 09:01:03', 0, NULL, 0),
+(290, 'Roles & Permissions — Mengatur Akses Pengguna dengan Lebih Presisi', 'roles-permissions-mengatur-akses-pengguna', '<p>Setiap anggota tim membutuhkan akses yang berbeda. Penulis mungkin hanya perlu membuat artikel miliknya sendiri, editor perlu meninjau lebih banyak konten, sedangkan administrator menangani pengaturan yang lebih luas. Menu <strong>Roles &amp; Permissions</strong> di Jyavani CMS membantu Site Owner menyusun pembagian akses tersebut secara terukur tanpa harus memberikan hak administrator kepada semua pengguna.</p>
+
+<h2>Mengenal Site Owner dan Role</h2>
+<p><strong>Site Owner</strong> adalah atribut khusus pada akun pemilik instalasi, bukan nama role. Akun pertama yang dibuat melalui Pondasi otomatis menjadi Site Owner dan juga menerima role Administrator. Hanya Site Owner yang dapat membuka serta mengelola menu Roles &amp; Permissions.</p>
+<p>Instalasi baru menyediakan tiga system role secara otomatis:</p>
+<ul>
+  <li><strong>Author</strong> — untuk pengguna yang membuat dan mengelola konten miliknya.</li>
+  <li><strong>Editor</strong> — untuk workflow editorial dengan jangkauan pengelolaan lebih luas.</li>
+  <li><strong>Administrator</strong> — untuk administrasi situs, pengguna, dan konten.</li>
+</ul>
+<p>System role dilindungi agar fondasi akses Core tetap konsisten. Site Owner dapat mengubah nama dan deskripsinya, tetapi slug, authority rank, dan permission dikelola oleh Core. Jika membutuhkan kombinasi akses lain, buatlah <strong>custom role</strong>.</p>
+
+<h2>Membuka Roles &amp; Permissions</h2>
+<p>Masuk ke dashboard sebagai Site Owner, buka grup <strong>Settings</strong>, lalu pilih <strong>Roles &amp; Permissions</strong>. Tautan ini ditempatkan setelah menu Users agar pengelolaan akun dan role berada dalam alur yang berdekatan.</p>
+<img src="/static/img/2026/08/roles-permissions-light.jpg" alt="Tampilan light theme menu Roles dan Permissions di dashboard Jyavani CMS" style="width:100%;border-radius:10px;margin:1rem 0;box-shadow:0 4px 16px rgba(15,23,42,.12)">
+<p>Panel kiri menampilkan daftar role beserta jenis, jumlah pengguna, dan jumlah permission. Area kerja di sebelah kanan menampilkan detail role, penjelasan statusnya, serta kelompok permission yang dapat dicari, dibuka, atau ditutup.</p>
+
+<h2>Membuat Custom Role</h2>
+<ol>
+  <li>Klik <strong>New custom role</strong> pada panel daftar role.</li>
+  <li>Isi <strong>Role Name</strong> dengan nama yang mudah dipahami, misalnya <em>Content Reviewer</em>.</li>
+  <li>Periksa <strong>Role Slug</strong>. Slug memakai huruf kecil, angka, tanda hubung, atau garis bawah dan tidak dapat diubah setelah role dibuat.</li>
+  <li>Atur <strong>Authority Rank</strong> hanya jika role akan memakai scope Same or Lower.</li>
+  <li>Aktifkan permission yang benar-benar diperlukan.</li>
+  <li>Pilih scope untuk setiap permission yang mendukung kepemilikan resource.</li>
+  <li>Klik <strong>Create Role</strong>.</li>
+</ol>
+<p>Role baru dimulai dengan authority rank <code>0</code> dan tanpa permission. Pendekatan ini membuat role bersifat aman secara default: akses baru diberikan secara sengaja, bukan diasumsikan.</p>
+
+<h2>Memahami Permission dan Scope</h2>
+<p>Permission menjelaskan <em>tindakan apa</em> yang boleh dilakukan, sedangkan scope menjelaskan <em>seberapa jauh</em> tindakan tersebut berlaku. Permission dikelompokkan berdasarkan modul seperti Posts, Pages, Users, Categories, Dashboard, dan Settings.</p>
+<ul>
+  <li><strong>Own</strong> — hanya resource yang dimiliki oleh pengguna yang sedang bertindak.</li>
+  <li><strong>Same or Lower</strong> — resource sendiri dan resource milik pengguna dengan authority rank setara atau lebih rendah.</li>
+  <li><strong>Any</strong> — semua resource yang dicakup oleh permission tersebut.</li>
+  <li><strong>Global</strong> — tindakan tidak menggunakan konsep kepemilikan resource.</li>
+</ul>
+<p>Pilihan scope baru aktif setelah permission dicentang. Gunakan kolom pencarian untuk menemukan tindakan berdasarkan nama modul, label, atau key teknis. Kelompok yang berisi permission aktif otomatis dibuka agar konfigurasi penting mudah ditinjau.</p>
+
+<h3>Authority Rank Bukan Permission</h3>
+<p>Authority rank hanya digunakan ketika scope <strong>Same or Lower</strong> dipilih. Rank yang lebih tinggi tidak otomatis memberikan akses apa pun. Sebuah role tetap membutuhkan permission yang sesuai sebelum dapat melakukan tindakan.</p>
+
+<h2>Contoh: Role Content Reviewer</h2>
+<p>Untuk pengguna yang hanya perlu membaca dan memperbarui artikel dalam batas tertentu, Site Owner dapat membuat role <strong>Content Reviewer</strong> dengan contoh konfigurasi berikut:</p>
+<ul>
+  <li><strong>View posts</strong> dengan scope Same or Lower.</li>
+  <li><strong>Update posts</strong> dengan scope Same or Lower.</li>
+  <li><strong>Publish posts</strong> hanya jika reviewer bertanggung jawab atas keputusan publikasi.</li>
+  <li>Tanpa permission untuk mengelola pengguna, plugin, update Core, atau pengaturan autentikasi.</li>
+</ul>
+<p>Mulailah dari akses minimum, uji workflow pengguna, lalu tambahkan permission jika benar-benar dibutuhkan.</p>
+
+<h2>Menetapkan Role kepada Pengguna</h2>
+<p>Setelah custom role disimpan, buka menu <strong>Users</strong> dan edit akun yang akan menerima role. Pilih satu atau beberapa role sesuai tanggung jawab pengguna, lalu simpan perubahan. Permission efektif pengguna merupakan gabungan grant aktif dari role yang dimilikinya.</p>
+<p>Perubahan role dan permission dicatat pada authorization audit. Jika grant dicabut ketika pengguna sedang melakukan mutasi konten, Core melakukan pemeriksaan ulang di dalam transaksi agar perubahan akses tidak dilewati oleh request yang berjalan bersamaan.</p>
+
+<h2>Status Permission yang Belum Tersedia</h2>
+<p>Beberapa permission Core dapat tampil sebagai belum tersedia untuk custom role. Artinya modul terkait belum sepenuhnya memakai authorization dinamis. Permission tersebut tidak dapat dipilih sampai migrasi modul selesai. Grant lama yang sedang tidak aktif tetap dipertahankan dan tidak dihapus secara diam-diam ketika detail role lain disimpan.</p>
+
+<h2>Praktik Terbaik</h2>
+<ul>
+  <li><strong>Gunakan prinsip least privilege</strong> — berikan akses minimum yang diperlukan.</li>
+  <li><strong>Hindari rank tinggi tanpa alasan</strong> — terutama untuk role yang memakai Same or Lower.</li>
+  <li><strong>Pisahkan tugas editorial dan administrasi</strong> — pengelola artikel tidak selalu membutuhkan akses pengaturan sistem.</li>
+  <li><strong>Tinjau jumlah pengguna sebelum menghapus role</strong> — pengguna yang terkait akan langsung kehilangan role tersebut.</li>
+  <li><strong>Uji dengan akun non-owner</strong> — pastikan menu, daftar resource, dan tombol aksi sesuai scope yang dipilih.</li>
+</ul>
+
+<h2>Kesimpulan</h2>
+<p>Roles &amp; Permissions memberikan kontrol akses yang lebih fleksibel daripada pembagian role tetap saja. System role menyediakan fondasi yang aman, sedangkan custom role memungkinkan Site Owner menyesuaikan akses berdasarkan tugas nyata setiap anggota tim. Dengan permission yang spesifik, scope kepemilikan, dan authority rank yang digunakan secara hati-hati, pengelolaan Jyavani CMS dapat tetap sederhana sekaligus lebih aman.</p>
+<hr>
+<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
+', 'article', '{"meta_tags":{"description":"Panduan menggunakan Roles & Permissions untuk membuat custom role, memilih permission, memahami scope, dan menetapkan akses pengguna di Jyavani CMS."}}', NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', 0, NULL, 0);
 
 INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `height`, `title`, `alt`, `caption`, `credit`, `visibility`, `storage_disk`, `storage_path`, `access_scope`, `is_downloadable`, `user_id`, `created_at`, `updated_at`, `target_url`, `target_attribute`) VALUES
 (64, '/static/img/2026/07/content-management-71b8788f.jpg', 'content-management-71b8788f.png', 'image/png', 'png', 372716, 1200, 675, 'Content Management', 'Content Management System Dashboard', NULL, NULL, 'public', 'public', '2026/07/content-management-71b8788f.png', 'public', 1, 1, '2026-07-24 09:57:56', NULL, NULL, NULL),
@@ -1645,7 +1718,9 @@ INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `h
 (123, '/static/img/2026/07/permalink-settings-screenshot.jpg', 'permalink-settings-screenshot.jpg', 'image/jpeg', 'jpg', 83047, 1280, 720, 'Permalink Settings Screenshot', 'Permalink Settings Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
 (124, '/static/img/2026/07/plugin-upload-screenshot.jpg', 'plugin-upload-screenshot.jpg', 'image/jpeg', 'jpg', 55006, 1280, 720, 'Plugin Upload Screenshot', 'Plugin Upload Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
 (125, '/static/img/2026/07/layout-editor-screenshot.jpg', 'layout-editor-screenshot.jpg', 'image/jpeg', 'jpg', 177915, 1280, 1000, 'Layout Editor Screenshot', 'Layout Editor Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
-(126, '/static/img/2026/07/user-roles-screenshot.jpg', 'user-roles-screenshot.png', 'image/png', 'png', 178536, 1274, 1190, 'User Roles Screenshot', 'User Roles Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/user-roles-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL);
+(126, '/static/img/2026/07/user-roles-screenshot.jpg', 'user-roles-screenshot.png', 'image/png', 'png', 178536, 1274, 1190, 'User Roles Screenshot', 'User Roles Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/user-roles-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
+(127, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'roles-permissions-thumbnail.jpg', 'image/jpeg', 'jpg', 62350, 1200, 675, 'Roles and Permissions', 'Ilustrasi pengaturan role dan permission pengguna di Jyavani CMS', NULL, 'AI-generated illustration', 'public', 'public', 'public/static/img/2026/08/roles-permissions-thumbnail.jpg', 'public', 1, 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', NULL, NULL),
+(128, '/static/img/2026/08/roles-permissions-light.jpg', 'roles-permissions-light.jpg', 'image/jpeg', 'jpg', 157950, 1440, 1000, 'Roles and Permissions Light Theme', 'Tampilan light theme menu Roles dan Permissions di dashboard Jyavani CMS', NULL, 'Screenshot from authorized OpenCode test environment', 'public', 'public', 'public/static/img/2026/08/roles-permissions-light.jpg', 'public', 1, 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', NULL, NULL);
 
 INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigned_at`) VALUES
 (272, 1, 1, '2026-07-25 09:07:48'),
@@ -1668,7 +1743,8 @@ INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigne
 (286, 4, 1, '2026-07-25 09:07:48'),
 (287, 4, 1, '2026-07-25 09:07:48'),
 (288, 1, 1, '2026-07-25 09:07:48'),
-(289, 2, 1, '2026-07-25 09:07:48');
+(289, 2, 1, '2026-07-25 09:07:48'),
+(290, 1, 1, '2026-08-18 18:00:00');
 
 -- Demo shortcode preset: random demo posts by author 1
 INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES

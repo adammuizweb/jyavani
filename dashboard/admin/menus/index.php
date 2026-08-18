@@ -11,7 +11,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['editor', 'admin'], false);
+[$uid] = adiwira_require_permission($pdo, 'core.menus.manage', false);
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
@@ -57,12 +57,12 @@ $themePages = [];
 $categories = [];
 
 try {
-    $st = $pdo->query("SELECT id, title, slug FROM posts WHERE type='article' AND is_deleted=0 ORDER BY title ASC LIMIT 200");
+    $st = $pdo->query("SELECT id, title, slug FROM posts WHERE type='article' AND status='published' AND is_deleted=0 ORDER BY title ASC LIMIT 200");
     $articles = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {}
 
 try {
-    $st = $pdo->query("SELECT id, title, slug FROM posts WHERE type='page' AND is_deleted=0 ORDER BY title ASC LIMIT 200");
+    $st = $pdo->query("SELECT id, title, slug FROM posts WHERE type='page' AND status='published' AND is_deleted=0 ORDER BY title ASC LIMIT 200");
     $pages = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {}
 

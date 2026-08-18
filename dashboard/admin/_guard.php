@@ -76,7 +76,7 @@ if (!function_exists('adiwira_fetch_identity')) {
 
         try {
             $st = $pdo->prepare("
-                SELECT id, email, username, name, role, is_deleted, is_locked
+                SELECT id, email, username, name, role, is_site_owner, is_deleted, is_locked
                 FROM users
                 WHERE id = :id
                 LIMIT 1
@@ -117,9 +117,21 @@ if (!function_exists('adiwira_fetch_identity')) {
             ];
         }
 
-        $role = strtolower(trim((string)($row['role'] ?? 'guest')));
+        $storedRole = strtolower(trim((string)($row['role'] ?? 'none')));
+        $role = function_exists('authorization_active_legacy_role')
+            ? authorization_active_legacy_role($pdo, $uid)
+            : $storedRole;
         if ($role === '') {
-            $role = 'guest';
+            $role = 'none';
+        }
+        if ($role !== $storedRole) {
+            try {
+                $syncRole = $pdo->prepare('UPDATE users SET role = :role, updated_at = NOW() WHERE id = :id');
+                $syncRole->execute([':role' => $role, ':id' => $uid]);
+                $row['role'] = $role;
+            } catch (Throwable $e) {
+                $role = 'none';
+            }
         }
 
         // sinkronkan session agar UI stabil
@@ -130,6 +142,7 @@ if (!function_exists('adiwira_fetch_identity')) {
             'ok'     => true,
             'uid'    => (int)$uid,
             'role'   => $role,
+            'is_site_owner' => (int)($row['is_site_owner'] ?? 0) === 1,
             'user'   => $row,
             'reason' => 'active',
         ];
@@ -188,7 +201,9 @@ if (!function_exists('adiwira_require_role')) {
             $roles
         )));
 
-        if (!in_array($role, $roles, true)) {
+        $identity = adiwira_fetch_identity($pdo);
+        $isSiteOwner = ($identity['is_site_owner'] ?? false) === true;
+        if (!$isSiteOwner && !in_array($role, $roles, true)) {
             if ($asJson) {
                 adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
             }
@@ -196,6 +211,64 @@ if (!function_exists('adiwira_require_role')) {
             adiwira_render_404();
         }
 
+        return [$uid, $role];
+    }
+}
+
+if (!function_exists('adiwira_require_permission')) {
+    function adiwira_require_permission(PDO $pdo, string $permission, bool $asJson = true, array $context = []): array
+    {
+        [$uid, $role] = adiwira_require_login($pdo, $asJson);
+        if (!function_exists('user_can') || !user_can($pdo, $uid, $permission, $context)) {
+            if ($asJson) {
+                adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
+            }
+            adiwira_render_404();
+        }
+
+        return [$uid, $role];
+    }
+}
+
+if (!function_exists('adiwira_authorize_resource')) {
+    function adiwira_authorize_resource(
+        PDO $pdo,
+        string $permission,
+        int $ownerId,
+        bool $asJson = true
+    ): array {
+        return adiwira_require_permission($pdo, $permission, $asJson, ['owner_id' => $ownerId]);
+    }
+}
+
+if (!function_exists('adiwira_require_permission_scope')) {
+    function adiwira_require_permission_scope(PDO $pdo, string $permission, bool $asJson = true): array
+    {
+        [$uid, $role] = adiwira_require_login($pdo, $asJson);
+        $scope = function_exists('user_permission_scope')
+            ? user_permission_scope($pdo, $uid, $permission)
+            : null;
+        if ($scope === null) {
+            if ($asJson) {
+                adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
+            }
+            adiwira_render_404();
+        }
+        return [$uid, $role, $scope];
+    }
+}
+
+if (!function_exists('adiwira_require_site_owner')) {
+    function adiwira_require_site_owner(PDO $pdo, bool $asJson = true): array
+    {
+        [$uid, $role] = adiwira_require_login($pdo, $asJson);
+        $actor = function_exists('authorization_actor') ? authorization_actor($pdo, $uid) : null;
+        if ($actor === null || $actor['is_site_owner'] !== true) {
+            if ($asJson) {
+                adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
+            }
+            adiwira_render_404();
+        }
         return [$uid, $role];
     }
 }

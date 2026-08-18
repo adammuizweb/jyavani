@@ -15,26 +15,44 @@ require_once __DIR__ . '/../_notify.php';
 
 $base = ADMIN_BASE_PATH;
 $isAdmin = ($role === 'admin');
+$canManageSettings = user_can($pdo, $uid, 'core.settings.manage');
+$canManageSidebar = user_can($pdo, $uid, 'core.sidebar.manage');
+$canManageMenus = user_can($pdo, $uid, 'core.menus.manage');
+$canReadUsers = user_permission_scope($pdo, $uid, 'core.users.read') !== null;
+$canManageProfile = user_can($pdo, $uid, 'core.profile.manage');
+$settingsActor = authorization_actor($pdo, $uid);
+$isSiteOwner = $settingsActor !== null && $settingsActor['is_site_owner'] === true;
 
 $items = [];
 
-// urutan sinkron dengan aside:
-// Website (admin), Sidebar (admin), Sidebar Widgets (admin), Menus (admin), Shortcodes (admin), Profile, Users (admin), Bin (admin)
-if ($isAdmin) {
+if ($canManageSettings) {
     $items[] = [
         'label' => 'Website',
         'href'  => $base . '/?page=admin/settings/site',
         'icon'  => 'globe',
         'desc'  => __('Manage site title and default website host.'),
-        'badge' => 'Admin',
+        'badge' => null,
     ];
 
+}
+
+if ($canManageSettings && $isSiteOwner) {
+    $items[] = [
+        'label' => 'Sign Up & Sign In',
+        'href'  => $base . '/?page=admin/settings/auth',
+        'icon'  => 'lock',
+        'desc'  => __('Manage registration, login path, reCAPTCHA, and anti brute-force.'),
+        'badge' => null,
+    ];
+}
+
+if ($canManageSidebar) {
     $items[] = [
         'label' => 'Sidebar',
         'href'  => $base . '/?page=admin/settings/sidebar',
         'icon'  => 'columns-2',
         'desc'  => __('Manage sidebar global enable/disable and default position.'),
-        'badge' => 'Admin',
+        'badge' => null,
     ];
 
     $items[] = [
@@ -42,17 +60,21 @@ if ($isAdmin) {
         'href'  => $base . '/?page=admin/sidebar/index',
         'icon'  => 'puzzle',
         'desc'  => __('Create multiple sidebar zones, manage widgets in each zone, select primary zone.'),
-        'badge' => 'Admin',
+        'badge' => null,
     ];
+}
 
+if ($canManageMenus) {
     $items[] = [
         'label' => 'Menus',
         'href'  => $base . '/?page=admin/menus/index',
         'icon'  => 'rows-3',
         'desc'  => __('Manage website navigation menus.'),
-        'badge' => 'Admin',
+        'badge' => null,
     ];
+}
 
+if ($isAdmin) {
     $items[] = [
         'label' => 'Shortcodes',
         'href'  => $base . '/?page=admin/shortcodes/index&tab=presets',
@@ -61,32 +83,39 @@ if ($isAdmin) {
         'badge' => 'Admin',
     ];
 
+}
+
+if ($canManageProfile) {
     $items[] = [
-        'label' => 'Sign Up & Sign In',
-        'href'  => $base . '/?page=admin/settings/auth',
-        'icon'  => 'lock',
-        'desc'  => __('Manage registration, login path, reCAPTCHA, and anti brute-force.'),
-        'badge' => 'Admin',
+        'label' => 'Profile',
+        'href'  => $base . '/?page=admin/profile/index',
+        'icon'  => 'user',
+        'desc'  => __('Manage your profile, photo, bio, and password.'),
+        'badge' => null,
     ];
 }
 
-$items[] = [
-    'label' => 'Profile',
-    'href'  => $base . '/?page=admin/profile/index',
-    'icon'  => 'user',
-    'desc'  => __('Manage your profile, photo, bio, and password.'),
-    'badge' => null,
-];
-
-if ($isAdmin) {
+if ($canReadUsers) {
     $items[] = [
         'label' => 'Users',
         'href'  => $base . '/?page=admin/users/index',
         'icon'  => 'users',
         'desc'  => __('Manage user accounts and dashboard access roles.'),
-        'badge' => 'Admin',
+        'badge' => null,
     ];
+}
 
+if ($isSiteOwner) {
+    $items[] = [
+        'label' => __('Roles & Permissions'),
+        'href'  => $base . '/?page=admin/users/roles/index',
+        'icon'  => 'shield-check',
+        'desc'  => __('Create custom roles and control what each role can access.'),
+        'badge' => __('Site Owner'),
+    ];
+}
+
+if ($isAdmin) {
     $items[] = [
         'label' => 'Bin',
         'href'  => $base . '/?page=admin/bin/index',
@@ -277,8 +306,4 @@ if ($isAdmin) {
     <?php endforeach; ?>
   </nav>
 
-  <div class="settingshub-note">
-    <?=_e('Some menus are only available for admin. The menu layout on this page has been adjusted to match the access group.')?>
-    <strong><?=_e('Settings')?></strong> <?=_e('on the sidebar for more consistent navigation.')?>
-  </div>
 </section>

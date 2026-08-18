@@ -6,7 +6,9 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
-[$uid, $role] = adiwira_require_admin($pdo, false);
+[$uid] = adiwira_require_permission($pdo, 'core.sidebar.manage', false);
+$sidebarActor = authorization_actor($pdo, $uid);
+$canManageRawHtml = $sidebarActor !== null && $sidebarActor['is_site_owner'] === true;
 
 require_once __DIR__ . '/../../../cfg/helpers/sidebar_helper.php';
 
@@ -37,6 +39,10 @@ $currentItems = [];
 if ($selectedZoneId > 0 && $hasHelper) {
     $currentZone = sidebar_zone_get_by_id($pdo, $selectedZoneId);
     $currentItems = $currentZone ? sidebar_zone_get_items($pdo, $selectedZoneId) : [];
+}
+$currentItemsById = [];
+foreach ($currentItems as $currentItem) {
+    $currentItemsById[(int)$currentItem['id']] = $currentItem;
 }
 
 $widget_types = [
@@ -72,6 +78,10 @@ $widget_types = [
     ],
 ];
 $widget_types = apply_filters('sidebar_widget_types', $widget_types);
+$delegatedConfigurableTypes = ['search', 'last_posts', 'editor_pick', 'categories'];
+$addableWidgetTypes = $canManageRawHtml
+    ? $widget_types
+    : array_intersect_key($widget_types, array_fill_keys($delegatedConfigurableTypes, true));
 $presets = [];
 $pst = $pdo->prepare("SELECT slug, title FROM posts WHERE type = 'sc_preset' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC");
 $pst->execute();
@@ -90,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'add') {
         $type = (string)($_POST['new_type'] ?? '');
-        if (!isset($widget_types[$type])) {
+        if (!isset($addableWidgetTypes[$type])) {
             $errors[] = __('Tipe widget tidak valid.');
         } elseif (!$currentZone) {
             $errors[] = __('Choose a zone first.');
@@ -138,11 +148,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($wid <= 0 || !isset($submitted[$wid])) continue;
             $data = $submitted[$wid];
             $type = (string)($data['type'] ?? '');
+            if (!$canManageRawHtml) {
+                if (!isset($currentItemsById[$wid])) continue;
+                $type = (string)($currentItemsById[$wid]['type'] ?? '');
+            }
             if (!isset($widget_types[$type])) continue;
             $config = (array)($data['config'] ?? []);
-            $title = (string)($config['title'] ?? '');
-            $active = !empty($data['active']);
             $translation = is_array($data['translation'] ?? null) ? $data['translation'] : [];
+            $preserveWidgetConfig = !$canManageRawHtml && !in_array($type, $delegatedConfigurableTypes, true);
+            if ($preserveWidgetConfig) {
+                $config = is_array($currentItemsById[$wid]['config'] ?? null)
+                    ? $currentItemsById[$wid]['config']
+                    : [];
+                $translation = [];
+            }
+            if (!$canManageRawHtml && !$preserveWidgetConfig && $type !== 'html') {
+                unset($config['html']);
+            }
+            $title = (string)($config['title'] ?? '');
+            $active = $preserveWidgetConfig
+                ? !empty($currentItemsById[$wid]['active'])
+                : !empty($data['active']);
 
             if ($type === 'last_posts') {
                 $config['limit'] = max(1, min(50, (int)($config['limit'] ?? 5)));
@@ -159,7 +185,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $config['only_parents'] = !empty($config['only_parents']);
             }
             if ($type === 'html') {
-                $config['html'] = (string)($config['html'] ?? '');
+                if ($canManageRawHtml) {
+                    $config['html'] = (string)($config['html'] ?? '');
+                } else {
+                    $existingConfig = is_array($currentItemsById[$wid]['config'] ?? null)
+                        ? $currentItemsById[$wid]['config']
+                        : [];
+                    $config['html'] = (string)($existingConfig['html'] ?? '');
+                    $translation = [];
+                }
             }
             if ($type === 'shortcode_preset') {
                 $config['preset_slug'] = (string)($config['preset_slug'] ?? '');
@@ -176,7 +210,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':zid' => $selectedZoneId,
             ]);
             $keepIds[] = $wid;
-            if ($translationLocale !== '' && function_exists('ct_save_sidebar_item_translation')) {
+            if ($translationLocale !== '' && !$preserveWidgetConfig
+                && ($type !== 'html' || $canManageRawHtml)
+                && function_exists('ct_save_sidebar_item_translation')) {
                 ct_save_sidebar_item_translation($pdo, $wid, $translationLocale, $translation);
             }
         }
@@ -347,7 +383,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
       <strong style="font-size:14px;white-space:nowrap;"><?=_e('+ Add Widget')?></strong>
       <select name="new_type" id="sw-add-type" onchange="swTogglePresetField()" style="padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
         <option value=""><?=_e('- Select type -')?></option>
-        <?php foreach ($widget_types as $wt => $wi): ?>
+        <?php foreach ($addableWidgetTypes as $wt => $wi): ?>
           <option value="<?= h($wt) ?>"><?= h($wi['label']) ?></option>
         <?php endforeach; ?>
       </select>
@@ -396,6 +432,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
            $itemTranslation = $translationLocale !== '' && function_exists('ct_sidebar_item_translation') ? ct_sidebar_item_translation($pdo, $itemId, $translationLocale) : null;
            $translationConfig = is_array($itemTranslation['config'] ?? null) ? $itemTranslation['config'] : [];
           $typeInfo = $widget_types[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
+          $canConfigureItem = $canManageRawHtml || in_array($type, $delegatedConfigurableTypes, true);
           $isOpen = (string)($_GET['edit'] ?? '') === (string)$itemId;
         ?>
           <div class="sw-item" data-id="<?= $itemId ?>" style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);margin-bottom:10px;<?= $active ? '' : 'opacity:.55;' ?>">
@@ -408,7 +445,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
               <span class="sw-title" style="flex:1;font-weight:600;font-size:14px;color:var(--adam-text);"><?= h($it['title'] ?: $typeInfo['label']) ?></span>
               <input type="hidden" name="widget[<?= $itemId ?>][active]" value="0">
               <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;white-space:nowrap;">
-                <input type="checkbox" name="widget[<?= $itemId ?>][active]" value="1" <?= $active ? 'checked' : '' ?> style="width:16px;height:16px;accent-color:var(--adam-primary);cursor:pointer;" onchange="this.closest('.sw-item').style.opacity=this.checked?'':'0.55'">
+                 <input type="checkbox" name="widget[<?= $itemId ?>][active]" value="1" <?= $active ? 'checked' : '' ?> <?= $canConfigureItem ? '' : 'disabled' ?> style="width:16px;height:16px;accent-color:var(--adam-primary);cursor:pointer;" onchange="this.closest('.sw-item').style.opacity=this.checked?'':'0.55'">
                 <?=_e('Active')?>
               </label>
               <div style="display:flex;gap:4px;">
@@ -503,12 +540,12 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
                  <?php elseif ($type === 'html'): ?>
                   <div style="grid-column:1/-1;">
                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?=_e('HTML Content')?></label>
-                    <textarea name="widget[<?= $itemId ?>][config][html]" rows="6" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;font-family:monospace;resize:vertical;"><?= h($config['html'] ?? '') ?></textarea>
+                    <textarea name="widget[<?= $itemId ?>][config][html]" rows="6" <?= $canManageRawHtml ? '' : 'readonly' ?> style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;font-family:monospace;resize:vertical;"><?= h($config['html'] ?? '') ?></textarea>
                    </div>
                    <?php if ($translationLocale !== ''): ?>
                    <div style="grid-column:1/-1;">
                      <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?= h(strtoupper($translationLocale)) ?> <?=_e('HTML Content')?></label>
-                     <textarea name="widget[<?= $itemId ?>][translation][config][html]" rows="6" placeholder="<?= h($config['html'] ?? '') ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;font-family:monospace;resize:vertical;"><?= h($translationConfig['html'] ?? '') ?></textarea>
+                      <textarea name="widget[<?= $itemId ?>][translation][config][html]" rows="6" <?= $canManageRawHtml ? '' : 'readonly' ?> placeholder="<?= h($config['html'] ?? '') ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;font-family:monospace;resize:vertical;"><?= h($translationConfig['html'] ?? '') ?></textarea>
                    </div>
                    <?php endif; ?>
 

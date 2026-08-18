@@ -18,17 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
+[$uid] = adiwira_require_login($pdo, false);
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
@@ -48,12 +38,29 @@ if (!$post) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Article not found.'));
 }
 
-if (in_array($role, ['author', 'editor'], true) && (int)($post['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: you can only delete your own articles.'));
+if (!user_can($pdo, $uid, 'core.posts.trash', ['owner_id' => (int)($post['created_by'] ?? 0)])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 try {
     $pdo->beginTransaction();
+
+    if (!authorization_lock_actor_permissions($pdo, $uid)) {
+        $pdo->rollBack();
+        adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+    }
+
+    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
+    if (!authorization_lock_owner_contexts($pdo, [(int)($lockedPost['created_by'] ?? 0)])) {
+        $pdo->rollBack();
+        adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+    }
+    if (!$lockedPost || !user_can($pdo, $uid, 'core.posts.trash', ['owner_id' => (int)($lockedPost['created_by'] ?? 0)])) {
+        $pdo->rollBack();
+        adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+    }
 
     $stmt = $pdo->prepare("\n        UPDATE posts\n        SET is_deleted = 1,\n            deleted_at = NOW(),\n            updated_at = NOW()\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
     $stmt->execute([':id' => $id]);

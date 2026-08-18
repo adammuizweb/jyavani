@@ -1,80 +1,52 @@
 <?php
 declare(strict_types=1);
 
-// /adiwira/admin/bin/page/restore.php
-if (!defined('DASHBOARD_CONTEXT')) {
-    define('DASHBOARD_CONTEXT', true);
-}
-
+if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
 require_once __DIR__ . '/../../_guard.php';
 require_once __DIR__ . '/../../_notify.php';
 
 $defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/bin/page/index';
-$returnTo = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
-    : $defaultReturnTo;
-
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
-}
-
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$token = (string)($_POST['csrf_token'] ?? '');
-if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
-}
-
+$returnTo = adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo);
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
+[$uid] = adiwira_require_login($pdo, true);
+if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ''))) adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 $id = (int)($_POST['id'] ?? 0);
-if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
-}
-
-$stmt = $pdo->prepare("
-    SELECT id, created_by
-    FROM posts
-    WHERE id = :id
-      AND type = 'page'
-      AND is_deleted = 1
-    LIMIT 1
-");
-$stmt->execute([':id' => $id]);
-$row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$row) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Page tidak ditemukan di trash.'));
-}
-
-if ($role === 'author' && (int)($row['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak punya akses restore page ini.'));
-}
+if ($id <= 0) adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 
 try {
-    $stmt = $pdo->prepare("
-        UPDATE posts
-        SET is_deleted = 0,
-            deleted_at = NULL,
-            updated_at = NOW()
-        WHERE id = :id
-          AND type = 'page'
-          AND is_deleted = 1
-        LIMIT 1
-    ");
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $uid, $id): void {
+    $pdo->beginTransaction();
+    try {
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
+    $lock = $pdo->prepare("SELECT created_by, status, slug FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $page = $lock->fetch(PDO::FETCH_ASSOC);
+    $ownerId = (int)($page['created_by'] ?? 0);
+    if (!$page || !authorization_lock_owner_contexts($pdo, [$ownerId])) throw new DomainException('Page owner context lock failed.');
+    if (!user_can($pdo, $uid, 'core.pages.restore', ['owner_id' => $ownerId])) throw new DomainException('Page restore permission changed.');
+    if ((string)$page['status'] !== 'draft' && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $ownerId])) {
+        throw new DomainException('Page publish permission changed.');
+    }
+    $collision = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 AND id != :id LIMIT 1 FOR UPDATE");
+    $collision->execute([':slug' => (string)$page['slug'], ':id' => $id]);
+    if ($collision->fetchColumn()) throw new InvalidArgumentException('Slug already used by active content.');
+    $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 0, deleted_at = NULL, updated_at = NOW() WHERE id = :id AND type = 'page' AND is_deleted = 1 LIMIT 1");
     $stmt->execute([':id' => $id]);
-
-    adiwira_redirect_with_flash($returnTo, 'success', __('Page berhasil direstore.'));
-
+    $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+    });
+    adiwira_redirect_with_flash($returnTo, 'success', __('Page restored successfully.'));
+} catch (InvalidArgumentException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    adiwira_redirect_with_flash($returnTo, 'error', __($e->getMessage()));
+} catch (DomainException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('bin/page/restore.php error: ' . $e->getMessage());
     adiwira_redirect_with_flash($returnTo, 'error', __('Failed to restore page.'));
 }

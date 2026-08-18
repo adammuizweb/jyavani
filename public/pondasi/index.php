@@ -122,7 +122,7 @@ $step = (int)($_POST['_step'] ?? 1);
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // step 1 → 2: DB config + schema + admin
+    // step 1 → 2: DB config + schema + Site Owner
     if ($step === 1) {
         $dbHost = trim($_POST['DB_HOST'] ?? 'localhost');
         $dbPort = trim($_POST['DB_PORT'] ?? '3306');
@@ -151,6 +151,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmts = split_sql_statements($sql);
                 foreach ($stmts as $stmt) {
                     $pdo->exec($stmt);
+                }
+
+                // Authorization seeds are maintained by the idempotent migration so fresh
+                // installs and existing sites receive exactly the same permission catalog.
+                $authorizationMigration = $schemaDir . '/migrations/013-dynamic-authorization.sql';
+                if (!is_file($authorizationMigration)) {
+                    throw new RuntimeException('Migrasi otorisasi wajib tidak ditemukan.');
+                }
+                $authorizationSql = file_get_contents($authorizationMigration);
+                if ($authorizationSql === false) {
+                    throw new RuntimeException('Migrasi otorisasi tidak dapat dibaca.');
+                }
+                foreach (split_sql_statements($authorizationSql) as $authorizationStatement) {
+                    $pdo->exec($authorizationStatement);
                 }
 
                 // Import translation seed data (id + de)
@@ -199,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // step 2 → 3: create admin user
+    // step 2 → 3: create the initial Site Owner
     elseif ($step === 2) {
         $siteTitle  = trim($_POST['site_title'] ?? '');
         $siteDesc   = trim($_POST['site_description'] ?? '');
@@ -222,10 +236,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo = new PDO($dsn, $dbFields['DB_USER'], $dbFields['DB_PASS'], [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 ]);
+                $pdo->beginTransaction();
 
                 $hash = password_hash($adminPass, PASSWORD_DEFAULT);
-                $st = $pdo->prepare("REPLACE INTO users (email,username,password,name,role,created_at) VALUES (?,?,?,?,'admin',NOW())");
-                $st->execute([$adminEmail, $adminUser, $hash, $adminName]);
+                $existingOwner = $pdo->prepare(
+                    'SELECT id FROM users WHERE email = :email OR username = :username FOR UPDATE'
+                );
+                $existingOwner->execute([':email' => $adminEmail, ':username' => $adminUser]);
+                $matchingOwnerIds = array_map('intval', $existingOwner->fetchAll(PDO::FETCH_COLUMN));
+                if (count($matchingOwnerIds) > 1) {
+                    throw new RuntimeException('Email dan username terhubung ke akun yang berbeda.');
+                }
+
+                if ($matchingOwnerIds !== []) {
+                    $siteOwnerId = $matchingOwnerIds[0];
+                    $st = $pdo->prepare(
+                        "UPDATE users
+                         SET email = ?, username = ?, password = ?, name = ?, role = 'admin',
+                             is_site_owner = 1, is_deleted = 0, is_locked = 0, updated_at = NOW()
+                         WHERE id = ?"
+                    );
+                    $st->execute([$adminEmail, $adminUser, $hash, $adminName, $siteOwnerId]);
+                } else {
+                    $st = $pdo->prepare(
+                        "INSERT INTO users
+                            (email,username,password,name,role,is_site_owner,is_deleted,is_locked,created_at,updated_at)
+                         VALUES (?,?,?,?,'admin',1,0,0,NOW(),NOW())"
+                    );
+                    $st->execute([$adminEmail, $adminUser, $hash, $adminName]);
+                    $siteOwnerId = (int)$pdo->lastInsertId();
+                }
+
+                $clearRoles = $pdo->prepare('DELETE FROM user_roles WHERE user_id = :user_id');
+                $clearRoles->execute([':user_id' => $siteOwnerId]);
+
+                $assignRole = $pdo->prepare(
+                    "INSERT INTO user_roles (user_id, role_id, assigned_by)
+                     SELECT :user_id, id, :assigned_by FROM roles WHERE slug = 'admin' LIMIT 1"
+                );
+                $assignRole->execute([
+                    ':user_id' => $siteOwnerId,
+                    ':assigned_by' => $siteOwnerId,
+                ]);
+                if ($assignRole->rowCount() !== 1) {
+                    throw new RuntimeException('Role Administrator tidak tersedia.');
+                }
+
+                $auditOwner = $pdo->prepare(
+                    "INSERT INTO authorization_audit_log
+                        (actor_user_id, subject_user_id, event_key, resource_type, resource_id)
+                     VALUES (:actor, :subject, 'site_owner.installed', 'user', :resource_id)"
+                );
+                $auditOwner->execute([
+                    ':actor' => $siteOwnerId,
+                    ':subject' => $siteOwnerId,
+                    ':resource_id' => (string)$siteOwnerId,
+                ]);
 
                 // save site settings
                 $st = $pdo->prepare("REPLACE INTO settings (`key`, `value`, `autoload`) VALUES (?, ?, 1)");
@@ -279,6 +345,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     copy_demo_assets($demoAssetsDir, $publicDir);
                 }
 
+                $pdo->commit();
+
                 $written = @file_put_contents($envFile, $envContent, LOCK_EX);
                 if ($written === false) {
                     $manualEnv = $envContent;
@@ -288,6 +356,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $step = 4; // done
                 }
             } catch (Throwable $e) {
+                if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
                 $error = 'Gagal: ' . $e->getMessage();
             }
         }
@@ -360,19 +431,19 @@ if ($step === 1) {
     }
     $s = '<div class="steps"><span class="ok"></span><span class="on"></span><span></span></div>'
         . ($error ? '<div class="alert">' . h($error) . '</div>' : '<div class="alert ok">Database berhasil dibuat.</div>')
-        . '<p style="margin-bottom:16px;font-size:.875rem;color:#475569;">Konfigurasi situs dan akun admin pertama.</p>'
+        . '<p style="margin-bottom:16px;font-size:.875rem;color:#475569;">Konfigurasi situs dan akun Site Owner pertama.</p>'
         . '<form method="post"><input type="hidden" name="_step" value="2">' . $hfields
         . input('site_title','Judul Situs','text','','Nama website kamu')
         . input('site_description','Deskripsi Situs','text','','Tagline atau deskripsi singkat')
         . input('site_url','URL Situs','url','','Contoh: https://example.com')
         . '<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">'
-        . input('admin_email','Email Admin','email')
+        . input('admin_email','Email Site Owner','email')
         . '<div class="g2">'
-        . input('admin_user','Username Admin','text','','Nama akun untuk login')
-        . input('admin_name','Nama Lengkap Admin','text','','Nama yang akan ditampilkan')
+        . input('admin_user','Username Site Owner','text','','Nama akun untuk login')
+        . input('admin_name','Nama Lengkap Site Owner','text','','Nama yang akan ditampilkan')
         . '</div>'
-        . pass('admin_pass','Password Admin')
-        . '<label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:8px 0 0;"><input type="checkbox" name="install_demo" value="1" style="width:auto;margin:0"> Pasang konten demo (15 artikel + 3 halaman + kategori + menu)</label>'
+        . pass('admin_pass','Password Site Owner')
+        . '<label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:8px 0 0;"><input type="checkbox" name="install_demo" value="1" style="width:auto;margin:0"> Pasang konten demo (16 artikel + 3 halaman + kategori + menu)</label>'
         . '<div style="display:flex;gap:8px;margin-top:8px">'
         . '<a class="btn" href="/pondasi/" style="text-decoration:none;text-align:center;background:#94a3b8;flex:1">← Kembali</a>'
         . '<button class="btn" type="submit" style="flex:1">Selesai →</button></div></form>';

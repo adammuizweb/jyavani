@@ -9,7 +9,7 @@ require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], true);
+[$uid] = adiwira_require_login($pdo, true);
 
 if (!function_exists('adiwira_request_wants_json')) {
     function adiwira_request_wants_json(): bool {
@@ -61,133 +61,6 @@ if (!adiwira_csrf_validate($csrf)) {
     save_error_response(['CSRF invalid'], ADMIN_BASE_PATH . '/?page=admin/pages/index', 419);
 }
 
-// Sanitizer khusus author saja
-if (!function_exists('sanitize_author_html')) {
-    function sanitize_author_html(string $html): string {
-        $html = trim($html);
-        if ($html === '') return '';
-
-        $allowedTags = array_flip([
-            'p','br','hr',
-            'strong','b','em','i','u','s',
-            'blockquote','pre','code',
-            'h1','h2','h3','h4','h5','h6',
-            'ul','ol','li',
-            'a','img','figure','figcaption',
-            'table','thead','tbody','tfoot','tr','th','td',
-            'span','div'
-        ]);
-
-        $allowedAttrs = [
-            'a'   => ['href','title','target','rel'],
-            'img' => ['src','alt','title','width','height'],
-            'div' => ['class'],
-            'span'=> ['class'],
-            'p'   => ['class'],
-            'th'  => ['colspan','rowspan'],
-            'td'  => ['colspan','rowspan'],
-            '*'   => ['class'],
-        ];
-
-        $blockTags = ['script','style','iframe','object','embed','link','meta','form','svg','canvas'];
-
-        $prev = libxml_use_internal_errors(true);
-        $doc = new DOMDocument('1.0', 'UTF-8');
-        $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-
-        $xpath = new DOMXPath($doc);
-        foreach ($xpath->query('//comment()') as $c) {
-            $c->parentNode?->removeChild($c);
-        }
-
-        $walker = function(DOMNode $node) use (&$walker, $allowedTags, $allowedAttrs, $blockTags) {
-            if ($node->nodeType === XML_ELEMENT_NODE) {
-                $tag = strtolower($node->nodeName);
-
-                if (in_array($tag, $blockTags, true)) {
-                    $node->parentNode?->removeChild($node);
-                    return;
-                }
-
-                if (!isset($allowedTags[$tag])) {
-                    $parent = $node->parentNode;
-                    if ($parent) {
-                        while ($node->firstChild) {
-                            $parent->insertBefore($node->firstChild, $node);
-                        }
-                        $parent->removeChild($node);
-                    }
-                    return;
-                }
-
-                if ($node->hasAttributes()) {
-                    $toRemove = [];
-
-                    foreach (iterator_to_array($node->attributes) as $attr) {
-                        $name = strtolower($attr->name);
-                        $val  = (string)$attr->value;
-
-                        if (str_starts_with($name, 'on') || $name === 'style') {
-                            $toRemove[] = $attr->name;
-                            continue;
-                        }
-
-                        $allowedForTag = $allowedAttrs[$tag] ?? [];
-                        $allowedForAll = $allowedAttrs['*'] ?? [];
-
-                        if (!in_array($name, $allowedForTag, true) && !in_array($name, $allowedForAll, true)) {
-                            $toRemove[] = $attr->name;
-                            continue;
-                        }
-
-                        if (($tag === 'a' && $name === 'href') || ($tag === 'img' && $name === 'src')) {
-                            $v = trim($val);
-                            $ok = false;
-
-                            if ($v === '' || $v[0] === '#' || $v[0] === '/') $ok = true;
-                            if (!$ok && preg_match('#^https?://#i', $v)) $ok = true;
-                            if (!$ok && $tag === 'a' && preg_match('#^mailto:#i', $v)) $ok = true;
-                            if (!$ok && $tag === 'a' && preg_match('#^tel:#i', $v)) $ok = true;
-
-                            if (preg_match('#^(javascript:|data:|vbscript:)#i', $v)) $ok = false;
-                            if (!$ok) $toRemove[] = $attr->name;
-                        }
-                    }
-
-                    foreach ($toRemove as $r) {
-                        $node->removeAttribute($r);
-                    }
-
-                    if ($tag === 'a') {
-                        $t = strtolower((string)$node->getAttribute('target'));
-                        if ($t === '_blank') {
-                            $rel = trim((string)$node->getAttribute('rel'));
-                            foreach (['noopener', 'noreferrer'] as $n) {
-                                if (!preg_match('/\b'.preg_quote($n, '/').'\b/i', $rel)) {
-                                    $rel = trim($rel . ' ' . $n);
-                                }
-                            }
-                            $node->setAttribute('rel', $rel);
-                        }
-                    }
-                }
-            }
-
-            $children = [];
-            foreach ($node->childNodes as $ch) $children[] = $ch;
-            foreach ($children as $ch) $walker($ch);
-        };
-
-        $walker($doc);
-
-        $out = $doc->saveHTML() ?: '';
-        libxml_clear_errors();
-        libxml_use_internal_errors($prev);
-
-        return trim($out);
-    }
-}
-
 if (!function_exists('parse_dt_jkt')) {
     function parse_dt_jkt(string $s): ?string {
         $s = trim($s);
@@ -219,9 +92,9 @@ $created_at_in = trim((string)($_POST['created_at'] ?? ''));
 $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 $created_by_in = (int)($_POST['created_by'] ?? 0);
 $return_to     = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), '<?= ADMIN_BASE_PATH ?>/?page=admin/pages/index')
-    : '<?= ADMIN_BASE_PATH ?>/?page=admin/pages/index';
-$edit_return   = '/adiwira/??' . http_build_query([
+    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), ADMIN_BASE_PATH . '/?page=admin/pages/index')
+    : ADMIN_BASE_PATH . '/?page=admin/pages/index';
+$edit_return   = ADMIN_BASE_PATH . '/?' . http_build_query([
     'page'      => 'admin/pages/edit',
     'id'        => $id,
     'return_to' => $return_to,
@@ -236,10 +109,7 @@ if ($title === '') {
     $errors[] = __('Title is required.');
 }
 
-// hanya author yang disanitasi
-if ($role === 'author') {
-    $content = sanitize_author_html($content);
-}
+if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
 
 if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
     $content = normalize_links_in_html($content);
@@ -260,7 +130,7 @@ if ($slug === '') {
 
 // existing page
 $st = $pdo->prepare("
-    SELECT id, slug, created_by, created_at, meta
+    SELECT id, slug, status, created_by, created_at, meta
     FROM posts
     WHERE id = :id
       AND type = 'page'
@@ -274,11 +144,16 @@ if (!$existing) {
     $errors[] = __('Page not found.');
 }
 
-// admin bebas, author/editor hanya miliknya sendiri
-if (empty($errors) && $role !== 'admin') {
-    if ((int)($existing['created_by'] ?? 0) !== $uid) {
-        $errors[] = __('Access denied: you can only save your own pages.');
-    }
+if (empty($errors) && !user_can($pdo, $uid, 'core.pages.update', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
+    $errors[] = __('Access denied.');
+}
+if (empty($errors) && ((string)($existing['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+    && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
+    $errors[] = __('Access denied.');
+}
+if (empty($errors) && ($created_at_in !== '' || $updated_at_in !== '')
+    && !user_can($pdo, $uid, 'core.pages.change_dates', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
+    $errors[] = __('Access denied.');
 }
 
 // unique slug
@@ -288,7 +163,7 @@ if (empty($errors)) {
         FROM posts
         WHERE slug = :slug
           AND id != :id
-          AND type = 'page'
+          AND type IN ('article', 'page', 'theme')
           AND is_deleted = 0
         LIMIT 1
     ");
@@ -310,25 +185,16 @@ if (!empty($errors)) {
 $final_created = (string)($existing['created_at'] ?? $now);
 $final_updated = $now;
 
-// hanya admin boleh override timestamp
-if ($role === 'admin') {
-    $pc = parse_dt_jkt($created_at_in);
-    $pu = parse_dt_jkt($updated_at_in);
+$pc = $created_at_in !== '' ? parse_dt_jkt($created_at_in) : null;
+$pu = $updated_at_in !== '' ? parse_dt_jkt($updated_at_in) : null;
+if ($created_at_in !== '' && $pc === null) save_error_response([__('Invalid Created At format.')], $edit_return, 400);
+if ($updated_at_in !== '' && $pu === null) save_error_response([__('Invalid Updated At format.')], $edit_return, 400);
+if ($pc) $final_created = $pc;
+if ($pu) $final_updated = $pu;
 
-    if ($created_at_in !== '' && $pc === null) {
-        save_error_response(['Format Created At tidak valid.'], $edit_return, 400);
-    }
-    if ($updated_at_in !== '' && $pu === null) {
-        save_error_response(['Format Updated At tidak valid.'], $edit_return, 400);
-    }
-
-    if ($pc) $final_created = $pc;
-    if ($pu) $final_updated = $pu;
-}
-
-// hanya admin boleh ganti creator
 $final_creator = (int)($existing['created_by'] ?? $uid);
-if ($role === 'admin' && $created_by_in > 0) {
+if ($created_by_in > 0 && $created_by_in !== $final_creator
+    && user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $final_creator])) {
     $chk = $pdo->prepare("
         SELECT id
         FROM users
@@ -338,9 +204,12 @@ if ($role === 'admin' && $created_by_in > 0) {
         LIMIT 1
     ");
     $chk->execute([':id' => $created_by_in]);
-    if ($chk->fetchColumn()) {
+    if ($chk->fetchColumn() && user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $created_by_in])) {
         $final_creator = $created_by_in;
     }
+    else save_error_response([__('Author not found.')], $edit_return, 400);
+} elseif ($created_by_in > 0 && $created_by_in !== $final_creator) {
+    save_error_response([__('Access denied.')], $edit_return, 403);
 }
 
 $sidebarOverride = (string)($_POST['sidebar_override'] ?? '');
@@ -364,9 +233,46 @@ if ($metaDescription !== '') {
     }
 }
 $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNICODE) : null;
+$requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $uid, $requiresDatePermission, $created_at_in): void {
+    $pdo->beginTransaction();
+    try {
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
+    if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
+    $lock = $pdo->prepare("SELECT created_by, status, created_at FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $lockedPage = $lock->fetch(PDO::FETCH_ASSOC);
+    $lockedOwnerId = (int)($lockedPage['created_by'] ?? 0);
+    if (!authorization_lock_owner_contexts($pdo, [$lockedOwnerId])) throw new DomainException('Page owner context lock failed.');
+    if (!$lockedPage || !user_can($pdo, $uid, 'core.pages.update', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Page update permission changed.');
+    }
+    if (((string)($lockedPage['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+        && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Page publish permission changed.');
+    }
+    if ($requiresDatePermission && !user_can($pdo, $uid, 'core.pages.change_dates', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Page date permission changed.');
+    }
+    if ($final_creator !== $lockedOwnerId
+        && !user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $lockedOwnerId])) {
+        throw new DomainException('Page owner permission changed.');
+    }
+    if ($final_creator !== $lockedOwnerId
+        && !user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $final_creator])) {
+        throw new DomainException('Page owner target permission changed.');
+    }
+    if ($final_creator !== $lockedOwnerId) {
+        $ownerLock = $pdo->prepare('SELECT id FROM users WHERE id = :id AND is_deleted = 0 AND is_locked = 0 FOR UPDATE');
+        $ownerLock->execute([':id' => $final_creator]);
+        if (!$ownerLock->fetchColumn()) throw new DomainException('Page owner target changed.');
+    }
+    $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND id != :id AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
+    $slugLock->execute([':slug' => $slug, ':id' => $id]);
+    if ($slugLock->fetchColumn()) throw new DomainException('Page slug changed.');
+    $effectiveCreatedAt = $created_at_in !== '' ? $final_created : (string)$lockedPage['created_at'];
     $upd = $pdo->prepare("
         UPDATE posts
         SET title      = :title,
@@ -392,13 +298,18 @@ try {
         ':status'     => $status,
         ':meta'       => $finalMeta,
         ':created_by' => $final_creator,
-        ':created_at' => $final_created,
+        ':created_at' => $effectiveCreatedAt,
         ':updated_at' => $final_updated,
         ':id'         => $id,
     ]);
 
     if (!$ok) {
         throw new RuntimeException('DB update failed.');
+    }
+    $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
     }
     });
 

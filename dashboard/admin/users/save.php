@@ -10,7 +10,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['admin'], false);
+[$uid, $role] = adiwira_require_login($pdo, false);
 
 $errors = [];
 
@@ -25,6 +25,8 @@ $id = (int)($_GET['id'] ?? ($_POST['id'] ?? 0));
 $editing = $id > 0;
 
 $user = null;
+$currentActor = authorization_actor($pdo, $uid);
+$actorIsSiteOwner = $currentActor !== null && $currentActor['is_site_owner'] === true;
 if ($editing) {
     $stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
     $stmt->execute([':id' => $id]);
@@ -33,6 +35,41 @@ if ($editing) {
         http_response_code(404);
         echo '<p>' . __('User not found.') . '</p>';
         return;
+    }
+    if ((int)($user['is_site_owner'] ?? 0) === 1 && !$actorIsSiteOwner) {
+        adiwira_render_404();
+    }
+}
+$targetIsSiteOwner = $editing && (int)($user['is_site_owner'] ?? 0) === 1;
+$credentialsProtected = $targetIsSiteOwner || ($editing && $id === $uid);
+if ($editing) {
+    if (!user_can($pdo, $uid, 'core.users.update', ['owner_id' => $id])) {
+        adiwira_render_404();
+    }
+} elseif (!$actorIsSiteOwner || !user_can($pdo, $uid, 'core.users.create')) {
+    adiwira_render_404();
+}
+$availableRoles = $pdo->query(
+    'SELECT id, slug, name, description, authority_rank, is_system
+     FROM roles
+     ORDER BY authority_rank DESC, name ASC'
+)->fetchAll(PDO::FETCH_ASSOC);
+$availableRoleIds = array_map('intval', array_column($availableRoles, 'id'));
+$assignedRoleIds = [];
+if ($editing) {
+    $assignedStmt = $pdo->prepare(
+        'SELECT role_id FROM user_roles
+         WHERE user_id = :user_id AND (expires_at IS NULL OR expires_at > NOW())
+         ORDER BY role_id'
+    );
+    $assignedStmt->execute([':user_id' => $id]);
+    $assignedRoleIds = array_map('intval', $assignedStmt->fetchAll(PDO::FETCH_COLUMN));
+} else {
+    foreach ($availableRoles as $availableRole) {
+        if ((string)$availableRole['slug'] === 'author') {
+            $assignedRoleIds = [(int)$availableRole['id']];
+            break;
+        }
     }
 }
 
@@ -55,7 +92,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $name = trim((string)($_POST['name'] ?? ''));
     $plain_password = trim((string)($_POST['password'] ?? ''));
     $password_confirm = trim((string)($_POST['password_confirm'] ?? ''));
-    $role_input = trim((string)($_POST['role'] ?? 'author'));
+    $postedRoleIds = $_POST['role_ids'] ?? [];
+    $selectedRoleIds = is_array($postedRoleIds)
+        ? array_values(array_unique(array_filter(array_map('intval', $postedRoleIds), static fn(int $roleId): bool => $roleId > 0)))
+        : [];
+    if ($targetIsSiteOwner || !$actorIsSiteOwner) {
+        $selectedRoleIds = $assignedRoleIds;
+    }
+    if ($credentialsProtected) {
+        $email = (string)($user['email'] ?? '');
+        $plain_password = '';
+        $password_confirm = '';
+    }
     $img_url = trim((string)($_POST['img_url'] ?? ''));
     $bio   = trim((string)($_POST['bio'] ?? ''));
     $phone = trim((string)($_POST['phone'] ?? ''));
@@ -102,8 +150,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    if (!in_array($role_input, ['author','editor','admin'], true)) {
-        $role_input = 'author';
+    if ($selectedRoleIds === []) {
+        $errors[] = __('Select at least one role.');
+    } elseif (array_diff($selectedRoleIds, $availableRoleIds) !== []) {
+        $errors[] = __('An unknown role was selected.');
+    } elseif ($actorIsSiteOwner && !authorization_actor_can_assign_roles($pdo, $uid, $selectedRoleIds)) {
+        $errors[] = __('You cannot assign a role above your authority rank.');
     }
 
     if ($plain_password !== '') {
@@ -129,84 +181,144 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    if (empty($errors)) {
-        if ($editing) {
-            $sql = "UPDATE users 
-                    SET email = :email,
-                        username = :username,
-                        name = :name,
-                        bio = :bio,
-                        phone = :phone,
-                        role = :role,
-                        img = :img,
-                        updated_at = NOW()
-                    WHERE id = :id
-                    LIMIT 1";
-            $params = [
-                ':email' => $email,
-                ':username' => $username ?: null,
-                ':name'  => $name ?: null,
-                ':bio'   => $bio,
-                ':phone' => $phone,
-                ':role'  => $role_input,
-                ':img'   => $img_url ?: null,
-                ':id'    => $id,
-            ];
+    if (!$editing && $plain_password === '') {
+        $errors[] = __('Password harus diisi untuk membuat user baru.');
+    }
 
-            if ($plain_password !== '') {
-                $hash = password_hash($plain_password, PASSWORD_DEFAULT);
-                $sql = "UPDATE users 
+    if (empty($errors)) {
+        try {
+            $pdo->beginTransaction();
+            $targetUserId = $id;
+            $assignRoles = $actorIsSiteOwner;
+            if ($assignRoles && !authorization_lock_site_owner_actor($pdo, $uid)) {
+                throw new RuntimeException('Site Owner authorization changed.');
+            }
+
+            if ($editing) {
+                $activeOwnerIds = array_map('intval', $pdo->query(
+                    'SELECT id
+                     FROM users
+                     WHERE is_site_owner = 1 AND is_deleted = 0 AND is_locked = 0
+                     FOR UPDATE'
+                )->fetchAll(PDO::FETCH_COLUMN));
+                $targetLock = $pdo->prepare(
+                    'SELECT id, is_site_owner FROM users WHERE id = :id AND is_deleted = 0 FOR UPDATE'
+                );
+                $targetLock->execute([':id' => $id]);
+                $lockedTarget = $targetLock->fetch(PDO::FETCH_ASSOC);
+                if (!$lockedTarget) {
+                    throw new RuntimeException('User is no longer available.');
+                }
+                if (((int)$lockedTarget['is_site_owner'] === 1) !== $targetIsSiteOwner) {
+                    throw new RuntimeException('Site Owner state changed; reload before editing.');
+                }
+                if ((int)$lockedTarget['is_site_owner'] === 1 && !in_array($uid, $activeOwnerIds, true)) {
+                    throw new RuntimeException('Only a Site Owner can update this account.');
+                }
+                if (!user_can($pdo, $uid, 'core.users.update', ['owner_id' => $id])) {
+                    throw new RuntimeException('User update permission changed.');
+                }
+                if ((int)$lockedTarget['is_site_owner'] === 1) {
+                    $assignRoles = false;
+                }
+
+                $sql = "UPDATE users
                         SET email = :email,
                             username = :username,
                             name = :name,
                             bio = :bio,
                             phone = :phone,
-                            role = :role,
-                            password = :password,
                             img = :img,
                             updated_at = NOW()
                         WHERE id = :id
                         LIMIT 1";
-                $params[':password'] = $hash;
-            }
+                $params = [
+                    ':email' => $email,
+                    ':username' => $username ?: null,
+                    ':name' => $name ?: null,
+                    ':bio' => $bio,
+                    ':phone' => $phone,
+                    ':img' => $img_url ?: null,
+                    ':id' => $id,
+                ];
 
-            $stmtUpd = $pdo->prepare($sql);
-            if ($stmtUpd->execute($params)) {
-                if ($id === $uid) {
-                    $_SESSION['user_role'] = $role_input;
+                if ($plain_password !== '') {
+                    $sql = "UPDATE users
+                            SET email = :email,
+                                username = :username,
+                                name = :name,
+                                bio = :bio,
+                                phone = :phone,
+                                password = :password,
+                                img = :img,
+                                updated_at = NOW()
+                            WHERE id = :id
+                            LIMIT 1";
+                    $params[':password'] = password_hash($plain_password, PASSWORD_DEFAULT);
                 }
-                adiwira_redirect_with_flash($return_to, 'success', __('User updated successfully.'));
+
+                $stmtUpd = $pdo->prepare($sql);
+                if (!$stmtUpd->execute($params)) {
+                    throw new RuntimeException('User update failed.');
+                }
             } else {
-                $errors[] = __('Failed to update user.');
-            }
-        } else {
-            if ($plain_password === '') {
-                $errors[] = __('Password harus diisi untuk membuat user baru.');
-            } else {
-                $hash = password_hash($plain_password, PASSWORD_DEFAULT);
                 $stmtIns = $pdo->prepare("
                     INSERT INTO users
                     (email, username, password, name, bio, phone, role, img, is_locked, created_at, updated_at)
                     VALUES
-                    (:email, :username, :password, :name, :bio, :phone, :role, :img, 0, NOW(), NOW())
+                    (:email, :username, :password, :name, :bio, :phone, 'none', :img, 0, NOW(), NOW())
                 ");
-                $ok = $stmtIns->execute([
+                if (!$stmtIns->execute([
                     ':email' => $email,
                     ':username' => $username ?: null,
-                    ':password' => $hash,
+                    ':password' => password_hash($plain_password, PASSWORD_DEFAULT),
                     ':name' => $name ?: null,
                     ':bio' => $bio,
                     ':phone' => $phone,
-                    ':role' => $role_input,
                     ':img' => $img_url ?: null,
-                ]);
+                ])) {
+                    throw new RuntimeException('User insert failed.');
+                }
+                $targetUserId = (int)$pdo->lastInsertId();
+            }
 
-                if ($ok) {
-                    adiwira_redirect_with_flash($return_to, 'success', __('New user created successfully.'));
-                } else {
-                    $errors[] = __('Failed to create new user.');
+            if ($assignRoles) {
+                if (!authorization_actor_can_assign_roles($pdo, $uid, $selectedRoleIds)) {
+                    throw new RuntimeException('Role assignment exceeds actor authority.');
+                }
+                if (!authorization_assign_roles($pdo, $targetUserId, $selectedRoleIds, $uid)) {
+                    throw new RuntimeException('Role assignment failed.');
+                }
+                if (!authorization_audit(
+                    $pdo,
+                    'role.assigned',
+                    $uid,
+                    $targetUserId,
+                    'user',
+                    (string)$targetUserId,
+                    ['role_ids' => $selectedRoleIds]
+                )) {
+                    throw new RuntimeException('Role assignment audit failed.');
                 }
             }
+
+            $pdo->commit();
+            if ($targetUserId === $uid) {
+                $legacyRoleStmt = $pdo->prepare('SELECT role FROM users WHERE id = :id');
+                $legacyRoleStmt->execute([':id' => $targetUserId]);
+                $_SESSION['user_role'] = (string)($legacyRoleStmt->fetchColumn() ?: 'none');
+            }
+            adiwira_redirect_with_flash(
+                $return_to,
+                'success',
+                $editing ? __('User updated successfully.') : __('New user created successfully.')
+            );
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('[users/save] ' . $e->getMessage());
+            $errors[] = $editing ? __('Failed to update user.') : __('Failed to create new user.');
         }
     }
 }
@@ -263,7 +375,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
       <div class="profile-fields">
         <label><?=_e('Email')?><br>
-          <input type="email" name="email" value="<?= htmlspecialchars($_POST['email'] ?? $user['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
+          <?php if ($credentialsProtected): ?><input type="hidden" name="email" value="<?= htmlspecialchars((string)($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
+          <input type="email" name="<?= $credentialsProtected ? 'protected_email' : 'email' ?>" value="<?= htmlspecialchars($_POST['email'] ?? $user['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" <?= $credentialsProtected ? 'disabled' : '' ?> style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;<?= $credentialsProtected ? 'background:#f2f4f7' : '' ?>">
         </label>
 
         <label><?=_e('Username')?><br>
@@ -283,6 +396,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <textarea name="bio" rows="4" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? $user['bio'] ?? $initial_bio, ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
 
+        <?php if (!$credentialsProtected): ?>
         <label><?=_e('Password')?> <?= $editing ? '<small style="color:#888">' . __('(leave blank to keep current)') . '</small>' : '<small style="color:red">*</small>' ?><br>
           <span class="pw-wrap">
             <input type="password" name="password" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
@@ -291,7 +405,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             </button>
           </span>
         </label>
-
         <label><?=_e('Confirm Password')?><br>
           <span class="pw-wrap">
             <input type="password" name="password_confirm" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
@@ -300,15 +413,47 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             </button>
           </span>
         </label>
+        <?php else: ?>
+          <div style="padding:.7rem;border:1px solid #e4e7ec;border-radius:7px;color:#667085"><?= $targetIsSiteOwner
+              ? _e('Site Owner email and password can only be changed from their own Profile with current-password verification.')
+              : _e('Change your own email or password from Profile with current-password verification.') ?></div>
+        <?php endif; ?>
 
-        <label><?=_e('Role')?><br>
-          <?php $curRole = $_POST['role'] ?? $user['role'] ?? 'author'; ?>
-          <select name="role" style="width:100%;padding:.45rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-            <option value="author" <?= $curRole === 'author' ? 'selected' : '' ?>>author</option>
-            <option value="editor" <?= $curRole === 'editor' ? 'selected' : '' ?>>editor</option>
-            <option value="admin" <?= $curRole === 'admin' ? 'selected' : '' ?>>admin</option>
-          </select>
-        </label>
+        <?php
+          $displayRoleIds = isset($_POST['role_ids']) && is_array($_POST['role_ids'])
+              ? array_map('intval', $_POST['role_ids'])
+              : $assignedRoleIds;
+          $rolesProtected = $targetIsSiteOwner || !$actorIsSiteOwner;
+          if ($rolesProtected) $displayRoleIds = $assignedRoleIds;
+        ?>
+        <fieldset style="border:1px solid #ddd;border-radius:8px;padding:.85rem;margin:0;">
+          <legend style="font-weight:700;padding:0 .35rem"><?= _e('Roles') ?></legend>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.55rem;">
+            <?php foreach ($availableRoles as $availableRole):
+              $availableRoleId = (int)$availableRole['id'];
+              $checked = in_array($availableRoleId, $displayRoleIds, true);
+            ?>
+              <label style="display:flex;gap:.55rem;align-items:flex-start;padding:.65rem;border:1px solid #e4e7ec;border-radius:7px;cursor:<?= $rolesProtected ? 'default' : 'pointer' ?>;">
+                <input type="checkbox" name="role_ids[]" value="<?= $availableRoleId ?>" <?= $checked ? 'checked' : '' ?> <?= $rolesProtected ? 'disabled' : '' ?>>
+                <span style="display:flex;flex-direction:column;gap:.15rem;min-width:0;">
+                  <strong><?= htmlspecialchars((string)$availableRole['name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                  <code style="font-size:11px;color:#667085;overflow-wrap:anywhere"><?= htmlspecialchars((string)$availableRole['slug'], ENT_QUOTES, 'UTF-8') ?></code>
+                  <?php if (!empty($availableRole['description'])): ?><small style="color:#667085"><?= htmlspecialchars((string)$availableRole['description'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?>
+                </span>
+              </label>
+              <?php if ($rolesProtected && $checked): ?>
+                <input type="hidden" name="role_ids[]" value="<?= $availableRoleId ?>">
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+          <?php if ($targetIsSiteOwner): ?>
+            <div style="font-size:12px;color:#666;margin-top:7px"><?= _e('Site Owner role assignments are protected. Revoke Site Owner access before changing roles.') ?></div>
+          <?php elseif (!$actorIsSiteOwner): ?>
+            <div style="font-size:12px;color:#666;margin-top:7px"><?= _e('Only a Site Owner can change role assignments.') ?></div>
+          <?php else: ?>
+            <div style="font-size:12px;color:#666;margin-top:7px"><a href="<?= htmlspecialchars($base . '/?page=admin/users/roles/index', ENT_QUOTES, 'UTF-8') ?>"><?= _e('Manage Roles & Permissions') ?></a></div>
+          <?php endif; ?>
+        </fieldset>
 
         <div style="margin-top:1.5rem;">
           <button type="submit" class="adam-button"><?= $editing ? _e('Save Changes') : _e('Create User') ?></button>

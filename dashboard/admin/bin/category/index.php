@@ -11,7 +11,30 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../../_guard.php';
 require_once __DIR__ . '/../../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_login($pdo, false);
+$restoreCondition = authorization_owner_scope_condition(
+    $pdo,
+    $uid,
+    'core.categories.restore',
+    'c.created_by',
+    'category_restore'
+);
+$purgeCondition = authorization_owner_scope_condition(
+    $pdo,
+    $uid,
+    'core.categories.purge',
+    'c.created_by',
+    'category_purge'
+);
+if ($restoreCondition === null && $purgeCondition === null) {
+    adiwira_render_404();
+}
+$accessConditions = array_values(array_filter([$restoreCondition, $purgeCondition]));
+$accessSql = implode(' OR ', array_map(static fn(array $condition): string => '(' . $condition['sql'] . ')', $accessConditions));
+$accessParams = [];
+foreach ($accessConditions as $condition) {
+    $accessParams = array_merge($accessParams, $condition['params']);
+}
 
 // fallback bila masih ada route lama kirim ?msg= / ?err=
 $page_toasts = function_exists('adiwira_collect_query_toasts')
@@ -30,12 +53,8 @@ $offset   = ($page_num - 1) * $per_page;
 
 // where
 $where  = ["c.is_deleted = 1"];
-$params = [];
-
-if ($role === 'author') {
-    $where[] = "c.created_by = :uid";
-    $params[':uid'] = $uid;
-}
+$where[] = '(' . $accessSql . ')';
+$params = $accessParams;
 
 if ($search !== '') {
     $where[] = "(c.name LIKE :search OR c.slug LIKE :search)";
@@ -64,17 +83,14 @@ $pages = max(1, (int)ceil($total / $per_page));
 // data
 $sql = "
 SELECT
-  c.id, c.name, c.slug, c.parent_id, c.created_at, c.deleted_at,
+  c.id, c.name, c.slug, c.parent_id, c.created_by, c.created_at, c.deleted_at,
   COALESCE(NULLIF(u.name,''), NULLIF(u.username,''), CAST(u.id AS CHAR)) AS created_by_label,
   p2.name AS parent_name,
-  SUM(CASE WHEN p.id IS NOT NULL AND p.is_deleted = 0 AND p.type = 'article' THEN 1 ELSE 0 END) AS post_count
+  p2.created_by AS parent_created_by
 FROM categories c
 LEFT JOIN categories p2 ON p2.id = c.parent_id
-LEFT JOIN post_categories pc ON pc.category_id = c.id
-LEFT JOIN posts p ON p.id = pc.post_id
 LEFT JOIN users u ON u.id = c.created_by
 WHERE $where_sql
-GROUP BY c.id
 ORDER BY c.deleted_at DESC, c.id DESC
 LIMIT :limit OFFSET :offset
 ";
@@ -88,11 +104,16 @@ $stmt->execute();
 $cats = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 // parent options (deleted + active agar filter nyaman)
-$optStmt = $pdo->query("
-    SELECT id, name, parent_id, is_deleted
-    FROM categories
-    ORDER BY COALESCE(parent_id,0) ASC, name ASC
+$optStmt = $pdo->prepare("
+    SELECT c.id, c.name, c.parent_id, c.is_deleted, c.created_by,
+           COALESCE(NULLIF(u.name,''), NULLIF(u.username,''), CAST(u.id AS CHAR)) AS created_by_label
+    FROM categories c
+    LEFT JOIN users u ON u.id = c.created_by
+    WHERE c.is_deleted = 1
+      AND ($accessSql)
+    ORDER BY COALESCE(c.parent_id,0) ASC, c.name ASC
 ");
+$optStmt->execute($accessParams);
 $optAll = $optStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 $children = [];
@@ -102,6 +123,13 @@ foreach ($optAll as $r) {
     $pid = (int)($r['parent_id'] ?? 0);
     $byId[$id] = $r;
     $children[$pid][] = $id;
+}
+$visibleOptionIds = array_fill_keys(array_keys($byId), true);
+foreach ($children as $parentId => $childIds) {
+    if ($parentId > 0 && !isset($visibleOptionIds[$parentId])) {
+        $children[0] = array_merge($children[0] ?? [], $childIds);
+        unset($children[$parentId]);
+    }
 }
 
 $parentOptions = [];
@@ -128,14 +156,17 @@ $buildOpt = function($pid, $depth) use (&$buildOpt, &$children, &$byId, &$parent
 };
 $buildOpt(0, 0);
 
-// authors
-$authorsStmt = $pdo->query("
-    SELECT id, name, username
-    FROM users
-    WHERE is_deleted = 0
-    ORDER BY name ASC, username ASC
-");
-$authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+// Creator filters only expose identities attached to authorized trash rows.
+$authors = [];
+foreach ($optAll as $category) {
+    $creatorId = (int)($category['created_by'] ?? 0);
+    if ($creatorId <= 0 || isset($authors[$creatorId])) continue;
+    $authors[$creatorId] = [
+        'id' => $creatorId,
+        'label' => (string)($category['created_by_label'] ?? $creatorId),
+    ];
+}
+usort($authors, static fn(array $a, array $b): int => strcasecmp($a['label'], $b['label']));
 
 if (!function_exists('build_pagination_items')) {
     function build_pagination_items(int $current, int $total, int $max_visible = 9): array {
@@ -174,7 +205,9 @@ if (!function_exists('build_pagination_items')) {
 $paging_items = build_pagination_items($page_num, $pages, 9);
 
 $base = ADMIN_BASE_PATH;
-$canBulk = in_array($role, ['editor', 'admin'], true);
+$canRestore = $restoreCondition !== null;
+$canPurge = $purgeCondition !== null;
+$canBulk = $canRestore || $canPurge;
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/bin/category/index';
@@ -198,18 +231,14 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
       <?php endforeach; ?>
     </select>
 
-    <?php if ($role !== 'author'): ?>
       <select name="author" style="padding:.4rem;">
         <option value="0"><?= _e('-- All Creators --') ?></option>
-        <?php foreach ($authors as $a):
-          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-        ?>
+        <?php foreach ($authors as $a): ?>
           <option value="<?= (int)$a['id'] ?>" <?= $filter_author === (int)$a['id'] ? 'selected' : '' ?>>
-            <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
+            <?= htmlspecialchars((string)$a['label'], ENT_QUOTES, 'UTF-8') ?>
           </option>
         <?php endforeach; ?>
       </select>
-    <?php endif; ?>
 
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
@@ -230,9 +259,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </label>
 
         <select id="bulkActionBinCategory" name="action" style="padding:.4rem;">
-          <option value="">-- Bulk action --</option>
-          <option value="restore"><?=_e('Restore')?></option>
-          <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
+          <option value=""><?=_e('-- Bulk action --')?></option>
+          <?php if ($canRestore): ?><option value="restore"><?=_e('Restore')?></option><?php endif; ?>
+          <?php if ($canPurge): ?><option value="delete_permanent"><?=_e('Delete Permanently')?></option><?php endif; ?>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -247,7 +276,6 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               <th><?= _e('Name') ?></th>
               <th><?=_e('Slug')?></th>
               <th><?=_e('Parent')?></th>
-              <th><?=_e('Posts')?></th>
               <th><?=_e('Deleted')?></th>
               <th><?=_e('Creator')?></th>
               <th><?= _e('Actions') ?></th>
@@ -255,35 +283,40 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           </thead>
           <tbody>
           <?php if (empty($cats)): ?>
-            <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
+            <tr><td colspan="7" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
           <?php else: ?>
-            <?php foreach ($cats as $c): ?>
+            <?php foreach ($cats as $c):
+              $categoryOwnerId = (int)($c['created_by'] ?? 0);
+              $canRestoreCategory = user_can($pdo, $uid, 'core.categories.restore', ['owner_id' => $categoryOwnerId]);
+              $canPurgeCategory = user_can($pdo, $uid, 'core.categories.purge', ['owner_id' => $categoryOwnerId]);
+              $canReadParent = (int)($c['parent_id'] ?? 0) > 0
+                && user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($c['parent_created_by'] ?? 0)]);
+            ?>
               <tr class="adam-row">
                 <td style="text-align:center;">
-                  <input type="checkbox" class="bulkCheckboxBinCategory" name="ids[]" value="<?= (int)$c['id'] ?>">
+                  <?php if ($canRestoreCategory || $canPurgeCategory): ?><input type="checkbox" class="bulkCheckboxBinCategory" name="ids[]" value="<?= (int)$c['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
                 <td style="font-weight:600;"><?= htmlspecialchars((string)($c['name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars((string)($c['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= htmlspecialchars((string)($c['parent_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                <td><?= (int)($c['post_count'] ?? 0) ?></td>
+                <td><?= htmlspecialchars($canReadParent ? (string)($c['parent_name'] ?? '-') : '-', ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars(!empty($c['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$c['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars((string)($c['created_by_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                 <td>
-                  <button type="button"
+                  <?php if ($canRestoreCategory): ?><button type="button"
                           class="adam-link-button js-bin-category-restore"
                           data-id="<?= (int)$c['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                     <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
-                  </button>
-                  &nbsp;<span class="muted-divider">|</span>&nbsp;
-                  <button type="button"
+                  </button><?php endif; ?>
+                  <?php if ($canRestoreCategory && $canPurgeCategory): ?>&nbsp;<span class="muted-divider">|</span>&nbsp;<?php endif; ?>
+                  <?php if ($canPurgeCategory): ?><button type="button"
                           class="adam-link-button js-bin-category-delete-permanent"
                           data-id="<?= (int)$c['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                     <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
-                  </button>
+                  </button><?php endif; ?>
                 </td>
               </tr>
             <?php endforeach; ?>
@@ -292,61 +325,6 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </table>
       </div>
     </form>
-  <?php else: ?>
-    <div style="margin-bottom:1rem;color:var(--adam-muted);">
-      <?=_e('Bulk actions hidden for')?> <strong>author</strong> <?=_e('role.')?>
-    </div>
-
-    <div class="adam-table-wrapper">
-      <table class="adam-table" style="margin-top:.5rem;">
-        <thead>
-          <tr>
-            <th style="width:40px"></th>
-            <th><?= _e('Name') ?></th>
-            <th><?=_e('Slug')?></th>
-            <th><?=_e('Parent')?></th>
-            <th><?=_e('Posts')?></th>
-            <th><?=_e('Deleted')?></th>
-            <th><?=_e('Creator')?></th>
-                <th><?= _e('Actions') ?></th>
-              </tr>
-            </thead>
-            <tbody>
-            <?php if (empty($cats)): ?>
-              <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
-            <?php else: ?>
-              <?php foreach ($cats as $c): ?>
-                <tr class="adam-row">
-                  <td style="text-align:center;">&mdash;</td>
-                  <td style="font-weight:600;"><?= htmlspecialchars((string)($c['name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                  <td><?= htmlspecialchars((string)($c['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                  <td><?= htmlspecialchars((string)($c['parent_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                  <td><?= (int)($c['post_count'] ?? 0) ?></td>
-                  <td><?= htmlspecialchars(!empty($c['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$c['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
-                  <td><?= htmlspecialchars((string)($c['created_by_label'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-                  <td>
-                    <button type="button"
-                            class="adam-link-button js-bin-category-restore"
-                            data-id="<?= (int)$c['id'] ?>"
-                            data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                            data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                      <?=_e('Restore')?>
-                    </button>
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
-                <button type="button"
-                        class="adam-link-button js-bin-category-delete-permanent"
-                        data-id="<?= (int)$c['id'] ?>"
-                        data-title="<?= htmlspecialchars((string)($c['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?=_e('Delete Permanently')?>
-                </button>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
   <?php endif; ?>
 
   <?php if ($pages > 1): ?>
@@ -371,17 +349,17 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     </nav>
   <?php endif; ?>
 
-  <form id="bin-category-restore-form" method="post" action="<?= htmlspecialchars($base . '/admin/bin/category/restore.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+  <?php if ($canRestore): ?><form id="bin-category-restore-form" method="post" action="<?= htmlspecialchars($base . '/admin/bin/category/restore.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" id="bin-category-restore-id">
     <input type="hidden" name="return_to" id="bin-category-restore-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-  </form>
+  </form><?php endif; ?>
 
-  <form id="bin-category-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/bin/category/delete_permanent.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+  <?php if ($canPurge): ?><form id="bin-category-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/bin/category/delete_permanent.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" id="bin-category-delete-id">
     <input type="hidden" name="return_to" id="bin-category-delete-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-  </form>
+  </form><?php endif; ?>
 </section>
 
 <?php

@@ -11,7 +11,14 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../../_guard.php';
 require_once __DIR__ . '/../../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_login($pdo, false);
+$restoreCondition = authorization_owner_scope_condition($pdo, $uid, 'core.pages.restore', 'p.created_by', 'page_restore');
+$purgeCondition = authorization_owner_scope_condition($pdo, $uid, 'core.pages.purge', 'p.created_by', 'page_purge');
+if ($restoreCondition === null && $purgeCondition === null) adiwira_render_404();
+$accessConditions = array_values(array_filter([$restoreCondition, $purgeCondition]));
+$accessSql = implode(' OR ', array_map(static fn(array $condition): string => '(' . $condition['sql'] . ')', $accessConditions));
+$accessParams = [];
+foreach ($accessConditions as $condition) $accessParams = array_merge($accessParams, $condition['params']);
 
 // fallback bila masih ada route lama kirim ?msg= / ?err=
 $page_toasts = function_exists('adiwira_collect_query_toasts')
@@ -20,7 +27,6 @@ $page_toasts = function_exists('adiwira_collect_query_toasts')
 
 // filters
 $filter_status = (string)($_GET['status'] ?? '');
-$filter_author = (string)($_GET['author'] ?? '');
 $search        = trim((string)($_GET['q'] ?? ''));
 
 // pagination
@@ -30,20 +36,8 @@ $offset   = ($page_num - 1) * $per_page;
 
 // where
 $where = ["p.is_deleted = 1", "p.type = 'page'"];
-$params = [];
-
-if ($role === 'author') {
-    $where[] = "p.created_by = :uid";
-    $params[':uid'] = $uid;
-} else {
-    if ($filter_author !== '') {
-        $aid = (int)$filter_author;
-        if ($aid > 0) {
-            $where[] = "p.created_by = :author_id";
-            $params[':author_id'] = $aid;
-        }
-    }
-}
+$where[] = '(' . $accessSql . ')';
+$params = $accessParams;
 
 if ($filter_status !== '') {
     $where[] = "p.status = :status";
@@ -57,18 +51,6 @@ if ($search !== '') {
 
 $where_sql = implode(' AND ', $where);
 
-// authors dropdown (untuk non-author)
-$authors = [];
-if ($role !== 'author') {
-    $authorsStmt = $pdo->query("
-        SELECT id, name, username
-        FROM users
-        WHERE is_deleted = 0
-        ORDER BY name ASC, username ASC
-    ");
-    $authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-}
-
 // count
 $count_sql = "SELECT COUNT(*) FROM posts p WHERE $where_sql";
 $totalStmt = $pdo->prepare($count_sql);
@@ -79,7 +61,7 @@ $pages = max(1, (int)ceil($total / $per_page));
 // data
 $sql = "
 SELECT
-  p.id, p.title, p.slug, p.status, p.created_at, p.deleted_at,
+  p.id, p.title, p.slug, p.status, p.created_at, p.deleted_at, p.created_by AS owner_id,
   u.id AS author_id,
   u.username AS author_username,
   COALESCE(NULLIF(u.name,''), NULLIF(u.username,''), CAST(u.id AS CHAR)) AS author_name
@@ -135,7 +117,9 @@ if (!function_exists('build_pagination_items')) {
 $paging_items = build_pagination_items($page_num, $pages, 9);
 
 $base = ADMIN_BASE_PATH;
-$canBulk = in_array($role, ['editor', 'admin'], true);
+$canRestore = $restoreCondition !== null;
+$canPurge = $purgeCondition !== null;
+$canBulk = $canRestore || $canPurge;
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/bin/page/index';
@@ -159,19 +143,6 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
       <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
     </select>
 
-    <?php if ($role !== 'author'): ?>
-      <select name="author" style="padding:.4rem;">
-        <option value=""><?= _e('-- All Authors --') ?></option>
-        <?php foreach ($authors as $a):
-          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-        ?>
-          <option value="<?= (int)$a['id'] ?>" <?= ((string)$filter_author === (string)$a['id']) ? 'selected' : '' ?>>
-            <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
-          </option>
-        <?php endforeach; ?>
-      </select>
-    <?php endif; ?>
-
     <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
     <a href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
 
@@ -192,8 +163,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
         <select id="bulkActionBinPage" name="action" style="padding:.4rem;">
         <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="restore"><?=_e('Restore')?></option>
-          <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
+        <?php if ($canRestore): ?><option value="restore"><?=_e('Restore')?></option><?php endif; ?>
+          <?php if ($canPurge): ?><option value="delete_permanent"><?=_e('Delete Permanently')?></option><?php endif; ?>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -220,6 +191,11 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         <?php else: ?>
           <?php foreach ($rows as $p): ?>
             <?php
+              $pageOwnerId = (int)($p['owner_id'] ?? 0);
+              $canPublishPage = user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $pageOwnerId]);
+              $canRestorePage = user_can($pdo, $uid, 'core.pages.restore', ['owner_id' => $pageOwnerId])
+                && ((string)($p['status'] ?? 'draft') === 'draft' || $canPublishPage);
+              $canPurgePage = user_can($pdo, $uid, 'core.pages.purge', ['owner_id' => $pageOwnerId]);
               $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
               $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
 
@@ -233,7 +209,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             ?>
             <tr class="adam-row">
               <td style="text-align:center;">
-                <input type="checkbox" class="bulkCheckboxBinPage" name="ids[]" value="<?= (int)$p['id'] ?>">
+                <?php if ($canRestorePage || $canPurgePage): ?><input type="checkbox" class="bulkCheckboxBinPage" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
               </td>
 
               <td>
@@ -270,23 +246,23 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               </td>
 
               <td>
-                <button type="button"
+                <?php if ($canRestorePage): ?><button type="button"
                         class="adam-link-button js-bin-page-restore"
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                   <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
-                </button>
+                </button><?php endif; ?>
 
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
+                <?php if ($canRestorePage && $canPurgePage): ?>&nbsp;<span class="muted-divider">|</span>&nbsp;<?php endif; ?>
 
-                <button type="button"
+                <?php if ($canPurgePage): ?><button type="button"
                         class="adam-link-button js-bin-page-delete-permanent"
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                   <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
-                </button>
+                </button><?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -295,103 +271,6 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
       </table>
     </div>
   </form>
-<?php else: ?>
-    <div style="margin-bottom:1rem;color:var(--adam-muted);">
-      <?=_e('Bulk actions hidden for')?> <strong>author</strong> <?=_e('role.')?>
-    </div>
-
-    <div class="adam-table-wrapper">
-      <table class="adam-table" style="margin-top:.5rem;">
-        <thead>
-          <tr>
-            <th style="width:40px"></th>
-            <th><?= _e('Title') ?></th>
-            <th><?=_e('Slug')?></th>
-            <th><?=_e('Status')?></th>
-            <th><?=_e('Deleted')?></th>
-            <th><?= _e('Created') ?></th>
-            <th><?= _e('Author') ?></th>
-            <th><?= _e('Actions') ?></th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php if (empty($rows)): ?>
-          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
-        <?php else: ?>
-          <?php foreach ($rows as $p): ?>
-            <?php
-              $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
-              $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
-
-              $icons = [
-                'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-                'draft'     => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-                'private'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-                'unknown'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9a2.5 2.5 0 1 1 5 1c0 1.5-1.5 1.75-1.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor"/></svg>',
-              ];
-              $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
-            ?>
-            <tr class="adam-row">
-              <td style="text-align:center;">&mdash;</td>
-
-              <td>
-                <div style="font-weight:600;">
-                  <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
-                </div>
-              </td>
-
-              <td><?= htmlspecialchars((string)($p['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-
-              <td>
-                <span class="adam-status <?= htmlspecialchars($statusClass, ENT_QUOTES, 'UTF-8') ?>"
-                      role="status" aria-label="<?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?>">
-                  <span class="adam-status-icon"><?= $iconSvg ?></span>
-                  <span class="adam-status-text"><?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?></span>
-                </span>
-              </td>
-
-              <td><?= htmlspecialchars(!empty($p['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
-
-              <td><?= htmlspecialchars(!empty($p['created_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['created_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
-
-              <td>
-                <?php
-                  $authorName = $p['author_name'] ?? '-';
-                  $authorUsername = trim((string)($p['author_username'] ?? ''));
-                  if ($authorUsername !== '') {
-                    $authorHref = '/author/' . rawurlencode($authorUsername) . '/';
-                    echo '<a class="adam-penulis" href="' . htmlspecialchars($authorHref, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8') . '</a>';
-                  } else {
-                    echo htmlspecialchars((string)$authorName, ENT_QUOTES, 'UTF-8');
-                  }
-                ?>
-              </td>
-
-              <td>
-                <button type="button"
-                        class="adam-link-button js-bin-page-restore"
-                        data-id="<?= (int)$p['id'] ?>"
-                        data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
-                </button>
-
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
-
-                <button type="button"
-                        class="adam-link-button js-bin-page-delete-permanent"
-                        data-id="<?= (int)$p['id'] ?>"
-                        data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
-                </button>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
   <?php endif; ?>
 
   <?php if ($pages > 1): ?>

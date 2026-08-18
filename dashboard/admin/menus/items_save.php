@@ -16,19 +16,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     exit;
 }
 
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    http_response_code(403);
-    echo json_encode(['ok' => false, 'error' => 'Access denied']);
-    exit;
-}
-
-$role = (string)($identity['role'] ?? 'guest');
-if (!in_array($role, ['editor', 'admin'], true)) {
-    http_response_code(403);
-    echo json_encode(['ok' => false, 'error' => 'Forbidden']);
-    exit;
-}
+adiwira_require_permission($pdo, 'core.menus.manage', true);
 
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input || !is_array($input)) {
@@ -54,6 +42,24 @@ if ($menuId <= 0) {
 $items = $input['items'] ?? [];
 if (!is_array($items)) {
     $items = [];
+}
+foreach ($items as $item) {
+    if (!is_array($item)) continue;
+    $urls = [];
+    if ((string)($item['type'] ?? '') === 'custom') {
+        $urls[] = (string)($item['url'] ?? '');
+    }
+    foreach ((array)($item['translations'] ?? []) as $translation) {
+        if (!is_array($translation)) continue;
+        $translatedUrl = trim((string)($translation['url'] ?? ''));
+        if ($translatedUrl !== '') $urls[] = $translatedUrl;
+    }
+    foreach ($urls as $url) {
+        if (function_exists('menu_url_is_safe') && menu_url_is_safe($url)) continue;
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => __('Invalid menu.')]);
+        exit;
+    }
 }
 
 try {
