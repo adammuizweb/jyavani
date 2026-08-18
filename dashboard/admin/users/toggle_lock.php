@@ -24,12 +24,6 @@ if (($identity['ok'] ?? false) !== true) {
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: admins only.'));
-}
-
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Token CSRF tidak valid.'));
@@ -44,6 +38,9 @@ if ($id <= 0) {
 
 if ($id === $uid) {
     adiwira_redirect_with_flash($returnTo, 'error', __('You cannot lock or unlock your own account.'));
+}
+if (!user_can($pdo, $uid, 'core.users.lock', ['owner_id' => $id])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 if (!in_array($mode, ['lock', 'unlock'], true)) {
@@ -65,33 +62,24 @@ if (!$user) {
 }
 
 $newLock = ($mode === 'lock') ? 1 : 0;
-
-$upd = $pdo->prepare("
-    UPDATE users
-    SET is_locked = :locked,
-        updated_at = NOW()
-    WHERE id = :id
-    LIMIT 1
-");
-
-try {
-    $ok = $upd->execute([
-        ':locked' => $newLock,
-        ':id' => $id,
-    ]);
-
-    if ($ok) {
-        adiwira_redirect_with_flash(
-            $returnTo,
-            'success',
-            ($newLock === 1)
-                ? __('User locked successfully.')
-                : __('User approved/unlocked successfully.')
-        );
-    }
-
-    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to update user status.'));
-} catch (Throwable $e) {
-    error_log('[users/toggle_lock] ' . $e->getMessage());
+$result = authorization_change_user_status($pdo, $id, $mode, $uid, null, 'core.users.lock');
+if ($result === 'last_site_owner') {
+    adiwira_redirect_with_flash($returnTo, 'error', __('The final active Site Owner cannot be locked.'));
+}
+if ($result === 'site_owner_required') {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Only a Site Owner can modify a Site Owner account.'));
+}
+if ($result === 'forbidden') {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+}
+if ($result !== 'ok') {
+    error_log('[users/toggle_lock] status=' . $result);
     adiwira_redirect_with_flash($returnTo, 'error', __('Failed to update user status.'));
 }
+adiwira_redirect_with_flash(
+    $returnTo,
+    'success',
+    ($newLock === 1)
+        ? __('User locked successfully.')
+        : __('User approved/unlocked successfully.')
+);

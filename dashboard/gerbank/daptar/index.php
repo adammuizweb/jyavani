@@ -149,37 +149,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->fetch()) {
             $errors[] = __('Email already registered');
         } else {
-            $hash = password_hash($pw, PASSWORD_DEFAULT);
+            try {
+                $pdo->beginTransaction();
+                $hash = password_hash($pw, PASSWORD_DEFAULT);
+                $isLocked = $registrationApproval ? 1 : 0;
+                $insert = $pdo->prepare("
+                    INSERT INTO users (
+                        email, username, password, name,
+                        role, is_deleted, is_locked,
+                        created_at, updated_at
+                    )
+                    VALUES (
+                        :email, :username, :password, :name,
+                        'none', 0, :is_locked,
+                        NOW(), NOW()
+                    )
+                ");
+                $insert->execute([
+                    ':email' => $email_norm,
+                    ':username' => $username_norm,
+                    ':password' => $hash,
+                    ':name' => ($name !== '' ? $name : null),
+                    ':is_locked' => $isLocked,
+                ]);
+                $newUserId = (int)$pdo->lastInsertId();
+                if (!authorization_assign_legacy_role($pdo, $newUserId, 'author')) {
+                    throw new RuntimeException('Default registration role is unavailable.');
+                }
+                if (!authorization_audit(
+                    $pdo,
+                    'role.assigned',
+                    null,
+                    $newUserId,
+                    'user',
+                    (string)$newUserId,
+                    ['legacy_role' => 'author', 'source' => 'registration']
+                )) {
+                    throw new RuntimeException('Registration role audit failed.');
+                }
+                $pdo->commit();
 
-            $isLocked = $registrationApproval ? 1 : 0;
-
-            $insert = $pdo->prepare("
-                INSERT INTO users (
-                    email, username, password, name,
-                    role, is_deleted, is_locked,
-                    created_at, updated_at
-                )
-                VALUES (
-                    :email, :username, :password, :name,
-                    'author', 0, :is_locked,
-                    NOW(), NOW()
-                )
-            ");
-
-            $ok = $insert->execute([
-                ':email'    => $email_norm,
-                ':username' => $username_norm,
-                ':password' => $hash,
-                ':name'     => ($name !== '' ? $name : null),
-                ':is_locked' => $isLocked,
-            ]);
-
-            if ($ok) {
                 $success = $registrationApproval
                     ? __('Registration successful. Your account has been created and is awaiting admin approval.')
                     : __('Registration successful. Please log in.');
                 $_POST = []; // bersihkan form
-            } else {
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                error_log('[registration] ' . $e->getMessage());
                 $errors[] = __('Failed to save user');
             }
         }

@@ -11,7 +11,9 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_permission_scope($pdo, 'core.pages.read', false);
+$readCondition = authorization_owner_scope_condition($pdo, $uid, 'core.pages.read', 'p.created_by', 'page_list_read');
+if ($readCondition === null) adiwira_render_404();
 
 // dukung query toast lama bila masih ada route lama yang kirim ?msg= / ?err=
 $page_toasts = function_exists('adiwira_collect_query_toasts')
@@ -30,13 +32,8 @@ $offset   = ($page_num - 1) * $per_page;
 
 // base where
 $where = ["p.is_deleted = 0", "p.type = 'page'"];
-$params = [];
-
-// author + editor hanya boleh lihat page miliknya sendiri
-if (in_array($role, ['author', 'editor'], true)) {
-    $where[] = "p.created_by = :uid";
-    $params[':uid'] = $uid;
-}
+$where[] = '(' . $readCondition['sql'] . ')';
+$params = $readCondition['params'];
 
 // filter status
 if ($filter_status !== '') {
@@ -74,7 +71,7 @@ $listJoin = apply_filters('post_list_join', '', $where_sql);
 
 $sql = "
 SELECT
-  p.id, p.title, p.slug, p.status, p.created_at, p.updated_at,
+  p.id, p.title, p.slug, p.status, p.created_at, p.updated_at, p.created_by AS owner_id,
   u.id AS author_id,
   u.username AS author_username,
   COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS author_name
@@ -95,21 +92,36 @@ $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
 $pages_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// authors dropdown
-$authorsStmt = $pdo->query("
-    SELECT id, name, username
-    FROM users
-    WHERE is_deleted = 0
-      AND is_locked = 0
-    ORDER BY name ASC, username ASC
-");
-$authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC);
+$readScope = user_permission_scope($pdo, $uid, 'core.pages.read');
+$canCreate = user_can($pdo, $uid, 'core.pages.create');
+$canUpdate = user_permission_scope($pdo, $uid, 'core.pages.update') !== null;
+$canTrash = user_permission_scope($pdo, $uid, 'core.pages.trash') !== null;
+$canPublish = user_permission_scope($pdo, $uid, 'core.pages.publish') !== null;
+$canChangeOwner = user_permission_scope($pdo, $uid, 'core.pages.change_owner') !== null;
+$canChangeDates = user_permission_scope($pdo, $uid, 'core.pages.change_dates') !== null;
+$canOpenTrash = user_permission_scope($pdo, $uid, 'core.pages.restore') !== null
+    || user_permission_scope($pdo, $uid, 'core.pages.purge') !== null;
+$canBulk = $canUpdate || $canTrash || $canChangeOwner || $canChangeDates;
+
+$filterAuthorsStmt = $pdo->prepare(
+    "SELECT DISTINCT u.id, u.name, u.username
+     FROM posts p
+     JOIN users u ON u.id = p.created_by
+     WHERE p.type = 'page' AND p.is_deleted = 0
+       AND (" . $readCondition['sql'] . ")
+     ORDER BY u.name ASC, u.username ASC"
+);
+$filterAuthorsStmt->execute($readCondition['params']);
+$filterAuthors = $filterAuthorsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+$authors = [];
+if ($canChangeOwner) {
+    $authorsStmt = $pdo->query("SELECT id, name, username FROM users WHERE is_deleted = 0 AND is_locked = 0 ORDER BY name ASC, username ASC");
+    $authors = array_values(array_filter($authorsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [], static fn(array $author): bool =>
+        user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => (int)$author['id']])));
+}
 
 // base
 $base = ADMIN_BASE_PATH;
-
-// bulk tersedia untuk semua role yang diizinkan
-$canBulk = in_array($role, ['admin', 'editor', 'author'], true);
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/pages/index';
@@ -187,54 +199,52 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
       </select>
 
-      <select name="author" class="inp">
+      <?php if ($readScope !== 'own'): ?><select name="author" class="inp">
         <option value=""><?= _e('All Authors') ?></option>
-        <?php foreach ($authors as $a):
+        <?php foreach ($filterAuthors as $a):
           $label = $a['name'] ?: ($a['username'] ?: $a['id']);
         ?>
           <option value="<?= (int)$a['id'] ?>" <?= ((string)$filter_author === (string)$a['id']) ? 'selected' : '' ?>>
             <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
           </option>
         <?php endforeach; ?>
-      </select>
+      </select><?php endif; ?>
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
     </form>
 
-    <a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Page')?></a>
-    <?php if ($role === 'admin') : ?>
+    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Page')?></a><?php endif; ?>
+    <?php if ($canOpenTrash) : ?>
       <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
 
-  <?php if ($canBulk): ?>
-  <form id="pagesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/pages/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
+  <?php if ($canBulk): ?><form id="pagesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/pages/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div class="bulk-bar">
+  <?php endif; ?>
+    <?php if ($canBulk): ?><div class="bulk-bar">
       <label class="check-row">
         <input type="checkbox" id="selectAllPages"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkActionPages" name="action" class="inp">
         <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="delete"><?= _e('Delete') ?></option>
-        <option value="change_status"><?= _e('Change Status') ?></option>
-        <?php if ($role === 'admin'): ?>
-          <option value="change_author"><?= _e('Change Author') ?></option>
-          <option value="change_date"><?= _e('Change Date') ?></option>
-        <?php endif; ?>
+        <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
+        <?php if ($canUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
+        <?php if ($canChangeOwner): ?><option value="change_author"><?= _e('Change Author') ?></option><?php endif; ?>
+        <?php if ($canChangeDates): ?><option value="change_date"><?= _e('Change Date') ?></option><?php endif; ?>
       </select>
 
       <select id="bulkStatusPages" name="status" class="inp" style="display:none;">
         <option value="draft"><?=_e('Draft')?></option>
-        <option value="published"><?=_e('Published')?></option>
-        <option value="private"><?=_e('Private')?></option>
+        <?php if ($canPublish): ?><option value="published"><?=_e('Published')?></option>
+        <option value="private"><?=_e('Private')?></option><?php endif; ?>
       </select>
 
-      <?php if ($role === 'admin'): ?>
+      <?php if ($canChangeOwner): ?>
       <select id="bulkAuthorPages" name="author_id" class="inp" style="display:none;">
         <option value=""><?= _e('-- Select Author --') ?></option>
         <?php foreach ($authors as $a):
@@ -245,7 +255,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </select>
       <?php endif; ?>
 
-      <?php if ($role === 'admin'): ?>
+      <?php if ($canChangeDates): ?>
       <div id="bulkDatesPanelPages" class="date-panel" style="display:none;">
         <label class="date-label">
           <?= _e('Created at') ?>
@@ -274,7 +284,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <label class="cols-opt"><input type="checkbox" data-col="col-author" checked> <?=_e('Author')?></label>
         </div>
       </div>
-    </div>
+    </div><?php endif; ?>
 
     <div class="adam-table-wrapper">
       <table class="adam-table" style="margin-top:.5rem;">
@@ -294,7 +304,16 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <?php else: ?>
             <?php foreach ($pages_list as $p): ?>
               <?php
+                $pageOwnerId = (int)($p['owner_id'] ?? 0);
                 $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
+                $canPublishPage = user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $pageOwnerId]);
+                $canUpdatePage = user_can($pdo, $uid, 'core.pages.update', ['owner_id' => $pageOwnerId])
+                    && ($status === 'draft' || $canPublishPage);
+                $canTrashPage = user_can($pdo, $uid, 'core.pages.trash', ['owner_id' => $pageOwnerId]);
+                $canSelectPage = $canTrashPage
+                    || user_can($pdo, $uid, 'core.pages.update', ['owner_id' => $pageOwnerId])
+                    || user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $pageOwnerId])
+                    || user_can($pdo, $uid, 'core.pages.change_dates', ['owner_id' => $pageOwnerId]);
                 $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
 
                 $icons = [
@@ -317,7 +336,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               ?>
               <tr class="adam-row">
                 <td style="text-align:center;">
-                  <input type="checkbox" class="bulkCheckboxPage" name="ids[]" value="<?= (int)$p['id'] ?>">
+                  <?php if ($canBulk && $canSelectPage): ?><input type="checkbox" class="bulkCheckboxPage" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
 
                 <td>
@@ -339,15 +358,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                     </a>
                     <?= apply_filters('post_list_title_after', '', $p) ?>
                     <div class="row-actions">
-                      <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
-                      <span class="muted-divider">|</span>
-                      <button type="button"
+                      <?php if ($canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                      <?php if ($canUpdatePage && $canTrashPage): ?><span class="muted-divider">|</span><?php endif; ?>
+                      <?php if ($canTrashPage): ?><button type="button"
                               class="adam-hapus js-page-delete"
                               data-id="<?= (int)$p['id'] ?>"
                               data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                               data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                         <?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?><?=_e('Delete')?>
-                      </button>
+                      </button><?php endif; ?>
                     </div>
                   </div>
                 </td>
@@ -382,8 +401,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </tbody>
       </table>
     </div>
-  </form>
-  <?php endif; ?>
+  <?php if ($canBulk): ?></form><?php endif; ?>
 
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination" style="margin-top:1rem;">
@@ -533,9 +551,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (action === 'change_date') {
-      if (<?= json_encode($role !== 'admin') ?>) {
-        return { ok:false, message: <?= json_encode(__('Access denied: only admin can change date.')) ?> };
-      }
       const createdAt = bulkCreatedAt ? bulkCreatedAt.value : '';
       const updatedAt = bulkUpdatedAt ? bulkUpdatedAt.value : '';
       if (!createdAt && !updatedAt) {

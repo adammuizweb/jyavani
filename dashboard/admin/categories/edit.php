@@ -11,7 +11,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_login($pdo, false);
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -59,24 +59,34 @@ $cat['slug']        = isset($cat['slug']) ? (string)$cat['slug'] : '';
 $cat['parent_id']   = isset($cat['parent_id']) && $cat['parent_id'] !== null ? (int)$cat['parent_id'] : null;
 $cat['created_by']  = isset($cat['created_by']) ? (int)$cat['created_by'] : null;
 
-// author hanya boleh edit miliknya sendiri
-if ($role === 'author' && (int)$cat['created_by'] !== $uid) {
-    http_response_code(403);
-    echo '<p>' . __('Access denied: you cannot edit this category.') . '</p>';
-    exit;
+if (!user_can($pdo, $uid, 'core.categories.update', ['owner_id' => (int)($cat['created_by'] ?? 0)])) {
+    adiwira_render_404();
 }
 
+$readCondition = authorization_owner_scope_condition(
+    $pdo,
+    $uid,
+    'core.categories.read',
+    'categories.created_by',
+    'category_edit_read'
+);
+$readWhere = $readCondition !== null ? ' AND (' . $readCondition['sql'] . ')' : ' AND 1=0';
 $stmt = $pdo->prepare("
     SELECT id, name, parent_id
     FROM categories
     WHERE is_deleted = 0
+      $readWhere
 ");
-$stmt->execute();
+$stmt->execute($readCondition['params'] ?? []);
 $allCats = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 $children = [];
+$visibleCategoryIds = array_fill_keys(array_map(static fn(array $category): int => (int)$category['id'], $allCats), true);
 foreach ($allCats as $c) {
     $pid = $c['parent_id'] === null ? 0 : (int)$c['parent_id'];
+    if ($pid > 0 && !isset($visibleCategoryIds[$pid])) {
+        $pid = 0;
+    }
     $children[$pid][] = $c;
 }
 
@@ -96,10 +106,17 @@ $walk = function(int $pid, int $depth) use (&$children, &$flatten, &$walk): void
 };
 $walk(0, 0);
 
+$integrityRows = $pdo->query(
+    'SELECT id, parent_id FROM categories WHERE is_deleted = 0'
+)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+$integrityChildren = [];
+foreach ($integrityRows as $integrityRow) {
+    $integrityChildren[(int)($integrityRow['parent_id'] ?? 0)][] = $integrityRow;
+}
 $descendants = [];
-$collectDesc = function(int $start) use (&$children, &$descendants, &$collectDesc): void {
-    if (!isset($children[$start])) return;
-    foreach ($children[$start] as $c) {
+$collectDesc = function(int $start) use (&$integrityChildren, &$descendants, &$collectDesc): void {
+    if (!isset($integrityChildren[$start])) return;
+    foreach ($integrityChildren[$start] as $c) {
         $cid = (int)$c['id'];
         if (isset($descendants[$cid])) continue;
         $descendants[$cid] = true;
@@ -135,14 +152,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if ($parent_id !== null && empty($errors)) {
         $stmtParent = $pdo->prepare("
-            SELECT id
+            SELECT id, created_by
             FROM categories
             WHERE id = :id
               AND is_deleted = 0
             LIMIT 1
         ");
         $stmtParent->execute([':id' => $parent_id]);
-        if (!$stmtParent->fetchColumn()) {
+        $parentCategory = $stmtParent->fetch(PDO::FETCH_ASSOC);
+        if (!$parentCategory
+            || !user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($parentCategory['created_by'] ?? 0)])) {
             $errors[] = __('Invalid parent category.');
         }
     }
@@ -164,6 +183,48 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (empty($errors)) {
         try {
+            $pdo->beginTransaction();
+            $lockedRows = $pdo->query(
+                'SELECT id, parent_id, created_by
+                 FROM categories
+                 WHERE is_deleted = 0
+                 ORDER BY id
+                 FOR UPDATE'
+            )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $lockedById = [];
+            $lockedChildren = [];
+            foreach ($lockedRows as $lockedRow) {
+                $lockedId = (int)$lockedRow['id'];
+                $lockedById[$lockedId] = $lockedRow;
+                $lockedChildren[(int)($lockedRow['parent_id'] ?? 0)][] = $lockedId;
+            }
+            if (!isset($lockedById[$id])
+                || !user_can($pdo, $uid, 'core.categories.update', ['owner_id' => (int)($lockedById[$id]['created_by'] ?? 0)])) {
+                $pdo->rollBack();
+                adiwira_render_404();
+            }
+            if ($parent_id !== null) {
+                if ($parent_id === $id) {
+                    throw new DomainException(__('Parent cannot be the category itself.'));
+                }
+                $lockedDescendants = [];
+                $collectLockedDescendants = function(int $parent) use (&$collectLockedDescendants, &$lockedChildren, &$lockedDescendants): void {
+                    foreach ($lockedChildren[$parent] ?? [] as $childId) {
+                        if (isset($lockedDescendants[$childId])) continue;
+                        $lockedDescendants[$childId] = true;
+                        $collectLockedDescendants($childId);
+                    }
+                };
+                $collectLockedDescendants($id);
+                if (isset($lockedDescendants[$parent_id])) {
+                    throw new DomainException(__('Parent cannot be a child or descendant of this category.'));
+                }
+                if (!isset($lockedById[$parent_id])
+                    || !user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($lockedById[$parent_id]['created_by'] ?? 0)])) {
+                    throw new DomainException(__('Invalid parent category.'));
+                }
+            }
+
             $stmtUpd = $pdo->prepare("
                 UPDATE categories
                 SET name = :name,
@@ -183,11 +244,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
+                $pdo->commit();
                 adiwira_redirect_with_flash($return_to, 'success', __('Category updated successfully.'));
             } else {
+                $pdo->rollBack();
                 $errors[] = __('Failed to update category.');
             }
+        } catch (DomainException $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $errors[] = $e->getMessage();
         } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             error_log('categories/edit.php update error: ' . $e->getMessage());
             $errors[] = __('Failed to update category.');
         }

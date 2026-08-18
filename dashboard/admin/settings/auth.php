@@ -10,7 +10,8 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_admin($pdo, false);
+[$uid] = adiwira_require_permission($pdo, 'core.settings.manage', false);
+adiwira_require_site_owner($pdo, false);
 
 $errors = [];
 $success_msg = '';

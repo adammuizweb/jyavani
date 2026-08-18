@@ -85,6 +85,9 @@ require_once __DIR__ . '/helpers/author_helpers.php';
 // 11. helpers globL ROLE
 require_once __DIR__ . '/helpers/role_helpers.php';
 
+// 11b. Dynamic role and permission authorization
+require_once __DIR__ . '/helpers/authorization.php';
+
 // 12. helpers Editor
 require_once __DIR__ . '/helpers/editor_helpers.php';
 

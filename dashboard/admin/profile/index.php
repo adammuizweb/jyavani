@@ -11,7 +11,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_login($pdo, false);
+[$uid, $role] = adiwira_require_permission($pdo, 'core.profile.manage', false);
 
 if (!function_exists('profile_safe_redirect')) {
     function profile_safe_redirect(string $url): void
@@ -71,6 +71,7 @@ if (!$user) {
     }
     profile_safe_redirect('/login.php');
 }
+$currentUserIsSiteOwner = (int)($user['is_site_owner'] ?? 0) === 1;
 
 $base = ADMIN_BASE_PATH;
 $self_url = $base . '/?page=admin/profile/index';
@@ -97,36 +98,56 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if ($action === 'delete_account' && empty($errors)) {
         $password_confirm = (string)($_POST['del_password'] ?? '');
+        $blockedUntil = (int)($_SESSION['profile_reauth_blocked_until'] ?? 0);
 
-        if ($password_confirm === '') {
+        if ($currentUserIsSiteOwner) {
+            $errors[] = __('A Site Owner cannot delete their own account. Revoke Site Owner access from another Site Owner account first.');
+        } elseif ($blockedUntil > time()) {
+            $errors[] = __('Too many password attempts. Try again later.');
+        } elseif ($password_confirm === '') {
             $errors[] = __('Password is required to delete account.');
         } elseif (!password_verify($password_confirm, (string)($user['password'] ?? ''))) {
+            $failures = (int)($_SESSION['profile_reauth_failures'] ?? 0) + 1;
+            $_SESSION['profile_reauth_failures'] = $failures;
+            if ($failures >= 5) {
+                $_SESSION['profile_reauth_blocked_until'] = time() + 900;
+                unset($_SESSION['profile_reauth_failures']);
+            }
+            usleep(250000);
             $errors[] = __('Wrong password, account deletion failed.');
         } else {
-            $stmtDel = $pdo->prepare("
-                UPDATE users
-                SET is_deleted = 1,
-                    updated_at = NOW()
-                WHERE id = :id
-                LIMIT 1
-            ");
-            $stmtDel->execute([':id' => $uid]);
-
-            if (function_exists('logout_user')) {
-                logout_user();
-            } else {
-                $_SESSION = [];
-                if (session_status() === PHP_SESSION_ACTIVE) {
-                    session_destroy();
-                }
+            unset($_SESSION['profile_reauth_failures'], $_SESSION['profile_reauth_blocked_until']);
+            $deleteResult = authorization_change_user_status(
+                $pdo,
+                $uid,
+                'delete',
+                $uid,
+                'user.self_deleted'
+            );
+            if ($deleteResult === 'last_site_owner') {
+                $errors[] = __('The final active Site Owner cannot be deleted.');
+            } elseif ($deleteResult !== 'ok') {
+                $errors[] = __('Account deletion failed.');
             }
 
-            profile_safe_redirect('/?msg=account_deleted');
+            if ($deleteResult === 'ok') {
+                if (function_exists('logout_user')) {
+                    logout_user();
+                } else {
+                    $_SESSION = [];
+                    if (session_status() === PHP_SESSION_ACTIVE) {
+                        session_destroy();
+                    }
+                }
+
+                profile_safe_redirect('/?msg=account_deleted');
+            }
         }
     } elseif ($action === 'save_profile' && empty($errors)) {
         $name   = trim((string)($_POST['name'] ?? ''));
         $email  = trim((string)($_POST['email'] ?? ''));
         $imgUrl = trim((string)($_POST['img_url'] ?? ''));
+        $currentPass = (string)($_POST['current_password'] ?? '');
         $pass   = trim((string)($_POST['password'] ?? ''));
         $pass2  = trim((string)($_POST['password_confirm'] ?? ''));
         $bio    = trim((string)($_POST['bio'] ?? ''));
@@ -158,6 +179,27 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
             if ($pass !== $pass2) {
                 $errors[] = __('Password confirmation does not match.');
+            }
+        }
+
+        $sensitiveChange = $pass !== '' || $email !== (string)($user['email'] ?? '');
+        if ($sensitiveChange) {
+            $blockedUntil = (int)($_SESSION['profile_reauth_blocked_until'] ?? 0);
+            if ($blockedUntil > time()) {
+                $errors[] = __('Too many password attempts. Try again later.');
+            } elseif ($currentPass === '') {
+                $errors[] = __('Current password is required.');
+            } elseif (!password_verify($currentPass, (string)($user['password'] ?? ''))) {
+                $failures = (int)($_SESSION['profile_reauth_failures'] ?? 0) + 1;
+                $_SESSION['profile_reauth_failures'] = $failures;
+                if ($failures >= 5) {
+                    $_SESSION['profile_reauth_blocked_until'] = time() + 900;
+                    unset($_SESSION['profile_reauth_failures']);
+                }
+                usleep(250000);
+                $errors[] = __('Current password is incorrect.');
+            } else {
+                unset($_SESSION['profile_reauth_failures'], $_SESSION['profile_reauth_blocked_until']);
             }
         }
 
@@ -322,7 +364,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         <p style="font-size:0.9rem; color:#666; margin-bottom:1rem;"><strong><?=_e('Change Password')?></strong> (<?=_e('Optional')?>)</p>
 
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <p style="font-size:.82rem;color:#666;margin:-.35rem 0 1rem;"><?= _e('Enter your current password to change your email or password.') ?></p>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;">
+          <label><?= _e('Current Password') ?><br>
+            <span class="pw-wrap">
+              <input type="password"
+                     name="current_password"
+                     autocomplete="current-password"
+                     style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
+              <button type="button" class="pw-toggle" data-toggle="current_password" aria-label="<?= _e('Show password') ?>">
+                <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+              </button>
+            </span>
+          </label>
+
           <label><?=_e('New Password')?><br>
             <span class="pw-wrap">
               <input type="password"
@@ -361,13 +417,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
 <section class="adam-card" style="margin-top:2rem; border-top:4px solid #e74c3c;">
   <h3 style="color:#c0392b;"><?=_e('Danger Zone')?></h3>
-  <button type="button"
-          id="btn-open-delete-account-modal"
-          style="background:#e74c3c; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">
-    <?=_e('Delete My Account')?>
-  </button>
+  <?php if ($currentUserIsSiteOwner): ?>
+    <p style="margin:0;color:var(--adam-muted);line-height:1.6;"><?= _e('A Site Owner cannot delete their own account. Revoke Site Owner access from another Site Owner account first.') ?></p>
+  <?php else: ?>
+    <button type="button"
+            id="btn-open-delete-account-modal"
+            style="background:#e74c3c; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">
+      <?=_e('Delete My Account')?>
+    </button>
+  <?php endif; ?>
 </section>
 
+<?php if (!$currentUserIsSiteOwner): ?>
 <div id="deleteModal"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:5000;">
   <div style="background:#fff; padding:2rem; border-radius:8px; max-width:400px; width:90%; position:relative;">
@@ -398,6 +459,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </form>
   </div>
 </div>
+<?php endif; ?>
 
 <?php
 if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {

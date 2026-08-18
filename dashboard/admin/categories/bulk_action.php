@@ -11,7 +11,7 @@ require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_role($pdo, ['editor', 'admin'], true);
+[$uid] = adiwira_require_login($pdo, true);
 
 if (!function_exists('is_ajax_request')) {
     function is_ajax_request(): bool {
@@ -46,33 +46,74 @@ if (!function_exists('respond_categories_bulk')) {
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    respond(false, __('Method Not Allowed'), 405, [], $returnTo);
+    respond_categories_bulk(false, __('Method Not Allowed'), 405, [], $returnTo);
 }
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
-    respond(false, __('Invalid CSRF token.'), 419, [], $returnTo);
+    respond_categories_bulk(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 }
 
 $ids = $_POST['ids'] ?? [];
 if (!is_array($ids) || empty($ids)) {
-    respond(false, __('No categories selected.'), 400, [], $returnTo);
+    respond_categories_bulk(false, __('No categories selected.'), 400, [], $returnTo);
 }
 
-$ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
+$ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
 if (empty($ids)) {
-    respond(false, __('Invalid category ID.'), 400, [], $returnTo);
+    respond_categories_bulk(false, __('Invalid category ID.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
-    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
+    respond_categories_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
+}
+$requiredPermission = match ($action) {
+    'delete' => 'core.categories.trash',
+    'change_parent' => 'core.categories.update',
+    default => '',
+};
+if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPermission) === null) {
+    respond_categories_bulk(false, __('Access denied.'), 403, [], $returnTo);
 }
 
 $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
     $pdo->beginTransaction();
+
+    $activeCategories = $pdo->query("
+        SELECT id, parent_id, created_by
+        FROM categories
+        WHERE is_deleted = 0
+        ORDER BY id
+        FOR UPDATE
+    ")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $activeById = [];
+    foreach ($activeCategories as $activeCategory) {
+        $activeById[(int)$activeCategory['id']] = $activeCategory;
+    }
+    $selectedCategories = [];
+    foreach ($ids as $selectedId) {
+        if (isset($activeById[$selectedId])) {
+            $selectedCategories[] = $activeById[$selectedId];
+        }
+    }
+    if (count($selectedCategories) !== count($ids)) {
+        $pdo->rollBack();
+        respond_categories_bulk(false, __('Category not found.'), 404, [], $returnTo);
+    }
+    foreach ($selectedCategories as $selectedCategory) {
+        if (!user_can(
+            $pdo,
+            $uid,
+            $requiredPermission,
+            ['owner_id' => (int)($selectedCategory['created_by'] ?? 0)]
+        )) {
+            $pdo->rollBack();
+            respond_categories_bulk(false, __('Access denied.'), 403, [], $returnTo);
+        }
+    }
 
     if ($action === 'delete') {
         $chk = $pdo->prepare("
@@ -114,60 +155,45 @@ try {
         $parentRaw = $_POST['parent_id'] ?? null;
         if ($parentRaw === null || $parentRaw === '') {
             $pdo->rollBack();
-            respond(false, __('Parent is required (or select No Parent).'), 400, [], $returnTo);
+            respond_categories_bulk(false, __('Parent is required (or select No Parent).'), 400, [], $returnTo);
         }
 
         $parent = (int)$parentRaw;
 
         if ($parent > 0 && in_array($parent, $ids, true)) {
             $pdo->rollBack();
-            respond(false, __('Parent cannot be among the selected categories.'), 400, [], $returnTo);
+            respond_categories_bulk(false, __('Parent cannot be among the selected categories.'), 400, [], $returnTo);
         }
 
         if ($parent !== 0) {
-            $v = $pdo->prepare("
-                SELECT id
-                FROM categories
-                WHERE id = ?
-                  AND is_deleted = 0
-                LIMIT 1
-            ");
-            $v->execute([$parent]);
-            if (!$v->fetchColumn()) {
+            $parentCategory = $activeById[$parent] ?? null;
+            if (!$parentCategory
+                || !user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($parentCategory['created_by'] ?? 0)])) {
                 $pdo->rollBack();
-                respond(false, __('Parent category not found.'), 400, [], $returnTo);
+                respond_categories_bulk(false, __('Parent category not found.'), 400, [], $returnTo);
             }
 
-            $allStmt = $pdo->prepare("
-                SELECT id, parent_id
-                FROM categories
-                WHERE is_deleted = 0
-            ");
-            $allStmt->execute();
-            $allCats = $allStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-
             $children = [];
-            foreach ($allCats as $c) {
+            foreach ($activeCategories as $c) {
                 $pid = $c['parent_id'] === null ? 0 : (int)$c['parent_id'];
                 $children[$pid][] = (int)$c['id'];
             }
 
-            $collectDesc = function(int $start) use (&$children, &$collectDesc): array {
-                $out = [];
-                if (empty($children[$start])) return $out;
+            $collectDesc = function(int $start, array &$out) use (&$children, &$collectDesc): void {
+                if (empty($children[$start])) return;
                 foreach ($children[$start] as $cid) {
                     if (isset($out[$cid])) continue;
                     $out[$cid] = true;
-                    foreach ($collectDesc($cid) as $k => $v) $out[$k] = $v;
+                    $collectDesc($cid, $out);
                 }
-                return $out;
             };
 
             foreach ($ids as $cid) {
-                $desc = $collectDesc($cid);
+                $desc = [];
+                $collectDesc($cid, $desc);
                 if (isset($desc[$parent])) {
                     $pdo->rollBack();
-                    respond(false, __('Invalid parent: would create a category hierarchy loop.'), 400, [], $returnTo);
+                    respond_categories_bulk(false, __('Invalid parent: would create a category hierarchy loop.'), 400, [], $returnTo);
                 }
             }
         }
@@ -198,12 +224,12 @@ try {
     }
 
     $pdo->rollBack();
-    respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
+    respond_categories_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
     error_log('categories/bulk_action.php error: ' . $e->getMessage());
-    respond(false, __('An error occurred during bulk processing.'), 500, [], $returnTo);
+    respond_categories_bulk(false, __('An error occurred during bulk processing.'), 500, [], $returnTo);
 }

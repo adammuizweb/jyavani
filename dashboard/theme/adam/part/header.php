@@ -29,8 +29,13 @@ if (!defined('ADAM_THEME')) {
       <span class="adam-user-email"><?= htmlspecialchars($user['email'] ?? '—', ENT_QUOTES, 'UTF-8') ?></span>
       <a class="adam-logout" href="<?= htmlspecialchars(ADMIN_BASE_PATH . '/logout.php', ENT_QUOTES, 'UTF-8') ?>"><?=_e('Logout')?></a>
     </div>
-    <?php // update notification bell ?>
+    <?php
+    $headerActor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
+    $canCheckUpdates = $headerActor !== null && $headerActor['is_site_owner'] === true
+      && function_exists('current_user_can') && current_user_can($pdo, 'core.updates.manage');
+    ?>
     <div style="display:flex;align-items:center;gap:6px">
+<?php if ($canCheckUpdates): ?>
 <button id="adam-update-bell" class="adam-bell" type="button"
         title="<?=_e('Check for updates')?>" aria-label="<?=_e('Updates')?>">
   <svg class="adam-bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -48,6 +53,7 @@ if (!defined('ADAM_THEME')) {
     <button type="button" class="adam-button" id="adam-update-refresh"><?=_e('Check for Updates')?></button>
   </div>
 </div>
+<?php endif; ?>
 
 <button id="adam-panel-toggle" class="adam-button" type="button"
         aria-controls="adam-panel" aria-expanded="true" title="<?=_e('Show/hide panel')?>">

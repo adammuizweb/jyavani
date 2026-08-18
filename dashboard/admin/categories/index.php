@@ -11,7 +11,17 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_permission_scope($pdo, 'core.categories.read', false);
+$readCondition = authorization_owner_scope_condition(
+  $pdo,
+  $uid,
+  'core.categories.read',
+  'c.created_by',
+  'category_read'
+);
+if ($readCondition === null) {
+  adiwira_render_404();
+}
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
@@ -30,7 +40,8 @@ $offset   = ($page_num - 1) * $per_page;
 
 // query builder
 $where  = ["c.is_deleted = 0"];
-$params = [];
+$where[] = '(' . $readCondition['sql'] . ')';
+$params = $readCondition['params'];
 
 if ($search !== '') {
   $where[] = "(c.name LIKE :search OR c.slug LIKE :search)";
@@ -58,19 +69,10 @@ $sql = "
     c.created_at,
     c.updated_at,
     c.created_by,
-    COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS created_by_label,
-    SUM(
-      CASE 
-        WHEN p.id IS NOT NULL AND p.is_deleted = 0 AND p.type = 'article' THEN 1
-        ELSE 0
-      END
-    ) AS post_count
+    COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS created_by_label
   FROM categories c
-  LEFT JOIN post_categories pc ON pc.category_id = c.id
-  LEFT JOIN posts p ON p.id = pc.post_id
   LEFT JOIN users u ON u.id = c.created_by
   WHERE $where_sql
-  GROUP BY c.id
   ORDER BY COALESCE(c.parent_id, 0) ASC, c.name ASC
 ";
 $stmt = $pdo->prepare($sql);
@@ -94,7 +96,14 @@ if ($search !== '' && !empty($allCategories)) {
   $needParents = array_values(array_unique($needParents));
 
   while (!empty($needParents)) {
-    $placeholders = implode(',', array_fill(0, count($needParents), '?'));
+    $ancestorParams = $readCondition['params'];
+    $ancestorPlaceholders = [];
+    foreach ($needParents as $index => $parentId) {
+      $parameter = ':category_ancestor_' . $index;
+      $ancestorPlaceholders[] = $parameter;
+      $ancestorParams[$parameter] = $parentId;
+    }
+    $placeholders = implode(',', $ancestorPlaceholders);
     $ancestorSql = "
       SELECT 
         c.id,
@@ -105,22 +114,15 @@ if ($search !== '' && !empty($allCategories)) {
         c.created_at,
         c.updated_at,
         c.created_by,
-        COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS created_by_label,
-        SUM(
-          CASE 
-            WHEN p.id IS NOT NULL AND p.is_deleted = 0 AND p.type = 'article' THEN 1
-            ELSE 0
-          END
-        ) AS post_count
+        COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS created_by_label
       FROM categories c
-      LEFT JOIN post_categories pc ON pc.category_id = c.id
-      LEFT JOIN posts p ON p.id = pc.post_id
       LEFT JOIN users u ON u.id = c.created_by
-      WHERE c.id IN ($placeholders) AND c.is_deleted = 0
-      GROUP BY c.id
+      WHERE c.id IN ($placeholders)
+        AND c.is_deleted = 0
+        AND ({$readCondition['sql']})
     ";
     $stmt2 = $pdo->prepare($ancestorSql);
-    $stmt2->execute($needParents);
+    $stmt2->execute($ancestorParams);
     $rows = $stmt2->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     $nextMissing = [];
@@ -142,9 +144,13 @@ if ($search !== '' && !empty($allCategories)) {
 // map by id + children
 $catsById = [];
 $children = [];
+$visibleCategoryIds = array_fill_keys(array_map(static fn($category) => (int)$category['id'], $allCategories), true);
 foreach ($allCategories as $r) {
   $id  = (int)$r['id'];
   $pid = ($r['parent_id'] === null) ? 0 : (int)$r['parent_id'];
+  if ($pid > 0 && !isset($visibleCategoryIds[$pid])) {
+    $pid = 0;
+  }
   $r['parent_id'] = $pid;
   $catsById[$id] = $r;
   $children[$pid][] = $id;
@@ -220,23 +226,29 @@ $buildParentOptions = function(int $parentId = 0, int $depth = 0) use (&$childre
 };
 $buildParentOptions(0, 0);
 
-// authors for filter
-$authorsStmt = $pdo->query("
-  SELECT id, name, username
-  FROM users
-  WHERE is_deleted = 0
-    AND is_locked = 0
-  ORDER BY name ASC, username ASC
-");
-$authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+// Creator filters only expose identities already visible through category scope.
+$authors = [];
+foreach ($allCategories as $category) {
+  $creatorId = (int)($category['created_by'] ?? 0);
+  if ($creatorId <= 0 || isset($authors[$creatorId])) continue;
+  $authors[$creatorId] = [
+    'id' => $creatorId,
+    'label' => (string)($category['created_by_label'] ?? $creatorId),
+  ];
+}
+usort($authors, static fn(array $a, array $b): int => strcasecmp($a['label'], $b['label']));
 
 // base
 $base = ADMIN_BASE_PATH;
 $_catPath = function_exists('get_category_path') ? get_category_path($pdo) : 'category';
 $catBase = $_catPath !== '' ? '/' . $_catPath . '/' : '/';
 
-$canBulk   = in_array($role, ['editor', 'admin'], true);
-$canDelete = in_array($role, ['editor', 'admin'], true);
+$canCreate = user_can($pdo, $uid, 'core.categories.create');
+$canBulkUpdate = user_permission_scope($pdo, $uid, 'core.categories.update') !== null;
+$canBulkTrash = user_permission_scope($pdo, $uid, 'core.categories.trash') !== null;
+$canBulk = $canBulkUpdate || $canBulkTrash;
+$canOpenTrash = user_permission_scope($pdo, $uid, 'core.categories.restore') !== null
+  || user_permission_scope($pdo, $uid, 'core.categories.purge') !== null;
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/categories/index';
@@ -298,11 +310,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </select>
       <select name="author" class="inp">
         <option value="0"><?= _e('All Creators') ?></option>
-        <?php foreach ($authors as $a):
-          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-        ?>
+        <?php foreach ($authors as $a): ?>
           <option value="<?= (int)$a['id'] ?>" <?= $filter_author === (int)$a['id'] ? 'selected' : '' ?>>
-            <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
+            <?= htmlspecialchars((string)$a['label'], ENT_QUOTES, 'UTF-8') ?>
           </option>
         <?php endforeach; ?>
       </select>
@@ -311,8 +321,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
     </form>
 
-    <a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add')?></a>
-    <?php if ($role === 'admin') : ?>
+    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add')?></a><?php endif; ?>
+    <?php if ($canOpenTrash) : ?>
       <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
@@ -331,8 +341,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
         <select id="bulkActionCategories" name="action" class="inp">
           <option value=""><?=_e('-- Bulk action --')?></option>
-          <option value="delete"><?= _e('Delete') ?></option>
-          <option value="change_parent"><?= _e('Change Parent') ?></option>
+          <?php if ($canBulkTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
+          <?php if ($canBulkUpdate): ?><option value="change_parent"><?= _e('Change Parent') ?></option><?php endif; ?>
         </select>
 
         <select id="bulkParentCategories" name="parent_id" class="inp hide">
@@ -349,12 +359,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <div class="cols-toggle ml-auto">
           <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
           <div class="cols-dropdown">
-            <label class="cols-opt"><input type="checkbox" data-col="col-posts" checked> <?=_e('Posts')?></label>
           </div>
         </div>
       </div>
-  <?php else: ?>
-    <div class="warning-box"><?=_e('Bulk actions hidden for role')?> <strong>author</strong>.</div>
   <?php endif; ?>
 
   <div class="adam-table-wrapper">
@@ -363,17 +370,19 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <tr>
           <th class="th-narrow"></th>
           <th><?= _e('Name') ?></th>
-          <th class="col-posts"><?=_e('Posts')?></th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($categories_list)): ?>
-          <tr><td class="empty-state" colspan="3"><?= _e('No categories yet.') ?></td></tr>
+          <tr><td class="empty-state" colspan="2"><?= _e('No categories yet.') ?></td></tr>
         <?php else: ?>
           <?php foreach ($categories_list as $cat):
-            $aCount = (int)$cat['post_count'];
             $depth  = max(0, (int)$cat['depth']);
             $catId  = (int)$cat['id'];
+            $categoryOwnerId = (int)($cat['created_by'] ?? 0);
+            $canUpdateCategory = user_can($pdo, $uid, 'core.categories.update', ['owner_id' => $categoryOwnerId]);
+            $canTrashCategory = user_can($pdo, $uid, 'core.categories.trash', ['owner_id' => $categoryOwnerId]);
+            $canSelectCategory = $canUpdateCategory || $canTrashCategory;
 
             $levelClass = 'cat-level-' . min($depth, 3);
             $icon = match ($depth) {
@@ -400,7 +409,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           ?>
             <tr>
               <td class="td-center">
-                <?php if ($canBulk): ?>
+                <?php if ($canBulk && $canSelectCategory): ?>
                   <input type="checkbox" class="bulkCheckboxCategory" name="ids[]" value="<?= $catId ?>">
                 <?php else: ?>
                   &mdash;
@@ -411,7 +420,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 <div class="title-wrap">
                   <?= $indentHtml . $nameHtml ?>
                   <div class="row-actions">
-                    <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
+                    <?php if ($canUpdateCategory): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
                     <?php if (!empty($categoryTranslationLocales)): ?>
                       <select aria-label="<?= htmlspecialchars(__('Translations'), ENT_QUOTES, 'UTF-8') ?>" onchange="if(this.value)window.location.href=this.value" style="font-size:11px;padding:1px 4px;">
                         <option value=""><?= _e('Translations') ?></option>
@@ -423,7 +432,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                         <?php endforeach; ?>
                       </select>
                     <?php endif; ?>
-                    <?php if ($canDelete): ?>
+                    <?php if ($canTrashCategory): ?>
                       <span class="muted-divider">|</span>
                       <button type="button"
                               class="adam-hapus js-category-delete"
@@ -437,13 +446,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 </div>
               </td>
 
-              <td class="col-posts">
-                <a class="count-badge<?= $aCount === 0 ? ' zero' : '' ?>"
-                   href="<?= htmlspecialchars($base . '/?page=admin/posts/index&category=' . $catId, ENT_QUOTES, 'UTF-8') ?>"
-                   title="<?= $aCount === 0 ? __('No articles') : $aCount . ' ' . __('articles') ?>">
-                  <?= $aCount ?>
-                </a>
-              </td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>
@@ -473,7 +475,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <?php if ($canDelete): ?>
+  <?php if ($canBulkTrash): ?>
     <form id="newnotif-category-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/categories/delete.php', ENT_QUOTES, 'UTF-8') ?>" class="hide">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="id" id="newnotif-category-delete-id">
@@ -685,33 +687,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 </script>
 
 <style>
-.count-badge{
-  display:inline-block;
-  min-width:28px;
-  padding:.18rem .5rem;
-  font-size:.85rem;
-  line-height:1;
-  text-align:center;
-  border-radius:999px;
-  border:1px solid rgba(30,100,200,.15);
-  background:rgba(30,100,200,.06);
-  color:#1e64c8;
-  text-decoration:none;
-  transition: background .12s ease, transform .06s ease;
-}
-.count-badge.zero{
-  background:transparent;
-  border-color:rgba(0,0,0,.06);
-  color:#6b6b6b;
-}
-.count-badge:hover,.count-badge:focus{
-  background:rgba(30,100,200,.12);
-  transform:translateY(-1px);
-  text-decoration:none;
-  outline:none;
-}
-.count-badge:focus{ box-shadow:0 0 0 3px rgba(30,100,200,.12); }
-
 .cat-indent{
   display:inline-flex;
   align-items:center;
@@ -730,7 +705,4 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 .theme-dark .cat-level-3{ color:var(--adam-muted); opacity:.65; }
 tbody tr:hover .cat-indent{ opacity:1; }
 
-@media (max-width:600px){
-  .count-badge{ min-width:24px; padding:.12rem .45rem; font-size:.78rem; }
-}
 </style>

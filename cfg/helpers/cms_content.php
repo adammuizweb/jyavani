@@ -4,6 +4,89 @@ declare(strict_types=1);
 if (defined('CMS_CONTENT_INCLUDED')) return;
 define('CMS_CONTENT_INCLUDED', true);
 
+if (!function_exists('cms_sanitize_restricted_html')) {
+  function cms_sanitize_restricted_html(string $html): string {
+    $html = trim($html);
+    if ($html === '') return '';
+
+    $allowedTags = array_fill_keys([
+      'p','br','hr','strong','b','em','i','u','s','blockquote','pre','code',
+      'h1','h2','h3','h4','h5','h6','ul','ol','li','a','img','figure',
+      'figcaption','table','thead','tbody','tfoot','tr','th','td','span','div',
+    ], true);
+    $allowedAttrs = [
+      'a' => ['href','title','target','rel'],
+      'img' => ['src','alt','title','width','height'],
+      'th' => ['colspan','rowspan'],
+      'td' => ['colspan','rowspan'],
+      '*' => ['class'],
+    ];
+    $blockedTags = ['script','style','iframe','object','embed','link','meta','form','svg','canvas'];
+
+    $previous = libxml_use_internal_errors(true);
+    $document = new DOMDocument('1.0', 'UTF-8');
+    $document->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    $xpath = new DOMXPath($document);
+    foreach ($xpath->query('//comment()') as $comment) {
+      $comment->parentNode?->removeChild($comment);
+    }
+
+    $walk = function(DOMNode $node) use (&$walk, $allowedTags, $allowedAttrs, $blockedTags): void {
+      if ($node->nodeType === XML_ELEMENT_NODE) {
+        $tag = strtolower($node->nodeName);
+        if (in_array($tag, $blockedTags, true)) {
+          $node->parentNode?->removeChild($node);
+          return;
+        }
+        if (!isset($allowedTags[$tag])) {
+          $parent = $node->parentNode;
+          if (!$parent) return;
+          $movedChildren = [];
+          while ($node->firstChild) {
+            $child = $node->firstChild;
+            $parent->insertBefore($child, $node);
+            $movedChildren[] = $child;
+          }
+          $parent->removeChild($node);
+          foreach ($movedChildren as $child) $walk($child);
+          return;
+        }
+
+        $remove = [];
+        foreach (iterator_to_array($node->attributes ?? []) as $attribute) {
+          $name = strtolower($attribute->name);
+          $allowed = array_merge($allowedAttrs['*'], $allowedAttrs[$tag] ?? []);
+          if (str_starts_with($name, 'on') || $name === 'style' || !in_array($name, $allowed, true)) {
+            $remove[] = $attribute->name;
+            continue;
+          }
+          if (($tag === 'a' && $name === 'href') || ($tag === 'img' && $name === 'src')) {
+            $value = trim((string)$attribute->value);
+            $safe = $value !== '' && ($value[0] === '/' || $value[0] === '#');
+            if (!$safe && preg_match('#^https?://#i', $value)) $safe = true;
+            if (!$safe && $tag === 'a' && preg_match('#^(mailto:|tel:)#i', $value)) $safe = true;
+            if (!$safe || preg_match('#^(javascript:|data:|vbscript:)#i', $value)) $remove[] = $attribute->name;
+          }
+        }
+        foreach (array_unique($remove) as $attributeName) $node->removeAttribute($attributeName);
+        if ($tag === 'a' && strtolower($node->getAttribute('target')) === '_blank') {
+          $node->setAttribute('rel', 'noopener noreferrer');
+        }
+      }
+
+      $children = [];
+      foreach ($node->childNodes as $child) $children[] = $child;
+      foreach ($children as $child) $walk($child);
+    };
+
+    $walk($document);
+    $result = trim((string)$document->saveHTML());
+    libxml_clear_errors();
+    libxml_use_internal_errors($previous);
+    return $result;
+  }
+}
+
 function cms_slugify($s) {
   $s = trim((string)$s);
   if ($s === '') return '';

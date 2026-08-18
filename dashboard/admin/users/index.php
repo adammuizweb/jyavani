@@ -9,7 +9,13 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $sessionRole] = adiwira_require_role($pdo, ['admin'], false);
+[$uid, $sessionRole] = adiwira_require_permission($pdo, 'core.users.read', false);
+$currentActor = authorization_actor($pdo, $uid);
+$canManageSiteOwners = $currentActor !== null && $currentActor['is_site_owner'] === true;
+$canCreateUsers = $canManageSiteOwners && user_can($pdo, $uid, 'core.users.create');
+$canBulkAssign = $canManageSiteOwners;
+$canBulkLock = user_permission_scope($pdo, $uid, 'core.users.lock') !== null;
+$canBulkDelete = user_permission_scope($pdo, $uid, 'core.users.delete') !== null;
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
@@ -25,9 +31,17 @@ $offset = ($page - 1) * $perPage;
 
 $where = ["is_deleted = 0"];
 $params = [];
+$allRoles = $pdo->query(
+    'SELECT id, slug, name, authority_rank FROM roles ORDER BY authority_rank DESC, name ASC'
+)->fetchAll(PDO::FETCH_ASSOC);
 
 if ($filter_role !== '') {
-    $where[] = "role = :role";
+    $where[] = "EXISTS (
+        SELECT 1 FROM user_roles filter_ur
+        JOIN roles filter_r ON filter_r.id = filter_ur.role_id
+        WHERE filter_ur.user_id = users.id AND filter_r.slug = :role
+          AND (filter_ur.expires_at IS NULL OR filter_ur.expires_at > NOW())
+    )";
     $params[':role'] = $filter_role;
 }
 
@@ -51,7 +65,11 @@ $total = (int)$countStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / max(1, $perPage)));
 if ($page > $pages) $page = $pages;
 
-$sql = "SELECT id, email, username, name, role, img, bio, phone, created_at, is_locked
+$sql = "SELECT id, email, username, name, role, is_site_owner, img, bio, phone, created_at, is_locked,
+               (SELECT GROUP_CONCAT(r.name ORDER BY r.authority_rank DESC, r.name ASC SEPARATOR ', ')
+                FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = users.id
+                  AND (ur.expires_at IS NULL OR ur.expires_at > NOW())) AS role_names
         FROM users
         WHERE $where_sql
         ORDER BY id DESC
@@ -65,7 +83,6 @@ $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
 $stmt->execute();
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$allRoles = ['author','editor','admin'];
 $base = ADMIN_BASE_PATH;
 
 $currentQuery = $_GET;
@@ -119,8 +136,8 @@ $paging_items = build_pagination_items($page, $pages, 9);
     <select name="role" style="padding:.4rem;">
       <option value=""><?= _e('-- All Roles --') ?></option>
       <?php foreach ($allRoles as $r): ?>
-        <option value="<?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?>" <?= $filter_role === $r ? 'selected' : '' ?>>
-          <?= htmlspecialchars(ucfirst($r), ENT_QUOTES, 'UTF-8') ?>
+        <option value="<?= htmlspecialchars((string)$r['slug'], ENT_QUOTES, 'UTF-8') ?>" <?= $filter_role === (string)$r['slug'] ? 'selected' : '' ?>>
+          <?= htmlspecialchars((string)$r['name'], ENT_QUOTES, 'UTF-8') ?>
         </option>
       <?php endforeach; ?>
     </select>
@@ -134,9 +151,9 @@ $paging_items = build_pagination_items($page, $pages, 9);
     <button class="adam-button" type="submit"><?= _e('Apply') ?></button>
     <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>"><?=_e('Reset')?></a>
 
-    <div style="margin-left:auto">
+    <?php if ($canCreateUsers): ?><div style="margin-left:auto">
       <a class="adam-button" href="<?= htmlspecialchars($base . '/?page=admin/users/save&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">+ Add User</a>
-    </div>
+    </div><?php endif; ?>
   </form>
 
   <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/users/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
@@ -150,15 +167,15 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
       <select id="bulkAction" name="action" style="padding:.4rem;">
         <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="change_role"><?= _e('Change Role') ?></option>
-        <option value="lock"><?=_e('Lock')?></option>
-        <option value="unlock"><?=_e('Unlock / Approve')?></option>
-        <option value="delete"><?=_e('Delete (soft)')?></option>
+        <?php if ($canBulkAssign): ?><option value="change_role"><?= _e('Replace All Roles') ?></option><?php endif; ?>
+        <?php if ($canBulkLock): ?><option value="lock"><?=_e('Lock')?></option>
+        <option value="unlock"><?=_e('Unlock / Approve')?></option><?php endif; ?>
+        <?php if ($canBulkDelete): ?><option value="delete"><?=_e('Delete (soft)')?></option><?php endif; ?>
       </select>
 
-      <select id="bulkRole" name="role" style="padding:.4rem;display:none;">
+      <select id="bulkRole" name="role_id" style="padding:.4rem;display:none;">
         <?php foreach ($allRoles as $r): ?>
-          <option value="<?= htmlspecialchars($r, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst($r), ENT_QUOTES, 'UTF-8') ?></option>
+          <option value="<?= (int)$r['id'] ?>"><?= htmlspecialchars((string)$r['name'], ENT_QUOTES, 'UTF-8') ?></option>
         <?php endforeach; ?>
       </select>
 
@@ -190,14 +207,21 @@ $paging_items = build_pagination_items($page, $pages, 9);
               $img = !empty($u['img']) ? $u['img'] : '/static/img/person.svg';
               $isSelf = ((int)$u['id'] === $uid);
               $isLocked = (int)($u['is_locked'] ?? 0) === 1;
+              $isSiteOwner = (int)($u['is_site_owner'] ?? 0) === 1;
               $nameRaw = (string)($u['name'] ?? ($u['email'] ?? ''));
               $name = htmlspecialchars($u['name'] ?? '-', ENT_QUOTES, 'UTF-8');
               $username = $u['username'] ?? '';
               $toggleFormId = 'toggle-lock-form-' . (int)$u['id'];
+              $canMutateUser = !$isSiteOwner || $canManageSiteOwners;
+              $canEditUser = $canMutateUser
+                  && user_can($pdo, $uid, 'core.users.update', ['owner_id' => (int)$u['id']]);
+              $canLockUser = $canMutateUser && user_can($pdo, $uid, 'core.users.lock', ['owner_id' => (int)$u['id']]);
+              $canDeleteUser = $canMutateUser && user_can($pdo, $uid, 'core.users.delete', ['owner_id' => (int)$u['id']]);
+              $canSelectUser = !$isSelf && !$isSiteOwner && ($canManageSiteOwners || $canLockUser || $canDeleteUser);
             ?>
             <tr style="border-bottom:1px solid #f3f3f3">
               <td style="text-align:center">
-                <?php if (!$isSelf): ?>
+                <?php if ($canSelectUser): ?>
                   <input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$u['id'] ?>">
                 <?php else: ?>
                   &mdash;
@@ -225,7 +249,12 @@ $paging_items = build_pagination_items($page, $pages, 9);
                 <small style="color:#666"><?= htmlspecialchars($u['username'] ?? '-', ENT_QUOTES, 'UTF-8') ?></small>
               </td>
 
-              <td><?= htmlspecialchars($u['role'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
+              <td>
+                <?= htmlspecialchars((string)($u['role_names'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                <?php if ($isSiteOwner): ?>
+                  <span style="display:inline-block;margin-left:.35rem;padding:.16rem .45rem;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;font-size:11px;font-weight:700;"><?= _e('Site Owner') ?></span>
+                <?php endif; ?>
+              </td>
 
               <td>
                 <?php if ($isLocked): ?>
@@ -243,27 +272,43 @@ $paging_items = build_pagination_items($page, $pages, 9);
               <td><?= htmlspecialchars($u['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
-                <a class="adam-ubah" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
+                <?php if ($canEditUser): ?>
+                  <a class="adam-ubah" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
+                <?php else: ?>
+                  <span style="color:var(--adam-muted);font-size:12px"><?= $canMutateUser ? _e('No access') : _e('Protected') ?></span>
+                <?php endif; ?>
 
-                <?php if (!$isSelf): ?>
+                <?php if ($canManageSiteOwners && !$isSelf && !$isLocked): ?>
                   &nbsp;|&nbsp;
                   <button type="button"
+                          class="adam-ubah js-site-owner"
+                          data-id="<?= (int)$u['id'] ?>"
+                          data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
+                          data-mode="<?= $isSiteOwner ? 'revoke' : 'grant' ?>"
+                          style="background:none;border:0;padding:0;cursor:pointer;color:inherit;">
+                    <?= $isSiteOwner ? __('Revoke Site Owner') : __('Grant Site Owner') ?>
+                  </button>
+                <?php endif; ?>
+
+                <?php if (!$isSelf && ($canLockUser || $canDeleteUser)): ?>
+                  &nbsp;|&nbsp;
+                  <?php if ($canLockUser): ?><button type="button"
                           class="<?= $isLocked ? 'adam-ubah' : 'adam-att' ?> js-user-toggle-lock"
                           data-form-id="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
                           data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
                           data-mode="<?= $isLocked ? 'unlock' : 'lock' ?>"
                           style="background:none;border:0;padding:0;cursor:pointer;color:inherit;">
                     <?= $isLocked ? __('Approve') : __('Lock') ?>
-                  </button>
+                  </button><?php endif; ?>
 
-                  &nbsp;|&nbsp;
+                  <?php if ($canDeleteUser): ?>&nbsp;|&nbsp;
                   <button type="button"
                           class="adam-hapus js-user-delete"
                           data-id="<?= (int)$u['id'] ?>"
                           data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
                     <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
-                  </button>
+                  </button><?php endif; ?>
                 <?php endif; ?>
               </td>
             </tr>
@@ -317,6 +362,27 @@ $paging_items = build_pagination_items($page, $pages, 9);
     <input type="hidden" name="id" id="newnotif-user-delete-id">
     <input type="hidden" name="return_to" id="newnotif-user-delete-return-to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
   </form>
+
+  <?php if ($canManageSiteOwners): ?>
+    <div class="adam-modal" id="siteOwnerModal" style="display:none" aria-hidden="true">
+      <div class="adam-modal__panel" style="max-width:440px" role="dialog" aria-modal="true" aria-labelledby="siteOwnerModalTitle">
+        <div class="adam-modal__title" id="siteOwnerModalTitle"><?= _e('Change Site Owner access') ?></div>
+        <div class="adam-modal__text" id="siteOwnerModalText" style="margin-bottom:1rem;line-height:1.5"></div>
+        <form method="post" action="<?= htmlspecialchars($base . '/admin/users/site_owner.php', ENT_QUOTES, 'UTF-8') ?>" id="siteOwnerForm">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="id" id="siteOwnerUserId">
+          <input type="hidden" name="mode" id="siteOwnerMode">
+          <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
+          <label for="siteOwnerPassword" style="display:block;font-weight:600;margin-bottom:.45rem"><?= _e('Confirm your current password') ?></label>
+          <input type="password" name="current_password" id="siteOwnerPassword" autocomplete="current-password" required style="width:100%;padding:.65rem;border:1px solid #d0d5dd;border-radius:7px;margin-bottom:1.25rem">
+          <div class="adam-modal__actions" style="display:flex;gap:.5rem;justify-content:flex-end">
+            <button type="button" class="adam-cancle" id="siteOwnerCancel"><?= _e('Cancel') ?></button>
+            <button type="submit" class="adam-button" id="siteOwnerSubmit"><?= _e('Continue') ?></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  <?php endif; ?>
 </section>
 
 <?php
@@ -334,6 +400,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const deleteForm = document.getElementById('newnotif-user-delete-form');
   const deleteIdInput = document.getElementById('newnotif-user-delete-id');
   const deleteReturnTo = document.getElementById('newnotif-user-delete-return-to');
+  const siteOwnerModal = document.getElementById('siteOwnerModal');
+  const siteOwnerText = document.getElementById('siteOwnerModalText');
+  const siteOwnerUserId = document.getElementById('siteOwnerUserId');
+  const siteOwnerMode = document.getElementById('siteOwnerMode');
+  const siteOwnerPassword = document.getElementById('siteOwnerPassword');
+  const siteOwnerSubmit = document.getElementById('siteOwnerSubmit');
+  const siteOwnerCancel = document.getElementById('siteOwnerCancel');
 
   function toast(type, message, title){
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
@@ -387,7 +460,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (action === 'change_role') {
-      const role = bulkRole ? bulkRole.value : 'author';
+      const role = bulkRole && bulkRole.selectedOptions.length ? bulkRole.selectedOptions[0].textContent : '';
       return {
         ok:true,
         variant:'warning',
@@ -482,6 +555,47 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         form.submit();
       });
     });
+  });
+
+  function closeSiteOwnerModal(){
+    if (!siteOwnerModal) return;
+    siteOwnerModal.style.display = 'none';
+    siteOwnerModal.setAttribute('aria-hidden', 'true');
+    if (siteOwnerPassword) siteOwnerPassword.value = '';
+  }
+
+  document.querySelectorAll('.js-site-owner').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (!siteOwnerModal || !siteOwnerUserId || !siteOwnerMode) return;
+      const mode = this.getAttribute('data-mode') === 'revoke' ? 'revoke' : 'grant';
+      const id = this.getAttribute('data-id') || '';
+      const name = this.getAttribute('data-name') || <?= json_encode(__('this user')) ?>;
+      siteOwnerUserId.value = id;
+      siteOwnerMode.value = mode;
+      if (siteOwnerText) {
+        siteOwnerText.textContent = mode === 'grant'
+          ? <?= json_encode(__('Grant Site Owner access to')) ?> + ' "' + name + '"?'
+          : <?= json_encode(__('Revoke Site Owner access from')) ?> + ' "' + name + '"?';
+      }
+      if (siteOwnerSubmit) {
+        siteOwnerSubmit.textContent = mode === 'grant'
+          ? <?= json_encode(__('Grant access')) ?>
+          : <?= json_encode(__('Revoke access')) ?>;
+      }
+      siteOwnerModal.style.display = 'flex';
+      siteOwnerModal.setAttribute('aria-hidden', 'false');
+      window.setTimeout(function(){ siteOwnerPassword?.focus(); }, 0);
+    });
+  });
+
+  siteOwnerCancel?.addEventListener('click', closeSiteOwnerModal);
+  siteOwnerModal?.addEventListener('click', function(ev){
+    if (ev.target === siteOwnerModal) closeSiteOwnerModal();
+  });
+  document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape' && siteOwnerModal?.style.display === 'flex') {
+      closeSiteOwnerModal();
+    }
   });
 
   if (bulkForm) {

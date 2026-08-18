@@ -18,17 +18,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
 }
 
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
+[$uid] = adiwira_require_login($pdo, false);
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
@@ -54,8 +44,8 @@ if (!$cat) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Category not found in trash.'));
 }
 
-if ($role === 'author' && (int)($cat['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak punya akses hapus permanen kategori ini.'));
+if (!user_can($pdo, $uid, 'core.categories.purge', ['owner_id' => (int)($cat['created_by'] ?? 0)])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 // cegah delete permanen jika masih punya child (apapun statusnya)

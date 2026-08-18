@@ -11,7 +11,14 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../../_guard.php';
 require_once __DIR__ . '/../../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_login($pdo, false);
+$restoreCondition = authorization_owner_scope_condition($pdo, $uid, 'core.posts.restore', 'p.created_by', 'article_restore');
+$purgeCondition = authorization_owner_scope_condition($pdo, $uid, 'core.posts.purge', 'p.created_by', 'article_purge');
+if ($restoreCondition === null && $purgeCondition === null) adiwira_render_404();
+$accessConditions = array_values(array_filter([$restoreCondition, $purgeCondition]));
+$accessSql = implode(' OR ', array_map(static fn(array $condition): string => '(' . $condition['sql'] . ')', $accessConditions));
+$accessParams = [];
+foreach ($accessConditions as $condition) $accessParams = array_merge($accessParams, $condition['params']);
 
 // fallback bila masih ada route lama kirim ?msg= / ?err=
 $page_toasts = function_exists('adiwira_collect_query_toasts')
@@ -29,13 +36,8 @@ $offset   = ($page_num - 1) * $per_page;
 
 // where
 $where = ["p.is_deleted = 1", "p.type = 'article'"];
-$params = [];
-
-// author hanya lihat trash miliknya sendiri
-if ($role === 'author') {
-    $where[] = "p.created_by = :uid";
-    $params[':uid'] = $uid;
-}
+$where[] = '(' . $accessSql . ')';
+$params = $accessParams;
 
 if ($filter_status !== '') {
     $where[] = "p.status = :status";
@@ -53,8 +55,6 @@ $where_sql = implode(' AND ', $where);
 $count_sql = "
 SELECT COUNT(DISTINCT p.id)
 FROM posts p
-LEFT JOIN post_categories pc ON pc.post_id = p.id
-LEFT JOIN categories c ON c.id = pc.category_id AND c.is_deleted = 0
 WHERE $where_sql
 ";
 $totalStmt = $pdo->prepare($count_sql);
@@ -65,16 +65,12 @@ $pages = max(1, (int)ceil($total / $per_page));
 // data
 $sql = "
 SELECT
-  p.id, p.title, p.slug, p.status, p.created_at, p.deleted_at,
+  p.id, p.title, p.slug, p.status, p.created_at, p.deleted_at, p.created_by AS owner_id,
   u.name AS created_by,
-  u.username AS author_username,
-  GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') AS categories
+  u.username AS author_username
 FROM posts p
-LEFT JOIN post_categories pc ON pc.post_id = p.id
-LEFT JOIN categories c ON c.id = pc.category_id AND c.is_deleted = 0
 LEFT JOIN users u ON u.id = p.created_by
 WHERE $where_sql
-GROUP BY p.id
 ORDER BY p.deleted_at DESC, p.id DESC
 LIMIT :limit OFFSET :offset
 ";
@@ -132,7 +128,9 @@ if (!function_exists('build_pagination_items')) {
 $paging_items = build_pagination_items($page_num, $pages, 9);
 
 $base = ADMIN_BASE_PATH;
-$canBulk = in_array($role, ['editor', 'admin'], true);
+$canRestore = $restoreCondition !== null;
+$canPurge = $purgeCondition !== null;
+$canBulk = $canRestore || $canPurge;
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/bin/article/index';
@@ -176,8 +174,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
         <select id="bulkActionBinArticle" name="action" style="padding:.4rem;">
         <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="restore"><?=_e('Restore')?></option>
-          <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
+        <?php if ($canRestore): ?><option value="restore"><?=_e('Restore')?></option><?php endif; ?>
+          <?php if ($canPurge): ?><option value="delete_permanent"><?=_e('Delete Permanently')?></option><?php endif; ?>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -191,7 +189,6 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               <th style="width:40px"></th>
               <th><?= _e('Title') ?></th>
               <th><?=_e('Status')?></th>
-              <th><?= _e('Categories') ?></th>
               <th><?=_e('Deleted')?></th>
               <th><?= _e('Created') ?></th>
               <th><?= _e('Author') ?></th>
@@ -200,10 +197,15 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
           </thead>
           <tbody>
           <?php if (empty($posts)): ?>
-          <tr><td colspan="8" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
+          <tr><td colspan="7" style="padding:1rem;"><?=_e('Trash is empty.')?></td></tr>
         <?php else: ?>
           <?php foreach ($posts as $p): ?>
             <?php
+              $postOwnerId = (int)($p['owner_id'] ?? 0);
+              $canPublishPost = user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $postOwnerId]);
+              $canRestorePost = user_can($pdo, $uid, 'core.posts.restore', ['owner_id' => $postOwnerId])
+                && ((string)($p['status'] ?? 'draft') === 'draft' || $canPublishPost);
+              $canPurgePost = user_can($pdo, $uid, 'core.posts.purge', ['owner_id' => $postOwnerId]);
               $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
               $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
 
@@ -217,7 +219,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             ?>
             <tr class="adam-row">
               <td style="text-align:center;">
-                <input type="checkbox" class="bulkCheckboxBinArticle" name="ids[]" value="<?= (int)$p['id'] ?>">
+                 <?php if ($canRestorePost || $canPurgePost): ?><input type="checkbox" class="bulkCheckboxBinArticle" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
               </td>
 
               <td>
@@ -236,8 +238,6 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                   <span class="adam-status-text"><?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?></span>
                 </span>
               </td>
-
-              <td><?= htmlspecialchars((string)($p['categories'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
 
               <td>
                 <?= htmlspecialchars(!empty($p['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$p['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?>
@@ -259,23 +259,23 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               </td>
 
               <td>
-                <button type="button"
+                <?php if ($canRestorePost): ?><button type="button"
                         class="adam-link-button js-bin-article-restore"
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                   <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
-                </button>
+                </button><?php endif; ?>
 
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
+                <?php if ($canRestorePost && $canPurgePost): ?>&nbsp;<span class="muted-divider">|</span>&nbsp;<?php endif; ?>
 
-                <button type="button"
+                <?php if ($canPurgePost): ?><button type="button"
                         class="adam-link-button js-bin-article-delete-permanent"
                         data-id="<?= (int)$p['id'] ?>"
                         data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                   <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
-                </button>
+                </button><?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>

@@ -11,7 +11,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_permission($pdo, 'core.categories.create', false);
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -53,14 +53,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if ($parent_id !== null && empty($errors)) {
         $stmtParent = $pdo->prepare("
-            SELECT id
+            SELECT id, created_by
             FROM categories
             WHERE id = :id
               AND is_deleted = 0
             LIMIT 1
         ");
         $stmtParent->execute([':id' => $parent_id]);
-        if (!$stmtParent->fetchColumn()) {
+        $parentCategory = $stmtParent->fetch(PDO::FETCH_ASSOC);
+        if (!$parentCategory
+            || !user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($parentCategory['created_by'] ?? 0)])) {
             $errors[] = __('Invalid parent category.');
         }
     }
@@ -105,17 +107,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 }
 
+$readCondition = authorization_owner_scope_condition(
+    $pdo,
+    $uid,
+    'core.categories.read',
+    'categories.created_by',
+    'category_add_read'
+);
+$readWhere = $readCondition !== null ? ' AND (' . $readCondition['sql'] . ')' : ' AND 1=0';
 $stmt = $pdo->prepare("
     SELECT id, name, parent_id
     FROM categories
     WHERE is_deleted = 0
+      $readWhere
 ");
-$stmt->execute();
+$stmt->execute($readCondition['params'] ?? []);
 $allCats = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 $children = [];
+$visibleCategoryIds = array_fill_keys(array_map(static fn(array $category): int => (int)$category['id'], $allCats), true);
 foreach ($allCats as $c) {
     $pid = $c['parent_id'] === null ? 0 : (int)$c['parent_id'];
+    if ($pid > 0 && !isset($visibleCategoryIds[$pid])) {
+        $pid = 0;
+    }
     $children[$pid][] = $c;
 }
 

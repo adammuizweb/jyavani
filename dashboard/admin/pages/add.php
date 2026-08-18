@@ -11,7 +11,10 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_permission($pdo, 'core.pages.create', false);
+$canPublish = user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $uid]);
+$canChangeDates = user_can($pdo, $uid, 'core.pages.change_dates', ['owner_id' => $uid]);
+$canUseUnfilteredHtml = user_can($pdo, $uid, 'core.pages.unfiltered_html');
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -20,129 +23,6 @@ if (!function_exists('slugify')) {
         $text = preg_replace('/[-]{2,}/', '-', $text);
         $text = trim((string)$text, '-');
         return $text ?: bin2hex(random_bytes(4));
-    }
-}
-
-if (!function_exists('sanitize_author_html')) {
-    function sanitize_author_html(string $html): string {
-        $html = trim($html);
-        if ($html === '') return '';
-
-        $allowedTags = array_flip([
-            'p','br','hr',
-            'strong','b','em','i','u','s',
-            'blockquote','pre','code',
-            'h1','h2','h3','h4','h5','h6',
-            'ul','ol','li',
-            'a',
-            'img','figure','figcaption',
-            'table','thead','tbody','tfoot','tr','th','td',
-            'span','div'
-        ]);
-
-        $allowedAttrs = [
-            'a'   => ['href','title','target','rel'],
-            'img' => ['src','alt','title','width','height'],
-            'div' => ['class'],
-            'span'=> ['class'],
-            'p'   => ['class'],
-            'th'  => ['colspan','rowspan'],
-            'td'  => ['colspan','rowspan'],
-            '*'   => ['class'],
-        ];
-
-        $blockTags = ['script','iframe','object','embed','link','meta','style','form','svg','canvas'];
-
-        $prev = libxml_use_internal_errors(true);
-        $doc = new DOMDocument('1.0', 'UTF-8');
-        $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-
-        $xpath = new DOMXPath($doc);
-        foreach ($xpath->query('//comment()') as $c) {
-            $c->parentNode?->removeChild($c);
-        }
-
-        $walker = function(DOMNode $node) use (&$walker, $allowedTags, $allowedAttrs, $blockTags) {
-            if ($node->nodeType === XML_ELEMENT_NODE) {
-                $tag = strtolower($node->nodeName);
-
-                if (in_array($tag, $blockTags, true)) {
-                    $node->parentNode?->removeChild($node);
-                    return;
-                }
-
-                if (!isset($allowedTags[$tag])) {
-                    $parent = $node->parentNode;
-                    if ($parent) {
-                        while ($node->firstChild) {
-                            $parent->insertBefore($node->firstChild, $node);
-                        }
-                        $parent->removeChild($node);
-                    }
-                    return;
-                }
-
-                if ($node->hasAttributes()) {
-                    $toRemove = [];
-                    foreach (iterator_to_array($node->attributes) as $attr) {
-                        $name = strtolower($attr->name);
-                        $val  = (string)$attr->value;
-
-                        if (str_starts_with($name, 'on') || $name === 'style') {
-                            $toRemove[] = $attr->name;
-                            continue;
-                        }
-
-                        $allowedForTag = $allowedAttrs[$tag] ?? [];
-                        $allowedForAll = $allowedAttrs['*'] ?? [];
-                        if (!in_array($name, $allowedForTag, true) && !in_array($name, $allowedForAll, true)) {
-                            $toRemove[] = $attr->name;
-                            continue;
-                        }
-
-                        if (($tag === 'a' && $name === 'href') || ($tag === 'img' && $name === 'src')) {
-                            $v = trim($val);
-                            $ok = false;
-                            if ($v === '' || $v[0] === '#' || $v[0] === '/') $ok = true;
-                            if (!$ok && preg_match('#^https?://#i', $v)) $ok = true;
-                            if (!$ok && $tag === 'a' && preg_match('#^mailto:#i', $v)) $ok = true;
-                            if (!$ok && $tag === 'a' && preg_match('#^tel:#i', $v)) $ok = true;
-                            if (preg_match('#^(javascript:|data:|vbscript:)#i', $v)) $ok = false;
-                            if (!$ok) $toRemove[] = $attr->name;
-                        }
-                    }
-
-                    foreach ($toRemove as $r) {
-                        $node->removeAttribute($r);
-                    }
-
-                    if ($tag === 'a') {
-                        $t = $node->getAttribute('target');
-                        if (strtolower($t) === '_blank') {
-                            $rel = trim($node->getAttribute('rel'));
-                            foreach (['noopener','noreferrer'] as $n) {
-                                if (!preg_match('/\b'.preg_quote($n,'/').'\b/i', $rel)) {
-                                    $rel = trim($rel . ' ' . $n);
-                                }
-                            }
-                            $node->setAttribute('rel', $rel);
-                        }
-                    }
-                }
-            }
-
-            $children = [];
-            foreach ($node->childNodes as $ch) $children[] = $ch;
-            foreach ($children as $ch) $walker($ch);
-        };
-
-        $walker($doc);
-
-        $out = $doc->saveHTML() ?: '';
-        libxml_clear_errors();
-        libxml_use_internal_errors($prev);
-
-        return trim($out);
     }
 }
 
@@ -192,9 +72,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $errors[] = __('Title is required.');
     }
 
-    if ($role === 'author') {
-        $content = sanitize_author_html($content);
-    }
+    if (!$canUseUnfilteredHtml) $content = cms_sanitize_restricted_html($content);
 
 if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
     $content = normalize_links_in_html($content);
@@ -211,7 +89,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
             SELECT id
             FROM posts
             WHERE slug = :slug
-              AND type = 'page'
+              AND type IN ('article', 'page', 'theme')
               AND is_deleted = 0
             LIMIT 1
         ");
@@ -224,18 +102,18 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
     $created_at_parsed = null;
     $updated_at_parsed = null;
 
-    if ($role === 'admin') {
-        if ($created_at_in !== '') {
-            $created_at_parsed = parse_datetime_local($created_at_in);
-            if ($created_at_parsed === null) {
-                $errors[] = __('Invalid Created At format.');
-            }
+    if ($status !== 'draft' && !$canPublish) $errors[] = __('Access denied.');
+    if (($created_at_in !== '' || $updated_at_in !== '') && !$canChangeDates) $errors[] = __('Access denied.');
+    if ($created_at_in !== '') {
+        $created_at_parsed = parse_datetime_local($created_at_in);
+        if ($created_at_parsed === null) {
+            $errors[] = __('Invalid Created At format.');
         }
-        if ($updated_at_in !== '') {
-            $updated_at_parsed = parse_datetime_local($updated_at_in);
-            if ($updated_at_parsed === null) {
-                $errors[] = __('Invalid Updated At format.');
-            }
+    }
+    if ($updated_at_in !== '') {
+        $updated_at_parsed = parse_datetime_local($updated_at_in);
+        if ($updated_at_parsed === null) {
+            $errors[] = __('Invalid Updated At format.');
         }
     }
 
@@ -258,7 +136,22 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
         $metaVal = !empty($pageMeta) ? json_encode($pageMeta, JSON_UNESCAPED_UNICODE) : null;
 
         try {
-            $page_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $metaVal, $thumbnail, $status, $uid, $final_created, $final_updated): int {
+            $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
+            $page_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $metaVal, $thumbnail, $status, $uid, $final_created, $final_updated, $requiresDatePermission): int {
+                $pdo->beginTransaction();
+                try {
+                if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
+                if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
+                if (!user_can($pdo, $uid, 'core.pages.create')) throw new DomainException('Page create permission changed.');
+                if ($status !== 'draft' && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $uid])) {
+                    throw new DomainException('Page publish permission changed.');
+                }
+                if ($requiresDatePermission && !user_can($pdo, $uid, 'core.pages.change_dates', ['owner_id' => $uid])) {
+                    throw new DomainException('Page date permission changed.');
+                }
+                $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
+                $slugLock->execute([':slug' => $slug]);
+                if ($slugLock->fetchColumn()) throw new DomainException('Page slug changed.');
                 $stmt = $pdo->prepare("
                     INSERT INTO posts
                     (title, slug, content, type, meta, thumbnail, status, created_by, created_at, updated_at)
@@ -276,7 +169,14 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                     ':created_at' => $final_created,
                     ':updated_at' => $final_updated,
                 ]);
-                return $ok ? (int)$pdo->lastInsertId() : 0;
+                if (!$ok) throw new RuntimeException('Page insert failed.');
+                $pageId = (int)$pdo->lastInsertId();
+                $pdo->commit();
+                return $pageId;
+                } catch (Throwable $error) {
+                    if ($pdo->inTransaction()) $pdo->rollBack();
+                    throw $error;
+                }
             });
 
             if ($page_id > 0) {
@@ -320,7 +220,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 
         <label><?=_e('Thumbnail')?><br>
           <div class="thumb-row">
-            <?php if ($role === 'author'): ?>
+            <?php if (!$canUseUnfilteredHtml): ?>
             <input type="hidden" id="thumbnail-input" name="thumbnail" value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
             <?php else: ?>
             <input type="text" id="thumbnail-input" name="thumbnail" value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud" placeholder="<?=_e('Thumbnail URL')?>" style="display:none">
@@ -329,7 +229,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>
-            <?php if ($role !== 'author'): ?>
+            <?php if ($canUseUnfilteredHtml): ?>
             <button type="button" id="btn-toggle-url-input" class="thumb-url-btn"><?=_e('Insert via URL')?></button>
             <?php endif; ?>
             <button type="button" id="thumbnail-clear" class="thumb-clear-btn" title="<?=_e('Clear')?>" style="<?= empty($_POST['thumbnail']) ? 'display:none' : '' ?>">&times;</button>
@@ -357,12 +257,14 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
     <label><?=_e('Status')?><br>
       <select name="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px;">
         <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?= _e('Draft') ?></option>
-        <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?= _e('Published') ?></option>
-        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?= _e('Private') ?></option>
+        <?php if ($canPublish): ?>
+          <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?= _e('Published') ?></option>
+          <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?= _e('Private') ?></option>
+        <?php endif; ?>
       </select>
     </label>
 
-    <?php if ($role === 'admin'): ?>
+    <?php if ($canChangeDates): ?>
       <label style="display:block;margin-top:.6rem"><?=_e('Created At (optional)')?><br>
         <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
         <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty for current time (GMT+7).')?></div>

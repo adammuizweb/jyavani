@@ -9,7 +9,9 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_permission_scope($pdo, 'core.posts.read', false);
+$readCondition = authorization_owner_scope_condition($pdo, $uid, 'core.posts.read', 'p.created_by', 'post_list_read');
+if ($readCondition === null) adiwira_render_404();
 
 // dukung query toast lama bila masih ada route lama yang kirim ?msg= / ?err=
 $page_toasts = function_exists('adiwira_collect_query_toasts')
@@ -19,18 +21,23 @@ $page_toasts = function_exists('adiwira_collect_query_toasts')
 $filter_status   = $_GET['status'] ?? '';
 $filter_category = $_GET['category'] ?? '';
 $search          = trim($_GET['q'] ?? '');
+if ((int)$filter_category > 0) {
+    $filterCategoryStmt = $pdo->prepare('SELECT created_by FROM categories WHERE id = :id AND is_deleted = 0 LIMIT 1');
+    $filterCategoryStmt->execute([':id' => (int)$filter_category]);
+    $filterCategoryOwner = $filterCategoryStmt->fetchColumn();
+    if ($filterCategoryOwner === false
+        || !user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)$filterCategoryOwner])) {
+        $filter_category = '';
+    }
+}
 
 $page_num = max(1, (int)($_GET['p'] ?? 1));
 $per_page = 15;
 $offset   = ($page_num - 1) * $per_page;
 
 $where = ["p.is_deleted = 0", "p.type = 'article'"];
-$params = [];
-
-if (in_array($role, ['author','editor'], true)) {
-    $where[] = "p.created_by = :uid";
-    $params[':uid'] = $uid;
-}
+$where[] = '(' . $readCondition['sql'] . ')';
+$params = $readCondition['params'];
 
 if ($filter_status !== '') {
     $where[] = "p.status = :status";
@@ -66,7 +73,7 @@ $listJoin = apply_filters('post_list_join', '', $where_sql);
 
 $sql = "
 SELECT
-  p.id, p.title, p.slug, p.status, p.created_at,
+  p.id, p.title, p.slug, p.status, p.created_at, p.created_by AS owner_id,
   u.name AS created_by,
   u.username AS author_username,
   GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') AS categories,
@@ -91,7 +98,10 @@ $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
 $posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$allCatsStmt = $pdo->query("SELECT id, slug, parent_id, name FROM categories WHERE is_deleted = 0");
+$categoryReadCondition = authorization_owner_scope_condition($pdo, $uid, 'core.categories.read', 'categories.created_by', 'post_category_read');
+$categoryWhere = $categoryReadCondition !== null ? ' AND (' . $categoryReadCondition['sql'] . ')' : ' AND 1=0';
+$allCatsStmt = $pdo->prepare("SELECT id, slug, parent_id, name FROM categories WHERE is_deleted = 0 $categoryWhere");
+$allCatsStmt->execute($categoryReadCondition['params'] ?? []);
 $allCatsRows = $allCatsStmt->fetchAll(PDO::FETCH_ASSOC);
 $catsMap = [];
 foreach ($allCatsRows as $r) {
@@ -138,22 +148,31 @@ if (!function_exists('cat_hue')) {
     }
 }
 
-$catStmt = $pdo->query("SELECT id, name FROM categories WHERE is_deleted = 0 ORDER BY name ASC");
+$catStmt = $pdo->prepare("SELECT id, name FROM categories WHERE is_deleted = 0 $categoryWhere ORDER BY name ASC");
+$catStmt->execute($categoryReadCondition['params'] ?? []);
 $categories = $catStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$authorsStmt = $pdo->query("
+$canChangeOwner = user_permission_scope($pdo, $uid, 'core.posts.change_owner') !== null;
+$authorsStmt = $canChangeOwner ? $pdo->query("
     SELECT id, name, username
     FROM users
     WHERE is_deleted = 0
       AND is_locked = 0
     ORDER BY name ASC, username ASC
-");
-$authors = $authorsStmt->fetchAll(PDO::FETCH_ASSOC);
+") : null;
+$authors = $authorsStmt ? $authorsStmt->fetchAll(PDO::FETCH_ASSOC) : [];
 
 $base = ADMIN_BASE_PATH;
 $_catPath = function_exists('get_category_path') ? get_category_path($pdo) : 'category';
 $catBase = $_catPath !== '' ? '/' . $_catPath . '/' : '/';
-$canBulk = in_array($role, ['admin','editor','author'], true);
+$canCreate = user_can($pdo, $uid, 'core.posts.create');
+$canUpdate = user_permission_scope($pdo, $uid, 'core.posts.update') !== null;
+$canTrash = user_permission_scope($pdo, $uid, 'core.posts.trash') !== null;
+$canPublish = user_permission_scope($pdo, $uid, 'core.posts.publish') !== null;
+$canChangeDates = user_permission_scope($pdo, $uid, 'core.posts.change_dates') !== null;
+$canBulk = $canUpdate || $canTrash || $canPublish || $canChangeOwner || $canChangeDates;
+$canOpenTrash = user_permission_scope($pdo, $uid, 'core.posts.restore') !== null
+    || user_permission_scope($pdo, $uid, 'core.posts.purge') !== null;
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/posts/index';
@@ -244,8 +263,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
     </form>
 
-    <a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a>
-    <?php if ($role === 'admin') : ?>
+    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a><?php endif; ?>
+    <?php if ($canOpenTrash) : ?>
       <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
@@ -262,22 +281,20 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <select id="bulkAction" name="action" class="inp">
         <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="delete"><?= _e('Delete') ?></option>
-        <option value="change_status"><?= _e('Change Status') ?></option>
-        <option value="change_categories"><?= _e('Manage Categories') ?></option>
-        <?php if ($role === 'admin'): ?>
-          <option value="change_author"><?= _e('Change Author') ?></option>
-          <option value="change_date"><?= _e('Change Date') ?></option>
-        <?php endif; ?>
+        <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
+        <?php if ($canUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
+        <?php if ($canUpdate): ?><option value="change_categories"><?= _e('Manage Categories') ?></option><?php endif; ?>
+        <?php if ($canChangeOwner): ?><option value="change_author"><?= _e('Change Author') ?></option><?php endif; ?>
+        <?php if ($canChangeDates): ?><option value="change_date"><?= _e('Change Date') ?></option><?php endif; ?>
       </select>
 
       <select id="bulkStatus" name="status" class="inp" style="display:none;">
         <option value="draft"><?=_e('Draft')?></option>
-        <option value="published"><?=_e('Published')?></option>
-        <option value="private"><?=_e('Private')?></option>
+        <?php if ($canPublish): ?><option value="published"><?=_e('Published')?></option>
+        <option value="private"><?=_e('Private')?></option><?php endif; ?>
       </select>
 
-      <?php if ($role === 'admin'): ?>
+      <?php if ($canChangeOwner): ?>
       <select id="bulkAuthor" name="author_id" class="inp" style="display:none;">
         <option value=""><?= _e('-- Select Author --') ?></option>
         <?php foreach ($authors as $a):
@@ -303,7 +320,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <?php endforeach; ?>
       </div>
 
-      <?php if ($role === 'admin'): ?>
+      <?php if ($canChangeDates): ?>
       <div id="bulkDatesPanel" class="date-panel" style="display:none;">
         <label class="date-label">
           <?= _e('Created at') ?>
@@ -333,6 +350,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </div>
       </div>
     </div>
+  <?php endif; ?>
 
     <div class="adam-table-wrapper">
       <table class="adam-table mt-8">
@@ -352,7 +370,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <?php else: ?>
             <?php foreach ($posts as $p): ?>
             <?php
+              $postOwnerId = (int)($p['owner_id'] ?? 0);
               $status = strtolower(trim($p['status'] ?? 'unknown'));
+              $canPublishPost = user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $postOwnerId]);
+              $canUpdatePost = user_can($pdo, $uid, 'core.posts.update', ['owner_id' => $postOwnerId])
+                && ($status === 'draft' || $canPublishPost);
+              $canTrashPost = user_can($pdo, $uid, 'core.posts.trash', ['owner_id' => $postOwnerId]);
+              $canChangeOwnerPost = user_can($pdo, $uid, 'core.posts.change_owner', ['owner_id' => $postOwnerId]);
+              $canChangeDatesPost = user_can($pdo, $uid, 'core.posts.change_dates', ['owner_id' => $postOwnerId]);
+              $canSelectPost = $canUpdatePost || $canTrashPost || $canChangeOwnerPost || $canChangeDatesPost;
               $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
               $icons = [
                 'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -370,7 +396,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             ?>
             <tr class="adam-row">
               <td class="td-center">
-                <input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$p['id'] ?>">
+                <?php if ($canBulk && $canSelectPost): ?><input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
               </td>
 
               <td>
@@ -386,15 +412,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   </a>
                   <?= apply_filters('post_list_title_after', '', $p) ?>
                   <div class="row-actions">
-                    <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
-                    <span class="muted-divider">|</span>
-                    <button type="button"
+                    <?php if ($canUpdatePost): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                    <?php if ($canUpdatePost && $canTrashPost): ?><span class="muted-divider">|</span><?php endif; ?>
+                    <?php if ($canTrashPost): ?><button type="button"
                             class="adam-hapus js-post-delete"
                             data-id="<?= (int)$p['id'] ?>"
                             data-title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>"
                             data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                       <?= svg_ico('trash-2', '', ['class' => 'lucide-icon']) ?><?=_e('Delete')?>
-                    </button>
+                    </button><?php endif; ?>
                   </div>
                 </div>
               </td>
@@ -456,8 +482,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </tbody>
       </table>
     </div>
-  </form>
-  <?php endif; ?>
+  <?php if ($canBulk): ?></form><?php endif; ?>
 
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination pagination-wrap">
@@ -480,11 +505,11 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <form id="newnotif-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/posts/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
+  <?php if ($canTrash): ?><form id="newnotif-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/posts/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:none;">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" id="newnotif-delete-id">
     <input type="hidden" name="return_to" id="newnotif-delete-return-to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-  </form>
+  </form><?php endif; ?>
 </section>
 
 <?php
@@ -622,7 +647,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (action === 'change_author') {
-      if (<?= json_encode($role !== 'admin') ?>) {
+      if (<?= json_encode(!$canChangeOwner) ?>) {
         return { ok:false, message: <?= json_encode(__('Access denied: only admin can change author.')) ?> };
       }
       const authorId = bulkAuthor ? bulkAuthor.value : '';
@@ -644,7 +669,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
 
     if (action === 'change_date') {
-      if (<?= json_encode($role !== 'admin') ?>) {
+      if (<?= json_encode(!$canChangeDates) ?>) {
         return { ok:false, message: <?= json_encode(__('Access denied: only admin can change date.')) ?> };
       }
       const createdAt = bulkCreatedAt ? bulkCreatedAt.value : '';

@@ -9,7 +9,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$me, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$me] = adiwira_require_login($pdo, false);
 
 if (!function_exists('slugify')) {
     function slugify(string $text): string {
@@ -25,16 +25,16 @@ if (!function_exists('fetch_users_for_dropdown')) {
     function fetch_users_for_dropdown(PDO $pdo): array {
         try {
             $sql = "
-                SELECT id, name, username, email, img,
+                SELECT id, name, username, img,
                 CASE
-                  WHEN name IS NOT NULL AND name != '' THEN CONCAT(name, ' (', email, ')')
-                  WHEN email IS NOT NULL AND email != '' THEN email
+                  WHEN name IS NOT NULL AND name != '' THEN name
+                  WHEN username IS NOT NULL AND username != '' THEN username
                   ELSE CONCAT('user-', id)
                 END AS label
                 FROM users
                 WHERE is_deleted = 0
                   AND is_locked = 0
-                ORDER BY name ASC, email ASC
+                ORDER BY name ASC, username ASC
             ";
             $stmt = $pdo->query($sql);
             return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -78,22 +78,32 @@ if (!$post) {
     return;
 }
 
-if ($role !== 'admin' && (int)($post['created_by'] ?? 0) !== $me) {
-    http_response_code(403);
-    echo '<p>' . __('Access denied: you can only edit your own posts.') . '</p>';
-    return;
-}
+$postOwnerId = (int)($post['created_by'] ?? 0);
+if (!user_can($pdo, $me, 'core.posts.update', ['owner_id' => $postOwnerId])) adiwira_render_404();
+$canPublish = user_can($pdo, $me, 'core.posts.publish', ['owner_id' => $postOwnerId]);
+$canChangeOwner = user_can($pdo, $me, 'core.posts.change_owner', ['owner_id' => $postOwnerId]);
+$canChangeDates = user_can($pdo, $me, 'core.posts.change_dates', ['owner_id' => $postOwnerId]);
+$canUseUnfilteredHtml = user_can($pdo, $me, 'core.posts.unfiltered_html');
+if ((string)($post['status'] ?? 'draft') !== 'draft' && !$canPublish) adiwira_render_404();
 
-$stmt = $pdo->prepare("\n    SELECT id, name, parent_id\n    FROM categories\n    WHERE is_deleted = 0\n    ORDER BY parent_id ASC, name ASC\n");
-$stmt->execute();
+$categoryReadCondition = authorization_owner_scope_condition($pdo, $me, 'core.categories.read', 'categories.created_by', 'post_edit_category_read');
+$categoryReadWhere = $categoryReadCondition !== null ? ' AND (' . $categoryReadCondition['sql'] . ')' : ' AND 1=0';
+$stmt = $pdo->prepare("\n    SELECT id, name, parent_id\n    FROM categories\n    WHERE is_deleted = 0 $categoryReadWhere\n    ORDER BY parent_id ASC, name ASC\n");
+$stmt->execute($categoryReadCondition['params'] ?? []);
 $all_categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$visibleCategoryIds = array_fill_keys(array_map(static fn(array $category): int => (int)$category['id'], $all_categories), true);
+foreach ($all_categories as &$visibleCategory) {
+    $parentId = (int)($visibleCategory['parent_id'] ?? 0);
+    if ($parentId > 0 && !isset($visibleCategoryIds[$parentId])) $visibleCategory['parent_id'] = 0;
+}
+unset($visibleCategory);
 
 $stmt2 = $pdo->prepare("SELECT category_id FROM post_categories WHERE post_id = :post_id");
 $stmt2->execute([':post_id' => $id]);
 $current_cats = $stmt2->fetchAll(PDO::FETCH_COLUMN, 0);
 $current_cats = array_map('intval', $current_cats);
 
-$users = ($role === 'admin') ? fetch_users_for_dropdown($pdo) : [];
+$users = $canChangeOwner ? fetch_users_for_dropdown($pdo) : [];
 
 if (!function_exists('render_category_tree')) {
     function render_category_tree(array $categories, array $selected = [], int $parent_id = 0, int $depth = 0): void {
@@ -117,6 +127,9 @@ $val = function($key, $default = '') {
 $title      = $val('title', $post['title'] ?? '');
 $slug       = $val('slug', $post['slug'] ?? '');
 $content    = $val('content', $post['content'] ?? '');
+if (!$canUseUnfilteredHtml && function_exists('cms_sanitize_restricted_html')) {
+    $content = cms_sanitize_restricted_html((string)$content);
+}
 $status     = $val('status', $post['status'] ?? 'draft');
 $youtube    = $val('youtube', $post['youtube'] ?? '');
 $thumbnail  = $val('thumbnail', $post['thumbnail'] ?? '');
@@ -213,7 +226,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
 
         <label><?=_e('Thumbnail')?><br>
           <div class="thumb-row">
-            <?php if ($role === 'author'): ?>
+            <?php if (!$canUseUnfilteredHtml): ?>
             <input type="hidden" id="thumbnail-input" name="thumbnail"
                    value="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>">
             <?php else: ?>
@@ -227,7 +240,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>
-            <?php if ($role !== 'author'): ?>
+            <?php if ($canUseUnfilteredHtml): ?>
             <button type="button" id="btn-toggle-url-input" class="thumb-url-btn"><?=_e('Insert via URL')?></button>
             <?php endif; ?>
             <button type="button" id="thumbnail-clear" class="thumb-clear-btn" title="<?=_e('Clear')?>" style="<?= empty($thumbnail) ? 'display:none' : '' ?>">&times;</button>
@@ -279,12 +292,12 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       <?php $currentStatus = $status; ?>
       <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
         <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
-        <option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
+        <?php if ($canPublish || $currentStatus === 'published'): ?><option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option><?php endif; ?>
+        <?php if ($canPublish || $currentStatus === 'private'): ?><option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option><?php endif; ?>
       </select>
     </div>
 
-    <?php if ($role === 'admin'): ?>
+    <?php if ($canChangeOwner): ?>
     <label style="display:block;margin-top:.6rem">
       <?=_e('Created By')?><br>
       <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
@@ -311,7 +324,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       <div style="font-size:12px;color:#666;margin-top:.6rem"><?= _e('Creator cannot be changed. Timestamp can be changed.') ?></div>
     <?php endif; ?>
 
-    <label style="display:block;margin-top:.6rem"><?=_e('Created At')?><br>
+    <?php if ($canChangeDates): ?><label style="display:block;margin-top:.6rem"><?=_e('Created At')?><br>
       <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
     </label>
@@ -319,7 +332,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
     <label style="display:block;margin-top:.6rem"><?=_e('Updated At')?><br>
       <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
       <div style="font-size:12px;color:#666;margin-top:4px"><?= _e('Leave empty to use current time.') ?></div>
-    </label>
+    </label><?php endif; ?>
 
     <?php
     $current_sidebar = '';

@@ -11,8 +11,9 @@ require_once __DIR__ . '/../../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-// bin users hanya admin
-[$uid, $role] = adiwira_require_role($pdo, ['admin'], true);
+[$uid, $role] = adiwira_require_login($pdo, true);
+$actor = authorization_actor($pdo, $uid);
+$actorIsSiteOwner = $actor !== null && $actor['is_site_owner'] === true;
 
 if (!function_exists('is_ajax_request')) {
     function is_ajax_request(): bool {
@@ -69,11 +70,36 @@ $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
     respond_users_bin_bulk(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
+$requiredPermission = match ($action) {
+    'restore' => 'core.users.restore',
+    'delete_permanent' => 'core.users.purge',
+    default => '',
+};
+if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPermission) === null) {
+    respond_users_bin_bulk(false, __('Access denied.'), 403, [], $returnTo);
+}
 
 $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
     $pdo->beginTransaction();
+    $actorIsSiteOwner = authorization_lock_site_owner_actor($pdo, $uid);
+    $selectedStmt = $pdo->prepare(
+        "SELECT id, is_site_owner FROM users WHERE id IN ($in) AND is_deleted = 1 FOR UPDATE"
+    );
+    $selectedStmt->execute($ids);
+    $selectedUsers = $selectedStmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($selectedUsers as $selectedUser) {
+        $selectedId = (int)$selectedUser['id'];
+        if ((int)$selectedUser['is_site_owner'] === 1 && !$actorIsSiteOwner) {
+            $pdo->rollBack();
+            respond_users_bin_bulk(false, __('Only a Site Owner can modify a Site Owner account.'), 403, [], $returnTo);
+        }
+        if (!user_can($pdo, $uid, $requiredPermission, ['owner_id' => $selectedId])) {
+            $pdo->rollBack();
+            respond_users_bin_bulk(false, __('You cannot modify one or more selected users.'), 403, [], $returnTo);
+        }
+    }
 
     if ($action === 'restore') {
         $sql = "UPDATE users
@@ -84,12 +110,24 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($ids);
         $affected = $stmt->rowCount();
+        foreach ($selectedUsers as $selectedUser) {
+            $selectedId = (int)$selectedUser['id'];
+            if (!authorization_audit($pdo, 'user.restored', $uid, $selectedId, 'user', (string)$selectedId)) {
+                throw new RuntimeException('Bulk user restore audit failed.');
+            }
+        }
 
         $pdo->commit();
         respond_users_bin_bulk(true, "Successfully restored  {$affected} user.", 200, ['count' => $affected], $returnTo);
     }
 
     if ($action === 'delete_permanent') {
+        foreach ($selectedUsers as $selectedUser) {
+            $selectedId = (int)$selectedUser['id'];
+            if (!authorization_audit($pdo, 'user.purged', $uid, $selectedId, 'user', (string)$selectedId)) {
+                throw new RuntimeException('Bulk user purge audit failed.');
+            }
+        }
         $sql = "DELETE FROM users
                 WHERE id IN ($in)
                   AND is_deleted = 1";

@@ -11,7 +11,7 @@ require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], true);
+[$uid] = adiwira_require_login($pdo, true);
 
 if (!function_exists('is_ajax_request')) {
     function is_ajax_request(): bool {
@@ -89,30 +89,59 @@ if (!is_array($ids) || empty($ids)) {
     respond(false, __('No articles selected.'), 400, [], $returnTo);
 }
 
-$ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
+$ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
 if (empty($ids)) {
     respond(false, __('Invalid article ID.'), 400, [], $returnTo);
-}
-
-if ($role !== 'admin') {
-    $in = implode(',', array_fill(0, count($ids), '?'));
-    $stmtOwn = $pdo->prepare("\n        SELECT id\n        FROM posts\n        WHERE id IN ($in)\n          AND type = 'article'\n          AND is_deleted = 0\n          AND created_by = ?\n    ");
-    $stmtOwn->execute(array_merge($ids, [$uid]));
-    $ownIds = $stmtOwn->fetchAll(PDO::FETCH_COLUMN, 0);
-    $ids = array_values(array_filter(array_map('intval', $ownIds), fn($v) => $v > 0));
-
-    if (empty($ids)) {
-        respond(false, __('No articles you can modify.'), 403, [], $returnTo);
-    }
 }
 
 $action = (string)($_POST['action'] ?? '');
 if ($action === '') {
     respond(false, __('Unknown bulk action.'), 400, [], $returnTo);
 }
+$requiredPermission = match ($action) {
+    'delete' => 'core.posts.trash',
+    'change_status', 'change_categories' => 'core.posts.update',
+    'change_author' => 'core.posts.change_owner',
+    'change_date' => 'core.posts.change_dates',
+    default => '',
+};
+if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPermission) === null) {
+    respond(false, __('Access denied.'), 403, [], $returnTo);
+}
 
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) {
+        $pdo->rollBack();
+        respond(false, __('Access denied.'), 403, [], $returnTo);
+    }
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $selectedStmt = $pdo->prepare("SELECT id, status, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $selectedStmt->execute($ids);
+    $selectedPosts = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (count($selectedPosts) !== count($ids)) {
+        $pdo->rollBack();
+        respond(false, __('Article not found.'), 404, [], $returnTo);
+    }
+    if (!authorization_lock_owner_contexts($pdo, array_column($selectedPosts, 'created_by'))) {
+        $pdo->rollBack();
+        respond(false, __('Access denied.'), 403, [], $returnTo);
+    }
+    foreach ($selectedPosts as $selectedPost) {
+        if (!user_can($pdo, $uid, $requiredPermission, ['owner_id' => (int)($selectedPost['created_by'] ?? 0)])) {
+            $pdo->rollBack();
+            respond(false, __('Access denied.'), 403, [], $returnTo);
+        }
+    }
+    if ($action === 'change_categories') {
+        foreach ($selectedPosts as $selectedPost) {
+            if ((string)($selectedPost['status'] ?? 'draft') !== 'draft'
+                && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => (int)($selectedPost['created_by'] ?? 0)])) {
+                $pdo->rollBack();
+                respond(false, __('Access denied.'), 403, [], $returnTo);
+            }
+        }
+    }
 
     if ($action === 'delete') {
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -138,6 +167,14 @@ try {
             $pdo->rollBack();
             respond(false, __('Invalid status.'), 400, [], $returnTo);
         }
+        if ($new_status !== 'draft' || array_filter($selectedPosts, static fn(array $post): bool => (string)($post['status'] ?? 'draft') !== 'draft')) {
+            foreach ($selectedPosts as $selectedPost) {
+                if (!user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => (int)($selectedPost['created_by'] ?? 0)])) {
+                    $pdo->rollBack();
+                    respond(false, __('Access denied.'), 403, [], $returnTo);
+                }
+            }
+        }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "UPDATE posts
@@ -155,7 +192,7 @@ try {
 
     if ($action === 'change_categories') {
         $cat_ids = $_POST['categories'] ?? [];
-        $cat_ids = array_values(array_filter(array_map('intval', (array)$cat_ids), fn($v) => $v > 0));
+        $cat_ids = array_values(array_unique(array_filter(array_map('intval', (array)$cat_ids), fn($v) => $v > 0)));
 
         if (empty($cat_ids)) {
             $pdo->rollBack();
@@ -163,14 +200,22 @@ try {
         }
 
         $inCats = implode(',', array_fill(0, count($cat_ids), '?'));
-        $vstmt = $pdo->prepare("SELECT id FROM categories WHERE id IN ($inCats) AND is_deleted = 0");
+        $vstmt = $pdo->prepare("SELECT id, created_by FROM categories WHERE id IN ($inCats) AND is_deleted = 0 FOR UPDATE");
         $vstmt->execute($cat_ids);
-        $found = $vstmt->fetchAll(PDO::FETCH_COLUMN, 0);
-        $cat_ids = array_values(array_intersect($cat_ids, array_map('intval', $found)));
-
-        if (empty($cat_ids)) {
+        $categoryRows = $vstmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (count($categoryRows) !== count($cat_ids)) {
             $pdo->rollBack();
             respond(false, __('Invalid category.'), 400, [], $returnTo);
+        }
+        if (!authorization_lock_owner_contexts($pdo, array_column($categoryRows, 'created_by'))) {
+            $pdo->rollBack();
+            respond(false, __('Access denied.'), 403, [], $returnTo);
+        }
+        foreach ($categoryRows as $categoryRow) {
+            if (!user_can($pdo, $uid, 'core.categories.read', ['owner_id' => (int)($categoryRow['created_by'] ?? 0)])) {
+                $pdo->rollBack();
+                respond(false, __('Access denied.'), 403, [], $returnTo);
+            }
         }
 
         $mode = (string)($_POST['cat_mode'] ?? 'add');
@@ -270,11 +315,6 @@ try {
     }
 
     if ($action === 'change_author') {
-        if ($role !== 'admin') {
-            $pdo->rollBack();
-            respond(false, __('Access denied: only admin can change author.'), 403, [], $returnTo);
-        }
-
         $author_id = (int)($_POST['author_id'] ?? 0);
         if ($author_id <= 0) {
             $pdo->rollBack();
@@ -288,6 +328,7 @@ try {
               AND is_deleted = 0
               AND is_locked = 0
             LIMIT 1
+            FOR UPDATE
         ");
         $v->execute([$author_id]);
         if (!$v->fetchColumn()) {
@@ -311,11 +352,6 @@ try {
     }
 
     if ($action === 'change_date') {
-        if ($role !== 'admin') {
-            $pdo->rollBack();
-            respond(false, __('Access denied: only admin can change date.'), 403, [], $returnTo);
-        }
-
         $created_at = trim((string)($_POST['created_at'] ?? ''));
         $updated_at = trim((string)($_POST['updated_at'] ?? ''));
 

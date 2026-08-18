@@ -69,6 +69,17 @@ if (!function_exists('adam_nav_active')) {
 if (!function_exists('nav_item')) {
     function nav_item($base, $requested, $prefix, $icon, $label, $sublinks = []) {
         $isActive = adam_nav_active($requested, $prefix);
+        if (!$isActive) {
+            foreach ($sublinks as $sublink) {
+                $query = parse_url((string)($sublink[0] ?? ''), PHP_URL_QUERY);
+                if (!is_string($query)) continue;
+                parse_str($query, $queryValues);
+                if (trim((string)($queryValues['page'] ?? ''), "/ \t\n\r\0\x0B") === $requested) {
+                    $isActive = true;
+                    break;
+                }
+            }
+        }
         $openClass = $isActive ? ' is-open' : '';
         $activeClass = $isActive ? ' adam-nav-link--active' : '';
 
@@ -122,6 +133,7 @@ if (!$userRole && isset($_SESSION) && is_array($_SESSION)) {
     $userRole = $_SESSION['user_role'] ?? null;
 }
 $userRole = is_string($userRole) ? strtolower(trim($userRole)) : null;
+$navActor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
 ?>
 <aside id="adam-aside" class="adam-aside" aria-hidden="false">
   <button id="adam-collapse" class="adam-collapse" aria-label="Toggle sidebar" title="<?= __('Hide / Show sidebar') ?>">
@@ -140,22 +152,56 @@ echo '<li class="adam-nav-item">
   </a>
 </li>';
 
-echo nav_item($base, $requested, 'admin/posts', adam_icon('pen'), __('Posts'), [
-  [$base . '/?page=admin/posts/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/posts/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
-]);
-
-if (in_array($userRole, ['admin','editor'], true)) {
-  echo nav_item($base, $requested, 'admin/categories', adam_icon('tag'), __('Categories'), [
-    [$base . '/?page=admin/categories/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
-    [$base . '/?page=admin/categories/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
-  ]);
+$postLinks = [];
+if (function_exists('current_user_permission_scope')
+    && current_user_permission_scope($pdo, 'core.posts.read') !== null) {
+  $postLinks[] = [$base . '/?page=admin/posts/index', __('List'), adam_icon('list','adam-svg-icon--sm')];
+}
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.posts.create')) {
+  $postLinks[] = [$base . '/?page=admin/posts/add', __('Add'), adam_icon('plus','adam-svg-icon--sm')];
+}
+if (function_exists('current_user_permission_scope')
+    && (current_user_permission_scope($pdo, 'core.posts.restore') !== null
+      || current_user_permission_scope($pdo, 'core.posts.purge') !== null)) {
+  $postLinks[] = [$base . '/?page=admin/bin/article/index', __('Trash'), adam_icon('trash-2','adam-svg-icon--sm')];
+}
+if ($postLinks !== []) {
+  echo nav_item($base, $requested, 'admin/posts', adam_icon('pen'), __('Posts'), $postLinks);
 }
 
-echo nav_item($base, $requested, 'admin/pages', adam_icon('file'), __('Pages'), [
-  [$base . '/?page=admin/pages/index',__('List'), adam_icon('list','adam-svg-icon--sm')],
-  [$base . '/?page=admin/pages/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
-]);
+$categoryLinks = [];
+if (function_exists('current_user_permission_scope')
+    && current_user_permission_scope($pdo, 'core.categories.read') !== null) {
+  $categoryLinks[] = [$base . '/?page=admin/categories/index', __('List'), adam_icon('list','adam-svg-icon--sm')];
+}
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.categories.create')) {
+  $categoryLinks[] = [$base . '/?page=admin/categories/add', __('Add'), adam_icon('plus','adam-svg-icon--sm')];
+}
+if (function_exists('current_user_permission_scope')
+    && (current_user_permission_scope($pdo, 'core.categories.restore') !== null
+      || current_user_permission_scope($pdo, 'core.categories.purge') !== null)) {
+  $categoryLinks[] = [$base . '/?page=admin/bin/category/index', __('Trash'), adam_icon('trash-2','adam-svg-icon--sm')];
+}
+if ($categoryLinks !== []) {
+  echo nav_item($base, $requested, 'admin/categories', adam_icon('tag'), __('Categories'), $categoryLinks);
+}
+
+$pageLinks = [];
+if (function_exists('current_user_permission_scope')
+    && current_user_permission_scope($pdo, 'core.pages.read') !== null) {
+  $pageLinks[] = [$base . '/?page=admin/pages/index', __('List'), adam_icon('list','adam-svg-icon--sm')];
+}
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.pages.create')) {
+  $pageLinks[] = [$base . '/?page=admin/pages/add', __('Add'), adam_icon('plus','adam-svg-icon--sm')];
+}
+if (function_exists('current_user_permission_scope')
+    && (current_user_permission_scope($pdo, 'core.pages.restore') !== null
+      || current_user_permission_scope($pdo, 'core.pages.purge') !== null)) {
+  $pageLinks[] = [$base . '/?page=admin/bin/page/index', __('Trash'), adam_icon('trash-2','adam-svg-icon--sm')];
+}
+if ($pageLinks !== []) {
+  echo nav_item($base, $requested, 'admin/pages', adam_icon('file'), __('Pages'), $pageLinks);
+}
 
 // ===== PLUGIN TOP-LEVEL NAV (parent=pages) — rendered right after Pages =====
 if (function_exists('plugin_nav_items')) {
@@ -219,43 +265,72 @@ echo '</a>';
 echo '<div class="adam-nav-sub" aria-hidden="' . ($isPengaturanActive ? 'false' : 'true') . '">';
 
 if ($userRole === 'admin') {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/shortcodes/index&tab=presets') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('braces','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Shortcodes') . '</span></a>';
+
+}
+
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/site') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/site') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('globe','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Website') . '</span></a>';
 
+}
+
+if ($navActor !== null && $navActor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/auth') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('lock','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Auth') . '</span></a>';
+}
+
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.sidebar.manage')) {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/sidebar') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('columns-2','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Sidebar') . '</span></a>';
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/sidebar') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/sidebar/index') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('puzzle','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Sidebar Widgets') . '</span></a>';
-
-    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/menus') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/menus/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('rows-3','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Menus') . '</span></a>';
-
-    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/shortcodes/index&tab=presets') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('braces','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Shortcodes') . '</span></a>';
-
-    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/auth') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('lock','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Auth') . '</span></a>';
 }
 
-echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/profile/index') . '">';
-echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('user','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Profile') . '</span></a>';
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.menus.manage')) {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/menus') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/menus/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('rows-3','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Menus') . '</span></a>';
+}
+
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.profile.manage')) {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/profile') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/profile/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('user','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Profile') . '</span></a>';
+}
+
+if (function_exists('current_user_can') && current_user_can($pdo, 'core.users.read')) {
+    $usersNavActive = adam_nav_active($requested, 'admin/users') && !adam_nav_active($requested, 'admin/users/roles');
+    echo '<a class="adam-nav-sublink' . ($usersNavActive ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/users/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('users','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Users') . '</span></a>';
+}
+
+if ($navActor !== null && $navActor['is_site_owner'] === true) {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/users/roles') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/users/roles/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('shield-check','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Roles & Permissions') . '</span></a>';
+}
 
 if ($userRole === 'admin') {
-    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/users') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/users/index') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('users','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Users') . '</span></a>';
-
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/bin') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/bin/index') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('trash','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Bin') . '</span></a>';
 }
 
-if ($userRole === 'admin') {
+if ($userRole !== 'admin' && function_exists('current_user_can')
+    && (current_user_can($pdo, 'core.users.restore') || current_user_can($pdo, 'core.users.purge'))) {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/bin/users') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/bin/users/index') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('trash','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('User Trash') . '</span></a>';
+}
+
+if ($navActor !== null && $navActor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.plugins.manage')) {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/plugins/index') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/plugins/index') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('box','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Plugins') . '</span></a>';
 
 }
 
-if ($userRole === 'admin') {
+if ($navActor !== null && $navActor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.updates.manage')) {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/update') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/update/index') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('refresh-cw','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Update') . '</span></a>';
 }

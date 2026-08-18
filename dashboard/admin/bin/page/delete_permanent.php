@@ -1,87 +1,36 @@
 <?php
 declare(strict_types=1);
 
-// /adiwira/admin/bin/page/delete_permanent.php
-if (!defined('DASHBOARD_CONTEXT')) {
-    define('DASHBOARD_CONTEXT', true);
-}
-
+if (!defined('DASHBOARD_CONTEXT')) define('DASHBOARD_CONTEXT', true);
 require_once __DIR__ . '/../../_guard.php';
 require_once __DIR__ . '/../../_notify.php';
 
 $defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/bin/page/index';
-$returnTo = function_exists('adiwira_safe_return_to')
-    ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo)
-    : $defaultReturnTo;
-
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
-}
-
-$identity = adiwira_fetch_identity($pdo);
-if (($identity['ok'] ?? false) !== true) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
-
-$token = (string)($_POST['csrf_token'] ?? '');
-if (!adiwira_csrf_validate($token)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
-}
-
+$returnTo = adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), $defaultReturnTo);
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') adiwira_redirect_with_flash($returnTo, 'error', __('Method not allowed.'));
+[$uid] = adiwira_require_login($pdo, true);
+if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ''))) adiwira_redirect_with_flash($returnTo, 'error', __('Invalid CSRF token.'));
 $id = (int)($_POST['id'] ?? 0);
-if ($id <= 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
-}
-
-$stmt = $pdo->prepare("
-    SELECT id, created_by
-    FROM posts
-    WHERE id = :id
-      AND type = 'page'
-      AND is_deleted = 1
-    LIMIT 1
-");
-$stmt->execute([':id' => $id]);
-$row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$row) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Page tidak ditemukan di trash.'));
-}
-
-if ($role === 'author' && (int)($row['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak punya akses hapus permanen page ini.'));
-}
+if ($id <= 0) adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 
 try {
     $pdo->beginTransaction();
-
-    $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")
-        ->execute([':id' => $id]);
-
-    $pdo->prepare("
-        DELETE FROM posts
-        WHERE id = :id
-          AND type = 'page'
-          AND is_deleted = 1
-        LIMIT 1
-    ")->execute([':id' => $id]);
-
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
+    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $page = $lock->fetch(PDO::FETCH_ASSOC);
+    $ownerId = (int)($page['created_by'] ?? 0);
+    if (!$page || !authorization_lock_owner_contexts($pdo, [$ownerId])) throw new DomainException('Page owner context lock failed.');
+    if (!user_can($pdo, $uid, 'core.pages.purge', ['owner_id' => $ownerId])) throw new DomainException('Page purge permission changed.');
+    $pdo->prepare('DELETE FROM post_categories WHERE post_id = :id')->execute([':id' => $id]);
+    $pdo->prepare("DELETE FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 LIMIT 1")->execute([':id' => $id]);
     $pdo->commit();
-
     adiwira_redirect_with_flash($returnTo, 'success', __('Page permanently deleted.'));
-
+} catch (DomainException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 } catch (Throwable $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
-
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('bin/page/delete_permanent.php error: ' . $e->getMessage());
     adiwira_redirect_with_flash($returnTo, 'error', __('Failed to permanently delete page.'));
 }

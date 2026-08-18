@@ -24,12 +24,6 @@ if (($identity['ok'] ?? false) !== true) {
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if ($role !== 'admin') {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied: only admins can delete users.'));
-}
-
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Token CSRF tidak valid.'));
@@ -43,6 +37,9 @@ if ($id <= 0) {
 if ($id === $uid) {
     adiwira_redirect_with_flash($returnTo, 'error', __('You cannot delete your own account.'));
 }
+if (!user_can($pdo, $uid, 'core.users.delete', ['owner_id' => $id])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+}
 
 $stmt = $pdo->prepare("SELECT id FROM users WHERE id = :id AND is_deleted = 0 LIMIT 1");
 $stmt->execute([':id' => $id]);
@@ -50,17 +47,20 @@ if (!$stmt->fetch()) {
     adiwira_redirect_with_flash($returnTo, 'error', __('User tidak ditemukan atau sudah dihapus.'));
 }
 
-$stmtDel = $pdo->prepare("UPDATE users SET is_deleted = 1, updated_at = NOW() WHERE id = :id LIMIT 1");
-
-try {
-    $ok = $stmtDel->execute([':id' => $id]);
-
-    if ($ok) {
-        adiwira_redirect_with_flash($returnTo, 'success', __('User berhasil dihapus.'));
-    }
-
-    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete user.'));
-} catch (Throwable $e) {
-    error_log('[users/delete] ' . $e->getMessage());
-    adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete user.'));
+$result = authorization_change_user_status($pdo, $id, 'delete', $uid, null, 'core.users.delete');
+if ($result === 'ok') {
+    adiwira_redirect_with_flash($returnTo, 'success', __('User berhasil dihapus.'));
 }
+if ($result === 'last_site_owner') {
+    adiwira_redirect_with_flash($returnTo, 'error', __('The final active Site Owner cannot be deleted.'));
+}
+if ($result === 'site_owner_required') {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Only a Site Owner can modify a Site Owner account.'));
+}
+if ($result === 'forbidden') {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
+}
+if ($result !== 'missing') {
+    error_log('[users/delete] status=' . $result);
+}
+adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete user.'));
