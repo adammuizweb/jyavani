@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.71",
+    "version": "2.3.72",
     "build": "2026-08-18",
-    "changelog": "Add dynamic role-based authorization, Site Owner safeguards, scoped content permissions, and Role Manager.",
+    "changelog": "Fix Core update completion across the first Site Owner migration and harden CLI recovery.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
