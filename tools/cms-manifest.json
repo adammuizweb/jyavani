@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.70",
-    "build": "2026-08-17",
-    "generated": "2026-08-18T11:46:06+00:00",
+    "version": "2.3.71",
+    "build": "2026-08-18",
+    "generated": "2026-08-18T11:51:36+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 498,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "4fa8e5759d49b0ae447b365a8f430394b6eea2008580212b37d7bc04f4e5601f",
+        "VERSION": "32e266a64b56c7b273c39f78efc8870c1a8f0167bb4eb60e6b9a95123a8d03b3",
         "app/bootstrap_core.php": "de1474c1e11e219eb942276a17bbd3ee4ec6e706e94ed2899de69296a9f24889",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
@@ -505,6 +505,6 @@
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "9a7d13c5c515956022caf74ad0dd8d2f498f6b9866091fbd05ce9cb4bb262213",
         "tools/promote-site-owner.php": "19b94b65fec511cea180252a85671dae8a097c1873b71bf8fc1d57c911c71f14",
-        "version.json": "61bbe72509303accbdc4aa5a82f65d38ec653973ceafc5ee542be6a8e78e9c5a"
+        "version.json": "6fdd5a698ad0ec0e42bf4d5da55a54e70d730d6db05791208a3dec76f7d1c766"
     }
 }

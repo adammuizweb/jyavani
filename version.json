@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.70",
-    "build": "2026-08-17",
-    "changelog": "Fix double-escaped search document titles for queries containing HTML-special characters.",
+    "version": "2.3.71",
+    "build": "2026-08-18",
+    "changelog": "Add dynamic role-based authorization, Site Owner safeguards, scoped content permissions, and Role Manager.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
