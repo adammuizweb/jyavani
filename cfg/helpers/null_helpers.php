@@ -12,6 +12,12 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('h')) {
+    function h($v): string {
+        return e($v);
+    }
+}
+
 /**
  * svg_icon — render Lucide SVG icon from disk
  * @param string $name  Lucide icon filename (without .svg)

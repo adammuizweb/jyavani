@@ -29,9 +29,9 @@ function is_installed(): bool {
     return preg_match('/^SESSION_SECRET\s*=\s*[^\s]+/m', $raw) === 1;
 }
 if (is_installed()) {
-    http_response_code(404);
-    echo '<!doctype html><meta charset="utf-8"><title>404</title><p>Not found.</p>';
-    exit;
+    if (!defined('PUBLIC_PATH')) define('PUBLIC_PATH', $publicDir);
+    chdir($publicDir);
+    require $publicDir . '/router.php';
 }
 
 // ---------- helpers ----------

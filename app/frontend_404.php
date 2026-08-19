@@ -7,6 +7,14 @@ if (!defined('PUBLIC_BOOTSTRAPPED')) {
     require_once __DIR__ . '/bootstrap_theme.php';
 }
 
+// Direct directory guards do not pass through router.php, so complete the
+// normal public plugin lifecycle before rendering the active theme.
+if (!function_exists('plugins_all')) {
+    require_once dirname(__DIR__) . '/plugins/index.php';
+    plugin_load_active();
+    do_action('init');
+}
+
 http_response_code(404);
 
 // pastikan layout memakai pdo global yang benar

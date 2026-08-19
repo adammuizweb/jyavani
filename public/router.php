@@ -68,13 +68,10 @@ if (php_sapi_name() === 'cli-server') {
     // Otherwise continue routing below (no file/directory match)
 }
 
-// For non-cli-server SAPIs (e.g. Apache), keep previous behavior:
-// if file/dir exists but router got control for some reason, render 404/layout.
+// Existing files are normally served by the web server. Physical directories
+// that reach Core have no public route and must use the active theme's 404.
 if (is_file($absFile) || is_dir($absFile)) {
-    http_response_code(404);
-    $context_for_layout = '404';
-    require __DIR__ . '/../app/layout.php';
-    exit;
+    require __DIR__ . '/../app/frontend_404.php';
 }
 
 // trailing slash — BUT skip requests that look like files (have an extension)

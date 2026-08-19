@@ -63,6 +63,9 @@ server {
     index index.html index.php;
 
     location / {
+        # try_files can select a real directory and nginx then emits 403 when
+        # it has no index. Send that case through Core's themed 404 renderer.
+        error_page 403 = /router.php?$args;
         try_files $uri $uri/ /router.php?$args;
     }
 
@@ -107,6 +110,8 @@ server {
     }
 }
 ```
+
+The `error_page 403` inside `location /` is required because `$uri/` can select a physical directory even when it has no index. The internal redirect preserves the original request path, allowing Core to return the active theme's `404` response instead of nginx's generic `403`. Keep explicit sensitive-path deny locations separate from this block.
 
 `location = /sw.js` must remain an exact root route and must execute `router.php`, even if a physical `public/sw.js` remains from an older plugin. Core supplies the install/activate lifecycle and appends active plugin contributions. When no plugin contributes code, Core still returns a lifecycle-only worker so browsers replace stale push handlers. `location = /manifest.webmanifest` must likewise execute `router.php` so an active plugin route can generate it and stale files cannot take precedence. Verify both endpoints with `curl -I`; responses must be `200`, use the expected JavaScript/manifest MIME, and must not be HTML.
 

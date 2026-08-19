@@ -12,9 +12,14 @@ RewriteRule (^|/)\. - [F,L]
 # Root PWA endpoints are dynamic and must replace any stale physical files.
 RewriteRule ^(?:sw\.js|manifest\.webmanifest)$ router.php [L,QSA]
 
-# Jika file / folder nyata, jangan rewrite
-RewriteCond %{REQUEST_FILENAME} -f [OR]
+# Serve real files directly.
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Execute only directories that intentionally expose an index.php. Physical
+# directories without an entrypoint continue to Core's themed 404 renderer.
 RewriteCond %{REQUEST_FILENAME} -d
+RewriteCond %{REQUEST_FILENAME}/index.php -f
 RewriteRule ^ - [L]
 
 # Router fallback
