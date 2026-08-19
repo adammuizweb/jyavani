@@ -143,6 +143,19 @@ function plugin_manifest_contract(array $manifest): array {
     $errors = [];
     $permissions = [];
     $routeRoles = [];
+    $normalizeRoles = static function (mixed $roles): ?array {
+        if (!is_array($roles) || !array_is_list($roles)) return null;
+        $normalized = [];
+        foreach ($roles as $role) {
+            if (!is_string($role)) return null;
+            $role = strtolower(trim($role));
+            if (!in_array($role, ['author', 'editor', 'admin'], true)) return null;
+            $normalized[$role] = true;
+        }
+        $normalized = array_keys($normalized);
+        sort($normalized, SORT_STRING);
+        return $normalized;
+    };
     if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest)) {
         return ['permissions' => [], 'route_roles' => [], 'errors' => []];
     }
@@ -167,6 +180,9 @@ function plugin_manifest_contract(array $manifest): array {
         $key = is_string($entry['key'] ?? null) ? trim($entry['key']) : '';
         $label = is_string($entry['label'] ?? null) ? trim($entry['label']) : '';
         $supportsScope = $entry['supports_scope'] ?? false;
+        $isDelegable = $entry['delegable'] ?? true;
+        $defaultRolesExplicit = array_key_exists('default_roles', $entry);
+        $defaultRoles = $defaultRolesExplicit ? $normalizeRoles($entry['default_roles']) : [];
         $parts = explode('.', $key);
         $validSyntax = function_exists('authorization_permission_key_is_valid')
             ? authorization_permission_key_is_valid($key)
@@ -188,6 +204,14 @@ function plugin_manifest_contract(array $manifest): array {
             $errors[] = 'Invalid scope declaration for plugin permission: ' . $key;
             continue;
         }
+        if (!is_bool($isDelegable)) {
+            $errors[] = 'Invalid delegability declaration for plugin permission: ' . $key;
+            continue;
+        }
+        if ($defaultRoles === null) {
+            $errors[] = 'Invalid default roles for plugin permission: ' . $key;
+            continue;
+        }
         if (isset($permissions[$key])) {
             $errors[] = 'Duplicate plugin permission: ' . $key;
             continue;
@@ -205,6 +229,9 @@ function plugin_manifest_contract(array $manifest): array {
             'action' => $action,
             'label' => $label,
             'supports_scope' => $supportsScope,
+            'is_delegable' => $isDelegable,
+            'default_roles' => $defaultRoles,
+            '_default_roles_explicit' => $defaultRolesExplicit,
         ];
     }
 
@@ -237,7 +264,7 @@ function plugin_manifest_contract(array $manifest): array {
         $permission = is_string($page['permission'] ?? null) ? trim($page['permission']) : '';
         if ($permission === '') continue;
         if (($page['site_owner'] ?? false) === true) {
-            $errors[] = 'A plugin route cannot combine Site Owner and delegable permission guards: ' . $route;
+            $errors[] = 'A plugin route cannot combine Site Owner and permission guards: ' . $route;
             continue;
         }
         if (!isset($permissions[$permission])) {
@@ -248,22 +275,30 @@ function plugin_manifest_contract(array $manifest): array {
             $errors[] = 'Plugin route permissions cannot be scoped: ' . $permission;
             continue;
         }
-        $roles = $page['roles'] ?? ['admin'];
-        if (!is_array($roles) || !array_is_list($roles)) {
+        $roles = $normalizeRoles($page['roles'] ?? ['admin']);
+        if ($roles === null) {
             $errors[] = 'Invalid compatibility roles for route: ' . $route;
             continue;
         }
-        $roles = array_values(array_unique(array_filter(array_map(
-            static fn($role): string => is_string($role) ? strtolower(trim($role)) : '',
-            $roles
-        ), static fn(string $role): bool => in_array($role, ['author', 'editor', 'admin'], true))));
-        sort($roles, SORT_STRING);
         if (isset($routeRoles[$permission]) && $routeRoles[$permission] !== $roles) {
             $errors[] = 'Plugin routes sharing a permission must use identical compatibility roles: ' . $permission;
         } else {
             $routeRoles[$permission] = $roles;
         }
     }
+
+    foreach ($permissions as $key => &$permission) {
+        $roles = $routeRoles[$key] ?? null;
+        if ($roles !== null) {
+            if ($permission['_default_roles_explicit'] && $permission['default_roles'] !== $roles) {
+                $errors[] = 'Plugin permission default roles conflict with route compatibility roles: ' . $key;
+            } elseif (!$permission['_default_roles_explicit']) {
+                $permission['default_roles'] = $roles;
+            }
+        }
+        unset($permission['_default_roles_explicit']);
+    }
+    unset($permission);
 
     $nav = $manifest['admin']['nav'] ?? [];
     if (!is_array($nav) || !array_is_list($nav)) {
@@ -1102,18 +1137,24 @@ function plugin_is_active(string $name): bool {
 
 // --- Route / Nav / Asset aggregation ---
 
-/** Reconcile active plugin permission manifests while preserving custom-role grants. */
+/** Reconcile plugin permission policy while preserving only delegable custom-role grants. */
 function plugin_sync_permissions(PDO $pdo): array {
+    if ($pdo->inTransaction()) {
+        $message = 'Plugin permission synchronization requires a standalone transaction.';
+        $GLOBALS['_plugin_ready_permissions'] = [];
+        $GLOBALS['_plugin_permission_sync_errors'] = ['transaction' => $message];
+        return [$message];
+    }
     $desired = [];
-    $desiredRoles = [];
+    $installedPermissions = [];
     $installed = plugins_all();
-    $installedPermissionKeys = [];
     foreach ($installed as $manifest) {
         $contract = plugin_manifest_contract($manifest);
         if ($contract['errors'] === []) {
-            foreach (array_keys($contract['permissions']) as $key) $installedPermissionKeys[$key] = true;
+            foreach ($contract['permissions'] as $key => $permission) $installedPermissions[$key] = $permission;
         }
     }
+    $GLOBALS['_plugin_permission_sync_errors'] = [];
     foreach (plugins_active() as $name => $manifest) {
         $contract = plugin_manifest_contract($manifest);
         if ($contract['errors'] !== []) {
@@ -1121,7 +1162,6 @@ function plugin_sync_permissions(PDO $pdo): array {
             continue;
         }
         foreach ($contract['permissions'] as $key => $permission) $desired[$key] = $permission;
-        foreach ($contract['route_roles'] as $key => $roles) $desiredRoles[$key] = $roles;
     }
 
     $started = !$pdo->inTransaction();
@@ -1130,14 +1170,15 @@ function plugin_sync_permissions(PDO $pdo): array {
         $driver = (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         $lock = $driver === 'mysql' ? ' FOR UPDATE' : '';
         $rows = $pdo->query(
-            "SELECT permission_key, provider, resource, action, label, supports_scope, is_active
+            "SELECT permission_key, provider, resource, action, label, supports_scope, is_delegable, is_active
              FROM permissions
              WHERE permission_key LIKE 'plugin.%'" . $lock
         )->fetchAll(PDO::FETCH_ASSOC);
         $existing = [];
         foreach ($rows as $row) $existing[(string)$row['permission_key']] = $row;
+        $oldPolicy = $existing;
 
-        foreach ($desired as $key => $permission) {
+        foreach ($installedPermissions + $desired as $key => $permission) {
             if (!isset($existing[$key])) continue;
             $row = $existing[$key];
             if ((string)$row['provider'] !== $permission['provider']
@@ -1149,14 +1190,20 @@ function plugin_sync_permissions(PDO $pdo): array {
         }
 
         $insert = $pdo->prepare(
-            'INSERT INTO permissions (permission_key, provider, resource, action, label, supports_scope, is_active)
-             VALUES (:permission_key, :provider, :resource, :action, :label, :supports_scope, 1)'
+            'INSERT INTO permissions (permission_key, provider, resource, action, label, supports_scope, is_delegable, is_active)
+             VALUES (:permission_key, :provider, :resource, :action, :label, :supports_scope, :is_delegable, 1)'
         );
-        $activate = $pdo->prepare('UPDATE permissions SET label = :label, is_active = 1 WHERE permission_key = :permission_key');
+        $activate = $pdo->prepare('UPDATE permissions SET label = :label, is_delegable = :is_delegable, is_active = 1 WHERE permission_key = :permission_key');
         foreach ($desired as $key => $permission) {
             if (isset($existing[$key])) {
-                if ((string)$existing[$key]['label'] !== $permission['label'] || (int)$existing[$key]['is_active'] !== 1) {
-                    $activate->execute([':label' => $permission['label'], ':permission_key' => $key]);
+                if ((string)$existing[$key]['label'] !== $permission['label']
+                    || (int)$existing[$key]['is_delegable'] !== (int)$permission['is_delegable']
+                    || (int)$existing[$key]['is_active'] !== 1) {
+                    $activate->execute([
+                        ':label' => $permission['label'],
+                        ':is_delegable' => $permission['is_delegable'] ? 1 : 0,
+                        ':permission_key' => $key,
+                    ]);
                 }
             } else {
                 $insert->execute([
@@ -1166,6 +1213,17 @@ function plugin_sync_permissions(PDO $pdo): array {
                     ':action' => $permission['action'],
                     ':label' => $permission['label'],
                     ':supports_scope' => $permission['supports_scope'] ? 1 : 0,
+                    ':is_delegable' => $permission['is_delegable'] ? 1 : 0,
+                ]);
+            }
+        }
+
+        $syncDisabledPolicy = $pdo->prepare('UPDATE permissions SET is_delegable = :is_delegable WHERE permission_key = :permission_key');
+        foreach ($installedPermissions as $key => $permission) {
+            if (!isset($desired[$key], $existing[$key])) {
+                $syncDisabledPolicy->execute([
+                    ':is_delegable' => $permission['is_delegable'] ? 1 : 0,
+                    ':permission_key' => $key,
                 ]);
             }
         }
@@ -1175,29 +1233,58 @@ function plugin_sync_permissions(PDO $pdo): array {
         foreach ($existing as $key => $row) {
             if (isset($desired[$key])) continue;
             $provider = (string)$row['provider'];
-            if (!isset($installed[$provider]) || !isset($installedPermissionKeys[$key])) {
+            if (!isset($installed[$provider]) || !isset($installedPermissions[$key])) {
                 $deletePermission->execute([':permission_key' => $key]);
             } elseif ((int)$row['is_active'] !== 0) {
                 $deactivate->execute([':permission_key' => $key]);
             }
         }
 
-        $roleRows = $pdo->query("SELECT id, slug FROM roles WHERE is_system = 1 AND slug IN ('author','editor','admin')" . $lock)->fetchAll(PDO::FETCH_ASSOC);
+        $roleRows = $pdo->query("SELECT id, slug, is_system FROM roles" . $lock)->fetchAll(PDO::FETCH_ASSOC);
         $systemRoles = [];
-        foreach ($roleRows as $role) $systemRoles[(string)$role['slug']] = (int)$role['id'];
+        $customRoleIds = [];
+        foreach ($roleRows as $role) {
+            if ((int)$role['is_system'] === 1 && in_array((string)$role['slug'], ['author', 'editor', 'admin'], true)) {
+                $systemRoles[(string)$role['slug']] = (int)$role['id'];
+            } elseif ((int)$role['is_system'] !== 1) {
+                $customRoleIds[] = (int)$role['id'];
+            }
+        }
         $permissionKeys = array_values(array_unique(array_merge(array_keys($existing), array_keys($desired))));
         $deleteGrant = $pdo->prepare('DELETE FROM role_permissions WHERE role_id = :role_id AND permission_key = :permission_key');
         $insertGrant = $pdo->prepare("INSERT INTO role_permissions (role_id, permission_key, scope) VALUES (:role_id, :permission_key, 'global')");
         foreach ($permissionKeys as $key) {
             foreach ($systemRoles as $roleId) $deleteGrant->execute([':role_id' => $roleId, ':permission_key' => $key]);
-            foreach ($desiredRoles[$key] ?? [] as $role) {
+            foreach ($desired[$key]['default_roles'] ?? [] as $role) {
                 if (isset($systemRoles[$role])) $insertGrant->execute([':role_id' => $systemRoles[$role], ':permission_key' => $key]);
+            }
+            $policy = $desired[$key] ?? $installedPermissions[$key] ?? null;
+            if (is_array($policy) && $policy['is_delegable'] === false) {
+                foreach ($customRoleIds as $roleId) $deleteGrant->execute([':role_id' => $roleId, ':permission_key' => $key]);
             }
         }
 
         if ($started) $pdo->commit();
         $GLOBALS['_plugin_ready_permissions'] = array_fill_keys(array_keys($desired), true);
-        $GLOBALS['_plugin_permission_sync_errors'] = [];
+        if ($started && function_exists('do_action')) {
+            $newPolicy = [];
+            foreach ($installedPermissions + $desired as $key => $permission) {
+                $newPolicy[$key] = $permission + ['is_active' => isset($desired[$key])];
+            }
+            ksort($oldPolicy, SORT_STRING);
+            ksort($newPolicy, SORT_STRING);
+            // plugin_permissions_synced(old/new permission policy, actor ID, PDO)
+            try {
+                do_action(
+                    'plugin_permissions_synced',
+                    ['old' => $oldPolicy, 'new' => $newPolicy],
+                    ((int)($_SESSION['user_id'] ?? 0)) ?: null,
+                    $pdo
+                );
+            } catch (Throwable $hookError) {
+                error_log('[plugin_permissions_synced] ' . $hookError->getMessage());
+            }
+        }
         return [];
     } catch (Throwable $e) {
         if ($started && $pdo->inTransaction()) $pdo->rollBack();
@@ -1219,6 +1306,7 @@ function plugin_admin_routes(): array {
             if ($route === '' || preg_match('/\A[a-z0-9_-]+(?:\/[a-z0-9_-]+)*\z/', $route) !== 1
                 || $file === null || !is_file($file) || is_link($file) || isset($routes[$route])) continue;
             $routes[$route] = [
+                'route' => $route,
                 'file' => $file,
                 'title' => $r['title'] ?? $route,
                 'roles' => $r['roles'] ?? ['admin'],
@@ -1295,6 +1383,7 @@ function plugin_route_is_allowed(PDO $pdo, array $route, ?int $userId = null): b
  * Enforce Site Owner, permission, or legacy role access for a plugin route.
  */
 function plugin_guard_route(PDO $pdo, array $route, bool $asJson = false): void {
+    $GLOBALS['_plugin_current_route'] = $route;
     if (($route['site_owner'] ?? false) === true && function_exists('adiwira_require_site_owner')) {
         adiwira_require_site_owner($pdo, $asJson);
         return;

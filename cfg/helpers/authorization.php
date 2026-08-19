@@ -8,6 +8,28 @@ if (!function_exists('authorization_permission_key_is_valid')) {
     }
 }
 
+if (!function_exists('authorization_roles')) {
+    function authorization_roles(PDO $pdo): array
+    {
+        try {
+            $rows = $pdo->query(
+                'SELECT id, slug, name, description, authority_rank, is_system
+                 FROM roles
+                 ORDER BY authority_rank DESC, name ASC, id ASC'
+            )->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as &$row) {
+                $row['id'] = (int)$row['id'];
+                $row['authority_rank'] = (int)$row['authority_rank'];
+                $row['is_system'] = (int)$row['is_system'] === 1;
+            }
+            unset($row);
+            return $rows;
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+}
+
 if (!function_exists('authorization_actor')) {
     function authorization_actor(PDO $pdo, ?int $userId = null): ?array
     {
@@ -113,7 +135,7 @@ if (!function_exists('authorization_permission')) {
         try {
             $lockingRead = $pdo->inTransaction() ? ' FOR UPDATE' : '';
             $stmt = $pdo->prepare(
-                'SELECT permission_key, provider, resource, action, label, supports_scope
+                'SELECT permission_key, provider, resource, action, label, supports_scope, is_delegable
                  FROM permissions
                  WHERE permission_key = :permission AND is_active = 1
                  LIMIT 1' . $lockingRead
@@ -133,12 +155,14 @@ if (!function_exists('authorization_permission_grants')) {
         try {
             $lockingRead = $pdo->inTransaction() ? ' FOR UPDATE' : '';
             $stmt = $pdo->prepare(
-                'SELECT rp.scope, r.id AS role_id, r.slug AS role_slug, r.authority_rank
-                 FROM user_roles ur
-                 JOIN roles r ON r.id = ur.role_id
-                 JOIN role_permissions rp ON rp.role_id = r.id
-                 WHERE ur.user_id = :user_id
-                   AND rp.permission_key = :permission
+                'SELECT rp.scope, r.id AS role_id, r.slug AS role_slug, r.authority_rank, r.is_system
+                  FROM user_roles ur
+                  JOIN roles r ON r.id = ur.role_id
+                  JOIN role_permissions rp ON rp.role_id = r.id
+                  JOIN permissions p ON p.permission_key = rp.permission_key
+                  WHERE ur.user_id = :user_id
+                    AND rp.permission_key = :permission
+                    AND (p.is_delegable = 1 OR r.is_system = 1)
                    AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
                  ORDER BY r.authority_rank DESC, r.id ASC' . $lockingRead
             );
@@ -359,7 +383,7 @@ if (!function_exists('authorization_owner_scope_condition')) {
                     JOIN roles $roleAlias ON $roleAlias.id = $assignmentAlias.role_id
                     WHERE $assignmentAlias.user_id = $ownerAlias.id
                       AND ($assignmentAlias.expires_at IS NULL OR $assignmentAlias.expires_at > NOW())
-                  ), 0) <= $rankParam
+                  ), 0) <= CAST($rankParam AS SIGNED)
             ))",
             'params' => [
                 $actorParam => $userId,
@@ -575,24 +599,41 @@ if (!function_exists('authorization_change_user_status')) {
 }
 
 if (!function_exists('authorization_assign_roles')) {
-    function authorization_assign_roles(PDO $pdo, int $userId, array $roleIds, ?int $assignedBy = null): bool
+    function authorization_assign_roles(
+        PDO $pdo,
+        int $userId,
+        array $roleIds,
+        ?int $assignedBy = null,
+        ?array &$roleChange = null
+    ): bool
     {
+        $roleChange = null;
         $roleIds = array_values(array_unique(array_filter(array_map('intval', $roleIds), static fn(int $id): bool => $id > 0)));
+        sort($roleIds);
         $ownsTransaction = !$pdo->inTransaction();
         $savepoint = 'authorization_assign_roles';
 
         try {
+            if ($ownsTransaction) {
+                $pdo->beginTransaction();
+            } else {
+                $pdo->exec('SAVEPOINT ' . $savepoint);
+            }
+            $lock = (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $target = $pdo->prepare('SELECT id FROM users WHERE id = :id LIMIT 1' . $lock);
+            $target->execute([':id' => $userId]);
+            if (!$target->fetchColumn()) {
+                throw new RuntimeException('Target user not found.');
+            }
+
             $validIds = [];
             if ($roleIds !== []) {
                 $placeholders = implode(',', array_fill(0, count($roleIds), '?'));
-                $valid = $pdo->prepare("SELECT id FROM roles WHERE id IN ($placeholders)");
+                $valid = $pdo->prepare("SELECT id FROM roles WHERE id IN ($placeholders) ORDER BY id" . $lock);
                 $valid->execute($roleIds);
                 $validIds = array_map('intval', $valid->fetchAll(PDO::FETCH_COLUMN));
-                sort($validIds);
-                $expectedIds = $roleIds;
-                sort($expectedIds);
-                if ($validIds !== $expectedIds) {
-                    return false;
+                if ($validIds !== $roleIds) {
+                    throw new RuntimeException('Unknown role selected.');
                 }
             }
 
@@ -600,32 +641,32 @@ if (!function_exists('authorization_assign_roles')) {
                 $assigner = $pdo->prepare('SELECT id FROM users WHERE id = :id LIMIT 1');
                 $assigner->execute([':id' => $assignedBy]);
                 if (!$assigner->fetchColumn()) {
-                    return false;
+                    throw new RuntimeException('Assigning user not found.');
                 }
             } else {
                 $assignedBy = null;
             }
 
-            if ($ownsTransaction) {
-                $pdo->beginTransaction();
-            } else {
-                $pdo->exec('SAVEPOINT ' . $savepoint);
-            }
             $existingStmt = $pdo->prepare(
                 'SELECT role_id,
                         CASE WHEN expires_at IS NOT NULL AND expires_at <= NOW() THEN 1 ELSE 0 END AS is_expired
                  FROM user_roles
-                 WHERE user_id = :user_id'
+                 WHERE user_id = :user_id
+                 ORDER BY role_id' . $lock
             );
             $existingStmt->execute([':user_id' => $userId]);
             $existingRows = $existingStmt->fetchAll(PDO::FETCH_ASSOC);
             $existingIds = array_map('intval', array_column($existingRows, 'role_id'));
+            $oldRoleIds = [];
             $expiredIds = [];
             foreach ($existingRows as $existingRow) {
                 if ((int)$existingRow['is_expired'] === 1) {
                     $expiredIds[] = (int)$existingRow['role_id'];
+                } else {
+                    $oldRoleIds[] = (int)$existingRow['role_id'];
                 }
             }
+            sort($oldRoleIds);
             $removeIds = array_values(array_diff($existingIds, $validIds));
             $addIds = array_values(array_diff($validIds, $existingIds));
             $reactivateIds = array_values(array_intersect($validIds, $expiredIds));
@@ -675,10 +716,35 @@ if (!function_exists('authorization_assign_roles')) {
             $legacyUpdate = $pdo->prepare('UPDATE users SET role = :role, updated_at = NOW() WHERE id = :id');
             $legacyUpdate->execute([':role' => $legacyRole, ':id' => $userId]);
 
+            $finalStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id' . $lock
+            );
+            $finalStmt->execute([':user_id' => $userId]);
+            $finalRoleIds = array_map('intval', $finalStmt->fetchAll(PDO::FETCH_COLUMN));
+            if ($oldRoleIds !== $finalRoleIds) {
+                $roleChange = [
+                    'user_id' => $userId,
+                    'old_role_ids' => $oldRoleIds,
+                    'new_role_ids' => $finalRoleIds,
+                    'actor_id' => $assignedBy,
+                ];
+            }
+
             if ($ownsTransaction) {
                 $pdo->commit();
             } else {
                 $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+            if ($ownsTransaction && $roleChange !== null && function_exists('do_action')) {
+                // authorization_user_roles_changed(user ID, old role IDs, new role IDs, actor ID, PDO)
+                try {
+                    do_action('authorization_user_roles_changed', $userId, $roleChange['old_role_ids'], $roleChange['new_role_ids'], $assignedBy, $pdo);
+                } catch (Throwable $hookError) {
+                    error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                }
             }
             return true;
         } catch (Throwable $e) {
@@ -701,8 +767,10 @@ if (!function_exists('authorization_assign_legacy_role')) {
         PDO $pdo,
         int $userId,
         string $legacyRole,
-        ?int $assignedBy = null
+        ?int $assignedBy = null,
+        ?array &$roleChange = null
     ): bool {
+        $roleChange = null;
         $legacyRole = strtolower(trim($legacyRole));
         if (!in_array($legacyRole, ['none', 'author', 'editor', 'admin'], true)) {
             return false;
@@ -710,21 +778,36 @@ if (!function_exists('authorization_assign_legacy_role')) {
         $ownsTransaction = !$pdo->inTransaction();
         $savepoint = 'authorization_assign_legacy_role';
         try {
-            $roleId = 0;
-            if ($legacyRole !== 'none') {
-                $stmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1');
-                $stmt->execute([':slug' => $legacyRole]);
-                $roleId = (int)$stmt->fetchColumn();
-                if ($roleId <= 0) {
-                    return false;
-                }
-            }
-
             if ($ownsTransaction) {
                 $pdo->beginTransaction();
             } else {
                 $pdo->exec('SAVEPOINT ' . $savepoint);
             }
+            $lock = (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $target = $pdo->prepare('SELECT id FROM users WHERE id = :id LIMIT 1' . $lock);
+            $target->execute([':id' => $userId]);
+            if (!$target->fetchColumn()) {
+                throw new RuntimeException('Target user not found.');
+            }
+
+            $roleId = 0;
+            if ($legacyRole !== 'none') {
+                $stmt = $pdo->prepare('SELECT id FROM roles WHERE slug = :slug LIMIT 1' . $lock);
+                $stmt->execute([':slug' => $legacyRole]);
+                $roleId = (int)$stmt->fetchColumn();
+                if ($roleId <= 0) {
+                    throw new RuntimeException('Legacy role not found.');
+                }
+            }
+
+            $oldStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id' . $lock
+            );
+            $oldStmt->execute([':user_id' => $userId]);
+            $oldRoleIds = array_map('intval', $oldStmt->fetchAll(PDO::FETCH_COLUMN));
 
             $delete = $pdo->prepare(
                 "DELETE FROM user_roles
@@ -751,10 +834,35 @@ if (!function_exists('authorization_assign_legacy_role')) {
                 throw new RuntimeException('Legacy user role update failed.');
             }
 
+            $finalStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id' . $lock
+            );
+            $finalStmt->execute([':user_id' => $userId]);
+            $finalRoleIds = array_map('intval', $finalStmt->fetchAll(PDO::FETCH_COLUMN));
+            if ($oldRoleIds !== $finalRoleIds) {
+                $roleChange = [
+                    'user_id' => $userId,
+                    'old_role_ids' => $oldRoleIds,
+                    'new_role_ids' => $finalRoleIds,
+                    'actor_id' => $assignedBy,
+                ];
+            }
+
             if ($ownsTransaction) {
                 $pdo->commit();
             } else {
                 $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+            if ($ownsTransaction && $roleChange !== null && function_exists('do_action')) {
+                // Caller-owned transactions receive $roleChange and must dispatch only after their outer commit.
+                try {
+                    do_action('authorization_user_roles_changed', $userId, $roleChange['old_role_ids'], $roleChange['new_role_ids'], $assignedBy, $pdo);
+                } catch (Throwable $hookError) {
+                    error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                }
             }
             return true;
         } catch (Throwable $e) {
@@ -777,8 +885,10 @@ if (!function_exists('authorization_set_site_owner')) {
         PDO $pdo,
         int $actorUserId,
         int $targetUserId,
-        bool $makeSiteOwner
+        bool $makeSiteOwner,
+        ?array &$roleChange = null
     ): string {
+        $roleChange = null;
         if ($actorUserId <= 0 || $targetUserId <= 0) {
             return 'invalid';
         }
@@ -846,6 +956,16 @@ if (!function_exists('authorization_set_site_owner')) {
                 }
                 return 'last_site_owner';
             }
+
+            $oldRoleStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id
+                 FOR UPDATE'
+            );
+            $oldRoleStmt->execute([':user_id' => $targetUserId]);
+            $oldRoleIds = array_map('intval', $oldRoleStmt->fetchAll(PDO::FETCH_COLUMN));
 
             $previousRole = $target['site_owner_previous_role'] !== null
                 ? (string)$target['site_owner_previous_role']
@@ -925,10 +1045,36 @@ if (!function_exists('authorization_set_site_owner')) {
                 throw new RuntimeException('Site Owner audit failed.');
             }
 
+            $finalRoleStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id
+                 FOR UPDATE'
+            );
+            $finalRoleStmt->execute([':user_id' => $targetUserId]);
+            $finalRoleIds = array_map('intval', $finalRoleStmt->fetchAll(PDO::FETCH_COLUMN));
+            if ($oldRoleIds !== $finalRoleIds) {
+                $roleChange = [
+                    'user_id' => $targetUserId,
+                    'old_role_ids' => $oldRoleIds,
+                    'new_role_ids' => $finalRoleIds,
+                    'actor_id' => $actorUserId,
+                ];
+            }
+
             if ($ownsTransaction) {
                 $pdo->commit();
             } else {
                 $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+            }
+            if ($ownsTransaction && $roleChange !== null && function_exists('do_action')) {
+                // Nested callers receive $roleChange and must dispatch after their own final commit.
+                try {
+                    do_action('authorization_user_roles_changed', $targetUserId, $roleChange['old_role_ids'], $roleChange['new_role_ids'], $actorUserId, $pdo);
+                } catch (Throwable $hookError) {
+                    error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                }
             }
             return 'ok';
         } catch (Throwable $e) {
@@ -1005,6 +1151,16 @@ if (!function_exists('authorization_recover_site_owner')) {
                 return 'unchanged';
             }
 
+            $oldRoleStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id
+                 FOR UPDATE'
+            );
+            $oldRoleStmt->execute([':user_id' => $targetUserId]);
+            $oldRoleIds = array_map('intval', $oldRoleStmt->fetchAll(PDO::FETCH_COLUMN));
+
             $clearBackup = $pdo->prepare('DELETE FROM site_owner_role_backups WHERE user_id = :user_id');
             $clearBackup->execute([':user_id' => $targetUserId]);
             $backup = $pdo->prepare(
@@ -1040,7 +1196,23 @@ if (!function_exists('authorization_recover_site_owner')) {
             )) {
                 throw new RuntimeException('Recovery audit failed.');
             }
+            $finalRoleStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id
+                 FOR UPDATE'
+            );
+            $finalRoleStmt->execute([':user_id' => $targetUserId]);
+            $finalRoleIds = array_map('intval', $finalRoleStmt->fetchAll(PDO::FETCH_COLUMN));
             $pdo->commit();
+            if ($oldRoleIds !== $finalRoleIds && function_exists('do_action')) {
+                try {
+                    do_action('authorization_user_roles_changed', $targetUserId, $oldRoleIds, $finalRoleIds, null, $pdo);
+                } catch (Throwable $hookError) {
+                    error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                }
+            }
             return 'ok';
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {

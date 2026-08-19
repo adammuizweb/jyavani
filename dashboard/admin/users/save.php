@@ -186,6 +186,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 
     if (empty($errors)) {
+        $roleChange = null;
         try {
             $pdo->beginTransaction();
             $targetUserId = $id;
@@ -286,7 +287,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if (!authorization_actor_can_assign_roles($pdo, $uid, $selectedRoleIds)) {
                     throw new RuntimeException('Role assignment exceeds actor authority.');
                 }
-                if (!authorization_assign_roles($pdo, $targetUserId, $selectedRoleIds, $uid)) {
+                if (!authorization_assign_roles($pdo, $targetUserId, $selectedRoleIds, $uid, $roleChange)) {
                     throw new RuntimeException('Role assignment failed.');
                 }
                 if (!authorization_audit(
@@ -303,6 +304,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             }
 
             $pdo->commit();
+            if ($roleChange !== null && function_exists('do_action')) {
+                // authorization_user_roles_changed(user ID, old role IDs, new role IDs, actor ID, PDO)
+                try {
+                    do_action('authorization_user_roles_changed', $roleChange['user_id'], $roleChange['old_role_ids'], $roleChange['new_role_ids'], $uid, $pdo);
+                } catch (Throwable $hookError) {
+                    error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                }
+            }
             if ($targetUserId === $uid) {
                 $legacyRoleStmt = $pdo->prepare('SELECT role FROM users WHERE id = :id');
                 $legacyRoleStmt->execute([':id' => $targetUserId]);

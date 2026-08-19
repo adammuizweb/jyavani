@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/authorization.php';
 require_once $root . '/cfg/helpers/cms_content.php';
 
@@ -12,6 +13,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 };
 
 $migration = (string)file_get_contents($root . '/schema/migrations/013-dynamic-authorization.sql');
+$policyMigration = (string)file_get_contents($root . '/schema/migrations/014-plugin-permission-policy.sql');
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $installer = (string)file_get_contents($root . '/public/pondasi/index.php');
 $guard = (string)file_get_contents($root . '/dashboard/admin/_guard.php');
@@ -24,6 +26,7 @@ $profile = (string)file_get_contents($root . '/dashboard/admin/profile/index.php
 $recovery = (string)file_get_contents($root . '/tools/promote-site-owner.php');
 $registration = (string)file_get_contents($root . '/dashboard/gerbank/daptar/index.php');
 $userSave = (string)file_get_contents($root . '/dashboard/admin/users/save.php');
+$userBulk = (string)file_get_contents($root . '/dashboard/admin/users/bulk_action.php');
 $userIndex = (string)file_get_contents($root . '/dashboard/admin/users/index.php');
 $siteOwnerEndpoint = (string)file_get_contents($root . '/dashboard/admin/users/site_owner.php');
 $roleManager = (string)file_get_contents($root . '/dashboard/admin/users/roles/index.php');
@@ -112,6 +115,21 @@ $menuHelper = (string)file_get_contents($root . '/cfg/helpers/menu_helper.php');
 
 $check(str_contains($migration, '`is_site_owner`') && str_contains($schema, '`is_site_owner`'), 'migration and fresh schema define Site Owner state');
 $check(str_contains($migration, '`role_permissions`') && str_contains($schema, '`role_permissions`'), 'migration and fresh schema define role permission grants');
+$check(
+    str_contains($policyMigration, '`information_schema`.`COLUMNS`')
+    && str_contains($policyMigration, 'PREPARE jy_permission_policy_stmt')
+    && str_contains($policyMigration, 'EXECUTE jy_permission_policy_stmt')
+    && str_contains($policyMigration, "'SELECT 1'")
+    && !str_contains($policyMigration, 'ADD COLUMN IF NOT EXISTS')
+    && str_contains($schema, '`is_delegable`'),
+    'plugin permission policy migration is replay-safe on MySQL 5.7, MariaDB, and fresh schemas'
+);
+$migrationStatements = preg_split('/;\s*$/m', implode("\n", array_filter(
+    explode("\n", $policyMigration),
+    static fn(string $line): bool => trim($line) !== '' && !str_starts_with(trim($line), '--') && !str_starts_with(trim($line), '#')
+))) ?: [];
+$migrationStatements = array_values(array_filter(array_map('trim', $migrationStatements), static fn(string $statement): bool => $statement !== ''));
+$check(count($migrationStatements) === 5, 'plugin permission policy migration remains compatible with migration_helper semicolon splitting');
 $check(str_contains($migration, '`site_owner_role_backups`') && str_contains($schema, '`site_owner_role_backups`'), 'migration and fresh schema preserve compatibility role assignments during Site Owner changes');
 $check(str_contains($migration, "('author','Author'") && str_contains($migration, "('admin','Administrator'"), 'migration seeds compatibility roles');
 $check(!str_contains($migration, 'SET `is_site_owner` = 1'), 'existing-site migration never promotes an arbitrary administrator to Site Owner');
@@ -124,11 +142,20 @@ $check(str_contains($dashboard, "current_user_can(\$pdo, 'core.dashboard.access'
 $check(str_contains($userDelete, 'authorization_change_user_status') && str_contains($userLock, 'authorization_change_user_status') && str_contains($profile, 'authorization_change_user_status'), 'single-user mutations use the atomic Site Owner invariant');
 $check(str_contains($recovery, 'authorization_recover_site_owner') && str_contains($recovery, "PHP_SAPI !== 'cli'") && str_contains($authorizationHelper, "'site_owner.recovered'"), 'Site Owner recovery is CLI-only, centralized, and audited');
 $check(str_contains($registration, 'authorization_assign_legacy_role') && str_contains($userSave, 'authorization_assign_roles'), 'registration compatibility and User Management synchronize role assignments');
+$check(str_contains($registration, '$roleChange') && strpos($registration, '$pdo->commit();') < strpos($registration, "do_action('authorization_user_roles_changed'"), 'registration emits its caller-owned role hook only after outer commit');
+$check(str_contains($userSave, 'authorization_assign_roles($pdo, $targetUserId, $selectedRoleIds, $uid, $roleChange)') && strpos($userSave, '$pdo->commit();') < strpos($userSave, "do_action('authorization_user_roles_changed'"), 'User Management dispatches helper snapshots only after its outer commit');
+$check(str_contains($userBulk, 'authorization_assign_roles($pdo, $targetId, [$newRoleId], $uid, $roleChange)') && strpos($userBulk, '$pdo->commit();', strpos($userBulk, "if (\$action === 'change_role')")) < strpos($userBulk, "do_action('authorization_user_roles_changed'"), 'bulk role changes dispatch each helper snapshot only after the batch commit');
 $check(strpos($dashboard, "current_user_can(\$pdo, 'core.dashboard.access')") < strpos($dashboard, 'plugin_load_active()'), 'plugin code loads only after dashboard authorization');
 $check(str_contains($userIndex, 'js-site-owner') && str_contains($userIndex, 'siteOwnerPassword'), 'User Management exposes password-confirmed Site Owner controls');
 $check(str_contains($siteOwnerEndpoint, "['is_site_owner'] !== true") && str_contains($siteOwnerEndpoint, 'password_verify'), 'Site Owner mutation requires an existing Site Owner and current password');
 $check(str_contains($siteOwnerEndpoint, 'site_owner_reauth_blocked_until') && str_contains($siteOwnerEndpoint, 'usleep(250000)'), 'Site Owner password confirmation is throttled');
 $check(str_contains($siteOwnerEndpoint, 'authorization_set_site_owner') && str_contains($siteOwnerEndpoint, "targetId === \$uid"), 'Site Owner mutation uses the atomic policy and blocks self-demotion');
+$check(substr_count($authorizationHelper, "do_action('authorization_user_roles_changed'") >= 4 && str_contains($authorizationHelper, 'Nested callers receive $roleChange'), 'role assignment, legacy roles, Site Owner transitions, and recovery define post-commit hook semantics');
+$siteOwnerHelperSource = substr($authorizationHelper, (int)strpos($authorizationHelper, "if (!function_exists('authorization_set_site_owner')"), (int)strpos($authorizationHelper, "if (!function_exists('authorization_audit')") - (int)strpos($authorizationHelper, "if (!function_exists('authorization_set_site_owner')"));
+$recoveryHelperSource = substr($authorizationHelper, (int)strpos($authorizationHelper, "if (!function_exists('authorization_recover_site_owner')"));
+$check(strpos($siteOwnerHelperSource, '$pdo->commit();') < strpos($siteOwnerHelperSource, "do_action('authorization_user_roles_changed'"), 'Site Owner grant and revoke emit role changes only after the helper final commit');
+$check(strpos($recoveryHelperSource, '$pdo->commit();') < strpos($recoveryHelperSource, "do_action('authorization_user_roles_changed'"), 'Site Owner recovery emits role changes only after its final commit');
+$check(!str_contains($recovery, "cfg/helpers/hooks.php") && str_contains($recovery, 'hooks require listeners registered in-process'), 'CLI Site Owner recovery documents that it does not bootstrap plugin hook listeners');
 $check(str_contains($userSave, "SELECT id, is_site_owner FROM users") && str_contains($userSave, 'FOR UPDATE'), 'user edits recheck Site Owner protection inside the mutation transaction');
 $check(str_contains($userIndex, 'canMutateUser') && str_contains($userIndex, "_e('Protected')"), 'ordinary administrators do not receive Site Owner account mutation controls');
 $check(str_contains($profile, 'profile_reauth_blocked_until') && str_contains($profile, "name=\"current_password\""), 'profile password and email changes require throttled current-password verification');
@@ -138,6 +165,20 @@ $check(str_contains($translations, "'Change Site Owner access'") && str_contains
 $check(str_contains($roleManager, "['is_site_owner'] !== true") && str_contains($roleManager, 'role_permissions'), 'Role Manager is Site Owner-only and persists permission grants');
 $check(str_contains($roleManager, "['own', 'same_or_lower', 'any']") && !str_contains($roleManager, 'return confirm('), 'Role Manager validates scopes and avoids native confirmation dialogs');
 $check(str_contains($roleManager, 'Not yet available for custom roles') && str_contains($roleManager, '_assignable'), 'Role Manager disables Core permissions whose routes are not migrated');
+$check(str_contains($roleManager, 'is_delegable') && str_contains($roleManager, "authorization_role_permissions_changed"), 'Role Manager shows nondelegable permissions without custom assignment and emits lifecycle hooks after commits');
+$roleDeleteSource = substr($roleManager, (int)strpos($roleManager, "if (\$action === 'delete'"), (int)strpos($roleManager, "if (\$action === 'save'") - (int)strpos($roleManager, "if (\$action === 'delete'"));
+$check(
+    str_contains($roleDeleteSource, 'SELECT user_id FROM user_roles')
+    && str_contains($roleDeleteSource, 'FOR UPDATE')
+    && str_contains($roleDeleteSource, "'affected_user_ids' => \$affectedUserIds")
+    && str_contains($roleDeleteSource, "'old_role_ids'")
+    && str_contains($roleDeleteSource, "'new_role_ids'")
+    && str_contains($roleDeleteSource, "do_action('authorization_user_roles_changed'"),
+    'Role deletion locks active assignments and carries affected user IDs with old/new role snapshots'
+);
+$check(strpos($roleDeleteSource, '$pdo->commit();') < strpos($roleDeleteSource, "do_action('authorization_user_roles_changed'"), 'Role deletion emits affected user role hooks only after successful commit');
+$check(str_contains($authorizationHelper, 'function authorization_roles') && str_contains($authorizationHelper, "authorization_user_roles_changed"), 'authorization exposes the role catalog and role-assignment lifecycle action');
+$check(str_contains($authorizationHelper, "=== 'mysql' ? ' FOR UPDATE' : ''") && str_contains($authorizationHelper, "SELECT id FROM users WHERE id = :id LIMIT 1") && str_contains($authorizationHelper, "ORDER BY role_id' . \$lock"), 'role assignment locks the target and assignment snapshot on MySQL while remaining SQLite-compatible');
 $check(str_contains($roleHelper, 'authorization_active_legacy_role'), 'public compatibility role checks honor active dynamic assignments');
 $check(str_contains($authorizationHelper, 'authorization_owner_scope_condition'), 'authorization exposes a reusable owner-scoped list condition');
 $check(
@@ -352,13 +393,16 @@ $pdo->exec("CREATE TABLE users (
     role TEXT NOT NULL,
     is_site_owner INTEGER NOT NULL DEFAULT 0,
     is_deleted INTEGER NOT NULL DEFAULT 0,
-    is_locked INTEGER NOT NULL DEFAULT 0
+    is_locked INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT
 )");
 $pdo->exec("CREATE TABLE roles (
     id INTEGER PRIMARY KEY,
     slug TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    authority_rank INTEGER NOT NULL
+    description TEXT,
+    authority_rank INTEGER NOT NULL,
+    is_system INTEGER NOT NULL DEFAULT 0
 )");
 $pdo->exec("CREATE TABLE permissions (
     permission_key TEXT PRIMARY KEY,
@@ -367,6 +411,7 @@ $pdo->exec("CREATE TABLE permissions (
     action TEXT NOT NULL,
     label TEXT NOT NULL,
     supports_scope INTEGER NOT NULL DEFAULT 0,
+    is_delegable INTEGER NOT NULL DEFAULT 1,
     is_active INTEGER NOT NULL DEFAULT 1
 )");
 $pdo->exec("CREATE TABLE user_roles (
@@ -393,27 +438,32 @@ $pdo->exec("CREATE TABLE authorization_audit_log (
     metadata TEXT
 )");
 
-$pdo->exec("INSERT INTO roles (id,slug,name,authority_rank) VALUES
-    (1,'author','Author',10),
-    (2,'editor','Editor',50),
-    (3,'admin','Administrator',100)");
+$pdo->exec("INSERT INTO roles (id,slug,name,description,authority_rank,is_system) VALUES
+    (1,'author','Author','Author role',10,1),
+    (2,'editor','Editor','Editor role',50,1),
+    (3,'admin','Administrator','Admin role',100,1),
+    (4,'reviewer','Reviewer','Custom role',5,0)");
 $pdo->exec("INSERT INTO users (id,email,username,name,role,is_site_owner,is_deleted,is_locked) VALUES
     (1,'owner@example.test','owner','Owner','admin',1,0,0),
     (2,'author@example.test','author','Author','author',0,0,0),
     (3,'editor@example.test','editor','Editor','editor',0,0,0),
     (4,'admin@example.test','admin','Admin','admin',0,0,0),
     (5,'locked@example.test','locked','Locked','admin',0,0,1),
-    (6,'peer@example.test','peer','Peer','editor',0,0,0)");
-$pdo->exec("INSERT INTO user_roles (user_id,role_id) VALUES (1,3),(2,1),(3,2),(4,3),(5,3),(6,2)");
-$pdo->exec("INSERT INTO permissions (permission_key,provider,resource,action,label,supports_scope,is_active) VALUES
-    ('core.posts.update','core','posts','update','Update posts',1,1),
-    ('core.settings.manage','core','settings','manage','Manage settings',0,1),
-    ('core.disabled','core','disabled','read','Disabled permission',0,0)");
+    (6,'peer@example.test','peer','Peer','editor',0,0,0),
+    (7,'reviewer@example.test','reviewer','Reviewer','none',0,0,0)");
+$pdo->exec("INSERT INTO user_roles (user_id,role_id) VALUES (1,3),(2,1),(3,2),(4,3),(5,3),(6,2),(7,4)");
+$pdo->exec("INSERT INTO permissions (permission_key,provider,resource,action,label,supports_scope,is_delegable,is_active) VALUES
+    ('core.posts.update','core','posts','update','Update posts',1,1,1),
+    ('core.settings.manage','core','settings','manage','Manage settings',0,1,1),
+    ('core.disabled','core','disabled','read','Disabled permission',0,1,0),
+    ('plugin.example.jobs.run','example','jobs','run','Run jobs',0,0,1)");
 $pdo->exec("INSERT INTO role_permissions (role_id,permission_key,scope) VALUES
     (1,'core.posts.update','own'),
     (2,'core.posts.update','same_or_lower'),
     (3,'core.posts.update','any'),
-    (3,'core.settings.manage','global')");
+    (3,'core.settings.manage','global'),
+    (3,'plugin.example.jobs.run','global'),
+    (4,'plugin.example.jobs.run','global')");
 
 $check(user_can($pdo, 1, 'core.settings.manage'), 'Site Owner can use a registered permission');
 $check(!user_can($pdo, 1, 'core.unknown.manage'), 'Site Owner cannot bypass an unknown permission');
@@ -433,6 +483,8 @@ $check(!user_can($pdo, 3, 'core.posts.update'), 'scoped same-or-lower grants can
 $check(user_can($pdo, 4, 'core.posts.update', ['owner_id' => 0]), 'any scope accepts null ownership');
 $check(user_can($pdo, 4, 'core.posts.update'), 'any scope can authorize a collection route');
 $check(!user_can($pdo, 5, 'core.settings.manage'), 'locked users have no effective permissions');
+$check(user_can($pdo, 4, 'plugin.example.jobs.run'), 'nondelegable permission accepts an active system-role grant');
+$check(!user_can($pdo, 7, 'plugin.example.jobs.run'), 'nondelegable permission denies a stale custom-role grant');
 
 $check(user_permission_scope($pdo, 1, 'core.posts.update') === 'any', 'Site Owner receives any scope for contextual permissions');
 $check(user_permission_scope($pdo, 1, 'core.settings.manage') === 'global', 'Site Owner receives global scope for non-contextual permissions');
@@ -451,10 +503,21 @@ $lowerStmt->execute($lowerCondition['params'] ?? []);
 $lowerIds = array_map('intval', $lowerStmt->fetchAll(PDO::FETCH_COLUMN));
 $check($lowerIds === [1, 2], 'same-or-lower list condition rejects higher-ranked, Site Owner, and orphaned resources');
 
+$catalog = authorization_roles($pdo);
+$check(array_column($catalog, 'slug') === ['admin', 'editor', 'author', 'reviewer'], 'authorization role catalog is stable by authority and name');
+$check(($catalog[0]['id'] ?? null) === 3 && ($catalog[0]['is_system'] ?? null) === true, 'authorization role catalog exposes normalized plugin-useful fields');
+
+$roleChangeHooks = [];
+add_action('authorization_user_roles_changed', static function (int $userId, array $oldRoleIds, array $newRoleIds, ?int $actorId) use (&$roleChangeHooks): void {
+    $roleChangeHooks[] = [$userId, $oldRoleIds, $newRoleIds, $actorId];
+});
 $check(authorization_assign_roles($pdo, 2, [1, 2], 1), 'role assignment accepts valid dynamic role IDs');
+$check($roleChangeHooks === [[2, [1], [1, 2], 1]], 'successful role assignment emits old/new role IDs and actor after commit');
 $assigned = $pdo->query('SELECT role_id FROM user_roles WHERE user_id = 2 ORDER BY role_id')->fetchAll(PDO::FETCH_COLUMN);
 $check($assigned === ['1', '2'] || $assigned === [1, 2], 'role assignment replaces the user role set atomically');
+$check($roleChangeHooks[0][2] === array_map('intval', $assigned), 'role assignment hook new snapshot matches committed final assignments');
 $check(!authorization_assign_roles($pdo, 2, [999], 1), 'role assignment rejects unknown roles');
+$check(count($roleChangeHooks) === 1, 'failed role assignment does not emit a lifecycle hook');
 $assignedAfterFailure = $pdo->query('SELECT role_id FROM user_roles WHERE user_id = 2 ORDER BY role_id')->fetchAll(PDO::FETCH_COLUMN);
 $check($assignedAfterFailure === $assigned, 'failed role assignment preserves existing roles');
 $pdo->beginTransaction();
@@ -462,6 +525,18 @@ $nestedRejected = authorization_assign_roles($pdo, 2, [999], 1);
 $pdo->commit();
 $assignedAfterNestedFailure = $pdo->query('SELECT role_id FROM user_roles WHERE user_id = 2 ORDER BY role_id')->fetchAll(PDO::FETCH_COLUMN);
 $check(!$nestedRejected && $assignedAfterNestedFailure === $assigned, 'invalid nested role assignment does not mutate caller-owned transactions');
+
+$legacyChange = null;
+$check(authorization_assign_legacy_role($pdo, 2, 'admin', 1, $legacyChange), 'self-owned legacy role assignment commits successfully');
+$legacyAssigned = array_map('intval', $pdo->query('SELECT role_id FROM user_roles WHERE user_id = 2 ORDER BY role_id')->fetchAll(PDO::FETCH_COLUMN));
+$check($legacyAssigned === [3] && ($legacyChange['new_role_ids'] ?? null) === [3], 'legacy role helper returns and commits its final role snapshot');
+$check(count($roleChangeHooks) === 2 && $roleChangeHooks[1] === [2, [1, 2], [3], 1], 'self-owned legacy role assignment emits exactly once after commit');
+$pdo->beginTransaction();
+$nestedLegacyChange = null;
+$nestedLegacyOk = authorization_assign_legacy_role($pdo, 2, 'author', 1, $nestedLegacyChange);
+$pdo->rollBack();
+$check($nestedLegacyOk && ($nestedLegacyChange['new_role_ids'] ?? null) === [1] && count($roleChangeHooks) === 2, 'caller-owned legacy assignment returns a snapshot without emitting before rollback');
+$check(array_map('intval', $pdo->query('SELECT role_id FROM user_roles WHERE user_id = 2 ORDER BY role_id')->fetchAll(PDO::FETCH_COLUMN)) === [3], 'rolled-back caller-owned legacy assignment leaves committed roles unchanged');
 
 $check(
     authorization_audit($pdo, 'role.assigned', 1, 2, 'user', '2', ['roles' => [1, 2]]),

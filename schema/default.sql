@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS `permissions` (
   `action` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `label` varchar(191) NOT NULL,
   `supports_scope` tinyint(1) NOT NULL DEFAULT 0,
+  `is_delegable` tinyint(1) NOT NULL DEFAULT 1,
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),

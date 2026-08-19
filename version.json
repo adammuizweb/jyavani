@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.73",
+    "version": "2.3.74",
     "build": "2026-08-19",
-    "changelog": "Add delegable plugin permissions, permission synchronization, authorized navigation, and fail-closed route collision handling.",
+    "changelog": "Add stable plugin default roles, nondelegable permission policies, post-commit authorization hooks, and transactional role synchronization.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

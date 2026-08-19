@@ -173,7 +173,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':is_locked' => $isLocked,
                 ]);
                 $newUserId = (int)$pdo->lastInsertId();
-                if (!authorization_assign_legacy_role($pdo, $newUserId, 'author')) {
+                $roleChange = null;
+                if (!authorization_assign_legacy_role($pdo, $newUserId, 'author', null, $roleChange)) {
                     throw new RuntimeException('Default registration role is unavailable.');
                 }
                 if (!authorization_audit(
@@ -188,6 +189,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Registration role audit failed.');
                 }
                 $pdo->commit();
+                if ($roleChange !== null && function_exists('do_action')) {
+                    try {
+                        do_action('authorization_user_roles_changed', $roleChange['user_id'], $roleChange['old_role_ids'], $roleChange['new_role_ids'], null, $pdo);
+                    } catch (Throwable $hookError) {
+                        error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                    }
+                }
 
                 $success = $registrationApproval
                     ? __('Registration successful. Your account has been created and is awaiting admin approval.')

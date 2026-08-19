@@ -139,10 +139,13 @@ try {
         }
 
         $cnt = 0;
+        $roleChanges = [];
         foreach ($ids as $targetId) {
-            if (!authorization_assign_roles($pdo, $targetId, [$newRoleId], $uid)) {
+            $roleChange = null;
+            if (!authorization_assign_roles($pdo, $targetId, [$newRoleId], $uid, $roleChange)) {
                 throw new RuntimeException('Failed to assign role to user ID ' . $targetId);
             }
+            if ($roleChange !== null) $roleChanges[] = $roleChange;
             if (!authorization_audit(
                 $pdo,
                 'role.assigned',
@@ -158,6 +161,15 @@ try {
         }
 
         $pdo->commit();
+        if (function_exists('do_action')) {
+            foreach ($roleChanges as $roleChange) {
+                try {
+                    do_action('authorization_user_roles_changed', $roleChange['user_id'], $roleChange['old_role_ids'], $roleChange['new_role_ids'], $uid, $pdo);
+                } catch (Throwable $hookError) {
+                    error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                }
+            }
+        }
         adiwira_users_bulk_respond(true, sprintf(__('%d user(s) role changed to "%s".'), $cnt, (string)$newRole['name']), 200, ['count' => $cnt], $returnTo);
     }
 

@@ -20,7 +20,7 @@ $pageUrl = $base . '/?page=admin/users/roles/index';
 $errors = [];
 
 $permissionsStmt = $pdo->query(
-    'SELECT permission_key, provider, resource, action, label, supports_scope
+    'SELECT permission_key, provider, resource, action, label, supports_scope, is_delegable
      FROM permissions
      WHERE is_active = 1
      ORDER BY provider ASC, resource ASC, action ASC, permission_key ASC'
@@ -69,8 +69,9 @@ $enforcedCorePermissions = [
 ];
 $permissionsByKey = [];
 foreach ($permissions as &$permission) {
-    $permission['_assignable'] = (string)$permission['provider'] !== 'core'
-        || in_array((string)$permission['permission_key'], $enforcedCorePermissions, true);
+    $permission['_assignable'] = (int)$permission['is_delegable'] === 1
+        && ((string)$permission['provider'] !== 'core'
+            || in_array((string)$permission['permission_key'], $enforcedCorePermissions, true));
     $permissionsByKey[(string)$permission['permission_key']] = $permission;
 }
 unset($permission);
@@ -103,8 +104,43 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $assignedStmt->execute([':role_id' => $roleId]);
             $assignedUsers = (int)$assignedStmt->fetchColumn();
 
+            $affectedStmt = $pdo->prepare(
+                'SELECT user_id FROM user_roles
+                 WHERE role_id = :role_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY user_id
+                 FOR UPDATE'
+            );
+            $affectedStmt->execute([':role_id' => $roleId]);
+            $affectedUserIds = array_map('intval', $affectedStmt->fetchAll(PDO::FETCH_COLUMN));
+            $roleChanges = [];
+            $roleSnapshotStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id
+                 FOR UPDATE'
+            );
+            foreach ($affectedUserIds as $affectedUserId) {
+                $roleSnapshotStmt->execute([':user_id' => $affectedUserId]);
+                $roleChanges[$affectedUserId] = [
+                    'old_role_ids' => array_map('intval', $roleSnapshotStmt->fetchAll(PDO::FETCH_COLUMN)),
+                    'new_role_ids' => [],
+                ];
+            }
+
             $delete = $pdo->prepare('DELETE FROM roles WHERE id = :id');
             $delete->execute([':id' => $roleId]);
+            $finalRoleStmt = $pdo->prepare(
+                'SELECT role_id FROM user_roles
+                 WHERE user_id = :user_id
+                   AND (expires_at IS NULL OR expires_at > NOW())
+                 ORDER BY role_id'
+            );
+            foreach ($affectedUserIds as $affectedUserId) {
+                $finalRoleStmt->execute([':user_id' => $affectedUserId]);
+                $roleChanges[$affectedUserId]['new_role_ids'] = array_map('intval', $finalRoleStmt->fetchAll(PDO::FETCH_COLUMN));
+            }
             if (!authorization_audit(
                 $pdo,
                 'role.deleted',
@@ -112,11 +148,31 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 null,
                 'role',
                 (string)$roleId,
-                ['slug' => (string)$role['slug'], 'assigned_users' => $assignedUsers]
+                ['slug' => (string)$role['slug'], 'assigned_users' => $assignedUsers, 'affected_user_ids' => $affectedUserIds]
             )) {
                 throw new RuntimeException('Role deletion audit failed.');
             }
             $pdo->commit();
+            if (function_exists('do_action')) {
+                // authorization_role_deleted(old role, actor ID, PDO)
+                try {
+                    $role['assigned_users'] = $assignedUsers;
+                    $role['affected_user_ids'] = $affectedUserIds;
+                    $role['role_changes'] = $roleChanges;
+                    do_action('authorization_role_deleted', $role, $uid, $pdo);
+                } catch (Throwable $hookError) {
+                    error_log('[authorization_role_deleted] ' . $hookError->getMessage());
+                }
+                // authorization_user_roles_changed(user ID, old role IDs, new role IDs, actor ID, PDO)
+                foreach ($roleChanges as $affectedUserId => $change) {
+                    if ($change['old_role_ids'] === $change['new_role_ids']) continue;
+                    try {
+                        do_action('authorization_user_roles_changed', $affectedUserId, $change['old_role_ids'], $change['new_role_ids'], $uid, $pdo);
+                    } catch (Throwable $hookError) {
+                        error_log('[authorization_user_roles_changed] ' . $hookError->getMessage());
+                    }
+                }
+            }
             adiwira_redirect_with_flash($pageUrl, 'success', __('Role deleted successfully.'));
         } catch (DomainException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
@@ -186,7 +242,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $retainedStmt->execute([':role_id' => $roleId]);
             foreach ($retainedStmt->fetchAll(PDO::FETCH_ASSOC) as $retainedGrant) {
                 $permissionKey = (string)$retainedGrant['permission_key'];
-                if (!isset($permissionsByKey[$permissionKey]) || ($permissionsByKey[$permissionKey]['_assignable'] ?? false) !== true) {
+                if (!isset($permissionsByKey[$permissionKey])
+                    || ((int)$permissionsByKey[$permissionKey]['is_delegable'] === 1
+                        && ($permissionsByKey[$permissionKey]['_assignable'] ?? false) !== true)) {
                     $grants[$permissionKey] = (string)$retainedGrant['scope'];
                 }
             }
@@ -199,12 +257,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     throw new RuntimeException('Site Owner authorization changed.');
                 }
                 $isSystemRole = false;
+                $createdRole = $roleId <= 0;
+                $oldRole = null;
+                $oldGrants = [];
                 if ($roleId > 0) {
-                    $roleStmt = $pdo->prepare('SELECT id, slug, authority_rank, is_system FROM roles WHERE id = :id FOR UPDATE');
+                    $roleStmt = $pdo->prepare('SELECT id, slug, name, description, authority_rank, is_system FROM roles WHERE id = :id FOR UPDATE');
                     $roleStmt->execute([':id' => $roleId]);
                     $existingRole = $roleStmt->fetch(PDO::FETCH_ASSOC);
                     if (!$existingRole) {
                         throw new RuntimeException('Role not found.');
+                    }
+                    $oldRole = $existingRole;
+                    $oldGrantStmt = $pdo->prepare('SELECT permission_key, scope FROM role_permissions WHERE role_id = :role_id ORDER BY permission_key');
+                    $oldGrantStmt->execute([':role_id' => $roleId]);
+                    foreach ($oldGrantStmt->fetchAll(PDO::FETCH_ASSOC) as $oldGrant) {
+                        $oldGrants[(string)$oldGrant['permission_key']] = (string)$oldGrant['scope'];
                     }
                     $slug = (string)$existingRole['slug'];
                     $isSystemRole = (int)$existingRole['is_system'] === 1;
@@ -263,7 +330,38 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 )) {
                     throw new RuntimeException('Role save audit failed.');
                 }
+                $newRoleStmt = $pdo->prepare('SELECT id, slug, name, description, authority_rank, is_system FROM roles WHERE id = :id');
+                $newRoleStmt->execute([':id' => $roleId]);
+                $newRole = $newRoleStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$newRole) {
+                    throw new RuntimeException('Saved role could not be reloaded.');
+                }
+                $newGrants = [];
+                $newGrantStmt = $pdo->prepare('SELECT permission_key, scope FROM role_permissions WHERE role_id = :role_id ORDER BY permission_key');
+                $newGrantStmt->execute([':role_id' => $roleId]);
+                foreach ($newGrantStmt->fetchAll(PDO::FETCH_ASSOC) as $newGrant) {
+                    $newGrants[(string)$newGrant['permission_key']] = (string)$newGrant['scope'];
+                }
                 $pdo->commit();
+                if (function_exists('do_action')) {
+                    // Role hooks receive old/new snapshots, actor ID, then PDO.
+                    try {
+                        if ($createdRole) {
+                            do_action('authorization_role_created', $newRole, $uid, $pdo);
+                        } else {
+                            do_action('authorization_role_updated', $oldRole, $newRole, $uid, $pdo);
+                        }
+                    } catch (Throwable $hookError) {
+                        error_log('[authorization_role_lifecycle] ' . $hookError->getMessage());
+                    }
+                    if ($oldGrants !== $newGrants) {
+                        try {
+                            do_action('authorization_role_permissions_changed', $roleId, $oldGrants, $newGrants, $uid, $pdo);
+                        } catch (Throwable $hookError) {
+                            error_log('[authorization_role_permissions_changed] ' . $hookError->getMessage());
+                        }
+                    }
+                }
                 adiwira_redirect_with_flash($pageUrl . '&id=' . $roleId, 'success', __('Role saved successfully.'));
             } catch (PDOException $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
@@ -328,7 +426,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
         $formGrants[$permissionKey] = $scope;
     }
     foreach ($selectedGrants as $permissionKey => $scope) {
-        if (!isset($permissionsByKey[$permissionKey]) || ($permissionsByKey[$permissionKey]['_assignable'] ?? false) !== true) {
+        if (!isset($permissionsByKey[$permissionKey])
+            || ((int)$permissionsByKey[$permissionKey]['is_delegable'] === 1
+                && ($permissionsByKey[$permissionKey]['_assignable'] ?? false) !== true)) {
             $formGrants[$permissionKey] = $scope;
         }
     }
@@ -445,7 +545,7 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
               <div class="authz-permission-row" data-permission-search="<?= htmlspecialchars(strtolower($groupName . ' ' . $permissionLabel . ' ' . $permissionKey), ENT_QUOTES, 'UTF-8') ?>">
                 <label class="authz-permission-check">
                   <input type="checkbox" class="authz-permission-toggle" name="enabled_permissions[]" value="<?= htmlspecialchars($permissionKey, ENT_QUOTES, 'UTF-8') ?>" <?= $isEnabled ? 'checked' : '' ?> <?= $permissionDisabled ? 'disabled' : '' ?>>
-                  <span><strong><?= htmlspecialchars($permissionLabel, ENT_QUOTES, 'UTF-8') ?></strong><code><?= htmlspecialchars($permissionKey, ENT_QUOTES, 'UTF-8') ?></code><?php if (!$permissionAssignable): ?><small class="authz-unavailable"><?= $isEnabled ? _e('Retained, currently unavailable to change') : _e('Not yet available for custom roles') ?></small><?php endif; ?></span>
+                  <span><strong><?= htmlspecialchars($permissionLabel, ENT_QUOTES, 'UTF-8') ?></strong><code><?= htmlspecialchars($permissionKey, ENT_QUOTES, 'UTF-8') ?></code><?php if (!$permissionAssignable): ?><small class="authz-unavailable"><?= (int)$permission['is_delegable'] !== 1 ? _e('Protected system role') : ($isEnabled ? _e('Retained, currently unavailable to change') : _e('Not yet available for custom roles')) ?></small><?php endif; ?></span>
                 </label>
                 <?php if ((int)$permission['supports_scope'] === 1): ?>
                   <select class="authz-scope-select" name="permission_scopes[<?= $scopeHash ?>]" aria-label="<?= htmlspecialchars(sprintf(__('Scope for %s'), $permissionLabel), ENT_QUOTES, 'UTF-8') ?>" <?= ($permissionDisabled || !$isEnabled) ? 'disabled' : '' ?>>

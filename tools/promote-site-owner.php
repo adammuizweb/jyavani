@@ -45,6 +45,7 @@ try {
             throw new RuntimeException('Pending schema migration failed.');
         }
     }
+    // CLI recovery does not bootstrap plugins; hooks require listeners registered in-process.
     require_once $root . '/cfg/helpers/authorization.php';
 
     $stmt = $pdo->prepare(

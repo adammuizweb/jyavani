@@ -18,11 +18,20 @@ $check = static function (bool $ok, string $message) use (&$failures): void {
 
 $valid = [
     'name' => 'example',
-    'permissions' => [[
-        'key' => 'plugin.example.settings.access',
-        'label' => 'Access Example Settings',
-        'supports_scope' => false,
-    ]],
+    'permissions' => [
+        [
+            'key' => 'plugin.example.settings.access',
+            'label' => 'Access Example Settings',
+            'supports_scope' => false,
+        ],
+        [
+            'key' => 'plugin.example.jobs.run',
+            'label' => 'Run Example Jobs',
+            'supports_scope' => false,
+            'default_roles' => ['editor', 'admin', 'editor'],
+            'delegable' => false,
+        ],
+    ],
     'admin' => [
         'pages' => [[
             'route' => 'admin/tools/example',
@@ -37,6 +46,17 @@ $contract = plugin_manifest_contract($valid);
 $check($contract['errors'] === [], 'valid plugin-owned permission contract passes');
 $check(isset($contract['permissions']['plugin.example.settings.access']), 'permission declarations normalize by key');
 $check(($contract['route_roles']['plugin.example.settings.access'] ?? null) === ['admin'], 'route compatibility roles normalize for grant seeding');
+$check(($contract['permissions']['plugin.example.settings.access']['default_roles'] ?? null) === ['admin'], 'permissions without explicit defaults derive identical route compatibility roles');
+$check(($contract['permissions']['plugin.example.jobs.run']['default_roles'] ?? null) === ['admin', 'editor'], 'non-route permission defaults normalize uniquely and remain declared');
+$check(($contract['permissions']['plugin.example.jobs.run']['is_delegable'] ?? true) === false, 'permission delegability normalizes from the manifest');
+
+$conflictingDefaults = $valid;
+$conflictingDefaults['permissions'][0]['default_roles'] = ['editor'];
+$check(plugin_manifest_contract_errors($conflictingDefaults) !== [], 'explicit permission defaults cannot conflict with route compatibility roles');
+
+$invalidDelegability = $valid;
+$invalidDelegability['permissions'][0]['delegable'] = 0;
+$check(plugin_manifest_contract_errors($invalidDelegability) !== [], 'permission delegability must be boolean');
 
 $wrongOwner = $valid;
 $wrongOwner['permissions'][0]['key'] = 'plugin.other.settings.access';
@@ -137,6 +157,7 @@ $check(str_contains($registry, 'adiwira_require_permission($pdo, $permission, $a
 $check(substr_count($registry, "apply_filters('plugin_page_roles'") >= 2, 'permission routes preserve role-filter tightening compatibility');
 $check(str_contains($registry, "['_plugin_ready_permissions']"), 'permission routes fail closed until synchronization succeeds');
 $check(str_contains($registry, 'plugin_route_collision_errors($manifest, plugins_all())'), 'install and update preflight checks installed route ownership');
+$check(str_contains($registry, "\$GLOBALS['_plugin_current_route'] = \$route") && str_contains($registry, "'route' => \$route"), 'plugin guards expose authoritative resolved route metadata');
 $loadAt = strpos($dashboard, 'plugin_load_active();');
 $syncAt = strpos($dashboard, 'plugin_sync_permissions($pdo);');
 $initAt = strpos($dashboard, "do_action('admin_init');");
@@ -147,21 +168,52 @@ $check(!str_contains($aside, 'in_array($userRole, $pnRoles') && !str_contains($a
 if (extension_loaded('pdo_sqlite')) {
     $pdo = new PDO('sqlite::memory:');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->exec('CREATE TABLE permissions (permission_key TEXT PRIMARY KEY, provider TEXT NOT NULL, resource TEXT NOT NULL, action TEXT NOT NULL, label TEXT NOT NULL, supports_scope INTEGER NOT NULL DEFAULT 0, is_active INTEGER NOT NULL DEFAULT 1)');
+    $pdo->exec('PRAGMA foreign_keys = ON');
+    $pdo->exec('CREATE TABLE permissions (permission_key TEXT PRIMARY KEY, provider TEXT NOT NULL, resource TEXT NOT NULL, action TEXT NOT NULL, label TEXT NOT NULL, supports_scope INTEGER NOT NULL DEFAULT 0, is_delegable INTEGER NOT NULL DEFAULT 1, is_active INTEGER NOT NULL DEFAULT 1)');
     $pdo->exec('CREATE TABLE roles (id INTEGER PRIMARY KEY, slug TEXT NOT NULL, is_system INTEGER NOT NULL DEFAULT 0)');
-    $pdo->exec('CREATE TABLE role_permissions (role_id INTEGER NOT NULL, permission_key TEXT NOT NULL, scope TEXT NOT NULL DEFAULT "global", PRIMARY KEY (role_id, permission_key))');
+    $pdo->exec('CREATE TABLE role_permissions (role_id INTEGER NOT NULL, permission_key TEXT NOT NULL, scope TEXT NOT NULL DEFAULT "global", PRIMARY KEY (role_id, permission_key), FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE CASCADE, FOREIGN KEY (permission_key) REFERENCES permissions (permission_key) ON DELETE CASCADE)');
     $pdo->exec("INSERT INTO roles (id, slug, is_system) VALUES (1, 'author', 1), (2, 'editor', 1), (3, 'admin', 1), (4, 'custom', 0)");
+    $pdo->exec("INSERT INTO permissions (permission_key, provider, resource, action, label, supports_scope, is_delegable, is_active) VALUES ('plugin.example.jobs.run', 'example', 'jobs', 'run', 'Old Job Label', 0, 1, 1)");
+    $pdo->exec("INSERT INTO role_permissions (role_id, permission_key, scope) VALUES (4, 'plugin.example.jobs.run', 'global')");
+
+    $syncHooks = [];
+    add_action('plugin_permissions_synced', static function (array $policy, ?int $actorId) use (&$syncHooks): void {
+        $syncHooks[] = [$policy, $actorId];
+    });
 
     $GLOBALS['_plugin_active_cache'] = ['example' => $valid];
     $check(plugin_sync_permissions($pdo) === [], 'active plugin permissions synchronize');
     $check((int)$pdo->query("SELECT is_active FROM permissions WHERE permission_key = 'plugin.example.settings.access'")->fetchColumn() === 1, 'synchronized permission is active');
     $check((int)$pdo->query("SELECT COUNT(*) FROM role_permissions WHERE role_id = 3 AND permission_key = 'plugin.example.settings.access'")->fetchColumn() === 1, 'compatibility admin grant is seeded');
+    $check((int)$pdo->query("SELECT is_delegable FROM permissions WHERE permission_key = 'plugin.example.jobs.run'")->fetchColumn() === 0, 'existing plugin permission delegability is intentionally updateable');
+    $check((int)$pdo->query("SELECT COUNT(*) FROM role_permissions WHERE role_id IN (2,3) AND permission_key = 'plugin.example.jobs.run'")->fetchColumn() === 2, 'non-route permission defaults seed system-role grants');
+    $check((int)$pdo->query("SELECT COUNT(*) FROM role_permissions WHERE role_id = 4 AND permission_key = 'plugin.example.jobs.run'")->fetchColumn() === 0, 'nondelegable permission synchronization deletes stale custom-role grants');
+    $check(count($syncHooks) === 1 && isset($syncHooks[0][0]['old']['plugin.example.jobs.run'], $syncHooks[0][0]['new']['plugin.example.jobs.run']), 'plugin sync hook fires after commit with old/new permission policy');
+    $permissionCountBeforeNestedSync = (int)$pdo->query('SELECT COUNT(*) FROM permissions')->fetchColumn();
+    $pdo->beginTransaction();
+    $nestedSyncResult = plugin_sync_permissions($pdo);
+    $check($nestedSyncResult !== [] && $pdo->inTransaction(), 'plugin permission sync rejects caller-owned transactions without ending them');
+    $check($GLOBALS['_plugin_ready_permissions'] === [] && count($syncHooks) === 1, 'rejected nested plugin sync fails closed without ready state or hooks');
+    $check((int)$pdo->query('SELECT COUNT(*) FROM permissions')->fetchColumn() === $permissionCountBeforeNestedSync, 'rejected nested plugin sync does not mutate permissions');
+    $pdo->rollBack();
     $pdo->exec("INSERT INTO role_permissions (role_id, permission_key, scope) VALUES (4, 'plugin.example.settings.access', 'global')");
+    $check(plugin_sync_permissions($pdo) === [], 'delegable active permission resynchronizes');
+    $check((int)$pdo->query("SELECT COUNT(*) FROM role_permissions WHERE role_id = 4 AND permission_key = 'plugin.example.settings.access'")->fetchColumn() === 1, 'delegable active permission preserves custom-role grants');
+
+    $pdo->exec("UPDATE permissions SET resource = 'conflict' WHERE permission_key = 'plugin.example.settings.access'");
+    $hookCountBeforeFailure = count($syncHooks);
+    $check(plugin_sync_permissions($pdo) !== [], 'plugin permission semantic ownership and scope conflicts fail closed');
+    $check(count($syncHooks) === $hookCountBeforeFailure, 'plugin sync hook does not fire on rollback');
+    $pdo->exec("UPDATE permissions SET resource = 'settings' WHERE permission_key = 'plugin.example.settings.access'");
 
     $GLOBALS['_plugin_active_cache'] = [];
     $check(plugin_sync_permissions($pdo) === [], 'uninstalled plugin permissions reconcile');
     $check((int)$pdo->query("SELECT COUNT(*) FROM permissions WHERE permission_key = 'plugin.example.settings.access'")->fetchColumn() === 0, 'uninstalled plugin permission is deleted');
     $check((int)$pdo->query("SELECT COUNT(*) FROM role_permissions WHERE role_id = 4 AND permission_key = 'plugin.example.settings.access'")->fetchColumn() === 0, 'uninstalled plugin grants are deleted');
+    $check(count($syncHooks) === $hookCountBeforeFailure + 1, 'plugin sync hook fires for successful uninstall reconciliation');
+    $directRoute = ['route' => 'admin/tools/example/direct', 'roles' => []];
+    plugin_guard_route($pdo, $directRoute);
+    $check(($GLOBALS['_plugin_current_route']['route'] ?? null) === 'admin/tools/example/direct', 'plugin guard publishes route identity for direct-path repeated guards');
 } else {
     echo "SKIP permission synchronization behavior requires pdo_sqlite\n";
 }
