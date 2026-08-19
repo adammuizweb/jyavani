@@ -42,6 +42,7 @@ $check(_cms_is_preserved('public/views/themes/custom/theme.json', $preservePatte
 foreach ([
     'public/static/img/jyavani.svg',
     'public/static/img/favicon/jyavani.svg',
+    'public/static/icons/lucide/shield-check.svg',
     'public/views/themes/default/theme.json',
     'public/views/themes/default/main/homepage.php',
 ] as $required) {

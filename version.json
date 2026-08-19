@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.75",
+    "version": "2.3.76",
     "build": "2026-08-19",
-    "changelog": "Normalize every Core distribution ZIP entry to a readable 0644 regular file and verify package permissions during builds.",
+    "changelog": "Add the proper Lucide shield-check icon used by Roles & Permissions navigation and settings.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
