@@ -1,11 +1,10 @@
 -- Jyavani CMS Demo Content
--- Generated: 2026-07-25 16:15:36 
--- Source DB: jyavani_local
+-- Generated: 2026-08-19
+-- Canonical source: schema/demo-content/manifest.json (version 1)
+-- Regenerate: php tools/build-demo-content.php
 --
--- This file is imported by the installer when the user chooses "Install demo content".
--- It inserts sample categories, posts, media, and a main menu so the site is usable immediately.
---
--- Table order: categories -> posts -> media -> post_categories -> menus -> menu_items
+-- Imported on request by Pondasi after the Core schema and initial Site Owner exist.
+-- Tables written: categories, posts, media, post_categories, sidebar_zone_items.
 
 SET FOREIGN_KEY_CHECKS=0;
 SET NAMES utf8mb4;
@@ -18,1652 +17,307 @@ REPLACE INTO `categories` (`id`, `name`, `slug`, `description`, `parent_id`, `me
 (4, 'Sistem', 'sistem', 'Artikel tentang administrasi sistem, maintenance, update, dan manajemen user', NULL, NULL, 1, '2026-07-25 09:07:14', '2026-07-25 09:07:14', 0, NULL);
 
 INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES
-(272, 'Content Management — Mengelola Artikel dan Halaman', 'content-management-mengelola-artikel-dan-halaman', '<p>Jyavani CMS dirancang untuk memberikan kontrol penuh atas konten website tanpa kerumitan yang tidak perlu. Dalam artikel ini, kita akan membahas secara mendalam bagaimana mengelola artikel dan halaman — dua pilar utama dari setiap sistem manajemen konten.</p>
-
-<h2>Memahami Perbedaan Article dan Page</h2>
-
-<p>Sebelum mulai membuat konten, penting untuk memahami perbedaan mendasar antara <strong>Article</strong> dan <strong>Page</strong> di Jyavani CMS. Keduanya disimpan di tabel yang sama (<code>posts</code>), namun memiliki perilaku dan tujuan yang berbeda.</p>
-
-<p><strong>Article</strong> adalah konten blog yang bersifat temporal — ditampilkan secara kronologis, bisa dikategorikan, dan biasanya memiliki tanggal publikasi yang relevan. Contoh: tutorial, berita, tips, atau artikel opini.</p>
-
-<p><strong>Page</strong> adalah konten statis yang tidak bergantung pada waktu — halaman "Tentang Kami", "Kontak", "Kebijakan Privasi", atau halaman arahan lainnya. Page tidak memiliki kategori dan tidak muncul di halaman daftar artikel.</p>
-
-<h2>Dashboard Posts — Melihat Semua Artikel</h2>
-
-<p>Setelah login ke dashboard admin, buka menu <strong>Posts</strong> untuk melihat daftar semua artikel. Di sini kamu akan menemukan beberapa fitur pengelolaan:</p>
-
-<img src="/static/img/2026/07/screenshots/posts-list.jpg" alt="Dashboard Posts List" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<p><strong>Tabel Artikel</strong> — Setiap artikel ditampilkan dalam format baris dengan informasi: judul, status (draft/published/private), tanggal update, dan kategori. Kamu bisa mencari artikel berdasarkan judul atau konten menggunakan fitur pencarian di bagian atas.</p>
-
-<p><strong>Filter dan Sorting</strong> — Gunakan dropdown filter untuk menampilkan artikel berdasarkan status tertentu. Sorting bisa dilakukan berdasarkan tanggal atau judul untuk mempermudah pencarian.</p>
-
-<p><strong>Aksi Massal</strong> — Pilih beberapa artikel sekaligus menggunakan checkbox, lalu lakukan aksi massal seperti publish, unpublish, atau delete secara bersamaan.</p>
-
-<h2>Membuat Artikel Baru</h2>
-
-<p>Mari kita mulai dengan membuat artikel baru. Akses dashboard admin dan buka menu <strong>Posts → Tambah Artikel</strong>. Kamu akan melihat form editor dengan beberapa bagian utama.</p>
-
-<img src="/static/img/2026/07/screenshots/add-post.jpg" alt="Form Tambah Artikel" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<h3>Field Utama</h3>
-
-<p><strong>Judul</strong> — Judul artikel yang akan tampil di frontend dan halaman arsip. Buat judul yang deskriptif dan mengandung kata kunci utama.</p>
-
-<p><strong>Slug</strong> — URL-friendly version dari judul. Slug digenerate otomatis dari judul, tapi bisa diubah manual. Pastikan slug unik dan menggunakan format kecil dengan tanda hubung sebagai pemisah.</p>
-
-<p><strong>Konten</strong> — Area editor menggunakan Quill, editor WYSIWYG yang powerful. Kamu bisa menulis konten dengan formatting lengkap: heading, bold, italic, list, code block, blockquote, dan link. Editor juga mendukung HTML langsung untuk kontrol yang lebih presisi.</p>
-
-<p><strong>Kategori</strong> — Assign artikel ke satu atau lebih kategori. Kategori membantu pengunjung menemukan konten yang relevan dan membantu SEO dengan struktur URL yang bersih.</p>
-
-<p><strong>Status</strong> — Tiga opsi tersedia:</p>
-<ul>
-<li><code>draft</code> — Artikel tersimpan tapi belum terlihat di frontend</li>
-<li><code>published</code> — Artikel tampil untuk semua pengunjung</li>
-<li><code>private</code> — Artikel hanya bisa diakses oleh user yang login</li>
-</ul>
-
-<h3>Thumbnail</h3>
-
-<p>Thumbnail adalah gambar utama yang muncul di daftar artikel dan media sosial. Di Jyavani, thumbnail bisa diatur melalui:</p>
-<ul>
-<li><strong>Gallery button</strong> — untuk author/editor/admin, pilih dari Media Library</li>
-<li><strong>Insert via URL</strong> — untuk editor/admin, masukkan URL gambar langsung</li>
-</ul>
-
-<p>Ukuran ideal thumbnail adalah <strong>1200×675 piksel</strong> (rasio 16:9). Gambar akan otomatis di-crop dan diresize oleh tema untuk tampilan terbaik.</p>
-
-<h3>Meta Tags</h3>
-
-<p>Jika fitur meta tags diaktifkan di settings, kamu bisa mengatur deskripsi custom untuk SEO. Jika tidak diisi, sistem akan otomatis generate excerpt dari konten artikel (maksimal 160 karakter).</p>
-
-<h2>Menggunakan Quill Editor</h2>
-
-<p>Quill editor di Jyavani CMS memiliki beberapa fitur unggulan:</p>
-
-<p><strong>Toolbar Lengkap</strong> — Format teks (bold, italic, underline, strikorthrough), heading levels, list (ordered/unordered), blockquote, code block, link, dan gambar.</p>
-
-<p><strong>Code Block</strong> — Untuk artikel teknis, kamu bisa menyisipkan code block dengan syntax highlighting. Pilih format "Code Block" dari toolbar, lalu paste kode kamu. CMS akan otomatis detect bahasa pemrograman dan memberikan highlighting yang sesuai.</p>
-
-<p><strong>Dark Mode Support</strong> — Editor mendukung light dan dark mode. Warna teks dan background akan menyesuaikan dengan tema yang aktif, termasuk syntax highlighting di code block.</p>
-
-<p><strong>HTML Mode</strong> — Untuk pengguna yang lebih advanced, kamu bisa beralih ke source code view untuk mengedit HTML langsung. Ini berguna untuk menambahkan embed video atau custom styling.</p>
-
-<h2>Mengelola Halaman (Pages)</h2>
-
-<p>Halaman dikelola dari menu <strong>Pages → Tambah Halaman</strong>. Interface-nya mirip dengan artikel, tapi tanpa field kategori dan thumbnail.</p>
-
-<img src="/static/img/2026/07/screenshots/pages-list.jpg" alt="Dashboard Pages List" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<p>Halaman cocok untuk konten yang bersifat statis dan tidak berubah terlalu sering. Beberapa contoh penggunaan:</p>
-<ul>
-<li>Halaman "Tentang Kami" — profil singkat tentang website atau organisasi</li>
-<li>Halaman "Kontak" — informasi kontak atau form sederhana</li>
-<li>Halaman "Syarat dan Ketentuan" — legal page yang wajib ada</li>
-<li>Halaman arahan khusus — landing page untuk kampanye tertentu</li>
-</ul>
-
-<p>URL halaman mengikuti pola <code>/halaman/{slug}/</code>, berbeda dengan artikel yang menggunakan <code>/{slug}/</code> langsung di root.</p>
-
-<h2>Mengelola Kategori</h2>
-
-<p>Kategori membantu mengorganisir konten dan memudahkan navigasi pengunjung. Akses menu <strong>Categories</strong> untuk mengelola kategori.</p>
-
-<img src="/static/img/2026/07/screenshots/categories.jpg" alt="Dashboard Categories" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<p><strong>Struktur Hierarki</strong> — Kategori mendukung struktur parent/child. Misalnya, kategori "Tutorial" bisa memiliki sub-kategori "PHP", "MySQL", "CSS", dan lainnya.</p>
-
-<p><strong>Many-to-Many Relationship</strong> — Satu artikel bisa masuk ke beberapa kategori sekaligus. Ini fleksibel karena konten seringkali relevan dengan beberapa topik.</p>
-
-<p><strong>URL Kategori</strong> — Setiap kategori memiliki URL unik: <code>/category/{slug}/</code>. Ini membantu SEO karena search engine bisa mengindeks halaman kategori secara terpisah.</p>
-
-<h2>Status dan Workflow Publikasi</h2>
-
-<p>Jyavani CMS mendukung workflow publikasi yang fleksibel:</p>
-
-<p><strong>Draft → Published</strong> — Mulai dari draft untuk konten yang masih dalam proses, lalu ubah ke published saat siap tayang.</p>
-
-<p><strong>Published → Private</strong> — Jika konten perlu dibatasi aksesnya, ubah ke private. Hanya user yang login yang bisa melihatnya.</p>
-
-<p><strong>Soft Delete</strong> — Artikel yang dihapus tidak langsung hilang dari database. CMS menggunakan sistem soft delete (flag <code>is_deleted</code>), sehingga konten bisa dipulihkan kapan saja dari Trash.</p>
-
-<h2>Mengelola Konten yang Sudah Ada</h2>
-
-<p>Dashboard posts list menampilkan semua artikel dengan informasi lengkap: judul, status, kategori, tanggal update, dan jumlah komentar (jika ada). Beberapa fitur pengelolaan:</p>
-
-<p><strong>Search</strong> — Cari artikel berdasarkan judul atau konten. Fitur full-text search di database membuat pencarian cepat dan akurat.</p>
-
-<p><strong>Filter by Status</strong> — Tampilkan hanya draft, published, atau private articles.</p>
-
-<p><strong>Sorting</strong> — Urutkan berdasarkan tanggal, judul, atau status.</p>
-
-<p><strong>Bulk Actions</strong> — Pilih beberapa artikel sekaligus untuk publish, unpublish, atau delete secara massal.</p>
-
-<h2>Best Practices</h2>
-
-<p>Berikut beberapa tips untuk pengelolaan konten yang efektif:</p>
-
-<p><strong>1. Konsisten dengan Slug</strong> — Gunakan slug yang deskriptif dan SEO-friendly. Hindari slug yang terlalu panjang atau mengandung karakter khusus.</p>
-
-<p><strong>2. Selalu Sertakan Thumbnail</strong> — Artikel dengan thumbnail memiliki click-through rate yang lebih tinggi. Siapkan gambar sebelum publish.</p>
-
-<p><strong>3. Manfaatkan Kategori</strong> — Jangan biarkan artikel tanpa kategori. Struktur yang baik membantu navigasi dan SEO.</p>
-
-<p><strong>4. Review Sebelum Publish</strong> — Gunakan preview untuk memastikan tampilan konten sesuai keinginan sebelum dipublikasikan.</p>
-
-<p><strong>5. Backup Rutin</strong> — Meskipun CMS memiliki soft delete, backup database secara berkala tetap penting untuk keamanan data.</p>
-
-<h2>Kesimpulan</h2>
-
-<p>Content Management di Jyavani CMS dirancang untuk kemudahan penggunaan tanpa mengorbankan fleksibilitas. Dengan editor Quill yang powerful, sistem kategori yang fleksibel, dan workflow publikasi yang terstruktur, kamu bisa mengelola konten website dengan efisien. Selanjutnya, kita akan membahas Media Library untuk mengelola gambar dan file.</p>', 'article', NULL, NULL, '/static/img/2026/07/content-management-71b8788f.jpg', 'published', 1, '2026-07-24 09:58:30', '2026-07-24 10:09:11', 0, NULL, 0),
-(273, 'Kategori dan Organisasi Konten', 'kategori-dan-organisasi-konten', '<p>Organisasi konten yang baik adalah fondasi dari website yang mudah dinavigasi dan ramah SEO. Dalam artikel ini, kita akan membahas bagaimana sistem kategori di Jyavani CMS membantu kamu mengatur artikel agar mudah ditemukan oleh pengunjung maupun mesin pencari.</p>
-
-<h2>Mengapa Kategori Penting?</h2>
-
-<p>Bayangkan sebuah perpustakaan tanpa sistem pengelompokan — semua buku diletakkan secara acak di rak yang sama. Kamu mungkin masih bisa menemukan buku yang dicari, tapi akan membutuhkan waktu yang jauh lebih lama. Hal yang sama berlaku untuk website tanpa kategori yang terstruktur.</p>
-
-<p>Kategori memberikan beberapa manfaat utama:</p>
-<ul>
-<li><strong>Navigasi yang intuitif</strong> — Pengunjung bisa langsung menuju topik yang diminati</li>
-<li><strong>SEO yang lebih baik</strong> — Struktur URL yang bersih membantu search engine mengindeks konten</li>
-<li><strong>Manajemen konten</strong> — Kamu bisa melihat distribusi artikel per topik</li>
-<li><strong>Pengalaman pengguna</strong> — Pengunjung menemukan konten terkait dengan lebih mudah</li>
-</ul>
-
-<h2>Dashboard Kategori</h2>
-
-<p>Akses halaman kategori dari sidebar admin: <strong>Categories</strong>. Di sini kamu akan melihat daftar semua kategori yang sudah dibuat.</p>
-
-<img src="/static/img/2026/07/screenshots/categories-list.jpg" alt="Dashboard Categories List" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<p><strong>Tabel Kategori</strong> — Setiap kategori ditampilkan dengan informasi: nama, slug, jumlah artikel, dan status. Kamu bisa mengedit atau menghapus kategori langsung dari tabel ini.</p>
-
-<p><strong>Jumlah Artikel</strong> — Kolom ini menunjukkan berapa banyak artikel yang tergabung dalam kategori tersebut. Informasi ini membantu kamu melihat kategori mana yang paling aktif dan mana yang perlu lebih banyak konten.</p>
-
-<h2>Membuat Kategori Baru</h2>
-
-<p>Klik tombol <strong>Tambah Kategori</strong> untuk membuat kategori baru. Kamu akan melihat form sederhana dengan field berikut:</p>
-
-<img src="/static/img/2026/07/screenshots/add-category.jpg" alt="Form Tambah Kategori" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<h3>Field yang Tersedia</h3>
-
-<p><strong>Nama</strong> — Nama kategori yang akan tampil di frontend. Gunakan nama yang deskriptif dan mudah dipahami. Contoh: "Tutorial PHP", "Tips SEO", "Review Produk".</p>
-
-<p><strong>Slug</strong> — URL-friendly version dari nama kategori. Slug digenerate otomatis dari nama, tapi bisa diubah manual. Slug akan digunakan dalam URL: <code>/category/{slug}/</code>.</p>
-
-<p><strong>Deskripsi</strong> — Deskripsi singkat tentang kategori ini. Deskripsi membantu pengunjung memahami jenis konten yang masuk dalam kategori ini, dan juga berguna untuk SEO.</p>
-
-<p><strong>Parent Kategori</strong> — Jika kategori ini merupakan sub-kategori dari kategori lain, pilih parent kategori di sini. Ini menciptakan struktur hierarki yang terorganisir.</p>
-
-<h2>Struktur Hierarki</h2>
-
-<p>Jyavani CMS mendukung struktur kategori hierarki — kategori bisa memiliki sub-kategori, dan sub-kategori bisa memiliki sub-sub-kategori, dan seterusnya. Ini sangat berguna untuk website dengan banyak topik.</p>
-
-<p><strong>Contoh Struktur:</strong></p>
-<ul>
-<li><strong>Tutorial</strong>
-  <ul>
-  <li>PHP</li>
-  <li>MySQL</li>
-  <li>CSS</li>
-  <li>JavaScript</li>
-  </ul>
-</li>
-<li><strong>Cyber Security</strong>
-  <ul>
-  <li>Network Security</li>
-  <li>Web Security</li>
-  <li>Malware Analysis</li>
-  </ul>
-</li>
-<li><strong>Blog</strong>
-  <ul>
-  <li>Personal</li>
-  <li>Teknologi</li>
-  <li>Review</li>
-  </ul>
-</li>
-</ul>
-
-<p>Struktur hierarki membantu pengunjung navigasi dari topik umum ke topik spesifik. Di frontend, ini biasanya ditampilkan sebagai breadcrumb atau dropdown menu.</p>
-
-<h2>Relasi Many-to-Many</h2>
-
-<p>Salah satu fitur powerful di Jyavani CMS adalah relasi many-to-many antara artikel dan kategori. Artinya, satu artikel bisa masuk ke beberapa kategori sekaligus.</p>
-
-<p><strong>Contoh Penggunaan:</strong></p>
-<ul>
-<li>Artikel "Tutorial PHP untuk Pemula" bisa masuk ke kategori "Tutorial" DAN "PHP"</li>
-<li>Artikel "Review Plugin Security" bisa masuk ke "Review" DAN "Cyber Security"</li>
-<li>Artikel "Tips SEO untuk Blog" bisa masuk ke "Blog" DAN "Tips"</li>
-</ul>
-
-<p>Fleksibilitas ini sangat berguna karena konten seringkali relevan dengan beberapa topik. Kamu tidak perlu memilih hanya satu kategori — cukup centang semua kategori yang relevan saat membuat atau mengedit artikel.</p>
-
-<h2>URL Kategori di Frontend</h2>
-
-<p>Setiap kategori memiliki URL unik yang bisa diakses oleh pengunjung. Pola URL-nya adalah: <code>/category/{slug}/</code>.</p>
-
-<img src="/static/img/2026/07/screenshots/category-frontend.jpg" alt="Halaman Kategori di Frontend" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<p>Halaman kategori menampilkan semua artikel yang tergabung dalam kategori tersebut, diurutkan dari yang terbaru. Pengunjung bisa melihat judul, excerpt, tanggal, dan thumbnail setiap artikel.</p>
-
-<p><strong>Manfaat SEO:</strong></p>
-<ul>
-<li>URL bersih dan deskriptif — search engine mudah mengindeks</li>
-<li>Halaman kategori menjadi landing page untuk topik tertentu</li>
-<li>Internal linking antar artikel dalam kategori yang sama</li>
-<li>Breadcrumb navigation membantu search engine memahami struktur site</li>
-</ul>
-
-<h2>Best Practices untuk Kategori</h2>
-
-<p>Berikut beberapa tips untuk mengelola kategori dengan efektif:</p>
-
-<p><strong>1. Jangan Terlalu Banyak</strong> — Buat kategori yang cukup untuk mengorganisir konten, tapi jangan berlebihan. Terlalu banyak kategori justru membingungkan pengunjung. Untuk website blog, 5-10 kategori utama sudah lebih dari cukup.</p>
-
-<p><strong>2. Nama yang Konsisten</strong> — Gunakan naming convention yang konsisten. Jika kamu memilih "Tutorial" sebagai prefix, gunakan "Tutorial PHP", "Tutorial CSS", bukan "PHP Tutorial" atau "Belajar PHP".</p>
-
-<p><strong>3. Deskripsi yang Informatif</strong> — Tulis deskripsi yang jelas untuk setiap kategori. Deskripsi membantu pengunjung memahami jenis konten yang ada, dan juga muncul di search results.</p>
-
-<p><strong>4. Gunakan Hierarki dengan Bijak</strong> — Hierarki membantu organisasi, tapi terlalu banyak level bisa membingungkan. Maksimal 2-3 level sudah cukup untuk kebanyakan website.</p>
-
-<p><strong>5. Review dan Bersihkan Secara Berkala</strong> — Periksa kategori yang sudah tidak relevan atau tidak memiliki artikel. Hapus atau gabungkan kategori yang sudah usang untuk menjaga kebersihan struktur konten.</p>
-
-<h2>Kesimpulan</h2>
-
-<p>Sistem kategori di Jyavani CMS dirancang untuk fleksibilitas dan kemudahan penggunaan. Dengan struktur hierarki, relasi many-to-many, dan URL yang SEO-friendly, kamu bisa mengorganisir konten dengan efektif. Kategori yang baik tidak hanya membantu pengunjung menemukan konten, tapi juga meningkatkan visibilitas website di mesin pencari.</p>', 'article', NULL, NULL, '/static/img/2026/07/kategori-organisasi-0ef63d42.jpg', 'published', 1, '2026-07-24 10:31:05', '2026-07-24 10:45:07', 0, NULL, 0),
-(274, 'Media Library — Mengelola Gambar dan File', 'media-library-mengelola-gambar-dan-file', '<p>Media Library adalah jantung dari pengelolaan gambar dan file di Jyavani CMS. Setiap gambar yang diupload, setiap file yang disimpan, semuanya tercatat di sini. Dalam artikel ini, kita akan membahas bagaimana cara mengupload, mengelola, dan menggunakan media di website kamu.</p>
-
-<h2>Apa itu Media Library?</h2>
-
-<p>Media Library di Jyavani CMS terdiri dari dua komponen: <strong>tabel database</strong> yang mencatat metadata setiap file, dan <strong>folder storage</strong> di server tempat file fisik disimpan. Kombinasi ini memungkinkan CMS untuk melacak semua media, menampilkannya di galeri, dan mengelola akses dengan aman.</p>
-
-<p><strong>Metadata yang Tercatat:</strong></p>
-<ul>
-<li>URL publik file</li>
-<li>Nama file dan ekstensi</li>
-<li>Tipe MIME (image/png, application/pdf, dll)</li>
-<li>Ukuran file dalam bytes</li>
-<li>Dimensi gambar (lebar × tinggi)</li>
-<li>Title dan alt text untuk SEO</li>
-<li>Visibility (public/private)</li>
-<li>Storage disk (public/private)</li>
-<li>Siapa yang upload dan kapan</li>
-</ul>
-
-<h2>Dashboard Media Library</h2>
-
-<p>Akses Media Library dari sidebar admin: <strong>Media</strong>. Kamu akan melihat dua tab utama — Gallery untuk melihat semua media, dan Upload untuk menambah media baru.</p>
-
-<img src="/static/img/2026/07/screenshots/media-list.jpg" alt="Media Library Gallery" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<p><strong>Gallery View</strong> — Semua media ditampilkan dalam format grid atau list. Setiap item menampilkan thumbnail (untuk gambar), nama file, ukuran, tanggal upload, dan status visibility. Kamu bisa mencari media berdasarkan nama file atau title.</p>
-
-<p><strong>Filter</strong> — Gunakan filter untuk menampilkan hanya tipe media tertentu: gambar, dokumen, video, atau semua. Ini sangat membantu ketika jumlah media sudah mulai banyak.</p>
-
-<p><strong>Aksi</strong> — Klik pada media untuk melihat detail, mengedit metadata (title, alt text, caption), atau menghapus. URL media juga tersedia untuk disalin dan digunakan di artikel.</p>
-
-<h2>Upload Media Baru</h2>
-
-<p>Untuk menambah media baru, buka tab <strong>Upload</strong> di Media Library atau gunakan tombol upload di form artikel/halaman.</p>
-
-<img src="/static/img/2026/07/screenshots/media-upload.jpg" alt="Form Upload Media" style="width:100%;border-radius:8px;margin:1rem 0;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-
-<h3>Proses Upload</h3>
-
-<p><strong>1. Pilih File</strong> — Klik area upload atau drag & drop file. CMS mendukung berbagai tipe file: gambar (PNG, JPG, GIF, WebP, SVG), dokumen (PDF, DOC, XLS), video (MP4, WebM), dan audio (MP3, WAV).</p>
-
-<p><strong>2. Otomatis Processing</strong> — Saat file diupload, CMS akan:</p>
-<ul>
-<li>Generate nama file unik: <code>{deskripsi}-{8hex}.{ext}</code></li>
-<li>Simpan file ke folder <code>public/static/img/{YYYY}/{MM}/</code></li>
-<li>INSERT metadata ke tabel <code>media</code></li>
-<li>Generate thumbnail otomatis untuk gambar</li>
-</ul>
-
-<p><strong>3. URL Tersedia</strong> — Setelah upload selesai, URL file langsung tersedia untuk disalin. URL mengikuti pola: <code>/static/img/{YYYY}/{MM}/{filename}</code>.</p>
-
-<h3>Via Form Artikel</h3>
-
-<p>Saat menulis artikel, kamu bisa mengupload gambar langsung dari Quill editor. Klik tombol <strong>Image</strong> di toolbar, lalu pilih <strong>Upload</strong> untuk mengambil file dari komputer. Gambar akan otomatis diupload ke Media Library dan disisipkan ke konten.</p>
-
-<h2>Visibility dan Akses</h2>
-
-<p>Media Library mendukung dua tingkat visibilitas:</p>
-
-<p><strong>Public</strong> — File bisa diakses oleh siapa saja yang mengetahui URL. Cocok untuk gambar artikel, thumbnail, dan konten publik lainnya.</p>
-
-<p><strong>Private</strong> — Gambar disimpan di luar web root dan hanya dapat dimuat oleh Tim Konten atau Administrator, sesuai Access Scope yang dipilih.</p>
-
-<p><strong>Storage Disk</strong> — CMS juga mendukung dua tipe storage: public disk (file disimpan di folder yang bisa diakses langsung) dan private disk (file disimpan di luar web root, diakses via PHP stream).</p>
-
-<h2>Menggunakan Media di Artikel</h2>
-
-<p>Ada beberapa cara menggunakan media yang sudah diupload:</p>
-
-<h3>Via URL Langsung</h3>
-
-<p>Copy URL dari Media Library, lalu gunakan di HTML artikel:</p>
-<pre><code>&lt;img src="/static/img/2026/07/media-library-thumb-gen.jpg" alt="Deskripsi gambar"&gt;</code></pre>
-
-<h3>Via Shortcode</h3>
-
-<p>Untuk PDF dari menu <strong>File</strong>, gunakan ID file yang benar pada shortcode:</p>
-<pre><code>[private_pdf id="123" mode="card"]</code></pre>
-<p>Ganti <code>123</code> dengan ID pada File Library. Gunakan <code>mode="embed"</code> untuk viewer PDF, <code>mode="card"</code> untuk kartu, atau <code>mode="link"</code> untuk tautan. Gambar private dari Media Library tidak memakai shortcode ini; sisipkan URL terproteksi yang diberikan Media Picker.</p>
-
-<h3>Via Media Picker</h3>
-
-<p>Di form artikel, klik tombol Gallery untuk membuka Media Picker. Kamu bisa mencari dan memilih media yang sudah ada, lalu CMS akan otomatis menyisipkan HTML yang benar ke konten.</p>
-
-<h2>Mengelola Metadata</h2>
-
-<p>Metadata yang baik membantu SEO dan aksesibilitas:</p>
-
-<p><strong>Title</strong> — Judul deskriptif untuk gambar. Muncul di tooltip dan bisa digunakan oleh screen reader.</p>
-
-<p><strong>Alt Text</strong> — Teks alternatif yang ditampilkan jika gambar tidak bisa dimuat. Penting untuk SEO dan aksesibilitas. Selalu isi alt text yang deskriptif.</p>
-
-<p><strong>Caption</strong> — Keterangan singkat tentang gambar. Bisa ditampilkan di frontend di bawah gambar.</p>
-
-<p><strong>Credit</strong> — Informasi kredit atau sumber gambar. Berguna untuk gambar yang bukan hasil karya sendiri.</p>
-
-<h2>Best Practices</h2>
-
-<p><strong>1. Konsisten dengan Naming</strong> — Gunakan nama file yang deskriptif dan konsisten. Hindari nama seperti <code>IMG_20260724.png</code>. Lebih baik: <code>tutorial-php-cover-2026.png</code>.</p>
-
-<p><strong>2. Selalu Isi Alt Text</strong> — Alt text membantu search engine memahami konten gambar dan membantu pengguna dengan gangguan penglihatan. Ini bukan optional — ini best practice yang wajib dilakukan.</p>
-
-<p><strong>3. Optimasi Ukuran</strong> — Upload gambar dengan ukuran yang sesuai. Untuk thumbnail, 1200×675 sudah lebih dari cukup. Jangan upload gambar mentah dari kamera (bisa berukuran 5MB+) tanpa optimasi.</p>
-
-<p><strong>4. Gunakan Format yang Tepat</strong> — PNG untuk gambar dengan transparansi atau teks. JPG untuk foto. WebP untuk ukuran lebih kecil dengan kualitas setara. SVG untuk ikon dan grafik vektor.</p>
-
-<p><strong>5. Backup Secara Berkala</strong> — Meskipun file tersimpan di server, backup folder <code>public/static/img/</code> secara berkala tetap penting untuk keamanan data.</p>
-
-<h2>Kesimpulan</h2>
-
-<p>Media Library di Jyavani CMS menyediakan cara yang efisien untuk mengelola semua aset digital website kamu. Dengan metadata lengkap, sistem visibilitas yang fleksibel, dan integrasi langsung dengan editor, kamu bisa fokus membuat konten tanpa khawatir kehilangan jejak file yang sudah diupload.</p>', 'article', NULL, NULL, '/static/img/2026/07/media-library-thumb-gen.jpg', 'published', 1, '2026-07-24 10:48:04', '2026-07-25 09:12:49', 0, NULL, 0),
-(275, 'Menu Manager — Navigasi Website', 'menu-manager-navigasi-website', '<p>Menu navigasi adalah salah satu komponen terpenting dalam sebuah website. Menu yang baik membantu pengunjung menemukan konten dengan cepat dan memberikan struktur yang jelas pada website. Jyavani CMS menyediakan <strong>Menu Manager</strong> yang powerful dan fleksibel untuk mengelola navigasi website Anda.</p>
-
-<h2>Apa itu Menu Manager?</h2>
-<p>Menu Manager adalah fitur bawaan Jyavani CMS yang memungkinkan Anda membuat, mengedit, dan mengelola menu navigasi tanpa perlu menyentuh kode. Sistem ini mendukung multiple menus, nested items (dropdown), drag &amp; drop ordering, dan integrasi langsung dengan Theme Customizer.</p>
-<p>Setiap menu memiliki <strong>name</strong> (nama tampil), <strong>slug</strong> (identifier unik), dan koleksi <strong>menu items</strong> yang bisa diatur hierarkinya. Menu bisa di-assign ke berbagai posisi di theme melalui Theme Customizer.</p>
-
-<h2>Membuat Menu Baru</h2>
-<p>Untuk membuat menu baru, navigasi ke <strong>Dashboard → Menu Manager</strong>. Di panel sebelah kanan, Anda akan menemukan form untuk membuat menu baru.</p>
-<p>Masukkan nama menu (misalnya "Primary", "Footer", atau "Social Links") dan slug yang unik. Slug digunakan oleh theme untuk mereferensikan menu tertentu. Setelah membuat menu, Anda bisa langsung menambahkan item ke dalamnya.</p>
-
-<img src="/static/img/2026/07/menu-manager-screenshot.jpg" alt="Menu Manager interface showing menu list and creation form" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<h2>Menambahkan Item Menu</h2>
-<p>Menu items adalah komponen individual dalam sebuah menu. Setiap item memiliki label (teks yang ditampilkan), URL tujuan, dan opsi tambahan seperti:</p>
-<ul>
-  <li><strong>Type</strong> — custom (URL bebas), page (referensi ke halaman CMS), atau post (referensi ke artikel)</li>
-  <li><strong>Parent</strong> — untuk membuat hierarki dropdown, assign item ke parent item lain</li>
-  <li><strong>Target</strong> — buka di tab yang sama atau tab baru (target="_blank")</li>
-  <li><strong>Hidden</strong> — sembunyikan item dari tampilan publik tanpa menghapusnya</li>
-</ul>
-
-<img src="/static/img/2026/07/menu-manager-items-screenshot.jpg" alt="Menu items list showing hierarchical structure with drag handles" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<h3>Membuat Dropdown Menu</h3>
-<p>Untuk membuat dropdown, cukup assign <strong>parent_id</strong> pada item yang ingin dijadikan anak. Di Menu Manager, Anda bisa menyeret item ke bawah item lain untuk membuat hierarki. Indentasi visual menunjukkan level kedalaman menu.</p>
-<p>Contoh struktur menu navigasi:</p>
-<pre>Home
-About
-  ├── Our Team
-  └── History
-Blog
-  ├── Technology
-  └── Lifestyle
-Contact</pre>
-
-<h2>Menghapus dan Mengedit Menu</h2>
-<p>Menu bisa dihapus melalui tombol <strong>Delete</strong> di panel kanan. Saat menghapus menu, semua item di dalamnya juga akan terhapus. Pastikan Anda yakin sebelum menghapus menu yang sudah ada.</p>
-<p>Untuk mengedit nama atau slug menu, gunakan form edit yang tersedia. Perubahan slug akan mempengaruhi cara theme merender menu tersebut.</p>
-
-<h2>Assign Menu ke Theme</h2>
-<p>Setelah membuat menu, langkah selanjutnya adalah menghubungkannya dengan theme. Buka <strong>Theme Customizer</strong> dari Dashboard. Di bagian <strong>Navigation Widget</strong>, Anda akan menemukan dropdown untuk memilih menu yang ingin ditampilkan di posisi tertentu.</p>
-
-<img src="/static/img/2026/07/theme-customizer-menu-screenshot.jpg" alt="Theme Customizer showing menu assignment dropdown for navigation widget" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Theme Customizer memungkinkan Anda assign menu yang berbeda untuk posisi yang berbeda. Misalnya, menu "Primary" untuk navigasi utama di header, dan menu "Footer" untuk link di bagian bawah halaman.</p>
-
-<h2>Best Practices Menu Navigasi</h2>
-<p>Berikut beberapa tips untuk membuat menu navigasi yang efektif:</p>
-<ul>
-  <li><strong>Jangan terlalu banyak item</strong> — idealnya 5-7 item utama. Terlalu banyak pilihan membuat pengunjung bingung.</li>
-  <li><strong>Gunakan label yang jelas</strong> — "Blog" lebih baik dari "Articles" atau "Posts". Gunakan bahasa yang dipahami pengunjung Anda.</li>
-  <li><strong>Struktur hierarki datar</strong> — hindari dropdown lebih dari 2 level. Struktur terlalu dalam sulit dinavigasi, terutama di mobile.</li>
-  <li><strong>Consistent naming</strong> — gunakan konsistensi kapitalisasi. Jika satu item Title Case, semua harus Title Case.</li>
-  <li><strong>Test di mobile</strong> — pastikan menu berfungsi baik di layar kecil. Menu dropdown harus bisa diakses dengan tap.</li>
-</ul>
-
-<h2>Multi-Menu Strategy</h2>
-<p>Jyavani CMS memungkinkan Anda membuat banyak menu sekaligus. Strategi yang umum digunakan:</p>
-<ul>
-  <li><strong>Primary Menu</strong> — navigasi utama di header, berisi halaman utama website</li>
-  <li><strong>Footer Menu</strong> — link tambahan di footer seperti Terms, Privacy Policy, Sitemap</li>
-  <li><strong>Social Menu</strong> — link ke profil media sosial</li>
-  <li><strong>Sidebar Menu</strong> — navigasi tambahan untuk blog atau dokumentasi</li>
-</ul>
-
-<h2>Menu Rendering di Frontend</h2>
-<p>Menu yang dibuat di Dashboard akan otomatis dirender oleh theme di frontend. Jyavani CMS menggunakan fungsi <code>menu_render()</code> untuk menghasilkan HTML menu. Fungsi ini mendukung:</p>
-<ul>
-  <li>Output HTML dengan class CSS yang sesuai (untuk styling dengan Bootstrap, Tailwind, atau custom CSS)</li>
-  <li>Active state — item halaman yang sedang aktif akan mendapat class <code>active</code></li>
-  <li>Multi-level dropdown — sub-menu dirender sebagai nested <code>&lt;ul&gt;</code></li>
-  <li>Target blank — item dengan target="_blank" akan dibuka di tab baru</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Menu Manager di Jyavani CMS memberikan fleksibilitas penuh dalam mengatur navigasi website. Dengan interface drag &amp; drop, dukungan multi-level, dan integrasi langsung dengan Theme Customizer, Anda bisa membuat struktur navigasi profesional tanpa kode sedikitpun. Manfaatkan fitur ini untuk memberikan pengalaman navigasi terbaik bagi pengunjung website Anda.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/menu-manager-thumb.jpg', 'published', 1, '2026-07-24 11:05:59', '2026-07-24 11:05:59', 0, NULL, 0),
-(276, 'Theme System — Mengubah Tampilan Website', 'theme-system-mengubah-tampilan-website', '<p>Tampilan website adalah kesan pertama yang dilihat pengunjung. Dengan <strong>Theme System</strong> di Jyavani CMS, Anda bisa mengubah tampilan website sepenuhnya tanpa menyentuh kode. Mulai dari mengganti theme, mengkustomisasi warna dan layout, hingga mengatur mode gelap — semuanya bisa dilakukan dari dashboard.</p>
-
-<h2>Apa itu Theme System?</h2>
-<p>Theme System di Jyavani CMS menggunakan pendekatan <strong>slot-based rendering</strong>. Setiap theme mendefinisikan slot-slot (posisi) di mana konten bisa ditampilkan — header, footer, sidebar, dan area konten utama. Theme juga menyediakan <strong>Theme Zones</strong> yang memungkinkan Anda mengatur layout visual menggunakan drag &amp; drop.</p>
-<p>Jyavani CMS hadir dengan beberapa theme bawaan, termasuk <strong>default</strong> dan <strong>adam</strong>. Anda bisa mengaktifkan theme yang berbeda kapan saja, dan semua pengaturan akan otomatis diterapkan.</p>
-
-<h2>Theme Manager</h2>
-<p>Untuk mengelola theme, buka <strong>Dashboard → Themes</strong>. Di halaman ini Anda akan melihat daftar semua theme yang terinstall beserta statusnya.</p>
-
-<img src="/static/img/2026/07/themes-list-screenshot.jpg" alt="Theme Manager showing list of available themes with activate/deactivate options" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Setiap theme card menampilkan nama theme, deskripsi, dan tombol aksi:</p>
-<ul>
-  <li><strong>Activate</strong> — mengaktifkan theme untuk frontend website</li>
-  <li><strong>Customize</strong> — membuka Theme Customizer untuk mengatur pengaturan visual</li>
-  <li><strong>Delete</strong> — menghapus theme (hanya untuk theme yang tidak sedang aktif)</li>
-</ul>
-
-<h2>Theme Customizer</h2>
-<p>Theme Customizer adalah interface visual untuk mengkustomisasi theme tanpa kode. Buka dari halaman Themes dengan klik tombol <strong>Customize</strong>.</p>
-
-<img src="/static/img/2026/07/theme-customizer-screenshot.jpg" alt="Theme Customizer interface with live preview and configuration panels" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Theme Customizer terdiri dari beberapa bagian:</p>
-
-<h3>Navigation Widget</h3>
-<p>Mengatur menu navigasi yang ditampilkan di header. Pilih menu dari dropdown yang sudah dibuat di Menu Manager. Anda bisa assign menu yang berbeda untuk posisi yang berbeda.</p>
-
-<h3>Social Widget</h3>
-<p>Mengatur ikon media sosial di footer atau header. Masukkan URL profil media sosial Anda, dan ikon akan otomatis muncul dengan link ke profil Anda.</p>
-
-<h3>Image Widget</h3>
-<p>Mengatur logo atau gambar yang ditampilkan di header. Upload gambar melalui Media Library, lalu pilih di sini.</p>
-
-<h3>HTML Widget</h3>
-<p>Widget khusus untuk menambahkan kode HTML custom. Berguna untuk menambahkan tracking code, custom banner, atau elemen HTML lainnya.</p>
-
-<h2>Theme Zones — Visual Layout Editor</h2>
-<p>Theme Zones adalah fitur paling powerful di Theme System. Ini memungkinkan Anda mengatur layout halaman secara visual dengan drag &amp; drop.</p>
-<p>Setiap theme memiliki zone-zone seperti <strong>header</strong>, <strong>content</strong>, dan <strong>footer</strong>. Di dalam setiap zone, Anda bisa menambahkan gadgets (komponen) seperti:</p>
-
-<ul>
-  <li><strong>tz_nav_menu</strong> — navigasi menu</li>
-  <li><strong>tz_image</strong> — gambar atau logo</li>
-  <li><strong>tz_html</strong> — konten HTML custom</li>
-  <li><strong>tz_social</strong> — ikon media sosial</li>
-  <li><strong>tz_text</strong> — teks atau judul</li>
-</ul>
-
-<p>Gadget bisa dipindahkan, diatur ukurannya, dan dikonfigurasi langsung dari interface visual. Setiap perubahan bisa di-preview sebelum disimpan.</p>
-
-<h2>Color Mode — Light dan Dark Theme</h2>
-<p>Jyavani CMS mendukung <strong>dark mode</strong> untuk kenyamanan membaca di kondisi cahaya rendah. Theme bisa dikonfigurasi untuk mendukung:</p>
-<ul>
-  <li><strong>Light only</strong> — hanya mode terang</li>
-  <li><strong>Dark only</strong> — hanya mode gelap</li>
-  <li><strong>Both</strong> — mendukung切换 antara light dan dark mode</li>
-</ul>
-<p>Pengunjung bisa beralih mode menggunakan toggle di interface. Preferensi disimpan di browser sehingga下次 kunjungan akan menggunakan mode yang sama.</p>
-
-<h2>Install Theme dari Theme Store</h2>
-<p>Selain theme bawaan, Anda bisa menginstall theme dari Theme Store. Theme Store adalah marketplace online di mana pengembang theme membagikan karya mereka.</p>
-<p>Untuk menginstall theme baru:</p>
+(272, 'Content Management: Artikel, Halaman, dan Publikasi', 'content-management-mengelola-artikel-dan-halaman', '<p>Jyavani Core 2.3.74 menyimpan artikel dan halaman di tabel konten yang sama, tetapi memberi keduanya alur dashboard dan permission terpisah. Artikel dapat memiliki beberapa kategori; halaman tidak memiliki relasi kategori.</p>
+<h2>Membuat dan menerbitkan</h2>
 <ol>
-  <li>Buka <strong>Theme Store</strong> dari halaman Themes</li>
-  <li>Jelajahi theme yang tersedia</li>
-  <li>Klik <strong>Install</strong> pada theme yang diinginkan</li>
-  <li>Theme akan otomatis terdownload dan terinstall</li>
-  <li>Klik <strong>Activate</strong> untuk mengaktifkan theme baru</li>
+  <li>Buka <strong>Posts</strong> atau <strong>Pages</strong>, lalu pilih tambah baru.</li>
+  <li>Isi judul, slug ASCII yang unik, dan konten pada editor Quill.</li>
+  <li>Untuk artikel, pilih kategori dan thumbnail bila diperlukan.</li>
+  <li>Pilih <strong>Draft</strong>, <strong>Published</strong>, atau <strong>Private</strong>, lalu simpan.</li>
 </ol>
-
-<h2>Membuat Theme Custom</h2>
-<p>Jika theme bawaan dan Theme Store tidak memenuhi kebutuhan, Anda bisa membuat theme sendiri. Struktur theme Jyavani CMS:</p>
-<pre>themes/
-  my-theme/
-    theme.json        ← konfigurasi theme
-    index.php         ← template utama
-    header.php        ← header partial
-    footer.php        ← footer partial
-    sidebar.php       ← sidebar partial
-    static/
-      css/
-        style.css     ← styles
-      js/
-        script.js     ← JavaScript
-      img/
-        ← gambar theme</pre>
-<p>File <code>theme.json</code> mendefinisikan metadata theme, slot rendering, dan default configuration. Lihat theme bawaan sebagai referensi untuk membuat theme Anda sendiri.</p>
-
-<h2>Best Practices</h2>
+<img src="/static/img/2026/07/screenshots/add-post.jpg" alt="Form artikel Jyavani" style="width:100%;margin:1rem 0">
+<p>Draft tidak tampil untuk publik. Published dapat dirutekan untuk publik. Private hanya tersedia bagi pengguna terautentikasi yang lolos pemeriksaan akses. Kemampuan membaca, membuat, memperbarui, menerbitkan, memindahkan ke Trash, dan menghapus permanen ditentukan oleh permission serta scope pemilik, bukan hanya label role lama.</p>
+<h2>Slug dan rute</h2>
+<p>Slug harus unik di antara artikel, halaman, dan theme content aktif. Core juga mendukung <code>content_routes</code>: satu rute kanonis per konten dan locale, dengan rute lama tetap menjadi alias redirect. Jika konten lama belum memiliki rute kanonis, resolver permalink/slug lama menjadi fallback.</p>
+<h2>HTML dan kepemilikan</h2>
+<p>Author bekerja pada resource sesuai scope yang diberikan. HTML yang tidak difilter memerlukan permission khusus; jangan menganggap semua kontributor boleh memasukkan markup arbitrer. Saat mengganti pemilik, status, atau tanggal, Core memeriksa permission terkait di dalam transaksi.</p>
+<h2>Penghapusan</h2>
+<p>Delete pertama pada artikel atau halaman menetapkan <code>is_deleted</code> dan <code>deleted_at</code>. Trash menyediakan restore dan purge sesuai permission. Restore dapat ditolak jika slug sudah dipakai konten aktif. Trash bukan backup: ekspor database dan aset tetap diperlukan.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/content-management-71b8788f.jpg', 'published', 1, '2026-07-24 09:58:30', '2026-08-19 00:00:00', 0, NULL, 0),
+(273, 'Kategori dan Organisasi Konten', 'kategori-dan-organisasi-konten', '<p>Kategori mengelompokkan artikel melalui relasi many-to-many. Satu artikel dapat masuk ke beberapa kategori, sedangkan halaman tidak memakai kategori.</p>
+<h2>Identitas dan hierarki</h2>
+<p>Setiap kategori memiliki nama, slug unik, deskripsi, dan parent opsional. Parent membentuk jalur bertingkat. Hindari siklus dan gunakan hierarki pendek agar URL serta navigasi mudah dipahami.</p>
+<img src="/static/img/2026/07/screenshots/categories-list.jpg" alt="Daftar kategori" style="width:100%;margin:1rem 0">
+<h2>Akses publik</h2>
+<p>Jalur kategori memakai nilai <code>category_path</code>, dengan default <code>category</code>. Kategori bertingkat dapat menghasilkan path bertingkat. Hasil publik hanya memuat kategori dan artikel aktif; tampilan akhir bergantung pada theme.</p>
+<h2>Permission dan Trash</h2>
+<p>Read, create, update, trash, restore, dan purge adalah permission terpisah. Scope dapat membatasi kategori berdasarkan pembuat. Menghapus kategori pertama kali adalah soft delete. Restore dapat gagal bila slug sudah digunakan kategori aktif, sedangkan purge menghapus record secara permanen dan relasinya mengikuti constraint database.</p>
+<p>Gunakan nama stabil, deskripsi faktual, dan sedikit kategori yang benar-benar membantu pencarian. Jangan menjanjikan breadcrumb atau optimasi SEO tertentu karena itu bergantung pada theme atau plugin.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/kategori-organisasi-0ef63d42.jpg', 'published', 1, '2026-07-24 10:31:05', '2026-08-19 00:00:00', 0, NULL, 0),
+(274, 'Media Library: Gambar Publik dan Private', 'media-library-mengelola-gambar-dan-file', '<p>Media Library Core mengelola gambar. Dokumen, PDF, audio, dan video umum dikelola melalui menu <strong>Files</strong>, bukan dianggap sebagai gambar Media Library.</p>
+<h2>Metadata dan storage</h2>
+<p>Record media menyimpan URL, nama file, MIME, ukuran, dimensi, title, alt, caption, credit, visibility, storage disk, storage path, access scope, dan pemilik. Upload publik berada di public disk. Gambar private berada di luar web root dan dilayani controller.</p>
+<img src="/static/img/2026/07/media-list-screenshot.jpg" alt="Daftar media dengan informasi akses" style="width:100%;margin:1rem 0">
+<h2>Aturan akses</h2>
 <ul>
-  <li><strong>Backup sebelum ubah theme</strong> — jika Anda punya custom CSS di theme lama, pastikan sudah dibackup</li>
-  <li><strong>Test di mobile</strong> — pastikan theme baru responsif di berbagai ukuran layar</li>
-  <li><strong>Gunakan Theme Customizer</strong> — hindari edit kode langsung kecuali benar-benar perlu</li>
-  <li><strong>Konsisten dengan brand</strong> — pilih warna dan tipografi yang sesuai dengan identitas brand Anda</li>
+  <li><code>public</code>: hanya benar-benar publik bila visibility, disk, dan scope semuanya public.</li>
+  <li><code>editorial</code>: ditujukan bagi tim konten yang memiliki akses private asset.</li>
+  <li><code>admin</code>: membatasi aset ke administrator yang berwenang.</li>
 </ul>
-
-<h2>Kesimpulan</h2>
-<p>Theme System di Jyavani CMS memberikan kontrol penuh atas tampilan website. Dari sekadar mengganti warna hingga mengatur layout dengan Theme Zones, semuanya bisa dilakukan tanpa kode. Manfaatkan Theme Customizer untuk kustomisasi cepat, atau jelajahi Theme Store untuk menemukan inspiration baru.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/theme-system-thumb.jpg', 'published', 1, '2026-07-24 17:36:22', '2026-07-24 17:36:22', 0, NULL, 0),
-(277, 'Plugin System — Memperluas Fitur CMS', 'plugin-system-memperluas-fitur-cms', '<p>Plugin System adalah jantung dari ekstensibilitas Jyavani CMS. Dengan plugin, Anda bisa menambahkan fitur baru tanpa mengubah kode inti CMS. Mulai dari formulir kontak, galeri gambar, hingga integrasi API pihak ketiga — semuanya bisa ditambahkan melalui plugin.</p>
-
-<h2>Apa itu Plugin System?</h2>
-<p>Plugin System di Jyavani CMS dirancang sederhana namun powerful. Setiap plugin terdiri dari dua komponen utama: <strong>plugin.json</strong> (metadata dan konfigurasi) dan <strong>plugin.php</strong> (logika plugin). Plugin berinteraksi dengan CMS melalui <strong>hooks</strong> — actions dan filters yang memungkinkan Anda memodifikasi perilaku CMS.</p>
-
-<h2>Plugin Manager</h2>
-<p>Untuk mengelola plugin, buka <strong>Dashboard → Plugins</strong>. Plugin Manager menampilkan semua plugin yang terinstall beserta statusnya.</p>
-
-<img src="/static/img/2026/07/plugin-manager-screenshot.jpg" alt="Plugin Manager showing installed plugins with enable/disable toggles" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Setiap plugin card menampilkan:</p>
+<p>URL gambar private diberikan oleh Media Picker dan tetap diperiksa saat diminta. Mengetahui URL tidak melewati sesi dan permission.</p>
+<h2>Operasi aman</h2>
+<p>Isi alt text sesuai fungsi gambar dan optimalkan ukuran sebelum upload. Permission media memisahkan read, upload, update, dan delete serta dapat memakai scope pemilik. Berbeda dari artikel, halaman, kategori, theme content, dan user, tabel media Core tidak memiliki kolom soft delete. Aksi delete dapat menghapus record dan file; verifikasi pemakaian dan backup terlebih dahulu.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/media-library-thumb-gen.jpg', 'published', 1, '2026-07-24 10:48:04', '2026-08-19 00:00:00', 0, NULL, 0),
+(275, 'Menu Manager dan Navigasi', 'menu-manager-navigasi-website', '<p>Menu Manager menyimpan beberapa menu dan item bertingkat. Menu tidak otomatis muncul di semua theme; theme atau gadget <code>tz_nav_menu</code> harus memilih slug menu yang akan dirender.</p>
+<img src="/static/img/2026/07/menu-manager-screenshot.jpg" alt="Menu Manager" style="width:100%;margin:1rem 0">
+<h2>Tipe item</h2>
+<p>Item dapat menunjuk URL custom atau record artikel, halaman, theme content, dan kategori. Item menyimpan label, parent, urutan, target, serta status hidden. Gunakan target internal agar perubahan rute dapat ditangani oleh Core; gunakan custom URL untuk tujuan eksternal atau jalur khusus.</p>
+<h2>Hierarki dan urutan</h2>
+<p>Parent item harus berasal dari menu yang sama. Urutan menentukan posisi saudara. Kemampuan dropdown, kedalaman visual, active state, dan perilaku mobile tetap menjadi tanggung jawab renderer/theme.</p>
+<h2>Theme Zones</h2>
+<p>Di Customize, tambahkan atau konfigurasi gadget navigasi pada posisi yang dideklarasikan theme. Nilai <code>menu</code> memilih slug, sedangkan <code>depth</code>, class, dan atribut daftar membantu theme membentuk output. Selalu uji link, fokus keyboard, dan tampilan layar sempit setelah perubahan.</p>
+<p>Pengelolaan menu memerlukan <code>core.menus.manage</code>. Mengubah slug menu dapat memutus konfigurasi theme yang masih menunjuk slug lama.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/menu-manager-thumb.jpg', 'published', 1, '2026-07-24 11:05:59', '2026-08-19 00:00:00', 0, NULL, 0),
+(276, 'Theme System, Customizer, dan Theme Zones', 'theme-system-mengubah-tampilan-website', '<p>Core mengelola satu system theme bernama <code>default</code>. Theme lain dipasang dan diperbarui melalui Theme Store atau paket yang sesuai. Theme aktif dipilih dari dashboard; file PHP theme harus diperlakukan sebagai kode tepercaya.</p>
+<h2>Kontrak theme</h2>
+<p><code>theme.json</code> mendeskripsikan identitas, partial, Customizer, layout zone, aset, dan metadata Store. Rendering memakai slot seperti header, footer, homepage, list, single post, dan single page. Resolver mencoba assignment, theme aktif, lalu fallback system theme.</p>
+<img src="/static/img/2026/07/theme-customizer-screenshot.jpg" alt="Theme Customizer" style="width:100%;margin:1rem 0">
+<h2>Customizer dan Theme Zones</h2>
+<p>Customizer menyimpan nilai per folder theme dalam setting <code>theme_mods_{folder}</code>. Field yang didukung antara lain image, menu, sidebar zone, textarea, text, dan toggle. Theme harus membaca nilai dengan helper dan menyediakan default.</p>
+<p>Theme Zones menyimpan gadget per <code>theme_folder</code>, zone, position, dan ordering. Layout di manifest hanya menyatakan kontrak posisi dan default yang dapat dimuat; data pengguna tetap di database. Template sebaiknya memeriksa apakah posisi berisi gadget, merendernya, lalu menyediakan fallback HTML bila kosong.</p>
+<h2>Pengembangan</h2>
+<p>Partial berada di folder seperti <code>main/</code>, <code>single/</code>, <code>list/</code>, dan <code>index/</code>. Plugin dapat menambah tipe gadget melalui filter registry dan renderer. Jangan mengedit system theme untuk perubahan yang harus bertahan lintas update; buat theme Store/custom dan uji desktop, mobile, serta kondisi tanpa gadget.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/theme-system-thumb.jpg', 'published', 1, '2026-07-24 17:36:22', '2026-08-19 00:00:00', 0, NULL, 0),
+(277, 'Plugin System: Manifest, Lifecycle, dan Hooks', 'plugin-system-memperluas-fitur-cms', '<p>Plugin adalah kode tepercaya di bawah <code>plugins/{name}/</code>. <code>plugin.json</code> mendeklarasikan identitas, kebutuhan plugin, halaman dashboard, navigasi, aset, static copy, dan permission; file PHP menyediakan hook atau implementasi route.</p>
+<h2>Instalasi dan aktivasi</h2>
+<p>Uploader memvalidasi paket, mengekstrak ke folder plugin, menyalin aset yang dideklarasikan, dan dapat menjalankan konvensi tetap <code>install.sh</code> dengan batas waktu/output. <strong>Install</strong> dapat menaruh plugin dalam keadaan nonaktif; <strong>Install &amp; Activate</strong> juga memeriksa dependency dan mengaktifkannya. Jangan memasang paket yang sumbernya tidak dipercaya.</p>
+<img src="/static/img/2026/07/plugin-manager-screenshot.jpg" alt="Plugin Manager" style="width:100%;margin:1rem 0">
+<h2>Route dashboard</h2>
+<p>Setiap page mendeklarasikan route relatif dan file yang tetap berada di folder plugin. Core menolak traversal, duplikasi internal, shadow route dashboard Core, dan collision antarplugin. Route dapat memakai guard Site Owner atau permission plugin; keduanya tidak boleh digabung pada route yang sama.</p>
+<h2>Hooks dan dependency</h2>
+<p>Gunakan <code>add_action</code>/<code>do_action</code> untuk kejadian dan <code>add_filter</code>/<code>apply_filters</code> untuk transformasi nilai. Namespace nama fungsi dan hook milik plugin. <code>requires.plugins</code> memakai constraint versi; dependency harus terpasang, aktif, kompatibel, dan dapat dimuat. Core menolak deaktivasi provider yang masih dibutuhkan plugin aktif.</p>
+<p>Nonaktif menyimpan file dan state plugin tetapi menghentikan pemuatan aktif. Uninstall/delete dapat menghapus file dan menjalankan konsekuensi plugin; backup dan baca dokumentasinya lebih dahulu.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/plugin-system-thumb.jpg', 'published', 1, '2026-07-24 18:43:04', '2026-08-19 00:00:00', 0, NULL, 0),
+(278, 'Pengaturan Situs dan Jalur Autentikasi', 'pengaturan-situs-settings-dashboard', '<p>Settings memisahkan identitas situs, bahasa, path autentikasi, sidebar, permalink, dan kebijakan registrasi. Perubahan memerlukan permission pengaturan; beberapa area sensitif juga dibatasi untuk Site Owner.</p>
+<h2>Identitas dan bahasa</h2>
+<p>Isi site title, description, URL, dan aset identitas sesuai deployment. <code>site_language</code> mengatur bahasa UI dashboard, sedangkan <code>content_default_language</code> menjadi locale dasar frontend. Core menyediakan seed UI en, id, dan de, tetapi translasi konten memerlukan plugin.</p>
+<img src="/static/img/2026/07/site-settings-screenshot.jpg" alt="Pengaturan situs" style="width:100%;margin:1rem 0">
+<h2>Path autentikasi</h2>
+<p><code>admin_path</code>, <code>login_path</code>, dan <code>register_path</code> adalah path relatif yang dicocokkan router. File dashboard tetap berada di luar web root. Permintaan dashboard pada path yang salah mendapat frontend 404, tetapi path custom bukan pengganti password kuat, HTTPS, dan pembatasan akses.</p>
+<h2>Registrasi dan permalink</h2>
+<p>Registrasi default nonaktif. Bila diaktifkan, akun baru menerima system role Author; approval opsional membuat akun terkunci sampai disetujui. reCAPTCHA hanya bekerja bila fitur dan kredensial dikonfigurasi.</p>
+<p>Struktur permalink lama tetap digunakan sebagai fallback untuk konten tanpa canonical route. Setelah URL publik berubah, uji canonical dan redirect. Hindari mengganti path sistem ke nilai yang bertabrakan dengan file publik, route konten, atau route plugin.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, '2026-07-24 19:00:47', '2026-08-19 00:00:00', 0, NULL, 0),
+(279, 'User Management, Site Owner, Role, dan Scope', 'user-management-mengelola-pengguna', '<p>Jyavani Core 2.3.74 memakai role dan permission dinamis. Kolom role lama tetap disinkronkan untuk kompatibilitas, tetapi keputusan akses baru harus memakai permission efektif dan scope.</p>
+<h2>Site Owner</h2>
+<p>Site Owner adalah atribut akun khusus, bukan role. Pondasi menandai akun awal sebagai Site Owner, memberi legacy role admin, dan memasang system role Administrator. Operasi paling sensitif seperti Roles &amp; Permissions dan update Core memerlukan Site Owner selain permission terkait.</p>
+<img src="/static/img/2026/07/users-list-screenshot.jpg" alt="Daftar pengguna" style="width:100%;margin:1rem 0">
+<h2>System role dan custom role</h2>
 <ul>
-  <li><strong>Nama dan deskripsi</strong> — identitas plugin</li>
-  <li><strong>Versi</strong> — versi plugin yang terinstall</li>
-  <li><strong>Status</strong> — aktif atau nonaktif</li>
-  <li><strong>Tombol aksi</strong> — Enable, Disable, Delete, dan Settings</li>
+  <li><strong>Author</strong>: grant Core terutama untuk konten sendiri.</li>
+  <li><strong>Editor</strong>: mewarisi fondasi Author dan mendapat grant editorial tambahan.</li>
+  <li><strong>Administrator</strong>: grant aktif Core secara luas, tetapi bukan otomatis Site Owner.</li>
 </ul>
-
-<p>Plugin bisa diaktifkan atau dinonaktifkan kapan saja tanpa menghapus file. Saat dinonaktifkan, fitur plugin akan hilang dari frontend tapi pengaturannya tetap tersimpan.</p>
-
-<h2>Install Plugin dari ZIP</h2>
-<p>Selain dari Plugin Store, Anda bisa menginstall plugin dari file ZIP. Berguna saat menginstall plugin custom atau plugin dari sumber eksternal.</p>
-
-<img src="/static/img/2026/07/plugin-upload-screenshot.jpg" alt="Plugin upload form for installing plugins from ZIP file" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Langkah install plugin dari ZIP:</p>
-<ol>
-  <li>Buka halaman Plugins</li>
-  <li>Klik tab <strong>Upload</strong></li>
-  <li>Pilih file ZIP plugin</li>
-  <li>Klik <strong>Install</strong></li>
-  <li>Plugin akan otomatis terextract dan terdaftar</li>
-  <li>Aktifkan plugin setelah install</li>
-</ol>
-
-<h2>Plugin Store</h2>
-<p>Plugin Store adalah marketplace online di mana pengembang plugin membagikan karya mereka. Anda bisa menjelajahi plugin berdasarkan kategori, popularitas, atau rating.</p>
-
-<img src="/static/img/2026/07/plugin-store-screenshot.jpg" alt="Plugin Store showing available plugins for download" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Untuk menginstall plugin dari Plugin Store:</p>
-<ol>
-  <li>Browse plugin yang tersedia</li>
-  <li>Klik <strong>Install</strong> pada plugin yang diinginkan</li>
-  <li>Plugin akan otomatis terdownload dan terinstall</li>
-  <li>Aktifkan plugin dari Plugin Manager</li>
-</ol>
-
-<h2>Plugin Hooks — Actions dan Filters</h2>
-<p>Plugin berinteraksi dengan CMS melalui dua jenis hooks:</p>
-
-<h3>Actions</h3>
-<p>Actions dipanggil saat peristiwa tertentu terjadi. Contoh:</p>
-<pre>&lt;?php
-// Dipanggil saat artikel dipublikasikan
-function my_plugin_on_publish($post) {
-    // Kirim notifikasi email
-    mail(\'admin@example.com\', \'New Post\', $post[\'title\']);
-}
-add_action(\'post_published\', \'my_plugin_on_publish\');
-?&gt;</pre>
-
-<h3>Filters</h3>
-<p>Filters memodifikasi data sebelum ditampilkan. Contoh:</p>
-<pre>&lt;?php
-// Tambahkan copyright notice di akhir konten
-function my_plugin_add_copyright($content) {
-    return $content . \'&lt;p&gt;© 2026 My Website&lt;/p&gt;\';
-}
-add_filter(\'the_content\', \'my_plugin_add_copyright\');
-?&gt;</pre>
-
-<h2>Struktur Plugin</h2>
-<p>Setiap plugin memiliki struktur direktori sebagai berikut:</p>
-<pre>plugins/
-  my-plugin/
-    plugin.json    ← metadata (nama, versi, deskripsi, dependencies)
-    plugin.php     ← logika utama plugin
-    assets/
-      css/
-        style.css  ← CSS plugin
-      js/
-        script.js  ← JavaScript plugin
-    templates/
-      ← template views jika diperlukan</pre>
-
-<h3>File plugin.json</h3>
-<pre>{
-  "name": "My Plugin",
-  "slug": "my-plugin",
-  "version": "1.0.0",
-  "description": "Deskripsi plugin",
-  "author": "Nama Author",
-  "hooks": {
-    "actions": ["post_published", "comment_added"],
-    "filters": ["the_content", "the_title"]
-  },
-  "assets": {
-    "admin_css": ["assets/css/style.css"],
-    "admin_js": ["assets/js/script.js"]
-  }
-}</pre>
-
-<h2>Contoh: Terminal Plugin</h2>
-<p>Jyavani CMS memiliki plugin bawaan bernama <strong>Terminal Plugin</strong> yang memberikan akses command line langsung dari dashboard. Plugin ini menunjukkan bagaimana plugin bisa menambahkan halaman admin baru dengan interface custom.</p>
-<p>Terminal Plugin menambahkan route admin baru, mengirim output command ke browser, dan menyediakan interface terminal yang aman untuk menjalankan perintah sistem.</p>
-
-<h2>Plugin Assets</h2>
-<p>Plugin bisa menyertakan aset CSS dan JavaScript. Aset admin hanya dimuat di dashboard, sedangkan aset frontend dimuat di halaman publik. Pastikan aset plugin tidak konflik dengan CSS/JS theme atau plugin lain.</p>
-
-<h2>Best Practices</h2>
-<ul>
-  <li><strong>Minimal dependencies</strong> — hindari dependensi plugin lain jika memungkinkan</li>
-  <li><strong>Sandbox hooks</strong> — gunakan namespace unik untuk menghindari konflik nama fungsi</li>
-  <li><strong>Nonaktifkan saat tidak dipakai</strong> — plugin aktif memakan resources</li>
-  <li><strong>Backup sebelum update</strong> — terutama untuk plugin yang sudah dikustomisasi</li>
-  <li><strong>Gunakan API CMS</strong> — hindari akses database langsung; gunakan helper functions yang disediakan</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Plugin System membuat Jyavani CMS sangat fleksibel dan extensible. Dengan arsitektur hooks yang sederhana, Anda bisa menambahkan fitur apapun tanpa mengubah kode inti. Manfaatkan Plugin Manager untuk install dan manage plugin, atau buat plugin custom untuk kebutuhan spesifik Anda.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/plugin-system-thumb.jpg', 'published', 1, '2026-07-24 18:43:04', '2026-07-24 18:43:04', 0, NULL, 0),
-(278, 'Pengaturan Situs — Settings Dashboard', 'pengaturan-situs-settings-dashboard', '<p>Setiap website memiliki identitas dan kebutuhan unik. Jyavani CMS menyediakan <strong>Settings Dashboard</strong> yang komprehensif untuk mengkonfigurasi berbagai aspek website, mulai dari identitas situs, URL path, bahasa, sidebar, hingga pengaturan registrasi pengguna.</p>
-
-<h2>Site Settings — Identitas Website</h2>
-<p>Halaman pertama yang biasanya dikunjungi setelah install adalah Site Settings. Di sini Anda mengatur identitas dasar website:</p>
-
-<img src="/static/img/2026/07/site-settings-screenshot.jpg" alt="Site Settings page showing website title, description, URL and favicon configuration" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<ul>
-  <li><strong>Site Title</strong> — nama website yang muncul di title bar browser dan header</li>
-  <li><strong>Tagline / Description</strong> — deskripsi singkat website untuk SEO</li>
-  <li><strong>Site URL</strong> — URL utama website, penting untuk canonical URL dan sitemap</li>
-  <li><strong>Favicon</strong> — ikon kecil yang muncul di tab browser</li>
-  <li><strong>Default Language</strong> — bahasa default untuk konten dan admin UI</li>
-</ul>
-
-<h2>Admin dan Auth Paths</h2>
-<p>Keamanan website dimulai dari URL. Jyavani CMS memungkinkan Anda mengubah path default untuk area admin dan autentikasi:</p>
-<ul>
-  <li><strong>Admin Path</strong> — default <code>/adiwira/</code>, bisa diubah ke path custom</li>
-  <li><strong>Login Path</strong> — path halaman login</li>
-  <li><strong>Register Path</strong> — path halaman registrasi (jika diaktifkan)</li>
-</ul>
-<p>Mengubah admin path dari default adalah praktik keamanan sederhana yang mengurangi exposure terhadap serangan brute force pada URL umum.</p>
-
-<h2>Language Settings</h2>
-<p>Jyavani CMS mendukung multi-bahasa dengan pemisahan yang jelas:</p>
-<ul>
-  <li><strong>Admin UI Language</strong> — bahasa untuk dashboard admin</li>
-  <li><strong>Content Default Language</strong> — bahasa default untuk artikel dan halaman baru</li>
-</ul>
-<p>Pemisahan ini memungkinkan admin menggunakan bahasa Indonesia sementara konten website defaultnya bahasa Inggris, atau sebaliknya sesuai kebutuhan.</p>
-
-<h2>Sidebar Settings</h2>
-<p>Sidebar di Jyavani CMS tidak hanya statis — bisa dikonfigurasi secara penuh. Anda bisa mengatur:</p>
-
-<img src="/static/img/2026/07/sidebar-settings-screenshot.jpg" alt="Sidebar settings page showing enable toggle, position options and controller overrides" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<ul>
-  <li><strong>Enable/Disable Sidebar</strong> — aktifkan atau nonaktifkan sidebar global</li>
-  <li><strong>Position</strong> — letakkan sidebar di kiri atau kanan</li>
-  <li><strong>Controller Overrides</strong> — atur sidebar yang berbeda untuk halaman tertentu</li>
-  <li><strong>Gadgets</strong> — tambahkan widget HTML, recent posts, categories, atau custom content</li>
-</ul>
-
-<h2>Registration Settings</h2>
-<p>Jika website Anda memerlukan multi-user, Settings Dashboard menyediakan pengaturan registrasi:</p>
-<ul>
-  <li><strong>Enable Registration</strong> — izinkan pengunjung mendaftar sendiri</li>
-  <li><strong>Require Approval</strong> — admin harus menyetujui user baru sebelum aktif</li>
-  <li><strong>reCAPTCHA</strong> — aktifkan verifikasi untuk mencegah bot</li>
-  <li><strong>Default Role</strong> — role yang diberikan ke user baru (author, editor, dll)</li>
-</ul>
-
-<h2>Permalink Settings</h2>
-<p>Struktur URL yang baik penting untuk SEO dan keterbacaan. Jyavani CMS menyediakan builder permalink yang fleksibel:</p>
-
-<img src="/static/img/2026/07/permalink-settings-screenshot.jpg" alt="Permalink builder settings showing URL pattern configuration" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Anda bisa memilih format URL untuk artikel dan halaman:</p>
-<ul>
-  <li><code>/{slug}/</code> — URL pendek dan bersih</li>
-  <li><code>/{year}/{month}/{slug}/</code> — format berbasis tanggal</li>
-  <li><code>/{category}/{slug}/</code> — berbasis kategori</li>
-  <li><strong>Custom</strong> — buat pola URL sendiri dengan variabel yang tersedia</li>
-</ul>
-
-<h2>Social Media Links</h2>
-<p>Settings Dashboard juga mengelola link media sosial website. Link ini bisa digunakan oleh theme untuk menampilkan ikon sosial di footer atau header. Tambahkan URL untuk Facebook, Twitter/X, Instagram, LinkedIn, YouTube, dan platform lainnya.</p>
-
-<h2>Best Practices</h2>
-<ul>
-  <li><strong>Isi Site URL dengan benar</strong> — pastikan cocok dengan domain aktual, termasuk protokol HTTPS</li>
-  <li><strong>Gunakan favicon</strong> — favicon professional meningkatkan brand recognition</li>
-  <li><strong>Ubah admin path</strong> — praktik keamanan dasar yang efektif</li>
-  <li><strong>Aktifkan approval</strong> — untuk registrasi publik, selalu aktifkan approval admin</li>
-  <li><strong>Pilih permalink sekali</strong> — mengubah struktur URL setelah konten banyak bisa merusak SEO</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Settings Dashboard di Jyavani CMS memberikan kontrol penuh atas konfigurasi website. Luangkan waktu untuk meninjau setiap bagian pengaturan saat pertama kali install, karena konfigurasi awal yang tepat akan mempermudah pengelolaan website ke depannya.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, '2026-07-24 19:00:47', '2026-07-24 19:00:47', 0, NULL, 0),
-(279, 'User Management — Mengelola Pengguna', 'user-management-mengelola-pengguna', '<p>Website yang dikelola oleh banyak orang memerlukan sistem manajemen pengguna yang jelas. Jyavani CMS menyediakan <strong>User Management</strong> dengan role-based access control, memungkinkan admin menentukan siapa yang bisa mengakses fitur tertentu di dashboard.</p>
-
-<h2>Peran dan Hak Akses (Roles)</h2>
-<p>Jyavani CMS memiliki beberapa role bawaan yang masing-masing memiliki hak akses berbeda:</p>
-<ul>
-  <li><strong>Admin</strong> — akses penuh ke seluruh dashboard, pengaturan, user management, dan konfigurasi</li>
-  <li><strong>Editor</strong> — bisa mengelola semua konten artikel dan halaman, termasuk mengedit/menghapus konten milik user lain</li>
-  <li><strong>Author</strong> — hanya bisa membuat dan mengedit konten miliknya sendiri</li>
-</ul>
-<p>Role-based permissions memastikan bahwa setiap pengguna hanya bisa melakukan tugas sesuai dengan tanggung jawabnya.</p>
-
-<h2>Users List</h2>
-<p>Halaman <strong>Dashboard → Users</strong> menampilkan daftar semua pengguna terdaftar di CMS.</p>
-
-<img src="/static/img/2026/07/users-list-screenshot.jpg" alt="Users list page showing registered users with roles and action buttons" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Di halaman ini Anda bisa:</p>
-<ul>
-  <li>Mencari pengguna berdasarkan nama atau email</li>
-  <li>Melihat role dan status setiap pengguna</li>
-  <li>Mengedit informasi pengguna</li>
-  <li>Menonaktifkan atau menghapus akun</li>
-</ul>
-
-<h2>Membuat User Baru</h2>
-<p>Untuk menambahkan pengguna baru, buka halaman <strong>Add User</strong>. Isi informasi yang diperlukan:</p>
-
-<img src="/static/img/2026/07/add-user-screenshot.jpg" alt="Add user form with fields for name, email, password, and role selection" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<ul>
-  <li><strong>Full Name</strong> — nama lengkap pengguna</li>
-  <li><strong>Email</strong> — alamat email untuk login dan notifikasi</li>
-  <li><strong>Username</strong> — identifier unik untuk login</li>
-  <li><strong>Password</strong> — password awal yang bisa diubah pengguna nanti</li>
-  <li><strong>Role</strong> — peran yang menentukan hak akses</li>
-  <li><strong>Status</strong> — aktif atau nonaktif</li>
-</ul>
-
-<h2>User Profile</h2>
-<p>Setiap pengguna bisa mengatur profilnya sendiri melalui halaman <strong>Profile</strong>. Informasi yang bisa dikelola antara lain:</p>
-
-<img src="/static/img/2026/07/user-profile-screenshot.jpg" alt="User profile page showing avatar, bio, and account information" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<ul>
-  <li><strong>Avatar</strong> — foto profil pengguna</li>
-  <li><strong>Bio</strong> — deskripsi singkat tentang pengguna</li>
-  <li><strong>Phone</strong> — nomor telepon opsional</li>
-  <li><strong>Password</strong> — ubah password</li>
-  <li><strong>Language preference</strong> — bahasa untuk dashboard</li>
-</ul>
-
-<h2>Password Management</h2>
-<p>Admin bisa mereset password pengguna lain jika diperlukan. Pengguna juga bisa mengubah passwordnya sendiri dari halaman profil. Selalu gunakan password yang kuat dengan kombinasi huruf, angka, dan karakter khusus.</p>
-
-<h2>Menonaktifkan dan Menghapus User</h2>
-<p>Jika seorang pengguna tidak lagi aktif, admin bisa menonaktifkan akunnya tanpa menghapus konten yang pernah dibuat. Nonaktif berarti pengguna tidak bisa login tapi kontennya tetap ada.</p>
-<p>Menghapus user biasanya tidak di-rekomendasikan karena bisa memengaruhi konten yang sudah dipublikasikan. Jika harus dihapus, pastikan konten milik user tersebut sudah dialihkan ke user lain.</p>
-
-<h2>Keamanan Akun</h2>
-<ul>
-  <li><strong>Brute force protection</strong> — pembatasan percobaan login yang gagal</li>
-  <li><strong>Session management</strong> — admin bisa melihat dan mengakhiri sesi aktif</li>
-  <li><strong>reCAPTCHA</strong> — verifikasi saat login dan registrasi</li>
-  <li><strong>Password hashing</strong> — password disimpan dengan aman menggunakan algoritma modern</li>
-</ul>
-
-<h2>Best Practices</h2>
-<ul>
-  <li><strong>Principle of least privilege</strong> — berikan role sesuai kebutuhan, jangan semua jadi admin</li>
-  <li><strong>Review users secara berkala</strong> — hapus atau nonaktifkan akun yang tidak aktif</li>
-  <li><strong>Gunakan email valid</strong> — penting untuk reset password dan notifikasi</li>
-  <li><strong>Aktifkan approval registrasi</strong> — untuk website publik, aktifkan approval admin</li>
-  <li><strong>Pantau log aktivitas</strong> — perhatikan login dan perubahan penting</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>User Management di Jyavani CMS menyediakan kontrol yang cukup untuk website dengan banyak kontributor. Dengan sistem role yang jelas, Anda bisa membagi tugas secara efektif sambil menjaga keamanan dan integritas konten website.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/user-management-thumb.jpg', 'published', 1, '2026-07-24 19:07:46', '2026-07-24 19:07:46', 0, NULL, 0),
-(280, 'SEO dan Meta Tags', 'seo-dan-meta-tags', '<p>Search Engine Optimization (SEO) adalah faktor penting agar website mudah ditemukan di mesin pencari. Jyavani CMS menyediakan berbagai fitur SEO bawaan yang membantu meningkatkan visibilitas konten Anda.</p>
-
-<h2>Meta Description</h2>
-<p>Setiap artikel dan halaman di Jyavani CMS memiliki kolom <strong>Meta Description</strong>. Deskripsi ini muncul di hasil pencarian Google di bawah judul halaman.</p>
-
-<img src="/static/img/2026/07/meta-tags-screenshot.jpg" alt="Meta tags field in post editor showing SEO title and description inputs" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Jika Anda tidak mengisi meta description, Jyavani CMS akan otomatis mengambil excerpt dari konten. Namun, sebaiknya tulis deskripsi manual yang:</p>
-<ul>
-  <li>Panjangnya 120-160 karakter</li>
-  <li>Mengandung kata kunci utama</li>
-  <li>Menggambarkan isi konten dengan menarik</li>
-  <li>Memiliki call-to-action ringan</li>
-</ul>
-
-<h2>Open Graph Tags</h2>
-<p>Open Graph (OG) adalah protokol yang memungkinkan konten website ditampilkan dengan baik saat dibagikan di media sosial seperti Facebook, LinkedIn, dan WhatsApp.</p>
-<p>Jyavani CMS secara otomatis menghasilkan OG tags berikut untuk setiap halaman:</p>
-<ul>
-  <li><code>og:title</code> — judul konten</li>
-  <li><code>og:description</code> — meta description</li>
-  <li><code>og:image</code> — thumbnail artikel atau gambar default website</li>
-  <li><code>og:url</code> — URL kanonikal halaman</li>
-  <li><code>og:type</code> — tipe konten, biasanya "article"</li>
-</ul>
-
-<img src="/static/img/2026/07/og-tags-screenshot.jpg" alt="Browser view-source showing Open Graph and meta tags in HTML head" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<h2>Twitter Card Tags</h2>
-<p>Selain Open Graph, Jyavani CMS juga menghasilkan Twitter Card tags untuk tampilan optimal saat konten dibagikan di Twitter/X. Format yang digunakan biasanya summary_large_image untuk artikel dengan thumbnail.</p>
-
+<p>Custom role dimulai tanpa grant. Permission berscope dapat memakai Own, Same or Lower, atau Any; tindakan non-resource memakai Global. Authority rank hanya memengaruhi Same or Lower dan tidak memberi permission dengan sendirinya.</p>
+<h2>Siklus akun</h2>
+<p>User dapat memiliki beberapa role aktif. Lock mencegah login tanpa menghapus akun. Delete user memakai Trash, dengan restore/purge terpisah; pertimbangkan kepemilikan konten sebelum purge. Perubahan role dan operasi otorisasi penting dicatat di audit log.</p>
+<p>Registrasi publik, bila diaktifkan, selalu memasang Author dan dapat membuat akun locked saat approval diwajibkan. Tinjau akses dengan akun non-owner, bukan hanya dari tampilan Site Owner.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/user-management-thumb.jpg', 'published', 1, '2026-07-24 19:07:46', '2026-08-19 00:00:00', 0, NULL, 0),
+(280, 'SEO Core: Metadata, Canonical URL, dan Sitemap', 'seo-dan-meta-tags', '<p>Core menyediakan fondasi metadata, canonical URL, dan sitemap. Hasil SEO tetap bergantung pada isi, konfigurasi domain, theme, crawl policy, dan mesin pencari; Core tidak menjamin peringkat atau rich result.</p>
+<h2>Metadata dokumen</h2>
+<p>Layout membaca deskripsi khusus dari <code>meta.meta_tags.description</code>. Jika kosong, Core membuat excerpt konten, lalu memakai deskripsi situs sebagai fallback. Layout juga mengeluarkan Open Graph dan Twitter Card untuk title, description, serta image bila tersedia. Nilai dapat disesuaikan plugin melalui filter.</p>
+<img src="/static/img/2026/07/meta-tags-screenshot.jpg" alt="Field metadata konten" style="width:100%;margin:1rem 0">
 <h2>Canonical URL</h2>
-<p>Canonical URL mencegah masalah duplikat konten. Setiap halaman memiliki tag <code>&lt;link rel="canonical"&gt;</code> yang menunjuk ke URL aslinya. Ini sangat penting jika konten sama bisa diakses melalui beberapa URL.</p>
-
-<h2>Robots Meta</h2>
-<p>Pengaturan robots meta mengontrol bagaimana mesin pencari mengindeks halaman:</p>
+<p>Single content memakai permalink yang diselesaikan Core. Bila record <code>content_routes</code> memiliki canonical base-locale, URL itu diprioritaskan. Alias mengarah ke canonical dan mempertahankan query dengan aman. Tag <code>rel=canonical</code> dikeluarkan oleh layout.</p>
+<h2>Sitemap</h2>
+<p>Controller sitemap mengekspor konten published dan tidak terhapus. Konten yang dikelola melalui canonical routes hanya masuk pada URL kanonis yang memenuhi kontrak route. Sitemap locale dapat diperluas integrasi translasi. Kirim endpoint yang benar ke alat webmaster dan periksa responsnya setelah perubahan route.</p>
+<h2>Praktik operasional</h2>
+<p>Tulis title dan description yang akurat, gunakan thumbnail publik yang dapat diambil crawler, dan jangan menerbitkan duplikasi path. JSON-LD khusus, robots policy lanjutan, redirect lintas domain, dan translasi SEO bukan janji universal Core; implementasikan melalui theme/plugin bila dibutuhkan.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'published', 1, '2026-07-24 19:16:07', '2026-08-19 00:00:00', 0, NULL, 0),
+(281, 'Widget, Shortcode, dan Preset', 'widget-dan-shortcodes', '<p>Jyavani membedakan widget area, Theme Zone gadget, shortcode konten, dan shortcode preset. Masing-masing dirender pada tahap yang berbeda.</p>
+<h2>Sidebar dan Theme Zones</h2>
+<p>Sidebar zone berisi item seperti search, recent posts, HTML, atau preset. Theme Zones menempatkan gadget pada posisi yang dideklarasikan theme, termasuk navigation, image, rich text, pages, social, search, dan metadata post. Ketersediaan tampilan bergantung pada theme yang benar-benar merender zone tersebut.</p>
+<img src="/static/img/2026/07/layout-editor-screenshot.jpg" alt="Editor Theme Zones" style="width:100%;margin:1rem 0">
+<h2>Shortcode Core</h2>
 <ul>
-  <li><code>index, follow</code> — indeks dan ikuti link (default untuk konten publik)</li>
-  <li><code>noindex, follow</code> — jangan indeks tapi ikuti link (untuk halaman arsip tertentu)</li>
-  <li><code>noindex, nofollow</code> — jangan indeks dan jangan ikuti link</li>
+  <li><code>[post_cat_shortcode ...]</code> untuk koleksi post.</li>
+  <li><code>[private_pdf id="123" mode="card"]</code> untuk PDF dari File Library.</li>
+  <li><code>[video id="123"]</code> untuk record video yang didukung.</li>
+  <li><code>[[widget:name key=value]]</code> untuk widget terdaftar.</li>
 </ul>
-
-<h2>Custom Meta Tags</h2>
-<p>Untuk kebutuhan khusus, Anda bisa menambahkan custom meta tags per artikel atau per halaman. Berguna untuk verifikasi Google Search Console, meta keywords, atau skema khusus lainnya.</p>
-
-<h2>Sitemap Otomatis</h2>
-<p>Jyavani CMS secara otomatis menghasilkan <strong>sitemap.xml</strong> yang berisi semua URL publik website. Sitemap ini membantu mesin pencari menemukan dan mengindeks konten Anda lebih cepat.</p>
-
-<img src="/static/img/2026/07/sitemap-screenshot.jpg" alt="sitemap.xml showing list of URLs with last modified dates" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Anda bisa mengirimkan URL sitemap ke Google Search Console dan Bing Webmaster Tools. URL sitemap biasanya berada di <code>/sitemap.xml</code>.</p>
-
-<h2>JSON-LD Structured Data</h2>
-<p>Jyavani CMS menyertakan structured data JSON-LD untuk artikel. Structured data membantu mesin pencari memahami konteks halaman dan bisa menghasilkan rich snippets di hasil pencarian.</p>
-
-<h2>URL yang SEO-Friendly</h2>
-<p>Slug artikel di Jyavani CMS otomatis dibuat dari judul. Anda bisa mengedit slug agar lebih pendek dan mengandung kata kunci. Hindari slug yang terlalu panjang atau berisi karakter khusus.</p>
-<p>Contoh slug yang baik: <code>cara-menggunakan-jyavani-cms</code></p>
-<p>Contoh slug yang kurang baik: <code>artikel-ke-5-tentang-cara-penggunaan-jyavani-cms-yang-lengkap</code></p>
-
-<h2>Best Practices SEO di Jyavani CMS</h2>
+<p>ID private file berasal dari menu Files, bukan Media Library. Pemeriksaan akses tetap berlaku ketika shortcode dirender atau stream diminta.</p>
+<h2>Preset</h2>
+<p>Preset adalah post bertipe <code>sc_preset</code> yang menyimpan konfigurasi query/layout dalam JSON. Preset demo memilih empat artikel acak milik owner awal dan digunakan sidebar. Karena query acak tidak deterministik saat runtime, jangan gunakan preset itu untuk urutan editorial yang harus stabil.</p>
+<p>Plugin dapat mendaftarkan shortcode atau gadget tambahan. Validasi atribut, escape output, dan jangan memasukkan kode pihak ketiga yang tidak dipercaya ke HTML widget.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/widget-shortcodes-thumb.jpg', 'published', 1, '2026-07-24 23:33:31', '2026-08-19 00:00:00', 0, NULL, 0),
+(282, 'Keamanan Jyavani Core: Batas Perlindungan dan Operasi Aman', 'keamanan-cms-best-practices', '<p>Core menyediakan kontrol akses dinamis, CSRF, session fingerprint, path guard, brute-force tracking, private storage, dan validasi paket. Fitur ini adalah lapisan, bukan jaminan keamanan deployment.</p>
+<h2>Autentikasi dan dashboard</h2>
+<p>PHP dashboard berada di luar web root dan hanya dicapai lewat router pada <code>admin_path</code>. Path yang salah dimasking sebagai frontend 404. Login memakai CSRF, password hash PHP, dan proteksi percobaan yang dapat dikonfigurasi. Path tersembunyi mengurangi noise pemindaian, tetapi tidak menggantikan password unik, rate limiting proxy, atau MFA dari integrasi tambahan.</p>
+<img src="/static/img/2026/07/auth-settings-screenshot.jpg" alt="Pengaturan autentikasi" style="width:100%;margin:1rem 0">
+<h2>Session dan HTTPS</h2>
+<p>Cookie dapat memakai HttpOnly, SameSite, domain/path, dan Secure sesuai konfigurasi. Set <code>FORCE_HTTPS=1</code> hanya setelah proxy/web server meneruskan status HTTPS dengan benar. Lindungi <code>cfg/.env</code>, secret session, secret token file, dan kredensial database.</p>
+<h2>Otorisasi</h2>
+<p>Gunakan least privilege. Site Owner adalah batas tambahan bagi operasi kritis; admin biasa tidak identik dengan owner. Permission, scope, kepemilikan, status akun, dan guard route diperiksa server-side. Plugin ACL menambah syarat, bukan melewati guard Core.</p>
+<h2>Aset dan operasi</h2>
+<p>Private asset harus berada pada private disk dengan scope tepat. Token viewer PDF bersifat sementara dan bukan tautan publik. Update hanya dari endpoint/paket tepercaya, periksa checksum/manifest, dan buat backup teruji. Patch PHP, database, web server, theme, serta plugin secara rutin. Pantau error log dan audit authorization tanpa menyimpan secret ke log.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'published', 1, '2026-07-24 23:45:59', '2026-08-19 00:00:00', 0, NULL, 0),
+(283, 'Tentang Jyavani', 'tentang-jyavani', '<p><strong>Halaman contoh.</strong> Ganti isi ini dengan identitas organisasi atau situs Anda sebelum produksi.</p>
+<p>Jyavani CMS adalah CMS native PHP dengan manajemen artikel/halaman, kategori, media/file, theme, plugin, menu, role/permission, dan update. Fitur yang benar-benar tersedia pada situs bergantung pada versi Core, theme, plugin, serta konfigurasi deployment.</p>
+<h2>Tentang situs ini</h2>
+<p>Jelaskan pemilik/pengelola, tujuan publikasi, cakupan konten, dan cara pembaca memverifikasi informasi. Jangan memakai teks demo sebagai pernyataan resmi organisasi.</p>
+', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
+(284, 'Kontak', 'kontak', '<p><strong>Placeholder kontak.</strong> Jyavani Core tidak menyediakan alamat, akun sosial, SLA respons, atau layanan dukungan untuk situs Anda.</p>
+<h2>Isi sebelum diterbitkan</h2>
 <ul>
-  <li><strong>Isi judul dengan kata kunci</strong> — judul tetap natural dan menarik</li>
-  <li><strong>Gunakan meta description</strong> — jangan biarkan CMS mengisi otomatis terus-menerus</li>
-  <li><strong>Pastikan thumbnail berkualitas</strong> — OG image akan muncul saat dibagikan</li>
-  <li><strong>Gunakan heading dengan hierarki benar</strong> — h1 untuk judul, h2 untuk sub judul</li>
-  <li><strong>Daftarkan sitemap</strong> — submit ke Google Search Console</li>
-  <li><strong>Pantau performa</strong> — gunakan Google Search Console untuk melihat indexing dan klik</li>
+  <li>Nama pengelola atau organisasi.</li>
+  <li>Alamat email/telepon yang benar-benar dipantau.</li>
+  <li>Jam layanan dan perkiraan respons yang dapat dipenuhi.</li>
+  <li>Alamat fisik hanya bila perlu dan aman dipublikasikan.</li>
 </ul>
-
-<h2>Kesimpulan</h2>
-<p>SEO di Jyavani CMS dirancang untuk bekerja otomatis tanpa konfigurasi rumit, namun tetap memberikan kontrol manual untuk pengguna yang ingin mengoptimalkan lebih dalam. Manfaatkan meta tags, Open Graph, sitemap, dan struktur URL yang baik untuk meningkatkan visibilitas website Anda.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'published', 1, '2026-07-24 19:16:07', '2026-07-24 19:16:07', 0, NULL, 0),
-(281, 'Widget dan Shortcodes', 'widget-dan-shortcodes', '<p>Website modern tidak hanya terdiri dari teks statis. Terkadang Anda perlu menampilkan konten dinamis seperti daftar artikel terbaru, file PDF yang dilindungi, atau video tanpa harus menulis kode secara manual. Jyavani CMS menyediakan <strong>Widget</strong> dan <strong>Shortcodes</strong> untuk kebutuhan ini.</p>
-
-<h2>Apa itu Widget?</h2>
-<p>Widget adalah blok konten modular yang bisa ditempatkan di area tertentu website, seperti sidebar atau footer. Widget bersifat reusable — satu widget bisa digunakan di beberapa posisi atau halaman.</p>
-<p>Contoh widget yang tersedia:</p>
-<ul>
-  <li><strong>HTML Widget</strong> — untuk kode HTML custom</li>
-  <li><strong>Recent Posts</strong> — menampilkan artikel terbaru</li>
-  <li><strong>Categories</strong> — daftar kategori</li>
-  <li><strong>Social Icons</strong> — ikon media sosial</li>
-  <li><strong>Image Widget</strong> — menampilkan gambar</li>
-</ul>
-
-<h2>Widget Settings</h2>
-<p>Untuk mengatur widget di sidebar, buka <strong>Dashboard → Sidebar</strong>. Di sini Anda bisa menambahkan, mengedit, menghapus, dan mengurutkan widget.</p>
-
-<img src="/static/img/2026/07/widget-settings-screenshot.jpg" alt="Widget settings page showing sidebar gadgets configuration" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Setiap widget memiliki konfigurasi sendiri. Misalnya widget Recent Posts bisa diatur jumlah artikel yang ditampilkan, widget Categories bisa dipilih hierarki atau flat, dan widget Image memerlukan URL gambar dari Media Library.</p>
-
-<h2>Apa itu Shortcodes?</h2>
-<p>Shortcodes adalah tag sederhana yang bisa disisipkan ke dalam konten artikel atau halaman untuk menampilkan konten dinamis. Format shortcodes di Jyavani CMS menggunakan tanda kurung siku, misalnya <code>[post_cat_shortcode]</code> atau <code>[[widget:nama_widget]]</code>.</p>
-
-<h2>Shortcode Builder</h2>
-<p>Jyavani CMS menyediakan <strong>Shortcode Builder</strong> — visual editor untuk membuat shortcode tanpa perlu menghafal sintaks.</p>
-
-<img src="/static/img/2026/07/shortcode-builder-screenshot.jpg" alt="Shortcode builder interface showing component toolbar and live preview" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Fitur Shortcode Builder:</p>
-<ul>
-  <li><strong>Component toolbar</strong> — pilih komponen yang ingin ditambahkan</li>
-  <li><strong>Split-view editor</strong> — kode di sebelah kiri, live preview di sebelah kanan</li>
-  <li><strong>Variable inspector</strong> — lihat variabel yang tersedia</li>
-  <li><strong>Presets</strong> — simpan shortcode yang sering digunakan</li>
-</ul>
-
-<h2>Built-in Shortcodes</h2>
-<p>Jyavani CMS sudah menyediakan beberapa shortcodes siap pakai:</p>
-
-<ul>
-  <li><code>[post_cat_shortcode]</code> — menampilkan daftar artikel dari kategori tertentu</li>
-  <li><code>[private_pdf]</code> — menampilkan link file PDF dengan akses terbatas</li>
-  <li><code>[video]</code> — embed video dengan player responsif</li>
-  <li><code>[[widget:nama_widget]]</code> — render widget tertentu di dalam konten</li>
-</ul>
-
-<h2>Widget Shortcodes</h2>
-<p>Selain shortcodes bawaan, Anda juga bisa menampilkan widget di dalam konten menggunakan format <code>[[widget:nama_widget]]</code>. Ini berguna saat Anda ingin menampilkan widget di tengah artikel, bukan hanya di sidebar.</p>
-
-<h2>Layout Editor</h2>
-<p>Layout Editor terintegrasi dengan Theme Customizer dan Theme Zones. Anda bisa mengatur posisi widget, shortcode, dan komponen lainnya secara visual.</p>
-
-<img src="/static/img/2026/07/layout-editor-screenshot.jpg" alt="Layout editor showing theme zones with draggable gadgets and configuration panels" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Dengan Layout Editor Anda bisa:</p>
-<ul>
-  <li>Menambah gadget ke zone tertentu</li>
-  <li>Mengurutkan gadget dengan drag &amp; drop</li>
-  <li>Mengkonfigurasi setiap gadget</li>
-  <li>Melihat preview layout secara langsung</li>
-</ul>
-
-<h2>Membuat Shortcode Preset</h2>
-<p>Jika Anda sering menggunakan shortcode dengan konfigurasi sama, simpan sebagai preset. Preset bisa dipanggil kembali dengan nama yang Anda tentukan, menghemat waktu saat menulis konten.</p>
-
-<h2>Best Practices</h2>
-<ul>
-  <li><strong>Gunakan widget untuk konten global</strong> — sidebar, footer, atau elemen yang muncul di banyak halaman</li>
-  <li><strong>Gunakan shortcodes untuk konten spesifik</strong> — elemen yang hanya muncul di satu artikel/halaman</li>
-  <li><strong>Hindari terlalu banyak widget</strong> — sidebar yang terlalu ramai mengganggu fokus pembaca</li>
-  <li><strong>Test shortcode sebelum publish</strong> — pastikan output sesuai harapan</li>
-  <li><strong>Beri nama preset yang jelas</strong> — memudahkan penggunaan ulang</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Widget dan Shortcodes memberikan fleksibilitas besar dalam menyusun konten website. Kombinasi keduanya memungkinkan Anda membuat halaman yang kaya dan dinamis tanpa perlu mengubah kode theme atau plugin.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/widget-shortcodes-thumb.jpg', 'published', 1, '2026-07-24 23:33:31', '2026-07-24 23:33:31', 0, NULL, 0),
-(282, 'Keamanan CMS — Best Practices', 'keamanan-cms-best-practices', '<p>Keamanan adalah aspek penting yang sering diabaikan saat mengelola website. Jyavani CMS hadir dengan berbagai fitur keamanan bawaan yang membantu melindungi website, konten, dan data pengguna dari ancaman umum.</p>
-
-<h2>Hidden Admin — Custom Admin Path</h2>
-<p>Salah satu keunggulan keamanan Jyavani CMS adalah kemampuan untuk menyembunyikan path admin. Secara default, dashboard admin berada di <code>/adiwira/</code>, tetapi Anda bisa mengubahnya ke path apapun melalui pengaturan autentikasi.</p>
-
-<img src="/static/img/2026/07/auth-settings-screenshot.jpg" alt="Auth settings page showing custom admin path, login path, and register path configuration" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Dengan <strong>hidden admin path</strong>, alamat dashboard admin Anda tidak lagi mudah ditebak. Ini secara signifikan mengurangi serangan brute force dan scanning otomatis yang menargetkan URL admin default seperti <code>/wp-admin</code> atau <code>/admin</code>.</p>
-<p>Anda juga bisa mengubah:</p>
-<ul>
-  <li><strong>Login Path</strong> — URL halaman login</li>
-  <li><strong>Register Path</strong> — URL halaman registrasi</li>
-  <li><strong>Admin Path</strong> — URL dashboard admin</li>
-</ul>
-
-<h2>Brute Force Protection</h2>
-<p>Jyavani CMS membatasi jumlah percobaan login yang gagal. Jika seseorang mencoba menebak password berulang kali, sistem akan memblokir sementara percobaan dari IP tersebut. Fitur ini mengurangi risiko serangan brute force secara efektif.</p>
-
-<h2>CSRF Protection</h2>
-<p>Setiap form penting di Jyavani CMS dilindungi dengan <strong>CSRF token</strong> berbasis HMAC. Token ini memastikan bahwa setiap permintaan modifikasi data berasal dari halaman yang sah, bukan dari situs pihak ketiga yang mencoba mengeksploitasi sesi pengguna.</p>
-
-<h2>Session Management</h2>
-<p>Sesi login di Jyavani CMS dikelola dengan aman menggunakan cookie HTTP-only dan secure flag saat website berjalan di HTTPS. Admin bisa melihat sesi aktif dan mengakhiri sesi yang mencurigakan jika diperlukan.</p>
-
-<h2>Login Page</h2>
-<p>Halaman login Jyavani CMS dirancang sederhana namun aman. Tidak ada informasi yang mengindikasikan versi CMS atau platform yang digunakan, sehingga mengurangi informasi yang bisa dieksploitasi oleh attacker.</p>
-
-<img src="/static/img/2026/07/login-page-screenshot.jpg" alt="Login page showing username and password form without revealing CMS platform information" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<h2>User Roles dan Permissions</h2>
-<p>Sistem role-based access control memastikan setiap pengguna hanya bisa mengakses fitur sesuai tanggung jawabnya. Admin memiliki akses penuh, Editor bisa mengelola konten, dan Author hanya bisa mengedit konten miliknya sendiri.</p>
-
-<img src="/static/img/2026/07/users-list-screenshot.jpg" alt="Users list showing five demo accounts with admin, editor, and author roles" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<h2>Private Files dan Media</h2>
-<p>File dan gambar private disimpan di luar web root serta diperiksa berdasarkan sesi dan Access Scope. Scope Tim Konten mengizinkan author, editor, dan admin, sedangkan scope Administrator hanya mengizinkan admin. Viewer PDF membuat token HMAC sementara untuk mengambil stream raw secara internal; token tersebut bukan tautan berbagi publik.</p>
-
-<h2>HTTPS dan SSL</h2>
-<p>Penggunaan HTTPS sangat direkomendasikan untuk setiap website. Jyavani CMS bekerja optimal di HTTPS dan otomatis memaksa cookie secure flag saat protokol HTTPS aktif. Pastikan Anda memasang sertifikat SSL yang valid.</p>
-
-<h2>Konfigurasi .env</h2>
-<p>File <code>.env</code> menyimpan konfigurasi sensitif seperti database credentials. Pastikan file ini:</p>
-<ul>
-  <li>Tidak bisa diakses dari browser</li>
-  <li>Memiliki permission yang benar (biasanya 640 atau 600)</li>
-  <li>Tidak di-push ke repository publik</li>
-  <li>Memiliki APP_KEY yang unik dan kuat</li>
-</ul>
-
-<h2>Keamanan Database</h2>
-<ul>
-  <li>Gunakan password database yang kuat dan unik</li>
-  <li>Batasi akses database hanya dari host yang diperlukan</li>
-  <li>Lakukan backup database secara berkala</li>
-  <li>Pastikan user database hanya memiliki hak akses minimum yang dibutuhkan</li>
-</ul>
-
-<h2>Best Practices Keamanan</h2>
-<ul>
-  <li><strong>Gunakan password kuat</strong> — minimal 12 karakter dengan kombinasi huruf, angka, dan simbol</li>
-  <li><strong>Ubah admin path default</strong> — ini adalah langkah pertama dan paling mudah</li>
-  <li><strong>Aktifkan reCAPTCHA</strong> — untuk login dan registrasi publik</li>
-  <li><strong>Update CMS secara berkala</strong> — pantau release notes dan security patches</li>
-  <li><strong>Batasi user admin</strong> — jangan semua pengguna memiliki role admin</li>
-  <li><strong>Monitor log</strong> — perhatikan aktivitas login dan perubahan penting</li>
-  <li><strong>Backup rutin</strong> — database dan file website</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Keamanan website adalah tanggung jawab bersama antara CMS dan penggunanya. Jyavani CMS menyediakan fondasi keamanan yang kuat dengan hidden admin path, brute force protection, CSRF protection, dan sistem role-based permissions. Dengan mengikuti best practices, Anda bisa menjaga website tetap aman dari ancaman umum.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'published', 1, '2026-07-24 23:45:59', '2026-07-24 23:45:59', 0, NULL, 0),
-(283, 'Tentang Jyavani', 'tentang-jyavani', '<p>Jyavani CMS adalah <strong>Content Management System</strong> native PHP yang dirancang untuk pengguna yang menginginkan kontrol penuh atas website mereka tanpa bergantung pada framework besar atau Composer.</p>
-
-<h2>Visi</h2>
-<p>Menyediakan CMS yang sederhana, ringan, aman, dan mudah dikustomisasi untuk berbagai kebutuhan website — mulai dari blog pribadi hingga website organisasi.</p>
-
-<h2>Fitur Utama</h2>
-<ul>
-  <li>Manajemen artikel dan halaman</li>
-  <li>Sistem kategori hierarki</li>
-  <li>Media Library untuk gambar dan file</li>
-  <li>Theme System dengan Customizer dan Zones</li>
-  <li>Plugin System dengan hooks</li>
-  <li>Menu Manager dengan drag &amp; drop</li>
-  <li>User Management dengan roles</li>
-  <li>SEO dan meta tags otomatis</li>
-  <li>Hidden admin path untuk keamanan</li>
-</ul>
-
-<h2>Kenapa Native PHP?</h2>
-<p>Jyavani CMS dibangun dengan native PHP sehingga tidak memerlukan composer install, tidak ada vendor folder yang besar, dan performa tetap optimal. Cocok untuk shared hosting maupun VPS.</p>
-
-<h2>Kontribusi</h2>
-<p>Jyavani CMS dikembangkan secara terbuka. Anda bisa berkontribusi melalui GitHub, mengembangkan plugin, atau membuat theme sesuai kebutuhan Anda. Kunjungi komunitas kami di <a href="https://jyavani.com/">jyavani.com</a>.</p>
-', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-07-25 00:00:28', 0, NULL, 0),
-(284, 'Kontak', 'kontak', '<p>Hubungi kami jika Anda memiliki pertanyaan, saran, atau ingin berkontribusi dalam pengembangan Jyavani CMS.</p>
-
-<h2>Informasi Kontak</h2>
-<ul>
-  <li><strong>Email:</strong> <a href="mailto:hello@jyavani.com">hello@jyavani.com</a></li>
-  <li><strong>Website:</strong> <a href="https://jyavani.com/">https://jyavani.com/</a></li>
-  <li><strong>GitHub:</strong> <a href="https://github.com/adammuizweb/jyavani">https://github.com/adammuizweb/jyavani</a></li>
-</ul>
-
-<h2>Media Sosial</h2>
-<ul>
-  <li>Twitter/X: <a href="https://twitter.com/jyavanicms">@jyavanicms</a></li>
-  <li>Facebook: <a href="https://facebook.com/jyavanicms">Jyavani CMS</a></li>
-  <li>Instagram: <a href="https://instagram.com/jyavanicms">@jyavanicms</a></li>
-</ul>
-
-<h2>Alamat</h2>
-<p>Jyavani CMS HQ<br>
-Jl. Teknologi No. 123<br>
-Kota Digital, Indonesia</p>
-
-<h2>Formulir Kontak</h2>
-<p>Silakan kirim pesan Anda melalui email ke <a href="mailto:hello@jyavani.com">hello@jyavani.com</a>. Kami akan berusaha merespons secepatnya.</p>
-', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-07-25 00:00:28', 0, NULL, 0),
-(285, 'Privacy Policy', 'privacy-policy', '<p>Jyavani CMS menghargai privasi pengunjung dan pengguna. Kebijakan privasi ini menjelaskan bagaimana data dikumpulkan, digunakan, dan dilindungi di website yang menggunakan Jyavani CMS.</p>
-
-<h2>Data yang Dikumpulkan</h2>
-<p>Ketika Anda menggunakan website ini, kami mungkin mengumpulkan:</p>
-<ul>
-  <li>Informasi akun seperti nama, email, dan username</li>
-  <li>Log aktivitas seperti IP address dan waktu akses</li>
-  <li>Cookie untuk menjaga sesi login dan preferensi</li>
-</ul>
-
-<h2>Penggunaan Data</h2>
-<p>Data yang dikumpulkan digunakan untuk:</p>
-<ul>
-  <li>Autentikasi dan otorisasi pengguna</li>
-  <li>Meningkatkan keamanan website</li>
-  <li>Menyediakan pengalaman pengguna yang lebih baik</li>
-  <li>Menganalisis traffic website secara anonim</li>
-</ul>
-
-<h2>Perlindungan Data</h2>
-<p>Kami menerapkan berbagai langkah keamanan untuk melindungi data Anda, termasuk:</p>
-<ul>
-  <li>Enkripsi password dengan algoritma modern</li>
-  <li>Perlindungan CSRF pada setiap form</li>
-  <li>Session management yang aman</li>
-  <li>Backup data secara berkala</li>
-</ul>
-
-<h2>Cookie</h2>
-<p>Website ini menggunakan cookie untuk menyimpan sesi login dan preferensi tampilan. Anda bisa mengatur browser untuk menolak cookie, namun beberapa fitur mungkin tidak berfungsi optimal.</p>
-
-<h2>Perubahan Kebijakan</h2>
-<p>Kebijakan privasi ini dapat diperbarui sewaktu-waktu. Perubahan akan diumumkan di halaman ini.</p>
-
-<h2>Kontak</h2>
-<p>Jika Anda memiliki pertanyaan tentang kebijakan privasi ini, silakan hubungi kami melalui email <a href="mailto:hello@jyavani.com">hello@jyavani.com</a> atau kunjungi <a href="https://jyavani.com/">jyavani.com</a>.</p>
-', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-07-25 00:00:28', 0, NULL, 0),
-(286, 'Sistem Soft Delete — Recycle Bin di Jyavani CMS', 'sistem-soft-delete-recycle-bin', '<p>Kesalahan dalam mengelola konten website bisa terjadi kapan saja. Seorang editor mungkin tidak sengaja menghapus artikel penting, atau konten lama perlu dipulihkan kembali setelah evaluasi. Untuk melindungi data dari penghapusan permanen yang tidak disengaja, Jyavani CMS menyediakan sistem <strong>soft delete</strong> yang canggih melalui fitur Recycle Bin.</p>
-
-<h2>Apa itu Soft Delete?</h2>
-<p>Soft delete adalah metode penghapusan di mana konten tidak benar-benar dihapus dari database. Sebaliknya, CMS menandai konten tersebut dengan status <strong>trashed</strong> sehingga tidak lagi muncul di frontend website dan tidak lagi terlihat di daftar konten aktif. Namun, konten tetap tersimpan secara aman di database beserta metadatanya seperti author, tanggal pembuatan, kategori, dan tag.</p>
-
-<p>Keuntungan utama dari sistem soft delete meliputi:</p>
-<ul>
-  <li><strong>Pemulihan konten yang mudah</strong> — artikel yang terhapus karena kesalahan bisa dikembalikan dalam hitungan detik</li>
-  <li><strong>Mencegah kehilangan data permanen</strong> — ada lapisan keamanan tambahan sebelum konten benar-benar hilang</li>
-  <li><strong>Opsi review sebelum hapus permanen</strong> — admin bisa meninjau ulang konten sebelum memutuskan untuk menghapusnya selamanya</li>
-  <li><strong>Mendukung audit trail</strong> — informasi siapa yang menghapus dan kapan masih tersimpan</li>
-  <li><strong>Perlindungan terhadap kesalahan human error</strong> — kesalahan klik tidak langsung berakibat fatal</li>
-</ul>
-
-<h2>Mengenal Recycle Bin</h2>
-<p>Untuk melihat semua konten yang telah dihapus sementara, buka <strong>Dashboard → Recycle Bin</strong>. Halaman ini menampilkan daftar artikel, halaman, atau media yang berada dalam status trashed beserta informasi penting seperti tanggal penghapusan, penghapus, dan alasan penghapusan jika tersedia.</p>
-
-<img src="/static/img/2026/07/bin-screenshot.jpg" alt="Recycle Bin page showing deleted posts with restore and permanent delete options" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Antarmuka Recycle Bin memudahkan Anda untuk mengidentifikasi konten yang perlu dipulihkan. Anda bisa melakukan pencarian, filter berdasarkan tipe konten, atau mengurutkan berdasarkan tanggal penghapusan. Setiap item memiliki dua tombol aksi utama:</p>
-
-<ul>
-  <li><strong>Restore</strong> — mengembalikan konten ke status aktif, baik itu published, draft, atau private sesuai keadaan sebelum dihapus</li>
-  <li><strong>Delete Permanently</strong> — menghapus konten secara permanen dari database dan tidak bisa dibatalkan</li>
-</ul>
-
-<h2>Cara Menghapus Konten ke Recycle Bin</h2>
-<p>Saat Anda menghapus artikel atau halaman dari halaman daftar konten, Jyavani CMS tidak langsung menghapusnya secara permanen. Sebagai gantinya, konten tersebut dipindahkan ke Recycle Bin. Proses ini dilakukan secara otomatis dan transparan, sehingga pengguna tidak perlu memikirkan perbedaan antara soft delete dan hard delete pada saat pertama kali menghapus.</p>
-
-<p>Untuk menghapus konten:</p>
+<p>Jika memakai form kontak dari plugin, dokumentasikan tujuan data, retensi, penerima, proteksi spam, dan consent. Uji pengiriman sendiri; Core tidak menjamin email delivery atau respons operasional.</p>
+', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
+(285, 'Privacy Policy', 'privacy-policy', '<p><strong>Template, bukan nasihat hukum.</strong> Sesuaikan kebijakan ini dengan data yang benar-benar diproses situs, yurisdiksi, theme, plugin, analytics, hosting, dan prosedur organisasi Anda.</p>
+<h2>Inventaris data</h2>
+<p>Dokumentasikan data akun, log keamanan, alamat IP, cookie sesi, unggahan, form, analytics, dan integrasi pihak ketiga yang benar-benar aktif. Core memakai data akun dan cookie sesi untuk autentikasi; plugin dapat menambah pemrosesan lain.</p>
+<h2>Tujuan dan retensi</h2>
+<p>Nyatakan dasar/tujuan pemrosesan, penerima data, lokasi penyimpanan, masa retensi, backup, serta proses penghapusan. Jangan menjanjikan anonimisasi, enkripsi, backup berkala, atau respons dalam jangka tertentu kecuali deployment Anda menerapkannya dan dapat membuktikannya.</p>
+<h2>Hak dan kontak</h2>
+<p>Jelaskan cara subjek data meminta akses, koreksi, ekspor, keberatan, atau penghapusan sesuai hukum yang berlaku. Tambahkan kontak privacy yang valid dan tanggal berlaku/revisi. Tinjau ulang setiap kali plugin, vendor, atau praktik operasional berubah.</p>
+', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
+(286, 'Recycle Bin dan Soft Delete Konten', 'sistem-soft-delete-recycle-bin', '<p>Recycle Bin Core berlaku untuk artikel, halaman, theme content, kategori, dan user yang memiliki <code>is_deleted</code>/<code>deleted_at</code>. Media dan File Library tidak memakai kontrak soft delete yang sama.</p>
+<h2>Trash, restore, purge</h2>
+<p>Delete awal menandai record agar tidak tampil pada daftar aktif atau frontend. Halaman Bin per tipe menampilkan item yang boleh dilihat pengguna berdasarkan permission restore/purge dan scope pemilik.</p>
+<img src="/static/img/2026/07/bin-screenshot.jpg" alt="Recycle Bin artikel" style="width:100%;margin:1rem 0">
+<p>Restore menghapus tanda delete. Untuk konten dan kategori, Core memeriksa collision slug dengan record aktif; selesaikan konflik sebelum mencoba lagi. Artikel/halaman non-draft juga dapat memerlukan permission publish saat dipulihkan. Purge menghapus record permanen dan relasi database terkait dapat ikut terhapus melalui foreign key.</p>
+<h2>Apa yang tidak dijamin</h2>
+<p>Core tidak menyimpan snapshot status sebelum trash di kolom terpisah; status post yang ada tetap pada record. Tidak ada janji auto-clean universal atau alasan penghapusan pada schema tersebut. Media/file delete memiliki alur sendiri dan dapat menghapus file fisik, jadi jangan mengandalkan Bin untuk aset.</p>
+<h2>Prosedur aman</h2>
 <ol>
-  <li>Buka halaman <strong>Posts</strong> atau <strong>Pages</strong> dari dashboard</li>
-  <li>Cari konten yang ingin dihapus</li>
-  <li>Klik tombol <strong>Delete</strong> atau pilih aksi massal delete untuk beberapa konten sekaligus</li>
-  <li>Konfirmasi penghapusan pada dialog yang muncul</li>
-  <li>Konten akan dipindahkan ke Recycle Bin dan tidak lagi muncul di website</li>
+  <li>Batasi restore dan purge dengan permission/scope minimum.</li>
+  <li>Periksa slug, rute, kategori, dan tampilan setelah restore.</li>
+  <li>Backup database serta storage secara terpisah.</li>
+  <li>Uji restore backup; Trash hanya melindungi dari sebagian kesalahan operasional.</li>
 </ol>
-
-<h2>Mengembalikan Konten dari Recycle Bin</h2>
-<p>Proses restore sangat sederhana dan tidak memerlukan keahlian teknis. Untuk mengembalikan konten:</p>
-
+', 'article', NULL, NULL, '/static/img/2026/07/sistem-soft-delete-thumb.jpg', 'published', 1, '2026-07-25 00:03:17', '2026-08-19 00:00:00', 0, NULL, 0),
+(287, 'Update, Reinstall, Backup, dan Hard Reset', 'sistem-reinstall-dan-update', '<p>CMS Update hanya tersedia bagi Site Owner yang juga memiliki <code>core.updates.manage</code>. Halaman dapat memeriksa endpoint remote, menerima ZIP manual berisi manifest, menerapkan update, atau reinstall Core.</p>
+<img src="/static/img/2026/07/update-page-screenshot.jpg" alt="CMS Update" style="width:100%;margin:1rem 0">
+<h2>Sebelum perubahan</h2>
+<p>Backup database, <code>cfg/.env</code>, <code>cfg/var</code>, private files, upload bertanggal, plugin, dan theme pihak ketiga. Pastikan proses web dapat menulis target Core. Backup otomatis updater untuk file yang berubah membantu rollback file, tetapi bukan pengganti backup deployment lengkap.</p>
+<h2>Update dan reinstall</h2>
+<p>Remote check mengambil metadata versi, lalu paket diverifikasi terhadap manifest sebelum penerapan. Upload manual mengharuskan <code>cms-manifest.json</code> di root ZIP. Reinstall menimpa file Core dengan versi paket original sambil mempertahankan data yang dikecualikan oleh kebijakan updater.</p>
+<h2>Hard reset</h2>
+<p>Opsi hard reset hanya tersedia bersama reinstall. Opsi ini mengembalikan system theme, auth paths, status plugin, slot, sidebar, dan menu ke default. Konten, user, media, konfigurasi database, dan upload dinyatakan tidak dihapus oleh alur ini, tetapi backup tetap wajib. Tidak ada tombol soft reset terpisah.</p>
+<h2>Verifikasi</h2>
+<p>Setelah update, cocokkan versi, buka frontend/login/dashboard, uji tulis konten, cek plugin/theme, dan baca log. Jangan menimpa deployment dengan <code>git pull</code> tanpa memahami preserve policy. Jika update gagal, pertahankan bukti log dan pulihkan dari backup yang telah diuji.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/sistem-reinstall-update-thumb.jpg', 'published', 1, '2026-07-25 00:06:50', '2026-08-19 00:00:00', 0, NULL, 0),
+(288, 'Memulai dengan Jyavani CMS 2.3.74', 'memulai-dengan-jyavani', '<p>Jyavani CMS 2.3.74 adalah CMS native PHP tanpa Composer runtime. Entry publik berada di <code>public/router.php</code>; konfigurasi, dashboard, aplikasi, plugin, schema, dan private files berada di luar web root deployment yang benar.</p>
+<h2>Orientasi pertama</h2>
+<p>Setelah Pondasi selesai, login melalui path yang dibuat installer, default <code>/login/</code>. Dashboard default berada di <code>/dashboard/</code>. Keduanya dapat diubah di Auth Settings; akses path lama akan tampil sebagai 404.</p>
+<img src="/static/img/2026/07/dashboard-screenshot.jpg" alt="Dashboard Jyavani" style="width:100%;margin:1rem 0">
+<h2>Checklist awal</h2>
 <ol>
-  <li>Navigasi ke menu <strong>Dashboard → Recycle Bin</strong></li>
-  <li>Temukan konten yang ingin dipulihkan menggunakan fitur pencarian atau filter</li>
-  <li>Klik tombol <strong>Restore</strong> pada baris konten yang dipilih</li>
-  <li>Konten akan kembali ke status semula dan muncul lagi di daftar Posts atau Pages</li>
-  <li>Jika sebelumnya konten berstatus published, maka konten akan langsung kembali muncul di frontend website</li>
+  <li>Hapus/nonaktifkan folder installer <code>public/pondasi</code>.</li>
+  <li>Pastikan <code>PUBLIC_PATH</code> menunjuk web root absolut yang ada.</li>
+  <li>Periksa site URL, title, bahasa dashboard, dan content default language.</li>
+  <li>Uji login, logout, 404 dashboard, dan HTTPS/session cookie.</li>
+  <li>Buat artikel draft, pilih kategori, preview bila diizinkan, lalu publish.</li>
+  <li>Siapkan backup database, upload publik, dan private files.</li>
 </ol>
-
-<p>Restore tidak hanya mengembalikan konten utama, tetapi juga mempertahankan relasi yang terkait seperti kategori, tag, thumbnail, dan komentar jika ada. Ini memastikan konten yang dipulihkan benar-benar identik dengan keadaan sebelum dihapus.</p>
-
-<h2>Penghapusan Permanen</h2>
-<p>Setelah konten berada di Recycle Bin selama periode waktu tertentu, atau jika Anda yakin konten tersebut memang tidak lagi dibutuhkan, Anda bisa menghapusnya secara permanen. Penghapusan permanen akan benar-benar menghapus data dari database dan tidak dapat dipulihkan kembali.</p>
-
-<p>Sebelum menghapus permanen, pertimbangkan hal-hal berikut:</p>
+<h2>Model akses</h2>
+<p>Akun Pondasi adalah Site Owner dan Administrator. Jangan membagikan akun ini. Buat akun harian dengan system/custom role minimum. Registrasi publik default nonaktif; bila diaktifkan, akun baru menerima Author dan dapat menunggu approval.</p>
+<p>Gunakan Theme/Plugin Store hanya untuk paket tepercaya. Perubahan URL baru sebaiknya memakai canonical content routes agar riwayat path tetap dapat redirect. Untuk instalasi detail, ikuti artikel Pondasi pada dokumentasi demo ini.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, '2026-07-25 00:09:41', '2026-08-19 00:00:00', 0, NULL, 0),
+(289, 'Private Files dan Media: Storage, Scope, dan Shortcode', 'private-files-dan-media', '<p>Core memisahkan gambar di Media Library dan dokumen umum di File Library. Keduanya mendukung public/private storage serta access scope, tetapi URL dan shortcode-nya berbeda.</p>
+<h2>Kontrak akses</h2>
 <ul>
-  <li>Apakah konten tersebut sudah memiliki backup? Jika ya, hapus permanen lebih aman dilakukan.</li>
-  <li>Apakah konten tersebut memiliki backlink dari website lain? Jika ya, pertimbangkan redirect URL.</li>
-  <li>Apakah konten tersebut perlu diarsipkan untuk kebutuhan legal atau audit? Jika ya, simpan backup terlebih dahulu.</li>
+  <li><code>public</code>: aset hanya publik bila visibility, disk, dan scope semuanya public.</li>
+  <li><code>editorial</code>: akses internal tim konten sesuai permission efektif.</li>
+  <li><code>admin</code>: akses administrator yang berwenang.</li>
 </ul>
-
-<h2>Soft Delete untuk Media dan File</h2>
-<p>Selain artikel dan halaman, soft delete juga berlaku untuk media seperti gambar dan dokumen. Ketika sebuah file dihapus dari Media Library, file tersebut tidak langsung dihapus dari storage. Sebaliknya, file dipindahkan ke status trashed dan tetap bisa dipulihkan dari Recycle Bin. Hal ini mencegah kehilangan aset visual penting akibat kesalahan klik.</p>
-
-<p>Namun, perlu diperhatikan bahwa file yang dihapus permanen dari Media Library akan menghapus file fisik dari server. Oleh karena itu, pastikan Anda sudah membackup file-file penting sebelum melakukan penghapusan permanen.</p>
-
-<h2>Pengaturan dan Otomatisasi Recycle Bin</h2>
-<p>Beberapa konfigurasi yang bisa diatur terkait Recycle Bin meliputi:</p>
-
-<ul>
-  <li><strong>Auto-clean interval</strong> — konten yang sudah berada di Recycle Bin lebih dari jangka waktu tertentu bisa dihapus otomatis untuk menghemat storage</li>
-  <li><strong>Role-based access</strong> — hanya admin atau editor tertentu yang bisa melakukan penghapusan permanen</li>
-  <li><strong>Batch restore/delete</strong> — fitur aksi massal untuk memulihkan atau menghapus banyak konten sekaligus</li>
-</ul>
-
-<h2>Best Practices Soft Delete</h2>
-<ul>
-  <li><strong>Jangan langsung hapus permanen</strong> — biarkan konten di Recycle Bin minimal beberapa hari hingga dipastikan tidak diperlukan lagi</li>
-  <li><strong>Backup rutin</strong> — meskipun ada soft delete, backup tetap menjadi garis pertahanan terakhir yang penting</li>
-  <li><strong>Periksa Recycle Bin secara berkala</strong> — bersihkan konten yang memang sudah tidak diperlukan untuk menjaga database tetap rapi</li>
-  <li><strong>Batasi akses penghapusan permanen</strong> — hanya berikan izin hapus permanen kepada admin senior untuk mencegah kehilangan data</li>
-  <li><strong>Edukasikan tim konten</strong> — pastikan semua editor memahami bahwa konten yang dihapus pertama kali masih bisa dipulihkan</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Sistem soft delete di Jyavani CMS memberikan lapisan perlindungan penting terhadap kesalahan manusiawi. Dengan Recycle Bin yang mudah diakses, proses restore yang cepat, dan penghapusan permanen yang terpisah, Anda memiliki kendali penuh atas siklus hidup konten website. Manfaatkan fitur ini untuk menjaga integritas data dan memberikan rasa aman kepada tim konten Anda.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/sistem-soft-delete-thumb.jpg', 'published', 1, '2026-07-25 00:03:17', '2026-07-25 08:20:11', 0, NULL, 0),
-(287, 'Sistem Reinstall dan Update', 'sistem-reinstall-dan-update', '<p>Pemeliharaan website adalah bagian penting dari operasional jangka panjang. Setiap CMS memerlukan mekanisme yang andal untuk memperbarui fitur, memperbaiki bug, dan menangani situasi darurat seperti korupsi konfigurasi atau kebutuhan untuk mengembalikan sistem ke kondisi default. Jyavani CMS menyediakan halaman <strong>Update &amp; Maintenance</strong> yang dirancang khusus untuk memudahkan proses update, reinstall, dan reset sistem.</p>
-
-<h2>Mengenal Halaman Update</h2>
-<p>Halaman Update di Jyavani CMS adalah pusat kendali untuk semua kebutuhan pemeliharaan sistem. Buka melalui <strong>Dashboard → Update</strong> untuk melihat informasi penting mengenai status versi CMS yang sedang berjalan.</p>
-
-<img src="/static/img/2026/07/update-page-screenshot.jpg" alt="Update and maintenance page showing current version, update options, and reset buttons" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Beberapa informasi yang ditampilkan di halaman ini meliputi:</p>
-
-<ul>
-  <li><strong>Versi saat ini</strong> — nomor versi Jyavani CMS yang terinstall di server Anda</li>
-  <li><strong>Update tersedia</strong> — notifikasi jika ada versi baru yang lebih tinggi di repository</li>
-  <li><strong>Changelog</strong> — daftar perubahan, penambahan fitur, perbaikan bug, dan perubahan breaking change</li>
-  <li><strong>Tombol Check for Updates</strong> — memeriksa versi terbaru secara manual</li>
-  <li><strong>Tombol Update Now</strong> — memulai proses download dan install versi terbaru</li>
-  <li><strong>Opsi Reset</strong> — soft reset dan hard reset konfigurasi</li>
-</ul>
-
-<h2>Proses Auto-Update</h2>
-<p>Jyavani CMS menyediakan fitur auto-update yang memungkinkan Anda memperbarui sistem ke versi terbaru tanpa harus melakukannya secara manual melalui FTP atau Git. Proses auto-update bekerja dengan mengunduh paket versi terbaru, mengekstraknya, dan mengganti file-file core yang sudah ada.</p>
-
-<p>Langkah-langkah melakukan auto-update:</p>
-
+<p>File private berada di <code>private_files/files</code>; gambar private berada di <code>private_files/media</code>. Controller membaca record, sesi, permission, storage identity, dan path sebelum stream. Jangan menaruh data sensitif pada public disk lalu hanya menyembunyikan URL.</p>
+<img src="/static/img/2026/07/files-list-screenshot.jpg" alt="File Library" style="width:100%;margin:1rem 0">
+<h2>Penyisipan</h2>
+<p>Gunakan ID File Library untuk <code>[private_pdf id="123" mode="embed"]</code> atau mode card/link yang didukung. Viewer PDF membuat URL stream bertoken HMAC dengan masa terbatas; token itu bukan mekanisme berbagi publik. Gambar private dipilih melalui Media Picker dan memakai endpoint private media, bukan shortcode PDF.</p>
+<h2>Batas fitur</h2>
+<p>Scope Core ditujukan untuk public, editorial, dan admin. Core tidak menyediakan membership/subscriber download policy. Plugin dapat menambah workflow, tetapi harus tetap memanggil guard Core dan tidak memperlonggar akses.</p>
+<p>Backup public upload dan kedua private storage. Aksi delete media/file bukan Recycle Bin universal dan dapat menghapus file fisik. Uji akses sebagai anonymous, author, editor, admin non-owner, dan Site Owner.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/private-files-thumb.jpg', 'published', 1, '2026-07-25 09:01:03', '2026-08-19 00:00:00', 0, NULL, 0),
+(290, 'Roles & Permissions: Akses Dinamis dan Scope', 'roles-permissions-mengatur-akses-pengguna', '<p>Roles &amp; Permissions menggabungkan grant dari seluruh role aktif pengguna. Menu ini dibatasi untuk Site Owner; permission pada route tetap diperiksa server-side.</p>
+<img src="/static/img/2026/08/roles-permissions-light.jpg" alt="Roles dan Permissions" style="width:100%;margin:1rem 0">
+<h2>System role</h2>
+<p>Author, Editor, dan Administrator disediakan Core. Slug, rank dasar, dan grant Core system role direkonsiliasi schema/migrasi agar kebijakan dasar tetap konsisten. Gunakan custom role untuk variasi tugas, bukan mengandalkan modifikasi grant system role yang dapat diselaraskan kembali.</p>
+<h2>Permission dan scope</h2>
+<p>Permission key menyatakan tindakan. <code>supports_scope</code> menyatakan apakah tindakan memerlukan konteks owner. Scope <strong>Own</strong> membatasi resource sendiri; <strong>Same or Lower</strong> membandingkan authority rank owner; <strong>Any</strong> mencakup semua resource; <strong>Global</strong> untuk tindakan tanpa owner. Rank tidak memberi akses tanpa permission.</p>
+<h2>Custom role</h2>
 <ol>
-  <li><strong>Backup database dan file terlebih dahulu</strong> — ini adalah langkah paling penting sebelum setiap update</li>
-  <li>Buka halaman <strong>Dashboard → Update</strong></li>
-  <li>Klik tombol <strong>Check for Updates</strong> untuk memverifikasi ketersediaan versi baru</li>
-  <li>Baca <strong>changelog</strong> untuk memahami perubahan yang akan terjadi</li>
-  <li>Klik tombol <strong>Update Now</strong> untuk memulai proses update</li>
-  <li>Tunggu proses download dan ekstraksi selesai, biasanya memerlukan waktu beberapa detik hingga menit tergantung koneksi internet dan ukuran paket</li>
-  <li>Setelah selesai, verifikasi website berjalan normal dengan membuka beberapa halaman utama</li>
-  <li>Periksa kembali pengaturan theme, plugin, dan menu untuk memastikan tidak ada yang berubah tidak terduga</li>
+  <li>Buat slug stabil dan rank minimum.</li>
+  <li>Aktifkan hanya permission yang dibutuhkan.</li>
+  <li>Pilih scope terkecil untuk permission berscope.</li>
+  <li>Tetapkan role ke user, lalu uji dengan akun tersebut.</li>
 </ol>
-
-<h2>Backup Sebelum Update</h2>
-<p>Backup adalah aspek krusial yang tidak boleh dilewatkan. Sebelum melakukan update, pastikan Anda sudah melakukan backup pada komponen berikut:</p>
-
-<ul>
-  <li><strong>Database</strong> — export seluruh tabel database ke file SQL melalui phpMyAdmin, command line mysqldump, atau fitur backup yang tersedia di server</li>
-  <li><strong>File upload dan media</strong> — folder public/static/img yang berisi gambar, thumbnail, dan file publik lainnya</li>
-  <li><strong>Private files</strong> — jika ada file private yang disimpan di luar public, pastikan juga dibackup</li>
-  <li><strong>File konfigurasi</strong> — file .env dan file custom di plugins atau themes jika Anda sudah melakukan kustomisasi</li>
-  <li><strong>Theme dan plugin custom</strong> — backup folder themes/ dan plugins/ jika Anda mengembangkan theme atau plugin sendiri</li>
-</ul>
-
-<p>Dengan backup yang lengkap, Anda bisa dengan cepat mengembalikan website ke kondisi sebelum update jika terjadi masalah kompatibilitas atau error setelah update.</p>
-
-<h2>Reinstall Komponen CMS</h2>
-<p>Terkadang, theme atau plugin mengalami masalah yang tidak bisa diperbaiki dengan sekadar menonaktifkan. Dalam situasi tersebut, Anda mungkin perlu melakukan reinstall pada komponen tertentu. Jyavani CMS memudahkan proses ini melalui opsi reinstall yang tersedia di halaman Update.</p>
-
-<p>Reinstall komponen biasanya diperlukan ketika:</p>
-
-<ul>
-  <li>File komponen terhapus atau rusak secara tidak sengaja</li>
-  <li>Konfigurasi komponen menjadi tidak konsisten</li>
-  <li>Komponen hasil modifikasi manual ingin dikembalikan ke versi asli</li>
-  <li>Muncul error yang tidak bisa dijelaskan setelah eksperimen</li>
-</ul>
-
-<p>Proses reinstall akan mengunduh ulang file komponen dari sumbernya dan menimpa file yang ada. Pastikan Anda sudah membackup modifikasi kustom sebelum melakukan reinstall jika tidak ingin kehilangan kustomisasi.</p>
-
-<h2>Soft Reset dan Hard Reset</h2>
-<p>Kadang kala konfigurasi website menjadi sangat berantakan sehingga lebih mudah untuk mengembalikan CMS ke kondisi default daripada memperbaiki satu per satu. Jyavani CMS menyediakan dua opsi reset untuk situasi berbeda.</p>
-
-<h3>Soft Reset</h3>
-<p>Soft reset mengembalikan pengaturan tertentu ke default tanpa menghapus konten Anda. Fitur ini cocok digunakan ketika konfigurasi theme, sidebar, atau menu menjadi kacau namun konten artikel dan halaman tetap ingin dipertahankan. Komponen yang dikembalikan ke default meliputi:</p>
-
-<ul>
-  <li>Konfigurasi theme dan theme zones</li>
-  <li>Pengaturan sidebar dan widget</li>
-  <li>Struktur menu navigasi</li>
-  <li>Beberapa pengaturan tampilan yang tidak memengaruhi data konten</li>
-</ul>
-
-<h3>Hard Reset</h3>
-<p>Hard reset adalah opsi yang lebih drastis. Fitur ini mengembalikan CMS ke kondisi pabrik dengan mereset theme, auth paths, plugin, slots, sidebar, dan menu ke default. Gunakan hard reset hanya dalam situasi darurat karena fitur ini akan menghapus kustomisasi yang sudah Anda lakukan. Sebelum hard reset, lakukan backup penuh terlebih dahulu.</p>
-
-<h2>Update Manual Melalui Git atau FTP</h2>
-<p>Jika auto-update tidak berfungsi karena keterbatasan server, koneksi internet, atau preferensi Anda, Anda masih bisa melakukan update manual. Terdapat beberapa cara untuk melakukan update manual:</p>
-
-<h3>Update via Git</h3>
-<pre>cd /var/www/jyavani.lan
-git pull origin main</pre>
-
-<p>Jika Anda menggunakan Git untuk mengelola deployment, pastikan Anda sudah melakukan commit atau stash terhadap kustomisasi lokal sebelum melakukan pull. Setelah pull, jalankan migrasi database jika ada file migrasi yang disertakan.</p>
-
-<h3>Update via ZIP</h3>
+<p>Permission yang belum dimigrasikan penuh dapat tampil tidak tersedia untuk custom role. Grant nonaktif dipertahankan agar tidak hilang diam-diam. Permission plugin juga dapat nondelegable sehingga hanya system role default yang boleh menerimanya.</p>
+<p>Perubahan role dan permission memicu audit/hook setelah transaksi. Core melakukan recheck pada mutasi sensitif untuk mengurangi race ketika akses berubah bersamaan.</p>
+', 'article', '{"meta_tags":{"description":"Panduan Roles & Permissions Jyavani Core: system role, custom role, permission, scope, authority rank, dan Site Owner."}}', NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, '2026-08-18 18:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+(291, 'Instalasi Bersih Jyavani CMS: Pondasi, Site Owner, dan Verifikasi Pertama', 'instalasi-bersih-pondasi-site-owner-verifikasi', '<p>Pondasi adalah installer web sekali pakai untuk deployment baru. Ekstrak paket Jyavani sehingga document root menunjuk direktori publik yang berisi router, sementara <code>cfg</code>, <code>dashboard</code>, <code>app</code>, <code>plugins</code>, dan <code>private_files</code> tetap di luar web root.</p>
+<h2>Prasyarat dan database</h2>
 <ol>
-  <li>Download paket versi terbaru dari repository resmi Jyavani CMS</li>
-  <li>Backup file dan database yang ada</li>
-  <li>Ekstrak file ZIP ke folder sementara</li>
-  <li>Ganti file core dengan file baru, kecuali file .env, folder uploads, plugins, dan themes kustom</li>
-  <li>Pastikan permission file dan folder tetap benar</li>
-  <li>Jalankan migrasi database jika diperlukan</li>
-  <li>Verifikasi website berjalan normal</li>
+  <li>Siapkan PHP dan MariaDB/MySQL sesuai versi paket serta extension yang dibutuhkan.</li>
+  <li>Buka <code>/pondasi/</code>, isi host, port, nama database, user, dan password.</li>
+  <li>Pondasi membuat/menjalankan schema default, seed translasi, dan menandai migrasi paket sebagai applied.</li>
+  <li>Isi identitas situs dan akun owner awal; konten demo bersifat opsional.</li>
 </ol>
-
-<h2>Troubleshooting Update</h2>
-<p>Jika proses update mengalami kegagalan, berikut beberapa langkah yang bisa dilakukan:</p>
-
+<h2>Site Owner dan grant awal</h2>
+<p>Akun awal ditulis sebagai legacy admin, <code>is_site_owner=1</code>, tidak locked, lalu menerima system role Administrator. Core mencatat event instalasi owner. System role Author, Editor, Administrator dan grant Core berasal dari schema; jangan membuat grant awal manual.</p>
+<h2>Path dan masking</h2>
+<p>Installer menetapkan default <code>/dashboard/</code>, <code>/login/</code>, dan <code>/register/</code>. Dashboard berada di luar web root; request yang tidak cocok dengan path konfigurasi diberi frontend 404. Registrasi tidak diaktifkan hanya karena path tersedia. Defaultnya disabled; bila administrator mengaktifkannya, pendaftar mendapat Author dan dapat locked bila approval aktif.</p>
+<h2>File konfigurasi dan lock operasional</h2>
+<p>Pondasi menulis <code>cfg/.env</code>, secret acak, session settings, dan <code>PUBLIC_PATH</code> absolut menuju web root yang terdeteksi. Bila penulisan gagal, installer menampilkan isi untuk pemasangan manual. Setelah sukses, hapus atau nonaktifkan folder <code>public/pondasi</code>; keberadaan <code>.env</code> hanya mengubah bootstrap normal, bukan pengganti penghapusan installer.</p>
+<h2>Verifikasi pertama</h2>
 <ul>
-  <li><strong>Periksa permission folder</strong> — pastikan CMS memiliki hak tulis ke direktori yang diperlukan untuk ekstraksi file</li>
-  <li><strong>Pastikan koneksi internet stabil</strong> — koneksi yang terputus saat download bisa menyebabkan file korup</li>
-  <li><strong>Cek error log server</strong> — log error sering memberikan petunjuk spesifik mengenai penyebab kegagalan</li>
-  <li><strong>Lakukan update manual</strong> — jika auto-update gagal berulang kali, gunakan metode manual</li>
-  <li><strong>Hubungi komunitas atau dukungan</strong> — jika masalah berlanjut, laporkan dengan menyertakan log error dan versi CMS</li>
+  <li>Pastikan frontend, login, dashboard, logout, dan 404 masking bekerja.</li>
+  <li>Periksa Site Owner memiliki Administrator dan halaman Roles/Update dapat dibuka.</li>
+  <li>Buat draft, upload aset uji, lalu hapus data uji.</li>
+  <li>Verifikasi HTTPS, cookie Secure, email/site URL, dan backup.</li>
 </ul>
-
-<h2>Best Practices Update dan Maintenance</h2>
+<p>Owner deployment harus mengatur ownership/permission file agar proses web hanya dapat menulis lokasi yang diperlukan. Anggap mode file hasil ekstraksi sebagai kondisi paket yang harus diaudit, bukan kebijakan keamanan Core yang sengaja menjadikan semua file privat.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+(292, 'Plugin Permissions: Default Roles dan Delegability', 'plugin-permissions-default-roles-dan-delegability', '<p>Kontrak permission plugin diperkenalkan pada 2.3.73 dan diperketat pada 2.3.74. Plugin mendeklarasikan permission miliknya di <code>plugin.json</code>; Core memvalidasi lalu menyinkronkannya ke authorization dinamis.</p>
+<h2>Namespace dan route guard</h2>
+<p>Key harus lowercase dan berbentuk <code>plugin.{nama-plugin}.{resource}.{action}</code>. Nama provider harus sama dengan nama plugin. Route dashboard dapat mendeklarasikan <code>permission</code>; permission route tidak boleh berscope karena route tidak membawa konteks resource. <code>roles</code> tetap menjadi compatibility policy dan filter pengetatan.</p>
+<pre><code>{
+  "name": "example",
+  "permissions": [{
+    "key": "plugin.example.settings.access",
+    "label": "Access Example Settings",
+    "supports_scope": false,
+    "default_roles": ["admin"],
+    "delegable": true
+  }]
+}</code></pre>
+<h2>Default roles</h2>
+<p><code>default_roles</code> hanya menerima Author, Editor, atau Administrator dan menyemai grant system role saat sinkronisasi. Bila permission menjaga route dan default tidak ditulis, Core menurunkannya dari compatibility <code>roles</code>. Bila keduanya ditulis, nilainya harus identik.</p>
+<h2>Delegability</h2>
+<p><code>delegable:true</code> mengizinkan grant custom role dipertahankan. <code>delegable:false</code> membatasi assignment ke system role default dan sinkronisasi menghapus grant stale pada custom role. Ini berguna untuk operasi plugin yang tidak aman untuk didelegasikan.</p>
+<h2>Lifecycle dan fail closed</h2>
+<p>Plugin aktif disinkronkan setelah load dan sebelum <code>admin_init</code>. Permission plugin disabled tetap dikenal tetapi <code>is_active=0</code>; uninstall menghapus permission dan grant. Perubahan label/delegability dapat diperbarui, tetapi collision semantic provider/resource/action/scope menyebabkan rollback. Route permission belum dianggap siap bila sinkronisasi gagal.</p>
+<p>Collision key, ownership, route Core, route plugin lain, atau kontrak invalid ditolak. ACL plugin adalah syarat tambahan: route tetap harus lolos Core guard, Site Owner policy bila dipakai, compatibility role filter, dan pemeriksaan permission. Tidak ada deklarasi plugin yang boleh melewati guard Core.</p>
+', 'article', NULL, NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+(293, 'Canonical Content Routes dan Riwayat Redirect', 'canonical-content-routes-dan-riwayat-redirect', '<p><code>content_routes</code> adalah registry path publik untuk artikel, halaman, dan theme content. Registry memisahkan identitas post/slug lama dari URL publik yang dapat berubah tanpa kehilangan riwayat redirect.</p>
+<h2>Canonical dan alias</h2>
+<p>Untuk setiap pasangan post-locale hanya satu row memiliki <code>is_canonical=1</code> dan <code>canonical_slot=1</code>. Saat canonical diganti, canonical lama diturunkan menjadi alias. Resolver alias mengembalikan target canonical sehingga router dapat memberi redirect permanen dan mempertahankan query string dengan aman.</p>
+<h2>Namespace global</h2>
+<p>Path dinormalisasi lowercase ASCII tanpa slash awal/akhir. Segment dapat bertingkat, misalnya <code>docs/core/routing</code>. Unik berlaku per locale. Validator juga menolak collision dengan slug/rute konten, permalink lama, prefix Core, path auth/list/category, route plugin, tahun arsip, dan file/direktori publik. Karena URL default memakai locale kosong, semua tipe konten berbagi namespace global tersebut.</p>
+<h2>Fallback</h2>
+<p>Konten lama yang belum memiliki canonical route tetap dapat diselesaikan melalui permalink dan slug legacy. Fallback bukan alias tersimpan: setelah route dibuat, gunakan registry sebagai sumber URL kanonis. Menu theme content memilih canonical route; sitemap canonical juga bergantung pada registry.</p>
+<h2>Locale dan plugin translasi</h2>
+<p>Core menyimpan kolom locale dan dapat membentuk URL <code>/{locale}/{path}/</code>, tetapi Core tidak menyediakan editor translasi native. Plugin translasi bertanggung jawab membuat versi konten, menentukan locale, menyinkronkan canonical/alias, menangani redirect lintas locale, dan menambah sitemap locale. Plugin harus memakai helper route agar collision, transaksi, dan riwayat canonical tetap konsisten.</p>
+<p>Sebelum mengubah path, cek link internal dan route plugin, simpan canonical baru secara atomik, lalu uji URL baru, alias lama, query string, 404, menu, canonical tag, dan sitemap.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+(294, 'Bahasa Dashboard, Content Locale, dan Integrasi Translasi', 'bahasa-dashboard-content-locale-dan-translasi', '<p>Jyavani memisahkan bahasa antarmuka dashboard dari locale dasar konten. Pemisahan ini memungkinkan editor memakai UI Indonesia sementara situs dasar menggunakan bahasa lain.</p>
+<h2>Dua setting</h2>
 <ul>
-  <li><strong>Selalu backup sebelum update</strong> — ini adalah aturan emas yang tidak boleh dilanggar</li>
-  <li><strong>Baca changelog dengan cermat</strong> — pahami perubahan, terutama breaking changes sebelum update</li>
-  <li><strong>Update di staging terlebih dahulu</strong> — untuk website produksi yang penting, uji update di environment staging sebelum menerapkan ke produksi</li>
-  <li><strong>Jangan skip versi major</strong> — ikuti urutan update yang disarankan untuk menghindari masalah kompatibilitas</li>
-  <li><strong>Verifikasi plugin dan theme</strong> — pastikan plugin dan theme yang digunakan kompatibel dengan versi baru CMS</li>
-  <li><strong>Jadwalkan update secara rutin</strong> — jangan menunda security update meskipun website tampak berjalan normal</li>
+  <li><code>site_language</code> mengisi locale dashboard melalui <code>admin_ui_locale()</code>.</li>
+  <li><code>content_default_language</code> mengisi locale frontend melalui <code>default_locale()</code>/<code>content_default_locale()</code>.</li>
 </ul>
-
-<h2>Kesimpulan</h2>
-<p>Sistem update dan reinstall di Jyavani CMS dirancang untuk memudahkan pemeliharaan website jangka panjang. Dengan auto-update, opsi reset yang terstruktur, dan dukungan update manual, Anda memiliki fleksibilitas untuk menjaga CMS tetap aman, stabil, dan up-to-date. Ingatlah untuk selalu melakukan backup sebelum melakukan perubahan besar agar data dan kustomisasi Anda tetap aman.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/sistem-reinstall-update-thumb.jpg', 'published', 1, '2026-07-25 00:06:50', '2026-07-25 08:20:11', 0, NULL, 0),
-(288, 'Memulai dengan Jyavani CMS', 'memulai-dengan-jyavani', '<p>Selamat datang di <strong>Jyavani CMS</strong>! Panduan ini dirancang khusus untuk membantu pengguna baru memahami fondasi CMS ini, mulai dari struktur file, cara login ke dashboard, hingga membuat dan mempublikasikan konten pertama Anda. Jyavani CMS dibangun dengan pendekatan native PHP sehingga ringan, cepat, dan tidak memerlukan dependency manager seperti Composer.</p>
-
-<h2>Apa itu Jyavani CMS?</h2>
-<p>Jyavani CMS adalah <strong>Content Management System</strong> yang dikembangkan menggunakan native PHP. Berbeda dengan CMS populer lainnya yang bergantung pada framework besar, Jyavani CMS dirancang agar sederhana, modular, dan mudah dipahami bahkan oleh pengguna yang baru memulai pengembangan website. Anda tidak perlu memahami konsep dependency injection, ORM, atau build tools modern untuk mulai menggunakannya.</p>
-
-<p>Keunggulan utama Jyavani CMS antara lain:</p>
-
-<ul>
-  <li><strong>Native PHP tanpa Composer</strong> — tidak ada vendor folder yang besar atau kompleksitas dependency</li>
-  <li><strong>Struktur file yang intuitif</strong> — setiap fitur memiliki lokasi yang jelas dan mudah ditemukan</li>
-  <li><strong>Dashboard dengan sidebar navigasi yang lengkap</strong> — semua fitur CMS dapat diakses dari satu tempat</li>
-  <li><strong>Theme dan plugin system yang modular</strong> — kustomisasi tampilan dan fitur tanpa mengubah core</li>
-  <li><strong>Hidden admin path untuk keamanan</strong> — URL dashboard dapat diubah dari default untuk meningkatkan keamanan</li>
-  <li><strong>SEO dan meta tags otomatis</strong> — konten Anda siap diindeks mesin pencari sejak awal</li>
-</ul>
-
-<h2>Struktur File dan Folder</h2>
-<p>Setelah proses install selesai, Anda akan melihat struktur direktori utama seperti berikut. Memahami struktur ini akan sangat membantu saat Anda mulai mengelola website:</p>
-
-<pre>jyavani/
-  cfg/            ← konfigurasi, helper functions, dan file .env
-  public/         ← entry point website (index.php) dan static assets
-  dashboard/      ← seluruh file antarmuka admin dashboard
-  pondasi/        ← file installer untuk setup awal
-  plugins/        ← plugin yang terinstall di website
-  themes/         ← theme aktif dan theme yang tersedia
-  schema/         ← file SQL untuk install dan demo content</pre>
-
-<p>Struktur ini sengaja dibuat sederhana agar pengguna dapat dengan cepat menemukan file yang ingin diedit, baik untuk kustomisasi theme, pembuatan plugin, maupun debugging konfigurasi.</p>
-
-<h2>Login ke Dashboard</h2>
-<p>Setelah install selesai, Anda akan mendapatkan URL dashboard admin. Secara default, URL admin berada di <code>/adiwira/</code>, tetapi sangat disarankan untuk mengubahnya saat install melalui pengaturan auth path. URL login dapat diakses sesuai dengan login path yang ditentukan saat install.</p>
-
-<p>Untuk login, masukkan username dan password yang Anda buat saat install pertama kali. Jika berhasil, Anda akan diarahkan ke dashboard utama yang menampilkan ringkasan website dan menu navigasi lengkap.</p>
-
-<h2>Tour Dashboard Jyavani CMS</h2>
-<p>Setelah login, Anda akan melihat dashboard utama Jyavani CMS. Antarmuka dashboard terdiri dari beberapa area utama yang masing-masing memiliki fungsi tersendiri:</p>
-
-<img src="/static/img/2026/07/dashboard-screenshot.jpg" alt="Jyavani CMS dashboard main page showing overview cards, sidebar navigation, and recent activity" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<ul>
-  <li><strong>Sidebar Navigasi</strong> — menu utama ke semua fitur seperti Posts, Pages, Media, Categories, Themes, Plugins, Users, Settings, dan Update. Menu ini dirancang dengan hierarki yang jelas sehingga mudah dijelajahi.</li>
-  <li><strong>Top Header</strong> — menampilkan informasi user yang sedang login, tautan ke profile, notifikasi, dan quick actions.</li>
-  <li><strong>Main Content Area</strong> — area kerja utama tempat konten dan form ditampilkan. Area ini akan berubah sesuai menu yang dipilih.</li>
-  <li><strong>Overview Cards</strong> — ringkasan visual mengenai jumlah artikel, halaman, pengguna, media, dan statistik singkat lainnya.</li>
-  <li><strong>Recent Activity</strong> — menampilkan konten terbaru yang baru saja dibuat atau diperbarui.</li>
-</ul>
-
-<p>Luangkan waktu beberapa menit untuk mengklik setiap menu dan melihat apa yang tersedia. Ini akan membantu Anda memahami kapabilitas CMS secara keseluruhan sebelum mulai membuat konten.</p>
-
-<h2>Membuat Artikel Pertama</h2>
-<p>Salah satu langkah pertama yang paling menyenangkan adalah membuat artikel pertama. Untuk melakukannya, navigasi ke <strong>Posts → Add New</strong> dari sidebar. Anda akan melihat form editor yang terdiri dari beberapa komponen penting:</p>
-
-<img src="/static/img/2026/07/add-post-screenshot.jpg" alt="Add new post form with title, slug, Quill editor, category selection, and publish status" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<ul>
-  <li><strong>Title</strong> — judul artikel yang akan ditampilkan di halaman artikel dan daftar konten. Gunakan judul yang jelas dan mengandung kata kunci utama.</li>
-  <li><strong>Slug</strong> — URL friendly untuk artikel. CMS akan menggenerate slug otomatis dari judul, tetapi Anda bisa mengubahnya manual agar lebih pendek dan optimal untuk SEO.</li>
-  <li><strong>Content Editor</strong> — editor WYSIWYG berbasis Quill yang memungkinkan Anda menulis, memformat teks, menambahkan heading, list, gambar, dan video dengan mudah.</li>
-  <li><strong>Categories</strong> — pilih satu atau lebih kategori untuk mengorganisir artikel Anda. Kategori membantu pengunjung menemukan konten terkait.</li>
-  <li><strong>Status</strong> — pilih antara Draft, Published, atau Private. Draft digunakan untuk menyimpan artikel yang belum selesai, Published untuk mempublikasikan, dan Private untuk artikel yang hanya bisa diakses user tertentu.</li>
-  <li><strong>Thumbnail</strong> — gambar utama artikel yang akan digunakan sebagai featured image di daftar artikel dan meta tag Open Graph.</li>
-  <li><strong>Meta Tags</strong> — deskripsi dan meta tambahan untuk keperluan SEO dan media sosial.</li>
-</ul>
-
-<h2>Draft, Preview, dan Publish</h2>
-<p>Anda tidak perlu langsung mempublikasikan artikel. CMS memungkinkan Anda menyimpan artikel sebagai <strong>Draft</strong> terlebih dahulu. Fitur ini sangat berguna saat Anda masih mengembangkan ide atau menunggu persetujuan.</p>
-
-<p>Setelah artikel selesai, Anda bisa mengubah status menjadi <strong>Published</strong>. Artikel akan langsung muncul di frontend website dan bisa diakses melalui URL berdasarkan slug yang telah ditentukan. Jika ingin melihat tampilan artikel sebelum benar-benar dipublikasikan, Anda bisa membuka URL preview yang tersedia.</p>
-
-<h2>Preview Artikel di Frontend</h2>
-<p>Setelah artikel dipublikasikan, Anda bisa membukanya di bagian depan website dengan URL seperti <code>https://jyavani.com/{slug}/</code>. Tampilan frontend bergantung pada theme yang aktif. Secara default, Jyavani CMS menyediakan theme yang bersih dan responsif, sehingga artikel Anda akan terlihat baik di desktop maupun perangkat mobile.</p>
-
-<h2>Langkah Selanjutnya</h2>
-<p>Setelah membuat artikel pertama, ada banyak fitur menarik yang bisa Anda jelajahi lebih dalam:</p>
-
-<ul>
-  <li><strong>Manajemen Kategori</strong> — buat kategori untuk mengelompokkan artikel berdasarkan topik.</li>
-  <li><strong>Media Library</strong> — upload gambar, dokumen, dan file lain untuk digunakan di artikel.</li>
-  <li><strong>Menu Manager</strong> — atur navigasi website agar pengunjung mudah menemukan halaman penting.</li>
-  <li><strong>Theme Customizer</strong> — ubah warna, logo, layout, dan tampilan website sesuai brand Anda.</li>
-  <li><strong>Settings Dashboard</strong> — konfigurasi judul website, URL, bahasa, sidebar, dan pengaturan autentikasi.</li>
-  <li><strong>Plugin System</strong> — install atau buat plugin untuk menambahkan fitur tanpa mengubah core CMS.</li>
-  <li><strong>User Management</strong> — tambahkan editor atau author jika website dikelola oleh banyak orang.</li>
-</ul>
-
-<h2>Tips untuk Pengguna Baru</h2>
-<ul>
-  <li><strong>Jangan takut bereksperimen dengan draft</strong> — gunakan status Draft untuk mencoba format dan konten tanpa memengaruhi website publik.</li>
-  <li><strong>Pelajari penggunaan slug dan SEO</strong> — URL yang bersih dan deskriptif akan membantu artikel ditemukan di mesin pencari.</li>
-  <li><strong>Gunakan kategori sejak awal</strong> — struktur kategori yang baik akan memudahkan organisasi konten jika website terus bertumbuh.</li>
-  <li><strong>Rutin backup</strong> — lakukan backup database dan file upload secara berkala untuk menjaga keamanan data.</li>
-  <li><strong>Baca dokumentasi dan artikel tutorial</strong> — Jyavani CMS menyediakan serangkaian artikel tutorial yang membahas setiap fitur secara detail.</li>
-  <li><strong>Ubah admin path dari default</strong> — langkah keamanan sederhana yang sebaiknya dilakukan sejak awal.</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Memulai dengan Jyavani CMS sangat mudah. Setelah login, Anda langsung bisa membuat artikel, mengatur kategori, dan menjelajahi fitur-fitur utama. Dengan struktur file yang sederhana dan dashboard yang intuitif, Jyavani CMS cocok untuk pemula yang ingin memiliki website profesional tanpa harus mempelajari framework yang kompleks. Selamat mengelola konten dan membangun website impian Anda!</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, '2026-07-25 00:09:41', '2026-07-25 08:20:11', 0, NULL, 0),
-(289, 'Private Files dan Media — Aset Digital dengan Akses Terbatas', 'private-files-dan-media', '<p>Tidak semua aset website boleh dilihat oleh publik. Dokumen internal, materi kerja, dan gambar yang masih ditinjau perlu disimpan di luar web root serta hanya dikirim setelah sesi dan role pengguna diperiksa. Jyavani CMS menyediakan <strong>Private Files</strong> dan <strong>Private Media</strong> untuk kebutuhan internal Tim Konten atau Administrator.</p>
-
-<h2>Perbedaan Private Files dan Private Media</h2>
-<p>Jyavani CMS memisahkan pengelolaan file dan media untuk memberikan fleksibilitas yang lebih besar. Berikut perbedaan utama keduanya:</p>
-
-<ul>
-  <li><strong>Private Files</strong> — dikelola melalui menu <strong>Files</strong>. Cocok untuk PDF, dokumen, arsip, spreadsheet, video, dan audio. File private disimpan di <code>private_files/files/</code> dan dibuka melalui controller terproteksi.</li>
-  <li><strong>Private Media</strong> — dikelola melalui <strong>Media Library</strong> dan khusus untuk gambar. Gambar private disimpan di <code>private_files/media/</code> dan disisipkan melalui URL terproteksi dari Media Picker.</li>
-</ul>
-
-<p>Keduanya mendukung pengaturan visibility <strong>private</strong>, sehingga file tidak bisa diakses hanya dengan mengetahui URL publiknya. Sistem akan memeriksa apakah pengguna memiliki hak akses sebelum mengirimkan file ke browser.</p>
-
-<h2>Private Files — Kelola Dokumen Terproteksi</h2>
-<p>Untuk mengelola file private, buka <strong>Dashboard → Files</strong>. Di halaman ini Anda bisa melihat daftar file yang sudah diupload beserta status, tanggal upload, dan ukuran file. Anda juga bisa beralih antara tab list dan tab upload untuk menambahkan file baru.</p>
-
-<img src="/static/img/2026/07/files-list-screenshot.jpg" alt="Private Files list page showing uploaded files with visibility status" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Ketika mengupload file, pastikan Anda memilih:</p>
-
-<ul>
-  <li><strong>Visibility: Private</strong> — agar file tidak bisa diakses publik</li>
-  <li><strong>Title, Caption, dan Credit</strong> — untuk memudahkan identifikasi file</li>
-  <li><strong>Access Scope</strong> — pilih Tim Konten atau Administrator</li>
-</ul>
-
-<h2>Private Media — Gambar dan Aset Visual Terbatas</h2>
-<p>Media Library tidak hanya untuk gambar publik. Setiap gambar yang diupload dapat diatur menjadi private agar hanya Tim Konten atau Administrator yang dapat memuatnya. Core saat ini tidak menyediakan scope member atau subscriber.</p>
-
-<img src="/static/img/2026/07/media-list-screenshot.jpg" alt="Media Library list page showing visibility column for private and public media" style="width:100%;border-radius:8px;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
-
-<p>Kolom visibility di Media Library memudahkan Anda untuk membedakan mana aset yang publik dan mana yang private hanya dengan sekali lihat. Anda juga bisa mengubah visibility media kapan saja tanpa harus mengupload ulang file.</p>
-
-<h2>Cara Mengupload Private Files dan Media</h2>
-<p>Proses upload private file atau media hampir sama dengan upload publik. Perbedaan utama ada pada pengaturan visibility:</p>
-
-<ol>
-  <li>Buka menu <strong>Files</strong> atau <strong>Media Library</strong> dari sidebar dashboard</li>
-  <li>Pilih tab <strong>Upload</strong> atau klik tombol upload</li>
-  <li>Pilih file dari komputer atau drag &amp; drop ke area upload</li>
-  <li>Isi metadata seperti title, alt text, dan description</li>
-  <li>Atur <strong>Visibility menjadi Private</strong></li>
-  <li>Pilih <strong>Access Scope</strong> yang sesuai</li>
-  <li>Simpan atau upload</li>
-</ol>
-
-<h2>Access Scope dan Hak Akses</h2>
-<p>Jyavani CMS menggunakan tiga nilai scope yang tetap dan mudah dipahami:</p>
-
-<ul>
-  <li><strong>Public</strong> (<code>public</code>) — aset public disk dapat diakses siapa saja tanpa login</li>
-  <li><strong>Tim Konten</strong> (<code>editorial</code>) — role author, editor, dan admin</li>
-  <li><strong>Administrator</strong> (<code>admin</code>) — hanya role admin</li>
-</ul>
-
-<p>Nilai <code>editorial</code> adalah identifier internal untuk Tim Konten dan bukan nama role editor. File private tidak dapat memakai scope Public; pilih scope paling sempit yang memenuhi kebutuhan.</p>
-
-<h2>Menggunakan Private Files di Artikel atau Halaman</h2>
-<p>Private File dan Private Media menggunakan cara penyisipan yang berbeda. ID shortcode selalu berasal dari menu <strong>Files</strong>, bukan dari Media Library.</p>
-
-<pre><code>[private_pdf id="123" mode="embed"]
-[private_pdf id="123" mode="card"]
-[private_file id="124" mode="button"]
-[private_file id="124" mode="link"]</code></pre>
-
-<p>Shortcode memeriksa sesi dan role sebelum menghasilkan viewer, kartu, tombol, atau tautan. Jika pengguna tidak memiliki izin, shortcode tidak menghasilkan tampilan. Untuk gambar private, gunakan Media Picker; CMS akan menyisipkan URL <code>/private/media/view/?id=...</code> secara langsung.</p>
-
-<h2>Keamanan Private Storage</h2>
-<p>File private di Jyavani CMS disimpan di lokasi yang berbeda dari file publik. Beberapa aspek keamanannya meliputi:</p>
-
-<ul>
-  <li><strong>Private disk</strong> — file private disimpan di luar web root atau di folder yang dilindungi, sehingga tidak bisa diakses langsung melalui URL publik</li>
-  <li><strong>Token PDF internal</strong> — viewer PDF membuat token HMAC sementara untuk mengambil stream raw; token ini bukan tautan berbagi publik</li>
-  <li><strong>Session validation</strong> — setiap akses file private diperiksa melawan session dan role pengguna</li>
-  <li><strong>No directory listing</strong> — folder private tidak memiliki index listing, sehingga penyerang tidak bisa melihat daftar file dengan mudah</li>
-</ul>
-
-<h2>Situasi Penggunaan Private Files dan Media</h2>
-<p>Fitur private files dan media sangat cocok untuk berbagai skenario:</p>
-
-<ul>
-  <li><strong>Materi editorial</strong> — gambar dan dokumen yang sedang ditinjau Tim Konten</li>
-  <li><strong>Dokumen administrator</strong> — laporan atau konfigurasi yang hanya boleh dibuka admin</li>
-  <li><strong>Lampiran internal</strong> — PDF, spreadsheet, arsip, video, atau audio untuk operasional pengelola situs</li>
-  <li><strong>Aset sebelum publikasi</strong> — media yang belum siap ditempatkan pada public disk</li>
-</ul>
-
-<h2>Best Practices Private Files dan Media</h2>
-<ul>
-  <li><strong>Selalu set visibility private untuk konten sensitif</strong> — jangan andalkan URL yang tidak dipublikasikan sebagai satu-satunya proteksi</li>
-  <li><strong>Pilih access scope minimal yang diperlukan</strong> — gunakan scope paling ketat yang masih memenuhi kebutuhan akses</li>
-  <li><strong>Gunakan HTTPS</strong> — pastikan website berjalan di HTTPS agar file tidak diintercept saat transit</li>
-  <li><strong>Review daftar file private secara berkala</strong> — hapus file yang sudah tidak diperlukan untuk mengurangi exposure</li>
-  <li><strong>Backup private files</strong> — private disk juga perlu dibackup karena berisi data penting</li>
-  <li><strong>Jangan membagikan URL private sebagai tautan publik</strong> — akses tetap bergantung pada sesi dan role pengguna</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Private Files dan Private Media melindungi aset internal pengelola situs dengan penyimpanan di luar web root, pemeriksaan sesi, dan scope Tim Konten atau Administrator. Fitur Core ini ditujukan untuk workflow internal; akses member atau subscriber memerlukan fitur tambahan yang belum disediakan oleh Core.</p>
-
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', NULL, NULL, '/static/img/2026/07/private-files-thumb.jpg', 'published', 1, '2026-07-25 09:01:03', '2026-07-25 09:01:03', 0, NULL, 0),
-(290, 'Roles & Permissions — Mengatur Akses Pengguna dengan Lebih Presisi', 'roles-permissions-mengatur-akses-pengguna', '<p>Setiap anggota tim membutuhkan akses yang berbeda. Penulis mungkin hanya perlu membuat artikel miliknya sendiri, editor perlu meninjau lebih banyak konten, sedangkan administrator menangani pengaturan yang lebih luas. Menu <strong>Roles &amp; Permissions</strong> di Jyavani CMS membantu Site Owner menyusun pembagian akses tersebut secara terukur tanpa harus memberikan hak administrator kepada semua pengguna.</p>
-
-<h2>Mengenal Site Owner dan Role</h2>
-<p><strong>Site Owner</strong> adalah atribut khusus pada akun pemilik instalasi, bukan nama role. Akun pertama yang dibuat melalui Pondasi otomatis menjadi Site Owner dan juga menerima role Administrator. Hanya Site Owner yang dapat membuka serta mengelola menu Roles &amp; Permissions.</p>
-<p>Instalasi baru menyediakan tiga system role secara otomatis:</p>
-<ul>
-  <li><strong>Author</strong> — untuk pengguna yang membuat dan mengelola konten miliknya.</li>
-  <li><strong>Editor</strong> — untuk workflow editorial dengan jangkauan pengelolaan lebih luas.</li>
-  <li><strong>Administrator</strong> — untuk administrasi situs, pengguna, dan konten.</li>
-</ul>
-<p>System role dilindungi agar fondasi akses Core tetap konsisten. Site Owner dapat mengubah nama dan deskripsinya, tetapi slug, authority rank, dan permission dikelola oleh Core. Jika membutuhkan kombinasi akses lain, buatlah <strong>custom role</strong>.</p>
-
-<h2>Membuka Roles &amp; Permissions</h2>
-<p>Masuk ke dashboard sebagai Site Owner, buka grup <strong>Settings</strong>, lalu pilih <strong>Roles &amp; Permissions</strong>. Tautan ini ditempatkan setelah menu Users agar pengelolaan akun dan role berada dalam alur yang berdekatan.</p>
-<img src="/static/img/2026/08/roles-permissions-light.jpg" alt="Tampilan light theme menu Roles dan Permissions di dashboard Jyavani CMS" style="width:100%;border-radius:10px;margin:1rem 0;box-shadow:0 4px 16px rgba(15,23,42,.12)">
-<p>Panel kiri menampilkan daftar role beserta jenis, jumlah pengguna, dan jumlah permission. Area kerja di sebelah kanan menampilkan detail role, penjelasan statusnya, serta kelompok permission yang dapat dicari, dibuka, atau ditutup.</p>
-
-<h2>Membuat Custom Role</h2>
-<ol>
-  <li>Klik <strong>New custom role</strong> pada panel daftar role.</li>
-  <li>Isi <strong>Role Name</strong> dengan nama yang mudah dipahami, misalnya <em>Content Reviewer</em>.</li>
-  <li>Periksa <strong>Role Slug</strong>. Slug memakai huruf kecil, angka, tanda hubung, atau garis bawah dan tidak dapat diubah setelah role dibuat.</li>
-  <li>Atur <strong>Authority Rank</strong> hanya jika role akan memakai scope Same or Lower.</li>
-  <li>Aktifkan permission yang benar-benar diperlukan.</li>
-  <li>Pilih scope untuk setiap permission yang mendukung kepemilikan resource.</li>
-  <li>Klik <strong>Create Role</strong>.</li>
-</ol>
-<p>Role baru dimulai dengan authority rank <code>0</code> dan tanpa permission. Pendekatan ini membuat role bersifat aman secara default: akses baru diberikan secara sengaja, bukan diasumsikan.</p>
-
-<h2>Memahami Permission dan Scope</h2>
-<p>Permission menjelaskan <em>tindakan apa</em> yang boleh dilakukan, sedangkan scope menjelaskan <em>seberapa jauh</em> tindakan tersebut berlaku. Permission dikelompokkan berdasarkan modul seperti Posts, Pages, Users, Categories, Dashboard, dan Settings.</p>
-<ul>
-  <li><strong>Own</strong> — hanya resource yang dimiliki oleh pengguna yang sedang bertindak.</li>
-  <li><strong>Same or Lower</strong> — resource sendiri dan resource milik pengguna dengan authority rank setara atau lebih rendah.</li>
-  <li><strong>Any</strong> — semua resource yang dicakup oleh permission tersebut.</li>
-  <li><strong>Global</strong> — tindakan tidak menggunakan konsep kepemilikan resource.</li>
-</ul>
-<p>Pilihan scope baru aktif setelah permission dicentang. Gunakan kolom pencarian untuk menemukan tindakan berdasarkan nama modul, label, atau key teknis. Kelompok yang berisi permission aktif otomatis dibuka agar konfigurasi penting mudah ditinjau.</p>
-
-<h3>Authority Rank Bukan Permission</h3>
-<p>Authority rank hanya digunakan ketika scope <strong>Same or Lower</strong> dipilih. Rank yang lebih tinggi tidak otomatis memberikan akses apa pun. Sebuah role tetap membutuhkan permission yang sesuai sebelum dapat melakukan tindakan.</p>
-
-<h2>Contoh: Role Content Reviewer</h2>
-<p>Untuk pengguna yang hanya perlu membaca dan memperbarui artikel dalam batas tertentu, Site Owner dapat membuat role <strong>Content Reviewer</strong> dengan contoh konfigurasi berikut:</p>
-<ul>
-  <li><strong>View posts</strong> dengan scope Same or Lower.</li>
-  <li><strong>Update posts</strong> dengan scope Same or Lower.</li>
-  <li><strong>Publish posts</strong> hanya jika reviewer bertanggung jawab atas keputusan publikasi.</li>
-  <li>Tanpa permission untuk mengelola pengguna, plugin, update Core, atau pengaturan autentikasi.</li>
-</ul>
-<p>Mulailah dari akses minimum, uji workflow pengguna, lalu tambahkan permission jika benar-benar dibutuhkan.</p>
-
-<h2>Menetapkan Role kepada Pengguna</h2>
-<p>Setelah custom role disimpan, buka menu <strong>Users</strong> dan edit akun yang akan menerima role. Pilih satu atau beberapa role sesuai tanggung jawab pengguna, lalu simpan perubahan. Permission efektif pengguna merupakan gabungan grant aktif dari role yang dimilikinya.</p>
-<p>Perubahan role dan permission dicatat pada authorization audit. Jika grant dicabut ketika pengguna sedang melakukan mutasi konten, Core melakukan pemeriksaan ulang di dalam transaksi agar perubahan akses tidak dilewati oleh request yang berjalan bersamaan.</p>
-
-<h2>Status Permission yang Belum Tersedia</h2>
-<p>Beberapa permission Core dapat tampil sebagai belum tersedia untuk custom role. Artinya modul terkait belum sepenuhnya memakai authorization dinamis. Permission tersebut tidak dapat dipilih sampai migrasi modul selesai. Grant lama yang sedang tidak aktif tetap dipertahankan dan tidak dihapus secara diam-diam ketika detail role lain disimpan.</p>
-
-<h2>Praktik Terbaik</h2>
-<ul>
-  <li><strong>Gunakan prinsip least privilege</strong> — berikan akses minimum yang diperlukan.</li>
-  <li><strong>Hindari rank tinggi tanpa alasan</strong> — terutama untuk role yang memakai Same or Lower.</li>
-  <li><strong>Pisahkan tugas editorial dan administrasi</strong> — pengelola artikel tidak selalu membutuhkan akses pengaturan sistem.</li>
-  <li><strong>Tinjau jumlah pengguna sebelum menghapus role</strong> — pengguna yang terkait akan langsung kehilangan role tersebut.</li>
-  <li><strong>Uji dengan akun non-owner</strong> — pastikan menu, daftar resource, dan tombol aksi sesuai scope yang dipilih.</li>
-</ul>
-
-<h2>Kesimpulan</h2>
-<p>Roles &amp; Permissions memberikan kontrol akses yang lebih fleksibel daripada pembagian role tetap saja. System role menyediakan fondasi yang aman, sedangkan custom role memungkinkan Site Owner menyesuaikan akses berdasarkan tugas nyata setiap anggota tim. Dengan permission yang spesifik, scope kepemilikan, dan authority rank yang digunakan secara hati-hati, pengelolaan Jyavani CMS dapat tetap sederhana sekaligus lebih aman.</p>
-<hr>
-<p><em>Artikel ini adalah bagian dari dokumentasi Jyavani CMS.</em></p>
-', 'article', '{"meta_tags":{"description":"Panduan menggunakan Roles & Permissions untuk membuat custom role, memilih permission, memahami scope, dan menetapkan akses pengguna di Jyavani CMS."}}', NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', 0, NULL, 0);
+<p>Jika content default kosong atau invalid, Core jatuh kembali ke site language; nilai invalid site language jatuh ke English. Seed UI menyediakan source English serta translasi Indonesia dan Jerman. English tidak memerlukan lookup database.</p>
+<h2>Bootstrap dan HTML</h2>
+<p>Bootstrap membaca kedua setting, mengaktifkan content locale untuk frontend, lalu dashboard mengaktifkan kembali site language. Atribut <code>lang</code> melewati filter sehingga integrasi dapat menyesuaikan nilai. Seed UI diimpor idempotent: string baru ditambahkan tanpa menimpa terjemahan yang sudah diedit.</p>
+<h2>Apa yang bukan fitur Core</h2>
+<p>Core tidak membuat salinan terjemahan artikel/halaman, workflow penerjemah, language switcher data, route terjemahan, hreflang, atau fallback konten otomatis. Core hanya menyediakan locale helper, UI seed, hook lifecycle konten, tabel route ber-locale, dan extension point.</p>
+<h2>Tanggung jawab plugin translasi</h2>
+<p>Plugin menentukan model translasi, locale yang didukung, akses editor, dan fallback. Gunakan hook <code>admin_post_after_*</code>/<code>admin_page_after_*</code> untuk sinkronisasi setelah mutasi. Buat canonical route dan alias untuk setiap locale tanpa collision; default locale biasanya tanpa prefix, locale lain memakai prefix.</p>
+<p>Menu dan kategori hanya diterjemahkan bila plugin secara eksplisit mendukung record tersebut dan theme memakai hasil integrasinya. Jangan menganggap mengganti content default otomatis menerjemahkan slug, menu, kategori, metadata, atau isi lama. Uji UI en/id/de, URL default/terjemahan, redirect, canonical, sitemap, dan kondisi plugin disabled.</p>
+', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0);
 
 INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `height`, `title`, `alt`, `caption`, `credit`, `visibility`, `storage_disk`, `storage_path`, `access_scope`, `is_downloadable`, `user_id`, `created_at`, `updated_at`, `target_url`, `target_attribute`) VALUES
 (64, '/static/img/2026/07/content-management-71b8788f.jpg', 'content-management-71b8788f.png', 'image/png', 'png', 372716, 1200, 675, 'Content Management', 'Content Management System Dashboard', NULL, NULL, 'public', 'public', '2026/07/content-management-71b8788f.png', 'public', 1, 1, '2026-07-24 09:57:56', NULL, NULL, NULL),
@@ -1744,13 +398,22 @@ INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigne
 (287, 4, 1, '2026-07-25 09:07:48'),
 (288, 1, 1, '2026-07-25 09:07:48'),
 (289, 2, 1, '2026-07-25 09:07:48'),
-(290, 1, 1, '2026-08-18 18:00:00');
+(290, 1, 1, '2026-08-18 18:00:00'),
+(291, 1, 1, '2026-08-19 00:00:00'),
+(291, 4, 1, '2026-08-19 00:00:00'),
+(292, 2, 1, '2026-08-19 00:00:00'),
+(292, 3, 1, '2026-08-19 00:00:00'),
+(292, 4, 1, '2026-08-19 00:00:00'),
+(293, 1, 1, '2026-08-19 00:00:00'),
+(293, 3, 1, '2026-08-19 00:00:00'),
+(294, 1, 1, '2026-08-19 00:00:00'),
+(294, 3, 1, '2026-08-19 00:00:00');
 
--- Demo shortcode preset: random demo posts by author 1
+-- Demo shortcode preset: random demo posts by the initial Site Owner.
 INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES
 (300, 'Demo Random Posts Preset', 'demo_random_posts', '', 'sc_preset', '{"source":"posts","type":"article","category":"","author":"1","order_by":"RAND()","order_dir":"DESC","limit":"4","layout":"mini","kicker":"Pilihan","excerpt_len":"0","wrap":"1"}', NULL, NULL, 'published', 1, '2026-07-25 09:07:48', '2026-07-25 09:07:48', 0, NULL, 0);
 
--- Demo sidebar widget using the preset above
+-- Demo sidebar widget using the preset above.
 INSERT IGNORE INTO `sidebar_zone_items` (`zone_id`, `type`, `title`, `config`, `ordering`, `active`) VALUES
 (3, 'shortcode_preset', 'Pilihan Demo', '{"preset_slug":"demo_random_posts"}', 2, 1);
 

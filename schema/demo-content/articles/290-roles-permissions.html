@@ -1,0 +1,15 @@
+<p>Roles &amp; Permissions menggabungkan grant dari seluruh role aktif pengguna. Menu ini dibatasi untuk Site Owner; permission pada route tetap diperiksa server-side.</p>
+<img src="/static/img/2026/08/roles-permissions-light.jpg" alt="Roles dan Permissions" style="width:100%;margin:1rem 0">
+<h2>System role</h2>
+<p>Author, Editor, dan Administrator disediakan Core. Slug, rank dasar, dan grant Core system role direkonsiliasi schema/migrasi agar kebijakan dasar tetap konsisten. Gunakan custom role untuk variasi tugas, bukan mengandalkan modifikasi grant system role yang dapat diselaraskan kembali.</p>
+<h2>Permission dan scope</h2>
+<p>Permission key menyatakan tindakan. <code>supports_scope</code> menyatakan apakah tindakan memerlukan konteks owner. Scope <strong>Own</strong> membatasi resource sendiri; <strong>Same or Lower</strong> membandingkan authority rank owner; <strong>Any</strong> mencakup semua resource; <strong>Global</strong> untuk tindakan tanpa owner. Rank tidak memberi akses tanpa permission.</p>
+<h2>Custom role</h2>
+<ol>
+  <li>Buat slug stabil dan rank minimum.</li>
+  <li>Aktifkan hanya permission yang dibutuhkan.</li>
+  <li>Pilih scope terkecil untuk permission berscope.</li>
+  <li>Tetapkan role ke user, lalu uji dengan akun tersebut.</li>
+</ol>
+<p>Permission yang belum dimigrasikan penuh dapat tampil tidak tersedia untuk custom role. Grant nonaktif dipertahankan agar tidak hilang diam-diam. Permission plugin juga dapat nondelegable sehingga hanya system role default yang boleh menerimanya.</p>
+<p>Perubahan role dan permission memicu audit/hook setelah transaksi. Core melakukan recheck pada mutasi sensitif untuk mengurangi race ketika akses berubah bersamaan.</p>

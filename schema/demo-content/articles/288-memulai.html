@@ -1,0 +1,16 @@
+<p>Jyavani CMS 2.3.74 adalah CMS native PHP tanpa Composer runtime. Entry publik berada di <code>public/router.php</code>; konfigurasi, dashboard, aplikasi, plugin, schema, dan private files berada di luar web root deployment yang benar.</p>
+<h2>Orientasi pertama</h2>
+<p>Setelah Pondasi selesai, login melalui path yang dibuat installer, default <code>/login/</code>. Dashboard default berada di <code>/dashboard/</code>. Keduanya dapat diubah di Auth Settings; akses path lama akan tampil sebagai 404.</p>
+<img src="/static/img/2026/07/dashboard-screenshot.jpg" alt="Dashboard Jyavani" style="width:100%;margin:1rem 0">
+<h2>Checklist awal</h2>
+<ol>
+  <li>Hapus/nonaktifkan folder installer <code>public/pondasi</code>.</li>
+  <li>Pastikan <code>PUBLIC_PATH</code> menunjuk web root absolut yang ada.</li>
+  <li>Periksa site URL, title, bahasa dashboard, dan content default language.</li>
+  <li>Uji login, logout, 404 dashboard, dan HTTPS/session cookie.</li>
+  <li>Buat artikel draft, pilih kategori, preview bila diizinkan, lalu publish.</li>
+  <li>Siapkan backup database, upload publik, dan private files.</li>
+</ol>
+<h2>Model akses</h2>
+<p>Akun Pondasi adalah Site Owner dan Administrator. Jangan membagikan akun ini. Buat akun harian dengan system/custom role minimum. Registrasi publik default nonaktif; bila diaktifkan, akun baru menerima Author dan dapat menunggu approval.</p>
+<p>Gunakan Theme/Plugin Store hanya untuk paket tepercaya. Perubahan URL baru sebaiknya memakai canonical content routes agar riwayat path tetap dapat redirect. Untuk instalasi detail, ikuti artikel Pondasi pada dokumentasi demo ini.</p>

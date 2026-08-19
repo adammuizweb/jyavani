@@ -1,0 +1,14 @@
+<p>Recycle Bin Core berlaku untuk artikel, halaman, theme content, kategori, dan user yang memiliki <code>is_deleted</code>/<code>deleted_at</code>. Media dan File Library tidak memakai kontrak soft delete yang sama.</p>
+<h2>Trash, restore, purge</h2>
+<p>Delete awal menandai record agar tidak tampil pada daftar aktif atau frontend. Halaman Bin per tipe menampilkan item yang boleh dilihat pengguna berdasarkan permission restore/purge dan scope pemilik.</p>
+<img src="/static/img/2026/07/bin-screenshot.jpg" alt="Recycle Bin artikel" style="width:100%;margin:1rem 0">
+<p>Restore menghapus tanda delete. Untuk konten dan kategori, Core memeriksa collision slug dengan record aktif; selesaikan konflik sebelum mencoba lagi. Artikel/halaman non-draft juga dapat memerlukan permission publish saat dipulihkan. Purge menghapus record permanen dan relasi database terkait dapat ikut terhapus melalui foreign key.</p>
+<h2>Apa yang tidak dijamin</h2>
+<p>Core tidak menyimpan snapshot status sebelum trash di kolom terpisah; status post yang ada tetap pada record. Tidak ada janji auto-clean universal atau alasan penghapusan pada schema tersebut. Media/file delete memiliki alur sendiri dan dapat menghapus file fisik, jadi jangan mengandalkan Bin untuk aset.</p>
+<h2>Prosedur aman</h2>
+<ol>
+  <li>Batasi restore dan purge dengan permission/scope minimum.</li>
+  <li>Periksa slug, rute, kategori, dan tampilan setelah restore.</li>
+  <li>Backup database serta storage secara terpisah.</li>
+  <li>Uji restore backup; Trash hanya melindungi dari sebagian kesalahan operasional.</li>
+</ol>

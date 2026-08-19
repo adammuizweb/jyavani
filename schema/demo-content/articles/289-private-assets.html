@@ -1,0 +1,14 @@
+<p>Core memisahkan gambar di Media Library dan dokumen umum di File Library. Keduanya mendukung public/private storage serta access scope, tetapi URL dan shortcode-nya berbeda.</p>
+<h2>Kontrak akses</h2>
+<ul>
+  <li><code>public</code>: aset hanya publik bila visibility, disk, dan scope semuanya public.</li>
+  <li><code>editorial</code>: akses internal tim konten sesuai permission efektif.</li>
+  <li><code>admin</code>: akses administrator yang berwenang.</li>
+</ul>
+<p>File private berada di <code>private_files/files</code>; gambar private berada di <code>private_files/media</code>. Controller membaca record, sesi, permission, storage identity, dan path sebelum stream. Jangan menaruh data sensitif pada public disk lalu hanya menyembunyikan URL.</p>
+<img src="/static/img/2026/07/files-list-screenshot.jpg" alt="File Library" style="width:100%;margin:1rem 0">
+<h2>Penyisipan</h2>
+<p>Gunakan ID File Library untuk <code>[private_pdf id="123" mode="embed"]</code> atau mode card/link yang didukung. Viewer PDF membuat URL stream bertoken HMAC dengan masa terbatas; token itu bukan mekanisme berbagi publik. Gambar private dipilih melalui Media Picker dan memakai endpoint private media, bukan shortcode PDF.</p>
+<h2>Batas fitur</h2>
+<p>Scope Core ditujukan untuk public, editorial, dan admin. Core tidak menyediakan membership/subscriber download policy. Plugin dapat menambah workflow, tetapi harus tetap memanggil guard Core dan tidak memperlonggar akses.</p>
+<p>Backup public upload dan kedua private storage. Aksi delete media/file bukan Recycle Bin universal dan dapat menghapus file fisik. Uji akses sebagai anonymous, author, editor, admin non-owner, dan Site Owner.</p>

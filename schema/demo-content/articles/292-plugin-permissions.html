@@ -1,0 +1,20 @@
+<p>Kontrak permission plugin diperkenalkan pada 2.3.73 dan diperketat pada 2.3.74. Plugin mendeklarasikan permission miliknya di <code>plugin.json</code>; Core memvalidasi lalu menyinkronkannya ke authorization dinamis.</p>
+<h2>Namespace dan route guard</h2>
+<p>Key harus lowercase dan berbentuk <code>plugin.{nama-plugin}.{resource}.{action}</code>. Nama provider harus sama dengan nama plugin. Route dashboard dapat mendeklarasikan <code>permission</code>; permission route tidak boleh berscope karena route tidak membawa konteks resource. <code>roles</code> tetap menjadi compatibility policy dan filter pengetatan.</p>
+<pre><code>{
+  "name": "example",
+  "permissions": [{
+    "key": "plugin.example.settings.access",
+    "label": "Access Example Settings",
+    "supports_scope": false,
+    "default_roles": ["admin"],
+    "delegable": true
+  }]
+}</code></pre>
+<h2>Default roles</h2>
+<p><code>default_roles</code> hanya menerima Author, Editor, atau Administrator dan menyemai grant system role saat sinkronisasi. Bila permission menjaga route dan default tidak ditulis, Core menurunkannya dari compatibility <code>roles</code>. Bila keduanya ditulis, nilainya harus identik.</p>
+<h2>Delegability</h2>
+<p><code>delegable:true</code> mengizinkan grant custom role dipertahankan. <code>delegable:false</code> membatasi assignment ke system role default dan sinkronisasi menghapus grant stale pada custom role. Ini berguna untuk operasi plugin yang tidak aman untuk didelegasikan.</p>
+<h2>Lifecycle dan fail closed</h2>
+<p>Plugin aktif disinkronkan setelah load dan sebelum <code>admin_init</code>. Permission plugin disabled tetap dikenal tetapi <code>is_active=0</code>; uninstall menghapus permission dan grant. Perubahan label/delegability dapat diperbarui, tetapi collision semantic provider/resource/action/scope menyebabkan rollback. Route permission belum dianggap siap bila sinkronisasi gagal.</p>
+<p>Collision key, ownership, route Core, route plugin lain, atau kontrak invalid ditolak. ACL plugin adalah syarat tambahan: route tetap harus lolos Core guard, Site Owner policy bila dipakai, compatibility role filter, dan pemeriksaan permission. Tidak ada deklarasi plugin yang boleh melewati guard Core.</p>

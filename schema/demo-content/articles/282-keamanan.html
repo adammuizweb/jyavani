@@ -1,0 +1,10 @@
+<p>Core menyediakan kontrol akses dinamis, CSRF, session fingerprint, path guard, brute-force tracking, private storage, dan validasi paket. Fitur ini adalah lapisan, bukan jaminan keamanan deployment.</p>
+<h2>Autentikasi dan dashboard</h2>
+<p>PHP dashboard berada di luar web root dan hanya dicapai lewat router pada <code>admin_path</code>. Path yang salah dimasking sebagai frontend 404. Login memakai CSRF, password hash PHP, dan proteksi percobaan yang dapat dikonfigurasi. Path tersembunyi mengurangi noise pemindaian, tetapi tidak menggantikan password unik, rate limiting proxy, atau MFA dari integrasi tambahan.</p>
+<img src="/static/img/2026/07/auth-settings-screenshot.jpg" alt="Pengaturan autentikasi" style="width:100%;margin:1rem 0">
+<h2>Session dan HTTPS</h2>
+<p>Cookie dapat memakai HttpOnly, SameSite, domain/path, dan Secure sesuai konfigurasi. Set <code>FORCE_HTTPS=1</code> hanya setelah proxy/web server meneruskan status HTTPS dengan benar. Lindungi <code>cfg/.env</code>, secret session, secret token file, dan kredensial database.</p>
+<h2>Otorisasi</h2>
+<p>Gunakan least privilege. Site Owner adalah batas tambahan bagi operasi kritis; admin biasa tidak identik dengan owner. Permission, scope, kepemilikan, status akun, dan guard route diperiksa server-side. Plugin ACL menambah syarat, bukan melewati guard Core.</p>
+<h2>Aset dan operasi</h2>
+<p>Private asset harus berada pada private disk dengan scope tepat. Token viewer PDF bersifat sementara dan bukan tautan publik. Update hanya dari endpoint/paket tepercaya, periksa checksum/manifest, dan buat backup teruji. Patch PHP, database, web server, theme, serta plugin secara rutin. Pantau error log dan audit authorization tanpa menyimpan secret ke log.</p>

@@ -1,0 +1,16 @@
+<p>Jyavani Core 2.3.74 menyimpan artikel dan halaman di tabel konten yang sama, tetapi memberi keduanya alur dashboard dan permission terpisah. Artikel dapat memiliki beberapa kategori; halaman tidak memiliki relasi kategori.</p>
+<h2>Membuat dan menerbitkan</h2>
+<ol>
+  <li>Buka <strong>Posts</strong> atau <strong>Pages</strong>, lalu pilih tambah baru.</li>
+  <li>Isi judul, slug ASCII yang unik, dan konten pada editor Quill.</li>
+  <li>Untuk artikel, pilih kategori dan thumbnail bila diperlukan.</li>
+  <li>Pilih <strong>Draft</strong>, <strong>Published</strong>, atau <strong>Private</strong>, lalu simpan.</li>
+</ol>
+<img src="/static/img/2026/07/screenshots/add-post.jpg" alt="Form artikel Jyavani" style="width:100%;margin:1rem 0">
+<p>Draft tidak tampil untuk publik. Published dapat dirutekan untuk publik. Private hanya tersedia bagi pengguna terautentikasi yang lolos pemeriksaan akses. Kemampuan membaca, membuat, memperbarui, menerbitkan, memindahkan ke Trash, dan menghapus permanen ditentukan oleh permission serta scope pemilik, bukan hanya label role lama.</p>
+<h2>Slug dan rute</h2>
+<p>Slug harus unik di antara artikel, halaman, dan theme content aktif. Core juga mendukung <code>content_routes</code>: satu rute kanonis per konten dan locale, dengan rute lama tetap menjadi alias redirect. Jika konten lama belum memiliki rute kanonis, resolver permalink/slug lama menjadi fallback.</p>
+<h2>HTML dan kepemilikan</h2>
+<p>Author bekerja pada resource sesuai scope yang diberikan. HTML yang tidak difilter memerlukan permission khusus; jangan menganggap semua kontributor boleh memasukkan markup arbitrer. Saat mengganti pemilik, status, atau tanggal, Core memeriksa permission terkait di dalam transaksi.</p>
+<h2>Penghapusan</h2>
+<p>Delete pertama pada artikel atau halaman menetapkan <code>is_deleted</code> dan <code>deleted_at</code>. Trash menyediakan restore dan purge sesuai permission. Restore dapat ditolak jika slug sudah dipakai konten aktif. Trash bukan backup: ekspor database dan aset tetap diperlukan.</p>

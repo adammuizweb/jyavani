@@ -1,0 +1,10 @@
+<p>CMS Update hanya tersedia bagi Site Owner yang juga memiliki <code>core.updates.manage</code>. Halaman dapat memeriksa endpoint remote, menerima ZIP manual berisi manifest, menerapkan update, atau reinstall Core.</p>
+<img src="/static/img/2026/07/update-page-screenshot.jpg" alt="CMS Update" style="width:100%;margin:1rem 0">
+<h2>Sebelum perubahan</h2>
+<p>Backup database, <code>cfg/.env</code>, <code>cfg/var</code>, private files, upload bertanggal, plugin, dan theme pihak ketiga. Pastikan proses web dapat menulis target Core. Backup otomatis updater untuk file yang berubah membantu rollback file, tetapi bukan pengganti backup deployment lengkap.</p>
+<h2>Update dan reinstall</h2>
+<p>Remote check mengambil metadata versi, lalu paket diverifikasi terhadap manifest sebelum penerapan. Upload manual mengharuskan <code>cms-manifest.json</code> di root ZIP. Reinstall menimpa file Core dengan versi paket original sambil mempertahankan data yang dikecualikan oleh kebijakan updater.</p>
+<h2>Hard reset</h2>
+<p>Opsi hard reset hanya tersedia bersama reinstall. Opsi ini mengembalikan system theme, auth paths, status plugin, slot, sidebar, dan menu ke default. Konten, user, media, konfigurasi database, dan upload dinyatakan tidak dihapus oleh alur ini, tetapi backup tetap wajib. Tidak ada tombol soft reset terpisah.</p>
+<h2>Verifikasi</h2>
+<p>Setelah update, cocokkan versi, buka frontend/login/dashboard, uji tulis konten, cek plugin/theme, dan baca log. Jangan menimpa deployment dengan <code>git pull</code> tanpa memahami preserve policy. Jika update gagal, pertahankan bukti log dan pulihkan dari backup yang telah diuji.</p>

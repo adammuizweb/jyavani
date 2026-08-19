@@ -1,0 +1,22 @@
+<p>Pondasi adalah installer web sekali pakai untuk deployment baru. Ekstrak paket Jyavani sehingga document root menunjuk direktori publik yang berisi router, sementara <code>cfg</code>, <code>dashboard</code>, <code>app</code>, <code>plugins</code>, dan <code>private_files</code> tetap di luar web root.</p>
+<h2>Prasyarat dan database</h2>
+<ol>
+  <li>Siapkan PHP dan MariaDB/MySQL sesuai versi paket serta extension yang dibutuhkan.</li>
+  <li>Buka <code>/pondasi/</code>, isi host, port, nama database, user, dan password.</li>
+  <li>Pondasi membuat/menjalankan schema default, seed translasi, dan menandai migrasi paket sebagai applied.</li>
+  <li>Isi identitas situs dan akun owner awal; konten demo bersifat opsional.</li>
+</ol>
+<h2>Site Owner dan grant awal</h2>
+<p>Akun awal ditulis sebagai legacy admin, <code>is_site_owner=1</code>, tidak locked, lalu menerima system role Administrator. Core mencatat event instalasi owner. System role Author, Editor, Administrator dan grant Core berasal dari schema; jangan membuat grant awal manual.</p>
+<h2>Path dan masking</h2>
+<p>Installer menetapkan default <code>/dashboard/</code>, <code>/login/</code>, dan <code>/register/</code>. Dashboard berada di luar web root; request yang tidak cocok dengan path konfigurasi diberi frontend 404. Registrasi tidak diaktifkan hanya karena path tersedia. Defaultnya disabled; bila administrator mengaktifkannya, pendaftar mendapat Author dan dapat locked bila approval aktif.</p>
+<h2>File konfigurasi dan lock operasional</h2>
+<p>Pondasi menulis <code>cfg/.env</code>, secret acak, session settings, dan <code>PUBLIC_PATH</code> absolut menuju web root yang terdeteksi. Bila penulisan gagal, installer menampilkan isi untuk pemasangan manual. Setelah sukses, hapus atau nonaktifkan folder <code>public/pondasi</code>; keberadaan <code>.env</code> hanya mengubah bootstrap normal, bukan pengganti penghapusan installer.</p>
+<h2>Verifikasi pertama</h2>
+<ul>
+  <li>Pastikan frontend, login, dashboard, logout, dan 404 masking bekerja.</li>
+  <li>Periksa Site Owner memiliki Administrator dan halaman Roles/Update dapat dibuka.</li>
+  <li>Buat draft, upload aset uji, lalu hapus data uji.</li>
+  <li>Verifikasi HTTPS, cookie Secure, email/site URL, dan backup.</li>
+</ul>
+<p>Owner deployment harus mengatur ownership/permission file agar proses web hanya dapat menulis lokasi yang diperlukan. Anggap mode file hasil ekstraksi sebagai kondisi paket yang harus diaudit, bukan kebijakan keamanan Core yang sengaja menjadikan semua file privat.</p>

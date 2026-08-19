@@ -1,0 +1,14 @@
+<p>Jyavani Core 2.3.74 memakai role dan permission dinamis. Kolom role lama tetap disinkronkan untuk kompatibilitas, tetapi keputusan akses baru harus memakai permission efektif dan scope.</p>
+<h2>Site Owner</h2>
+<p>Site Owner adalah atribut akun khusus, bukan role. Pondasi menandai akun awal sebagai Site Owner, memberi legacy role admin, dan memasang system role Administrator. Operasi paling sensitif seperti Roles &amp; Permissions dan update Core memerlukan Site Owner selain permission terkait.</p>
+<img src="/static/img/2026/07/users-list-screenshot.jpg" alt="Daftar pengguna" style="width:100%;margin:1rem 0">
+<h2>System role dan custom role</h2>
+<ul>
+  <li><strong>Author</strong>: grant Core terutama untuk konten sendiri.</li>
+  <li><strong>Editor</strong>: mewarisi fondasi Author dan mendapat grant editorial tambahan.</li>
+  <li><strong>Administrator</strong>: grant aktif Core secara luas, tetapi bukan otomatis Site Owner.</li>
+</ul>
+<p>Custom role dimulai tanpa grant. Permission berscope dapat memakai Own, Same or Lower, atau Any; tindakan non-resource memakai Global. Authority rank hanya memengaruhi Same or Lower dan tidak memberi permission dengan sendirinya.</p>
+<h2>Siklus akun</h2>
+<p>User dapat memiliki beberapa role aktif. Lock mencegah login tanpa menghapus akun. Delete user memakai Trash, dengan restore/purge terpisah; pertimbangkan kepemilikan konten sebelum purge. Perubahan role dan operasi otorisasi penting dicatat di audit log.</p>
+<p>Registrasi publik, bila diaktifkan, selalu memasang Author dan dapat membuat akun locked saat approval diwajibkan. Tinjau akses dengan akun non-owner, bukan hanya dari tampilan Site Owner.</p>

@@ -1,0 +1,9 @@
+<p>Settings memisahkan identitas situs, bahasa, path autentikasi, sidebar, permalink, dan kebijakan registrasi. Perubahan memerlukan permission pengaturan; beberapa area sensitif juga dibatasi untuk Site Owner.</p>
+<h2>Identitas dan bahasa</h2>
+<p>Isi site title, description, URL, dan aset identitas sesuai deployment. <code>site_language</code> mengatur bahasa UI dashboard, sedangkan <code>content_default_language</code> menjadi locale dasar frontend. Core menyediakan seed UI en, id, dan de, tetapi translasi konten memerlukan plugin.</p>
+<img src="/static/img/2026/07/site-settings-screenshot.jpg" alt="Pengaturan situs" style="width:100%;margin:1rem 0">
+<h2>Path autentikasi</h2>
+<p><code>admin_path</code>, <code>login_path</code>, dan <code>register_path</code> adalah path relatif yang dicocokkan router. File dashboard tetap berada di luar web root. Permintaan dashboard pada path yang salah mendapat frontend 404, tetapi path custom bukan pengganti password kuat, HTTPS, dan pembatasan akses.</p>
+<h2>Registrasi dan permalink</h2>
+<p>Registrasi default nonaktif. Bila diaktifkan, akun baru menerima system role Author; approval opsional membuat akun terkunci sampai disetujui. reCAPTCHA hanya bekerja bila fitur dan kredensial dikonfigurasi.</p>
+<p>Struktur permalink lama tetap digunakan sebagai fallback untuk konten tanpa canonical route. Setelah URL publik berubah, uji canonical dan redirect. Hindari mengganti path sistem ke nilai yang bertabrakan dengan file publik, route konten, atau route plugin.</p>

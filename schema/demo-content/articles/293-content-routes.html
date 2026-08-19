@@ -1,0 +1,10 @@
+<p><code>content_routes</code> adalah registry path publik untuk artikel, halaman, dan theme content. Registry memisahkan identitas post/slug lama dari URL publik yang dapat berubah tanpa kehilangan riwayat redirect.</p>
+<h2>Canonical dan alias</h2>
+<p>Untuk setiap pasangan post-locale hanya satu row memiliki <code>is_canonical=1</code> dan <code>canonical_slot=1</code>. Saat canonical diganti, canonical lama diturunkan menjadi alias. Resolver alias mengembalikan target canonical sehingga router dapat memberi redirect permanen dan mempertahankan query string dengan aman.</p>
+<h2>Namespace global</h2>
+<p>Path dinormalisasi lowercase ASCII tanpa slash awal/akhir. Segment dapat bertingkat, misalnya <code>docs/core/routing</code>. Unik berlaku per locale. Validator juga menolak collision dengan slug/rute konten, permalink lama, prefix Core, path auth/list/category, route plugin, tahun arsip, dan file/direktori publik. Karena URL default memakai locale kosong, semua tipe konten berbagi namespace global tersebut.</p>
+<h2>Fallback</h2>
+<p>Konten lama yang belum memiliki canonical route tetap dapat diselesaikan melalui permalink dan slug legacy. Fallback bukan alias tersimpan: setelah route dibuat, gunakan registry sebagai sumber URL kanonis. Menu theme content memilih canonical route; sitemap canonical juga bergantung pada registry.</p>
+<h2>Locale dan plugin translasi</h2>
+<p>Core menyimpan kolom locale dan dapat membentuk URL <code>/{locale}/{path}/</code>, tetapi Core tidak menyediakan editor translasi native. Plugin translasi bertanggung jawab membuat versi konten, menentukan locale, menyinkronkan canonical/alias, menangani redirect lintas locale, dan menambah sitemap locale. Plugin harus memakai helper route agar collision, transaksi, dan riwayat canonical tetap konsisten.</p>
+<p>Sebelum mengubah path, cek link internal dan route plugin, simpan canonical baru secara atomik, lalu uji URL baru, alias lama, query string, 404, menu, canonical tag, dan sitemap.</p>

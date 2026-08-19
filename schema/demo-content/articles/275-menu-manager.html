@@ -1,0 +1,9 @@
+<p>Menu Manager menyimpan beberapa menu dan item bertingkat. Menu tidak otomatis muncul di semua theme; theme atau gadget <code>tz_nav_menu</code> harus memilih slug menu yang akan dirender.</p>
+<img src="/static/img/2026/07/menu-manager-screenshot.jpg" alt="Menu Manager" style="width:100%;margin:1rem 0">
+<h2>Tipe item</h2>
+<p>Item dapat menunjuk URL custom atau record artikel, halaman, theme content, dan kategori. Item menyimpan label, parent, urutan, target, serta status hidden. Gunakan target internal agar perubahan rute dapat ditangani oleh Core; gunakan custom URL untuk tujuan eksternal atau jalur khusus.</p>
+<h2>Hierarki dan urutan</h2>
+<p>Parent item harus berasal dari menu yang sama. Urutan menentukan posisi saudara. Kemampuan dropdown, kedalaman visual, active state, dan perilaku mobile tetap menjadi tanggung jawab renderer/theme.</p>
+<h2>Theme Zones</h2>
+<p>Di Customize, tambahkan atau konfigurasi gadget navigasi pada posisi yang dideklarasikan theme. Nilai <code>menu</code> memilih slug, sedangkan <code>depth</code>, class, dan atribut daftar membantu theme membentuk output. Selalu uji link, fokus keyboard, dan tampilan layar sempit setelah perubahan.</p>
+<p>Pengelolaan menu memerlukan <code>core.menus.manage</code>. Mengubah slug menu dapat memutus konfigurasi theme yang masih menunjuk slug lama.</p>

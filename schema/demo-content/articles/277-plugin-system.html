@@ -1,0 +1,9 @@
+<p>Plugin adalah kode tepercaya di bawah <code>plugins/{name}/</code>. <code>plugin.json</code> mendeklarasikan identitas, kebutuhan plugin, halaman dashboard, navigasi, aset, static copy, dan permission; file PHP menyediakan hook atau implementasi route.</p>
+<h2>Instalasi dan aktivasi</h2>
+<p>Uploader memvalidasi paket, mengekstrak ke folder plugin, menyalin aset yang dideklarasikan, dan dapat menjalankan konvensi tetap <code>install.sh</code> dengan batas waktu/output. <strong>Install</strong> dapat menaruh plugin dalam keadaan nonaktif; <strong>Install &amp; Activate</strong> juga memeriksa dependency dan mengaktifkannya. Jangan memasang paket yang sumbernya tidak dipercaya.</p>
+<img src="/static/img/2026/07/plugin-manager-screenshot.jpg" alt="Plugin Manager" style="width:100%;margin:1rem 0">
+<h2>Route dashboard</h2>
+<p>Setiap page mendeklarasikan route relatif dan file yang tetap berada di folder plugin. Core menolak traversal, duplikasi internal, shadow route dashboard Core, dan collision antarplugin. Route dapat memakai guard Site Owner atau permission plugin; keduanya tidak boleh digabung pada route yang sama.</p>
+<h2>Hooks dan dependency</h2>
+<p>Gunakan <code>add_action</code>/<code>do_action</code> untuk kejadian dan <code>add_filter</code>/<code>apply_filters</code> untuk transformasi nilai. Namespace nama fungsi dan hook milik plugin. <code>requires.plugins</code> memakai constraint versi; dependency harus terpasang, aktif, kompatibel, dan dapat dimuat. Core menolak deaktivasi provider yang masih dibutuhkan plugin aktif.</p>
+<p>Nonaktif menyimpan file dan state plugin tetapi menghentikan pemuatan aktif. Uninstall/delete dapat menghapus file dan menjalankan konsekuensi plugin; backup dan baca dokumentasinya lebih dahulu.</p>

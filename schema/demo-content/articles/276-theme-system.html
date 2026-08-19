@@ -1,0 +1,9 @@
+<p>Core mengelola satu system theme bernama <code>default</code>. Theme lain dipasang dan diperbarui melalui Theme Store atau paket yang sesuai. Theme aktif dipilih dari dashboard; file PHP theme harus diperlakukan sebagai kode tepercaya.</p>
+<h2>Kontrak theme</h2>
+<p><code>theme.json</code> mendeskripsikan identitas, partial, Customizer, layout zone, aset, dan metadata Store. Rendering memakai slot seperti header, footer, homepage, list, single post, dan single page. Resolver mencoba assignment, theme aktif, lalu fallback system theme.</p>
+<img src="/static/img/2026/07/theme-customizer-screenshot.jpg" alt="Theme Customizer" style="width:100%;margin:1rem 0">
+<h2>Customizer dan Theme Zones</h2>
+<p>Customizer menyimpan nilai per folder theme dalam setting <code>theme_mods_{folder}</code>. Field yang didukung antara lain image, menu, sidebar zone, textarea, text, dan toggle. Theme harus membaca nilai dengan helper dan menyediakan default.</p>
+<p>Theme Zones menyimpan gadget per <code>theme_folder</code>, zone, position, dan ordering. Layout di manifest hanya menyatakan kontrak posisi dan default yang dapat dimuat; data pengguna tetap di database. Template sebaiknya memeriksa apakah posisi berisi gadget, merendernya, lalu menyediakan fallback HTML bila kosong.</p>
+<h2>Pengembangan</h2>
+<p>Partial berada di folder seperti <code>main/</code>, <code>single/</code>, <code>list/</code>, dan <code>index/</code>. Plugin dapat menambah tipe gadget melalui filter registry dan renderer. Jangan mengedit system theme untuk perubahan yang harus bertahan lintas update; buat theme Store/custom dan uji desktop, mobile, serta kondisi tanpa gadget.</p>

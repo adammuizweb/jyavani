@@ -1,0 +1,13 @@
+<p>Media Library Core mengelola gambar. Dokumen, PDF, audio, dan video umum dikelola melalui menu <strong>Files</strong>, bukan dianggap sebagai gambar Media Library.</p>
+<h2>Metadata dan storage</h2>
+<p>Record media menyimpan URL, nama file, MIME, ukuran, dimensi, title, alt, caption, credit, visibility, storage disk, storage path, access scope, dan pemilik. Upload publik berada di public disk. Gambar private berada di luar web root dan dilayani controller.</p>
+<img src="/static/img/2026/07/media-list-screenshot.jpg" alt="Daftar media dengan informasi akses" style="width:100%;margin:1rem 0">
+<h2>Aturan akses</h2>
+<ul>
+  <li><code>public</code>: hanya benar-benar publik bila visibility, disk, dan scope semuanya public.</li>
+  <li><code>editorial</code>: ditujukan bagi tim konten yang memiliki akses private asset.</li>
+  <li><code>admin</code>: membatasi aset ke administrator yang berwenang.</li>
+</ul>
+<p>URL gambar private diberikan oleh Media Picker dan tetap diperiksa saat diminta. Mengetahui URL tidak melewati sesi dan permission.</p>
+<h2>Operasi aman</h2>
+<p>Isi alt text sesuai fungsi gambar dan optimalkan ukuran sebelum upload. Permission media memisahkan read, upload, update, dan delete serta dapat memakai scope pemilik. Berbeda dari artikel, halaman, kategori, theme content, dan user, tabel media Core tidak memiliki kolom soft delete. Aksi delete dapat menghapus record dan file; verifikasi pemakaian dan backup terlebih dahulu.</p>

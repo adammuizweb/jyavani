@@ -1,0 +1,15 @@
+<p>Jyavani membedakan widget area, Theme Zone gadget, shortcode konten, dan shortcode preset. Masing-masing dirender pada tahap yang berbeda.</p>
+<h2>Sidebar dan Theme Zones</h2>
+<p>Sidebar zone berisi item seperti search, recent posts, HTML, atau preset. Theme Zones menempatkan gadget pada posisi yang dideklarasikan theme, termasuk navigation, image, rich text, pages, social, search, dan metadata post. Ketersediaan tampilan bergantung pada theme yang benar-benar merender zone tersebut.</p>
+<img src="/static/img/2026/07/layout-editor-screenshot.jpg" alt="Editor Theme Zones" style="width:100%;margin:1rem 0">
+<h2>Shortcode Core</h2>
+<ul>
+  <li><code>[post_cat_shortcode ...]</code> untuk koleksi post.</li>
+  <li><code>[private_pdf id="123" mode="card"]</code> untuk PDF dari File Library.</li>
+  <li><code>[video id="123"]</code> untuk record video yang didukung.</li>
+  <li><code>[[widget:name key=value]]</code> untuk widget terdaftar.</li>
+</ul>
+<p>ID private file berasal dari menu Files, bukan Media Library. Pemeriksaan akses tetap berlaku ketika shortcode dirender atau stream diminta.</p>
+<h2>Preset</h2>
+<p>Preset adalah post bertipe <code>sc_preset</code> yang menyimpan konfigurasi query/layout dalam JSON. Preset demo memilih empat artikel acak milik owner awal dan digunakan sidebar. Karena query acak tidak deterministik saat runtime, jangan gunakan preset itu untuk urutan editorial yang harus stabil.</p>
+<p>Plugin dapat mendaftarkan shortcode atau gadget tambahan. Validasi atribut, escape output, dan jangan memasukkan kode pihak ketiga yang tidak dipercaya ke HTML widget.</p>

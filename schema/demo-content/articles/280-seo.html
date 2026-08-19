@@ -1,0 +1,10 @@
+<p>Core menyediakan fondasi metadata, canonical URL, dan sitemap. Hasil SEO tetap bergantung pada isi, konfigurasi domain, theme, crawl policy, dan mesin pencari; Core tidak menjamin peringkat atau rich result.</p>
+<h2>Metadata dokumen</h2>
+<p>Layout membaca deskripsi khusus dari <code>meta.meta_tags.description</code>. Jika kosong, Core membuat excerpt konten, lalu memakai deskripsi situs sebagai fallback. Layout juga mengeluarkan Open Graph dan Twitter Card untuk title, description, serta image bila tersedia. Nilai dapat disesuaikan plugin melalui filter.</p>
+<img src="/static/img/2026/07/meta-tags-screenshot.jpg" alt="Field metadata konten" style="width:100%;margin:1rem 0">
+<h2>Canonical URL</h2>
+<p>Single content memakai permalink yang diselesaikan Core. Bila record <code>content_routes</code> memiliki canonical base-locale, URL itu diprioritaskan. Alias mengarah ke canonical dan mempertahankan query dengan aman. Tag <code>rel=canonical</code> dikeluarkan oleh layout.</p>
+<h2>Sitemap</h2>
+<p>Controller sitemap mengekspor konten published dan tidak terhapus. Konten yang dikelola melalui canonical routes hanya masuk pada URL kanonis yang memenuhi kontrak route. Sitemap locale dapat diperluas integrasi translasi. Kirim endpoint yang benar ke alat webmaster dan periksa responsnya setelah perubahan route.</p>
+<h2>Praktik operasional</h2>
+<p>Tulis title dan description yang akurat, gunakan thumbnail publik yang dapat diambil crawler, dan jangan menerbitkan duplikasi path. JSON-LD khusus, robots policy lanjutan, redirect lintas domain, dan translasi SEO bukan janji universal Core; implementasikan melalui theme/plugin bila dibutuhkan.</p>

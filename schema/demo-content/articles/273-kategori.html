@@ -1,0 +1,9 @@
+<p>Kategori mengelompokkan artikel melalui relasi many-to-many. Satu artikel dapat masuk ke beberapa kategori, sedangkan halaman tidak memakai kategori.</p>
+<h2>Identitas dan hierarki</h2>
+<p>Setiap kategori memiliki nama, slug unik, deskripsi, dan parent opsional. Parent membentuk jalur bertingkat. Hindari siklus dan gunakan hierarki pendek agar URL serta navigasi mudah dipahami.</p>
+<img src="/static/img/2026/07/screenshots/categories-list.jpg" alt="Daftar kategori" style="width:100%;margin:1rem 0">
+<h2>Akses publik</h2>
+<p>Jalur kategori memakai nilai <code>category_path</code>, dengan default <code>category</code>. Kategori bertingkat dapat menghasilkan path bertingkat. Hasil publik hanya memuat kategori dan artikel aktif; tampilan akhir bergantung pada theme.</p>
+<h2>Permission dan Trash</h2>
+<p>Read, create, update, trash, restore, dan purge adalah permission terpisah. Scope dapat membatasi kategori berdasarkan pembuat. Menghapus kategori pertama kali adalah soft delete. Restore dapat gagal bila slug sudah digunakan kategori aktif, sedangkan purge menghapus record secara permanen dan relasinya mengikuti constraint database.</p>
+<p>Gunakan nama stabil, deskripsi faktual, dan sedikit kategori yang benar-benar membantu pencarian. Jangan menjanjikan breadcrumb atau optimasi SEO tertentu karena itu bergantung pada theme atau plugin.</p>

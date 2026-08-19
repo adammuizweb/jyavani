@@ -1,0 +1,14 @@
+<p>Jyavani memisahkan bahasa antarmuka dashboard dari locale dasar konten. Pemisahan ini memungkinkan editor memakai UI Indonesia sementara situs dasar menggunakan bahasa lain.</p>
+<h2>Dua setting</h2>
+<ul>
+  <li><code>site_language</code> mengisi locale dashboard melalui <code>admin_ui_locale()</code>.</li>
+  <li><code>content_default_language</code> mengisi locale frontend melalui <code>default_locale()</code>/<code>content_default_locale()</code>.</li>
+</ul>
+<p>Jika content default kosong atau invalid, Core jatuh kembali ke site language; nilai invalid site language jatuh ke English. Seed UI menyediakan source English serta translasi Indonesia dan Jerman. English tidak memerlukan lookup database.</p>
+<h2>Bootstrap dan HTML</h2>
+<p>Bootstrap membaca kedua setting, mengaktifkan content locale untuk frontend, lalu dashboard mengaktifkan kembali site language. Atribut <code>lang</code> melewati filter sehingga integrasi dapat menyesuaikan nilai. Seed UI diimpor idempotent: string baru ditambahkan tanpa menimpa terjemahan yang sudah diedit.</p>
+<h2>Apa yang bukan fitur Core</h2>
+<p>Core tidak membuat salinan terjemahan artikel/halaman, workflow penerjemah, language switcher data, route terjemahan, hreflang, atau fallback konten otomatis. Core hanya menyediakan locale helper, UI seed, hook lifecycle konten, tabel route ber-locale, dan extension point.</p>
+<h2>Tanggung jawab plugin translasi</h2>
+<p>Plugin menentukan model translasi, locale yang didukung, akses editor, dan fallback. Gunakan hook <code>admin_post_after_*</code>/<code>admin_page_after_*</code> untuk sinkronisasi setelah mutasi. Buat canonical route dan alias untuk setiap locale tanpa collision; default locale biasanya tanpa prefix, locale lain memakai prefix.</p>
+<p>Menu dan kategori hanya diterjemahkan bila plugin secara eksplisit mendukung record tersebut dan theme memakai hasil integrasinya. Jangan menganggap mengganti content default otomatis menerjemahkan slug, menu, kategori, metadata, atau isi lama. Uji UI en/id/de, URL default/terjemahan, redirect, canonical, sitemap, dan kondisi plugin disabled.</p>
