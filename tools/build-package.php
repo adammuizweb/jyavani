@@ -11,6 +11,12 @@ declare(strict_types=1);
 $ROOT = dirname(__DIR__);
 $OUTPUT = $argv[1] ?? $ROOT . '/jyavani-cms-update.zip';
 $TEMP_OUTPUT = $OUTPUT . '.tmp-' . getmypid();
+$PACKAGE_FILE_MODE = 0100644;
+
+$addPackageFile = static function (ZipArchive $zip, string $source, string $entry) use ($PACKAGE_FILE_MODE): bool {
+    return $zip->addFile($source, $entry)
+        && $zip->setExternalAttributesName($entry, ZipArchive::OPSYS_UNIX, $PACKAGE_FILE_MODE << 16);
+};
 
 // Generate manifest first
 echo "Generating manifest...\n";
@@ -48,7 +54,12 @@ if ($zip->open($TEMP_OUTPUT, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== tru
 }
 
 // The manifest itself is package metadata and is not hashed into itself.
-$zip->addFile($manifestFile, 'cms-manifest.json');
+if (!$addPackageFile($zip, $manifestFile, 'cms-manifest.json')) {
+    $zip->close();
+    @unlink($TEMP_OUTPUT);
+    echo "ERROR: Cannot add cms-manifest.json with normalized permissions.\n";
+    exit(1);
+}
 
 // Exclude tool & preserve files from package
 $excludeFromPackage = [
@@ -62,7 +73,12 @@ foreach ($files as $relative => $hash) {
     if (in_array($relative, $excludeFromPackage, true)) continue;
     $source = $ROOT . '/' . $relative;
     if (is_file($source)) {
-        $zip->addFile($source, $relative);
+        if (!$addPackageFile($zip, $source, $relative)) {
+            $zip->close();
+            @unlink($TEMP_OUTPUT);
+            echo "ERROR: Cannot add package file with normalized permissions: {$relative}\n";
+            exit(1);
+        }
     }
 }
 
@@ -97,6 +113,22 @@ if ($verify->numFiles !== $expectedEntries) {
     exit(1);
 }
 $actualEntries = $verify->numFiles;
+for ($index = 0; $index < $verify->numFiles; $index++) {
+    $entry = $verify->getNameIndex($index);
+    $opsys = 0;
+    $attributes = 0;
+    $hasAttributes = $verify->getExternalAttributesIndex($index, $opsys, $attributes);
+    $unixMode = $attributes >> 16;
+    if ($entry === false || !$hasAttributes
+        || $opsys !== ZipArchive::OPSYS_UNIX
+        || ($unixMode & 0170000) !== 0100000
+        || ($unixMode & 0777) !== 0644) {
+        $verify->close();
+        @unlink($TEMP_OUTPUT);
+        echo "ERROR: Package permission verification failed: " . ($entry === false ? "entry {$index}" : $entry) . "\n";
+        exit(1);
+    }
+}
 $verify->close();
 
 if (!@rename($TEMP_OUTPUT, $OUTPUT)) {

@@ -10,6 +10,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 
 $installer = (string)file_get_contents($root . '/public/pondasi/index.php');
 $generator = (string)file_get_contents($root . '/tools/generate-manifest.php');
+$builder = (string)file_get_contents($root . '/tools/build-package.php');
 require_once $root . '/dashboard/admin/update/_update_helpers.php';
 
 $check(
@@ -23,6 +24,12 @@ $check(
 $check(
     str_contains($generator, '(?!default(?:/|$))'),
     'only the default system theme is included while Store themes remain preserved'
+);
+$check(
+    str_contains($builder, '0100644')
+        && str_contains($builder, 'setExternalAttributesName')
+        && str_contains($builder, 'getExternalAttributesIndex'),
+    'package builder normalizes and verifies distribution file permissions'
 );
 
 $preservePatterns = _get_preserve_patterns();
@@ -48,6 +55,21 @@ if ($packagePath !== '') {
     if ($opened) {
         $check($zip->locateName('public/views/themes/default/theme.json') !== false, 'package contains the default system theme');
         $check($zip->locateName('public/views/themes/adam/theme.json') === false, 'package excludes the adam Store theme');
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $entry = $zip->getNameIndex($index);
+            $opsys = 0;
+            $attributes = 0;
+            $hasAttributes = $zip->getExternalAttributesIndex($index, $opsys, $attributes);
+            $unixMode = $attributes >> 16;
+            $check(
+                $entry !== false
+                    && $hasAttributes
+                    && $opsys === ZipArchive::OPSYS_UNIX
+                    && ($unixMode & 0170000) === 0100000
+                    && ($unixMode & 0777) === 0644,
+                'package entry is a readable 0644 regular file: ' . ($entry === false ? "entry {$index}" : $entry)
+            );
+        }
         $zip->close();
     }
 }

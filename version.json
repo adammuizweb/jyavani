@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.74",
+    "version": "2.3.75",
     "build": "2026-08-19",
-    "changelog": "Add stable plugin default roles, nondelegable permission policies, post-commit authorization hooks, and transactional role synchronization.",
+    "changelog": "Normalize every Core distribution ZIP entry to a readable 0644 regular file and verify package permissions during builds.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
