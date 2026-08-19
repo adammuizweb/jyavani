@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.77",
+    "version": "2.3.78",
     "build": "2026-08-19",
-    "changelog": "Route physical directories and installed Pondasi requests through the active theme's cosmetic 404 response.",
+    "changelog": "Redesign User Management with configurable columns, concise account status, and protected overflow actions.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

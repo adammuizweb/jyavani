@@ -65,7 +65,7 @@ $total = (int)$countStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / max(1, $perPage)));
 if ($page > $pages) $page = $pages;
 
-$sql = "SELECT id, email, username, name, role, is_site_owner, img, bio, phone, created_at, is_locked,
+$sql = "SELECT id, email, username, name, role, is_site_owner, img, phone, created_at, is_locked,
                (SELECT GROUP_CONCAT(r.name ORDER BY r.authority_rank DESC, r.name ASC SEPARATOR ', ')
                 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
                 WHERE ur.user_id = users.id
@@ -123,17 +123,21 @@ function build_pagination_items(int $current, int $total, int $max_visible = 9):
 }
 $paging_items = build_pagination_items($page, $pages, 9);
 ?>
-<section class="adam-card">
-  <h2><?= _e('User Management') ?></h2>
+<section class="adam-card users-page">
+  <div class="toolbar-top users-toolbar">
+    <div class="users-heading">
+      <h2 class="page-heading"><?= _e('User Management') ?></h2>
+      <p><?= _e('Site Owner is the highest-trust account. It can manage roles, permissions, Core updates, plugins, and other Site Owners.') ?></p>
+    </div>
 
-  <form method="get" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+  <form method="get" class="toolbar-filter users-filter">
     <input type="hidden" name="page" value="admin/users/index">
 
     <input type="text" name="q" placeholder="<?= _e('Search name, email or username...') ?>"
            value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
-           style="padding:.4rem;min-width:220px">
+           class="inp users-search">
 
-    <select name="role" style="padding:.4rem;">
+    <select name="role" class="inp">
       <option value=""><?= _e('-- All Roles --') ?></option>
       <?php foreach ($allRoles as $r): ?>
         <option value="<?= htmlspecialchars((string)$r['slug'], ENT_QUOTES, 'UTF-8') ?>" <?= $filter_role === (string)$r['slug'] ? 'selected' : '' ?>>
@@ -142,30 +146,32 @@ $paging_items = build_pagination_items($page, $pages, 9);
       <?php endforeach; ?>
     </select>
 
-    <select name="lock" style="padding:.4rem;">
+    <select name="lock" class="inp">
       <option value=""><?= _e('-- All Status --') ?></option>
-      <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>><?=_e('Locked / Pending')?></option>
-      <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>><?=_e('Unlocked / Approved')?></option>
+      <option value="locked" <?= $filter_status === 'locked' ? 'selected' : '' ?>><?= _e('Locked') ?></option>
+      <option value="unlocked" <?= $filter_status === 'unlocked' ? 'selected' : '' ?>><?= _e('Active') ?></option>
     </select>
 
     <button class="adam-button" type="submit"><?= _e('Apply') ?></button>
     <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=admin/users/index', ENT_QUOTES, 'UTF-8') ?>"><?=_e('Reset')?></a>
 
-    <?php if ($canCreateUsers): ?><div style="margin-left:auto">
-      <a class="adam-button" href="<?= htmlspecialchars($base . '/?page=admin/users/save&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>">+ Add User</a>
-    </div><?php endif; ?>
   </form>
+
+    <?php if ($canCreateUsers): ?>
+      <a class="adam-button toolbar-add" href="<?= htmlspecialchars($base . '/?page=admin/users/save&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?= _e('+ Add User') ?></a>
+    <?php endif; ?>
+  </div>
 
   <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/users/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;">
-      <label style="display:flex;align-items:center;gap:.4rem;">
+    <div class="bulk-bar users-bulk-bar">
+      <label class="check-row">
         <input type="checkbox" id="selectAll"> <?=_e('Select all on this page')?>
       </label>
 
-      <select id="bulkAction" name="action" style="padding:.4rem;">
+      <select id="bulkAction" name="action" class="inp">
         <option value=""><?=_e('-- Bulk action --')?></option>
         <?php if ($canBulkAssign): ?><option value="change_role"><?= _e('Replace All Roles') ?></option><?php endif; ?>
         <?php if ($canBulkLock): ?><option value="lock"><?=_e('Lock')?></option>
@@ -173,35 +179,44 @@ $paging_items = build_pagination_items($page, $pages, 9);
         <?php if ($canBulkDelete): ?><option value="delete"><?=_e('Delete (soft)')?></option><?php endif; ?>
       </select>
 
-      <select id="bulkRole" name="role_id" style="padding:.4rem;display:none;">
+      <select id="bulkRole" name="role_id" class="inp" style="display:none;">
         <?php foreach ($allRoles as $r): ?>
           <option value="<?= (int)$r['id'] ?>"><?= htmlspecialchars((string)$r['name'], ENT_QUOTES, 'UTF-8') ?></option>
         <?php endforeach; ?>
       </select>
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <small style="color:var(--adam-muted);margin-left:.5rem;"><?= _e('Bulk only affects checked users.') ?></small>
+      <small class="adam-muted"><?= _e('Bulk only affects checked users.') ?></small>
+
+      <div class="cols-toggle ml-auto">
+        <button type="button" class="cols-toggle-btn js-user-cols-toggle" title="<?= _e('Columns') ?>" aria-expanded="false"><?= svg_ico('columns-2') ?></button>
+        <div class="cols-dropdown users-cols-dropdown">
+          <label class="cols-opt"><input type="checkbox" data-col="col-user-contact" checked> <?= _e('Contact') ?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-user-role" checked> <?= _e('Role') ?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-user-status" checked> <?= _e('Status') ?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-user-phone"> <?= _e('Phone') ?></label>
+          <label class="cols-opt"><input type="checkbox" data-col="col-user-registered" checked> <?= _e('Registered') ?></label>
+        </div>
+      </div>
     </div>
 
     <div class="adam-table-wrapper">
-      <table class="adam-table" style="width:100%;border-collapse:collapse">
+      <table class="adam-table users-table">
         <thead>
-          <tr style="text-align:left;border-bottom:1px solid #e6e6e6">
-            <th style="width:44px"></th>
-            <th><?=_e('Avatar')?></th>
+          <tr>
+            <th class="th-narrow"></th>
             <th><?= _e('Name') ?></th>
-            <th><?=_e('Email / Username')?></th>
-            <th><?=_e('Role')?></th>
-            <th><?=_e('Status')?></th>
-            <th><?=_e('Bio')?></th>
-            <th><?=_e('Phone')?></th>
-            <th><?= _e('Registered') ?></th>
-            <th><?= _e('Actions') ?></th>
+            <th class="col-user-contact"><?= _e('Contact') ?></th>
+            <th class="col-user-role"><?= _e('Role') ?></th>
+            <th class="col-user-status"><?= _e('Status') ?></th>
+            <th class="col-user-phone col-hidden"><?= _e('Phone') ?></th>
+            <th class="col-user-registered"><?= _e('Registered') ?></th>
+            <th class="users-actions-heading"><span class="sr-only"><?= _e('Actions') ?></span></th>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($users)): ?>
-            <tr><td colspan="10" style="padding:1rem;"><?= _e('No users yet.') ?></td></tr>
+            <tr><td colspan="8" class="empty-state"><?= _e('No users yet.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($users as $u):
               $img = !empty($u['img']) ? $u['img'] : '/static/img/person.svg';
@@ -218,9 +233,12 @@ $paging_items = build_pagination_items($page, $pages, 9);
               $canLockUser = $canMutateUser && user_can($pdo, $uid, 'core.users.lock', ['owner_id' => (int)$u['id']]);
               $canDeleteUser = $canMutateUser && user_can($pdo, $uid, 'core.users.delete', ['owner_id' => (int)$u['id']]);
               $canSelectUser = !$isSelf && !$isSiteOwner && ($canManageSiteOwners || $canLockUser || $canDeleteUser);
+              $roleNames = array_values(array_filter(array_map('trim', explode(',', (string)($u['role_names'] ?? '')))));
+              $canChangeSiteOwner = $canManageSiteOwners && !$isSelf && !$isLocked;
+              $hasUserActions = $canEditUser || $canChangeSiteOwner || (!$isSelf && ($canLockUser || $canDeleteUser));
             ?>
-            <tr style="border-bottom:1px solid #f3f3f3">
-              <td style="text-align:center">
+            <tr class="adam-row">
+              <td class="td-center">
                 <?php if ($canSelectUser): ?>
                   <input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$u['id'] ?>">
                 <?php else: ?>
@@ -228,88 +246,95 @@ $paging_items = build_pagination_items($page, $pages, 9);
                 <?php endif; ?>
               </td>
 
-              <td style="width:56px">
-                <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="" style="height:40px;width:40px;object-fit:cover;border-radius:6px">
+              <td>
+                <div class="user-identity">
+                  <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="" class="user-avatar">
+                  <div class="user-identity-copy">
+                    <?php if (!empty($username)): ?>
+                      <a href="<?= htmlspecialchars('/author/' . rawurlencode($username), ENT_QUOTES, 'UTF-8') ?>"
+                         class="user-name"
+                         title="<?= __('View profile of') ?> <?= $name ?>"
+                         target="_blank"
+                         rel="noopener noreferrer"><?= $name ?></a>
+                    <?php else: ?>
+                      <span class="user-name"><?= $name ?></span>
+                    <?php endif; ?>
+                    <span class="user-id">#<?= (int)$u['id'] ?></span>
+                    <?php if ($isSiteOwner): ?>
+                      <span class="user-owner-badge"><?= svg_ico('shield-check') ?> <?= _e('Site Owner') ?></span>
+                    <?php endif; ?>
+                  </div>
+                </div>
               </td>
 
-              <?php if (!empty($username)): ?>
-                <td>
-                  <a href="<?= htmlspecialchars('/author/' . rawurlencode($username), ENT_QUOTES, 'UTF-8') ?>"
-                     class="adam-link"
-                     title="<?= __('View profile of') ?> <?= $name ?>"
-                     target="_blank"
-                     rel="noopener noreferrer"><?= $name ?></a>
-                </td>
-              <?php else: ?>
-                <td><?= $name ?></td>
-              <?php endif; ?>
-
-              <td>
-                <?= htmlspecialchars($u['email'] ?? '-', ENT_QUOTES, 'UTF-8') ?><br>
-                <small style="color:#666"><?= htmlspecialchars($u['username'] ?? '-', ENT_QUOTES, 'UTF-8') ?></small>
+              <td class="col-user-contact">
+                <a class="user-email" href="mailto:<?= htmlspecialchars((string)($u['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($u['email'] ?? '-', ENT_QUOTES, 'UTF-8') ?></a>
+                <span class="user-username"><?= $username !== '' ? '@' . htmlspecialchars((string)$username, ENT_QUOTES, 'UTF-8') : '-' ?></span>
               </td>
 
-              <td>
-                <?= htmlspecialchars((string)($u['role_names'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
-                <?php if ($isSiteOwner): ?>
-                  <span style="display:inline-block;margin-left:.35rem;padding:.16rem .45rem;border-radius:999px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;font-size:11px;font-weight:700;"><?= _e('Site Owner') ?></span>
-                <?php endif; ?>
+              <td class="col-user-role">
+                <div class="user-role-list">
+                  <?php if ($roleNames === []): ?>
+                    <span class="user-role-empty">-</span>
+                  <?php else: foreach ($roleNames as $roleName): ?>
+                    <span class="user-role-badge"><?= htmlspecialchars($roleName, ENT_QUOTES, 'UTF-8') ?></span>
+                  <?php endforeach; endif; ?>
+                </div>
               </td>
 
-              <td>
+              <td class="col-user-status">
                 <?php if ($isLocked): ?>
-                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#fff1f2;color:#b42318;border:1px solid #fecdd3;font-size:12px;font-weight:700;"><?=_e('Locked / Pending')?></span>
+                  <span class="user-status-badge is-locked"><?= svg_ico('lock') ?> <?= _e('Locked') ?></span>
                 <?php else: ?>
-                  <span style="display:inline-block;padding:.22rem .55rem;border-radius:999px;background:#ecfdf3;color:#027a48;border:1px solid #abefc6;font-size:12px;font-weight:700;"><?=_e('Unlocked / Approved')?></span>
+                  <span class="user-status-badge is-active"><span class="user-status-dot" aria-hidden="true"></span><?= _e('Active') ?></span>
                 <?php endif; ?>
               </td>
 
-              <td style="max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">
-                <?= htmlspecialchars($u['bio'] ?? '-', ENT_QUOTES, 'UTF-8') ?>
+              <td class="col-user-phone col-hidden"><?= htmlspecialchars($u['phone'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
+              <td class="col-user-registered" title="<?= htmlspecialchars((string)($u['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+                <?= htmlspecialchars(format_date_ddmmyyyy($u['created_at'] ?? null), ENT_QUOTES, 'UTF-8') ?>
               </td>
 
-              <td><?= htmlspecialchars($u['phone'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
-              <td><?= htmlspecialchars($u['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></td>
-
-              <td>
-                <?php if ($canEditUser): ?>
-                  <a class="adam-ubah" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
-                <?php else: ?>
-                  <span style="color:var(--adam-muted);font-size:12px"><?= $canMutateUser ? _e('No access') : _e('Protected') ?></span>
-                <?php endif; ?>
-
-                <?php if ($canManageSiteOwners && !$isSelf && !$isLocked): ?>
-                  &nbsp;|&nbsp;
-                  <button type="button"
-                          class="adam-ubah js-site-owner"
-                          data-id="<?= (int)$u['id'] ?>"
-                          data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
-                          data-mode="<?= $isSiteOwner ? 'revoke' : 'grant' ?>"
-                          style="background:none;border:0;padding:0;cursor:pointer;color:inherit;">
-                    <?= $isSiteOwner ? __('Revoke Site Owner') : __('Grant Site Owner') ?>
+              <td class="users-actions-cell">
+                <div class="user-actions">
+                  <button type="button" class="user-actions-toggle" aria-haspopup="menu" aria-expanded="false" aria-label="<?= htmlspecialchars(__('Actions') . ': ' . $nameRaw, ENT_QUOTES, 'UTF-8') ?>" <?= $hasUserActions ? '' : 'disabled' ?>>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
                   </button>
-                <?php endif; ?>
+                  <?php if ($hasUserActions): ?>
+                    <div class="user-actions-menu" role="menu" hidden>
+                      <?php if ($canEditUser): ?>
+                        <a role="menuitem" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen') ?> <?= _e('Edit') ?></a>
+                      <?php endif; ?>
 
-                <?php if (!$isSelf && ($canLockUser || $canDeleteUser)): ?>
-                  &nbsp;|&nbsp;
-                  <?php if ($canLockUser): ?><button type="button"
-                          class="<?= $isLocked ? 'adam-ubah' : 'adam-att' ?> js-user-toggle-lock"
-                          data-form-id="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
-                          data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
-                          data-mode="<?= $isLocked ? 'unlock' : 'lock' ?>"
-                          style="background:none;border:0;padding:0;cursor:pointer;color:inherit;">
-                    <?= $isLocked ? __('Approve') : __('Lock') ?>
-                  </button><?php endif; ?>
+                      <?php if ($canChangeSiteOwner): ?>
+                        <button type="button" role="menuitem" class="js-site-owner"
+                                data-id="<?= (int)$u['id'] ?>"
+                                data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
+                                data-mode="<?= $isSiteOwner ? 'revoke' : 'grant' ?>">
+                          <?= svg_ico('shield-check') ?> <?= $isSiteOwner ? __('Revoke Site Owner') : __('Grant Site Owner') ?>
+                        </button>
+                      <?php endif; ?>
 
-                  <?php if ($canDeleteUser): ?>&nbsp;|&nbsp;
-                  <button type="button"
-                          class="adam-hapus js-user-delete"
-                          data-id="<?= (int)$u['id'] ?>"
-                          data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
-                          data-return-to="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
-                    <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?>
-                  </button><?php endif; ?>
-                <?php endif; ?>
+                      <?php if (!$isSelf && $canLockUser): ?>
+                        <button type="button" role="menuitem" class="js-user-toggle-lock"
+                                data-form-id="<?= htmlspecialchars($toggleFormId, ENT_QUOTES, 'UTF-8') ?>"
+                                data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
+                                data-mode="<?= $isLocked ? 'unlock' : 'lock' ?>">
+                          <?= svg_ico('lock') ?> <?= $isLocked ? __('Approve') : __('Lock') ?>
+                        </button>
+                      <?php endif; ?>
+
+                      <?php if (!$isSelf && $canDeleteUser): ?>
+                        <button type="button" role="menuitem" class="js-user-delete is-danger"
+                                data-id="<?= (int)$u['id'] ?>"
+                                data-name="<?= htmlspecialchars($nameRaw, ENT_QUOTES, 'UTF-8') ?>"
+                                data-return-to="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">
+                          <?= svg_ico('trash-2') ?> <?= _e('Delete') ?>
+                        </button>
+                      <?php endif; ?>
+                    </div>
+                  <?php endif; ?>
+                </div>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -407,6 +432,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const siteOwnerPassword = document.getElementById('siteOwnerPassword');
   const siteOwnerSubmit = document.getElementById('siteOwnerSubmit');
   const siteOwnerCancel = document.getElementById('siteOwnerCancel');
+  const userColsToggle = document.querySelector('.js-user-cols-toggle');
+  const userColsDropdown = document.querySelector('.users-cols-dropdown');
+  const userColCheckboxes = userColsDropdown ? userColsDropdown.querySelectorAll('input[data-col]') : [];
 
   function toast(type, message, title){
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
@@ -513,6 +541,96 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     toggleBulkExtras();
   }
 
+  (function setupUserColumns(){
+    const storageKey = 'users_columns';
+
+    function loadState(){
+      try {
+        const saved = localStorage.getItem(storageKey);
+        return saved ? JSON.parse(saved) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function saveState(state){
+      try { localStorage.setItem(storageKey, JSON.stringify(state)); }
+      catch (error) {}
+    }
+
+    function setColumn(column, visible){
+      document.querySelectorAll('.' + column).forEach(function(element){
+        element.classList.toggle('col-hidden', !visible);
+      });
+    }
+
+    const saved = loadState();
+    userColCheckboxes.forEach(function(checkbox){
+      const column = checkbox.getAttribute('data-col');
+      const visible = saved && Object.prototype.hasOwnProperty.call(saved, column)
+        ? saved[column] !== false
+        : checkbox.checked;
+      checkbox.checked = visible;
+      setColumn(column, visible);
+      checkbox.addEventListener('change', function(){
+        setColumn(column, this.checked);
+        const state = loadState() || {};
+        state[column] = this.checked;
+        saveState(state);
+      });
+    });
+
+    userColsToggle?.addEventListener('click', function(event){
+      event.stopPropagation();
+      const open = !userColsDropdown?.classList.contains('open');
+      userColsDropdown?.classList.toggle('open', open);
+      this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    userColsDropdown?.addEventListener('click', function(event){ event.stopPropagation(); });
+    document.addEventListener('click', function(){
+      userColsDropdown?.classList.remove('open');
+      userColsToggle?.setAttribute('aria-expanded', 'false');
+    });
+  })();
+
+  function closeUserActionMenus(except){
+    document.querySelectorAll('.user-actions-menu').forEach(function(menu){
+      if (menu === except) return;
+      menu.hidden = true;
+      menu.closest('.user-actions')?.querySelector('.user-actions-toggle')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.querySelectorAll('.user-actions-toggle:not(:disabled)').forEach(function(toggle){
+    toggle.addEventListener('click', function(event){
+      event.stopPropagation();
+      const menu = this.parentElement?.querySelector('.user-actions-menu');
+      if (!menu) return;
+      const willOpen = menu.hidden;
+      closeUserActionMenus(willOpen ? menu : null);
+      menu.hidden = !willOpen;
+      this.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (!willOpen) return;
+
+      menu.style.visibility = 'hidden';
+      const triggerRect = this.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const left = Math.max(12, Math.min(window.innerWidth - menuRect.width - 12, triggerRect.right - menuRect.width));
+      const top = triggerRect.bottom + menuRect.height + 12 <= window.innerHeight
+        ? triggerRect.bottom + 6
+        : Math.max(12, triggerRect.top - menuRect.height - 6);
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+      menu.style.visibility = 'visible';
+    });
+  });
+  document.querySelectorAll('.user-actions-menu').forEach(function(menu){
+    menu.addEventListener('click', function(){ closeUserActionMenus(); });
+  });
+  document.addEventListener('click', function(){ closeUserActionMenus(); });
+  window.addEventListener('resize', function(){ closeUserActionMenus(); });
+  window.addEventListener('scroll', function(){ closeUserActionMenus(); }, true);
+
   document.querySelectorAll('.js-user-delete').forEach(function(btn){
     btn.addEventListener('click', function(){
       const id = this.getAttribute('data-id') || '';
@@ -593,6 +711,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (ev.target === siteOwnerModal) closeSiteOwnerModal();
   });
   document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape') closeUserActionMenus();
     if (ev.key === 'Escape' && siteOwnerModal?.style.display === 'flex') {
       closeSiteOwnerModal();
     }

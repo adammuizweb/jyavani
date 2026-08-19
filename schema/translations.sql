@@ -4329,6 +4329,8 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Account deletion failed.', 'Das Konto konnte nicht gelöscht werden.', 'de'),
 ('default', 'Site Owner', 'Site Owner', 'id'),
 ('default', 'Site Owner', 'Site Owner', 'de'),
+('default', 'Site Owner is the highest-trust account. It can manage roles, permissions, Core updates, plugins, and other Site Owners.', 'Site Owner adalah akun dengan tingkat kepercayaan tertinggi. Akun ini dapat mengelola role, permission, pembaruan Core, plugin, dan Site Owner lain.', 'id'),
+('default', 'Site Owner is the highest-trust account. It can manage roles, permissions, Core updates, plugins, and other Site Owners.', 'Der Site Owner ist das Konto mit der höchsten Vertrauensstufe. Es kann Rollen, Berechtigungen, Core-Updates, Plugins und andere Site Owner verwalten.', 'de'),
 ('default', 'Grant Site Owner', 'Berikan Site Owner', 'id'),
 ('default', 'Grant Site Owner', 'Site Owner gewähren', 'de'),
 ('default', 'Revoke Site Owner', 'Cabut Site Owner', 'id'),

@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.77",
+    "version": "2.3.78",
     "build": "2026-08-19",
-    "generated": "2026-08-19T09:36:28+00:00",
+    "generated": "2026-08-19T14:18:15+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 519,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "c7709569ac5020856f92f6afec549bf6c02ca21db284d938a59737ab5e76024e",
+        "VERSION": "9bd59272759bc7cbf27bdea36e0634452dfd526671688eedbab63287f8862add",
         "app/bootstrap_core.php": "de1474c1e11e219eb942276a17bbd3ee4ec6e706e94ed2899de69296a9f24889",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
@@ -184,7 +184,7 @@
         "dashboard/admin/upload_image.php": "da18a3924e49554860d2d7a919415c301d5203766578e68dd1880e1797dceac7",
         "dashboard/admin/users/bulk_action.php": "b928040730b3897954bdec494e6ecbf73fccc5f8552347d06c1f508bea893b50",
         "dashboard/admin/users/delete.php": "fdbbcb903fbba55cf4e70c562fd84a921a5f8212b352971e746e73f6d49e569a",
-        "dashboard/admin/users/index.php": "a4c7bde3fcb5d47c8486c6971825252a14ce413e31f20e5565b02e9dc3c4d8f7",
+        "dashboard/admin/users/index.php": "f0039855ba16fd366c01136a08ab0551faec0e1fb1f73542bee4b533d9f86829",
         "dashboard/admin/users/roles/index.php": "feb4554e9194abc34242e0e29172f64524663068431130284efe462a5ba83574",
         "dashboard/admin/users/save.php": "fc71712c037fe1562e56dbcc1f137da01608d079043781d5218bc6b249cf8549",
         "dashboard/admin/users/site_owner.php": "7b1b548a9625196d03844616fdb955d9f56cef11e63213249c0a9d7920203c9c",
@@ -242,7 +242,7 @@
         "public/static/dashboard/css/aside.css": "4ba4ad8f9f1ae9ca9c5145710c01ddac67f6a706a9f64d2d7998cc17504409cd",
         "public/static/dashboard/css/login.css": "b24a2413e2a8971ffd93e2886f6e4eb70dae38adc03718b3cb60bc545f990217",
         "public/static/dashboard/css/notif.css": "f60a9a8a27ad61b8eef4a90adce56f952e773163dccdda55fd8b067fd6a1ec46",
-        "public/static/dashboard/css/style.css": "a4dc14685f6669ae1bfda9f6ac4389ba33354eb8f891ccdd8b818ec1c1e40e6d",
+        "public/static/dashboard/css/style.css": "9a1bce9af8f131a9d8cdefa5cce90d400be143aacad9c6a8069237db12727160",
         "public/static/dashboard/css/update.css": "8581e3cdf4ec47135e5dfd6111cf13a325aace22a053a52a3576ad53e8abda10",
         "public/static/dashboard/js/accordion.js": "53df12e1ef62951730703206027b5e72a8654378e77fa3dd0c3f4e89c123783f",
         "public/static/dashboard/js/alerts.js": "61b15006564c060ee0803b8f0d1957a83f4465683863789f3beb92aabc82b1dc",
@@ -519,13 +519,13 @@
         "schema/migrations/012-content-routes.sql": "f7bd6d876afb73d058a5c8410c275f82a6fdf79e1c931217290ebe869e7d67dc",
         "schema/migrations/013-dynamic-authorization.sql": "40117fbbc07b768b13f0814e9e727c8dd9c084db024d165ee691169afd7f4305",
         "schema/migrations/014-plugin-permission-policy.sql": "57a841d76b62fc23b9a16d4e16066c771062d1427b3639a8c9a96dc1abe0affe",
-        "schema/translations.sql": "68177a2a8f66f5ed765e1eff9d58d36b74e8012573e1898a1532a6b6d3eb5d0b",
+        "schema/translations.sql": "4e39edd3824026169c98ff1135156476951ba45d2a32e1df2c67d06a4c436030",
         "tools/build-demo-content.php": "87877e616ca6138837b902eb85cd1050755799edf702eb0adfe156dd1a460d51",
         "tools/build-package.php": "d83b26f9e16482fc712c47ab631f692c84e2426be506131f33f12e788434d4ff",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "9a7d13c5c515956022caf74ad0dd8d2f498f6b9866091fbd05ce9cb4bb262213",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
-        "version.json": "41edc3b1ce31108a7e36d37d76ccc042b4f4d66f93cd9c778f455c7e25974b77"
+        "version.json": "38b540e1a56a0158ff7b8dce7305b0469cd82100fe70d2e6b358ce7e1f38fbf4"
     }
 }

@@ -112,6 +112,7 @@ $dashboardWidgets = (string)file_get_contents($root . '/dashboard/theme/adam/par
 $dashboardLayoutSave = (string)file_get_contents($root . '/dashboard/admin/save_dashboard_layout.php');
 $dashboardHeader = (string)file_get_contents($root . '/dashboard/theme/adam/part/header.php');
 $menuHelper = (string)file_get_contents($root . '/cfg/helpers/menu_helper.php');
+$dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 
 $check(str_contains($migration, '`is_site_owner`') && str_contains($schema, '`is_site_owner`'), 'migration and fresh schema define Site Owner state');
 $check(str_contains($migration, '`role_permissions`') && str_contains($schema, '`role_permissions`'), 'migration and fresh schema define role permission grants');
@@ -147,6 +148,11 @@ $check(str_contains($userSave, 'authorization_assign_roles($pdo, $targetUserId, 
 $check(str_contains($userBulk, 'authorization_assign_roles($pdo, $targetId, [$newRoleId], $uid, $roleChange)') && strpos($userBulk, '$pdo->commit();', strpos($userBulk, "if (\$action === 'change_role')")) < strpos($userBulk, "do_action('authorization_user_roles_changed'"), 'bulk role changes dispatch each helper snapshot only after the batch commit');
 $check(strpos($dashboard, "current_user_can(\$pdo, 'core.dashboard.access')") < strpos($dashboard, 'plugin_load_active()'), 'plugin code loads only after dashboard authorization');
 $check(str_contains($userIndex, 'js-site-owner') && str_contains($userIndex, 'siteOwnerPassword'), 'User Management exposes password-confirmed Site Owner controls');
+$check(!str_contains($userIndex, "img, bio, phone") && !str_contains($userIndex, "_e('Bio')"), 'User Management omits biography from the operational list');
+$check(str_contains($userIndex, "const storageKey = 'users_columns'") && str_contains($userIndex, 'data-col="col-user-status"'), 'User Management persists optional column visibility');
+$check(str_contains($userIndex, 'user-actions-menu') && str_contains($userIndex, 'user-actions-toggle') && str_contains($dashboardCss, '.user-actions-menu'), 'User Management uses a non-overlapping overflow action menu');
+$check(str_contains($userIndex, 'user-status-badge is-active') && str_contains($userIndex, 'user-status-badge is-locked'), 'User Management uses concise account status badges');
+$check(str_contains($dashboardCss, '.user-identity') && str_contains($dashboardCss, '.user-owner-badge'), 'User Management combines avatar, identity, and Site Owner state cleanly');
 $check(str_contains($siteOwnerEndpoint, "['is_site_owner'] !== true") && str_contains($siteOwnerEndpoint, 'password_verify'), 'Site Owner mutation requires an existing Site Owner and current password');
 $check(str_contains($siteOwnerEndpoint, 'site_owner_reauth_blocked_until') && str_contains($siteOwnerEndpoint, 'usleep(250000)'), 'Site Owner password confirmation is throttled');
 $check(str_contains($siteOwnerEndpoint, 'authorization_set_site_owner') && str_contains($siteOwnerEndpoint, "targetId === \$uid"), 'Site Owner mutation uses the atomic policy and blocks self-demotion');
@@ -157,11 +163,11 @@ $check(strpos($siteOwnerHelperSource, '$pdo->commit();') < strpos($siteOwnerHelp
 $check(strpos($recoveryHelperSource, '$pdo->commit();') < strpos($recoveryHelperSource, "do_action('authorization_user_roles_changed'"), 'Site Owner recovery emits role changes only after its final commit');
 $check(!str_contains($recovery, "cfg/helpers/hooks.php") && str_contains($recovery, 'hooks require listeners registered in-process'), 'CLI Site Owner recovery documents that it does not bootstrap plugin hook listeners');
 $check(str_contains($userSave, "SELECT id, is_site_owner FROM users") && str_contains($userSave, 'FOR UPDATE'), 'user edits recheck Site Owner protection inside the mutation transaction');
-$check(str_contains($userIndex, 'canMutateUser') && str_contains($userIndex, "_e('Protected')"), 'ordinary administrators do not receive Site Owner account mutation controls');
+$check(str_contains($userIndex, 'canMutateUser') && str_contains($userIndex, '$hasUserActions = $canEditUser'), 'ordinary administrators do not receive Site Owner account mutation controls');
 $check(str_contains($profile, 'profile_reauth_blocked_until') && str_contains($profile, "name=\"current_password\""), 'profile password and email changes require throttled current-password verification');
 $check(str_contains($profile, 'currentUserIsSiteOwner') && str_contains($profile, 'A Site Owner cannot delete their own account.'), 'Profile blocks Site Owner self-deletion in UI and server handling');
 $check(str_contains($userBinRestore, 'actorIsSiteOwner') && str_contains($userBinPurge, 'actorIsSiteOwner'), 'trashed Site Owner accounts remain protected from ordinary administrators');
-$check(str_contains($translations, "'Change Site Owner access'") && str_contains($translations, "'The final active Site Owner cannot be revoked.'"), 'Site Owner management strings have translation seeds');
+$check(str_contains($translations, "'Change Site Owner access'") && str_contains($translations, "'The final active Site Owner cannot be revoked.'") && str_contains($translations, "'Site Owner is the highest-trust account."), 'Site Owner management strings have translation seeds');
 $check(str_contains($roleManager, "['is_site_owner'] !== true") && str_contains($roleManager, 'role_permissions'), 'Role Manager is Site Owner-only and persists permission grants');
 $check(str_contains($roleManager, "['own', 'same_or_lower', 'any']") && !str_contains($roleManager, 'return confirm('), 'Role Manager validates scopes and avoids native confirmation dialogs');
 $check(str_contains($roleManager, 'Not yet available for custom roles') && str_contains($roleManager, '_assignable'), 'Role Manager disables Core permissions whose routes are not migrated');
