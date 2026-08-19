@@ -9,6 +9,8 @@ require_once __DIR__ . '/../_notify.php';
 [$uid] = adiwira_require_permission($pdo, 'core.sidebar.manage', false);
 $sidebarActor = authorization_actor($pdo, $uid);
 $canManageRawHtml = $sidebarActor !== null && $sidebarActor['is_site_owner'] === true;
+$canTranslateSidebar = function_exists('ct_user_can_integration')
+    && ct_user_can_integration($pdo, 'core.sidebar.manage', $uid);
 
 require_once __DIR__ . '/../../../cfg/helpers/sidebar_helper.php';
 
@@ -16,7 +18,7 @@ $errors = [];
 $success_msg = '';
 $base = ADMIN_BASE_PATH;
 $self_url = $base . '/?page=admin/sidebar/index';
-$translationLocales = function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
+$translationLocales = $canTranslateSidebar && function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
 $translationLocale = trim((string)($_GET['ct_locale'] ?? ''));
 if (!in_array($translationLocale, $translationLocales, true)) $translationLocale = '';
 
@@ -212,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $keepIds[] = $wid;
             if ($translationLocale !== '' && !$preserveWidgetConfig
                 && ($type !== 'html' || $canManageRawHtml)
-                && function_exists('ct_save_sidebar_item_translation')) {
+                && $canTranslateSidebar && function_exists('ct_save_sidebar_item_translation')) {
                 ct_save_sidebar_item_translation($pdo, $wid, $translationLocale, $translation);
             }
         }
@@ -429,7 +431,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
           $type = (string)$it['type'];
           $active = !empty($it['active']);
            $config = is_array($it['config']) ? $it['config'] : [];
-           $itemTranslation = $translationLocale !== '' && function_exists('ct_sidebar_item_translation') ? ct_sidebar_item_translation($pdo, $itemId, $translationLocale) : null;
+           $itemTranslation = $canTranslateSidebar && $translationLocale !== '' && function_exists('ct_sidebar_item_translation') ? ct_sidebar_item_translation($pdo, $itemId, $translationLocale) : null;
            $translationConfig = is_array($itemTranslation['config'] ?? null) ? $itemTranslation['config'] : [];
           $typeInfo = $widget_types[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
           $canConfigureItem = $canManageRawHtml || in_array($type, $delegatedConfigurableTypes, true);

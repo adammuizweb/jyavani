@@ -15,6 +15,8 @@ $GLOBALS['_plugin_last_error'] = '';
 $GLOBALS['_plugin_active_cache'] = null;
 $GLOBALS['_plugin_load_diagnostics'] = [];
 $GLOBALS['_plugin_loader_ran'] = false;
+$GLOBALS['_plugin_ready_permissions'] = [];
+$GLOBALS['_plugin_permission_sync_errors'] = [];
 
 function plugin_message(string $message, mixed ...$values): string {
     $translated = function_exists('__') ? __($message) : $message;
@@ -134,6 +136,191 @@ function plugin_normalize_requirements(array $manifest): array {
         }
     }
     return ['requires' => $requires, 'errors' => array_values(array_unique($errors))];
+}
+
+/** Validate and normalize plugin-owned permissions and protected admin routes. */
+function plugin_manifest_contract(array $manifest): array {
+    $errors = [];
+    $permissions = [];
+    $routeRoles = [];
+    if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest)) {
+        return ['permissions' => [], 'route_roles' => [], 'errors' => []];
+    }
+    $name = is_string($manifest['name'] ?? null) ? trim($manifest['name']) : '';
+    if ($name === '' || strlen($name) > 100 || preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) {
+        $errors[] = 'Invalid plugin name';
+    }
+
+    $declared = $manifest['permissions'] ?? [];
+    if (!is_array($declared) || !array_is_list($declared)) {
+        $errors[] = 'Invalid plugin permission declaration';
+        $declared = [];
+    }
+    if ($declared !== [] && preg_match('/\A[a-z0-9_-]+\z/', $name) !== 1) {
+        $errors[] = 'Plugins declaring permissions must use a lowercase name';
+    }
+    foreach ($declared as $entry) {
+        if (!is_array($entry)) {
+            $errors[] = 'Invalid plugin permission entry';
+            continue;
+        }
+        $key = is_string($entry['key'] ?? null) ? trim($entry['key']) : '';
+        $label = is_string($entry['label'] ?? null) ? trim($entry['label']) : '';
+        $supportsScope = $entry['supports_scope'] ?? false;
+        $parts = explode('.', $key);
+        $validSyntax = function_exists('authorization_permission_key_is_valid')
+            ? authorization_permission_key_is_valid($key)
+            : preg_match('/^[a-z0-9][a-z0-9._-]{2,190}$/', $key) === 1;
+        $validKey = $key !== ''
+            && $validSyntax
+            && count($parts) >= 4
+            && ($parts[0] ?? '') === 'plugin'
+            && ($parts[1] ?? '') === $name;
+        if (!$validKey) {
+            $errors[] = 'Invalid or unowned plugin permission key: ' . ($key !== '' ? $key : '(empty)');
+            continue;
+        }
+        if ($label === '' || strlen($label) > 191) {
+            $errors[] = 'Invalid label for plugin permission: ' . $key;
+            continue;
+        }
+        if (!is_bool($supportsScope)) {
+            $errors[] = 'Invalid scope declaration for plugin permission: ' . $key;
+            continue;
+        }
+        if (isset($permissions[$key])) {
+            $errors[] = 'Duplicate plugin permission: ' . $key;
+            continue;
+        }
+        $resource = (string)$parts[count($parts) - 2];
+        $action = (string)$parts[count($parts) - 1];
+        if (strlen($resource) > 100 || strlen($action) > 100) {
+            $errors[] = 'Plugin permission resource or action is too long: ' . $key;
+            continue;
+        }
+        $permissions[$key] = [
+            'permission_key' => $key,
+            'provider' => $name,
+            'resource' => $resource,
+            'action' => $action,
+            'label' => $label,
+            'supports_scope' => $supportsScope,
+        ];
+    }
+
+    $pages = $manifest['admin']['pages'] ?? [];
+    if (!is_array($pages) || !array_is_list($pages)) {
+        $errors[] = 'Invalid plugin admin page declaration';
+        $pages = [];
+    }
+    $seenRoutes = [];
+    foreach ($pages as $page) {
+        if (!is_array($page)) {
+            $errors[] = 'Invalid plugin admin page';
+            continue;
+        }
+        $route = is_string($page['route'] ?? null) ? trim($page['route'], '/') : '';
+        $file = is_string($page['file'] ?? null) ? $page['file'] : '';
+        if ($route === '' || preg_match('/\A[a-z0-9_-]+(?:\/[a-z0-9_-]+)*\z/', $route) !== 1) {
+            $errors[] = 'Invalid plugin admin route: ' . ($route !== '' ? $route : '(empty)');
+        } elseif (isset($seenRoutes[$route])) {
+            $errors[] = 'Duplicate plugin admin route: ' . $route;
+        }
+        $seenRoutes[$route] = true;
+        if ($file === '' || str_contains($file, "\0") || str_contains($file, '\\') || str_starts_with($file, '/')
+            || in_array('', explode('/', $file), true) || in_array('.', explode('/', $file), true) || in_array('..', explode('/', $file), true)) {
+            $errors[] = 'Invalid plugin admin file for route: ' . ($route !== '' ? $route : '(empty)');
+        }
+        if (array_key_exists('site_owner', $page) && !is_bool($page['site_owner'])) {
+            $errors[] = 'Invalid Site Owner declaration for route: ' . $route;
+        }
+        $permission = is_string($page['permission'] ?? null) ? trim($page['permission']) : '';
+        if ($permission === '') continue;
+        if (($page['site_owner'] ?? false) === true) {
+            $errors[] = 'A plugin route cannot combine Site Owner and delegable permission guards: ' . $route;
+            continue;
+        }
+        if (!isset($permissions[$permission])) {
+            $errors[] = 'Unknown plugin route permission: ' . $permission;
+            continue;
+        }
+        if ($permissions[$permission]['supports_scope'] === true) {
+            $errors[] = 'Plugin route permissions cannot be scoped: ' . $permission;
+            continue;
+        }
+        $roles = $page['roles'] ?? ['admin'];
+        if (!is_array($roles) || !array_is_list($roles)) {
+            $errors[] = 'Invalid compatibility roles for route: ' . $route;
+            continue;
+        }
+        $roles = array_values(array_unique(array_filter(array_map(
+            static fn($role): string => is_string($role) ? strtolower(trim($role)) : '',
+            $roles
+        ), static fn(string $role): bool => in_array($role, ['author', 'editor', 'admin'], true))));
+        sort($roles, SORT_STRING);
+        if (isset($routeRoles[$permission]) && $routeRoles[$permission] !== $roles) {
+            $errors[] = 'Plugin routes sharing a permission must use identical compatibility roles: ' . $permission;
+        } else {
+            $routeRoles[$permission] = $roles;
+        }
+    }
+
+    $nav = $manifest['admin']['nav'] ?? [];
+    if (!is_array($nav) || !array_is_list($nav)) {
+        $errors[] = 'Invalid plugin navigation declaration';
+    } else {
+        foreach ($nav as $item) {
+            if (!is_array($item)) {
+                $errors[] = 'Invalid plugin navigation item';
+                continue;
+            }
+            if (array_key_exists('site_owner', $item) && !is_bool($item['site_owner'])) {
+                $errors[] = 'Invalid Site Owner navigation declaration';
+            }
+        }
+    }
+
+    return [
+        'permissions' => $permissions,
+        'route_roles' => $routeRoles,
+        'errors' => array_values(array_unique($errors)),
+    ];
+}
+
+function plugin_manifest_contract_errors(array $manifest): array {
+    return plugin_manifest_contract($manifest)['errors'];
+}
+
+/** Reject routes that would shadow Core or another installed plugin. */
+function plugin_route_collision_errors(array $manifest, array $installed = []): array {
+    $routes = [];
+    foreach ($manifest['admin']['pages'] ?? [] as $page) {
+        $route = is_array($page) && is_string($page['route'] ?? null) ? trim($page['route'], '/') : '';
+        if ($route !== '' && preg_match('/\A[a-z0-9_-]+(?:\/[a-z0-9_-]+)*\z/', $route) === 1) $routes[$route] = true;
+    }
+    if ($routes === []) return [];
+
+    $errors = [];
+    $name = is_string($manifest['name'] ?? null) ? $manifest['name'] : '';
+    $dashboardRoot = defined('DASH_PATH') ? DASH_PATH : dirname(__DIR__) . '/dashboard';
+    foreach (array_keys($routes) as $route) {
+        if ($route === 'home' || is_file($dashboardRoot . '/' . $route . '.php')) {
+            $errors[] = plugin_message('Plugin admin route "%s" conflicts with a Core dashboard route.', $route);
+        }
+    }
+
+    foreach ($installed as $installedName => $otherManifest) {
+        if (!is_array($otherManifest) || plugin_manifest_contract_errors($otherManifest) !== []) continue;
+        $otherName = is_string($otherManifest['name'] ?? null) ? $otherManifest['name'] : (string)$installedName;
+        if ($otherName === $name) continue;
+        foreach ($otherManifest['admin']['pages'] ?? [] as $page) {
+            $route = is_array($page) && is_string($page['route'] ?? null) ? trim($page['route'], '/') : '';
+            if ($route !== '' && isset($routes[$route])) {
+                $errors[] = plugin_message('Plugin admin route "%s" conflicts with plugin "%s".', $route, $otherName);
+            }
+        }
+    }
+    return array_values(array_unique($errors));
 }
 
 /** Store and package plugin dependency metadata must match exactly. */
@@ -269,10 +456,11 @@ function plugin_requirement_checks(array $manifest, bool $checkPluginState = tru
 }
 
 function plugin_requirement_errors(array $manifest): array {
-    return array_values(array_map(
+    $errors = array_values(array_map(
         static fn(array $check): string => $check['label'],
         array_filter(plugin_requirement_checks($manifest), static fn(array $check): bool => !$check['passed'])
     ));
+    return array_values(array_unique(array_merge($errors, plugin_manifest_contract_errors($manifest))));
 }
 
 function plugin_requirements_error_message(array $manifest): string {
@@ -286,6 +474,7 @@ function plugin_install_requirements_error_message(array $manifest, bool $activa
     $errors = $activate
         ? plugin_requirement_errors($manifest)
         : plugin_requirement_errors_without_plugin_state($manifest);
+    $errors = array_merge($errors, plugin_route_collision_errors($manifest, plugins_all()));
     return plugin_requirements_error_message_from_errors($errors);
 }
 
@@ -309,6 +498,8 @@ function plugin_reset_runtime_cache(): void {
     $GLOBALS['_plugin_requirement_diagnostics'] = [];
     $GLOBALS['_plugin_load_diagnostics'] = [];
     $GLOBALS['_plugin_loader_ran'] = false;
+    $GLOBALS['_plugin_ready_permissions'] = [];
+    $GLOBALS['_plugin_permission_sync_errors'] = [];
 }
 
 function plugin_last_error(): string {
@@ -379,7 +570,7 @@ function plugin_manifest(string $name): ?array {
     $file = PLUGIN_PATH . '/' . $name . '/plugin.json';
     if (!is_file($file)) return null;
     $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? $data : null;
+    return is_array($data) && ($data['name'] ?? null) === $name && plugin_manifest_contract_errors($data) === [] ? $data : null;
 }
 
 /** Resolve only the top-level image icon explicitly declared by plugin.json. */
@@ -755,6 +946,32 @@ function plugin_resolve_active_plugins(array $all, array $disabled): array {
     foreach ($all as $name => $_manifest) {
         if (!in_array($name, $disabled, true)) $visit($name);
     }
+
+    $collided = [];
+    foreach ($ordered as $name => $manifest) {
+        $routeErrors = plugin_route_collision_errors($manifest, $ordered);
+        if ($routeErrors === []) continue;
+        $addDiagnostic($name, plugin_requirements_error_message_from_errors($routeErrors));
+        $collided[$name] = true;
+    }
+    foreach (array_keys($collided) as $name) unset($ordered[$name]);
+
+    do {
+        $removedDependent = false;
+        foreach ($ordered as $name => $manifest) {
+            $requires = plugin_normalize_requirements($manifest)['requires']['plugins'] ?? [];
+            foreach (is_array($requires) ? array_keys($requires) : [] as $dependencyName) {
+                if (isset($ordered[$dependencyName])) continue;
+                $addDiagnostic($name, plugin_requirements_error_message_from_errors([
+                    plugin_message('Required plugin "%s" could not be loaded.', (string)$dependencyName),
+                ]));
+                unset($ordered[$name]);
+                $removedDependent = true;
+                break;
+            }
+        }
+    } while ($removedDependent);
+
     return ['active' => $ordered, 'diagnostics' => $diagnostics];
 }
 
@@ -782,10 +999,11 @@ function plugin_order_names_by_dependencies(array $names, bool $dependencyFirst 
 }
 
 function plugin_requirement_errors_without_plugin_state(array $manifest): array {
-    return array_values(array_map(
+    $errors = array_values(array_map(
         static fn(array $check): string => $check['label'],
         array_filter(plugin_requirement_checks($manifest, false), static fn(array $check): bool => !$check['passed'])
     ));
+    return array_values(array_unique(array_merge($errors, plugin_manifest_contract_errors($manifest))));
 }
 
 function plugin_requirements_error_message_from_errors(array $errors): string {
@@ -884,19 +1102,129 @@ function plugin_is_active(string $name): bool {
 
 // --- Route / Nav / Asset aggregation ---
 
+/** Reconcile active plugin permission manifests while preserving custom-role grants. */
+function plugin_sync_permissions(PDO $pdo): array {
+    $desired = [];
+    $desiredRoles = [];
+    $installed = plugins_all();
+    $installedPermissionKeys = [];
+    foreach ($installed as $manifest) {
+        $contract = plugin_manifest_contract($manifest);
+        if ($contract['errors'] === []) {
+            foreach (array_keys($contract['permissions']) as $key) $installedPermissionKeys[$key] = true;
+        }
+    }
+    foreach (plugins_active() as $name => $manifest) {
+        $contract = plugin_manifest_contract($manifest);
+        if ($contract['errors'] !== []) {
+            $GLOBALS['_plugin_permission_sync_errors'][$name] = implode('; ', $contract['errors']);
+            continue;
+        }
+        foreach ($contract['permissions'] as $key => $permission) $desired[$key] = $permission;
+        foreach ($contract['route_roles'] as $key => $roles) $desiredRoles[$key] = $roles;
+    }
+
+    $started = !$pdo->inTransaction();
+    try {
+        if ($started) $pdo->beginTransaction();
+        $driver = (string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $lock = $driver === 'mysql' ? ' FOR UPDATE' : '';
+        $rows = $pdo->query(
+            "SELECT permission_key, provider, resource, action, label, supports_scope, is_active
+             FROM permissions
+             WHERE permission_key LIKE 'plugin.%'" . $lock
+        )->fetchAll(PDO::FETCH_ASSOC);
+        $existing = [];
+        foreach ($rows as $row) $existing[(string)$row['permission_key']] = $row;
+
+        foreach ($desired as $key => $permission) {
+            if (!isset($existing[$key])) continue;
+            $row = $existing[$key];
+            if ((string)$row['provider'] !== $permission['provider']
+                || (string)$row['resource'] !== $permission['resource']
+                || (string)$row['action'] !== $permission['action']
+                || (int)$row['supports_scope'] !== (int)$permission['supports_scope']) {
+                throw new RuntimeException('Plugin permission semantics conflict: ' . $key);
+            }
+        }
+
+        $insert = $pdo->prepare(
+            'INSERT INTO permissions (permission_key, provider, resource, action, label, supports_scope, is_active)
+             VALUES (:permission_key, :provider, :resource, :action, :label, :supports_scope, 1)'
+        );
+        $activate = $pdo->prepare('UPDATE permissions SET label = :label, is_active = 1 WHERE permission_key = :permission_key');
+        foreach ($desired as $key => $permission) {
+            if (isset($existing[$key])) {
+                if ((string)$existing[$key]['label'] !== $permission['label'] || (int)$existing[$key]['is_active'] !== 1) {
+                    $activate->execute([':label' => $permission['label'], ':permission_key' => $key]);
+                }
+            } else {
+                $insert->execute([
+                    ':permission_key' => $key,
+                    ':provider' => $permission['provider'],
+                    ':resource' => $permission['resource'],
+                    ':action' => $permission['action'],
+                    ':label' => $permission['label'],
+                    ':supports_scope' => $permission['supports_scope'] ? 1 : 0,
+                ]);
+            }
+        }
+
+        $deactivate = $pdo->prepare('UPDATE permissions SET is_active = 0 WHERE permission_key = :permission_key');
+        $deletePermission = $pdo->prepare('DELETE FROM permissions WHERE permission_key = :permission_key');
+        foreach ($existing as $key => $row) {
+            if (isset($desired[$key])) continue;
+            $provider = (string)$row['provider'];
+            if (!isset($installed[$provider]) || !isset($installedPermissionKeys[$key])) {
+                $deletePermission->execute([':permission_key' => $key]);
+            } elseif ((int)$row['is_active'] !== 0) {
+                $deactivate->execute([':permission_key' => $key]);
+            }
+        }
+
+        $roleRows = $pdo->query("SELECT id, slug FROM roles WHERE is_system = 1 AND slug IN ('author','editor','admin')" . $lock)->fetchAll(PDO::FETCH_ASSOC);
+        $systemRoles = [];
+        foreach ($roleRows as $role) $systemRoles[(string)$role['slug']] = (int)$role['id'];
+        $permissionKeys = array_values(array_unique(array_merge(array_keys($existing), array_keys($desired))));
+        $deleteGrant = $pdo->prepare('DELETE FROM role_permissions WHERE role_id = :role_id AND permission_key = :permission_key');
+        $insertGrant = $pdo->prepare("INSERT INTO role_permissions (role_id, permission_key, scope) VALUES (:role_id, :permission_key, 'global')");
+        foreach ($permissionKeys as $key) {
+            foreach ($systemRoles as $roleId) $deleteGrant->execute([':role_id' => $roleId, ':permission_key' => $key]);
+            foreach ($desiredRoles[$key] ?? [] as $role) {
+                if (isset($systemRoles[$role])) $insertGrant->execute([':role_id' => $systemRoles[$role], ':permission_key' => $key]);
+            }
+        }
+
+        if ($started) $pdo->commit();
+        $GLOBALS['_plugin_ready_permissions'] = array_fill_keys(array_keys($desired), true);
+        $GLOBALS['_plugin_permission_sync_errors'] = [];
+        return [];
+    } catch (Throwable $e) {
+        if ($started && $pdo->inTransaction()) $pdo->rollBack();
+        $GLOBALS['_plugin_ready_permissions'] = [];
+        $GLOBALS['_plugin_permission_sync_errors']['sync'] = $e->getMessage();
+        error_log('[plugin-permissions] ' . $e->getMessage());
+        return [$e->getMessage()];
+    }
+}
+
 function plugin_admin_routes(): array {
     $routes = [];
     foreach (plugins_active() as $name => $p) {
         $pages = $p['admin']['pages'] ?? [];
         $base = PLUGIN_PATH . '/' . $name;
         foreach ($pages as $r) {
-            $route = $r['route'] ?? '';
-            if ($route === '') continue;
+            $route = is_string($r['route'] ?? null) ? trim($r['route'], '/') : '';
+            $file = is_string($r['file'] ?? null) ? plugin_safe_path($base, $r['file']) : null;
+            if ($route === '' || preg_match('/\A[a-z0-9_-]+(?:\/[a-z0-9_-]+)*\z/', $route) !== 1
+                || $file === null || !is_file($file) || is_link($file) || isset($routes[$route])) continue;
             $routes[$route] = [
-                'file' => $base . '/' . ($r['file'] ?? ''),
+                'file' => $file,
                 'title' => $r['title'] ?? $route,
                 'roles' => $r['roles'] ?? ['admin'],
                 'hidden' => $r['hidden'] ?? false,
+                'permission' => is_string($r['permission'] ?? null) ? trim($r['permission']) : '',
+                'site_owner' => ($r['site_owner'] ?? false) === true,
                 'plugin' => $name,
             ];
         }
@@ -944,12 +1272,47 @@ function plugin_resolve_route(string $route): ?array {
     return $routes[$route] ?? null;
 }
 
+/** Pure route authorization predicate used by dashboard navigation. */
+function plugin_route_is_allowed(PDO $pdo, array $route, ?int $userId = null): bool {
+    $actor = function_exists('authorization_actor') ? authorization_actor($pdo, $userId) : null;
+    if ($actor === null) return false;
+    if (($route['site_owner'] ?? false) === true) return $actor['is_site_owner'] === true;
+    $permission = is_string($route['permission'] ?? null) ? trim($route['permission']) : '';
+    if ($permission !== '') {
+        return isset($GLOBALS['_plugin_ready_permissions'][$permission])
+            && function_exists('user_can')
+            && user_can($pdo, (int)$actor['id'], $permission);
+    }
+    if ($actor['is_site_owner'] === true) return true;
+    $role = function_exists('authorization_active_legacy_role')
+        ? authorization_active_legacy_role($pdo, (int)$actor['id'])
+        : (string)($actor['legacy_role'] ?? 'none');
+    $roles = is_array($route['roles'] ?? null) ? $route['roles'] : ['admin'];
+    return in_array($role, $roles, true);
+}
+
 /**
- * Enforce role-based access for a plugin admin route.
- * Fires the `plugin_page_roles` filter so plugins/themes can mutate the
- * required roles before the hardcoded guard is applied.
+ * Enforce Site Owner, permission, or legacy role access for a plugin route.
  */
 function plugin_guard_route(PDO $pdo, array $route, bool $asJson = false): void {
+    if (($route['site_owner'] ?? false) === true && function_exists('adiwira_require_site_owner')) {
+        adiwira_require_site_owner($pdo, $asJson);
+        return;
+    }
+    $permission = is_string($route['permission'] ?? null) ? trim($route['permission']) : '';
+    if ($permission !== '' && function_exists('adiwira_require_permission')) {
+        if (!isset($GLOBALS['_plugin_ready_permissions'][$permission])) {
+            adiwira_require_permission($pdo, '__invalid_plugin_permission__', $asJson);
+            return;
+        }
+        adiwira_require_permission($pdo, $permission, $asJson);
+        $baseRoles = is_array($route['roles'] ?? null) ? $route['roles'] : ['admin'];
+        $filteredRoles = apply_filters('plugin_page_roles', $baseRoles, $route);
+        if ($filteredRoles !== $baseRoles && function_exists('adiwira_require_role')) {
+            adiwira_require_role($pdo, is_array($filteredRoles) ? $filteredRoles : [], $asJson);
+        }
+        return;
+    }
     $roles = $route['roles'] ?? ['admin'];
     $roles = apply_filters('plugin_page_roles', $roles, $route);
 

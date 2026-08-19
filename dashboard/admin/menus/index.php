@@ -12,6 +12,8 @@ require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
 [$uid] = adiwira_require_permission($pdo, 'core.menus.manage', false);
+$canTranslateMenus = function_exists('ct_user_can_integration')
+    && ct_user_can_integration($pdo, 'core.menus.manage', $uid);
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
@@ -45,10 +47,10 @@ if ($selectedMenu && function_exists('menu_build_tree')) {
     $menuTree = menu_build_tree($pdo, $selectedMenuId);
     $menuItems = menu_get_items($pdo, $selectedMenuId);
 }
-$menuTranslations = $selectedMenu && function_exists('ct_menu_item_translations_for_menu')
+$menuTranslations = $canTranslateMenus && $selectedMenu && function_exists('ct_menu_item_translations_for_menu')
     ? ct_menu_item_translations_for_menu($pdo, $selectedMenuId)
     : [];
-$translationLocales = function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
+$translationLocales = $canTranslateMenus && function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
 
 // Fetch available items for adding to menu
 $articles = [];

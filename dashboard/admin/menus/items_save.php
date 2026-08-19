@@ -17,6 +17,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 }
 
 adiwira_require_permission($pdo, 'core.menus.manage', true);
+$canTranslateMenus = function_exists('ct_user_can_integration')
+    && ct_user_can_integration($pdo, 'core.menus.manage');
 
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input || !is_array($input)) {
@@ -49,7 +51,7 @@ foreach ($items as $item) {
     if ((string)($item['type'] ?? '') === 'custom') {
         $urls[] = (string)($item['url'] ?? '');
     }
-    foreach ((array)($item['translations'] ?? []) as $translation) {
+    foreach ($canTranslateMenus ? (array)($item['translations'] ?? []) : [] as $translation) {
         if (!is_array($translation)) continue;
         $translatedUrl = trim((string)($translation['url'] ?? ''));
         if ($translatedUrl !== '') $urls[] = $translatedUrl;
@@ -63,7 +65,7 @@ foreach ($items as $item) {
 }
 
 try {
-    if (function_exists('ct_ensure_schema')) {
+    if ($canTranslateMenus && function_exists('ct_ensure_schema')) {
         ct_ensure_schema($pdo);
     }
     $pdo->beginTransaction();
@@ -82,7 +84,7 @@ try {
         $targetId = (int)($item['target_id'] ?? 0);
         $targetBlank = !empty($item['target_blank']) ? 1 : 0;
         $hidden = !empty($item['hidden']) ? 1 : 0;
-        $translations = is_array($item['translations'] ?? null) ? $item['translations'] : [];
+        $translations = $canTranslateMenus && is_array($item['translations'] ?? null) ? $item['translations'] : [];
 
         if ($label === '') continue;
 
@@ -139,7 +141,7 @@ try {
             }
         }
 
-        if (function_exists('ct_save_menu_item_translation')) {
+        if ($canTranslateMenus && function_exists('ct_save_menu_item_translation')) {
             foreach ($translations as $locale => $translation) {
                 if (!is_array($translation)) continue;
                 ct_save_menu_item_translation($pdo, $savedItemId, (string)$locale, $translation);
@@ -147,7 +149,7 @@ try {
         }
     }
 
-    if (function_exists('ct_ensure_schema')) {
+    if ($canTranslateMenus && function_exists('ct_ensure_schema')) {
         ct_ensure_schema($pdo);
         $pdo->exec('DELETE mit FROM menu_item_translations mit LEFT JOIN menu_items mi ON mi.id = mit.menu_item_id WHERE mi.id IS NULL');
     }

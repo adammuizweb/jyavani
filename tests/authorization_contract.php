@@ -260,7 +260,7 @@ $check(
 $check(
     !str_contains($menuRoutes, 'adiwira_require_role')
     && !str_contains($menuRoutes, "in_array(\$role")
-    && substr_count($menuRoutes, "core.menus.manage") === 4,
+    && substr_count($menuRoutes, "core.menus.manage") >= 4,
     'Menu Manager routes consistently require the global menu permission'
 );
 $check(
@@ -272,7 +272,7 @@ $check(
 $check(
     !str_contains($sidebarRoutes, 'adiwira_require_role')
     && !str_contains($sidebarRoutes, 'adiwira_require_admin')
-    && substr_count($sidebarRoutes, "core.sidebar.manage") === 4
+    && substr_count($sidebarRoutes, "core.sidebar.manage") >= 4
     && str_contains($roleManager, "'core.sidebar.manage'"),
     'sidebar settings and zone routes consistently use the assignable sidebar permission'
 );

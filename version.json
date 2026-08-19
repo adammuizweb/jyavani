@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.72",
-    "build": "2026-08-18",
-    "changelog": "Fix Core update completion across the first Site Owner migration and harden CLI recovery.",
+    "version": "2.3.73",
+    "build": "2026-08-19",
+    "changelog": "Add delegable plugin permissions, permission synchronization, authorized navigation, and fail-closed route collision handling.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

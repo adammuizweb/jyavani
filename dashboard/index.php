@@ -87,6 +87,7 @@ $pluginLoader = __DIR__ . '/../plugins/index.php';
 if (is_file($pluginLoader)) {
     require_once $pluginLoader;
     plugin_load_active();
+    plugin_sync_permissions($pdo);
     do_action('admin_init');
 }
 

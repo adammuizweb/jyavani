@@ -207,10 +207,11 @@ if ($pageLinks !== []) {
 if (function_exists('plugin_nav_items')) {
     foreach (plugin_nav_items() as $pn) {
         if (($pn['parent'] ?? '') !== 'pages') continue;
-        $pnRoles = $pn['roles'] ?? ['admin'];
-        if ($userRole !== null && !in_array($userRole, $pnRoles, true)) continue;
         $pnPage = (string)($pn['page'] ?? '');
         if ($pnPage === '') continue;
+        $pnRoute = function_exists('plugin_resolve_route') ? plugin_resolve_route($pnPage) : null;
+        if (!is_array($pnRoute) || ($pnRoute['plugin'] ?? '') !== ($pn['plugin'] ?? '')
+            || !plugin_route_is_allowed($pdo, $pnRoute)) continue;
         $pnActive = adam_nav_active($requested, $pnPage);
         echo '<li class="adam-nav-item' . ($pnActive ? ' is-open' : '') . '" data-prefix="' . h($pnPage) . '">';
         echo '<a class="adam-nav-link' . ($pnActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/?page=' . $pnPage) . '">';
@@ -354,8 +355,9 @@ if (function_exists('plugin_nav_items')) {
         $label = $n['label'] ?? __('Plugin');
         $icon = $n['icon'] ?? 'code';
         $page = $n['page'] ?? '';
-        $roles = $n['roles'] ?? ['admin'];
-        if ($userRole !== null && !in_array($userRole, $roles, true)) continue;
+        $route = function_exists('plugin_resolve_route') ? plugin_resolve_route((string)$page) : null;
+        if (!is_array($route) || ($route['plugin'] ?? '') !== ($n['plugin'] ?? '')
+            || !plugin_route_is_allowed($pdo, $route)) continue;
 
         $isActive = adam_nav_active($requested, $page);
         echo '<a class="adam-nav-sublink' . ($isActive ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=' . $page) . '">';
@@ -372,8 +374,9 @@ if (function_exists('plugin_nav_items')) {
             $label = $n['label'] ?? __('Plugin');
             $icon = $n['icon'] ?? 'code';
             $page = $n['page'] ?? '';
-            $roles = $n['roles'] ?? ['admin'];
-            if ($userRole !== null && !in_array($userRole, $roles, true)) continue;
+            $route = function_exists('plugin_resolve_route') ? plugin_resolve_route((string)$page) : null;
+            if (!is_array($route) || ($route['plugin'] ?? '') !== ($n['plugin'] ?? '')
+                || !plugin_route_is_allowed($pdo, $route)) continue;
 
             $isActive = adam_nav_active($requested, $page);
             if ($isActive) $isToolsActive = true;
