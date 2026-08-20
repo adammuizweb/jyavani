@@ -128,6 +128,10 @@ $expanded = widget_expand_shortcodes('[[widget:contract_preset]]', $pdo);
 $check(isset($GLOBALS['_widget_shortcode_handlers']['contract_preset']), 'widget expansion lazily registers published presets');
 $check(str_contains($expanded, 'Localized title'), 'a lazily registered preset renders its filtered collection');
 $check(str_contains($expanded, '/localized/source-title/'), 'a rendered preset filters collection URLs');
+$check(
+    post_cat__excerpt('<p>Roles &amp; Permissions</p>', 80) === 'Roles & Permissions',
+    'post category excerpts decode HTML entities before template escaping'
+);
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

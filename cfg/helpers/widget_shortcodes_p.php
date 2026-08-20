@@ -114,7 +114,8 @@ function post_cat__resolve_kicker(array $attrs, string $category): string {
 function post_cat__excerpt(string $html, int $maxLen): string {
   $noBlock = (string)preg_replace('/<script[^>]*>.*?<\/script>/si', '', $html);
   $noBlock = (string)preg_replace('/<style[^>]*>.*?<\/style>/si', '', $noBlock);
-  $txt = trim((string)preg_replace('/\s+/', ' ', strip_tags($noBlock)));
+  $plain = html_entity_decode(strip_tags($noBlock), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+  $txt = trim((string)preg_replace('/\s+/', ' ', $plain));
   if ($maxLen < 10) $maxLen = 10;
 
   if (function_exists('mb_strlen')) {
