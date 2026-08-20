@@ -14,6 +14,12 @@ if (str_contains($source, '$page_title = \'Pencarian: \' . $qEsc;')) {
 if (!str_contains($source, "\$page_title = __('Search') . ': ' . \$q;")) {
     $failures[] = 'search document titles retain raw query text until layout escaping';
 }
+if (!str_contains($source, "apply_filters('search_base_url'")) {
+    $failures[] = 'search pagination and canonical URLs expose a locale-aware base hook';
+}
+if (!str_contains($source, '$canonicalPath = $baseUrl;')) {
+    $failures[] = 'search canonical URLs use the filtered search base';
+}
 
 if ($failures !== []) {
     foreach ($failures as $failure) {
@@ -24,3 +30,5 @@ if ($failures !== []) {
 
 echo "PASS search document titles do not reuse HTML-escaped query text\n";
 echo "PASS search document titles retain raw query text until layout escaping\n";
+echo "PASS search pagination and canonical URLs expose a locale-aware base hook\n";
+echo "PASS search canonical URLs use the filtered search base\n";

@@ -114,7 +114,11 @@ class SearchController
         }
 
         $qEsc = htmlspecialchars($q, ENT_QUOTES, 'UTF-8');
-        $baseUrl = '/?s=' . urlencode($q);
+        $defaultBaseUrl = '/?s=' . urlencode($q);
+        $filteredBaseUrl = apply_filters('search_base_url', $defaultBaseUrl, $pdo, $q);
+        $baseUrl = is_string($filteredBaseUrl) && trim($filteredBaseUrl) !== ''
+            ? $filteredBaseUrl
+            : $defaultBaseUrl;
 
         $vars = [
             // compat (tema/list biasanya pakai "posts")
@@ -139,7 +143,11 @@ class SearchController
         // canonical (layout.php membaca $canonical_url)
         $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $canonical_url = $scheme . '://' . $host . '/?' . http_build_query(array_filter(['s' => $q, 'p' => $page > 1 ? $page : null], fn($value) => $value !== null));
+        $canonicalPath = $baseUrl;
+        if ($page > 1) $canonicalPath .= (str_contains($canonicalPath, '?') ? '&' : '?') . 'p=' . $page;
+        $canonical_url = preg_match('#^https?://#i', $canonicalPath)
+            ? $canonicalPath
+            : $scheme . '://' . $host . '/' . ltrim($canonicalPath, '/');
 
         $page_title = __('Search') . ': ' . $q;
 

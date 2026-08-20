@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.80",
+    "version": "2.3.81",
     "build": "2026-08-20",
-    "changelog": "Decode HTML entities in post category shortcode excerpts before output escaping to prevent visible entity text.",
+    "changelog": "Add a locale-aware search base URL hook so integrations can keep pagination and canonical URLs within the active language.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
