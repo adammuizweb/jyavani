@@ -439,6 +439,20 @@ foreach ($permissions as $permission) {
     $groupKey = (string)$permission['provider'] . ' / ' . (string)$permission['resource'];
     $groupedPermissions[$groupKey][] = $permission;
 }
+$coreGroups = [];
+$pluginGroups = [];
+foreach ($groupedPermissions as $groupLabel => $items) {
+    if ((string)($items[0]['provider'] ?? '') === 'core') {
+        $coreGroups[$groupLabel] = $items;
+    } else {
+        $pluginGroups[$groupLabel] = $items;
+    }
+}
+$pluginProviders = [];
+foreach ($pluginGroups as $groupLabel => $items) {
+    $provider = (string)($items[0]['provider'] ?? '');
+    $pluginProviders[$provider][] = ['label' => $groupLabel, 'items' => $items];
+}
 $systemRoles = array_values(array_filter($roles, static fn(array $role): bool => (int)$role['is_system'] === 1));
 $customRoles = array_values(array_filter($roles, static fn(array $role): bool => (int)$role['is_system'] !== 1));
 $selectedPermissionCount = count($formGrants);
@@ -469,7 +483,7 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   <div class="authz-role-layout">
     <nav class="authz-role-rail" aria-label="<?= __('Roles') ?>">
       <div class="authz-rail-heading"><strong><?= _e('Roles') ?></strong><span><?= count($roles) ?></span></div>
-      <a href="<?= htmlspecialchars($pageUrl, ENT_QUOTES, 'UTF-8') ?>" data-role-nav class="authz-new-role<?= $selectedRole === null ? ' is-active' : '' ?>" <?= $selectedRole === null ? 'aria-current="page"' : '' ?>><span>+</span><span><strong><?= _e('New custom role') ?></strong><small><?= _e('Start with no permissions') ?></small></span></a>
+      <button type="button" data-role-nav class="authz-new-role" id="authzOpenCreateModal"><span>+</span><span><strong><?= _e('New custom role') ?></strong><small><?= _e('Start with no permissions') ?></small></span></button>
       <div class="authz-role-list">
       <?php foreach ($roles as $role): $roleActive = (int)$role['id'] === $selectedRoleId; ?>
         <a href="<?= htmlspecialchars($pageUrl . '&id=' . (int)$role['id'], ENT_QUOTES, 'UTF-8') ?>"
@@ -487,14 +501,14 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
       <input type="hidden" name="action" value="save">
       <input type="hidden" name="role_id" value="<?= (int)($selectedRole['id'] ?? 0) ?>">
 
-      <div class="authz-editor-heading"><div><span><?= $selectedRole === null ? _e('Create role') : _e('Edit role') ?></span><h2><?= htmlspecialchars((string)($selectedRole['name'] ?? __('New custom role')), ENT_QUOTES, 'UTF-8') ?></h2></div><?php if ($selectedRole !== null): ?><small><?= (int)$selectedRole['user_count'] ?> <?= _e('users') ?> · <?= $selectedPermissionCount ?> <?= _e('permissions') ?></small><?php endif; ?></div>
+      <div class="authz-editor-heading"><div><span><?= $selectedRole === null ? _e('Select a role') : _e('Edit role') ?></span><h2><?= htmlspecialchars((string)($selectedRole['name'] ?? __('Select a role')), ENT_QUOTES, 'UTF-8') ?></h2></div><?php if ($selectedRole !== null): ?><small><?= (int)$selectedRole['user_count'] ?> <?= _e('users') ?> · <?= $selectedPermissionCount ?> <?= _e('permissions') ?></small><?php endif; ?></div>
 
       <?php if ($selectedRoleIsSystem): ?>
         <div class="authz-role-notice is-locked"><strong><?= _e('Protected system role') ?></strong><span><?= _e('You can edit its name and description. Core manages its slug, authority rank, and permissions.') ?></span></div>
       <?php elseif ($selectedRole !== null): ?>
         <div class="authz-role-notice is-editable"><strong><?= _e('Editable custom role') ?></strong><span><?= _e('Change its details, permissions, and ownership scopes below.') ?></span></div>
       <?php else: ?>
-        <div class="authz-role-notice is-editable"><strong><?= _e('Create a custom role') ?></strong><span><?= _e('Name the role first, then grant only the permissions it needs.') ?></span></div>
+        <div class="authz-role-notice is-editable"><strong><?= _e('Select a role to edit or create a new one.') ?></strong><span><?= _e('Click a role in the sidebar to edit it, or click "New custom role" to create one.') ?></span></div>
       <?php endif; ?>
 
       <div class="authz-role-fields">
@@ -524,7 +538,7 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
       </div>
       <div class="authz-permission-tools"><label><span class="sr-only"><?= _e('Search permissions') ?></span><input type="search" id="authzPermissionSearch" placeholder="<?= __('Search permissions or modules...') ?>"></label><div><button type="button" class="adam-cancle" id="authzExpandAll"><?= _e('Expand all') ?></button><button type="button" class="adam-cancle" id="authzCollapseAll"><?= _e('Collapse all') ?></button></div></div>
       <div class="authz-permission-groups" id="authzPermissionGroups">
-        <?php foreach ($groupedPermissions as $groupLabel => $items):
+        <?php foreach ($coreGroups as $groupLabel => $items):
           $groupProvider = (string)($items[0]['provider'] ?? '');
           $groupResource = (string)($items[0]['resource'] ?? '');
           $groupName = __(ucwords(str_replace(['_', '-'], ' ', $groupResource)));
@@ -561,6 +575,57 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
             </div>
           </details>
         <?php endforeach; ?>
+        <?php if (!empty($pluginProviders)): ?>
+          <details class="authz-permission-group authz-plugins-group" open>
+            <summary><span><strong><?= _e('Plugins') ?></strong><small><?= _e('Third-party') ?></small></span><span class="authz-group-count" id="authzPluginsCount">0 / 0</span></summary>
+            <div class="authz-permission-list authz-plugins-list">
+            <?php foreach ($pluginProviders as $provider => $providerGroups):
+              $providerEnabled = 0;
+              $providerTotal = 0;
+              foreach ($providerGroups as $pg) {
+                  $pgEnabled = count(array_filter($pg['items'], static fn(array $item): bool => array_key_exists((string)$item['permission_key'], $formGrants)));
+                  $providerEnabled += $pgEnabled;
+                  $providerTotal += count($pg['items']);
+              }
+              $providerLabel = __(ucwords(str_replace(['_', '-'], ' ', $provider)));
+            ?>
+              <details class="authz-permission-group authz-plugin-provider" <?= $providerEnabled > 0 ? 'open' : '' ?>>
+                <summary><span><strong><?= htmlspecialchars($providerLabel, ENT_QUOTES, 'UTF-8') ?></strong></span><span class="authz-group-count"><?= $providerEnabled ?> / <?= $providerTotal ?></span></summary>
+                <div class="authz-permission-list">
+                <?php foreach ($providerGroups as $pg):
+                  foreach ($pg['items'] as $permission):
+                    $permissionKey = (string)$permission['permission_key'];
+                    $permissionLabel = __(strval($permission['label']));
+                    $isEnabled = array_key_exists($permissionKey, $formGrants);
+                    $scope = $formGrants[$permissionKey] ?? ((int)$permission['supports_scope'] === 1 ? 'own' : 'global');
+                    $scopeHash = hash('sha256', $permissionKey);
+                    $permissionAssignable = ($permission['_assignable'] ?? false) === true;
+                    $permissionDisabled = $selectedRoleIsSystem || !$permissionAssignable;
+                    $resourceName = __(ucwords(str_replace(['_', '-'], ' ', (string)$permission['resource'])));
+                ?>
+                  <div class="authz-permission-row" data-permission-search="<?= htmlspecialchars(strtolower($providerLabel . ' ' . $resourceName . ' ' . $permissionLabel . ' ' . $permissionKey), ENT_QUOTES, 'UTF-8') ?>">
+                    <label class="authz-permission-check">
+                      <input type="checkbox" class="authz-permission-toggle" name="enabled_permissions[]" value="<?= htmlspecialchars($permissionKey, ENT_QUOTES, 'UTF-8') ?>" <?= $isEnabled ? 'checked' : '' ?> <?= $permissionDisabled ? 'disabled' : '' ?>>
+                      <span><strong><?= htmlspecialchars($permissionLabel, ENT_QUOTES, 'UTF-8') ?></strong><code><?= htmlspecialchars($permissionKey, ENT_QUOTES, 'UTF-8') ?></code><?php if (!$permissionAssignable): ?><small class="authz-unavailable"><?= (int)$permission['is_delegable'] !== 1 ? _e('Protected system role') : ($isEnabled ? _e('Retained, currently unavailable to change') : _e('Not yet available for custom roles')) ?></small><?php endif; ?></span>
+                    </label>
+                    <?php if ((int)$permission['supports_scope'] === 1): ?>
+                      <select class="authz-scope-select" name="permission_scopes[<?= $scopeHash ?>]" aria-label="<?= htmlspecialchars(sprintf(__('Scope for %s'), $permissionLabel), ENT_QUOTES, 'UTF-8') ?>" <?= ($permissionDisabled || !$isEnabled) ? 'disabled' : '' ?>>
+                        <option value="own" <?= $scope === 'own' ? 'selected' : '' ?>><?= _e('Own') ?></option>
+                        <option value="same_or_lower" <?= $scope === 'same_or_lower' ? 'selected' : '' ?>><?= _e('Same or Lower') ?></option>
+                        <option value="any" <?= $scope === 'any' ? 'selected' : '' ?>><?= _e('Any') ?></option>
+                      </select>
+                    <?php else: ?>
+                      <span class="authz-global-scope"><?= _e('Global') ?></span>
+                    <?php endif; ?>
+                  </div>
+                <?php endforeach; ?>
+                <?php endforeach; ?>
+                </div>
+              </details>
+            <?php endforeach; ?>
+            </div>
+          </details>
+        <?php endif; ?>
       </div>
       <p id="authzSearchEmpty" class="authz-search-empty" hidden><?= _e('No permissions match your search.') ?></p>
 
@@ -578,13 +643,48 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
       <input type="hidden" name="role_id" value="<?= (int)$selectedRole['id'] ?>">
     </form>
   <?php endif; ?>
+
+  <div class="authz-modal-overlay" id="authzCreateModal" hidden>
+    <div class="authz-modal" role="dialog" aria-modal="true" aria-labelledby="authzModalTitle">
+      <div class="authz-modal-head">
+        <h3 id="authzModalTitle"><?= _e('New custom role') ?></h3>
+        <button type="button" class="authz-modal-close" id="authzModalClose" aria-label="<?= __('Close') ?>">&times;</button>
+      </div>
+      <form method="post" class="authz-modal-body" id="authzCreateForm">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="action" value="save">
+        <input type="hidden" name="role_id" value="0">
+        <p class="authz-modal-desc"><?= _e('Name the role first, then grant only the permissions it needs.') ?></p>
+        <div class="authz-role-fields">
+          <label><?= _e('Role Name') ?>
+            <input type="text" name="name" id="authzModalName" required>
+          </label>
+          <label><?= _e('Role Slug') ?>
+            <input type="text" name="slug" id="authzModalSlug" required aria-describedby="authzModalSlugHelp">
+            <small id="authzModalSlugHelp"><?= _e('Lowercase letters, numbers, hyphens, or underscores. It cannot be changed later.') ?></small>
+          </label>
+          <label><?= _e('Authority Rank') ?>
+            <input type="number" name="authority_rank" min="0" max="1000" value="0">
+            <small><?= _e('Used only by Same or Lower. Equal or lower ranks can be managed; rank alone grants nothing.') ?></small>
+          </label>
+          <label class="authz-role-description"><?= _e('Description') ?>
+            <textarea name="description" rows="3"></textarea>
+          </label>
+        </div>
+        <div class="authz-modal-actions">
+          <button type="button" class="adam-cancle" id="authzModalCancel"><?= _e('Cancel') ?></button>
+          <button type="submit" class="adam-button" id="authzModalSubmit"><?= _e('Create Role') ?></button>
+        </div>
+      </form>
+    </div>
+  </div>
 </section>
 
 <style>
-.authz-role-header{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1.25rem}.authz-role-header h2{margin:0}.authz-role-header p{margin:.35rem 0 0;color:var(--adam-muted)}.authz-role-layout{display:grid;grid-template-columns:minmax(190px,260px) minmax(0,1fr);gap:1.25rem}.authz-role-list{display:flex;flex-direction:column;gap:.45rem}.authz-role-item{display:flex;flex-direction:column;gap:.2rem;padding:.75rem;border:1px solid var(--adam-border);border-radius:8px;text-decoration:none;color:var(--adam-text);background:var(--adam-card)}.authz-role-item.is-active{border-color:var(--adam-primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--adam-primary) 18%,transparent)}.authz-role-name{font-weight:700}.authz-role-item code,.authz-permission-check code{font-size:.72rem;color:var(--adam-muted);overflow-wrap:anywhere}.authz-role-item small{color:var(--adam-muted)}.authz-role-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}.authz-role-fields label{display:flex;flex-direction:column;gap:.35rem;font-weight:600}.authz-role-fields input,.authz-role-fields textarea,.authz-permission-row select{padding:.55rem;border:1px solid var(--adam-border);border-radius:7px;background:var(--adam-card);color:var(--adam-text)}.authz-role-fields small{font-weight:400;color:var(--adam-muted)}.authz-role-description{grid-column:1/-1}.authz-permission-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.8rem}.authz-permission-group{border:1px solid var(--adam-border);border-radius:9px;overflow:hidden}.authz-permission-group h4{margin:0;padding:.65rem .8rem;background:var(--adam-surface-3)}.authz-permission-row{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.65rem .8rem;border-top:1px solid var(--adam-border)}.authz-permission-check{display:flex;gap:.55rem;align-items:flex-start;min-width:0}.authz-permission-check span{display:flex;flex-direction:column;gap:.15rem}.authz-permission-row select{max-width:140px}.authz-global-scope{font-size:.78rem;color:var(--adam-muted)}.authz-role-actions{margin-top:1rem}.authz-delete-role{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--adam-border)}.authz-role-errors{padding:.75rem;margin-bottom:1rem;border:1px solid #fda29b;background:#fef3f2;color:#b42318;border-radius:8px}
-@media(max-width:800px){.authz-role-layout{grid-template-columns:1fr}.authz-role-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.authz-role-fields{grid-template-columns:1fr}.authz-permission-groups{grid-template-columns:1fr}.authz-permission-row{align-items:flex-start;flex-direction:column}.authz-permission-row select{max-width:none;width:100%}}
+.authz-role-header{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1.25rem}.authz-role-header h2{margin:0}.authz-role-header p{margin:.35rem 0 0;color:var(--adam-muted)}.authz-role-layout{display:grid;grid-template-columns:minmax(190px,260px) minmax(0,1fr);gap:1.25rem}.authz-role-list{display:flex;flex-direction:column;gap:.45rem}.authz-role-item{display:flex;flex-direction:column;gap:.2rem;padding:.75rem;border:1px solid var(--adam-border);border-radius:8px;text-decoration:none;color:var(--adam-text);background:var(--adam-card)}.authz-role-item.is-active{border-color:var(--adam-primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--adam-primary) 18%,transparent)}.authz-role-name{font-weight:700}.authz-role-item code,.authz-permission-check code{font-size:.72rem;color:var(--adam-muted);overflow-wrap:anywhere}.authz-role-item small{color:var(--adam-muted)}.authz-role-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}.authz-role-fields label{display:flex;flex-direction:column;gap:.35rem;font-weight:600}.authz-role-fields input,.authz-role-fields textarea,.authz-permission-row select{padding:.55rem;border:1px solid var(--adam-border);border-radius:7px;background:var(--adam-card);color:var(--adam-text)}.authz-role-fields small{font-weight:400;color:var(--adam-muted)}.authz-role-description{grid-column:1/-1}.authz-permission-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.8rem}.authz-permission-group{border:1px solid var(--adam-border);border-radius:9px;overflow:hidden}.authz-permission-group h4{margin:0;padding:.65rem .8rem;background:var(--adam-surface-3)}.authz-plugins-group{grid-column:1/-1}.authz-plugins-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.6rem;padding:.6rem}.authz-plugin-provider{border:1px solid var(--adam-border);border-radius:8px;overflow:hidden}.authz-plugin-provider .authz-permission-list{display:flex;flex-direction:column}.authz-permission-row{display:flex;justify-content:space-between;align-items:center;gap:.75rem;padding:.65rem .8rem;border-top:1px solid var(--adam-border)}.authz-permission-check{display:flex;gap:.55rem;align-items:flex-start;min-width:0}.authz-permission-check span{display:flex;flex-direction:column;gap:.15rem}.authz-permission-row select{max-width:140px}.authz-global-scope{font-size:.78rem;color:var(--adam-muted)}.authz-role-actions{margin-top:1rem}.authz-delete-role{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--adam-border)}.authz-role-errors{padding:.75rem;margin-bottom:1rem;border:1px solid #fda29b;background:#fef3f2;color:#b42318;border-radius:8px}
+@media(max-width:800px){.authz-role-layout{grid-template-columns:1fr}.authz-role-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.authz-role-fields{grid-template-columns:1fr}.authz-permission-groups{grid-template-columns:1fr}.authz-plugins-list{grid-template-columns:1fr}.authz-permission-row{align-items:flex-start;flex-direction:column}.authz-permission-row select{max-width:none;width:100%}}
 .authz-role-kind{align-self:flex-start;padding:.12rem .42rem;border-radius:999px;font-size:.68rem;font-weight:700}.authz-role-kind.is-system{color:var(--adam-muted);background:var(--adam-surface-3)}.authz-role-kind.is-custom{color:var(--adam-primary);background:var(--adam-primary-soft)}.authz-role-notice{margin-bottom:1rem;padding:.75rem .85rem;border-radius:8px;border:1px solid var(--adam-border);line-height:1.45}.authz-role-notice.is-locked{background:color-mix(in srgb,#f59e0b 12%,var(--adam-card));border-color:color-mix(in srgb,#f59e0b 35%,var(--adam-border))}.authz-role-notice.is-editable{background:var(--adam-primary-soft);border-color:color-mix(in srgb,var(--adam-primary) 30%,var(--adam-border))}
-.authz-role-manager{max-width:1500px}.authz-role-header{align-items:flex-end;padding-bottom:1rem;border-bottom:1px solid var(--adam-border)}.authz-role-header h1{margin:.15rem 0 0;font-size:clamp(1.45rem,2.5vw,2rem);line-height:1.15}.authz-eyebrow,.authz-editor-heading>div>span{color:var(--adam-primary);font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.authz-header-summary{display:flex;gap:.5rem}.authz-header-summary span{display:flex;flex-direction:column;min-width:100px;padding:.55rem .7rem;border:1px solid var(--adam-border);border-radius:9px;color:var(--adam-muted);font-size:.72rem;background:var(--adam-surface-3)}.authz-header-summary strong{color:var(--adam-text);font-size:1.05rem}.authz-role-layout{grid-template-columns:minmax(220px,270px) minmax(0,1fr)}.authz-role-rail{position:sticky;top:1rem;align-self:start;max-height:calc(100vh - 2rem);overflow:auto;padding-right:.2rem}.authz-rail-heading{display:flex;justify-content:space-between;margin-bottom:.5rem}.authz-rail-heading span{padding:.05rem .4rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.72rem}.authz-new-role{display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem;padding:.7rem;border:1px dashed var(--adam-border);border-radius:9px;text-decoration:none;color:var(--adam-text)}.authz-new-role>span:first-child{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--adam-primary-soft);color:var(--adam-primary);font-size:1.1rem}.authz-new-role>span:last-child{display:flex;flex-direction:column}.authz-new-role small{color:var(--adam-muted)}.authz-new-role.is-active,.authz-role-item.is-active{border-color:var(--adam-primary);background:color-mix(in srgb,var(--adam-primary) 7%,var(--adam-card));box-shadow:inset 3px 0 0 var(--adam-primary)}.authz-role-item-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.authz-editor-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:.75rem}.authz-editor-heading h2{margin:.15rem 0 0}.authz-editor-heading>small{padding:.25rem .5rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted)}.authz-role-notice{display:flex;flex-direction:column;gap:.2rem}.authz-role-notice span{color:var(--adam-muted)}.authz-permission-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin:1.2rem 0 .7rem}.authz-permission-heading h3{margin:0}.authz-permission-heading p{margin:.2rem 0 0;color:var(--adam-muted);font-size:.85rem}.authz-permission-heading>span{padding:.28rem .55rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.74rem}.authz-hidden-grants{margin-bottom:.7rem;padding:.55rem .7rem;border-radius:8px;background:color-mix(in srgb,#f59e0b 9%,var(--adam-card));color:#b45309;font-size:.78rem}.authz-scope-guide{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem;margin-bottom:.75rem}.authz-scope-guide span{display:flex;flex-direction:column;gap:.1rem;padding:.5rem .6rem;border-radius:8px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.72rem;line-height:1.35}.authz-scope-guide strong{color:var(--adam-text)}.authz-permission-tools{display:flex;justify-content:space-between;gap:.6rem;align-items:center;margin-bottom:.7rem}.authz-permission-tools>label{flex:1;max-width:520px}.authz-permission-tools input{width:100%;box-sizing:border-box;padding:.55rem .65rem;border:1px solid var(--adam-border);border-radius:8px;background:var(--adam-card);color:var(--adam-text)}.authz-permission-tools>div{display:flex;gap:.35rem}.authz-permission-groups{display:flex;flex-direction:column;gap:.55rem}.authz-permission-group{background:var(--adam-card)}.authz-permission-group summary{display:flex;justify-content:space-between;align-items:center;padding:.65rem .75rem;background:var(--adam-surface-3);cursor:pointer;list-style:none}.authz-permission-group summary::-webkit-details-marker{display:none}.authz-permission-group summary>span:first-child{display:flex;align-items:center;gap:.45rem}.authz-permission-group summary small{padding:.08rem .35rem;border-radius:999px;background:var(--adam-card);color:var(--adam-muted);font-size:.62rem;text-transform:uppercase}.authz-group-count{font-size:.72rem;color:var(--adam-muted)}.authz-permission-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,170px)}.authz-permission-row.is-search-hidden,.authz-permission-group.is-search-hidden{display:none}.authz-permission-row select:disabled{opacity:.5;cursor:not-allowed}.authz-global-scope{justify-self:end;padding:.22rem .45rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.72rem}.authz-unavailable{color:#b45309}.authz-search-empty{text-align:center;color:var(--adam-muted)}.authz-role-actions{position:sticky;bottom:0;z-index:3;justify-content:space-between;align-items:center;padding:.7rem;border:1px solid var(--adam-border);border-radius:10px;background:color-mix(in srgb,var(--adam-card) 94%,transparent);backdrop-filter:blur(10px);box-shadow:0 -8px 24px color-mix(in srgb,#000 8%,transparent)}.authz-role-actions>span{font-size:.8rem;color:var(--adam-muted)}.authz-role-actions>span.is-dirty{color:#b45309;font-weight:700}.authz-role-actions>div{display:flex;gap:.45rem}.authz-danger-zone{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:1rem;padding:.8rem 1rem;border:1px solid color-mix(in srgb,#ef4444 35%,var(--adam-border));border-radius:10px;background:color-mix(in srgb,#ef4444 5%,var(--adam-card))}.authz-danger-zone>div{display:flex;flex-direction:column;gap:.12rem}.authz-danger-zone span{color:var(--adam-muted);font-size:.8rem}.authz-role-errors ul{margin:.4rem 0 0;padding-left:1.2rem}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.authz-role-manager{max-width:1500px}.authz-role-header{align-items:flex-end;padding-bottom:1rem;border-bottom:1px solid var(--adam-border)}.authz-role-header h1{margin:.15rem 0 0;font-size:clamp(1.45rem,2.5vw,2rem);line-height:1.15}.authz-eyebrow,.authz-editor-heading>div>span{color:var(--adam-primary);font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.authz-header-summary{display:flex;gap:.5rem}.authz-header-summary span{display:flex;flex-direction:column;min-width:100px;padding:.55rem .7rem;border:1px solid var(--adam-border);border-radius:9px;color:var(--adam-muted);font-size:.72rem;background:var(--adam-surface-3)}.authz-header-summary strong{color:var(--adam-text);font-size:1.05rem}.authz-role-layout{grid-template-columns:minmax(220px,270px) minmax(0,1fr)}.authz-role-rail{position:sticky;top:1rem;align-self:start;max-height:calc(100vh - 2rem);overflow:auto;padding-right:.2rem}.authz-rail-heading{display:flex;justify-content:space-between;margin-bottom:.5rem}.authz-rail-heading span{padding:.05rem .4rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.72rem}.authz-new-role{display:flex;align-items:center;gap:.6rem;margin-bottom:.8rem;padding:.7rem;border:1px dashed var(--adam-border);border-radius:9px;text-decoration:none;color:var(--adam-text)}.authz-new-role>span:first-child{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--adam-primary-soft);color:var(--adam-primary);font-size:1.1rem}.authz-new-role>span:last-child{display:flex;flex-direction:column}.authz-new-role small{color:var(--adam-muted)}.authz-new-role.is-active,.authz-role-item.is-active{border-color:var(--adam-primary);background:color-mix(in srgb,var(--adam-primary) 7%,var(--adam-card));box-shadow:inset 3px 0 0 var(--adam-primary)}.authz-role-item-top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}.authz-editor-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin-bottom:.75rem}.authz-editor-heading h2{margin:.15rem 0 0}.authz-editor-heading>small{padding:.25rem .5rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted)}.authz-role-notice{display:flex;flex-direction:column;gap:.2rem}.authz-role-notice span{color:var(--adam-muted)}.authz-permission-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;margin:1.2rem 0 .7rem}.authz-permission-heading h3{margin:0}.authz-permission-heading p{margin:.2rem 0 0;color:var(--adam-muted);font-size:.85rem}.authz-permission-heading>span{padding:.28rem .55rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.74rem}.authz-hidden-grants{margin-bottom:.7rem;padding:.55rem .7rem;border-radius:8px;background:color-mix(in srgb,#f59e0b 9%,var(--adam-card));color:#b45309;font-size:.78rem}.authz-scope-guide{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem;margin-bottom:.75rem}.authz-scope-guide span{display:flex;flex-direction:column;gap:.1rem;padding:.5rem .6rem;border-radius:8px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.72rem;line-height:1.35}.authz-scope-guide strong{color:var(--adam-text)}.authz-permission-tools{display:flex;justify-content:space-between;gap:.6rem;align-items:center;margin-bottom:.7rem}.authz-permission-tools>label{flex:1;max-width:520px}.authz-permission-tools input{width:100%;box-sizing:border-box;padding:.55rem .65rem;border:1px solid var(--adam-border);border-radius:8px;background:var(--adam-card);color:var(--adam-text)}.authz-permission-tools>div{display:flex;gap:.35rem}.authz-permission-groups{display:flex;flex-direction:column;gap:.55rem}.authz-permission-group{background:var(--adam-card)}.authz-permission-group summary{display:flex;justify-content:space-between;align-items:center;padding:.65rem .75rem;background:var(--adam-surface-3);cursor:pointer;list-style:none}.authz-permission-group summary::-webkit-details-marker{display:none}.authz-permission-group summary>span:first-child{display:flex;align-items:center;gap:.45rem}.authz-permission-group summary small{padding:.08rem .35rem;border-radius:999px;background:var(--adam-card);color:var(--adam-muted);font-size:.62rem;text-transform:uppercase}.authz-group-count{font-size:.72rem;color:var(--adam-muted)}.authz-permission-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,170px)}.authz-permission-row.is-search-hidden,.authz-permission-group.is-search-hidden{display:none}.authz-permission-row select:disabled{opacity:.5;cursor:not-allowed}.authz-global-scope{justify-self:end;padding:.22rem .45rem;border-radius:999px;background:var(--adam-surface-3);color:var(--adam-muted);font-size:.72rem}.authz-unavailable{color:#b45309}.authz-search-empty{text-align:center;color:var(--adam-muted)}.authz-role-actions{position:sticky;bottom:0;z-index:3;justify-content:space-between;align-items:center;padding:.7rem;border:1px solid var(--adam-border);border-radius:10px;background:color-mix(in srgb,var(--adam-card) 94%,transparent);backdrop-filter:blur(10px);box-shadow:0 -8px 24px color-mix(in srgb,#000 8%,transparent)}.authz-role-actions>span{font-size:.8rem;color:var(--adam-muted)}.authz-role-actions>span.is-dirty{color:#b45309;font-weight:700}.authz-role-actions>div{display:flex;gap:.45rem}.authz-danger-zone{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:1rem;padding:.8rem 1rem;border:1px solid color-mix(in srgb,#ef4444 35%,var(--adam-border));border-radius:10px;background:color-mix(in srgb,#ef4444 5%,var(--adam-card))}.authz-danger-zone>div{display:flex;flex-direction:column;gap:.12rem}.authz-danger-zone span{color:var(--adam-muted);font-size:.8rem}.authz-role-errors ul{margin:.4rem 0 0;padding-left:1.2rem}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.authz-new-role{cursor:pointer;background:var(--adam-card)}.authz-modal-overlay{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.55);padding:1rem}.authz-modal-overlay[hidden]{display:none}.authz-modal{width:min(520px,100%);background:var(--adam-card);border-radius:14px;box-shadow:0 25px 80px rgba(0,0,0,.35);max-height:calc(100vh - 2rem);display:flex;flex-direction:column;overflow:hidden}.authz-modal-head{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;border-bottom:1px solid var(--adam-border)}.authz-modal-head h3{margin:0;font-size:1.05rem}.authz-modal-close{background:none;border:0;font-size:1.5rem;cursor:pointer;color:var(--adam-muted);padding:0 .25rem;line-height:1}.authz-modal-close:hover{color:var(--adam-text)}.authz-modal-body{padding:1.25rem;overflow:auto}.authz-modal-desc{margin:0 0 1rem;color:var(--adam-muted);font-size:.88rem}.authz-modal-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--adam-border)}
 @media(max-width:1050px){.authz-scope-guide{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:800px){.authz-role-header{align-items:flex-start;flex-direction:column}.authz-header-summary{width:100%}.authz-header-summary span{flex:1}.authz-role-rail{position:static;max-height:none}.authz-role-list{max-height:260px;overflow:auto;padding-right:.2rem}.authz-scope-guide{grid-template-columns:1fr}.authz-permission-tools{align-items:stretch;flex-direction:column}.authz-permission-tools>label{max-width:none}.authz-permission-row{grid-template-columns:1fr}.authz-global-scope{justify-self:start}.authz-role-actions{align-items:stretch;flex-direction:column}.authz-role-actions>div{display:grid;grid-template-columns:1fr 1fr}.authz-danger-zone{align-items:stretch;flex-direction:column}.authz-danger-zone button{width:100%}}
 @media(min-width:801px){.authz-role-rail{top:4.75rem;max-height:calc(100vh - 5.75rem)}}
@@ -595,6 +695,7 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   const form = document.getElementById('authzRoleForm');
   if (!form) return;
   const groups = Array.from(document.querySelectorAll('.authz-permission-group'));
+  const pluginProviderGroups = Array.from(document.querySelectorAll('.authz-plugin-provider'));
   const dirtyState = document.getElementById('authzDirtyState');
   const saveButton = document.getElementById('authzSaveRole');
   const nameInput = document.getElementById('authzRoleName');
@@ -609,13 +710,25 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   }
   function updateCounts(){
     let total = 0;
+    let pluginTotal = 0;
+    let pluginEnabled = 0;
     groups.forEach(function(group){
       const toggles = Array.from(group.querySelectorAll('.authz-permission-toggle'));
       const enabled = toggles.filter(function(toggle){ return toggle.checked; }).length;
       total += enabled;
-      const count = group.querySelector('.authz-group-count');
+      const count = group.querySelector(':scope > summary .authz-group-count');
+      if (count && !group.classList.contains('authz-plugins-group')) count.textContent = enabled + ' / ' + toggles.length;
+    });
+    pluginProviderGroups.forEach(function(pg){
+      const toggles = Array.from(pg.querySelectorAll('.authz-permission-toggle'));
+      const enabled = toggles.filter(function(toggle){ return toggle.checked; }).length;
+      pluginTotal += toggles.length;
+      pluginEnabled += enabled;
+      const count = pg.querySelector(':scope > summary .authz-group-count');
       if (count) count.textContent = enabled + ' / ' + toggles.length;
     });
+    const pluginsCount = document.getElementById('authzPluginsCount');
+    if (pluginsCount) pluginsCount.textContent = pluginEnabled + ' / ' + pluginTotal;
     const totalNode = document.getElementById('authzEnabledTotal');
     if (totalNode) totalNode.textContent = total + ' ' + <?= json_encode(__('enabled')) ?>;
   }
@@ -640,7 +753,11 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   searchInput?.addEventListener('input', function(){
     const query = this.value.trim().toLowerCase();
     let visibleGroups = 0;
+    const pluginsGroup = document.querySelector('.authz-plugins-group');
+    let pluginsHasVisible = false;
     groups.forEach(function(group){
+      if (group.classList.contains('authz-plugins-group')) return;
+      if (group.classList.contains('authz-plugin-provider')) return;
       let visibleRows = 0;
       group.querySelectorAll('.authz-permission-row').forEach(function(row){
         const visible = query === '' || String(row.dataset.permissionSearch || '').includes(query);
@@ -650,6 +767,20 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
       group.classList.toggle('is-search-hidden', visibleRows === 0);
       if (visibleRows > 0) { visibleGroups++; if (query) group.open = true; }
     });
+    if (pluginsGroup) {
+      pluginProviderGroups.forEach(function(pg){
+        let visibleRows = 0;
+        pg.querySelectorAll('.authz-permission-row').forEach(function(row){
+          const visible = query === '' || String(row.dataset.permissionSearch || '').includes(query);
+          row.classList.toggle('is-search-hidden', !visible);
+          if (visible) visibleRows++;
+        });
+        pg.classList.toggle('is-search-hidden', visibleRows === 0);
+        if (visibleRows > 0) { visibleGroups++; pluginsHasVisible = true; if (query) pg.open = true; }
+      });
+      pluginsGroup.classList.toggle('is-search-hidden', !pluginsHasVisible && query !== '');
+      if (pluginsHasVisible && query) pluginsGroup.open = true;
+    }
     const empty = document.getElementById('authzSearchEmpty');
     if (empty) empty.hidden = visibleGroups !== 0;
   });
@@ -684,5 +815,38 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   });
   document.getElementById('authzRoleErrors')?.focus();
   updateCounts();
+
+  const createModal = document.getElementById('authzCreateModal');
+  const createForm = document.getElementById('authzCreateForm');
+  const modalName = document.getElementById('authzModalName');
+  const modalSlug = document.getElementById('authzModalSlug');
+  let modalSlugTouched = false;
+
+  function openCreateModal(){
+    if (!createModal) return;
+    createModal.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    setTimeout(function(){ if (modalName) modalName.focus(); }, 0);
+  }
+  function closeCreateModal(){
+    if (!createModal) return;
+    createModal.hidden = true;
+    document.documentElement.style.overflow = '';
+  }
+
+  document.getElementById('authzOpenCreateModal')?.addEventListener('click', function(){
+    if (!dirtyState?.classList.contains('is-dirty') || submitting) { openCreateModal(); return; }
+    const options = {title:<?= json_encode(__('Discard unsaved changes?')) ?>,message:<?= json_encode(__('Your changes to this role have not been saved.')) ?>,confirmText:<?= json_encode(__('Discard changes')) ?>,cancelText:<?= json_encode(__('Keep editing')) ?>};
+    const decision = window.NewNotifConfirm?.warning ? window.NewNotifConfirm.warning(options) : Promise.resolve(window.confirm(options.message));
+    decision.then(function(ok){ if (ok) { submitting = true; openCreateModal(); } });
+  });
+  document.getElementById('authzModalClose')?.addEventListener('click', closeCreateModal);
+  document.getElementById('authzModalCancel')?.addEventListener('click', closeCreateModal);
+  createModal?.addEventListener('click', function(e){ if (e.target === createModal) closeCreateModal(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && createModal && !createModal.hidden) { e.preventDefault(); closeCreateModal(); } });
+
+  modalName?.addEventListener('input', function(){ if (modalSlug && !modalSlugTouched) modalSlug.value = slugify(modalName.value); });
+  modalSlug?.addEventListener('input', function(){ modalSlugTouched = true; });
+  createForm?.addEventListener('submit', function(){ submitting = true; });
 })();
 </script>

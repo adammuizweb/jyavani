@@ -298,6 +298,16 @@ $check(
     && str_contains($roleManager, 'NewNotifConfirm?.warning'),
     'Role Manager preserves grants and provides searchable guarded editing'
 );
+$check(
+    str_contains($roleManager, 'authz-plugins-group') && str_contains($roleManager, 'authz-plugin-provider')
+    && str_contains($roleManager, 'pluginProviders'),
+    'Role Manager groups plugin permissions into nested accordions'
+);
+$check(
+    str_contains($roleManager, 'authzCreateModal') && str_contains($roleManager, 'authzOpenCreateModal')
+    && str_contains($roleManager, 'openCreateModal'),
+    'Role Manager uses a modal dialog for creating new roles'
+);
 $rolesNavPosition = strpos($aside, "__('Roles & Permissions')");
 $binNavPosition = strpos($aside, "__('Bin')");
 $check(

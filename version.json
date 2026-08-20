@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.78",
-    "build": "2026-08-19",
-    "changelog": "Redesign User Management with configurable columns, concise account status, and protected overflow actions.",
+    "version": "2.3.79",
+    "build": "2026-08-20",
+    "changelog": "Group plugin permissions into nested accordions in Role Manager, add Create Role modal, fix quiz attempt data visibility for delegated attempt managers.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

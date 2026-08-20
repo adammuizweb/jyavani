@@ -4717,3 +4717,15 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
 ('default', '%d retained inactive permissions are hidden and will not be changed.', '%d permission tidak aktif yang dipertahankan disembunyikan dan tidak akan diubah.', 'id'),
 ('default', '%d retained inactive permissions are hidden and will not be changed.', '%d beibehaltene inaktive Berechtigungen sind ausgeblendet und werden nicht geändert.', 'de');
+
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Select a role', 'Pilih role', 'id'),
+('default', 'Select a role', 'Rolle auswählen', 'de'),
+('default', 'Select a role to edit or create a new one.', 'Pilih role untuk diedit atau buat role baru.', 'id'),
+('default', 'Select a role to edit or create a new one.', 'Wählen Sie eine Rolle zum Bearbeiten oder erstellen Sie eine neue.', 'de'),
+('default', 'Click a role in the sidebar to edit it, or click "New custom role" to create one.', 'Klik role di sidebar untuk mengeditnya, atau klik "New custom role" untuk membuat yang baru.', 'id'),
+('default', 'Click a role in the sidebar to edit it, or click "New custom role" to create one.', 'Klicken Sie auf eine Rolle in der Seitenleiste, um sie zu bearbeiten, oder klicken Sie auf "New custom role", um eine neue zu erstellen.', 'de'),
+('default', 'Plugins', 'Plugin', 'id'),
+('default', 'Plugins', 'Plugins', 'de'),
+('default', 'Third-party', 'Pihak ketiga', 'id'),
+('default', 'Third-party', 'Drittanbieter', 'de');
