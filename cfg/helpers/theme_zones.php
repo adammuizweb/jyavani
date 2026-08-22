@@ -272,7 +272,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
             ],
             'tz_html' => [
                 'label' => __('Custom HTML'),
-                'desc'  => __('Free HTML content.'),
+                'desc'  => __('Custom HTML content.'),
                 'default_config' => array_merge($uni, ['title' => '', 'html' => '']),
             ],
             'tz_post_author' => [

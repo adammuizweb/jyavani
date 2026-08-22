@@ -451,7 +451,7 @@ try {
             'slug' => 'tips-karir-frontend-developer',
             'url' => '/artikel/tips-karir-frontend-developer/',
             'thumb' => '',
-            'desc' => __('The tech industry keeps evolving. Check out a complete guide to starting a career as a frontend developer with the latest roadmap and free learning resources.'),
+            'desc' => __('The tech industry keeps evolving. Check out a complete guide to starting a career as a frontend developer with the latest roadmap and curated learning resources.'),
             'date_iso' => '2026-06-24T09:15:00+07:00',
             'date_label' => '24 Jun 2026',
             'raw' => [

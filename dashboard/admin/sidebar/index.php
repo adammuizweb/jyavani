@@ -65,7 +65,7 @@ $widget_types = [
     ],
     'html' => [
         'label' => 'Custom HTML',
-        'desc'  => __('Free HTML content.'),
+        'desc'  => __('Custom HTML content.'),
         'default_config' => ['title' => '', 'html' => ''],
     ],
     'categories' => [
