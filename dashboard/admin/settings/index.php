@@ -38,6 +38,14 @@ if ($canManageSettings) {
 
 if ($canManageSettings && $isSiteOwner) {
     $items[] = [
+        'label' => __('Email Delivery'),
+        'href'  => $base . '/?page=admin/settings/email',
+        'icon'  => 'mail',
+        'desc'  => __('Configure sender identity, mail transport, and outgoing email tests.'),
+        'badge' => __('Site Owner'),
+    ];
+
+    $items[] = [
         'label' => 'Sign Up & Sign In',
         'href'  => $base . '/?page=admin/settings/auth',
         'icon'  => 'lock',

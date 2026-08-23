@@ -13,6 +13,7 @@ mkdir(PLUGIN_PATH, 0775, true);
 file_put_contents(PLUGIN_DISABLED_JSON, '[]');
 
 require_once $root . '/cfg/helpers/hooks.php';
+require_once $root . '/cfg/helpers/mail.php';
 require_once $root . '/plugins/index.php';
 
 $failures = [];
@@ -40,7 +41,7 @@ $writePlugin('dependency-missing', '1.0.0', ['not-installed' => '>=1.0.0']);
 $writePlugin('cycle-a', '1.0.0', ['cycle-b' => '>=1.0.0']);
 $writePlugin('cycle-b', '1.0.0', ['cycle-a' => '>=1.0.0']);
 $writePlugin('failure-base', '1.0.0', [], true);
-file_put_contents(PLUGIN_PATH . '/failure-base/plugin.php', '<?php add_filter("service_worker_script", static fn(string $script): string => $script . "failed-entrypoint-contribution"); throw new RuntimeException("entrypoint contract failure");');
+file_put_contents(PLUGIN_PATH . '/failure-base/plugin.php', '<?php add_filter("service_worker_script", static fn(string $script): string => $script . "failed-entrypoint-contribution"); jy_mail_register_transport("failed_plugin_transport", static fn(): array => ["status" => "accepted"]); throw new RuntimeException("entrypoint contract failure");');
 $writePlugin('failure-child', '1.0.0', ['failure-base' => '>=1.0.0'], true);
 
 $active = plugins_active();
@@ -58,6 +59,7 @@ $check(array_keys(plugins_active()) === ['dependency-base', 'dependency-child']
     && isset($loadDiagnostics['failure-base'], $loadDiagnostics['failure-child'])
     && str_contains($loadDiagnostics['failure-child'], 'failure-base'),
     'entrypoint failure removes the plugin and its runtime dependents from active state with diagnostics');
+$check(!isset(jy_mail_transports()['failed_plugin_transport']), 'entrypoint failure rolls back plugin mail transport registration');
 
 $check(!plugin_disable('dependency-base') && str_contains(plugin_last_error(), 'dependency-child'), 'deactivation is blocked while an active dependent exists');
 $check(!plugin_delete('dependency-base') && is_dir(PLUGIN_PATH . '/dependency-base') && str_contains(plugin_last_error(), 'dependency-child'), 'deletion is blocked before filesystem changes while an active dependent exists');

@@ -78,6 +78,21 @@ A plugin lives in `plugins/{slug}/`, declares metadata and requirements in `plug
 
 The hook API is defined in [`cfg/helpers/hooks.php`](cfg/helpers/hooks.php): `add_action()`, `do_action()`, `add_filter()`, `apply_filters()`, `remove_action()`, and `remove_filter()`. Plugin packages may declare controlled static asset copies. Installation scripts use a fixed `install.sh` convention with bounded runtime and output rather than manifest-provided shell commands.
 
+### Mail API
+
+Feature plugins send email through Core rather than depending on an SMTP plugin:
+
+```php
+$result = jy_mail_send($pdo, [
+    'to' => ['person@example.com'],
+    'subject' => 'Notification',
+    'body' => 'The operation completed.',
+    'content_type' => 'text/plain',
+]);
+```
+
+Core validates structured recipients and sender identity, rejects caller-provided raw headers, selects the configured transport, and returns a redacted result. The built-in `native` transport delegates to PHP `mail()` and the hosting mail infrastructure. An SMTP or provider plugin can register an optional transport with `jy_mail_register_transport()`; callers continue using `jy_mail_send()` and do not depend on that plugin directly. Outgoing identity, transport selection, redacted logging, and test delivery are managed under **Settings > Email** by the Site Owner.
+
 ### Themes
 
 Themes live in `public/views/themes/{folder}/` and are described by `theme.json`. Templates map to slots such as `header`, `footer`, `main.homepage`, `list.post`, and `single.post`; resolution falls back from an assigned theme to the active theme and then the default theme.

@@ -279,6 +279,9 @@ if (function_exists('current_user_can') && current_user_can($pdo, 'core.settings
 
 if ($navActor !== null && $navActor['is_site_owner'] === true
     && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/email') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/email') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('mail','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Email') . '</span></a>';
+
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/auth') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('lock','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Auth') . '</span></a>';
 }

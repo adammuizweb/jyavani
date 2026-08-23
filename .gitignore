@@ -43,6 +43,9 @@ public/static/files/2026
 tests/playwright/
 tests/security1p.md
 
+# Local-only dev tooling (AI/E2E login helper) — never shipped to users
+/tools/dev-user.php
+
 jyavani-cms-update.zip
 photo-gallery-*.zip
 public/static/vendor/jyavani-builder/

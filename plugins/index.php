@@ -581,11 +581,13 @@ function plugin_load_active(): void {
         if (is_file($mainFile)) {
             $hooksBeforeLoad = $GLOBALS['_hooks'] ?? null;
             $routesBeforeLoad = $GLOBALS['_plugin_frontend_routes'];
+            $mailTransportsBeforeLoad = $GLOBALS['__jy_mail_transports'] ?? null;
             try {
                 require_once $mainFile;
             } catch (\Throwable $e) {
                 if (is_array($hooksBeforeLoad)) $GLOBALS['_hooks'] = $hooksBeforeLoad;
                 $GLOBALS['_plugin_frontend_routes'] = $routesBeforeLoad;
+                if (is_array($mailTransportsBeforeLoad)) $GLOBALS['__jy_mail_transports'] = $mailTransportsBeforeLoad;
                 $error = plugin_message('Plugin "%s" entrypoint failed: %s.', $name, $e->getMessage());
                 $GLOBALS['_plugin_load_diagnostics'][$name] = $error;
                 $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;

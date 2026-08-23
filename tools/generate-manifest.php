@@ -65,6 +65,7 @@ const PRESERVE_PATTERNS = [
     '#^theme-store/#',
     '#^tools/import_core_demo_multilingual\.php$#',
     '#^tools/localize_community\.php$#',
+    '#^tools/dev-user\.php$#',
     '#^tools/data/#',
 
     // Plugin-installed vendor assets

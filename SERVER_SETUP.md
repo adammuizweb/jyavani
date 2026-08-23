@@ -50,6 +50,18 @@ sudo chmod g+s /path/to/project/private_files/media
 sudo find /path/to/project/cfg/var/sessions -type f -exec chmod 660 {} \;
 ```
 
+## Outgoing Email
+
+Core menyediakan Mail API dengan transport bawaan `native`. Transport ini menyerahkan pesan ke konfigurasi `mail()` milik PHP/hosting; Core tidak menjalankan mail server sendiri.
+
+- Atur identitas pengirim dan transport melalui **Settings > Email**.
+- Pastikan konfigurasi PHP-FPM, bukan hanya PHP CLI, memiliki transport email yang berfungsi.
+- Gunakan tombol test email dan periksa SPF, DKIM, serta DMARC domain pengirim.
+- Nilai `true` dari transport native hanya berarti pesan diterima oleh transport lokal, bukan dipastikan masuk inbox.
+- SMTP atau provider API dapat disediakan plugin dengan mendaftarkan transport ke `jy_mail_register_transport()`; plugin fitur tetap memanggil `jy_mail_send()`.
+
+Fallback environment tersedia di `cfg/.env` melalui `MAIL_TRANSPORT`, `MAIL_FALLBACK_TRANSPORT`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`, `MAIL_REPLY_TO`, dan `MAIL_LOG`. Pengaturan database dari dashboard memiliki prioritas.
+
 ## 3. nginx
 
 Letakkan di `/etc/nginx/sites-enabled/[domain]`:

@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.81",
-    "build": "2026-08-20",
-    "changelog": "Add a locale-aware search base URL hook so integrations can keep pagination and canonical URLs within the active language.",
+    "version": "2.3.82",
+    "build": "2026-08-23",
+    "changelog": "Add a secure transport-neutral Core Mail API with Site Owner delivery settings and rate-limited test email support.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

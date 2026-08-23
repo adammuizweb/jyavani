@@ -9,6 +9,15 @@ DB_SESSION_WAIT_TIMEOUT=
 # Absolute deployment web root; leave empty to auto-detect public/, public_html/, www/, or htdocs/.
 PUBLIC_PATH=
 
+# Outgoing email defaults. Values saved in Settings > Email override these.
+# "native" delegates to the local PHP/hosting mail transport.
+MAIL_TRANSPORT=native
+MAIL_FALLBACK_TRANSPORT=
+MAIL_FROM_ADDRESS=
+MAIL_FROM_NAME=Jyavani
+MAIL_REPLY_TO=
+MAIL_LOG=failures
+
 # reCAPTCHA (v2 checkbox)
 RECAPTCHA_SITEKEY=
 RECAPTCHA_SECRET=

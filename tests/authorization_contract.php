@@ -98,8 +98,11 @@ foreach ([
 ] as $sidebarRoute) {
     $sidebarRoutes .= (string)file_get_contents($root . '/' . $sidebarRoute);
 }
-$settingsRoutes = (string)file_get_contents($root . '/dashboard/admin/settings/site.php')
-    . (string)file_get_contents($root . '/dashboard/admin/settings/auth.php');
+$siteSettingsRoute = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
+$authSettingsRoute = (string)file_get_contents($root . '/dashboard/admin/settings/auth.php');
+$emailSettingsRoute = (string)file_get_contents($root . '/dashboard/admin/settings/email.php');
+$emailTestRoute = (string)file_get_contents($root . '/dashboard/admin/settings/email_test.php');
+$settingsRoutes = $siteSettingsRoute . $authSettingsRoute . $emailSettingsRoute . $emailTestRoute;
 $pluginManagerRoutes = '';
 foreach (glob($root . '/dashboard/admin/plugins/*.php') ?: [] as $pluginManagerRoute) {
     $pluginManagerRoutes .= (string)file_get_contents($pluginManagerRoute);
@@ -335,10 +338,12 @@ $check(
 );
 $check(
     !str_contains($settingsRoutes, 'adiwira_require_admin')
-    && substr_count($settingsRoutes, "core.settings.manage") === 2
+    && substr_count($settingsRoutes, "core.settings.manage") === 4
     && str_contains($roleManager, "'core.settings.manage'")
-    && str_contains((string)file_get_contents($root . '/dashboard/admin/settings/auth.php'), 'adiwira_require_site_owner'),
-    'site settings are assignable while authentication secrets remain Site Owner-only'
+    && str_contains($authSettingsRoute, 'adiwira_require_site_owner')
+    && str_contains($emailSettingsRoute, 'adiwira_require_site_owner')
+    && str_contains($emailTestRoute, 'adiwira_require_site_owner'),
+    'site settings are assignable while authentication and mail delivery controls remain Site Owner-only'
 );
 $check(
     str_contains($profile, "adiwira_require_permission(\$pdo, 'core.profile.manage'")
