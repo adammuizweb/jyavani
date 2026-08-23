@@ -336,7 +336,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <ul>
   <li><strong>Primary transport</strong> sebagai jalur pengiriman utama.</li>
   <li><strong>Fallback transport</strong> yang dicoba ketika transport utama tidak tersedia atau mengalami kegagalan sementara.</li>
-  <li><strong>From name</strong> dan <strong>From email address</strong> sebagai identitas pengirim default.</li>
+  <li><strong>From name dan From email address</strong> sebagai identitas pengirim default.</li>
   <li><strong>Reply-To</strong> opsional untuk memisahkan alamat balasan dari alamat pengirim.</li>
   <li><strong>Delivery logging</strong> dengan mode off, kegagalan saja, atau seluruh percobaan yang sudah disamarkan.</li>
 </ul>
