@@ -1,0 +1,74 @@
+<p>Jyavani Core menyediakan Mail API sebagai satu jalur pengiriman email untuk fitur CMS dan plugin. Plugin fitur cukup menyerahkan pesan terstruktur kepada Core; pemilihan transport, identitas pengirim, fallback, dan pencatatan pengiriman dikelola terpisah.</p>
+
+<h2>Mengapa memakai Mail API</h2>
+<p>Pemanggilan <code>mail()</code>, SMTP, atau API provider secara langsung dari setiap plugin membuat konfigurasi pengiriman tersebar. Saat provider berubah, setiap plugin harus disesuaikan sendiri. Mail API memisahkan kebutuhan fitur dari cara pesan dikirim.</p>
+<ul>
+  <li>Plugin fitur tidak perlu bergantung pada plugin SMTP tertentu.</li>
+  <li>Site Owner dapat mengganti transport tanpa mengubah kode pemanggil.</li>
+  <li>Validasi pesan, hasil pengiriman, fallback, dan logging memakai kontrak Core yang sama.</li>
+  <li>Transport tambahan dapat dipasang atau dinonaktifkan sebagai plugin opsional.</li>
+</ul>
+
+<img src="/static/img/2026/08/core-mail-api-flow.jpg" alt="Diagram alur plugin fitur mengirim email melalui Jyavani Core Mail API menuju transport SMTP atau native" style="width:100%;margin:1rem 0">
+
+<h2>Pengaturan di Settings &gt; Email</h2>
+<p>Halaman <strong>Email Delivery</strong> hanya tersedia bagi Site Owner yang memiliki akses pengaturan Core. Halaman ini mengelola:</p>
+<ul>
+  <li><strong>Primary transport</strong> sebagai jalur pengiriman utama.</li>
+  <li><strong>Fallback transport</strong> yang dicoba ketika transport utama tidak tersedia atau mengalami kegagalan sementara.</li>
+  <li><strong>From name</strong> dan <strong>From email address</strong> sebagai identitas pengirim default.</li>
+  <li><strong>Reply-To</strong> opsional untuk memisahkan alamat balasan dari alamat pengirim.</li>
+  <li><strong>Delivery logging</strong> dengan mode off, kegagalan saja, atau seluruh percobaan yang sudah disamarkan.</li>
+</ul>
+<p>Transport bawaan <code>native</code> menyerahkan pesan ke <code>mail()</code> milik PHP dan infrastruktur hosting. Kredensial SMTP tidak disimpan oleh halaman Core. Plugin transport menyediakan halaman konfigurasinya sendiri lalu mendaftarkan adapter kepada Mail API.</p>
+
+<h2>Mengirim email dari plugin</h2>
+<p>Plugin fitur memanggil <code>jy_mail_send()</code> dan tidak perlu mengetahui apakah situs memakai native mail, SMTP, atau provider lain.</p>
+<pre><code>$result = jy_mail_send($pdo, [
+    'to' =&gt; ['reader@example.test'],
+    'subject' =&gt; 'Notifikasi Jyavani',
+    'body' =&gt; 'Proses telah selesai.',
+    'content_type' =&gt; 'text/plain',
+]);
+
+if (!$result['ok']) {
+    // Tampilkan pesan umum atau jadwalkan penanganan sesuai fitur.
+}</code></pre>
+<p>Pesan menerima daftar penerima, subject, body, content type, sender terstruktur, dan Reply-To opsional. Raw header dari pemanggil sengaja tidak diterima. Core menolak alamat atau field header yang mengandung karakter kontrol sebelum transport dijalankan.</p>
+
+<h2>Kontrak plugin transport</h2>
+<p>Plugin adapter mendaftarkan transport melalui <code>jy_mail_register_transport()</code>. Callback menerima pesan yang sudah dinormalisasi dan context pengiriman, kemudian mengembalikan satu status stabil:</p>
+<ul>
+  <li><code>accepted</code> ketika transport menerima tanggung jawab atas pesan.</li>
+  <li><code>temporary_failure</code> untuk kegagalan sementara yang aman dicoba melalui fallback.</li>
+  <li><code>permanent_failure</code> untuk penolakan atau konfigurasi yang tidak boleh diulang melalui fallback.</li>
+</ul>
+<p>Core tidak menerima detail provider, kredensial, transcript protokol, atau isi pesan dalam objek hasil. Plugin transport harus menyimpan diagnostik sensitif di luar respons dan tetap menerapkan redaksi.</p>
+
+<h2>Fallback yang eksplisit</h2>
+<p>Fallback hanya berjalan ketika transport utama tidak tersedia, melaporkan kegagalan sementara, atau melempar exception. Penolakan permanen dan kontrak transport yang invalid tidak memicu fallback. Kebijakan ini mengurangi risiko pengiriman ganda ketika provider sudah memproses pesan tetapi koneksi terputus sebelum aplikasi menerima konfirmasi.</p>
+<p>Primary dan fallback tidak boleh menunjuk transport yang sama. Bila fallback tidak diperlukan, pilih <strong>No fallback</strong> agar kegagalan tetap terlihat jelas.</p>
+
+<h2>Keamanan dan privasi</h2>
+<ul>
+  <li>Recipient, sender, Reply-To, subject, body, content type, dan ukuran pesan divalidasi sebelum pengiriman.</li>
+  <li>Pesan yang diubah melalui filter dinormalisasi dan divalidasi kembali.</li>
+  <li>Plugin tidak dapat mengganti transport bawaan <code>native</code> atau mendaftarkan nama transport yang sama dua kali.</li>
+  <li>Log Core hanya mencatat ID, status, code, nama transport, penggunaan fallback, dan jumlah penerima.</li>
+  <li>Log tidak memuat alamat penerima, subject, body, kredensial, atau nilai OTP.</li>
+  <li>Pengaturan dan email uji dilindungi Site Owner policy, POST, dan CSRF.</li>
+</ul>
+
+<h2>Menguji pengiriman</h2>
+<ol>
+  <li>Simpan identitas pengirim dan transport di <strong>Settings &gt; Email</strong>.</li>
+  <li>Jika memakai SMTP atau provider API, selesaikan konfigurasi pada halaman plugin transport.</li>
+  <li>Masukkan satu alamat penerima di panel <strong>Send Test Email</strong>.</li>
+  <li>Kirim pengujian dan periksa log server atau dashboard provider bila transport tidak menerima pesan.</li>
+</ol>
+<p>Email uji dibatasi frekuensinya dan hanya menggunakan subject serta body yang ditentukan server. Status <code>accepted</code> berarti transport menerima pesan, bukan jaminan email masuk ke inbox. Konfigurasikan SPF, DKIM, dan DMARC pada domain pengirim serta periksa reputasi dan kebijakan provider.</p>
+
+<h2>Batas fitur saat ini</h2>
+<p>Kontrak Mail API berfokus pada email transactional sederhana dalam format <code>text/plain</code> atau <code>text/html</code>. CC, BCC, attachment, raw MIME part, dan header bebas belum menjadi bagian dari API. Plugin sebaiknya tidak membuat jalur pengiriman kedua untuk menghindari validasi Core; ajukan perluasan kontrak ketika kebutuhan tersebut memang harus didukung lintas transport.</p>
+
+<p>Dengan pola ini, fitur seperti OTP, notifikasi akun, formulir, atau laporan dapat memakai satu API yang sama. Operasional situs tetap bebas memilih native mail, SMTP, atau provider lain tanpa membuat plugin fitur saling bergantung.</p>

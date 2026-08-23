@@ -44,8 +44,8 @@ $categories = $manifest['categories'] ?? [];
 $documents = $manifest['documents'] ?? [];
 $media = $mediaSource['media'] ?? [];
 $check(is_array($categories) && count($categories) === 4, 'four canonical categories are declared');
-$check(is_array($documents) && count($documents) === 23, 'twenty articles and three pages are declared');
-$check(is_array($media) && count($media) === 55, 'all 55 historical media rows are declared');
+$check(is_array($documents) && count($documents) === 24, 'twenty-one articles and three pages are declared');
+$check(is_array($media) && count($media) === 57, 'all 57 demo media rows are declared');
 
 $categoryIds = [];
 $categorySlugs = [];
@@ -68,8 +68,8 @@ foreach ($media as $item) {
     if (is_int($id)) $mediaIds[$id] = true;
     if (is_string($url)) $mediaUrls[$url] = true;
 }
-$expectedMediaIds = [64,65,66,67,68,70,71,72,73,75,76,77,78,79,80,81,82,84,85,86,88,89,90,92,93,94,96,97,98,100,101,102,104,105,106,108,109,110,111,112,113,114,115,117,118,119,120,121,122,123,124,125,126,127,128];
-$check(array_keys($mediaIds) === $expectedMediaIds, 'historical media identity set is unchanged');
+$expectedMediaIds = [64,65,66,67,68,70,71,72,73,75,76,77,78,79,80,81,82,84,85,86,88,89,90,92,93,94,96,97,98,100,101,102,104,105,106,108,109,110,111,112,113,114,115,117,118,119,120,121,122,123,124,125,126,127,128,129,130];
+$check(array_keys($mediaIds) === $expectedMediaIds, 'demo media identity set includes Core Mail assets');
 
 $documentIds = [];
 $documentSlugs = [];
@@ -111,11 +111,11 @@ foreach ($documents as $document) {
         $relationshipPairs[$pair] = true;
     }
 }
-$check($articleCount === 20 && $pageCount === 3, 'inventory contains 20 articles and 3 pages');
-$expectedDocumentIds = array_merge(range(272, 294));
-$check(array_keys($documentIds) === $expectedDocumentIds, 'source document IDs are exactly 272 through 294');
-$check(($manifest['documents'][19]['id'] ?? null) === 291 && ($manifest['documents'][22]['id'] ?? null) === 294, 'new documentation IDs 291-294 are present in order');
-$check(count($relationshipPairs) === 31, 'all 31 article/category relationships are represented');
+$check($articleCount === 21 && $pageCount === 3, 'inventory contains 21 articles and 3 pages');
+$expectedDocumentIds = array_merge(range(272, 295));
+$check(array_keys($documentIds) === $expectedDocumentIds, 'source document IDs are exactly 272 through 295');
+$check(($manifest['documents'][19]['id'] ?? null) === 291 && ($manifest['documents'][23]['id'] ?? null) === 295, 'new documentation IDs 291-295 are present in order');
+$check(count($relationshipPairs) === 33, 'all 33 article/category relationships are represented');
 $check(($manifest['preset']['id'] ?? null) === 300 && ($manifest['preset']['slug'] ?? null) === 'demo_random_posts', 'preset identity 300 is preserved');
 
 $generatorSource = (string)file_get_contents($generatorPath);
@@ -134,7 +134,7 @@ $check($firstBytes === $secondBytes, 'normal generator output is byte-for-byte d
 $check($checkStatus === 0 && str_contains($checkOut, 'current'), '--check accepts the generated SQL: ' . trim($checkError ?: $checkOut));
 $check(str_contains($secondBytes, '-- Generated: 2026-08-19'), 'generated header has the canonical date');
 $check(str_contains($secondBytes, 'Tables written: categories, posts, media, post_categories, sidebar_zone_items.'), 'generated header describes actual tables');
-$check(substr_count($secondBytes, "'article'") >= 20 && str_contains($secondBytes, "(300, 'Demo Random Posts Preset'"), 'generated SQL includes article inventory and preset');
+$check(substr_count($secondBytes, "'article'") >= 21 && str_contains($secondBytes, "(300, 'Demo Random Posts Preset'"), 'generated SQL includes article inventory and preset');
 
 if ($failures !== []) {
     fwrite(STDERR, 'Demo content contract failed: ' . count($failures) . " assertion(s).\n");

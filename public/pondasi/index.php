@@ -443,7 +443,7 @@ if ($step === 1) {
         . input('admin_name','Nama Lengkap Site Owner','text','','Nama yang akan ditampilkan')
         . '</div>'
         . pass('admin_pass','Password Site Owner')
-        . '<label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:8px 0 0;"><input type="checkbox" name="install_demo" value="1" style="width:auto;margin:0"> Pasang konten demo (16 artikel + 3 halaman + kategori + menu)</label>'
+        . '<label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:8px 0 0;"><input type="checkbox" name="install_demo" value="1" style="width:auto;margin:0"> Pasang konten demo (21 artikel + 3 halaman + kategori + media)</label>'
         . '<div style="display:flex;gap:8px;margin-top:8px">'
         . '<a class="btn" href="/pondasi/" style="text-decoration:none;text-align:center;background:#94a3b8;flex:1">← Kembali</a>'
         . '<button class="btn" type="submit" style="flex:1">Selesai →</button></div></form>';

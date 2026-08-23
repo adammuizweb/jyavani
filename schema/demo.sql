@@ -317,7 +317,82 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Tanggung jawab plugin translasi</h2>
 <p>Plugin menentukan model translasi, locale yang didukung, akses editor, dan fallback. Gunakan hook <code>admin_post_after_*</code>/<code>admin_page_after_*</code> untuk sinkronisasi setelah mutasi. Buat canonical route dan alias untuk setiap locale tanpa collision; default locale biasanya tanpa prefix, locale lain memakai prefix.</p>
 <p>Menu dan kategori hanya diterjemahkan bila plugin secara eksplisit mendukung record tersebut dan theme memakai hasil integrasinya. Jangan menganggap mengganti content default otomatis menerjemahkan slug, menu, kategori, metadata, atau isi lama. Uji UI en/id/de, URL default/terjemahan, redirect, canonical, sitemap, dan kondisi plugin disabled.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0);
+', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+(295, 'Core Mail API: Transport, Pengaturan Pengiriman, dan Email Uji', 'core-mail-api-transport-pengaturan-pengiriman-dan-email-uji', '<p>Jyavani Core menyediakan Mail API sebagai satu jalur pengiriman email untuk fitur CMS dan plugin. Plugin fitur cukup menyerahkan pesan terstruktur kepada Core; pemilihan transport, identitas pengirim, fallback, dan pencatatan pengiriman dikelola terpisah.</p>
+
+<h2>Mengapa memakai Mail API</h2>
+<p>Pemanggilan <code>mail()</code>, SMTP, atau API provider secara langsung dari setiap plugin membuat konfigurasi pengiriman tersebar. Saat provider berubah, setiap plugin harus disesuaikan sendiri. Mail API memisahkan kebutuhan fitur dari cara pesan dikirim.</p>
+<ul>
+  <li>Plugin fitur tidak perlu bergantung pada plugin SMTP tertentu.</li>
+  <li>Site Owner dapat mengganti transport tanpa mengubah kode pemanggil.</li>
+  <li>Validasi pesan, hasil pengiriman, fallback, dan logging memakai kontrak Core yang sama.</li>
+  <li>Transport tambahan dapat dipasang atau dinonaktifkan sebagai plugin opsional.</li>
+</ul>
+
+<img src="/static/img/2026/08/core-mail-api-flow.jpg" alt="Diagram alur plugin fitur mengirim email melalui Jyavani Core Mail API menuju transport SMTP atau native" style="width:100%;margin:1rem 0">
+
+<h2>Pengaturan di Settings &gt; Email</h2>
+<p>Halaman <strong>Email Delivery</strong> hanya tersedia bagi Site Owner yang memiliki akses pengaturan Core. Halaman ini mengelola:</p>
+<ul>
+  <li><strong>Primary transport</strong> sebagai jalur pengiriman utama.</li>
+  <li><strong>Fallback transport</strong> yang dicoba ketika transport utama tidak tersedia atau mengalami kegagalan sementara.</li>
+  <li><strong>From name</strong> dan <strong>From email address</strong> sebagai identitas pengirim default.</li>
+  <li><strong>Reply-To</strong> opsional untuk memisahkan alamat balasan dari alamat pengirim.</li>
+  <li><strong>Delivery logging</strong> dengan mode off, kegagalan saja, atau seluruh percobaan yang sudah disamarkan.</li>
+</ul>
+<p>Transport bawaan <code>native</code> menyerahkan pesan ke <code>mail()</code> milik PHP dan infrastruktur hosting. Kredensial SMTP tidak disimpan oleh halaman Core. Plugin transport menyediakan halaman konfigurasinya sendiri lalu mendaftarkan adapter kepada Mail API.</p>
+
+<h2>Mengirim email dari plugin</h2>
+<p>Plugin fitur memanggil <code>jy_mail_send()</code> dan tidak perlu mengetahui apakah situs memakai native mail, SMTP, atau provider lain.</p>
+<pre><code>$result = jy_mail_send($pdo, [
+    ''to'' =&gt; [''reader@example.test''],
+    ''subject'' =&gt; ''Notifikasi Jyavani'',
+    ''body'' =&gt; ''Proses telah selesai.'',
+    ''content_type'' =&gt; ''text/plain'',
+]);
+
+if (!$result[''ok'']) {
+    // Tampilkan pesan umum atau jadwalkan penanganan sesuai fitur.
+}</code></pre>
+<p>Pesan menerima daftar penerima, subject, body, content type, sender terstruktur, dan Reply-To opsional. Raw header dari pemanggil sengaja tidak diterima. Core menolak alamat atau field header yang mengandung karakter kontrol sebelum transport dijalankan.</p>
+
+<h2>Kontrak plugin transport</h2>
+<p>Plugin adapter mendaftarkan transport melalui <code>jy_mail_register_transport()</code>. Callback menerima pesan yang sudah dinormalisasi dan context pengiriman, kemudian mengembalikan satu status stabil:</p>
+<ul>
+  <li><code>accepted</code> ketika transport menerima tanggung jawab atas pesan.</li>
+  <li><code>temporary_failure</code> untuk kegagalan sementara yang aman dicoba melalui fallback.</li>
+  <li><code>permanent_failure</code> untuk penolakan atau konfigurasi yang tidak boleh diulang melalui fallback.</li>
+</ul>
+<p>Core tidak menerima detail provider, kredensial, transcript protokol, atau isi pesan dalam objek hasil. Plugin transport harus menyimpan diagnostik sensitif di luar respons dan tetap menerapkan redaksi.</p>
+
+<h2>Fallback yang eksplisit</h2>
+<p>Fallback hanya berjalan ketika transport utama tidak tersedia, melaporkan kegagalan sementara, atau melempar exception. Penolakan permanen dan kontrak transport yang invalid tidak memicu fallback. Kebijakan ini mengurangi risiko pengiriman ganda ketika provider sudah memproses pesan tetapi koneksi terputus sebelum aplikasi menerima konfirmasi.</p>
+<p>Primary dan fallback tidak boleh menunjuk transport yang sama. Bila fallback tidak diperlukan, pilih <strong>No fallback</strong> agar kegagalan tetap terlihat jelas.</p>
+
+<h2>Keamanan dan privasi</h2>
+<ul>
+  <li>Recipient, sender, Reply-To, subject, body, content type, dan ukuran pesan divalidasi sebelum pengiriman.</li>
+  <li>Pesan yang diubah melalui filter dinormalisasi dan divalidasi kembali.</li>
+  <li>Plugin tidak dapat mengganti transport bawaan <code>native</code> atau mendaftarkan nama transport yang sama dua kali.</li>
+  <li>Log Core hanya mencatat ID, status, code, nama transport, penggunaan fallback, dan jumlah penerima.</li>
+  <li>Log tidak memuat alamat penerima, subject, body, kredensial, atau nilai OTP.</li>
+  <li>Pengaturan dan email uji dilindungi Site Owner policy, POST, dan CSRF.</li>
+</ul>
+
+<h2>Menguji pengiriman</h2>
+<ol>
+  <li>Simpan identitas pengirim dan transport di <strong>Settings &gt; Email</strong>.</li>
+  <li>Jika memakai SMTP atau provider API, selesaikan konfigurasi pada halaman plugin transport.</li>
+  <li>Masukkan satu alamat penerima di panel <strong>Send Test Email</strong>.</li>
+  <li>Kirim pengujian dan periksa log server atau dashboard provider bila transport tidak menerima pesan.</li>
+</ol>
+<p>Email uji dibatasi frekuensinya dan hanya menggunakan subject serta body yang ditentukan server. Status <code>accepted</code> berarti transport menerima pesan, bukan jaminan email masuk ke inbox. Konfigurasikan SPF, DKIM, dan DMARC pada domain pengirim serta periksa reputasi dan kebijakan provider.</p>
+
+<h2>Batas fitur saat ini</h2>
+<p>Kontrak Mail API berfokus pada email transactional sederhana dalam format <code>text/plain</code> atau <code>text/html</code>. CC, BCC, attachment, raw MIME part, dan header bebas belum menjadi bagian dari API. Plugin sebaiknya tidak membuat jalur pengiriman kedua untuk menghindari validasi Core; ajukan perluasan kontrak ketika kebutuhan tersebut memang harus didukung lintas transport.</p>
+
+<p>Dengan pola ini, fitur seperti OTP, notifikasi akun, formulir, atau laporan dapat memakai satu API yang sama. Operasional situs tetap bebas memilih native mail, SMTP, atau provider lain tanpa membuat plugin fitur saling bergantung.</p>
+', 'article', '{"meta_tags":{"description":"Panduan Core Mail API Jyavani untuk pengaturan sender, transport native atau SMTP, fallback, logging teredaksi, keamanan, dan email uji."}}', NULL, '/static/img/2026/08/core-mail-api-thumbnail.jpg', 'published', 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', 0, NULL, 0);
 
 INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `height`, `title`, `alt`, `caption`, `credit`, `visibility`, `storage_disk`, `storage_path`, `access_scope`, `is_downloadable`, `user_id`, `created_at`, `updated_at`, `target_url`, `target_attribute`) VALUES
 (64, '/static/img/2026/07/content-management-71b8788f.jpg', 'content-management-71b8788f.png', 'image/png', 'png', 372716, 1200, 675, 'Content Management', 'Content Management System Dashboard', NULL, NULL, 'public', 'public', '2026/07/content-management-71b8788f.png', 'public', 1, 1, '2026-07-24 09:57:56', NULL, NULL, NULL),
@@ -374,7 +449,9 @@ INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `h
 (125, '/static/img/2026/07/layout-editor-screenshot.jpg', 'layout-editor-screenshot.jpg', 'image/jpeg', 'jpg', 177915, 1280, 1000, 'Layout Editor Screenshot', 'Layout Editor Screenshot', NULL, NULL, 'public', 'public', NULL, 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
 (126, '/static/img/2026/07/user-roles-screenshot.jpg', 'user-roles-screenshot.png', 'image/png', 'png', 178536, 1274, 1190, 'User Roles Screenshot', 'User Roles Screenshot', NULL, NULL, 'public', 'public', 'public/static/img/2026/07/user-roles-screenshot.jpg', 'public', 1, 1, '2026-07-25 09:29:42', '2026-07-25 09:29:42', NULL, NULL),
 (127, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'roles-permissions-thumbnail.jpg', 'image/jpeg', 'jpg', 62350, 1200, 675, 'Roles and Permissions', 'Ilustrasi pengaturan role dan permission pengguna di Jyavani CMS', NULL, 'AI-generated illustration', 'public', 'public', 'public/static/img/2026/08/roles-permissions-thumbnail.jpg', 'public', 1, 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', NULL, NULL),
-(128, '/static/img/2026/08/roles-permissions-light.jpg', 'roles-permissions-light.jpg', 'image/jpeg', 'jpg', 157950, 1440, 1000, 'Roles and Permissions Light Theme', 'Tampilan light theme menu Roles dan Permissions di dashboard Jyavani CMS', NULL, 'Screenshot from authorized OpenCode test environment', 'public', 'public', 'public/static/img/2026/08/roles-permissions-light.jpg', 'public', 1, 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', NULL, NULL);
+(128, '/static/img/2026/08/roles-permissions-light.jpg', 'roles-permissions-light.jpg', 'image/jpeg', 'jpg', 157950, 1440, 1000, 'Roles and Permissions Light Theme', 'Tampilan light theme menu Roles dan Permissions di dashboard Jyavani CMS', NULL, 'Screenshot from authorized OpenCode test environment', 'public', 'public', 'public/static/img/2026/08/roles-permissions-light.jpg', 'public', 1, 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', NULL, NULL),
+(129, '/static/img/2026/08/core-mail-api-thumbnail.jpg', 'core-mail-api-thumbnail.jpg', 'image/jpeg', 'jpg', 92042, 1280, 720, 'Jyavani Core Mail API', 'Ilustrasi alur plugin fitur melalui Jyavani Core Mail API menuju transport SMTP atau native', NULL, 'Original Jyavani documentation illustration', 'public', 'public', 'public/static/img/2026/08/core-mail-api-thumbnail.jpg', 'public', 1, 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', NULL, NULL),
+(130, '/static/img/2026/08/core-mail-api-flow.jpg', 'core-mail-api-flow.jpg', 'image/jpeg', 'jpg', 123777, 1200, 675, 'Alur Jyavani Core Mail API', 'Diagram plugin fitur mengirim pesan terstruktur melalui Core menuju transport SMTP atau native', NULL, 'Original Jyavani documentation illustration', 'public', 'public', 'public/static/img/2026/08/core-mail-api-flow.jpg', 'public', 1, 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', NULL, NULL);
 
 INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigned_at`) VALUES
 (272, 1, 1, '2026-07-25 09:07:48'),
@@ -407,7 +484,9 @@ INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigne
 (293, 1, 1, '2026-08-19 00:00:00'),
 (293, 3, 1, '2026-08-19 00:00:00'),
 (294, 1, 1, '2026-08-19 00:00:00'),
-(294, 3, 1, '2026-08-19 00:00:00');
+(294, 3, 1, '2026-08-19 00:00:00'),
+(295, 1, 1, '2026-08-23 20:50:00'),
+(295, 4, 1, '2026-08-23 20:50:00');
 
 -- Demo shortcode preset: random demo posts by the initial Site Owner.
 INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES
