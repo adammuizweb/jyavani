@@ -203,7 +203,11 @@ window.i18n_upd = <?= json_encode([
     'last_checked'      => __('Last checked:'),
 ]) ?>;
 </script>
-  <script src="/static/dashboard/js/update-notif.js" defer></script>
+<?php
+  $updateNotifFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/update-notif.js' : '';
+  $updateNotifVer = is_file($updateNotifFile) ? filemtime($updateNotifFile) : '';
+?>
+  <script src="/static/dashboard/js/update-notif.js?v=<?= $updateNotifVer ?>" defer></script>
 
 <?php
 $pa_js = function_exists('plugin_assets') ? plugin_assets() : [];

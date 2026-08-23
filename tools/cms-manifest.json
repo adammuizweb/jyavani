@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.83",
-    "build": "2026-08-23",
-    "generated": "2026-08-23T15:54:28+00:00",
+    "version": "2.3.84",
+    "build": "2026-08-24",
+    "generated": "2026-08-23T18:23:37+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 528,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "ebeb27f08970d2d386775beb33f12be9515c27a1abb05c4d1b8c1bc241046d45",
+        "VERSION": "300f67fad2e78a191cd364b49a313eb367512b8f109dcc7a5a5a2709c0468699",
         "app/bootstrap_core.php": "de1474c1e11e219eb942276a17bbd3ee4ec6e706e94ed2899de69296a9f24889",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
@@ -182,7 +182,7 @@
         "dashboard/admin/update/_reset_service.php": "6e7ec5f1879a9753960f620a24eae62fb41b38e5d2e5658bdfd2eabb86a452a3",
         "dashboard/admin/update/_update_actions.php": "d4c1f2c817bb1e024eb18f93d5ac48c1935c69f25a108604997a2696242efd67",
         "dashboard/admin/update/_update_helpers.php": "8217e6f862281b5634e293d9f02627752cd8eafeefe79e2956f14425c2c284d0",
-        "dashboard/admin/update/index.php": "992890e206cd1862397d95fffeefa69feac143c6dbfa14aad3da2053e487592a",
+        "dashboard/admin/update/index.php": "1d4df49f964e87aec334ce98867e04ec33c0f8a4617b50bb3a82ecd4752af378",
         "dashboard/admin/update/update_apply.php": "7c61a6c5e2a4990265e02d3ec9edae9a1c6d95d2632709dabc9185d6ef595a0e",
         "dashboard/admin/upload_file.php": "4127b8203eb74d87292bd80924a5106b5e46b869609d7b8033cd4736112759d6",
         "dashboard/admin/upload_image.php": "da18a3924e49554860d2d7a919415c301d5203766578e68dd1880e1797dceac7",
@@ -200,7 +200,7 @@
         "dashboard/index.php": "82eaec8db91df19e9748f96fbb8dbb92e4de22b662f8b91b13b618bd701333d0",
         "dashboard/logout.php": "7cc432154797bd3bb856d4720801ac55ce5155dd64e27229d75e8dcaf3b9dfb8",
         "dashboard/theme/adam/index.php": "880a2b940cf9d5226b306d47a50886e51846b726128267ef61f857a500ac4c4d",
-        "dashboard/theme/adam/layout.php": "7eeded2ab048edcc4191f8c17ac3beb81d957baa36cb8bbdf708638c0788361a",
+        "dashboard/theme/adam/layout.php": "6c20f82ad5d764bd24194ce1efbc44839d10f8903ad4f560416d1b4db1f06845",
         "dashboard/theme/adam/part/aside.php": "3c8e0a78178eeb84bf655215205cee8ce6fcfb6522fb6b13e924fcfba2fc7071",
         "dashboard/theme/adam/part/details.php": "ae096623b7c1ddd83ac7c24ad6e9c50d823825bcd8fca26d673886991c176b98",
         "dashboard/theme/adam/part/footer.php": "f4dfd1749d18e03ce20e6afd4646cb1cd777e2d8e749a31d7499510db635c086",
@@ -258,7 +258,7 @@
         "public/static/dashboard/js/notif.js": "b7f4bae625eda3c0de705eb7dd19d96363e1e03d1f289b173a72e7cda5083a87",
         "public/static/dashboard/js/panel.js": "ecd8cb9469b874450403a6ea06ffd573c535cb571b16005634c5fdfd973e3dd6",
         "public/static/dashboard/js/theme-toggle.js": "6809d18ace31f134d65d098496dfd9c4341eeffd2c8cf6de3f17beacbc1e8f59",
-        "public/static/dashboard/js/update-notif.js": "9249bd220726988c41d857bb19bcfb3765b325ddbc5b2b4aa19f030db21e063a",
+        "public/static/dashboard/js/update-notif.js": "2b5aeb48f37dc141fa8c8ec765d8a1a0bc34076651760be5b6a9a51f68944c31",
         "public/static/dashboard/js/update.js": "9e0ebbb1a767b217750842e7c1f02deee58e741e154c4ac9d849de63a48b8f45",
         "public/static/icons/lucide/LICENSE": "f8d8098717f8527d1911064c99076536e18404624ded74ffaa33a393deec4d69",
         "public/static/icons/lucide/alert-triangle.svg": "afae3468688ceec52b10d9615cb4d360a589af74ff282ca22fb74ead3f1a1908",
@@ -535,6 +535,6 @@
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "4280874e201f70ab1bb7e4aef3e00088e0c82d825b3c07c725bc4fd0c396cf5d",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
-        "version.json": "169fc618e80cb8ece6825fd8a5b3efe40fb752ea8da7dab98f70ea4fd9ff4b1a"
+        "version.json": "2182da0724985a608a23de74fb0a41a69575c3b5a96e89c2f31bf88cf3c51b59"
     }
 }

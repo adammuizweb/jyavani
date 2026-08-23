@@ -213,10 +213,17 @@ function renderDropdown(data, error) {
 
 function updateDashboardWidget(data) {
   var widget = document.querySelector('[data-update-widget]');
-  var latest = document.querySelector('[data-cms-latest]');
+  var latestBadges = document.querySelectorAll('[data-cms-latest]');
   var tr = window.i18n_upd || {};
-  if (latest && data.cms) {
-    latest.innerHTML = data.cms.state === 'ok' && !data.cms.has_update ? '<span class="dw-latest">' + (tr.latest || 'Latest') + '</span>' : '';
+  if (data.cms) {
+    latestBadges.forEach(function(latest) {
+      latest.textContent = '';
+      if (data.cms.state !== 'ok' || data.cms.has_update) return;
+      var badge = document.createElement('span');
+      badge.className = latest.getAttribute('data-latest-class') || 'dw-latest';
+      badge.textContent = tr.latest || 'Latest';
+      latest.appendChild(badge);
+    });
   }
   if (!widget) return;
   var body = widget.querySelector('[data-update-items]');

@@ -116,6 +116,7 @@ try {
     $endpoint = (string)file_get_contents($root . '/dashboard/admin/check_updates_ajax.php');
     $javascript = (string)file_get_contents($root . '/public/static/dashboard/js/update-notif.js');
     $layout = (string)file_get_contents($root . '/dashboard/theme/adam/layout.php');
+    $updatePage = (string)file_get_contents($root . '/dashboard/admin/update/index.php');
     $pluginPage = (string)file_get_contents($root . '/dashboard/admin/plugins/index.php');
     $themePage = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
     $coreActions = (string)file_get_contents($root . '/dashboard/admin/update/_update_actions.php');
@@ -124,6 +125,11 @@ try {
     $check(str_contains($javascript, "xhr.open(refreshMode ? 'POST' : 'GET'")
         && str_contains($javascript, 'window.jyavaniUpdateStatus')
         && str_contains($javascript, 'jyavani:update-status'), 'notification client renders the shared snapshot and broadcasts refreshes');
+    $check(str_contains($updatePage, 'data-cms-latest data-latest-class="up-latest"')
+        && str_contains($javascript, "document.querySelectorAll('[data-cms-latest]')")
+        && str_contains($javascript, "latest.getAttribute('data-latest-class') || 'dw-latest'"), 'dashboard and Update Manager receive the live Latest badge after an asynchronous check');
+    $check(str_contains($layout, '/static/dashboard/js/update-notif.js?v=')
+        && str_contains($layout, "filemtime(\$updateNotifFile)"), 'update notification script uses a file-version cache buster');
     $check(str_contains($layout, 'JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT'), 'remote update metadata is safe inside the dashboard script context');
     $check(str_contains($pluginPage, 'UpdateStatusController::checkAll($pdo)')
         && str_contains($themePage, 'UpdateStatusController::checkAll($pdo)')
