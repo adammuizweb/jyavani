@@ -11,6 +11,7 @@ require_once DASH_PATH . '/admin/_notify.php';
 adiwira_require_site_owner($pdo, false);
 
 require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
+require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
 $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/plugins/index';
@@ -121,12 +122,22 @@ if ($action === 'check-updates') {
     if (!csrf_check($csrf)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
-    $updates = PluginStoreController::checkUpdates($pdo);
-    $count = count($updates);
-    if ($count > 0) {
-        adiwira_redirect_with_flash($selfUrl, 'success', $count . ' ' . __('plugin(s) update available.'));
+    session_write_close();
+    try {
+        $snapshot = UpdateStatusController::checkAll($pdo);
+    } catch (Throwable $error) {
+        ensure_session_started(true);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to check updates.'));
+    }
+    ensure_session_started(true);
+    UpdateStatusController::hydrateCoreSession($snapshot);
+    $count = (int)($snapshot['total'] ?? 0);
+    if (($snapshot['state'] ?? 'ok') !== 'ok') {
+        adiwira_redirect_with_flash($selfUrl, 'warning', __('Update check completed with partial results.') . ' ' . $count . ' ' . __('update(s) available across Core, plugins, and themes.'));
+    } elseif ($count > 0) {
+        adiwira_redirect_with_flash($selfUrl, 'success', $count . ' ' . __('update(s) available across Core, plugins, and themes.'));
     } else {
-        adiwira_redirect_with_flash($selfUrl, 'info', __('All plugins are up to date.'));
+        adiwira_redirect_with_flash($selfUrl, 'info', __('All Core, plugins, and themes are up to date.'));
     }
 }
 
@@ -138,6 +149,7 @@ if ($action === 'apply-update' && $pluginName !== '') {
     }
     $updateResult = PluginStoreController::applyUpdate($pdo, $pluginName);
     if ($updateResult['success']) {
+        UpdateStatusController::removeUpdate('plugins', $pluginName);
         adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($pluginName) . '" ' . __('updated to v') . h($updateResult['new_version']) . '.');
     } else {
         adiwira_redirect_with_flash($selfUrl, 'error', h($updateResult['error']));
@@ -148,7 +160,7 @@ if ($action === 'apply-update' && $pluginName !== '') {
 $allPlugins = plugins_all();
 $activePlugins = plugins_active();
 $requirementDiagnostics = plugin_requirement_diagnostics();
-$availableUpdates = PluginStoreController::getCachedUpdates();
+$availableUpdates = UpdateStatusController::getComponentUpdates('plugins');
 $hasStoreUrl = false;
 foreach ($allPlugins as $name => $p) {
     if (!empty($p['store'])) { $hasStoreUrl = true; break; }
@@ -241,6 +253,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 };
 ?>
 <h2 class="pg-title"><?=_e('Plugin')?></h2>
+<div data-update-status-page hidden></div>
 <p class="pg-subtitle"><?=_e('Manage installed plugins.')?></p>
 
 <div class="form-row">
@@ -249,7 +262,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
   <form method="post" class="form-inline">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="action" value="check-updates">
-    <button type="submit" class="adam-button"><?= svg_ico('refresh-cw') ?> <?=_e('Check Update')?></button>
+    <button type="submit" class="adam-button"><?= svg_ico('refresh-cw') ?> <?=_e('Check All Updates')?></button>
   </form>
 </div>
 
@@ -323,6 +336,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
       $requirementDiagnostic = $requirementDiagnostics[$name] ?? '';
       $hasUpdate = isset($availableUpdates[$name]);
       $updateInfo = $hasUpdate ? $availableUpdates[$name] : null;
+      $updateActionable = !$hasUpdate || (($updateInfo['actionable'] ?? false) === true);
       $updateCompatible = !$hasUpdate || (($updateInfo['compatible'] ?? true) === true);
       $hasStore = !empty($p['store']) || str_starts_with((string)($p['plugin_uri'] ?? ''), 'https://jyavani.com/plugin/');
     ?>
@@ -374,6 +388,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
         <span class="version-text"><?= h($version) ?></span>
         <?php if ($hasUpdate): ?>
           <br><span class="badge badge-update">v<?= h($updateInfo['new_version']) ?></span>
+          <?php if (!$updateActionable): ?><br><span style="font-size:.72rem;color:var(--adam-muted)"><?=_e('Run "Check for Updates" first.')?></span><?php endif; ?>
           <?php if (!$updateCompatible): ?><br><span style="font-size:.72rem;color:var(--adam-danger)"><?= h(implode('; ', (array)($updateInfo['compatibility_errors'] ?? []))) ?></span><?php endif; ?>
         <?php elseif ($hasStore): ?>
           <br><span class="badge badge-latest"><?=_e('Latest')?></span>
@@ -390,7 +405,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
       </td>
       <td class="td-actions">
         <div class="action-btns">
-          <?php if ($hasUpdate && $updateCompatible): ?>
+          <?php if ($hasUpdate && $updateActionable && $updateCompatible): ?>
           <form method="post" class="form-inline js-confirm-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="action" value="apply-update">

@@ -107,7 +107,27 @@ if ($safe) {
     }
     // ===== END GLOBAL DEBUG SWITCH =====
 
-    include $targetFull;
+    try {
+        include $targetFull;
+    } catch (Throwable $error) {
+        if (!headers_sent()) http_response_code(500);
+        error_log(sprintf(
+            '[DASHBOARD PAGE] %s in %s:%d',
+            $error->getMessage(),
+            $error->getFile(),
+            $error->getLine()
+        ));
+        echo '<section class="adam-main-error" role="alert">';
+        echo '<h2>' . __('Error') . '</h2>';
+        if (function_exists('app_debug_enabled') && app_debug_enabled()) {
+            echo '<pre>FATAL: ' . htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8') . "\n";
+            echo 'File: ' . htmlspecialchars($error->getFile(), ENT_QUOTES, 'UTF-8') . ' : line ' . $error->getLine() . "\n\n";
+            echo htmlspecialchars($error->getTraceAsString(), ENT_QUOTES, 'UTF-8') . '</pre>';
+        } else {
+            echo '<p>' . __('Internal error (see logs).') . '</p>';
+        }
+        echo '</section>';
+    }
 
 } else {
     if ($page === 'home') {

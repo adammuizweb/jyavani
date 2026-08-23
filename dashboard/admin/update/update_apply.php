@@ -21,6 +21,7 @@ if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
 }
 
 require_once __DIR__ . '/_update_helpers.php';
+require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
 // Copy and clear pending state, then release the lock for the long update.
 ensure_session_started(false);
@@ -56,8 +57,13 @@ if (!$remote) {
     _cms_write_progress($token, 0, __('No update data.'), true, __('No update data in session. Run "Check for Updates" first.'));
     adiwira_json(['ok' => false, 'error' => __('No update data in session.')]);
 }
+$hasUploadedPackage = $packageZip !== '' && is_file($packageZip);
+if (!$hasUploadedPackage && !UpdateStatusController::isUpdateActionable('core', '', (string)($remote['version'] ?? ''))) {
+    _cms_write_progress($token, 0, __('No update data.'), true, __('No update data in session. Run "Check for Updates" first.'));
+    adiwira_json(['ok' => false, 'error' => __('No update data in session. Run "Check for Updates" first.')]);
+}
 
-if ($packageZip && is_file($packageZip)) {
+if ($hasUploadedPackage) {
     // Apply from uploaded zip
     $result = _apply_cms_update_from_zip($packageZip, $remote, $currentVersion['version'] ?? '0.0.0', $token);
     $cleanupPackage((string)$packageZip);
@@ -72,6 +78,7 @@ if ($packageZip && is_file($packageZip)) {
 }
 
 if ($result['success']) {
+    UpdateStatusController::removeUpdate('core');
     adiwira_json(['ok' => true, 'message' => $result['message']]);
 } else {
     adiwira_json(['ok' => false, 'error' => $result['message']]);

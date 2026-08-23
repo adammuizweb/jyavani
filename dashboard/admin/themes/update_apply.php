@@ -26,9 +26,11 @@ if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
 session_write_close();
 
 require_once __DIR__ . '/../../../app/controllers/ThemeStoreClient.php';
+require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 require_once __DIR__ . '/../../../cfg/helpers/theme_helper.php';
 
 $result = ThemeStoreClient::applyUpdate($pdo, $folderName, $token);
+if (($result['success'] ?? false) === true) UpdateStatusController::removeUpdate('themes', $folderName);
 
 adiwira_json([
     'ok' => $result['success'],

@@ -11,6 +11,7 @@ require_once DASH_PATH . '/admin/_notify.php';
 // Load shared helpers
 require_once __DIR__ . '/_update_helpers.php';
 require_once __DIR__ . '/_update_actions.php';
+require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
 
 // Let the authenticated updater finish polling after an authorization migration.
 cms_update_handle_progress_request();
@@ -64,10 +65,13 @@ cms_update_handle_post($pdo, $currentVersion, $selfUrl, $base);
 
 // --- Helper: version info from session ---
 ensure_session_started(false);
+$updateSnapshot = UpdateStatusController::getSnapshot();
+UpdateStatusController::hydrateCoreSession($updateSnapshot);
 $pendingUpdate = $_SESSION['cms_update_remote'] ?? null;
 $pendingPackage = $_SESSION['cms_update_package'] ?? null;
 $pendingUrl = $_SESSION['cms_update_remote_url'] ?? $_SESSION['cms_update_base_url'] ?? '';
-$cmsLatest = is_array($_SESSION['cms_update_cache'] ?? null) && array_key_exists('has_update', $_SESSION['cms_update_cache']) && !$_SESSION['cms_update_cache']['has_update']
+$coreUpdateStatus = $updateSnapshot['components']['core'] ?? [];
+$cmsLatest = ($coreUpdateStatus['state'] ?? 'unknown') === 'ok' && ($coreUpdateStatus['has_update'] ?? false) !== true
     ? '<span class="up-latest">' . __('Latest') . '</span>'
     : '';
 
@@ -75,7 +79,9 @@ $cmsLatest = is_array($_SESSION['cms_update_cache'] ?? null) && array_key_exists
 // Compute file stats
 $totalCore = $localManifest['total_files'] ?? 0;
 ?>
+<div class="up-page">
 <h2 class="pg-title"><?=_e('CMS Update')?></h2>
+<div data-update-status-page hidden></div>
 <p class="pg-subtitle"><?=_e('Version')?> <?= htmlspecialchars($currentVersion['version'] ?? '—') ?> &mdash; <?= htmlspecialchars($currentVersion['build'] ?? '') ?></p>
 
 <?php if ($isDevSelfCheck): ?>
@@ -110,19 +116,19 @@ $totalCore = $localManifest['total_files'] ?? 0;
     </div>
 
     <div class="up-card">
-            <div class="up-card-header"><?=_e('Check for Updates')?></div>
+            <div class="up-card-header"><?=_e('Check All Updates')?></div>
         <form method="post" class="up-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
             <input type="hidden" name="action" value="check_remote">
 
             <label class="up-label"><?=_e('Update URL')?></label>
-            <input type="url" name="update_url" class="up-input"
+            <input type="url" name="update_url" class="up-input" autocomplete="off" spellcheck="false"
                    value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
                    placeholder="https://example.com/download/latest/">
 
-            <div class="up-hint"><?=_e('URL to the latest version download endpoint. Automatically appended with')?> <code>?format=json</code> <?=_e('for version checking.')?></div>
+            <div class="up-hint"><?=_e('Checks Core, plugins, and themes in one operation. The URL is used for Core update metadata.')?></div>
 
-            <button type="submit" class="btn btn-primary"><?=_e('Check for Updates')?></button>
+            <button type="submit" class="btn btn-primary"><?=_e('Check All Updates')?></button>
         </form>
     </div>
 </div>
@@ -154,7 +160,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <input type="hidden" name="action" value="upload_update">
 
         <div class="up-file-row">
-            <input type="file" name="update_package" accept=".zip" required id="upFile">
+            <input type="file" name="update_package" accept=".zip" required id="upFile" class="up-file-input">
             <button type="submit" class="btn btn-primary" id="upBtn"><?=_e('Upload &amp; Install')?></button>
         </div>
     </form>
@@ -168,7 +174,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <input type="hidden" name="action" value="reinstall">
         <label class="up-label"><?=_e('Download URL')?></label>
-        <input type="url" name="reinstall_url" class="up-input"
+        <input type="url" name="reinstall_url" class="up-input" autocomplete="off" spellcheck="false"
                value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
                placeholder="https://example.com/download/latest/">
         <label class="up-checkline">
@@ -271,8 +277,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
     <button type="button" id="cmsProgressClose" class="btn btn-outline" style="display:none;margin:1rem auto 0"><?=__('Close')?></button>
   </div>
 </div>
-
-<link rel="stylesheet" href="/static/dashboard/css/update.css">
+</div>
 
 <script>
 window.CMS_UPDATE_CONFIG = <?= json_encode([

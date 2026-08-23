@@ -28,8 +28,10 @@ if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
 session_write_close();
 
 require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
+require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
 $result = PluginStoreController::applyUpdate($pdo, $name, $token);
+if (($result['success'] ?? false) === true) UpdateStatusController::removeUpdate('plugins', $name);
 
 adiwira_json([
     'ok' => $result['success'],

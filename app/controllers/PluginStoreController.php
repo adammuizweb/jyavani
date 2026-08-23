@@ -3,12 +3,22 @@ declare(strict_types=1);
 
 class PluginStoreController
 {
+    private const UPDATE_TTL = 3600;
+
     public static function checkUpdates(PDO $pdo): array
+    {
+        return self::checkUpdatesDetailed($pdo)['updates'];
+    }
+
+    public static function checkUpdatesDetailed(PDO $pdo): array
     {
         $transient = self::readTransient();
         $plugins = function_exists('plugins_all') ? plugins_all() : [];
         $updates = $transient['updates'] ?? [];
-        $anyFetched = false;
+        $eligible = [];
+        $fetched = 0;
+        $failed = [];
+        $now = time();
 
         foreach ($plugins as $name => $manifest) {
             $store = $manifest['store'] ?? null;
@@ -18,14 +28,17 @@ class PluginStoreController
                 $store = ['url' => 'https://jyavani.com/plugin-store'];
             }
             if (!$store) continue;
+            $eligible[$name] = true;
             $storeUrl = rtrim($store['url'] ?? 'https://jyavani.com/plugin-store/', '/');
             $currentVersion = $manifest['version'] ?? '0.0.0';
 
             $latest = self::fetchVersionInfo($storeUrl . '/' . $name . '/version.json');
-            if ($latest === null) {
+            if ($latest === null || !is_string($latest['version'] ?? null) || trim($latest['version']) === '') {
+                $failed[] = $name;
+                if (isset($updates[$name]) && is_array($updates[$name])) $updates[$name]['actionable'] = false;
                 continue;
             }
-            $anyFetched = true;
+            $fetched++;
             if (version_compare($latest['version'] ?? '0.0.0', $currentVersion, '>')) {
                 $latestRequirements = is_array($latest['requires'] ?? null) ? $latest['requires'] : [];
                 if (is_string($latest['jyavani_required'] ?? null) && $latest['jyavani_required'] !== '') {
@@ -61,31 +74,47 @@ class PluginStoreController
                     'compatible' => $compatibilityErrors === [],
                     'compatibility_errors' => $compatibilityErrors,
                     'checksum' => $latest['checksum'] ?? '',
+                    'checked_at' => $now,
+                    'actionable' => true,
                 ];
             } else {
                 unset($updates[$name]);
             }
         }
 
-        $transient['last_check'] = time();
-        $transient['updates'] = $anyFetched ? $updates : ($transient['updates'] ?? []);
+        $updates = array_intersect_key($updates, $eligible);
+        $state = $failed === [] ? 'ok' : ($fetched > 0 ? 'partial' : 'error');
+        if ($eligible === []) $state = 'ok';
+        $transient['last_attempt'] = $now;
+        if ($state !== 'error') $transient['last_check'] = $now;
+        $transient['state'] = $state;
+        $transient['errors'] = $failed;
+        $transient['updates'] = $updates;
         self::writeTransient($transient);
 
-        return $updates;
+        return ['state' => $state, 'updates' => $updates, 'errors' => $failed];
     }
 
     public static function getCachedUpdates(): array
     {
         $transient = self::readTransient();
-        $lastCheck = $transient['last_check'] ?? 0;
-        if ((time() - $lastCheck) > 3600) return [];
-        return $transient['updates'] ?? [];
+        $updates = is_array($transient['updates'] ?? null) ? $transient['updates'] : [];
+        $freshAfter = time() - self::UPDATE_TTL;
+        return array_filter($updates, static fn(mixed $update): bool => is_array($update)
+            && ($update['actionable'] ?? false) === true
+            && (int)($update['checked_at'] ?? 0) >= $freshAfter);
     }
 
     public static function applyUpdate(PDO $pdo, string $name, string $progressToken = ''): array
     {
         if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) {
             return ['success' => false, 'error' => 'Invalid plugin name.'];
+        }
+        require_once __DIR__ . '/UpdateStatusController.php';
+        if (!UpdateStatusController::isUpdateActionable('plugins', $name)) {
+            $error = 'No update available for "' . $name . '". Run "Check for Updates" first.';
+            if ($progressToken !== '') self::writeProgress($progressToken, 0, __('No updates available.'), true, $error);
+            return ['success' => false, 'error' => $error];
         }
         $updates = self::getCachedUpdates();
         if (!isset($updates[$name])) {

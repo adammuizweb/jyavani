@@ -84,6 +84,14 @@ if ($faviconUrl !== ''): ?>
   if (!is_file($cssFile)) { $cssFile = __DIR__ . '/../../../public/static/dashboard/css/style.css'; }
   $cssVer = is_file($cssFile) ? filemtime($cssFile) : '';
 ?><link rel="stylesheet" href="/static/dashboard/css/style.css?v=<?= $cssVer ?>">
+<?php
+  $dashboardPage = trim((string)($_GET['page'] ?? ''), '/');
+  if ($dashboardPage === 'admin/update/index'):
+      $updateCssFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/css/update.css' : '';
+      $updateCssVer = is_file($updateCssFile) ? filemtime($updateCssFile) : '';
+?>
+  <link rel="stylesheet" href="/static/dashboard/css/update.css?v=<?= $updateCssVer ?>">
+<?php endif; ?>
   <link rel="stylesheet" href="/static/components/confirm/confirm.css">
   <link rel="stylesheet" href="/static/components/toast/toast.css">
 
@@ -168,7 +176,16 @@ foreach ($pa['css'] ?? [] as $css_url) {
   <script src="/static/dashboard/js/panel.js" defer></script>
   <script src="/static/dashboard/js/accordion.js" defer></script>
   <script src="/static/dashboard/js/theme-toggle.js" defer></script>
+  <?php
+  $initialUpdateStatus = null;
+  if (($canCheckUpdates ?? false) === true) {
+      require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
+      $initialUpdateStatus = UpdateStatusController::publicPayload();
+  }
+  ?>
   <script>
+window.jyavaniUpdateStatus = <?= json_encode($initialUpdateStatus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+window.jyavaniUpdateCsrf = <?= json_encode(($canCheckUpdates ?? false) ? csrf_token() : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 window.i18n_upd = <?= json_encode([
     'failed_to_check'   => __('Failed to check updates.'),
     'all_up_to_date'    => __('All up to date.'),
@@ -178,6 +195,12 @@ window.i18n_upd = <?= json_encode([
     'notification'      => __('Update Notification'),
     'plugin'            => __('Plugin'),
     'theme'             => __('Theme'),
+    'update'            => __('Update'),
+    'latest'            => __('Latest'),
+    'never_checked'     => __('Updates have not been checked yet.'),
+    'partial_result'    => __('Some update sources could not be reached. Showing the last known results.'),
+    'stale_result'      => __('Update information is out of date. Checking again…'),
+    'last_checked'      => __('Last checked:'),
 ]) ?>;
 </script>
   <script src="/static/dashboard/js/update-notif.js" defer></script>

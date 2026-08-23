@@ -6,6 +6,7 @@ if (!function_exists('dash_widget_cms_info')):
 
 function dash_widget_cms_info(PDO $pdo): string
 {
+    require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
     $versionFile = dirname(DASH_PATH) . '/version.json';
     $ver = is_file($versionFile) ? (json_decode(file_get_contents($versionFile), true) ?: []) : [];
     $name    = $ver['name'] ?? 'Jyavani CMS';
@@ -13,7 +14,9 @@ function dash_widget_cms_info(PDO $pdo): string
     $edition = $ver['edition'] ?? '—';
     $build   = $ver['build'] ?? '—';
     $phpReq  = $ver['php_required'] ?? '8.1';
-    $cmsLatest = is_array($_SESSION['cms_update_cache'] ?? null) && array_key_exists('has_update', $_SESSION['cms_update_cache']) && !$_SESSION['cms_update_cache']['has_update']
+    $updateSnapshot = UpdateStatusController::getSnapshot();
+    $cmsStatus = $updateSnapshot['components']['core'] ?? [];
+    $cmsLatest = ($cmsStatus['state'] ?? 'unknown') === 'ok' && ($cmsStatus['has_update'] ?? false) !== true
         ? '<span class="dw-latest">' . __('Latest') . '</span>'
         : '';
 
@@ -30,7 +33,7 @@ function dash_widget_cms_info(PDO $pdo): string
   <div class="dw-card-body">
     <table class="dw-table">
       <tr><td>' . __('CMS') . '</td><td><strong>' . h($name) . '</strong></td></tr>
-      <tr><td>' . __('Version') . '</td><td><strong>v' . h($version) . '</strong> ' . $cmsLatest . '</td></tr>
+      <tr><td>' . __('Version') . '</td><td><strong>v' . h($version) . '</strong> <span data-cms-latest>' . $cmsLatest . '</span></td></tr>
       <tr><td>' . __('Edition') . '</td><td>' . $editionBadge . '</td></tr>
       <tr><td>' . __('Build') . '</td><td>' . h($build) . '</td></tr>
       <tr><td>' . __('PHP Required') . '</td><td>' . h($phpReq) . '+ (' . __('server:') . ' ' . PHP_VERSION . ')</td></tr>
@@ -41,18 +44,13 @@ function dash_widget_cms_info(PDO $pdo): string
 
 function dash_widget_update_status(PDO $pdo): string
 {
-    require_once dirname(DASH_PATH) . '/app/controllers/PluginStoreController.php';
-    require_once dirname(DASH_PATH) . '/app/controllers/ThemeStoreClient.php';
+    require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
+    $snapshot = UpdateStatusController::getSnapshot();
+    $pluginUpdates = is_array($snapshot['components']['plugins']['updates'] ?? null) ? $snapshot['components']['plugins']['updates'] : [];
+    $themeUpdates = is_array($snapshot['components']['themes']['updates'] ?? null) ? $snapshot['components']['themes']['updates'] : [];
+    $cmsUpdate = is_array($snapshot['components']['core'] ?? null) ? $snapshot['components']['core'] : [];
 
-    $pluginUpdates = PluginStoreController::getCachedUpdates();
-    $themeUpdates  = ThemeStoreClient::getCachedUpdates();
-
-    $cmsUpdate = null;
-    if (!empty($_SESSION['cms_update_cache'])) {
-        $cmsUpdate = $_SESSION['cms_update_cache'];
-    }
-
-    $hasCms  = $cmsUpdate && $cmsUpdate['has_update'];
+    $hasCms  = ($cmsUpdate['has_update'] ?? false) === true;
     $hasPlugin = count($pluginUpdates) > 0;
     $hasTheme  = count($themeUpdates) > 0;
     $total     = ($hasCms ? 1 : 0) + count($pluginUpdates) + count($themeUpdates);
@@ -77,21 +75,31 @@ function dash_widget_update_status(PDO $pdo): string
     }
 
     if (!$items) {
-        $items = '<tr><td colspan="3" class="dw-na">' . __('Everything is up to date.') . '</td></tr>';
+        $emptyMessage = ($snapshot['state'] ?? 'unknown') === 'unknown'
+            ? __('Updates have not been checked yet.')
+            : __('Everything is up to date.');
+        $items = '<tr><td colspan="3" class="dw-na">' . $emptyMessage . '</td></tr>';
+    }
+
+    $checkedAt = (int)($snapshot['checked_at'] ?? 0);
+    $statusNote = $checkedAt > 0 ? __('Last checked:') . ' ' . date('Y-m-d H:i', $checkedAt) : __('Updates have not been checked yet.');
+    if (($snapshot['state'] ?? 'unknown') !== 'ok' && ($snapshot['state'] ?? 'unknown') !== 'unknown') {
+        $statusNote = __('Some update sources could not be reached. Showing the last known results.');
     }
 
     return '
-<div class="dw-card dw-card-update">
+<div class="dw-card dw-card-update" data-update-widget>
   <div class="dw-card-head">
     <span class="dw-card-icon">' . svg_ico('bell') . '</span>
     <span class="dw-card-title">' . __('Update Status') . '</span>
-    ' . ($total > 0 ? '<span class="dw-badge">' . $total . '</span>' : '') . '
+    <span class="dw-badge" data-update-total' . ($total > 0 ? '' : ' style="display:none"') . '>' . $total . '</span>
   </div>
   <div class="dw-card-body">
     <table class="dw-table">
       <thead><tr><th>' . __('Item') . '</th><th>' . __('Version') . '</th><th></th></tr></thead>
-      <tbody>' . $items . '</tbody>
+      <tbody data-update-items>' . $items . '</tbody>
     </table>
+    <div class="dw-na" data-update-meta style="padding-top:.6rem">' . h($statusNote) . '</div>
   </div>
 </div>';
 }

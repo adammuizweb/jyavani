@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/_reset_service.php';
+require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
 function cms_update_handle_progress_request(): void
 {
@@ -33,7 +34,7 @@ function cms_update_handle_post(PDO $pdo, array $currentVersion, string $selfUrl
 
     $action = (string)($_POST['action'] ?? '');
     if ($action === 'check_remote') {
-        cms_update_check_remote($currentVersion, $selfUrl);
+        cms_update_check_remote($pdo, $currentVersion, $selfUrl);
     }
     if ($action === 'upload_update') {
         cms_update_store_upload($currentVersion, $selfUrl);
@@ -51,64 +52,55 @@ function cms_update_handle_post(PDO $pdo, array $currentVersion, string $selfUrl
     adiwira_redirect_with_flash($selfUrl, 'error', __('Unknown action.'));
 }
 
-function cms_update_check_remote(array $currentVersion, string $selfUrl): void
+function cms_update_check_remote(PDO $pdo, array $currentVersion, string $selfUrl): void
 {
     $inputUrl = trim((string)($_POST['update_url'] ?? ''));
     if ($inputUrl === '') {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Update URL cannot be empty.'));
     }
 
-    $context = stream_context_create(['http' => [
-        'timeout' => 15,
-        'user_agent' => 'JyavaniCMS-Update/' . ($currentVersion['version'] ?? '0.0.0'),
-    ]]);
-
-    if (preg_match('/\.json$/i', $inputUrl)) {
-        $checkUrl = $inputUrl;
-        $_SESSION['cms_update_base_url'] = dirname($inputUrl);
-    } else {
-        $separator = str_contains($inputUrl, '?') ? '&' : '?';
-        $checkUrl = $inputUrl . $separator . 'format=json';
-        $_SESSION['cms_update_base_url'] = $inputUrl;
+    try {
+        session_write_close();
+        $snapshot = UpdateStatusController::checkAll($pdo, $inputUrl);
+    } catch (Throwable $error) {
+        ensure_session_started(true);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to check updates.'));
     }
-
-    $remoteJson = @file_get_contents($checkUrl, false, $context);
-    if ($remoteJson === false) {
+    ensure_session_started(true);
+    UpdateStatusController::hydrateCoreSession($snapshot);
+    $core = $snapshot['components']['core'] ?? [];
+    if (($core['state'] ?? 'error') === 'error') {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to fetch update info from URL:') . ' ' . htmlspecialchars($inputUrl));
     }
-
-    try {
-        $remote = _cms_decode_json_array($remoteJson, 'remote update response');
-    } catch (Throwable $error) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid remote response format (expected: version).'));
+    if (($snapshot['state'] ?? 'ok') !== 'ok') {
+        adiwira_redirect_with_flash(
+            $selfUrl,
+            'warning',
+            __('Update check completed with partial results.') . ' '
+                . (int)($snapshot['total'] ?? 0) . ' ' . __('update(s) available across Core, plugins, and themes.')
+        );
     }
-    if (!isset($remote['version'])) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid remote response format (expected: version).'));
-    }
-
-    $localVersion = $currentVersion['version'] ?? '0.0.0';
-    $remoteVersion = $remote['version'] ?? '0.0.0';
-    ensure_session_started(true);
-    $_SESSION['cms_update_cache'] = [
-        'has_update' => version_compare($remoteVersion, $localVersion, '>'),
-        'current' => $localVersion,
-        'latest' => $remoteVersion,
-    ];
-
-    if (version_compare($remoteVersion, $localVersion, '>')) {
-        $_SESSION['cms_update_remote'] = $remote;
+    if (($core['has_update'] ?? false) === true) {
         adiwira_redirect_with_flash(
             $selfUrl,
             'success',
-            __('Update available:') . ' v' . htmlspecialchars($localVersion) . ' → v' . htmlspecialchars($remoteVersion) . '. '
-                . __('Total') . ' ' . ($remote['total_files'] ?? 0) . ' ' . __('files. Click "Apply Update" to start.')
+            __('Update available:') . ' v' . htmlspecialchars((string)($core['current'] ?? '0.0.0')) . ' → v' . htmlspecialchars((string)($core['latest'] ?? '0.0.0')) . '. '
+                . (int)($snapshot['total'] ?? 0) . ' ' . __('update(s) available across Core, plugins, and themes.')
         );
     }
-
+    if ((int)($snapshot['total'] ?? 0) > 0) {
+        adiwira_redirect_with_flash(
+            $selfUrl,
+            ($snapshot['state'] ?? 'ok') === 'ok' ? 'success' : 'warning',
+            (int)$snapshot['total'] . ' ' . __('update(s) available across Core, plugins, and themes.')
+        );
+    }
     adiwira_redirect_with_flash(
         $selfUrl,
-        'info',
-        __('CMS is already the latest version') . ' (v' . htmlspecialchars($localVersion) . ').'
+        ($snapshot['state'] ?? 'ok') === 'ok' ? 'info' : 'warning',
+        ($snapshot['state'] ?? 'ok') === 'ok'
+            ? __('All Core, plugins, and themes are up to date.')
+            : __('Update check completed with partial results.')
     );
 }
 
@@ -261,6 +253,7 @@ function cms_update_reinstall(PDO $pdo, array $currentVersion, string $selfUrl, 
     }
 
     if ($result['success']) {
+        UpdateStatusController::removeUpdate('core');
         $message = __('Reinstall complete!') . ' ' . $result['message'];
         if ($resetMessages !== []) $message .= ' ' . implode(' ', $resetMessages);
         adiwira_redirect_with_flash($base . '/?page=admin/update/index', 'success', $message);

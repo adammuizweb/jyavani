@@ -11,10 +11,11 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 require_once __DIR__ . '/../../../app/controllers/ThemeStoreClient.php';
+require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 [$user_id, $user_role] = adiwira_require_role($pdo, ['admin'], false);
 $user_role = strtolower(trim((string)$user_role));
 
-$themeUpdates = ThemeStoreClient::getCachedUpdates();
+$themeUpdates = UpdateStatusController::getComponentUpdates('themes');
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
@@ -148,6 +149,7 @@ while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
 
 $errors = [];
 $messages = [];
+$warnings = [];
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
@@ -345,13 +347,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 }
 
             } elseif ($action === 'check_updates') {
-                // Re-register themes first so DB store_slug/store_url are current
-                register_all_themes_from_fs($pdo);
-                $count = count(ThemeStoreClient::checkUpdates($pdo));
-                if ($count > 0) {
-                    $messages[] = "{$count} " . __('theme update(s) available.');
+                session_write_close();
+                try {
+                    $snapshot = UpdateStatusController::checkAll($pdo);
+                } finally {
+                    ensure_session_started(true);
+                }
+                UpdateStatusController::hydrateCoreSession($snapshot);
+                $count = (int)($snapshot['total'] ?? 0);
+                if (($snapshot['state'] ?? 'ok') !== 'ok') {
+                    $warnings[] = __('Update check completed with partial results.') . " {$count} " . __('update(s) available across Core, plugins, and themes.');
+                } elseif ($count > 0) {
+                    $messages[] = "{$count} " . __('update(s) available across Core, plugins, and themes.');
                 } else {
-                    $messages[] = __('All themes are up to date.');
+                    $messages[] = __('All Core, plugins, and themes are up to date.');
                 }
 
             } elseif ($action === 'apply_theme_update') {
@@ -365,6 +374,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 session_write_close();
                 $result = ThemeStoreClient::applyUpdate($pdo, $folder, $token);
                 if ($result['success']) {
+                    UpdateStatusController::removeUpdate('themes', $folder);
                     $messages[] = __("Theme '{$folder}' updated to v{$result['new_version']}.");
                 } else {
                     $errors[] = (string)($result['error'] ?? __('Failed to update theme.'));
@@ -423,6 +433,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     // Redirect with flash instead of rendering inline (which would lack the admin layout)
     if (!empty($messages)) {
         adiwira_redirect_with_flash($selfUrl, 'success', implode(' ', $messages));
+    } elseif (!empty($warnings)) {
+        adiwira_redirect_with_flash($selfUrl, 'warning', implode(' ', $warnings));
     } elseif (!empty($errors)) {
         adiwira_redirect_with_flash($selfUrl, 'error', implode(' ', $errors));
     } else {
@@ -461,6 +473,7 @@ foreach ($themes as $t) {
 }
 ?>
 <div class="tm-wrap">
+  <div data-update-status-page hidden></div>
   <h2 class="tm-title"><?= _e('Theme Manager & Assignments') ?></h2>
 
   <div class="tm-row" role="region" aria-label="<?= _e('Theme management controls') ?>">
@@ -470,7 +483,7 @@ foreach ($themes as $t) {
       <form method="post" style="margin:0;display:inline-flex">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="check_updates">
-        <button class="btn btn-sm btn-outline" type="submit" style="padding:6px 14px;border-radius:6px;font-size:.82rem;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('refresh-cw', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Check Updates')?></button>
+        <button class="btn btn-sm btn-outline" type="submit" style="padding:6px 14px;border-radius:6px;font-size:.82rem;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('refresh-cw', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Check All Updates')?></button>
       </form>
     </div>
     <div class="tm-scan" aria-hidden="false">
@@ -595,7 +608,7 @@ foreach ($themes as $t) {
           <?php if ($updateInfo): ?>
             <div class="tm-update-banner">
               <span><?=__('Update')?> v<?= h($updateInfo['new_version']) ?> <?=__('available')?></span>
-              <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>"><?=_e('Update')?></button>
+              <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>"<?= ($updateInfo['actionable'] ?? false) === true ? '' : ' disabled title="' . h(__('Run "Check for Updates" first.')) . '"' ?>><?=_e('Update')?></button>
             </div>
           <?php endif; ?>
 

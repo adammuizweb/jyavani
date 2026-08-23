@@ -51,12 +51,17 @@ $check(url_path_is_file_like('/manifest.webmanifest') && url_path_is_file_like('
 $router = (string)file_get_contents($root . '/public/router.php');
 $css = (string)file_get_contents($root . '/public/static/vendor/quill/quill.snow.pub.css');
 $themeStore = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.php');
+$updateStatus = (string)file_get_contents($root . '/app/controllers/UpdateStatusController.php');
 $updatesEndpoint = (string)file_get_contents($root . '/dashboard/admin/check_updates_ajax.php');
 $updatesCaller = (string)file_get_contents($root . '/public/static/dashboard/js/update-notif.js');
 $htaccess = (string)file_get_contents($root . '/public/.htaccess');
 $serverSetup = (string)file_get_contents($root . '/SERVER_SETUP.md');
 $login = (string)file_get_contents($root . '/dashboard/gerbank/melbu/index.php');
 $loginCss = (string)file_get_contents($root . '/public/static/dashboard/css/login.css');
+$debugHelpers = (string)file_get_contents($root . '/cfg/helpers/debug_helpers.php');
+$dashboardMain = (string)file_get_contents($root . '/dashboard/theme/adam/part/main.php');
+$dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
+$redirectionNavIcon = (string)file_get_contents($root . '/public/static/icons/lucide/corner-up-right.svg');
 
 $check(substr_count($router, 'collection_redirect_legacy_query_pagination();') >= 7, 'all routed collection families canonicalize legacy query pagination');
 $check(str_contains($router, "([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)"), 'locale sitemap routes accept normalized BCP-style subtags');
@@ -75,8 +80,14 @@ $post = (string)file_get_contents($root . '/public/views/themes/default/main/sin
 $check(str_contains($page, 'editor-content') && str_contains($post, 'editor-content'), 'default theme marks rendered editor content');
 
 $check(str_contains($themeStore, "\$manifest['folder'] ?? \$manifest['name'] ?? ''"), 'theme update manifests remain folder-first');
-$check(str_contains($updatesEndpoint, 'PluginStoreController::getCachedUpdates()'), 'plugin update notifications export cached plugin updates');
+$check(str_contains($updateStatus, "'plugins' => \$plugins")
+    && str_contains($updatesEndpoint, 'UpdateStatusController::publicPayload($snapshot)'), 'plugin update notifications export shared snapshot updates');
 $check(str_contains($updatesCaller, 'data.plugins.forEach'), 'update notification caller renders exported plugin updates');
+$check(str_contains($debugHelpers, 'if (!headers_sent())') && strpos($debugHelpers, 'http_response_code(500)') > strpos($debugHelpers, 'if (!headers_sent())'), 'fatal output never changes response headers after dashboard output starts');
+$check(str_contains($dashboardMain, 'catch (Throwable $error)')
+    && str_contains($dashboardMain, 'class="adam-main-error"') && str_contains($dashboardCss, '.adam-main-error'), 'dashboard page failures render a contained diagnostic inside main');
+$check(str_contains($redirectionNavIcon, 'm15 14 5-5-5-5')
+    && str_contains($redirectionNavIcon, 'M4 20v-7a4 4 0 0 1 4-4h12'), 'Core Lucide library provides the Redirection navigation icon');
 
 foreach (['jy_login_head', 'jy_login_before_form', 'jy_login_form', 'jy_login_after_form', 'jy_login_footer'] as $hook) {
     $check(str_contains($login, "do_action('{$hook}'"), "login exposes {$hook}");

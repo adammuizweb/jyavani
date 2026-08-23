@@ -9,7 +9,7 @@ var refresh = document.getElementById('adam-update-refresh');
 var basePath = window.ADMIN_PATH || '';
 
 var checkUrl   = basePath + '/admin/check_updates_ajax.php';
-var checkUrlR  = checkUrl + '?refresh=1';
+var csrfToken  = window.jyavaniUpdateCsrf || '';
 
 var shown = false;
 var _lastResult = null;
@@ -51,12 +51,11 @@ function escapeHtml(s) {
 }
 
 function fetchUpdates(refreshMode, done) {
-  var url = refreshMode ? checkUrlR : checkUrl;
-
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', url, true);
+  xhr.open(refreshMode ? 'POST' : 'GET', checkUrl, true);
   xhr.setRequestHeader('Accept', 'application/json');
   xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+  if (refreshMode) xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
 
   xhr.onload = function(){
     if (xhr.status !== 200) {
@@ -79,7 +78,7 @@ function fetchUpdates(refreshMode, done) {
     if (done) done(null, 'Network error');
   };
 
-  xhr.send();
+  xhr.send(refreshMode ? 'csrf_token=' + encodeURIComponent(csrfToken) : null);
 }
 
 function updateBadge(total) {
@@ -91,9 +90,9 @@ function updateBadge(total) {
   }
 }
 
-function loadUpdates(refreshMode) {
+function loadUpdates(refreshMode, silent) {
   var tr = window.i18n_upd || {};
-  if (refreshMode) {
+  if (refreshMode && !silent) {
     ddBody.innerHTML = '<div class="adam-update-dd-empty">' + (tr.checking || 'Checking...') + '</div>';
   }
   fetchUpdates(refreshMode, function(data, err){
@@ -101,12 +100,23 @@ function loadUpdates(refreshMode) {
       _lastResult = data;
       updateBadge(data.total || 0);
       showCriticalAdvisory(data.critical_advisory);
+      updateDashboardWidget(data);
+      window.jyavaniUpdateStatus = data;
+      window.dispatchEvent(new CustomEvent('jyavani:update-status', {detail: data}));
       if (shown) renderDropdown(data);
+      if (refreshMode && !silent && document.querySelector('[data-update-status-page]')) {
+        window.setTimeout(function(){ window.location.reload(); }, 500);
+      }
     } else {
       if (shown) renderDropdown(null, err);
     }
-    if (refreshMode) {
-      if (data && data.total > 0) {
+    if (refreshMode && !silent) {
+      if (data && (data.state === 'partial' || data.state === 'error')) {
+        window.NewNotifToast && window.NewNotifToast.warning(
+          (tr.partial_result || 'Some update sources could not be reached. Showing the last known results.'),
+          (tr.notification || 'Update Notification')
+        );
+      } else if (data && data.total > 0) {
         window.NewNotifToast && window.NewNotifToast.info(
           (tr.updates_available || 'Updates available:') + ' ' + (data.total || 0) + ' ' + (tr.item || 'item'),
           (tr.notification || 'Update Notification')
@@ -135,7 +145,7 @@ function toggleDropdown() {
       var tr = window.i18n_upd || {};
       ddBody.innerHTML = '<div class="adam-update-dd-empty">' + (tr.checking || 'Checking...') + '</div>';
     }
-    loadUpdates(false);
+    if (!_lastResult) loadUpdates(false);
   }
 }
 
@@ -147,6 +157,17 @@ function renderDropdown(data, error) {
   }
 
   var items = [];
+
+  if (data.state === 'unknown') {
+    ddBody.innerHTML = '<div class="adam-update-dd-empty">' + (tr.never_checked || 'Updates have not been checked yet.') + '</div>';
+    return;
+  }
+
+  if (data.state === 'partial' || data.state === 'error') {
+    items.push('<div class="adam-update-dd-empty">' + (tr.partial_result || 'Some update sources could not be reached. Showing the last known results.') + '</div>');
+  } else if (data.stale) {
+    items.push('<div class="adam-update-dd-empty">' + (tr.stale_result || 'Update information is out of date. Checking again…') + '</div>');
+  }
 
   if (data.cms && data.cms.has_update) {
     items.push(
@@ -185,7 +206,46 @@ function renderDropdown(data, error) {
   if (items.length === 0) {
     ddBody.innerHTML = '<div class="adam-update-dd-empty">' + (tr.all_up_to_date || 'All up to date.') + '</div>';
   } else {
-    ddBody.innerHTML = items.join('');
+    var checked = data.checked_at ? '<div class="adam-update-dd-empty">' + (tr.last_checked || 'Last checked:') + ' ' + new Date(data.checked_at * 1000).toLocaleString() + '</div>' : '';
+    ddBody.innerHTML = items.join('') + checked;
+  }
+}
+
+function updateDashboardWidget(data) {
+  var widget = document.querySelector('[data-update-widget]');
+  var latest = document.querySelector('[data-cms-latest]');
+  var tr = window.i18n_upd || {};
+  if (latest && data.cms) {
+    latest.innerHTML = data.cms.state === 'ok' && !data.cms.has_update ? '<span class="dw-latest">' + (tr.latest || 'Latest') + '</span>' : '';
+  }
+  if (!widget) return;
+  var body = widget.querySelector('[data-update-items]');
+  var total = widget.querySelector('[data-update-total]');
+  var meta = widget.querySelector('[data-update-meta]');
+  var rows = [];
+  function row(label, name, current, next, url) {
+    rows.push('<tr><td>' + escapeHtml(label) + ' ' + escapeHtml(name) + '</td><td class="dw-up">v' + escapeHtml(current) + ' → v' + escapeHtml(next) + '</td><td><a class="dw-link" href="' + escapeHtml(url) + '">' + (tr.update || 'Update') + '</a></td></tr>');
+  }
+  if (data.cms && data.cms.has_update) row('CMS', 'Jyavani CMS', data.cms.current, data.cms.latest, basePath + '/?page=admin/update/index');
+  (data.plugins || []).forEach(function(item){ row(tr.plugin || 'Plugin', item.name, item.current, item.latest, basePath + '/?page=admin/plugins/index'); });
+  (data.themes || []).forEach(function(item){ row(tr.theme || 'Theme', item.name, item.current, item.latest, basePath + '/?page=admin/themes/assign'); });
+  if (!rows.length) {
+    var empty = data.state === 'unknown'
+      ? (tr.never_checked || 'Updates have not been checked yet.')
+      : ((data.state === 'partial' || data.state === 'error')
+        ? (tr.partial_result || 'Some update sources could not be reached. Showing the last known results.')
+        : (tr.all_up_to_date || 'All up to date.'));
+    rows.push('<tr><td colspan="3" class="dw-na">' + empty + '</td></tr>');
+  }
+  if (body) body.innerHTML = rows.join('');
+  if (total) {
+    total.textContent = data.total || 0;
+    total.style.display = data.total > 0 ? '' : 'none';
+  }
+  if (meta) {
+    meta.textContent = (data.state === 'partial' || data.state === 'error')
+      ? (tr.partial_result || 'Some update sources could not be reached. Showing the last known results.')
+      : (data.checked_at ? (tr.last_checked || 'Last checked:') + ' ' + new Date(data.checked_at * 1000).toLocaleString() : (tr.never_checked || 'Updates have not been checked yet.'));
   }
 }
 
@@ -197,14 +257,24 @@ function closeDropdown(e) {
 }
 
 if (bell) {
-  // initial load — fetch silently and show badge
-  fetchUpdates(false, function(data){
-    if (data) {
-      _lastResult = data;
-      updateBadge(data.total || 0);
-      showCriticalAdvisory(data.critical_advisory);
+  var initial = window.jyavaniUpdateStatus;
+  if (initial && initial.ok) {
+    _lastResult = initial;
+    updateBadge(initial.total || 0);
+    showCriticalAdvisory(initial.critical_advisory);
+    updateDashboardWidget(initial);
+    if (initial.stale) {
+      var autoKey = 'jyavani-update-auto-check';
+      var lastAuto = 0;
+      try { lastAuto = parseInt(sessionStorage.getItem(autoKey) || '0', 10); } catch (_) {}
+      if (!lastAuto || Date.now() - lastAuto > 300000) {
+        try { sessionStorage.setItem(autoKey, String(Date.now())); } catch (_) {}
+        loadUpdates(true, true);
+      }
     }
-  });
+  } else {
+    loadUpdates(false, true);
+  }
 
   bell.addEventListener('click', function(e){
     e.stopPropagation();

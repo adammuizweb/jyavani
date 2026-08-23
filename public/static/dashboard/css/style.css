@@ -6769,3 +6769,21 @@ html.theme-dark .ql-editor {
   caret-color: #e6eef6 !important;
   color-scheme: dark !important;
 }
+.adam-main-error {
+  margin: 1rem 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--adam-danger) 45%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--adam-danger) 8%, var(--adam-card));
+  color: var(--adam-text);
+}
+.adam-main-error h2 { margin: 0 0 .65rem; color: var(--adam-danger); }
+.adam-main-error p { margin: 0; }
+.adam-main-error pre {
+  margin: 0;
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

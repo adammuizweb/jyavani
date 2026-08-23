@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.82",
+    "version": "2.3.83",
     "build": "2026-08-23",
-    "changelog": "Add a secure transport-neutral Core Mail API with Site Owner delivery settings and rate-limited test email support.",
+    "changelog": "Unify Core, plugin, and theme update checks with synchronized dashboard status, hardened error handling, polished update controls, and complete plugin navigation icons.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

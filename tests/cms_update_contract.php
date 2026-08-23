@@ -81,6 +81,8 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 $updatePageSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/index.php');
 $updateActionsSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/_update_actions.php');
 $updateScriptSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/js/update.js');
+$dashboardLayoutSource = (string)file_get_contents($sourceRoot . '/dashboard/theme/adam/layout.php');
+$updateStyleSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/css/update.css');
 $check(
     str_contains($updatePageSource, "require_once __DIR__ . '/_update_actions.php';")
         && str_contains($updatePageSource, 'cms_update_handle_post('),
@@ -94,8 +96,11 @@ $check(
 );
 $check(
     !str_contains($updatePageSource, '<style>')
-        && str_contains($updatePageSource, '/static/dashboard/css/update.css'),
-    'update page styling is served from its static stylesheet'
+        && str_contains($dashboardLayoutSource, "\$dashboardPage === 'admin/update/index'")
+        && str_contains($dashboardLayoutSource, '/static/dashboard/css/update.css?v=')
+        && str_contains($updateStyleSource, '.up-file-input::file-selector-button')
+        && str_contains($updateStyleSource, '.up-page .btn-primary'),
+    'update page loads its versioned stylesheet in head with styled controls'
 );
 $check(
     !str_contains($updateScriptSource, '<?')

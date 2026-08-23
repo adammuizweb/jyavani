@@ -37,7 +37,9 @@ if (!function_exists('app_configure_error_reporting')) {
 if (!function_exists('app_safe_fatal_output')) {
     function app_safe_fatal_output(array $err): void
     {
-        http_response_code(500);
+        if (!headers_sent()) {
+            http_response_code(500);
+        }
 
         $debug = app_debug_enabled();
 

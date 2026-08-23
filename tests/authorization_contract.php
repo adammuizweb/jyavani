@@ -317,6 +317,12 @@ $check(
     $rolesNavPosition !== false && $binNavPosition !== false && $rolesNavPosition < $binNavPosition,
     'Roles and Permissions navigation appears before Bin near Users'
 );
+$authNavPosition = strpos($aside, "adam_nav_active(\$requested,'admin/settings/auth')");
+$shortcodeNavPosition = strpos($aside, "adam_nav_active(\$requested,'admin/shortcodes')");
+$check(
+    $authNavPosition !== false && $shortcodeNavPosition !== false && $authNavPosition < $shortcodeNavPosition,
+    'Shortcodes navigation appears directly after Authentication'
+);
 $check(
     !str_contains($menuRoutes, 'adiwira_require_role')
     && !str_contains($menuRoutes, "in_array(\$role")

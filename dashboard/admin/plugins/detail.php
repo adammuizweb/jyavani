@@ -77,7 +77,8 @@ $allPassed = !empty($checks) && count(array_filter($checks, fn($c) => $c['passed
   <?php $storeInfo = $manifest['store'] ?? null; if ($storeInfo): ?>
   <?php
     require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
-    $availableUpdates = PluginStoreController::getCachedUpdates();
+    require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
+    $availableUpdates = UpdateStatusController::getComponentUpdates('plugins');
     $hasUpdate = isset($availableUpdates[$pluginName]);
   ?>
   <div class="detail-card">

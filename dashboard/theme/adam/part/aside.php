@@ -265,12 +265,6 @@ echo '</a>';
 
 echo '<div class="adam-nav-sub" aria-hidden="' . ($isPengaturanActive ? 'false' : 'true') . '">';
 
-if ($userRole === 'admin') {
-    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/shortcodes/index&tab=presets') . '">';
-    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('braces','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Shortcodes') . '</span></a>';
-
-}
-
 if (function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/site') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/site') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('globe','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Website') . '</span></a>';
@@ -284,6 +278,11 @@ if ($navActor !== null && $navActor['is_site_owner'] === true
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/auth') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('lock','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Auth') . '</span></a>';
+}
+
+if ($userRole === 'admin') {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/shortcodes/index&tab=presets') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('braces','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Shortcodes') . '</span></a>';
 }
 
 if (function_exists('current_user_can') && current_user_can($pdo, 'core.sidebar.manage')) {
