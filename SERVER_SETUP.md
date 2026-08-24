@@ -140,6 +140,23 @@ Keep every sensitive regex before the generic PHP and static-asset locations.
 
 The web manifest must be served as `application/manifest+json`. If the system-wide `/etc/nginx/mime.types` already maps `webmanifest`, the dedicated location is still safe; alternatively add `application/manifest+json webmanifest;` to the `types` block and omit that location.
 
+## Apache / LiteSpeed
+
+Core ships `public/.htaccess` for Apache-compatible deployments. Enable
+`mod_rewrite` and `mod_headers`, allow the web root to use `FileInfo`, `Indexes`,
+and `AuthConfig` overrides, and point the virtual-host document root to
+`public/`. The rules route dotfiles, sensitive extensions, `dev_lock.php`, and
+direct PHP view requests through Core's cosmetic 404 before physical-file or
+per-directory authorization runs. They also apply the same browser security
+headers to static responses that PHP emits for dynamic responses.
+
+Do not replace the early sensitive-path rewrites with `[F]` or rely only on
+`Require all denied`: those controls prevent execution but expose resource
+existence with a server-generated 403. Keep the deny rules as defense in depth
+after the rewrites. If a proxy or CDN serves static files without consulting
+the origin `.htaccess`, configure the same six headers at that layer and verify
+the final public response independently.
+
 **Penting:** Baris `fastcgi_param HTTPS on;` hanya diperlukan jika reverse proxy
 men-terminate HTTPS lalu mengirim HTTP ke origin. Jangan menambahkannya pada
 virtual host HTTP biasa. Tanpa indikator HTTPS yang benar:

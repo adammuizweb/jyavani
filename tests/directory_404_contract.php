@@ -35,6 +35,32 @@ $check(
         && !str_contains($htaccess, 'RewriteCond %{REQUEST_FILENAME} -f [OR]'),
     'Apache bypasses routing only for files and directories with an index.php'
 );
+$sensitiveRewrite = strpos($htaccess, 'RewriteRule ^(?:dev_lock\\.php|views/.*\\.php)$ router.php [L,QSA,NC]');
+$dotfileRewrite = strpos($htaccess, 'RewriteRule (^|/)\\. router.php [L,QSA]');
+$sensitiveExtensionRewrite = strpos($htaccess, 'RewriteRule \\.(?:env|ini|log|sh|sql|bak|dist|ya?ml|md)(?:/|$) router.php [L,QSA,NC]');
+$physicalFileBypass = strpos($htaccess, 'RewriteCond %{REQUEST_FILENAME} -f');
+$check(
+    $sensitiveRewrite !== false
+        && $dotfileRewrite !== false
+        && $sensitiveExtensionRewrite !== false
+        && $physicalFileBypass !== false
+        && $sensitiveRewrite < $physicalFileBypass
+        && $dotfileRewrite < $physicalFileBypass
+        && $sensitiveExtensionRewrite < $physicalFileBypass,
+    'Apache masks sensitive files and PHP views before physical-file handling'
+);
+$apacheHeaders = [
+    'Strict-Transport-Security "max-age=300"',
+    'Content-Security-Policy-Report-Only "default-src \'self\';',
+    'X-Frame-Options "SAMEORIGIN"',
+    'X-Content-Type-Options "nosniff"',
+    'Referrer-Policy "strict-origin-when-cross-origin"',
+    'Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"',
+];
+$check(
+    array_reduce($apacheHeaders, static fn(bool $present, string $header): bool => $present && str_contains($htaccess, 'Header always set ' . $header), true),
+    'Apache emits Core browser security headers for static and dynamic responses'
+);
 $check(
     str_contains($serverSetup, 'location @jyavani_404')
         && str_contains($serverSetup, 'error_page 403 = @jyavani_404;')
