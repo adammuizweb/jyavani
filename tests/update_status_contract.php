@@ -145,7 +145,7 @@ try {
     $check(str_contains($themeStore, "hash_file('sha256', \$tmpZip)")
         && str_contains($themeStore, "version_compare(\$manifest['version'], (string)\$update['new_version'], '!=')"), 'theme updates verify package checksum and advertised version before installation');
     $check(str_contains($themeStore, 'safeThemeTarget(') && str_contains($themeStore, 'isset($logicalTargets[$relative])')
-        && str_contains($themeStore, 'zipEntryIsSymlink(') && str_contains($themeStore, 'is_link($themeCandidate)'), 'theme updates reject escaped, duplicate, and symbolic-link package targets');
+        && str_contains($themeStore, 'zipEntryTypeIsSafe(') && str_contains($themeStore, 'is_link($themeCandidate)'), 'theme updates reject escaped, duplicate, symbolic-link, and special-file package targets');
     $check(str_contains($themeStore, 'Failed to create complete theme backup.')
         && str_contains($themeStore, 'restoreBackup(')
         && str_contains($themeStore, "preg_replace('/[^0-9A-Za-z._-]+/', '-', (string)\$update['current_version'])"), 'theme updates require a complete contained backup and retain rollback support through registration');

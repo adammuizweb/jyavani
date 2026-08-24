@@ -21,8 +21,18 @@ $SESSION_PHP_COOKIE_DISABLED = (getenv('SESSION_PHP_COOKIE_DISABLED') === '1');
 $SESSION_SECRET = getenv('SESSION_SECRET') ?: '';
 
 // --- Decide secure flag & cookie options
-$secure_cookie = $FORCE_HTTPS && !$ALLOW_INSECURE;
-if ($SESSION_DEBUG && $ALLOW_INSECURE) $secure_cookie = false;
+if (!function_exists('session_request_is_https')) {
+    function session_request_is_https(): bool {
+        global $FORCE_HTTPS;
+        if ($FORCE_HTTPS) return true;
+        $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+        return $https !== '' && $https !== 'off' && $https !== '0';
+    }
+}
+
+// HTTP cookies require an explicit development opt-in. HTTPS always wins even
+// when an old environment still carries the insecure-development flag.
+$secure_cookie = session_request_is_https() || !$ALLOW_INSECURE;
 
 $cookie_options = [
     'lifetime' => (int)$SESSION_LIFETIME,
@@ -32,6 +42,7 @@ $cookie_options = [
     'httponly' => true,
     'samesite' => $SESSION_COOKIE_SAMESITE,
 ];
+session_set_cookie_params($cookie_options);
 
 // set PHP session name (canonical)
 session_name($SESSION_NAME);
@@ -77,8 +88,9 @@ if (!function_exists('session_fingerprint')) {
 $raw_session_save_path = getenv('SESSION_SAVE_PATH');
 $session_save_path = $raw_session_save_path && trim($raw_session_save_path) !== ''
     ? $raw_session_save_path
-    : __DIR__ . '/../var/sessions';
+    : __DIR__ . '/var/sessions';
 $session_save_path = rtrim($session_save_path, DIRECTORY_SEPARATOR);
+$session_storage_ready = false;
 
 if (!is_dir($session_save_path)) {
     if (!@mkdir($session_save_path, 0700, true)) {
@@ -94,8 +106,12 @@ if (is_dir($session_save_path)) {
         @chown($session_save_path, $save_user);
         sess_dbg("attempted chown session dir to: {$save_user}");
     }
-    session_save_path($session_save_path);
     ini_set('session.save_handler', 'files');
+    // Create session files group-writable immediately instead of repairing
+    // their mode only on a later request.
+    $configuredSavePath = '0;0660;' . $session_save_path;
+    $savePathConfigured = session_save_path($configuredSavePath) !== false;
+    $session_storage_ready = $savePathConfigured && is_readable($session_save_path) && is_writable($session_save_path);
     sess_dbg("session.save_path set to: {$session_save_path} owner=" . @fileowner($session_save_path) . " perms=" . substr(sprintf('%o', @fileperms($session_save_path)), -4));
 
     // Fix permissions of any existing session files (survives chown -R)
@@ -112,22 +128,31 @@ if (!function_exists('ensure_session_started')) {
      * @return bool
      */
     function ensure_session_started(bool $createIfMissing = false): bool {
+        global $session_storage_ready;
         if (session_status() === PHP_SESSION_ACTIVE) return true;
+        if (!$session_storage_ready) {
+            error_log('[session] Session storage is unavailable.');
+            return false;
+        }
 
         $name = session_name();
         $sid = $_COOKIE[$name] ?? null;
 
         if (!empty($sid)) {
             session_id($sid);
-            session_start();
-            sess_dbg("ensure_session_started: resumed session id=" . session_id());
-            return session_status() === PHP_SESSION_ACTIVE;
+            $started = @session_start();
+            $active = $started && session_status() === PHP_SESSION_ACTIVE && session_id() !== '';
+            if (!$active) error_log('[session] Unable to resume the session.');
+            sess_dbg('ensure_session_started: resume result=' . ($active ? 'ok' : 'failed'));
+            return $active;
         }
 
         if ($createIfMissing) {
-            session_start();
-            sess_dbg("ensure_session_started: created server-side session id=" . session_id());
-            return session_status() === PHP_SESSION_ACTIVE;
+            $started = @session_start();
+            $active = $started && session_status() === PHP_SESSION_ACTIVE && session_id() !== '';
+            if (!$active) error_log('[session] Unable to create the session.');
+            sess_dbg('ensure_session_started: create result=' . ($active ? 'ok' : 'failed'));
+            return $active;
         }
 
         sess_dbg("ensure_session_started: no session started (cookie absent)");
@@ -182,11 +207,14 @@ if ($session_started_here && session_status() === PHP_SESSION_ACTIVE) {
     } else {
         $regenerate_interval = 3600;
         if (time() - ($_SESSION['_session_created'] ?? 0) > $regenerate_interval) {
-            @session_regenerate_id(true);
-            $_SESSION['_session_created'] = time();
-            sess_dbg("session_regenerate_id executed new_id=" . session_id());
-            $_SESSION['_fingerprint'] = session_fingerprint();
-            $_SESSION['_ua_prefix'] = session_ua_prefix();
+            if (session_regenerate_id(true)) {
+                $_SESSION['_session_created'] = time();
+                sess_dbg('periodic session regeneration succeeded');
+                $_SESSION['_fingerprint'] = session_fingerprint();
+                $_SESSION['_ua_prefix'] = session_ua_prefix();
+            } else {
+                error_log('[session] Periodic session regeneration failed.');
+            }
         }
     }
 }
@@ -203,9 +231,12 @@ if (!headers_sent() && session_status() === PHP_SESSION_ACTIVE && $session_start
             'samesite' => $cookie_options['samesite'],
         ];
         if ($expires > 0) $setCookieOptions['expires'] = $expires;
-        setcookie(session_name(), session_id(), $setCookieOptions);
-        $_COOKIE[session_name()] = session_id();
-        sess_dbg("refreshed cookie: session_id=" . session_id() . " options=" . json_encode($setCookieOptions));
+        if (setcookie(session_name(), session_id(), $setCookieOptions)) {
+            $_COOKIE[session_name()] = session_id();
+            sess_dbg('session cookie refreshed');
+        } else {
+            error_log('[session] Unable to refresh the session cookie.');
+        }
     } else {
         sess_dbg("skip refresh cookie for {$request_path} outside {$session_cookie_path}");
     }
@@ -416,8 +447,8 @@ if (!function_exists('csrf_check')) {
 if (!function_exists('session_csrf_token')) {
     function session_csrf_token(int $len = 32): string {
         // ensure session active
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            @session_start();
+        if (session_status() !== PHP_SESSION_ACTIVE && !ensure_session_started(true)) {
+            throw new RuntimeException('Unable to create a session for CSRF protection.');
         }
         if (empty($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes($len));
@@ -428,9 +459,7 @@ if (!function_exists('session_csrf_token')) {
 }
 if (!function_exists('session_csrf_check')) {
     function session_csrf_check(?string $token, int $ttl = 0): bool {
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            @session_start();
-        }
+        if (session_status() !== PHP_SESSION_ACTIVE && !ensure_session_started(false)) return false;
         if (empty($token)) return false;
         if (empty($_SESSION['csrf_token'])) return false;
         // constant-time compare
@@ -448,7 +477,18 @@ if (!function_exists('session_csrf_check')) {
 // --- login_user: create session & send cookie
 if (!function_exists('login_user')) {
     function login_user(int $user_id, ?string $email = null): void {
-        ensure_session_started(true);
+        if (headers_sent()) {
+            throw new RuntimeException('Unable to start login after response output.');
+        }
+        if (!ensure_session_started(true) || session_status() !== PHP_SESSION_ACTIVE) {
+            throw new RuntimeException('Unable to create a persistent login session.');
+        }
+
+        if (!session_regenerate_id(true) || session_id() === '') {
+            $_SESSION = [];
+            @session_write_close();
+            throw new RuntimeException('Unable to secure the login session.');
+        }
 
         $_SESSION['user_id'] = $user_id;
         $_SESSION['user_email'] = $email;
@@ -458,8 +498,8 @@ if (!function_exists('login_user')) {
         $_SESSION['_ua_prefix'] = session_ua_prefix();
         $_SESSION['_session_created'] = time();
 
-        @session_regenerate_id(true);
-        sess_dbg("login_user: session_regenerate_id new_id=" . session_id());
+        $authenticatedSessionId = session_id();
+        sess_dbg('login_user: session regenerated');
 
         global $cookie_options;
         $params = session_get_cookie_params();
@@ -478,14 +518,14 @@ if (!function_exists('login_user')) {
         ];
         if ($expires > 0) $cookieOptions['expires'] = $expires;
 
-        if (!headers_sent()) {
-            setcookie(session_name(), session_id(), $cookieOptions);
-            $_COOKIE[session_name()] = session_id();
-            sess_dbg("login_user: cookie sent session_id=" . session_id() . " options=" . json_encode($cookieOptions));
-        } else {
-            sess_dbg("login_user: headers already sent, cookie not set");
+        if (!session_write_close()) {
+            throw new RuntimeException('Unable to persist the login session.');
         }
 
-        session_write_close();
+        if (!setcookie(session_name(), $authenticatedSessionId, $cookieOptions)) {
+            throw new RuntimeException('Unable to send the login session cookie.');
+        }
+        $_COOKIE[session_name()] = $authenticatedSessionId;
+        sess_dbg('login_user: authenticated cookie sent');
     }
 }

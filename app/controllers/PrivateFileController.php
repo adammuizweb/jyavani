@@ -13,18 +13,11 @@ class PrivateFileController
 
     private static function abort(int $code = 404, string $message = ''): void
     {
-        http_response_code($code);
+        http_response_code(404);
+        header('Content-Type: text/html; charset=utf-8');
         header('X-Content-Type-Options: nosniff');
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-
-        $text = $message !== '' ? $message : ($code === 403 ? 'Forbidden' : 'Not found');
-
-        if ($code === 403) {
-            echo '<!doctype html><meta charset="utf-8"><title>Forbidden</title><p>' . self::e($text) . '</p>';
-        } else {
-            echo '<!doctype html><meta charset="utf-8"><title>Not found</title><p>' . self::e($text) . '</p>';
-        }
-
+        echo '<!doctype html><meta charset="utf-8"><title>Not found</title><p>Not found</p>';
         exit;
     }
 
@@ -164,7 +157,7 @@ class PrivateFileController
 
         $access = self::canAccess($pdo, $file);
         if (!$access['allowed']) {
-            self::abort(403, 'File ini hanya untuk pengguna yang berwenang.');
+            self::abort(404);
         }
 
         $visibility = strtolower((string)($file['visibility'] ?? 'public'));
@@ -186,7 +179,7 @@ class PrivateFileController
 
         if ($isPdf && ($visibility === 'private' || $disk === 'private')) {
             if (!$isPdfRawRoute || !self::validatePdfRawToken($id)) {
-                self::abort(403, 'PDF private hanya dapat dibuka melalui protected PDF viewer.');
+                self::abort(404);
             }
         }
 
@@ -200,7 +193,7 @@ class PrivateFileController
         $isDownloadable = (int)($file['is_downloadable'] ?? 0) === 1;
 
         if ($downloadRequested && !$isDownloadable) {
-            self::abort(403, 'File ini tidak diizinkan untuk download langsung.');
+            self::abort(404);
         }
 
         $mime = trim((string)($file['mime'] ?? ''));
@@ -286,7 +279,7 @@ class PrivateFileController
 
         $access = self::canAccess($pdo, $file);
         if (!$access['allowed']) {
-            self::abort(403, 'PDF ini hanya untuk pengguna yang berwenang.');
+            self::abort(404);
         }
 
         if (!self::isPdf($file)) {

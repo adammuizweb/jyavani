@@ -5,6 +5,11 @@ class ThemeStoreClient
 {
     private const STORE_BASE = 'https://jyavani.com/theme-store';
     private const UPDATE_TTL = 3600;
+    private const MAX_PACKAGE_BYTES = 50 * 1024 * 1024;
+    private const MAX_ARCHIVE_ENTRIES = 5000;
+    private const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
+    private const MAX_TOTAL_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
+    private const MAX_COMPRESSION_RATIO = 200;
 
     public static function checkUpdates(PDO $pdo): array
     {
@@ -202,13 +207,27 @@ class ThemeStoreClient
 
         $filesToExtract = [];
         $logicalTargets = [];
+        $totalUncompressedBytes = 0;
+        if ($zip->numFiles <= 0 || $zip->numFiles > self::MAX_ARCHIVE_ENTRIES) {
+            $zip->close(); unlink($tmpZip);
+            self::removeTree($backupDir);
+            self::writeProgress($progressToken, 0, __('Invalid update package.'), true);
+            return ['success' => false, 'error' => __('Invalid update package.')];
+        }
         for ($i = 0; $i < $zip->numFiles; $i++) {
-            $filename = str_replace('\\', '/', (string)($zip->statIndex($i)['name'] ?? ''));
+            $entryStat = $zip->statIndex($i);
+            $filename = str_replace('\\', '/', (string)($entryStat['name'] ?? ''));
             $segments = explode('/', rtrim($filename, '/'));
+            $entryBytes = max(0, (int)($entryStat['size'] ?? 0));
+            $compressedBytes = max(0, (int)($entryStat['comp_size'] ?? 0));
+            $totalUncompressedBytes += $entryBytes;
+            $compressionRatio = $compressedBytes > 0 ? $entryBytes / $compressedBytes : ($entryBytes > 0 ? INF : 1);
             if ($filename === '' || str_contains($filename, "\0") || str_starts_with($filename, '/')
                 || preg_match('/^[A-Za-z]:/', $filename) === 1 || in_array('', $segments, true)
                 || in_array('.', $segments, true) || in_array('..', $segments, true)
-                || self::zipEntryIsSymlink($zip, $i)) {
+                || !self::zipEntryTypeIsSafe($zip, $i, str_ends_with($filename, '/'))
+                || $entryBytes > self::MAX_ENTRY_BYTES || $totalUncompressedBytes > self::MAX_TOTAL_UNCOMPRESSED_BYTES
+                || ($entryBytes > 1024 * 1024 && $compressionRatio > self::MAX_COMPRESSION_RATIO)) {
                 $zip->close(); unlink($tmpZip);
                 self::removeTree($backupDir);
                 self::writeProgress($progressToken, 0, __('Invalid update package.'), true);
@@ -339,12 +358,13 @@ class ThemeStoreClient
         return $base . '/' . $relative;
     }
 
-    private static function zipEntryIsSymlink(ZipArchive $zip, int $index): bool
+    private static function zipEntryTypeIsSafe(ZipArchive $zip, int $index, bool $directory): bool
     {
         $opsys = 0;
         $attributes = 0;
-        return $zip->getExternalAttributesIndex($index, $opsys, $attributes)
-            && (($attributes >> 16) & 0170000) === 0120000;
+        if (!$zip->getExternalAttributesIndex($index, $opsys, $attributes)) return true;
+        $type = ($attributes >> 16) & 0170000;
+        return $type === 0 || $type === 0100000 || ($directory && $type === 0040000);
     }
 
     private static function restoreBackup(string $themeDir, string $backupFile): bool
@@ -455,6 +475,7 @@ class ThemeStoreClient
         foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
             if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
         }
+        if ($length > self::MAX_PACKAGE_BYTES) { fclose($input); fclose($output); @unlink($tmp); return null; }
         $downloaded = 0;
         while (!feof($input)) {
             $chunk = fread($input, 1024 * 1024);
@@ -462,6 +483,7 @@ class ThemeStoreClient
             if ($chunk === '') continue;
             if (fwrite($output, $chunk) !== strlen($chunk)) { fclose($input); fclose($output); @unlink($tmp); return null; }
             $downloaded += strlen($chunk);
+            if ($downloaded > self::MAX_PACKAGE_BYTES) { fclose($input); fclose($output); @unlink($tmp); return null; }
             if ($length > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $length)), __('Downloading update package...'));
         }
         fclose($input);

@@ -70,70 +70,84 @@ Letakkan di `/etc/nginx/sites-enabled/[domain]`:
 server {
     listen 80;
     server_name [domain];
+    return 301 https://$host$request_uri;
+}
 
+server {
+    listen 443 ssl;
+    server_name [domain];
     root /path/to/project/public;
-    index index.html index.php;
+    index index.php index.html;
+
+    # Configure the certificate and baseline security headers here.
+    # HSTS must be enabled only after every required hostname supports HTTPS.
+
+    location @jyavani_404 {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /path/to/project/app/frontend_404.php;
+        fastcgi_param SCRIPT_NAME /frontend_404.php;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+    }
+
+    location = /cfg { error_page 418 = @jyavani_404; return 418; }
+    location ^~ /cfg/ { error_page 418 = @jyavani_404; return 418; }
+    location = /dev_lock.php { error_page 418 = @jyavani_404; return 418; }
+    location ~ (^|/)\.(?!well-known(?:/|$)) { error_page 418 = @jyavani_404; return 418; }
+    location ~* \.(?:ini|env|log|sh|sql|bak|dist|ya?ml|md)(?:/|$) { error_page 418 = @jyavani_404; return 418; }
+    location ~* ^/views/.*\.php(?:/|$) { error_page 418 = @jyavani_404; return 418; }
+
+    location ~* ^/views/.*\.(?:css|js|mjs|map|png|jpe?g|gif|ico|svg|webp|avif|woff2?|ttf|eot|otf)$ {
+        try_files $uri =404;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+    location /views/ { error_page 418 = @jyavani_404; return 418; }
 
     location / {
-        # try_files can select a real directory and nginx then emits 403 when
-        # it has no index. Send that case through Core's themed 404 renderer.
-        error_page 403 = /router.php?$args;
+        error_page 403 = @jyavani_404;
         try_files $uri $uri/ /router.php?$args;
     }
 
-    # Always execute Core's root worker route; do not serve a stale physical sw.js.
     location = /sw.js {
-        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root/router.php;
-        fastcgi_param HTTPS on;
+        fastcgi_param SCRIPT_NAME /router.php;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
     }
 
-    # Dynamic manifest plugins use this root URL; bypass stale physical files.
     location = /manifest.webmanifest {
-        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root/router.php;
-        fastcgi_param HTTPS on;
-    }
-
-    # Some nginx installations do not include webmanifest in mime.types.
-    location ~* \.webmanifest$ {
-        default_type application/manifest+json;
-        try_files $uri =404;
+        fastcgi_param SCRIPT_NAME /router.php;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
     }
 
     location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
+        try_files $uri /router.php =404;
+        include fastcgi.conf;
         fastcgi_pass unix:/run/php/php8.4-fpm.sock;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        include fastcgi_params;
-        fastcgi_param HTTPS on;          # Cloudflare Tunnel → all requests are HTTPS
-    }
-
-    location ~ ^/cfg/ {
-        deny all;
-        return 403;
-    }
-
-    location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 7d;
-        add_header Cache-Control "public, immutable";
     }
 }
 ```
 
-The `error_page 403` inside `location /` is required because `$uri/` can select a physical directory even when it has no index. The internal redirect preserves the original request path, allowing Core to return the active theme's `404` response instead of nginx's generic `403`. Keep explicit sensitive-path deny locations separate from this block.
+The named `@jyavani_404` handler pins FastCGI to Core's 404 renderer. It keeps
+physical directories, `/cfg/`, dotfiles, sensitive extensions, and PHP views
+indistinguishable without deriving an executable script path from the request.
+Keep every sensitive regex before the generic PHP and static-asset locations.
 
 `location = /sw.js` must remain an exact root route and must execute `router.php`, even if a physical `public/sw.js` remains from an older plugin. Core supplies the install/activate lifecycle and appends active plugin contributions. When no plugin contributes code, Core still returns a lifecycle-only worker so browsers replace stale push handlers. `location = /manifest.webmanifest` must likewise execute `router.php` so an active plugin route can generate it and stale files cannot take precedence. Verify both endpoints with `curl -I`; responses must be `200`, use the expected JavaScript/manifest MIME, and must not be HTML.
 
 The web manifest must be served as `application/manifest+json`. If the system-wide `/etc/nginx/mime.types` already maps `webmanifest`, the dedicated location is still safe; alternatively add `application/manifest+json webmanifest;` to the `types` block and omit that location.
 
-**Penting:** Baris `fastcgi_param HTTPS on;` diperlukan jika memakai reverse proxy yang terminate HTTPS (Cloudflare Tunnel, ngrok, dll). Tanpa ini:
+**Penting:** Baris `fastcgi_param HTTPS on;` hanya diperlukan jika reverse proxy
+men-terminate HTTPS lalu mengirim HTTP ke origin. Jangan menambahkannya pada
+virtual host HTTP biasa. Tanpa indikator HTTPS yang benar:
 - `$_SERVER['HTTPS']` tidak terisi → cookie session tidak mendapat flag `Secure`
 - PHP menghasilkan URL `http://...` bukan `https://...` → kena **mixed content block**
 
-Jika server langsung punya SSL (bukan via reverse proxy), hapus baris `fastcgi_param HTTPS on;` dan pakai `listen 443 ssl;` + sertifikat.
+Jika server langsung punya SSL, `fastcgi.conf` meneruskan nilai `$https`; tidak
+perlu memaksa `HTTPS on`.
 
 ## 4. Database
 
@@ -158,7 +172,7 @@ DB_SESSION_WAIT_TIMEOUT=
 PUBLIC_PATH=/absolute/path/to/project/public
 SESSION_SAVE_PATH=/path/to/project/cfg/var/sessions
 SESSION_NAME=[session_name]
-SESSION_COOKIE_DOMAIN=[domain]
+SESSION_COOKIE_DOMAIN=
 SESSION_COOKIE_PATH=/
 SESSION_PHP_COOKIE_DISABLED=1
 FORCE_HTTPS=1
@@ -176,8 +190,10 @@ PLUGIN_INSTALL_OUTPUT_LIMIT=65536
 
 **Catatan per env:**
 - `FORCE_HTTPS=1` + `SESSION_ALLOW_INSECURE_COOKIES=0` → cookie dengan flag Secure (wajib HTTPS)
-- `FORCE_HTTPS=1` + `SESSION_ALLOW_INSECURE_COOKIES=1` → cookie tanpa Secure, untuk development
-- `SESSION_COOKIE_DOMAIN` — kosongkan jika akses via localhost/IP
+- `FORCE_HTTPS=0` + `SESSION_ALLOW_INSECURE_COOKIES=1` → cookie HTTP untuk development lokal
+- Request HTTPS selalu menghasilkan cookie `Secure`, walaupun flag development lama masih tersisa
+- `SESSION_COOKIE_DOMAIN` — kosongkan untuk cookie host-only; ini juga paling aman untuk `.lan`, localhost, IP, dan alias lokal
+- Pada WSL, Pondasi otomatis menempatkan session project `/mnt/<drive>/...` di direktori native Linux terisolasi di bawah temporary directory dan memverifikasi handler sebelum instalasi selesai. Untuk deployment jangka panjang, nilai itu boleh dipindahkan ke path native persisten di home Linux atau `/var/lib` dengan owner/group PHP-FPM yang benar
 
 ## 6. Private Media
 

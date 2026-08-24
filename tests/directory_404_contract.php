@@ -36,8 +36,10 @@ $check(
     'Apache bypasses routing only for files and directories with an index.php'
 );
 $check(
-    str_contains($serverSetup, 'error_page 403 = /router.php?$args;'),
-    'nginx directory denials are routed through Core'
+    str_contains($serverSetup, 'location @jyavani_404')
+        && str_contains($serverSetup, 'error_page 403 = @jyavani_404;')
+        && str_contains($serverSetup, '/app/frontend_404.php'),
+    'nginx directory denials use the pinned Core cosmetic 404 handler'
 );
 $check(
     str_contains($frontend404, "if (!function_exists('plugins_all'))")

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 
 // ---------- paths ----------
 $configuredBackend = trim((string)getenv('BACKEND_PATH'));
@@ -20,6 +24,12 @@ if (str_contains($publicDir, "\n") || str_contains($publicDir, "\r") || str_cont
 $envFile = $cfgDir . '/.env';
 $schemaDir = $projectRoot . '/schema';
 $sessionDir = $cfgDir . '/var/sessions';
+$normalizedProjectRoot = str_replace('\\', '/', $projectRoot);
+if (PHP_OS_FAMILY === 'Linux' && preg_match('#^/mnt/[a-z](?:/|$)#i', $normalizedProjectRoot) === 1) {
+    // DrvFS permission and locking semantics vary by WSL mount options. Keep
+    // PHP sessions on the native Linux filesystem while source stays on Windows.
+    $sessionDir = rtrim(sys_get_temp_dir(), '/\\') . '/jyavani-sessions-' . substr(hash('sha256', $normalizedProjectRoot), 0, 16);
+}
 
 // ---------- lock check ----------
 function is_installed(): bool {
@@ -102,9 +112,60 @@ function h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
 
-function detect_host(): string {
-    $h = $_SERVER['HTTP_HOST'] ?? '';
-    return preg_replace('/:\d+$/', '', $h);
+function installer_request_is_https(): bool {
+    $https = strtolower(trim((string)($_SERVER['HTTPS'] ?? '')));
+    return $https !== '' && $https !== 'off' && $https !== '0';
+}
+
+function verify_session_storage(string $directory): void {
+    if (!is_dir($directory) && !mkdir($directory, 02770, true) && !is_dir($directory)) {
+        throw new RuntimeException('Direktori session tidak dapat dibuat. Gunakan path Linux yang dapat ditulis oleh PHP-FPM.');
+    }
+    @chmod($directory, 02770);
+    if (!is_readable($directory) || !is_writable($directory)) {
+        throw new RuntimeException('Direktori session tidak dapat dibaca dan ditulis oleh PHP-FPM.');
+    }
+    if (session_status() !== PHP_SESSION_NONE) {
+        throw new RuntimeException('Session handler tidak tersedia untuk pengujian installer.');
+    }
+
+    $oldName = session_name();
+    $oldSaveHandler = (string)ini_get('session.save_handler');
+    $oldSavePath = (string)ini_get('session.save_path');
+    $oldUseCookies = (string)ini_get('session.use_cookies');
+    $oldStrictMode = (string)ini_get('session.use_strict_mode');
+    $probeId = bin2hex(random_bytes(16));
+    $probeFile = rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . 'sess_' . $probeId;
+    $marker = bin2hex(random_bytes(16));
+
+    try {
+        ini_set('session.save_handler', 'files');
+        ini_set('session.save_path', '0;0660;' . $directory);
+        ini_set('session.use_cookies', '0');
+        ini_set('session.use_strict_mode', '0');
+        session_name('pondasi_storage_probe');
+        session_id($probeId);
+        if (!@session_start() || session_status() !== PHP_SESSION_ACTIVE) {
+            throw new RuntimeException('PHP session handler tidak dapat membuka session storage.');
+        }
+        $_SESSION = ['storage_probe' => $marker];
+        if (!session_write_close()) {
+            throw new RuntimeException('PHP session handler tidak dapat menyimpan session.');
+        }
+        $stored = @file_get_contents($probeFile);
+        if (!is_string($stored) || $stored === '' || !str_contains($stored, $marker)) {
+            throw new RuntimeException('PHP session handler menghasilkan file kosong atau tidak dapat dibaca kembali.');
+        }
+    } finally {
+        if (session_status() === PHP_SESSION_ACTIVE) @session_write_close();
+        @unlink($probeFile);
+        session_id('');
+        session_name($oldName);
+        ini_set('session.save_handler', $oldSaveHandler);
+        ini_set('session.save_path', $oldSavePath);
+        ini_set('session.use_cookies', $oldUseCookies);
+        ini_set('session.use_strict_mode', $oldStrictMode);
+    }
 }
 
 function input(string $name, string $label, string $type = 'text', string $default = '', string $hint = ''): string {
@@ -303,10 +364,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->execute(['register_path', 'register']);
 
                 // write .env
+                verify_session_storage($sessionDir);
                 $sessionName = 'sess_' . bin2hex(random_bytes(4));
-                $sessionDomain = detect_host();
-                $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                    || ($_SERVER['SERVER_PORT'] ?? 443) == 443;
+                $isHttps = installer_request_is_https();
 
                 $envContent = "# Database\n"
                     . "DB_HOST={$dbFields['DB_HOST']}\nDB_PORT={$dbFields['DB_PORT']}\n"
@@ -315,11 +375,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "\n# Absolute deployed web root (may be outside the project directory)\nPUBLIC_PATH={$publicDir}\n"
                     . "\n# reCAPTCHA (v2 checkbox)\nRECAPTCHA_SITEKEY=\nRECAPTCHA_SECRET=\n"
                     . "\n# Web Debug 1 for activate\nAPP_DEBUG=0\n"
-                    . "\n# Session / Cookie\nSESSION_SAVE_PATH={$sessionDir}\n"
+                    . "\n# Session / Cookie (WSL /mnt projects use native Linux storage automatically)\nSESSION_SAVE_PATH={$sessionDir}\n"
                     . "SESSION_LIFETIME=604800\nSESSION_IDLE_TIMEOUT=0\n"
                     . "SESSION_COOKIE_SAMESITE=Lax\n"
                     . "\n# Session cookie name\nSESSION_NAME={$sessionName}\n"
-                    . "\n# Cookie domain (kosongkan untuk host-only)\nSESSION_COOKIE_DOMAIN={$sessionDomain}\n"
+                    . "\n# Cookie domain (host-only is safest and supports local aliases)\nSESSION_COOKIE_DOMAIN=\n"
                     . "\n# Paths where cookies are valid\nSESSION_COOKIE_PATH=/\n"
                     . "\n# Disable PHP automatic session cookie\nSESSION_PHP_COOKIE_DISABLED=1\n"
                     . "\n# Security / Debug\nSESSION_DEBUG=0\nFORCE_HTTPS=" . ($isHttps ? '1' : '0') . "\n"

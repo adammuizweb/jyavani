@@ -268,9 +268,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     reset_login_attempts($pdo, $email, $ip);
                 }
 
-                login_user((int)$user['id'], (string)$user['email']);
-                header('Location: ' . get_admin_path($pdo) . '/');
-                exit;
+                try {
+                    login_user((int)$user['id'], (string)$user['email']);
+                    header('Location: ' . get_admin_path($pdo) . '/');
+                    exit;
+                } catch (RuntimeException $e) {
+                    error_log('[login] Unable to establish authenticated session: ' . $e->getMessage());
+                    $errors[] = __('Login succeeded, but the secure session could not be saved. Check the session storage configuration.');
+                }
             }
         }
     }

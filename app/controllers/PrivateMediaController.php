@@ -8,12 +8,11 @@ class PrivateMediaController
 {
     private static function abort(int $code = 404, string $message = ''): void
     {
-        http_response_code($code);
+        http_response_code(404);
+        header('Content-Type: text/html; charset=utf-8');
         header('X-Content-Type-Options: nosniff');
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-
-        $text = $message !== '' ? $message : ($code === 403 ? 'Forbidden' : 'Not found');
-        echo '<!doctype html><meta charset="utf-8"><title>' . ($code === 403 ? 'Forbidden' : 'Not found') . '</title><p>' . htmlspecialchars($text, ENT_QUOTES, 'UTF-8') . '</p>';
+        echo '<!doctype html><meta charset="utf-8"><title>Not found</title><p>Not found</p>';
         exit;
     }
 
@@ -93,7 +92,7 @@ class PrivateMediaController
         }
 
         if (!self::canAccess($pdo, $media)) {
-            self::abort(403, 'Gambar ini hanya untuk pengguna yang berwenang.');
+            self::abort(404);
         }
 
         $visibility = strtolower((string)($media['visibility'] ?? 'public'));

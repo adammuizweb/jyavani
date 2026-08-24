@@ -5,7 +5,8 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) adiwira_admin_404()
 require_once DASH_PATH . '/admin/_guard.php';
 require_once DASH_PATH . '/admin/_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['admin'], false);
+[$uid, $role] = adiwira_require_permission($pdo, 'core.themes.manage', false);
+adiwira_require_site_owner($pdo, false);
 
 if (!function_exists('_rmdir_recursive')) {
     function _rmdir_recursive(string $dir): void {
@@ -89,72 +90,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'insta
         adiwira_redirect_with_flash($selfUrl, 'error', 'Theme "' . h($themeName) . '" sudah terpasang.');
     }
 
-    $downloadUrl = $themeData['download_url'] ?? ($apiBase . '/download/' . $themeName . '/');
+    $storeSlug = (string)($themeData['slug'] ?? $themeName);
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $storeSlug)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid theme name.'));
+    }
     $dlCtx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS/2.0']]);
-    $zipContent = @file_get_contents($downloadUrl, false, $dlCtx);
-    if ($zipContent === false) {
+    $versionRaw = @file_get_contents($apiBase . '/' . rawurlencode($storeSlug) . '/version.json', false, $dlCtx);
+    $versionInfo = is_string($versionRaw) ? json_decode($versionRaw, true) : null;
+    $expectedChecksum = is_array($versionInfo) ? strtolower(trim((string)($versionInfo['checksum'] ?? ''))) : '';
+    if (preg_match('/^[a-f0-9]{64}$/', $expectedChecksum) !== 1) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Theme package checksum is unavailable.'));
+    }
+    $downloadUrl = (string)($versionInfo['download_url'] ?? ($apiBase . '/download/' . $storeSlug . '/'));
+    $downloadParts = parse_url($downloadUrl);
+    if (!is_array($downloadParts) || strtolower((string)($downloadParts['scheme'] ?? '')) !== 'https'
+        || strtolower((string)($downloadParts['host'] ?? '')) !== 'jyavani.com') {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid theme download URL.'));
+    }
+    $maxPackageBytes = 50 * 1024 * 1024;
+    $zipContent = @file_get_contents($downloadUrl, false, $dlCtx, 0, $maxPackageBytes + 1);
+    if ($zipContent === false || strlen($zipContent) > $maxPackageBytes) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download theme from jyavani.com.'));
     }
 
-    $tmpZip = tempnam(sys_get_temp_dir(), 'install-') . '.zip';
-    file_put_contents($tmpZip, $zipContent);
-
-    $zip = new ZipArchive();
-    $open = $zip->open($tmpZip);
-    if ($open !== true) {
+    $tmpZip = tempnam(sys_get_temp_dir(), 'install-');
+    if ($tmpZip === false || file_put_contents($tmpZip, $zipContent, LOCK_EX) !== strlen($zipContent)) {
+        if (is_string($tmpZip)) @unlink($tmpZip);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to save theme package.'));
+    }
+    if (!hash_equals($expectedChecksum, hash_file('sha256', $tmpZip))) {
         @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', 'File ZIP tidak valid (kode: ' . $open . ').');
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid theme package checksum.'));
     }
 
-    $manifestRaw = $zip->getFromName('theme.json');
-    if ($manifestRaw === false) {
-        $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('theme.json tidak ditemukan di dalam ZIP.'));
+    try {
+        $result = install_theme_from_zip($pdo, $tmpZip, false, $uid, $themeName);
+    } finally {
+        @unlink($tmpZip);
+    }
+    if (($result['success'] ?? false) !== true) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Installation failed:') . ' ' . (string)($result['message'] ?? 'unknown'));
     }
 
-    $manifest = json_decode($manifestRaw, true);
-    if (!is_array($manifest) || empty($manifest['name']) || $manifest['name'] !== $themeName) {
-        $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('theme.json tidak valid.'));
-    }
-
-    $tmpExtract = dirname(VIEWS_BASE) . '/.extract-' . bin2hex(random_bytes(8));
-    if (!mkdir($tmpExtract, 0755, true)) {
-        $zip->close(); @unlink($tmpZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to create temporary directory.'));
-    }
-
-    $extracted = $zip->extractTo($tmpExtract);
-    $zip->close();
-    @unlink($tmpZip);
-
-    if (!$extracted) {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to extract file.'));
-    }
-
-    if (!is_file($tmpExtract . '/theme.json')) {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('theme.json tidak ditemukan di root ZIP.'));
-    }
-
-    if (!rename($tmpExtract, $themeDir)) {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to move theme.'));
-    }
-
-    $chmodIt = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($themeDir, RecursiveDirectoryIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
-    );
-    foreach ($chmodIt as $item) {
-        if ($item->isDir()) @chmod($item->getPathname(), 0775);
-        else @chmod($item->getPathname(), 0664);
-    }
-
-    register_theme_in_db($pdo, $themeName, $manifest);
-
-    adiwira_redirect_with_flash($listUrl, 'success', __('Theme') . ' "' . h($manifest['title'] ?? $themeName) . '" ' . __('installed from store successfully.'));
+    adiwira_redirect_with_flash($listUrl, 'success', __('Theme') . ' "' . h($themeName) . '" ' . __('installed from store successfully.'));
 }
 
 $installedThemes = get_registered_themes($pdo);

@@ -12,7 +12,8 @@ require_once __DIR__ . '/../../../cfg/helpers/theme_helper.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_role($pdo, ['admin'], true);
+[$uid, $role] = adiwira_require_permission($pdo, 'core.themes.manage', true);
+adiwira_require_site_owner($pdo, true);
 
 if (!function_exists('theme_upload_is_ajax')) {
     function theme_upload_is_ajax(): bool {

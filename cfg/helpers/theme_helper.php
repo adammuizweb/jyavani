@@ -1327,7 +1327,7 @@ function theme_asset_url($pdoOrNull, string $assetRelative): ?string {
  * Robust install_theme_from_zip replacement.
  * Returns array: success, message, folder, errors (array)
  */
-function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = false, ?int $by_user_id = null): array {
+function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = false, ?int $by_user_id = null, ?string $expectedFolder = null): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $errors = [];
     $ret = ['success' => false, 'message' => '', 'folder' => null, 'errors' => []];
@@ -1348,20 +1348,54 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         return $ret;
     }
 
+    $maxEntries = 5000;
+    $maxEntryBytes = 64 * 1024 * 1024;
+    $maxTotalBytes = 256 * 1024 * 1024;
+    $maxCompressionRatio = 200;
+    if ($zip->numFiles <= 0 || $zip->numFiles > $maxEntries) {
+        $zip->close();
+        $ret['message'] = 'Zip contains too many entries.';
+        return $ret;
+    }
+
     $topFolders = [];
+    $archiveTargets = [];
+    $totalUncompressedBytes = 0;
+    $hasPhpTemplate = false;
     for ($i = 0; $i < $zip->numFiles; $i++) {
-        $name = $zip->getNameIndex($i);
-        if ($name === '') continue;
-        $name = str_replace('\\', '/', $name);
-        if (preg_match('#^(?:[A-Za-z]:|/|\\\\)#', $name) || strpos($name, '..') !== false) {
+        $entryStat = $zip->statIndex($i);
+        $name = str_replace('\\', '/', (string)($entryStat['name'] ?? ''));
+        $trimmedName = rtrim($name, '/');
+        $parts = explode('/', $trimmedName);
+        $entryBytes = max(0, (int)($entryStat['size'] ?? 0));
+        $compressedBytes = max(0, (int)($entryStat['comp_size'] ?? 0));
+        $totalUncompressedBytes += $entryBytes;
+        $compressionRatio = $compressedBytes > 0 ? $entryBytes / $compressedBytes : ($entryBytes > 0 ? INF : 1);
+        $opsys = 0;
+        $attributes = 0;
+        $hasAttributes = $zip->getExternalAttributesIndex($i, $opsys, $attributes);
+        $entryType = $hasAttributes ? (($attributes >> 16) & 0170000) : 0;
+        $allowedType = $entryType === 0 || $entryType === 0100000 || ($entryType === 0040000 && str_ends_with($name, '/'));
+        $targetKey = strtolower($trimmedName);
+        if ($name === '' || $trimmedName === '' || str_contains($name, "\0")
+            || preg_match('#^(?:[A-Za-z]:|/|\\\\)#', $name)
+            || in_array('', $parts, true) || in_array('.', $parts, true) || in_array('..', $parts, true)
+            || !$allowedType || isset($archiveTargets[$targetKey]) || $entryBytes > $maxEntryBytes
+            || $totalUncompressedBytes > $maxTotalBytes || ($entryBytes > 1024 * 1024 && $compressionRatio > $maxCompressionRatio)) {
             $zip->close();
-            $ret['message'] = 'Zip contains unsafe paths.';
+            $ret['message'] = 'Zip contains unsafe or duplicate entries.';
             return $ret;
         }
-        $parts = explode('/', rtrim($name, '/'));
-        if (count($parts) && $parts[0] !== '') $topFolders[$parts[0]] = true;
+        $archiveTargets[$targetKey] = true;
+        if (!str_ends_with($name, '/') && strtolower(pathinfo($trimmedName, PATHINFO_EXTENSION)) === 'php') $hasPhpTemplate = true;
+        if ((count($parts) > 1 || str_ends_with($name, '/')) && $parts[0] !== '') $topFolders[$parts[0]] = true;
     }
     $topFolders = array_keys($topFolders);
+    if (!$hasPhpTemplate) {
+        $zip->close();
+        $ret['message'] = 'Theme package does not contain a PHP template.';
+        return $ret;
+    }
 
     // prepare extraction dir
     $rand = bin2hex(random_bytes(6));
@@ -1379,6 +1413,11 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         return $ret;
     }
     $zip->close();
+    if (!helper_tree_has_only_regular_files($extractDir)) {
+        helper_rrmdir($extractDir);
+        $ret['message'] = 'Zip extracted unsupported filesystem entries.';
+        return $ret;
+    }
 
     // Determine final folder name:
     $zipBase = pathinfo($zipPath, PATHINFO_FILENAME);
@@ -1409,17 +1448,22 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         $finalFolder = sanitize_folder_name($zipBase);
     }
 
-    if (is_array($manifestArray)) {
-        $manifestErrors = validate_theme_manifest($manifestArray);
-        if (!empty($manifestErrors)) {
-            helper_rrmdir($extractDir);
-            $ret['message'] = 'theme.json error: ' . implode('; ', $manifestErrors);
-            return $ret;
-        }
-    } else {
-        if (defined('THEME_DEBUG') && THEME_DEBUG) {
-            error_log("[THEME] install: no theme.json found inside uploaded zip (will continue).");
-        }
+    if ($expectedFolder !== null && sanitize_folder_name($expectedFolder) !== $finalFolder) {
+        helper_rrmdir($extractDir);
+        $ret['message'] = 'Theme package identity does not match the requested theme.';
+        return $ret;
+    }
+
+    if (!is_array($manifestArray)) {
+        helper_rrmdir($extractDir);
+        $ret['message'] = 'A valid theme.json is required.';
+        return $ret;
+    }
+    $manifestErrors = validate_theme_manifest($manifestArray);
+    if (!empty($manifestErrors)) {
+        helper_rrmdir($extractDir);
+        $ret['message'] = 'theme.json error: ' . implode('; ', $manifestErrors);
+        return $ret;
     }
 
     $destFs = path_candidate(VIEWS_BASE, $finalFolder, '');
@@ -1526,7 +1570,7 @@ function helper_rrmdir($dir) {
 function helper_recurse_copy($src, $dst) {
     $src = rtrim($src, '/\\');
     $dst = rtrim($dst, '/\\');
-    if (!is_dir($src)) return false;
+    if (!is_dir($src) || is_link($src)) return false;
     if (!@mkdir($dst, 0755, true) && !is_dir($dst)) return false;
     $dir = opendir($src);
     if ($dir === false) return false;
@@ -1534,19 +1578,42 @@ function helper_recurse_copy($src, $dst) {
         if ($file === '.' || $file === '..') continue;
         $srcFile = $src . DIRECTORY_SEPARATOR . $file;
         $dstFile = $dst . DIRECTORY_SEPARATOR . $file;
+        if (is_link($srcFile)) {
+            closedir($dir);
+            return false;
+        }
         if (is_dir($srcFile)) {
             if (!helper_recurse_copy($srcFile, $dstFile)) {
                 closedir($dir);
                 return false;
             }
-        } else {
+        } elseif (is_file($srcFile)) {
             if (!@copy($srcFile, $dstFile)) {
                 closedir($dir);
                 return false;
             }
+        } else {
+            closedir($dir);
+            return false;
         }
     }
     closedir($dir);
+    return true;
+}
+
+function helper_tree_has_only_regular_files(string $directory): bool {
+    if (!is_dir($directory) || is_link($directory)) return false;
+    try {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        foreach ($iterator as $entry) {
+            if ($entry->isLink() || (!$entry->isDir() && !$entry->isFile())) return false;
+        }
+    } catch (Throwable $e) {
+        return false;
+    }
     return true;
 }
 

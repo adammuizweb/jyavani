@@ -43,7 +43,8 @@ SESSION_COOKIE_PATH=/
 # Disable PHP automatic session cookie (we manage auth cookie manually on login)
 SESSION_PHP_COOKIE_DISABLED=1
 
-# Security / Debug
+# Security / Debug. Production HTTPS: FORCE_HTTPS=1 and ALLOW_INSECURE=0.
+# Local HTTP development requires the explicit 0/1 combination below.
 SESSION_DEBUG=0
 FORCE_HTTPS=0
 

@@ -236,7 +236,10 @@ $themeLinks = [
   [$base . '/?page=admin/themes/add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
 ];
 
-if ($userRole === 'admin') {
+$canManageInstalledThemes = $navActor !== null && $navActor['is_site_owner'] === true
+  && function_exists('current_user_can')
+  && current_user_can($pdo, 'core.themes.manage');
+if ($canManageInstalledThemes) {
   $themeLinks[] = [$base . '/?page=admin/themes/customize',__('Customize'), adam_icon('settings','adam-svg-icon--sm')];
   $themeLinks[] = [$base . '/?page=admin/themes/assign',__('Assign (Dev)'), adam_icon('link','adam-svg-icon--sm')];
   $themeLinks[] = [$base . '/?page=admin/themes/browse',__('Browse Themes'), adam_icon('search','adam-svg-icon--sm')];

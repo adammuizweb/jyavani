@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.84",
+    "version": "2.3.85",
     "build": "2026-08-24",
-    "changelog": "Keep Dashboard and Update Manager Latest badges synchronized after manual updates with cache-safe notification assets.",
+    "changelog": "Harden sessions, executable theme management, private-resource masking, public PHP views, and browser security controls.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

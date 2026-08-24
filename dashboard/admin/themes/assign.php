@@ -12,7 +12,8 @@ require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 require_once __DIR__ . '/../../../app/controllers/ThemeStoreClient.php';
 require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
-[$user_id, $user_role] = adiwira_require_role($pdo, ['admin'], false);
+[$user_id, $user_role] = adiwira_require_permission($pdo, 'core.themes.manage', false);
+adiwira_require_site_owner($pdo, false);
 $user_role = strtolower(trim((string)$user_role));
 
 $themeUpdates = UpdateStatusController::getComponentUpdates('themes');
