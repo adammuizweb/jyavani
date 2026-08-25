@@ -44,6 +44,7 @@ if (!defined('PUBLIC_PATH')) {
 }
 
 require_once __DIR__ . '/helpers/hooks.php';
+require_once __DIR__ . '/helpers/package_archive.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';
 app_configure_error_reporting();
 app_register_shutdown_handler();
@@ -72,6 +73,7 @@ if (!defined('DEFAULT_THEME_FOLDER')) {
 // 6. Frontend helpers (widget sebelum theme, karena theme_helper bisa depend)
 require_once __DIR__ . '/helpers/widget_helper.php';
 require_once __DIR__ . '/helpers/theme_helper.php';
+if (PHP_SAPI !== 'cli') theme_lifecycle_reader_start();
 require_once __DIR__ . '/helpers/theme_sections.php';
 
 // 8. Gunakan helper ini jika ingin gunakan waktu indo

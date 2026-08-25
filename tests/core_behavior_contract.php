@@ -79,7 +79,8 @@ $page = (string)file_get_contents($root . '/public/views/themes/default/main/sin
 $post = (string)file_get_contents($root . '/public/views/themes/default/main/single/post.php');
 $check(str_contains($page, 'editor-content') && str_contains($post, 'editor-content'), 'default theme marks rendered editor content');
 
-$check(str_contains($themeStore, "\$manifest['folder'] ?? \$manifest['name'] ?? ''"), 'theme update manifests remain folder-first');
+$check(str_contains($themeStore, "!array_key_exists('folder', \$manifest)")
+    && str_contains($themeStore, "hash_equals(\$folderName, \$manifest['folder'])"), 'theme update manifests use exact folder identity when declared and trusted requested identity when absent');
 $check(str_contains($updateStatus, "'plugins' => \$plugins")
     && str_contains($updatesEndpoint, 'UpdateStatusController::publicPayload($snapshot)'), 'plugin update notifications export shared snapshot updates');
 $check(str_contains($updatesCaller, 'data.plugins.forEach'), 'update notification caller renders exported plugin updates');

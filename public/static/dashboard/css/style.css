@@ -4756,6 +4756,23 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   transition: width .3s ease;
 }
 .progress-pct { font-size: 12px; color: var(--adam-muted, #6b7280); margin-top: 8px; }
+.theme-preflight-modal {
+  position: fixed; inset: 0; z-index: 1000000; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(0,0,0,.52); backdrop-filter: blur(4px);
+}
+.theme-preflight-panel {
+  width: min(620px, 100%); max-height: min(760px, 90vh); overflow: auto; padding: 24px;
+  border: 1px solid var(--adam-border, #d9dee8); border-radius: 14px; background: var(--adam-card, #fff);
+  color: var(--adam-text, #111827); box-shadow: 0 24px 70px rgba(0,0,0,.28);
+}
+.theme-preflight-panel h3 { margin: 0 0 16px; }
+.theme-preflight-issue { margin: 10px 0; padding: 14px; border: 1px solid var(--adam-border, #d9dee8); border-radius: 10px; }
+.theme-preflight-issue.is-blocking { border-left: 4px solid #d97706; }
+.theme-preflight-issue p { margin: 6px 0 10px; white-space: pre-wrap; }
+.theme-preflight-links, .theme-preflight-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.theme-preflight-choice { display: flex; gap: 8px; align-items: flex-start; margin-top: 9px; cursor: pointer; }
+.theme-preflight-choice.is-destructive { color: #b91c1c; font-weight: 700; }
+.theme-preflight-actions { justify-content: flex-end; margin-top: 18px; }
 
 /* lucide icon base */
 .adam-svg-icon{

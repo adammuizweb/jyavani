@@ -80,173 +80,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
     }
 
     $zipPath = $file['tmp_name'];
+    $prepared = plugin_prepare_package_stage($zipPath, null, $activatePlugin);
+    if (!($prepared['success'] ?? false)) adiwira_redirect_with_flash($selfUrl, 'error', (string)$prepared['error']);
+    $pluginName = (string)$prepared['name'];
+    $manifest = $prepared['manifest'];
 
-    // Open zip
-    $zip = new ZipArchive();
-    $open = $zip->open($zipPath);
-    if ($open !== true) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to open ZIP file') . ' (code: ' . $open . ').');
+    $installLocks = plugin_lifecycle_locks($pluginName);
+    if ($installLocks === null) {
+        package_remove_tree((string)$prepared['stage']);
+        adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Unable to lock plugin lifecycle operation.'));
     }
+    register_shutdown_function(static function () use (&$installLocks): void {
+        if (is_array($installLocks) && $installLocks !== []) theme_operation_release($installLocks);
+    });
 
-    // Read plugin.json from zip to validate
-    $pluginJsonRaw = $zip->getFromName('plugin.json');
-    if ($pluginJsonRaw === false) {
-        $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak ditemukan di dalam ZIP.'));
-    }
-
-    $manifest = json_decode($pluginJsonRaw, true);
-    if (!is_array($manifest) || empty($manifest['name'])) {
-        $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak valid atau field "name" tidak ditemukan.'));
-    }
-
-    $pluginName = $manifest['name'];
-
-    // Sanitize plugin name: only alphanumeric, dash, underscore
-    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
-        $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin name can only contain letters, numbers, dashes and underscores.'));
-    }
-
-    // Check if already exists
     $pluginDir = PLUGIN_PATH . '/' . $pluginName;
-
-    // If a leftover/corrupt plugin directory exists without a valid manifest, remove it
-    // so the uploaded plugin can replace it.
-    if (is_dir($pluginDir) && !plugin_manifest($pluginName) && !_rmdir_recursive($pluginDir)) {
-        $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to remove plugin.'));
-    }
-
-    if (is_dir($pluginDir)) {
-        $zip->close();
+    if (file_exists($pluginDir) || is_link($pluginDir)) {
+        package_remove_tree((string)$prepared['stage']);
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already exists. Delete or rename first.') . ' "' . htmlspecialchars($pluginName) . '"');
     }
-
-    // Extract to temp dir first
-    $tmpExtract = PLUGIN_PATH . '/.extract-' . bin2hex(random_bytes(8));
-    if (!mkdir($tmpExtract, 0755, true)) {
-        $zip->close();
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to create temporary directory.'));
-    }
-
-    for ($i = 0; $i < $zip->numFiles; $i++) {
-        $entry = (string)($zip->statIndex($i)['name'] ?? '');
-        if (str_ends_with($entry, '/')) continue;
-        if (plugin_safe_path($tmpExtract, $entry) === null) {
-            $zip->close();
-            _rmdir_recursive($tmpExtract);
-            adiwira_redirect_with_flash($selfUrl, 'error', __('ZIP contains an invalid file path.'));
-        }
-    }
-
-    $extracted = $zip->extractTo($tmpExtract);
-    $zip->close();
-
-    if (!$extracted) {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to extract file.'));
-    }
-
-    // Ensure plugin.json exists in extracted root
-    if (!is_file($tmpExtract . '/plugin.json')) {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json tidak ditemukan di root ZIP.'));
-    }
-
-    // Validate extracted manifest matches
-    $extractedManifest = json_decode(file_get_contents($tmpExtract . '/plugin.json'), true);
-    if (!is_array($extractedManifest) || ($extractedManifest['name'] ?? '') !== $pluginName) {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('plugin.json setelah ekstrak tidak valid.'));
-    }
-    $requirementError = plugin_install_requirements_error_message($extractedManifest, $activatePlugin);
-    if ($requirementError !== '') {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', $requirementError);
-    }
-
-    // Move to plugins/{name}/
-    if (!rename($tmpExtract, $pluginDir)) {
-        _rmdir_recursive($tmpExtract);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to move plugin to') . ' ' . htmlspecialchars($pluginDir) . '.');
-    }
-
-    // Set permissions so www-data (PHP-FPM) can manage plugin files
-    $chmodIt = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
-    );
-    foreach ($chmodIt as $item) {
-        if ($item->isDir()) {
-            @chmod($item->getPathname(), 0775);
-        } else {
-            $ext = pathinfo($item->getFilename(), PATHINFO_EXTENSION);
-            $mode = ($ext === 'sh') ? 0775 : 0664;
-            @chmod($item->getPathname(), $mode);
-        }
-    }
-    // Set group ownership when supported (some shared hosts disable chgrp/shell_exec).
-    // The chmod loop above already makes files writable by the PHP process owner.
-    if (function_exists('chgrp') && function_exists('posix_getegid')) {
-        @chgrp($pluginDir, 'www-data');
-    }
-    if (function_exists('shell_exec')) {
-        @shell_exec('chgrp -R www-data ' . escapeshellarg($pluginDir) . ' 2>&1');
-    }
-
-    $flashMessages = [];
-    $flashType = 'success';
-
-    // Keep the plugin inactive until every declared asset is published.
-    if (!plugin_disable($pluginName)) {
-        _rmdir_recursive($pluginDir);
-        adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to update plugin state.'));
-    }
-
-    // --- Copy static files ---
-    $staticCopy = $extractedManifest['static']['copy'] ?? [];
-    if (!is_array($staticCopy)) {
-        _rmdir_recursive($pluginDir);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because static.copy is invalid.'));
-    }
-    if ($staticCopy !== []) {
-        $copyResult = plugin_static_copy($pluginDir, $staticCopy);
-        if ($copyResult['failed'] > 0) {
-            _rmdir_recursive($pluginDir);
-            adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin installation failed because declared static files could not be copied.'));
-        }
-        $flashMessages[] = $copyResult['copied'] . ' ' . __('static files copied.');
-    }
-
-    $installResult = plugin_run_install_script($pluginDir);
-    if (!$installResult['success']) {
-        $installError = $installResult['error'];
-        $cleanupMessage = '';
-        if (!$installResult['ran']) {
-            $cleaned = plugin_delete($pluginName);
-            if (!$cleaned) $cleanupMessage = ' ' . __('Plugin cleanup also failed; manual recovery is required.');
-        } else {
-            $cleanupMessage = ' ' . __('The plugin remains installed but inactive for inspection; install.sh may have made changes outside its directory.');
-        }
-        adiwira_redirect_with_flash(
-            $selfUrl,
-            'error',
-            $installError . $cleanupMessage
-        );
-    }
-
-    // --- Enable / disable plugin ---
-    if ($activatePlugin) {
-        if (!plugin_enable($pluginName)) {
-            adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to activate plugin.'));
-        }
-        $flashMessages[] = __('Plugin activated.') . ' "' . htmlspecialchars($manifest['title'] ?? $pluginName) . '"';
-    }
-
-    $finalMsg = implode(' ', $flashMessages);
-    adiwira_redirect_with_flash($listUrl, $flashType, $finalMsg);
+    $result = plugin_publish_staged_install_already_locked($prepared, $activatePlugin);
+    if (!($result['success'] ?? false)) adiwira_redirect_with_flash($selfUrl, 'error', (string)$result['error']);
+    $finalMsg = $activatePlugin ? __('Plugin uploaded and activated.') : __('Plugin uploaded and kept inactive.');
+    theme_operation_release($installLocks);
+    $installLocks = [];
+    adiwira_redirect_with_flash($listUrl, 'success', $finalMsg);
 }
 
 ?>

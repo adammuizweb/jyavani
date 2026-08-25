@@ -24,6 +24,7 @@ if (defined('THEME_HELPER_INCLUDED')) {
     return;
 }
 define('THEME_HELPER_INCLUDED', true);
+require_once __DIR__ . '/package_archive.php';
 
 if (!defined('THEME_DEBUG')) define('THEME_DEBUG', function_exists('app_debug_enabled') ? app_debug_enabled() : false);
 
@@ -1069,6 +1070,22 @@ function register_theme_in_db($pdoOrNull, string $folderName, array $manifest = 
     return (bool)$ok;
 }
 
+function theme_db_registration_matches(PDO $pdo, string $folderName, array $manifest): bool {
+    try {
+        $statement = $pdo->prepare('SELECT folder_name, manifest_json FROM themes WHERE folder_name = ? LIMIT 1');
+        if (!$statement || !$statement->execute([$folderName])) return false;
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        $registeredManifest = is_array($row) && is_string($row['manifest_json'] ?? null)
+            ? json_decode($row['manifest_json'], true)
+            : null;
+        return is_array($row) && is_string($row['folder_name'] ?? null)
+            && hash_equals($folderName, $row['folder_name'])
+            && is_array($registeredManifest) && $registeredManifest === $manifest;
+    } catch (Throwable) {
+        return false;
+    }
+}
+
 function register_all_themes_from_fs($pdoOrNull = null): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $registered = [];
@@ -1323,13 +1340,265 @@ function theme_asset_url($pdoOrNull, string $assetRelative): ?string {
 // Install theme from zip (unchanged; included for completeness)
 ////////////////////////////////////////////////////////////////////////////////
 
+/** Global key shared by Core and extensions for theme/source lifecycle serialization. */
+if (!defined('THEME_LIFECYCLE_LOCK_KEY')) define('THEME_LIFECYCLE_LOCK_KEY', '0-theme-lifecycle');
+
+function theme_lifecycle_lock_keys(array $folders = []): array {
+    return array_merge([(string)THEME_LIFECYCLE_LOCK_KEY], $folders);
+}
+
+/** Exact registered and on-disk folder keys affected by a registration scan. */
+function theme_registration_lock_folders($pdoOrNull = null): array {
+    $folders = [];
+    foreach (get_registered_themes($pdoOrNull) as $theme) {
+        if (is_string($theme['folder_name'] ?? null)) $folders[$theme['folder_name']] = true;
+    }
+    if (is_dir(VIEWS_BASE)) {
+        foreach (glob(rtrim(VIEWS_BASE, '/\\') . DIRECTORY_SEPARATOR . '*') ?: [] as $directory) {
+            if (is_dir($directory)) $folders[basename($directory)] = true;
+        }
+    }
+    return array_keys($folders);
+}
+
+/** Acquire deterministic exact-name operation locks. Callers must release them in finally. */
+function theme_operation_acquire(array $folders, int $mode = LOCK_EX): array {
+    if (!defined('BACKEND_PATH')) {
+        throw new RuntimeException('BACKEND_PATH is required for theme operation locks.');
+    }
+    if (!in_array($mode, [LOCK_SH, LOCK_EX], true)) {
+        throw new InvalidArgumentException('Invalid theme operation lock mode.');
+    }
+
+    $normalized = [];
+    foreach ($folders as $folder) {
+        if (!is_string($folder) || $folder === '' || strlen($folder) > 255
+            || in_array($folder, ['.', '..'], true) || str_contains($folder, '/') || str_contains($folder, '\\')
+            || preg_match('/[\x00-\x1F\x7F]/', $folder) === 1) {
+            throw new InvalidArgumentException('Invalid installed theme folder.');
+        }
+        $normalized[$folder] = true;
+    }
+    $normalized = array_keys($normalized);
+    usort($normalized, static function (string $left, string $right): int {
+        if ($left === THEME_LIFECYCLE_LOCK_KEY) return $right === THEME_LIFECYCLE_LOCK_KEY ? 0 : -1;
+        if ($right === THEME_LIFECYCLE_LOCK_KEY) return 1;
+        return strcmp($left, $right);
+    });
+    if ($normalized === []) throw new InvalidArgumentException('At least one theme folder is required.');
+
+    $backend = rtrim((string)BACKEND_PATH, '/\\');
+    $backendReal = realpath($backend);
+    $varDir = $backend . DIRECTORY_SEPARATOR . 'var';
+    if ($backendReal === false || is_link($backend) || is_link($varDir)) {
+        throw new RuntimeException('Unsafe theme operation lock path.');
+    }
+    if (!is_dir($varDir) && !@mkdir($varDir, 0750, true) && !is_dir($varDir)) {
+        throw new RuntimeException('Unable to create the theme operation lock parent directory.');
+    }
+
+    $lockDir = $varDir . DIRECTORY_SEPARATOR . 'theme-operation-locks';
+    if (is_link($lockDir) || (file_exists($lockDir) && !is_dir($lockDir))) {
+        throw new RuntimeException('Unsafe theme operation lock directory.');
+    }
+    if (is_dir($lockDir)) {
+        clearstatcache(true, $lockDir);
+        $existingLockDirStat = @lstat($lockDir);
+        if (!is_array($existingLockDirStat) || (($existingLockDirStat['mode'] ?? 0) & 0002) !== 0) {
+            throw new RuntimeException('Unsafe theme operation lock directory.');
+        }
+    }
+    if (!is_dir($lockDir)) {
+        $previousUmask = umask(0007);
+        try {
+            $created = @mkdir($lockDir, 02770);
+        } finally {
+            umask($previousUmask);
+        }
+        if (!$created && !is_dir($lockDir)) throw new RuntimeException('Unable to create the theme operation lock directory.');
+    }
+    @chmod($lockDir, 02770);
+    clearstatcache(true, $lockDir);
+    $lockDirStat = @lstat($lockDir);
+    $lockDirReal = realpath($lockDir);
+    if (!is_array($lockDirStat) || (($lockDirStat['mode'] ?? 0) & 0170000) !== 0040000
+        || (($lockDirStat['mode'] ?? 0) & 02777) !== 02770 || is_link($lockDir)
+        || $lockDirReal === false || !str_starts_with($lockDirReal, $backendReal . DIRECTORY_SEPARATOR)) {
+        throw new RuntimeException('Unsafe theme operation lock directory.');
+    }
+
+    $readerSuspended = false;
+    if ($mode === LOCK_EX && in_array((string)THEME_LIFECYCLE_LOCK_KEY, $normalized, true)
+        && theme_lifecycle_reader_is_active()) {
+        theme_lifecycle_reader_suspend();
+        $readerSuspended = true;
+    }
+
+    $heldKeys = $GLOBALS['_theme_operation_held_keys'] ?? [];
+    foreach ($normalized as $folder) {
+        if (isset($heldKeys[$folder])) {
+            if ($readerSuspended) theme_lifecycle_reader_resume();
+            throw new RuntimeException('Theme operation lock is already held by this request: ' . $folder);
+        }
+    }
+
+    $locks = [];
+    try {
+        foreach ($normalized as $folder) {
+            $path = $lockDir . DIRECTORY_SEPARATOR . hash('sha256', $folder) . '.lock';
+            clearstatcache(true, $path);
+            $before = @lstat($path);
+            if (is_array($before)) {
+                if ((($before['mode'] ?? 0) & 0170000) !== 0100000 || (($before['mode'] ?? 0) & 0777) !== 0660
+                    || ($before['nlink'] ?? 0) !== 1 || is_link($path)) {
+                    throw new RuntimeException('Unsafe theme operation lock file.');
+                }
+                $handle = @fopen($path, 'r+');
+            } else {
+                $previousUmask = umask(0007);
+                try {
+                    $handle = @fopen($path, 'x+');
+                } finally {
+                    umask($previousUmask);
+                }
+                // Another worker may create the file between lstat() and exclusive create.
+                if (!is_resource($handle)) {
+                    clearstatcache(true, $path);
+                    $raced = @lstat($path);
+                    if (is_array($raced) && (($raced['mode'] ?? 0) & 0170000) === 0100000
+                        && (($raced['mode'] ?? 0) & 0777) === 0660 && ($raced['nlink'] ?? 0) === 1
+                        && !is_link($path)) {
+                        $handle = @fopen($path, 'r+');
+                    }
+                }
+            }
+            if (!is_resource($handle)) throw new RuntimeException('Unable to open the theme operation lock file.');
+
+            $descriptor = @fstat($handle);
+            clearstatcache(true, $path);
+            $identity = @lstat($path);
+            $regular = is_array($descriptor) && (($descriptor['mode'] ?? 0) & 0170000) === 0100000;
+            $sameIdentity = is_array($identity)
+                && ($descriptor['dev'] ?? null) === ($identity['dev'] ?? null)
+                && ($descriptor['ino'] ?? null) === ($identity['ino'] ?? null);
+            if (!$regular || !$sameIdentity || (($descriptor['mode'] ?? 0) & 0777) !== 0660
+                || ($descriptor['nlink'] ?? 0) !== 1 || is_link($path)) {
+                fclose($handle);
+                throw new RuntimeException('Unsafe theme operation lock descriptor.');
+            }
+            if (!flock($handle, $mode)) {
+                fclose($handle);
+                throw new RuntimeException('Unable to acquire the theme operation lock.');
+            }
+
+            clearstatcache(true, $path);
+            $lockedIdentity = @lstat($path);
+            if (!is_array($lockedIdentity)
+                || ($descriptor['dev'] ?? null) !== ($lockedIdentity['dev'] ?? null)
+                || ($descriptor['ino'] ?? null) !== ($lockedIdentity['ino'] ?? null)
+                || (($lockedIdentity['mode'] ?? 0) & 0170000) !== 0100000
+                || (($lockedIdentity['mode'] ?? 0) & 0777) !== 0660 || ($lockedIdentity['nlink'] ?? 0) !== 1
+                || is_link($path)) {
+                flock($handle, LOCK_UN);
+                fclose($handle);
+                throw new RuntimeException('Theme operation lock identity changed.');
+            }
+            $locks[] = $handle;
+            $resourceId = get_resource_id($handle);
+            $GLOBALS['_theme_operation_held_keys'][$folder] = $resourceId;
+            $GLOBALS['_theme_operation_lock_keys'][$resourceId] = $folder;
+            $GLOBALS['_theme_operation_lock_modes'][$resourceId] = $mode;
+        }
+        return $locks;
+    } catch (Throwable $error) {
+        theme_operation_release($locks);
+        if ($readerSuspended) theme_lifecycle_reader_resume();
+        throw $error;
+    }
+}
+
+function theme_operation_release(array $locks, bool $resumeLifecycleReader = true): void {
+    foreach (array_reverse($locks) as $lock) {
+        if (!is_resource($lock)) continue;
+        $resourceId = get_resource_id($lock);
+        $folder = $GLOBALS['_theme_operation_lock_keys'][$resourceId] ?? null;
+        @flock($lock, LOCK_UN);
+        @fclose($lock);
+        unset($GLOBALS['_theme_operation_lock_keys'][$resourceId]);
+        unset($GLOBALS['_theme_operation_lock_modes'][$resourceId]);
+        if (is_string($folder) && (($GLOBALS['_theme_operation_held_keys'][$folder] ?? null) === $resourceId)) {
+            unset($GLOBALS['_theme_operation_held_keys'][$folder]);
+        }
+    }
+    if ($resumeLifecycleReader && !isset($GLOBALS['_theme_operation_held_keys'][(string)THEME_LIFECYCLE_LOCK_KEY])) {
+        theme_lifecycle_reader_resume();
+    }
+}
+
+function theme_operation_holds_lock(string $key, ?int $mode = null): bool {
+    $resourceId = $GLOBALS['_theme_operation_held_keys'][$key] ?? null;
+    if (!is_int($resourceId)) return false;
+    return $mode === null || ($GLOBALS['_theme_operation_lock_modes'][$resourceId] ?? null) === $mode;
+}
+
+/** Start the request-lifetime shared reader on the global lifecycle key. */
+function theme_lifecycle_reader_start(): bool {
+    if (theme_lifecycle_reader_is_active()) return true;
+    if (($GLOBALS['_theme_lifecycle_reader']['suspended'] ?? false) === true) return true;
+
+    $GLOBALS['_theme_lifecycle_reader']['enabled'] = true;
+    $locks = theme_operation_acquire([(string)THEME_LIFECYCLE_LOCK_KEY], LOCK_SH);
+    $GLOBALS['_theme_lifecycle_reader']['handle'] = $locks[0];
+    if (($GLOBALS['_theme_lifecycle_reader']['shutdown_registered'] ?? false) !== true) {
+        $GLOBALS['_theme_lifecycle_reader']['shutdown_registered'] = true;
+        register_shutdown_function('theme_lifecycle_reader_stop');
+    }
+    return true;
+}
+
+function theme_lifecycle_reader_is_active(): bool {
+    $handle = $GLOBALS['_theme_lifecycle_reader']['handle'] ?? null;
+    return is_resource($handle)
+        && theme_operation_holds_lock((string)THEME_LIFECYCLE_LOCK_KEY, LOCK_SH);
+}
+
+/** Release this request's shared reader before taking the global exclusive lock. */
+function theme_lifecycle_reader_suspend(): void {
+    if (!theme_lifecycle_reader_is_active()) return;
+    $handle = $GLOBALS['_theme_lifecycle_reader']['handle'];
+    $GLOBALS['_theme_lifecycle_reader']['handle'] = null;
+    $GLOBALS['_theme_lifecycle_reader']['suspended'] = true;
+    theme_operation_release([$handle], false);
+}
+
+function theme_lifecycle_reader_resume(): void {
+    if (($GLOBALS['_theme_lifecycle_reader']['enabled'] ?? false) !== true
+        || ($GLOBALS['_theme_lifecycle_reader']['suspended'] ?? false) !== true
+        || isset($GLOBALS['_theme_operation_held_keys'][(string)THEME_LIFECYCLE_LOCK_KEY])) return;
+    $GLOBALS['_theme_lifecycle_reader']['suspended'] = false;
+    try {
+        $locks = theme_operation_acquire([(string)THEME_LIFECYCLE_LOCK_KEY], LOCK_SH);
+        $GLOBALS['_theme_lifecycle_reader']['handle'] = $locks[0];
+    } catch (Throwable $error) {
+        $GLOBALS['_theme_lifecycle_reader']['enabled'] = false;
+        throw $error;
+    }
+}
+
+function theme_lifecycle_reader_stop(): void {
+    $handle = $GLOBALS['_theme_lifecycle_reader']['handle'] ?? null;
+    $GLOBALS['_theme_lifecycle_reader']['enabled'] = false;
+    $GLOBALS['_theme_lifecycle_reader']['suspended'] = false;
+    $GLOBALS['_theme_lifecycle_reader']['handle'] = null;
+    if (is_resource($handle)) theme_operation_release([$handle], false);
+}
+
 /**
  * Robust install_theme_from_zip replacement.
  * Returns array: success, message, folder, errors (array)
  */
 function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = false, ?int $by_user_id = null, ?string $expectedFolder = null): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
-    $errors = [];
     $ret = ['success' => false, 'message' => '', 'folder' => null, 'errors' => []];
 
     if (!is_file($zipPath) || !is_readable($zipPath)) {
@@ -1348,169 +1617,219 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         return $ret;
     }
 
-    $maxEntries = 5000;
-    $maxEntryBytes = 64 * 1024 * 1024;
-    $maxTotalBytes = 256 * 1024 * 1024;
-    $maxCompressionRatio = 200;
-    if ($zip->numFiles <= 0 || $zip->numFiles > $maxEntries) {
+    $validation = package_archive_validate($zip);
+    if (!$validation['success']) {
         $zip->close();
-        $ret['message'] = 'Zip contains too many entries.';
+        $ret['message'] = $validation['error'];
+        return $ret;
+    }
+    $filePaths = [];
+    foreach ($validation['entries'] as $entry) {
+        if (!$entry['directory']) $filePaths[] = $entry['path'];
+    }
+    $packageRoot = null;
+    $manifestSource = in_array('theme.json', $filePaths, true) ? 'theme.json' : null;
+    if ($manifestSource === null && $filePaths !== []) {
+        $firstSegments = [];
+        $allWrapped = true;
+        foreach ($filePaths as $path) {
+            $parts = explode('/', $path, 2);
+            if (count($parts) !== 2) { $allWrapped = false; break; }
+            $firstSegments[$parts[0]] = true;
+        }
+        if ($allWrapped && count($firstSegments) === 1) {
+            $packageRoot = (string)array_key_first($firstSegments);
+            $candidate = $packageRoot . '/theme.json';
+            if (in_array($candidate, $filePaths, true)) $manifestSource = $candidate;
+        }
+    }
+    if ($manifestSource === null) {
+        $zip->close();
+        $ret['message'] = 'A valid theme.json is required at the package root.';
         return $ret;
     }
 
-    $topFolders = [];
-    $archiveTargets = [];
-    $totalUncompressedBytes = 0;
+    $prefix = $packageRoot === null ? '' : $packageRoot . '/';
+    $files = [];
+    $expectedTypes = [];
     $hasPhpTemplate = false;
-    for ($i = 0; $i < $zip->numFiles; $i++) {
-        $entryStat = $zip->statIndex($i);
-        $name = str_replace('\\', '/', (string)($entryStat['name'] ?? ''));
-        $trimmedName = rtrim($name, '/');
-        $parts = explode('/', $trimmedName);
-        $entryBytes = max(0, (int)($entryStat['size'] ?? 0));
-        $compressedBytes = max(0, (int)($entryStat['comp_size'] ?? 0));
-        $totalUncompressedBytes += $entryBytes;
-        $compressionRatio = $compressedBytes > 0 ? $entryBytes / $compressedBytes : ($entryBytes > 0 ? INF : 1);
-        $opsys = 0;
-        $attributes = 0;
-        $hasAttributes = $zip->getExternalAttributesIndex($i, $opsys, $attributes);
-        $entryType = $hasAttributes ? (($attributes >> 16) & 0170000) : 0;
-        $allowedType = $entryType === 0 || $entryType === 0100000 || ($entryType === 0040000 && str_ends_with($name, '/'));
-        $targetKey = strtolower($trimmedName);
-        if ($name === '' || $trimmedName === '' || str_contains($name, "\0")
-            || preg_match('#^(?:[A-Za-z]:|/|\\\\)#', $name)
-            || in_array('', $parts, true) || in_array('.', $parts, true) || in_array('..', $parts, true)
-            || !$allowedType || isset($archiveTargets[$targetKey]) || $entryBytes > $maxEntryBytes
-            || $totalUncompressedBytes > $maxTotalBytes || ($entryBytes > 1024 * 1024 && $compressionRatio > $maxCompressionRatio)) {
+    foreach ($validation['entries'] as $entry) {
+        $path = $entry['path'];
+        if ($packageRoot !== null && $path === $packageRoot && $entry['directory']) continue;
+        if ($prefix !== '' && !str_starts_with($path, $prefix)) {
             $zip->close();
-            $ret['message'] = 'Zip contains unsafe or duplicate entries.';
+            $ret['message'] = 'Theme package contains content outside its package root.';
             return $ret;
         }
-        $archiveTargets[$targetKey] = true;
-        if (!str_ends_with($name, '/') && strtolower(pathinfo($trimmedName, PATHINFO_EXTENSION)) === 'php') $hasPhpTemplate = true;
-        if ((count($parts) > 1 || str_ends_with($name, '/')) && $parts[0] !== '') $topFolders[$parts[0]] = true;
+        $relative = $prefix === '' ? $path : substr($path, strlen($prefix));
+        if (!is_string($relative) || !package_safe_relative_path($relative)) {
+            $zip->close();
+            $ret['message'] = 'Theme package contains an invalid target path.';
+            return $ret;
+        }
+        $expectedTypes[$relative] = $entry['directory'] ? 'dir' : 'file';
+        $parent = dirname($relative);
+        while ($parent !== '.') {
+            $expectedTypes[$parent] = 'dir';
+            $parent = dirname($parent);
+        }
+        if (!$entry['directory']) {
+            $files[] = ['source' => $entry['source'], 'relative' => $relative];
+            if (strtolower((string)pathinfo($relative, PATHINFO_EXTENSION)) === 'php') $hasPhpTemplate = true;
+        }
     }
-    $topFolders = array_keys($topFolders);
     if (!$hasPhpTemplate) {
         $zip->close();
         $ret['message'] = 'Theme package does not contain a PHP template.';
         return $ret;
     }
 
-    // prepare extraction dir
-    $rand = bin2hex(random_bytes(6));
-    $extractDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "theme_extract_{$rand}";
-    if (!@mkdir($extractDir, 0700, true) && !is_dir($extractDir)) {
+    $raw = $zip->getFromName($manifestSource);
+    $manifestArray = is_string($raw) ? json_decode($raw, true) : null;
+
+    $validExactFolder = static fn(string $folder): bool => strlen($folder) <= 128
+        && preg_match('/\A[a-zA-Z0-9_-][a-zA-Z0-9._-]*\z/', $folder) === 1
+        && !in_array($folder, ['.', '..'], true);
+    if ($expectedFolder !== null && !$validExactFolder($expectedFolder)) {
         $zip->close();
-        $ret['message'] = 'Gagal membuat temporary directory.';
+        $ret['message'] = 'Invalid requested theme identity.';
         return $ret;
-    }
-
-    if (!$zip->extractTo($extractDir)) {
-        $zip->close();
-        helper_rrmdir($extractDir);
-        $ret['message'] = 'Gagal mengekstrak zip.';
-        return $ret;
-    }
-    $zip->close();
-    if (!helper_tree_has_only_regular_files($extractDir)) {
-        helper_rrmdir($extractDir);
-        $ret['message'] = 'Zip extracted unsupported filesystem entries.';
-        return $ret;
-    }
-
-    // Determine final folder name:
-    $zipBase = pathinfo($zipPath, PATHINFO_FILENAME);
-
-    $singleTop = (count($topFolders) === 1) ? $topFolders[0] : null;
-    $extractedRootCandidate = $singleTop ? $extractDir . DIRECTORY_SEPARATOR . $singleTop : $extractDir;
-
-    $manifestFsPath = null;
-    if ($singleTop && is_dir($extractDir . DIRECTORY_SEPARATOR . $singleTop)) {
-        $manifestFsPath = $extractDir . DIRECTORY_SEPARATOR . $singleTop . DIRECTORY_SEPARATOR . 'theme.json';
-    } else {
-        $manifestFsPath = $extractDir . DIRECTORY_SEPARATOR . 'theme.json';
-    }
-
-    $manifestArray = null;
-    if (is_file($manifestFsPath)) {
-        $raw = @file_get_contents($manifestFsPath);
-        $tmp = @json_decode($raw, true);
-        if (is_array($tmp)) $manifestArray = $tmp;
     }
 
     $finalFolder = null;
-    if (!empty($manifestArray['folder'])) {
-        $finalFolder = sanitize_folder_name((string)$manifestArray['folder']);
-    } elseif ($singleTop) {
-        $finalFolder = sanitize_folder_name($singleTop);
+    if (is_array($manifestArray) && array_key_exists('folder', $manifestArray)) {
+        $manifestFolder = $manifestArray['folder'];
+        if (!is_string($manifestFolder) || !$validExactFolder($manifestFolder)
+            || ($expectedFolder !== null && !hash_equals($expectedFolder, $manifestFolder))) {
+            $zip->close();
+            $ret['message'] = 'Theme package identity does not match the requested theme.';
+            return $ret;
+        }
+        $finalFolder = $manifestFolder;
+    } elseif ($expectedFolder !== null) {
+        $finalFolder = $expectedFolder;
+    } elseif ($packageRoot !== null) {
+        $finalFolder = sanitize_folder_name($packageRoot);
     } else {
-        $finalFolder = sanitize_folder_name($zipBase);
+        $finalFolder = sanitize_folder_name(pathinfo($zipPath, PATHINFO_FILENAME));
     }
 
-    if ($expectedFolder !== null && sanitize_folder_name($expectedFolder) !== $finalFolder) {
-        helper_rrmdir($extractDir);
-        $ret['message'] = 'Theme package identity does not match the requested theme.';
+    if (!$validExactFolder($finalFolder)) {
+        $zip->close();
+        $ret['message'] = 'Invalid theme package identity.';
         return $ret;
     }
 
     if (!is_array($manifestArray)) {
-        helper_rrmdir($extractDir);
+        $zip->close();
         $ret['message'] = 'A valid theme.json is required.';
         return $ret;
     }
     $manifestErrors = validate_theme_manifest($manifestArray);
     if (!empty($manifestErrors)) {
-        helper_rrmdir($extractDir);
+        $zip->close();
         $ret['message'] = 'theme.json error: ' . implode('; ', $manifestErrors);
         return $ret;
     }
 
-    $destFs = path_candidate(VIEWS_BASE, $finalFolder, '');
-    if (is_dir($destFs)) {
-        helper_rrmdir($extractDir);
-        $ret['message'] = "Theme folder already exists: {$finalFolder}";
+    try {
+        $operationLocks = theme_operation_acquire(theme_lifecycle_lock_keys([$finalFolder]));
+    } catch (Throwable $error) {
+        $zip->close();
+        $ret['message'] = 'Unable to lock theme installation: ' . $error->getMessage();
         return $ret;
     }
 
-    if (!is_dir(dirname($destFs))) {
-        if (!@mkdir(dirname($destFs), 0755, true) && !is_dir(dirname($destFs))) {
-            helper_rrmdir($extractDir);
-            $ret['message'] = 'Gagal membuat parent folder themes.';
+    $stage = null;
+    try {
+        $destFs = path_candidate(VIEWS_BASE, $finalFolder, '');
+        $recoveryPaths = package_publication_recovery_paths($destFs);
+        if ($recoveryPaths !== []) {
+            $ret['message'] = 'A prior theme publication recovery artifact requires manual resolution. Inspect and restore or archive it before retrying: ' . basename($recoveryPaths[0]);
+            $ret['recovery_paths'] = $recoveryPaths;
             return $ret;
         }
-    }
-
-    $moved = false;
-    try {
-        if ($singleTop && @rename($extractDir . DIRECTORY_SEPARATOR . $singleTop, $destFs)) {
-            @rmdir($extractDir);
-            $moved = true;
-        } else {
-            if (!helper_recurse_copy($extractedRootCandidate, $destFs)) {
-                helper_rrmdir($extractDir);
-                helper_rrmdir($destFs);
-                $ret['message'] = 'Gagal menyalin file tema ke direktori target (permission?).';
+        if (file_exists($destFs) || is_link($destFs)) {
+            $ret['message'] = "Theme folder already exists: {$finalFolder}";
+            return $ret;
+        }
+        $parent = dirname($destFs);
+        if (!is_dir($parent) || is_link($parent) || realpath($parent) !== $parent) {
+            $ret['message'] = 'Theme parent directory is unavailable or unsafe.';
+            return $ret;
+        }
+        $stage = package_private_directory($parent, 'theme-stage-' . $finalFolder);
+        if ($stage === null) {
+            $ret['message'] = 'Unable to create private same-parent theme staging.';
+            return $ret;
+        }
+        $directories = array_keys(array_filter($expectedTypes, static fn(string $type): bool => $type === 'dir'));
+        usort($directories, static fn(string $left, string $right): int => substr_count($left, '/') <=> substr_count($right, '/'));
+        foreach ($directories as $directory) {
+            $path = $stage . '/' . $directory;
+            if (!is_dir($path) && !@mkdir($path, 0700, true) && !is_dir($path)) {
+                $ret['message'] = 'Unable to create the complete staged theme tree.';
                 return $ret;
             }
-            helper_rrmdir($extractDir);
-            $moved = true;
         }
-    } catch (Throwable $e) {
-        helper_rrmdir($extractDir);
-        helper_rrmdir($destFs);
-        $ret['message'] = 'Gagal memindahkan tema: ' . $e->getMessage();
-        return $ret;
-    }
+        if (!package_archive_extract_files($zip, $files, $stage)) {
+            $ret['message'] = 'Unable to stream the validated theme package into private staging.';
+            return $ret;
+        }
+        $stagedIdentity = package_tree_identity($stage);
+        $stagedTypes = is_array($stagedIdentity)
+            ? array_map(static fn(array $entry): string => $entry['type'], $stagedIdentity)
+            : null;
+        ksort($expectedTypes, SORT_STRING);
+        if (!is_array($stagedTypes)) {
+            $ret['message'] = 'Staged theme tree verification failed.';
+            return $ret;
+        }
+        ksort($stagedTypes, SORT_STRING);
+        $stagedManifestRaw = @file_get_contents($stage . '/theme.json');
+        $stagedManifest = is_string($stagedManifestRaw) ? json_decode($stagedManifestRaw, true) : null;
+        if ($stagedTypes !== $expectedTypes || !is_array($stagedManifest) || $stagedManifest !== $manifestArray) {
+            $ret['message'] = 'Staged theme tree or manifest does not exactly match the validated package.';
+            return $ret;
+        }
+        if (!package_chmod_tree($stage, 0755, 0644)) {
+            $ret['message'] = 'Unable to set safe permissions on the staged theme.';
+            return $ret;
+        }
+        $stagedIdentity = package_tree_identity($stage);
+        if (!is_array($stagedIdentity)) {
+            $ret['message'] = 'Staged theme identity verification failed.';
+            return $ret;
+        }
+        foreach ($stagedIdentity as $entry) {
+            $expectedMode = $entry['type'] === 'dir' ? 0755 : 0644;
+            if (($entry['mode'] ?? null) !== $expectedMode) {
+                $ret['message'] = 'Staged theme permissions failed verification.';
+                return $ret;
+            }
+        }
+        if (package_publication_recovery_paths($destFs) !== [] || file_exists($destFs) || is_link($destFs)
+            || !package_tree_matches_identity($stage, $stagedIdentity)) {
+            $ret['message'] = 'Theme publication state changed while staging; inspect recovery artifacts and retry.';
+            return $ret;
+        }
+        if (!@rename($stage, $destFs)) {
+            $targetComplete = package_tree_matches_identity($destFs, $stagedIdentity);
+            $targetAbsent = !file_exists($destFs) && !is_link($destFs);
+            $ret['message'] = $targetComplete
+                ? 'Theme publication completed but its rename result was indeterminate; verify the installed theme before retrying.'
+                : ($targetAbsent
+                    ? 'Unable to publish the complete staged theme atomically; the target remains absent.'
+                    : 'Theme publication target changed unexpectedly; manual inspection is required.');
+            return $ret;
+        }
+        $stage = null;
+        package_sync_directory($parent);
+        if (!package_tree_matches_identity($destFs, $stagedIdentity)) {
+            $ret['message'] = 'Published theme identity verification failed; preserve the target for manual inspection.';
+            return $ret;
+        }
 
-    if (!$moved) {
-        helper_rrmdir($extractDir);
-        helper_rrmdir($destFs);
-        $ret['message'] = 'Gagal memindahkan tema (unknown).';
-        return $ret;
-    }
-
-    try {
         $manifestForDb = [
             'name' => $manifestArray['name'] ?? $finalFolder,
             'description' => $manifestArray['description'] ?? '',
@@ -1521,7 +1840,28 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
             'is_active' => !empty($manifestArray['is_active']),
             'store' => $manifestArray['store'] ?? [],
         ];
-        register_theme_in_db($pdo, $finalFolder, $manifestForDb, !empty($manifestForDb['is_active']));
+        try {
+            if (register_theme_in_db($pdo, $finalFolder, $manifestForDb, !empty($manifestForDb['is_active'])) !== true) {
+                throw new RuntimeException('Theme registration returned an unsuccessful result.');
+            }
+        } catch (Throwable $e) {
+            $exactRegistration = $pdo instanceof PDO && theme_db_registration_matches($pdo, $finalFolder, $manifestForDb);
+            if ($exactRegistration && package_tree_matches_identity($destFs, $stagedIdentity)) {
+                $ret['message'] = 'DB register result was indeterminate, but the exact registration and published theme are present. The theme was preserved; verify it before retrying. Cause: ' . $e->getMessage();
+                return $ret;
+            }
+            $exactPublishedIdentity = package_tree_matches_identity($destFs, $stagedIdentity);
+            $cleanupVerified = $exactPublishedIdentity && package_remove_tree($destFs)
+                && !file_exists($destFs) && !is_link($destFs);
+            $ret['message'] = 'DB register failed: ' . $e->getMessage();
+            if (!$cleanupVerified) {
+                $ret['message'] .= $exactPublishedIdentity
+                    ? ' Exact published-tree cleanup could not be verified; inspect the theme target before retrying.'
+                    : ' The theme target changed after publication and was preserved because exact cleanup identity could not be verified.';
+            }
+            return $ret;
+        }
+
         if ($activate) {
             try {
                 set_site_active_theme($pdo, $finalFolder);
@@ -1537,16 +1877,26 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
                 if (defined('THEME_DEBUG') && THEME_DEBUG) error_log("[THEME] set_site_active_theme failed: " . $e->getMessage());
             }
         }
-    } catch (Throwable $e) {
-        helper_rrmdir($destFs);
-        $ret['message'] = 'DB register failed: ' . $e->getMessage();
-        return $ret;
-    }
 
-    $ret['success'] = true;
-    $ret['message'] = 'Theme installed';
-    $ret['folder'] = $finalFolder;
-    return $ret;
+        $ret['success'] = true;
+        $ret['message'] = 'Theme installed';
+        $ret['folder'] = $finalFolder;
+        $completedManifest = $manifestArray;
+        $completedManifest['folder'] = $finalFolder;
+        if (function_exists('do_action_isolated')) {
+            foreach (do_action_isolated('theme_install_completed', $finalFolder, $completedManifest) as $hookError) {
+                error_log('[theme_install_completed] ' . $hookError['message']);
+            }
+        }
+        return $ret;
+    } catch (Throwable $error) {
+        $ret['message'] = 'Theme installation failed safely: ' . $error->getMessage();
+        return $ret;
+    } finally {
+        $zip->close();
+        if (is_string($stage) && $stage !== '') package_remove_tree($stage);
+        theme_operation_release($operationLocks);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1565,40 +1915,6 @@ function helper_rrmdir($dir) {
     } catch (Throwable $e) {
         if (THEME_DEBUG) error_log('[THEME] helper_rrmdir error: ' . $e->getMessage());
     }
-}
-
-function helper_recurse_copy($src, $dst) {
-    $src = rtrim($src, '/\\');
-    $dst = rtrim($dst, '/\\');
-    if (!is_dir($src) || is_link($src)) return false;
-    if (!@mkdir($dst, 0755, true) && !is_dir($dst)) return false;
-    $dir = opendir($src);
-    if ($dir === false) return false;
-    while (false !== ($file = readdir($dir))) {
-        if ($file === '.' || $file === '..') continue;
-        $srcFile = $src . DIRECTORY_SEPARATOR . $file;
-        $dstFile = $dst . DIRECTORY_SEPARATOR . $file;
-        if (is_link($srcFile)) {
-            closedir($dir);
-            return false;
-        }
-        if (is_dir($srcFile)) {
-            if (!helper_recurse_copy($srcFile, $dstFile)) {
-                closedir($dir);
-                return false;
-            }
-        } elseif (is_file($srcFile)) {
-            if (!@copy($srcFile, $dstFile)) {
-                closedir($dir);
-                return false;
-            }
-        } else {
-            closedir($dir);
-            return false;
-        }
-    }
-    closedir($dir);
-    return true;
 }
 
 function helper_tree_has_only_regular_files(string $directory): bool {

@@ -186,6 +186,16 @@ post; it must not replace page-level metadata for the request. This keeps direct
 theme pages, assigned partials, preview tools, localization, and future extensions
 independent from one another.
 
+## Theme operation hooks
+
+Core uses a shared-reader/exclusive-writer contract for installed executable trees. Every normal public or dashboard request takes a shared reader on `0-theme-lifecycle` after the theme lock helper loads and holds it until shutdown, covering plugin bootstrap/routes and theme rendering. Install and update writers release their own request reader, acquire `0-theme-lifecycle` exclusively before exact folder locks, and revalidate state after acquisition. The shared lock is never upgraded in place, and same-request exclusive re-entry still fails fast. Update extensions contribute schema-1 issues through `theme_update_preflight($state, $folder, $cachedUpdate, $completeInstalledManifest, $pdo)`. An issue has a bounded ID, label/message, literal `blocking` and `resolved` flags, and optional state token, choices, safe relative links, and scalar details. Core, not listeners, computes whether the update is allowed and reruns the filter under the lock immediately before mutation.
+
+Locks are shared by a trusted deployment group: `theme-operation-locks` is setgid mode `02770`, lock files are `0660`, and every cooperating PHP/CLI worker must run with that group. Successful operations emit `theme_install_completed($folder, $completeManifest)` or `theme_update_completed($folder, $oldVersion, $newVersion, $completeManifest)` while still locked. Installed-theme cards emit `theme_manager_theme_actions($themeRow, $completePhysicalManifest, $context)`. These observers use `do_action_isolated()`, so one failing listener is logged without suppressing later listeners.
+
+Package updates publish without optional runtime extensions or platform-specific calls. Under the global exclusive lock, Core moves the exact old tree to a unique same-parent `.package-publication-recovery-*` path, moves the complete stage into place, and verifies old and new identities. The retained old path supports exact rollback through the same guarded two-rename strategy and is deleted only after post-publication work succeeds. If a process is killed between renames, the known-good old tree may remain at that named path while the target is absent. The next operation detects the residual and fails closed without deleting it; manual inspection and restoration are required. Shared readers prevent cooperating requests from observing the ordinary two-rename gap.
+
+Plugin deactivation and deletion/uninstall expose `plugin_state_change_preflight($state, $name, $operation)`. The state contains only a literal boolean `allowed` and a bounded safe `message`; malformed output and listener exceptions deny the operation. Single and bulk Plugin Manager operations call the same central plugin functions and cannot bypass this filter.
+
 ## Collection route contract
 
 Collection routes use the active Website Settings at request time. Core never

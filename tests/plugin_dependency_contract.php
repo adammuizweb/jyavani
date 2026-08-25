@@ -63,13 +63,61 @@ $check(!isset(jy_mail_transports()['failed_plugin_transport']), 'entrypoint fail
 
 $check(!plugin_disable('dependency-base') && str_contains(plugin_last_error(), 'dependency-child'), 'deactivation is blocked while an active dependent exists');
 $check(!plugin_delete('dependency-base') && is_dir(PLUGIN_PATH . '/dependency-base') && str_contains(plugin_last_error(), 'dependency-child'), 'deletion is blocked before filesystem changes while an active dependent exists');
+$denyDisable = static function (array $state, string $name, string $operation): array {
+    return $name === 'dependency-child' && $operation === 'disable'
+        ? ['allowed' => false, 'message' => 'Contract denied deactivation.']
+        : $state;
+};
+add_filter('plugin_state_change_preflight', $denyDisable);
+$check(!plugin_disable('dependency-child') && plugin_last_error() === 'Contract denied deactivation.', 'plugin disable enforces a valid generic state-change denial');
+$reverseDenial = static fn(array $state): array => ['allowed' => true, 'message' => ''];
+add_filter('plugin_state_change_preflight', $reverseDenial, 20);
+$check(!plugin_disable('dependency-child') && plugin_last_error() === 'Contract denied deactivation.', 'later preflight listeners cannot reverse an earlier denial');
+remove_filter('plugin_state_change_preflight', $reverseDenial, 20);
+remove_filter('plugin_state_change_preflight', $denyDisable);
+$malformedState = static fn(array $state): array => ['allowed' => 'yes', 'message' => ''];
+add_filter('plugin_state_change_preflight', $malformedState);
+$check(!plugin_disable('dependency-child') && str_contains(plugin_last_error(), 'denied'), 'malformed plugin state-change output fails closed');
+remove_filter('plugin_state_change_preflight', $malformedState);
+$throwingState = static function (array $state): array { throw new RuntimeException('preflight listener failed'); };
+add_filter('plugin_state_change_preflight', $throwingState);
+$check(!plugin_disable('dependency-child') && str_contains(plugin_last_error(), 'denied'), 'throwing plugin state-change listener fails closed');
+remove_filter('plugin_state_change_preflight', $throwingState);
 $check(plugin_disable('dependency-child') && plugin_disable('dependency-base'), 'dependencies can be deactivated after their dependents');
 $check(!plugin_enable('dependency-child') && str_contains(plugin_last_error(), 'inactive'), 'activation rejects an inactive dependency');
 $check(plugin_enable('dependency-base') && plugin_enable('dependency-child'), 'activation succeeds after compatible dependencies are active');
+$heldLifecycle = plugin_lifecycle_locks('dependency-child');
+$check(is_array($heldLifecycle) && !plugin_disable('dependency-child') && str_contains(plugin_last_error(), 'lock'), 'plugin lifecycle callback re-entry fails instead of waiting on its own global lock');
+if (is_array($heldLifecycle)) theme_operation_release($heldLifecycle);
 $check(plugin_replacement_dependency_errors('dependency-base', '2.0.0') !== [], 'replacement versions that would break active dependents are rejected');
 $check(plugin_order_names_by_dependencies(['dependency-child', 'dependency-base'], true) === ['dependency-base', 'dependency-child']
     && plugin_order_names_by_dependencies(['dependency-base', 'dependency-child'], false) === ['dependency-child', 'dependency-base'],
     'bulk activation is dependency-first while deactivation and uninstall are dependent-first');
+
+$writePlugin('preflight-delete', '1.0.0');
+$denyDelete = static function (array $state, string $name, string $operation): array {
+    return $name === 'preflight-delete' && $operation === 'delete'
+        ? ['allowed' => false, 'message' => 'Contract denied deletion.']
+        : $state;
+};
+add_filter('plugin_state_change_preflight', $denyDelete);
+$check(!plugin_delete('preflight-delete') && is_dir(PLUGIN_PATH . '/preflight-delete')
+    && plugin_last_error() === 'Contract denied deletion.', 'plugin delete denies before filesystem mutation');
+$check(!plugin_uninstall('preflight-delete', false) && is_dir(PLUGIN_PATH . '/preflight-delete'), 'plugin uninstall enforces delete preflight before uninstall listeners or files');
+remove_filter('plugin_state_change_preflight', $denyDelete);
+$writePlugin('isolated-uninstall', '1.0.0');
+$uninstallCleanupCalls = [];
+$throwingCleanup = static function (string $name): void {
+    if ($name === 'isolated-uninstall') throw new RuntimeException('cleanup failed');
+};
+$continuingCleanup = static function (string $name) use (&$uninstallCleanupCalls): void {
+    if ($name === 'isolated-uninstall') $uninstallCleanupCalls[] = $name;
+};
+add_action('plugin_uninstall', $throwingCleanup, 5);
+add_action('plugin_uninstall', $continuingCleanup, 10);
+$check(plugin_uninstall('isolated-uninstall', false) && $uninstallCleanupCalls === ['isolated-uninstall'], 'uninstall cleanup listeners are isolated so later cleanup still runs');
+remove_action('plugin_uninstall', $throwingCleanup, 5);
+remove_action('plugin_uninstall', $continuingCleanup, 10);
 
 $malformed = ['name' => 'bad-dependencies', 'requires' => ['plugins' => ['dependency-base']]];
 $check(plugin_requirement_errors($malformed) !== [], 'requires.plugins must be an object mapping slugs to constraints');
@@ -133,10 +181,19 @@ $uploadSource = (string)file_get_contents($root . '/dashboard/admin/plugins/uplo
 $browseSource = (string)file_get_contents($root . '/dashboard/admin/plugins/browse.php');
 $updateSource = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
 $managerSource = (string)file_get_contents($root . '/dashboard/admin/plugins/index.php');
-$check(str_contains($uploadSource, 'plugin_run_install_script($pluginDir)')
-    && str_contains($browseSource, 'plugin_run_install_script($pluginDir)')
+$registry = (string)file_get_contents($root . '/plugins/index.php');
+$check(str_contains($uploadSource, 'plugin_publish_staged_install_already_locked($prepared, $activatePlugin)')
+    && str_contains($browseSource, 'plugin_publish_staged_install_already_locked($prepared, $activatePlugin)')
+    && str_contains($registry, 'plugin_run_install_script($pluginDir)')
     && str_contains($updateSource, 'plugin_run_install_script($pluginDir)'),
     'ZIP upload, Store install, and Store update use the same install.sh runner');
+$check(str_contains($uploadSource, '$installLocks = plugin_lifecycle_locks($pluginName)')
+    && str_contains($browseSource, '$installLocks = plugin_lifecycle_locks($pluginName)')
+    && str_contains($updateSource, '$operationLocks = function_exists(\'plugin_lifecycle_locks\')')
+    && str_contains($registry, '_plugin_mark_disabled_already_locked($name)')
+    && strpos($registry, '_plugin_mark_disabled_already_locked($name)', strpos($registry, 'function plugin_publish_staged_install_already_locked'))
+        < strpos($registry, '@rename($stage, $pluginDir)', strpos($registry, 'function plugin_publish_staged_install_already_locked')),
+    'plugin ZIP upload, Store install, and Store update hold one top-level global-first lifecycle lock and use already-locked state helpers');
 $check(substr_count($updateSource, 'plugin_install_requirements_error_message($manifest, $strictPluginDependencies)') >= 1
     && str_contains($updateSource, 'plugin_install_requirements_error_message($packageManifest, $strictPluginDependencies)')
     && str_contains($updateSource, 'plugin_requirement_errors_without_plugin_state($requirementManifest)'),
@@ -147,6 +204,38 @@ $check(str_contains($managerSource, 'plugin_order_names_by_dependencies($pluginN
 $check(str_contains($managerSource, "'/plugins/icon/' . rawurlencode(\$name) . '/'")
     && !str_contains($managerSource, "'/plugins/static/' . rawurlencode(\$name)"),
     'plugin manager uses an extensionless icon URL that reaches Core behind static nginx rules');
+
+$allInstalledNames = array_keys(plugins_all());
+file_put_contents(PLUGIN_DISABLED_JSON, '{broken');
+$check(plugin_disabled_names() === $allInstalledNames, 'malformed plugin state fails closed by disabling every installed plugin');
+$stateLocks = plugin_lifecycle_locks('dependency-base');
+$stateReset = is_array($stateLocks) && _plugin_write_disabled_names_already_locked([]);
+if (is_array($stateLocks)) theme_operation_release($stateLocks);
+$check($stateReset && trim((string)file_get_contents(PLUGIN_DISABLED_JSON)) === '[]', 'plugin state replacement publishes one complete validated JSON document');
+$check(str_contains($registry, "fopen(\$temporary, 'x+b')") && str_contains($registry, 'fflush($handle)')
+    && str_contains($registry, 'fsync($handle)') && str_contains($registry, 'rename($temporary, $file)'),
+    'plugin disabled state uses same-directory exclusive flush/fsync/rename replacement');
+
+require_once $root . '/app/controllers/PluginStoreController.php';
+$writePluginTransient = new ReflectionMethod(PluginStoreController::class, 'writeTransient');
+$removePluginUpdate = new ReflectionMethod(PluginStoreController::class, 'removeCachedUpdate');
+$writePluginTransient->invoke(null, ['updates' => ['dependency-base' => [
+    'current_version' => '1.0.0', 'new_version' => '3.0.0', 'actionable' => true, 'checked_at' => time(),
+]]]);
+$removePluginUpdate->invoke(null, 'dependency-base', '2.0.0');
+$check((PluginStoreController::getCachedUpdates()['dependency-base']['new_version'] ?? '') === '3.0.0', 'plugin completion retains a genuinely newer discovered update');
+$removePluginUpdate->invoke(null, 'dependency-base', '3.0.0');
+$check(!isset(PluginStoreController::getCachedUpdates()['dependency-base']), 'plugin completion removes exactly the installed update generation');
+$check(str_contains($updateSource, 'package_guarded_publish($stage, $pluginDir, $oldIdentity, $newIdentity)')
+    && str_contains($updateSource, 'package_guarded_rollback($pluginDir, $rollbackPath, $oldIdentity)')
+    && str_contains($updateSource, 'package_guarded_finalize($pluginDir, $rollbackPath, $oldIdentity)')
+    && !str_contains(substr($updateSource, (int)strpos($updateSource, 'private static function applyUpdateAlreadyLocked'), 15000), 'extractTo('),
+    'plugin updates guard complete-tree publication, exact rollback, and final old-tree cleanup');
+$firstPluginRecovery = package_private_directory(BACKEND_PATH . '/var', 'plugin-dependency-base-recovery');
+file_put_contents($firstPluginRecovery . '/preserved.marker', 'recovery');
+$secondPluginRecovery = package_private_directory(BACKEND_PATH . '/var', 'plugin-dependency-base-recovery');
+$check($firstPluginRecovery !== $secondPluginRecovery && is_file($firstPluginRecovery . '/preserved.marker')
+    && is_dir($secondPluginRecovery), 'plugin recovery attempts never reuse or overwrite a preserved artifact');
 
 $layout = (string)file_get_contents($root . '/app/layout.php');
 $faviconBranch = strpos($layout, 'if ($faviconUrl !== \'\'):');

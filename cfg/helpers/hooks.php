@@ -37,6 +37,32 @@ function do_action(string $name, mixed ...$args): void {
     }
 }
 
+/** Run all action listeners independently and return structured listener errors. */
+function do_action_isolated(string $name, mixed ...$args): array {
+    $errors = [];
+    foreach (array_merge([$name], _hook_legacy_aliases($name)) as $hookName) {
+        $hooks = $GLOBALS['_hooks']['actions'][$hookName] ?? [];
+        ksort($hooks);
+        foreach ($hooks as $priority => $listeners) {
+            foreach ($listeners as $index => $listener) {
+                try {
+                    call_user_func($listener, ...$args);
+                } catch (Throwable $error) {
+                    $errors[] = [
+                        'hook' => $hookName,
+                        'priority' => (int)$priority,
+                        'listener' => (int)$index,
+                        'exception' => get_class($error),
+                        'message' => $error->getMessage(),
+                        'code' => $error->getCode(),
+                    ];
+                }
+            }
+        }
+    }
+    return $errors;
+}
+
 function add_filter(string $name, callable $callback, int $priority = 10): void {
     $GLOBALS['_hooks']['filters'][$name][$priority][] = $callback;
 }

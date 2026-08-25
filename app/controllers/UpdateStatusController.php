@@ -81,7 +81,7 @@ final class UpdateStatusController
 
         $plugins = [];
         foreach ($pluginUpdates as $name => $info) {
-            if (!is_array($info)) continue;
+            if (!is_array($info) || ($info['actionable'] ?? true) !== true) continue;
             $plugins[] = [
                 'name' => (string)$name,
                 'current' => (string)($info['current_version'] ?? '?'),
@@ -90,7 +90,7 @@ final class UpdateStatusController
         }
         $themes = [];
         foreach ($themeUpdates as $folder => $info) {
-            if (!is_array($info)) continue;
+            if (!is_array($info) || ($info['actionable'] ?? true) !== true) continue;
             $themes[] = [
                 'name' => (string)$folder,
                 'current' => (string)($info['current_version'] ?? '?'),
@@ -207,8 +207,22 @@ final class UpdateStatusController
                         'error' => null,
                     ];
                 }
-            } elseif (in_array($component, ['plugins', 'themes'], true) && $name !== '') {
-                unset($snapshot['components'][$component]['updates'][$name]);
+            } elseif ($component === 'themes' && $name !== '' && $installedVersion === null) {
+                unset($snapshot['components']['themes']['updates'][$name]);
+            } elseif ($component === 'themes' && $name !== '' && is_string($installedVersion) && $installedVersion !== '') {
+                $update = $snapshot['components']['themes']['updates'][$name] ?? null;
+                if (is_array($update) && version_compare((string)($update['new_version'] ?? ''), $installedVersion, '>')) {
+                    $snapshot['components']['themes']['updates'][$name]['current_version'] = $installedVersion;
+                } else {
+                    unset($snapshot['components']['themes']['updates'][$name]);
+                }
+            } elseif ($component === 'plugins' && $name !== '' && is_string($installedVersion) && $installedVersion !== '') {
+                $update = $snapshot['components']['plugins']['updates'][$name] ?? null;
+                if (is_array($update) && version_compare((string)($update['new_version'] ?? ''), $installedVersion, '>')) {
+                    $snapshot['components']['plugins']['updates'][$name]['current_version'] = $installedVersion;
+                } else {
+                    unset($snapshot['components']['plugins']['updates'][$name]);
+                }
             }
             $snapshot = self::withSummary($snapshot);
             self::writeSnapshot($snapshot);
@@ -282,8 +296,11 @@ final class UpdateStatusController
     {
         require_once __DIR__ . '/ThemeStoreClient.php';
         try {
-            if (!is_callable($provider) && function_exists('register_all_themes_from_fs')) register_all_themes_from_fs($pdo);
-            $result = is_callable($provider) ? $provider($pdo) : ThemeStoreClient::checkUpdatesDetailed($pdo);
+            if (is_callable($provider)) {
+                $result = $provider($pdo);
+            } else {
+                $result = ThemeStoreClient::checkUpdatesDetailed($pdo);
+            }
             return self::normalizeCollectionResult($result, $previous, $now);
         } catch (Throwable $error) {
             return array_replace($previous, ['state' => 'error', 'checked_at' => $now, 'error' => 'theme_check_failed']);
@@ -349,9 +366,11 @@ final class UpdateStatusController
         $core = $snapshot['components']['core'] ?? [];
         $plugins = $snapshot['components']['plugins']['updates'] ?? [];
         $themes = $snapshot['components']['themes']['updates'] ?? [];
-        $snapshot['total'] = (($core['has_update'] ?? false) === true ? 1 : 0)
-            + (is_array($plugins) ? count($plugins) : 0)
-            + (is_array($themes) ? count($themes) : 0);
+        $plugins = is_array($plugins) ? array_filter($plugins, static fn(mixed $update): bool => is_array($update) && ($update['actionable'] ?? true) === true) : [];
+        $themes = is_array($themes) ? array_filter($themes, static fn(mixed $update): bool => is_array($update) && ($update['actionable'] ?? true) === true) : [];
+        $snapshot['total'] = (($core['has_update'] ?? false) === true && ($core['actionable'] ?? true) === true ? 1 : 0)
+            + count($plugins)
+            + count($themes);
         $snapshot['generation'] = hash('sha256', json_encode([
             $core['current'] ?? '', $core['latest'] ?? '', array_keys(is_array($plugins) ? $plugins : []), array_keys(is_array($themes) ? $themes : []),
         ], JSON_UNESCAPED_SLASHES));

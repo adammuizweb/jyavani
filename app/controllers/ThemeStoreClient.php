@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once dirname(__DIR__, 2) . '/cfg/helpers/package_archive.php';
 
 class ThemeStoreClient
 {
@@ -10,18 +11,45 @@ class ThemeStoreClient
     private const MAX_ENTRY_BYTES = 64 * 1024 * 1024;
     private const MAX_TOTAL_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
     private const MAX_COMPRESSION_RATIO = 200;
+    private const MAX_DECISIONS = 64;
+    private const MAX_ISSUES = 64;
 
     public static function checkUpdates(PDO $pdo): array
     {
         return self::checkUpdatesDetailed($pdo)['updates'];
     }
 
-    public static function checkUpdatesDetailed(PDO $pdo): array
+    public static function checkUpdatesDetailed(PDO $pdo, ?array $themes = null): array
     {
-        $transient = self::readTransient();
-        $themes = self::scanThemes($pdo);
-        $updates = $transient['updates'] ?? [];
+        self::loadThemeHelpers();
+        $scanFolders = theme_registration_lock_folders($pdo);
+        if (is_array($themes)) $scanFolders = array_merge($scanFolders, array_keys($themes));
+        $scanLocks = theme_operation_acquire(theme_lifecycle_lock_keys($scanFolders));
+        try {
+            if ($themes === null) {
+                if (function_exists('register_all_themes_from_fs')) register_all_themes_from_fs($pdo);
+                $themes = self::scanInstalledThemes($pdo);
+            }
+            $transient = self::readTransient();
+            $baselineGeneration = (string)($transient['generation'] ?? '');
+            $baselineUpdates = is_array($transient['updates'] ?? null) ? $transient['updates'] : [];
+            $baselineInstalledVersions = is_array($transient['installed_versions'] ?? null) ? $transient['installed_versions'] : [];
+            $baselinePhysical = [];
+            foreach (array_keys($themes) as $folder) {
+                try {
+                    $physical = self::readPhysicalManifest((string)$folder)['manifest'];
+                    $baselinePhysical[(string)$folder] = hash('sha256', json_encode($physical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                    $themes[$folder] = $physical;
+                } catch (Throwable $error) {
+                    unset($themes[$folder]);
+                }
+            }
+        } finally {
+            theme_operation_release($scanLocks);
+        }
+        $updates = $baselineUpdates;
         $eligible = [];
+        $observed = [];
         $fetched = 0;
         $failed = [];
         $now = time();
@@ -37,18 +65,20 @@ class ThemeStoreClient
             $latest = self::fetchVersionInfo($storeUrl . '/' . $storeSlug . '/version.json');
             if ($latest === null || !is_string($latest['version'] ?? null) || trim($latest['version']) === '') {
                 $failed[] = $folder;
+                $observed[$folder] = false;
                 if (isset($updates[$folder]) && is_array($updates[$folder])) $updates[$folder]['actionable'] = false;
                 continue;
             }
             if (!is_string($latest['checksum'] ?? null) || preg_match('/^[a-f0-9]{64}$/i', $latest['checksum']) !== 1) {
                 $failed[] = $folder;
+                $observed[$folder] = false;
                 if (isset($updates[$folder]) && is_array($updates[$folder])) $updates[$folder]['actionable'] = false;
                 continue;
             }
             $fetched++;
 
             if (version_compare($latest['version'] ?? '0.0.0', $currentVersion, '>')) {
-                $updates[$folder] = [
+                $observed[$folder] = $updates[$folder] = [
                     'current_version' => $currentVersion,
                     'new_version' => $latest['version'],
                     'download_url' => $latest['download_url'] ?? ($storeUrl . '/download/' . $storeSlug . '/'),
@@ -60,6 +90,7 @@ class ThemeStoreClient
                     'actionable' => true,
                 ];
             } else {
+                $observed[$folder] = null;
                 unset($updates[$folder]);
             }
         }
@@ -67,14 +98,95 @@ class ThemeStoreClient
         $updates = array_intersect_key($updates, $eligible);
         $state = $failed === [] ? 'ok' : ($fetched > 0 ? 'partial' : 'error');
         if ($eligible === []) $state = 'ok';
-        $transient['last_attempt'] = $now;
-        if ($state !== 'error') $transient['last_check'] = $now;
-        $transient['state'] = $state;
-        $transient['errors'] = $failed;
-        $transient['updates'] = $updates;
-        self::writeTransient($transient);
+        $commitLocks = theme_operation_acquire(theme_lifecycle_lock_keys(array_keys($themes)));
+        try {
+            $currentPhysical = [];
+            foreach (array_keys($themes) as $folder) {
+                try {
+                    $physical = self::readPhysicalManifest((string)$folder)['manifest'];
+                    $currentPhysical[(string)$folder] = hash('sha256', json_encode($physical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                } catch (Throwable $error) {
+                    $currentPhysical[(string)$folder] = null;
+                }
+            }
+            $committed = self::mutateTransient(static function (array $current) use (
+                $baselineGeneration, $baselineUpdates, $baselineInstalledVersions, $baselinePhysical, $currentPhysical,
+                $eligible, $observed, $state, $failed, $now
+            ): array {
+            $currentUpdates = is_array($current['updates'] ?? null) ? $current['updates'] : [];
+            $installedVersions = is_array($current['installed_versions'] ?? null) ? $current['installed_versions'] : [];
+            $generationChanged = (string)($current['generation'] ?? '') !== $baselineGeneration;
 
-        return ['state' => $state, 'updates' => $updates, 'errors' => $failed];
+            foreach ($eligible as $folder => $_) {
+                if (!array_key_exists($folder, $observed)) continue;
+                $result = $observed[$folder];
+                $baseline = $baselineUpdates[$folder] ?? null;
+                $present = $currentUpdates[$folder] ?? null;
+                if (($currentPhysical[$folder] ?? null) === null) {
+                    unset($currentUpdates[$folder]);
+                    continue;
+                }
+                if (($currentPhysical[$folder] ?? null) !== ($baselinePhysical[$folder] ?? null)) {
+                    if (!$generationChanged || $present === $baseline) unset($currentUpdates[$folder]);
+                    continue;
+                }
+                if ($result === false) {
+                    if (!$generationChanged || $present === $baseline) {
+                        if (is_array($present)) $currentUpdates[$folder]['actionable'] = false;
+                    }
+                    continue;
+                }
+                if ($result === null) {
+                    if (!$generationChanged || $present === $baseline) unset($currentUpdates[$folder]);
+                    continue;
+                }
+
+                $candidate = $result;
+                $installedVersion = is_string($installedVersions[$folder] ?? null) ? $installedVersions[$folder] : '';
+                $installedDuringCheck = $generationChanged
+                    && $installedVersion !== (is_string($baselineInstalledVersions[$folder] ?? null) ? $baselineInstalledVersions[$folder] : '');
+                if ($installedDuringCheck && $installedVersion !== ''
+                    && version_compare($installedVersion, (string)$candidate['current_version'], '>')) {
+                    if (version_compare((string)$candidate['new_version'], $installedVersion, '>')) {
+                        $candidate['current_version'] = $installedVersion;
+                    } else {
+                        if (!is_array($present)
+                            || !version_compare((string)($present['new_version'] ?? ''), $installedVersion, '>')) {
+                            unset($currentUpdates[$folder]);
+                        }
+                        continue;
+                    }
+                }
+                if (is_array($present)) {
+                    $comparison = version_compare((string)($present['new_version'] ?? ''), (string)$candidate['new_version']);
+                    if ($comparison > 0 || ($comparison === 0 && $generationChanged && $present !== $baseline)) {
+                        continue;
+                    }
+                }
+                $currentUpdates[$folder] = $candidate;
+            }
+
+            $current['last_attempt'] = $now;
+            if ($state !== 'error') $current['last_check'] = $now;
+            $current['state'] = $state;
+            $current['errors'] = $failed;
+            if ($generationChanged) {
+                foreach ($baselineUpdates as $folder => $baseline) {
+                    if (!isset($eligible[$folder]) && ($currentUpdates[$folder] ?? null) === $baseline) {
+                        unset($currentUpdates[$folder]);
+                    }
+                }
+                $current['updates'] = $currentUpdates;
+            } else {
+                $current['updates'] = array_intersect_key($currentUpdates, $eligible);
+            }
+            return $current;
+            });
+        } finally {
+            theme_operation_release($commitLocks);
+        }
+
+        return ['state' => $state, 'updates' => $committed['updates'] ?? [], 'errors' => $failed];
     }
 
     public static function getCachedUpdates(): array
@@ -87,260 +199,497 @@ class ThemeStoreClient
             && (int)($update['checked_at'] ?? 0) >= $freshAfter);
     }
 
-    public static function applyUpdate(PDO $pdo, string $folderName, string $progressToken = ''): array
+    public static function forgetInstalledTheme(string $folder): void
     {
-        if (preg_match('/\A[a-zA-Z0-9_-][a-zA-Z0-9._-]*\z/', $folderName) !== 1 || in_array($folderName, ['.', '..'], true)) {
+        if (!self::validFolder($folder)) return;
+        self::mutateTransient(static function (array $transient) use ($folder): array {
+            unset($transient['updates'][$folder], $transient['installed_versions'][$folder]);
+            return $transient;
+        });
+    }
+
+    public static function preflightUpdate(PDO $pdo, string $folder, array $decisions = []): array
+    {
+        if (!self::validFolder($folder)) return self::safePreflightError('Invalid theme name.');
+        $locks = [];
+        try {
+            self::loadThemeHelpers();
+            $normalizedDecisions = self::normalizeDecisions($decisions);
+            $locks = theme_operation_acquire(theme_lifecycle_lock_keys([$folder]));
+            $update = self::actionableUpdate($folder);
+            if ($update === null) {
+                return self::safePreflightError('No update available for "' . $folder . '". Run "Check for Updates" first.');
+            }
+            $installed = self::readPhysicalManifest($folder);
+            return array_merge(['success' => true], self::runPreflight($pdo, $folder, $update, $installed['manifest'], $normalizedDecisions));
+        } catch (Throwable $error) {
+            error_log('[theme-update-preflight] ' . $error->getMessage());
+            return self::safePreflightError('Unable to validate this theme update safely.');
+        } finally {
+            if (function_exists('theme_operation_release')) theme_operation_release($locks);
+        }
+    }
+
+    public static function applyUpdate(PDO $pdo, string $folderName, string $progressToken = '', array $decisions = []): array
+    {
+        if (!self::validFolder($folderName)) {
+            if ($progressToken !== '') self::writeProgress($progressToken, 0, __('Invalid theme name.'), true, __('Invalid theme name.'));
             return ['success' => false, 'error' => 'Invalid theme name.'];
         }
         require_once __DIR__ . '/UpdateStatusController.php';
-        if (!UpdateStatusController::isUpdateActionable('themes', $folderName)) {
-            $error = 'No update available for "' . $folderName . '". Run "Check for Updates" first.';
-            if ($progressToken !== '') self::writeProgress($progressToken, 0, __('No update available.'), true, $error);
-            return ['success' => false, 'error' => $error];
-        }
-        $updates = self::getCachedUpdates();
-        $themeName = $folderName;
-
-        if (!isset($updates[$themeName])) {
-            if ($progressToken !== '') {
-                self::writeProgress($progressToken, 0, __('No update available.'), true, __('Run "Check for Updates" first.'));
-            }
-            return ['success' => false, 'error' => 'No update available for "' . $themeName . '". Run "Check for Updates" first.'];
-        }
-
-        $update = $updates[$themeName];
-        $themesRoot = realpath(rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR));
-        $themeCandidate = rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $folderName;
-        $themeDir = realpath($themeCandidate);
-        if ($themesRoot === false || $themeDir === false || is_link($themeCandidate)
-            || ($themeDir !== $themesRoot && !str_starts_with($themeDir, $themesRoot . DIRECTORY_SEPARATOR))) {
-            if ($progressToken !== '') {
-                self::writeProgress($progressToken, 0, __('Theme directory not found.'), true, __('Theme directory not found.'));
-            }
-            return ['success' => false, 'error' => 'Theme directory not found.'];
-        }
-
-        $p = function ($pct, $status) use ($progressToken) {
+        $p = static function (int $pct, string $status) use ($progressToken): void {
             if ($progressToken !== '') self::writeProgress($progressToken, $pct, $status);
         };
-
-        $p(3, __('Starting update...'));
-
-        $p(8, __('Backing up current theme...'));
-        $backupVersion = preg_replace('/[^0-9A-Za-z._-]+/', '-', (string)$update['current_version']);
-        $backupVersion = trim((string)$backupVersion, '-');
-        if ($backupVersion === '') $backupVersion = 'unknown';
-        $backupDir = dirname(self::transientFile()) . '/theme-backups/' . $folderName . '-' . $backupVersion;
-        if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true) && !is_dir($backupDir)) {
-            return ['success' => false, 'error' => __('Failed to create theme backup directory.')];
-        }
-        $backupFile = $backupDir . '/backup.zip';
-        $zip = new ZipArchive();
-        if ($zip->open($backupFile, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            self::removeTree($backupDir);
-            return ['success' => false, 'error' => __('Failed to create theme backup.')];
-        }
-        $backupOk = true;
-        $files = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($themeDir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::LEAVES_ONLY
-        );
-        foreach ($files as $file) {
-            if ($file->isLink() || !$file->isFile()) {
-                $backupOk = false;
-                break;
-            }
-            $localPath = substr($file->getPathname(), strlen($themeDir) + 1);
-            if (!$zip->addFile($file->getPathname(), $localPath)) {
-                $backupOk = false;
-                break;
-            }
-        }
-        if (!$zip->close() || !$backupOk || !is_file($backupFile)) {
-            self::removeTree($backupDir);
-            return ['success' => false, 'error' => __('Failed to create complete theme backup.')];
-        }
-
-        $tmpZip = self::downloadPackage((string)$update['download_url'], $p);
-        if ($tmpZip === null) {
-            self::removeTree($backupDir);
-            self::writeProgress($progressToken, 0, __('Failed to download update.'), true, __('Failed to download update from store.'));
-            return ['success' => false, 'error' => __('Failed to download update from store.')];
-        }
-        if (!is_string($update['checksum'] ?? null)
-            || preg_match('/^[a-f0-9]{64}$/i', (string)$update['checksum']) !== 1
-            || !hash_equals(strtolower((string)$update['checksum']), hash_file('sha256', $tmpZip))) {
-            @unlink($tmpZip);
-            self::removeTree($backupDir);
-            self::writeProgress($progressToken, 0, __('Invalid update package.'), true, __('Invalid update package.'));
-            return ['success' => false, 'error' => __('Invalid update package.')];
-        }
-
-        $p(35, __('Download complete. Verifying package...'));
-
-        $zip = new ZipArchive();
-        if ($zip->open($tmpZip) !== true) {
-            unlink($tmpZip);
-            self::removeTree($backupDir);
-            self::writeProgress($progressToken, 0, __('Invalid update package.'), true, __('Invalid update package.'));
-            return ['success' => false, 'error' => __('Invalid update package.')];
-        }
-
-        $manifestRaw = $zip->getFromName('theme.json');
-        if ($manifestRaw === false) {
-            $zip->close(); unlink($tmpZip);
-            self::removeTree($backupDir);
-            self::writeProgress($progressToken, 0, __('theme.json not found in package.'), true);
-            return ['success' => false, 'error' => __('theme.json not found in package.')];
-        }
-
-        $manifest = json_decode($manifestRaw, true);
-        $manifestFolder = is_array($manifest) ? (string)($manifest['folder'] ?? $manifest['name'] ?? '') : '';
-        if (!is_array($manifest) || $manifestFolder !== $folderName
-            || !is_string($manifest['version'] ?? null)
-            || version_compare($manifest['version'], (string)$update['new_version'], '!=')) {
-            $zip->close(); unlink($tmpZip);
-            self::removeTree($backupDir);
-            self::writeProgress($progressToken, 0, __('Invalid theme.json.'), true);
-            return ['success' => false, 'error' => __('Invalid theme.json.')];
-        }
-
-        $filesToExtract = [];
-        $logicalTargets = [];
-        $totalUncompressedBytes = 0;
-        if ($zip->numFiles <= 0 || $zip->numFiles > self::MAX_ARCHIVE_ENTRIES) {
-            $zip->close(); unlink($tmpZip);
-            self::removeTree($backupDir);
-            self::writeProgress($progressToken, 0, __('Invalid update package.'), true);
-            return ['success' => false, 'error' => __('Invalid update package.')];
-        }
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $entryStat = $zip->statIndex($i);
-            $filename = str_replace('\\', '/', (string)($entryStat['name'] ?? ''));
-            $segments = explode('/', rtrim($filename, '/'));
-            $entryBytes = max(0, (int)($entryStat['size'] ?? 0));
-            $compressedBytes = max(0, (int)($entryStat['comp_size'] ?? 0));
-            $totalUncompressedBytes += $entryBytes;
-            $compressionRatio = $compressedBytes > 0 ? $entryBytes / $compressedBytes : ($entryBytes > 0 ? INF : 1);
-            if ($filename === '' || str_contains($filename, "\0") || str_starts_with($filename, '/')
-                || preg_match('/^[A-Za-z]:/', $filename) === 1 || in_array('', $segments, true)
-                || in_array('.', $segments, true) || in_array('..', $segments, true)
-                || !self::zipEntryTypeIsSafe($zip, $i, str_ends_with($filename, '/'))
-                || $entryBytes > self::MAX_ENTRY_BYTES || $totalUncompressedBytes > self::MAX_TOTAL_UNCOMPRESSED_BYTES
-                || ($entryBytes > 1024 * 1024 && $compressionRatio > self::MAX_COMPRESSION_RATIO)) {
-                $zip->close(); unlink($tmpZip);
-                self::removeTree($backupDir);
-                self::writeProgress($progressToken, 0, __('Invalid update package.'), true);
-                return ['success' => false, 'error' => __('Invalid update package.')];
-            }
-            if (str_ends_with($filename, '/')) continue;
-            $relative = preg_replace('#^' . preg_quote($folderName, '#') . '/#', '', $filename, 1);
-            if (!is_string($relative) || $relative === '' || $relative === '.store.json'
-                || $relative === '.git' || str_starts_with($relative, '.git/') || isset($logicalTargets[$relative])) {
-                $zip->close(); unlink($tmpZip);
-                self::removeTree($backupDir);
-                self::writeProgress($progressToken, 0, __('Invalid update package.'), true);
-                return ['success' => false, 'error' => __('Invalid update package.')];
-            }
-            $logicalTargets[$relative] = true;
-            $filesToExtract[] = ['source' => $filename, 'relative' => $relative];
-        }
-
-        $p(45, __('Cleaning old files...'));
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($themeDir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-        foreach ($it as $f) {
-            $rel = substr($f->getPathname(), strlen($themeDir) + 1);
-            if ($rel === '.store.json' || $rel === '.git' || str_starts_with($rel, '.git/')) continue;
-            $removed = $f->isLink() || !$f->isDir() ? @unlink($f->getPathname()) : @rmdir($f->getPathname());
-            if (!$removed && file_exists($f->getPathname())) {
-                $zip->close(); unlink($tmpZip);
-                self::restoreBackup($themeDir, $backupFile);
-                self::writeProgress($progressToken, 0, __('Invalid update package.'), true);
-                return ['success' => false, 'error' => __('Invalid update package.')];
-            }
-        }
-
-        $p(55, __('Installing update files...'));
-        $totalFiles = count($filesToExtract);
-        $extractFailed = false;
-        foreach ($filesToExtract as $i => $file) {
-            $filename = $file['source'];
-            $relative = $file['relative'];
-            $target = self::safeThemeTarget($themeDir, $relative);
-            if ($target === null) { $extractFailed = true; break; }
-            $targetDir = dirname($target);
-            if (!is_dir($targetDir) && !mkdir($targetDir, 0755, true) && !is_dir($targetDir)) {
-                $extractFailed = true;
-                break;
-            }
-            if (self::safeThemeTarget($themeDir, $relative) !== $target) { $extractFailed = true; break; }
-            $copied = @copy('zip://' . $tmpZip . '#' . $filename, $target);
-            if (!$copied) { $extractFailed = true; break; }
-            if ($progressToken !== '' && $totalFiles > 0 && (($i + 1) % max(1, intdiv($totalFiles, 20)) === 0 || $i + 1 === $totalFiles)) {
-                $pct = 55 + (int)(30 * ($i + 1) / $totalFiles);
-                $p($pct, __('Installing file') . ' (' . ($i + 1) . '/' . $totalFiles . ')...');
-            }
-        }
-        $zip->close();
-
-        if ($extractFailed) {
-            $p(0, __('Failed! Restoring backup...'));
-            $restored = self::restoreBackup($themeDir, $backupFile);
-            unlink($tmpZip);
-            $error = $restored ? __('Failed to extract update. Backup has been restored.') : __('Invalid update package.');
-            self::writeProgress($progressToken, 0, $error, true);
-            return ['success' => false, 'error' => $error];
-        }
-
-        unlink($tmpZip);
-
-        $installedManifestPath = $themeDir . '/theme.json';
-        $installedManifest = is_file($installedManifestPath) ? json_decode((string)file_get_contents($installedManifestPath), true) : null;
-        $installedFolder = is_array($installedManifest) ? (string)($installedManifest['folder'] ?? $installedManifest['name'] ?? '') : '';
-        if (!is_array($installedManifest) || $installedFolder !== $folderName
-            || !is_string($installedManifest['version'] ?? null)
-            || version_compare($installedManifest['version'], (string)$update['new_version'], '!=')) {
-            $restored = self::restoreBackup($themeDir, $backupFile);
-            $error = $restored ? __('Failed to extract update. Backup has been restored.') : __('Invalid update package.');
-            self::writeProgress($progressToken, 0, $error, true);
-            return ['success' => false, 'error' => $error];
-        }
-
-        $p(88, __('Updating theme manifest...'));
+        $fail = static function (string $error, ?string $code = null, array $extra = []) use ($progressToken): array {
+            self::writeProgress($progressToken, 0, $error, true, $error);
+            return array_merge(['success' => false, 'error' => $error], $code === null ? [] : ['code' => $code], $extra);
+        };
+        $locks = [];
+        $tmpZip = null;
+        $stage = null;
+        $themeDir = null;
+        $oldIdentity = null;
+        $oldManifest = null;
+        $rollbackPath = null;
+        $swapped = false;
         try {
-            if (!register_theme_in_db($pdo, $folderName, $installedManifest)) {
-                throw new RuntimeException('Theme registration failed.');
+            self::loadThemeHelpers();
+            $normalizedDecisions = self::normalizeDecisions($decisions);
+            $locks = theme_operation_acquire(theme_lifecycle_lock_keys([$folderName]));
+            $update = self::actionableUpdate($folderName);
+            if ($update === null) return $fail('No update available for "' . $folderName . '". Run "Check for Updates" first.');
+            $installedBefore = self::readPhysicalManifest($folderName);
+            $themeDir = $installedBefore['directory'];
+            $oldManifest = $installedBefore['manifest'];
+            $oldVersion = (string)($oldManifest['version'] ?? '');
+            if ($oldVersion === '' || !hash_equals((string)($update['current_version'] ?? ''), $oldVersion)) {
+                return $fail(__('Installed theme version changed. Run "Check for Updates" again.'));
             }
-        } catch (Throwable $error) {
-            error_log('[theme-update] Unable to register updated theme: ' . $error->getMessage());
-            $restored = self::restoreBackup($themeDir, $backupFile);
-            if ($restored) {
-                $restoredManifest = json_decode((string)@file_get_contents($themeDir . '/theme.json'), true);
-                if (is_array($restoredManifest)) {
-                    try {
-                        register_theme_in_db($pdo, $folderName, $restoredManifest);
-                    } catch (Throwable $restoreError) {
-                        error_log('[theme-update] Unable to restore theme database metadata: ' . $restoreError->getMessage());
-                    }
+            $preflight = self::runPreflight($pdo, $folderName, $update, $oldManifest, $normalizedDecisions);
+            if (!$preflight['allowed']) {
+                return $fail(__('Theme update requirements must be resolved before continuing.'), 'theme_update_preflight_required', ['issues' => $preflight['issues']]);
+            }
+            $oldIdentity = package_tree_identity($themeDir);
+            if ($oldIdentity === null) return $fail(__('Installed theme tree contains unsupported entries.'));
+
+            $p(18, __('Downloading update package...'));
+            $tmpZip = self::downloadPackage((string)$update['download_url'], $p);
+            if ($tmpZip === null) return $fail(__('Failed to download update from store.'));
+            if (!is_string($update['checksum'] ?? null) || preg_match('/\A[a-f0-9]{64}\z/i', (string)$update['checksum']) !== 1
+                || !hash_equals(strtolower((string)$update['checksum']), (string)hash_file('sha256', $tmpZip))) {
+                return $fail(__('Invalid update package.'));
+            }
+            $zip = new ZipArchive();
+            if ($zip->open($tmpZip) !== true) return $fail(__('Invalid update package.'));
+            $validation = package_archive_validate($zip);
+            if (!$validation['success']) { $zip->close(); return $fail($validation['error']); }
+            $manifestIndex = $zip->locateName('theme.json', ZipArchive::FL_NOCASE);
+            if ($manifestIndex === false || (string)($zip->statIndex($manifestIndex)['name'] ?? '') !== 'theme.json') {
+                $zip->close();
+                return $fail(__('theme.json not found in package.'));
+            }
+            $manifestRaw = $zip->getFromIndex($manifestIndex);
+            $manifest = is_string($manifestRaw) ? json_decode($manifestRaw, true) : null;
+            $identityMatches = is_array($manifest) && (!array_key_exists('folder', $manifest)
+                || (is_string($manifest['folder']) && hash_equals($folderName, $manifest['folder'])));
+            if (!is_array($manifest) || !$identityMatches || !is_string($manifest['version'] ?? null)
+                || version_compare($manifest['version'], (string)$update['new_version'], '!=')
+                || validate_theme_manifest($manifest) !== []) {
+                $zip->close();
+                return $fail(__('Invalid theme.json.'));
+            }
+            $files = [];
+            $hasPhp = false;
+            foreach ($validation['entries'] as $entry) {
+                if ($entry['directory']) continue;
+                $relative = $entry['path'];
+                $relativeKey = strtolower($relative);
+                if ($relativeKey === '.store.json' || $relativeKey === '.git' || str_starts_with($relativeKey, '.git/')) {
+                    $zip->close();
+                    return $fail(__('Invalid update package.'));
+                }
+                if (strtolower((string)pathinfo($relative, PATHINFO_EXTENSION)) === 'php') $hasPhp = true;
+                $files[] = ['source' => $entry['source'], 'relative' => $relative];
+            }
+            if (!$hasPhp) { $zip->close(); return $fail(__('Invalid update package.')); }
+            $stage = package_private_directory(dirname($themeDir), 'theme-stage-' . $folderName);
+            if ($stage === null) { $zip->close(); return $fail(__('Failed to create theme staging directory.')); }
+            $p(55, __('Installing update files to staging...'));
+            $extracted = package_archive_extract_files($zip, $files, $stage);
+            $zip->close();
+            @unlink($tmpZip);
+            $tmpZip = null;
+            if (!$extracted || !package_chmod_tree($stage)
+                || !package_copy_preserved_paths($themeDir, $stage, ['.store.json', '.git'])) {
+                return $fail(__('Failed to build the complete theme staging tree.'));
+            }
+            $stagedRaw = @file_get_contents($stage . '/theme.json');
+            $stagedManifest = is_string($stagedRaw) ? json_decode($stagedRaw, true) : null;
+            if (!is_array($stagedManifest) || $stagedManifest !== $manifest || package_tree_identity($stage) === null) {
+                return $fail(__('Staged theme verification failed.'));
+            }
+            $p(80, __('Publishing complete theme tree...'));
+            $newIdentity = package_tree_identity($stage);
+            if ($newIdentity === null) return $fail(__('Staged theme identity verification failed.'));
+            $publication = package_guarded_publish($stage, $themeDir, $oldIdentity, $newIdentity);
+            if (!$publication['success']) {
+                $recovery = $publication['recovery_paths'][0] ?? null;
+                return $fail($publication['restored']
+                    ? __('Theme publication failed; exact old tree restored.')
+                    : __('Theme publication failed closed. Recovery path: ') . ($recovery ?? __('unavailable')));
+            }
+            $rollbackPath = $publication['rollback_path'];
+            $stage = null;
+            $swapped = true;
+
+            $rollback = static function (string $failure, string $code) use (
+                $pdo, $folderName, $themeDir, &$rollbackPath, $oldIdentity, $oldManifest, $fail, &$swapped
+            ): array {
+                $restoration = is_string($rollbackPath)
+                    ? package_guarded_rollback($themeDir, $rollbackPath, $oldIdentity)
+                    : ['restored' => false, 'recovery_paths' => []];
+                $filesRestored = ($restoration['restored'] ?? false) === true;
+                if ($filesRestored) {
+                    $rollbackPath = null;
+                    $swapped = false;
+                }
+                $metadataRestored = false;
+                if ($filesRestored) {
+                    try { $metadataRestored = register_theme_in_db($pdo, $folderName, $oldManifest) === true; }
+                    catch (Throwable $error) { error_log('[theme-update] Metadata rollback failed: ' . $error->getMessage()); }
+                }
+                if ($filesRestored && $metadataRestored) {
+                    return $fail($failure . ' ' . __('Exact old theme tree and database metadata were restored.'), $code, [
+                        'restored' => true, 'metadata_restored' => true,
+                    ]);
+                }
+                $recovery = $restoration['recovery_paths'][0] ?? $rollbackPath;
+                return $fail($failure . ' ' . __('Rollback was incomplete; a recovery artifact was preserved when possible.'), $code, [
+                    'restored' => $filesRestored, 'metadata_restored' => $metadataRestored, 'recovery' => $recovery,
+                ]);
+            };
+
+            $installedManifest = self::readPhysicalManifest($folderName)['manifest'];
+            if (!hash_equals((string)$update['new_version'], (string)($installedManifest['version'] ?? ''))
+                || package_tree_identity($themeDir) === null) {
+                return $rollback(__('Updated theme verification failed.'), 'theme_update_verification_failed');
+            }
+            try {
+                if (register_theme_in_db($pdo, $folderName, $installedManifest) !== true) throw new RuntimeException('Theme registration failed.');
+            } catch (Throwable $error) {
+                error_log('[theme-update] ' . $error->getMessage());
+                return $rollback(__('Theme registration failed.'), 'theme_update_registration_failed');
+            }
+            $cleanupWarning = is_string($rollbackPath) && package_guarded_finalize($themeDir, $rollbackPath, $oldIdentity)
+                ? ''
+                : __('Exact old rollback-tree cleanup requires manual attention.');
+            if ($cleanupWarning === '') {
+                $rollbackPath = null;
+                $swapped = false;
+            }
+            $metadataWarning = '';
+            try {
+                self::removeCachedUpdate($folderName, (string)$update['new_version']);
+            } catch (Throwable $metadataError) {
+                error_log('[theme-update] Unable to finalize update metadata: ' . $metadataError->getMessage());
+                $metadataWarning = __('Update metadata cleanup requires another Check for Updates.');
+            }
+            if (function_exists('do_action_isolated')) {
+                foreach (do_action_isolated('theme_update_completed', $folderName, $oldVersion, (string)$update['new_version'], $installedManifest) as $hookError) {
+                    error_log('[theme_update_completed] ' . $hookError['message']);
                 }
             }
-            $message = $restored ? __('Failed to extract update. Backup has been restored.') : __('Invalid update package.');
-            self::writeProgress($progressToken, 0, $message, true);
-            return ['success' => false, 'error' => $message];
+            self::writeProgress($progressToken, 100, __('Done!'), true);
+            $result = ['success' => true, 'new_version' => $update['new_version']];
+            if ($cleanupWarning !== '' || $metadataWarning !== '') $result['warning'] = trim($cleanupWarning . ' ' . $metadataWarning);
+            return $result;
+        } catch (Throwable $error) {
+            error_log('[theme-update] ' . $error->getMessage());
+            if ($swapped && is_string($rollbackPath) && is_string($themeDir) && is_array($oldIdentity) && is_array($oldManifest)) {
+                $restoration = package_guarded_rollback($themeDir, $rollbackPath, $oldIdentity);
+                $restored = ($restoration['restored'] ?? false) === true;
+                if ($restored) {
+                    $rollbackPath = null;
+                    $swapped = false;
+                }
+                $metadata = false;
+                if ($restored) {
+                    try { $metadata = register_theme_in_db($pdo, $folderName, $oldManifest) === true; }
+                    catch (Throwable $metadataError) { error_log('[theme-update] Metadata rollback failed: ' . $metadataError->getMessage()); }
+                }
+                if ($restored && $metadata) {
+                    return $fail(__('Theme update failed unexpectedly; exact old tree and metadata were restored.'), 'theme_update_unexpected_failure', ['restored' => true, 'metadata_restored' => true]);
+                }
+                $recovery = $restoration['recovery_paths'][0] ?? $rollbackPath;
+                return $fail(__('Theme update failed and rollback was incomplete.'), 'theme_update_unexpected_failure', ['restored' => $restored, 'metadata_restored' => $metadata, 'recovery' => $recovery]);
+            }
+            return $fail(__('Theme update failed safely.'));
+        } finally {
+            if (is_string($tmpZip) && is_file($tmpZip)) @unlink($tmpZip);
+            if (!$swapped && is_string($stage) && is_dir($stage)) package_remove_tree($stage);
+            if ($locks !== []) theme_operation_release($locks);
         }
-        self::removeTree($backupDir);
+    }
 
-        $p(95, __('Finishing...'));
-        $transient = self::readTransient();
-        unset($transient['updates'][$themeName]);
-        self::writeTransient($transient);
+    private static function validFolder(string $folder): bool
+    {
+        return strlen($folder) <= 128
+            && preg_match('/\A[a-zA-Z0-9_-][a-zA-Z0-9._-]*\z/', $folder) === 1
+            && !in_array($folder, ['.', '..'], true);
+    }
 
-        self::writeProgress($progressToken, 100, __('Done!'), true);
+    private static function loadThemeHelpers(): void
+    {
+        if (!function_exists('theme_operation_acquire')) {
+            require_once dirname(__DIR__, 2) . '/cfg/helpers/theme_helper.php';
+        }
+    }
 
-        return ['success' => true, 'new_version' => $update['new_version']];
+    private static function actionableUpdate(string $folder): ?array
+    {
+        require_once __DIR__ . '/UpdateStatusController.php';
+        if (!UpdateStatusController::isUpdateActionable('themes', $folder)) return null;
+        $updates = self::getCachedUpdates();
+        return isset($updates[$folder]) && is_array($updates[$folder]) ? $updates[$folder] : null;
+    }
+
+    private static function readPhysicalManifest(string $folder): array
+    {
+        $themesRoot = realpath(rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR));
+        $themeCandidate = rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $folder;
+        $directory = realpath($themeCandidate);
+        if ($themesRoot === false || $directory === false || is_link($themeCandidate)
+            || !str_starts_with($directory, $themesRoot . DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException('Theme directory not found.');
+        }
+
+        $path = $directory . DIRECTORY_SEPARATOR . 'theme.json';
+        $manifestReal = realpath($path);
+        $size = @filesize($path);
+        if ($manifestReal === false || is_link($path) || !is_file($path) || !is_int($size) || $size < 2 || $size > 1024 * 1024
+            || !str_starts_with($manifestReal, $directory . DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException('Invalid installed theme manifest.');
+        }
+        $raw = @file_get_contents($manifestReal);
+        if (!is_string($raw)) throw new RuntimeException('Unable to read installed theme manifest.');
+        try {
+            $manifest = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+        } catch (JsonException $error) {
+            throw new RuntimeException('Invalid installed theme manifest.', 0, $error);
+        }
+        if (!is_array($manifest) || array_is_list($manifest)
+            || !is_string($manifest['version'] ?? null) || trim($manifest['version']) === '') {
+            throw new RuntimeException('Invalid installed theme manifest.');
+        }
+        $manifestFolder = $manifest['folder'] ?? $folder;
+        if (!is_string($manifestFolder) || $manifestFolder !== $folder) {
+            throw new RuntimeException('Installed theme identity does not match its folder.');
+        }
+        $manifest['folder'] = $folder;
+        return ['directory' => $directory, 'manifest' => $manifest];
+    }
+
+    private static function normalizeDecisions(array $decisions): array
+    {
+        if (count($decisions) > self::MAX_DECISIONS || ($decisions !== [] && array_is_list($decisions))) {
+            throw new InvalidArgumentException('Invalid theme update decisions.');
+        }
+        $normalized = [];
+        foreach ($decisions as $issueId => $decision) {
+            if (!is_string($issueId) || !self::validIdentifier($issueId) || !is_array($decision)
+                || count($decision) !== 2 || !array_key_exists('choice', $decision) || !array_key_exists('state_token', $decision)
+                || !is_string($decision['choice']) || !self::validIdentifier($decision['choice'])
+                || !is_string($decision['state_token']) || strlen($decision['state_token']) > 64
+                || ($decision['state_token'] !== '' && preg_match('/\A[a-f0-9]{64}\z/i', $decision['state_token']) !== 1)) {
+                throw new InvalidArgumentException('Invalid theme update decisions.');
+            }
+            $normalized[$issueId] = [
+                'choice' => $decision['choice'],
+                'state_token' => strtolower($decision['state_token']),
+            ];
+        }
+        return $normalized;
+    }
+
+    private static function runPreflight(PDO $pdo, string $folder, array $update, array $manifest, array $decisions): array
+    {
+        try {
+            $state = ['schema' => 1, 'issues' => [], 'decisions' => $decisions];
+            $previousIssues = [];
+            $callbacks = $GLOBALS['_hooks']['filters']['theme_update_preflight'] ?? [];
+            ksort($callbacks);
+            foreach ($callbacks as $listeners) {
+                foreach ($listeners as $listener) {
+                    $candidate = call_user_func($listener, $state, $folder, $update, $manifest, $pdo);
+                    $normalized = self::normalizePreflight($candidate, $decisions);
+                    if (count($normalized['issues']) < count($previousIssues)
+                        || array_slice($normalized['issues'], 0, count($previousIssues)) !== $previousIssues) {
+                        throw new RuntimeException('Theme update preflight issues are not monotonic.');
+                    }
+                    $previousIssues = $normalized['issues'];
+                    $state = ['schema' => 1, 'issues' => $previousIssues, 'decisions' => $decisions];
+                }
+            }
+            return self::normalizePreflight($state, $decisions);
+        } catch (Throwable $error) {
+            error_log('[theme_update_preflight] ' . $error->getMessage());
+            return ['allowed' => false, 'issues' => [self::invalidPreflightIssue()]];
+        }
+    }
+
+    private static function normalizePreflight(mixed $filtered, array $decisions): array
+    {
+        if (!is_array($filtered) || ($filtered['schema'] ?? null) !== 1
+            || !is_array($filtered['issues'] ?? null) || !array_is_list($filtered['issues'])
+            || count($filtered['issues']) > self::MAX_ISSUES
+            || !array_key_exists('decisions', $filtered)
+            || self::normalizeDecisions(is_array($filtered['decisions']) ? $filtered['decisions'] : throw new RuntimeException('Malformed preflight decisions.')) !== $decisions) {
+            throw new RuntimeException('Malformed theme update preflight output.');
+        }
+
+        $issues = [];
+        $seen = [];
+        foreach ($filtered['issues'] as $issue) {
+            if (!is_array($issue) || !is_string($issue['id'] ?? null) || !self::validIdentifier($issue['id'])
+                || isset($seen[$issue['id']]) || !is_string($issue['label'] ?? null)
+                || !self::boundedString($issue['label'], 200, false)
+                || !is_string($issue['message'] ?? null) || !self::boundedString($issue['message'], 2000, true)
+                || !is_bool($issue['blocking'] ?? null) || !is_bool($issue['resolved'] ?? null)) {
+                throw new RuntimeException('Malformed theme update preflight issue.');
+            }
+            $seen[$issue['id']] = true;
+            $choices = self::normalizeChoices($issue['choices'] ?? []);
+            $normalized = [
+                'id' => $issue['id'],
+                'label' => $issue['label'],
+                'message' => $issue['message'],
+                'blocking' => $issue['blocking'],
+                'resolved' => $issue['resolved'],
+                'choices' => $choices,
+                'links' => self::normalizeLinks($issue['links'] ?? []),
+                'details' => self::normalizeScalarMap($issue['details'] ?? [], 64, 4000),
+            ];
+            if (array_key_exists('state_token', $issue)) {
+                if (!is_string($issue['state_token']) || preg_match('/\A[a-f0-9]{64}\z/i', $issue['state_token']) !== 1) {
+                    throw new RuntimeException('Malformed theme update issue state token.');
+                }
+                $normalized['state_token'] = strtolower($issue['state_token']);
+            }
+            foreach ($choices as $choice) {
+                if ($choice['destructive'] && !isset($normalized['state_token'])) {
+                    throw new RuntimeException('Destructive theme update choices require a state token.');
+                }
+            }
+            $issues[] = $normalized;
+        }
+
+        $allowed = true;
+        foreach ($issues as $issue) {
+            if ($issue['blocking'] && !$issue['resolved']) {
+                $allowed = false;
+                break;
+            }
+        }
+        return ['allowed' => $allowed, 'issues' => $issues];
+    }
+
+    private static function normalizeChoices(mixed $choices): array
+    {
+        if (!is_array($choices) || !array_is_list($choices) || count($choices) > 20) {
+            throw new RuntimeException('Malformed theme update choices.');
+        }
+        $result = [];
+        $seen = [];
+        foreach ($choices as $choice) {
+            if (!is_array($choice) || !is_string($choice['id'] ?? null) || !self::validIdentifier($choice['id'])
+                || isset($seen[$choice['id']]) || !is_string($choice['label'] ?? null)
+                || !self::boundedString($choice['label'], 200, false) || !is_bool($choice['destructive'] ?? null)) {
+                throw new RuntimeException('Malformed theme update choice.');
+            }
+            $seen[$choice['id']] = true;
+            $result[] = ['id' => $choice['id'], 'label' => $choice['label'], 'destructive' => $choice['destructive']];
+        }
+        return $result;
+    }
+
+    private static function normalizeLinks(mixed $links): array
+    {
+        if (!is_array($links) || !array_is_list($links) || count($links) > 20) {
+            throw new RuntimeException('Malformed theme update links.');
+        }
+        $result = [];
+        foreach ($links as $link) {
+            $url = $link['url'] ?? null;
+            $method = $link['method'] ?? null;
+            if (!is_array($link) || !is_string($link['label'] ?? null) || !self::boundedString($link['label'], 200, false)
+                || !is_string($method) || !in_array($method, ['GET', 'POST'], true)
+                || !is_string($url) || !self::safeRelativeUrl($url)) {
+                throw new RuntimeException('Malformed theme update link.');
+            }
+            $result[] = [
+                'label' => $link['label'],
+                'method' => $method,
+                'url' => $url,
+                'params' => self::normalizeScalarMap($link['params'] ?? [], 32, 1000),
+            ];
+        }
+        return $result;
+    }
+
+    private static function normalizeScalarMap(mixed $values, int $limit, int $stringLimit): array
+    {
+        if (!is_array($values) || count($values) > $limit || ($values !== [] && array_is_list($values))) {
+            throw new RuntimeException('Malformed bounded scalar map.');
+        }
+        $result = [];
+        foreach ($values as $key => $value) {
+            if (!is_string($key) || !self::validIdentifier($key)
+                || (!is_null($value) && !is_bool($value) && !is_int($value) && !is_float($value) && !is_string($value))
+                || (is_float($value) && !is_finite($value))
+                || (is_string($value) && strlen($value) > $stringLimit)) {
+                throw new RuntimeException('Malformed bounded scalar map.');
+            }
+            $result[$key] = $value;
+        }
+        return $result;
+    }
+
+    private static function validIdentifier(string $value): bool
+    {
+        return strlen($value) <= 64 && preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/', $value) === 1;
+    }
+
+    private static function boundedString(string $value, int $limit, bool $allowEmpty): bool
+    {
+        return strlen($value) <= $limit && ($allowEmpty || trim($value) !== '') && !str_contains($value, "\0");
+    }
+
+    private static function safeRelativeUrl(string $url): bool
+    {
+        if ($url === '' || strlen($url) > 1000 || $url[0] !== '/' || str_starts_with($url, '//')
+            || str_contains($url, '\\') || preg_match('/[\x00-\x1F\x7F]/', $url) === 1) return false;
+        $parts = parse_url($url);
+        return is_array($parts) && !isset($parts['scheme'], $parts['host'], $parts['user'], $parts['pass']);
+    }
+
+    private static function invalidPreflightIssue(): array
+    {
+        return [
+            'id' => 'core_preflight_invalid',
+            'label' => function_exists('__') ? __('Update Failed') : 'Update Failed',
+            'message' => function_exists('__') ? __('The update requirements could not be validated safely.') : 'The update requirements could not be validated safely.',
+            'blocking' => true,
+            'resolved' => false,
+            'choices' => [],
+            'links' => [],
+            'details' => [],
+        ];
+    }
+
+    private static function safePreflightError(string $error): array
+    {
+        if (function_exists('__')) $error = __($error);
+        return ['success' => false, 'allowed' => false, 'issues' => [], 'error' => $error];
     }
 
     private static function safeThemeTarget(string $root, string $relative): ?string
@@ -365,38 +714,6 @@ class ThemeStoreClient
         if (!$zip->getExternalAttributesIndex($index, $opsys, $attributes)) return true;
         $type = ($attributes >> 16) & 0170000;
         return $type === 0 || $type === 0100000 || ($directory && $type === 0040000);
-    }
-
-    private static function restoreBackup(string $themeDir, string $backupFile): bool
-    {
-        if (!is_file($backupFile) || !self::removeTreeContents($themeDir)) return false;
-        $zip = new ZipArchive();
-        if ($zip->open($backupFile) !== true) return false;
-        $restored = $zip->extractTo($themeDir);
-        $closed = $zip->close();
-        return $restored && $closed;
-    }
-
-    private static function removeTreeContents(string $directory): bool
-    {
-        if (!is_dir($directory)) return false;
-        $ok = true;
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-        foreach ($iterator as $file) {
-            $removed = $file->isLink() || !$file->isDir() ? @unlink($file->getPathname()) : @rmdir($file->getPathname());
-            if (!$removed && file_exists($file->getPathname())) $ok = false;
-        }
-        return $ok;
-    }
-
-    private static function removeTree(string $directory): void
-    {
-        if (!is_dir($directory)) return;
-        self::removeTreeContents($directory);
-        @rmdir($directory);
     }
 
     public static function readProgress(string $token): ?array
@@ -428,17 +745,69 @@ class ThemeStoreClient
     private static function readTransient(): array
     {
         $file = self::transientFile();
-        if (!is_file($file)) return ['last_check' => 0, 'updates' => []];
-        $data = json_decode(file_get_contents($file), true);
-        return is_array($data) ? $data : ['last_check' => 0, 'updates' => []];
+        if (!is_file($file)) return ['last_check' => 0, 'generation' => '', 'updates' => [], 'installed_versions' => []];
+        $data = json_decode((string)file_get_contents($file), true);
+        return is_array($data) ? $data : ['last_check' => 0, 'generation' => '', 'updates' => [], 'installed_versions' => []];
     }
 
     private static function writeTransient(array $data): void
     {
+        self::mutateTransient(static fn(array $current): array => $data);
+    }
+
+    private static function mutateTransient(callable $mutation): array
+    {
         $file = self::transientFile();
         $dir = dirname($file);
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
-        file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT), LOCK_EX);
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new RuntimeException('Unable to create the theme update transient directory.');
+        }
+        $lock = fopen($file . '.lock', 'c+');
+        if ($lock === false || !flock($lock, LOCK_EX)) {
+            if (is_resource($lock)) fclose($lock);
+            throw new RuntimeException('Unable to acquire the theme update transient lock.');
+        }
+        try {
+            $current = self::readTransient();
+            $next = $mutation($current);
+            if (!is_array($next)) throw new RuntimeException('Invalid theme update transient mutation.');
+            $next['generation'] = bin2hex(random_bytes(16));
+            $temporary = $dir . '/.theme-update-transient-' . bin2hex(random_bytes(12)) . '.tmp';
+            $json = json_encode($next, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL;
+            $handle = fopen($temporary, 'x+b');
+            if ($handle === false) throw new RuntimeException('Unable to create the theme update transient replacement.');
+            $written = fwrite($handle, $json);
+            $flushed = $written === strlen($json) && fflush($handle);
+            $synced = $flushed && (!function_exists('fsync') || fsync($handle));
+            fclose($handle);
+            if (!$synced || !chmod($temporary, 0640) || !rename($temporary, $file)) {
+                if (is_file($temporary)) @unlink($temporary);
+                throw new RuntimeException('Unable to persist the theme update transient.');
+            }
+            return $next;
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+    }
+
+    private static function removeCachedUpdate(string $folder, string $installedVersion): void
+    {
+        self::mutateTransient(static function (array $transient) use ($folder, $installedVersion): array {
+            $recorded = is_string($transient['installed_versions'][$folder] ?? null)
+                ? $transient['installed_versions'][$folder]
+                : '';
+            if ($recorded === '' || version_compare($installedVersion, $recorded, '>')) {
+                $transient['installed_versions'][$folder] = $installedVersion;
+            }
+            $update = $transient['updates'][$folder] ?? null;
+            if (is_array($update) && version_compare((string)($update['new_version'] ?? ''), $installedVersion, '>')) {
+                $transient['updates'][$folder]['current_version'] = $installedVersion;
+            } else {
+                unset($transient['updates'][$folder]);
+            }
+            return $transient;
+        });
     }
 
     private static function progressFile(string $token): string
@@ -464,31 +833,9 @@ class ThemeStoreClient
     private static function downloadPackage(string $url, callable $progress): ?string
     {
         $progress(18, __('Downloading update package...'));
-        $ctx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'JyavaniCMS-ThemeUpdate']]);
-        $input = @fopen($url, 'rb', false, $ctx);
-        if ($input === false) return null;
-        $tmp = tempnam(sys_get_temp_dir(), 'theme-update-') . '.zip';
-        $output = @fopen($tmp, 'wb');
-        if ($output === false) { fclose($input); return null; }
-
-        $length = 0;
-        foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
-            if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
-        }
-        if ($length > self::MAX_PACKAGE_BYTES) { fclose($input); fclose($output); @unlink($tmp); return null; }
-        $downloaded = 0;
-        while (!feof($input)) {
-            $chunk = fread($input, 1024 * 1024);
-            if ($chunk === false) { fclose($input); fclose($output); @unlink($tmp); return null; }
-            if ($chunk === '') continue;
-            if (fwrite($output, $chunk) !== strlen($chunk)) { fclose($input); fclose($output); @unlink($tmp); return null; }
-            $downloaded += strlen($chunk);
-            if ($downloaded > self::MAX_PACKAGE_BYTES) { fclose($input); fclose($output); @unlink($tmp); return null; }
-            if ($length > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $length)), __('Downloading update package...'));
-        }
-        fclose($input);
-        fclose($output);
-        return $tmp;
+        return package_download($url, 'theme-update-', 'JyavaniCMS-ThemeUpdate', static function (int $downloaded, int $total) use ($progress): void {
+            if ($total > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $total)), __('Downloading update package...'));
+        });
     }
 
     private static function fetchVersionInfo(string $url): ?array
@@ -505,7 +852,7 @@ class ThemeStoreClient
         return is_array($data) ? $data : null;
     }
 
-    private static function scanThemes(PDO $pdo): array
+    public static function scanInstalledThemes(PDO $pdo): array
     {
         $themes = [];
         $registered = get_registered_themes($pdo);

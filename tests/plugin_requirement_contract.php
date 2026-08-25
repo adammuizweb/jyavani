@@ -76,22 +76,31 @@ $updater = (string)file_get_contents($root . '/app/controllers/PluginStoreContro
 $check(substr_count($registry, 'plugin_resolve_active_plugins(') >= 3
     && str_contains($registry, 'plugin_requirement_errors_without_plugin_state($all[$name])'),
     'active loading and activation share the dependency-aware requirement resolver');
-$check(str_contains($upload, 'plugin_install_requirements_error_message($extractedManifest, $activatePlugin)')
-    && str_contains($browse, 'plugin_install_requirements_error_message($extractedManifest, $activatePlugin)'),
+$check(str_contains($upload, 'plugin_prepare_package_stage($zipPath, null, $activatePlugin)')
+    && str_contains($browse, 'plugin_prepare_package_stage($tmpZip, $pluginName, $activatePlugin, $pluginData)')
+    && str_contains($registry, 'plugin_install_requirements_error_message($manifest, $activate)'),
     'ZIP upload and store install enforce activation-aware package requirements');
 $check(str_contains($manager, 'plugin_last_error()') && str_contains($manager, 'plugin_requirement_diagnostics()'), 'plugin manager surfaces activation and existing incompatibility diagnostics');
 $manifestCheck = strpos($updater, '$packageManifestRaw = $zip->getFromName');
-$destructiveUpdate = strpos($updater, '// Hapus files lama');
-$check($manifestCheck !== false && $destructiveUpdate !== false && $manifestCheck < $destructiveUpdate, 'plugin updater inspects package plugin.json before destructive replacement');
+$guardedUpdate = strpos($updater, 'package_guarded_publish($stage, $pluginDir, $oldIdentity, $newIdentity)');
+$check($manifestCheck !== false && $guardedUpdate !== false && $manifestCheck < $guardedUpdate, 'plugin updater inspects plugin.json and completes private staging before guarded replacement');
 $check(str_contains($updater, "'jyavani_required'") && str_contains($updater, "'compatible' =>"), 'update discovery carries and enforces the Core requirement metadata');
 $check(str_contains($updater, 'plugin_package_requirement_errors($advertisedManifest, $packageManifest)'), 'update package requirements must match advertised store metadata');
 $check(str_contains($updater, "'checksum' => is_string(\$checksum) ? \$checksum : ''"), 'store version metadata publishes the package checksum required by the updater');
 $check(str_contains($updater, 'plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy)') && str_contains($updater, "'rollback_incomplete'"), 'updates track old and new static destinations and report incomplete static rollback');
-$check(str_contains($browse, 'plugin_package_requirement_errors($pluginData, $manifest)')
+$check(str_contains($browse, 'plugin_prepare_package_stage($tmpZip, $pluginName, $activatePlugin, $pluginData)')
+    && str_contains($registry, 'plugin_package_requirement_errors($catalog, $manifest)')
     && str_contains($browse, 'plugin_install_requirements_error_message($pluginData, $activatePlugin)'),
     'store initial install enforces catalog parity and activation-aware requirements');
 $staticCleanup = strpos($registry, '// Remove plugin directory recursively');
 $check(str_contains($registry, "if (is_file(\$abs) && (!@unlink(\$abs) || file_exists(\$abs)))") && strpos($registry, 'if ($errors !== [])', strpos($registry, 'function plugin_delete')) < $staticCleanup, 'uninstall verifies declared static removal and stops before plugin deletion when cleanup is incomplete');
+$check(str_contains($registry, "\$GLOBALS['_hooks']['filters']['plugin_state_change_preflight']")
+    && strpos($registry, "plugin_state_change_preflight(\$name, 'disable')") > strpos($registry, 'function plugin_disable')
+    && strpos($registry, "plugin_state_change_preflight(\$name, 'delete')", strpos($registry, 'function plugin_delete')) > strpos($registry, 'function plugin_delete'),
+    'central plugin disable and delete functions enforce the generic state-change preflight');
+$check(str_contains($manager, 'plugin_disable($pn)') && str_contains($manager, 'plugin_uninstall($pn, true)')
+    && str_contains($manager, 'plugin_disable($pluginName)') && str_contains($manager, 'plugin_uninstall($pluginName, $keepData)'),
+    'single and bulk Plugin Manager paths rely on the preflight-enforcing central functions');
 
 $remove = static function (string $path) use (&$remove): void {
     if (!is_dir($path)) return;

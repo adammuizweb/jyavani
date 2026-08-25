@@ -149,7 +149,7 @@ if ($action === 'apply-update' && $pluginName !== '') {
     }
     $updateResult = PluginStoreController::applyUpdate($pdo, $pluginName);
     if ($updateResult['success']) {
-        UpdateStatusController::removeUpdate('plugins', $pluginName);
+        UpdateStatusController::removeUpdate('plugins', $pluginName, (string)$updateResult['new_version']);
         adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($pluginName) . '" ' . __('updated to v') . h($updateResult['new_version']) . '.');
     } else {
         adiwira_redirect_with_flash($selfUrl, 'error', h($updateResult['error']));

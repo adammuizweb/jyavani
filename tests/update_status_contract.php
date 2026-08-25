@@ -97,7 +97,7 @@ try {
     ];
     $partial = UpdateStatusController::checkAll($pdo, 'https://updates.example.test/latest/', $partialProviders);
     $check($partial['state'] === 'partial' && $partial['components']['core']['state'] === 'error', 'failed sources produce a partial state instead of a false success');
-    $check(($partial['components']['core']['latest'] ?? '') === '99.0.0' && $partial['total'] === 3, 'partial checks preserve last-known update data');
+    $check(($partial['components']['core']['latest'] ?? '') === '99.0.0' && $partial['total'] === 2, 'partial checks retain last-known data without counting non-actionable failures');
     UpdateStatusController::hydrateCoreSession($partial);
     $check(!isset($_SESSION['cms_update_remote']), 'failed Core checks retain status but disable stale package application');
     $check(!UpdateStatusController::isUpdateActionable('core'), 'failed Core metadata is rejected by the apply-time guard');
@@ -106,12 +106,23 @@ try {
     $check(in_array('core', $partialPayload['failed_components'], true)
         && in_array('plugins', $partialPayload['failed_components'], true), 'public payload identifies incomplete components');
 
-    UpdateStatusController::removeUpdate('plugins', 'sample-plugin');
+    UpdateStatusController::removeUpdate('plugins', 'sample-plugin', '1.0.1');
+    $afterOlderPluginApply = UpdateStatusController::getSnapshot();
+    $check(($afterOlderPluginApply['components']['plugins']['updates']['sample-plugin']['new_version'] ?? '') === '1.1.0'
+        && ($afterOlderPluginApply['components']['plugins']['updates']['sample-plugin']['current_version'] ?? '') === '1.0.1', 'plugin completion retains a newer concurrently discovered global update');
+    UpdateStatusController::removeUpdate('plugins', 'sample-plugin', '1.1.0');
     $afterPlugin = UpdateStatusController::getSnapshot();
-    $check($afterPlugin['total'] === 2 && !isset($afterPlugin['components']['plugins']['updates']['sample-plugin']), 'successful plugin apply removes its global notification immediately');
+    $check($afterPlugin['total'] === 1 && !isset($afterPlugin['components']['plugins']['updates']['sample-plugin']), 'successful plugin apply removes its exact global notification immediately');
     UpdateStatusController::removeUpdate('core', '', '99.0.0');
     $afterCore = UpdateStatusController::getSnapshot();
     $check($afterCore['total'] === 1 && $afterCore['components']['core']['has_update'] === false, 'successful Core apply clears its global notification immediately');
+    UpdateStatusController::removeUpdate('themes', 'sample-theme', '2.0.0');
+    $afterOlderThemeApply = UpdateStatusController::getSnapshot();
+    $check($afterOlderThemeApply['total'] === 1
+        && ($afterOlderThemeApply['components']['themes']['updates']['sample-theme']['new_version'] ?? '') === '2.1.0', 'theme completion retains a newer concurrently discovered update');
+    UpdateStatusController::removeUpdate('themes', 'sample-theme', '2.1.0');
+    $afterThemeApply = UpdateStatusController::getSnapshot();
+    $check($afterThemeApply['total'] === 0 && !isset($afterThemeApply['components']['themes']['updates']['sample-theme']), 'theme completion removes only the update version that was installed');
 
     $endpoint = (string)file_get_contents($root . '/dashboard/admin/check_updates_ajax.php');
     $javascript = (string)file_get_contents($root . '/public/static/dashboard/js/update-notif.js');
@@ -119,6 +130,10 @@ try {
     $updatePage = (string)file_get_contents($root . '/dashboard/admin/update/index.php');
     $pluginPage = (string)file_get_contents($root . '/dashboard/admin/plugins/index.php');
     $themePage = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
+    $themeApply = (string)file_get_contents($root . '/dashboard/admin/themes/update_apply.php');
+    $statusController = (string)file_get_contents($root . '/app/controllers/UpdateStatusController.php');
+    $pluginStore = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
+    $themeStore = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.php');
     $coreActions = (string)file_get_contents($root . '/dashboard/admin/update/_update_actions.php');
     $check(str_contains($endpoint, "if (\$method === 'POST')") && str_contains($endpoint, 'adiwira_csrf_validate(')
         && str_contains($endpoint, 'UpdateStatusController::getSnapshot()'), 'GET is read-only while coordinated refresh is POST with CSRF');
@@ -137,18 +152,31 @@ try {
     $check(str_contains($coreActions, "UpdateStatusController::removeUpdate('core')"), 'successful reinstall synchronizes the global Core snapshot');
     $check(strpos($pluginPage, "(\$snapshot['state'] ?? 'ok') !== 'ok'") < strpos($pluginPage, 'elseif ($count > 0)')
         && strpos($themePage, "(\$snapshot['state'] ?? 'ok') !== 'ok'") < strpos($themePage, 'elseif ($count > 0)'), 'dedicated checks report partial failures before update counts');
+    $check(str_contains($themeApply, "removeUpdate('themes', \$folderName, (string)\$result['new_version'])")
+        && str_contains($themePage, "removeUpdate('themes', \$folder, (string)\$result['new_version'])"), 'both theme apply endpoints synchronize the exact installed version');
+    $scanStart = strpos($themeStore, '$scanLocks = theme_operation_acquire(theme_lifecycle_lock_keys($scanFolders))');
+    $scanRelease = strpos($themeStore, 'theme_operation_release($scanLocks)', $scanStart);
+    $remoteCheck = strpos($themeStore, 'self::fetchVersionInfo(', $scanStart);
+    $commitLock = strpos($themeStore, '$commitLocks = theme_operation_acquire(theme_lifecycle_lock_keys(array_keys($themes)))', $remoteCheck);
+    $transientCommit = strpos($themeStore, '$committed = self::mutateTransient(', $commitLock);
+    $check($scanStart !== false && $scanRelease !== false && $remoteCheck !== false && $commitLock !== false && $transientCommit !== false
+        && $scanStart < $scanRelease && $scanRelease < $remoteCheck && $remoteCheck < $commitLock && $commitLock < $transientCommit,
+        'theme scan binds its transient generation under the global lock and reacquires global before transient commit revalidation');
 
-    $pluginStore = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
-    $themeStore = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.php');
     $check(str_contains($pluginStore, "['actionable'] = false") && str_contains($pluginStore, "'actionable' => true")
         && str_contains($themeStore, "['actionable'] = false") && str_contains($themeStore, "'actionable' => true"), 'failed Store checks remain visible but cannot apply retained metadata');
     $check(str_contains($themeStore, "hash_file('sha256', \$tmpZip)")
         && str_contains($themeStore, "version_compare(\$manifest['version'], (string)\$update['new_version'], '!=')"), 'theme updates verify package checksum and advertised version before installation');
-    $check(str_contains($themeStore, 'safeThemeTarget(') && str_contains($themeStore, 'isset($logicalTargets[$relative])')
-        && str_contains($themeStore, 'zipEntryTypeIsSafe(') && str_contains($themeStore, 'is_link($themeCandidate)'), 'theme updates reject escaped, duplicate, symbolic-link, and special-file package targets');
-    $check(str_contains($themeStore, 'Failed to create complete theme backup.')
-        && str_contains($themeStore, 'restoreBackup(')
-        && str_contains($themeStore, "preg_replace('/[^0-9A-Za-z._-]+/', '-', (string)\$update['current_version'])"), 'theme updates require a complete contained backup and retain rollback support through registration');
+    $check(str_contains($themeStore, 'package_archive_validate($zip)')
+        && str_contains($themeStore, 'package_archive_extract_files($zip, $files, $stage)')
+        && str_contains($themeStore, 'is_link($themeCandidate)'), 'theme updates use the shared validator to reject escaped, duplicate, symbolic-link, and special-file package targets');
+    $check(str_contains($themeStore, 'package_guarded_publish($stage, $themeDir, $oldIdentity, $newIdentity)')
+        && str_contains($themeStore, 'package_guarded_rollback($themeDir, $rollbackPath, $oldIdentity)')
+        && str_contains($themeStore, 'package_guarded_finalize($themeDir, $rollbackPath, $oldIdentity)'),
+        'theme updates retain the exact old tree through registration, guarded rollback, and final cleanup');
+    $check(str_contains($pluginStore, 'removeCachedUpdate($name, (string)$update[\'new_version\'])')
+        && str_contains($pluginPage, "removeUpdate('plugins', \$pluginName, (string)\$updateResult['new_version'])")
+        && str_contains($themeStore, 'array_key_exists($folder, $observed)'), 'plugin completion and global status use exact versions, while explicit null theme observations remain distinguishable');
 
     require_once $root . '/app/controllers/ThemeStoreClient.php';
     $themeFixture = sys_get_temp_dir() . '/jyavani-theme-target-' . bin2hex(random_bytes(6));

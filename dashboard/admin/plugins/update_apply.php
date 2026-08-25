@@ -31,7 +31,7 @@ require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
 require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
 $result = PluginStoreController::applyUpdate($pdo, $name, $token);
-if (($result['success'] ?? false) === true) UpdateStatusController::removeUpdate('plugins', $name);
+if (($result['success'] ?? false) === true) UpdateStatusController::removeUpdate('plugins', $name, (string)$result['new_version']);
 
 adiwira_json([
     'ok' => $result['success'],

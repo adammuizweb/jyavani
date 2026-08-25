@@ -2,6 +2,7 @@
 declare(strict_types=1);
 if (defined('PLUGIN_SYSTEM_LOADED')) return;
 define('PLUGIN_SYSTEM_LOADED', true);
+require_once dirname(__DIR__) . '/cfg/helpers/package_archive.php';
 // Plugin Registry — Jyavani CMS Plugin System v2.0
 // Loaded after bootstrap in dashboard/index.php
 
@@ -524,8 +525,57 @@ function plugin_load_diagnostics(): array {
 
 function plugin_disabled_names(): array {
     if (!is_file(PLUGIN_DISABLED_JSON)) return [];
-    $disabled = json_decode((string)file_get_contents(PLUGIN_DISABLED_JSON), true);
-    return is_array($disabled) ? array_values(array_filter($disabled, 'is_string')) : [];
+    if (is_link(PLUGIN_DISABLED_JSON)) return array_keys(plugins_all());
+    $raw = @file_get_contents(PLUGIN_DISABLED_JSON);
+    $disabled = is_string($raw) ? json_decode($raw, true) : null;
+    if (!is_array($disabled) || !array_is_list($disabled)) return array_keys(plugins_all());
+    $validated = [];
+    foreach ($disabled as $name) {
+        if (!is_string($name) || preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1 || isset($validated[$name])) {
+            return array_keys(plugins_all());
+        }
+        $validated[$name] = true;
+    }
+    return array_keys($validated);
+}
+
+/** Persist plugin state while the caller holds the global and plugin-name lifecycle locks. */
+function _plugin_write_disabled_names_already_locked(array $disabled): bool {
+    if (!array_is_list($disabled)) return false;
+    $validated = [];
+    foreach ($disabled as $name) {
+        if (!is_string($name) || preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1 || isset($validated[$name])) return false;
+        $validated[$name] = true;
+    }
+    $disabled = array_keys($validated);
+    sort($disabled, SORT_STRING);
+    $file = PLUGIN_DISABLED_JSON;
+    $directory = dirname($file);
+    if (is_link($directory) || (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory))) return false;
+    $directoryReal = realpath($directory);
+    if ($directoryReal === false || is_link($file)) return false;
+    try {
+        $json = json_encode($disabled, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . PHP_EOL;
+        $temporary = $directory . '/.plugins-disabled-' . bin2hex(random_bytes(12)) . '.tmp';
+        $handle = @fopen($temporary, 'x+b');
+        if (!is_resource($handle)) return false;
+        $written = fwrite($handle, $json);
+        $flushed = $written === strlen($json) && fflush($handle);
+        $synced = $flushed && (!function_exists('fsync') || fsync($handle));
+        $stat = fstat($handle);
+        fclose($handle);
+        if (!$synced || !is_array($stat) || (($stat['mode'] ?? 0) & 0170000) !== 0100000
+            || ($stat['nlink'] ?? 0) !== 1 || !@chmod($temporary, 0640) || !@rename($temporary, $file)) {
+            @unlink($temporary);
+            return false;
+        }
+        plugin_sync_directory($directoryReal);
+        return true;
+    } catch (Throwable $error) {
+        if (isset($temporary)) @unlink($temporary);
+        error_log('[plugin-state] ' . $error->getMessage());
+        return false;
+    }
 }
 
 function plugin_reset_runtime_cache(): void {
@@ -651,12 +701,161 @@ function plugin_safe_path(string $root, string $relative): ?string {
     return $base . '/' . $relative;
 }
 
+/** Build and validate a fresh plugin package in a private same-parent staging directory. */
+function plugin_prepare_package_stage(string $zipPath, ?string $expectedName, bool $activate, ?array $catalog = null): array {
+    if (!is_file($zipPath) || is_link($zipPath) || filesize($zipPath) > PACKAGE_MAX_BYTES) {
+        return ['success' => false, 'error' => plugin_message('Invalid or oversized plugin package.')];
+    }
+    $zip = new ZipArchive();
+    $opened = $zip->open($zipPath);
+    if ($opened !== true) return ['success' => false, 'error' => plugin_message('Failed to open ZIP file.')];
+    $validation = package_archive_validate($zip);
+    if (!$validation['success']) { $zip->close(); return ['success' => false, 'error' => $validation['error']]; }
+    $manifestIndex = $zip->locateName('plugin.json', ZipArchive::FL_NOCASE);
+    if ($manifestIndex === false || (string)($zip->statIndex($manifestIndex)['name'] ?? '') !== 'plugin.json') {
+        $zip->close();
+        return ['success' => false, 'error' => plugin_message('plugin.json must exist at the ZIP root with exact casing.')];
+    }
+    $raw = $zip->getFromIndex($manifestIndex);
+    $manifest = is_string($raw) ? json_decode($raw, true) : null;
+    $name = is_array($manifest) && is_string($manifest['name'] ?? null) ? $manifest['name'] : '';
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1 || ($expectedName !== null && !hash_equals($expectedName, $name))) {
+        $zip->close();
+        return ['success' => false, 'error' => plugin_message('Plugin package identity is invalid.')];
+    }
+    $requirementError = plugin_install_requirements_error_message($manifest, $activate);
+    if ($requirementError !== '') { $zip->close(); return ['success' => false, 'error' => $requirementError]; }
+    if (is_array($catalog)) {
+        $metadataErrors = plugin_package_requirement_errors($catalog, $manifest);
+        if ($metadataErrors !== []) {
+            $zip->close();
+            return ['success' => false, 'error' => plugin_message('Plugin package requirements do not match the store catalog.') . ' ' . implode('; ', $metadataErrors)];
+        }
+    }
+
+    $files = [];
+    $logical = [];
+    foreach ($validation['entries'] as $entry) {
+        if ($entry['directory']) continue;
+        $relative = $entry['path'];
+        $key = strtolower($relative);
+        if ($key === '.store.json' || $key === '.git' || str_starts_with($key, '.git/') || isset($logical[$key])) {
+            $zip->close();
+            return ['success' => false, 'error' => plugin_message('Plugin package contains a reserved or duplicate target.')];
+        }
+        $logical[$key] = true;
+        $files[] = ['source' => $entry['source'], 'relative' => $relative];
+    }
+    $stage = package_private_directory(PLUGIN_PATH, 'plugin-stage-' . $name);
+    if ($stage === null) { $zip->close(); return ['success' => false, 'error' => plugin_message('Failed to create plugin staging directory.')]; }
+    $extracted = package_archive_extract_files($zip, $files, $stage);
+    $zip->close();
+    if (!$extracted) {
+        package_remove_tree($stage);
+        return ['success' => false, 'error' => plugin_message('Failed to extract plugin package safely.')];
+    }
+    $extractedRaw = @file_get_contents($stage . '/plugin.json');
+    $extractedManifest = is_string($extractedRaw) ? json_decode($extractedRaw, true) : null;
+    if (!is_array($extractedManifest) || $extractedManifest !== $manifest || package_tree_identity($stage) === null) {
+        package_remove_tree($stage);
+        return ['success' => false, 'error' => plugin_message('Extracted plugin package failed verification.')];
+    }
+    return ['success' => true, 'name' => $name, 'manifest' => $manifest, 'stage' => $stage];
+}
+
+function plugin_chmod_tree(string $directory): bool {
+    if (!is_dir($directory) || is_link($directory)) return false;
+    $ok = @chmod($directory, 0775);
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::SELF_FIRST
+    );
+    foreach ($iterator as $entry) {
+        if ($entry->isLink() || (!$entry->isDir() && !$entry->isFile())) return false;
+        $mode = $entry->isDir() ? 0775 : (strtolower((string)pathinfo($entry->getFilename(), PATHINFO_EXTENSION)) === 'sh' ? 0775 : 0664);
+        if (!@chmod($entry->getPathname(), $mode)) $ok = false;
+    }
+    return $ok;
+}
+
+/** Publish a fully staged fresh plugin while its global-first lifecycle lock is held. */
+function plugin_publish_staged_install_already_locked(array $prepared, bool $activate): array {
+    $name = is_string($prepared['name'] ?? null) ? $prepared['name'] : '';
+    $stage = is_string($prepared['stage'] ?? null) ? $prepared['stage'] : '';
+    $manifest = is_array($prepared['manifest'] ?? null) ? $prepared['manifest'] : null;
+    $pluginDir = PLUGIN_PATH . '/' . $name;
+    if (!package_lifecycle_exclusive_lock_owned()) {
+        return ['success' => false, 'error' => plugin_message('Global lifecycle exclusive lock is required to publish a plugin.')];
+    }
+    $recoveryPaths = package_publication_recovery_paths($pluginDir);
+    if ($recoveryPaths !== []) {
+        return [
+            'success' => false,
+            'error' => plugin_message('A prior plugin publication recovery artifact requires manual resolution. Inspect and restore or archive it before retrying: %s', basename($recoveryPaths[0])),
+            'recovery_paths' => $recoveryPaths,
+        ];
+    }
+    if ($manifest === null || preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1 || !is_dir($stage)
+        || dirname($stage) !== realpath(PLUGIN_PATH) || file_exists($pluginDir) || is_link($pluginDir)) {
+        if ($stage !== '') package_remove_tree($stage);
+        return ['success' => false, 'error' => plugin_message('Invalid staged plugin publication.')];
+    }
+    if (!_plugin_mark_disabled_already_locked($name)) {
+        package_remove_tree($stage);
+        return ['success' => false, 'error' => plugin_last_error() ?: plugin_message('Failed to update plugin state.')];
+    }
+    if (!@rename($stage, $pluginDir)) {
+        package_remove_tree($stage);
+        return ['success' => false, 'error' => plugin_message('Failed to publish plugin directory atomically.')];
+    }
+    plugin_sync_directory((string)realpath(PLUGIN_PATH));
+    if (!plugin_chmod_tree($pluginDir)) {
+        package_remove_tree($pluginDir);
+        plugin_advance_reconciliation_state($name);
+        return ['success' => false, 'error' => plugin_message('Failed to set plugin permissions.')];
+    }
+    $staticCopy = $manifest['static']['copy'] ?? [];
+    if (!is_array($staticCopy)) {
+        package_remove_tree($pluginDir);
+        plugin_advance_reconciliation_state($name);
+        return ['success' => false, 'error' => plugin_message('Plugin installation failed because static.copy is invalid.')];
+    }
+    if ($staticCopy !== []) {
+        $copyResult = plugin_static_copy($pluginDir, $staticCopy);
+        if ($copyResult['failed'] > 0) {
+            package_remove_tree($pluginDir);
+            plugin_advance_reconciliation_state($name);
+            return ['success' => false, 'error' => plugin_message('Plugin installation failed because declared static files could not be copied.')];
+        }
+    }
+    $installResult = plugin_run_install_script($pluginDir);
+    if (!$installResult['success']) {
+        if (!$installResult['ran']) {
+            if ($staticCopy !== []) plugin_static_copy($pluginDir, [], $staticCopy);
+            package_remove_tree($pluginDir);
+        }
+        plugin_advance_reconciliation_state($name);
+        return ['success' => false, 'error' => $installResult['error'] . ($installResult['ran']
+            ? ' ' . plugin_message('The plugin remains installed but inactive for inspection; install.sh may have made changes outside its directory.')
+            : '')];
+    }
+    $verified = plugin_manifest($name);
+    if (!is_array($verified) || $verified !== $manifest || package_tree_identity($pluginDir) === null) {
+        plugin_advance_reconciliation_state($name);
+        return ['success' => false, 'error' => plugin_message('Installed plugin verification failed; the plugin remains inactive.')];
+    }
+    if (!plugin_advance_reconciliation_state($name)) {
+        return ['success' => false, 'error' => plugin_message('Plugin was installed and remains inactive, but reconciliation state could not be persisted.')];
+    }
+    if ($activate && !_plugin_enable_already_locked($name)) {
+        return ['success' => false, 'error' => plugin_last_error() ?: plugin_message('Failed to activate plugin.')];
+    }
+    plugin_reset_runtime_cache();
+    return ['success' => true, 'name' => $name, 'manifest' => $manifest, 'activated' => $activate];
+}
+
 function plugin_sync_directory(string $directory): void {
-    if (!function_exists('fsync')) return;
-    $handle = @fopen($directory, 'rb');
-    if (!is_resource($handle)) return;
-    @fsync($handle);
-    fclose($handle);
+    package_sync_directory($directory);
 }
 
 function plugin_static_copy(string $pluginDir, array $entries, array $oldEntries = []): array {
@@ -897,13 +1096,29 @@ function plugin_run_install_script(string $pluginDir, ?int $timeoutSeconds = nul
 }
 
 function plugins_all(): array {
-    $plugins = [];
-    foreach (glob(PLUGIN_PATH . '/*/plugin.json') as $file) {
-        $data = json_decode(file_get_contents($file), true);
-        $folder = basename(dirname($file));
-        if (is_array($data) && ($data['name'] ?? null) === $folder && preg_match('/\A[a-zA-Z0-9_-]+\z/', $folder) === 1) {
-            $plugins[$data['name']] = $data;
+    $locks = [];
+    $globalKey = defined('THEME_LIFECYCLE_LOCK_KEY') ? (string)THEME_LIFECYCLE_LOCK_KEY : '0-theme-lifecycle';
+    $alreadyLocked = isset($GLOBALS['_theme_operation_held_keys'][$globalKey]);
+    if (!$alreadyLocked) {
+        try {
+            if (!function_exists('theme_operation_acquire')) require_once dirname(__DIR__) . '/cfg/helpers/theme_helper.php';
+            $locks = theme_operation_acquire(theme_lifecycle_lock_keys(), LOCK_SH);
+        } catch (Throwable $error) {
+            error_log('[plugin-discovery] ' . $error->getMessage());
+            return [];
         }
+    }
+    $plugins = [];
+    try {
+        foreach (glob(PLUGIN_PATH . '/*/plugin.json') as $file) {
+            $data = json_decode((string)file_get_contents($file), true);
+            $folder = basename(dirname($file));
+            if (is_array($data) && ($data['name'] ?? null) === $folder && preg_match('/\A[a-zA-Z0-9_-]+\z/', $folder) === 1) {
+                $plugins[$data['name']] = $data;
+            }
+        }
+    } finally {
+        if ($locks !== []) theme_operation_release($locks);
     }
     return $plugins;
 }
@@ -1060,6 +1275,16 @@ function plugins_active(): array {
 // --- Plugin Manager helpers ---
 
 function plugin_enable(string $name): bool {
+    $locks = plugin_lifecycle_locks($name);
+    if ($locks === null) return false;
+    try {
+        return _plugin_enable_already_locked($name);
+    } finally {
+        theme_operation_release($locks);
+    }
+}
+
+function _plugin_enable_already_locked(string $name): bool {
     $manifest = plugin_manifest($name);
     if (!$manifest) {
         $GLOBALS['_plugin_last_error'] = plugin_message('Plugin manifest is invalid.');
@@ -1074,7 +1299,7 @@ function plugin_enable(string $name): bool {
         $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;
         return false;
     }
-    $ok = file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
+    $ok = _plugin_write_disabled_names_already_locked($disabled);
     $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to update plugin state.');
     if ($ok) plugin_reset_runtime_cache();
     return $ok;
@@ -1113,7 +1338,71 @@ function plugin_replacement_dependency_errors(string $name, string $newVersion):
     return $errors;
 }
 
+function plugin_state_change_preflight(string $name, string $operation): bool {
+    $state = ['allowed' => true, 'message' => ''];
+    $hooks = $GLOBALS['_hooks']['filters']['plugin_state_change_preflight'] ?? [];
+    ksort($hooks);
+    foreach ($hooks as $priority => $listeners) {
+        foreach ($listeners as $index => $listener) {
+            try {
+                $candidate = call_user_func($listener, $state, $name, $operation);
+                if (!is_array($candidate) || count($candidate) !== 2
+                    || !array_key_exists('allowed', $candidate) || !is_bool($candidate['allowed'])
+                    || !array_key_exists('message', $candidate) || !is_string($candidate['message'])
+                    || strlen($candidate['message']) > 1000
+                    || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $candidate['message']) === 1) {
+                    throw new RuntimeException('Malformed plugin state change preflight output.');
+                }
+                if (!$state['allowed'] && $candidate['allowed']) {
+                    throw new RuntimeException('Plugin state change denial cannot be reversed.');
+                }
+                $state = $candidate;
+            } catch (Throwable $error) {
+                error_log(sprintf(
+                    '[plugin_state_change_preflight] priority %d listener %d: %s',
+                    (int)$priority,
+                    (int)$index,
+                    $error->getMessage()
+                ));
+                if ($state['allowed']) $state = ['allowed' => false, 'message' => plugin_message('Plugin state change was denied.')];
+            }
+        }
+    }
+    if ($state['allowed']) return true;
+    $message = trim($state['message']);
+    $GLOBALS['_plugin_last_error'] = $message !== '' ? $message : plugin_message('Plugin state change was denied.');
+    return false;
+}
+
+function plugin_lifecycle_locks(string $name): ?array {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) {
+        $GLOBALS['_plugin_last_error'] = plugin_message('Invalid plugin name.');
+        return null;
+    }
+    try {
+        if (!function_exists('theme_operation_acquire')) {
+            require_once dirname(__DIR__) . '/cfg/helpers/theme_helper.php';
+        }
+        return theme_operation_acquire(theme_lifecycle_lock_keys([$name]));
+    } catch (Throwable $error) {
+        error_log('[plugin_lifecycle_lock] ' . $error->getMessage());
+        $GLOBALS['_plugin_last_error'] = plugin_message('Unable to lock plugin lifecycle operation.');
+        return null;
+    }
+}
+
 function plugin_disable(string $name): bool {
+    $locks = plugin_lifecycle_locks($name);
+    if ($locks === null) return false;
+    try {
+        return _plugin_disable_already_locked($name);
+    } finally {
+        theme_operation_release($locks);
+    }
+}
+
+function _plugin_disable_already_locked(string $name): bool {
+    if (!plugin_state_change_preflight($name, 'disable')) return false;
     $dependents = plugin_active_dependents($name);
     if ($dependents !== []) {
         $GLOBALS['_plugin_last_error'] = plugin_message(
@@ -1124,13 +1413,33 @@ function plugin_disable(string $name): bool {
         return false;
     }
     $disabled = plugin_disabled_names();
-    if (!in_array($name, $disabled, true)) {
-        $disabled[] = $name;
-    }
-    $ok = file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX) !== false;
+    if (!in_array($name, $disabled, true)) $disabled[] = $name;
+    $ok = _plugin_write_disabled_names_already_locked($disabled);
     $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to update plugin state.');
     if ($ok) plugin_reset_runtime_cache();
     return $ok;
+}
+
+/** Fail-safe state mutation for package publication; lifecycle preflight must not make staged code active. */
+function _plugin_mark_disabled_already_locked(string $name): bool {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return false;
+    $disabled = plugin_disabled_names();
+    if (!in_array($name, $disabled, true)) $disabled[] = $name;
+    $ok = _plugin_write_disabled_names_already_locked($disabled);
+    $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to update plugin state.');
+    if ($ok) plugin_reset_runtime_cache();
+    return $ok;
+}
+
+function plugin_advance_reconciliation_state(string $name): bool {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return false;
+    try {
+        if (!class_exists('PluginStoreController', false)) require_once dirname(__DIR__) . '/app/controllers/PluginStoreController.php';
+        return PluginStoreController::reconcileInstalledState($name);
+    } catch (Throwable $error) {
+        error_log('[plugin-reconciliation] ' . $error->getMessage());
+        return false;
+    }
 }
 
 function plugin_is_active(string $name): bool {
@@ -1429,37 +1738,65 @@ if (!function_exists('h')) {
 
 // --- Uninstall plugin with data-keep option ---
 function plugin_uninstall(string $name, bool $keepData = true): bool {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return false;
     $pluginDir = PLUGIN_PATH . '/' . $name;
     if (!is_dir($pluginDir)) return false;
 
-    $dependents = plugin_active_dependents($name);
-    if ($dependents !== []) {
-        $GLOBALS['_plugin_last_error'] = plugin_message(
-            'Plugin "%s" cannot be uninstalled because these active plugins depend on it: %s.',
-            $name,
-            implode(', ', $dependents)
-        );
-        return false;
-    }
+    $locks = plugin_lifecycle_locks($name);
+    if ($locks === null) return false;
+    try {
+        if (!plugin_state_change_preflight($name, 'delete')) return false;
 
-    // Fire uninstall hook for data cleanup (only if NOT keeping data)
-    // Try-catch: jika plugin corrupt, hook mungkin tidak ter-register — skip saja
-    if (!$keepData) {
-        try {
-            do_action('plugin_uninstall', $name);
-        } catch (\Throwable $e) {
-            error_log("[plugin] Uninstall hook failed for '{$name}': {$e->getMessage()}");
+        $dependents = plugin_active_dependents($name);
+        if ($dependents !== []) {
+            $GLOBALS['_plugin_last_error'] = plugin_message(
+                'Plugin "%s" cannot be uninstalled because these active plugins depend on it: %s.',
+                $name,
+                implode(', ', $dependents)
+            );
+            return false;
         }
-    }
 
-    // Delegate file deletion
-    return plugin_delete($name);
+        if (!$keepData) {
+            foreach (do_action_isolated('plugin_uninstall', $name) as $hookError) {
+                error_log(sprintf(
+                    "[plugin_uninstall] %s priority %d listener %d: %s",
+                    $hookError['hook'],
+                    $hookError['priority'],
+                    $hookError['listener'],
+                    $hookError['message']
+                ));
+            }
+        }
+
+        return _plugin_delete_after_preflight($name);
+    } finally {
+        theme_operation_release($locks);
+    }
 }
 
 // --- Delete plugin from disk ---
 function plugin_delete(string $name): bool {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return false;
     $pluginDir = PLUGIN_PATH . '/' . $name;
     if (!is_dir($pluginDir)) return false;
+
+    $locks = plugin_lifecycle_locks($name);
+    if ($locks === null) return false;
+    try {
+        if (!plugin_state_change_preflight($name, 'delete')) return false;
+        return _plugin_delete_after_preflight($name);
+    } finally {
+        theme_operation_release($locks);
+    }
+}
+
+function _plugin_delete_after_preflight(string $name): bool {
+    $pluginDir = PLUGIN_PATH . '/' . $name;
+    $pluginRoot = realpath(PLUGIN_PATH);
+    $pluginReal = realpath($pluginDir);
+    if ($pluginRoot === false || $pluginReal === false || is_link($pluginDir)
+        || !str_starts_with($pluginReal, $pluginRoot . DIRECTORY_SEPARATOR)) return false;
 
     $dependents = plugin_active_dependents($name);
     if ($dependents !== []) {
@@ -1550,14 +1887,15 @@ function plugin_delete(string $name): bool {
     }
 
     // Clean up disabled state
-    if (is_file(PLUGIN_DISABLED_JSON)) {
-        $disabled = plugin_disabled_names();
-        $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
-        file_put_contents(PLUGIN_DISABLED_JSON, json_encode($disabled), LOCK_EX);
-    }
+    $disabled = plugin_disabled_names();
+    $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
+    if (!_plugin_write_disabled_names_already_locked($disabled)) $errors[] = 'Failed to update plugin state';
+    if (!plugin_advance_reconciliation_state($name)) $errors[] = 'Failed to advance plugin reconciliation state';
     $ok = empty($errors);
     $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to uninstall plugin.') . ' ' . implode('; ', $errors);
-    if ($ok) plugin_reset_runtime_cache();
+    if ($ok) {
+        plugin_reset_runtime_cache();
+    }
     return $ok;
 }
 

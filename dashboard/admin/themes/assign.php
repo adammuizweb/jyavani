@@ -71,6 +71,32 @@ function theme_preview_url_for_folder(string $folder_name, ?string $screenshotHi
     return null;
 }
 
+function theme_complete_physical_manifest_for_hook(string $folder): array {
+    if (strlen($folder) > 128 || preg_match('/\A[a-zA-Z0-9_-][a-zA-Z0-9._-]*\z/', $folder) !== 1) return [];
+    $root = realpath(rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR));
+    $candidate = rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $folder;
+    $directory = realpath($candidate);
+    if ($root === false || $directory === false || is_link($candidate)
+        || !str_starts_with($directory, $root . DIRECTORY_SEPARATOR)) return [];
+    $path = $directory . DIRECTORY_SEPARATOR . 'theme.json';
+    $real = realpath($path);
+    $size = @filesize($path);
+    if ($real === false || is_link($path) || !is_file($path) || !is_int($size) || $size < 2 || $size > 1024 * 1024
+        || !str_starts_with($real, $directory . DIRECTORY_SEPARATOR)) return [];
+    $raw = @file_get_contents($real);
+    if (!is_string($raw)) return [];
+    try {
+        $manifest = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+    } catch (JsonException $error) {
+        return [];
+    }
+    if (!is_array($manifest) || array_is_list($manifest)) return [];
+    $manifestFolder = $manifest['folder'] ?? $folder;
+    if (!is_string($manifestFolder) || $manifestFolder !== $folder) return [];
+    $manifest['folder'] = $folder;
+    return $manifest;
+}
+
 function rrmdir(string $dir): void {
     if ($dir === '' || !is_dir($dir)) return;
     try {
@@ -158,8 +184,52 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $errors[] = __('Invalid CSRF token.');
     } else {
         $action = (string)($_POST['action'] ?? '');
+        $managerLocks = [];
+        $removedThemeFolder = null;
 
         try {
+            if (in_array($action, ['register_themes', 'activate_theme', 'apply_theme', 'save_assignments', 'delete_theme'], true)) {
+                $affectedFolders = [];
+                if ($action === 'register_themes') {
+                    $affectedFolders = theme_registration_lock_folders($pdo);
+                } elseif (in_array($action, ['activate_theme', 'apply_theme'], true)) {
+                    $affectedFolders[] = trim((string)($_POST['theme_folder'] ?? ''));
+                } elseif ($action === 'delete_theme') {
+                    $affectedFolders[] = trim((string)($_POST['theme_folder'] ?? ''));
+                } elseif ($action === 'save_assignments') {
+                    foreach ($assign_rows as $assignment) {
+                        $themeId = (int)($assignment['theme_id'] ?? 0);
+                        if ($themeId > 0 && is_string($themes_by_id[$themeId]['folder_name'] ?? null)) {
+                            $affectedFolders[] = $themes_by_id[$themeId]['folder_name'];
+                        }
+                    }
+                    foreach ((array)($_POST['assign'] ?? []) as $value) {
+                        if (!is_string($value) || !str_starts_with($value, 'theme:')) continue;
+                        $themeId = (int)substr($value, 6);
+                        if ($themeId > 0 && is_string($themes_by_id[$themeId]['folder_name'] ?? null)) {
+                            $affectedFolders[] = $themes_by_id[$themeId]['folder_name'];
+                        }
+                    }
+                }
+                $affectedFolders = array_values(array_unique($affectedFolders));
+                $managerLocks = theme_operation_acquire(theme_lifecycle_lock_keys($affectedFolders));
+
+                // Discard pre-lock UI snapshots before lifecycle-sensitive validation and mutation.
+                $themes = get_registered_themes($pdo);
+                $themes_by_id = [];
+                $themes_by_folder = [];
+                foreach ($themes as $themeRow) {
+                    $themes_by_id[$themeRow['id']] = $themeRow;
+                    $themes_by_folder[$themeRow['folder_name']] = $themeRow;
+                }
+                $assign_rows = [];
+                $stmt = $pdo->prepare("SELECT * FROM assignments");
+                $stmt->execute();
+                while ($assignment = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $assign_rows[$assignment['slot_key']] = $assignment;
+                }
+            }
+
             if ($action === 'register_themes') {
                 $registered = register_all_themes_from_fs($pdo);
                 if (!empty($registered)) {
@@ -245,6 +315,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $stmt->execute([':id' => $theme_id]);
                 $th = $stmt->fetch(PDO::FETCH_ASSOC);
                 if (!$th) throw new RuntimeException(__('Theme not found in database.'));
+                if ((string)($th['folder_name'] ?? '') !== trim((string)($_POST['theme_folder'] ?? ''))) {
+                    throw new RuntimeException(__('Theme not found in database.'));
+                }
 
                 if (($th['folder_name'] ?? '') === (defined('DEFAULT_THEME_FOLDER') ? DEFAULT_THEME_FOLDER : 'default')) {
                     throw new RuntimeException(__('Default theme cannot be deleted.'));
@@ -299,54 +372,49 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     $stmt3->execute([':id' => $theme_id]);
 
                     $pdo->commit();
-
-                    $deleteFilesRequested = !empty($_POST['delete_files']);
-                    $deletedFilesOk = false;
-                    $deletedFilesMsg = '';
-
-                    if ($deleteFilesRequested && !empty($th['folder_name'])) {
-                        $folderPath = rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $th['folder_name'];
-                        $realBase = realpath(VIEWS_BASE);
-                        $realTarget = realpath($folderPath) ?: null;
-
-                        if ($realBase && $realTarget && strpos($realTarget, $realBase) === 0) {
-                            rrmdir($realTarget);
-                            if (!is_dir($realTarget)) {
-                                $deletedFilesOk = true;
-                                $deletedFilesMsg = __('Physical theme folder deleted:') . ' ' . $th['folder_name'];
-                            } else {
-                                $deletedFilesMsg = __('Failed to delete physical folder:') . ' ' . $folderPath;
-                            }
-                        } else {
-                            if (is_dir($folderPath)) {
-                                rrmdir($folderPath);
-                                if (!is_dir($folderPath)) {
-                                    $deletedFilesOk = true;
-                                    $deletedFilesMsg = __('Physical theme folder deleted:') . ' ' . $th['folder_name'];
-                                } else {
-                                    $deletedFilesMsg = __('Failed to delete physical folder:') . ' ' . $folderPath;
-                                }
-                            } else {
-                                $deletedFilesMsg = __('Theme folder not found in filesystem:') . ' ' . $folderPath;
-                            }
-                        }
-                    }
-
-                    $messages[] = __("Theme '{$th['folder_name']}' deleted from database and related assignments cleaned.");
-
-                    if ($deleteFilesRequested) {
-                        if ($deletedFilesOk) {
-                            $messages[] = $deletedFilesMsg;
-                        } else {
-                            $errors[] = $deletedFilesMsg;
-                            if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[THEME DELETE FILES] ' . $deletedFilesMsg);
-                        }
-                    }
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) $pdo->rollBack();
                     throw $e;
                 }
 
+                $deleteFilesRequested = !empty($_POST['delete_files']);
+                $deletedFilesOk = false;
+                $deletedFilesMsg = '';
+
+                if ($deleteFilesRequested && !empty($th['folder_name'])) {
+                    $folderPath = rtrim(VIEWS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $th['folder_name'];
+                    $realBase = realpath(VIEWS_BASE);
+                    $realTarget = realpath($folderPath) ?: null;
+                    $contained = $realBase !== false && $realTarget !== null && !is_link($folderPath)
+                        && $realTarget !== $realBase && str_starts_with($realTarget, $realBase . DIRECTORY_SEPARATOR);
+
+                    if ($contained) {
+                        rrmdir($realTarget);
+                        if (!is_dir($realTarget)) {
+                            $deletedFilesOk = true;
+                            $deletedFilesMsg = __('Physical theme folder deleted:') . ' ' . $th['folder_name'];
+                        } else {
+                            $deletedFilesMsg = __('Failed to delete physical folder:') . ' ' . $folderPath;
+                        }
+                    } elseif (!file_exists($folderPath) && !is_link($folderPath)) {
+                        $deletedFilesMsg = __('Theme folder not found in filesystem:') . ' ' . $folderPath;
+                    } else {
+                        $deletedFilesMsg = __('Failed to delete physical folder:') . ' ' . $folderPath;
+                    }
+                }
+
+                $messages[] = __("Theme '{$th['folder_name']}' deleted from database and related assignments cleaned.");
+
+                if ($deleteFilesRequested) {
+                    if ($deletedFilesOk) {
+                        $messages[] = $deletedFilesMsg;
+                    } else {
+                        $errors[] = $deletedFilesMsg;
+                        if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[THEME DELETE FILES] ' . $deletedFilesMsg);
+                    }
+                }
+                $removedThemeFolder = (string)$th['folder_name'];
+                ThemeStoreClient::forgetInstalledTheme($removedThemeFolder);
             } elseif ($action === 'check_updates') {
                 session_write_close();
                 try {
@@ -372,11 +440,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
                     throw new RuntimeException('Invalid progress token.');
                 }
+                $decisionsJson = (string)($_POST['decisions'] ?? '{}');
+                $decisionsTrimmed = trim($decisionsJson);
+                if (strlen($decisionsJson) > 16384 || $decisionsTrimmed === ''
+                    || $decisionsTrimmed[0] !== '{' || !str_ends_with($decisionsTrimmed, '}')) {
+                    throw new RuntimeException(__('Invalid update decisions.'));
+                }
+                try {
+                    $decisions = json_decode($decisionsJson, true, 16, JSON_THROW_ON_ERROR);
+                } catch (JsonException $error) {
+                    throw new RuntimeException(__('Invalid update decisions.'), 0, $error);
+                }
+                if (!is_array($decisions)) throw new RuntimeException(__('Invalid update decisions.'));
                 session_write_close();
-                $result = ThemeStoreClient::applyUpdate($pdo, $folder, $token);
+                $result = ThemeStoreClient::applyUpdate($pdo, $folder, $token, $decisions);
                 if ($result['success']) {
-                    UpdateStatusController::removeUpdate('themes', $folder);
+                    UpdateStatusController::removeUpdate('themes', $folder, (string)$result['new_version']);
                     $messages[] = __("Theme '{$folder}' updated to v{$result['new_version']}.");
+                    if (is_string($result['warning'] ?? null) && $result['warning'] !== '') {
+                        $messages[count($messages) - 1] .= ' ' . $result['warning'];
+                    }
                 } else {
                     $errors[] = (string)($result['error'] ?? __('Failed to update theme.'));
                 }
@@ -428,6 +511,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         } catch (Throwable $e) {
             $errors[] = 'Error: ' . $e->getMessage();
             if (defined('THEME_DEBUG') && THEME_DEBUG) error_log('[ADMIN ASSIGN] ' . $e->getMessage());
+        } finally {
+            if ($managerLocks !== []) theme_operation_release($managerLocks);
+        }
+        if (is_string($removedThemeFolder) && $removedThemeFolder !== '') {
+            UpdateStatusController::removeUpdate('themes', $removedThemeFolder);
         }
     }
 
@@ -546,6 +634,7 @@ foreach ($themes as $t) {
         try {
           $manifestFs = function_exists('read_theme_manifest') ? read_theme_manifest(path_candidate(VIEWS_BASE, $folder, '')) : [];
         } catch (Throwable $e) { $manifestFs = []; }
+        $completePhysicalManifest = theme_complete_physical_manifest_for_hook($folder);
 
         $manifest = array_merge($manifestFs, $manifestFromDb);
         $displayName = $manifest['name'] ?? ($th['name'] ?? $folder);
@@ -575,6 +664,7 @@ foreach ($themes as $t) {
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="delete_theme">
                 <input type="hidden" name="theme_id" value="<?= (int)$th['id'] ?>">
+                <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
 
                 <label class="tm-delcheck" title="<?=_e('Also delete the physical theme folder (if exists)')?>">
                   <input type="checkbox" name="delete_files" value="1">
@@ -631,6 +721,23 @@ foreach ($themes as $t) {
               <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
               <button class="tm-ghost" type="submit"><?=_e('Apply to all')?></button>
             </form>
+            <?php
+            if (function_exists('do_action_isolated')) {
+              $themeActionContext = [
+                'folder' => $folder,
+                'is_active' => $isActive,
+                'is_default' => $isDefault,
+                'is_system' => $isSystem,
+                'update' => $updateInfo,
+                'user_id' => (int)$user_id,
+                'admin_base_path' => ADMIN_BASE_PATH,
+                'return_url' => $selfUrl,
+              ];
+              foreach (do_action_isolated('theme_manager_theme_actions', $th, $completePhysicalManifest, $themeActionContext) as $hookError) {
+                error_log('[theme_manager_theme_actions] ' . $hookError['message']);
+              }
+            }
+            ?>
           </div>
         </div>
       <?php endforeach; ?>
@@ -1074,12 +1181,18 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     else attachWarnings();
   })();
 
-  // ─── Theme Update Progress ───
+  // Theme update preflight and progress
   (function(){
     var overlay = document.getElementById('themeProgressOverlay');
     var statusEl = document.getElementById('themeProgressStatus');
     var fillEl = document.getElementById('themeProgressFill');
     var pctEl = document.getElementById('themeProgressPct');
+    var updateInFlight = false;
+
+    function setUpdateInFlight(active){
+      updateInFlight = active;
+      document.querySelectorAll('.btn-update-theme').forEach(function(button){ button.disabled = active; });
+    }
 
     function showOverlay(){ if (overlay) overlay.style.display = 'flex'; }
     function hideOverlay(){ if (overlay) overlay.style.display = 'none'; }
@@ -1090,9 +1203,9 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     }
 
     function makeProgressToken(){
-      var h = '';
-      for (var i = 0; i < 32; i++) h += '0123456789abcdef'[Math.floor(Math.random()*16)];
-      return h;
+      var bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      return Array.prototype.map.call(bytes, function(value){ return value.toString(16).padStart(2, '0'); }).join('');
     }
 
     function pollProgress(token){
@@ -1107,7 +1220,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
               if (data.done) {
                 clearInterval(interval);
                 if (data.error) {
-                  setTimeout(function(){ hideOverlay(); toast('error', data.error, <?= json_encode(__('Update Failed')) ?>); }, 1000);
+                  setTimeout(function(){ setUpdateInFlight(false); hideOverlay(); toast('error', data.error, <?= json_encode(__('Update Failed')) ?>); }, 1000);
                 } else {
                   setTimeout(function(){ hideOverlay(); window.location.reload(); }, 1500);
                 }
@@ -1117,43 +1230,245 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         };
         xhr.send();
       }, 1500);
+      return interval;
     }
 
-    function startThemeUpdate(folderName){
+    function appendParams(url, params){
+      var parsed = new URL(url, window.location.origin);
+      if (parsed.origin !== window.location.origin) return null;
+      Object.keys(params || {}).forEach(function(key){
+        if (params[key] !== null) parsed.searchParams.set(key, String(params[key]));
+      });
+      return parsed.pathname + parsed.search + parsed.hash;
+    }
+
+    function showPreflightModal(folderName, issues){
+      return new Promise(function(resolve){
+        var overlayEl = document.createElement('div');
+        overlayEl.className = 'theme-preflight-modal';
+        overlayEl.setAttribute('role', 'dialog');
+        overlayEl.setAttribute('aria-modal', 'true');
+        var panel = document.createElement('div');
+        panel.className = 'theme-preflight-panel';
+        var title = document.createElement('h3');
+        title.textContent = <?= json_encode(__('Update Theme')) ?> + ': ' + folderName;
+        panel.appendChild(title);
+
+        var selected = {};
+        (issues || []).forEach(function(issue){
+          var card = document.createElement('section');
+          card.className = 'theme-preflight-issue' + (issue.blocking && !issue.resolved ? ' is-blocking' : '');
+          var label = document.createElement('strong');
+          label.textContent = issue.label || issue.id;
+          card.appendChild(label);
+          if (issue.message) {
+            var message = document.createElement('p');
+            message.textContent = issue.message;
+            card.appendChild(message);
+          }
+          if (Array.isArray(issue.links) && issue.links.length) {
+            var links = document.createElement('div');
+            links.className = 'theme-preflight-links';
+            issue.links.forEach(function(link){
+              var safeUrl = appendParams(link.url, link.method === 'GET' ? link.params : {});
+              if (!safeUrl) return;
+              if (link.method === 'GET') {
+                var anchor = document.createElement('a');
+                anchor.className = 'tm-ghost';
+                anchor.href = safeUrl;
+                anchor.textContent = link.label;
+                links.appendChild(anchor);
+              } else if (link.method === 'POST') {
+                var post = document.createElement('button');
+                post.type = 'button';
+                post.className = 'tm-ghost';
+                post.textContent = link.label;
+                post.addEventListener('click', function(){
+                  var form = document.createElement('form');
+                  form.method = 'post';
+                  form.action = safeUrl;
+                  var values = Object.assign({}, link.params || {}, {csrf_token: <?= json_encode(csrf_token()) ?>});
+                  Object.keys(values).forEach(function(key){
+                    if (values[key] === null) return;
+                    var input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = String(values[key]);
+                    form.appendChild(input);
+                  });
+                  document.body.appendChild(form);
+                  form.submit();
+                });
+                links.appendChild(post);
+              }
+            });
+            card.appendChild(links);
+          }
+          if (Array.isArray(issue.choices)) {
+            issue.choices.forEach(function(choice){
+              var choiceLabel = document.createElement('label');
+              choiceLabel.className = 'theme-preflight-choice' + (choice.destructive ? ' is-destructive' : '');
+              var radio = document.createElement('input');
+              radio.type = 'radio';
+              radio.name = 'theme-preflight-' + issue.id;
+              radio.value = choice.id;
+              radio.addEventListener('change', function(){ selected[issue.id] = choice.id; });
+              choiceLabel.appendChild(radio);
+              choiceLabel.appendChild(document.createTextNode(choice.label));
+              card.appendChild(choiceLabel);
+            });
+          }
+          panel.appendChild(card);
+        });
+
+        var actions = document.createElement('div');
+        actions.className = 'theme-preflight-actions';
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'tm-ghost';
+        cancel.textContent = <?= json_encode(__('Cancel')) ?>;
+        var proceed = document.createElement('button');
+        proceed.type = 'button';
+        proceed.className = 'tm-install';
+        proceed.textContent = <?= json_encode(__('Continue')) ?>;
+        cancel.addEventListener('click', function(){ overlayEl.remove(); resolve(null); });
+        proceed.addEventListener('click', function(){
+          var decisions = {};
+          var missing = false;
+          (issues || []).forEach(function(issue){
+            if (issue.blocking && !issue.resolved && !selected[issue.id]) missing = true;
+            if (selected[issue.id]) {
+              decisions[issue.id] = {choice: selected[issue.id], state_token: issue.state_token || ''};
+            }
+          });
+          if (missing) return;
+          overlayEl.remove();
+          resolve(decisions);
+        });
+        actions.appendChild(cancel);
+        actions.appendChild(proceed);
+        panel.appendChild(actions);
+        overlayEl.appendChild(panel);
+        document.body.appendChild(overlayEl);
+        cancel.focus();
+      });
+    }
+
+    function showCleanUpdateConfirmation(folderName){
+      return new Promise(function(resolve){
+        var overlayEl = document.createElement('div');
+        overlayEl.className = 'theme-preflight-modal';
+        overlayEl.setAttribute('role', 'dialog');
+        overlayEl.setAttribute('aria-modal', 'true');
+        var panel = document.createElement('div');
+        panel.className = 'theme-preflight-panel';
+        var title = document.createElement('h3');
+        title.textContent = <?= json_encode(__('Update Theme')) ?>;
+        var message = document.createElement('p');
+        message.textContent = <?= json_encode(__('Update theme "')) ?> + folderName + <?= json_encode(__('" to the latest version?')) ?>;
+        var actions = document.createElement('div');
+        actions.className = 'theme-preflight-actions';
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'tm-ghost';
+        cancel.textContent = <?= json_encode(__('Cancel')) ?>;
+        var proceed = document.createElement('button');
+        proceed.type = 'button';
+        proceed.className = 'tm-install';
+        proceed.textContent = <?= json_encode(__('Yes, update')) ?>;
+        cancel.addEventListener('click', function(){ overlayEl.remove(); resolve(false); });
+        proceed.addEventListener('click', function(){ overlayEl.remove(); resolve(true); });
+        actions.appendChild(cancel);
+        actions.appendChild(proceed);
+        panel.appendChild(title);
+        panel.appendChild(message);
+        panel.appendChild(actions);
+        overlayEl.appendChild(panel);
+        document.body.appendChild(overlayEl);
+        cancel.focus();
+      });
+    }
+
+    function requestPreflight(folderName, decisions, callback){
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '<?= h($scriptBase) ?>/admin/themes/update_preflight.php', true);
+      xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      xhr.onload = function(){
+        var data = null;
+        try { data = JSON.parse(xhr.responseText); } catch(e) {}
+        if (!data || xhr.status !== 200 || !data.ok) {
+          callback(null, (data && data.error) || <?= json_encode(__('Failed to start update.')) ?>);
+          return;
+        }
+        callback(data, null);
+      };
+      xhr.onerror = function(){ callback(null, <?= json_encode(__('Failed to start update.')) ?>); };
+      xhr.send('csrf_token=<?= h(csrf_token()) ?>&theme=' + encodeURIComponent(folderName) + '&decisions=' + encodeURIComponent(JSON.stringify(decisions || {})));
+    }
+
+    function startThemeUpdate(folderName, decisions){
       var token = makeProgressToken();
       showOverlay();
       setProgress(2, <?= json_encode(__('Preparing...')) ?>);
-      pollProgress(token);
+      var pollingInterval = pollProgress(token);
 
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '<?= h($scriptBase) ?>/admin/themes/update_apply.php', true);
       xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
       xhr.onload = function(){
-        if (xhr.status !== 200) {
-          clearInterval();
+        var data = null;
+        try { data = JSON.parse(xhr.responseText); } catch(e) {}
+        if (xhr.status !== 200 || !data || !data.ok) {
+          clearInterval(pollingInterval);
           hideOverlay();
-          toast('error', <?= json_encode(__('Failed to start update.')) ?>, <?= json_encode(__('Error')) ?>);
+          if (data && data.code === 'theme_update_preflight_required' && Array.isArray(data.issues)) {
+            showPreflightModal(folderName, data.issues).then(function(nextDecisions){
+              if (nextDecisions !== null) startThemeUpdate(folderName, nextDecisions);
+              else setUpdateInFlight(false);
+            });
+          } else {
+            setUpdateInFlight(false);
+            toast('error', (data && data.error) || <?= json_encode(__('Failed to start update.')) ?>, <?= json_encode(__('Error')) ?>);
+          }
         }
       };
-      xhr.send('csrf_token=<?= h(csrf_token()) ?>&action=apply_theme_update&theme=' + encodeURIComponent(folderName) + '&token=' + token);
+      xhr.onerror = function(){
+        clearInterval(pollingInterval);
+        setUpdateInFlight(false);
+        hideOverlay();
+        toast('error', <?= json_encode(__('Failed to start update.')) ?>, <?= json_encode(__('Error')) ?>);
+      };
+      xhr.send('csrf_token=<?= h(csrf_token()) ?>&action=apply_theme_update&theme=' + encodeURIComponent(folderName) + '&token=' + token + '&decisions=' + encodeURIComponent(JSON.stringify(decisions || {})));
+    }
+
+    function beginThemeUpdate(folderName){
+      if (updateInFlight) return;
+      setUpdateInFlight(true);
+      requestPreflight(folderName, {}, function(data, error){
+        if (error) {
+          setUpdateInFlight(false);
+          toast('error', error, <?= json_encode(__('Error')) ?>);
+          return;
+        }
+        if (data.allowed) {
+          showCleanUpdateConfirmation(folderName).then(function(confirmed){
+            if (confirmed) startThemeUpdate(folderName, {});
+            else setUpdateInFlight(false);
+          });
+          return;
+        }
+        showPreflightModal(folderName, data.issues).then(function(decisions){
+          if (decisions !== null) startThemeUpdate(folderName, decisions);
+          else setUpdateInFlight(false);
+        });
+      });
     }
 
     document.querySelectorAll('.btn-update-theme').forEach(function(btn){
       btn.addEventListener('click', function(){
         var folder = btn.getAttribute('data-folder');
         if (!folder) return;
-        if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
-          window.NewNotifConfirm.warning({
-            title: <?= json_encode(__('Update Theme')) ?>,
-            message: <?= json_encode(__('Update theme "')) ?> + folder + <?= json_encode(__('" to the latest version?')) ?>,
-            confirmText: <?= json_encode(__('Yes, update')) ?>,
-            cancelText: <?= json_encode(__('Cancel')) ?>
-          }).then(function(ok){
-            if (ok) startThemeUpdate(folder);
-          });
-        } else if (confirm(<?= json_encode(__('Update theme "')) ?> + folder + <?= json_encode(__('" to the latest version?')) ?>)) {
-          startThemeUpdate(folder);
-        }
+        beginThemeUpdate(folder);
       });
     });
   })();

@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.86",
-    "build": "2026-08-24",
-    "changelog": "Apply private-resource masking and browser security headers on Apache and LiteSpeed deployments.",
+    "version": "2.3.87",
+    "build": "2026-08-25",
+    "changelog": "Add guarded theme lifecycle operations and extension-aware Store update preflight checks.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
