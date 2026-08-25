@@ -64,7 +64,17 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 $stmt = $pdo->prepare("SELECT * FROM theme_zone_items WHERE theme_folder = ? AND zone_slug = ? AND position = ?{$activeSql} ORDER BY ordering ASC, id ASC");
                 $stmt->execute([$themeFolder, $zoneSlug, $position]);
             }
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $filtered = apply_filters(
+                'theme_zone_items',
+                $rows,
+                $themeFolder,
+                $zoneSlug,
+                $position,
+                $activeOnly,
+                $pdo
+            );
+            return is_array($filtered) ? $filtered : $rows;
         } catch (Throwable $e) {
             error_log('[theme_zones] items error: ' . $e->getMessage());
             return [];
@@ -221,6 +231,12 @@ if (!function_exists('theme_zone_ensure_schema')) {
         return in_array($align, ['left', 'center', 'right'], true) ? $align : '';
     }
 
+    function theme_zone_localize_root_urls(string $html): string {
+        if ($html === '' || !function_exists('localized_home_url')) return $html;
+        $home = htmlspecialchars(localized_home_url(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return preg_replace('/\b(href|action)=(\"|\')\/\2/i', '$1=$2' . $home . '$2', $html) ?? $html;
+    }
+
     function theme_zone_universal_defaults(): array {
         return ['_title_tag' => 'div', '_align_title' => 'left', '_align_content' => 'left'];
     }
@@ -234,6 +250,9 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 'label' => __('Image'),
                 'desc'  => __('Gambar dari Media Library (modal picker) atau URL langsung.'),
                 'default_config' => array_merge($uni, ['src' => '', 'alt' => '', 'link' => '', 'max_width' => 0]),
+                'translatable_config' => [
+                    'alt' => ['label' => __('Alt text'), 'control' => 'text', 'format' => 'text'],
+                ],
             ],
             'tz_nav_menu' => [
                 'label' => __('Navigation Menu'),
@@ -244,16 +263,26 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 'label' => __('Social Icons'),
                 'desc'  => __('Pilih sosial media populer yang ingin ditampilkan (icon Simple Icons CC0).'),
                 'default_config' => array_merge($uni, ['enabled' => ['x', 'github', 'instagram'], 'links' => []]),
+                'translatable_config' => [
+                    'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
+                ],
             ],
             'tz_pages' => [
                 'label' => __('Page List'),
                 'desc'  => __('Daftar link page dari Pages admin. Kosong = semua page published.'),
                 'default_config' => array_merge($uni, ['pages' => [], 'list_class' => 'tz-pages']),
+                'translatable_config' => [
+                    'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
+                ],
             ],
             'tz_richtext' => [
                 'label' => __('Rich Text'),
                 'desc'  => __('Konten rich text (Quill) — heading, bold, link, list, dll.'),
                 'default_config' => array_merge($uni, ['html' => '']),
+                'translatable_config' => [
+                    'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
+                    'html' => ['label' => __('Content'), 'control' => 'html', 'format' => 'html'],
+                ],
             ],
             'tz_sidebar_zone' => [
                 'label' => __('Sidebar Zone'),
@@ -269,11 +298,18 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 'label' => __('Search Field'),
                 'desc'  => __('Article search form.'),
                 'default_config' => array_merge($uni, ['placeholder' => __('Search...'), 'button' => false]),
+                'translatable_config' => [
+                    'placeholder' => ['label' => __('Placeholder'), 'control' => 'text', 'format' => 'text'],
+                ],
             ],
             'tz_html' => [
                 'label' => __('Custom HTML'),
                 'desc'  => __('Custom HTML content.'),
                 'default_config' => array_merge($uni, ['title' => '', 'html' => '']),
+                'translatable_config' => [
+                    'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
+                    'html' => ['label' => __('HTML Content'), 'control' => 'html', 'format' => 'html'],
+                ],
             ],
             'tz_post_author' => [
                 'label' => __('Post Author'),
@@ -292,6 +328,27 @@ if (!function_exists('theme_zone_ensure_schema')) {
     // Alias for the full filtered registry (convenience for callers).
     function theme_zone_widget_types(): array {
         return theme_zone_default_widget_types();
+    }
+
+    function theme_zone_translatable_config(string $type): array {
+        $definition = theme_zone_widget_types()[$type] ?? null;
+        $declared = is_array($definition) && is_array($definition['translatable_config'] ?? null)
+            ? $definition['translatable_config']
+            : [];
+        $schema = [];
+        foreach (array_slice($declared, 0, 20, true) as $key => $field) {
+            if (!is_string($key) || preg_match('/\A[A-Za-z0-9_-]{1,64}\z/D', $key) !== 1 || !is_array($field)) continue;
+            $control = (string)($field['control'] ?? 'text');
+            $format = (string)($field['format'] ?? 'text');
+            if (!in_array($control, ['text', 'textarea', 'html'], true)
+                || !in_array($format, ['text', 'html'], true)) continue;
+            $schema[$key] = [
+                'label' => (string)($field['label'] ?? ucfirst(str_replace(['_', '-'], ' ', $key))),
+                'control' => $control,
+                'format' => $format,
+            ];
+        }
+        return $schema;
     }
 
     // Register zone widgets as sidebar widget types so legacy sidebars can also use them.
@@ -314,6 +371,9 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 if ($src === '') return '';
                 $alt = htmlspecialchars((string)($config['alt'] ?? ''), ENT_QUOTES, 'UTF-8');
                 $link = trim((string)($config['link'] ?? ''));
+                if ($link === '/' && function_exists('localized_home_url')) {
+                    $link = localized_home_url((string)($site['url'] ?? '/'));
+                }
                 $maxWidth = (int)($config['max_width'] ?? 0);
                 $style = 'height:auto;';
                 $style = 'max-width:' . ($maxWidth > 0 ? $maxWidth . 'px' : '100%') . ';height:auto;';
@@ -398,7 +458,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 return $out . '</ul>';
 
             case 'tz_richtext':
-                $htmlContent = (string)($config['html'] ?? '');
+                $htmlContent = theme_zone_localize_root_urls((string)($config['html'] ?? ''));
                 $titleHtml = theme_zone_render_title((string)($config['title'] ?? ''), $config);
                 $contAlign = theme_zone_content_align($config);
                 $contStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
@@ -422,7 +482,10 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 </select>';
 
             case 'tz_search':
-                $homeUrl = rtrim((string)($site['url'] ?? '/'), '/') . '/';
+                $homeUrl = function_exists('localized_home_url')
+                    ? localized_home_url((string)($site['url'] ?? '/'))
+                    : rtrim((string)($site['url'] ?? '/'), '/') . '/';
+                $homeUrl = apply_filters('search_form_action', $homeUrl, $pdo);
                 $placeholder = htmlspecialchars((string)($config['placeholder'] ?? __('Search...')), ENT_QUOTES, 'UTF-8');
                 $withButton = !empty($config['button']);
                 $out = '<form method="get" action="' . htmlspecialchars($homeUrl, ENT_QUOTES) . '" class="tz-search">';
@@ -434,7 +497,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 return $out;
 
             case 'tz_html':
-                $htmlContent = (string)($config['html'] ?? '');
+                $htmlContent = theme_zone_localize_root_urls((string)($config['html'] ?? ''));
                 $titleHtml = theme_zone_render_title((string)($config['title'] ?? ''), $config);
                 $contAlign = theme_zone_content_align($config);
                 $contStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
@@ -544,10 +607,23 @@ if (!function_exists('theme_zone_ensure_schema')) {
     }
 
     function theme_zone_delete_item(PDO $pdo, int $id): bool {
+        $ownsTransaction = !$pdo->inTransaction();
         try {
+            if ($ownsTransaction) $pdo->beginTransaction();
+            $source = $pdo->prepare('SELECT id FROM theme_zone_items WHERE id = ? LIMIT 1 FOR UPDATE');
+            $source->execute([$id]);
+            if (!$source->fetchColumn()) {
+                if ($ownsTransaction) $pdo->rollBack();
+                return false;
+            }
+            do_action('theme_zone_item_before_delete', $id, $pdo);
             $stmt = $pdo->prepare("DELETE FROM theme_zone_items WHERE id = ?");
-            return $stmt->execute([$id]);
+            if (!$stmt->execute([$id])) throw new RuntimeException('Theme Zone item deletion failed.');
+            if ($ownsTransaction) $pdo->commit();
+            return true;
         } catch (Throwable $e) {
+            if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
+            if (!$ownsTransaction) throw $e;
             error_log('[theme_zones] delete error: ' . $e->getMessage());
             return false;
         }

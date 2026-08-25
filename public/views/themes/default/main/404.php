@@ -8,7 +8,7 @@
 <section class="error-page">
   <h1 class="error-title"><?= __('404 — Page Not Found') ?></h1>
   <p class="error-message"><?= __('Sorry, the page you are looking for is not available or has been moved.') ?></p>
-  <a href="/" class="error-link"><?= __('Back to Home') ?></a>
+  <a href="<?= htmlspecialchars(function_exists('localized_home_url') ? localized_home_url() : '/', ENT_QUOTES, 'UTF-8') ?>" class="error-link"><?= __('Back to Home') ?></a>
 </section>
 
 <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'main.404', 'after')): ?>

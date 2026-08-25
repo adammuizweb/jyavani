@@ -2,7 +2,7 @@
     "folder": "default",
     "name": "default",
     "description": "Tema bawaan Jyavani — dark mode, i18n, SEO lengkap, slot-based rendering.",
-    "version": "1.3.6",
+    "version": "1.4.0",
     "php_required": "8.1",
     "author": "adammuiz",
     "screenshot": "img.png",
@@ -68,10 +68,12 @@
             },
             "footer": {
                 "label": "Footer",
+                "slot": "footer",
                 "fields": {
                     "footer_text": {
                         "type": "textarea",
-                        "label": "Footer / copyright text"
+                        "label": "Footer / copyright text",
+                        "translatable": true
                     },
                     "footer_menu": {
                         "type": "menu",

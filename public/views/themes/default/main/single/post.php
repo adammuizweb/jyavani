@@ -87,6 +87,7 @@ if (isset($pdo) && $pdo instanceof PDO) {
 } elseif (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
     $pdoForCategoryPath = $GLOBALS['pdo'];
 }
+$homeUrl = function_exists('localized_home_url') ? localized_home_url() : '/';
 
 // 1. Helper Data Processing
 $authorName = !empty($post['author_name'])
@@ -178,13 +179,13 @@ $bcDataAttrs = function (int $dur, int $delay): string {
 ?>
 
 <nav class="adam-breadcrumb" aria-label="Breadcrumb">
-  <a href="/" class="typewrite onload"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>><?= __('Home') ?></a>
+  <a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>" class="typewrite onload"<?= $bcDataAttrs($bcDurLink, $bcDelay) ?>><?= __('Home') ?></a>
   <?php $bcDelay += $bcGap; ?>
 
   <span class="sep typewrite onload"<?= $bcDataAttrs($bcDurSep, $bcDelay) ?>>/</span>
   <?php $bcDelay += $bcGap; ?>
 
-  <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; ?>
+  <?php $catBase = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? (($_cp = get_category_path($GLOBALS['pdo'])) !== '' ? '/' . $_cp . '/' : '/') : '/category/'; $catBase = function_exists('localized_path_url') ? localized_path_url($catBase) : $catBase; ?>
   <?php if (!empty($categories)): ?>
     <?php
       $firstCat = $categories[0];
@@ -419,7 +420,7 @@ $imgSrcRaw = !empty($post['display_image'])
 
 <section class="adam-post-footer">
   <div class="footer-actions">
-    <a href="/" class="btn-back">
+    <a href="<?= htmlspecialchars($homeUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn-back">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
       <?= __('Home') ?>
     </a>

@@ -15,6 +15,7 @@ $category_breadcrumbs = isset($category_breadcrumbs) && is_array($category_bread
 
 $_cp = (function_exists('get_category_path') && isset($GLOBALS['pdo'])) ? get_category_path($GLOBALS['pdo']) : 'category';
 $catBase = $_cp !== '' ? '/' . $_cp . '/' : '/';
+$catBase = function_exists('localized_path_url') ? localized_path_url($catBase) : $catBase;
 unset($_cp);
 
 ?>

@@ -49,36 +49,59 @@ function set_locale(string $locale): void {
 
 function locale_prefix_for_url(?string $locale = null): string {
     $locale ??= get_locale();
-    return $locale === default_locale() ? '' : '/' . $locale;
+    return $locale === content_default_locale() ? '' : '/' . $locale;
+}
+
+function localized_home_url(string $baseUrl = '/', ?string $locale = null): string {
+    $locale ??= get_locale();
+    $base = rtrim(trim($baseUrl), '/');
+    if ($base === '') $base = '';
+    $url = $base . locale_prefix_for_url($locale) . '/';
+    $pdo = $GLOBALS['pdo'] ?? null;
+    $filtered = apply_filters('localized_home_url', $url, $locale, $baseUrl, $pdo);
+    return is_string($filtered) && $filtered !== '' ? $filtered : $url;
+}
+
+function localized_path_url(string $path, ?string $locale = null): string {
+    $path = trim($path);
+    if ($path === '' || str_starts_with($path, '#') || preg_match('#^[a-z][a-z0-9+.-]*:#i', $path)) return $path;
+    $path = '/' . ltrim($path, '/');
+    $prefix = locale_prefix_for_url($locale);
+    if ($prefix === '' || $path === $prefix || str_starts_with($path, $prefix . '/')) return $path;
+    return $prefix . $path;
 }
 
 function __(string $source, string $scope = 'default'): string {
     if ($source === '') return '';
 
     $locale = get_locale();
-
-    if ($locale === 'en') return $source;
-
     static $cache = [];
-    $cacheKey = $scope . "\0" . $locale . "\0" . md5($source);
-
-    if (array_key_exists($cacheKey, $cache)) {
-        return $cache[$cacheKey];
-    }
-
     $pdo = $GLOBALS['pdo'] ?? null;
-    if ($pdo) {
-        $stmt = $pdo->prepare("SELECT value FROM ui_translations WHERE scope = ? AND source = ? AND locale = ? LIMIT 1");
-        $stmt->execute([$scope, $source, $locale]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row && $row['value'] !== '') {
-            $cache[$cacheKey] = $row['value'];
-            return $row['value'];
+
+    if ($locale === 'en') {
+        $value = $source;
+    } else {
+        $cacheKey = $scope . "\0" . $locale . "\0" . md5($source);
+        if (!array_key_exists($cacheKey, $cache)) {
+            $value = $source;
+            if ($pdo instanceof PDO) {
+                $stmt = $pdo->prepare("SELECT value FROM ui_translations WHERE scope = ? AND source = ? AND locale = ? LIMIT 1");
+                $stmt->execute([$scope, $source, $locale]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($row && $row['value'] !== '') $value = (string)$row['value'];
+            }
+            $cache[$cacheKey] = $value;
         }
+        $value = $cache[$cacheKey];
     }
 
-    $cache[$cacheKey] = $source;
-    return $source;
+    $context = [
+        'theme_folder' => $GLOBALS['__jy_render_theme_source_folder'] ?? null,
+        'requested_theme_folder' => $GLOBALS['__jy_render_theme_folder'] ?? null,
+        'slot_key' => $GLOBALS['__jy_render_slot_key'] ?? null,
+    ];
+    $filtered = apply_filters('localized_string', $value, $source, $scope, $locale, $context, $pdo);
+    return is_string($filtered) ? $filtered : $value;
 }
 
 function _e(string $source, string $scope = 'default'): void {

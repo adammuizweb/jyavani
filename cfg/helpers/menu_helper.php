@@ -215,6 +215,8 @@ if (!function_exists('menu_render_tree')) {
             if (!empty($item['hidden'])) continue;
             $label = htmlspecialchars((string)($item['label'] ?? ''), ENT_QUOTES, 'UTF-8');
             $url = menu_resolve_url($pdo, $item, $homeUrl);
+            $filteredUrl = apply_filters('menu_item_url', $url, $item, $pdo);
+            if (is_string($filteredUrl) && $filteredUrl !== '') $url = $filteredUrl;
             $target = !empty($item['target_blank']) ? ' target="_blank" rel="noopener"' : '';
             $hasChildren = !empty($item['children']) && ($maxDepth <= 0 || $currentDepth < $maxDepth);
             $liClass = 'menu-item' . ($hasChildren ? ' has-child' : '');

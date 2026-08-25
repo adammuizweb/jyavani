@@ -557,6 +557,14 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
                       <div class="tz-config-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
                         <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList, $base) ?>
                       </div>
+                      <?php do_action('theme_zone_item_editor_actions', $it, [
+                          'theme_folder' => $folder,
+                          'zone_slug' => $zSlug,
+                          'position' => $posKey,
+                          'return_url' => $selfUrl . '&theme=' . rawurlencode($folder) . '&partial=' . rawurlencode($activePartial) . '&edit=' . $itemId,
+                          'widget_definition' => $typeInfo,
+                          'user_id' => $uid,
+                      ], $pdo); ?>
                     </div>
                   </div>
                 <?php endforeach; ?>

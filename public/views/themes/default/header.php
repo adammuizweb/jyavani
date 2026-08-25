@@ -1,7 +1,8 @@
 <?php
 $siteTitle = $site['title'] ?? 'ABC';
 $baseUrl   = rtrim($site['url'] ?? '/', '/');
-$homeUrl   = $baseUrl ?: '/';
+$homeUrl   = function_exists('localized_home_url') ? localized_home_url($baseUrl ?: '/') : ($baseUrl ?: '/');
+$assetBase = $baseUrl;
 $searchQuery = $_GET['s'] ?? '';
 $colorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode() : 'both';
 
@@ -35,7 +36,7 @@ $hasControlsZone = function_exists('theme_zone_has_position') && theme_zone_has_
          data-wave-target=".jyavani-logo"
          data-wave-step="28">
         <img
-          src="<?= $tcLogo !== '' ? htmlspecialchars($tcLogo, ENT_QUOTES, 'UTF-8') : htmlspecialchars($homeUrl) . '/static/img/jyavani.svg' ?>"
+          src="<?= $tcLogo !== '' ? htmlspecialchars($tcLogo, ENT_QUOTES, 'UTF-8') : htmlspecialchars($assetBase) . '/static/img/jyavani.svg' ?>"
           alt="<?= htmlspecialchars($siteTitle) ?>"
           class="flip-logo onload"
           data-anim-trigger="load"

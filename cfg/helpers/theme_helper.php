@@ -712,6 +712,7 @@ function include_template_file(string $path, array $context = []): string {
     // Preserve existence as well as value so nested renders cannot leak globals.
     $renderGlobals = [
         '__jy_render_theme_folder' => '__jy_theme_folder',
+        '__jy_render_theme_source_folder' => '__jy_theme_source_folder',
         '__jy_render_slot_key' => '__jy_slot_key',
     ];
     $previousRenderGlobals = [];
@@ -829,6 +830,14 @@ function render_slot($pdoOrNull, string $slot_key, array $context = []): string 
         $path = resolve_theme_file_path($resolved);
         if ($path) {
             $context['__jy_theme_folder'] = $resolved['theme_folder'] ?? ($resolved['folder'] ?? DEFAULT_THEME_FOLDER);
+            $viewsRoot = realpath(VIEWS_BASE);
+            $relativePath = $viewsRoot !== false && str_starts_with($path, $viewsRoot . DIRECTORY_SEPARATOR)
+                ? substr($path, strlen($viewsRoot) + 1)
+                : '';
+            $sourceFolder = $relativePath !== '' ? strtok($relativePath, DIRECTORY_SEPARATOR) : false;
+            $context['__jy_theme_source_folder'] = is_string($sourceFolder) && $sourceFolder !== ''
+                ? $sourceFolder
+                : (string)$context['__jy_theme_folder'];
             $context['__jy_slot_key'] = $slot_key;
             return include_template_file($path, $context);
         } else {

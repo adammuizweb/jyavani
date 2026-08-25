@@ -90,8 +90,8 @@ $carouselPosts = array_slice($latestPosts, 0, 8);
             <p class="hp-hero__desc"><?= h($siteDesc) ?></p>
         <?php endif; ?>
         <div class="hp-hero__actions">
-            <a class="hp-cta hp-cta--primary" href="/artikel/"><?= __('Jelajahi Semua Artikel') ?></a>
-            <a class="hp-cta hp-cta--secondary" href="/category/panduan/"><?= __('Mulai dari Panduan') ?></a>
+            <a class="hp-cta hp-cta--primary" href="<?= htmlspecialchars(function_exists('localized_path_url') ? localized_path_url('/artikel/') : '/artikel/', ENT_QUOTES, 'UTF-8') ?>"><?= __('Jelajahi Semua Artikel') ?></a>
+            <a class="hp-cta hp-cta--secondary" href="<?= htmlspecialchars(function_exists('localized_path_url') ? localized_path_url('/category/panduan/') : '/category/panduan/', ENT_QUOTES, 'UTF-8') ?>"><?= __('Mulai dari Panduan') ?></a>
         </div>
     </div>
 </section>
@@ -106,7 +106,7 @@ $carouselPosts = array_slice($latestPosts, 0, 8);
 <section class="hp-section hp-bento">
     <div class="hp-section__head">
         <h2 class="hp-section__title"><?= __('Dari Kategori Panduan') ?></h2>
-        <a class="hp-section__more" href="/category/panduan/"><?= __('Lihat semua →') ?></a>
+        <a class="hp-section__more" href="<?= htmlspecialchars(function_exists('localized_path_url') ? localized_path_url('/category/panduan/') : '/category/panduan/', ENT_QUOTES, 'UTF-8') ?>"><?= __('Lihat semua →') ?></a>
     </div>
     <?php if (!empty($panduanPosts)): ?>
         <div class="hp-bento__grid">
@@ -159,7 +159,7 @@ $carouselPosts = array_slice($latestPosts, 0, 8);
 <section class="hp-section hp-carousel">
     <div class="hp-section__head">
         <h2 class="hp-section__title"><?= __('Terbaru dari Kami') ?></h2>
-        <a class="hp-section__more" href="/artikel/"><?= __('Lihat semua →') ?></a>
+        <a class="hp-section__more" href="<?= htmlspecialchars(function_exists('localized_path_url') ? localized_path_url('/artikel/') : '/artikel/', ENT_QUOTES, 'UTF-8') ?>"><?= __('Lihat semua →') ?></a>
     </div>
     <?php if (!empty($carouselPosts)): ?>
         <div class="hp-carousel__swiper swiper">
@@ -197,6 +197,7 @@ $carouselPosts = array_slice($latestPosts, 0, 8);
         <div class="hp-categories__grid">
             <?php foreach ($categories as $cat):
                 $catUrl = function_exists('get_category_permalink') ? get_category_permalink($pdo, $cat) : '/category/' . rawurlencode($cat['slug'] ?? '') . '/';
+                if (!function_exists('get_category_permalink') && function_exists('localized_path_url')) $catUrl = localized_path_url($catUrl);
                 $catIcon = match($cat['slug'] ?? '') {
                     'panduan' => '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>',
                     'keamanan' => '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
@@ -245,6 +246,7 @@ $carouselPosts = array_slice($latestPosts, 0, 8);
         ];
         foreach ($cols as $col):
             $colUrl = '/category/' . rawurlencode($col['slug']) . '/';
+            if (function_exists('localized_path_url')) $colUrl = localized_path_url($colUrl);
         ?>
             <div class="hp-multicol__col">
                 <div class="hp-multicol__header">
