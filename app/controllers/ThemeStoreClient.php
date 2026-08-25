@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/cfg/helpers/package_archive.php';
+require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
 
 class ThemeStoreClient
 {
@@ -19,12 +20,12 @@ class ThemeStoreClient
         return self::checkUpdatesDetailed($pdo)['updates'];
     }
 
-    public static function checkUpdatesDetailed(PDO $pdo, ?array $themes = null): array
+    public static function checkUpdatesDetailed(PDO $pdo, ?array $themes = null, ?float $deadline = null): array
     {
         self::loadThemeHelpers();
         $scanFolders = theme_registration_lock_folders($pdo);
         if (is_array($themes)) $scanFolders = array_merge($scanFolders, array_keys($themes));
-        $scanLocks = theme_operation_acquire(theme_lifecycle_lock_keys($scanFolders));
+        $scanLocks = self::discoveryLocks(theme_lifecycle_lock_keys($scanFolders), $deadline);
         try {
             if ($themes === null) {
                 if (function_exists('register_all_themes_from_fs')) register_all_themes_from_fs($pdo);
@@ -53,6 +54,7 @@ class ThemeStoreClient
         $fetched = 0;
         $failed = [];
         $now = time();
+        $remainingEligible = count(array_filter($themes, static fn(mixed $manifest): bool => is_array($manifest) && !empty($manifest['store'])));
 
         foreach ($themes as $folder => $manifest) {
             $store = $manifest['store'] ?? null;
@@ -62,7 +64,9 @@ class ThemeStoreClient
             $storeSlug = $store['slug'] ?? $folder;
             $currentVersion = $manifest['version'] ?? '0.0.0';
 
-            $latest = self::fetchVersionInfo($storeUrl . '/' . $storeSlug . '/version.json');
+            $itemDeadline = self::itemDeadline($deadline, $remainingEligible);
+            $remainingEligible--;
+            $latest = self::fetchVersionInfo($storeUrl . '/' . $storeSlug . '/version.json', $itemDeadline);
             if ($latest === null || !is_string($latest['version'] ?? null) || trim($latest['version']) === '') {
                 $failed[] = $folder;
                 $observed[$folder] = false;
@@ -98,7 +102,7 @@ class ThemeStoreClient
         $updates = array_intersect_key($updates, $eligible);
         $state = $failed === [] ? 'ok' : ($fetched > 0 ? 'partial' : 'error');
         if ($eligible === []) $state = 'ok';
-        $commitLocks = theme_operation_acquire(theme_lifecycle_lock_keys(array_keys($themes)));
+        $commitLocks = self::discoveryLocks(theme_lifecycle_lock_keys(array_keys($themes)), $deadline);
         try {
             $currentPhysical = [];
             foreach (array_keys($themes) as $folder) {
@@ -838,18 +842,27 @@ class ThemeStoreClient
         });
     }
 
-    private static function fetchVersionInfo(string $url): ?array
+    private static function fetchVersionInfo(string $url, ?float $deadline = null): ?array
     {
-        $ctx = stream_context_create([
-            'http' => [
-                'timeout' => 10,
-                'user_agent' => 'JyavaniCMS/2.0',
-            ],
-        ]);
-        $json = @file_get_contents($url, false, $ctx);
-        if ($json === false) return null;
-        $data = json_decode($json, true);
-        return is_array($data) ? $data : null;
+        return update_metadata_fetch_json($url, 'JyavaniCMS-ThemeUpdate', $deadline);
+    }
+
+    private static function lockDeadline(?float $deadline): ?float
+    {
+        return $deadline === null ? null : min($deadline, microtime(true) + 0.5);
+    }
+
+    private static function discoveryLocks(array $keys, ?float $deadline): array
+    {
+        if (function_exists('theme_lifecycle_reader_is_active') && theme_lifecycle_reader_is_active()) return [];
+        return theme_operation_acquire($keys, LOCK_SH, self::lockDeadline($deadline));
+    }
+
+    private static function itemDeadline(?float $deadline, int $remainingItems): ?float
+    {
+        if ($deadline === null || $remainingItems < 1) return $deadline;
+        $now = microtime(true);
+        return min($deadline, $now + max(0.0, $deadline - $now) / $remainingItems);
     }
 
     public static function scanInstalledThemes(PDO $pdo): array

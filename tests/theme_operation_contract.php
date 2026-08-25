@@ -62,6 +62,15 @@ try {
     $releasedLocks = theme_operation_acquire(theme_lifecycle_lock_keys(['sample']));
     theme_operation_release($releasedLocks);
     $check(($GLOBALS['_theme_operation_held_keys'] ?? []) === [] && ($GLOBALS['_theme_operation_lock_keys'] ?? []) === [], 'lock release clears request-local ownership bookkeeping');
+    $contendedPath = BACKEND_PATH . '/var/theme-operation-locks/' . hash('sha256', 'sample') . '.lock';
+    $contendedHandle = fopen($contendedPath, 'r+');
+    flock($contendedHandle, LOCK_EX);
+    $lockWaitStarted = microtime(true);
+    $boundedLockFailed = $throws(static fn() => theme_operation_acquire(['sample'], LOCK_SH, microtime(true) + 0.05));
+    $lockWaitElapsed = microtime(true) - $lockWaitStarted;
+    flock($contendedHandle, LOCK_UN);
+    fclose($contendedHandle);
+    $check($boundedLockFailed && $lockWaitElapsed < 0.25, 'deadline-aware lifecycle lock acquisition fails promptly under contention');
     $legacyName = 'Legacy Theme (v1)';
     $legacyLocks = theme_operation_acquire([$legacyName]);
     theme_operation_release($legacyLocks);
@@ -101,7 +110,7 @@ try {
 
     $helperSource = (string)file_get_contents($root . '/cfg/helpers/theme_helper.php');
     $check(str_contains($helperSource, '@fstat($handle)') && substr_count($helperSource, '@lstat($path)') >= 2
-        && str_contains($helperSource, 'flock($handle, $mode)') && str_contains($helperSource, '[LOCK_SH, LOCK_EX]')
+        && str_contains($helperSource, '$mode | LOCK_NB') && str_contains($helperSource, '[LOCK_SH, LOCK_EX]')
         && !str_contains($helperSource, 'posix_geteuid'), 'shared and exclusive lock modes verify regular descriptor identities without requiring one effective UID');
     $check(str_contains($helperSource, "hash('sha256', \$folder) . '.lock'")
         && str_contains($helperSource, '$left === THEME_LIFECYCLE_LOCK_KEY')

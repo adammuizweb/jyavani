@@ -1,10 +1,12 @@
 <?php
 declare(strict_types=1);
+require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
 
 final class UpdateStatusController
 {
     private const SCHEMA = 1;
     private const TTL = 3600;
+    private const CHECK_BUDGET_SECONDS = 12.0;
     private const DEFAULT_CORE_URL = 'https://jyavani.com/download/latest/';
 
     public static function getSnapshot(): array
@@ -30,8 +32,16 @@ final class UpdateStatusController
         }
 
         $lock = fopen($file . '.lock', 'c+');
-        if ($lock === false || !flock($lock, LOCK_EX)) {
+        $wouldBlock = 0;
+        if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB, $wouldBlock)) {
             if (is_resource($lock)) fclose($lock);
+            if ($wouldBlock === 1) {
+                if (($beforeLock['components']['core']['check_url'] ?? '') !== $coreUrl) {
+                    throw new RuntimeException('Another update check is already in progress.');
+                }
+                $beforeLock['stale'] = (int)($beforeLock['expires_at'] ?? 0) <= time();
+                return $beforeLock;
+            }
             throw new RuntimeException('Unable to acquire the update status lock.');
         }
 
@@ -44,10 +54,14 @@ final class UpdateStatusController
                 return $previous;
             }
             $now = time();
+            $startedAt = microtime(true);
+            $deadline = $startedAt + self::CHECK_BUDGET_SECONDS;
+            $coreDeadline = min($deadline, $startedAt + 4.0);
+            $pluginDeadline = min($deadline, $startedAt + 8.0);
 
-            $core = self::checkCore($coreUrl, $previous['components']['core'] ?? [], $providers['core'] ?? null, $now);
-            $plugins = self::checkPlugins($pdo, $previous['components']['plugins'] ?? [], $providers['plugins'] ?? null, $now);
-            $themes = self::checkThemes($pdo, $previous['components']['themes'] ?? [], $providers['themes'] ?? null, $now);
+            $core = self::checkCore($coreUrl, $previous['components']['core'] ?? [], $providers['core'] ?? null, $now, $coreDeadline);
+            $plugins = self::checkPlugins($pdo, $previous['components']['plugins'] ?? [], $providers['plugins'] ?? null, $now, $pluginDeadline);
+            $themes = self::checkThemes($pdo, $previous['components']['themes'] ?? [], $providers['themes'] ?? null, $now, $deadline);
             $states = [$core['state'], $plugins['state'], $themes['state']];
             $failed = count(array_filter($states, static fn(string $state): bool => $state !== 'ok'));
 
@@ -234,11 +248,11 @@ final class UpdateStatusController
         }
     }
 
-    private static function checkCore(string $url, array $previous, mixed $provider, int $now): array
+    private static function checkCore(string $url, array $previous, mixed $provider, int $now, float $deadline): array
     {
         $localVersion = self::localVersion();
         try {
-            $remote = is_callable($provider) ? $provider($url, $localVersion) : self::fetchCore($url, $localVersion);
+            $remote = is_callable($provider) ? $provider($url, $localVersion) : self::fetchCore($url, $localVersion, $deadline);
         } catch (Throwable $error) {
             $remote = null;
         }
@@ -281,25 +295,25 @@ final class UpdateStatusController
         return $component;
     }
 
-    private static function checkPlugins(PDO $pdo, array $previous, mixed $provider, int $now): array
+    private static function checkPlugins(PDO $pdo, array $previous, mixed $provider, int $now, float $deadline): array
     {
         require_once __DIR__ . '/PluginStoreController.php';
         try {
-            $result = is_callable($provider) ? $provider($pdo) : PluginStoreController::checkUpdatesDetailed($pdo);
+            $result = is_callable($provider) ? $provider($pdo) : PluginStoreController::checkUpdatesDetailed($pdo, $deadline);
             return self::normalizeCollectionResult($result, $previous, $now);
         } catch (Throwable $error) {
             return array_replace($previous, ['state' => 'error', 'checked_at' => $now, 'error' => 'plugin_check_failed']);
         }
     }
 
-    private static function checkThemes(PDO $pdo, array $previous, mixed $provider, int $now): array
+    private static function checkThemes(PDO $pdo, array $previous, mixed $provider, int $now, float $deadline): array
     {
         require_once __DIR__ . '/ThemeStoreClient.php';
         try {
             if (is_callable($provider)) {
                 $result = $provider($pdo);
             } else {
-                $result = ThemeStoreClient::checkUpdatesDetailed($pdo);
+                $result = ThemeStoreClient::checkUpdatesDetailed($pdo, null, $deadline);
             }
             return self::normalizeCollectionResult($result, $previous, $now);
         } catch (Throwable $error) {
@@ -321,19 +335,12 @@ final class UpdateStatusController
         ];
     }
 
-    private static function fetchCore(string $url, string $localVersion): ?array
+    private static function fetchCore(string $url, string $localVersion, float $deadline): ?array
     {
         $checkUrl = str_ends_with(strtolower((string)parse_url($url, PHP_URL_PATH)), '.json')
             ? $url
             : $url . (str_contains($url, '?') ? '&' : '?') . 'format=json';
-        $context = stream_context_create(['http' => [
-            'timeout' => 15,
-            'user_agent' => 'JyavaniCMS-Update/' . $localVersion,
-        ]]);
-        $json = @file_get_contents($checkUrl, false, $context);
-        if ($json === false) return null;
-        $data = json_decode($json, true);
-        return is_array($data) ? $data : null;
+        return update_metadata_fetch_json($checkUrl, 'JyavaniCMS-Update/' . $localVersion, $deadline);
     }
 
     private static function localVersion(): string

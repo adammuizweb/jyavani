@@ -1371,7 +1371,7 @@ function theme_registration_lock_folders($pdoOrNull = null): array {
 }
 
 /** Acquire deterministic exact-name operation locks. Callers must release them in finally. */
-function theme_operation_acquire(array $folders, int $mode = LOCK_EX): array {
+function theme_operation_acquire(array $folders, int $mode = LOCK_EX, ?float $deadline = null): array {
     if (!defined('BACKEND_PATH')) {
         throw new RuntimeException('BACKEND_PATH is required for theme operation locks.');
     }
@@ -1495,7 +1495,13 @@ function theme_operation_acquire(array $folders, int $mode = LOCK_EX): array {
                 fclose($handle);
                 throw new RuntimeException('Unsafe theme operation lock descriptor.');
             }
-            if (!flock($handle, $mode)) {
+            $locked = false;
+            do {
+                $locked = flock($handle, $deadline === null ? $mode : ($mode | LOCK_NB));
+                if ($locked || $deadline === null || microtime(true) >= $deadline) break;
+                usleep(20000);
+            } while (true);
+            if (!$locked) {
                 fclose($handle);
                 throw new RuntimeException('Unable to acquire the theme operation lock.');
             }

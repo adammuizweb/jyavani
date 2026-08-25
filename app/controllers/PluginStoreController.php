@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/cfg/helpers/package_archive.php';
+require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
 
 class PluginStoreController
 {
@@ -28,12 +29,12 @@ class PluginStoreController
         return self::checkUpdatesDetailed($pdo)['updates'];
     }
 
-    public static function checkUpdatesDetailed(PDO $pdo): array
+    public static function checkUpdatesDetailed(PDO $pdo, ?float $deadline = null): array
     {
         $scanLocks = [];
         try {
             if (!function_exists('theme_operation_acquire')) require_once dirname(__DIR__, 2) . '/cfg/helpers/theme_helper.php';
-            $scanLocks = theme_operation_acquire(theme_lifecycle_lock_keys());
+            $scanLocks = self::discoveryLocks(theme_lifecycle_lock_keys(), $deadline);
             $transient = self::readTransient();
             $baselineGeneration = (string)($transient['generation'] ?? '');
             $baselineUpdates = is_array($transient['updates'] ?? null) ? $transient['updates'] : [];
@@ -51,6 +52,13 @@ class PluginStoreController
         $fetched = 0;
         $failed = [];
         $now = time();
+        $remainingEligible = 0;
+        foreach ($plugins as $manifest) {
+            if (($manifest['store'] ?? null)
+                || str_starts_with((string)($manifest['plugin_uri'] ?? ''), 'https://jyavani.com/plugin/')) {
+                $remainingEligible++;
+            }
+        }
 
         foreach ($plugins as $name => $manifest) {
             $store = $manifest['store'] ?? null;
@@ -64,7 +72,9 @@ class PluginStoreController
             $storeUrl = rtrim($store['url'] ?? 'https://jyavani.com/plugin-store/', '/');
             $currentVersion = $manifest['version'] ?? '0.0.0';
 
-            $latest = self::fetchVersionInfo($storeUrl . '/' . $name . '/version.json');
+            $itemDeadline = self::itemDeadline($deadline, $remainingEligible);
+            $remainingEligible--;
+            $latest = self::fetchVersionInfo($storeUrl . '/' . $name . '/version.json', $itemDeadline);
             if ($latest === null || !is_string($latest['version'] ?? null) || trim($latest['version']) === '') {
                 $failed[] = $name;
                 $observed[$name] = false;
@@ -121,7 +131,7 @@ class PluginStoreController
         $updates = array_intersect_key($updates, $eligible);
         $state = $failed === [] ? 'ok' : ($fetched > 0 ? 'partial' : 'error');
         if ($eligible === []) $state = 'ok';
-        $commitLocks = theme_operation_acquire(theme_lifecycle_lock_keys());
+        $commitLocks = self::discoveryLocks(theme_lifecycle_lock_keys(), $deadline);
         try {
             $currentPhysical = [];
             foreach (array_keys($plugins) as $name) $currentPhysical[$name] = self::physicalPluginState((string)$name);
@@ -687,18 +697,27 @@ class PluginStoreController
         return fclose($output) && $ok && $downloaded > 0;
     }
 
-    private static function fetchVersionInfo(string $url): ?array
+    private static function fetchVersionInfo(string $url, ?float $deadline = null): ?array
     {
-        $ctx = stream_context_create([
-            'http' => [
-                'timeout' => 10,
-                'user_agent' => 'JyavaniCMS/2.0',
-            ],
-        ]);
-        $json = @file_get_contents($url, false, $ctx);
-        if ($json === false) return null;
-        $data = json_decode($json, true);
-        return is_array($data) ? $data : null;
+        return update_metadata_fetch_json($url, 'JyavaniCMS-PluginUpdate', $deadline);
+    }
+
+    private static function lockDeadline(?float $deadline): ?float
+    {
+        return $deadline === null ? null : min($deadline, microtime(true) + 0.5);
+    }
+
+    private static function discoveryLocks(array $keys, ?float $deadline): array
+    {
+        if (function_exists('theme_lifecycle_reader_is_active') && theme_lifecycle_reader_is_active()) return [];
+        return theme_operation_acquire($keys, LOCK_SH, self::lockDeadline($deadline));
+    }
+
+    private static function itemDeadline(?float $deadline, int $remainingItems): ?float
+    {
+        if ($deadline === null || $remainingItems < 1) return $deadline;
+        $now = microtime(true);
+        return min($deadline, $now + max(0.0, $deadline - $now) / $remainingItems);
     }
 
     // ─── Store API endpoints (served by jyavani.com) ───
