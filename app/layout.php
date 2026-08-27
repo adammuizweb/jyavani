@@ -229,7 +229,8 @@ $metaDesc = apply_filters('document_meta_description', (string)$metaDesc, $post 
 $faviconUrl = ($pdo instanceof PDO && function_exists('settings_get'))
     ? (settings_get($pdo, 'favicon_url', '') ?? '')
     : '';
-$appleTouchIconUrl = apply_filters('apple_touch_icon_url', '/static/img/favicon/apple-touch-icon.png', $pdo);
+$defaultAppleTouchIconUrl = $faviconUrl !== '' ? $faviconUrl : '/static/img/favicon/apple-touch-icon.png';
+$appleTouchIconUrl = apply_filters('apple_touch_icon_url', $defaultAppleTouchIconUrl, $pdo);
 $webManifestUrl = apply_filters('web_manifest_url', '', $pdo);
 $themeColor = apply_filters('theme_color', '#ffffff', $pdo);
 if ($faviconUrl !== ''): ?>

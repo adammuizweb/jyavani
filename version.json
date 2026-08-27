@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.89",
-    "build": "2026-08-26",
-    "changelog": "Bound manual Core, plugin, and theme update checks to prevent upstream failures from causing gateway timeouts.",
+    "version": "2.3.90",
+    "build": "2026-08-27",
+    "changelog": "Keep custom site favicons consistent across browser and Apple icon metadata, with safe URL and local image validation.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

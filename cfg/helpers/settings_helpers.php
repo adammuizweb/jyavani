@@ -44,3 +44,71 @@ if (!function_exists('settings_set')) {
         return $saved;
     }
 }
+
+if (!function_exists('settings_favicon_url_validation_error')) {
+    /** Validate favicon URL safety and inspect local image dimensions without fetching remote URLs. */
+    function settings_favicon_url_validation_error(string $url, ?string $publicPath = null): ?string {
+        $url = trim($url);
+        if ($url === '') return null;
+        $invalidUrl = 'Favicon must use a root-relative path or an HTTPS URL to a PNG, ICO, or SVG file.';
+        $invalidFile = 'Local favicon file is missing or outside the public directory.';
+        $invalidDimensions = 'Favicon must be square (1:1) and at least 48×48 pixels.';
+
+        if (preg_match('/[\x00-\x20\x7F]/', $url) === 1) return $invalidUrl;
+        $parts = parse_url($url);
+        if (!is_array($parts) || isset($parts['fragment'])) return $invalidUrl;
+        $isLocal = str_starts_with($url, '/') && !str_starts_with($url, '//');
+        if ($isLocal) {
+            if (isset($parts['scheme']) || isset($parts['host']) || isset($parts['user']) || isset($parts['pass'])) return $invalidUrl;
+        } elseif (($parts['scheme'] ?? '') !== 'https' || empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])) {
+            return $invalidUrl;
+        }
+
+        $urlPath = rawurldecode((string)($parts['path'] ?? ''));
+        if ($urlPath === '' || preg_match('/[\x00-\x20\x7F]/', $urlPath) === 1 || str_contains($urlPath, '\\')) return $invalidUrl;
+        $extension = strtolower(pathinfo($urlPath, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['png', 'ico', 'svg'], true)) return $invalidUrl;
+        if (!$isLocal) return null;
+
+        $publicPath ??= defined('PUBLIC_PATH') ? PUBLIC_PATH : '';
+        $root = $publicPath !== '' ? realpath($publicPath) : false;
+        $candidatePath = $root !== false ? $root . DIRECTORY_SEPARATOR . ltrim($urlPath, '/') : '';
+        $candidate = $candidatePath !== '' ? realpath($candidatePath) : false;
+        if ($root === false || $candidate === false || !is_file($candidate) || is_link($candidatePath)
+            || !str_starts_with($candidate, $root . DIRECTORY_SEPARATOR)) return $invalidFile;
+
+        $width = 0.0;
+        $height = 0.0;
+        if ($extension === 'svg') {
+            $size = filesize($candidate);
+            $source = is_int($size) && $size > 0 && $size <= 1048576 ? file_get_contents($candidate) : false;
+            if (!is_string($source) || !class_exists('DOMDocument')) return $invalidDimensions;
+            $previous = libxml_use_internal_errors(true);
+            $document = new DOMDocument();
+            $loaded = $document->loadXML($source, LIBXML_NONET | LIBXML_NOBLANKS);
+            $svg = $loaded ? $document->documentElement : null;
+            if ($svg instanceof DOMElement && strtolower($svg->localName) === 'svg') {
+                $viewBox = preg_split('/[\s,]+/', trim($svg->getAttribute('viewBox')));
+                if (is_array($viewBox) && count($viewBox) === 4 && is_numeric($viewBox[2]) && is_numeric($viewBox[3])) {
+                    $width = (float)$viewBox[2];
+                    $height = (float)$viewBox[3];
+                } elseif (preg_match('/^([0-9]+(?:\.[0-9]+)?)/', $svg->getAttribute('width'), $widthMatch)
+                    && preg_match('/^([0-9]+(?:\.[0-9]+)?)/', $svg->getAttribute('height'), $heightMatch)) {
+                    $width = (float)$widthMatch[1];
+                    $height = (float)$heightMatch[1];
+                }
+            }
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        } else {
+            $dimensions = @getimagesize($candidate);
+            if (is_array($dimensions)) {
+                $width = (float)($dimensions[0] ?? 0);
+                $height = (float)($dimensions[1] ?? 0);
+            }
+        }
+
+        if ($width < 48 || $height < 48 || abs($width - $height) > 0.01) return $invalidDimensions;
+        return null;
+    }
+}

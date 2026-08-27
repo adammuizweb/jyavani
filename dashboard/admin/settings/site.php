@@ -164,6 +164,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($category_path !== '' && !preg_match('/^[a-z0-9_\/-]+$/', $category_path)) {
         $errors[] = __('Category path may only contain lowercase letters, numbers, slashes, underscores, and hyphens.');
     }
+    if (function_exists('settings_favicon_url_validation_error')) {
+        $faviconError = settings_favicon_url_validation_error($favicon_url);
+        if ($faviconError !== null) $errors[] = __($faviconError);
+    }
     foreach ([$posts_list_path, $pages_list_path, $category_path] as $publicBase) {
         if ($publicBase !== '' && function_exists('content_route_conflicts_with_setting_path')
             && content_route_conflicts_with_setting_path($pdo, $publicBase, true)) {
@@ -440,7 +444,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
               <img src="<?= htmlspecialchars($current_favicon_url, ENT_QUOTES, 'UTF-8') ?>" alt="favicon preview" class="settings-favicon-preview">
             <?php endif; ?>
           </div>
-          <span class="field-note"><?=_e('Recommended: .ico, .png (32×32 or larger), or .svg. Leave empty to use the default favicon.')?></span>
+          <span class="field-note"><?=_e('Use a square (1:1) PNG, ICO, or SVG at least 48×48 pixels. Use a stable URL for search engines, or leave empty for the default favicon.')?></span>
         </div>
 
       </div>
