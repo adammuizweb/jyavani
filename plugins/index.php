@@ -792,6 +792,8 @@ function plugin_load_active(): void {
             $routeOrderBeforeLoad = $GLOBALS['_plugin_frontend_route_order'];
             $routeDiagnosticsBeforeLoad = $GLOBALS['_plugin_frontend_route_diagnostics'];
             $mailTransportsBeforeLoad = $GLOBALS['__jy_mail_transports'] ?? null;
+            $themeSlotsBeforeLoad = $GLOBALS['__jy_theme_slots'] ?? null;
+            $shortcodeSourcesBeforeLoad = $GLOBALS['__jy_shortcode_source_providers'] ?? null;
             try {
                 require_once $mainFile;
             } catch (\Throwable $e) {
@@ -801,6 +803,10 @@ function plugin_load_active(): void {
                 $GLOBALS['_plugin_frontend_route_order'] = $routeOrderBeforeLoad;
                 $GLOBALS['_plugin_frontend_route_diagnostics'] = $routeDiagnosticsBeforeLoad;
                 if (is_array($mailTransportsBeforeLoad)) $GLOBALS['__jy_mail_transports'] = $mailTransportsBeforeLoad;
+                if (is_array($themeSlotsBeforeLoad)) $GLOBALS['__jy_theme_slots'] = $themeSlotsBeforeLoad;
+                else unset($GLOBALS['__jy_theme_slots']);
+                if (is_array($shortcodeSourcesBeforeLoad)) $GLOBALS['__jy_shortcode_source_providers'] = $shortcodeSourcesBeforeLoad;
+                else unset($GLOBALS['__jy_shortcode_source_providers']);
                 $error = plugin_message('Plugin "%s" entrypoint failed: %s.', $name, $e->getMessage());
                 $GLOBALS['_plugin_load_diagnostics'][$name] = $error;
                 $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;

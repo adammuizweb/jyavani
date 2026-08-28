@@ -487,6 +487,7 @@ CREATE TABLE IF NOT EXISTS `themes` (
 CREATE TABLE IF NOT EXISTS `assignments` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `slot_key` varchar(100) NOT NULL,
+  `slot_owner` varchar(100) DEFAULT NULL,
   `theme_id` int(10) unsigned DEFAULT NULL,
   `theme_file` varchar(255) DEFAULT NULL,
   `custom_post_id` int(10) unsigned DEFAULT NULL,

@@ -72,12 +72,62 @@ try {
             $errors[] = __('Invalid configuration format.');
             $config = [];
         } else {
-            $config = array_merge(shortcode_preset_default_config($pdo), $config);
+            $allowProviderBinding = !$isEdit;
+            $storedSource = null;
+            $storedOwner = null;
+            $storedConfig = [];
+            $adoptionEligible = false;
+            if ($isEdit) {
+                $storedSql = "SELECT meta FROM posts WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0";
+                $storedParams = [':id' => $id];
+                if (!$isAdmin) {
+                    $storedSql .= ' AND created_by = :uid';
+                    $storedParams[':uid'] = $uid;
+                }
+                $storedStmt = $pdo->prepare($storedSql . ' LIMIT 1');
+                $storedStmt->execute($storedParams);
+                $storedConfig = json_decode((string)($storedStmt->fetchColumn() ?: ''), true);
+                if (!is_array($storedConfig)) $storedConfig = [];
+                $storedSource = is_string($storedConfig['source'] ?? null) ? strtolower(trim($storedConfig['source'])) : 'posts';
+                $storedOwner = is_string($storedConfig['source_owner'] ?? null) ? trim($storedConfig['source_owner']) : '';
+                $submittedSource = is_string($config['source'] ?? null) ? strtolower(trim($config['source'])) : 'posts';
+                $adoptionRequested = ($_POST['adopt_provider_owner'] ?? '') === '1';
+                $adoptionEligible = shortcode_provider_adoption_allowed(
+                    $storedConfig,
+                    $config,
+                    $isAdmin,
+                    $adoptionRequested,
+                    $pdo
+                );
+                if ($adoptionRequested && !$adoptionEligible) {
+                    $errors[] = __('Provider adoption could not be confirmed. Reload the preset and try again.');
+                }
+                $allowProviderBinding = $adoptionEligible;
+            }
+            $context = [
+                'id' => $id,
+                'is_edit' => $isEdit,
+                'is_admin' => $isAdmin,
+                'user_id' => $uid,
+                'post' => $_POST,
+                'allow_provider_binding' => $allowProviderBinding,
+            ];
             $postedPluginConfig = $_POST['preset_config'] ?? [];
             if (is_array($postedPluginConfig)) $config = array_replace_recursive($config, $postedPluginConfig);
-            $context = ['id' => $id, 'is_edit' => $isEdit, 'is_admin' => $isAdmin, 'user_id' => $uid, 'post' => $_POST];
+            $config = shortcode_preset_normalize_source_transition(
+                $config,
+                $isEdit ? $storedConfig : null,
+                $context,
+                $pdo
+            );
+            $config = shortcode_preset_apply_source_defaults($config, $context, $pdo);
             $filteredConfig = apply_filters('shortcode_preset_config_before_save', $config, $context, $pdo);
             if (is_array($filteredConfig)) $config = $filteredConfig;
+            $finalSource = is_string($config['source'] ?? null) ? strtolower(trim($config['source'])) : 'posts';
+            $finalOwner = is_string($config['source_owner'] ?? null) ? trim($config['source_owner']) : '';
+            if ($isEdit && $storedSource === $finalSource && $storedOwner === '' && $finalOwner !== '' && !$adoptionEligible) {
+                $errors[] = __('Explicit provider adoption is required for this ownerless preset.');
+            }
             $validation = shortcode_preset_validate_config($config, $isAdmin, $pdo, $context);
             $config = $validation['config'];
             $errors = array_merge($errors, $validation['errors']);

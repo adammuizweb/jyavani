@@ -49,7 +49,12 @@ if ($isEdit) {
     $pref_slug = (string)($preset['slug'] ?? '');
     $pref_status = (string)($preset['status'] ?? 'draft');
 
-    $pref_config = shortcode_preset_config_loaded((string)($preset['meta'] ?? ''), $preset, $pdo);
+    $pref_config = shortcode_preset_config_loaded(
+        (string)($preset['meta'] ?? ''),
+        $preset,
+        $pdo,
+        ['suppress_provider_defaults' => !$isAdmin]
+    );
 }
 
 $save_nonce = bin2hex(random_bytes(12));
@@ -77,6 +82,42 @@ if ($isAdmin) {
 
 // Use the same filename contract and resolver as frontend rendering.
 $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_names($pdo) : [];
+$sourceContext = ['scope' => 'admin_editor', 'is_admin' => $isAdmin, 'user_id' => $uid];
+$registeredSourceProviders = shortcode_source_providers($sourceContext, $pdo);
+if (!$isAdmin) $pref_config = shortcode_preset_strip_provider_default_fields($pref_config, $registeredSourceProviders);
+$sourceProviders = $isAdmin ? $registeredSourceProviders : [];
+$sourceOptions = [];
+$sourceClientDefinitions = [
+    'posts' => ['owner' => 'core', 'defaults' => [], 'field_keys' => []],
+    'shop_products' => ['owner' => 'core', 'defaults' => [], 'field_keys' => []],
+    'shop_categories' => ['owner' => 'core', 'defaults' => [], 'field_keys' => []],
+];
+foreach ($sourceProviders as $sourceId => $provider) {
+    $sourceClientDefinitions[$sourceId] = shortcode_source_provider_client_definition($provider);
+}
+$clientPresetConfig = shortcode_preset_config_for_client($pref_config, $registeredSourceProviders);
+foreach (shortcode_selectable_sources($sourceContext, $pdo) as $sourceId) {
+    $providerLabel = $sourceProviders[$sourceId]['label'] ?? null;
+    $sourceOptions[$sourceId] = is_string($providerLabel) && $providerLabel !== ''
+        ? __($providerLabel)
+        : __(match ($sourceId) {
+            'posts' => 'Posts and pages',
+            'shop_products' => 'Shop products',
+            'shop_categories' => 'Shop categories',
+            default => ucwords(str_replace(['_', '-'], ' ', $sourceId)),
+        });
+}
+$currentSource = is_string($pref_config['source'] ?? null) && $pref_config['source'] !== ''
+    ? $pref_config['source']
+    : 'posts';
+$currentSourceOwner = is_string($pref_config['source_owner'] ?? null) ? $pref_config['source_owner'] : '';
+$expectedSourceOwner = $sourceClientDefinitions[$currentSource]['owner'] ?? null;
+$sourceUnavailable = !isset($sourceOptions[$currentSource])
+    || ($expectedSourceOwner !== 'core' && (!is_string($expectedSourceOwner) || $currentSourceOwner === '' || !hash_equals($expectedSourceOwner, $currentSourceOwner)));
+if ($sourceUnavailable) $sourceOptions[$currentSource] = $currentSource . ' — ' . __('Provider unavailable');
+$canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
+    && isset($sourceProviders[$currentSource])
+    && !in_array($currentSource, ['posts', 'shop_products', 'shop_categories'], true);
 ?>
 <section class="adam-card">
   <h2><?= $isEdit ? _e('Edit Preset') : _e('Add New Preset') ?></h2>
@@ -126,6 +167,25 @@ $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_na
         <span class="chevron">▸</span>
       </button>
       <div class="adam-accordion-body" id="sc-filter-body">
+        <?php if ($isAdmin): ?>
+        <label><?=_e('Content source')?><br>
+          <select name="filter_source" class="inpud" id="filter-source">
+            <?php foreach ($sourceOptions as $sourceId => $sourceLabel): ?>
+              <option value="<?=h($sourceId)?>" <?= $currentSource === $sourceId ? 'selected' : '' ?>><?=h($sourceLabel)?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <?php if ($canAdoptProvider): ?>
+          <label class="tm-note" style="display:block;margin-top:.5rem">
+            <input type="checkbox" name="adopt_provider_owner" value="1">
+            <?=_e('Adopt the currently registered provider for this preset')?><br>
+            <small><?=_e('This ownerless legacy preset will remain unavailable unless you explicitly adopt its current provider.')?></small>
+          </label>
+        <?php endif; ?>
+        <?php else: ?>
+          <input type="hidden" name="filter_source" id="filter-source" value="posts">
+        <?php endif; ?>
+
         <label><?=_e('Post Type')?><br>
           <select name="filter_type" class="inpud" id="filter-type">
             <option value="article" <?= ($pref_config['type'] ?? 'article') === 'article' ? 'selected' : '' ?>><?=_e('Article')?></option>
@@ -246,7 +306,7 @@ $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_na
         </label>
       </div>
     </div>
-    <?php do_action('shortcode_preset_editor_fields', $pref_config, $preset, $pdo, ['is_admin' => $isAdmin, 'user_id' => $uid]); ?>
+    <?php do_action('shortcode_preset_editor_fields', $pref_config, $preset, $pdo, ['is_admin' => $isAdmin, 'user_id' => $uid, 'source' => $currentSource, 'sources' => $sourceProviders]); ?>
   </form>
 </section>
 
@@ -272,7 +332,7 @@ $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_na
   </div>
   <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
     <button type="button" id="edit-preview-btn" class="adam-button" style="font-size:.85rem;">🔄 <?=_e('Preview with Real Data')?></button>
-    <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Fetches real posts from the database according to the filters above')?></span>
+    <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Fetches real content from the selected source according to the filters above')?></span>
   </div>
 </section>
 
@@ -290,7 +350,8 @@ $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_na
 
 <script>
 (function(){
-  var basePresetConfig = <?= json_encode($pref_config, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  var basePresetConfig = <?= json_encode($clientPresetConfig, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  var sourceDefinitions = <?= json_encode($sourceClientDefinitions, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PARTIAL_OUTPUT_ON_ERROR) ?>;
   function presetConfigCopy() {
     return JSON.parse(JSON.stringify(basePresetConfig || {}));
   }
@@ -299,10 +360,60 @@ $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_na
   var orderSelect = document.getElementById('filter-order');
   var customFields = document.getElementById('order-custom-fields');
   var customOpt = document.getElementById('order-custom-opt');
+  var sourceSelect = document.getElementById('filter-source');
+
+  function applySourceDefaultsToForm(defaults) {
+    var fields = {
+      type: 'filter_type',
+      category: 'filter_category',
+      author: 'filter_author',
+      limit: 'filter_limit',
+      offset: 'filter_offset',
+      excerpt_len: 'filter_excerpt',
+      include_children: 'filter_include_children',
+      date_from: 'filter_date_from',
+      date_to: 'filter_date_to',
+      layout: 'filter_layout',
+      class_prefix: 'filter_class_prefix',
+      wrap: 'filter_wrap'
+    };
+    Object.keys(fields).forEach(function(key) {
+      if (!Object.prototype.hasOwnProperty.call(defaults, key)) return;
+      var field = document.querySelector('[name="' + fields[key] + '"]');
+      if (field) field.value = defaults[key] === null ? '' : String(defaults[key]);
+    });
+  }
 
   if (orderSelect && customFields) {
     orderSelect.addEventListener('change', function() {
       customFields.style.display = this.value === 'custom' ? 'flex' : 'none';
+    });
+  }
+
+  if (sourceSelect) {
+    sourceSelect.addEventListener('change', function() {
+      var previousDefinition = sourceDefinitions[basePresetConfig.source] || null;
+      var definition = sourceDefinitions[sourceSelect.value] || null;
+      if (previousDefinition) {
+        (previousDefinition.field_keys || []).forEach(function(key) {
+          delete basePresetConfig[key];
+        });
+      }
+      if (definition) {
+        basePresetConfig = Object.assign({}, basePresetConfig, definition.defaults || {}, {
+          source: sourceSelect.value,
+          source_owner: definition.owner
+        });
+        applySourceDefaultsToForm(definition.defaults || {});
+      }
+      document.dispatchEvent(new CustomEvent('shortcode-preset-source-change', {
+        detail: {
+          source: sourceSelect.value,
+          owner: definition ? definition.owner : '',
+          defaults: definition ? (definition.defaults || {}) : {},
+          form: form
+        }
+      }));
     });
   }
 
@@ -315,6 +426,8 @@ $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_na
 
       // Remove hidden config_json field value - we'll rebuild
       var configField = document.getElementById('config-json');
+
+      if (sourceSelect) config.source = sourceSelect.value;
 
       var type = document.querySelector('[name="filter_type"]');
       if (type) config.type = type.value;
@@ -385,6 +498,7 @@ $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_na
 
   function buildPreviewConfig() {
     var config = presetConfigCopy();
+    if (sourceSelect) config.source = sourceSelect.value;
     var type = document.querySelector('[name="filter_type"]');
     if (type) config.type = type.value;
 
