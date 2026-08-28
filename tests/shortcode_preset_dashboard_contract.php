@@ -54,9 +54,9 @@ $check(strpos($source['save'], 'shortcode_preset_normalize_source_transition(') 
     && strpos($source['save'], 'shortcode_preset_apply_source_defaults($config, $context, $pdo)') < strpos($source['save'], "apply_filters('shortcode_preset_config_before_save'"), 'save normalizes source transitions before merging provider defaults, hooks, and validation');
 $check(str_contains($source['helper'], "apply_filters('shortcode_source_providers'") && str_contains($source['helper'], "'validate'"), 'source provider registry and validation callback contracts are present');
 $widgetRuntime = (string)file_get_contents($root . '/cfg/helpers/widget_shortcodes_p.php');
-$check(str_contains($widgetRuntime, "false,\n      \$pdo")
+$check(str_contains($widgetRuntime, 'shortcode_preset_validate_config(')
     && str_contains($widgetRuntime, "? 'persisted_preset' : 'public_runtime'")
-    && str_contains($widgetRuntime, "'trust' => \$runtimeTrust"), 'runtime provider validation uses explicit persisted or untrusted public trust context');
+    && str_contains($widgetRuntime, "array_merge(\$ctx, ['scope' => 'runtime', 'source' => \$source, 'trust' => \$runtimeTrust])"), 'runtime provider validation uses explicit persisted or untrusted public trust context');
 $check(str_contains($source['helper'], 'shortcode_preset_merge_runtime_overrides($runtimeConfig, $vars, $pdo, $runtimeContext)')
     && str_contains($source['helper'], "'trust' => 'persisted_preset'")
     && str_contains($source['preview'], "'trust' => 'persisted_preset'"), 'persisted runtime and preview paths preserve trusted filters while protecting privileged overrides');
