@@ -11,12 +11,18 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 $installer = (string)file_get_contents($root . '/public/pondasi/index.php');
 $generator = (string)file_get_contents($root . '/tools/generate-manifest.php');
 $builder = (string)file_get_contents($root . '/tools/build-package.php');
+$schema = (string)file_get_contents($root . '/schema/default.sql');
+$pluginMigration = (string)file_get_contents($root . '/schema/migrations/015-plugin-migrations.sql');
 require_once $root . '/dashboard/admin/update/_update_helpers.php';
 
 $check(
     str_contains($installer, 'elseif ($step === 2)'),
     'step 1 must not fall through into step 2 validation on the same request'
 );
+$check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `plugin_migrations`')
+    && str_contains($pluginMigration, 'CREATE TABLE IF NOT EXISTS `plugin_migrations`')
+    && str_contains($pluginMigration, '`checksum` char(64)'),
+    'fresh and upgraded installations define the immutable plugin migration ledger');
 $check(
     str_contains($generator, "#^public/static/img/\\d{4}/#"),
     'dated uploaded images remain excluded from Core packages'

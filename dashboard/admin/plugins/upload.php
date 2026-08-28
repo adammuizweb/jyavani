@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         package_remove_tree((string)$prepared['stage']);
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already exists. Delete or rename first.') . ' "' . htmlspecialchars($pluginName) . '"');
     }
-    $result = plugin_publish_staged_install_already_locked($prepared, $activatePlugin);
+    $result = plugin_publish_staged_install_already_locked($prepared, $activatePlugin, $pdo);
     if (!($result['success'] ?? false)) adiwira_redirect_with_flash($selfUrl, 'error', (string)$result['error']);
     $finalMsg = $activatePlugin ? __('Plugin uploaded and activated.') : __('Plugin uploaded and kept inactive.');
     theme_operation_release($installLocks);

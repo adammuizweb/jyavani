@@ -574,7 +574,7 @@ Third-party features installed as removable plugins via `plugins/{name}/plugin.j
 | `plugin_manifest(string $name)` | `?array` | Read a single plugin's `plugin.json` |
 | `plugins_all()` | `array` | All plugins (enabled & disabled) |
 | `plugins_active()` | `array` | Only enabled plugins (cached per-request) |
-| `plugin_enable(string $name)` | `bool` | Enable a plugin (removes from disabled.json) |
+| `plugin_enable(string $name, ?PDO $pdo = null)` | `bool` | Run pending migrations, then enable a plugin |
 | `plugin_disable(string $name)` | `bool` | Disable a plugin (adds to disabled.json) |
 | `plugin_is_active(string $name)` | `bool` | Check if plugin is enabled |
 | `plugin_admin_routes()` | `array` | Routes from active plugins |
@@ -582,7 +582,8 @@ Third-party features installed as removable plugins via `plugins/{name}/plugin.j
 | `plugin_assets()` | `array` | CSS/JS assets from active plugins |
 | `plugin_resolve_route(string $route)` | `?array` | Find a specific route |
 | `plugin_include_file(string $file)` | `bool` | `require` a plugin file |
-| `plugin_delete(string $name)` | `bool` | Remove plugin from filesystem entirely |
+| `plugin_delete(string $name)` | `bool` | Remove plugin files while retaining data and migration history |
+| `plugin_uninstall(string $name, bool $keepData = true, ?PDO $pdo = null)` | `bool` | Keep data/history or perform fail-closed complete cleanup |
 | `plugin_checks(string $name)` | `array` | Run setup checks for a plugin |
 
 ### Plugin Manifest (`plugin.json`) — Key Fields
@@ -602,16 +603,27 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 1. Drop or select `.zip` file (max 50MB)
 2. Server validates `plugin.json` exists with valid `name`
 3. Extracts to `plugins/{name}/`
-4. Copies files declared in `static.copy[]` to `public/` (e.g., xterm JS/CSS → `public/static/vendor/xterm/`)
-5. Runs the fixed `install.sh` convention with a bounded timeout/output capture; manifests cannot provide shell commands
-6. Enables the plugin only for activation actions; install-only may stage an inactive plugin before its plugin dependencies are available
-7. Redirects to Plugin Manager with success toast
+4. Runs append-only SQL/PHP files from the fixed `migrations/` directory while the plugin is inactive
+5. Copies files declared in `static.copy[]` to `public/` (e.g., xterm JS/CSS → `public/static/vendor/xterm/`)
+6. Runs the fixed `install.sh` convention with a bounded timeout/output capture; manifests cannot provide shell commands
+7. Enables the plugin only for activation actions; install-only may stage an inactive plugin before its plugin dependencies are available
+8. Redirects to Plugin Manager with success toast
 
 **Two-button UI on Plugin Store:** `Install` (extract + disable) vs `Install & Activate` (extract + enable). Install-only mode calls `plugin_disable($name)` after extraction.
+
+`plugin_publish_staged_install_already_locked(array $prepared, bool $activate, ?PDO $pdo = null)` retains its original first two arguments for extension compatibility. Core callers pass PDO explicitly as the third argument; legacy callers fall back to `$GLOBALS['pdo']` and fail closed if it is unavailable.
 
 Core always serves `/sw.js` through `public/router.php`. Core owns `install`/`activate` lifecycle handlers (`skipWaiting` and `clients.claim`), while active plugins append handlers through the `service_worker_script` filter. With no contributions, the lifecycle-only worker replaces stale plugin workers.
 
 The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Deployments can set `PLUGIN_INSTALL_TIMEOUT_SECONDS` and `PLUGIN_INSTALL_OUTPUT_LIMIT`; Core hard-caps these at 900 seconds and 1 MiB. On supported Unix hosts Core starts a fixed `setsid` process group and terminates the full group on timeout; other hosts retain direct-process termination as a portability fallback.
+
+### Plugin migrations
+
+- Files use one canonical positive four-digit sequence such as `migrations/0001-description.sql` or `.php`; new files cannot backfill below an applied sequence. Core never accepts migration paths or commands from `plugin.json`.
+- PHP files return a `Closure(PDO $pdo): void`. SQL files use ordinary semicolon-terminated statements and lexically reject raw backslashes or executable-comment tokens anywhere, plus `DELIMITER`, `SET`, transaction/XA commands, table locks, and `USE`.
+- `plugin_migrations_plan_already_locked()` validates immutable prefix history; `plugin_migrations_run_pending_already_locked()` executes and tracks pending files; `plugin_migrations_assert_complete_already_locked()` revalidates after `install.sh`; `plugin_migrations_forget_already_locked()` clears history before complete uninstall cleanup. All require the global exclusive lifecycle lock and exact plugin lock.
+- Applied filenames and SHA-256 checksums never change or disappear. Migrations are forward-only, idempotent, and compatible with the prior plugin version because MySQL/MariaDB DDL may survive failure and file rollback.
+- Install, update, and enable stop on the first failure and leave the plugin inactive. Keep-data uninstall retains history. Complete uninstall requires the plugin to be active and successfully loaded in the current request so existing `plugin_uninstall` hooks are registered; it then marks inactive, clears history, and verifies PDO state after every isolated hook. Disabled plugins must be activated first or removed while keeping data. There are no down migrations.
 
 ### Plugin Browser (Store)
 

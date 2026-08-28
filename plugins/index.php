@@ -3,6 +3,7 @@ declare(strict_types=1);
 if (defined('PLUGIN_SYSTEM_LOADED')) return;
 define('PLUGIN_SYSTEM_LOADED', true);
 require_once dirname(__DIR__) . '/cfg/helpers/package_archive.php';
+require_once dirname(__DIR__) . '/cfg/helpers/migration_helper.php';
 // Plugin Registry — Jyavani CMS Plugin System v2.0
 // Loaded after bootstrap in dashboard/index.php
 
@@ -20,6 +21,7 @@ $GLOBALS['_plugin_last_error'] = '';
 $GLOBALS['_plugin_active_cache'] = null;
 $GLOBALS['_plugin_load_diagnostics'] = [];
 $GLOBALS['_plugin_loader_ran'] = false;
+$GLOBALS['_plugin_loaded_entrypoints'] = [];
 $GLOBALS['_plugin_ready_permissions'] = [];
 $GLOBALS['_plugin_permission_sync_errors'] = [];
 
@@ -807,6 +809,7 @@ function plugin_load_active(): void {
             }
         }
         $loaded[$name] = true;
+        $GLOBALS['_plugin_loaded_entrypoints'][$name] = true;
         $runtimeActive[$name] = $p;
     }
     $GLOBALS['_plugin_active_cache'] = $runtimeActive;
@@ -925,6 +928,12 @@ function plugin_prepare_package_stage(string $zipPath, ?string $expectedName, bo
         package_remove_tree($stage);
         return ['success' => false, 'error' => plugin_message('Extracted plugin package failed verification.')];
     }
+    try {
+        plugin_migrations_discover($stage);
+    } catch (Throwable $error) {
+        package_remove_tree($stage);
+        return ['success' => false, 'error' => plugin_message('Plugin migration package is invalid: %s', $error->getMessage())];
+    }
     return ['success' => true, 'name' => $name, 'manifest' => $manifest, 'stage' => $stage];
 }
 
@@ -944,13 +953,17 @@ function plugin_chmod_tree(string $directory): bool {
 }
 
 /** Publish a fully staged fresh plugin while its global-first lifecycle lock is held. */
-function plugin_publish_staged_install_already_locked(array $prepared, bool $activate): array {
+function plugin_publish_staged_install_already_locked(array $prepared, bool $activate, ?PDO $pdo = null): array {
     $name = is_string($prepared['name'] ?? null) ? $prepared['name'] : '';
     $stage = is_string($prepared['stage'] ?? null) ? $prepared['stage'] : '';
     $manifest = is_array($prepared['manifest'] ?? null) ? $prepared['manifest'] : null;
     $pluginDir = PLUGIN_PATH . '/' . $name;
     if (!package_lifecycle_exclusive_lock_owned()) {
         return ['success' => false, 'error' => plugin_message('Global lifecycle exclusive lock is required to publish a plugin.')];
+    }
+    $database = $pdo ?? (($GLOBALS['pdo'] ?? null) instanceof PDO ? $GLOBALS['pdo'] : null);
+    if (!$database instanceof PDO) {
+        return ['success' => false, 'error' => plugin_message('A database connection is required to install a plugin.')];
     }
     $recoveryPaths = package_publication_recovery_paths($pluginDir);
     if ($recoveryPaths !== []) {
@@ -985,24 +998,54 @@ function plugin_publish_staged_install_already_locked(array $prepared, bool $act
         plugin_advance_reconciliation_state($name);
         return ['success' => false, 'error' => plugin_message('Plugin installation failed because static.copy is invalid.')];
     }
+    try {
+        $migrationResult = plugin_migrations_run_pending_already_locked(
+            $database,
+            $name,
+            is_string($manifest['version'] ?? null) && $manifest['version'] !== '' ? $manifest['version'] : '0.0.0',
+            $pluginDir
+        );
+    } catch (Throwable $error) {
+        plugin_advance_reconciliation_state($name);
+        return ['success' => false, 'error' => plugin_message(
+            'Plugin database migration failed: %s Database changes may remain; the plugin is inactive.',
+            $error->getMessage()
+        )];
+    }
+    $databaseChanged = $migrationResult['applied'] !== [];
     if ($staticCopy !== []) {
         $copyResult = plugin_static_copy($pluginDir, $staticCopy);
         if ($copyResult['failed'] > 0) {
-            package_remove_tree($pluginDir);
+            if (!$databaseChanged) package_remove_tree($pluginDir);
             plugin_advance_reconciliation_state($name);
-            return ['success' => false, 'error' => plugin_message('Plugin installation failed because declared static files could not be copied.')];
+            return ['success' => false, 'error' => plugin_message('Plugin installation failed because declared static files could not be copied.')
+                . ($databaseChanged ? ' ' . plugin_message('Database changes remain; the plugin is inactive.') : '')];
         }
     }
     $installResult = plugin_run_install_script($pluginDir);
+    try {
+        plugin_migrations_assert_complete_already_locked(
+            $database,
+            $name,
+            is_string($manifest['version'] ?? null) && $manifest['version'] !== '' ? $manifest['version'] : '0.0.0',
+            $pluginDir
+        );
+    } catch (Throwable $error) {
+        plugin_advance_reconciliation_state($name);
+        return ['success' => false, 'error' => plugin_message(
+            'Plugin migration history changed during installation: %s The plugin remains inactive.',
+            $error->getMessage()
+        )];
+    }
     if (!$installResult['success']) {
-        if (!$installResult['ran']) {
+        if (!$installResult['ran'] && !$databaseChanged) {
             if ($staticCopy !== []) plugin_static_copy($pluginDir, [], $staticCopy);
             package_remove_tree($pluginDir);
         }
         plugin_advance_reconciliation_state($name);
         return ['success' => false, 'error' => $installResult['error'] . ($installResult['ran']
             ? ' ' . plugin_message('The plugin remains installed but inactive for inspection; install.sh may have made changes outside its directory.')
-            : '')];
+            : '') . ($databaseChanged ? ' ' . plugin_message('Database changes remain; the plugin is inactive.') : '')];
     }
     $verified = plugin_manifest($name);
     if (!is_array($verified) || $verified !== $manifest || package_tree_identity($pluginDir) === null) {
@@ -1012,7 +1055,7 @@ function plugin_publish_staged_install_already_locked(array $prepared, bool $act
     if (!plugin_advance_reconciliation_state($name)) {
         return ['success' => false, 'error' => plugin_message('Plugin was installed and remains inactive, but reconciliation state could not be persisted.')];
     }
-    if ($activate && !_plugin_enable_already_locked($name)) {
+    if ($activate && !_plugin_enable_already_locked($name, $database)) {
         return ['success' => false, 'error' => plugin_last_error() ?: plugin_message('Failed to activate plugin.')];
     }
     plugin_reset_runtime_cache();
@@ -1439,17 +1482,17 @@ function plugins_active(): array {
 
 // --- Plugin Manager helpers ---
 
-function plugin_enable(string $name): bool {
+function plugin_enable(string $name, ?PDO $pdo = null): bool {
     $locks = plugin_lifecycle_locks($name);
     if ($locks === null) return false;
     try {
-        return _plugin_enable_already_locked($name);
+        return _plugin_enable_already_locked($name, $pdo);
     } finally {
         theme_operation_release($locks);
     }
 }
 
-function _plugin_enable_already_locked(string $name): bool {
+function _plugin_enable_already_locked(string $name, ?PDO $pdo = null): bool {
     $manifest = plugin_manifest($name);
     if (!$manifest) {
         $GLOBALS['_plugin_last_error'] = plugin_message('Plugin manifest is invalid.');
@@ -1462,6 +1505,26 @@ function _plugin_enable_already_locked(string $name): bool {
         $error = $resolved['diagnostics'][$name] ?? plugin_message('Plugin could not be activated because its dependencies are unavailable.');
         $GLOBALS['_plugin_last_error'] = $error;
         $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;
+        return false;
+    }
+    $database = $pdo ?? (($GLOBALS['pdo'] ?? null) instanceof PDO ? $GLOBALS['pdo'] : null);
+    try {
+        $migrationFiles = plugin_migrations_discover(PLUGIN_PATH . '/' . $name);
+        if ($database instanceof PDO) {
+            plugin_migrations_run_pending_already_locked(
+                $database,
+                $name,
+                is_string($manifest['version'] ?? null) && $manifest['version'] !== '' ? $manifest['version'] : '0.0.0',
+                PLUGIN_PATH . '/' . $name
+            );
+        } elseif ($migrationFiles !== []) {
+            throw new RuntimeException('A database connection is required to run plugin migrations.');
+        }
+    } catch (Throwable $error) {
+        $GLOBALS['_plugin_last_error'] = plugin_message(
+            'Plugin database migration failed: %s Database changes may remain; the plugin is inactive.',
+            $error->getMessage()
+        );
         return false;
     }
     $ok = _plugin_write_disabled_names_already_locked($disabled);
@@ -1901,8 +1964,63 @@ if (!function_exists('h')) {
     }
 }
 
-// --- Uninstall plugin with data-keep option ---
-function plugin_uninstall(string $name, bool $keepData = true): bool {
+function plugin_uninstall_run_cleanup_listener(PDO $pdo, callable $listener, array $args, array $context): ?array {
+    try {
+        call_user_func($listener, ...$args);
+        plugin_migrations_assert_clean_connection($pdo);
+        return null;
+    } catch (Throwable $error) {
+        $recoveryError = null;
+        try { plugin_migrations_recover_connection($pdo); }
+        catch (Throwable $failedRecovery) { $recoveryError = $failedRecovery; }
+        return $context + [
+            'exception' => get_class($error),
+            'message' => $error->getMessage()
+                . ($recoveryError === null ? '' : ' Database recovery failed: ' . $recoveryError->getMessage()),
+            'code' => $error->getCode(),
+            'recovery_failed' => $recoveryError !== null,
+        ];
+    }
+}
+
+function plugin_uninstall_run_cleanup(PDO $pdo, string $name): array {
+    $errors = [];
+    foreach (array_merge(['plugin_uninstall'], _hook_legacy_aliases('plugin_uninstall')) as $hookName) {
+        $hooks = $GLOBALS['_hooks']['actions'][$hookName] ?? [];
+        ksort($hooks);
+        foreach ($hooks as $priority => $listeners) {
+            foreach ($listeners as $index => $listener) {
+                $error = plugin_uninstall_run_cleanup_listener($pdo, $listener, [$name], [
+                    'hook' => $hookName,
+                    'priority' => (int)$priority,
+                    'listener' => (int)$index,
+                ]);
+                if ($error !== null) $errors[] = $error;
+                if (($error['recovery_failed'] ?? false) === true) return $errors;
+            }
+        }
+    }
+    try {
+        plugin_migrations_assert_clean_connection($pdo);
+    } catch (Throwable $error) {
+        try { plugin_migrations_recover_connection($pdo); }
+        catch (Throwable $recoveryError) {
+            $error = new RuntimeException($error->getMessage() . ' Database recovery failed: ' . $recoveryError->getMessage(), 0, $error);
+        }
+        $errors[] = [
+            'hook' => 'plugin_uninstall',
+            'priority' => PHP_INT_MAX,
+            'listener' => PHP_INT_MAX,
+            'exception' => get_class($error),
+            'message' => $error->getMessage(),
+            'code' => $error->getCode(),
+            'recovery_failed' => false,
+        ];
+    }
+    return $errors;
+}
+
+function plugin_uninstall(string $name, bool $keepData = true, ?PDO $pdo = null): bool {
     if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return false;
     $pluginDir = PLUGIN_PATH . '/' . $name;
     if (!is_dir($pluginDir)) return false;
@@ -1910,6 +2028,16 @@ function plugin_uninstall(string $name, bool $keepData = true): bool {
     $locks = plugin_lifecycle_locks($name);
     if ($locks === null) return false;
     try {
+        if (!$keepData) {
+            $recoveryPaths = package_publication_recovery_paths($pluginDir);
+            if ($recoveryPaths !== []) {
+                $GLOBALS['_plugin_last_error'] = plugin_message(
+                    'Complete uninstall is blocked by a plugin publication recovery artifact: %s',
+                    basename($recoveryPaths[0])
+                );
+                return false;
+            }
+        }
         if (!plugin_state_change_preflight($name, 'delete')) return false;
 
         $dependents = plugin_active_dependents($name);
@@ -1923,7 +2051,29 @@ function plugin_uninstall(string $name, bool $keepData = true): bool {
         }
 
         if (!$keepData) {
-            foreach (do_action_isolated('plugin_uninstall', $name) as $hookError) {
+            if (!plugin_is_active($name) || ($GLOBALS['_plugin_loaded_entrypoints'][$name] ?? false) !== true) {
+                $GLOBALS['_plugin_last_error'] = plugin_message(
+                    'Complete uninstall requires an active plugin loaded successfully in this request. Activate it first, or uninstall while keeping data.'
+                );
+                return false;
+            }
+            $database = $pdo ?? (($GLOBALS['pdo'] ?? null) instanceof PDO ? $GLOBALS['pdo'] : null);
+            if (!$database instanceof PDO) {
+                $GLOBALS['_plugin_last_error'] = plugin_message('A database connection is required for complete plugin uninstall.');
+                return false;
+            }
+            if (!_plugin_mark_disabled_already_locked($name)) {
+                return false;
+            }
+            try {
+                // Clear history before destructive cleanup so any surviving or reinstalled package reruns schema setup.
+                plugin_migrations_forget_already_locked($database, $name);
+            } catch (Throwable $error) {
+                $GLOBALS['_plugin_last_error'] = plugin_message('Failed to clear plugin migration history: %s', $error->getMessage());
+                return false;
+            }
+            $hookErrors = plugin_uninstall_run_cleanup($database, $name);
+            foreach ($hookErrors as $hookError) {
                 error_log(sprintf(
                     "[plugin_uninstall] %s priority %d listener %d: %s",
                     $hookError['hook'],
@@ -1931,6 +2081,20 @@ function plugin_uninstall(string $name, bool $keepData = true): bool {
                     $hookError['listener'],
                     $hookError['message']
                 ));
+            }
+            if ($hookErrors !== []) {
+                $GLOBALS['_plugin_last_error'] = plugin_message(
+                    'Plugin data cleanup failed. Migration history was cleared and the plugin remains installed and inactive.'
+                );
+                return false;
+            }
+            try {
+                plugin_migrations_assert_clean_connection($database);
+            } catch (Throwable $error) {
+                try { plugin_migrations_recover_connection($database); }
+                catch (Throwable $recoveryError) { $error = $recoveryError; }
+                $GLOBALS['_plugin_last_error'] = plugin_message('Plugin cleanup left an unsafe database state: %s', $error->getMessage());
+                return false;
             }
         }
 
@@ -1972,6 +2136,7 @@ function _plugin_delete_after_preflight(string $name): bool {
         );
         return false;
     }
+    if (!_plugin_mark_disabled_already_locked($name)) return false;
 
     // Load manifest for static.copy paths
     $manifest = plugin_manifest($name);
@@ -2008,53 +2173,26 @@ function _plugin_delete_after_preflight(string $name): bool {
         return false;
     }
 
-    // Remove plugin directory recursively
-    // Try PHP-based deletion first (may fail if permissions are restrictive)
+    // Remove the complete live tree first; partial cleanup must never remain discoverable.
     $phpDeleted = false;
-    try {
-        $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($pluginDir, RecursiveDirectoryIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::CHILD_FIRST
-        );
-        foreach ($it as $f) {
-            $path = $f->getPathname();
-            @chmod($path, $f->isDir() ? 0777 : 0666);
-            if ($f->isLink() || !$f->isDir()) {
-                @unlink($path);
-            } else {
-                @rmdir($path);
-            }
-        }
-        @chmod($pluginDir, 0777);
-        if (@rmdir($pluginDir)) {
-            $phpDeleted = true;
-        }
-    } catch (\Throwable $e) {
-        error_log("[plugin_delete] PHP deletion failed for '{$name}': {$e->getMessage()}");
-    }
-
-    // Fallback: CLI rm -rf if PHP deletion failed
-    if (!$phpDeleted && is_dir($pluginDir)) {
-        $escaped = escapeshellarg($pluginDir);
-        $output = [];
-        $rc = 0;
-        exec("rm -rf {$escaped} 2>&1", $output, $rc);
-        if ($rc !== 0 || is_dir($pluginDir)) {
-            $errors[] = 'Failed to remove plugin directory (permission denied)';
-            error_log("[plugin_delete] CLI rm -rf failed for '{$name}': " . implode("\n", $output));
-        } else {
-            $phpDeleted = true;
+    $quarantine = package_unique_publication_recovery_path($pluginDir, 'uninstall');
+    if ($quarantine === null || !@rename($pluginDir, $quarantine)) {
+        $errors[] = 'Failed to move the plugin tree out of service';
+    } else {
+        plugin_sync_directory($pluginRoot);
+        $phpDeleted = package_remove_tree($quarantine);
+        plugin_sync_directory($pluginRoot);
+        if (!$phpDeleted) {
+            $errors[] = 'Failed to remove quarantined plugin tree; recovery artifact: ' . basename($quarantine);
         }
     }
 
-    if (!$phpDeleted) {
-        $errors[] = 'Failed to remove plugin directory';
+    // Remove disabled state only after the executable tree is definitely gone.
+    if ($phpDeleted) {
+        $disabled = plugin_disabled_names();
+        $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
+        if (!_plugin_write_disabled_names_already_locked($disabled)) $errors[] = 'Failed to update plugin state';
     }
-
-    // Clean up disabled state
-    $disabled = plugin_disabled_names();
-    $disabled = array_values(array_filter($disabled, fn($n) => $n !== $name));
-    if (!_plugin_write_disabled_names_already_locked($disabled)) $errors[] = 'Failed to update plugin state';
     if (!plugin_advance_reconciliation_state($name)) $errors[] = 'Failed to advance plugin reconciliation state';
     $ok = empty($errors);
     $GLOBALS['_plugin_last_error'] = $ok ? '' : plugin_message('Failed to uninstall plugin.') . ' ' . implode('; ', $errors);

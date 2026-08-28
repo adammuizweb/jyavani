@@ -15,6 +15,8 @@ file_put_contents(PLUGIN_DISABLED_JSON, '[]');
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/mail.php';
 require_once $root . '/plugins/index.php';
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$GLOBALS['pdo'] = $pdo;
 
 $failures = [];
 $check = static function (bool $condition, string $message) use (&$failures): void {
@@ -87,6 +89,23 @@ remove_filter('plugin_state_change_preflight', $throwingState);
 $check(plugin_disable('dependency-child') && plugin_disable('dependency-base'), 'dependencies can be deactivated after their dependents');
 $check(!plugin_enable('dependency-child') && str_contains(plugin_last_error(), 'inactive'), 'activation rejects an inactive dependency');
 $check(plugin_enable('dependency-base') && plugin_enable('dependency-child'), 'activation succeeds after compatible dependencies are active');
+$writePlugin('self-modifying-activation', '1.0.0');
+mkdir(PLUGIN_PATH . '/self-modifying-activation/migrations', 0775, true);
+file_put_contents(PLUGIN_PATH . '/self-modifying-activation/migrations/0001-change.php', <<<'PHP'
+<?php
+return static function (PDO $pdo): void {
+    file_put_contents(__FILE__, "\n// activation mutation\n", FILE_APPEND);
+};
+PHP);
+$selfModifyingLocks = plugin_lifecycle_locks('self-modifying-activation');
+$selfModifyingDisabled = is_array($selfModifyingLocks) && _plugin_mark_disabled_already_locked('self-modifying-activation');
+if (is_array($selfModifyingLocks)) theme_operation_release($selfModifyingLocks);
+plugin_reset_runtime_cache();
+$selfModifyingActivation = plugin_enable('self-modifying-activation', $pdo);
+$selfModifyingTracked = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'self-modifying-activation'")->fetchColumn();
+$check($selfModifyingDisabled && !$selfModifyingActivation && $selfModifyingTracked === 0
+    && in_array('self-modifying-activation', plugin_disabled_names(), true),
+    'activation rejects a self-modifying migration before ledger or enabled-state mutation');
 $heldLifecycle = plugin_lifecycle_locks('dependency-child');
 $check(is_array($heldLifecycle) && !plugin_disable('dependency-child') && str_contains(plugin_last_error(), 'lock'), 'plugin lifecycle callback re-entry fails instead of waiting on its own global lock');
 if (is_array($heldLifecycle)) theme_operation_release($heldLifecycle);
@@ -104,9 +123,84 @@ $denyDelete = static function (array $state, string $name, string $operation): a
 add_filter('plugin_state_change_preflight', $denyDelete);
 $check(!plugin_delete('preflight-delete') && is_dir(PLUGIN_PATH . '/preflight-delete')
     && plugin_last_error() === 'Contract denied deletion.', 'plugin delete denies before filesystem mutation');
-$check(!plugin_uninstall('preflight-delete', false) && is_dir(PLUGIN_PATH . '/preflight-delete'), 'plugin uninstall enforces delete preflight before uninstall listeners or files');
+$check(!plugin_uninstall('preflight-delete', false, $pdo) && is_dir(PLUGIN_PATH . '/preflight-delete'), 'plugin uninstall enforces delete preflight before uninstall listeners or files');
 remove_filter('plugin_state_change_preflight', $denyDelete);
+plugin_migrations_ensure_table($pdo);
+$insertMigration = $pdo->prepare('INSERT INTO plugin_migrations (plugin_name, migration, checksum, applied_version) VALUES (?, ?, ?, ?)');
+
+$writePlugin('not-loaded-complete-uninstall', '1.0.0');
+$pdo->exec('CREATE TABLE not_loaded_complete_schema (id INTEGER PRIMARY KEY)');
+$insertMigration->execute(['not-loaded-complete-uninstall', '0001-schema.sql', str_repeat('2', 64), '1.0.0']);
+plugin_reset_runtime_cache();
+$notLoadedWasActive = plugin_is_active('not-loaded-complete-uninstall');
+$notLoadedResult = plugin_uninstall('not-loaded-complete-uninstall', false, $pdo);
+$notLoadedLedger = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'not-loaded-complete-uninstall'")->fetchColumn();
+$check($notLoadedWasActive && !$notLoadedResult && $notLoadedLedger === 1
+    && in_array('not_loaded_complete_schema', $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN), true)
+    && is_dir(PLUGIN_PATH . '/not-loaded-complete-uninstall')
+    && str_contains(plugin_last_error(), 'loaded successfully in this request'),
+    'active complete uninstall is denied before mutation when its entrypoint has not loaded in this request');
+
+$writePlugin('disabled-complete-uninstall', '1.0.0', [], true);
+file_put_contents(PLUGIN_PATH . '/disabled-complete-uninstall/plugin.php', '<?php add_action("plugin_uninstall", static function (string $name): void { if ($name === "disabled-complete-uninstall") $GLOBALS["pdo"]->exec("DROP TABLE disabled_complete_schema"); });');
+$pdo->exec('CREATE TABLE disabled_complete_schema (id INTEGER PRIMARY KEY)');
+$insertMigration->execute(['disabled-complete-uninstall', '0001-schema.sql', str_repeat('c', 64), '1.0.0']);
+plugin_reset_runtime_cache();
+plugin_load_active();
+$disabledCompleteLocks = plugin_lifecycle_locks('disabled-complete-uninstall');
+$disabledCompleteMarked = is_array($disabledCompleteLocks) && _plugin_mark_disabled_already_locked('disabled-complete-uninstall');
+if (is_array($disabledCompleteLocks)) theme_operation_release($disabledCompleteLocks);
+$disabledCompleteResult = plugin_uninstall('disabled-complete-uninstall', false, $pdo);
+$disabledCompleteLedger = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'disabled-complete-uninstall'")->fetchColumn();
+$check($disabledCompleteMarked && !$disabledCompleteResult && $disabledCompleteLedger === 1
+    && in_array('disabled_complete_schema', $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN), true)
+    && is_dir(PLUGIN_PATH . '/disabled-complete-uninstall')
+    && str_contains(plugin_last_error(), 'Activate it first'),
+    'disabled complete uninstall is denied before ledger, schema, or file mutation');
+
+$writePlugin('residual-uninstall', '1.0.0', [], true);
+file_put_contents(PLUGIN_PATH . '/residual-uninstall/plugin.php', '<?php add_action("plugin_uninstall", static function (string $name): void { if ($name === "residual-uninstall") $GLOBALS["pdo"]->exec("DROP TABLE residual_uninstall_schema"); });');
+$pdo->exec('CREATE TABLE residual_uninstall_schema (id INTEGER PRIMARY KEY)');
+$insertMigration->execute(['residual-uninstall', '0001-schema.sql', str_repeat('d', 64), '1.0.0']);
+plugin_reset_runtime_cache();
+plugin_load_active();
+$residualUninstallPath = package_unique_publication_recovery_path(PLUGIN_PATH . '/residual-uninstall', 'old');
+if (is_string($residualUninstallPath)) mkdir($residualUninstallPath, 0700);
+$residualUninstallResult = plugin_uninstall('residual-uninstall', false, $pdo);
+$residualUninstallLedger = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'residual-uninstall'")->fetchColumn();
+$check(!$residualUninstallResult && $residualUninstallLedger === 1
+    && in_array('residual_uninstall_schema', $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN), true)
+    && is_dir(PLUGIN_PATH . '/residual-uninstall'),
+    'complete uninstall detects publication recovery paths before ledger or schema mutation');
+
+$writePlugin('active-hook-uninstall', '1.0.0', [], true);
+file_put_contents(PLUGIN_PATH . '/active-hook-uninstall/plugin.php', '<?php add_action("plugin_uninstall", static function (string $name): void { if ($name !== "active-hook-uninstall") return; $GLOBALS["active_hook_ledger"] = (int)$GLOBALS["pdo"]->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = \'active-hook-uninstall\'")->fetchColumn(); $GLOBALS["pdo"]->exec("DROP TABLE active_hook_schema"); });');
+$pdo->exec('CREATE TABLE active_hook_schema (id INTEGER PRIMARY KEY)');
+$insertMigration->execute(['active-hook-uninstall', '0001-schema.sql', str_repeat('e', 64), '1.0.0']);
+plugin_reset_runtime_cache();
+plugin_load_active();
+$activeHookResult = plugin_uninstall('active-hook-uninstall', false, $pdo);
+$check($activeHookResult && ($GLOBALS['active_hook_ledger'] ?? null) === 0
+    && !in_array('active_hook_schema', $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN), true)
+    && !is_dir(PLUGIN_PATH . '/active-hook-uninstall'),
+    'active complete uninstall executes its already-loaded cleanup hook and removes schema');
+
+$writePlugin('active-no-hook-uninstall', '1.0.0');
+$insertMigration->execute(['active-no-hook-uninstall', '0001-schema.sql', str_repeat('f', 64), '1.0.0']);
+plugin_reset_runtime_cache();
+plugin_load_active();
+$activeNoHookResult = plugin_uninstall('active-no-hook-uninstall', false, $pdo);
+$activeNoHookLedger = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'active-no-hook-uninstall'")->fetchColumn();
+$check($activeNoHookResult && $activeNoHookLedger === 0 && !is_dir(PLUGIN_PATH . '/active-no-hook-uninstall'),
+    'active successfully-loaded plugin with no cleanup hooks can uninstall completely');
+
 $writePlugin('isolated-uninstall', '1.0.0');
+mkdir(PLUGIN_PATH . '/isolated-uninstall/migrations', 0775, true);
+$isolatedMigration = PLUGIN_PATH . '/isolated-uninstall/migrations/0001-schema.sql';
+file_put_contents($isolatedMigration, 'CREATE TABLE isolated_uninstall_schema (id INTEGER PRIMARY KEY);');
+$insertMigration->execute(['isolated-uninstall', '0001-schema.sql', hash_file('sha256', $isolatedMigration), '1.0.0']);
+plugin_reset_runtime_cache();
+plugin_load_active();
 $uninstallCleanupCalls = [];
 $throwingCleanup = static function (string $name): void {
     if ($name === 'isolated-uninstall') throw new RuntimeException('cleanup failed');
@@ -116,9 +210,44 @@ $continuingCleanup = static function (string $name) use (&$uninstallCleanupCalls
 };
 add_action('plugin_uninstall', $throwingCleanup, 5);
 add_action('plugin_uninstall', $continuingCleanup, 10);
-$check(plugin_uninstall('isolated-uninstall', false) && $uninstallCleanupCalls === ['isolated-uninstall'], 'uninstall cleanup listeners are isolated so later cleanup still runs');
+$isolatedUninstall = plugin_uninstall('isolated-uninstall', false, $pdo);
+$isolatedLedger = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'isolated-uninstall'")->fetchColumn();
+$check(!$isolatedUninstall && $uninstallCleanupCalls === ['isolated-uninstall']
+    && $isolatedLedger === 0 && is_dir(PLUGIN_PATH . '/isolated-uninstall')
+    && in_array('isolated-uninstall', plugin_disabled_names(), true),
+    'cleanup listener failure preserves inactive files with cleared history for safe retry');
 remove_action('plugin_uninstall', $throwingCleanup, 5);
 remove_action('plugin_uninstall', $continuingCleanup, 10);
+$recoveredActivation = plugin_enable('isolated-uninstall', $pdo);
+$check($recoveredActivation
+    && in_array('isolated_uninstall_schema', $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN), true)
+    && plugin_uninstall('isolated-uninstall', false, $pdo),
+    'failed cleanup can retry after activation replays cleared migration history');
+
+$writePlugin('transaction-cleanup', '1.0.0');
+$insertMigration->execute(['transaction-cleanup', '0001-schema.sql', str_repeat('1', 64), '1.0.0']);
+plugin_reset_runtime_cache();
+plugin_load_active();
+$transactionCleanup = static function (string $name) use ($pdo): void {
+    if ($name !== 'transaction-cleanup') return;
+    $pdo->beginTransaction();
+    $pdo->exec('CREATE TABLE transaction_cleanup_leak (id INTEGER PRIMARY KEY)');
+};
+add_action('plugin_uninstall', $transactionCleanup);
+$transactionCleanupResult = plugin_uninstall('transaction-cleanup', false, $pdo);
+remove_action('plugin_uninstall', $transactionCleanup);
+$transactionCleanupLedger = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'transaction-cleanup'")->fetchColumn();
+$check(!$transactionCleanupResult && !$pdo->inTransaction() && $transactionCleanupLedger === 0
+    && !in_array('transaction_cleanup_leak', $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table'")->fetchAll(PDO::FETCH_COLUMN), true)
+    && is_dir(PLUGIN_PATH . '/transaction-cleanup')
+    && in_array('transaction-cleanup', plugin_disabled_names(), true),
+    'cleanup listener transaction leakage is rolled back while inactive files and cleared history remain for retry');
+
+$writePlugin('keep-data-uninstall', '1.0.0');
+$insertMigration->execute(['keep-data-uninstall', '0001-schema.sql', str_repeat('b', 64), '1.0.0']);
+$keepDataUninstall = plugin_uninstall('keep-data-uninstall', true, $pdo);
+$keptLedger = (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'keep-data-uninstall'")->fetchColumn();
+$check($keepDataUninstall && $keptLedger === 1, 'keep-data uninstall retains migration history so reinstall does not replay retained schema');
 
 $malformed = ['name' => 'bad-dependencies', 'requires' => ['plugins' => ['dependency-base']]];
 $check(plugin_requirement_errors($malformed) !== [], 'requires.plugins must be an object mapping slugs to constraints');
@@ -183,17 +312,45 @@ $browseSource = (string)file_get_contents($root . '/dashboard/admin/plugins/brow
 $updateSource = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
 $managerSource = (string)file_get_contents($root . '/dashboard/admin/plugins/index.php');
 $registry = (string)file_get_contents($root . '/plugins/index.php');
-$check(str_contains($uploadSource, 'plugin_publish_staged_install_already_locked($prepared, $activatePlugin)')
-    && str_contains($browseSource, 'plugin_publish_staged_install_already_locked($prepared, $activatePlugin)')
+$check(str_contains($uploadSource, 'plugin_publish_staged_install_already_locked($prepared, $activatePlugin, $pdo)')
+    && str_contains($browseSource, 'plugin_publish_staged_install_already_locked($prepared, $activatePlugin, $pdo)')
     && str_contains($registry, 'plugin_run_install_script($pluginDir)')
     && str_contains($updateSource, 'plugin_run_install_script($pluginDir)'),
     'ZIP upload, Store install, and Store update use the same install.sh runner');
+$installPublishAt = strpos($registry, 'function plugin_publish_staged_install_already_locked');
+$installMigrationAt = $installPublishAt === false ? false : strpos($registry, 'plugin_migrations_run_pending_already_locked(', $installPublishAt);
+$installScriptAt = $installPublishAt === false ? false : strpos($registry, 'plugin_run_install_script($pluginDir)', $installPublishAt);
+$installRevalidationAt = $installScriptAt === false ? false : strpos($registry, 'plugin_migrations_assert_complete_already_locked(', $installScriptAt);
+$installFailureAt = $installPublishAt === false ? false : strpos($registry, "if (!\$installResult['success'])", $installPublishAt);
+$updatePlanAt = strpos($updateSource, 'plugin_migrations_plan_already_locked(');
+$updatePublishAt = strpos($updateSource, 'package_guarded_publish($stage, $pluginDir, $oldIdentity, $newIdentity)');
+$updateMigrationAt = strpos($updateSource, 'plugin_migrations_run_pending_already_locked(');
+$updateScriptAt = strpos($updateSource, 'plugin_run_install_script($pluginDir)');
+$updateRevalidationAt = $updateScriptAt === false ? false : strpos($updateSource, 'plugin_migrations_assert_complete_already_locked(', $updateScriptAt);
+$updateFailureAt = $updateScriptAt === false ? false : strpos($updateSource, "if (!\$installResult['success'])", $updateScriptAt);
+$check($installMigrationAt !== false && $installScriptAt !== false && $installRevalidationAt !== false && $installFailureAt !== false
+    && $installMigrationAt < $installScriptAt && $installScriptAt < $installRevalidationAt && $installRevalidationAt < $installFailureAt
+    && $updatePlanAt !== false && $updatePublishAt !== false && $updatePlanAt < $updatePublishAt
+    && $updateMigrationAt !== false && $updateScriptAt !== false && $updateRevalidationAt !== false && $updateFailureAt !== false
+    && $updateMigrationAt < $updateScriptAt && $updateScriptAt < $updateRevalidationAt && $updateRevalidationAt < $updateFailureAt,
+    'install and update validate and run fixed-directory migrations before installers and update publication is preflighted');
+$updateDisableAt = strpos($updateSource, '_plugin_mark_disabled_already_locked($name)');
+$updateEnableAt = strpos($updateSource, '_plugin_enable_already_locked($name, $pdo)');
+$updateFinalizeAt = strpos($updateSource, 'package_guarded_finalize($pluginDir, $rollbackPath, $oldIdentity)');
+$check($updateDisableAt !== false && $updateMigrationAt !== false && $updateDisableAt < $updateMigrationAt
+    && $updateEnableAt !== false && $updateFinalizeAt !== false && $updateEnableAt < $updateFinalizeAt
+    && str_contains($updateSource, 'Database changes may remain; the plugin is inactive.'),
+    'updates disable before pending schema work, restore enabled state only at the end, and report irreversible database risk');
+$check(str_contains($updateSource, '$staticRestored = $restoreStatic($restoration);')
+    && str_contains($updateSource, 'Plugin file or static asset rollback failed; database changes remain and the plugin is inactive.'),
+    'reactivation failure restores old static assets as well as the old plugin tree');
+$installDisableAt = $installPublishAt === false ? false : strpos($registry, '_plugin_mark_disabled_already_locked($name)', $installPublishAt);
+$installRenameAt = $installPublishAt === false ? false : strpos($registry, '@rename($stage, $pluginDir)', $installPublishAt);
 $check(str_contains($uploadSource, '$installLocks = plugin_lifecycle_locks($pluginName)')
     && str_contains($browseSource, '$installLocks = plugin_lifecycle_locks($pluginName)')
     && str_contains($updateSource, '$operationLocks = function_exists(\'plugin_lifecycle_locks\')')
     && str_contains($registry, '_plugin_mark_disabled_already_locked($name)')
-    && strpos($registry, '_plugin_mark_disabled_already_locked($name)', strpos($registry, 'function plugin_publish_staged_install_already_locked'))
-        < strpos($registry, '@rename($stage, $pluginDir)', strpos($registry, 'function plugin_publish_staged_install_already_locked')),
+    && $installDisableAt !== false && $installRenameAt !== false && $installDisableAt < $installRenameAt,
     'plugin ZIP upload, Store install, and Store update hold one top-level global-first lifecycle lock and use already-locked state helpers');
 $check(substr_count($updateSource, 'plugin_install_requirements_error_message($manifest, $strictPluginDependencies)') >= 1
     && str_contains($updateSource, 'plugin_install_requirements_error_message($packageManifest, $strictPluginDependencies)')
@@ -227,10 +384,11 @@ $removePluginUpdate->invoke(null, 'dependency-base', '2.0.0');
 $check((PluginStoreController::getCachedUpdates()['dependency-base']['new_version'] ?? '') === '3.0.0', 'plugin completion retains a genuinely newer discovered update');
 $removePluginUpdate->invoke(null, 'dependency-base', '3.0.0');
 $check(!isset(PluginStoreController::getCachedUpdates()['dependency-base']), 'plugin completion removes exactly the installed update generation');
+$applyMethodAt = strpos($updateSource, 'private static function applyUpdateAlreadyLocked');
 $check(str_contains($updateSource, 'package_guarded_publish($stage, $pluginDir, $oldIdentity, $newIdentity)')
     && str_contains($updateSource, 'package_guarded_rollback($pluginDir, $rollbackPath, $oldIdentity)')
     && str_contains($updateSource, 'package_guarded_finalize($pluginDir, $rollbackPath, $oldIdentity)')
-    && !str_contains(substr($updateSource, (int)strpos($updateSource, 'private static function applyUpdateAlreadyLocked'), 15000), 'extractTo('),
+    && $applyMethodAt !== false && !str_contains(substr($updateSource, $applyMethodAt, 15000), 'extractTo('),
     'plugin updates guard complete-tree publication, exact rollback, and final old-tree cleanup');
 $firstPluginRecovery = package_private_directory(BACKEND_PATH . '/var', 'plugin-dependency-base-recovery');
 file_put_contents($firstPluginRecovery . '/preserved.marker', 'recovery');
@@ -246,6 +404,7 @@ $themeColorFilter = strpos($layout, "apply_filters('theme_color'");
 $appleOutput = strpos($layout, 'is_string($appleTouchIconUrl)');
 $manifestOutput = strpos($layout, 'is_string($webManifestUrl)');
 $check($appleFilter !== false && $manifestFilter !== false && $themeColorFilter !== false && $faviconBranch !== false
+    && $appleOutput !== false && $manifestOutput !== false
     && $appleFilter < $faviconBranch && $appleOutput > $faviconBranch && $manifestOutput > $faviconBranch,
     'web manifest, apple touch icon, and theme color are independently filterable');
 $check(str_contains($layout, "apply_filters('web_manifest_url', '', \$pdo)"),
@@ -258,8 +417,10 @@ $check(str_contains($worker, 'self.skipWaiting()') && str_contains($worker, 'sel
 add_filter('service_worker_script', static fn(string $script): string => $script . 'self.addEventListener("push", function () {});');
 $check(str_contains(core_service_worker_script(), 'addEventListener("push"'), 'Core preserves service_worker_script contributions');
 $router = (string)file_get_contents($root . '/public/router.php');
+$workerRouteAt = strpos($router, "if (\$pathTrimmed === 'sw.js')");
+$routerFilterAt = strpos($router, "apply_filters('router_path'");
 $check(str_contains($router, 'echo core_service_worker_script();')
-    && strpos($router, "if (\$pathTrimmed === 'sw.js')") < strpos($router, "apply_filters('router_path'"),
+    && $workerRouteAt !== false && $routerFilterAt !== false && $workerRouteAt < $routerFilterAt,
     'the root /sw.js route always returns Core worker code before plugin path rewrites');
 $check(str_contains($router, 'plugin_declared_icon_file($pluginName, $pluginFile)')
     && !str_contains($router, "mime_content_type(\$absFile)"),
