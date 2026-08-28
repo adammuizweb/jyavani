@@ -186,6 +186,46 @@ post; it must not replace page-level metadata for the request. This keeps direct
 theme pages, assigned partials, preview tools, localization, and future extensions
 independent from one another.
 
+## Theme slot context hook
+
+Plugins can augment the prepared context for every available theme slot at the
+central `render_slot()` boundary:
+
+```php
+apply_filters(
+    'theme_slot_context',
+    array $context,
+    string $slotKey,
+    ?string $folder,
+    ?PDO $pdo
+): array
+```
+
+The filter runs exactly once per rendered slot, including `header` and
+`main.homepage`, after Core resolves an available render target and before it
+renders the theme file or assigned custom theme post. `$folder` is the selected
+theme folder for a theme file and `null` for a custom theme post. Add
+plugin-namespaced context keys and return the complete context array.
+
+The context array is passed to each filter callback by value. If the chain throws
+or returns a non-array value, Core discards the returned array and continues with
+the pre-filter array value. This is not a deep transactional rollback: objects
+inside both arrays remain shared references, and Core cannot undo object mutation
+or other callback side effects. Plugins must treat nested objects as immutable if
+they require value fallback to remain unchanged.
+
+After filtering, Core overwrites the reserved `pdo`, `__jy_theme_folder`,
+`__jy_theme_source_folder`, and `__jy_slot_key` keys with canonical values before
+either renderer runs. For custom theme posts, both folder values are `null`;
+`__jy_slot_key` and `pdo` still identify the current render. For fallback theme
+files, `__jy_theme_folder` and the `$folder` filter argument identify the selected
+theme, while `__jy_theme_source_folder` identifies the theme that supplies the
+actual fallback file. Caller or plugin values cannot spoof these reserved values.
+
+Normal public and dashboard requests already hold the request-lifetime shared
+theme lifecycle reader while this filter and the template execute. The hook does
+not acquire, release, or upgrade lifecycle locks.
+
 ## Theme operation hooks
 
 Core uses a shared-reader/exclusive-writer contract for installed executable trees. Every normal public or dashboard request takes a shared reader on `0-theme-lifecycle` after the theme lock helper loads and holds it until shutdown, covering plugin bootstrap/routes and theme rendering. Install and update writers release their own request reader, acquire `0-theme-lifecycle` exclusively before exact folder locks, and revalidate state after acquisition. The shared lock is never upgraded in place, and same-request exclusive re-entry still fails fast. Update extensions contribute schema-1 issues through `theme_update_preflight($state, $folder, $cachedUpdate, $completeInstalledManifest, $pdo)`. An issue has a bounded ID, label/message, literal `blocking` and `resolved` flags, and optional state token, choices, safe relative links, and scalar details. Core, not listeners, computes whether the update is allowed and reruns the filter under the lock immediately before mutation.

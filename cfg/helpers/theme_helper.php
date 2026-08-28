@@ -798,9 +798,10 @@ function resolve_theme_file_path(array $resolved): ?string {
     return null;
 }
 
-function include_template_file(string $path, array $context = []): string {
+function include_template_file(string $path, array $context = [], ?PDO $renderPdo = null): string {
     if (!is_file($path)) return '';
-    global $pdo;
+    $globalPdo = $GLOBALS['pdo'] ?? null;
+    $templatePdo = func_num_args() >= 3 ? $renderPdo : ($globalPdo instanceof PDO ? $globalPdo : null);
 
     // Preserve existence as well as value so nested renders cannot leak globals.
     $renderGlobals = [
@@ -820,7 +821,7 @@ function include_template_file(string $path, array $context = []): string {
     }
 
     $__ctx = $context;
-    $__ctx['pdo'] = $pdo;
+    $__ctx['pdo'] = $templatePdo;
     ob_start();
     try {
         extract($__ctx, EXTR_SKIP);
@@ -840,18 +841,18 @@ function include_template_file(string $path, array $context = []): string {
     }
     $html = ob_get_clean();
 
-if ($pdo instanceof PDO) {
+if ($templatePdo instanceof PDO) {
     if (function_exists('widget_expand_shortcodes')) {
-        $html = widget_expand_shortcodes((string)$html, $pdo, $context);
+        $html = widget_expand_shortcodes((string)$html, $templatePdo, $context);
     }
     if (function_exists('post_cat_shortcode_expand')) {
-        $html = post_cat_shortcode_expand((string)$html, $pdo, $context);
+        $html = post_cat_shortcode_expand((string)$html, $templatePdo, $context);
     }
     if (function_exists('private_file_shortcode_expand')) {
-        $html = private_file_shortcode_expand((string)$html, $pdo, $context);
+        $html = private_file_shortcode_expand((string)$html, $templatePdo, $context);
     }
     if (function_exists('video_shortcode_expand')) {
-        $html = video_shortcode_expand((string)$html, $pdo);
+        $html = video_shortcode_expand((string)$html, $templatePdo);
     }
 }
 
@@ -912,32 +913,55 @@ if (function_exists('video_shortcode_expand')) {
 }
 
 function render_slot($pdoOrNull, string $slot_key, array $context = []): string {
-    $pdo = $pdoOrNull instanceof PDO ? $pdoOrNull : ($pdoOrNull ?: get_pdo_from_global());
+    $pdo = $pdoOrNull instanceof PDO ? $pdoOrNull : get_pdo_from_global();
     $resolved = resolve_template($pdo, $slot_key);
 
-    if ($resolved['type'] === 'custom_post') {
+    $type = (string)($resolved['type'] ?? '');
+    $path = null;
+    $folder = null;
+    $sourceFolder = null;
+    if ($type === 'theme_file') {
+        $path = resolve_theme_file_path($resolved);
+        if ($path === null) {
+            if (THEME_DEBUG) error_log("[THEME] render_slot - file not found for slot={$slot_key}");
+            return '';
+        }
+        $resolvedFolder = $resolved['theme_folder'] ?? ($resolved['folder'] ?? DEFAULT_THEME_FOLDER);
+        $folder = is_string($resolvedFolder) && $resolvedFolder !== '' ? $resolvedFolder : DEFAULT_THEME_FOLDER;
+        $viewsRoot = realpath(VIEWS_BASE);
+        $relativePath = $viewsRoot !== false && str_starts_with($path, $viewsRoot . DIRECTORY_SEPARATOR)
+            ? substr($path, strlen($viewsRoot) + 1)
+            : '';
+        $resolvedSourceFolder = $relativePath !== '' ? strtok($relativePath, DIRECTORY_SEPARATOR) : false;
+        $sourceFolder = is_string($resolvedSourceFolder) && $resolvedSourceFolder !== ''
+            ? $resolvedSourceFolder
+            : $folder;
+    } elseif ($type !== 'custom_post') {
+        return '';
+    }
+
+    $originalContext = $context;
+    try {
+        $filteredContext = apply_filters('theme_slot_context', $context, $slot_key, $folder, $pdo);
+        if (is_array($filteredContext)) $context = $filteredContext;
+        else $context = $originalContext;
+    } catch (Throwable $error) {
+        error_log('[THEME] theme_slot_context error: ' . $error->getMessage());
+        $context = $originalContext;
+    }
+
+    $context['pdo'] = $pdo instanceof PDO ? $pdo : null;
+    $context['__jy_theme_folder'] = $folder;
+    $context['__jy_theme_source_folder'] = $sourceFolder;
+    $context['__jy_slot_key'] = $slot_key;
+
+    if ($type === 'custom_post') {
         // Apply post adapters here because this layer owns the render context.
         $post = apply_filters('theme_slot_post_data', $resolved['post'], $slot_key, $pdo, $context);
         return render_custom_post_template(is_array($post) ? $post : $resolved['post'], $context);
-    } elseif ($resolved['type'] === 'theme_file') {
-        $path = resolve_theme_file_path($resolved);
-        if ($path) {
-            $context['__jy_theme_folder'] = $resolved['theme_folder'] ?? ($resolved['folder'] ?? DEFAULT_THEME_FOLDER);
-            $viewsRoot = realpath(VIEWS_BASE);
-            $relativePath = $viewsRoot !== false && str_starts_with($path, $viewsRoot . DIRECTORY_SEPARATOR)
-                ? substr($path, strlen($viewsRoot) + 1)
-                : '';
-            $sourceFolder = $relativePath !== '' ? strtok($relativePath, DIRECTORY_SEPARATOR) : false;
-            $context['__jy_theme_source_folder'] = is_string($sourceFolder) && $sourceFolder !== ''
-                ? $sourceFolder
-                : (string)$context['__jy_theme_folder'];
-            $context['__jy_slot_key'] = $slot_key;
-            return include_template_file($path, $context);
-        } else {
-            if (THEME_DEBUG) error_log("[THEME] render_slot - file not found for slot={$slot_key}");
-        }
     }
-    return '';
+
+    return include_template_file($path, $context, $context['pdo']);
 }
 
 /**
