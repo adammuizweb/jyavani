@@ -16,6 +16,8 @@ require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/theme_helper.php';
 require_once $root . '/plugins/index.php';
 require_once $root . '/app/controllers/PluginStoreController.php';
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$GLOBALS['pdo'] = $pdo;
 
 $failures = [];
 $check = static function (bool $condition, string $message) use (&$failures): void {
@@ -276,7 +278,7 @@ try {
     $disabledBeforeResidual = (string)file_get_contents(PLUGIN_DISABLED_JSON);
     $residualLocks = plugin_lifecycle_locks($residualName);
     $residualResult = is_array($residualLocks)
-        ? plugin_publish_staged_install_already_locked($residualPrepared, false)
+        ? plugin_publish_staged_install_already_locked($residualPrepared, false, $pdo)
         : ['success' => false];
     if (is_array($residualLocks)) theme_operation_release($residualLocks);
     $check(!($residualResult['success'] ?? false)
@@ -301,19 +303,80 @@ try {
     if (is_array($failedLocks)) theme_operation_release($failedLocks);
     $check(!($failedResult['success'] ?? false) && in_array($failedName, plugin_disabled_names(), true)
         && is_dir(PLUGIN_PATH . '/' . $failedName), 'install.sh failure leaves the published plugin safely disabled for inspection');
+    $check(str_contains((string)file_get_contents($root . '/plugins/index.php'),
+        'function plugin_publish_staged_install_already_locked(array $prepared, bool $activate, ?PDO $pdo = null)')
+        && str_contains((string)($failedResult['error'] ?? ''), 'install.sh'),
+        'the original two-argument staged-install signature remains compatible through global PDO fallback');
+
+    $historyMutationName = 'history-mutation-contract';
+    $historyMutationPackage = $fixture . '/history-mutation.zip';
+    $zipWith($historyMutationPackage, [
+        'plugin.json' => json_encode(['name' => $historyMutationName, 'version' => '1.0.0']),
+        'migrations/0001-create.sql' => 'CREATE TABLE history_mutation_marker (id INTEGER PRIMARY KEY);',
+        'install.sh' => "#!/bin/sh\nprintf '\\nSELECT 1;\\n' >> migrations/0001-create.sql\n",
+    ]);
+    $historyMutationPrepared = plugin_prepare_package_stage($historyMutationPackage, $historyMutationName, false);
+    $historyMutationLocks = plugin_lifecycle_locks($historyMutationName);
+    $historyMutationResult = is_array($historyMutationLocks)
+        ? plugin_publish_staged_install_already_locked($historyMutationPrepared, false, $pdo)
+        : ['success' => false];
+    if (is_array($historyMutationLocks)) theme_operation_release($historyMutationLocks);
+    $check(!($historyMutationResult['success'] ?? false)
+        && str_contains((string)($historyMutationResult['error'] ?? ''), 'history changed')
+        && in_array($historyMutationName, plugin_disabled_names(), true)
+        && is_dir(PLUGIN_PATH . '/' . $historyMutationName),
+        'fresh install revalidates immutable migration history after install.sh in inactive mode');
+
+    $lateMigrationName = 'late-migration-contract';
+    $lateMigrationPackage = $fixture . '/late-migration.zip';
+    $zipWith($lateMigrationPackage, [
+        'plugin.json' => json_encode(['name' => $lateMigrationName, 'version' => '1.0.0']),
+        'install.sh' => "#!/bin/sh\nmkdir migrations\nprintf 'SELECT 1;\\n' > migrations/0001-late.sql\n",
+    ]);
+    $lateMigrationPrepared = plugin_prepare_package_stage($lateMigrationPackage, $lateMigrationName, false);
+    $lateMigrationLocks = plugin_lifecycle_locks($lateMigrationName);
+    $lateMigrationResult = is_array($lateMigrationLocks)
+        ? plugin_publish_staged_install_already_locked($lateMigrationPrepared, false, $pdo)
+        : ['success' => false];
+    if (is_array($lateMigrationLocks)) theme_operation_release($lateMigrationLocks);
+    $check(!($lateMigrationResult['success'] ?? false)
+        && str_contains((string)($lateMigrationResult['error'] ?? ''), 'history changed')
+        && in_array($lateMigrationName, plugin_disabled_names(), true),
+        'fresh install rejects pending migration files introduced by install.sh');
 
     $activeName = 'activate-contract';
     $activePackage = $fixture . '/activate.zip';
     $zipWith($activePackage, [
         'plugin.json' => json_encode(['name' => $activeName, 'version' => '1.0.0']),
         'plugin.php' => '<?php $GLOBALS["activated_contract_loaded"] = true;',
+        'migrations/0001-create-marker.sql' => 'CREATE TABLE activation_migration_marker (id INTEGER PRIMARY KEY);',
     ]);
     $activePrepared = plugin_prepare_package_stage($activePackage, $activeName, true);
     $activeLocks = plugin_lifecycle_locks($activeName);
-    $activeResult = is_array($activeLocks) ? plugin_publish_staged_install_already_locked($activePrepared, true) : ['success' => false];
+    $activeResult = is_array($activeLocks) ? plugin_publish_staged_install_already_locked($activePrepared, true, $pdo) : ['success' => false];
     if (is_array($activeLocks)) theme_operation_release($activeLocks);
     $check(($activeResult['success'] ?? false) && !in_array($activeName, plugin_disabled_names(), true)
-        && plugin_manifest($activeName) !== null, 'requested activation removes disabled state only after verified installation success');
+        && plugin_manifest($activeName) !== null
+        && (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'activate-contract'")->fetchColumn() === 1,
+        'requested activation removes disabled state only after its database migration is tracked');
+
+    $migrationFailureName = 'migration-failure-contract';
+    $migrationFailurePackage = $fixture . '/migration-failure.zip';
+    $zipWith($migrationFailurePackage, [
+        'plugin.json' => json_encode(['name' => $migrationFailureName, 'version' => '1.0.0']),
+        'migrations/0001-fail.sql' => 'CREATE TABLE migration_partial_marker (id INTEGER PRIMARY KEY); INVALID SQL;',
+    ]);
+    $migrationFailurePrepared = plugin_prepare_package_stage($migrationFailurePackage, $migrationFailureName, true);
+    $migrationFailureLocks = plugin_lifecycle_locks($migrationFailureName);
+    $migrationFailureResult = is_array($migrationFailureLocks)
+        ? plugin_publish_staged_install_already_locked($migrationFailurePrepared, true, $pdo)
+        : ['success' => false];
+    if (is_array($migrationFailureLocks)) theme_operation_release($migrationFailureLocks);
+    $check(!($migrationFailureResult['success'] ?? false)
+        && in_array($migrationFailureName, plugin_disabled_names(), true)
+        && is_dir(PLUGIN_PATH . '/' . $migrationFailureName)
+        && (int)$pdo->query("SELECT COUNT(*) FROM plugin_migrations WHERE plugin_name = 'migration-failure-contract'")->fetchColumn() === 0,
+        'failed install migration leaves its published package inactive and failed file untracked');
 
     $controller = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
     $check(str_contains($controller, "hash_equals((string)(\$update['current_version'] ?? ''), \$physical['version'])")

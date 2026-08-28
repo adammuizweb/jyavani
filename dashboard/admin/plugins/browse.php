@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $prepared = plugin_prepare_package_stage($tmpZip, $pluginName, $activatePlugin, $pluginData);
     @unlink($tmpZip);
     if (!($prepared['success'] ?? false)) adiwira_redirect_with_flash($selfUrl, 'error', (string)$prepared['error']);
-    $result = plugin_publish_staged_install_already_locked($prepared, $activatePlugin);
+    $result = plugin_publish_staged_install_already_locked($prepared, $activatePlugin, $pdo);
     if (!($result['success'] ?? false)) adiwira_redirect_with_flash($selfUrl, 'error', (string)$result['error']);
 
     // Hapus cache agar daftar plugin terbaru

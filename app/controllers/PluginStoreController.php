@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/cfg/helpers/package_archive.php';
+require_once dirname(__DIR__, 2) . '/cfg/helpers/migration_helper.php';
 require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
 
 class PluginStoreController
@@ -410,6 +411,19 @@ class PluginStoreController
             package_remove_tree($stage);
             return ['success' => false, 'error' => 'Staged plugin identity verification failed.'];
         }
+        try {
+            $migrationPlan = plugin_migrations_plan_already_locked(
+                $pdo,
+                $name,
+                (string)$manifest['version'],
+                $stage
+            );
+        } catch (Throwable $error) {
+            package_remove_tree($stage);
+            return ['success' => false, 'error' => __('Plugin migration preflight failed: %s', $error->getMessage())];
+        }
+        $migrationStarted = $migrationPlan['pending'] !== [];
+        $wasEnabled = !in_array($name, plugin_disabled_names(), true);
         $publication = package_guarded_publish($stage, $pluginDir, $oldIdentity, $newIdentity);
         if (!$publication['success']) {
             if (is_dir($stage)) package_remove_tree($stage);
@@ -430,58 +444,107 @@ class PluginStoreController
             catch (Throwable $reconciliationError) { error_log('[plugin-reconciliation] ' . $reconciliationError->getMessage()); }
             return ['restored' => $restored, 'recovery' => $restoration['recovery_paths'][0] ?? $rollbackPath];
         };
+        $restoreStatic = static function (array $restoration) use ($pluginDir, $oldStaticCopy, $staticCopy): bool {
+            if (!$restoration['restored']) return false;
+            if ($staticCopy === [] && $oldStaticCopy === []) return true;
+            $result = plugin_static_copy($pluginDir, $oldStaticCopy, $staticCopy);
+            return $result['failed'] === 0;
+        };
+        $staticApplied = false;
 
         try {
-        if ($staticCopy !== [] || $oldStaticCopy !== []) {
-            $p(90, __('Copying static files...'));
-            $copyResult = plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy);
-            if ($copyResult['failed'] > 0) {
-                $restoration = $rollback();
-                $staticRollbackFailed = ($copyResult['rollback_incomplete'] ?? false) === true;
-                if ($staticRollbackFailed) {
-                    return ['success' => false, 'error' => 'Declared static files failed and static asset rollback was incomplete. Manual recovery is required.'];
+            if ($migrationStarted) {
+                if ($wasEnabled && !_plugin_mark_disabled_already_locked($name)) {
+                    $restoration = $rollback();
+                    return ['success' => false, 'error' => ($restoration['restored']
+                        ? __('Plugin update was stopped and the old files were restored.')
+                        : __('Plugin update was stopped and exact file rollback failed.'))
+                        . ' ' . (plugin_last_error() ?: __('Failed to update plugin state.'))];
                 }
-                return ['success' => false, 'error' => $restoration['restored']
-                    ? 'Declared static files failed to copy; exact old plugin tree restored.'
-                    : 'Declared static files failed and exact rollback could not be verified. Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable')];
+                $p(85, __('Running plugin database migrations...'));
+                try {
+                    plugin_migrations_run_pending_already_locked($pdo, $name, (string)$manifest['version'], $pluginDir);
+                } catch (Throwable $migrationError) {
+                    $restoration = $rollback();
+                    return ['success' => false, 'error' => __('Plugin database migration failed: %s Database changes may remain; the plugin is inactive.', $migrationError->getMessage())
+                        . ($restoration['restored'] ? '' : ' ' . __('Exact plugin file rollback failed.'))];
+                }
             }
-        }
-
-        $p(93, __('Running plugin installer...'));
-        $installResult = plugin_run_install_script($pluginDir);
-        if (!$installResult['success']) {
-            $installError = $installResult['error'];
-            $restoration = $rollback();
-            $staticRestored = true;
-            if ($restoration['restored'] && ($staticCopy !== [] || $oldStaticCopy !== [])) {
-                $staticRestoreResult = plugin_static_copy($pluginDir, $oldStaticCopy, $staticCopy);
-                $staticRestored = $staticRestoreResult['failed'] === 0;
+            if ($staticCopy !== [] || $oldStaticCopy !== []) {
+                $p(90, __('Copying static files...'));
+                $copyResult = plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy);
+                if ($copyResult['failed'] > 0) {
+                    $restoration = $rollback();
+                    $staticRollbackFailed = ($copyResult['rollback_incomplete'] ?? false) === true;
+                    if ($staticRollbackFailed) {
+                        return ['success' => false, 'error' => 'Declared static files failed and static asset rollback was incomplete. Manual recovery is required.'
+                            . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')];
+                    }
+                    return ['success' => false, 'error' => $restoration['restored']
+                        ? 'Declared static files failed to copy; exact old plugin tree restored.' . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')
+                        : 'Declared static files failed and exact rollback could not be verified. Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable')
+                            . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')];
+                }
+                $staticApplied = true;
             }
-            $suffix = $restoration['restored'] && $staticRestored
-                ? ' ' . __('Managed plugin files were restored, but install.sh changes outside the plugin directory may remain.')
-                : ' ' . __('Managed plugin file restoration was incomplete, and install.sh changes outside the plugin directory may remain. Manual recovery is required.')
-                    . ' Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable');
-            return ['success' => false, 'error' => $installError . $suffix];
-        }
 
-        $installed = self::physicalPluginState($name);
-        if ($installed === null || !hash_equals((string)$update['new_version'], $installed['version'])
-            || package_tree_identity($pluginDir) === null) {
-            $restoration = $rollback();
-            return ['success' => false, 'error' => $restoration['restored']
-                ? 'Post-install verification failed; exact old plugin tree restored.'
-                : 'Post-install verification failed and exact rollback was incomplete. Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable')];
-        }
-        self::reconcileInstalledState($name);
-        $cleanupWarning = is_string($rollbackPath) && package_guarded_finalize($pluginDir, $rollbackPath, $oldIdentity)
-            ? ''
-            : 'Exact old rollback-tree cleanup requires manual attention.';
-        if ($cleanupWarning === '') $rollbackPath = null;
+            $p(93, __('Running plugin installer...'));
+            $installResult = plugin_run_install_script($pluginDir);
+            try {
+                plugin_migrations_assert_complete_already_locked($pdo, $name, (string)$manifest['version'], $pluginDir);
+            } catch (Throwable $historyError) {
+                $restoration = $rollback();
+                $staticRestored = $restoreStatic($restoration);
+                return ['success' => false, 'error' => __('Plugin migration history changed during update: %s', $historyError->getMessage())
+                    . ($restoration['restored'] && $staticRestored
+                        ? ''
+                        : ' ' . __('Managed plugin file or static asset restoration was incomplete. Manual recovery is required.'))
+                    . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')];
+            }
+            if (!$installResult['success']) {
+                $installError = $installResult['error'];
+                $restoration = $rollback();
+                $staticRestored = $restoreStatic($restoration);
+                $suffix = $restoration['restored'] && $staticRestored
+                    ? ' ' . __('Managed plugin files were restored, but install.sh changes outside the plugin directory may remain.')
+                    : ' ' . __('Managed plugin file restoration was incomplete, and install.sh changes outside the plugin directory may remain. Manual recovery is required.')
+                        . ' Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable');
+                if ($migrationStarted) $suffix .= ' ' . __('Database changes remain; the plugin is inactive.');
+                return ['success' => false, 'error' => $installError . $suffix];
+            }
+
+            $installed = self::physicalPluginState($name);
+            if ($installed === null || !hash_equals((string)$update['new_version'], $installed['version'])
+                || package_tree_identity($pluginDir) === null) {
+                $restoration = $rollback();
+                $staticRestored = $restoreStatic($restoration);
+                return ['success' => false, 'error' => $restoration['restored'] && $staticRestored
+                    ? 'Post-install verification failed; exact old plugin tree restored.' . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')
+                    : 'Post-install verification failed and file or static rollback was incomplete. Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable')
+                        . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')];
+            }
+            self::reconcileInstalledState($name);
+            if ($migrationStarted && $wasEnabled && !_plugin_enable_already_locked($name, $pdo)) {
+                $restoration = $rollback();
+                $staticRestored = $restoreStatic($restoration);
+                return ['success' => false, 'error' => (plugin_last_error() ?: __('Failed to reactivate the updated plugin.'))
+                    . ' ' . ($restoration['restored'] && $staticRestored
+                        ? __('The old plugin files were restored, but database changes remain and the plugin is inactive.')
+                        : __('Plugin file or static asset rollback failed; database changes remain and the plugin is inactive.'))];
+            }
+            $cleanupWarning = is_string($rollbackPath) && package_guarded_finalize($pluginDir, $rollbackPath, $oldIdentity)
+                ? ''
+                : 'Exact old rollback-tree cleanup requires manual attention.';
+            if ($cleanupWarning === '') $rollbackPath = null;
         } catch (Throwable $error) {
+            if ($migrationStarted) _plugin_mark_disabled_already_locked($name);
             $restoration = $rollback();
-            return ['success' => false, 'error' => $restoration['restored']
+            $staticRestored = !$staticApplied || $restoreStatic($restoration);
+            return ['success' => false, 'error' => $restoration['restored'] && $staticRestored
                 ? 'Plugin update failed unexpectedly; exact old plugin tree restored. ' . $error->getMessage()
-                : 'Plugin update failed unexpectedly and exact rollback was incomplete. Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable')];
+                    . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')
+                : 'Plugin update failed unexpectedly and file or static rollback was incomplete. Recovery artifact: ' . ($restoration['recovery'] ?? 'unavailable')
+                    . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')];
         }
 
         $p(95, 'Menyelesaikan...');

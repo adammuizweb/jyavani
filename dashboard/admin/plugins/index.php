@@ -36,7 +36,7 @@ if ($action === 'toggle' && $pluginName !== '') {
         }
         adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to deactivate plugin.'));
     } else {
-        if (plugin_enable($pluginName)) {
+        if (plugin_enable($pluginName, $pdo)) {
             adiwira_redirect_with_flash($selfUrl, 'success', __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . __('activated.'));
         }
         adiwira_redirect_with_flash($selfUrl, 'error', plugin_last_error() ?: __('Failed to activate plugin.'));
@@ -54,7 +54,7 @@ if ($action === 'delete' && $pluginName !== '') {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin') . ' "' . h($pluginName) . '" ' . __('not found.'));
     }
     $keepData = !empty($_POST['keep_data']);
-    $ok = plugin_uninstall($pluginName, $keepData);
+    $ok = plugin_uninstall($pluginName, $keepData, $pdo);
     if ($ok) {
         $msg = __('Plugin') . ' "' . h($manifest['title'] ?? $pluginName) . '" ' . ($keepData ? __('uninstalled. Data kept.') : __('uninstalled completely.'));
         adiwira_redirect_with_flash($selfUrl, 'success', $msg);
@@ -84,7 +84,7 @@ if ($action === 'bulk' && !empty($_POST['bulk_action']) && !empty($_POST['plugin
 
         switch ($bulkAction) {
             case 'activate':
-                if (!plugin_is_active($pn) && plugin_enable($pn)) { $success++; }
+                if (!plugin_is_active($pn) && plugin_enable($pn, $pdo)) { $success++; }
                 elseif (plugin_is_active($pn)) { $skipped++; }
                 else { $failed++; if (plugin_last_error() !== '') $failureMessages[] = plugin_last_error(); }
                 break;
@@ -97,7 +97,7 @@ if ($action === 'bulk' && !empty($_POST['bulk_action']) && !empty($_POST['plugin
 
             case 'uninstall':
                 // Bulk uninstall always keeps data — destructive cleanup must be done individually
-                if (plugin_uninstall($pn, true)) { $success++; }
+                if (plugin_uninstall($pn, true, $pdo)) { $success++; }
                 else { $failed++; if (plugin_last_error() !== '') $failureMessages[] = plugin_last_error(); }
                 break;
 

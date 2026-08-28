@@ -92,14 +92,25 @@ $check(str_contains($browse, 'plugin_prepare_package_stage($tmpZip, $pluginName,
     && str_contains($registry, 'plugin_package_requirement_errors($catalog, $manifest)')
     && str_contains($browse, 'plugin_install_requirements_error_message($pluginData, $activatePlugin)'),
     'store initial install enforces catalog parity and activation-aware requirements');
-$staticCleanup = strpos($registry, '// Remove plugin directory recursively');
-$check(str_contains($registry, "if (is_file(\$abs) && (!@unlink(\$abs) || file_exists(\$abs)))") && strpos($registry, 'if ($errors !== [])', strpos($registry, 'function plugin_delete')) < $staticCleanup, 'uninstall verifies declared static removal and stops before plugin deletion when cleanup is incomplete');
+$staticCleanup = strpos($registry, '// Remove the complete live tree first');
+$deleteFunction = strpos($registry, 'function plugin_delete');
+$deleteErrorGuard = $deleteFunction === false ? false : strpos($registry, 'if ($errors !== [])', $deleteFunction);
+$check(str_contains($registry, "if (is_file(\$abs) && (!@unlink(\$abs) || file_exists(\$abs)))")
+    && $deleteErrorGuard !== false && $staticCleanup !== false && $deleteErrorGuard < $staticCleanup,
+    'uninstall verifies declared static removal and stops before plugin deletion when cleanup is incomplete');
+$check(str_contains($registry, "package_unique_publication_recovery_path(\$pluginDir, 'uninstall')")
+    && str_contains($registry, 'rename($pluginDir, $quarantine)')
+    && str_contains($registry, 'package_remove_tree($quarantine)'),
+    'uninstall moves the complete plugin tree out of discovery before fallible recursive cleanup');
+$disableFunction = strpos($registry, 'function plugin_disable');
+$disablePreflight = strpos($registry, "plugin_state_change_preflight(\$name, 'disable')");
+$deletePreflight = $deleteFunction === false ? false : strpos($registry, "plugin_state_change_preflight(\$name, 'delete')", $deleteFunction);
 $check(str_contains($registry, "\$GLOBALS['_hooks']['filters']['plugin_state_change_preflight']")
-    && strpos($registry, "plugin_state_change_preflight(\$name, 'disable')") > strpos($registry, 'function plugin_disable')
-    && strpos($registry, "plugin_state_change_preflight(\$name, 'delete')", strpos($registry, 'function plugin_delete')) > strpos($registry, 'function plugin_delete'),
+    && $disableFunction !== false && $disablePreflight !== false && $disablePreflight > $disableFunction
+    && $deleteFunction !== false && $deletePreflight !== false && $deletePreflight > $deleteFunction,
     'central plugin disable and delete functions enforce the generic state-change preflight');
-$check(str_contains($manager, 'plugin_disable($pn)') && str_contains($manager, 'plugin_uninstall($pn, true)')
-    && str_contains($manager, 'plugin_disable($pluginName)') && str_contains($manager, 'plugin_uninstall($pluginName, $keepData)'),
+$check(str_contains($manager, 'plugin_disable($pn)') && str_contains($manager, 'plugin_uninstall($pn, true, $pdo)')
+    && str_contains($manager, 'plugin_disable($pluginName)') && str_contains($manager, 'plugin_uninstall($pluginName, $keepData, $pdo)'),
     'single and bulk Plugin Manager paths rely on the preflight-enforcing central functions');
 
 $remove = static function (string $path) use (&$remove): void {
