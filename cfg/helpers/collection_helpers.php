@@ -23,6 +23,56 @@ function collection_current_route_context(): ?array
     return is_array($context) ? $context : null;
 }
 
+function router_core_path_is_owned(PDO $pdo, string $path): bool
+{
+    $path = trim($path, '/');
+    foreach (['author', 'private', 'plugins', 'static'] as $prefix) {
+        if ($path === $prefix || str_starts_with($path, $prefix . '/')) return true;
+    }
+    if ($path === 'sw.js'
+        || preg_match('#^sitemap_([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)_(\d+)\.xml$#', $path)
+        || preg_match('#^sitemap(?:_(posts|pages|themes)_(\d+))?\.xml$#', $path)
+        || preg_match('/^\d{4}(?:\/|$)/', $path)
+    ) {
+        return true;
+    }
+
+    $adminPath = function_exists('get_admin_path') ? trim(get_admin_path($pdo), '/') : 'dashboard';
+    if ($adminPath !== '' && ($path === $adminPath || str_starts_with($path, $adminPath . '/'))) return true;
+
+    $loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'login';
+    $registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'register';
+    if (function_exists('auth_normalize_configured_path')) {
+        $loginPath = auth_normalize_configured_path($loginPath);
+        $registerPath = auth_normalize_configured_path($registerPath);
+    } else {
+        $loginPath = trim($loginPath, '/');
+        $registerPath = trim($registerPath, '/');
+    }
+    if (($loginPath !== null && $loginPath !== '' && $path === $loginPath)
+        || ($registerPath !== null && $registerPath !== '' && $path === $registerPath)
+    ) {
+        return true;
+    }
+
+    $routeGroups = [
+        function_exists('get_category_routes') ? get_category_routes($pdo) : ['category'],
+        function_exists('get_posts_list_routes') ? get_posts_list_routes($pdo) : ['artikel'],
+        function_exists('get_pages_list_routes') ? get_pages_list_routes($pdo) : ['halaman'],
+    ];
+    foreach ($routeGroups as $routes) {
+        if (collection_match_route_base($path, $routes) !== null) return true;
+    }
+    return false;
+}
+
+function router_apply_path_filter(PDO $pdo, string $path): string
+{
+    if (router_core_path_is_owned($pdo, $path)) return $path;
+    $filtered = apply_filters('router_path', $path);
+    return is_string($filtered) ? $filtered : $path;
+}
+
 function collection_match_route_base(string $path, array $bases): ?array
 {
     $path = trim($path, '/');

@@ -68,14 +68,26 @@ function reset_login_attempts(PDO $pdo, string $email, string $ip): void {
 }
 
 /**
+ * Normalize a stored login/register path without decoding it a second time.
+ */
+function auth_normalize_configured_path(string $path): ?string {
+    $path = trim($path, " \t\n\r\0\x0B/");
+    if ($path === '' || preg_match('/\A[a-z0-9_\/.-]+\z/D', $path) !== 1) return null;
+    return $path;
+}
+
+/**
  * auth_path_matches — check if current request URI matches a configured path
  * Used for customizable login/register paths
  */
 function auth_path_matches(string $configuredPath): bool {
-    $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
-    $uri = trim($uri, '/');
-    $configuredPath = trim($configuredPath, '/');
-    return $uri === $configuredPath;
+    $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    if (!is_string($uri)) return false;
+
+    // Match router.php: separate the query first, then decode the path exactly once.
+    $uri = auth_normalize_configured_path(rawurldecode($uri));
+    $configuredPath = auth_normalize_configured_path($configuredPath);
+    return $uri !== null && $configuredPath !== null && $uri === $configuredPath;
 }
 
 /**

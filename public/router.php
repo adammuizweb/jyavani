@@ -30,9 +30,9 @@ if ($pathTrimmed === 'sw.js') {
     exit;
 }
 
-// Allow plugins to rewrite the request path before route matching
-// (e.g. locale prefix stripping for translated content routing)
-$pathTrimmed = apply_filters('router_path', $pathTrimmed);
+// Allow plugins to rewrite non-Core request paths before route matching
+// (e.g. locale prefix stripping for translated content routing).
+$pathTrimmed = router_apply_path_filter($pdo, $pathTrimmed);
 
 // Optional site-specific routes live outside the managed Core router.
 $siteRouter = BACKEND_PATH . '/site-router.php';
