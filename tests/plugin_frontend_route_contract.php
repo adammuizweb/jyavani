@@ -9,7 +9,28 @@ define('PLUGIN_PATH', $fixture . '/plugins');
 define('PLUGIN_DISABLED_JSON', BACKEND_PATH . '/var/plugins-disabled.json');
 
 require_once $root . '/cfg/helpers/hooks.php';
+require_once $root . '/cfg/helpers/collection_helpers.php';
 require_once $root . '/plugins/index.php';
+
+final class PluginFrontendRouteContractPdo extends PDO
+{
+    public function __construct() {}
+}
+
+$GLOBALS['_plugin_route_core_paths'] = [
+    'admin' => '/admin/control-room',
+    'login' => 'account/sign-in',
+    'register' => 'account/join',
+    'category' => ['topics'],
+    'posts' => ['journal', 'posts'],
+    'pages' => ['documents'],
+];
+function get_admin_path(PDO $pdo): string { return $GLOBALS['_plugin_route_core_paths']['admin']; }
+function get_login_path(PDO $pdo): string { return $GLOBALS['_plugin_route_core_paths']['login']; }
+function get_register_path(PDO $pdo): string { return $GLOBALS['_plugin_route_core_paths']['register']; }
+function get_category_routes(PDO $pdo): array { return $GLOBALS['_plugin_route_core_paths']['category']; }
+function get_posts_list_routes(PDO $pdo): array { return $GLOBALS['_plugin_route_core_paths']['posts']; }
+function get_pages_list_routes(PDO $pdo): array { return $GLOBALS['_plugin_route_core_paths']['pages']; }
 
 $failures = [];
 $check = static function (bool $condition, string $message) use (&$failures): void {
@@ -103,6 +124,82 @@ $check(register_frontend_route('collision', $firstHandler, ['methods' => ['GET']
 $check((resolve_frontend_route('collision', 'GET')['handler'] ?? null) === $firstHandler
     && count(get_frontend_route_diagnostics()) === 1,
     'a rejected collision preserves the first route and records a diagnostic');
+
+$reset();
+$thiefHandler = static function (): void {};
+register_frontend_route('stolen', $thiefHandler, ['match' => 'exact']);
+add_filter('router_path', static fn(string $path): string => 'stolen');
+$pdo = new PluginFrontendRouteContractPdo();
+$protectedPaths = [
+    'sw.js' => 'Core service worker path',
+    'author/editor' => 'Core author path',
+    'private/file/stream' => 'Core private file path',
+    'static/dashboard/app.js' => 'Core static path',
+    'sitemap.xml' => 'Core sitemap path',
+    'sitemap_pt-BR_themes_2.xml' => 'localized Core sitemap path',
+    '2026/08' => 'Core archive path',
+    'admin/control-room/settings' => 'configured admin path',
+    'account/sign-in' => 'configured login path',
+    'account/join' => 'configured register path',
+    'journal/p/2' => 'configured post collection path',
+    'documents/p/2' => 'configured page collection path',
+    'topics/guides' => 'configured category collection path',
+];
+foreach ($protectedPaths as $protectedPath => $label) {
+    $filteredPath = router_apply_path_filter($pdo, $protectedPath);
+    $check($filteredPath === $protectedPath && resolve_frontend_route($filteredPath, 'GET') === null,
+        'plugin path rewrites cannot steal the ' . $label);
+}
+$filteredPluginPath = router_apply_path_filter($pdo, 'extension-alias');
+$check($filteredPluginPath === 'stolen'
+    && (resolve_frontend_route($filteredPluginPath, 'GET')['handler'] ?? null) === $thiefHandler,
+    'plugin path rewrites still dispatch on non-Core paths');
+
+$reset();
+$boundaryHandler = static function (): void {};
+$boundaryPluginPaths = [
+    'authors',
+    'privateer',
+    'static-site',
+    'admin/control-roommate',
+    'topics-extra',
+    'journal-archive',
+    'documents-old',
+];
+foreach ($boundaryPluginPaths as $pluginPath) {
+    register_frontend_route($pluginPath, $boundaryHandler);
+    $check(!router_core_path_is_owned($pdo, $pluginPath)
+        && !router_core_path_is_owned($pdo, $pluginPath . '/child')
+        && (resolve_frontend_route($pluginPath . '/child', 'GET')['handler'] ?? null) === $boundaryHandler,
+        'Core route boundaries leave the legitimate plugin route unblocked: ' . $pluginPath);
+}
+
+$GLOBALS['_plugin_route_core_paths'] = [
+    'admin' => '/dashboard',
+    'login' => 'login',
+    'register' => 'register',
+    'category' => ['category'],
+    'posts' => ['artikel', 'posts'],
+    'pages' => ['halaman'],
+];
+$defaultCorePaths = ['dashboard', 'dashboard/settings', 'category/guides', 'artikel/p/2', 'posts/p/2', 'halaman/p/2'];
+$check(array_reduce($defaultCorePaths,
+    static fn(bool $owned, string $path): bool => $owned && router_core_path_is_owned($pdo, $path), true),
+    'default admin and collection paths remain Core-owned');
+
+$GLOBALS['_plugin_route_core_paths']['category'] = [];
+$GLOBALS['_plugin_route_core_paths']['posts'] = [];
+$GLOBALS['_plugin_route_core_paths']['pages'] = [];
+$reset();
+$disabledHandler = static function (): void {};
+$disabledCollectionPaths = ['category', 'artikel', 'posts', 'halaman'];
+foreach ($disabledCollectionPaths as $pluginPath) {
+    register_frontend_route($pluginPath, $disabledHandler);
+    $check(!router_core_path_is_owned($pdo, $pluginPath)
+        && !router_core_path_is_owned($pdo, $pluginPath . '/child')
+        && (resolve_frontend_route($pluginPath . '/child', 'GET')['handler'] ?? null) === $disabledHandler,
+        'disabled collection paths remain available to plugins: ' . $pluginPath);
+}
 
 $reset();
 $invalidHandler = static function (): void {};

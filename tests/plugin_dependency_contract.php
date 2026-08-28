@@ -418,7 +418,7 @@ add_filter('service_worker_script', static fn(string $script): string => $script
 $check(str_contains(core_service_worker_script(), 'addEventListener("push"'), 'Core preserves service_worker_script contributions');
 $router = (string)file_get_contents($root . '/public/router.php');
 $workerRouteAt = strpos($router, "if (\$pathTrimmed === 'sw.js')");
-$routerFilterAt = strpos($router, "apply_filters('router_path'");
+$routerFilterAt = strpos($router, 'router_apply_path_filter($pdo, $pathTrimmed)');
 $check(str_contains($router, 'echo core_service_worker_script();')
     && $workerRouteAt !== false && $routerFilterAt !== false && $workerRouteAt < $routerFilterAt,
     'the root /sw.js route always returns Core worker code before plugin path rewrites');
