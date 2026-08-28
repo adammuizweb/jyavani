@@ -70,6 +70,21 @@ $check(str_contains($router, "apply_filters('unresolved_content_redirect_url'"),
 $check(strpos($router, "apply_filters('unresolved_content_redirect_url'") < strpos($router, 'PostController::dispatchBySlug'), 'unresolved redirect extensions run before the legacy 404 fallback');
 $check(str_contains($router, 'url_append_query_string($unresolvedRedirect'), 'unresolved redirects use query-aware URL composition');
 $check(str_contains($router, 'if (!url_path_is_file_like($rawPath))'), 'router canonicalization lets file-like webmanifest paths reach dynamic routes');
+$check(str_contains($router, 'resolve_frontend_route($pathTrimmed, $requestMethod)')
+    && strpos($router, '$rootPluginRoute = resolve_frontend_route') < strpos($router, "\$context_for_layout = 'home'")
+    && strpos($router, '$pluginRoute = resolve_frontend_route') < strpos($router, '// FALLBACK POST'),
+    'router resolves exact root and full-path plugin routes before their corresponding Core fallbacks');
+$check(str_contains($router, 'http_response_code(405)') && str_contains($router, "header('Allow: '"),
+    'router returns 405 with Allow when a plugin owns the path but not the request method');
+$check(str_contains($router, "in_array(\$requestMethod, ['GET', 'HEAD'], true) ? 301 : 308")
+    && str_contains($router, "header('Location: ' . \$canonical, true, \$redirectStatus)"),
+    'trailing-slash redirects preserve non-GET request methods');
+$publicIndex = (string)file_get_contents($root . '/public/index.php');
+$frontend404 = (string)file_get_contents($root . '/app/frontend_404.php');
+$check(str_contains($router, 'plugin_run_frontend_init();')
+    && str_contains($publicIndex, 'plugin_run_frontend_init();')
+    && str_contains($frontend404, 'plugin_run_frontend_init();'),
+    'all public entry paths use the shared init-once lifecycle');
 $check(str_contains($htaccess, '^(?:sw\.js|manifest\.webmanifest)$ router.php'), 'Apache routes exact root PWA endpoints before stale physical files');
 $check(str_contains($serverSetup, 'location = /manifest.webmanifest') && str_contains($serverSetup, '$document_root/router.php'), 'nginx example routes the dynamic root manifest through Core');
 

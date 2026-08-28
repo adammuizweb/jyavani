@@ -76,6 +76,8 @@ tools/           i18n checks, manifest generation, packaging, and permissions to
 
 A plugin lives in `plugins/{slug}/`, declares metadata and requirements in `plugin.json`, and may provide a `plugin.php` entrypoint. Active plugins can register actions and filters, frontend routes, shortcodes, dashboard pages/navigation, CSS or JavaScript assets, and Theme Zone gadgets. Requirements can constrain Jyavani, PHP, PHP extensions, and other plugins; dependency entrypoints are loaded in dependency order.
 
+Frontend routes use `register_frontend_route($path, $handler, $options)`. Register routes directly while `plugin.php` loads or from `plugins_loaded`; Core seals the registry afterward so frontend dispatch and dashboard content-route validation share the same definitions. Existing two-argument calls register a prefix route for every HTTP method. Optional `match` (`prefix` or `exact`), `methods`, and integer `priority` keys support exact root endpoints, method constraints, and deterministic ordering. Site routes and the Core service worker retain precedence; an exact root plugin route intentionally replaces the Core homepage, while other managed Core routes retain their existing precedence. Repeating an identical registration is safe, but a later conflicting registration no longer replaces the first route and is rejected with a diagnostic.
+
 The hook API is defined in [`cfg/helpers/hooks.php`](cfg/helpers/hooks.php): `add_action()`, `do_action()`, `add_filter()`, `apply_filters()`, `remove_action()`, and `remove_filter()`. Plugin packages may declare controlled static asset copies. Installation scripts use a fixed `install.sh` convention with bounded runtime and output rather than manifest-provided shell commands.
 
 ### Mail API

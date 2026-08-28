@@ -12,8 +12,8 @@ if (!defined('PUBLIC_BOOTSTRAPPED')) {
 if (!function_exists('plugins_all')) {
     require_once dirname(__DIR__) . '/plugins/index.php';
     plugin_load_active();
-    do_action('init');
 }
+plugin_run_frontend_init();
 
 http_response_code(404);
 
