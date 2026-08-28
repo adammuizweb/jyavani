@@ -60,31 +60,116 @@ if (!function_exists('safe_strip_tags')) {
 // Utilities
 ////////////////////////////////////////////////////////////////////////////////
 
+function theme_slot_key_is_valid(string $key): bool {
+    return $key !== '' && strlen($key) <= 100
+        && preg_match('/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/', $key) === 1;
+}
+
+function theme_slot_template_is_valid(string $template): bool {
+    if ($template === '' || strlen($template) > 255 || str_contains($template, "\0") || str_contains($template, '\\')) return false;
+    if ($template[0] === '/' || str_contains($template, '..') || !str_ends_with($template, '.php')) return false;
+    return preg_match('#^[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*\.php$#', $template) === 1;
+}
+
+function theme_extension_owner_is_valid(string $owner): bool {
+    return $owner !== '' && strlen($owner) <= 100
+        && preg_match('/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/', $owner) === 1;
+}
+
+function theme_core_slot_definitions(): array {
+    return [
+        'header' => ['owner' => 'core', 'label' => 'Header', 'template' => 'header.php', 'bulk_assign' => true],
+        'sidebar' => ['owner' => 'core', 'label' => 'Sidebar (complementary)', 'template' => 'sidebar.php', 'bulk_assign' => true],
+        'main.homepage' => ['owner' => 'core', 'label' => 'Main - Homepage', 'template' => 'main/homepage.php', 'bulk_assign' => true],
+        'main.search' => ['owner' => 'core', 'label' => 'Search results', 'template' => 'main/search.php', 'bulk_assign' => true],
+        'list.post' => ['owner' => 'core', 'label' => 'List - Post', 'template' => 'main/list/post.php', 'bulk_assign' => true],
+        'list.page' => ['owner' => 'core', 'label' => 'List - Page', 'template' => 'main/list/page.php', 'bulk_assign' => true],
+        'list.category' => ['owner' => 'core', 'label' => 'List - Category', 'template' => 'main/list/category.php', 'bulk_assign' => true],
+        'list.archive' => ['owner' => 'core', 'label' => 'List - Archive', 'template' => 'main/list/archive.php', 'bulk_assign' => true],
+        'list.author' => ['owner' => 'core', 'label' => 'List - Author', 'template' => 'main/list/author.php', 'bulk_assign' => true],
+        'single.post' => ['owner' => 'core', 'label' => 'Single - Post', 'template' => 'main/single/post.php', 'bulk_assign' => true],
+        'single.page' => ['owner' => 'core', 'label' => 'Single - Page', 'template' => 'main/single/page.php', 'bulk_assign' => true],
+        'index.category' => ['owner' => 'core', 'label' => 'Index - Category (parent list)', 'template' => 'main/index/category.php', 'bulk_assign' => true],
+        'index.author' => ['owner' => 'core', 'label' => 'Index - Author (user list)', 'template' => 'main/index/author.php', 'bulk_assign' => true],
+        'main.404' => ['owner' => 'core', 'label' => '404 - Not Found', 'template' => 'main/404.php', 'bulk_assign' => true],
+        'footer' => ['owner' => 'core', 'label' => 'Footer', 'template' => 'footer.php', 'bulk_assign' => true],
+    ];
+}
+
+function theme_slot_normalize_definition(string $key, mixed $definition): ?array {
+    if (!theme_slot_key_is_valid($key) || !is_array($definition)) return null;
+    $label = trim((string)($definition['label'] ?? ''));
+    $template = trim((string)($definition['template'] ?? ''));
+    $owner = trim((string)($definition['owner'] ?? ''));
+    if ($label === '' || !theme_slot_template_is_valid($template) || !theme_extension_owner_is_valid($owner)) return null;
+    return [
+        'key' => $key,
+        'owner' => $owner,
+        'label' => $label,
+        'template' => $template,
+        'bulk_assign' => ($definition['bulk_assign'] ?? true) === true,
+    ];
+}
+
+/** Register one immutable request-local extension slot. First declaration wins. */
+function register_theme_slot(string $key, array $definition): bool {
+    $normalized = theme_slot_normalize_definition($key, $definition);
+    if ($normalized === null || isset(theme_core_slot_definitions()[$key])) return false;
+    if (isset($GLOBALS['__jy_theme_slots'][$key])) return false;
+    $GLOBALS['__jy_theme_slots'][$key] = $normalized;
+    return true;
+}
+
+/** Return canonical definitions keyed by slot key. Filters may append, but not replace, definitions. */
+function theme_slot_definitions(?PDO $pdo = null, array $context = []): array {
+    $definitions = [];
+    foreach (theme_core_slot_definitions() as $key => $definition) {
+        $definitions[$key] = theme_slot_normalize_definition($key, $definition);
+    }
+    foreach (($GLOBALS['__jy_theme_slots'] ?? []) as $key => $definition) {
+        if (isset($definitions[$key])) continue;
+        $normalized = theme_slot_normalize_definition((string)$key, $definition);
+        if ($normalized !== null) $definitions[$key] = $normalized;
+    }
+
+    $candidates = function_exists('apply_filters')
+        ? apply_filters('theme_slot_definitions', $definitions, $pdo, $context)
+        : $definitions;
+    if (!is_array($candidates)) return $definitions;
+    foreach ($candidates as $candidateKey => $candidate) {
+        if (!is_array($candidate)) continue;
+        $key = is_string($candidate['key'] ?? null)
+            ? (string)$candidate['key']
+            : (is_string($candidateKey) ? $candidateKey : '');
+        if (isset($definitions[$key])) continue;
+        $normalized = theme_slot_normalize_definition($key, $candidate);
+        if ($normalized !== null) $definitions[$key] = $normalized;
+    }
+    return $definitions;
+}
+
+function theme_slot_definition(string $key, ?PDO $pdo = null, array $context = []): ?array {
+    return theme_slot_definitions($pdo, $context)[$key] ?? null;
+}
+
+function theme_assignment_matches_definition(array $assignment, ?array $definition): bool {
+    if ($definition === null) return false;
+    $owner = (string)($definition['owner'] ?? '');
+    $persistedOwner = $assignment['slot_owner'] ?? null;
+    if ($owner === 'core' && ($persistedOwner === null || $persistedOwner === '')) return true;
+    return is_string($persistedOwner) && hash_equals($owner, $persistedOwner);
+}
+
+function theme_bulk_assignment_can_update(?array $assignment, array $definition): bool {
+    return $assignment === null || theme_assignment_matches_definition($assignment, $definition);
+}
+
 if (!function_exists('slot_to_file')) {
-    function slot_to_file(string $slot_key): string {
-        $map = [
-            'header' => 'header.php',
-            'footer' => 'footer.php',
-            'sidebar' => 'sidebar.php',
-
-            'main.homepage' => 'main/homepage.php',
-            'main.search'   => 'main/search.php',
-            'main.404'      => 'main/404.php',
-
-            'list.post'     => 'main/list/post.php',
-            'list.page'     => 'main/list/page.php',
-            'list.category' => 'main/list/category.php',
-            'list.archive'  => 'main/list/archive.php',
-            'list.author'   => 'main/list/author.php',
-
-            'single.post'   => 'main/single/post.php',
-            'single.page'   => 'main/single/page.php',
-
-            'index.category'=> 'main/index/category.php',
-            'index.author'  => 'main/index/author.php',
-
-        ];
-        return $map[$slot_key] ?? (str_replace([':', '/'], '.', $slot_key) . '.php');
+    function slot_to_file(string $slot_key, ?PDO $pdo = null): string {
+        $definition = theme_slot_definition($slot_key, $pdo ?: get_pdo_from_global(), ['scope' => 'runtime']);
+        return is_array($definition)
+            ? (string)$definition['template']
+            : '';
     }
 }
 
@@ -640,9 +725,13 @@ function resolve_template($pdoOrNull, string $slot_key): array {
     $resolved = apply_filters('resolve_template', null, $slot_key, $pdo);
     if ($resolved !== null) return $resolved;
 
+    $definition = theme_slot_definition($slot_key, $pdo, ['scope' => 'runtime']);
+    if ($definition === null) return ['type' => 'unavailable'];
+
     if ($pdo) {
         $assign = get_assignment($pdo, $slot_key);
         if ($assign) {
+            if (!theme_assignment_matches_definition($assign, $definition)) return ['type' => 'unavailable'];
             if (!empty($assign['custom_post_id'])) {
                 $post = get_post_by_id($pdo, (int)$assign['custom_post_id']);
                 if ($post && (($post['type'] ?? '') === 'theme')) {
@@ -652,7 +741,7 @@ function resolve_template($pdoOrNull, string $slot_key): array {
             if (!empty($assign['theme_id'])) {
                 $theme = get_theme_by_id($pdo, (int)$assign['theme_id']);
                 $theme_folder = $theme ? $theme['folder_name'] : null;
-                $theme_file = ($assign['theme_file'] ?? '') ?: slot_to_file($slot_key);
+                $theme_file = (string)$definition['template'];
                 if ($theme_folder) {
                     return ['type' => 'theme_file', 'theme_folder' => (string)$theme_folder, 'theme_file' => (string)$theme_file];
                 }
@@ -676,7 +765,7 @@ function resolve_template($pdoOrNull, string $slot_key): array {
         $t = get_theme_by_folder($pdo, $site_theme);
         if ($t && !empty($t['folder_name'])) $theme_folder = $t['folder_name'];
     }
-    $theme_file = slot_to_file($slot_key);
+    $theme_file = slot_to_file($slot_key, $pdo);
     return ['type' => 'theme_file', 'theme_folder' => (string)$theme_folder, 'theme_file' => (string)$theme_file];
 }
 
@@ -688,13 +777,17 @@ function resolve_theme_file_path(array $resolved): ?string {
     $candidate_real = realpath($candidate);
     $base_real = realpath(VIEWS_BASE);
 
-    if ($candidate_real && $base_real && strpos($candidate_real, $base_real) === 0 && is_file($candidate_real)) {
+    if ($candidate_real && $base_real
+        && str_starts_with($candidate_real, rtrim($base_real, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
+        && is_file($candidate_real)) {
         return $candidate_real;
     }
 
     $fallback = path_candidate(VIEWS_BASE, DEFAULT_THEME_FOLDER, $file_rel);
     $fallback_real = realpath($fallback);
-    if ($fallback_real && $base_real && strpos($fallback_real, $base_real) === 0 && is_file($fallback_real)) {
+    if ($fallback_real && $base_real
+        && str_starts_with($fallback_real, rtrim($base_real, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
+        && is_file($fallback_real)) {
         if (THEME_DEBUG) error_log("[THEME] using fallback for file={$file} (fallback={$fallback_real})");
         return $fallback_real;
     }
@@ -894,18 +987,24 @@ function sanitize_theme_file_for_db(string $theme_file): string {
 function assign_theme_to_slot($pdoOrNull, string $slot_key, string $theme_folder, ?string $theme_file = null, ?int $by_user_id = null): bool {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     if (!$pdo) throw new RuntimeException('PDO required for assign_theme_to_slot');
+    if (!theme_slot_key_is_valid($slot_key)) throw new InvalidArgumentException('Invalid theme slot key.');
+    $definition = theme_slot_definition($slot_key, $pdo, ['scope' => 'assignment']);
+    if ($definition === null) throw new InvalidArgumentException('Unavailable theme slot.');
 
     $theme = get_theme_by_folder($pdo, $theme_folder);
     if (!$theme) throw new RuntimeException("Theme folder not found: $theme_folder");
 
     $theme_id = (int)$theme['id'];
-    $file = $theme_file ? sanitize_theme_file_for_db($theme_file) : slot_to_file($slot_key);
+    $file = (string)$definition['template'];
+    if ($theme_file !== null && sanitize_theme_file_for_db($theme_file) !== $file) {
+        throw new InvalidArgumentException('Theme template must match the registered slot definition.');
+    }
 
-    $sql = "INSERT INTO assignments (slot_key, theme_id, theme_file, custom_post_id, created_by)
-            VALUES (?, ?, ?, NULL, ?)
-            ON DUPLICATE KEY UPDATE theme_id = VALUES(theme_id), theme_file = VALUES(theme_file), custom_post_id = NULL, updated_at = CURRENT_TIMESTAMP";
+    $sql = "INSERT INTO assignments (slot_key, slot_owner, theme_id, theme_file, custom_post_id, created_by)
+            VALUES (?, ?, ?, ?, NULL, ?)
+            ON DUPLICATE KEY UPDATE slot_owner = VALUES(slot_owner), theme_id = VALUES(theme_id), theme_file = VALUES(theme_file), custom_post_id = NULL, updated_at = CURRENT_TIMESTAMP";
     $stmt = $pdo->prepare($sql);
-    $ok = $stmt->execute([$slot_key, $theme_id, $file, $by_user_id]);
+    $ok = $stmt->execute([$slot_key, $definition['owner'], $theme_id, $file, $by_user_id]);
     if ($ok) {
         db_cache_set('assignments', $slot_key, null);
     }
@@ -915,17 +1014,20 @@ function assign_theme_to_slot($pdoOrNull, string $slot_key, string $theme_folder
 function assign_custom_post_to_slot($pdoOrNull, string $slot_key, int $post_id, ?int $by_user_id = null): bool {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     if (!$pdo) throw new RuntimeException('PDO required for assign_custom_post_to_slot');
+    if (!theme_slot_key_is_valid($slot_key)) throw new InvalidArgumentException('Invalid theme slot key.');
+    $definition = theme_slot_definition($slot_key, $pdo, ['scope' => 'assignment']);
+    if ($definition === null) throw new InvalidArgumentException('Unavailable theme slot.');
 
     $post = get_post_by_id($pdo, $post_id);
     if (!$post || (($post['type'] ?? '') !== 'theme')) {
         throw new RuntimeException("Custom theme post not found or not type='theme': $post_id");
     }
 
-    $sql = "INSERT INTO assignments (slot_key, theme_id, theme_file, custom_post_id, created_by)
-            VALUES (?, NULL, NULL, ?, ?)
-            ON DUPLICATE KEY UPDATE custom_post_id = VALUES(custom_post_id), theme_id = NULL, theme_file = NULL, updated_at = CURRENT_TIMESTAMP";
+    $sql = "INSERT INTO assignments (slot_key, slot_owner, theme_id, theme_file, custom_post_id, created_by)
+            VALUES (?, ?, NULL, NULL, ?, ?)
+            ON DUPLICATE KEY UPDATE slot_owner = VALUES(slot_owner), custom_post_id = VALUES(custom_post_id), theme_id = NULL, theme_file = NULL, updated_at = CURRENT_TIMESTAMP";
     $stmt = $pdo->prepare($sql);
-    $ok = $stmt->execute([$slot_key, $post_id, $by_user_id]);
+    $ok = $stmt->execute([$slot_key, $definition['owner'], $post_id, $by_user_id]);
     if ($ok) {
         db_cache_set('assignments', $slot_key, null);
     }
@@ -935,6 +1037,7 @@ function assign_custom_post_to_slot($pdoOrNull, string $slot_key, int $post_id, 
 function clear_assignment($pdoOrNull, string $slot_key): bool {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     if (!$pdo) throw new RuntimeException('PDO required for clear_assignment');
+    if (!theme_slot_key_is_valid($slot_key)) throw new InvalidArgumentException('Invalid theme slot key.');
     $sql = "DELETE FROM assignments WHERE slot_key = ?";
     $stmt = $pdo->prepare($sql);
     $ok = $stmt->execute([$slot_key]);
@@ -1197,19 +1300,23 @@ function bulk_assign_theme($pdoOrNull, string $theme_folder, ?array $slots = nul
         }
     }
 
-    // Default slots updated: remove 'hero', add 'sidebar', 'main.search', 'main.404'
-    $default_slots = [
-        'header','footer','sidebar',
-        'main.homepage','main.search','main.404',
-        'list.post','list.page','list.category','list.archive','list.author',
-        'single.post','single.page',
-        'index.category','index.author'
-    ];
+    $definitions = theme_slot_definitions($pdo);
+    $default_slots = [];
+    foreach ($definitions as $slot => $definition) {
+        if (($definition['bulk_assign'] ?? true) === true) $default_slots[] = $slot;
+    }
     $use_slots = $slots ?? $default_slots;
 
     $okAll = true;
     foreach ($use_slots as $slot) {
         try {
+            $definition = $definitions[$slot] ?? null;
+            if (!is_array($definition)) {
+                $okAll = false;
+                continue;
+            }
+            $assignment = get_assignment($pdo, $slot);
+            if (!theme_bulk_assignment_can_update(is_array($assignment) ? $assignment : null, $definition)) continue;
             assign_theme_to_slot($pdo, $slot, $theme_folder, null, $by_user_id);
         } catch (Throwable $e) {
             $okAll = false;

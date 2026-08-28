@@ -116,40 +116,29 @@ function rrmdir(string $dir): void {
     }
 }
 
-$SLOTS = [
-    'header' => 'Header',
-    'sidebar' => 'Sidebar (complementary)',
-    'main.homepage' => 'Main - Homepage',
-    'main.search' => 'Search results',
-    'list.post' => 'List - Post',
-    'list.page' => 'List - Page',
-    'list.category' => 'List - Category',
-    'list.archive' => 'List - Archive',
-    'list.author' => 'List - Author',
-    'single.post' => 'Single - Post',
-    'single.page' => 'Single - Page',
-    'index.category' => 'Index - Category (parent list)',
-    'index.author' => 'Index - Author (user list)',
-    'main.404' => '404 - Not Found',
-    'footer' => 'Footer',
-];
+$slotDefinitions = theme_slot_definitions($pdo);
+$SLOTS = [];
+foreach ($slotDefinitions as $slotKey => $definition) {
+    $SLOTS[$slotKey] = __((string)$definition['label']);
+}
 
 function render_assignment_current(array $assign_rows, string $slot_key, array $themes_by_id, array $theme_posts_by_id): string {
-    if (!isset($assign_rows[$slot_key])) return '<span class="muted">— (site default)</span>';
+    if (!isset($assign_rows[$slot_key])) return '<span class="muted">— (' . h(__('Site default')) . ')</span>';
     $r = $assign_rows[$slot_key];
     if (!empty($r['custom_post_id'])) {
         $pid = (int)$r['custom_post_id'];
         $title = $theme_posts_by_id[$pid]['title'] ?? '#'.$pid;
-        return '<span class="badge badge-custom">Custom: ' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '</span>';
+        return '<span class="badge badge-custom">' . h(sprintf(__('Custom: %s'), $title)) . '</span>';
     }
     if (!empty($r['theme_id'])) {
         $tid = (int)$r['theme_id'];
         $t = $themes_by_id[$tid] ?? null;
         $file = $r['theme_file'] ?? '';
-        $lbl = 'Theme: ' . htmlspecialchars($t ? $t['name'] . " ({$t['folder_name']})" : "id={$tid}", ENT_QUOTES, 'UTF-8');
-        return '<span class="badge badge-theme">' . $lbl . '</span>' . ($file ? ' <small class="muted">(file legacy)</small>' : '');
+        $themeLabel = $t ? $t['name'] . " ({$t['folder_name']})" : "id={$tid}";
+        $lbl = h(sprintf(__('Theme: %s'), $themeLabel));
+        return '<span class="badge badge-theme">' . $lbl . '</span>' . ($file ? ' <small class="muted">(' . h(__('legacy file')) . ')</small>' : '');
     }
-    return '<span class="muted">— (site default)</span>';
+    return '<span class="muted">— (' . h(__('Site default')) . ')</span>';
 }
 
 /** Fetch data for UI */
@@ -172,6 +161,11 @@ $stmt = $pdo->prepare("SELECT * FROM assignments");
 $stmt->execute();
 while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $assign_rows[$r['slot_key']] = $r;
+}
+foreach ($assign_rows as $slotKey => $assignment) {
+    if (isset($slotDefinitions[$slotKey]) && !theme_assignment_matches_definition($assignment, $slotDefinitions[$slotKey])) {
+        unset($slotDefinitions[$slotKey], $SLOTS[$slotKey]);
+    }
 }
 
 $errors = [];
@@ -203,7 +197,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                             $affectedFolders[] = $themes_by_id[$themeId]['folder_name'];
                         }
                     }
-                    foreach ((array)($_POST['assign'] ?? []) as $value) {
+                    foreach ((array)($_POST['assign'] ?? []) as $slotKey => $value) {
+                        if (!is_string($slotKey) || !isset($slotDefinitions[$slotKey])) continue;
                         if (!is_string($value) || !str_starts_with($value, 'theme:')) continue;
                         $themeId = (int)substr($value, 6);
                         if ($themeId > 0 && is_string($themes_by_id[$themeId]['folder_name'] ?? null)) {
@@ -270,6 +265,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
             } elseif ($action === 'save_assignments') {
                 $incoming = $_POST['assign'] ?? [];
+                if (!is_array($incoming)) $incoming = [];
 
                 foreach ($SLOTS as $slot_key => $slot_label) {
                     $val = trim((string)($incoming[$slot_key] ?? ''));
@@ -554,6 +550,12 @@ $stmt->execute();
 while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $assign_rows[$r['slot_key']] = $r;
 }
+foreach ($assign_rows as $slotKey => $assignment) {
+    if (isset($slotDefinitions[$slotKey]) && !theme_assignment_matches_definition($assignment, $slotDefinitions[$slotKey])) {
+        unset($slotDefinitions[$slotKey], $SLOTS[$slotKey]);
+    }
+}
+$unavailableAssignments = array_diff_key($assign_rows, $slotDefinitions);
 
 // expose active theme folder to JS for per-slot warnings
 $activeThemeFolder = null;
@@ -768,7 +770,8 @@ foreach ($themes as $t) {
             </tr>
           </thead>
           <tbody>
-          <?php foreach ($SLOTS as $slot_key => $slot_label):
+          <?php foreach ($slotDefinitions as $slot_key => $slotDefinition):
+            $slot_label = __((string)$slotDefinition['label']);
             $current = $assign_rows[$slot_key] ?? null;
             $safe_slot_id = str_replace('.', '__', $slot_key);
           ?>
@@ -836,12 +839,30 @@ foreach ($themes as $t) {
           <button class="tm-install" type="submit"><?=_e('Apply changes')?></button>
           <a class="tm-ghost" href="<?= htmlspecialchars($selfUrl, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;display:inline-flex;align-items:center"><?=_e('Cancel')?></a>
         </div>
-        <p class="tm-note" style="margin:0">
-          <?=__('Dev note: To add new slots, you need to edit theme_helper and controller.')?>
-        </p>
+        <p class="tm-note" style="margin:0"><?=__('Extensions can register additional theme slots.')?></p>
       </div>
     </form>
   </div>
+
+  <?php if ($unavailableAssignments !== []): ?>
+    <div class="tm-card" style="margin-top:14px">
+      <h3 class="tm-title" style="font-size:16px;margin:0"><?=_e('Unavailable slot assignments')?></h3>
+      <p class="tm-note"><?=_e('These assignments were preserved because their extension is not currently available.')?></p>
+      <div class="tm-table-wrap">
+        <table class="tm-table">
+          <thead><tr><th><?=_e('Slot')?></th><th><?=_e('Current assignment')?></th></tr></thead>
+          <tbody>
+          <?php foreach ($unavailableAssignments as $slotKey => $_assignment): ?>
+            <tr>
+              <td><code><?=h((string)$slotKey)?></code></td>
+              <td><?=render_assignment_current($assign_rows, (string)$slotKey, $themes_by_id, $theme_posts_by_id)?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <?php endif; ?>
 </div>
 
 <?php

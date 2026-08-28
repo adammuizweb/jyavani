@@ -266,7 +266,12 @@ try {
         }
 
         $config = shortcode_preset_config_loaded((string)($row['meta'] ?? '{}'), $row, $pdo);
-        $previewContext = ['mode' => 'stored', 'preset_id' => $presetId, 'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts'];
+        $previewContext = [
+            'mode' => 'stored',
+            'preset_id' => $presetId,
+            'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts',
+            'trust' => 'persisted_preset',
+        ];
         $validation = shortcode_preset_prepare_preview_config($config, $role === 'admin', $previewContext, $pdo);
         if ($validation['errors'] !== []) {
             adiwira_json(['ok' => false, 'error' => (string)$validation['errors'][0], 'errors' => $validation['errors']], 422);
@@ -279,7 +284,7 @@ try {
         }
         if (($config['source'] ?? 'posts') !== 'posts') {
             $html = function_exists('post_cat_shortcode_render')
-                ? post_cat_shortcode_render($pdo, $config, ['scope' => 'preset_preview', 'preset_id' => $presetId])
+                ? post_cat_shortcode_render($pdo, $config, array_merge($previewContext, ['scope' => 'preset_preview']))
                 : '';
             adiwira_json([
                 'ok' => true,

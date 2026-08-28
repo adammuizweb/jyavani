@@ -93,6 +93,251 @@ function shortcode_collection_layout_name_from_filename(string $filename): ?stri
   return shortcode_collection_layout_filename($name) === $filename ? $name : null;
 }
 
+function shortcode_source_provider_id_is_valid(string $id): bool {
+  return $id !== '' && strlen($id) <= 64 && preg_match('/\A[a-z0-9][a-z0-9_-]{0,63}\z/', $id) === 1;
+}
+
+function shortcode_source_owner_is_valid(string $owner): bool {
+  return $owner !== '' && strlen($owner) <= 100
+    && preg_match('/\A[a-z0-9]+(?:[._-][a-z0-9]+)*\z/', $owner) === 1;
+}
+
+function shortcode_preset_core_config_keys(): array {
+  return [
+    'source', 'source_owner', 'type', 'category', 'author', 'limit', 'offset', 'order_by', 'order_dir',
+    'layout', 'include_children', 'excerpt_len', 'class_prefix', 'wrap', 'date_from', 'date_to',
+  ];
+}
+
+function shortcode_source_provider_normalize(string $id, array $provider): ?array {
+  if (!shortcode_source_provider_id_is_valid($id)) return null;
+  $label = is_string($provider['label'] ?? null) ? trim($provider['label']) : '';
+  $owner = is_string($provider['owner'] ?? null) ? trim($provider['owner']) : '';
+  $fetch = $provider['fetch'] ?? null;
+  $validate = $provider['validate'] ?? null;
+  $defaults = $provider['defaults'] ?? [];
+  $clientFields = $provider['client_fields'] ?? [];
+  $publicOverrideFields = $provider['public_override_fields'] ?? [];
+  if ($label === '' || strlen($label) > 191 || !shortcode_source_owner_is_valid($owner) || !is_callable($fetch)
+      || ($validate !== null && !is_callable($validate)) || !is_array($defaults) || !is_array($clientFields)
+      || !is_array($publicOverrideFields)) {
+    return null;
+  }
+  $coreKeys = array_fill_keys(shortcode_preset_core_config_keys(), true);
+  $normalizedClientFields = [];
+  foreach ($clientFields as $key) {
+    if (!is_string($key) || preg_match('/\A[a-z][a-z0-9_]{0,63}\z/', $key) !== 1 || isset($coreKeys[$key])) return null;
+    $normalizedClientFields[$key] = true;
+  }
+  $normalizedPublicOverrideFields = [];
+  foreach ($publicOverrideFields as $key) {
+    if (!is_string($key) || !isset($normalizedClientFields[$key])) return null;
+    $normalizedPublicOverrideFields[$key] = true;
+  }
+  return [
+    'id' => $id,
+    'owner' => $owner,
+    'label' => $label,
+    'fetch' => $fetch,
+    'validate' => $validate,
+    'defaults' => $defaults,
+    'client_fields' => array_keys($normalizedClientFields),
+    'public_override_fields' => array_keys($normalizedPublicOverrideFields),
+  ];
+}
+
+/**
+ * Register a request-local source provider.
+ * Required: stable owner, label, and fetch(PDO, attrs, context). Optional: defaults,
+ * client_fields (safe provider keys exposed to the editor), public_override_fields (a subset
+ * of client_fields accepted from public widget attributes), and validate(config, context, PDO),
+ * returning ['config' => array, 'errors' => array]. Public overrides are validated normally.
+ */
+function register_shortcode_source_provider(string $id, array $provider): bool {
+  $normalized = shortcode_source_provider_normalize($id, $provider);
+  if ($normalized === null || in_array($id, ['posts', 'shop_products', 'shop_categories'], true)) return false;
+  if (!isset($GLOBALS['__jy_shortcode_source_providers']) || !is_array($GLOBALS['__jy_shortcode_source_providers'])) {
+    $GLOBALS['__jy_shortcode_source_providers'] = [];
+  }
+  if (isset($GLOBALS['__jy_shortcode_source_providers'][$id])) return false;
+  $GLOBALS['__jy_shortcode_source_providers'][$id] = $normalized;
+  return true;
+}
+
+function shortcode_source_providers(array $context = [], ?PDO $pdo = null): array {
+  $providers = [];
+  foreach (($GLOBALS['__jy_shortcode_source_providers'] ?? []) as $id => $provider) {
+    if (!is_string($id) || !is_array($provider)) continue;
+    $normalized = shortcode_source_provider_normalize($id, $provider);
+    if ($normalized !== null && !isset($providers[$id])) $providers[$id] = $normalized;
+  }
+  $candidates = apply_filters('shortcode_source_providers', $providers, $context, $pdo);
+  if (!is_array($candidates)) $candidates = [];
+  foreach ($candidates as $candidateId => $candidate) {
+    if (!is_array($candidate)) continue;
+    $id = is_string($candidate['id'] ?? null)
+      ? (string)$candidate['id']
+      : (is_string($candidateId) ? $candidateId : '');
+    if (isset($providers[$id]) || in_array($id, ['posts', 'shop_products', 'shop_categories'], true)) continue;
+    $normalized = shortcode_source_provider_normalize($id, $candidate);
+    if ($normalized !== null) $providers[$id] = $normalized;
+  }
+  return $providers;
+}
+
+function shortcode_source_provider(string $id, array $context = [], ?PDO $pdo = null): ?array {
+  $providers = shortcode_source_providers($context, $pdo);
+  return $providers[$id] ?? null;
+}
+
+function shortcode_source_provider_owned_keys(array $provider): array {
+  $coreKeys = array_fill_keys(shortcode_preset_core_config_keys(), true);
+  $owned = [];
+  foreach (array_keys(is_array($provider['defaults'] ?? null) ? $provider['defaults'] : []) as $key) {
+    if (is_string($key) && !isset($coreKeys[$key])) $owned[$key] = true;
+  }
+  foreach (($provider['client_fields'] ?? []) as $key) {
+    if (is_string($key) && !isset($coreKeys[$key])) $owned[$key] = true;
+  }
+  return array_keys($owned);
+}
+
+function shortcode_source_provider_client_definition(array $provider): array {
+  $visibleKeys = array_fill_keys(array_merge(
+    shortcode_preset_core_config_keys(),
+    is_array($provider['client_fields'] ?? null) ? $provider['client_fields'] : []
+  ), true);
+  $defaults = [];
+  foreach ((array)($provider['defaults'] ?? []) as $key => $value) {
+    if (is_string($key) && isset($visibleKeys[$key])) $defaults[$key] = $value;
+  }
+  return [
+    'owner' => (string)($provider['owner'] ?? ''),
+    'defaults' => $defaults,
+    'field_keys' => array_values((array)($provider['client_fields'] ?? [])),
+  ];
+}
+
+function shortcode_preset_config_for_client(array $config, array $providers): array {
+  $source = is_string($config['source'] ?? null) ? strtolower(trim($config['source'])) : 'posts';
+  $owner = is_string($config['source_owner'] ?? null) ? trim($config['source_owner']) : '';
+  $active = $providers[$source] ?? null;
+  $allowed = is_array($active) && $owner !== '' && hash_equals((string)$active['owner'], $owner)
+    ? array_fill_keys((array)($active['client_fields'] ?? []), true)
+    : [];
+  $owned = [];
+  foreach ($providers as $provider) {
+    if (!is_array($provider)) continue;
+    foreach (shortcode_source_provider_owned_keys($provider) as $key) $owned[$key] = true;
+  }
+  foreach ($owned as $key => $_true) {
+    if (!isset($allowed[$key])) unset($config[$key]);
+  }
+  return $config;
+}
+
+/** Normalize browser-submitted provider data against the previously persisted source identity. */
+function shortcode_preset_normalize_source_transition(
+  array $input,
+  ?array $previous,
+  array $context = [],
+  ?PDO $pdo = null
+): array {
+  $providers = shortcode_source_providers(array_merge($context, ['scope' => 'source_transition']), $pdo);
+  $source = is_string($input['source'] ?? null) ? strtolower(trim($input['source'])) : 'posts';
+  $owner = is_string($input['source_owner'] ?? null) ? trim($input['source_owner']) : '';
+  $target = $providers[$source] ?? null;
+  $targetMatches = is_array($target) && (
+    ($owner !== '' && hash_equals((string)$target['owner'], $owner))
+    || ($owner === '' && ($context['allow_provider_binding'] ?? false) === true)
+  );
+  $allowed = $targetMatches ? array_fill_keys((array)($target['client_fields'] ?? []), true) : [];
+
+  $previousSource = is_array($previous) && is_string($previous['source'] ?? null)
+    ? strtolower(trim($previous['source']))
+    : 'posts';
+  $previousOwner = is_array($previous) && is_string($previous['source_owner'] ?? null)
+    ? trim($previous['source_owner'])
+    : '';
+  $identityChanged = $previous !== null && ($previousSource !== $source || $previousOwner !== $owner);
+  if ($identityChanged && isset($providers[$previousSource])) {
+    foreach (shortcode_source_provider_owned_keys($providers[$previousSource]) as $key) unset($input[$key]);
+  }
+
+  $owned = [];
+  foreach ($providers as $provider) {
+    if (!is_array($provider)) continue;
+    foreach (shortcode_source_provider_owned_keys($provider) as $key) $owned[$key] = true;
+  }
+  foreach ($owned as $key => $_true) {
+    if (!isset($allowed[$key])) unset($input[$key]);
+  }
+
+  if (!$identityChanged && $previous !== null && $targetMatches) {
+    foreach (shortcode_source_provider_owned_keys($target) as $key) {
+      if (!isset($allowed[$key]) && array_key_exists($key, $previous)) $input[$key] = $previous[$key];
+    }
+  }
+  return $input;
+}
+
+function shortcode_source_provider_public_attribute_keys(array $provider): array {
+  $allowed = array_fill_keys(shortcode_preset_core_config_keys(), true);
+  foreach (['visible', 'slides_per_view', 'fetch', 'max_show', 'max', 'excerpt', 'slider', 'carousel',
+            'infinite', 'kicker', 'date_format', '__widget_name'] as $key) {
+    $allowed[$key] = true;
+  }
+  foreach ((array)($provider['public_override_fields'] ?? []) as $key) $allowed[$key] = true;
+  return $allowed;
+}
+
+/** Rebuild untrusted direct/static provider attributes from server defaults and public fields. */
+function shortcode_preset_normalize_public_provider_attributes(array $input, array $provider): array {
+  $source = is_string($input['source'] ?? null) ? strtolower(trim($input['source'])) : '';
+  $owner = is_string($input['source_owner'] ?? null) ? trim($input['source_owner']) : '';
+  $allowed = shortcode_source_provider_public_attribute_keys($provider);
+  $filtered = [];
+  foreach ($input as $key => $value) {
+    if (is_string($key) && isset($allowed[$key])) $filtered[$key] = $value;
+  }
+  return array_merge(
+    is_array($provider['defaults'] ?? null) ? $provider['defaults'] : [],
+    $filtered,
+    ['source' => $source, 'source_owner' => $owner]
+  );
+}
+
+function shortcode_preset_merge_runtime_overrides(
+  array $persisted,
+  array $overrides,
+  ?PDO $pdo = null,
+  array $context = []
+): array {
+  $protectedKeys = ['source', 'source_owner', 'author', 'created_by', 'date_from', 'date_to', 'date_after', 'date_before'];
+  foreach ($protectedKeys as $protectedKey) {
+    unset($overrides[$protectedKey]);
+  }
+
+  $source = is_string($persisted['source'] ?? null) ? strtolower(trim($persisted['source'])) : 'posts';
+  if (!in_array($source, ['posts', 'shop_products', 'shop_categories'], true)) {
+    $owner = is_string($persisted['source_owner'] ?? null) ? trim($persisted['source_owner']) : '';
+    $provider = shortcode_source_provider(
+      $source,
+      array_merge($context, ['scope' => 'runtime_overrides', 'source' => $source]),
+      $pdo
+    );
+    $providerMatches = $provider !== null && $owner !== '' && hash_equals((string)$provider['owner'], $owner);
+    $allowed = $providerMatches
+      ? shortcode_source_provider_public_attribute_keys($provider)
+      : array_fill_keys(shortcode_preset_core_config_keys(), true);
+    foreach ($protectedKeys as $key) unset($allowed[$key]);
+    foreach (array_keys($overrides) as $key) {
+      if (!is_string($key) || !isset($allowed[$key])) unset($overrides[$key]);
+    }
+  }
+  return array_merge($persisted, $overrides);
+}
+
 function shortcode_preset_default_config(?PDO $pdo = null): array {
   $defaults = [
     'source' => 'posts',
@@ -115,10 +360,36 @@ function shortcode_preset_default_config(?PDO $pdo = null): array {
   return is_array($filtered) ? $filtered : $defaults;
 }
 
-function shortcode_preset_config_loaded(string|array|null $stored, array $preset = [], ?PDO $pdo = null): array {
+function shortcode_preset_apply_source_defaults(array $input, array $context = [], ?PDO $pdo = null): array {
+  $source = is_string($input['source'] ?? null) ? strtolower(trim($input['source'])) : 'posts';
+  $sourceOwner = is_string($input['source_owner'] ?? null) ? trim($input['source_owner']) : '';
+  $provider = shortcode_source_provider($source, array_merge($context, ['source' => $source]), $pdo);
+  $isCoreSource = in_array($source, ['posts', 'shop_products', 'shop_categories'], true);
+  if ($isCoreSource) {
+    $sourceOwner = 'core';
+  } elseif ($provider !== null && $sourceOwner === '' && ($context['allow_provider_binding'] ?? false) === true) {
+    $sourceOwner = (string)$provider['owner'];
+  }
+  $providerMatches = $provider !== null && $sourceOwner !== ''
+    && hash_equals((string)$provider['owner'], $sourceOwner);
+  $providerDefaults = $providerMatches && ($context['suppress_provider_defaults'] ?? false) !== true
+    && is_array($provider['defaults'] ?? null) ? $provider['defaults'] : [];
+  return array_merge(
+    shortcode_preset_default_config($pdo),
+    $providerDefaults,
+    $input,
+    ['source' => $source, 'source_owner' => $sourceOwner]
+  );
+}
+
+function shortcode_preset_config_loaded(string|array|null $stored, array $preset = [], ?PDO $pdo = null, array $context = []): array {
   $decoded = is_array($stored) ? $stored : json_decode((string)$stored, true);
   if (!is_array($decoded)) $decoded = [];
-  $config = array_merge(shortcode_preset_default_config($pdo), $decoded);
+  $config = shortcode_preset_apply_source_defaults(
+    $decoded,
+    array_merge($context, ['scope' => 'config_loaded', 'preset' => $preset]),
+    $pdo
+  );
   $filtered = apply_filters('shortcode_preset_config_loaded', $config, $preset, $pdo);
   return is_array($filtered) ? $filtered : $config;
 }
@@ -227,31 +498,81 @@ function shortcode_preset_date_is_valid(mixed $value): bool {
   return checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
 }
 
-/** Plugins may append parser-safe source identifiers; Core sources cannot be removed. */
+/** Providers and the legacy filter may append parser-safe source identifiers. */
 function shortcode_preset_sources(array $context = [], ?PDO $pdo = null): array {
   $coreSources = ['posts', 'shop_products', 'shop_categories'];
-  $filtered = apply_filters('shortcode_preset_sources', $coreSources, $context, $pdo);
+  $providerSources = array_keys(shortcode_source_providers($context, $pdo));
+  $baseSources = array_values(array_unique(array_merge($coreSources, $providerSources)));
+  $filtered = apply_filters('shortcode_preset_sources', $baseSources, $context, $pdo);
   if (!is_array($filtered)) $filtered = [];
-  $sources = $coreSources;
+  $sources = $baseSources;
   foreach ($filtered as $source) {
     $source = strtolower(trim((string)$source));
-    if (strlen($source) <= 64 && preg_match('/\A[a-z0-9_-]+\z/', $source) === 1) $sources[] = $source;
+    if (shortcode_source_provider_id_is_valid($source)) $sources[] = $source;
   }
   return array_values(array_unique($sources));
 }
 
+/** Sources that can be newly selected; legacy filter-only IDs remain runtime compatibility data. */
+function shortcode_selectable_sources(array $context = [], ?PDO $pdo = null): array {
+  return array_values(array_unique(array_merge(
+    ['posts', 'shop_products', 'shop_categories'],
+    array_keys(shortcode_source_providers($context, $pdo))
+  )));
+}
+
+function shortcode_preset_strip_provider_default_fields(array $config, array $providers): array {
+  foreach ($providers as $provider) {
+    if (!is_array($provider)) continue;
+    foreach (shortcode_source_provider_owned_keys($provider) as $key) unset($config[$key]);
+  }
+  return $config;
+}
+
+function shortcode_provider_adoption_allowed(
+  array $stored,
+  array $submitted,
+  bool $isAdmin,
+  bool $requested,
+  ?PDO $pdo = null
+): bool {
+  if (!$isAdmin || !$requested) return false;
+  $storedSource = is_string($stored['source'] ?? null) ? strtolower(trim($stored['source'])) : 'posts';
+  $submittedSource = is_string($submitted['source'] ?? null) ? strtolower(trim($submitted['source'])) : 'posts';
+  $storedOwner = is_string($stored['source_owner'] ?? null) ? trim($stored['source_owner']) : '';
+  if ($storedSource !== $submittedSource || $storedOwner !== ''
+      || in_array($submittedSource, ['posts', 'shop_products', 'shop_categories'], true)) {
+    return false;
+  }
+  return shortcode_source_provider($submittedSource, ['scope' => 'adoption'], $pdo) !== null;
+}
+
 function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo = null, array $context = []): array {
   $message = static fn(string $text): string => function_exists('__') ? __($text) : $text;
-  $config = array_merge(shortcode_preset_default_config($pdo), $input);
   $errors = [];
-  $source = is_string($config['source'] ?? null) ? strtolower(trim($config['source'])) : '';
+  $config = shortcode_preset_apply_source_defaults($input, $context, $pdo);
+  $source = (string)$config['source'];
+  $providerContext = array_merge($context, ['scope' => 'validation', 'source' => $source, 'is_admin' => $isAdmin]);
+  $provider = shortcode_source_provider($source, $providerContext, $pdo);
+  $sourceOwner = (string)($config['source_owner'] ?? '');
+  $isCoreSource = in_array($source, ['posts', 'shop_products', 'shop_categories'], true);
+  $providerMatches = $provider !== null && $sourceOwner !== ''
+    && hash_equals((string)$provider['owner'], $sourceOwner);
+
   if (!in_array($source, shortcode_preset_sources($context, $pdo), true)) {
     $errors[] = $message('Invalid preset source.');
   }
-  if (!$isAdmin && $source !== 'posts') {
+  if (!$isCoreSource && $provider === null) {
+    $errors[] = $message('Source provider is unavailable.');
+  } elseif (!$isCoreSource && !$providerMatches) {
+    $errors[] = $message('Source provider identity does not match the saved preset.');
+  }
+  $runtimeTrust = (string)($context['trust'] ?? '');
+  $isPublicRuntime = in_array($runtimeTrust, ['public_runtime', 'persisted_preset'], true);
+  $isTrustedPersisted = $runtimeTrust === 'persisted_preset';
+  if (!$isAdmin && !$isPublicRuntime && $source !== 'posts') {
     $errors[] = $message('Only administrators can use non-Core preset sources.');
   }
-  $config['source'] = $source;
 
   $type = is_string($config['type'] ?? null) ? $config['type'] : '';
   if (!in_array($type, ['article', 'page'], true)) $errors[] = $message('Invalid post type.');
@@ -318,7 +639,7 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
 
   $author = $config['author'] ?? null;
   if ($author !== null && $author !== '') {
-    if (!$isAdmin) {
+    if (!$isAdmin && !$isTrustedPersisted) {
       $errors[] = $message('Only administrators can set a preset author filter.');
     } elseif (filter_var($author, FILTER_VALIDATE_INT) === false || (int)$author <= 0) {
       $errors[] = $message('Invalid author.');
@@ -327,6 +648,28 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
     }
   } else {
     $config['author'] = null;
+  }
+
+  if ($providerMatches && is_callable($provider['validate'] ?? null)) {
+    try {
+      $providerResult = ($provider['validate'])($config, $providerContext, $pdo);
+      if (!is_array($providerResult) || !is_array($providerResult['config'] ?? null)
+          || !is_array($providerResult['errors'] ?? null)) {
+        throw new UnexpectedValueException('Source provider validation returned an invalid result.');
+      }
+      $providerConfig = $providerResult['config'];
+      foreach (shortcode_preset_core_config_keys() as $coreKey) {
+        if (array_key_exists($coreKey, $config)) $providerConfig[$coreKey] = $config[$coreKey];
+        else unset($providerConfig[$coreKey]);
+      }
+      $config = $providerConfig;
+      foreach ($providerResult['errors'] as $providerError) {
+        if (is_string($providerError) && $providerError !== '') $errors[] = $providerError;
+      }
+    } catch (Throwable $error) {
+      error_log('shortcode source provider validation failed for ' . $source . ': ' . $error->getMessage());
+      $errors[] = $message('Source provider validation failed.');
+    }
   }
 
   $filtered = apply_filters('shortcode_preset_validation_errors', $errors, $config, $context, $pdo);
@@ -545,7 +888,15 @@ if (!function_exists('load_preset_widgets')) {
           $runtimeConfig = apply_filters('shortcode_preset_runtime_config', $config, $p, $pdo, $ctx);
           if (!is_array($runtimeConfig)) $runtimeConfig = $config;
           do_action('shortcode_preset_runtime', $p, $runtimeConfig, $pdo, $ctx);
-          return post_cat_shortcode_render($pdo, array_merge($runtimeConfig, $vars), $ctx);
+          $runtimeContext = array_merge($ctx, [
+            'preset_id' => (int)($p['id'] ?? 0),
+            'trust' => 'persisted_preset',
+          ]);
+          return post_cat_shortcode_render(
+            $pdo,
+            shortcode_preset_merge_runtime_overrides($runtimeConfig, $vars, $pdo, $runtimeContext),
+            $runtimeContext
+          );
         }, $config, 'preset', $presetId);
       }
     }

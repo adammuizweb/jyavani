@@ -96,10 +96,40 @@ function post_cat__safe_layout(string $layout): string {
 
 function post_cat__safe_source(string $source, array $context = [], ?PDO $pdo = null): string {
   $source = strtolower(trim($source));
+  if ($source === '') return 'posts';
   $sources = function_exists('shortcode_preset_sources')
     ? shortcode_preset_sources($context, $pdo)
     : ['posts', 'shop_products', 'shop_categories'];
-  return in_array($source, $sources, true) ? $source : 'posts';
+  return in_array($source, $sources, true) ? $source : '';
+}
+
+function post_cat__safe_provider_url(mixed $value, string $fallback): string {
+  if (!is_string($value)) return $fallback;
+  $value = trim($value);
+  if ($value === '' || preg_match('/[\x00-\x1F\x7F]/', $value) === 1) return $fallback;
+  if ($value === '#' || (str_starts_with($value, '/') && !str_starts_with($value, '//'))) return $value;
+  $scheme = strtolower((string)parse_url($value, PHP_URL_SCHEME));
+  return in_array($scheme, ['http', 'https'], true) ? $value : $fallback;
+}
+
+function post_cat__normalize_provider_result(mixed $result, int $limit): ?array {
+  if (!is_array($result) || !is_array($result['items'] ?? null)) return null;
+  $items = [];
+  foreach (array_slice($result['items'], 0, max(1, min(200, $limit))) as $item) {
+    if (!is_array($item)) continue;
+    foreach (['title', 'desc', 'date_iso', 'date_label'] as $key) {
+      $item[$key] = is_scalar($item[$key] ?? '') ? (string)$item[$key] : '';
+    }
+    $kind = is_string($item['kind'] ?? null) ? strtolower(trim($item['kind'])) : '';
+    $item['kind'] = preg_match('/\A[a-z][a-z0-9_-]{0,63}\z/', $kind) === 1 ? $kind : 'item';
+    $item['url'] = post_cat__safe_provider_url($item['url'] ?? '#', '#');
+    $item['thumb'] = post_cat__safe_provider_url($item['thumb'] ?? '', '');
+    $items[] = $item;
+  }
+  $emptyMessage = is_string($result['empty_message'] ?? null) && trim($result['empty_message']) !== ''
+    ? trim($result['empty_message'])
+    : (function_exists('__') ? __('No items are available for this source.') : 'No items are available for this source.');
+  return ['items' => $items, 'empty_message' => $emptyMessage];
 }
 
 function post_cat__resolve_kicker(array $attrs, string $category): string {
@@ -254,7 +284,32 @@ function post_cat__render_template(string $path, array $vars): string {
 }
 
 function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): string {
-  $source = post_cat__safe_source((string)($attrs['source'] ?? 'posts'), ['scope' => 'runtime', 'attrs' => $attrs], $pdo);
+  $runtimeTrust = ($ctx['trust'] ?? '') === 'persisted_preset' ? 'persisted_preset' : 'public_runtime';
+  $sourceContext = ['scope' => 'runtime', 'trust' => $runtimeTrust, 'attrs' => $attrs];
+  $source = post_cat__safe_source((string)($attrs['source'] ?? 'posts'), $sourceContext, $pdo);
+  if ($source === '') {
+    return post_cat__empty_html(function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.');
+  }
+  $provider = function_exists('shortcode_source_provider')
+    ? shortcode_source_provider($source, $sourceContext, $pdo)
+    : null;
+  if ($provider !== null) {
+    if ($runtimeTrust !== 'persisted_preset') {
+      $attrs = shortcode_preset_normalize_public_provider_attributes($attrs, $provider);
+    }
+    $validation = shortcode_preset_validate_config(
+      $attrs,
+      false,
+      $pdo,
+      array_merge($ctx, ['scope' => 'runtime', 'source' => $source, 'trust' => $runtimeTrust])
+    );
+    if ($validation['errors'] !== []) {
+      return post_cat__empty_html(function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.');
+    }
+    $attrs = $validation['config'];
+  } elseif (!in_array($source, ['posts', 'shop_products', 'shop_categories'], true)) {
+    return post_cat__empty_html(function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.');
+  }
 
   $catRaw = (string)($attrs['category'] ?? 'news');
   $catKey = post_cat__slug($catRaw);
@@ -301,10 +356,42 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
   $dateFormat = (string)($attrs['date_format'] ?? 'd M Y');
   $items = [];
 
+  if ($provider !== null) {
+    $providerAttrs = array_merge($attrs, [
+      'source' => $source,
+      'category' => $catRaw,
+      'layout' => $layout,
+      'limit' => $limit,
+      'offset' => $offset,
+      'excerpt_len' => $excerptLen,
+    ]);
+    try {
+      $providerResult = post_cat__normalize_provider_result(
+        ($provider['fetch'])(
+          $pdo,
+          $providerAttrs,
+          array_merge($ctx, ['scope' => 'shortcode_source', 'source' => $source, 'attrs' => $providerAttrs])
+        ),
+        $limit
+      );
+    } catch (Throwable $error) {
+      error_log('shortcode source provider failed for ' . $source . ': ' . $error->getMessage());
+      $providerResult = null;
+    }
+    if ($providerResult === null) {
+      return post_cat__empty_html(
+        function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.',
+        $classPrefix
+      );
+    }
+    $items = $providerResult['items'];
+    if ($items === []) return post_cat__empty_html($providerResult['empty_message'], $classPrefix);
+  }
+
   /**
    * SOURCE: CONTENT POSTS (utama CMS)
    */
-  if ($source === 'posts') {
+  elseif ($source === 'posts') {
     if (!function_exists('cms_posts_by_category')) {
       return post_cat__empty_html('Helper konten belum tersedia.', $classPrefix);
     }
@@ -554,6 +641,11 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
         ];
       }
     }
+  } else {
+    return post_cat__empty_html(
+      function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.',
+      $classPrefix
+    );
   }
 
   $tpl = post_cat__find_layout_template($pdo, $layout);
