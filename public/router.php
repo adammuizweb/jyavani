@@ -11,8 +11,9 @@ require_once __DIR__ . '/../app/bootstrap_theme.php';
 require_once __DIR__ . '/../plugins/index.php';
 plugin_load_active();
 
-// Fire init action — plugins register routes, shortcodes, hooks here
-do_action('init');
+// Fire frontend hooks once. Routes should be registered while plugin.php loads
+// so dashboard content-route collision checks see the same registry.
+plugin_run_frontend_init();
 
 // normalize path
 $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
@@ -37,8 +38,37 @@ $pathTrimmed = apply_filters('router_path', $pathTrimmed);
 $siteRouter = BACKEND_PATH . '/site-router.php';
 if (is_file($siteRouter)) require $siteRouter;
 
+$dispatchPluginRoute = static function (array $resolvedRoute) use ($pdo): void {
+    if (($resolvedRoute['method_allowed'] ?? false) !== true) {
+        http_response_code(405);
+        $allowed = $resolvedRoute['allowed_methods'] ?? [];
+        if (is_array($allowed) && $allowed !== []) header('Allow: ' . implode(', ', $allowed));
+        exit;
+    }
+
+    $handler = $resolvedRoute['handler'] ?? null;
+    if (is_callable($handler)) {
+        $handler($pdo);
+        exit;
+    }
+    if (is_string($handler) && is_file($handler)) {
+        require $handler;
+        exit;
+    }
+
+    error_log('[plugin-route] A matched frontend route has no readable handler.');
+    http_response_code(500);
+    exit;
+};
+
+$requestMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
 // homepage
 if ($pathTrimmed === '') {
+    if (function_exists('resolve_frontend_route')) {
+        $rootPluginRoute = resolve_frontend_route($pathTrimmed, $requestMethod);
+        if ($rootPluginRoute !== null) $dispatchPluginRoute($rootPluginRoute);
+    }
     $context_for_layout = 'home';
     require __DIR__ . '/index.php';
     exit;
@@ -86,8 +116,8 @@ if (substr($rawPath, -1) !== '/') {
         $canonical = $scheme . '://' . $host . rtrim($rawPath, '/') . '/';
         $qs = $_SERVER['QUERY_STRING'] ?? '';
         if ($qs !== '') $canonical .= '?' . $qs;
-        header("HTTP/1.1 301 Moved Permanently");
-        header("Location: " . $canonical);
+        $redirectStatus = in_array($requestMethod, ['GET', 'HEAD'], true) ? 301 : 308;
+        header('Location: ' . $canonical, true, $redirectStatus);
         exit;
     }
     // otherwise it's a file-like request — don't redirect, let route handle it
@@ -382,17 +412,10 @@ if ($pagesListMatch !== null) {
     exit;
 }
 
-// PLUGIN FRONTEND ROUTES — registered via register_frontend_route() in plugin.php files
-if (function_exists('match_frontend_route')) {
-    $pluginHandler = match_frontend_route($prefix);
-    if ($pluginHandler !== null) {
-        if (is_callable($pluginHandler)) {
-            $pluginHandler($pdo);
-        } elseif (is_string($pluginHandler) && is_file($pluginHandler)) {
-            require $pluginHandler;
-        }
-        exit;
-    }
+// Plugin priorities apply only within this extension phase. Managed Core routes above still win.
+if (function_exists('resolve_frontend_route')) {
+    $pluginRoute = resolve_frontend_route($pathTrimmed, $requestMethod);
+    if ($pluginRoute !== null) $dispatchPluginRoute($pluginRoute);
 }
 
 // FALLBACK POST — try permalink resolver first, then direct slug lookup

@@ -132,7 +132,20 @@ if (!function_exists('content_route_normalize_path')) {
             return ['type' => 'core_prefix', 'value' => 'posts'];
         }
 
-        if (function_exists('get_frontend_routes')) {
+        if (function_exists('get_frontend_route_definitions')) {
+            $pluginRoutes = get_frontend_route_definitions();
+            if (is_array($pluginRoutes)) {
+                foreach ($pluginRoutes as $route) {
+                    if (!is_array($route)) continue;
+                    $routePath = trim((string)($route['path'] ?? ''), '/');
+                    $match = (string)($route['match'] ?? 'prefix');
+                    $matches = $match === 'exact'
+                        ? $path === $routePath
+                        : ($routePath !== '' && content_route_path_has_base($path, $routePath));
+                    if ($matches) return ['type' => 'plugin_route', 'value' => $routePath];
+                }
+            }
+        } elseif (function_exists('get_frontend_routes')) {
             $pluginRoutes = get_frontend_routes();
             if (is_array($pluginRoutes)) {
                 foreach (array_keys($pluginRoutes) as $prefix) {

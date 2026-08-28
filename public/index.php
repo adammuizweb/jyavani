@@ -10,7 +10,7 @@ require_once __DIR__ . '/../app/bootstrap_core.php';
 // Load plugin system (hooks + registry + active plugin auto-loader)
 require_once __DIR__ . '/../plugins/index.php';
 plugin_load_active();
-do_action('init');
+plugin_run_frontend_init();
 
 // --- HANDLE root search via ?s= (minimal, non-invasive) ---
 if (!empty($_GET['s'])) {

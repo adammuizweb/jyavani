@@ -69,7 +69,7 @@ $check(
 );
 $check(
     str_contains($frontend404, "if (!function_exists('plugins_all'))")
-        && str_contains($frontend404, "do_action('init');"),
+        && str_contains($frontend404, 'plugin_run_frontend_init();'),
     'direct 404 entrypoints complete the public plugin lifecycle'
 );
 $check(

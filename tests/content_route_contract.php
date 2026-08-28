@@ -230,6 +230,14 @@ final class ContentRouteContractPdo extends PDO
 $root = dirname(__DIR__);
 define('PUBLIC_PATH', $root . '/public');
 $GLOBALS['_content_route_contract_plugin_routes'] = ['shop' => static fn() => null];
+$GLOBALS['_content_route_contract_plugin_route_definitions'] = [
+    ['path' => 'shop', 'match' => 'prefix'],
+    ['path' => 'shop-status', 'match' => 'exact'],
+];
+function get_frontend_route_definitions(): array
+{
+    return $GLOBALS['_content_route_contract_plugin_route_definitions'];
+}
 function get_frontend_routes(): array
 {
     return $GLOBALS['_content_route_contract_plugin_routes'];
@@ -286,6 +294,8 @@ $check($throws(fn() => content_route_set_canonical($pdo, 1, 'draft-direct'), Dom
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'author/someone'), DomainException::class), 'Core route prefixes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'articles/archive'), DomainException::class), 'configured collection routes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'shop/item'), DomainException::class), 'registered plugin route prefixes participate in collision checks');
+$check($throws(fn() => content_route_set_canonical($pdo, 1, 'shop-status'), DomainException::class), 'registered exact plugin routes participate in collision checks');
+$check(content_route_reserved_conflict($pdo, 'shop-status/child') === null, 'exact plugin routes do not reserve descendant paths');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'views/example'), DomainException::class), 'physical public path prefixes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 3, 'preset-route'), DomainException::class), 'only article, page, and theme posts can receive routes');
 

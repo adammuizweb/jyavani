@@ -11,6 +11,10 @@ if (!defined('PLUGIN_DISABLED_JSON')) define('PLUGIN_DISABLED_JSON', BACKEND_PAT
 
 // --- Frontend Route Registry ---
 $GLOBALS['_plugin_frontend_routes'] = [];
+$GLOBALS['_plugin_frontend_route_definitions'] = [];
+$GLOBALS['_plugin_frontend_route_order'] = 0;
+$GLOBALS['_plugin_frontend_route_diagnostics'] = [];
+$GLOBALS['_plugin_frontend_routes_sealed'] = false;
 $GLOBALS['_plugin_requirement_diagnostics'] = [];
 $GLOBALS['_plugin_last_error'] = '';
 $GLOBALS['_plugin_active_cache'] = null;
@@ -585,14 +589,108 @@ function plugin_reset_runtime_cache(): void {
     $GLOBALS['_plugin_loader_ran'] = false;
     $GLOBALS['_plugin_ready_permissions'] = [];
     $GLOBALS['_plugin_permission_sync_errors'] = [];
+    $GLOBALS['_plugin_frontend_routes_sealed'] = false;
 }
 
 function plugin_last_error(): string {
     return (string)($GLOBALS['_plugin_last_error'] ?? '');
 }
 
-function register_frontend_route(string $prefix, callable|string $handler): void {
-    $GLOBALS['_plugin_frontend_routes'][$prefix] = $handler;
+function plugin_frontend_route_normalize_path(string $path): ?string {
+    if (preg_match('/[\x00-\x1F\x7F]/', $path) === 1) return null;
+    $path = trim($path);
+    if ($path === '' || $path === '/') return '';
+    if (str_contains($path, '\\') || str_contains($path, '?') || str_contains($path, '#') || str_contains($path, '%')) return null;
+    $path = trim($path, '/');
+    if ($path === '' || str_contains($path, '//')) return null;
+    foreach (explode('/', $path) as $segment) {
+        if ($segment === '.' || $segment === '..') return null;
+    }
+    return preg_match('/\A[A-Za-z0-9._~-]+(?:\/[A-Za-z0-9._~-]+)*\z/D', $path) === 1 ? $path : null;
+}
+
+/** @return array{0:bool,1:?array} */
+function plugin_frontend_route_normalize_methods(mixed $methods): array {
+    if ($methods === null) return [true, null];
+    if (!is_array($methods) || $methods === []) return [false, null];
+    $normalized = [];
+    foreach ($methods as $method) {
+        if (!is_string($method)) return [false, null];
+        $method = strtoupper(trim($method));
+        if ($method === '' || preg_match('/\A[A-Z!#$%&\'*+.^_`|~-]+\z/D', $method) !== 1) return [false, null];
+        $normalized[$method] = true;
+        if ($method === 'GET') $normalized['HEAD'] = true;
+    }
+    return [true, array_keys($normalized)];
+}
+
+function plugin_frontend_route_diagnostic(string $message): bool {
+    $GLOBALS['_plugin_frontend_route_diagnostics'][] = $message;
+    error_log('[plugin-route] ' . $message);
+    return false;
+}
+
+function plugin_run_frontend_init(): void {
+    if (($GLOBALS['__jy_frontend_init_fired'] ?? false) === true) return;
+    $GLOBALS['__jy_frontend_init_fired'] = true;
+    do_action('init');
+}
+
+/**
+ * Register a plugin-owned frontend route.
+ *
+ * Existing two-argument calls remain prefix routes for every HTTP method.
+ * Options: match (prefix|exact), methods (list|null), and priority (lower runs first).
+ */
+function register_frontend_route(string $path, callable|string $handler, array $options = []): bool {
+    if (($GLOBALS['_plugin_frontend_routes_sealed'] ?? false) === true) {
+        return plugin_frontend_route_diagnostic('Frontend routes must be registered during plugin loading.');
+    }
+    foreach (array_keys($options) as $option) {
+        if (!in_array($option, ['match', 'methods', 'priority'], true)) {
+            return plugin_frontend_route_diagnostic('Rejected a frontend route with an unknown option.');
+        }
+    }
+    $path = plugin_frontend_route_normalize_path($path);
+    if ($path === null) return plugin_frontend_route_diagnostic('Rejected an invalid frontend route path.');
+
+    $match = $options['match'] ?? 'prefix';
+    if (!is_string($match) || !in_array($match, ['prefix', 'exact'], true)) {
+        return plugin_frontend_route_diagnostic('Rejected a frontend route with an invalid match mode.');
+    }
+    if ($path === '' && $match !== 'exact') {
+        return plugin_frontend_route_diagnostic('A root frontend route must use exact matching.');
+    }
+
+    [$methodsValid, $methods] = plugin_frontend_route_normalize_methods($options['methods'] ?? null);
+    if (!$methodsValid) return plugin_frontend_route_diagnostic('Rejected a frontend route with invalid HTTP methods.');
+    $priority = $options['priority'] ?? 10;
+    if (!is_int($priority)) return plugin_frontend_route_diagnostic('Rejected a frontend route with an invalid priority.');
+
+    foreach ($GLOBALS['_plugin_frontend_route_definitions'] as $existing) {
+        if ($existing['path'] !== $path || $existing['match'] !== $match || $existing['priority'] !== $priority) continue;
+        $overlaps = $existing['methods'] === null || $methods === null
+            || array_intersect($existing['methods'], $methods) !== [];
+        if ($overlaps) {
+            if ($existing['methods'] === $methods && $existing['handler'] === $handler) return true;
+            return plugin_frontend_route_diagnostic('Rejected a conflicting frontend route for "' . ($path === '' ? '/' : $path) . '".');
+        }
+    }
+
+    $order = (int)$GLOBALS['_plugin_frontend_route_order'];
+    $GLOBALS['_plugin_frontend_route_order'] = $order + 1;
+    $GLOBALS['_plugin_frontend_route_definitions'][] = [
+        'path' => $path,
+        'match' => $match,
+        'methods' => $methods,
+        'priority' => $priority,
+        'handler' => $handler,
+        'order' => $order,
+    ];
+    if (!array_key_exists($path, $GLOBALS['_plugin_frontend_routes'])) {
+        $GLOBALS['_plugin_frontend_routes'][$path] = $handler;
+    }
+    return true;
 }
 
 function get_frontend_routes(): array {
@@ -600,7 +698,64 @@ function get_frontend_routes(): array {
 }
 
 function match_frontend_route(string $prefix): callable|string|null {
-    return $GLOBALS['_plugin_frontend_routes'][$prefix] ?? null;
+    $prefix = plugin_frontend_route_normalize_path($prefix);
+    return $prefix === null ? null : ($GLOBALS['_plugin_frontend_routes'][$prefix] ?? null);
+}
+
+function get_frontend_route_definitions(): array {
+    return $GLOBALS['_plugin_frontend_route_definitions'];
+}
+
+function get_frontend_route_diagnostics(): array {
+    return $GLOBALS['_plugin_frontend_route_diagnostics'];
+}
+
+/** @return array{handler:callable|string|null,route:array,method_allowed:bool,allowed_methods:array}|null */
+function resolve_frontend_route(string $path, string $method): ?array {
+    $path = plugin_frontend_route_normalize_path($path);
+    if ($path === null) return null;
+    $method = strtoupper(trim($method));
+
+    $candidates = [];
+    foreach ($GLOBALS['_plugin_frontend_route_definitions'] as $definition) {
+        $matches = $definition['match'] === 'exact'
+            ? $path === $definition['path']
+            : ($path === $definition['path'] || str_starts_with($path, $definition['path'] . '/'));
+        if ($matches) $candidates[] = $definition;
+    }
+    if ($candidates === []) return null;
+
+    $hasExact = false;
+    foreach ($candidates as $candidate) {
+        if ($candidate['match'] === 'exact') {
+            $hasExact = true;
+            break;
+        }
+    }
+    if ($hasExact) {
+        $candidates = array_values(array_filter($candidates, static fn(array $route): bool => $route['match'] === 'exact'));
+    } else {
+        $longest = max(array_map(static fn(array $route): int => strlen($route['path']), $candidates));
+        $candidates = array_values(array_filter($candidates, static fn(array $route): bool => strlen($route['path']) === $longest));
+    }
+
+    usort($candidates, static fn(array $a, array $b): int => ($a['priority'] <=> $b['priority']) ?: ($a['order'] <=> $b['order']));
+    foreach ($candidates as $candidate) {
+        if ($candidate['methods'] !== null && !in_array($method, $candidate['methods'], true)) continue;
+        $route = $candidate;
+        unset($route['handler']);
+        return ['handler' => $candidate['handler'], 'route' => $route, 'method_allowed' => true, 'allowed_methods' => $candidate['methods'] ?? []];
+    }
+
+    $allowed = [];
+    foreach ($candidates as $candidate) {
+        foreach ($candidate['methods'] ?? [] as $allowedMethod) $allowed[$allowedMethod] = true;
+    }
+    $allowed = array_keys($allowed);
+    sort($allowed, SORT_STRING);
+    $route = $candidates[0];
+    unset($route['handler']);
+    return ['handler' => null, 'route' => $route, 'method_allowed' => false, 'allowed_methods' => $allowed];
 }
 
 // --- Plugin auto-loader: require plugin.php for each active plugin ---
@@ -631,12 +786,18 @@ function plugin_load_active(): void {
         if (is_file($mainFile)) {
             $hooksBeforeLoad = $GLOBALS['_hooks'] ?? null;
             $routesBeforeLoad = $GLOBALS['_plugin_frontend_routes'];
+            $routeDefinitionsBeforeLoad = $GLOBALS['_plugin_frontend_route_definitions'];
+            $routeOrderBeforeLoad = $GLOBALS['_plugin_frontend_route_order'];
+            $routeDiagnosticsBeforeLoad = $GLOBALS['_plugin_frontend_route_diagnostics'];
             $mailTransportsBeforeLoad = $GLOBALS['__jy_mail_transports'] ?? null;
             try {
                 require_once $mainFile;
             } catch (\Throwable $e) {
                 if (is_array($hooksBeforeLoad)) $GLOBALS['_hooks'] = $hooksBeforeLoad;
                 $GLOBALS['_plugin_frontend_routes'] = $routesBeforeLoad;
+                $GLOBALS['_plugin_frontend_route_definitions'] = $routeDefinitionsBeforeLoad;
+                $GLOBALS['_plugin_frontend_route_order'] = $routeOrderBeforeLoad;
+                $GLOBALS['_plugin_frontend_route_diagnostics'] = $routeDiagnosticsBeforeLoad;
                 if (is_array($mailTransportsBeforeLoad)) $GLOBALS['__jy_mail_transports'] = $mailTransportsBeforeLoad;
                 $error = plugin_message('Plugin "%s" entrypoint failed: %s.', $name, $e->getMessage());
                 $GLOBALS['_plugin_load_diagnostics'][$name] = $error;
@@ -649,7 +810,11 @@ function plugin_load_active(): void {
         $runtimeActive[$name] = $p;
     }
     $GLOBALS['_plugin_active_cache'] = $runtimeActive;
-    do_action('plugins_loaded');
+    try {
+        do_action('plugins_loaded');
+    } finally {
+        $GLOBALS['_plugin_frontend_routes_sealed'] = true;
+    }
 }
 
 function plugin_manifest(string $name): ?array {
