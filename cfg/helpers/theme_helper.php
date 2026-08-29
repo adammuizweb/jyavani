@@ -1527,17 +1527,33 @@ function theme_operation_acquire(array $folders, int $mode = LOCK_EX, ?float $de
     });
     if ($normalized === []) throw new InvalidArgumentException('At least one theme folder is required.');
 
-    $backend = rtrim((string)BACKEND_PATH, '/\\');
-    $backendReal = realpath($backend);
-    $varDir = $backend . DIRECTORY_SEPARATOR . 'var';
-    if ($backendReal === false || is_link($backend) || is_link($varDir)) {
-        throw new RuntimeException('Unsafe theme operation lock path.');
+    $configuredLockDir = trim((string)(getenv('THEME_OPERATION_LOCK_DIR') ?: ''));
+    if ($configuredLockDir !== '') {
+        if (!str_starts_with($configuredLockDir, DIRECTORY_SEPARATOR)) {
+            throw new RuntimeException('Theme operation lock directory must be absolute.');
+        }
+        $lockDir = rtrim($configuredLockDir, '/\\');
+        $lockParent = dirname($lockDir);
+        $lockContainmentRoot = realpath($lockParent);
+        $lockParentStat = @lstat($lockParent);
+        if ($lockContainmentRoot === false || is_link($lockParent) || !is_array($lockParentStat)
+            || (($lockParentStat['mode'] ?? 0) & 0170000) !== 0040000
+            || (($lockParentStat['mode'] ?? 0) & 0002) !== 0) {
+            throw new RuntimeException('Unsafe theme operation lock parent directory.');
+        }
+    } else {
+        $backend = rtrim((string)BACKEND_PATH, '/\\');
+        $backendReal = realpath($backend);
+        $varDir = $backend . DIRECTORY_SEPARATOR . 'var';
+        if ($backendReal === false || is_link($backend) || is_link($varDir)) {
+            throw new RuntimeException('Unsafe theme operation lock path.');
+        }
+        if (!is_dir($varDir) && !@mkdir($varDir, 0750, true) && !is_dir($varDir)) {
+            throw new RuntimeException('Unable to create the theme operation lock parent directory.');
+        }
+        $lockContainmentRoot = $backendReal;
+        $lockDir = $varDir . DIRECTORY_SEPARATOR . 'theme-operation-locks';
     }
-    if (!is_dir($varDir) && !@mkdir($varDir, 0750, true) && !is_dir($varDir)) {
-        throw new RuntimeException('Unable to create the theme operation lock parent directory.');
-    }
-
-    $lockDir = $varDir . DIRECTORY_SEPARATOR . 'theme-operation-locks';
     if (is_link($lockDir) || (file_exists($lockDir) && !is_dir($lockDir))) {
         throw new RuntimeException('Unsafe theme operation lock directory.');
     }
@@ -1563,7 +1579,7 @@ function theme_operation_acquire(array $folders, int $mode = LOCK_EX, ?float $de
     $lockDirReal = realpath($lockDir);
     if (!is_array($lockDirStat) || (($lockDirStat['mode'] ?? 0) & 0170000) !== 0040000
         || (($lockDirStat['mode'] ?? 0) & 02777) !== 02770 || is_link($lockDir)
-        || $lockDirReal === false || !str_starts_with($lockDirReal, $backendReal . DIRECTORY_SEPARATOR)) {
+        || $lockDirReal === false || !str_starts_with($lockDirReal, $lockContainmentRoot . DIRECTORY_SEPARATOR)) {
         throw new RuntimeException('Unsafe theme operation lock directory.');
     }
 

@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.91",
+    "version": "2.3.92",
     "build": "2026-08-29",
-    "changelog": "Add stable extension contracts for frontend routes, database migrations, theme slots, content providers, and prepared slot context, while protecting Core routes and correctly separating dated content from archive paths.",
+    "changelog": "Support native runtime-state paths for mounted deployments and backfill media access-policy columns on existing installations.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

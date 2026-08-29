@@ -41,6 +41,15 @@ sudo chgrp -R www-data /path/to/project/cfg/var
 sudo chmod g+s /path/to/project/cfg/var
 sudo chmod g+s /path/to/project/cfg/var/sessions
 
+# Theme lifecycle locks (gunakan filesystem Linux native, bukan /mnt/c)
+sudo install -d -o [user] -g www-data -m 2770 /var/lib/php/[project]-theme-locks
+
+# Atomic plugin state (gunakan filesystem Linux native, bukan /mnt/c)
+sudo install -d -o [user] -g www-data -m 2770 /var/lib/php/[project]-plugin-state
+
+# Atomic update-status snapshots (gunakan filesystem Linux native, bukan /mnt/c)
+sudo install -d -o [user] -g www-data -m 2770 /var/lib/php/[project]-update-state
+
 # Private files (writeable by PHP-FPM)
 sudo chmod -R g+w /path/to/project/private_files
 sudo chmod g+s /path/to/project/private_files
@@ -188,6 +197,9 @@ DB_PASS=[db_pass]
 DB_SESSION_WAIT_TIMEOUT=
 PUBLIC_PATH=/absolute/path/to/project/public
 SESSION_SAVE_PATH=/path/to/project/cfg/var/sessions
+THEME_OPERATION_LOCK_DIR=/var/lib/php/[project]-theme-locks
+PLUGIN_DISABLED_JSON=/var/lib/php/[project]-plugin-state/plugins-disabled.json
+UPDATE_STATUS_FILE=/var/lib/php/[project]-update-state/update-status.json
 SESSION_NAME=[session_name]
 SESSION_COOKIE_DOMAIN=
 SESSION_COOKIE_PATH=/
@@ -202,6 +214,12 @@ PLUGIN_INSTALL_OUTPUT_LIMIT=65536
 `PUBLIC_PATH` must be an existing absolute directory. For split deployments it may point to a sibling web root such as `/home/account/public_html`; logical release paths remain `public/...`. Configure nginx `root` to the same directory. If `cfg/` cannot be found relative to the public installer, expose `BACKEND_PATH=/absolute/path/to/project/cfg` to PHP-FPM so fresh-install bootstrap can locate it.
 
 `DB_SESSION_WAIT_TIMEOUT` is optional. When set, it must be an integer from 1 to 31536000 and configures only the current MySQL session's idle timeout.
+
+`THEME_OPERATION_LOCK_DIR` is optional on a native Linux project filesystem. It is required when the project is served from a mounted filesystem that cannot reliably preserve Unix owner/group/mode semantics, including WSL paths below `/mnt/c`. Use an absolute native Linux directory owned by the deployment user, shared with the PHP-FPM group, and set to mode `02770`. Every web and CLI worker participating in theme/plugin operations must use the same directory.
+
+`PLUGIN_DISABLED_JSON` is likewise optional on a native Linux project filesystem and required when the configured project filesystem cannot provide reliable `fsync`, atomic rename, and Unix modes. Point it to a file inside an absolute native Linux directory that is not world-writable and is shared by the deployment user and PHP-FPM group. Core creates the state file atomically with mode `0640`.
+
+`UPDATE_STATUS_FILE` is optional on a native Linux project filesystem. Set it to an absolute file path on a native Linux filesystem when the project is served from WSL `/mnt` or another mount without reliable atomic rename and Unix mode behavior. Its parent directory must be writable by PHP-FPM; mode `02770` with the deployment user and PHP-FPM shared group is recommended.
 
 `PLUGIN_INSTALL_TIMEOUT_SECONDS` and `PLUGIN_INSTALL_OUTPUT_LIMIT` bound the fixed plugin `install.sh` runner. Defaults are 120 seconds and 65536 bytes; Core hard-caps them at 900 seconds and 1048576 bytes.
 

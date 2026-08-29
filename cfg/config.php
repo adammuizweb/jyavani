@@ -42,6 +42,15 @@ function app_resolve_public_path(string $projectRoot): string {
 if (!defined('PUBLIC_PATH')) {
     define('PUBLIC_PATH', app_resolve_public_path(dirname(__DIR__)));
 }
+if (!defined('UPDATE_STATUS_FILE')) {
+    $configuredUpdateStatusFile = trim((string)env('UPDATE_STATUS_FILE', ''));
+    if ($configuredUpdateStatusFile !== '') {
+        if (!app_is_absolute_path($configuredUpdateStatusFile)) {
+            throw new RuntimeException('UPDATE_STATUS_FILE must be an absolute file path.');
+        }
+        define('UPDATE_STATUS_FILE', $configuredUpdateStatusFile);
+    }
+}
 
 require_once __DIR__ . '/helpers/hooks.php';
 require_once __DIR__ . '/helpers/package_archive.php';

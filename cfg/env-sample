@@ -27,6 +27,12 @@ APP_DEBUG=1
 
 # Session / Cookie
 SESSION_SAVE_PATH=
+# Use a native Linux path when the project is served from /mnt/c.
+THEME_OPERATION_LOCK_DIR=
+# Plugin state also needs a native Linux path when DrvFS cannot fsync/chmod atomically.
+PLUGIN_DISABLED_JSON=
+# Update snapshots need atomic rename support; use a native Linux path on WSL /mnt projects.
+UPDATE_STATUS_FILE=
 SESSION_LIFETIME=604800
 SESSION_IDLE_TIMEOUT=0
 SESSION_COOKIE_SAMESITE=Lax

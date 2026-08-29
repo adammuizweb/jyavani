@@ -251,6 +251,8 @@ try {
     $pluginStore = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
     $themeStore = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.php');
     $coreActions = (string)file_get_contents($root . '/dashboard/admin/update/_update_actions.php');
+    $config = (string)file_get_contents($root . '/cfg/config.php');
+    $envSample = (string)file_get_contents($root . '/cfg/env-sample');
     $check(str_contains($endpoint, "if (\$method === 'POST')") && str_contains($endpoint, 'adiwira_csrf_validate(')
         && str_contains($endpoint, 'UpdateStatusController::getSnapshot()'), 'GET is read-only while coordinated refresh is POST with CSRF');
     $check(str_contains($javascript, "xhr.open(refreshMode ? 'POST' : 'GET'")
@@ -275,6 +277,10 @@ try {
         && str_contains($metadataClient, 'stream_socket_client(')
         && str_contains($metadataClient, 'stream_select('), 'manual checks share bounded metadata requests, a whole-check budget, and a non-blocking coordinator lock');
     $check(str_contains($coreActions, "UpdateStatusController::removeUpdate('core')"), 'successful reinstall synchronizes the global Core snapshot');
+    $check(str_contains($config, "env('UPDATE_STATUS_FILE', '')")
+        && str_contains($config, "define('UPDATE_STATUS_FILE', \$configuredUpdateStatusFile)")
+        && str_contains($config, 'UPDATE_STATUS_FILE must be an absolute file path.')
+        && str_contains($envSample, 'UPDATE_STATUS_FILE='), 'update snapshots support an absolute external state file for mounted deployments');
     $check(strpos($pluginPage, "(\$snapshot['state'] ?? 'ok') !== 'ok'") < strpos($pluginPage, 'elseif ($count > 0)')
         && strpos($themePage, "(\$snapshot['state'] ?? 'ok') !== 'ok'") < strpos($themePage, 'elseif ($count > 0)'), 'dedicated checks report partial failures before update counts');
     $check(str_contains($themeApply, "removeUpdate('themes', \$folderName, (string)\$result['new_version'])")

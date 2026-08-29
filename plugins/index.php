@@ -8,7 +8,15 @@ require_once dirname(__DIR__) . '/cfg/helpers/migration_helper.php';
 // Loaded after bootstrap in dashboard/index.php
 
 if (!defined('PLUGIN_PATH')) define('PLUGIN_PATH', __DIR__);
-if (!defined('PLUGIN_DISABLED_JSON')) define('PLUGIN_DISABLED_JSON', BACKEND_PATH . '/var/plugins-disabled.json');
+if (!defined('PLUGIN_DISABLED_JSON')) {
+    $configuredPluginState = trim((string)(getenv('PLUGIN_DISABLED_JSON') ?: ''));
+    if ($configuredPluginState !== '' && !str_starts_with($configuredPluginState, DIRECTORY_SEPARATOR)) {
+        throw new RuntimeException('PLUGIN_DISABLED_JSON must be an absolute path.');
+    }
+    define('PLUGIN_DISABLED_JSON', $configuredPluginState !== ''
+        ? $configuredPluginState
+        : BACKEND_PATH . '/var/plugins-disabled.json');
+}
 
 // --- Frontend Route Registry ---
 $GLOBALS['_plugin_frontend_routes'] = [];
@@ -529,9 +537,24 @@ function plugin_load_diagnostics(): array {
     return $GLOBALS['_plugin_load_diagnostics'];
 }
 
+function plugin_state_directory_is_safe(string $directory): bool {
+    clearstatcache(true, $directory);
+    $stat = @lstat($directory);
+    return is_array($stat) && (($stat['mode'] ?? 0) & 0170000) === 0040000
+        && (($stat['mode'] ?? 0) & 0002) === 0 && !is_link($directory);
+}
+
 function plugin_disabled_names(): array {
+    $directory = dirname(PLUGIN_DISABLED_JSON);
+    if (!plugin_state_directory_is_safe($directory)) return array_keys(plugins_all());
     if (!is_file(PLUGIN_DISABLED_JSON)) return [];
     if (is_link(PLUGIN_DISABLED_JSON)) return array_keys(plugins_all());
+    clearstatcache(true, PLUGIN_DISABLED_JSON);
+    $stat = @lstat(PLUGIN_DISABLED_JSON);
+    if (!is_array($stat) || (($stat['mode'] ?? 0) & 0170000) !== 0100000
+        || (($stat['mode'] ?? 0) & 0002) !== 0 || ($stat['nlink'] ?? 0) !== 1) {
+        return array_keys(plugins_all());
+    }
     $raw = @file_get_contents(PLUGIN_DISABLED_JSON);
     $disabled = is_string($raw) ? json_decode($raw, true) : null;
     if (!is_array($disabled) || !array_is_list($disabled)) return array_keys(plugins_all());
@@ -558,6 +581,7 @@ function _plugin_write_disabled_names_already_locked(array $disabled): bool {
     $file = PLUGIN_DISABLED_JSON;
     $directory = dirname($file);
     if (is_link($directory) || (!is_dir($directory) && !@mkdir($directory, 0750, true) && !is_dir($directory))) return false;
+    if (!plugin_state_directory_is_safe($directory)) return false;
     $directoryReal = realpath($directory);
     if ($directoryReal === false || is_link($file)) return false;
     try {
