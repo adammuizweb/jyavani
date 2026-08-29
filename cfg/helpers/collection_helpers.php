@@ -32,9 +32,22 @@ function router_core_path_is_owned(PDO $pdo, string $path): bool
     if ($path === 'sw.js'
         || preg_match('#^sitemap_([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)_(\d+)\.xml$#', $path)
         || preg_match('#^sitemap(?:_(posts|pages|themes)_(\d+))?\.xml$#', $path)
-        || preg_match('/^\d{4}(?:\/|$)/', $path)
     ) {
         return true;
+    }
+
+    $segments = $path === '' ? [] : explode('/', $path);
+    $prefix = $segments[0] ?? '';
+    if (preg_match('/^\d{4}$/', $prefix)) {
+        if (preg_match('#^\d{4}(?:/\d{1,2})?(?:/(?:p|page)/\d+)?$#', $path)) return true;
+        if (!function_exists('permalink_is_date_based') || !permalink_is_date_based($pdo)) return true;
+
+        $postStruct = get_permalink_structure($pdo, 'post');
+        $structSegs = function_exists('permalink_structure_segment_count')
+            ? permalink_structure_segment_count($postStruct)
+            : 2;
+        if (count($segments) !== $structSegs) return true;
+        if (!function_exists('permalink_match_path') || permalink_match_path($path, $postStruct) === null) return true;
     }
 
     $adminPath = function_exists('get_admin_path') ? trim(get_admin_path($pdo), '/') : 'dashboard';

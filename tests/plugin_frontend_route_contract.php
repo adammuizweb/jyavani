@@ -9,6 +9,18 @@ define('PLUGIN_PATH', $fixture . '/plugins');
 define('PLUGIN_DISABLED_JSON', BACKEND_PATH . '/var/plugins-disabled.json');
 
 require_once $root . '/cfg/helpers/hooks.php';
+function settings_get(PDO $pdo, string $key, ?string $default = null): ?string
+{
+    $paths = $GLOBALS['_plugin_route_core_paths'] ?? [];
+    return match ($key) {
+        'permalink_posts' => (string)($GLOBALS['_plugin_route_permalink_structure'] ?? '/%slug%/'),
+        'category_path' => (string)(($paths['category'] ?? [])[0] ?? ''),
+        'posts_list_path' => (string)(($paths['posts'] ?? [])[0] ?? ''),
+        'pages_list_path' => (string)(($paths['pages'] ?? [])[0] ?? ''),
+        default => $default,
+    };
+}
+require_once $root . '/cfg/helpers/permalink_helpers.php';
 require_once $root . '/cfg/helpers/collection_helpers.php';
 require_once $root . '/plugins/index.php';
 
@@ -28,9 +40,6 @@ $GLOBALS['_plugin_route_core_paths'] = [
 function get_admin_path(PDO $pdo): string { return $GLOBALS['_plugin_route_core_paths']['admin']; }
 function get_login_path(PDO $pdo): string { return $GLOBALS['_plugin_route_core_paths']['login']; }
 function get_register_path(PDO $pdo): string { return $GLOBALS['_plugin_route_core_paths']['register']; }
-function get_category_routes(PDO $pdo): array { return $GLOBALS['_plugin_route_core_paths']['category']; }
-function get_posts_list_routes(PDO $pdo): array { return $GLOBALS['_plugin_route_core_paths']['posts']; }
-function get_pages_list_routes(PDO $pdo): array { return $GLOBALS['_plugin_route_core_paths']['pages']; }
 
 $failures = [];
 $check = static function (bool $condition, string $message) use (&$failures): void {
@@ -128,8 +137,9 @@ $check((resolve_frontend_route('collision', 'GET')['handler'] ?? null) === $firs
 $reset();
 $thiefHandler = static function (): void {};
 register_frontend_route('stolen', $thiefHandler, ['match' => 'exact']);
-add_filter('router_path', static fn(string $path): string => 'stolen');
 $pdo = new PluginFrontendRouteContractPdo();
+$hostileFilter = static fn(string $path): string => 'stolen';
+add_filter('router_path', $hostileFilter);
 $protectedPaths = [
     'sw.js' => 'Core service worker path',
     'author/editor' => 'Core author path',
@@ -137,7 +147,6 @@ $protectedPaths = [
     'static/dashboard/app.js' => 'Core static path',
     'sitemap.xml' => 'Core sitemap path',
     'sitemap_pt-BR_themes_2.xml' => 'localized Core sitemap path',
-    '2026/08' => 'Core archive path',
     'admin/control-room/settings' => 'configured admin path',
     'account/sign-in' => 'configured login path',
     'account/join' => 'configured register path',
@@ -153,7 +162,149 @@ foreach ($protectedPaths as $protectedPath => $label) {
 $filteredPluginPath = router_apply_path_filter($pdo, 'extension-alias');
 $check($filteredPluginPath === 'stolen'
     && (resolve_frontend_route($filteredPluginPath, 'GET')['handler'] ?? null) === $thiefHandler,
-    'plugin path rewrites still dispatch on non-Core paths');
+    'the hostile path filter is active for non-Core paths');
+
+$yearMonthStructure = '/%year%/%monthnum%/%slug%/';
+foreach (['1' => '01', '01' => '01', '12' => '12'] as $month => $normalizedMonth) {
+    $matched = permalink_match_path('2026/' . $month . '/album', $yearMonthStructure);
+    $check(($matched['monthnum'] ?? null) === $normalizedMonth,
+        'the shared permalink parser accepts and normalizes a valid month: ' . $month);
+}
+foreach (['00', '13'] as $month) {
+    $check(permalink_match_path('2026/' . $month . '/album', $yearMonthStructure) === null,
+        'the shared permalink parser rejects an out-of-range month: ' . $month);
+}
+$yearMonthDayStructure = '/%year%/%monthnum%/%day%/%slug%/';
+$invalidDatePaths = [
+    '2026/02/00/album',
+    '2026/02/32/album',
+    '2026/02/30/album',
+];
+foreach ($invalidDatePaths as $invalidDatePath) {
+    $check(permalink_match_path($invalidDatePath, $yearMonthDayStructure) === null,
+        'the shared permalink parser rejects an invalid calendar path: ' . $invalidDatePath);
+}
+$leapMatch = permalink_match_path('2024/2/29/album', $yearMonthDayStructure);
+$check(($leapMatch['monthnum'] ?? null) === '02' && ($leapMatch['day'] ?? null) === '29',
+    'the shared permalink parser accepts and normalizes a valid leap day');
+$dayBeforeMonthStructure = '/%year%/%day%/%monthnum%/%slug%/';
+$check(permalink_match_path('2026/30/2/album', $dayBeforeMonthStructure) === null
+    && permalink_match_path('2024/29/2/album', $dayBeforeMonthStructure) !== null,
+    'calendar validation is independent of numeric token order');
+
+$GLOBALS['_plugin_route_permalink_structure'] = '/%year%/%slug%/';
+$yearSlugProtectedPaths = [
+    '2026',
+    '2026/8',
+    '2026/08',
+    '2026/p/2',
+    '2026/page/2',
+    '2026/8/p/2',
+    '2026/08/page/2',
+    '2026/08/album',
+    '2026/album/extra',
+];
+foreach ($yearSlugProtectedPaths as $protectedPath) {
+    $filteredPath = router_apply_path_filter($pdo, $protectedPath);
+    $check($filteredPath === $protectedPath,
+        'the hostile filter cannot steal a year/slug Core path: ' . $protectedPath);
+}
+
+$normalizeRouterPath = static function (string $uri): string {
+    $rawPath = (string)(parse_url($uri, PHP_URL_PATH) ?? '/');
+    return trim(rawurldecode($rawPath), " \t\n\r\0\x0B/");
+};
+foreach (['/2026%2Fp%2F2/', '/2026%2F08%2Fpage%2F3/'] as $encodedArchiveUri) {
+    $normalizedPath = $normalizeRouterPath($encodedArchiveUri);
+    $check(router_apply_path_filter($pdo, $normalizedPath) === $normalizedPath,
+        'the hostile filter cannot steal an encoded-normalized archive path: ' . $encodedArchiveUri);
+}
+
+$GLOBALS['_plugin_route_permalink_structure'] = '/%year%/%monthnum%/%slug%/';
+foreach (['1', '01', '12'] as $month) {
+    $candidatePath = '2026/' . $month . '/album';
+    $check(router_apply_path_filter($pdo, $candidatePath) === 'stolen',
+        'the classifier exposes a valid year/month/slug candidate: ' . $candidatePath);
+}
+foreach (['00', '13'] as $month) {
+    $protectedPath = '2026/' . $month . '/album';
+    $check(router_apply_path_filter($pdo, $protectedPath) === $protectedPath,
+        'the hostile filter cannot steal an out-of-range month path: ' . $protectedPath);
+}
+foreach (['2026/album', '2026/08/album/extra'] as $protectedPath) {
+    $filteredPath = router_apply_path_filter($pdo, $protectedPath);
+    $check($filteredPath === $protectedPath,
+        'the hostile filter cannot steal a noncandidate year/month/slug Core path: ' . $protectedPath);
+}
+$check(router_apply_path_filter($pdo, '2026/not-a-month/album') === '2026/not-a-month/album',
+    'the hostile filter cannot steal a path with an invalid month token');
+
+$GLOBALS['_plugin_route_permalink_structure'] = $yearMonthDayStructure;
+foreach ($invalidDatePaths as $protectedPath) {
+    $check(router_apply_path_filter($pdo, $protectedPath) === $protectedPath,
+        'the hostile filter cannot steal an invalid calendar path: ' . $protectedPath);
+}
+$check(router_apply_path_filter($pdo, '2024/2/29/album') === 'stolen',
+    'the classifier exposes a valid leap-day content candidate');
+
+$GLOBALS['_plugin_route_permalink_structure'] = $dayBeforeMonthStructure;
+$check(router_apply_path_filter($pdo, '2026/30/2/album') === '2026/30/2/album',
+    'the classifier protects an impossible date when day precedes month');
+$check(router_apply_path_filter($pdo, '2024/29/2/album') === 'stolen',
+    'the classifier exposes a valid leap day when day precedes month');
+
+$GLOBALS['_plugin_route_permalink_structure'] = '/%year%/archive/%monthnum%/%slug%/';
+$invalidStructuredPaths = [
+    '2026/news/08/album',
+    '2026/archive/not-a-month/album',
+    '2026/archive/008/album',
+    '2026/archive/08/album/extra',
+];
+foreach ($invalidStructuredPaths as $protectedPath) {
+    $check(router_apply_path_filter($pdo, $protectedPath) === $protectedPath,
+        'the hostile filter cannot steal a structurally invalid dated path: ' . $protectedPath);
+}
+$check(router_apply_path_filter($pdo, '2026/archive/08/album') === 'stolen',
+    'a structurally valid literal year/month/slug path remains a provider candidate');
+
+$GLOBALS['_plugin_route_permalink_structure'] = '/%slug%/';
+foreach (['2026/album', '2026/08/album'] as $protectedPath) {
+    $check(router_apply_path_filter($pdo, $protectedPath) === $protectedPath,
+        'the hostile filter cannot steal a year-prefixed path under a non-date permalink structure: ' . $protectedPath);
+}
+$check(router_apply_path_filter($pdo, '202x/album') === 'stolen',
+    'a malformed year prefix remains outside Core date ownership');
+remove_filter('router_path', $hostileFilter);
+
+$selectiveFilter = static fn(string $path): string => in_array($path, [
+    '2026/album',
+    '2026/08/album',
+], true) ? 'stolen' : $path;
+add_filter('router_path', $selectiveFilter);
+
+$GLOBALS['_plugin_route_permalink_structure'] = '/%year%/%slug%/';
+$yearSlugPluginPath = router_apply_path_filter($pdo, '2026/album');
+$check($yearSlugPluginPath === 'stolen'
+    && (resolve_frontend_route($yearSlugPluginPath, 'GET')['handler'] ?? null) === $thiefHandler,
+    'a selective provider can handle a year/slug content candidate');
+$check(router_apply_path_filter($pdo, '2026/08/album') === '2026/08/album',
+    'a year/slug structure protects a noncandidate year/month/slug path');
+$yearSlugCorePath = router_apply_path_filter($pdo, '2026/core-article');
+$check($yearSlugCorePath === '2026/core-article' && resolve_frontend_route($yearSlugCorePath, 'GET') === null,
+    'a declined year/slug article remains available to Core resolution');
+
+$GLOBALS['_plugin_route_permalink_structure'] = '/%year%/%monthnum%/%slug%/';
+$check(router_apply_path_filter($pdo, '2026/album') === '2026/album',
+    'a year/month/slug structure protects a noncandidate year/slug path');
+$yearMonthSlugPluginPath = router_apply_path_filter($pdo, '2026/08/album');
+$check($yearMonthSlugPluginPath === 'stolen'
+    && (resolve_frontend_route($yearMonthSlugPluginPath, 'GET')['handler'] ?? null) === $thiefHandler,
+    'a selective provider can handle a year/month/slug content candidate');
+$yearMonthSlugCorePath = router_apply_path_filter($pdo, '2026/08/core-article');
+$check($yearMonthSlugCorePath === '2026/08/core-article'
+    && resolve_frontend_route($yearMonthSlugCorePath, 'GET') === null,
+    'a declined year/month/slug article remains available to Core resolution');
+remove_filter('router_path', $selectiveFilter);
 
 $reset();
 $boundaryHandler = static function (): void {};
