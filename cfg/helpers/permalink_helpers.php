@@ -195,9 +195,17 @@ function permalink_match_path(string $path, string $structure): ?array
             if (!preg_match('/^\d{1,2}$/', $pathSegs[$i])) {
                 return null;
             }
+            $month = (int)$pathSegs[$i];
+            if ($month < 1 || $month > 12) {
+                return null;
+            }
             $params['monthnum'] = str_pad($pathSegs[$i], 2, '0', STR_PAD_LEFT);
         } elseif ($seg === '%day%') {
             if (!preg_match('/^\d{1,2}$/', $pathSegs[$i])) {
+                return null;
+            }
+            $day = (int)$pathSegs[$i];
+            if ($day < 1 || $day > 31) {
                 return null;
             }
             $params['day'] = str_pad($pathSegs[$i], 2, '0', STR_PAD_LEFT);
@@ -210,6 +218,12 @@ function permalink_match_path(string $path, string $structure): ?array
                 return null;
             }
         }
+    }
+
+    if (isset($params['year'], $params['monthnum'], $params['day'])
+        && !checkdate((int)$params['monthnum'], (int)$params['day'], (int)$params['year'])
+    ) {
+        return null;
     }
 
     return $params;
