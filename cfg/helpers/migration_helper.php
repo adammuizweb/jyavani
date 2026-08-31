@@ -32,6 +32,19 @@ function migration_get_pending(PDO $pdo): array
     return $pending;
 }
 
+function migration_duplicate_addition_is_safe(Throwable $error, string $statement): bool
+{
+    if (!$error instanceof PDOException) return false;
+    $driverCode = (int)($error->errorInfo[1] ?? 0);
+    if ($driverCode === 1060) {
+        return preg_match('/\AALTER\s+TABLE\b[\s\S]*\bADD\s+(?:COLUMN\s+)?`?[a-zA-Z0-9_]+`?/i', $statement) === 1;
+    }
+    if ($driverCode === 1061) {
+        return preg_match('/\AALTER\s+TABLE\b[\s\S]*\bADD\s+(?:UNIQUE\s+)?(?:INDEX|KEY)\b/i', $statement) === 1;
+    }
+    return false;
+}
+
 function migration_run_pending(PDO $pdo): array
 {
     $pending = migration_get_pending($pdo);
@@ -79,6 +92,7 @@ function migration_run_pending(PDO $pdo): array
             try {
                 $pdo->exec($stmt);
             } catch (Throwable $e) {
+                if (migration_duplicate_addition_is_safe($e, $stmt)) continue;
                 $results[$name] = 'error: ' . $e->getMessage();
                 $allOk = false;
                 break;

@@ -109,6 +109,10 @@ function shortcode_preset_core_config_keys(): array {
   ];
 }
 
+function shortcode_core_source_ids(): array {
+  return ['posts'];
+}
+
 function shortcode_source_provider_normalize(string $id, array $provider): ?array {
   if (!shortcode_source_provider_id_is_valid($id)) return null;
   $label = is_string($provider['label'] ?? null) ? trim($provider['label']) : '';
@@ -155,7 +159,7 @@ function shortcode_source_provider_normalize(string $id, array $provider): ?arra
  */
 function register_shortcode_source_provider(string $id, array $provider): bool {
   $normalized = shortcode_source_provider_normalize($id, $provider);
-  if ($normalized === null || in_array($id, ['posts', 'shop_products', 'shop_categories'], true)) return false;
+  if ($normalized === null || in_array($id, shortcode_core_source_ids(), true)) return false;
   if (!isset($GLOBALS['__jy_shortcode_source_providers']) || !is_array($GLOBALS['__jy_shortcode_source_providers'])) {
     $GLOBALS['__jy_shortcode_source_providers'] = [];
   }
@@ -178,7 +182,7 @@ function shortcode_source_providers(array $context = [], ?PDO $pdo = null): arra
     $id = is_string($candidate['id'] ?? null)
       ? (string)$candidate['id']
       : (is_string($candidateId) ? $candidateId : '');
-    if (isset($providers[$id]) || in_array($id, ['posts', 'shop_products', 'shop_categories'], true)) continue;
+    if (isset($providers[$id]) || in_array($id, shortcode_core_source_ids(), true)) continue;
     $normalized = shortcode_source_provider_normalize($id, $candidate);
     if ($normalized !== null) $providers[$id] = $normalized;
   }
@@ -319,7 +323,7 @@ function shortcode_preset_merge_runtime_overrides(
   }
 
   $source = is_string($persisted['source'] ?? null) ? strtolower(trim($persisted['source'])) : 'posts';
-  if (!in_array($source, ['posts', 'shop_products', 'shop_categories'], true)) {
+  if (!in_array($source, shortcode_core_source_ids(), true)) {
     $owner = is_string($persisted['source_owner'] ?? null) ? trim($persisted['source_owner']) : '';
     $provider = shortcode_source_provider(
       $source,
@@ -364,7 +368,7 @@ function shortcode_preset_apply_source_defaults(array $input, array $context = [
   $source = is_string($input['source'] ?? null) ? strtolower(trim($input['source'])) : 'posts';
   $sourceOwner = is_string($input['source_owner'] ?? null) ? trim($input['source_owner']) : '';
   $provider = shortcode_source_provider($source, array_merge($context, ['source' => $source]), $pdo);
-  $isCoreSource = in_array($source, ['posts', 'shop_products', 'shop_categories'], true);
+  $isCoreSource = in_array($source, shortcode_core_source_ids(), true);
   if ($isCoreSource) {
     $sourceOwner = 'core';
   } elseif ($provider !== null && $sourceOwner === '' && ($context['allow_provider_binding'] ?? false) === true) {
@@ -500,7 +504,7 @@ function shortcode_preset_date_is_valid(mixed $value): bool {
 
 /** Providers and the legacy filter may append parser-safe source identifiers. */
 function shortcode_preset_sources(array $context = [], ?PDO $pdo = null): array {
-  $coreSources = ['posts', 'shop_products', 'shop_categories'];
+  $coreSources = shortcode_core_source_ids();
   $providerSources = array_keys(shortcode_source_providers($context, $pdo));
   $baseSources = array_values(array_unique(array_merge($coreSources, $providerSources)));
   $filtered = apply_filters('shortcode_preset_sources', $baseSources, $context, $pdo);
@@ -516,7 +520,7 @@ function shortcode_preset_sources(array $context = [], ?PDO $pdo = null): array 
 /** Sources that can be newly selected; legacy filter-only IDs remain runtime compatibility data. */
 function shortcode_selectable_sources(array $context = [], ?PDO $pdo = null): array {
   return array_values(array_unique(array_merge(
-    ['posts', 'shop_products', 'shop_categories'],
+    shortcode_core_source_ids(),
     array_keys(shortcode_source_providers($context, $pdo))
   )));
 }
@@ -541,7 +545,7 @@ function shortcode_provider_adoption_allowed(
   $submittedSource = is_string($submitted['source'] ?? null) ? strtolower(trim($submitted['source'])) : 'posts';
   $storedOwner = is_string($stored['source_owner'] ?? null) ? trim($stored['source_owner']) : '';
   if ($storedSource !== $submittedSource || $storedOwner !== ''
-      || in_array($submittedSource, ['posts', 'shop_products', 'shop_categories'], true)) {
+      || in_array($submittedSource, shortcode_core_source_ids(), true)) {
     return false;
   }
   return shortcode_source_provider($submittedSource, ['scope' => 'adoption'], $pdo) !== null;
@@ -555,7 +559,7 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
   $providerContext = array_merge($context, ['scope' => 'validation', 'source' => $source, 'is_admin' => $isAdmin]);
   $provider = shortcode_source_provider($source, $providerContext, $pdo);
   $sourceOwner = (string)($config['source_owner'] ?? '');
-  $isCoreSource = in_array($source, ['posts', 'shop_products', 'shop_categories'], true);
+  $isCoreSource = in_array($source, shortcode_core_source_ids(), true);
   $providerMatches = $provider !== null && $sourceOwner !== ''
     && hash_equals((string)$provider['owner'], $sourceOwner);
 

@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.92",
-    "build": "2026-08-29",
-    "changelog": "Support native runtime-state paths for mounted deployments and backfill media access-policy columns on existing installations.",
+    "version": "2.3.93",
+    "build": "2026-08-31",
+    "changelog": "Harden plugin state and migration replay, support init route registration, and keep collection source providers plugin-owned.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

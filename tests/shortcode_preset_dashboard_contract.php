@@ -56,7 +56,8 @@ $check(str_contains($source['helper'], "apply_filters('shortcode_source_provider
 $widgetRuntime = (string)file_get_contents($root . '/cfg/helpers/widget_shortcodes_p.php');
 $check(str_contains($widgetRuntime, 'shortcode_preset_validate_config(')
     && str_contains($widgetRuntime, "? 'persisted_preset' : 'public_runtime'")
-    && str_contains($widgetRuntime, "array_merge(\$ctx, ['scope' => 'runtime', 'source' => \$source, 'trust' => \$runtimeTrust])"), 'runtime provider validation uses explicit persisted or untrusted public trust context');
+    && str_contains($widgetRuntime, "'trust' => \$runtimeTrust")
+    && str_contains($widgetRuntime, "'allow_provider_binding' => \$runtimeTrust !== 'persisted_preset'"), 'runtime provider validation uses explicit persisted or untrusted public trust context');
 $check(str_contains($source['helper'], 'shortcode_preset_merge_runtime_overrides($runtimeConfig, $vars, $pdo, $runtimeContext)')
     && str_contains($source['helper'], "'trust' => 'persisted_preset'")
     && str_contains($source['preview'], "'trust' => 'persisted_preset'"), 'persisted runtime and preview paths preserve trusted filters while protecting privileged overrides');
@@ -68,6 +69,9 @@ $check(str_contains($source['helper'], 'shortcode_preset_normalize_public_provid
     && str_contains($widgetRuntime, "if (\$runtimeTrust !== 'persisted_preset')")
     && str_contains($widgetRuntime, 'shortcode_preset_normalize_public_provider_attributes($attrs, $provider)')
     && strpos($widgetRuntime, 'shortcode_preset_normalize_public_provider_attributes($attrs, $provider)') < strpos($widgetRuntime, 'shortcode_preset_validate_config('), 'direct shortcode and static collection widgets normalize provider public attributes before defaults, validation, and fetch');
+$check(!str_contains($source['helper'], 'shop_products') && !str_contains($source['helper'], 'shop_categories')
+    && !str_contains($widgetRuntime, 'shop_products') && !str_contains($widgetRuntime, 'shop_categories'),
+    'Core shortcode sources remain domain-neutral and plugin-owned');
 $check(str_contains($source['save'], 'shortcode_collection_layout_with_lock($pdo') && strpos($source['save'], 'shortcode_preset_validate_config') > strpos($source['save'], 'shortcode_collection_layout_with_lock($pdo'), 'preset layout validation and database write share the collection lifecycle lock');
 $check(str_contains($source['save'], '$stmt->rowCount() === 0') && str_contains($source['save'], '$stmt->rowCount() !== 1'), 'preset update and insert verify affected rows');
 $check(strpos($source['delete'], '$return_to =') < strpos($source['delete'], 'adiwira_csrf_validate'), 'delete sanitizes return_to before CSRF errors');

@@ -52,6 +52,8 @@ $reset = static function (): void {
     $GLOBALS['_plugin_frontend_route_order'] = 0;
     $GLOBALS['_plugin_frontend_route_diagnostics'] = [];
     $GLOBALS['_plugin_frontend_routes_sealed'] = false;
+    $GLOBALS['_plugin_frontend_init_running'] = false;
+    $GLOBALS['__jy_frontend_init_fired'] = false;
 };
 
 $legacyHandler = static function (): void {};
@@ -76,8 +78,10 @@ $GLOBALS['_plugin_frontend_routes_sealed'] = true;
 plugin_run_frontend_init();
 plugin_run_frontend_init();
 $check($initCalls === 1, 'frontend init runs at most once during a request');
-$check($lateRegistration === false && resolve_frontend_route('too-late', 'GET') === null,
-    'routes registered after the plugin loading phase fail closed');
+$check($lateRegistration === true && resolve_frontend_route('too-late', 'GET') !== null,
+    'legacy routes registered by an init callback remain compatible');
+$check(!register_frontend_route('too-late-direct', static function (): void {}),
+    'route registration is sealed again after frontend init');
 
 $reset();
 $rootHandler = static function (): void {};

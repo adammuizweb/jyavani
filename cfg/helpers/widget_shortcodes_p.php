@@ -8,18 +8,9 @@ define('POST_CAT_SHORTCODES_INCLUDED', true);
 /**
  * Engine shortcode konten utama CMS.
  *
- * Fokus utama:
- * - posts/content shortcode (aktif dipakai sekarang)
- * - future-ready hook untuk source shop (opsional, tidak aktif jika helper shop belum ada)
- *
  * Contoh:
  * [post_cat_shortcode category="news" layout="cards" limit="3" include_children="1" class_prefix="inter-news"]
  * [post_cat_shortcode category="agenda" layout="list" limit="8"]
- *
- * Future-ready:
- * [post_cat_shortcode source="shop_products" category="boneka" layout="cards" limit="5" fetch="7" slider="1" infinite="1"]
- * [post_cat_shortcode source="shop_categories" category="boneka" layout="collections" limit="3"]
- * [post_cat_shortcode source="shop_categories" layout="collections_main" slugs="aksesoris,boneka,dekorasi,fashion" limit="4"]
  * 
  *   - per shortcode: post_path="/"
  *   - via context map: $ctx['post_cat_path_map'] = ['news'=>'/','agenda'=>'/']
@@ -99,7 +90,7 @@ function post_cat__safe_source(string $source, array $context = [], ?PDO $pdo = 
   if ($source === '') return 'posts';
   $sources = function_exists('shortcode_preset_sources')
     ? shortcode_preset_sources($context, $pdo)
-    : ['posts', 'shop_products', 'shop_categories'];
+    : ['posts'];
   return in_array($source, $sources, true) ? $source : '';
 }
 
@@ -301,13 +292,18 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
       $attrs,
       false,
       $pdo,
-      array_merge($ctx, ['scope' => 'runtime', 'source' => $source, 'trust' => $runtimeTrust])
+      array_merge($ctx, [
+        'scope' => 'runtime',
+        'source' => $source,
+        'trust' => $runtimeTrust,
+        'allow_provider_binding' => $runtimeTrust !== 'persisted_preset',
+      ])
     );
     if ($validation['errors'] !== []) {
       return post_cat__empty_html(function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.');
     }
     $attrs = $validation['config'];
-  } elseif (!in_array($source, ['posts', 'shop_products', 'shop_categories'], true)) {
+  } elseif ($source !== 'posts') {
     return post_cat__empty_html(function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.');
   }
 
@@ -340,10 +336,7 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
   $classPrefix = trim((string)($attrs['class_prefix'] ?? ''));
   $wrap = post_cat__bool($attrs['wrap'] ?? '1', true);
 
-  $sliderEnabled = post_cat__bool(
-    $attrs['slider'] ?? $attrs['carousel'] ?? ($source === 'shop_products' ? '1' : '0'),
-    $source === 'shop_products'
-  );
+  $sliderEnabled = post_cat__bool($attrs['slider'] ?? $attrs['carousel'] ?? '0', false);
 
   $infinite = post_cat__bool($attrs['infinite'] ?? '1', true);
 
@@ -476,172 +469,7 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
     }
   }
 
-  /**
-   * SOURCE: SHOP PRODUCTS (future-ready, optional)
-   */
-  elseif ($source === 'shop_products') {
-    if (!function_exists('cms_shop_products_by_category')) {
-      return post_cat__empty_html('Source shop belum tersedia.', $classPrefix);
-    }
-
-    $rows = cms_shop_products_by_category($pdo, $catRaw, [
-      'status' => $attrs['status'] ?? 'active',
-      'include_children' => (($attrs['include_children'] ?? '1') !== '0'),
-      'limit' => $limit,
-      'offset' => $offset,
-      'order_by' => $attrs['order_by'] ?? 'sort_order',
-      'order_dir' => $attrs['order_dir'] ?? 'ASC',
-    ]);
-
-    if (!$rows) {
-      return post_cat__empty_html('Belum ada produk.', $classPrefix);
-    }
-
-    $variantPricePrefix = (string)($attrs['variant_price_prefix'] ?? 'Mulai ');
-
-    foreach ($rows as $p) {
-      $displayPrice = $p['price'] ?? null;
-      $displaySale  = $p['sale_price'] ?? null;
-
-      if (function_exists('cms_shop_product_display_price')) {
-        [$displayPrice, $displaySale] = cms_shop_product_display_price($p);
-      }
-
-      $thumb = trim((string)($p['cover_url'] ?? ''));
-      if ($thumb !== '' && $baseUrl !== '' && isset($thumb[0]) && $thumb[0] === '/') {
-        $thumb = $baseUrl . $thumb;
-      }
-
-      $url = function_exists('cms_shop_product_url')
-        ? cms_shop_product_url((string)($p['slug'] ?? ''), $baseUrl)
-        : '#';
-
-      $isVariantRange = (
-        (string)($p['product_mode'] ?? 'single') === 'variant'
-        && (int)($p['variants_count'] ?? 0) > 1
-      );
-
-      $priceText = function_exists('cms_shop_money')
-        ? cms_shop_money($displayPrice)
-        : (string)$displayPrice;
-
-      $saleText = (
-        $displaySale !== null
-        && $displaySale !== ''
-        && (float)$displaySale > 0
-      )
-        ? (function_exists('cms_shop_money') ? cms_shop_money($displaySale) : (string)$displaySale)
-        : '';
-
-      $items[] = [
-        'kind' => 'shop_product',
-        'title' => (string)($p['name'] ?? ''),
-        'url' => $url,
-        'thumb' => $thumb,
-        'desc' => '',
-        'date_iso' => '',
-        'date_label' => '',
-        'brand' => (string)($p['brand_name'] ?? ''),
-        'price_text' => $priceText,
-        'sale_price_text' => $saleText,
-        'price_prefix' => $isVariantRange ? $variantPricePrefix : '',
-        'raw' => $p,
-      ];
-    }
-  }
-
-  /**
-   * SOURCE: SHOP CATEGORIES (future-ready, optional)
-   * - mode A: slugs="aksesoris,boneka,dekorasi,fashion"
-   * - mode B: category="boneka" => child categories
-   */
-  elseif ($source === 'shop_categories') {
-    $slugsRaw = trim((string)($attrs['slugs'] ?? ''));
-    $slugs = array_values(array_filter(array_map('trim', explode(',', $slugsRaw)), function($v) {
-      return $v !== '';
-    }));
-
-    // mode kategori utama
-    if (!empty($slugs)) {
-      if (!function_exists('cms_shop_categories_featured')) {
-        return post_cat__empty_html('Source kategori shop belum tersedia.', $classPrefix);
-      }
-
-      $rows = cms_shop_categories_featured($pdo, $slugs, [
-        'limit' => $limit,
-      ]);
-
-      if (!$rows) {
-        return post_cat__empty_html('Belum ada kategori.', $classPrefix);
-      }
-
-      foreach ($rows as $row) {
-        $thumb = trim((string)($row['cover_url'] ?? ''));
-        if ($thumb !== '' && $baseUrl !== '' && isset($thumb[0]) && $thumb[0] === '/') {
-          $thumb = $baseUrl . $thumb;
-        }
-
-        $url = function_exists('cms_shop_category_url')
-          ? cms_shop_category_url((string)($row['slug'] ?? ''), $baseUrl)
-          : '#';
-
-        $items[] = [
-          'kind' => 'shop_category',
-          'title' => (string)($row['name'] ?? ''),
-          'url' => $url,
-          'thumb' => $thumb,
-          'desc' => '',
-          'date_iso' => '',
-          'date_label' => '',
-          'count_label' => '',
-          'raw' => $row,
-        ];
-      }
-    }
-
-    // mode child categories
-    else {
-      if (!function_exists('cms_shop_child_categories')) {
-        return post_cat__empty_html('Source kategori shop belum tersedia.', $classPrefix);
-      }
-
-      $rows = cms_shop_child_categories($pdo, $catRaw, [
-        'limit' => $limit,
-        'offset' => $offset,
-        'order_by' => $attrs['order_by'] ?? 'sort_order',
-        'order_dir' => $attrs['order_dir'] ?? 'ASC',
-      ]);
-
-      if (!$rows) {
-        return post_cat__empty_html('Belum ada collection.', $classPrefix);
-      }
-
-      foreach ($rows as $row) {
-        $thumb = trim((string)($row['cover_url'] ?? ''));
-        if ($thumb !== '' && $baseUrl !== '' && isset($thumb[0]) && $thumb[0] === '/') {
-          $thumb = $baseUrl . $thumb;
-        }
-
-        $url = function_exists('cms_shop_category_url')
-          ? cms_shop_category_url((string)($row['slug'] ?? ''), $baseUrl)
-          : '#';
-
-        $items[] = [
-          'kind' => 'shop_category',
-          'title' => (string)($row['name'] ?? ''),
-          'url' => $url,
-          'thumb' => $thumb,
-          'desc' => '',
-          'date_iso' => '',
-          'date_label' => '',
-          'count_label' => ((int)($row['products_count'] ?? 0) > 0)
-            ? ((int)$row['products_count'] . ' produk')
-            : '',
-          'raw' => $row,
-        ];
-      }
-    }
-  } else {
+  else {
     return post_cat__empty_html(
       function_exists('__') ? __('Source provider is unavailable.') : 'Source provider is unavailable.',
       $classPrefix

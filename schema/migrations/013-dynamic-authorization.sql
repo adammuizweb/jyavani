@@ -1,14 +1,14 @@
 ALTER TABLE `users`
-  ADD COLUMN IF NOT EXISTS `is_site_owner` tinyint(1) NOT NULL DEFAULT 0 AFTER `role`;
+  ADD COLUMN `is_site_owner` tinyint(1) NOT NULL DEFAULT 0 AFTER `role`;
 
 ALTER TABLE `users`
-  ADD COLUMN IF NOT EXISTS `site_owner_previous_role` enum('none','author','editor','admin') DEFAULT NULL AFTER `is_site_owner`;
+  ADD COLUMN `site_owner_previous_role` enum('none','author','editor','admin') DEFAULT NULL AFTER `is_site_owner`;
 
 ALTER TABLE `users`
   MODIFY COLUMN `role` enum('none','author','editor','admin') NOT NULL DEFAULT 'none';
 
 ALTER TABLE `users`
-  ADD INDEX IF NOT EXISTS `idx_users_site_owner_active` (`is_site_owner`,`is_deleted`,`is_locked`,`id`);
+  ADD INDEX `idx_users_site_owner_active` (`is_site_owner`,`is_deleted`,`is_locked`,`id`);
 
 CREATE TABLE IF NOT EXISTS `roles` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,

@@ -70,6 +70,8 @@ $check(str_contains($router, "apply_filters('unresolved_content_redirect_url'"),
 $check(strpos($router, "apply_filters('unresolved_content_redirect_url'") < strpos($router, 'PostController::dispatchBySlug'), 'unresolved redirect extensions run before the legacy 404 fallback');
 $check(str_contains($router, 'url_append_query_string($unresolvedRedirect'), 'unresolved redirects use query-aware URL composition');
 $check(str_contains($router, 'if (!url_path_is_file_like($rawPath))'), 'router canonicalization lets file-like webmanifest paths reach dynamic routes');
+$check(str_contains($router, "function_exists('content_route_resolve') && !url_path_is_file_like(\$pathTrimmed)"),
+    'file-like paths bypass canonical content route resolution');
 $check(str_contains($router, 'resolve_frontend_route($pathTrimmed, $requestMethod)')
     && strpos($router, '$rootPluginRoute = resolve_frontend_route') < strpos($router, "\$context_for_layout = 'home'")
     && strpos($router, '$pluginRoute = resolve_frontend_route') < strpos($router, '// FALLBACK POST'),

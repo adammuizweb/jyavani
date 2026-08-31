@@ -89,8 +89,6 @@ $sourceProviders = $isAdmin ? $registeredSourceProviders : [];
 $sourceOptions = [];
 $sourceClientDefinitions = [
     'posts' => ['owner' => 'core', 'defaults' => [], 'field_keys' => []],
-    'shop_products' => ['owner' => 'core', 'defaults' => [], 'field_keys' => []],
-    'shop_categories' => ['owner' => 'core', 'defaults' => [], 'field_keys' => []],
 ];
 foreach ($sourceProviders as $sourceId => $provider) {
     $sourceClientDefinitions[$sourceId] = shortcode_source_provider_client_definition($provider);
@@ -102,8 +100,6 @@ foreach (shortcode_selectable_sources($sourceContext, $pdo) as $sourceId) {
         ? __($providerLabel)
         : __(match ($sourceId) {
             'posts' => 'Posts and pages',
-            'shop_products' => 'Shop products',
-            'shop_categories' => 'Shop categories',
             default => ucwords(str_replace(['_', '-'], ' ', $sourceId)),
         });
 }
@@ -117,7 +113,7 @@ $sourceUnavailable = !isset($sourceOptions[$currentSource])
 if ($sourceUnavailable) $sourceOptions[$currentSource] = $currentSource . ' — ' . __('Provider unavailable');
 $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     && isset($sourceProviders[$currentSource])
-    && !in_array($currentSource, ['posts', 'shop_products', 'shop_categories'], true);
+    && !in_array($currentSource, shortcode_core_source_ids(), true);
 ?>
 <section class="adam-card">
   <h2><?= $isEdit ? _e('Edit Preset') : _e('Add New Preset') ?></h2>

@@ -501,7 +501,7 @@ if (!$catEnabled && function_exists('resolve_category_from_path')) {
 
 // Explicit canonical and historical content routes. These intentionally run
 // after infrastructure, collections, plugins, and root categories.
-if (function_exists('content_route_resolve')) {
+if (function_exists('content_route_resolve') && !url_path_is_file_like($pathTrimmed)) {
     try {
         $routeLocale = (string)apply_filters('content_route_request_locale', '');
         $visibility = $isLoggedIn ? 'editorial' : 'public';

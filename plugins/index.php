@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/cfg/helpers/migration_helper.php';
 // Loaded after bootstrap in dashboard/index.php
 
 if (!defined('PLUGIN_PATH')) define('PLUGIN_PATH', __DIR__);
+$GLOBALS['_plugin_disabled_json_is_external'] = false;
 if (!defined('PLUGIN_DISABLED_JSON')) {
     $configuredPluginState = trim((string)(getenv('PLUGIN_DISABLED_JSON') ?: ''));
     if ($configuredPluginState !== '' && !str_starts_with($configuredPluginState, DIRECTORY_SEPARATOR)) {
@@ -16,6 +17,7 @@ if (!defined('PLUGIN_DISABLED_JSON')) {
     define('PLUGIN_DISABLED_JSON', $configuredPluginState !== ''
         ? $configuredPluginState
         : BACKEND_PATH . '/var/plugins-disabled.json');
+    $GLOBALS['_plugin_disabled_json_is_external'] = $configuredPluginState !== '';
 }
 
 // --- Frontend Route Registry ---
@@ -547,7 +549,9 @@ function plugin_state_directory_is_safe(string $directory): bool {
 function plugin_disabled_names(): array {
     $directory = dirname(PLUGIN_DISABLED_JSON);
     if (!plugin_state_directory_is_safe($directory)) return array_keys(plugins_all());
-    if (!is_file(PLUGIN_DISABLED_JSON)) return [];
+    if (!is_file(PLUGIN_DISABLED_JSON)) {
+        return ($GLOBALS['_plugin_disabled_json_is_external'] ?? false) === true ? array_keys(plugins_all()) : [];
+    }
     if (is_link(PLUGIN_DISABLED_JSON)) return array_keys(plugins_all());
     clearstatcache(true, PLUGIN_DISABLED_JSON);
     $stat = @lstat(PLUGIN_DISABLED_JSON);
@@ -616,6 +620,7 @@ function plugin_reset_runtime_cache(): void {
     $GLOBALS['_plugin_ready_permissions'] = [];
     $GLOBALS['_plugin_permission_sync_errors'] = [];
     $GLOBALS['_plugin_frontend_routes_sealed'] = false;
+    $GLOBALS['_plugin_frontend_init_running'] = false;
 }
 
 function plugin_last_error(): string {
@@ -659,7 +664,13 @@ function plugin_frontend_route_diagnostic(string $message): bool {
 function plugin_run_frontend_init(): void {
     if (($GLOBALS['__jy_frontend_init_fired'] ?? false) === true) return;
     $GLOBALS['__jy_frontend_init_fired'] = true;
-    do_action('init');
+    $GLOBALS['_plugin_frontend_init_running'] = true;
+    try {
+        do_action('init');
+    } finally {
+        $GLOBALS['_plugin_frontend_init_running'] = false;
+        $GLOBALS['_plugin_frontend_routes_sealed'] = true;
+    }
 }
 
 /**
@@ -669,7 +680,8 @@ function plugin_run_frontend_init(): void {
  * Options: match (prefix|exact), methods (list|null), and priority (lower runs first).
  */
 function register_frontend_route(string $path, callable|string $handler, array $options = []): bool {
-    if (($GLOBALS['_plugin_frontend_routes_sealed'] ?? false) === true) {
+    if (($GLOBALS['_plugin_frontend_routes_sealed'] ?? false) === true
+        && ($GLOBALS['_plugin_frontend_init_running'] ?? false) !== true) {
         return plugin_frontend_route_diagnostic('Frontend routes must be registered during plugin loading.');
     }
     foreach (array_keys($options) as $option) {

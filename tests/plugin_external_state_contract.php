@@ -41,6 +41,8 @@ $removeTree = static function (string $path) use (&$removeTree): void {
 try {
     $check(PLUGIN_DISABLED_JSON === $fixture . '/native/state/plugins-disabled.json',
         'absolute environment path selects native plugin state storage');
+    $check(plugin_disabled_names() === ['sample'],
+        'a configured external state file that is missing fails closed');
     $check(_plugin_write_disabled_names_already_locked(['sample'])
         && plugin_disabled_names() === ['sample'],
         'external plugin state publishes and reads a complete validated list');
