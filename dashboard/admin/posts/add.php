@@ -327,7 +327,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             VALUES
             (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :status, :created_by, :created_at, :updated_at)";
         try {
-            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $status, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission): int {
+            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $status, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription): int {
                 $pdo->beginTransaction();
                 try {
                 if (!authorization_lock_actor_permissions($pdo, $uid)) {
@@ -391,6 +391,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         ]);
                     }
                 }
+                $hookInput = array_replace($_POST, [
+                    'title' => $title,
+                    'slug' => $slug,
+                    'content' => $content,
+                    'status' => $status,
+                    'youtube' => $youtube,
+                    'thumbnail' => $thumbnail,
+                    'categories' => $category_ids,
+                    'created_by' => $uid,
+                    'created_at' => $final_created,
+                    'updated_at' => $final_updated,
+                    'sidebar_override' => $sidebarOverride,
+                    'meta_description' => $metaDescription,
+                ]);
+                do_action('admin_post_before_add_commit', $postId, $pdo, $hookInput);
                 $pdo->commit();
                 return $postId;
                 } catch (Throwable $error) {

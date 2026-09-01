@@ -69,6 +69,10 @@ class SitemapController
             'themes' => 'theme',
             default => 'page',
         };
+        $queryClauses = self::queryClauses($pdo, $dbType);
+        $extensionWhere = $queryClauses['where'] === []
+            ? ''
+            : "\n              AND (" . implode(")\n              AND (", $queryClauses['where']) . ')';
 
         $stmt = $pdo->prepare("
             SELECT p.id, p.slug, p.created_at, COALESCE(p.updated_at, p.created_at) AS changed_at
@@ -76,10 +80,11 @@ class SitemapController
             WHERE p.type = :type
               AND p.is_deleted = 0
               AND p.status = 'published'
-              AND (:type_filter <> 'theme' OR EXISTS (
+              AND TRIM(COALESCE(p.slug, '')) <> ''
+               AND (:type_filter <> 'theme' OR EXISTS (
                   SELECT 1 FROM content_routes cr
                   WHERE cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1
-              ))
+              )){$extensionWhere}
             ORDER BY p.created_at DESC
             LIMIT :limit OFFSET :offset
         ");
@@ -87,6 +92,7 @@ class SitemapController
         $stmt->bindValue(':type_filter', $dbType);
         $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+        self::bindQueryParams($stmt, $queryClauses['params']);
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -126,14 +132,79 @@ class SitemapController
 
     private static function countByType(PDO $pdo, string $type): int
     {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM posts WHERE type = :type AND is_deleted = 0 AND status = 'published'");
-        $stmt->execute([':type' => $type]);
+        $queryClauses = self::queryClauses($pdo, $type);
+        $extensionWhere = $queryClauses['where'] === [] ? '' : ' AND (' . implode(') AND (', $queryClauses['where']) . ')';
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM posts p WHERE p.type = :type AND p.is_deleted = 0 AND p.status = 'published' AND TRIM(COALESCE(p.slug, '')) <> ''{$extensionWhere}");
+        $stmt->bindValue(':type', $type);
+        self::bindQueryParams($stmt, $queryClauses['params']);
+        $stmt->execute();
         return (int)$stmt->fetchColumn();
     }
 
     private static function countRoutedThemes(PDO $pdo): int
     {
-        $stmt = $pdo->query("SELECT COUNT(*) FROM posts p WHERE p.type = 'theme' AND p.is_deleted = 0 AND p.status = 'published' AND EXISTS (SELECT 1 FROM content_routes cr WHERE cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1)");
+        $queryClauses = self::queryClauses($pdo, 'theme');
+        $extensionWhere = $queryClauses['where'] === [] ? '' : ' AND (' . implode(') AND (', $queryClauses['where']) . ')';
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM posts p WHERE p.type = 'theme' AND p.is_deleted = 0 AND p.status = 'published' AND TRIM(COALESCE(p.slug, '')) <> '' AND EXISTS (SELECT 1 FROM content_routes cr WHERE cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1){$extensionWhere}");
+        self::bindQueryParams($stmt, $queryClauses['params']);
+        $stmt->execute();
         return (int)$stmt->fetchColumn();
+    }
+
+    /** @return array{where:list<string>,params:array<string,int|string>} */
+    private static function queryClauses(PDO $pdo, string $type): array
+    {
+        $default = ['where' => [], 'params' => []];
+        $filtered = apply_filters('sitemap_query_clauses', $default, $pdo, [
+            'type' => $type,
+            'table_alias' => 'p',
+        ]);
+        if (!is_array($filtered) || !is_array($filtered['where'] ?? null) || !is_array($filtered['params'] ?? null)) {
+            error_log('[sitemap] Ignored malformed query clauses.');
+            return $default;
+        }
+
+        $where = [];
+        foreach ($filtered['where'] as $clause) {
+            if (!is_string($clause) || trim($clause) === '' || str_contains($clause, ';')) {
+                error_log('[sitemap] Ignored malformed query clauses.');
+                return $default;
+            }
+            $where[] = $clause;
+        }
+
+        $params = [];
+        foreach ($filtered['params'] as $key => $value) {
+            if (!is_string($key) || preg_match('/\A:[A-Za-z][A-Za-z0-9_]*\z/D', $key) !== 1
+                || in_array($key, [':type', ':type_filter', ':limit', ':offset'], true)
+                || (!is_int($value) && !is_string($value))) {
+                error_log('[sitemap] Ignored malformed query clauses.');
+                return $default;
+            }
+            $params[$key] = $value;
+        }
+        $placeholderSql = preg_replace(
+            '/\'(?:\'\'|[^\'])*\'|"(?:""|[^"])*"|`(?:``|[^`])*`/',
+            '',
+            implode(' ', $where)
+        );
+        preg_match_all('/(?<!:):[A-Za-z][A-Za-z0-9_]*/', (string)$placeholderSql, $placeholderMatches);
+        $placeholders = array_values(array_unique($placeholderMatches[0] ?? []));
+        sort($placeholders);
+        $paramNames = array_keys($params);
+        sort($paramNames);
+        if ($placeholders !== $paramNames) {
+            error_log('[sitemap] Ignored malformed query clauses.');
+            return $default;
+        }
+        return ['where' => $where, 'params' => $params];
+    }
+
+    /** @param array<string,int|string> $params */
+    private static function bindQueryParams(PDOStatement $stmt, array $params): void
+    {
+        foreach ($params as $key => $value) {
+            $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
     }
 }

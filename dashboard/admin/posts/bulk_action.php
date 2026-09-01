@@ -127,6 +127,14 @@ try {
         $pdo->rollBack();
         respond(false, __('Access denied.'), 403, [], $returnTo);
     }
+    foreach ($selectedPosts as &$selectedPost) {
+        $editorStatus = apply_filters('admin_post_editor_status', (string)($selectedPost['status'] ?? 'draft'), $selectedPost, $pdo);
+        if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published', 'private'], true)) {
+            throw new DomainException('Post editor status is invalid.');
+        }
+        $selectedPost['status'] = $editorStatus;
+    }
+    unset($selectedPost);
     foreach ($selectedPosts as $selectedPost) {
         if (!user_can($pdo, $uid, $requiredPermission, ['owner_id' => (int)($selectedPost['created_by'] ?? 0)])) {
             $pdo->rollBack();
@@ -144,6 +152,7 @@ try {
     }
 
     if ($action === 'delete') {
+        do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $_POST);
         $in = implode(',', array_fill(0, count($ids), '?'));
 
         $sql = "UPDATE posts
@@ -175,6 +184,9 @@ try {
                 }
             }
         }
+
+        $hookInput = array_replace($_POST, ['status' => $new_status]);
+        do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "UPDATE posts
@@ -222,6 +234,9 @@ try {
         if (!in_array($mode, ['add', 'remove', 'toggle'], true)) {
             $mode = 'add';
         }
+
+        $hookInput = array_replace($_POST, ['categories' => $cat_ids, 'cat_mode' => $mode]);
+        do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
 
         $post_ids = $ids;
         $placePost = implode(',', array_fill(0, count($post_ids), '?'));
@@ -336,6 +351,9 @@ try {
             respond(false, __('Author not found.'), 400, [], $returnTo);
         }
 
+        $hookInput = array_replace($_POST, ['author_id' => $author_id]);
+        do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
+
         $in = implode(',', array_fill(0, count($ids), '?'));
         $params = array_merge([$author_id], $ids);
 
@@ -362,6 +380,8 @@ try {
 
         $fields = [];
         $params = [];
+        $normalizedCreatedAt = '';
+        $normalizedUpdatedAt = '';
 
         if ($created_at !== '') {
             $dt = parse_datetime_local($created_at);
@@ -370,7 +390,8 @@ try {
                 respond(false, __('Invalid date format.'), 400, [], $returnTo);
             }
             $fields[] = 'created_at = ?';
-            $params[] = $dt->format('Y-m-d H:i:s');
+            $normalizedCreatedAt = $dt->format('Y-m-d H:i:s');
+            $params[] = $normalizedCreatedAt;
         }
 
         if ($updated_at !== '') {
@@ -380,7 +401,8 @@ try {
                 respond(false, __('Invalid date format.'), 400, [], $returnTo);
             }
             $fields[] = 'updated_at = ?';
-            $params[] = $dt->format('Y-m-d H:i:s');
+            $normalizedUpdatedAt = $dt->format('Y-m-d H:i:s');
+            $params[] = $normalizedUpdatedAt;
         }
 
         // Supaya MySQL tidak menggeser updated_at ke NOW() karena ON UPDATE current_timestamp
@@ -388,6 +410,12 @@ try {
         if ($created_at !== '' && $updated_at === '') {
             $fields[] = 'updated_at = updated_at';
         }
+
+        $hookInput = array_replace($_POST, [
+            'created_at' => $normalizedCreatedAt,
+            'updated_at' => $normalizedUpdatedAt,
+        ]);
+        do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $set = implode(', ', $fields);

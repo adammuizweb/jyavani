@@ -78,6 +78,11 @@ if (!$post) {
     return;
 }
 
+$editorStatus = apply_filters('admin_post_editor_status', (string)($post['status'] ?? 'draft'), $post, $pdo);
+if (is_string($editorStatus) && in_array($editorStatus, ['draft', 'published', 'private'], true)) {
+    $post['status'] = $editorStatus;
+}
+
 $postOwnerId = (int)($post['created_by'] ?? 0);
 if (!user_can($pdo, $me, 'core.posts.update', ['owner_id' => $postOwnerId])) adiwira_render_404();
 $canPublish = user_can($pdo, $me, 'core.posts.publish', ['owner_id' => $postOwnerId]);

@@ -38,9 +38,17 @@ $offset   = ($page_num - 1) * $per_page;
 $where = ["p.is_deleted = 0", "p.type = 'article'"];
 $where[] = '(' . $readCondition['sql'] . ')';
 $params = $readCondition['params'];
+$listContext = [
+    'status' => $filter_status,
+    'search' => $search,
+];
+$statusExpression = apply_filters('post_list_status_expression', 'p.status', $listContext);
+if (!is_string($statusExpression) || trim($statusExpression) === '' || str_contains($statusExpression, ';')) {
+    $statusExpression = 'p.status';
+}
 
 if ($filter_status !== '') {
-    $where[] = "p.status = :status";
+    $where[] = "({$statusExpression}) = :status";
     $params[':status'] = $filter_status;
 }
 
@@ -50,17 +58,27 @@ if ($filter_category !== '') {
 }
 
 if ($search !== '') {
-    $where[] = "(p.title LIKE :search OR p.slug LIKE :search)";
+    $searchCondition = apply_filters('post_list_search_condition', '(p.title LIKE :search OR p.slug LIKE :search)', [
+        'status' => $filter_status,
+        'search' => $search,
+    ]);
+    if (!is_string($searchCondition) || trim($searchCondition) === '' || str_contains($searchCondition, ';')) {
+        $searchCondition = '(p.title LIKE :search OR p.slug LIKE :search)';
+    }
+    $where[] = "({$searchCondition})";
     $params[':search'] = '%' . $search . '%';
 }
 
 $where_sql = implode(' AND ', $where);
+$listJoin = apply_filters('post_list_join', '', $where_sql);
+if (!is_string($listJoin) || str_contains($listJoin, ';')) $listJoin = '';
 
 $count_sql = "
 SELECT COUNT(DISTINCT p.id)
 FROM posts p
 LEFT JOIN post_categories pc ON pc.post_id = p.id
 LEFT JOIN categories c ON c.id = pc.category_id AND c.is_deleted = 0
+$listJoin
 WHERE $where_sql
 ";
 $totalStmt = $pdo->prepare($count_sql);
@@ -69,11 +87,11 @@ $total = (int)$totalStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
 
 $listSelect = apply_filters('post_list_select', '', $where_sql);
-$listJoin = apply_filters('post_list_join', '', $where_sql);
 
 $sql = "
 SELECT
   p.id, p.title, p.slug, p.status, p.created_at, p.created_by AS owner_id,
+  ({$statusExpression}) AS editor_status,
   u.name AS created_by,
   u.username AS author_username,
   GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') AS categories,
@@ -371,7 +389,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             <?php foreach ($posts as $p): ?>
             <?php
               $postOwnerId = (int)($p['owner_id'] ?? 0);
-              $status = strtolower(trim($p['status'] ?? 'unknown'));
+              $status = strtolower(trim($p['editor_status'] ?? $p['status'] ?? 'unknown'));
               $canPublishPost = user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $postOwnerId]);
               $canUpdatePost = user_can($pdo, $uid, 'core.posts.update', ['owner_id' => $postOwnerId])
                 && ($status === 'draft' || $canPublishPost);

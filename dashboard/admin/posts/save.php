@@ -259,10 +259,17 @@ $existing = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$existing) $errors[] = __('Post not found.');
 
+$existingEditorStatus = $existing
+    ? apply_filters('admin_post_editor_status', (string)($existing['status'] ?? 'draft'), $existing, $pdo)
+    : 'draft';
+if (!is_string($existingEditorStatus) || !in_array($existingEditorStatus, ['draft', 'published', 'private'], true)) {
+    $errors[] = __('Post editor status is invalid.');
+}
+
 if (empty($errors) && !user_can($pdo, $uid, 'core.posts.update', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
-if (empty($errors) && ((string)($existing['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+if (empty($errors) && ($existingEditorStatus !== 'draft' || $status !== 'draft')
     && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
@@ -342,7 +349,7 @@ $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNI
 $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in, $sidebarOverride, $metaDescription): void {
     $pdo->beginTransaction();
     try {
 
@@ -353,7 +360,7 @@ try {
         $content = cms_sanitize_restricted_html($content);
     }
 
-    $lock = $pdo->prepare("SELECT created_by, status, created_at FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, created_by, status, created_at FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedOwnerId = (int)($lockedPost['created_by'] ?? 0);
@@ -363,7 +370,11 @@ try {
     if (!$lockedPost || !user_can($pdo, $uid, 'core.posts.update', ['owner_id' => $lockedOwnerId])) {
         throw new DomainException('Post update permission changed.');
     }
-    if (((string)($lockedPost['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+    $lockedEditorStatus = apply_filters('admin_post_editor_status', (string)($lockedPost['status'] ?? 'draft'), $lockedPost, $pdo);
+    if (!is_string($lockedEditorStatus) || !in_array($lockedEditorStatus, ['draft', 'published', 'private'], true)) {
+        throw new DomainException('Post editor status is invalid.');
+    }
+    if (($lockedEditorStatus !== 'draft' || $status !== 'draft')
         && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $lockedOwnerId])) {
         throw new DomainException('Post publish permission changed.');
     }
@@ -450,6 +461,21 @@ try {
         }
     }
 
+    $hookInput = array_replace($_POST, [
+        'title' => $title,
+        'slug' => $slug,
+        'content' => $content,
+        'status' => $status,
+        'youtube' => $youtube,
+        'thumbnail' => $thumbnail,
+        'categories' => $cats,
+        'created_by' => $final_creator,
+        'created_at' => $effectiveCreatedAt,
+        'updated_at' => $final_updated,
+        'sidebar_override' => $sidebarOverride,
+        'meta_description' => $metaDescription,
+    ]);
+    do_action('admin_post_before_edit_commit', $id, $pdo, $hookInput);
     $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();

@@ -96,6 +96,7 @@ $current_category_path = function_exists('get_category_path')
 
 $current_site_language = settings_get($pdo, 'site_language', 'en') ?? 'en';
 $current_content_language = settings_get($pdo, 'content_default_language', $current_site_language) ?? $current_site_language;
+$stored_content_language = $current_content_language;
 
 $current_favicon_url = settings_get($pdo, 'favicon_url', '') ?? '';
 
@@ -181,6 +182,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!in_array($current_content_language, get_supported_locales(), true)) {
         $current_content_language = $current_site_language;
+    }
+
+    $filteredErrors = apply_filters('site_settings_validation_errors', $errors, $pdo, $_POST, [
+        'stored_content_default_language' => $stored_content_language,
+        'content_default_language' => $current_content_language,
+    ]);
+    if (is_array($filteredErrors)) {
+        $filteredErrors = array_values(array_filter($filteredErrors, 'is_string'));
+        $errors = array_values(array_unique(array_merge($errors, $filteredErrors)));
+    } else {
+        $errors[] = __('Site settings validation failed.');
     }
 
     if (!$errors) {

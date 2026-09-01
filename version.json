@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.94",
-    "build": "2026-09-01",
-    "changelog": "Keep configured dashboard routing and path guards aligned when the admin path setting is absent.",
+    "version": "2.3.95",
+    "build": "2026-09-02",
+    "changelog": "Add tenant-neutral extension contracts for localized article workflows, effective editorial status, and sitemap visibility.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
