@@ -50,12 +50,9 @@ if (!defined('FRONTEND_404_PATH')) {
 
 // Define admin base URL path for internal links
 if (!defined('ADMIN_BASE_PATH')) {
-    $abp = 'adiwira';
-    if (isset($pdo) && $pdo) {
-        $abp_v = settings_get($pdo, 'admin_path', 'adiwira');
-        if (is_string($abp_v) && $abp_v !== '') {
-            $abp = $abp_v;
-        }
+    $abp = '/dashboard';
+    if (isset($pdo) && $pdo instanceof PDO && function_exists('get_admin_path')) {
+        $abp = get_admin_path($pdo);
     }
     define('ADMIN_BASE_PATH', '/' . trim($abp, '/'));
 }

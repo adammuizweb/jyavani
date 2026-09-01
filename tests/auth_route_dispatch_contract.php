@@ -100,8 +100,15 @@ $check(!auth_path_matches('account/sign-in')
 
 $GLOBALS['_auth_route_dispatch_settings'] = [];
 $check(get_login_path($pdo) === 'login' && get_register_path($pdo) === 'register'
-    && router_core_path_is_owned($pdo, 'login') && router_core_path_is_owned($pdo, 'register'),
-    'missing settings retain the legacy login and register defaults');
+    && get_admin_path($pdo) === '/dashboard'
+    && router_core_path_is_owned($pdo, 'login') && router_core_path_is_owned($pdo, 'register')
+    && router_core_path_is_owned($pdo, 'dashboard'),
+    'missing settings retain consistent login, register, and admin defaults');
+
+$dashboardBootstrap = (string)file_get_contents($root . '/dashboard/bootstrap.php');
+$check(str_contains($dashboardBootstrap, 'get_admin_path($pdo)')
+    && !str_contains($dashboardBootstrap, "settings_get(\$pdo, 'admin_path'"),
+    'dashboard bootstrap shares the router and login admin path resolver');
 
 $GLOBALS['_auth_route_dispatch_settings'] = ['login_path' => '', 'register_path' => '/'];
 $_SERVER['REQUEST_URI'] = '/';
