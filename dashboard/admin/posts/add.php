@@ -391,6 +391,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         ]);
                     }
                 }
+                do_action('admin_post_before_add_commit', $postId, $pdo, $_POST);
                 $pdo->commit();
                 return $postId;
                 } catch (Throwable $error) {

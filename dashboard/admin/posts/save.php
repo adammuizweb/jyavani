@@ -450,6 +450,7 @@ try {
         }
     }
 
+    do_action('admin_post_before_edit_commit', $id, $pdo, $_POST);
     $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();

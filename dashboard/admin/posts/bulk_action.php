@@ -143,6 +143,8 @@ try {
         }
     }
 
+    do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $_POST);
+
     if ($action === 'delete') {
         $in = implode(',', array_fill(0, count($ids), '?'));
 

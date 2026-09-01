@@ -186,6 +186,38 @@ post; it must not replace page-level metadata for the request. This keeps direct
 theme pages, assigned partials, preview tools, localization, and future extensions
 independent from one another.
 
+## Article workflow hooks
+
+Plugins that maintain article-owned companion rows can join Core's transaction
+before a source mutation commits:
+
+```php
+do_action('admin_post_before_add_commit', int $postId, PDO $pdo, array $input): void
+do_action('admin_post_before_edit_commit', int $postId, PDO $pdo, array $input): void
+do_action('admin_posts_bulk_before_mutation', string $action, array $lockedPosts, PDO $pdo, array $input): void
+```
+
+These actions execute after Core has locked permissions and resource rows but
+before its transaction commits or performs the selected bulk mutation. A listener
+may write companion state or throw; thrown errors propagate so Core rolls back the
+whole transaction. Listeners must not commit, roll back, or start another
+transaction, and must preserve Core's global-first lock order.
+
+Default sitemap SQL can be restricted through:
+
+```php
+apply_filters(
+    'sitemap_query_clauses',
+    array $clauses, // ['where' => list<string>, 'params' => array<string,int|string>]
+    PDO $pdo,
+    array $context // type and table_alias ('p')
+): array
+```
+
+The same clauses are applied to sitemap counts and rows. Parameter names must be
+plugin-namespaced and may not replace Core bindings. Malformed output is ignored
+as a complete value; filters must return the complete `where`/`params` structure.
+
 ## Theme slot context hook
 
 Plugins can augment the prepared context for every available theme slot at the
