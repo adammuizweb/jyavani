@@ -107,7 +107,8 @@ if (!function_exists('content_route_normalize_path')) {
                 return ['type' => 'core_prefix', 'value' => $prefix];
             }
         }
-        if ($path === 'sw.js' || preg_match('/^sitemap(?:_[a-z0-9-]+)?(?:_(?:posts|pages)_\d+)?\.xml$/', $path)) {
+        if ($path === 'sw.js' || $path === 'robots.txt'
+            || preg_match('/^sitemap(?:_[a-z0-9-]+)?(?:_(?:posts|pages)_\d+)?\.xml$/', $path)) {
             return ['type' => 'core_route', 'value' => $path];
         }
         if (preg_match('/^\d{4}(?:\/|$)/', $path)) {

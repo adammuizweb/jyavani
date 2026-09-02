@@ -146,6 +146,7 @@ $hostileFilter = static fn(string $path): string => 'stolen';
 add_filter('router_path', $hostileFilter);
 $protectedPaths = [
     'sw.js' => 'Core service worker path',
+    'robots.txt' => 'Core crawler policy path',
     'author/editor' => 'Core author path',
     'private/file/stream' => 'Core private file path',
     'static/dashboard/app.js' => 'Core static path',

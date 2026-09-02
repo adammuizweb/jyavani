@@ -292,6 +292,7 @@ $check($localized['locale'] === 'en', 'the same path remains available in a diff
 $check(content_route_find_canonical($pdo, 1)['path'] === 'guides/start', 'a rejected collision leaves the existing canonical unchanged');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'draft-direct'), DomainException::class), 'direct post slugs participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'author/someone'), DomainException::class), 'Core route prefixes participate in collision checks');
+$check($throws(fn() => content_route_set_canonical($pdo, 1, 'robots.txt'), InvalidArgumentException::class), 'the Core crawler policy file path is rejected before content routing');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'articles/archive'), DomainException::class), 'configured collection routes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'shop/item'), DomainException::class), 'registered plugin route prefixes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'shop-status'), DomainException::class), 'registered exact plugin routes participate in collision checks');

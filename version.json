@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.98",
+    "version": "2.3.99",
     "build": "2026-09-02",
-    "changelog": "Add generic read-only content access, owner-scoped mutations, and last-updater attribution.",
+    "changelog": "Add configurable robots.txt policy, centralized crawler directives, and protected search-engine routing.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

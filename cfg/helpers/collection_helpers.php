@@ -29,7 +29,7 @@ function router_core_path_is_owned(PDO $pdo, string $path): bool
     foreach (['author', 'private', 'plugins', 'static'] as $prefix) {
         if ($path === $prefix || str_starts_with($path, $prefix . '/')) return true;
     }
-    if ($path === 'sw.js'
+    if ($path === 'sw.js' || $path === 'robots.txt'
         || preg_match('#^sitemap_([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)_(\d+)\.xml$#', $path)
         || preg_match('#^sitemap(?:_(posts|pages|themes)_(\d+))?\.xml$#', $path)
     ) {

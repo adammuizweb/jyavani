@@ -19,6 +19,7 @@ plugin_run_frontend_init();
 $rawPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $rawPath = rawurldecode($rawPath);
 $pathTrimmed = trim($rawPath, " \t\n\r\0\x0B/");
+$requestMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 // Core always serves a root-scoped worker. With no plugin contributions this
 // lifecycle-only response replaces any stale worker left by a disabled plugin.
@@ -27,6 +28,25 @@ if ($pathTrimmed === 'sw.js') {
     header('Cache-Control: no-cache, no-store, must-revalidate');
     header('Service-Worker-Allowed: /');
     echo core_service_worker_script();
+    exit;
+}
+
+// Search crawler policy is a protected root route, like the service worker.
+if ($pathTrimmed === 'robots.txt') {
+    if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
+        http_response_code(405);
+        header('Allow: GET, HEAD');
+        exit;
+    }
+    $robotsScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $robotsHost = preg_replace('/[^a-z0-9.\-:]/i', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    if ($robotsHost === '') $robotsHost = 'localhost';
+    $robotsBody = site_robots_txt_content($pdo, $robotsScheme . '://' . $robotsHost);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: public, max-age=300');
+    header('Content-Length: ' . strlen($robotsBody));
+    if ($requestMethod === 'GET') echo $robotsBody;
     exit;
 }
 
@@ -60,8 +80,6 @@ $dispatchPluginRoute = static function (array $resolvedRoute) use ($pdo): void {
     http_response_code(500);
     exit;
 };
-
-$requestMethod = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 // homepage
 if ($pathTrimmed === '') {

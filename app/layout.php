@@ -45,6 +45,23 @@ $host = $_SERVER['HTTP_HOST'] ?? $db_default_host;
 $host = preg_replace('/[^a-z0-9\.\-:]/i', '', (string)$host);
 $site_base_url = $scheme . '://' . $host;
 
+$requestedRobotsMeta = trim((string)($GLOBALS['robots_meta'] ?? 'index,follow'));
+if (preg_match('/^[a-z0-9,\- ]{1,128}$/i', $requestedRobotsMeta) !== 1) {
+    $requestedRobotsMeta = 'index,follow';
+}
+$indexingAllowed = !($pdo instanceof PDO && function_exists('site_search_engine_indexing_allowed'))
+    || site_search_engine_indexing_allowed($pdo);
+$robotsMeta = $indexingAllowed ? $requestedRobotsMeta : 'noindex,nofollow';
+if ($indexingAllowed) {
+    $filteredRobotsMeta = apply_filters('robots_meta_content', $robotsMeta, $pdo);
+    if (is_string($filteredRobotsMeta) && preg_match('/^[a-z0-9,\- ]{1,128}$/i', trim($filteredRobotsMeta)) === 1) {
+        $robotsMeta = trim($filteredRobotsMeta);
+    }
+}
+if (preg_match('/(?:^|,)\s*noindex(?:\s*,|$)/i', $robotsMeta) === 1 && !headers_sent()) {
+    header('X-Robots-Tag: ' . $robotsMeta);
+}
+
 // 5) Theme class (light/dark) — respect theme's color_mode capability
 $themeColorMode = function_exists('get_theme_color_mode') ? get_theme_color_mode($pdo) : 'both';
 $themeClass = '';
@@ -221,7 +238,7 @@ $metaDesc = apply_filters('document_meta_description', (string)$metaDesc, $post 
 <?php if ($metaImg !== ''): ?>
   <meta name="twitter:image" content="<?= htmlspecialchars($metaImg, ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
-  <meta name="robots" content="index,follow">
+  <meta name="robots" content="<?= htmlspecialchars($robotsMeta, ENT_QUOTES, 'UTF-8') ?>">
   <script>window.THEME_COLOR_MODE = <?= json_encode($themeColorMode) ?>;</script>
   <script src="/static/assets/js/main.js"></script>
 
@@ -268,7 +285,6 @@ $resolvedCanonical = apply_filters('canonical_url', $resolvedCanonical);
 echo '<link rel="canonical" href="' . htmlspecialchars($resolvedCanonical, ENT_QUOTES, 'UTF-8') . '">' . PHP_EOL;
 if (!empty($GLOBALS['rel_prev'])) echo '<link rel="prev" href="'.htmlspecialchars($GLOBALS['rel_prev'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 if (!empty($GLOBALS['rel_next'])) echo '<link rel="next" href="'.htmlspecialchars($GLOBALS['rel_next'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
-if (!empty($GLOBALS['robots_meta'])) echo '<meta name="robots" content="'.htmlspecialchars($GLOBALS['robots_meta'],ENT_QUOTES,'UTF-8').'">'.PHP_EOL;
 
 $layoutThemeFolders = [];
 if (function_exists('get_relevant_theme_folders')) {

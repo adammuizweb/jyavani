@@ -45,6 +45,49 @@ if (!function_exists('settings_set')) {
     }
 }
 
+if (!function_exists('settings_robots_txt_validation_error')) {
+    function settings_robots_txt_validation_error(string $content): ?string {
+        if (strlen($content) > 16384
+            || preg_match('//u', $content) !== 1
+            || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $content) === 1) {
+            return 'Robots.txt must be valid UTF-8 text, contain no control characters, and not exceed 16 KiB.';
+        }
+        return null;
+    }
+}
+
+if (!function_exists('site_search_engine_indexing_allowed')) {
+    function site_search_engine_indexing_allowed(PDO $pdo): bool {
+        return settings_get($pdo, 'search_engine_indexing', '1') !== '0';
+    }
+}
+
+if (!function_exists('site_robots_txt_normalize')) {
+    function site_robots_txt_normalize(string $content): string {
+        if (str_starts_with($content, "\xEF\xBB\xBF")) $content = substr($content, 3);
+        $content = str_replace(["\r\n", "\r"], "\n", $content);
+        if ($content === '') return '';
+        return rtrim($content, "\n") . "\n";
+    }
+}
+
+if (!function_exists('site_robots_txt_content')) {
+    function site_robots_txt_content(PDO $pdo, string $baseUrl): string {
+        $indexingAllowed = site_search_engine_indexing_allowed($pdo);
+        $default = $indexingAllowed
+            ? "User-agent: *\nAllow: /\nSitemap: " . rtrim($baseUrl, '/') . "/sitemap.xml\n"
+            : "User-agent: *\nDisallow: /\n";
+        $custom = settings_get($pdo, 'robots_txt_custom', '') ?? '';
+        $content = $indexingAllowed && trim($custom) !== '' ? $custom : $default;
+        if ($indexingAllowed && function_exists('apply_filters')) {
+            $filtered = apply_filters('robots_txt_content', $content, $pdo, $indexingAllowed);
+            if (is_string($filtered)) $content = $filtered;
+        }
+        if (settings_robots_txt_validation_error($content) !== null) $content = $default;
+        return site_robots_txt_normalize($content);
+    }
+}
+
 if (!function_exists('settings_favicon_url_validation_error')) {
     /** Validate favicon URL safety and inspect local image dimensions without fetching remote URLs. */
     function settings_favicon_url_validation_error(string $url, ?string $publicPath = null): ?string {
