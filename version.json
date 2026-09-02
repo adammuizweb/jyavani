@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.100",
+    "version": "2.3.101",
     "build": "2026-09-02",
-    "changelog": "Preserve immutable plugin migration history across whole-file LF and CRLF checkout conversions.",
+    "changelog": "Add an environment-controlled pre-bootstrap development gate with hashed credentials and crawler blocking.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

@@ -46,6 +46,8 @@ cd jyavani
 
 Do not commit `cfg/.env`, credentials, generated secrets, private uploads, sessions, or runtime backups. For manual deployments, [`cfg/env-sample`](cfg/env-sample) documents supported settings without usable secrets.
 
+Non-production environments can enable Core's pre-bootstrap access gate with `DEV_LOCK_ENABLED=1` and an environment-owned `DEV_LOCK_PASSWORD_HASH`. Generate the hash offline with PHP's `password_hash()` and keep both the password and hash out of Git. Locked requests return HTTP 503 with no-store and `noindex` directives before database or plugin bootstrap; production should leave the feature disabled.
+
 For local evaluation only, PHP's development server can use the same front controller:
 
 ```bash

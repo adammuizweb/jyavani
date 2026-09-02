@@ -57,6 +57,8 @@ file_put_contents($fixture . '/dashboard/gerbank/melbu/index.php', "<?php echo '
 file_put_contents($fixture . '/dashboard/gerbank/daptar/index.php', "<?php echo 'CORE_REGISTER'; exit;\n");
 file_put_contents($fixture . '/cfg/var/plugins-disabled.json', "[]\n");
 copy($root . '/public/router.php', $fixture . '/public/router.php');
+copy($root . '/public/dev_lock.php', $fixture . '/public/dev_lock.php');
+copy($root . '/app/dev_lock.php', $fixture . '/app/dev_lock.php');
 
 file_put_contents($fixture . '/runner.php', <<<'PHP'
 <?php

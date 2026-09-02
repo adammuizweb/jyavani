@@ -1,7 +1,6 @@
 <?php
 // router.php
-// define('DEV_LOCK_ENABLED', true);
-// require_once __DIR__ . '/dev_lock.php';
+require_once __DIR__ . '/dev_lock.php';
 
 // BOOTSTRAP
 require_once __DIR__ . '/../app/bootstrap_core.php';

@@ -200,6 +200,8 @@ SESSION_SAVE_PATH=/path/to/project/cfg/var/sessions
 THEME_OPERATION_LOCK_DIR=/var/lib/php/[project]-theme-locks
 PLUGIN_DISABLED_JSON=/var/lib/php/[project]-plugin-state/plugins-disabled.json
 UPDATE_STATUS_FILE=/var/lib/php/[project]-update-state/update-status.json
+DEV_LOCK_ENABLED=0
+DEV_LOCK_PASSWORD_HASH=
 SESSION_NAME=[session_name]
 SESSION_COOKIE_DOMAIN=
 SESSION_COOKIE_PATH=/
@@ -214,6 +216,8 @@ PLUGIN_INSTALL_OUTPUT_LIMIT=65536
 `PUBLIC_PATH` must be an existing absolute directory. For split deployments it may point to a sibling web root such as `/home/account/public_html`; logical release paths remain `public/...`. Configure nginx `root` to the same directory. If `cfg/` cannot be found relative to the public installer, expose `BACKEND_PATH=/absolute/path/to/project/cfg` to PHP-FPM so fresh-install bootstrap can locate it.
 
 `DB_SESSION_WAIT_TIMEOUT` is optional. When set, it must be an integer from 1 to 31536000 and configures only the current MySQL session's idle timeout.
+
+`DEV_LOCK_ENABLED=1` enables Core's pre-bootstrap gate for a staging or development environment. Set `DEV_LOCK_PASSWORD_HASH` to output generated offline with `php -r "echo password_hash('replace-me', PASSWORD_DEFAULT), PHP_EOL;"`; never store a plaintext gate password or commit the hash. The gate uses an isolated 12-hour host-only session and returns HTTP 503, `no-store`, and `noindex,nofollow,noarchive` until unlocked. Leave `DEV_LOCK_ENABLED=0` in production.
 
 `THEME_OPERATION_LOCK_DIR` is optional on a native Linux project filesystem. It is required when the project is served from a mounted filesystem that cannot reliably preserve Unix owner/group/mode semantics, including WSL paths below `/mnt/c`. Use an absolute native Linux directory owned by the deployment user, shared with the PHP-FPM group, and set to mode `02770`. Every web and CLI worker participating in theme/plugin operations must use the same directory.
 

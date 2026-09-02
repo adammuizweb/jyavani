@@ -9,6 +9,11 @@ DB_SESSION_WAIT_TIMEOUT=
 # Absolute deployment web root; leave empty to auto-detect public/, public_html/, www/, or htdocs/.
 PUBLIC_PATH=
 
+# Optional pre-bootstrap development gate. Generate the hash offline with:
+# php -r "echo password_hash('replace-me', PASSWORD_DEFAULT), PHP_EOL;"
+DEV_LOCK_ENABLED=0
+DEV_LOCK_PASSWORD_HASH=
+
 # Outgoing email defaults. Values saved in Settings > Email override these.
 # "native" delegates to the local PHP/hosting mail transport.
 MAIL_TRANSPORT=native

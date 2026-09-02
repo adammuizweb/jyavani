@@ -652,7 +652,7 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 - Read the current version from `VERSION` and `version.json`; do not rely on a version copied into documentation.
 - Playwright regression tests available — run after changes to verify
 - Error display controlled by `APP_DEBUG=1` in `.env`
-- `dev_lock.php` can lockdown the site
+- The pre-bootstrap development gate is Core-managed and configured only through `DEV_LOCK_ENABLED` plus an environment-owned `DEV_LOCK_PASSWORD_HASH`. Both public entrypoints enforce it before database/plugin bootstrap. Enabled gates return HTTP 503 with `noindex` and no-store headers until an isolated authenticated session unlocks them; never hardcode or commit the password/hash.
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
 - `reset_admin_cache()` must be called after enabling a plugin for nav to appear (deletes `cfg/var/theme_cache.json`)
 - **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. After `default.sql`, imports `translations.sql` for seed data. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. Link to dashboard uses URL `/adiwira/gerbank/melbu/` (default login path, router serves from `dashboard/`).
