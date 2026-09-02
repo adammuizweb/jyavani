@@ -81,19 +81,22 @@ $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
     $pdo->beginTransaction();
-
-    $selectedStmt = $pdo->prepare("
-        SELECT id, created_by
-        FROM categories
-        WHERE id IN ($in)
-          AND is_deleted = 1
-        FOR UPDATE
-    ");
-    $selectedStmt->execute($ids);
-    $selectedCategories = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Category actor permission lock failed.');
+    $lockedRows = $pdo->query('SELECT id, parent_id, created_by, is_deleted FROM categories ORDER BY id FOR UPDATE')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $lockedById = [];
+    foreach ($lockedRows as $lockedRow) $lockedById[(int)$lockedRow['id']] = $lockedRow;
+    $selectedCategories = [];
+    foreach ($ids as $selectedId) {
+        if (isset($lockedById[$selectedId]) && (int)$lockedById[$selectedId]['is_deleted'] === 1) {
+            $selectedCategories[] = $lockedById[$selectedId];
+        }
+    }
     if (count($selectedCategories) !== count($ids)) {
         $pdo->rollBack();
         respond_category_bin_bulk(false, __('Category not found in trash.'), 404, [], $returnTo);
+    }
+    if (!authorization_lock_owner_contexts($pdo, array_column($selectedCategories, 'created_by'))) {
+        throw new DomainException('Category owner context lock failed.');
     }
     foreach ($selectedCategories as $selectedCategory) {
         if (!user_can(
@@ -129,6 +132,10 @@ try {
         $stmt->execute($ids);
         $affected = $stmt->rowCount();
 
+        foreach ($selectedCategories as $selectedCategory) {
+            do_action('admin_category_before_restore_commit', (int)$selectedCategory['id'], $pdo);
+        }
+
         $pdo->commit();
         respond_category_bin_bulk(true, "Successfully restored  {$affected} kategori.", 200, ['count' => $affected], $returnTo);
     }
@@ -157,6 +164,10 @@ try {
         }
 
         $pdo->prepare("DELETE FROM post_categories WHERE category_id IN ($in)")->execute($ids);
+
+        foreach ($selectedCategories as $selectedCategory) {
+            do_action('admin_category_before_purge_commit', (int)$selectedCategory['id'], $selectedCategory, $pdo);
+        }
 
         $sql = "DELETE FROM categories WHERE id IN ($in) AND is_deleted = 1";
         $stmt = $pdo->prepare($sql);

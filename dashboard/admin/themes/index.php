@@ -27,6 +27,11 @@ $offset   = ($page_num - 1) * $per_page;
 
 $where  = ["p.is_deleted = 0", "p.type = 'theme'"];
 $params = [];
+$listContext = ['type' => 'theme', 'status' => $filter_status, 'search' => $search];
+$statusExpression = apply_filters('post_list_status_expression', 'p.status', $listContext);
+if (!is_string($statusExpression) || trim($statusExpression) === '' || str_contains($statusExpression, ';')) {
+    $statusExpression = 'p.status';
+}
 
 if (!$isAdmin) {
     $where[] = "p.created_by = :uid";
@@ -34,18 +39,24 @@ if (!$isAdmin) {
 }
 
 if ($filter_status !== '') {
-    $where[] = "p.status = :status";
+    $where[] = "({$statusExpression}) = :status";
     $params[':status'] = $filter_status;
 }
 
 if ($search !== '') {
-    $where[] = "(p.title LIKE :search OR p.slug LIKE :search OR cr.path LIKE :search)";
+    $searchCondition = apply_filters('post_list_search_condition', '(p.title LIKE :search OR p.slug LIKE :search OR cr.path LIKE :search)', $listContext);
+    if (!is_string($searchCondition) || trim($searchCondition) === '' || str_contains($searchCondition, ';')) {
+        $searchCondition = '(p.title LIKE :search OR p.slug LIKE :search OR cr.path LIKE :search)';
+    }
+    $where[] = "({$searchCondition})";
     $params[':search'] = '%' . $search . '%';
 }
 
 $where_sql = implode(' AND ', $where);
+$listJoin = apply_filters('post_list_join', '', $where_sql, $listContext);
+if (!is_string($listJoin) || str_contains($listJoin, ';')) $listJoin = '';
 
-$count_sql = "SELECT COUNT(*) FROM posts p LEFT JOIN content_routes cr ON cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1 WHERE $where_sql";
+$count_sql = "SELECT COUNT(DISTINCT p.id) FROM posts p LEFT JOIN content_routes cr ON cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1 $listJoin WHERE $where_sql";
 $countStmt = $pdo->prepare($count_sql);
 foreach ($params as $k => $v) {
     $countStmt->bindValue($k, $v);
@@ -53,11 +64,16 @@ foreach ($params as $k => $v) {
 $countStmt->execute();
 $total = (int)$countStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
+$listSelect = apply_filters('post_list_select', '', $where_sql, $listContext);
+if (!is_string($listSelect) || str_contains($listSelect, ';')) $listSelect = '';
 
 $sql = "
-  SELECT p.id, p.title, p.slug, p.status, p.created_at, p.updated_at, p.created_by, cr.path AS public_path
+  SELECT p.id, p.title, p.slug, p.slug AS internal_slug, p.status, ({$statusExpression}) AS editor_status,
+    p.created_at, p.updated_at, p.created_by, cr.path AS public_path
+    $listSelect
   FROM posts p
   LEFT JOIN content_routes cr ON cr.post_id = p.id AND cr.locale = '' AND cr.canonical_slot = 1
+  $listJoin
   WHERE $where_sql
   ORDER BY p.created_at DESC
   LIMIT :limit OFFSET :offset
@@ -70,6 +86,8 @@ $stmt->bindValue(':limit', $per_page, PDO::PARAM_INT);
 $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
 $stmt->execute();
 $themes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$filteredThemes = apply_filters('post_list_rows', $themes, $listContext);
+if (is_array($filteredThemes)) $themes = $filteredThemes;
 
 $base = ADMIN_BASE_PATH;
 
@@ -200,7 +218,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <?php else: ?>
           <?php foreach ($themes as $t): ?>
             <?php
-              $status = strtolower(trim((string)($t['status'] ?? 'unknown')));
+              $status = strtolower(trim((string)($t['editor_status'] ?? $t['status'] ?? 'unknown')));
               $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
 
               $icons = [
@@ -216,6 +234,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   'id'        => (int)$t['id'],
                   'return_to' => $currentReturnTo,
               ]);
+              $titleHref = trim((string)($t['display_permalink'] ?? ''));
+              if ($titleHref === '') {
+                  $titleHref = function_exists('get_post_permalink') ? get_post_permalink($t) : '/' . rawurlencode((string)$t['slug']) . '/';
+              }
             ?>
             <tr class="adam-row">
               <?php if ($isAdmin): ?>
@@ -226,10 +248,11 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
               <td>
                 <div class="title-wrap">
-                  <a class="adam-link--full" href="<?= htmlspecialchars(function_exists('get_post_permalink') ? get_post_permalink($t) : '/' . rawurlencode((string)$t['slug']) . '/', ENT_QUOTES, 'UTF-8') ?>"
+                  <a class="adam-link--full" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
                      title="<?= htmlspecialchars((string)($t['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>">
                     <?= htmlspecialchars((string)($t['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
                   </a>
+                  <?= apply_filters('post_list_title_after', '', $t) ?>
                   <div class="row-actions">
                     <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
                     <?php if ($isAdmin): ?>
@@ -246,7 +269,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 </div>
               </td>
 
-              <td class="col-slug"><?= htmlspecialchars((string)($t['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
+              <td class="col-slug"><?= htmlspecialchars((string)($t['internal_slug'] ?? $t['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
               <td class="col-public-path"><?= ($t['public_path'] ?? '') !== '' ? '<code>/' . htmlspecialchars((string)$t['public_path'], ENT_QUOTES, 'UTF-8') . '/</code>' : '<span class="adam-muted">' . __('Assignment only') . '</span>' ?></td>
 
               <td class="col-status">

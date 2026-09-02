@@ -92,6 +92,13 @@ if (!$post) {
     echo '<p>' . __('Page not found or is not a page.') . '</p>';
     return;
 }
+$editorStatus = apply_filters('admin_page_editor_status', (string)($post['status'] ?? 'draft'), $post, $pdo);
+if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published', 'private'], true)) {
+    http_response_code(500);
+    echo '<p>' . __('Page editor status is invalid.') . '</p>';
+    return;
+}
+$post['status'] = $editorStatus;
 
 if (!user_can($pdo, $me, 'core.pages.update', ['owner_id' => (int)($post['created_by'] ?? 0)])) {
     http_response_code(403);

@@ -34,10 +34,15 @@ $offset   = ($page_num - 1) * $per_page;
 $where = ["p.is_deleted = 0", "p.type = 'page'"];
 $where[] = '(' . $readCondition['sql'] . ')';
 $params = $readCondition['params'];
+$listContext = ['type' => 'page', 'status' => $filter_status, 'search' => $search];
+$statusExpression = apply_filters('post_list_status_expression', 'p.status', $listContext);
+if (!is_string($statusExpression) || trim($statusExpression) === '' || str_contains($statusExpression, ';')) {
+    $statusExpression = 'p.status';
+}
 
 // filter status
 if ($filter_status !== '') {
-    $where[] = "p.status = :status";
+    $where[] = "({$statusExpression}) = :status";
     $params[':status'] = $filter_status;
 }
 
@@ -52,26 +57,33 @@ if ($filter_author !== '') {
 
 // search
 if ($search !== '') {
-    $where[] = "(p.title LIKE :search OR p.slug LIKE :search)";
+    $searchCondition = apply_filters('post_list_search_condition', '(p.title LIKE :search OR p.slug LIKE :search)', $listContext);
+    if (!is_string($searchCondition) || trim($searchCondition) === '' || str_contains($searchCondition, ';')) {
+        $searchCondition = '(p.title LIKE :search OR p.slug LIKE :search)';
+    }
+    $where[] = "({$searchCondition})";
     $params[':search'] = '%' . $search . '%';
 }
 
 $where_sql = implode(' AND ', $where);
+$listJoin = apply_filters('post_list_join', '', $where_sql, $listContext);
+if (!is_string($listJoin) || str_contains($listJoin, ';')) $listJoin = '';
 
 // total count
-$count_sql = "SELECT COUNT(*) FROM posts p WHERE $where_sql";
+$count_sql = "SELECT COUNT(DISTINCT p.id) FROM posts p $listJoin WHERE $where_sql";
 $countStmt = $pdo->prepare($count_sql);
 $countStmt->execute($params);
 $total = (int)$countStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
 
 // data
-$listSelect = apply_filters('post_list_select', '', $where_sql);
-$listJoin = apply_filters('post_list_join', '', $where_sql);
+$listSelect = apply_filters('post_list_select', '', $where_sql, $listContext);
+if (!is_string($listSelect) || str_contains($listSelect, ';')) $listSelect = '';
 
 $sql = "
 SELECT
   p.id, p.title, p.slug, p.status, p.created_at, p.updated_at, p.created_by AS owner_id,
+  ({$statusExpression}) AS editor_status,
   u.id AS author_id,
   u.username AS author_username,
   COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS author_name
@@ -305,7 +317,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             <?php foreach ($pages_list as $p): ?>
               <?php
                 $pageOwnerId = (int)($p['owner_id'] ?? 0);
-                $status = strtolower(trim((string)($p['status'] ?? 'unknown')));
+                $status = strtolower(trim((string)($p['editor_status'] ?? $p['status'] ?? 'unknown')));
                 $canPublishPage = user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $pageOwnerId]);
                 $canUpdatePage = user_can($pdo, $uid, 'core.pages.update', ['owner_id' => $pageOwnerId])
                     && ($status === 'draft' || $canPublishPage);

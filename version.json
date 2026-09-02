@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.95",
+    "version": "2.3.96",
     "build": "2026-09-02",
-    "changelog": "Add tenant-neutral extension contracts for localized article workflows, effective editorial status, and sitemap visibility.",
+    "changelog": "Add owner-scoped Category lifecycle contracts and multilingual Page and Theme Template workflow hooks.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

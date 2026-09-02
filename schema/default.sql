@@ -230,6 +230,8 @@ JOIN (
   SELECT 'core.categories.read', 'any' UNION ALL
   SELECT 'core.categories.create', 'global' UNION ALL
   SELECT 'core.categories.update', 'own' UNION ALL
+  SELECT 'core.categories.trash', 'own' UNION ALL
+  SELECT 'core.categories.restore', 'own' UNION ALL
   SELECT 'core.media.read', 'own' UNION ALL
   SELECT 'core.media.upload', 'global' UNION ALL
   SELECT 'core.media.update', 'own' UNION ALL

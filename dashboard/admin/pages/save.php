@@ -143,11 +143,18 @@ $existing = $st->fetch(PDO::FETCH_ASSOC);
 if (!$existing) {
     $errors[] = __('Page not found.');
 }
+$existingEditorStatus = is_array($existing)
+    ? apply_filters('admin_page_editor_status', (string)($existing['status'] ?? 'draft'), $existing, $pdo)
+    : 'draft';
+if (!is_string($existingEditorStatus) || !in_array($existingEditorStatus, ['draft', 'published', 'private'], true)) {
+    $errors[] = __('Page editor status is invalid.');
+    $existingEditorStatus = 'draft';
+}
 
 if (empty($errors) && !user_can($pdo, $uid, 'core.pages.update', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
-if (empty($errors) && ((string)($existing['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+if (empty($errors) && ($existingEditorStatus !== 'draft' || $status !== 'draft')
     && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
@@ -241,15 +248,21 @@ try {
     try {
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
     if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
-    $lock = $pdo->prepare("SELECT created_by, status, created_at FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, created_by, status, created_at FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPage = $lock->fetch(PDO::FETCH_ASSOC);
+    $lockedEditorStatus = is_array($lockedPage)
+        ? apply_filters('admin_page_editor_status', (string)($lockedPage['status'] ?? 'draft'), $lockedPage, $pdo)
+        : 'draft';
+    if (!is_string($lockedEditorStatus) || !in_array($lockedEditorStatus, ['draft', 'published', 'private'], true)) {
+        throw new DomainException('Page editor status is invalid.');
+    }
     $lockedOwnerId = (int)($lockedPage['created_by'] ?? 0);
     if (!authorization_lock_owner_contexts($pdo, [$lockedOwnerId])) throw new DomainException('Page owner context lock failed.');
     if (!$lockedPage || !user_can($pdo, $uid, 'core.pages.update', ['owner_id' => $lockedOwnerId])) {
         throw new DomainException('Page update permission changed.');
     }
-    if (((string)($lockedPage['status'] ?? 'draft') !== 'draft' || $status !== 'draft')
+    if (($lockedEditorStatus !== 'draft' || $status !== 'draft')
         && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $lockedOwnerId])) {
         throw new DomainException('Page publish permission changed.');
     }
@@ -306,6 +319,13 @@ try {
     if (!$ok) {
         throw new RuntimeException('DB update failed.');
     }
+    do_action('admin_page_before_edit_commit', $id, $pdo, [
+        'title' => $title,
+        'slug' => $slug,
+        'content' => $content,
+        'status' => $status,
+        'created_by' => $final_creator,
+    ]);
     $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();

@@ -81,6 +81,7 @@ $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Category actor permission lock failed.');
 
     $activeCategories = $pdo->query("
         SELECT id, parent_id, created_by
@@ -102,6 +103,9 @@ try {
     if (count($selectedCategories) !== count($ids)) {
         $pdo->rollBack();
         respond_categories_bulk(false, __('Category not found.'), 404, [], $returnTo);
+    }
+    if (!authorization_lock_owner_contexts($pdo, array_column($selectedCategories, 'created_by'))) {
+        throw new DomainException('Category owner context lock failed.');
     }
     foreach ($selectedCategories as $selectedCategory) {
         if (!user_can(
@@ -146,6 +150,10 @@ try {
         ");
         $stmt->execute($ids);
         $affected = $stmt->rowCount();
+
+        foreach ($selectedCategories as $selectedCategory) {
+            do_action('admin_category_before_trash_commit', (int)$selectedCategory['id'], $pdo);
+        }
 
         $pdo->commit();
         respond_categories_bulk(true, sprintf(__('%d category(ies) moved to trash.'), $affected), 200, ['count' => $affected], $returnTo);
@@ -219,6 +227,11 @@ try {
         }
 
         $affected = $stmt->rowCount();
+        foreach ($selectedCategories as $selectedCategory) {
+            do_action('admin_category_before_edit_commit', (int)$selectedCategory['id'], $pdo, [
+                'parent_id' => $parent === 0 ? null : $parent,
+            ]);
+        }
         $pdo->commit();
         respond_categories_bulk(true, __('Parent changed for') . " {$affected} " . __('categories.'), 200, ['count' => $affected], $returnTo);
     }

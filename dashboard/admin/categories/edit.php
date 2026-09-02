@@ -184,6 +184,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (empty($errors)) {
         try {
             $pdo->beginTransaction();
+            if (!authorization_lock_actor_permissions($pdo, $uid)) {
+                throw new DomainException('Category actor permission lock failed.');
+            }
             $lockedRows = $pdo->query(
                 'SELECT id, parent_id, created_by
                  FROM categories
@@ -199,6 +202,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $lockedChildren[(int)($lockedRow['parent_id'] ?? 0)][] = $lockedId;
             }
             if (!isset($lockedById[$id])
+                || !authorization_lock_owner_contexts($pdo, [(int)($lockedById[$id]['created_by'] ?? 0)])
                 || !user_can($pdo, $uid, 'core.categories.update', ['owner_id' => (int)($lockedById[$id]['created_by'] ?? 0)])) {
                 $pdo->rollBack();
                 adiwira_render_404();
@@ -244,6 +248,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
+                do_action('admin_category_before_edit_commit', $id, $pdo, [
+                    'name' => $name,
+                    'slug' => $slug,
+                    'description' => $description,
+                    'parent_id' => $parent_id,
+                ]);
                 $pdo->commit();
                 adiwira_redirect_with_flash($return_to, 'success', __('Category updated successfully.'));
             } else {
@@ -281,7 +291,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
               class="adam-accordion-toggle"
               aria-expanded="true"
               aria-controls="theme-meta-body">
-          <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> Pengaturan Category
+          <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Category Settings')?>
           <span class="chevron">▸</span>
       </button>
 

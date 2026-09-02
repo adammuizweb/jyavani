@@ -48,21 +48,26 @@ if (!user_can($pdo, $uid, 'core.categories.restore', ['owner_id' => (int)($cat['
     adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
-// kalau parent masih deleted / parent hilang → null-kan agar tidak hilang di tree
-$pid = (int)($cat['parent_id'] ?? 0);
-$parentSql = null;
-
-if ($pid > 0) {
-    $p = $pdo->prepare("SELECT id, is_deleted FROM categories WHERE id = :pid LIMIT 1");
-    $p->execute([':pid' => $pid]);
-    $parent = $p->fetch(PDO::FETCH_ASSOC);
-
-    if ($parent && (int)($parent['is_deleted'] ?? 0) === 0) {
-        $parentSql = $pid;
-    }
-}
-
 try {
+    $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) {
+        throw new DomainException('Category actor permission lock failed.');
+    }
+    $lockedRows = $pdo->query('SELECT id, parent_id, created_by, is_deleted FROM categories ORDER BY id FOR UPDATE')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $lockedCategory = null;
+    $activeIds = [];
+    foreach ($lockedRows as $lockedRow) {
+        if ((int)$lockedRow['is_deleted'] === 0) $activeIds[(int)$lockedRow['id']] = true;
+        if ((int)$lockedRow['id'] === $id && (int)$lockedRow['is_deleted'] === 1) $lockedCategory = $lockedRow;
+    }
+    $ownerId = (int)($lockedCategory['created_by'] ?? 0);
+    if (!$lockedCategory || !authorization_lock_owner_contexts($pdo, [$ownerId])
+        || !user_can($pdo, $uid, 'core.categories.restore', ['owner_id' => $ownerId])) {
+        throw new DomainException('Category restore permission changed.');
+    }
+    $pid = (int)($lockedCategory['parent_id'] ?? 0);
+    $parentSql = $pid > 0 && isset($activeIds[$pid]) ? $pid : null;
+
     $stmt = $pdo->prepare("
         UPDATE categories
         SET is_deleted = 0,
@@ -78,9 +83,13 @@ try {
         ':pid' => $parentSql,
     ]);
 
+    do_action('admin_category_before_restore_commit', $id, $pdo);
+    $pdo->commit();
+
     adiwira_redirect_with_flash($returnTo, 'success', __('Category restored successfully.'));
 
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('bin/category/restore.php error: ' . $e->getMessage());
     adiwira_redirect_with_flash($returnTo, 'error', __('Failed to restore category.'));
 }

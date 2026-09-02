@@ -26,7 +26,6 @@ if ($readCondition === null) {
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
     : [];
-$categoryTranslationLocales = function_exists('ct_enabled_locales') ? ct_enabled_locales($pdo) : [];
 
 // filters
 $search        = trim((string)($_GET['q'] ?? ''));
@@ -139,6 +138,34 @@ if ($search !== '' && !empty($allCategories)) {
     }
     $needParents = array_values(array_unique($nextMissing));
   }
+}
+
+$displayCategories = apply_filters('admin_category_list_rows', $allCategories, [
+  'actor_id' => $uid,
+  'search' => $search,
+  'parent_id' => $filter_parent,
+  'author_id' => $filter_author,
+], $pdo);
+if (is_array($displayCategories)) {
+  $displayById = [];
+  foreach ($displayCategories as $displayCategory) {
+    if (!is_array($displayCategory)) continue;
+    $displayId = (int)($displayCategory['id'] ?? 0);
+    if ($displayId > 0) $displayById[$displayId] = $displayCategory;
+  }
+  foreach ($allCategories as &$category) {
+    $display = $displayById[(int)$category['id']] ?? null;
+    if (!is_array($display)) continue;
+    foreach (['name', 'description'] as $field) {
+      if (isset($display[$field]) && is_string($display[$field])) $category[$field] = $display[$field];
+    }
+    $displayUrl = trim((string)($display['display_url'] ?? ''));
+    if ($displayUrl !== '' && str_starts_with($displayUrl, '/') && !str_starts_with($displayUrl, '//')
+        && preg_match('/[\x00-\x1F\x7F]/', $displayUrl) !== 1) {
+      $category['display_url'] = $displayUrl;
+    }
+  }
+  unset($category);
 }
 
 // map by id + children
@@ -393,7 +420,11 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             $indentHtml = '<span class="cat-indent ' . $levelClass . '">' . $icon . '</span>';
 
             $catPath = $buildCategoryPath($catId);
-            if ($catPath !== null && $catPath !== '') {
+            $displayUrl = trim((string)($cat['display_url'] ?? ''));
+            if ($displayUrl !== '') {
+              $href = $displayUrl;
+              $nameHtml = '<a class="adam-link" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8') . '</a>';
+            } elseif ($catPath !== null && $catPath !== '') {
               $segments = array_map('rawurlencode', explode('/', $catPath));
               $href = $catBase . implode('/', $segments) . '/';
               $nameHtml = '<a class="adam-link" href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8') . '</a>';
@@ -421,17 +452,12 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   <?= $indentHtml . $nameHtml ?>
                   <div class="row-actions">
                     <?php if ($canUpdateCategory): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
-                    <?php if (!empty($categoryTranslationLocales)): ?>
-                      <select aria-label="<?= htmlspecialchars(__('Translations'), ENT_QUOTES, 'UTF-8') ?>" onchange="if(this.value)window.location.href=this.value" style="font-size:11px;padding:1px 4px;">
-                        <option value=""><?= _e('Translations') ?></option>
-                        <?php foreach ($categoryTranslationLocales as $locale):
-                          $translation = function_exists('ct_get_category_translation') ? ct_get_category_translation($pdo, $catId, $locale) : null;
-                          $translationHref = $base . '/?' . http_build_query(['page' => 'admin/tools/content-translation/category-edit', 'category_id' => $catId, 'locale' => $locale]);
-                        ?>
-                          <option value="<?= htmlspecialchars($translationHref, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($locale) . ' - ' . ($translation ? __('Edit') : __('Add')), ENT_QUOTES, 'UTF-8') ?></option>
-                        <?php endforeach; ?>
-                      </select>
-                    <?php endif; ?>
+                    <?php do_action('admin_category_row_actions', $cat, [
+                      'actor_id' => $uid,
+                      'return_to' => $currentReturnTo,
+                      'can_update' => $canUpdateCategory,
+                      'can_trash' => $canTrashCategory,
+                    ], $pdo); ?>
                     <?php if ($canTrashCategory): ?>
                       <span class="muted-divider">|</span>
                       <button type="button"

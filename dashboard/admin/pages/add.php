@@ -171,6 +171,13 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                 ]);
                 if (!$ok) throw new RuntimeException('Page insert failed.');
                 $pageId = (int)$pdo->lastInsertId();
+                do_action('admin_page_before_add_commit', $pageId, $pdo, [
+                    'title' => $title,
+                    'slug' => $slug,
+                    'content' => $content,
+                    'status' => $status,
+                    'created_by' => $uid,
+                ]);
                 $pdo->commit();
                 return $pageId;
                 } catch (Throwable $error) {

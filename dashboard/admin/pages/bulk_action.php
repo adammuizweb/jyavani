@@ -62,13 +62,21 @@ try {
     if (!authorization_lock_owner_contexts($pdo, array_column($selectedPages, 'created_by'))) {
         throw new DomainException('Page owner context lock failed.');
     }
+    foreach ($selectedPages as &$selectedPage) {
+        $editorStatus = apply_filters('admin_page_editor_status', (string)($selectedPage['status'] ?? 'draft'), $selectedPage, $pdo);
+        if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published', 'private'], true)) {
+            throw new DomainException('Page editor status is invalid.');
+        }
+        $selectedPage['status'] = $editorStatus;
+    }
+    unset($selectedPage);
     foreach ($selectedPages as $page) {
         if (!user_can($pdo, $uid, $requiredPermission, ['owner_id' => (int)$page['created_by']])) {
             throw new DomainException('Page permission changed.');
         }
     }
-
     if ($action === 'delete') {
+        do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, []);
         $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
         $stmt->execute($ids);
         $affected = $stmt->rowCount();
@@ -87,6 +95,7 @@ try {
                 }
             }
         }
+        do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, ['status' => $newStatus]);
         $stmt = $pdo->prepare("UPDATE posts SET status = ?, updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
         $stmt->execute(array_merge([$newStatus], $ids));
         $affected = $stmt->rowCount();
@@ -103,6 +112,7 @@ try {
         if (!user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $authorId])) {
             throw new DomainException('Page owner target permission changed.');
         }
+        do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, ['author_id' => $authorId]);
         $stmt = $pdo->prepare("UPDATE posts SET created_by = ?, updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
         $stmt->execute(array_merge([$authorId], $ids));
         $affected = $stmt->rowCount();
@@ -125,6 +135,10 @@ try {
         $fields[] = "$field = ?";
         $values[] = $date->format('Y-m-d H:i:s');
     }
+    do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, [
+        'created_at' => $fields !== [] && str_starts_with($fields[0], 'created_at') ? $values[0] : null,
+        'updated_at' => $updatedAt !== '' ? $values[count($values) - 1] : null,
+    ]);
     $stmt = $pdo->prepare('UPDATE posts SET ' . implode(', ', $fields) . " WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
     $stmt->execute(array_merge($values, $ids));
     $affected = $stmt->rowCount();

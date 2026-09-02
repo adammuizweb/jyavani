@@ -186,15 +186,18 @@ post; it must not replace page-level metadata for the request. This keeps direct
 theme pages, assigned partials, preview tools, localization, and future extensions
 independent from one another.
 
-## Article workflow hooks
+## Content workflow hooks
 
-Plugins that maintain article-owned companion rows can join Core's transaction
-before a source mutation commits:
+Plugins that maintain article- or page-owned companion rows can join Core's
+transaction before a source mutation commits:
 
 ```php
 do_action('admin_post_before_add_commit', int $postId, PDO $pdo, array $input): void
 do_action('admin_post_before_edit_commit', int $postId, PDO $pdo, array $input): void
 do_action('admin_posts_bulk_before_mutation', string $action, array $lockedPosts, PDO $pdo, array $input): void
+do_action('admin_page_before_add_commit', int $postId, PDO $pdo, array $input): void
+do_action('admin_page_before_edit_commit', int $postId, PDO $pdo, array $input): void
+do_action('admin_pages_bulk_before_mutation', string $action, array $lockedPages, PDO $pdo, array $input): void
 ```
 
 These actions execute after Core has normalized their input and locked the
@@ -204,11 +207,12 @@ state or throw; thrown errors propagate so Core rolls back the whole transaction
 Listeners must not commit, roll back, or start another transaction, and must
 preserve Core's global-first lock order.
 
-Plugins that store an aggregate `posts.status` may expose the article source status
-to the editor and its locked permission check through:
+Plugins that store an aggregate `posts.status` may expose the content source
+status to the editor and its locked permission check through:
 
 ```php
 apply_filters('admin_post_editor_status', string $status, array $post, PDO $pdo): string
+apply_filters('admin_page_editor_status', string $status, array $post, PDO $pdo): string
 ```
 
 The result must be `draft`, `published`, or `private`. Invalid locked results fail
@@ -228,17 +232,39 @@ apply_filters(
 Validation is monotonic: Core preserves every existing error and only accepts
 additional string errors from filters.
 
-Dashboard article lists expose `post_list_join` to both count and row queries.
-Plugins may align localized filters with their selected representation through:
+Dashboard article, page, and Theme Template lists expose `post_list_join` to
+both count and row queries. Plugins may align localized filters through the
+status and search filters; Theme Template rows additionally expose a final
+representation filter:
 
 ```php
 apply_filters('post_list_status_expression', string $expression, array $context): string
 apply_filters('post_list_search_condition', string $condition, array $context): string
+apply_filters('post_list_rows', list<array> $rows, array $context): list<array>
 ```
 
 Expressions may use aliases contributed by `post_list_join`; malformed values
 containing statement separators are ignored. The status expression controls the
 displayed row status and edit/bulk authorization as well as status filtering.
+
+Category administration remains canonical and owner-scoped. Extensions may
+adapt display fields and row actions without replacing category identity or
+hierarchy:
+
+```php
+apply_filters('admin_category_list_rows', list<array> $categories, array $context, PDO $pdo): list<array>
+do_action('admin_category_row_actions', array $category, array $context, PDO $pdo): void
+do_action('admin_category_before_add_commit', int $categoryId, PDO $pdo, array $input): void
+do_action('admin_category_before_edit_commit', int $categoryId, PDO $pdo, array $input): void
+do_action('admin_category_before_trash_commit', int $categoryId, PDO $pdo): void
+do_action('admin_category_before_restore_commit', int $categoryId, PDO $pdo): void
+do_action('admin_category_before_purge_commit', int $categoryId, array $category, PDO $pdo): void
+```
+
+List filters may alter `name` and `description` or provide a safe root-relative
+`display_url`; Core retains canonical IDs, slugs, parents, owners, and mutation
+permissions. Lifecycle actions run for both single and bulk mutations. Pre-commit
+listener errors roll back the complete Core mutation.
 
 Default sitemap SQL can be restricted through:
 

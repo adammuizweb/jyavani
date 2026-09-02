@@ -48,18 +48,31 @@ if (!user_can($pdo, $uid, 'core.categories.purge', ['owner_id' => (int)($cat['cr
     adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
-// cegah delete permanen jika masih punya child (apapun statusnya)
-$child = $pdo->prepare("SELECT COUNT(*) FROM categories WHERE parent_id = :id");
-$child->execute([':id' => $id]);
-if ((int)$child->fetchColumn() > 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Cannot permanently delete: the category still has subcategories. Delete or move them first.'));
-}
-
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) {
+        throw new DomainException('Category actor permission lock failed.');
+    }
+    $lockedRows = $pdo->query('SELECT id, parent_id, created_by, is_deleted FROM categories ORDER BY id FOR UPDATE')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $lockedCategory = null;
+    $hasChildren = false;
+    foreach ($lockedRows as $lockedRow) {
+        if ((int)$lockedRow['id'] === $id && (int)$lockedRow['is_deleted'] === 1) $lockedCategory = $lockedRow;
+        if ((int)($lockedRow['parent_id'] ?? 0) === $id) $hasChildren = true;
+    }
+    $ownerId = (int)($lockedCategory['created_by'] ?? 0);
+    if (!$lockedCategory || !authorization_lock_owner_contexts($pdo, [$ownerId])
+        || !user_can($pdo, $uid, 'core.categories.purge', ['owner_id' => $ownerId])) {
+        throw new DomainException('Category purge permission changed.');
+    }
+    if ($hasChildren) {
+        throw new DomainException(__('Cannot permanently delete: the category still has subcategories. Delete or move them first.'));
+    }
 
     $pdo->prepare("DELETE FROM post_categories WHERE category_id = :id")
         ->execute([':id' => $id]);
+
+    do_action('admin_category_before_purge_commit', $id, $lockedCategory, $pdo);
 
     $pdo->prepare("
         DELETE FROM categories

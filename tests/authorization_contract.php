@@ -14,6 +14,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 
 $migration = (string)file_get_contents($root . '/schema/migrations/013-dynamic-authorization.sql');
 $policyMigration = (string)file_get_contents($root . '/schema/migrations/014-plugin-permission-policy.sql');
+$categoryOwnershipMigration = (string)file_get_contents($root . '/schema/migrations/018-author-category-ownership.sql');
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $installer = (string)file_get_contents($root . '/public/pondasi/index.php');
 $guard = (string)file_get_contents($root . '/dashboard/admin/_guard.php');
@@ -230,6 +231,33 @@ $check(
     !str_contains($categoryRoutes, 'LEFT JOIN posts')
     && !str_contains($categoryRoutes, 'post_count'),
     'category permissions do not disclose post aggregates before post routes are migrated'
+);
+$check(
+    str_contains($schema, "SELECT 'core.categories.update', 'own'")
+    && str_contains($schema, "SELECT 'core.categories.trash', 'own'")
+    && str_contains($schema, "SELECT 'core.categories.restore', 'own'")
+    && str_contains($categoryOwnershipMigration, "'core.categories.trash', 'own'")
+    && str_contains($categoryOwnershipMigration, "'core.categories.restore', 'own'")
+    && str_contains($categoryOwnershipMigration, "`slug` = 'author'"),
+    'authors can create, update, trash, and restore only their own categories while retaining category read access'
+);
+$check(
+    str_contains($categoryRoutes, "apply_filters('admin_category_list_rows'")
+    && str_contains($categoryRoutes, "do_action('admin_category_row_actions'")
+    && str_contains($categoryRoutes, "do_action('admin_category_before_add_commit'")
+    && str_contains($categoryRoutes, "do_action('admin_category_before_edit_commit'")
+    && str_contains($categoryRoutes, "do_action('admin_category_before_trash_commit'")
+    && str_contains($categoryRoutes, "do_action('admin_category_before_restore_commit'")
+    && str_contains($categoryRoutes, "do_action('admin_category_before_purge_commit'")
+    && substr_count($categoryRoutes, "do_action('admin_category_before_edit_commit'") >= 2
+    && !str_contains($categoryRoutes, 'ct_enabled_locales')
+    && !str_contains($categoryRoutes, 'content-translation'),
+    'category extension contracts remain generic and Core has no Content Translation dependency'
+);
+$check(
+    substr_count($categoryRoutes, 'authorization_lock_actor_permissions') >= 7
+    && substr_count($categoryRoutes, 'authorization_lock_owner_contexts') >= 7,
+    'category mutations lock actor grants and owner contexts before changing owned resources'
 );
 $check(
     substr_count($categoryRoutes, 'ORDER BY id') >= 2

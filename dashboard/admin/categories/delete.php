@@ -46,19 +46,25 @@ if (!user_can($pdo, $uid, 'core.categories.trash', ['owner_id' => (int)($categor
     adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
-$child = $pdo->prepare("
-    SELECT COUNT(*)
-    FROM categories
-    WHERE parent_id = :id
-      AND is_deleted = 0
-");
-$child->execute([':id' => $id]);
-if ((int)$child->fetchColumn() > 0) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Category still has active subcategories. Move/delete them first.'));
-}
-
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) {
+        throw new DomainException('Category actor permission lock failed.');
+    }
+    $lockedRows = $pdo->query('SELECT id, parent_id, created_by FROM categories WHERE is_deleted = 0 ORDER BY id FOR UPDATE')->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $lockedCategory = null;
+    $hasChildren = false;
+    foreach ($lockedRows as $lockedRow) {
+        if ((int)$lockedRow['id'] === $id) $lockedCategory = $lockedRow;
+        if ((int)($lockedRow['parent_id'] ?? 0) === $id) $hasChildren = true;
+    }
+    if (!$lockedCategory) throw new DomainException(__('Category not found.'));
+    $ownerId = (int)($lockedCategory['created_by'] ?? 0);
+    if (!authorization_lock_owner_contexts($pdo, [$ownerId])
+        || !user_can($pdo, $uid, 'core.categories.trash', ['owner_id' => $ownerId])) {
+        throw new DomainException(__('Access denied.'));
+    }
+    if ($hasChildren) throw new DomainException(__('Category still has active subcategories. Move/delete them first.'));
 
     $pdo->prepare("
         UPDATE categories
@@ -70,9 +76,13 @@ try {
         LIMIT 1
     ")->execute([':id' => $id]);
 
+    do_action('admin_category_before_trash_commit', $id, $pdo);
     $pdo->commit();
     adiwira_redirect_with_flash($returnTo, 'success', __('Category moved to trash successfully.'));
 
+} catch (DomainException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    adiwira_redirect_with_flash($returnTo, 'error', $e->getMessage());
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

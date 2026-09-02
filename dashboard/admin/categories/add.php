@@ -83,6 +83,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     if (empty($errors)) {
         try {
+            $pdo->beginTransaction();
+            if (!authorization_lock_actor_permissions($pdo, $uid)) {
+                throw new DomainException('Category actor permission lock failed.');
+            }
+            if (!user_can($pdo, $uid, 'core.categories.create')) {
+                throw new DomainException('Category create permission changed.');
+            }
+            $lockedCategories = $pdo->query(
+                'SELECT id, slug, created_by, is_deleted FROM categories ORDER BY id FOR UPDATE'
+            )->fetchAll(PDO::FETCH_ASSOC) ?: [];
+            $parentCategory = null;
+            foreach ($lockedCategories as $lockedCategory) {
+                if ((string)$lockedCategory['slug'] === $slug) {
+                    throw new DomainException(__('Slug already taken. Please use another slug.'));
+                }
+                if ($parent_id !== null && (int)$lockedCategory['id'] === $parent_id && (int)$lockedCategory['is_deleted'] === 0) {
+                    $parentCategory = $lockedCategory;
+                }
+            }
+            if ($parent_id !== null) {
+                $parentOwnerId = is_array($parentCategory) ? (int)($parentCategory['created_by'] ?? 0) : 0;
+                if (!$parentCategory || !authorization_lock_owner_contexts($pdo, [$parentOwnerId])
+                    || !user_can($pdo, $uid, 'core.categories.read', ['owner_id' => $parentOwnerId])) {
+                    throw new DomainException(__('Invalid parent category.'));
+                }
+            }
             $stmt = $pdo->prepare("
                 INSERT INTO categories (name, slug, description, parent_id, created_by, created_at, updated_at)
                 VALUES (:name, :slug, :desc, :parent, :created_by, NOW(), NOW())
@@ -96,11 +122,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ]);
 
             if ($ok) {
+                $categoryId = (int)$pdo->lastInsertId();
+                do_action('admin_category_before_add_commit', $categoryId, $pdo, [
+                    'name' => $name,
+                    'slug' => $slug,
+                    'description' => $description,
+                    'parent_id' => $parent_id,
+                    'created_by' => $uid,
+                ]);
+                $pdo->commit();
                 adiwira_redirect_with_flash($return_to, 'success', __('Category saved successfully.'));
             } else {
+                $pdo->rollBack();
                 $errors[] = __('Failed to add category.');
             }
+        } catch (DomainException $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $errors[] = $e->getMessage();
         } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
             error_log('categories/add.php insert error: ' . $e->getMessage());
             $errors[] = __('Failed to add category.');
         }

@@ -16,6 +16,12 @@ $save = (string)file_get_contents($root . '/dashboard/admin/posts/save.php');
 $edit = (string)file_get_contents($root . '/dashboard/admin/posts/edit.php');
 $bulk = (string)file_get_contents($root . '/dashboard/admin/posts/bulk_action.php');
 $postList = (string)file_get_contents($root . '/dashboard/admin/posts/index.php');
+$pageAdd = (string)file_get_contents($root . '/dashboard/admin/pages/add.php');
+$pageSave = (string)file_get_contents($root . '/dashboard/admin/pages/save.php');
+$pageEdit = (string)file_get_contents($root . '/dashboard/admin/pages/edit.php');
+$pageBulk = (string)file_get_contents($root . '/dashboard/admin/pages/bulk_action.php');
+$pageList = (string)file_get_contents($root . '/dashboard/admin/pages/index.php');
+$themeList = (string)file_get_contents($root . '/dashboard/admin/themes/index.php');
 $siteSettings = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $sitemap = (string)file_get_contents($root . '/app/controllers/SitemapController.php');
 $docs = (string)file_get_contents($root . '/cms.md');
@@ -30,10 +36,22 @@ $saveCommit = strpos($save, '$pdo->commit();', $saveHook === false ? 0 : $saveHo
 $check($saveHook !== false && $saveCommit !== false && $saveHook < $saveCommit,
     'article editing exposes an in-transaction pre-commit action');
 
+$pageAddHook = strpos($pageAdd, "do_action('admin_page_before_add_commit'");
+$pageAddCommit = strpos($pageAdd, '$pdo->commit();', $pageAddHook === false ? 0 : $pageAddHook);
+$pageSaveHook = strpos($pageSave, "do_action('admin_page_before_edit_commit'");
+$pageSaveCommit = strpos($pageSave, '$pdo->commit();', $pageSaveHook === false ? 0 : $pageSaveHook);
+$check($pageAddHook !== false && $pageAddCommit !== false && $pageAddHook < $pageAddCommit
+    && $pageSaveHook !== false && $pageSaveCommit !== false && $pageSaveHook < $pageSaveCommit,
+    'page creation and editing expose in-transaction pre-commit actions');
+
 $check(str_contains($edit, "apply_filters('admin_post_editor_status'")
     && substr_count($save, "apply_filters('admin_post_editor_status'") === 2
     && str_contains($save, 'Post editor status is invalid.'),
     'article editor and locked mutation permissions share an extensible source status');
+$check(str_contains($pageEdit, "apply_filters('admin_page_editor_status'")
+    && substr_count($pageSave, "apply_filters('admin_page_editor_status'") === 2
+    && str_contains($pageSave, 'Page editor status is invalid.'),
+    'page editor and locked mutation permissions share an extensible source status');
 
 $check(str_contains($siteSettings, "apply_filters('site_settings_validation_errors'")
     && str_contains($siteSettings, 'stored_content_default_language')
@@ -52,6 +70,20 @@ $check(str_contains($postList, "apply_filters('post_list_status_expression'")
 $check(substr_count($bulk, "do_action('admin_posts_bulk_before_mutation'") === 5
     && str_contains($bulk, "apply_filters('admin_post_editor_status'"),
     'bulk article actions use source-aware permissions and expose validated pre-mutation policy enforcement');
+$check(substr_count($pageBulk, "do_action('admin_pages_bulk_before_mutation'") === 4
+    && str_contains($pageBulk, "apply_filters('admin_page_editor_status'")
+    && str_contains($pageBulk, "['status' => \$newStatus]")
+    && str_contains($pageList, "apply_filters('post_list_status_expression'")
+    && str_contains($pageList, "apply_filters('post_list_search_condition'")
+    && strpos($pageList, "apply_filters('post_list_join'") < strpos($pageList, 'SELECT COUNT(DISTINCT p.id)'),
+    'page bulk and list operations use source-aware permissions and normalized extension contracts');
+$check(str_contains($themeList, "apply_filters('post_list_status_expression'")
+    && str_contains($themeList, "apply_filters('post_list_search_condition'")
+    && str_contains($themeList, "apply_filters('post_list_rows'")
+    && str_contains($themeList, 'p.slug AS internal_slug')
+    && str_contains($themeList, "['display_permalink']")
+    && strpos($themeList, "apply_filters('post_list_join'") < strpos($themeList, 'SELECT COUNT(DISTINCT p.id)'),
+    'Theme Template list exposes localized representation hooks while preserving its canonical internal slug');
 
 $check(str_contains($sitemap, "apply_filters('sitemap_query_clauses'")
     && str_contains($sitemap, 'self::queryClauses($pdo, $dbType)')
@@ -111,8 +143,11 @@ $check(str_contains($docs, 'admin_post_before_add_commit')
     && str_contains($docs, 'admin_post_editor_status')
     && str_contains($docs, 'site_settings_validation_errors')
     && str_contains($docs, 'post_list_status_expression')
+    && str_contains($docs, 'admin_page_before_add_commit')
+    && str_contains($docs, 'admin_page_editor_status')
+    && str_contains($docs, 'post_list_rows')
     && str_contains($docs, 'sitemap_query_clauses'),
-    'article workflow and sitemap extension contracts are documented');
+    'content workflow and sitemap extension contracts are documented');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");
