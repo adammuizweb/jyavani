@@ -59,8 +59,8 @@ try {
                 $collision = $pdo->prepare("SELECT id FROM posts WHERE slug IN ($slugIn) AND type IN ('article', 'page', 'theme') AND is_deleted = 0 FOR UPDATE");
                 $collision->execute($slugs);
                 if ($collision->fetchColumn()) throw new InvalidArgumentException('One or more page slugs are already active.');
-                $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 0, deleted_at = NULL, updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 1");
-                $stmt->execute($ids);
+                $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 0, deleted_at = NULL, updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = 'page' AND is_deleted = 1");
+                $stmt->execute(array_merge([$uid], $ids));
             } else {
                 $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
                 $stmt = $pdo->prepare("DELETE FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 1");

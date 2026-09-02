@@ -429,8 +429,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                      <?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>
                   </a>
                   <?= apply_filters('post_list_title_after', '', $p) ?>
-                  <div class="row-actions">
-                    <?php if ($canUpdatePost): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                   <div class="row-actions">
+                     <?php if ($canUpdatePost): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                     <?php if (!$canUpdatePost): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('View')?></a><?php endif; ?>
                     <?php if ($canUpdatePost && $canTrashPost): ?><span class="muted-divider">|</span><?php endif; ?>
                     <?php if ($canTrashPost): ?><button type="button"
                             class="adam-hapus js-post-delete"

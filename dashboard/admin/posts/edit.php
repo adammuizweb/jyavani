@@ -84,12 +84,32 @@ if (is_string($editorStatus) && in_array($editorStatus, ['draft', 'published', '
 }
 
 $postOwnerId = (int)($post['created_by'] ?? 0);
-if (!user_can($pdo, $me, 'core.posts.update', ['owner_id' => $postOwnerId])) adiwira_render_404();
+$editorContext = authorization_editor_context($pdo, $me, $postOwnerId, 'core.posts.read', 'core.posts.update', [
+    'resource_type' => 'article',
+    'resource_id' => (int)$post['id'],
+]);
+if ($editorContext === null) adiwira_render_404();
 $canPublish = user_can($pdo, $me, 'core.posts.publish', ['owner_id' => $postOwnerId]);
 $canChangeOwner = user_can($pdo, $me, 'core.posts.change_owner', ['owner_id' => $postOwnerId]);
 $canChangeDates = user_can($pdo, $me, 'core.posts.change_dates', ['owner_id' => $postOwnerId]);
 $canUseUnfilteredHtml = user_can($pdo, $me, 'core.posts.unfiltered_html');
-if ((string)($post['status'] ?? 'draft') !== 'draft' && !$canPublish) adiwira_render_404();
+$isReadOnly = $editorContext['read_only'] || ((string)($post['status'] ?? 'draft') !== 'draft' && !$canPublish);
+
+if ($isReadOnly) {
+    ?>
+    <section class="adam-card">
+      <div class="adam-notice adam-notice--info" role="status"><?=_e('Read-only: you can view this item, but you cannot change it.')?></div>
+      <h2 class="edit-heading"><?=_e('View Article')?></h2>
+      <label><?=_e('Title')?><br><input class="inpud" type="text" readonly value="<?= htmlspecialchars((string)$post['title'], ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Slug')?><br><input class="inpud" type="text" readonly value="<?= htmlspecialchars((string)$post['slug'], ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Status')?><br><input class="inpud" type="text" readonly value="<?= htmlspecialchars(__(ucfirst((string)$post['status'])), ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Content')?><br><textarea class="inpud" rows="20" readonly><?= htmlspecialchars((string)$post['content'], ENT_QUOTES, 'UTF-8') ?></textarea></label>
+      <?php do_action('admin_content_readonly_actions', $post, $editorContext, $pdo); ?>
+      <p><a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Back')?></a></p>
+    </section>
+    <?php
+    return;
+}
 
 $categoryReadCondition = authorization_owner_scope_condition($pdo, $me, 'core.categories.read', 'categories.created_by', 'post_edit_category_read');
 $categoryReadWhere = $categoryReadCondition !== null ? ' AND (' . $categoryReadCondition['sql'] . ')' : ' AND 1=0';
@@ -259,7 +279,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       </div>
     </div>
 
-    <?php do_action('editor_mode_before_options', $post ?? [], $chosenMode); ?>
+    <?php do_action('editor_mode_before_options', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
 
     <label style="display:block;margin-top:.6rem">
       <?=_e('Select Editor')?><br>
@@ -290,7 +310,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       </div>
     </div>
 
-    <?php do_action('editor_mode_after_areas', $post ?? [], $chosenMode); ?>
+    <?php do_action('editor_mode_after_areas', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
 
     <div class="form-row" style="margin-top:.6rem">
       <label for="status"><?=_e('Status')?></label>

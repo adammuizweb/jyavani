@@ -154,9 +154,9 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                 if ($slugLock->fetchColumn()) throw new DomainException('Page slug changed.');
                 $stmt = $pdo->prepare("
                     INSERT INTO posts
-                    (title, slug, content, type, meta, thumbnail, status, created_by, created_at, updated_at)
+                    (title, slug, content, type, meta, thumbnail, status, created_by, updated_by, created_at, updated_at)
                     VALUES
-                    (:title, :slug, :content, 'page', :meta, :thumbnail, :status, :created_by, :created_at, :updated_at)
+                    (:title, :slug, :content, 'page', :meta, :thumbnail, :status, :created_by, :updated_by, :created_at, :updated_at)
                 ");
                 $ok = $stmt->execute([
                     ':title'      => $title,
@@ -166,6 +166,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                     ':thumbnail'  => $thumbnail,
                     ':status'     => $status,
                     ':created_by' => $uid,
+                    ':updated_by' => $uid,
                     ':created_at' => $final_created,
                     ':updated_at' => $final_updated,
                 ]);

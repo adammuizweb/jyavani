@@ -11,8 +11,9 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$uid, $role] = adiwira_require_editorial($pdo, false);
-$isAdmin = ($role === 'admin');
+[$uid] = adiwira_require_permission_scope($pdo, 'core.theme_content.read', false);
+$readCondition = authorization_owner_scope_condition($pdo, $uid, 'core.theme_content.read', 'p.created_by', 'theme_content_read');
+if ($readCondition === null) adiwira_render_404();
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
@@ -26,16 +27,12 @@ $per_page = 10;
 $offset   = ($page_num - 1) * $per_page;
 
 $where  = ["p.is_deleted = 0", "p.type = 'theme'"];
-$params = [];
+$where[] = '(' . $readCondition['sql'] . ')';
+$params = $readCondition['params'];
 $listContext = ['type' => 'theme', 'status' => $filter_status, 'search' => $search];
 $statusExpression = apply_filters('post_list_status_expression', 'p.status', $listContext);
 if (!is_string($statusExpression) || trim($statusExpression) === '' || str_contains($statusExpression, ';')) {
     $statusExpression = 'p.status';
-}
-
-if (!$isAdmin) {
-    $where[] = "p.created_by = :uid";
-    $params[':uid'] = $uid;
 }
 
 if ($filter_status !== '') {
@@ -90,6 +87,11 @@ $filteredThemes = apply_filters('post_list_rows', $themes, $listContext);
 if (is_array($filteredThemes)) $themes = $filteredThemes;
 
 $base = ADMIN_BASE_PATH;
+$canCreate = user_can($pdo, $uid, 'core.theme_content.create');
+$canBulk = user_permission_scope($pdo, $uid, 'core.theme_content.update') !== null
+    || user_permission_scope($pdo, $uid, 'core.theme_content.delete') !== null;
+$canOpenTrash = user_permission_scope($pdo, $uid, 'core.theme_content.restore') !== null
+    || user_permission_scope($pdo, $uid, 'core.theme_content.purge') !== null;
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/themes/index';
@@ -157,13 +159,13 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <a href="<?= htmlspecialchars($base . '/?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
     </form>
 
-    <a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Theme Partial')?></a>
-    <?php if ($isAdmin): ?>
+    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Theme Partial')?></a><?php endif; ?>
+    <?php if ($canOpenTrash): ?>
       <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
     <?php endif; ?>
   </div>
 
-  <?php if ($isAdmin): ?>
+  <?php if ($canBulk): ?>
     <form id="themesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/themes/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
@@ -204,7 +206,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     <table class="adam-table mt-8">
       <thead>
         <tr>
-          <?php if ($isAdmin): ?><th class="th-narrow"></th><?php endif; ?>
+          <?php if ($canBulk): ?><th class="th-narrow"></th><?php endif; ?>
           <th><?= _e('Name') ?></th>
           <th class="col-slug"><?=_e('Internal slug')?></th>
           <th class="col-public-path"><?=_e('Public path')?></th>
@@ -214,12 +216,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </thead>
       <tbody>
         <?php if (empty($themes)): ?>
-          <tr class="empty-state"><td colspan="<?= $isAdmin ? 6 : 5 ?>"><?=_e('No theme partials.')?></td></tr>
+          <tr class="empty-state"><td colspan="<?= $canBulk ? 6 : 5 ?>"><?=_e('No theme partials.')?></td></tr>
         <?php else: ?>
           <?php foreach ($themes as $t): ?>
             <?php
               $status = strtolower(trim((string)($t['editor_status'] ?? $t['status'] ?? 'unknown')));
               $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
+              $ownerId = (int)($t['created_by'] ?? 0);
+              $canUpdateTheme = user_can($pdo, $uid, 'core.theme_content.update', ['owner_id' => $ownerId]);
+              $canDeleteTheme = user_can($pdo, $uid, 'core.theme_content.delete', ['owner_id' => $ownerId]);
 
               $icons = [
                 'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -240,9 +245,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               }
             ?>
             <tr class="adam-row">
-              <?php if ($isAdmin): ?>
+              <?php if ($canBulk): ?>
                 <td class="td-center">
-                  <input type="checkbox" class="bulkCheckboxTheme" name="ids[]" value="<?= (int)$t['id'] ?>">
+                  <?php if ($canUpdateTheme || $canDeleteTheme): ?><input type="checkbox" class="bulkCheckboxTheme" name="ids[]" value="<?= (int)$t['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
               <?php endif; ?>
 
@@ -254,8 +259,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   </a>
                   <?= apply_filters('post_list_title_after', '', $t) ?>
                   <div class="row-actions">
-                    <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a>
-                    <?php if ($isAdmin): ?>
+                    <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= $canUpdateTheme ? svg_ico('pen', '', ['class' => 'lucide-icon']) : '' ?><?= htmlspecialchars($canUpdateTheme ? __('Edit') : __('View'), ENT_QUOTES, 'UTF-8') ?></a>
+                    <?php if ($canDeleteTheme): ?>
                       <span class="muted-divider">|</span>
                       <button type="button"
                               class="adam-hapus js-theme-delete"
@@ -289,7 +294,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </table>
   </div>
 
-  <?php if ($isAdmin): ?>
+  <?php if ($canBulk): ?>
     </form>
   <?php endif; ?>
 
@@ -314,7 +319,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <?php if ($isAdmin): ?>
+  <?php if ($canBulk): ?>
     <form id="newnotif-theme-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/themes/delete.php', ENT_QUOTES, 'UTF-8') ?>" class="hide">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="id" id="newnotif-theme-delete-id">
@@ -329,7 +334,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 }
 ?>
 
-<?php if ($isAdmin): ?>
+<?php if ($canBulk): ?>
 <script>
 (function(){
   const selectAll = document.getElementById('selectAllThemes');

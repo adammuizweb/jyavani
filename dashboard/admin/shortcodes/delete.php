@@ -51,8 +51,8 @@ try {
     // Pre-delete listeners share this transaction and may abort source deletion.
     shortcode_preset_before_delete($pdo, $id);
 
-    $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW() WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0 LIMIT 1");
-    $stmt->execute([':id' => $id]);
+    $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0 LIMIT 1");
+    $stmt->execute([':id' => $id, ':updated_by' => $uid]);
     if ($stmt->rowCount() !== 1) throw new RuntimeException('Preset delete did not affect one row.');
     $pdo->commit();
 

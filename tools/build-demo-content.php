@@ -190,7 +190,7 @@ foreach ($documents as $index => $document) {
         if (!is_array($meta)) demo_fail('Document meta must be an object for ID ' . $id);
         $meta = json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
-    $documentRows[] = [$id, demo_string($document['title'], "documents[{$index}].title"), $slug, rtrim($content) . "\n", $type, $meta, null, $thumbnail, 'published', 1, demo_datetime($document['created_at'], "documents[{$index}].created_at"), demo_datetime($document['updated_at'], "documents[{$index}].updated_at"), 0, null, 0];
+    $documentRows[] = [$id, demo_string($document['title'], "documents[{$index}].title"), $slug, rtrim($content) . "\n", $type, $meta, null, $thumbnail, 'published', 1, 1, demo_datetime($document['created_at'], "documents[{$index}].created_at"), demo_datetime($document['updated_at'], "documents[{$index}].updated_at"), 0, null, 0];
 }
 
 $preset = $manifest['preset'] ?? null;
@@ -231,7 +231,7 @@ $rows = [];
 foreach ($categories as $category) $rows[] = demo_row([$category['id'],$category['name'],$category['slug'],$category['description'],null,null,1,$category['created_at'],$category['updated_at'],0,null]);
 $lines[] = implode(",\n", $rows) . ';';
 $lines[] = '';
-$lines[] = 'INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES';
+$lines[] = 'INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `updated_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES';
 $lines[] = implode(",\n", array_map('demo_row', $documentRows)) . ';';
 $lines[] = '';
 $lines[] = 'INSERT INTO `media` (`' . implode('`, `', $mediaColumns) . '`) VALUES';
@@ -243,8 +243,8 @@ $lines[] = 'INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_b
 $lines[] = implode(",\n", array_map('demo_row', $relationships)) . ';';
 $lines[] = '';
 $lines[] = '-- Demo shortcode preset: random demo posts by the initial Site Owner.';
-$lines[] = 'INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES';
-$lines[] = demo_row([$presetId,$preset['title'],$presetSlug,'','sc_preset',$presetMetaJson,null,null,$preset['status'],1,$preset['created_at'],$preset['updated_at'],0,null,0]) . ';';
+$lines[] = 'INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `updated_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES';
+$lines[] = demo_row([$presetId,$preset['title'],$presetSlug,'','sc_preset',$presetMetaJson,null,null,$preset['status'],1,1,$preset['created_at'],$preset['updated_at'],0,null,0]) . ';';
 $lines[] = '';
 $lines[] = '-- Demo sidebar widget using the preset above.';
 $widget = $preset['sidebar_widget'] ?? null;

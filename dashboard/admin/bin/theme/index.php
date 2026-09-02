@@ -11,7 +11,10 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../../_guard.php';
 require_once __DIR__ . '/../../_notify.php';
 
-[$uid, $role] = adiwira_require_role($pdo, ['author', 'editor', 'admin'], false);
+[$uid] = adiwira_require_permission_scope($pdo, 'core.theme_content.read', false);
+$role = authorization_active_legacy_role($pdo, $uid);
+$readCondition = authorization_owner_scope_condition($pdo, $uid, 'core.theme_content.read', 'p.created_by', 'theme_bin_read');
+if ($readCondition === null) adiwira_render_404();
 
 // fallback bila masih ada route lama kirim ?msg= / ?err=
 $page_toasts = function_exists('adiwira_collect_query_toasts')
@@ -29,12 +32,8 @@ $offset   = ($page_num - 1) * $per_page;
 
 // where
 $where  = ["p.is_deleted = 1", "p.type = 'theme'"];
-$params = [];
-
-if ($role === 'author') {
-    $where[] = "p.created_by = :uid";
-    $params[':uid'] = $uid;
-}
+$where[] = '(' . $readCondition['sql'] . ')';
+$params = $readCondition['params'];
 
 if ($filter_status !== '') {
     $where[] = "p.status = :status";
@@ -58,7 +57,7 @@ $pages = max(1, (int)ceil($total / $per_page));
 // data
 $sql = "
 SELECT
-  p.id, p.title, p.slug, p.status, p.created_at, p.deleted_at,
+  p.id, p.title, p.slug, p.status, p.created_at, p.deleted_at, p.created_by AS owner_id,
   u.username AS author_username,
   COALESCE(NULLIF(u.name,''), NULLIF(u.username,''), '-') AS author_name
 FROM posts p
@@ -113,7 +112,9 @@ if (!function_exists('build_pagination_items')) {
 $paging_items = build_pagination_items($page_num, $pages, 9);
 
 $base = ADMIN_BASE_PATH;
-$canBulk = in_array($role, ['editor', 'admin'], true);
+$canRestore = user_permission_scope($pdo, $uid, 'core.theme_content.restore') !== null;
+$canPurge = user_permission_scope($pdo, $uid, 'core.theme_content.purge') !== null;
+$canBulk = $canRestore || $canPurge;
 
 $currentQuery = $_GET;
 $currentQuery['page'] = 'admin/bin/theme/index';
@@ -157,8 +158,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
         <select id="bulkActionBinTheme" name="action" style="padding:.4rem;">
         <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="restore"><?=_e('Restore')?></option>
-        <option value="delete_permanent"><?=_e('Delete Permanently')?></option>
+        <?php if ($canRestore): ?><option value="restore"><?=_e('Restore')?></option><?php endif; ?>
+        <?php if ($canPurge): ?><option value="delete_permanent"><?=_e('Delete Permanently')?></option><?php endif; ?>
         </select>
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
@@ -187,6 +188,9 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               <?php
                 $status = strtolower(trim((string)($t['status'] ?? 'unknown')));
                 $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
+                $ownerContext = ['owner_id' => (int)($t['owner_id'] ?? 0)];
+                $canRestoreTheme = user_can($pdo, $uid, 'core.theme_content.restore', $ownerContext);
+                $canPurgeTheme = user_can($pdo, $uid, 'core.theme_content.purge', $ownerContext);
 
                 $icons = [
                   'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -198,7 +202,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               ?>
               <tr class="adam-row">
                 <td style="text-align:center;">
-                  <input type="checkbox" class="bulkCheckboxBinTheme" name="ids[]" value="<?= (int)$t['id'] ?>">
+                  <?php if ($canRestoreTheme || $canPurgeTheme): ?><input type="checkbox" class="bulkCheckboxBinTheme" name="ids[]" value="<?= (int)$t['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
 
                 <td style="font-weight:600;"><?= htmlspecialchars((string)($t['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
@@ -229,23 +233,23 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                 </td>
 
                 <td>
-                  <button type="button"
+                  <?php if ($canRestoreTheme): ?><button type="button"
                           class="adam-link-button js-bin-theme-restore"
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                     <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
-                  </button>
+                  </button><?php endif; ?>
 
-                  &nbsp;<span class="muted-divider">|</span>&nbsp;
+                  <?php if ($canRestoreTheme && $canPurgeTheme): ?>&nbsp;<span class="muted-divider">|</span>&nbsp;<?php endif; ?>
 
-                  <button type="button"
+                  <?php if ($canPurgeTheme): ?><button type="button"
                           class="adam-link-button js-bin-theme-delete-permanent"
                           data-id="<?= (int)$t['id'] ?>"
                           data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
                           data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                     <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
-                  </button>
+                  </button><?php endif; ?>
                 </td>
               </tr>
             <?php endforeach; ?>
@@ -256,7 +260,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     </form>
   <?php else: ?>
     <div style="margin-bottom:1rem;color:var(--adam-muted);">
-      <?=_e('Bulk actions hidden for')?> <strong>author</strong> <?=_e('role.')?>
+      <?=_e('No mutation actions are available for these items.')?>
     </div>
 
     <div class="adam-table-wrapper">
@@ -320,25 +324,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                 ?>
               </td>
 
-              <td>
-                <button type="button"
-                        class="adam-link-button js-bin-theme-restore"
-                        data-id="<?= (int)$t['id'] ?>"
-                        data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?=_e('Restore')?>
-                </button>
-
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
-
-                <button type="button"
-                        class="adam-link-button js-bin-theme-delete-permanent"
-                        data-id="<?= (int)$t['id'] ?>"
-                        data-title="<?= htmlspecialchars((string)($t['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?=_e('Delete Permanently')?>
-                </button>
-              </td>
+              <td>&mdash;</td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>

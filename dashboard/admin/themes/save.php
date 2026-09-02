@@ -9,7 +9,8 @@ require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$user_id, $user_role] = adiwira_require_editorial($pdo, true);
+[$user_id] = adiwira_require_login($pdo, true);
+$user_role = authorization_active_legacy_role($pdo, $user_id);
 $isAdmin = ($user_role === 'admin');
 
 if (!function_exists('adiwira_request_wants_json')) {
@@ -118,11 +119,6 @@ if (empty($errors)) {
     $sql = "SELECT * FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0";
     $params = [':id' => $id];
 
-    if (!$isAdmin) {
-        $sql .= " AND created_by = :uid";
-        $params[':uid'] = $user_id;
-    }
-
     $sql .= " LIMIT 1";
 
     $stmt = $pdo->prepare($sql);
@@ -131,6 +127,8 @@ if (empty($errors)) {
 
     if (!$theme) {
         $errors[] = __('Theme tidak ditemukan.');
+    } elseif (!user_can($pdo, $user_id, 'core.theme_content.update', ['owner_id' => (int)($theme['created_by'] ?? 0)])) {
+        $errors[] = __('Access denied.');
     }
 }
 
@@ -178,18 +176,23 @@ try {
         ':content' => $content,
         ':status'  => $status,
         ':meta'    => $finalMeta,
+        ':updated_by' => $user_id,
         ':id'      => $id,
     ];
     if ($isAdmin) {
         $params[':author_id'] = !empty($_POST['created_by']) ? (int)$_POST['created_by'] : $user_id;
     }
-    if (!$isAdmin) {
-        $params[':uid'] = $user_id;
-    }
-
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $isAdmin, $params, $publicPath, $id): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $isAdmin, $params, $publicPath, $id, $user_id): void {
         $pdo->beginTransaction();
         try {
+            if (!authorization_lock_actor_permissions($pdo, $user_id)) throw new DomainException('Theme actor permission lock failed.');
+            $themeLock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 FOR UPDATE");
+            $themeLock->execute([':id' => $id]);
+            $lockedOwnerId = (int)$themeLock->fetchColumn();
+            if ($lockedOwnerId <= 0 || !authorization_lock_owner_contexts($pdo, [$lockedOwnerId])
+                || !user_can($pdo, $user_id, 'core.theme_content.update', ['owner_id' => $lockedOwnerId])) {
+                throw new DomainException('Theme update permission changed.');
+            }
             $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND id != :id AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
             $slugLock->execute([':slug' => (string)$params[':slug'], ':id' => $id]);
             if ($slugLock->fetchColumn()) throw new DomainException('Theme slug changed.');
@@ -201,11 +204,11 @@ try {
                     status = :status,
                     meta = :meta,
                     " . ($isAdmin ? "created_by = :author_id," : "") . "
-                    updated_at = NOW()
+                    updated_at = NOW(),
+                    updated_by = :updated_by
                 WHERE id = :id
                   AND type = 'theme'
                   AND is_deleted = 0
-                  " . (!$isAdmin ? "AND created_by = :uid" : "") . "
                 LIMIT 1
             ");
             if (!$upd->execute($params)) throw new RuntimeException('DB error saat menyimpan.');

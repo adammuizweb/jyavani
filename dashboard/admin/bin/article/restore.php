@@ -30,8 +30,8 @@ try {
             $collision = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 AND id != :id LIMIT 1 FOR UPDATE");
             $collision->execute([':slug' => (string)$post['slug'], ':id' => $id]);
             if ($collision->fetchColumn()) throw new InvalidArgumentException('Slug already used by active content.');
-            $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 0, deleted_at = NULL, updated_at = NOW() WHERE id = :id AND type = 'article' AND is_deleted = 1 LIMIT 1");
-            $stmt->execute([':id' => $id]);
+            $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 0, deleted_at = NULL, updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND type = 'article' AND is_deleted = 1 LIMIT 1");
+            $stmt->execute([':id' => $id, ':updated_by' => $uid]);
             $pdo->commit();
         } catch (Throwable $error) {
             if ($pdo->inTransaction()) $pdo->rollBack();

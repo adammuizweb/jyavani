@@ -323,9 +323,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $metaVal = !empty($postMeta) ? json_encode($postMeta, JSON_UNESCAPED_UNICODE) : null;
 
         $insertSql = "INSERT INTO posts
-            (title, slug, content, type, meta, youtube, thumbnail, status, created_by, created_at, updated_at)
+            (title, slug, content, type, meta, youtube, thumbnail, status, created_by, updated_by, created_at, updated_at)
             VALUES
-            (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :status, :created_by, :created_at, :updated_at)";
+            (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :status, :created_by, :updated_by, :created_at, :updated_at)";
         try {
             $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $status, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription): int {
                 $pdo->beginTransaction();
@@ -375,6 +375,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     ':thumbnail'  => $thumbnail,
                     ':status'     => $status,
                     ':created_by' => $uid,
+                    ':updated_by' => $uid,
                     ':created_at' => $final_created,
                     ':updated_at' => $final_updated,
                 ]);

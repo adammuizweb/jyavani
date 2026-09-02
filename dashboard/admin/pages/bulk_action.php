@@ -77,8 +77,8 @@ try {
     }
     if ($action === 'delete') {
         do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, []);
-        $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
-        $stmt->execute($ids);
+        $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
+        $stmt->execute(array_merge([$uid], $ids));
         $affected = $stmt->rowCount();
         $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
         $pdo->commit();
@@ -96,8 +96,8 @@ try {
             }
         }
         do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, ['status' => $newStatus]);
-        $stmt = $pdo->prepare("UPDATE posts SET status = ?, updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
-        $stmt->execute(array_merge([$newStatus], $ids));
+        $stmt = $pdo->prepare("UPDATE posts SET status = ?, updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
+        $stmt->execute(array_merge([$newStatus, $uid], $ids));
         $affected = $stmt->rowCount();
         $pdo->commit();
         respond_pages_bulk(true, sprintf(__('%d page(s) status changed to "%s".'), $affected, $newStatus), 200, ['count' => $affected], $returnTo);
@@ -113,8 +113,8 @@ try {
             throw new DomainException('Page owner target permission changed.');
         }
         do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, ['author_id' => $authorId]);
-        $stmt = $pdo->prepare("UPDATE posts SET created_by = ?, updated_at = NOW() WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
-        $stmt->execute(array_merge([$authorId], $ids));
+        $stmt = $pdo->prepare("UPDATE posts SET created_by = ?, updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
+        $stmt->execute(array_merge([$authorId, $uid], $ids));
         $affected = $stmt->rowCount();
         $pdo->commit();
         respond_pages_bulk(true, __('Author changed for') . " {$affected} " . __('pages.'), 200, ['count' => $affected], $returnTo);
@@ -139,6 +139,8 @@ try {
         'created_at' => $fields !== [] && str_starts_with($fields[0], 'created_at') ? $values[0] : null,
         'updated_at' => $updatedAt !== '' ? $values[count($values) - 1] : null,
     ]);
+    $fields[] = 'updated_by = ?';
+    $values[] = $uid;
     $stmt = $pdo->prepare('UPDATE posts SET ' . implode(', ', $fields) . " WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
     $stmt->execute(array_merge($values, $ids));
     $affected = $stmt->rowCount();

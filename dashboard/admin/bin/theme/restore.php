@@ -24,11 +24,6 @@ if (($identity['ok'] ?? false) !== true) {
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
@@ -55,26 +50,38 @@ if (!$row) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Theme tidak ditemukan di trash.'));
 }
 
-if ($role === 'author' && (int)($row['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak punya akses restore theme ini.'));
+if (!user_can($pdo, $uid, 'core.theme_content.restore', ['owner_id' => (int)($row['created_by'] ?? 0)])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 try {
+    $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Theme actor permission lock failed.');
+    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 1 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $ownerId = (int)$lock->fetchColumn();
+    if ($ownerId <= 0 || !authorization_lock_owner_contexts($pdo, [$ownerId])
+        || !user_can($pdo, $uid, 'core.theme_content.restore', ['owner_id' => $ownerId])) {
+        throw new DomainException('Theme restore permission changed.');
+    }
     $stmt = $pdo->prepare("
         UPDATE posts
         SET is_deleted = 0,
             deleted_at = NULL,
-            updated_at = NOW()
+            updated_at = NOW(),
+            updated_by = :updated_by
         WHERE id = :id
           AND type = 'theme'
           AND is_deleted = 1
         LIMIT 1
     ");
-    $stmt->execute([':id' => $id]);
+    $stmt->execute([':id' => $id, ':updated_by' => $uid]);
+    $pdo->commit();
 
     adiwira_redirect_with_flash($returnTo, 'success', __('Theme berhasil direstore.'));
 
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('bin/theme/restore.php error: ' . $e->getMessage());
     adiwira_redirect_with_flash($returnTo, 'error', __('Failed to restore theme.'));
 }

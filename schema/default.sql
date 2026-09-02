@@ -177,6 +177,8 @@ INSERT INTO `permissions` (`permission_key`,`provider`,`resource`,`action`,`labe
   ('core.theme_content.create','core','theme_content','create','Create theme content',0),
   ('core.theme_content.update','core','theme_content','update','Update theme content',1),
   ('core.theme_content.delete','core','theme_content','delete','Delete theme content',1),
+  ('core.theme_content.restore','core','theme_content','restore','Restore theme content',1),
+  ('core.theme_content.purge','core','theme_content','purge','Permanently delete theme content',1),
   ('core.themes.manage','core','themes','manage','Manage installed themes',0),
   ('core.shortcodes.read','core','shortcodes','read','View shortcode presets',1),
   ('core.shortcodes.create','core','shortcodes','create','Create shortcode presets',0),
@@ -212,7 +214,7 @@ FROM `roles` r
 JOIN (
   SELECT 'core.dashboard.access' permission_key, 'global' scope UNION ALL
   SELECT 'core.dashboard.stats.read', 'any' UNION ALL
-  SELECT 'core.posts.read', 'own' UNION ALL
+  SELECT 'core.posts.read', 'any' UNION ALL
   SELECT 'core.posts.create', 'global' UNION ALL
   SELECT 'core.posts.update', 'own' UNION ALL
   SELECT 'core.posts.trash', 'own' UNION ALL
@@ -220,7 +222,7 @@ JOIN (
   SELECT 'core.posts.purge', 'own' UNION ALL
   SELECT 'core.posts.publish', 'own' UNION ALL
   SELECT 'core.posts.change_dates', 'own' UNION ALL
-  SELECT 'core.pages.read', 'own' UNION ALL
+  SELECT 'core.pages.read', 'any' UNION ALL
   SELECT 'core.pages.create', 'global' UNION ALL
   SELECT 'core.pages.update', 'own' UNION ALL
   SELECT 'core.pages.trash', 'own' UNION ALL
@@ -240,9 +242,11 @@ JOIN (
   SELECT 'core.files.upload', 'global' UNION ALL
   SELECT 'core.files.update', 'own' UNION ALL
   SELECT 'core.files.delete', 'own' UNION ALL
-  SELECT 'core.theme_content.read', 'own' UNION ALL
+  SELECT 'core.theme_content.read', 'any' UNION ALL
   SELECT 'core.theme_content.create', 'global' UNION ALL
   SELECT 'core.theme_content.update', 'own' UNION ALL
+  SELECT 'core.theme_content.delete', 'own' UNION ALL
+  SELECT 'core.theme_content.restore', 'own' UNION ALL
   SELECT 'core.shortcodes.read', 'own' UNION ALL
   SELECT 'core.shortcodes.create', 'global' UNION ALL
   SELECT 'core.shortcodes.update', 'own' UNION ALL
@@ -267,16 +271,10 @@ FROM `roles` r
 JOIN (
   SELECT 'core.posts.unfiltered_html' permission_key, 'global' scope UNION ALL
   SELECT 'core.pages.unfiltered_html', 'global' UNION ALL
-  SELECT 'core.categories.update', 'any' UNION ALL
-  SELECT 'core.categories.trash', 'any' UNION ALL
-  SELECT 'core.categories.restore', 'any' UNION ALL
-  SELECT 'core.categories.purge', 'any' UNION ALL
   SELECT 'core.menus.manage', 'global' UNION ALL
   SELECT 'core.sidebar.manage', 'global' UNION ALL
-  SELECT 'core.posts.restore', 'any' UNION ALL
-  SELECT 'core.posts.purge', 'any' UNION ALL
-  SELECT 'core.pages.restore', 'any' UNION ALL
-  SELECT 'core.pages.purge', 'any'
+  SELECT 'core.categories.purge', 'own' UNION ALL
+  SELECT 'core.theme_content.purge', 'own'
 ) grants ON r.slug = 'editor'
 ON DUPLICATE KEY UPDATE `scope`=VALUES(`scope`);
 
@@ -334,6 +332,7 @@ CREATE TABLE IF NOT EXISTS `posts` (
   `thumbnail` varchar(255) DEFAULT NULL,
   `status` enum('draft','published','private') NOT NULL DEFAULT 'draft',
   `created_by` int(10) unsigned DEFAULT NULL,
+  `updated_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `sort_order` int(11) NOT NULL DEFAULT 0,
@@ -343,8 +342,10 @@ CREATE TABLE IF NOT EXISTS `posts` (
   KEY `idx_type` (`type`),
   KEY `idx_status` (`status`),
   KEY `idx_created_by` (`created_by`),
+  KEY `idx_posts_updated_by` (`updated_by`),
   FULLTEXT KEY `ft_title_content` (`title`,`content`),
-  CONSTRAINT `fk_posts_created_by_users` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+  CONSTRAINT `fk_posts_created_by_users` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_posts_updated_by_users` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────

@@ -456,6 +456,30 @@ if (!function_exists('current_user_can')) {
     }
 }
 
+if (!function_exists('authorization_editor_context')) {
+    function authorization_editor_context(
+        PDO $pdo,
+        int $userId,
+        int $ownerId,
+        string $readPermission,
+        string $updatePermission,
+        array $context = []
+    ): ?array {
+        $ownerContext = ['owner_id' => $ownerId];
+        if (!user_can($pdo, $userId, $readPermission, $ownerContext)) {
+            return null;
+        }
+
+        $canUpdate = user_can($pdo, $userId, $updatePermission, $ownerContext);
+        return array_replace($context, [
+            'owner_id' => $ownerId,
+            'can_read' => true,
+            'can_update' => $canUpdate,
+            'read_only' => !$canUpdate,
+        ]);
+    }
+}
+
 if (!function_exists('authorization_actor_can_assign_roles')) {
     function authorization_actor_can_assign_roles(PDO $pdo, int $actorUserId, array $roleIds): bool
     {

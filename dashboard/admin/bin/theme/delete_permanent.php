@@ -24,11 +24,6 @@ if (($identity['ok'] ?? false) !== true) {
 }
 
 $uid  = (int)($identity['uid'] ?? 0);
-$role = (string)($identity['role'] ?? 'guest');
-
-if (!in_array($role, ['author', 'editor', 'admin'], true)) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
-}
 
 $token = (string)($_POST['csrf_token'] ?? '');
 if (!adiwira_csrf_validate($token)) {
@@ -55,12 +50,20 @@ if (!$row) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Theme tidak ditemukan di trash.'));
 }
 
-if ($role === 'author' && (int)($row['created_by'] ?? 0) !== $uid) {
-    adiwira_redirect_with_flash($returnTo, 'error', __('Role kamu tidak punya akses hapus permanen theme ini.'));
+if (!user_can($pdo, $uid, 'core.theme_content.purge', ['owner_id' => (int)($row['created_by'] ?? 0)])) {
+    adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
 }
 
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Theme actor permission lock failed.');
+    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 1 FOR UPDATE");
+    $lock->execute([':id' => $id]);
+    $ownerId = (int)$lock->fetchColumn();
+    if ($ownerId <= 0 || !authorization_lock_owner_contexts($pdo, [$ownerId])
+        || !user_can($pdo, $uid, 'core.theme_content.purge', ['owner_id' => $ownerId])) {
+        throw new DomainException('Theme purge permission changed.');
+    }
 
     $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")
         ->execute([':id' => $id]);

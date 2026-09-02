@@ -100,22 +100,38 @@ if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published',
 }
 $post['status'] = $editorStatus;
 
-if (!user_can($pdo, $me, 'core.pages.update', ['owner_id' => (int)($post['created_by'] ?? 0)])) {
+$pageOwnerId = (int)($post['created_by'] ?? 0);
+$editorContext = authorization_editor_context($pdo, $me, $pageOwnerId, 'core.pages.read', 'core.pages.update', [
+    'resource_type' => 'page',
+    'resource_id' => (int)$post['id'],
+]);
+if ($editorContext === null) {
     http_response_code(403);
     echo '<p>' . __('Access denied.') . '</p>';
     return;
 }
-if ((string)($post['status'] ?? 'draft') !== 'draft'
-    && !user_can($pdo, $me, 'core.pages.publish', ['owner_id' => (int)($post['created_by'] ?? 0)])) {
-    http_response_code(403);
-    echo '<p>' . __('Access denied.') . '</p>';
-    return;
-}
-$ownerContext = ['owner_id' => (int)($post['created_by'] ?? 0)];
+$ownerContext = ['owner_id' => $pageOwnerId];
 $canPublish = user_can($pdo, $me, 'core.pages.publish', $ownerContext);
 $canChangeOwner = user_can($pdo, $me, 'core.pages.change_owner', $ownerContext);
 $canChangeDates = user_can($pdo, $me, 'core.pages.change_dates', $ownerContext);
 $canUseUnfilteredHtml = user_can($pdo, $me, 'core.pages.unfiltered_html');
+$isReadOnly = $editorContext['read_only'] || ((string)($post['status'] ?? 'draft') !== 'draft' && !$canPublish);
+
+if ($isReadOnly) {
+    ?>
+    <section class="adam-card">
+      <div class="adam-notice adam-notice--info" role="status"><?=_e('Read-only: you can view this item, but you cannot change it.')?></div>
+      <h2 class="edit-heading"><?=_e('View Page')?></h2>
+      <label><?=_e('Title')?><br><input class="inpud" type="text" readonly value="<?= htmlspecialchars((string)$post['title'], ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Slug')?><br><input class="inpud" type="text" readonly value="<?= htmlspecialchars((string)$post['slug'], ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Status')?><br><input class="inpud" type="text" readonly value="<?= htmlspecialchars(__(ucfirst((string)$post['status'])), ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Content')?><br><textarea class="inpud" rows="20" readonly><?= htmlspecialchars((string)$post['content'], ENT_QUOTES, 'UTF-8') ?></textarea></label>
+      <?php do_action('admin_content_readonly_actions', $post, $editorContext, $pdo); ?>
+      <p><a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Back')?></a></p>
+    </section>
+    <?php
+    return;
+}
 
 $users = $canChangeOwner ? array_values(array_filter(
     fetch_users_for_dropdown($pdo),
@@ -228,7 +244,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
       </div>
     </div>
 
-    <?php do_action('editor_mode_before_options', $post ?? [], $chosenMode); ?>
+    <?php do_action('editor_mode_before_options', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
 
     <label style="display:block;margin-top:.6rem">
       <?=_e('Select Editor')?><br>
@@ -259,7 +275,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
       </div>
     </div>
 
-    <?php do_action('editor_mode_after_areas', $post ?? [], $chosenMode); ?>
+    <?php do_action('editor_mode_after_areas', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
 
     <div class="form-row" style="margin-top:.6rem">
       <label for="status"><?=_e('Status')?></label>

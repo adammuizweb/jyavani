@@ -62,8 +62,8 @@ try {
         adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
     }
 
-    $stmt = $pdo->prepare("\n        UPDATE posts\n        SET is_deleted = 1,\n            deleted_at = NOW(),\n            updated_at = NOW()\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
-    $stmt->execute([':id' => $id]);
+    $stmt = $pdo->prepare("\n        UPDATE posts\n        SET is_deleted = 1,\n            deleted_at = NOW(),\n            updated_at = NOW(),\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
+    $stmt->execute([':id' => $id, ':updated_by' => $uid]);
 
     $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")
         ->execute([':id' => $id]);

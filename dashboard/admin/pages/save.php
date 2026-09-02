@@ -296,7 +296,8 @@ try {
             meta       = :meta,
             created_by = :created_by,
             created_at = :created_at,
-            updated_at = :updated_at
+            updated_at = :updated_at,
+            updated_by = :updated_by
         WHERE id = :id
           AND type = 'page'
           AND is_deleted = 0
@@ -313,6 +314,7 @@ try {
         ':created_by' => $final_creator,
         ':created_at' => $effectiveCreatedAt,
         ':updated_at' => $final_updated,
+        ':updated_by' => $uid,
         ':id'         => $id,
     ]);
 
@@ -324,7 +326,9 @@ try {
         'slug' => $slug,
         'content' => $content,
         'status' => $status,
+        'previous_created_by' => $lockedOwnerId,
         'created_by' => $final_creator,
+        'updated_by' => $uid,
     ]);
     $pdo->commit();
     } catch (Throwable $error) {

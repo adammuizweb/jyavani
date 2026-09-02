@@ -11,7 +11,8 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$user_id, $user_role] = adiwira_require_editorial($pdo, false);
+[$user_id] = adiwira_require_permission_scope($pdo, 'core.theme_content.read', false);
+$user_role = authorization_active_legacy_role($pdo, $user_id);
 $isAdmin = ($user_role === 'admin');
 
 if (function_exists('ensure_session_started')) {
@@ -42,15 +43,8 @@ if ($id <= 0) {
     return;
 }
 
-$sql = "SELECT * FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0";
+$sql = "SELECT * FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 LIMIT 1";
 $params = [':id' => $id];
-
-if (!$isAdmin) {
-    $sql .= " AND created_by = :uid";
-    $params[':uid'] = $user_id;
-}
-
-$sql .= " LIMIT 1";
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
@@ -61,6 +55,12 @@ if (!$theme) {
     echo '<p>' . __('Theme not found.') . '</p>';
     return;
 }
+$editorContext = authorization_editor_context($pdo, $user_id, (int)($theme['created_by'] ?? 0), 'core.theme_content.read', 'core.theme_content.update', [
+    'resource_type' => 'theme',
+    'resource_id' => (int)$theme['id'],
+]);
+if ($editorContext === null) adiwira_render_404();
+$isReadOnly = $editorContext['read_only'];
 
 $save_nonce = bin2hex(random_bytes(12));
 $_SESSION['theme_save_nonce_' . $id] = $save_nonce;
@@ -77,6 +77,19 @@ $pref_public_path = (string)($canonicalRoute['path'] ?? '');
 $enable_custom_meta = ($pdo instanceof PDO && function_exists('settings_get'))
     ? (settings_get($pdo, 'enable_custom_meta', '0') === '1')
     : false;
+if ($isReadOnly) {
+    ?>
+    <section class="adam-card">
+      <div class="adam-notice adam-notice--info" role="status"><?=_e('Read-only: you can view this item, but you cannot change it.')?></div>
+      <h2><?=_e('View Theme / Partial')?></h2>
+      <label><?=_e('Title')?><br><input class="inpud" readonly value="<?= htmlspecialchars($pref_title, ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Internal slug')?><br><input class="inpud" readonly value="<?= htmlspecialchars($pref_slug, ENT_QUOTES, 'UTF-8') ?>"></label>
+      <label style="display:block;margin-top:.6rem"><?=_e('Content')?><br><textarea class="inpud" rows="20" readonly><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea></label>
+      <?php do_action('admin_content_readonly_actions', $theme, $editorContext, $pdo); ?>
+      <p><a class="adam-cancle" href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Back')?></a></p>
+    </section>
+    <?php return;
+}
 ?>
 <section class="adam-card">
   <h2><?=_e('Edit Theme / Partial')?></h2>

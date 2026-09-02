@@ -559,3 +559,8 @@ Key regression areas:
 - `AGENTS.md` → Theme Zones section for architecture details.
 - `public/views/themes/default/theme.json` for a canonical production example.
 - `cfg/helpers/theme_zones.php` for all rendering helpers.
+## Content Authorization And Attribution
+
+Core content resources use separate scoped read and mutation permissions. A user may receive `any` read access while retaining only `own` mutation access; list and editor interfaces must therefore treat readability and mutability as independent decisions. Use `authorization_editor_context()` for a single owned resource and continue to enforce the action-specific mutation permission under a row lock at write time.
+
+The shared `posts` table records original ownership in `created_by` and the authenticated actor responsible for the latest surviving Core mutation in `updated_by`. Creates initialize both fields. Content edits, relationship-only touches, soft deletion, and restoration update `updated_by`; permanent deletion needs no surviving attribution.

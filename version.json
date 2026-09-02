@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.97",
+    "version": "2.3.98",
     "build": "2026-09-02",
-    "changelog": "Render the dashboard admin footer extension action exactly once to prevent duplicate plugin UI.",
+    "changelog": "Add generic read-only content access, owner-scoped mutations, and last-updater attribution.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

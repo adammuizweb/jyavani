@@ -5017,4 +5017,14 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Provider adoption could not be confirmed. Reload the preset and try again.', 'Adopsi penyedia tidak dapat dikonfirmasi. Muat ulang preset lalu coba lagi.', 'id'),
 ('default', 'Provider adoption could not be confirmed. Reload the preset and try again.', 'Die Anbieterübernahme konnte nicht bestätigt werden. Laden Sie die Voreinstellung neu und versuchen Sie es erneut.', 'de'),
 ('default', 'Explicit provider adoption is required for this ownerless preset.', 'Adopsi penyedia secara eksplisit diperlukan untuk preset tanpa pemilik ini.', 'id'),
-('default', 'Explicit provider adoption is required for this ownerless preset.', 'Für diese besitzerlose Voreinstellung ist eine ausdrückliche Anbieterübernahme erforderlich.', 'de');
+('default', 'Explicit provider adoption is required for this ownerless preset.', 'Für diese besitzerlose Voreinstellung ist eine ausdrückliche Anbieterübernahme erforderlich.', 'de'),
+('default', 'Read-only: you can view this item, but you cannot change it.', 'Hanya-baca: Anda dapat melihat item ini, tetapi tidak dapat mengubahnya.', 'id'),
+('default', 'Read-only: you can view this item, but you cannot change it.', 'Schreibgeschützt: Sie können dieses Element ansehen, aber nicht ändern.', 'de'),
+('default', 'View Article', 'Lihat Artikel', 'id'),
+('default', 'View Article', 'Artikel ansehen', 'de'),
+('default', 'View Page', 'Lihat Halaman', 'id'),
+('default', 'View Page', 'Seite ansehen', 'de'),
+('default', 'View Theme / Partial', 'Lihat Tema / Partial', 'id'),
+('default', 'View Theme / Partial', 'Theme / Partial ansehen', 'de'),
+('default', 'No mutation actions are available for these items.', 'Tidak ada tindakan perubahan yang tersedia untuk item ini.', 'id'),
+('default', 'No mutation actions are available for these items.', 'Für diese Elemente sind keine Änderungsaktionen verfügbar.', 'de');

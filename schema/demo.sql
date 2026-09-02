@@ -16,7 +16,7 @@ REPLACE INTO `categories` (`id`, `name`, `slug`, `description`, `parent_id`, `me
 (3, 'Pengembangan', 'pengembangan', 'Artikel tentang theme, plugin, widget, shortcodes, dan pengembangan fitur CMS', NULL, NULL, 1, '2026-07-25 09:07:14', '2026-07-25 09:07:14', 0, NULL),
 (4, 'Sistem', 'sistem', 'Artikel tentang administrasi sistem, maintenance, update, dan manajemen user', NULL, NULL, 1, '2026-07-25 09:07:14', '2026-07-25 09:07:14', 0, NULL);
 
-INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES
+INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `updated_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES
 (272, 'Content Management: Artikel, Halaman, dan Publikasi', 'content-management-mengelola-artikel-dan-halaman', '<p>Jyavani Core 2.3.74 menyimpan artikel dan halaman di tabel konten yang sama, tetapi memberi keduanya alur dashboard dan permission terpisah. Artikel dapat memiliki beberapa kategori; halaman tidak memiliki relasi kategori.</p>
 <h2>Membuat dan menerbitkan</h2>
 <ol>
@@ -33,7 +33,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <p>Author bekerja pada resource sesuai scope yang diberikan. HTML yang tidak difilter memerlukan permission khusus; jangan menganggap semua kontributor boleh memasukkan markup arbitrer. Saat mengganti pemilik, status, atau tanggal, Core memeriksa permission terkait di dalam transaksi.</p>
 <h2>Penghapusan</h2>
 <p>Delete pertama pada artikel atau halaman menetapkan <code>is_deleted</code> dan <code>deleted_at</code>. Trash menyediakan restore dan purge sesuai permission. Restore dapat ditolak jika slug sudah dipakai konten aktif. Trash bukan backup: ekspor database dan aset tetap diperlukan.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/content-management-71b8788f.jpg', 'published', 1, '2026-07-24 09:58:30', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/content-management-71b8788f.jpg', 'published', 1, 1, '2026-07-24 09:58:30', '2026-08-19 00:00:00', 0, NULL, 0),
 (273, 'Kategori dan Organisasi Konten', 'kategori-dan-organisasi-konten', '<p>Kategori mengelompokkan artikel melalui relasi many-to-many. Satu artikel dapat masuk ke beberapa kategori, sedangkan halaman tidak memakai kategori.</p>
 <h2>Identitas dan hierarki</h2>
 <p>Setiap kategori memiliki nama, slug unik, deskripsi, dan parent opsional. Parent membentuk jalur bertingkat. Hindari siklus dan gunakan hierarki pendek agar URL serta navigasi mudah dipahami.</p>
@@ -43,7 +43,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Permission dan Trash</h2>
 <p>Read, create, update, trash, restore, dan purge adalah permission terpisah. Scope dapat membatasi kategori berdasarkan pembuat. Menghapus kategori pertama kali adalah soft delete. Restore dapat gagal bila slug sudah digunakan kategori aktif, sedangkan purge menghapus record secara permanen dan relasinya mengikuti constraint database.</p>
 <p>Gunakan nama stabil, deskripsi faktual, dan sedikit kategori yang benar-benar membantu pencarian. Jangan menjanjikan breadcrumb atau optimasi SEO tertentu karena itu bergantung pada theme atau plugin.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/kategori-organisasi-0ef63d42.jpg', 'published', 1, '2026-07-24 10:31:05', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/kategori-organisasi-0ef63d42.jpg', 'published', 1, 1, '2026-07-24 10:31:05', '2026-08-19 00:00:00', 0, NULL, 0),
 (274, 'Media Library: Gambar Publik dan Private', 'media-library-mengelola-gambar-dan-file', '<p>Media Library Core mengelola gambar. Dokumen, PDF, audio, dan video umum dikelola melalui menu <strong>Files</strong>, bukan dianggap sebagai gambar Media Library.</p>
 <h2>Metadata dan storage</h2>
 <p>Record media menyimpan URL, nama file, MIME, ukuran, dimensi, title, alt, caption, credit, visibility, storage disk, storage path, access scope, dan pemilik. Upload publik berada di public disk. Gambar private berada di luar web root dan dilayani controller.</p>
@@ -57,7 +57,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <p>URL gambar private diberikan oleh Media Picker dan tetap diperiksa saat diminta. Mengetahui URL tidak melewati sesi dan permission.</p>
 <h2>Operasi aman</h2>
 <p>Isi alt text sesuai fungsi gambar dan optimalkan ukuran sebelum upload. Permission media memisahkan read, upload, update, dan delete serta dapat memakai scope pemilik. Berbeda dari artikel, halaman, kategori, theme content, dan user, tabel media Core tidak memiliki kolom soft delete. Aksi delete dapat menghapus record dan file; verifikasi pemakaian dan backup terlebih dahulu.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/media-library-thumb-gen.jpg', 'published', 1, '2026-07-24 10:48:04', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/media-library-thumb-gen.jpg', 'published', 1, 1, '2026-07-24 10:48:04', '2026-08-19 00:00:00', 0, NULL, 0),
 (275, 'Menu Manager dan Navigasi', 'menu-manager-navigasi-website', '<p>Menu Manager menyimpan beberapa menu dan item bertingkat. Menu tidak otomatis muncul di semua theme; theme atau gadget <code>tz_nav_menu</code> harus memilih slug menu yang akan dirender.</p>
 <img src="/static/img/2026/07/menu-manager-screenshot.jpg" alt="Menu Manager" style="width:100%;margin:1rem 0">
 <h2>Tipe item</h2>
@@ -67,7 +67,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Theme Zones</h2>
 <p>Di Customize, tambahkan atau konfigurasi gadget navigasi pada posisi yang dideklarasikan theme. Nilai <code>menu</code> memilih slug, sedangkan <code>depth</code>, class, dan atribut daftar membantu theme membentuk output. Selalu uji link, fokus keyboard, dan tampilan layar sempit setelah perubahan.</p>
 <p>Pengelolaan menu memerlukan <code>core.menus.manage</code>. Mengubah slug menu dapat memutus konfigurasi theme yang masih menunjuk slug lama.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/menu-manager-thumb.jpg', 'published', 1, '2026-07-24 11:05:59', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/menu-manager-thumb.jpg', 'published', 1, 1, '2026-07-24 11:05:59', '2026-08-19 00:00:00', 0, NULL, 0),
 (276, 'Theme System, Customizer, dan Theme Zones', 'theme-system-mengubah-tampilan-website', '<p>Core mengelola satu system theme bernama <code>default</code>. Theme lain dipasang dan diperbarui melalui Theme Store atau paket yang sesuai. Theme aktif dipilih dari dashboard; file PHP theme harus diperlakukan sebagai kode tepercaya.</p>
 <h2>Kontrak theme</h2>
 <p><code>theme.json</code> mendeskripsikan identitas, partial, Customizer, layout zone, aset, dan metadata Store. Rendering memakai slot seperti header, footer, homepage, list, single post, dan single page. Resolver mencoba assignment, theme aktif, lalu fallback system theme.</p>
@@ -77,7 +77,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <p>Theme Zones menyimpan gadget per <code>theme_folder</code>, zone, position, dan ordering. Layout di manifest hanya menyatakan kontrak posisi dan default yang dapat dimuat; data pengguna tetap di database. Template sebaiknya memeriksa apakah posisi berisi gadget, merendernya, lalu menyediakan fallback HTML bila kosong.</p>
 <h2>Pengembangan</h2>
 <p>Partial berada di folder seperti <code>main/</code>, <code>single/</code>, <code>list/</code>, dan <code>index/</code>. Plugin dapat menambah tipe gadget melalui filter registry dan renderer. Jangan mengedit system theme untuk perubahan yang harus bertahan lintas update; buat theme Store/custom dan uji desktop, mobile, serta kondisi tanpa gadget.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/theme-system-thumb.jpg', 'published', 1, '2026-07-24 17:36:22', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/theme-system-thumb.jpg', 'published', 1, 1, '2026-07-24 17:36:22', '2026-08-19 00:00:00', 0, NULL, 0),
 (277, 'Plugin System: Manifest, Lifecycle, dan Hooks', 'plugin-system-memperluas-fitur-cms', '<p>Plugin adalah kode tepercaya di bawah <code>plugins/{name}/</code>. <code>plugin.json</code> mendeklarasikan identitas, kebutuhan plugin, halaman dashboard, navigasi, aset, static copy, dan permission; file PHP menyediakan hook atau implementasi route.</p>
 <h2>Instalasi dan aktivasi</h2>
 <p>Uploader memvalidasi paket, mengekstrak ke folder plugin, menyalin aset yang dideklarasikan, dan dapat menjalankan konvensi tetap <code>install.sh</code> dengan batas waktu/output. <strong>Install</strong> dapat menaruh plugin dalam keadaan nonaktif; <strong>Install &amp; Activate</strong> juga memeriksa dependency dan mengaktifkannya. Jangan memasang paket yang sumbernya tidak dipercaya.</p>
@@ -87,7 +87,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Hooks dan dependency</h2>
 <p>Gunakan <code>add_action</code>/<code>do_action</code> untuk kejadian dan <code>add_filter</code>/<code>apply_filters</code> untuk transformasi nilai. Namespace nama fungsi dan hook milik plugin. <code>requires.plugins</code> memakai constraint versi; dependency harus terpasang, aktif, kompatibel, dan dapat dimuat. Core menolak deaktivasi provider yang masih dibutuhkan plugin aktif.</p>
 <p>Nonaktif menyimpan file dan state plugin tetapi menghentikan pemuatan aktif. Uninstall/delete dapat menghapus file dan menjalankan konsekuensi plugin; backup dan baca dokumentasinya lebih dahulu.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/plugin-system-thumb.jpg', 'published', 1, '2026-07-24 18:43:04', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/plugin-system-thumb.jpg', 'published', 1, 1, '2026-07-24 18:43:04', '2026-08-19 00:00:00', 0, NULL, 0),
 (278, 'Pengaturan Situs dan Jalur Autentikasi', 'pengaturan-situs-settings-dashboard', '<p>Settings memisahkan identitas situs, bahasa, path autentikasi, sidebar, permalink, dan kebijakan registrasi. Perubahan memerlukan permission pengaturan; beberapa area sensitif juga dibatasi untuk Site Owner.</p>
 <h2>Identitas dan bahasa</h2>
 <p>Isi site title, description, URL, dan aset identitas sesuai deployment. <code>site_language</code> mengatur bahasa UI dashboard, sedangkan <code>content_default_language</code> menjadi locale dasar frontend. Core menyediakan seed UI en, id, dan de, tetapi translasi konten memerlukan plugin.</p>
@@ -97,7 +97,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Registrasi dan permalink</h2>
 <p>Registrasi default nonaktif. Bila diaktifkan, akun baru menerima system role Author; approval opsional membuat akun terkunci sampai disetujui. reCAPTCHA hanya bekerja bila fitur dan kredensial dikonfigurasi.</p>
 <p>Struktur permalink lama tetap digunakan sebagai fallback untuk konten tanpa canonical route. Setelah URL publik berubah, uji canonical dan redirect. Hindari mengganti path sistem ke nilai yang bertabrakan dengan file publik, route konten, atau route plugin.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, '2026-07-24 19:00:47', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, 1, '2026-07-24 19:00:47', '2026-08-19 00:00:00', 0, NULL, 0),
 (279, 'User Management, Site Owner, Role, dan Scope', 'user-management-mengelola-pengguna', '<p>Jyavani Core 2.3.74 memakai role dan permission dinamis. Kolom role lama tetap disinkronkan untuk kompatibilitas, tetapi keputusan akses baru harus memakai permission efektif dan scope.</p>
 <h2>Site Owner</h2>
 <p>Site Owner adalah atribut akun khusus, bukan role. Pondasi menandai akun awal sebagai Site Owner, memberi legacy role admin, dan memasang system role Administrator. Operasi paling sensitif seperti Roles &amp; Permissions dan update Core memerlukan Site Owner selain permission terkait.</p>
@@ -112,7 +112,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Siklus akun</h2>
 <p>User dapat memiliki beberapa role aktif. Lock mencegah login tanpa menghapus akun. Delete user memakai Trash, dengan restore/purge terpisah; pertimbangkan kepemilikan konten sebelum purge. Perubahan role dan operasi otorisasi penting dicatat di audit log.</p>
 <p>Registrasi publik, bila diaktifkan, selalu memasang Author dan dapat membuat akun locked saat approval diwajibkan. Tinjau akses dengan akun non-owner, bukan hanya dari tampilan Site Owner.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/user-management-thumb.jpg', 'published', 1, '2026-07-24 19:07:46', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/user-management-thumb.jpg', 'published', 1, 1, '2026-07-24 19:07:46', '2026-08-19 00:00:00', 0, NULL, 0),
 (280, 'SEO Core: Metadata, Canonical URL, dan Sitemap', 'seo-dan-meta-tags', '<p>Core menyediakan fondasi metadata, canonical URL, dan sitemap. Hasil SEO tetap bergantung pada isi, konfigurasi domain, theme, crawl policy, dan mesin pencari; Core tidak menjamin peringkat atau rich result.</p>
 <h2>Metadata dokumen</h2>
 <p>Layout membaca deskripsi khusus dari <code>meta.meta_tags.description</code>. Jika kosong, Core membuat excerpt konten, lalu memakai deskripsi situs sebagai fallback. Layout juga mengeluarkan Open Graph dan Twitter Card untuk title, description, serta image bila tersedia. Nilai dapat disesuaikan plugin melalui filter.</p>
@@ -123,7 +123,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <p>Controller sitemap mengekspor konten published dan tidak terhapus. Konten yang dikelola melalui canonical routes hanya masuk pada URL kanonis yang memenuhi kontrak route. Sitemap locale dapat diperluas integrasi translasi. Kirim endpoint yang benar ke alat webmaster dan periksa responsnya setelah perubahan route.</p>
 <h2>Praktik operasional</h2>
 <p>Tulis title dan description yang akurat, gunakan thumbnail publik yang dapat diambil crawler, dan jangan menerbitkan duplikasi path. JSON-LD khusus, robots policy lanjutan, redirect lintas domain, dan translasi SEO bukan janji universal Core; implementasikan melalui theme/plugin bila dibutuhkan.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'published', 1, '2026-07-24 19:16:07', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'published', 1, 1, '2026-07-24 19:16:07', '2026-08-19 00:00:00', 0, NULL, 0),
 (281, 'Widget, Shortcode, dan Preset', 'widget-dan-shortcodes', '<p>Jyavani membedakan widget area, Theme Zone gadget, shortcode konten, dan shortcode preset. Masing-masing dirender pada tahap yang berbeda.</p>
 <h2>Sidebar dan Theme Zones</h2>
 <p>Sidebar zone berisi item seperti search, recent posts, HTML, atau preset. Theme Zones menempatkan gadget pada posisi yang dideklarasikan theme, termasuk navigation, image, rich text, pages, social, search, dan metadata post. Ketersediaan tampilan bergantung pada theme yang benar-benar merender zone tersebut.</p>
@@ -139,7 +139,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Preset</h2>
 <p>Preset adalah post bertipe <code>sc_preset</code> yang menyimpan konfigurasi query/layout dalam JSON. Preset demo memilih empat artikel acak milik owner awal dan digunakan sidebar. Karena query acak tidak deterministik saat runtime, jangan gunakan preset itu untuk urutan editorial yang harus stabil.</p>
 <p>Plugin dapat mendaftarkan shortcode atau gadget tambahan. Validasi atribut, escape output, dan jangan memasukkan kode pihak ketiga yang tidak dipercaya ke HTML widget.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/widget-shortcodes-thumb.jpg', 'published', 1, '2026-07-24 23:33:31', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/widget-shortcodes-thumb.jpg', 'published', 1, 1, '2026-07-24 23:33:31', '2026-08-19 00:00:00', 0, NULL, 0),
 (282, 'Keamanan Jyavani Core: Batas Perlindungan dan Operasi Aman', 'keamanan-cms-best-practices', '<p>Core menyediakan kontrol akses dinamis, CSRF, session fingerprint, path guard, brute-force tracking, private storage, dan validasi paket. Fitur ini adalah lapisan, bukan jaminan keamanan deployment.</p>
 <h2>Autentikasi dan dashboard</h2>
 <p>PHP dashboard berada di luar web root dan hanya dicapai lewat router pada <code>admin_path</code>. Path yang salah dimasking sebagai frontend 404. Login memakai CSRF, password hash PHP, dan proteksi percobaan yang dapat dikonfigurasi. Path tersembunyi mengurangi noise pemindaian, tetapi tidak menggantikan password unik, rate limiting proxy, atau MFA dari integrasi tambahan.</p>
@@ -150,12 +150,12 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <p>Gunakan least privilege. Site Owner adalah batas tambahan bagi operasi kritis; admin biasa tidak identik dengan owner. Permission, scope, kepemilikan, status akun, dan guard route diperiksa server-side. Plugin ACL menambah syarat, bukan melewati guard Core.</p>
 <h2>Aset dan operasi</h2>
 <p>Private asset harus berada pada private disk dengan scope tepat. Token viewer PDF bersifat sementara dan bukan tautan publik. Update hanya dari endpoint/paket tepercaya, periksa checksum/manifest, dan buat backup teruji. Patch PHP, database, web server, theme, serta plugin secara rutin. Pantau error log dan audit authorization tanpa menyimpan secret ke log.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'published', 1, '2026-07-24 23:45:59', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'published', 1, 1, '2026-07-24 23:45:59', '2026-08-19 00:00:00', 0, NULL, 0),
 (283, 'Tentang Jyavani', 'tentang-jyavani', '<p><strong>Halaman contoh.</strong> Ganti isi ini dengan identitas organisasi atau situs Anda sebelum produksi.</p>
 <p>Jyavani CMS adalah CMS native PHP dengan manajemen artikel/halaman, kategori, media/file, theme, plugin, menu, role/permission, dan update. Fitur yang benar-benar tersedia pada situs bergantung pada versi Core, theme, plugin, serta konfigurasi deployment.</p>
 <h2>Tentang situs ini</h2>
 <p>Jelaskan pemilik/pengelola, tujuan publikasi, cakupan konten, dan cara pembaca memverifikasi informasi. Jangan memakai teks demo sebagai pernyataan resmi organisasi.</p>
-', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'page', NULL, NULL, NULL, 'published', 1, 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
 (284, 'Kontak', 'kontak', '<p><strong>Placeholder kontak.</strong> Jyavani Core tidak menyediakan alamat, akun sosial, SLA respons, atau layanan dukungan untuk situs Anda.</p>
 <h2>Isi sebelum diterbitkan</h2>
 <ul>
@@ -165,7 +165,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
   <li>Alamat fisik hanya bila perlu dan aman dipublikasikan.</li>
 </ul>
 <p>Jika memakai form kontak dari plugin, dokumentasikan tujuan data, retensi, penerima, proteksi spam, dan consent. Uji pengiriman sendiri; Core tidak menjamin email delivery atau respons operasional.</p>
-', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'page', NULL, NULL, NULL, 'published', 1, 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
 (285, 'Privacy Policy', 'privacy-policy', '<p><strong>Template, bukan nasihat hukum.</strong> Sesuaikan kebijakan ini dengan data yang benar-benar diproses situs, yurisdiksi, theme, plugin, analytics, hosting, dan prosedur organisasi Anda.</p>
 <h2>Inventaris data</h2>
 <p>Dokumentasikan data akun, log keamanan, alamat IP, cookie sesi, unggahan, form, analytics, dan integrasi pihak ketiga yang benar-benar aktif. Core memakai data akun dan cookie sesi untuk autentikasi; plugin dapat menambah pemrosesan lain.</p>
@@ -173,7 +173,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <p>Nyatakan dasar/tujuan pemrosesan, penerima data, lokasi penyimpanan, masa retensi, backup, serta proses penghapusan. Jangan menjanjikan anonimisasi, enkripsi, backup berkala, atau respons dalam jangka tertentu kecuali deployment Anda menerapkannya dan dapat membuktikannya.</p>
 <h2>Hak dan kontak</h2>
 <p>Jelaskan cara subjek data meminta akses, koreksi, ekspor, keberatan, atau penghapusan sesuai hukum yang berlaku. Tambahkan kontak privacy yang valid dan tanggal berlaku/revisi. Tinjau ulang setiap kali plugin, vendor, atau praktik operasional berubah.</p>
-', 'page', NULL, NULL, NULL, 'published', 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'page', NULL, NULL, NULL, 'published', 1, 1, '2026-07-24 23:50:53', '2026-08-19 00:00:00', 0, NULL, 0),
 (286, 'Recycle Bin dan Soft Delete Konten', 'sistem-soft-delete-recycle-bin', '<p>Recycle Bin Core berlaku untuk artikel, halaman, theme content, kategori, dan user yang memiliki <code>is_deleted</code>/<code>deleted_at</code>. Media dan File Library tidak memakai kontrak soft delete yang sama.</p>
 <h2>Trash, restore, purge</h2>
 <p>Delete awal menandai record agar tidak tampil pada daftar aktif atau frontend. Halaman Bin per tipe menampilkan item yang boleh dilihat pengguna berdasarkan permission restore/purge dan scope pemilik.</p>
@@ -188,7 +188,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
   <li>Backup database serta storage secara terpisah.</li>
   <li>Uji restore backup; Trash hanya melindungi dari sebagian kesalahan operasional.</li>
 </ol>
-', 'article', NULL, NULL, '/static/img/2026/07/sistem-soft-delete-thumb.jpg', 'published', 1, '2026-07-25 00:03:17', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/sistem-soft-delete-thumb.jpg', 'published', 1, 1, '2026-07-25 00:03:17', '2026-08-19 00:00:00', 0, NULL, 0),
 (287, 'Update, Reinstall, Backup, dan Hard Reset', 'sistem-reinstall-dan-update', '<p>CMS Update hanya tersedia bagi Site Owner yang juga memiliki <code>core.updates.manage</code>. Halaman dapat memeriksa endpoint remote, menerima ZIP manual berisi manifest, menerapkan update, atau reinstall Core.</p>
 <img src="/static/img/2026/07/update-page-screenshot.jpg" alt="CMS Update" style="width:100%;margin:1rem 0">
 <h2>Sebelum perubahan</h2>
@@ -199,7 +199,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <p>Opsi hard reset hanya tersedia bersama reinstall. Opsi ini mengembalikan system theme, auth paths, status plugin, slot, sidebar, dan menu ke default. Konten, user, media, konfigurasi database, dan upload dinyatakan tidak dihapus oleh alur ini, tetapi backup tetap wajib. Tidak ada tombol soft reset terpisah.</p>
 <h2>Verifikasi</h2>
 <p>Setelah update, cocokkan versi, buka frontend/login/dashboard, uji tulis konten, cek plugin/theme, dan baca log. Jangan menimpa deployment dengan <code>git pull</code> tanpa memahami preserve policy. Jika update gagal, pertahankan bukti log dan pulihkan dari backup yang telah diuji.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/sistem-reinstall-update-thumb.jpg', 'published', 1, '2026-07-25 00:06:50', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/sistem-reinstall-update-thumb.jpg', 'published', 1, 1, '2026-07-25 00:06:50', '2026-08-19 00:00:00', 0, NULL, 0),
 (288, 'Memulai dengan Jyavani CMS 2.3.74', 'memulai-dengan-jyavani', '<p>Jyavani CMS 2.3.74 adalah CMS native PHP tanpa Composer runtime. Entry publik berada di <code>public/router.php</code>; konfigurasi, dashboard, aplikasi, plugin, schema, dan private files berada di luar web root deployment yang benar.</p>
 <h2>Orientasi pertama</h2>
 <p>Setelah Pondasi selesai, login melalui path yang dibuat installer, default <code>/login/</code>. Dashboard default berada di <code>/dashboard/</code>. Keduanya dapat diubah di Auth Settings; akses path lama akan tampil sebagai 404.</p>
@@ -216,7 +216,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Model akses</h2>
 <p>Akun Pondasi adalah Site Owner dan Administrator. Jangan membagikan akun ini. Buat akun harian dengan system/custom role minimum. Registrasi publik default nonaktif; bila diaktifkan, akun baru menerima Author dan dapat menunggu approval.</p>
 <p>Gunakan Theme/Plugin Store hanya untuk paket tepercaya. Perubahan URL baru sebaiknya memakai canonical content routes agar riwayat path tetap dapat redirect. Untuk instalasi detail, ikuti artikel Pondasi pada dokumentasi demo ini.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, '2026-07-25 00:09:41', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, 1, '2026-07-25 00:09:41', '2026-08-19 00:00:00', 0, NULL, 0),
 (289, 'Private Files dan Media: Storage, Scope, dan Shortcode', 'private-files-dan-media', '<p>Core memisahkan gambar di Media Library dan dokumen umum di File Library. Keduanya mendukung public/private storage serta access scope, tetapi URL dan shortcode-nya berbeda.</p>
 <h2>Kontrak akses</h2>
 <ul>
@@ -231,7 +231,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Batas fitur</h2>
 <p>Scope Core ditujukan untuk public, editorial, dan admin. Core tidak menyediakan membership/subscriber download policy. Plugin dapat menambah workflow, tetapi harus tetap memanggil guard Core dan tidak memperlonggar akses.</p>
 <p>Backup public upload dan kedua private storage. Aksi delete media/file bukan Recycle Bin universal dan dapat menghapus file fisik. Uji akses sebagai anonymous, author, editor, admin non-owner, dan Site Owner.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/private-files-thumb.jpg', 'published', 1, '2026-07-25 09:01:03', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/private-files-thumb.jpg', 'published', 1, 1, '2026-07-25 09:01:03', '2026-08-19 00:00:00', 0, NULL, 0),
 (290, 'Roles & Permissions: Akses Dinamis dan Scope', 'roles-permissions-mengatur-akses-pengguna', '<p>Roles &amp; Permissions menggabungkan grant dari seluruh role aktif pengguna. Menu ini dibatasi untuk Site Owner; permission pada route tetap diperiksa server-side.</p>
 <img src="/static/img/2026/08/roles-permissions-light.jpg" alt="Roles dan Permissions" style="width:100%;margin:1rem 0">
 <h2>System role</h2>
@@ -247,7 +247,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 </ol>
 <p>Permission yang belum dimigrasikan penuh dapat tampil tidak tersedia untuk custom role. Grant nonaktif dipertahankan agar tidak hilang diam-diam. Permission plugin juga dapat nondelegable sehingga hanya system role default yang boleh menerimanya.</p>
 <p>Perubahan role dan permission memicu audit/hook setelah transaksi. Core melakukan recheck pada mutasi sensitif untuk mengurangi race ketika akses berubah bersamaan.</p>
-', 'article', '{"meta_tags":{"description":"Panduan Roles & Permissions Jyavani Core: system role, custom role, permission, scope, authority rank, dan Site Owner."}}', NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, '2026-08-18 18:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', '{"meta_tags":{"description":"Panduan Roles & Permissions Jyavani Core: system role, custom role, permission, scope, authority rank, dan Site Owner."}}', NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, 1, '2026-08-18 18:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
 (291, 'Instalasi Bersih Jyavani CMS: Pondasi, Site Owner, dan Verifikasi Pertama', 'instalasi-bersih-pondasi-site-owner-verifikasi', '<p>Pondasi adalah installer web sekali pakai untuk deployment baru. Ekstrak paket Jyavani sehingga document root menunjuk direktori publik yang berisi router, sementara <code>cfg</code>, <code>dashboard</code>, <code>app</code>, <code>plugins</code>, dan <code>private_files</code> tetap di luar web root.</p>
 <h2>Prasyarat dan database</h2>
 <ol>
@@ -270,7 +270,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
   <li>Verifikasi HTTPS, cookie Secure, email/site URL, dan backup.</li>
 </ul>
 <p>Owner deployment harus mengatur ownership/permission file agar proses web hanya dapat menulis lokasi yang diperlukan. Anggap mode file hasil ekstraksi sebagai kondisi paket yang harus diaudit, bukan kebijakan keamanan Core yang sengaja menjadikan semua file privat.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/memulai-jyavani-thumb.jpg', 'published', 1, 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
 (292, 'Plugin Permissions: Default Roles dan Delegability', 'plugin-permissions-default-roles-dan-delegability', '<p>Kontrak permission plugin diperkenalkan pada 2.3.73 dan diperketat pada 2.3.74. Plugin mendeklarasikan permission miliknya di <code>plugin.json</code>; Core memvalidasi lalu menyinkronkannya ke authorization dinamis.</p>
 <h2>Namespace dan route guard</h2>
 <p>Key harus lowercase dan berbentuk <code>plugin.{nama-plugin}.{resource}.{action}</code>. Nama provider harus sama dengan nama plugin. Route dashboard dapat mendeklarasikan <code>permission</code>; permission route tidak boleh berscope karena route tidak membawa konteks resource. <code>roles</code> tetap menjadi compatibility policy dan filter pengetatan.</p>
@@ -291,7 +291,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Lifecycle dan fail closed</h2>
 <p>Plugin aktif disinkronkan setelah load dan sebelum <code>admin_init</code>. Permission plugin disabled tetap dikenal tetapi <code>is_active=0</code>; uninstall menghapus permission dan grant. Perubahan label/delegability dapat diperbarui, tetapi collision semantic provider/resource/action/scope menyebabkan rollback. Route permission belum dianggap siap bila sinkronisasi gagal.</p>
 <p>Collision key, ownership, route Core, route plugin lain, atau kontrak invalid ditolak. ACL plugin adalah syarat tambahan: route tetap harus lolos Core guard, Site Owner policy bila dipakai, compatibility role filter, dan pemeriksaan permission. Tidak ada deklarasi plugin yang boleh melewati guard Core.</p>
-', 'article', NULL, NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'published', 1, 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
 (293, 'Canonical Content Routes dan Riwayat Redirect', 'canonical-content-routes-dan-riwayat-redirect', '<p><code>content_routes</code> adalah registry path publik untuk artikel, halaman, dan theme content. Registry memisahkan identitas post/slug lama dari URL publik yang dapat berubah tanpa kehilangan riwayat redirect.</p>
 <h2>Canonical dan alias</h2>
 <p>Untuk setiap pasangan post-locale hanya satu row memiliki <code>is_canonical=1</code> dan <code>canonical_slot=1</code>. Saat canonical diganti, canonical lama diturunkan menjadi alias. Resolver alias mengembalikan target canonical sehingga router dapat memberi redirect permanen dan mempertahankan query string dengan aman.</p>
@@ -302,7 +302,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Locale dan plugin translasi</h2>
 <p>Core menyimpan kolom locale dan dapat membentuk URL <code>/{locale}/{path}/</code>, tetapi Core tidak menyediakan editor translasi native. Plugin translasi bertanggung jawab membuat versi konten, menentukan locale, menyinkronkan canonical/alias, menangani redirect lintas locale, dan menambah sitemap locale. Plugin harus memakai helper route agar collision, transaksi, dan riwayat canonical tetap konsisten.</p>
 <p>Sebelum mengubah path, cek link internal dan route plugin, simpan canonical baru secara atomik, lalu uji URL baru, alias lama, query string, 404, menu, canonical tag, dan sitemap.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/seo-meta-tags-thumb.jpg', 'published', 1, 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
 (294, 'Bahasa Dashboard, Content Locale, dan Integrasi Translasi', 'bahasa-dashboard-content-locale-dan-translasi', '<p>Jyavani memisahkan bahasa antarmuka dashboard dari locale dasar konten. Pemisahan ini memungkinkan editor memakai UI Indonesia sementara situs dasar menggunakan bahasa lain.</p>
 <h2>Dua setting</h2>
 <ul>
@@ -317,7 +317,7 @@ INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`
 <h2>Tanggung jawab plugin translasi</h2>
 <p>Plugin menentukan model translasi, locale yang didukung, akses editor, dan fallback. Gunakan hook <code>admin_post_after_*</code>/<code>admin_page_after_*</code> untuk sinkronisasi setelah mutasi. Buat canonical route dan alias untuk setiap locale tanpa collision; default locale biasanya tanpa prefix, locale lain memakai prefix.</p>
 <p>Menu dan kategori hanya diterjemahkan bila plugin secara eksplisit mendukung record tersebut dan theme memakai hasil integrasinya. Jangan menganggap mengganti content default otomatis menerjemahkan slug, menu, kategori, metadata, atau isi lama. Uji UI en/id/de, URL default/terjemahan, redirect, canonical, sitemap, dan kondisi plugin disabled.</p>
-', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
+', 'article', NULL, NULL, '/static/img/2026/07/settings-dashboard-thumb.jpg', 'published', 1, 1, '2026-08-19 00:00:00', '2026-08-19 00:00:00', 0, NULL, 0),
 (295, 'Core Mail API: Transport, Pengaturan Pengiriman, dan Email Uji', 'core-mail-api-transport-pengaturan-pengiriman-dan-email-uji', '<p>Jyavani Core menyediakan Mail API sebagai satu jalur pengiriman email untuk fitur CMS dan plugin. Plugin fitur cukup menyerahkan pesan terstruktur kepada Core; pemilihan transport, identitas pengirim, fallback, dan pencatatan pengiriman dikelola terpisah.</p>
 
 <h2>Mengapa memakai Mail API</h2>
@@ -392,7 +392,7 @@ if (!$result[''ok'']) {
 <p>Kontrak Mail API berfokus pada email transactional sederhana dalam format <code>text/plain</code> atau <code>text/html</code>. CC, BCC, attachment, raw MIME part, dan header bebas belum menjadi bagian dari API. Plugin sebaiknya tidak membuat jalur pengiriman kedua untuk menghindari validasi Core; ajukan perluasan kontrak ketika kebutuhan tersebut memang harus didukung lintas transport.</p>
 
 <p>Dengan pola ini, fitur seperti OTP, notifikasi akun, formulir, atau laporan dapat memakai satu API yang sama. Operasional situs tetap bebas memilih native mail, SMTP, atau provider lain tanpa membuat plugin fitur saling bergantung.</p>
-', 'article', '{"meta_tags":{"description":"Panduan Core Mail API Jyavani untuk pengaturan sender, transport native atau SMTP, fallback, logging teredaksi, keamanan, dan email uji."}}', NULL, '/static/img/2026/08/core-mail-api-thumbnail.jpg', 'published', 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', 0, NULL, 0);
+', 'article', '{"meta_tags":{"description":"Panduan Core Mail API Jyavani untuk pengaturan sender, transport native atau SMTP, fallback, logging teredaksi, keamanan, dan email uji."}}', NULL, '/static/img/2026/08/core-mail-api-thumbnail.jpg', 'published', 1, 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', 0, NULL, 0);
 
 INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `height`, `title`, `alt`, `caption`, `credit`, `visibility`, `storage_disk`, `storage_path`, `access_scope`, `is_downloadable`, `user_id`, `created_at`, `updated_at`, `target_url`, `target_attribute`) VALUES
 (64, '/static/img/2026/07/content-management-71b8788f.jpg', 'content-management-71b8788f.png', 'image/png', 'png', 372716, 1200, 675, 'Content Management', 'Content Management System Dashboard', NULL, NULL, 'public', 'public', '2026/07/content-management-71b8788f.png', 'public', 1, 1, '2026-07-24 09:57:56', NULL, NULL, NULL),
@@ -489,8 +489,8 @@ INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigne
 (295, 4, 1, '2026-08-23 20:50:00');
 
 -- Demo shortcode preset: random demo posts by the initial Site Owner.
-INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES
-(300, 'Demo Random Posts Preset', 'demo_random_posts', '', 'sc_preset', '{"source":"posts","type":"article","category":"","author":"1","order_by":"RAND()","order_dir":"DESC","limit":"4","layout":"mini","kicker":"Pilihan","excerpt_len":"0","wrap":"1"}', NULL, NULL, 'published', 1, '2026-07-25 09:07:48', '2026-07-25 09:07:48', 0, NULL, 0);
+INSERT INTO `posts` (`id`, `title`, `slug`, `content`, `type`, `meta`, `youtube`, `thumbnail`, `status`, `created_by`, `updated_by`, `created_at`, `updated_at`, `sort_order`, `deleted_at`, `is_deleted`) VALUES
+(300, 'Demo Random Posts Preset', 'demo_random_posts', '', 'sc_preset', '{"source":"posts","type":"article","category":"","author":"1","order_by":"RAND()","order_dir":"DESC","limit":"4","layout":"mini","kicker":"Pilihan","excerpt_len":"0","wrap":"1"}', NULL, NULL, 'published', 1, 1, '2026-07-25 09:07:48', '2026-07-25 09:07:48', 0, NULL, 0);
 
 -- Demo sidebar widget using the preset above.
 INSERT IGNORE INTO `sidebar_zone_items` (`zone_id`, `type`, `title`, `config`, `ordering`, `active`) VALUES

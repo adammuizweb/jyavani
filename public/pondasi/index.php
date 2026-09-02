@@ -227,6 +227,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach (split_sql_statements($authorizationSql) as $authorizationStatement) {
                     $pdo->exec($authorizationStatement);
                 }
+                $contentPolicyMigration = $schemaDir . '/migrations/019-content-readonly-attribution.sql';
+                if (!is_file($contentPolicyMigration)) {
+                    throw new RuntimeException('Migrasi kebijakan konten wajib tidak ditemukan.');
+                }
+                $contentPolicySql = file_get_contents($contentPolicyMigration);
+                if ($contentPolicySql === false) {
+                    throw new RuntimeException('Migrasi kebijakan konten tidak dapat dibaca.');
+                }
+                foreach (split_sql_statements($contentPolicySql) as $contentPolicyStatement) {
+                    $pdo->exec($contentPolicyStatement);
+                }
 
                 // Import translation seed data (id + de)
                 $translationsSql = $schemaDir . '/translations.sql';

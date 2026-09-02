@@ -71,13 +71,14 @@ try {
         UPDATE posts
         SET is_deleted = 1,
             deleted_at = NOW(),
-            updated_at = NOW()
+            updated_at = NOW(),
+            updated_by = :updated_by
         WHERE id = :id
           AND type = 'page'
           AND is_deleted = 0
         LIMIT 1
     ");
-    $stmt->execute([':id' => $id]);
+    $stmt->execute([':id' => $id, ':updated_by' => $uid]);
 
     $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")
         ->execute([':id' => $id]);

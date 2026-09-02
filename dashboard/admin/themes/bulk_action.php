@@ -11,7 +11,7 @@ require_once __DIR__ . '/../_notify.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_role($pdo, ['admin'], true);
+[$uid] = adiwira_require_login($pdo, true);
 
 if (!function_exists('is_ajax_request')) {
     function is_ajax_request(): bool {
@@ -73,14 +73,25 @@ $in = implode(',', array_fill(0, count($ids), '?'));
 
 try {
     $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Theme actor permission lock failed.');
+    $selected = $pdo->prepare("SELECT id, created_by FROM posts WHERE id IN ($in) AND type = 'theme' AND is_deleted = 0 FOR UPDATE");
+    $selected->execute($ids);
+    $themes = $selected->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    if (count($themes) !== count($ids) || !authorization_lock_owner_contexts($pdo, array_column($themes, 'created_by'))) {
+        throw new DomainException('Theme selection changed.');
+    }
+    $permission = $action === 'delete' ? 'core.theme_content.delete' : 'core.theme_content.update';
+    foreach ($themes as $theme) {
+        if (!user_can($pdo, $uid, $permission, ['owner_id' => (int)$theme['created_by']])) throw new DomainException('Theme permission changed.');
+    }
 
     if ($action === 'delete') {
         $stmt = $pdo->prepare("
             UPDATE posts
-            SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW()
+            SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW(), updated_by = ?
             WHERE id IN ($in) AND type = 'theme' AND is_deleted = 0
         ");
-        $stmt->execute($ids);
+        $stmt->execute(array_merge([$uid], $ids));
         $affected = $stmt->rowCount();
 
         $pdo->commit();
@@ -96,10 +107,10 @@ try {
 
         $stmt = $pdo->prepare("
             UPDATE posts
-            SET status = ?, updated_at = NOW()
+            SET status = ?, updated_at = NOW(), updated_by = ?
             WHERE id IN ($in) AND type = 'theme' AND is_deleted = 0
         ");
-        $stmt->execute(array_merge([$new_status], $ids));
+        $stmt->execute(array_merge([$new_status, $uid], $ids));
         $affected = $stmt->rowCount();
 
         $pdo->commit();

@@ -11,7 +11,8 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 
-[$user_id, $user_role] = adiwira_require_editorial($pdo, false);
+[$user_id] = adiwira_require_permission($pdo, 'core.theme_content.create', false);
+$user_role = authorization_active_legacy_role($pdo, $user_id);
 
 if (function_exists('ensure_session_started')) {
     ensure_session_started(false);
@@ -101,17 +102,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ? (int)$_POST['created_by']
                 : $user_id;
 
-            $postId = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $status, $finalMeta, $authorId, $publicPath): int {
+            $postId = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $status, $finalMeta, $authorId, $publicPath, $user_id): int {
                 $pdo->beginTransaction();
                 try {
+                    if (!authorization_lock_actor_permissions($pdo, $user_id)
+                        || !user_can($pdo, $user_id, 'core.theme_content.create')) {
+                        throw new DomainException('Theme create permission changed.');
+                    }
+                    $authorLock = $pdo->prepare('SELECT id FROM users WHERE id = :id AND is_deleted = 0 AND is_locked = 0 FOR UPDATE');
+                    $authorLock->execute([':id' => $authorId]);
+                    if (!$authorLock->fetchColumn()) throw new DomainException('Theme owner target changed.');
                     $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
                     $slugLock->execute([':slug' => $slug]);
                     if ($slugLock->fetchColumn()) throw new DomainException('Theme slug changed.');
                     $stmt = $pdo->prepare("
                         INSERT INTO posts
-                            (title, slug, content, type, status, meta, created_by, created_at, updated_at)
+                            (title, slug, content, type, status, meta, created_by, updated_by, created_at, updated_at)
                         VALUES
-                            (:title, :slug, :content, 'theme', :status, :meta, :uid, NOW(), NOW())
+                            (:title, :slug, :content, 'theme', :status, :meta, :uid, :updated_by, NOW(), NOW())
                     ");
                     if (!$stmt->execute([
                         ':title'   => $title,
@@ -120,6 +128,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                         ':status'  => $status,
                         ':meta'    => $finalMeta,
                         ':uid'     => $authorId,
+                        ':updated_by' => $user_id,
                     ])) {
                         throw new RuntimeException('Failed to save theme partial.');
                     }

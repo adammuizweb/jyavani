@@ -135,6 +135,7 @@ $check($checkStatus === 0 && str_contains($checkOut, 'current'), '--check accept
 $check(str_contains($secondBytes, '-- Generated: 2026-08-19'), 'generated header has the canonical date');
 $check(str_contains($secondBytes, 'Tables written: categories, posts, media, post_categories, sidebar_zone_items.'), 'generated header describes actual tables');
 $check(substr_count($secondBytes, "'article'") >= 21 && str_contains($secondBytes, "(300, 'Demo Random Posts Preset'"), 'generated SQL includes article inventory and preset');
+$check(substr_count($secondBytes, '`updated_by`') === 2, 'generated post and preset inserts include updater attribution');
 
 if ($failures !== []) {
     fwrite(STDERR, 'Demo content contract failed: ' . count($failures) . " assertion(s).\n");

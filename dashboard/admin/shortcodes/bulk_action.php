@@ -60,12 +60,12 @@ try {
             shortcode_preset_before_delete($pdo, $deletedId);
         }
 
-        $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW() WHERE id IN ($placeholders) AND type = 'sc_preset' AND is_deleted = 0$ownership");
-        $stmt->execute($params);
+        $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW(), updated_by = ? WHERE id IN ($placeholders) AND type = 'sc_preset' AND is_deleted = 0$ownership");
+        $stmt->execute(array_merge([$uid], $params));
     } else {
         $status = $statuses[$action];
-        $stmt = $pdo->prepare("UPDATE posts SET status = ?, updated_at = NOW() WHERE id IN ($placeholders) AND type = 'sc_preset' AND is_deleted = 0$ownership");
-        $stmt->execute(array_merge([$status], $params));
+        $stmt = $pdo->prepare("UPDATE posts SET status = ?, updated_at = NOW(), updated_by = ? WHERE id IN ($placeholders) AND type = 'sc_preset' AND is_deleted = 0$ownership");
+        $stmt->execute(array_merge([$status, $uid], $params));
     }
 
     $affected = $stmt->rowCount();

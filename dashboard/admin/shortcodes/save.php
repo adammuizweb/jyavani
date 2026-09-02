@@ -150,8 +150,8 @@ try {
 
         $metaJson = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if ($isEdit) {
-            $sql = "UPDATE posts SET title = :title, slug = :slug, meta = :meta, status = :status, updated_at = NOW() WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0";
-            $params = [':title' => $title, ':slug' => $slug, ':meta' => $metaJson, ':status' => $status, ':id' => $id];
+            $sql = "UPDATE posts SET title = :title, slug = :slug, meta = :meta, status = :status, updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0";
+            $params = [':title' => $title, ':slug' => $slug, ':meta' => $metaJson, ':status' => $status, ':updated_by' => $uid, ':id' => $id];
             if (!$isAdmin) {
                 $sql .= " AND created_by = :uid";
                 $params[':uid'] = $uid;
@@ -172,7 +172,7 @@ try {
             return ['errors' => [], 'config' => $config, 'id' => $id, 'event' => 'edit'];
         }
 
-        $stmt = $pdo->prepare("INSERT INTO posts (title, slug, content, meta, type, status, created_by, created_at, updated_at) VALUES (:title, :slug, '', :meta, 'sc_preset', :status, :uid, NOW(), NOW())");
+        $stmt = $pdo->prepare("INSERT INTO posts (title, slug, content, meta, type, status, created_by, updated_by, created_at, updated_at) VALUES (:title, :slug, '', :meta, 'sc_preset', :status, :uid, :uid, NOW(), NOW())");
         $stmt->execute([':title' => $title, ':slug' => $slug, ':meta' => $metaJson, ':status' => $status, ':uid' => $uid]);
         if ($stmt->rowCount() !== 1) throw new RuntimeException('Preset insert did not affect one row.');
         return ['errors' => [], 'config' => $config, 'id' => (int)$pdo->lastInsertId(), 'event' => 'add'];

@@ -156,10 +156,10 @@ try {
         $in = implode(',', array_fill(0, count($ids), '?'));
 
         $sql = "UPDATE posts
-                SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW()
+                SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW(), updated_by = ?
                 WHERE id IN ($in) AND type = 'article' AND is_deleted = 0";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($ids);
+        $stmt->execute(array_merge([$uid], $ids));
         $affected = $stmt->rowCount();
 
         $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
@@ -190,9 +190,9 @@ try {
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "UPDATE posts
-                SET status = ?, updated_at = NOW()
+                SET status = ?, updated_at = NOW(), updated_by = ?
                 WHERE id IN ($in) AND type = 'article' AND is_deleted = 0";
-        $params = array_merge([$new_status], $ids);
+        $params = array_merge([$new_status, $uid], $ids);
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
@@ -277,8 +277,8 @@ try {
                 $pdo->prepare($sql)->execute($values);
             }
 
-            $pdo->prepare("UPDATE posts SET updated_at = NOW() WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
-                ->execute($post_ids);
+            $pdo->prepare("UPDATE posts SET updated_at = NOW(), updated_by = ? WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
+                ->execute(array_merge([$uid], $post_ids));
 
             $pdo->commit();
             respond(true, __('Category added to') . ' ' . count($post_ids) . ' ' . __('articles.'), 200, ['count' => count($post_ids)], $returnTo);
@@ -288,8 +288,8 @@ try {
             $sql = "DELETE FROM post_categories WHERE post_id IN ($placePost) AND category_id IN ($placeCat)";
             $pdo->prepare($sql)->execute(array_merge($post_ids, $cat_ids));
 
-            $pdo->prepare("UPDATE posts SET updated_at = NOW() WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
-                ->execute($post_ids);
+            $pdo->prepare("UPDATE posts SET updated_at = NOW(), updated_by = ? WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
+                ->execute(array_merge([$uid], $post_ids));
 
             $pdo->commit();
             respond(true, __('Selected category removed from') . ' ' . count($post_ids) . ' ' . __('articles.'), 200, ['count' => count($post_ids)], $returnTo);
@@ -318,8 +318,8 @@ try {
                     ->execute($toInsert);
             }
 
-            $pdo->prepare("UPDATE posts SET updated_at = NOW() WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
-                ->execute($post_ids);
+            $pdo->prepare("UPDATE posts SET updated_at = NOW(), updated_by = ? WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
+                ->execute(array_merge([$uid], $post_ids));
 
             $pdo->commit();
             respond(true, 'Operasi toggle kategori selesai untuk ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)], $returnTo);
@@ -355,11 +355,11 @@ try {
         do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
 
         $in = implode(',', array_fill(0, count($ids), '?'));
-        $params = array_merge([$author_id], $ids);
+        $params = array_merge([$author_id, $uid], $ids);
 
         $stmt = $pdo->prepare("
             UPDATE posts
-            SET created_by = ?, updated_at = NOW()
+            SET created_by = ?, updated_at = NOW(), updated_by = ?
             WHERE type = 'article' AND id IN ($in) AND is_deleted = 0
         ");
         $stmt->execute($params);
@@ -410,6 +410,8 @@ try {
         if ($created_at !== '' && $updated_at === '') {
             $fields[] = 'updated_at = updated_at';
         }
+        $fields[] = 'updated_by = ?';
+        $params[] = $uid;
 
         $hookInput = array_replace($_POST, [
             'created_at' => $normalizedCreatedAt,
