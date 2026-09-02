@@ -128,6 +128,35 @@ remove_filter('plugin_state_change_preflight', $denyDelete);
 plugin_migrations_ensure_table($pdo);
 $insertMigration = $pdo->prepare('INSERT INTO plugin_migrations (plugin_name, migration, checksum, applied_version) VALUES (?, ?, ?, ?)');
 
+$writePlugin('line-ending-history', '1.1.0');
+mkdir(PLUGIN_PATH . '/line-ending-history/migrations', 0775, true);
+$lineEndingMigration = PLUGIN_PATH . '/line-ending-history/migrations/0001-schema.sql';
+$lineEndingLf = "CREATE TABLE line_ending_history (id INTEGER PRIMARY KEY);\n";
+file_put_contents($lineEndingMigration, $lineEndingLf);
+$lineEndingLedger = hash('sha256', str_replace("\n", "\r\n", $lineEndingLf));
+$insertMigration->execute(['line-ending-history', '0001-schema.sql', $lineEndingLedger, '1.0.0']);
+$lineEndingLocks = plugin_lifecycle_locks('line-ending-history');
+$lineEndingPlan = is_array($lineEndingLocks)
+    ? plugin_migrations_plan_already_locked($pdo, 'line-ending-history', '1.1.0', PLUGIN_PATH . '/line-ending-history')
+    : null;
+if (is_array($lineEndingLocks)) theme_operation_release($lineEndingLocks);
+$lineEndingStored = $pdo->query("SELECT checksum FROM plugin_migrations WHERE plugin_name = 'line-ending-history'")->fetchColumn();
+$check(is_array($lineEndingPlan) && $lineEndingPlan['pending'] === [] && $lineEndingStored === $lineEndingLedger,
+    'migration preflight accepts whole-file CRLF-to-LF conversion without rewriting the historical ledger');
+file_put_contents($lineEndingMigration, $lineEndingLf . "SELECT 1;\n");
+$lineEndingLocks = plugin_lifecycle_locks('line-ending-history');
+$lineEndingMutationRejected = false;
+try {
+    if (is_array($lineEndingLocks)) {
+        plugin_migrations_plan_already_locked($pdo, 'line-ending-history', '1.1.0', PLUGIN_PATH . '/line-ending-history');
+    }
+} catch (Throwable) {
+    $lineEndingMutationRejected = true;
+} finally {
+    if (is_array($lineEndingLocks)) theme_operation_release($lineEndingLocks);
+}
+$check($lineEndingMutationRejected, 'migration preflight still rejects content changes after line-ending normalization');
+
 $writePlugin('not-loaded-complete-uninstall', '1.0.0');
 $pdo->exec('CREATE TABLE not_loaded_complete_schema (id INTEGER PRIMARY KEY)');
 $insertMigration->execute(['not-loaded-complete-uninstall', '0001-schema.sql', str_repeat('2', 64), '1.0.0']);

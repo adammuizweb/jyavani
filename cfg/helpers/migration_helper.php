@@ -155,6 +155,27 @@ function plugin_migrations_discover(string $pluginDir): array
     return $files;
 }
 
+/** Match immutable migration bytes while tolerating a whole-file LF/CRLF checkout conversion. */
+function plugin_migration_checksum_matches_file(string $checksum, array $file): bool
+{
+    if (preg_match('/\A[a-f0-9]{64}\z/', $checksum) !== 1
+        || !is_string($file['checksum'] ?? null)
+        || !is_string($file['path'] ?? null)) {
+        return false;
+    }
+    if (hash_equals($checksum, $file['checksum'])) return true;
+
+    $contents = file_get_contents($file['path']);
+    if (!is_string($contents)) return false;
+    $lf = str_replace("\r\n", "\n", $contents);
+    if (str_contains($lf, "\r")) return false;
+    $crlf = str_replace("\n", "\r\n", $lf);
+    if ($contents !== $lf && $contents !== $crlf) return false;
+
+    return hash_equals($checksum, hash('sha256', $lf))
+        || hash_equals($checksum, hash('sha256', $crlf));
+}
+
 function plugin_migrations_assert_locks(string $pluginName): void
 {
     $global = defined('THEME_LIFECYCLE_LOCK_KEY') ? (string)THEME_LIFECYCLE_LOCK_KEY : '0-theme-lifecycle';
@@ -254,7 +275,7 @@ function plugin_migrations_plan_already_locked(
         if (!isset($files[$name])) {
             throw new RuntimeException('Applied plugin migration is missing from the package: ' . $name);
         }
-        if (!hash_equals($checksum, $files[$name]['checksum'])) {
+        if (!plugin_migration_checksum_matches_file($checksum, $files[$name])) {
             throw new RuntimeException('Applied plugin migration was modified: ' . $name);
         }
         $applied[$name] = true;

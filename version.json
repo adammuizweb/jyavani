@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.99",
+    "version": "2.3.100",
     "build": "2026-09-02",
-    "changelog": "Add configurable robots.txt policy, centralized crawler directives, and protected search-engine routing.",
+    "changelog": "Preserve immutable plugin migration history across whole-file LF and CRLF checkout conversions.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
