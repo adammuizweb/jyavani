@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.96",
+    "version": "2.3.97",
     "build": "2026-09-02",
-    "changelog": "Add owner-scoped Category lifecycle contracts and multilingual Page and Theme Template workflow hooks.",
+    "changelog": "Render the dashboard admin footer extension action exactly once to prevent duplicate plugin UI.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

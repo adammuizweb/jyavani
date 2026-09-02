@@ -22,6 +22,8 @@ $pageEdit = (string)file_get_contents($root . '/dashboard/admin/pages/edit.php')
 $pageBulk = (string)file_get_contents($root . '/dashboard/admin/pages/bulk_action.php');
 $pageList = (string)file_get_contents($root . '/dashboard/admin/pages/index.php');
 $themeList = (string)file_get_contents($root . '/dashboard/admin/themes/index.php');
+$dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adam/layout.php');
+$dashboardFooter = (string)file_get_contents($root . '/dashboard/theme/adam/part/footer.php');
 $siteSettings = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $sitemap = (string)file_get_contents($root . '/app/controllers/SitemapController.php');
 $docs = (string)file_get_contents($root . '/cms.md');
@@ -84,6 +86,8 @@ $check(str_contains($themeList, "apply_filters('post_list_status_expression'")
     && str_contains($themeList, "['display_permalink']")
     && strpos($themeList, "apply_filters('post_list_join'") < strpos($themeList, 'SELECT COUNT(DISTINCT p.id)'),
     'Theme Template list exposes localized representation hooks while preserving its canonical internal slug');
+$check(substr_count($dashboardLayout . $dashboardFooter, "do_action('admin_footer')") === 1,
+    'dashboard renders the admin footer extension action exactly once');
 
 $check(str_contains($sitemap, "apply_filters('sitemap_query_clauses'")
     && str_contains($sitemap, 'self::queryClauses($pdo, $dbType)')

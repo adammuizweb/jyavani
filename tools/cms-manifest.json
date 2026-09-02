@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.96",
+    "version": "2.3.97",
     "build": "2026-09-02",
-    "generated": "2026-09-02T07:44:28+00:00",
+    "generated": "2026-09-02T08:44:22+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 535,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "048df152b74eb249cd3eddf8851c3b285e1be50ee7942deaa7de41719d93987d",
+        "VERSION": "5f173c85f15850417af5b3233893f790c0f5439182883f7fd588a5f92bccf85c",
         "app/bootstrap_core.php": "de1474c1e11e219eb942276a17bbd3ee4ec6e706e94ed2899de69296a9f24889",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
@@ -206,7 +206,7 @@
         "dashboard/theme/adam/layout.php": "6c20f82ad5d764bd24194ce1efbc44839d10f8903ad4f560416d1b4db1f06845",
         "dashboard/theme/adam/part/aside.php": "f6cbea71f93b489b3da4cf9707c11473610415001e23cdaedd08b9a16f7cdd7b",
         "dashboard/theme/adam/part/details.php": "ae096623b7c1ddd83ac7c24ad6e9c50d823825bcd8fca26d673886991c176b98",
-        "dashboard/theme/adam/part/footer.php": "f4dfd1749d18e03ce20e6afd4646cb1cd777e2d8e749a31d7499510db635c086",
+        "dashboard/theme/adam/part/footer.php": "a970b37e36d6a85db76e5f1036894c2a6ab1a90ac171d604466870a1cbd3868c",
         "dashboard/theme/adam/part/header.php": "300ce7c5ce342ceabbba63cdfb3fcac8244d1dcae8a84eebb0eb51a4b7002f45",
         "dashboard/theme/adam/part/main.php": "8926f2588f6968e2485eb2385bc992e53802d6d7c8557d1febe3312f5b4b0163",
         "dashboard/theme/adam/part/views/home.php": "9e064ed401204bb975840e3b5043b110968b8298c86d8ac3e6119b18b10830e1",
@@ -542,6 +542,6 @@
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "4280874e201f70ab1bb7e4aef3e00088e0c82d825b3c07c725bc4fd0c396cf5d",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
-        "version.json": "2699be0625f3d046b58353ddd23c56b11d2943da634d34358456001aa90e807f"
+        "version.json": "c9e5d2e67a512ca99fa9f186681f7644e806361338842dbb9015b0e2dc2252f4"
     }
 }
