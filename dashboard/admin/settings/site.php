@@ -99,6 +99,7 @@ $current_content_language = settings_get($pdo, 'content_default_language', $curr
 $stored_content_language = $current_content_language;
 
 $current_favicon_url = settings_get($pdo, 'favicon_url', '') ?? '';
+$current_search_engines_enabled = settings_get($pdo, 'search_engines_enabled', '1') !== '0';
 $current_search_engine_indexing = settings_get($pdo, 'search_engine_indexing', '1') !== '0';
 $current_robots_txt_custom = settings_get($pdo, 'robots_txt_custom', '') ?? '';
 
@@ -122,6 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $current_site_language = trim((string)($_POST['site_language'] ?? 'en'));
     $current_content_language = trim((string)($_POST['content_default_language'] ?? $current_site_language));
     $favicon_url = trim((string)($_POST['favicon_url'] ?? ''));
+    $search_engines_enabled = (string)($_POST['search_engines_enabled'] ?? '0') === '1';
     $search_engine_indexing = (string)($_POST['search_engine_indexing'] ?? '0') === '1';
     $robots_txt_custom = is_string($_POST['robots_txt_custom'] ?? null)
         ? (string)$_POST['robots_txt_custom']
@@ -137,6 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $current_pages_list_path = $pages_list_path;
     $current_category_path = $category_path;
     $current_favicon_url = $favicon_url;
+    $current_search_engines_enabled = $search_engines_enabled;
     $current_search_engine_indexing = $search_engine_indexing;
     $current_robots_txt_custom = $robots_txt_custom;
 
@@ -222,10 +225,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok9  = settings_set($pdo, 'enable_custom_meta', $enable_custom_meta, 1);
         $ok10 = settings_set($pdo, 'content_default_language', $current_content_language, 1);
         $ok11 = settings_set($pdo, 'site_description', $site_description, 1);
-        $ok12 = settings_set($pdo, 'search_engine_indexing', $search_engine_indexing ? '1' : '0', 1);
-        $ok13 = settings_set($pdo, 'robots_txt_custom', site_robots_txt_normalize($robots_txt_custom), 1);
+        $ok12 = settings_set($pdo, 'search_engines_enabled', $search_engines_enabled ? '1' : '0', 1);
+        $ok13 = settings_set($pdo, 'search_engine_indexing', $search_engine_indexing ? '1' : '0', 1);
+        $ok14 = settings_set($pdo, 'robots_txt_custom', site_robots_txt_normalize($robots_txt_custom), 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11 && $ok12 && $ok13) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11 && $ok12 && $ok13 && $ok14) {
             do_action('site_settings_after_save', $pdo, $_POST);
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
@@ -486,26 +490,42 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
         <div class="metatags-card">
           <div class="metatags-row">
             <div class="metatags-info">
-              <label class="metatags-label" for="search_engine_indexing"><?=_e('Allow search engines to index this site')?></label>
-              <p class="metatags-desc"><?=_e('When disabled, Core serves a blocking robots.txt policy and adds noindex,nofollow to public pages.')?></p>
+              <label class="metatags-label" for="search_engines_enabled"><?=_e('Enable Core search engine controls')?></label>
+              <p class="metatags-desc"><?=_e('When disabled, Core omits robots directives and leaves /robots.txt available to a physical file or plugin route.')?></p>
             </div>
             <label class="metatags-toggle">
-              <input type="hidden" name="search_engine_indexing" value="0">
-              <input type="checkbox" name="search_engine_indexing" id="search_engine_indexing" value="1"<?= $current_search_engine_indexing ? ' checked' : '' ?>>
+              <input type="hidden" name="search_engines_enabled" value="0">
+              <input type="checkbox" name="search_engines_enabled" id="search_engines_enabled" value="1"<?= $current_search_engines_enabled ? ' checked' : '' ?>>
               <span class="slider"></span>
             </label>
           </div>
         </div>
 
-        <div class="form-group" style="margin-top:1rem;">
+        <div id="search-engine-controls"<?= $current_search_engines_enabled ? '' : ' hidden' ?>>
+          <div class="form-group" style="margin-top:1rem;">
+            <label><?=_e('Indexing policy')?></label>
+            <div class="search-policy-options">
+              <label class="search-policy-option">
+                <input type="radio" name="search_engine_indexing" value="1"<?= $current_search_engine_indexing ? ' checked' : '' ?>>
+                <span><strong><?=_e('Allow Index')?></strong><small><?=_e('Publishes index,follow and an allow-crawling fallback.')?></small></span>
+              </label>
+              <label class="search-policy-option">
+                <input type="radio" name="search_engine_indexing" value="0"<?= $current_search_engine_indexing ? '' : ' checked' ?>>
+                <span><strong><?=_e('Disallow Crawling')?></strong><small><?=_e('Publishes noindex,nofollow and a disallow-crawling fallback.')?></small></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:1rem;">
           <label for="robots_txt_custom"><?=_e('Custom robots.txt rules')?></label>
           <textarea name="robots_txt_custom" id="robots_txt_custom" rows="8" maxlength="16384"
             class="inp inp-w100" style="font-family:monospace;"
             placeholder="User-agent: *&#10;Allow: /&#10;Sitemap: https://<?= htmlspecialchars($current_host, ENT_QUOTES, 'UTF-8') ?>/sitemap.xml"><?= htmlspecialchars($current_robots_txt_custom, ENT_QUOTES, 'UTF-8') ?></textarea>
-          <span class="field-note"><?=_e('Leave empty to generate a default policy that allows crawling and advertises /sitemap.xml.')?></span>
-          <span class="field-note"><?=_e('When indexing is disabled, the blocking Core policy overrides these custom rules.')?></span>
+          <span class="field-note"><?=_e('Leave empty to generate the fallback for the selected policy. Custom rules take precedence over that fallback, while the policy still controls the robots meta tag.')?></span>
+          <span class="field-note"><?=_e('Custom rules are preserved when the controls or policy change. A preset replaces only an empty or unchanged default template.')?></span>
           <span class="field-note"><?=_e('robots.txt guides cooperative crawlers and is not an access-control mechanism.')?></span>
           <a href="/robots.txt" target="_blank" rel="noopener" class="field-note" style="display:inline-block;margin-top:.4rem;"><?=_e('View robots.txt')?></a>
+          </div>
         </div>
       </div>
     </div>
@@ -572,6 +592,35 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
 
 <script src="/static/js/add/modal-helpers.js"></script>
 <script src="/static/js/add/media-selector.js"></script>
+<script>
+(function(){
+  var enabled = document.getElementById('search_engines_enabled');
+  var controls = document.getElementById('search-engine-controls');
+  var textarea = document.getElementById('robots_txt_custom');
+  var policies = document.querySelectorAll('input[name="search_engine_indexing"]');
+  var allowTemplate = <?= json_encode("User-agent: *\nAllow: /\nSitemap: https://" . $current_host . "/sitemap.xml\n", JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  var disallowTemplate = "User-agent: *\nDisallow: /\n";
+
+  function normalized(value) {
+    return String(value || '').replace(/\r\n?/g, '\n').trim();
+  }
+
+  function refreshVisibility() {
+    if (controls && enabled) controls.hidden = !enabled.checked;
+  }
+
+  function applyPreset(event) {
+    if (!textarea) return;
+    var current = normalized(textarea.value);
+    if (current !== '' && current !== normalized(allowTemplate) && current !== normalized(disallowTemplate)) return;
+    textarea.value = event.currentTarget.value === '1' ? allowTemplate : disallowTemplate;
+  }
+
+  if (enabled) enabled.addEventListener('change', refreshVisibility);
+  Array.prototype.forEach.call(policies, function(policy){ policy.addEventListener('click', applyPreset); });
+  refreshVisibility();
+})();
+</script>
 <script>
 (function(){
   var input = document.getElementById('favicon-url-input');

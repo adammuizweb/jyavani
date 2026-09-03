@@ -49,16 +49,18 @@ $requestedRobotsMeta = trim((string)($GLOBALS['robots_meta'] ?? 'index,follow'))
 if (preg_match('/^[a-z0-9,\- ]{1,128}$/i', $requestedRobotsMeta) !== 1) {
     $requestedRobotsMeta = 'index,follow';
 }
+$searchEnginesEnabled = !($pdo instanceof PDO && function_exists('site_search_engines_enabled'))
+    || site_search_engines_enabled($pdo);
 $indexingAllowed = !($pdo instanceof PDO && function_exists('site_search_engine_indexing_allowed'))
     || site_search_engine_indexing_allowed($pdo);
 $robotsMeta = $indexingAllowed ? $requestedRobotsMeta : 'noindex,nofollow';
-if ($indexingAllowed) {
+if ($searchEnginesEnabled && $indexingAllowed) {
     $filteredRobotsMeta = apply_filters('robots_meta_content', $robotsMeta, $pdo);
     if (is_string($filteredRobotsMeta) && preg_match('/^[a-z0-9,\- ]{1,128}$/i', trim($filteredRobotsMeta)) === 1) {
         $robotsMeta = trim($filteredRobotsMeta);
     }
 }
-if (preg_match('/(?:^|,)\s*noindex(?:\s*,|$)/i', $robotsMeta) === 1 && !headers_sent()) {
+if ($searchEnginesEnabled && preg_match('/(?:^|,)\s*noindex(?:\s*,|$)/i', $robotsMeta) === 1 && !headers_sent()) {
     header('X-Robots-Tag: ' . $robotsMeta);
 }
 
@@ -238,7 +240,9 @@ $metaDesc = apply_filters('document_meta_description', (string)$metaDesc, $post 
 <?php if ($metaImg !== ''): ?>
   <meta name="twitter:image" content="<?= htmlspecialchars($metaImg, ENT_QUOTES, 'UTF-8') ?>">
 <?php endif; ?>
+<?php if ($searchEnginesEnabled): ?>
   <meta name="robots" content="<?= htmlspecialchars($robotsMeta, ENT_QUOTES, 'UTF-8') ?>">
+<?php endif; ?>
   <script>window.THEME_COLOR_MODE = <?= json_encode($themeColorMode) ?>;</script>
   <script src="/static/assets/js/main.js"></script>
 

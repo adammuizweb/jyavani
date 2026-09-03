@@ -31,7 +31,8 @@ if ($pathTrimmed === 'sw.js') {
 }
 
 // Search crawler policy is a protected root route, like the service worker.
-if ($pathTrimmed === 'robots.txt') {
+if ($pathTrimmed === 'robots.txt'
+    && (!function_exists('site_search_engines_enabled') || site_search_engines_enabled($pdo))) {
     if (!in_array($requestMethod, ['GET', 'HEAD'], true)) {
         http_response_code(405);
         header('Allow: GET, HEAD');

@@ -41,8 +41,6 @@ function plugin_message(string $message, mixed ...$values): string {
 }
 
 function plugin_current_jyavani_version(): string {
-    static $version = null;
-    if ($version !== null) return $version;
     $file = dirname(__DIR__) . '/VERSION';
     $version = is_file($file) ? trim((string)file_get_contents($file)) : '0.0.0';
     return preg_match('/^\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?$/', $version) ? $version : '0.0.0';

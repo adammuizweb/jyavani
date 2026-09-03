@@ -62,6 +62,12 @@ if (!function_exists('site_search_engine_indexing_allowed')) {
     }
 }
 
+if (!function_exists('site_search_engines_enabled')) {
+    function site_search_engines_enabled(PDO $pdo): bool {
+        return settings_get($pdo, 'search_engines_enabled', '1') !== '0';
+    }
+}
+
 if (!function_exists('site_robots_txt_normalize')) {
     function site_robots_txt_normalize(string $content): string {
         if (str_starts_with($content, "\xEF\xBB\xBF")) $content = substr($content, 3);
@@ -78,8 +84,8 @@ if (!function_exists('site_robots_txt_content')) {
             ? "User-agent: *\nAllow: /\nSitemap: " . rtrim($baseUrl, '/') . "/sitemap.xml\n"
             : "User-agent: *\nDisallow: /\n";
         $custom = settings_get($pdo, 'robots_txt_custom', '') ?? '';
-        $content = $indexingAllowed && trim($custom) !== '' ? $custom : $default;
-        if ($indexingAllowed && function_exists('apply_filters')) {
+        $content = trim($custom) !== '' ? $custom : $default;
+        if (function_exists('apply_filters')) {
             $filtered = apply_filters('robots_txt_content', $content, $pdo, $indexingAllowed);
             if (is_string($filtered)) $content = $filtered;
         }

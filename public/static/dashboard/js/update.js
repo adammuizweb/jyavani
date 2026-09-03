@@ -94,6 +94,7 @@ var _cmsPollTimer = null;
 var _cmsWatchdogTimer = null;
 var _cmsToken = '';
 var _cmsUpdateFinished = false;
+var _cmsDisplayedProgress = 0;
 
 function closeCmsUpdateModal(){
     var modal = document.getElementById('cmsUpdateConfirmModal');
@@ -101,6 +102,8 @@ function closeCmsUpdateModal(){
 }
 
 function cmsUpdateProgressBar(pct, status) {
+    pct = Math.max(_cmsDisplayedProgress, Math.min(Number(pct) || 0, 100));
+    _cmsDisplayedProgress = pct;
     var bar = document.getElementById('cmsProgressBar');
     var pctEl = document.getElementById('cmsProgressPct');
     var detailEl = document.getElementById('cmsProgressDetail');
@@ -118,6 +121,7 @@ function cmsUpdateProgressBar(pct, status) {
 function cmsShowProgress() {
     var overlay = document.getElementById('cmsUpdateProgress');
     if (!overlay) return;
+    _cmsDisplayedProgress = 0;
     cmsUpdateProgressBar(0, config.starting);
     overlay.style.display = 'flex';
 }

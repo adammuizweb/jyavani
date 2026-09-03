@@ -23,7 +23,7 @@ $putSetting = static function (string $key, string $value) use ($pdo): void {
 };
 
 $resetSettings();
-$check(site_search_engine_indexing_allowed($pdo), 'search indexing is enabled by default');
+$check(site_search_engines_enabled($pdo) && site_search_engine_indexing_allowed($pdo), 'Core search controls and indexing are enabled by default');
 $check(site_robots_txt_content($pdo, 'https://example.test') === "User-agent: *\nAllow: /\nSitemap: https://example.test/sitemap.xml\n",
     'empty configuration generates an allow policy with the canonical sitemap');
 
@@ -34,10 +34,16 @@ $check(site_robots_txt_content($pdo, 'https://example.test') === "User-agent: Ex
 
 $resetSettings();
 $putSetting('search_engine_indexing', '0');
+$check(site_robots_txt_content($pdo, 'https://example.test') === "User-agent: *\nDisallow: /\n",
+    'disallow policy generates a blocking fallback when custom rules are empty');
 $putSetting('robots_txt_custom', "User-agent: *\nAllow: /\n");
 $check(!site_search_engine_indexing_allowed($pdo)
-    && site_robots_txt_content($pdo, 'https://example.test') === "User-agent: *\nDisallow: /\n",
-    'disabled indexing forces the blocking Core policy over custom rules');
+    && site_robots_txt_content($pdo, 'https://example.test') === "User-agent: *\nAllow: /\n",
+    'custom crawler rules remain intact while noindex policy is selected');
+
+$resetSettings();
+$putSetting('search_engines_enabled', '0');
+$check(!site_search_engines_enabled($pdo), 'the master control can release Core robots output without changing saved policy or rules');
 
 $check(settings_robots_txt_validation_error(str_repeat('a', 16385)) !== null
     && settings_robots_txt_validation_error("User-agent: *\nDisallow: /\0") !== null
@@ -51,33 +57,43 @@ $layout = (string)file_get_contents($root . '/app/layout.php');
 $settings = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 
-$check(str_contains($router, "if (\$pathTrimmed === 'robots.txt')")
+$check(str_contains($router, "if (\$pathTrimmed === 'robots.txt'")
+    && str_contains($router, 'site_search_engines_enabled($pdo)')
     && str_contains($router, "['GET', 'HEAD']")
     && str_contains($router, "header('Content-Type: text/plain; charset=utf-8')")
     && str_contains($router, 'site_robots_txt_content($pdo'),
-    'Core owns a plain-text GET and HEAD robots.txt route');
+    'Core serves a plain-text GET and HEAD robots.txt route only while its controls are enabled');
 $check(str_contains($collectionHelpers, "\$path === 'robots.txt'")
     && str_contains($contentRouteHelpers, "\$path === 'robots.txt'"),
     'plugin rewrites and content routes cannot claim the Core robots.txt path');
 $check(substr_count($layout, '<meta name="robots"') === 1
     && str_contains($layout, "header('X-Robots-Tag: ' . \$robotsMeta)")
+    && str_contains($layout, 'if ($searchEnginesEnabled):')
     && str_contains($layout, 'site_search_engine_indexing_allowed($pdo)'),
-    'frontend emits one centralized robots meta value and matching noindex header');
+    'frontend conditionally emits one centralized robots meta value and matching noindex header');
 
 $searchSection = strpos($settings, '<!-- Search Engines -->');
 $metaSection = strpos($settings, '<!-- Meta Tags -->');
 $check($searchSection !== false && $metaSection !== false && $searchSection < $metaSection
+    && str_contains($settings, 'name="search_engines_enabled"')
     && str_contains($settings, 'name="search_engine_indexing"')
-    && str_contains($settings, 'name="robots_txt_custom"'),
-    'Site Settings places indexing and robots controls immediately above Meta Tags');
+    && str_contains($settings, 'name="robots_txt_custom"')
+    && str_contains($settings, "current !== normalized(allowTemplate)")
+    && str_contains($settings, "current !== normalized(disallowTemplate)"),
+    'Site Settings separates the master control, exclusive policy, and non-destructive custom rules above Meta Tags');
 
 foreach ([
     'Search Engines',
-    'Allow search engines to index this site',
-    'When disabled, Core serves a blocking robots.txt policy and adds noindex,nofollow to public pages.',
+    'Enable Core search engine controls',
+    'When disabled, Core omits robots directives and leaves /robots.txt available to a physical file or plugin route.',
+    'Indexing policy',
+    'Allow Index',
+    'Publishes index,follow and an allow-crawling fallback.',
+    'Disallow Crawling',
+    'Publishes noindex,nofollow and a disallow-crawling fallback.',
     'Custom robots.txt rules',
-    'Leave empty to generate a default policy that allows crawling and advertises /sitemap.xml.',
-    'When indexing is disabled, the blocking Core policy overrides these custom rules.',
+    'Leave empty to generate the fallback for the selected policy. Custom rules take precedence over that fallback, while the policy still controls the robots meta tag.',
+    'Custom rules are preserved when the controls or policy change. A preset replaces only an empty or unchanged default template.',
     'robots.txt guides cooperative crawlers and is not an access-control mechanism.',
     'View robots.txt',
     'Robots.txt must be valid UTF-8 text, contain no control characters, and not exceed 16 KiB.',

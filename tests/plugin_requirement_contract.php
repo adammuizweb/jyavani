@@ -9,6 +9,7 @@ mkdir(BACKEND_PATH . '/var', 0775, true);
 mkdir(PUBLIC_PATH, 0775, true);
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/plugins/index.php';
+require_once $root . '/app/controllers/PluginStoreController.php';
 
 $failures = [];
 $check = static function (bool $condition, string $message) use (&$failures): void {
@@ -39,6 +40,17 @@ $check(plugin_package_requirement_errors(
     ['requires' => ['jyavani' => '>=2.3.0', 'php' => '>=8.1']],
     ['requires' => ['jyavani' => '>=2.0.0', 'php' => '>=8.1']]
 ) !== [], 'store install rejects weaker or mismatched package requirements');
+$refreshed = PluginStoreController::refreshCompatibility([
+    'contract-plugin' => [
+        'new_version' => '2.0.0',
+        'requires' => ['jyavani' => '<=999.0.0'],
+        'compatible' => false,
+        'compatibility_errors' => ['Jyavani >=999.0.0 (installed: 0.0.0)'],
+    ],
+]);
+$check(($refreshed['contract-plugin']['compatible'] ?? false) === true
+    && ($refreshed['contract-plugin']['compatibility_errors'] ?? null) === [],
+    'cached Store compatibility is recalculated against the currently installed Core');
 
 $pluginDir = $fixture . '/contract-plugin';
 mkdir($pluginDir, 0775, true);

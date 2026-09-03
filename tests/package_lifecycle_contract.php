@@ -85,6 +85,27 @@ try {
     $check($publication['success'] && $rollback['restored'] && package_tree_matches_identity($old, $oldIdentity)
         && !file_exists($old . '/failed-extra.txt'), 'guarded publication and rollback restore exact old hashes, modes, empty directories, and absence of extras');
 
+    $legacy = $fixture . '/legacy-link-tree';
+    $replacement = $fixture . '/legacy-link-replacement';
+    mkdir($legacy, 0755);
+    mkdir($legacy . '/bin', 0755);
+    file_put_contents($legacy . '/cli.js', 'old cli');
+    symlink('../cli.js', $legacy . '/bin/cli');
+    mkdir($replacement, 0755);
+    file_put_contents($replacement . '/cli.js', 'new cli');
+    $check(package_tree_identity($legacy) === null, 'strict staging identity still rejects symbolic links');
+    $legacyIdentity = package_tree_identity($legacy, true);
+    $replacementIdentity = package_tree_identity($replacement);
+    $legacyLocks = theme_operation_acquire(theme_lifecycle_lock_keys(['legacy-link-contract']));
+    $legacyPublication = package_guarded_publish($replacement, $legacy, $legacyIdentity, $replacementIdentity);
+    $legacyRollback = $legacyPublication['success']
+        ? package_guarded_rollback($legacy, $legacyPublication['rollback_path'], $legacyIdentity)
+        : ['restored' => false];
+    theme_operation_release($legacyLocks);
+    $check($legacyPublication['success'] && $legacyRollback['restored'] && is_link($legacy . '/bin/cli')
+        && package_tree_matches_identity($legacy, $legacyIdentity),
+        'guarded update can snapshot and exactly restore legacy plugin links without accepting links in staging');
+
     $staleStage = package_private_directory($fixture, 'stale-stage');
     file_put_contents($staleStage . '/same.txt', 'newer');
     $staleIdentity = package_tree_identity($staleStage);

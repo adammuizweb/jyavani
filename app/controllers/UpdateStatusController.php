@@ -141,6 +141,10 @@ final class UpdateStatusController
         $snapshot = self::getSnapshot();
         $updates = $snapshot['components'][$component]['updates'] ?? [];
         if (!is_array($updates)) return [];
+        if ($component === 'plugins') {
+            require_once __DIR__ . '/PluginStoreController.php';
+            $updates = PluginStoreController::refreshCompatibility($updates);
+        }
         $componentFailed = ($snapshot['components'][$component]['state'] ?? 'unknown') === 'error';
         foreach ($updates as $name => &$update) {
             if (!is_array($update)) continue;

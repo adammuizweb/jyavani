@@ -204,9 +204,33 @@ class PluginStoreController
         $transient = self::readTransient();
         $updates = is_array($transient['updates'] ?? null) ? $transient['updates'] : [];
         $freshAfter = time() - self::UPDATE_TTL;
-        return array_filter($updates, static fn(mixed $update): bool => is_array($update)
+        $updates = array_filter($updates, static fn(mixed $update): bool => is_array($update)
             && ($update['actionable'] ?? false) === true
             && (int)($update['checked_at'] ?? 0) >= $freshAfter);
+        return self::refreshCompatibility($updates);
+    }
+
+    public static function refreshCompatibility(array $updates): array
+    {
+        foreach ($updates as $name => &$update) {
+            if (!is_array($update)) continue;
+            $requirements = ['requires' => is_array($update['requires'] ?? null) ? $update['requires'] : []];
+            $strict = function_exists('plugin_is_active') ? plugin_is_active((string)$name) : true;
+            if ($strict && function_exists('plugin_requirement_errors')) {
+                $errors = plugin_requirement_errors($requirements);
+            } elseif (function_exists('plugin_requirement_errors_without_plugin_state')) {
+                $errors = plugin_requirement_errors_without_plugin_state($requirements);
+            } else {
+                continue;
+            }
+            if (function_exists('plugin_replacement_dependency_errors')) {
+                $errors = array_merge($errors, plugin_replacement_dependency_errors((string)$name, (string)($update['new_version'] ?? '')));
+            }
+            $update['compatible'] = $errors === [];
+            $update['compatibility_errors'] = $errors;
+        }
+        unset($update);
+        return $updates;
     }
 
     public static function applyUpdate(PDO $pdo, string $name, string $progressToken = ''): array
@@ -291,7 +315,9 @@ class PluginStoreController
 
         $p(3, 'Memulai update...');
 
-        $oldIdentity = package_tree_identity($pluginDir);
+        // Legacy installers may have left npm links behind. Snapshot links without
+        // following them so the old directory can still be renamed and rolled back.
+        $oldIdentity = package_tree_identity($pluginDir, true);
         if ($oldIdentity === null) return ['success' => false, 'error' => 'Installed plugin tree contains unsupported entries.'];
 
         $tmpZip = self::downloadPackage((string)$update['download_url'], $p);

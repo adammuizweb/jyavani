@@ -109,6 +109,11 @@ $check(
     'update behavior uses a static script with explicit server configuration'
 );
 $check(
+    str_contains($updateScriptSource, 'Math.max(_cmsDisplayedProgress')
+        && str_contains($updateScriptSource, '_cmsDisplayedProgress = 0;'),
+    'update progress never moves backward while polling catches up'
+);
+$check(
     strpos($updatePageSource, 'cms_update_handle_progress_request();')
         < strpos($updatePageSource, 'adiwira_require_site_owner($pdo, false);'),
     'update progress remains readable during the first Site Owner migration'

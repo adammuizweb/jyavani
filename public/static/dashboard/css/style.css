@@ -6662,7 +6662,45 @@ html.theme-dark .profile-loader{
   display: inline-block;
 }
 
-/* ─── Meta Tags toggle switch ─── */
+/* ─── Search engine and Meta Tags controls ─── */
+.settings-section--search-engines {
+  --sec-clr: #0f766e;
+  --sec-clr-soft: rgba(15,118,110,0.10);
+  --sec-clr-border: rgba(15,118,110,0.24);
+}
+.settings-section--search-engines .settings-section-toggle {
+  color: var(--sec-clr);
+  border-bottom: 2px solid var(--sec-clr);
+}
+.settings-section--search-engines .settings-section-toggle svg { opacity: 1; }
+
+.search-policy-options {
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:.75rem;
+}
+.search-policy-option {
+  display:flex;
+  align-items:flex-start;
+  gap:.65rem;
+  padding:.8rem;
+  border:1px solid var(--adam-border-2);
+  border-radius:10px;
+  background:var(--adam-card);
+  cursor:pointer;
+}
+.search-policy-option:has(input:checked) {
+  border-color:var(--sec-clr);
+  box-shadow:0 0 0 2px var(--sec-clr-soft);
+}
+.search-policy-option input { margin-top:.2rem; accent-color:var(--sec-clr); }
+.search-policy-option span { display:grid; gap:.2rem; }
+.search-policy-option strong { color:var(--adam-text-2); font-size:.86rem; }
+.search-policy-option small { color:var(--adam-muted); line-height:1.4; }
+@media (max-width:640px) {
+  .search-policy-options { grid-template-columns:1fr; }
+}
+
 .settings-section--metatags {
   --sec-clr: #8b5cf6;
   --sec-clr-soft: rgba(139,92,246,0.10);

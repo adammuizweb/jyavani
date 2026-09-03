@@ -207,8 +207,8 @@ function package_sync_directory(string $directory): void {
     fclose($handle);
 }
 
-/** Exact regular-file tree identity, including paths, modes, hashes, and empty directories. */
-function package_tree_identity(string $directory): ?array {
+/** Exact tree identity, including paths, modes, hashes, empty directories, and optionally links. */
+function package_tree_identity(string $directory, bool $allowSymlinks = false): ?array {
     if (!is_dir($directory) || is_link($directory)) return null;
     $identity = [];
     try {
@@ -220,13 +220,20 @@ function package_tree_identity(string $directory): ?array {
             $path = $entry->getPathname();
             $relative = substr($path, strlen(rtrim($directory, '/')) + 1);
             $stat = @lstat($path);
-            if (!is_array($stat) || $entry->isLink() || (!$entry->isDir() && !$entry->isFile())) return null;
-            if ($entry->isDir()) {
+            if (!is_array($stat)) return null;
+            if ($entry->isLink()) {
+                if (!$allowSymlinks) return null;
+                $target = @readlink($path);
+                if (!is_string($target)) return null;
+                $identity[$relative] = ['type' => 'link', 'target' => $target];
+            } elseif ($entry->isDir()) {
                 $identity[$relative] = ['type' => 'dir', 'mode' => ($stat['mode'] ?? 0) & 0777];
-            } else {
+            } elseif ($entry->isFile()) {
                 $hash = hash_file('sha256', $path);
                 if (!is_string($hash)) return null;
                 $identity[$relative] = ['type' => 'file', 'mode' => ($stat['mode'] ?? 0) & 0777, 'size' => (int)$stat['size'], 'sha256' => $hash];
+            } else {
+                return null;
             }
         }
     } catch (Throwable $error) {
@@ -237,7 +244,8 @@ function package_tree_identity(string $directory): ?array {
 }
 
 function package_tree_matches_identity(string $directory, array $identity): bool {
-    $current = package_tree_identity($directory);
+    $allowSymlinks = array_filter($identity, static fn(mixed $entry): bool => is_array($entry) && ($entry['type'] ?? '') === 'link') !== [];
+    $current = package_tree_identity($directory, $allowSymlinks);
     return is_array($current) && $current === $identity;
 }
 
