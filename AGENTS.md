@@ -649,6 +649,10 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 
 ## Development
 
+- Keep Core repository-neutral: source, docs, tests, commits, releases, and PR
+  metadata must not name private clients, employers, or office projects. Use
+  generic terms such as `downstream consumer` and keep integration-specific
+  fixtures in the consuming repository.
 - Read the current version from `VERSION` and `version.json`; do not rely on a version copied into documentation.
 - Playwright regression tests available — run after changes to verify
 - Error display controlled by `APP_DEBUG=1` in `.env`
