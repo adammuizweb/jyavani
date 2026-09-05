@@ -170,4 +170,4 @@ if (!empty($_SESSION['flash_success'])) {
 }
 
 // render
-require_once DASH_PATH . '/theme/adam/layout.php';
+require_once DASH_PATH . '/theme/adiwira/layout.php';

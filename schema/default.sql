@@ -1,4 +1,4 @@
--- Adiwira CMS — Default Schema (MariaDB 10.6+)
+-- Jyavani CMS — Default Schema (MariaDB 10.6+)
 -- Dumped from production database 2026-05-25
 -- Safe for fresh install: uses CREATE TABLE IF NOT EXISTS + ON DUPLICATE KEY UPDATE
 

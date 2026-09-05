@@ -1,4 +1,4 @@
-// /adiwira/theme/adam/js/aside-state.js
+// /adiwira/theme/adiwira/js/aside-state.js
 // apply collapsed state early and suppress initial transitions
 (function(){
   try {

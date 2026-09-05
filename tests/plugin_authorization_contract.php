@@ -151,7 +151,7 @@ $check(isset($collisionResolution['diagnostics']['collision-dependent']), 'route
 
 $registry = (string)file_get_contents(dirname(__DIR__) . '/plugins/index.php');
 $dashboard = (string)file_get_contents(dirname(__DIR__) . '/dashboard/index.php');
-$aside = (string)file_get_contents(dirname(__DIR__) . '/dashboard/theme/adam/part/aside.php');
+$aside = (string)file_get_contents(dirname(__DIR__) . '/dashboard/theme/adiwira/part/aside.php');
 $check(str_contains($registry, 'adiwira_require_site_owner($pdo, $asJson)'), 'plugin router enforces Site Owner metadata');
 $check(str_contains($registry, 'adiwira_require_permission($pdo, $permission, $asJson)'), 'plugin router enforces dynamic permission metadata');
 $check(substr_count($registry, "apply_filters('plugin_page_roles'") >= 2, 'permission routes preserve role-filter tightening compatibility');

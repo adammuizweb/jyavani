@@ -1,4 +1,4 @@
-// lokasi file /adiwira/theme/adam/js/alerts.js
+// lokasi file /adiwira/theme/adiwira/js/alerts.js
 (function () {
   if (window.__adiwiraAlertsReady) return;
   window.__adiwiraAlertsReady = true;

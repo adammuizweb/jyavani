@@ -1,5 +1,5 @@
 <?php
-// /adiwira/theme/adam/layout.php
+// /adiwira/theme/adiwira/layout.php
 // Layout hanya boleh dimuat dari index.php (DASHBOARD_CONTEXT)
 if (!defined('DASHBOARD_CONTEXT')) {
     http_response_code(404);
@@ -11,7 +11,7 @@ define('ADAM_THEME', true);
 
 require_once __DIR__ . '/../../admin/_notify.php';
 
-$themePath = DASH_PATH . '/theme/adam';
+$themePath = __DIR__;
 $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull() : [];
 
 // server-side theme: read cookie so browser never flashes dark during nav
@@ -35,7 +35,7 @@ $themeColor = $adamTheme === 'dark' ? '#071022' : '#f9fafb';
   <!-- apply state early -->
   <script src="/static/dashboard/js/aside-state.js"></script>
 
-  <title><?= _e('Dashboard — CMS Adiwira') ?></title>
+  <title><?= _e('Dashboard — Jyavani CMS') ?></title>
   <script>window.ADMIN_PATH = '<?= ADMIN_BASE_PATH ?>';</script>
 <?php
 $faviconUrl = (isset($pdo) && $pdo instanceof PDO && function_exists('settings_get'))

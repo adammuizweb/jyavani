@@ -35,7 +35,7 @@ $check(settings_favicon_url_validation_error('/static/img/favicon/missing.png', 
     'favicon validation rejects missing local files');
 
 $layout = (string)file_get_contents($root . '/app/layout.php');
-$dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adam/layout.php');
+$dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $settingsPage = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $check(str_contains($layout, '$defaultAppleTouchIconUrl = $faviconUrl !== \'\' ? $faviconUrl')

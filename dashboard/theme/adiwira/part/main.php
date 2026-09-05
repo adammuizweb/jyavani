@@ -1,5 +1,5 @@
 <?php
-// /adiwira/theme/adam/part/main.php
+// /adiwira/theme/adiwira/part/main.php
 if (!defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');
@@ -134,7 +134,7 @@ if ($safe) {
         // fallback markup jika baik theme/home.php maupun DASH_PATH/home.php tidak tersedia
         echo '<section class="adam-welcome">';
         echo '<h2>' . __('Hello, welcome!') . '</h2>';
-        echo '<p>' . __('This is the Adiwira dashboard with the <strong>adam</strong> theme.') . '</p>';
+        echo '<p>' . __('Welcome to the Jyavani CMS dashboard.') . '</p>';
         echo '</section>';
     } else {
         if (!headers_sent()) http_response_code(404);

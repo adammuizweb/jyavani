@@ -71,7 +71,7 @@ All controllers are in `app/controllers/`, all are static methods.
 
 - Entry: `dashboard/index.php` — path guard (matches `admin_path` setting) + session check + DB status check
 - Admin pages: `dashboard/admin/` — each requires `_guard.php` which calls `adiwira_require_editorial($pdo)` (author/editor/admin) or `adiwira_require_admin($pdo)` (admin only)
-- Admin layout: `dashboard/theme/adam/layout.php` (requires `DASHBOARD_CONTEXT` defined)
+- Admin layout: `dashboard/theme/adiwira/layout.php` (requires `DASHBOARD_CONTEXT` defined)
 - Admin pages can be loaded via AJAX (no layout) or navigation (with layout); `adiwira_is_navigate_request()` detects this
 - `ADMIN_BASE_PATH` constant — used for all internal navigation links (`$base = ADMIN_BASE_PATH;` replaces old `dirname(SCRIPT_NAME)`)
 - `get_admin_path($pdo)` helper — reads `admin_path` setting, used in login/register pages for redirects
@@ -486,7 +486,7 @@ Helper functions:
 
 `<html lang>` is rendered via the `html_lang_attribute` filter:
 - Public layout (`app/layout.php`) uses `apply_filters('html_lang_attribute', content_default_locale())`.
-- Admin layout (`dashboard/theme/adam/layout.php`) uses `apply_filters('html_lang_attribute', admin_ui_locale())`.
+- Admin layout (`dashboard/theme/adiwira/layout.php`) uses `apply_filters('html_lang_attribute', admin_ui_locale())`.
 
 Because `default_locale()` is now the content default, plugins like Content Translation treat `content_default_language` as the base language: default-locale URLs have no prefix, and every other supported locale becomes a translation target. The admin dashboard language remains independent.
 
@@ -635,8 +635,8 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 ### Integration Points
 
 - `dashboard/index.php` — loads `plugins/index.php` after bootstrap; plugin routes checked before direct file router
-- `dashboard/theme/adam/part/main.php` — plugin pages resolved before DASH_PATH file lookup via `plugin_resolve_route()`
-- `dashboard/theme/adam/part/aside.php` — renders plugin nav items: `parent: "settings"` as sublinks under Settings, `parent: "tools"` under collapsible Tools menu
+- `dashboard/theme/adiwira/part/main.php` — plugin pages resolved before DASH_PATH file lookup via `plugin_resolve_route()`
+- `dashboard/theme/adiwira/part/aside.php` — renders plugin nav items: `parent: "settings"` as sublinks under Settings, `parent: "tools"` under collapsible Tools menu
 - Plugin Manager at `dashboard/admin/plugins/index.php` (core admin page, not a plugin)
 - Bin pages use `apply_filters('bin_items', ...)` hook for plugin-extendable trash listing
 

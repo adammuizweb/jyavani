@@ -81,7 +81,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 $updatePageSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/index.php');
 $updateActionsSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/_update_actions.php');
 $updateScriptSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/js/update.js');
-$dashboardLayoutSource = (string)file_get_contents($sourceRoot . '/dashboard/theme/adam/layout.php');
+$dashboardLayoutSource = (string)file_get_contents($sourceRoot . '/dashboard/theme/adiwira/layout.php');
 $updateStyleSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/css/update.css');
 $check(
     str_contains($updatePageSource, "require_once __DIR__ . '/_update_actions.php';")

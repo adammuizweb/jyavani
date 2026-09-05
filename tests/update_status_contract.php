@@ -242,7 +242,7 @@ try {
 
     $endpoint = (string)file_get_contents($root . '/dashboard/admin/check_updates_ajax.php');
     $javascript = (string)file_get_contents($root . '/public/static/dashboard/js/update-notif.js');
-    $layout = (string)file_get_contents($root . '/dashboard/theme/adam/layout.php');
+    $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
     $updatePage = (string)file_get_contents($root . '/dashboard/admin/update/index.php');
     $pluginPage = (string)file_get_contents($root . '/dashboard/admin/plugins/index.php');
     $themePage = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');

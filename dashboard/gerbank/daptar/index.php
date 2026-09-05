@@ -217,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?php _e('Sign Up — Adiwira'); ?></title>
+<title><?php _e('Sign Up — Jyavani CMS'); ?></title>
 <?php if ($recaptchaEnabled && $RECAPTCHA_SITEKEY !== ''): ?>
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <?php endif; ?>

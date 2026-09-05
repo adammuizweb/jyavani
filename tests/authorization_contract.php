@@ -78,7 +78,7 @@ foreach ([
 ] as $pageRoute) {
     $pageRoutes .= (string)file_get_contents($root . '/' . $pageRoute);
 }
-$aside = (string)file_get_contents($root . '/dashboard/theme/adam/part/aside.php');
+$aside = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/aside.php');
 $themeWriters = (string)file_get_contents($root . '/dashboard/admin/themes/add.php')
     . (string)file_get_contents($root . '/dashboard/admin/themes/save.php');
 $menuRoutes = '';
@@ -123,10 +123,10 @@ foreach ([
 $updateManagerRoutes = (string)file_get_contents($root . '/dashboard/admin/update/index.php')
     . (string)file_get_contents($root . '/dashboard/admin/update/update_apply.php')
     . (string)file_get_contents($root . '/dashboard/admin/check_updates_ajax.php');
-$dashboardHome = (string)file_get_contents($root . '/dashboard/theme/adam/part/views/home.php');
-$dashboardWidgets = (string)file_get_contents($root . '/dashboard/theme/adam/part/views/widgets.php');
+$dashboardHome = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/views/home.php');
+$dashboardWidgets = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/views/widgets.php');
 $dashboardLayoutSave = (string)file_get_contents($root . '/dashboard/admin/save_dashboard_layout.php');
-$dashboardHeader = (string)file_get_contents($root . '/dashboard/theme/adam/part/header.php');
+$dashboardHeader = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/header.php');
 $menuHelper = (string)file_get_contents($root . '/cfg/helpers/menu_helper.php');
 $dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 

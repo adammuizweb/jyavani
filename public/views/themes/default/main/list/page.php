@@ -1,5 +1,5 @@
 <?php
-// /adiwira/theme/adam/partials/pages/list.php
+// /adiwira/theme/adiwira/partials/pages/list.php
 // Expects:
 //   $pages   => array of page rows (id, title, slug, created_at, ...)
 //   $page    => current page (optional)

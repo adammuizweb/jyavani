@@ -7,7 +7,7 @@
  * ===============================================================
  *
  *  Description:
- *  - Core bootstrap for Adiwira CMS (admin area)
+ *  - Core bootstrap for the Jyavani CMS admin area
  *  - Provides theme, database, and session integration
  *
  *  Contact: az@adammuiz.com

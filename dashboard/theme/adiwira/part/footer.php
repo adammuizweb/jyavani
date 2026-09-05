@@ -1,5 +1,5 @@
 <?php
-// /adiwira/theme/adam/part/footer.php
+// /adiwira/theme/adiwira/part/footer.php
 if (!defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');

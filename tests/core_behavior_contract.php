@@ -59,7 +59,13 @@ $serverSetup = (string)file_get_contents($root . '/SERVER_SETUP.md');
 $login = (string)file_get_contents($root . '/dashboard/gerbank/melbu/index.php');
 $loginCss = (string)file_get_contents($root . '/public/static/dashboard/css/login.css');
 $debugHelpers = (string)file_get_contents($root . '/cfg/helpers/debug_helpers.php');
-$dashboardMain = (string)file_get_contents($root . '/dashboard/theme/adam/part/main.php');
+$dashboardMain = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/main.php');
+$dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
+$dashboardHeader = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/header.php');
+$registration = (string)file_get_contents($root . '/dashboard/gerbank/daptar/index.php');
+$dashboardBootstrap = (string)file_get_contents($root . '/dashboard/bootstrap.php');
+$defaultSchema = (string)file_get_contents($root . '/schema/default.sql');
+$translations = (string)file_get_contents($root . '/schema/translations.sql');
 $dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $redirectionNavIcon = (string)file_get_contents($root . '/public/static/icons/lucide/corner-up-right.svg');
 
@@ -104,6 +110,17 @@ $check(str_contains($updatesCaller, 'data.plugins.forEach'), 'update notificatio
 $check(str_contains($debugHelpers, 'if (!headers_sent())') && strpos($debugHelpers, 'http_response_code(500)') > strpos($debugHelpers, 'if (!headers_sent())'), 'fatal output never changes response headers after dashboard output starts');
 $check(str_contains($dashboardMain, 'catch (Throwable $error)')
     && str_contains($dashboardMain, 'class="adam-main-error"') && str_contains($dashboardCss, '.adam-main-error'), 'dashboard page failures render a contained diagnostic inside main');
+$check(str_contains($dashboardLayout, 'Dashboard — Jyavani CMS') && !str_contains($dashboardLayout, 'CMS Adiwira'), 'dashboard document title identifies the Jyavani CMS product');
+$check(str_contains($dashboardHeader, 'Adiwira') && str_contains($dashboardHeader, "_e('Dashboard')"), 'dashboard header retains Adiwira as the interface name');
+$check(str_contains($dashboardMain, 'Welcome to the Jyavani CMS dashboard.') && !str_contains($dashboardMain, '<strong>adam</strong>'), 'dashboard fallback avoids exposing its implementation folder as product identity');
+$check(str_contains($registration, 'Sign Up — Jyavani CMS')
+    && str_contains($dashboardBootstrap, 'Jyavani CMS admin area')
+    && str_contains($defaultSchema, 'Jyavani CMS — Default Schema'),
+    'registration, bootstrap, and fresh-install schema use the Jyavani CMS identity');
+$check(substr_count($translations, "'Dashboard — Jyavani CMS'") === 2
+    && substr_count($translations, "'Sign Up — Jyavani CMS'") === 2
+    && substr_count($translations, "'Welcome to the Jyavani CMS dashboard.'") === 2,
+    'dashboard product identity has Indonesian and German translation seeds');
 $check(str_contains($redirectionNavIcon, 'm15 14 5-5-5-5')
     && str_contains($redirectionNavIcon, 'M4 20v-7a4 4 0 0 1 4-4h12'), 'Core Lucide library provides the Redirection navigation icon');
 
