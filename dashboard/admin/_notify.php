@@ -57,6 +57,74 @@ if (!function_exists('adiwira_flash_push_many')) {
     }
 }
 
+if (!function_exists('adiwira_undo_issue')) {
+    function adiwira_undo_issue(string $kind, int $targetId, int $actorId, array $state, int $ttl = 30): ?string
+    {
+        $kind = trim($kind);
+        if ($kind === '' || $targetId <= 0 || $actorId <= 0) {
+            return null;
+        }
+
+        adiwira_notify_session_ready();
+        $now = time();
+        $actions = is_array($_SESSION['adiwira_undo_actions'] ?? null)
+            ? $_SESSION['adiwira_undo_actions']
+            : [];
+        foreach ($actions as $key => $action) {
+            if (!is_array($action) || (int)($action['expires_at'] ?? 0) < $now) {
+                unset($actions[$key]);
+            }
+        }
+
+        try {
+            $token = bin2hex(random_bytes(32));
+        } catch (Throwable $e) {
+            return null;
+        }
+        $actions[hash('sha256', $token)] = [
+            'kind' => $kind,
+            'target_id' => $targetId,
+            'actor_id' => $actorId,
+            'state' => $state,
+            'expires_at' => $now + max(10, min(120, $ttl)),
+        ];
+        $_SESSION['adiwira_undo_actions'] = array_slice($actions, -20, null, true);
+        return $token;
+    }
+}
+
+if (!function_exists('adiwira_undo_get')) {
+    function adiwira_undo_get(string $token, string $kind, int $actorId): ?array
+    {
+        if (preg_match('/^[a-f0-9]{64}$/D', $token) !== 1 || $actorId <= 0) {
+            return null;
+        }
+
+        adiwira_notify_session_ready();
+        $key = hash('sha256', $token);
+        $action = $_SESSION['adiwira_undo_actions'][$key] ?? null;
+        if (!is_array($action)
+            || (int)($action['expires_at'] ?? 0) < time()
+            || !hash_equals((string)($action['kind'] ?? ''), $kind)
+            || (int)($action['actor_id'] ?? 0) !== $actorId) {
+            unset($_SESSION['adiwira_undo_actions'][$key]);
+            return null;
+        }
+        return $action;
+    }
+}
+
+if (!function_exists('adiwira_undo_consume')) {
+    function adiwira_undo_consume(string $token): void
+    {
+        if (preg_match('/^[a-f0-9]{64}$/D', $token) !== 1) {
+            return;
+        }
+        adiwira_notify_session_ready();
+        unset($_SESSION['adiwira_undo_actions'][hash('sha256', $token)]);
+    }
+}
+
 if (!function_exists('adiwira_flash_pull')) {
     function adiwira_flash_pull(): array
     {
@@ -80,12 +148,36 @@ if (!function_exists('adiwira_flash_pull')) {
                 continue;
             }
 
-            $clean[] = [
+            $cleanItem = [
                 'type'     => adiwira_normalize_toast_type((string)($item['type'] ?? 'info')),
                 'title'    => isset($item['title']) ? (string)$item['title'] : null,
                 'message'  => $message,
                 'duration' => isset($item['duration']) ? (int)$item['duration'] : null,
             ];
+            $action = $item['action'] ?? null;
+            $request = is_array($action) ? ($action['request'] ?? null) : null;
+            if (is_array($action) && is_array($request)) {
+                $label = trim((string)($action['label'] ?? ''));
+                $url = trim((string)($request['url'] ?? ''));
+                $adminBase = '/' . trim(defined('ADMIN_BASE_PATH') ? (string)ADMIN_BASE_PATH : '/adiwira', '/');
+                if ($label !== '' && str_starts_with($url, $adminBase . '/')) {
+                    $body = [];
+                    foreach ((array)($request['body'] ?? []) as $key => $value) {
+                        if (is_string($key) && (is_string($value) || is_int($value))) {
+                            $body[$key] = $value;
+                        }
+                    }
+                    $cleanItem['action'] = [
+                        'label' => $label,
+                        'request' => [
+                            'url' => $url,
+                            'body' => $body,
+                            'errorMessage' => (string)($request['errorMessage'] ?? __('Failed to restore user.')),
+                        ],
+                    ];
+                }
+            }
+            $clean[] = $cleanItem;
         }
 
         return $clean;

@@ -47,9 +47,45 @@ if (!$stmt->fetch()) {
     adiwira_redirect_with_flash($returnTo, 'error', __('User tidak ditemukan atau sudah dihapus.'));
 }
 
-$result = authorization_change_user_status($pdo, $id, 'delete', $uid, null, 'core.users.delete');
+$deleteAuditId = 0;
+try {
+    $pdo->beginTransaction();
+    $result = authorization_change_user_status($pdo, $id, 'delete', $uid, null, 'core.users.delete');
+    if ($result === 'ok') {
+        $deleteAuditId = (int)$pdo->lastInsertId();
+        if ($deleteAuditId <= 0) {
+            throw new RuntimeException('User deletion audit ID unavailable.');
+        }
+        $pdo->commit();
+    } else {
+        $pdo->rollBack();
+    }
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('[users/delete] ' . $e->getMessage());
+    $result = 'error';
+}
 if ($result === 'ok') {
-    adiwira_redirect_with_flash($returnTo, 'success', __('User berhasil dihapus.'));
+    $extra = [];
+    if (user_can($pdo, $uid, 'core.users.restore', ['owner_id' => $id])) {
+        $undoToken = adiwira_undo_issue('user.delete', $id, $uid, ['audit_id' => $deleteAuditId]);
+        if ($undoToken !== null) {
+            $extra['action'] = [
+                'label' => __('Undo'),
+                'request' => [
+                    'url' => ADMIN_BASE_PATH . '/admin/users/undo_delete.php',
+                    'body' => [
+                        'csrf_token' => csrf_token(),
+                        'undo_token' => $undoToken,
+                    ],
+                    'errorMessage' => __('Failed to restore user.'),
+                ],
+            ];
+        }
+    }
+    adiwira_redirect_with_flash($returnTo, 'success', __('User berhasil dihapus.'), 302, $extra);
 }
 if ($result === 'last_site_owner') {
     adiwira_redirect_with_flash($returnTo, 'error', __('The final active Site Owner cannot be deleted.'));

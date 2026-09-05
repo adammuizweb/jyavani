@@ -47,7 +47,7 @@
 
 .newnotif-toast__inner{
   display:grid;
-  grid-template-columns:40px 1fr auto;
+  grid-template-columns:auto minmax(0, 1fr) auto;
   gap:12px;
   align-items:start;
   padding:14px 14px 12px;
@@ -63,9 +63,48 @@
   color:var(--newnotif-tone);
 }
 
-.newnotif-toast__icon svg{
+.newnotif-toast__icon svg,
+.newnotif-toast__action svg{
   width:20px;
   height:20px;
+}
+
+.newnotif-toast__action{
+  appearance:none;
+  min-height:40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:0 11px;
+  border:1px solid color-mix(in srgb, var(--newnotif-tone) 34%, transparent);
+  border-radius:12px;
+  background:color-mix(in srgb, var(--newnotif-tone) 12%, transparent);
+  color:var(--newnotif-tone);
+  font:inherit;
+  font-size:.82rem;
+  font-weight:800;
+  cursor:pointer;
+  transition:background 140ms ease, border-color 140ms ease, opacity 140ms ease;
+}
+
+.newnotif-toast__action:hover{
+  border-color:color-mix(in srgb, var(--newnotif-tone) 55%, transparent);
+  background:color-mix(in srgb, var(--newnotif-tone) 19%, transparent);
+}
+
+.newnotif-toast__action:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 4px var(--adam-focus);
+}
+
+.newnotif-toast__action:disabled{
+  cursor:wait;
+  opacity:.62;
+}
+
+.newnotif-toast.is-action-pending .newnotif-toast__action svg{
+  animation:newnotif-toast-action-spin 900ms linear infinite;
 }
 
 .newnotif-toast__content{
@@ -91,6 +130,8 @@
 
 .newnotif-toast__close{
   appearance:none;
+  display:grid;
+  place-items:center;
   border:none;
   background:transparent;
   color:var(--adam-muted);
@@ -99,6 +140,11 @@
   border-radius:10px;
   cursor:pointer;
   transition:background 140ms ease, color 140ms ease;
+}
+
+.newnotif-toast__close svg{
+  width:18px;
+  height:18px;
 }
 
 .newnotif-toast__close:hover{
@@ -126,9 +172,26 @@
   animation:newnotif-toast-progress linear forwards;
 }
 
+.newnotif-toast.is-paused .newnotif-toast__progress > span{
+  animation-play-state:paused;
+}
+
 @keyframes newnotif-toast-progress {
   from { transform:scaleX(1); }
   to   { transform:scaleX(0); }
+}
+
+@keyframes newnotif-toast-action-spin {
+  to { transform:rotate(-360deg); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .newnotif-toast,
+  .newnotif-toast__progress > span,
+  .newnotif-toast.is-action-pending .newnotif-toast__action svg{
+    animation-duration:1ms;
+    transition-duration:1ms;
+  }
 }
 
 @media (max-width: 640px){

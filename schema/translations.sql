@@ -5131,4 +5131,8 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Installing update files to staging...', 'Memasang file pembaruan ke staging...', 'id'),
 ('default', 'Installing update files to staging...', 'Update-Dateien werden im Staging-Bereich installiert...', 'de'),
 ('default', 'Update process stopped unexpectedly.', 'Proses pembaruan berhenti secara tidak terduga.', 'id'),
-('default', 'Update process stopped unexpectedly.', 'Der Update-Vorgang wurde unerwartet beendet.', 'de');
+('default', 'Update process stopped unexpectedly.', 'Der Update-Vorgang wurde unerwartet beendet.', 'de'),
+('default', 'Undo', 'Urungkan', 'id'),
+('default', 'Undo', 'Rückgängig', 'de'),
+('default', 'This action can no longer be undone.', 'Tindakan ini tidak dapat diurungkan lagi.', 'id'),
+('default', 'This action can no longer be undone.', 'Diese Aktion kann nicht mehr rückgängig gemacht werden.', 'de');

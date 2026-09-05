@@ -33,6 +33,42 @@
       .replace(/'/g, '&#039;');
   }
 
+  function runRequestAction(request){
+    const body = new URLSearchParams();
+    Object.keys(request.body).forEach(function(key){
+      body.append(key, String(request.body[key]));
+    });
+
+    return window.fetch(request.url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+      },
+      body: body.toString()
+    }).then(function(response){
+      return response.json().catch(function(){ return {}; }).then(function(data){
+        if (!response.ok || data.ok !== true) {
+          const error = new Error(String(data.error || request.errorMessage));
+          error.terminal = response.status === 409;
+          throw error;
+        }
+        if (data.reload === true) {
+          window.location.reload();
+          return false;
+        }
+        if (data.message) {
+          show({ type: data.type || 'success', title: data.title, message: data.message });
+        }
+        return true;
+      });
+    }).catch(function(error){
+      if (error instanceof Error && error.message && error.message !== 'Failed to fetch') throw error;
+      throw new Error(request.errorMessage);
+    });
+  }
+
   function normalize(input, type, duration){
     let opts = {};
 
@@ -49,44 +85,71 @@
       : 'info';
 
     const defaults = {
-    success: { title: 'Berhasil', duration: 2000 },
-    warning: { title: 'Perhatian', duration: 2000 },
-    info:    { title: 'Informasi', duration: 2000 },
-    error:   { title: 'Terjadi masalah', duration: 2000 }
+      success: { title: 'Berhasil', duration: 2000 },
+      warning: { title: 'Perhatian', duration: 2000 },
+      info:    { title: 'Informasi', duration: 2000 },
+      error:   { title: 'Terjadi masalah', duration: 2000 }
     };
+    const rawAction = opts.action;
+    const rawRequest = rawAction && typeof rawAction.request === 'object' ? rawAction.request : null;
+    const request = rawRequest
+      && String(rawRequest.url || '').trim()
+      && String(rawRequest.errorMessage || '').trim()
+      ? {
+          url: String(rawRequest.url).trim(),
+          body: rawRequest.body && typeof rawRequest.body === 'object' ? rawRequest.body : {},
+          errorMessage: String(rawRequest.errorMessage).trim()
+        }
+      : null;
+    const handler = rawAction && typeof rawAction.onClick === 'function'
+      ? rawAction.onClick
+      : (request ? function(){ return runRequestAction(request); } : null);
+    const action = rawAction && typeof rawAction === 'object'
+      && String(rawAction.label || '').trim()
+      && handler
+      ? {
+          label: String(rawAction.label).trim(),
+          onClick: handler,
+          dismiss: rawAction.dismiss !== false
+        }
+      : null;
+    const rawDuration = opts.duration;
+    let finalDuration = action ? 0 : defaults[finalType].duration;
 
-const rawDuration = opts.duration;
+    if (
+      rawDuration !== null &&
+      rawDuration !== undefined &&
+      rawDuration !== '' &&
+      Number.isFinite(Number(rawDuration)) &&
+      Number(rawDuration) >= 0
+    ) {
+      finalDuration = Number(rawDuration);
+    }
 
-let finalDuration = defaults[finalType].duration;
-if (
-  rawDuration !== null &&
-  rawDuration !== undefined &&
-  rawDuration !== '' &&
-  Number.isFinite(Number(rawDuration)) &&
-  Number(rawDuration) > 0
-) {
-  finalDuration = Number(rawDuration);
-}
-
-return {
-  type: finalType,
-  title: String(opts.title || defaults[finalType].title),
-  message: String(opts.message || opts.text || ''),
-  duration: finalDuration
-};
+    return {
+      type: finalType,
+      title: String(opts.title || defaults[finalType].title),
+      message: String(opts.message || opts.text || ''),
+      duration: finalDuration,
+      action: action
+    };
   }
 
   function icon(type){
     if (type === 'success') {
-      return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      return '<svg class="lucide lucide-circle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>';
     }
     if (type === 'warning') {
-      return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 9v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10.29 3.86L1.82 18A2 2 0 0 0 3.53 21h16.94a2 2 0 0 0 1.71-3l-8.47-14.14a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+      return '<svg class="lucide lucide-alert-triangle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
     }
     if (type === 'error') {
-      return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M15 9l-6 6M9 9l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+      return '<svg class="lucide lucide-circle-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>';
     }
-    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 10v5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 7h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    return '<svg class="lucide lucide-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>';
+  }
+
+  function undoIcon(){
+    return '<svg class="lucide lucide-undo-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></svg>';
   }
 
   function removeToast(el){
@@ -111,14 +174,18 @@ return {
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', opts.type === 'error' ? 'assertive' : 'polite');
 
+    const leading = opts.action
+      ? '<button type="button" class="newnotif-toast__action">' + undoIcon() + '<span>' + escapeHtml(opts.action.label) + '</span></button>'
+      : '<div class="newnotif-toast__icon">' + icon(opts.type) + '</div>';
+
     toast.innerHTML = [
       '<div class="newnotif-toast__inner">',
-      '  <div class="newnotif-toast__icon">' + icon(opts.type) + '</div>',
+      '  ' + leading,
       '  <div class="newnotif-toast__content">',
       '    <div class="newnotif-toast__title">' + escapeHtml(opts.title) + '</div>',
       '    <p class="newnotif-toast__message">' + escapeHtml(opts.message) + '</p>',
       '  </div>',
-      '  <button type="button" class="newnotif-toast__close" aria-label="Tutup notifikasi">✕</button>',
+      '  <button type="button" class="newnotif-toast__close" aria-label="Tutup notifikasi"><svg class="lucide lucide-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>',
       '</div>',
       '  <div class="newnotif-toast__progress"><span style="animation-duration:' + Math.max(0, opts.duration) + 'ms"></span></div>'
     ].join('');
@@ -128,6 +195,103 @@ return {
       removeToast(toast);
     });
 
+    let timeoutId = null;
+    let timerStartedAt = 0;
+    let remaining = opts.duration;
+    let pointerPaused = false;
+    let focusPaused = false;
+    let actionPending = false;
+
+    function pauseTimer(){
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+        remaining = Math.max(0, remaining - (Date.now() - timerStartedAt));
+      }
+      toast.classList.add('is-paused');
+    }
+
+    function startTimer(){
+      if (opts.duration <= 0 || actionPending || pointerPaused || focusPaused || toast.dataset.leaving === '1') return;
+      toast.classList.remove('is-paused');
+      if (remaining <= 0) {
+        removeToast(toast);
+        return;
+      }
+      timerStartedAt = Date.now();
+      timeoutId = window.setTimeout(function(){
+        timeoutId = null;
+        remaining = 0;
+        removeToast(toast);
+      }, remaining);
+    }
+
+    toast.addEventListener('mouseenter', function(){
+      pointerPaused = true;
+      pauseTimer();
+    });
+    toast.addEventListener('mouseleave', function(){
+      pointerPaused = false;
+      startTimer();
+    });
+    toast.addEventListener('focusin', function(){
+      focusPaused = true;
+      pauseTimer();
+    });
+    toast.addEventListener('focusout', function(){
+      window.setTimeout(function(){
+        focusPaused = toast.contains(document.activeElement);
+        if (!focusPaused) startTimer();
+      }, 0);
+    });
+
+    const actionBtn = toast.querySelector('.newnotif-toast__action');
+    if (actionBtn && opts.action) {
+      actionBtn.addEventListener('click', function(){
+        if (actionPending) return;
+        actionPending = true;
+        actionBtn.disabled = true;
+        actionBtn.setAttribute('aria-busy', 'true');
+        toast.classList.add('is-action-pending');
+        pauseTimer();
+
+        let result;
+        try {
+          result = opts.action.onClick({
+            toast: toast,
+            dismiss: function(){ removeToast(toast); }
+          });
+        } catch (error) {
+          actionFailed(error);
+          return;
+        }
+
+        Promise.resolve(result).then(function(value){
+          if (opts.action.dismiss && value !== false) removeToast(toast);
+          if (!opts.action.dismiss || value === false) actionFailed();
+        }, actionFailed);
+      });
+    }
+
+    function actionFailed(error){
+      actionPending = false;
+      const terminal = Boolean(error && error.terminal);
+      if (actionBtn && !terminal) {
+        actionBtn.disabled = false;
+        actionBtn.removeAttribute('aria-busy');
+      }
+      toast.classList.remove('is-action-pending');
+      if (terminal) {
+        removeToast(toast);
+      } else {
+        startTimer();
+      }
+      if (error !== undefined) {
+        toast.dispatchEvent(new CustomEvent('newnotif:toast-action-error', { detail: error }));
+        show({ type: 'error', message: String(error && error.message ? error.message : error) });
+      }
+    }
+
     stack.appendChild(toast);
 
     requestAnimationFrame(function(){
@@ -135,9 +299,7 @@ return {
     });
 
     if (opts.duration > 0) {
-      window.setTimeout(function(){
-        removeToast(toast);
-      }, opts.duration);
+      startTimer();
     } else {
       const progress = toast.querySelector('.newnotif-toast__progress');
       if (progress) progress.style.display = 'none';

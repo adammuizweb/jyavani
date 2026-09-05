@@ -548,6 +548,16 @@ if (!function_exists('authorization_change_user_status')) {
                 return 'missing';
             }
 
+            if ($action === 'delete' && (int)$target['is_deleted'] === 1) {
+                if ($ownsTransaction) {
+                    $pdo->rollBack();
+                } else {
+                    $pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint);
+                    $pdo->exec('RELEASE SAVEPOINT ' . $savepoint);
+                }
+                return 'missing';
+            }
+
             if ($requiredPermission !== null
                 && ($actorUserId === null || !user_can($pdo, $actorUserId, $requiredPermission, ['owner_id' => $targetUserId]))) {
                 if ($ownsTransaction) {
