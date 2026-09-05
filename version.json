@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.102",
-    "build": "2026-09-03",
-    "changelog": "Harden plugin updates for legacy symlink trees, refresh compatibility after Core updates, smooth update progress, and add opt-out Search Engines controls.",
+    "version": "2.3.103",
+    "build": "2026-09-05",
+    "changelog": "Coordinate Core, plugin, and theme updates with blocking progress, cooperative cancellation, shared locking, and safer atomic publication.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
