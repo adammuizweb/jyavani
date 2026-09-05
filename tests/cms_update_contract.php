@@ -81,6 +81,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 $updatePageSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/index.php');
 $updateActionsSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/_update_actions.php');
 $updateScriptSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/js/update.js');
+$updateProcessSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/process.php');
 $dashboardLayoutSource = (string)file_get_contents($sourceRoot . '/dashboard/theme/adiwira/layout.php');
 $updateStyleSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/css/update.css');
 $check(
@@ -114,9 +115,10 @@ $check(
     'update progress never moves backward while polling catches up'
 );
 $check(
-    strpos($updatePageSource, 'cms_update_handle_progress_request();')
-        < strpos($updatePageSource, 'adiwira_require_site_owner($pdo, false);'),
-    'update progress remains readable during the first Site Owner migration'
+    !str_contains($updatePageSource, 'cms_update_handle_progress_request();')
+        && str_contains($updateProcessSource, 'adiwira_require_site_owner($pdo, true)')
+        && str_contains($updateProcessSource, "'core' => 'core.updates.manage'"),
+    'Core progress uses the centralized owner- and type-authorized endpoint'
 );
 $check(
     str_contains($updatePageSource, "'successUrl' => \$base . '/?cms_update_ok=1'"),

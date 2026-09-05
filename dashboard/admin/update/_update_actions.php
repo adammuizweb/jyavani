@@ -4,25 +4,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/_reset_service.php';
 require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
-function cms_update_handle_progress_request(): void
-{
-    if (($_GET['action'] ?? '') !== 'cms_read_progress') return;
-
-    session_write_close();
-    $token = (string)($_GET['token'] ?? '');
-    if (!preg_match('/^[a-f0-9]{32}$/', $token)) {
-        adiwira_json(['percentage' => 0, 'status' => 'Invalid token', 'done' => true, 'error' => 'Invalid token']);
-    }
-
-    $progress = _cms_read_progress($token);
-    adiwira_json($progress ?: [
-        'percentage' => 0,
-        'status' => __('Preparing…'),
-        'done' => false,
-        'error' => null,
-    ]);
-}
-
 function cms_update_handle_post(PDO $pdo, array $currentVersion, string $selfUrl, string $base): void
 {
     if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') return;
@@ -240,16 +221,32 @@ function cms_update_reinstall(PDO $pdo, array $currentVersion, string $selfUrl, 
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid reinstall package manifest.'));
     }
 
-    $result = _apply_cms_update_from_zip(
-        $temporaryZip,
-        $reinstallManifest,
-        $currentVersion['version'] ?? '0.0.0'
-    );
-    @unlink($temporaryZip);
+    $updateLock = update_operation_acquire_lock();
+    if (!is_resource($updateLock)) {
+        @unlink($temporaryZip);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Another update is already running.'));
+    }
+    $lifecycleLocks = [];
+    try {
+        $lifecycleLocks = theme_operation_acquire(theme_lifecycle_lock_keys());
+        $result = _apply_cms_update_from_zip(
+            $temporaryZip,
+            $reinstallManifest,
+            $currentVersion['version'] ?? '0.0.0'
+        );
 
-    $resetMessages = [];
-    if ($result['success'] && $hardReset) {
-        $resetMessages = cms_reinstall_hard_reset($pdo);
+        $resetMessages = [];
+        if ($result['success'] && $hardReset) {
+            $resetMessages = cms_reinstall_hard_reset($pdo);
+        }
+    } catch (Throwable $error) {
+        error_log('[core-reinstall] ' . $error->getMessage());
+        $result = ['success' => false, 'message' => $error->getMessage()];
+        $resetMessages = [];
+    } finally {
+        if ($lifecycleLocks !== []) theme_operation_release($lifecycleLocks);
+        update_operation_release_lock($updateLock);
+        @unlink($temporaryZip);
     }
 
     if ($result['success']) {

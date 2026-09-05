@@ -203,7 +203,8 @@ try {
     $check(str_contains($assign, "do_action_isolated('theme_manager_theme_actions', \$th, \$completePhysicalManifest, \$themeActionContext)")
         && str_contains($assign, 'theme_complete_physical_manifest_for_hook($folder)'), 'each card action area exposes the generic action with a safely read full manifest');
     $check(str_contains($updateSection, 'update_preflight.php') && str_contains($updateSection, 'window.crypto.getRandomValues(bytes)')
-        && str_contains($updateSection, 'theme_update_preflight_required') && str_contains($updateSection, 'clearInterval(pollingInterval)')
+        && str_contains($updateSection, 'createUpdateProcessUI') && str_contains($updateSection, '/admin/update/process.php?token=')
+        && str_contains($updateSection, 'theme_update_preflight_required')
         && str_contains($updateSection, 'showCleanUpdateConfirmation(folderName)') && str_contains($updateSection, 'updateInFlight')
         && !str_contains($updateSection, 'confirm(') && !str_contains($updateSection, 'alert('), 'theme update UI preflights, confirms clean updates without native dialogs, prevents duplicate requests, and stops polling');
     $registrationPosition = strpos($controller, 'register_theme_in_db($pdo, $folderName, $installedManifest)');

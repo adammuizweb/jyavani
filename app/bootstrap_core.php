@@ -69,8 +69,9 @@ if (!function_exists('core_dbg')) {
     }
 }
 
-// Auto-fix runtime file permissions (group-writable untuk www-data)
-if (function_exists('ensure_writable_runtime')) {
+// The updater control route stays read-only apart from its explicit operation
+// record mutation, so polling cannot trigger unrelated writes during publication.
+if (!defined('UPDATE_PROCESS_CONTROL_REQUEST') && function_exists('ensure_writable_runtime')) {
     ensure_writable_runtime();
 }
 
@@ -98,7 +99,7 @@ if (function_exists('settings_get')) {
 
 // Auto-run pending schema migrations (idempotent — safe on every request)
 $migrationPath = rtrim(BACKEND_PATH, '/\\') . '/helpers/migration_helper.php';
-if (is_file($migrationPath)) {
+if (!defined('UPDATE_PROCESS_CONTROL_REQUEST') && is_file($migrationPath)) {
     require_once $migrationPath;
     if (function_exists('migration_run_pending')) {
         $migrationResults = migration_run_pending($pdo);
@@ -111,7 +112,7 @@ if (is_file($migrationPath)) {
 }
 
 // Ensure UI translation seed data is present (idempotent — INSERT IGNORE only)
-if (function_exists('ensure_ui_translations_seeded')) {
+if (!defined('UPDATE_PROCESS_CONTROL_REQUEST') && function_exists('ensure_ui_translations_seeded')) {
     $seedResult = ensure_ui_translations_seeded($pdo);
     core_dbg("ui_translations seed: " . ($seedResult ? 'ok' : 'failed'));
 }

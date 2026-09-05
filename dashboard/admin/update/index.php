@@ -13,8 +13,6 @@ require_once __DIR__ . '/_update_helpers.php';
 require_once __DIR__ . '/_update_actions.php';
 require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
 
-// Let the authenticated updater finish polling after an authorization migration.
-cms_update_handle_progress_request();
 adiwira_require_site_owner($pdo, false);
 $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/update/index';
@@ -264,34 +262,49 @@ $totalCore = $localManifest['total_files'] ?? 0;
     <p class="up-hint"><?=_e('Changed files will be automatically backed up to')?> <code>cfg/var/backup-{timestamp}/</code>.</p>
 </div>
 
-<!-- Progress Overlay (solid modal-style) -->
-<div id="cmsUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);align-items:center;justify-content:center">
-  <div style="background:var(--adam-card);padding:2rem 2.5rem;border-radius:12px;border:1px solid var(--adam-border);text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
-    <div id="cmsProgressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-success);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
-    <div id="cmsProgressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
-    <div id="cmsProgressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
-    <div style="margin-top:1rem;background:var(--adam-border-2);border-radius:999px;height:8px;overflow:hidden">
-      <div id="cmsProgressBar" style="width:0%;height:100%;background:var(--adam-success);border-radius:999px;transition:width .4s ease"></div>
+<!-- Blocking update process modal. It is closed only by its terminal action. -->
+<div id="cmsUpdateProgress" class="update-process-overlay" role="dialog" aria-modal="true" aria-labelledby="cmsProgressTitle" style="display:none">
+  <div class="update-process-panel" data-update-process-panel tabindex="-1">
+    <h3 id="cmsProgressTitle" class="update-process-title" data-update-process-title><?=_e('CMS update in progress')?></h3>
+    <div id="cmsProgressSpinner" class="update-process-spinner" data-update-process-spinner aria-hidden="true"></div>
+    <div class="update-process-stage" data-update-process-stage><?=_e('Stage:')?> <?=_e('Starting...')?></div>
+    <div id="cmsProgressStatus" class="update-process-status" data-update-process-status aria-live="polite"><?=__('Starting...')?></div>
+    <p class="update-process-warning"><?=_e('Do not close or leave this page while the update is running.')?></p>
+    <div class="update-process-track"><div id="cmsProgressBar" class="update-process-bar" data-update-process-bar style="width:0%"></div></div>
+    <div id="cmsProgressPct" class="update-process-pct" data-update-process-pct>0%</div>
+    <div class="update-process-actions" data-update-process-actions>
+      <button type="button" class="btn btn-outline" data-update-process-cancel disabled><?=_e('Cancel update')?></button>
     </div>
-    <div id="cmsProgressPct" style="margin-top:.3rem;font-size:.75rem;color:var(--adam-muted)">0%</div>
-    <button type="button" id="cmsProgressClose" class="btn btn-outline" style="display:none;margin:1rem auto 0"><?=__('Close')?></button>
   </div>
 </div>
 </div>
 
 <script>
 window.CMS_UPDATE_CONFIG = <?= json_encode([
-    'progressUrl' => $base . '/?page=admin/update/index&action=cms_read_progress&token=',
+    'progressUrl' => $base . '/admin/update/process.php?token=',
     'applyUrl' => $base . '/?page=admin/update/update_apply',
     'successUrl' => $base . '/?cms_update_ok=1',
     'selfUrl' => $selfUrl,
     'csrfToken' => csrf_token(),
-    'done' => __('Done!'),
-    'starting' => __('Starting...'),
-    'preparing' => __('Preparing...'),
+    'context' => __('Core'),
     'updateFailed' => __('Update failed.'),
-    'timeout' => __('The update did not finish in time. Refresh the page and check the installed version before trying again.'),
-    'updateSuccess' => __('Update applied successfully!'),
+    'invalidResponse' => __('The update server returned an invalid response.'),
+    'labels' => [
+        'runningTitle' => __('CMS update in progress'),
+        'completeTitle' => __('CMS update complete'),
+        'failedTitle' => __('CMS update failed'),
+        'cancelledTitle' => __('CMS update cancelled'),
+        'stage' => __('Stage:'),
+        'starting' => __('Starting...'),
+        'cancel' => __('Cancel update'),
+        'cancelling' => __('Cancelling...'),
+        'finishing' => __('Finishing process...'),
+        'done' => __('Done'),
+        'timeout' => __('The update is taking longer than expected. Waiting for a confirmed result.'),
+        'invalidResponse' => __('The update server returned an invalid response.'),
+        'requestFailed' => __('The update request failed.'),
+        'cancelFailed' => __('Unable to request cancellation. The update is still running.'),
+    ],
 ], JSON_UNESCAPED_SLASHES
     | JSON_UNESCAPED_UNICODE
     | JSON_HEX_TAG
@@ -299,4 +312,4 @@ window.CMS_UPDATE_CONFIG = <?= json_encode([
     | JSON_HEX_APOS
     | JSON_HEX_QUOT) ?>;
 </script>
-<script src="/static/dashboard/js/update.js"></script>
+<script src="/static/dashboard/js/update.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/js/update.js') ?: 0) ?>"></script>

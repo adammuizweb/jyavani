@@ -4,43 +4,115 @@ declare(strict_types=1);
 
 // --- Progress tracking ---
 function _cms_progress_file(string $token): string {
-    return dirname(DASH_PATH) . '/cfg/var/cms-progress-' . $token . '.json';
+    return (string)(update_operation_path($token) ?? '');
 }
 
-function _cms_write_progress(string $token, int $pct, string $status, bool $done = false, ?string $error = null): void {
-    try {
-        $json = json_encode([
-            'percentage' => $pct,
-            'status' => $status,
-            'done' => $done,
-            'error' => $error,
-        ], JSON_THROW_ON_ERROR);
-        @file_put_contents(_cms_progress_file($token), $json, LOCK_EX);
-    } catch (JsonException $ignored) {
+function _cms_write_progress(string $token, int $pct, string $status, bool $done = false, ?string $error = null, string $stage = 'working', bool $cancelAllowed = true): void {
+    if ($token === '') return;
+    if ($done) {
+        if ($error !== null) update_operation_fail($token, $status, $error);
+        else update_operation_complete($token, $status);
+        return;
     }
+    update_operation_progress($token, $pct, $stage, $status, $cancelAllowed);
 }
 
 function _cms_read_progress(string $token): ?array {
-    $f = _cms_progress_file($token);
-    if (!is_file($f)) return null;
-    try {
-        $d = json_decode((string)file_get_contents($f), true, 512, JSON_THROW_ON_ERROR);
-        return is_array($d) ? $d : null;
-    } catch (JsonException $error) {
-        return null;
-    }
+    return update_operation_read($token);
 }
 
 function _cms_clear_progress(string $token): void {
-    $f = _cms_progress_file($token);
-    if (is_file($f)) @unlink($f);
+    update_operation_clear($token);
 }
 
 function _cms_update_failure(string $token, string $message): array {
     if ($token !== '') {
-        _cms_write_progress($token, 0, __('Update failed.'), true, $message);
+        _cms_write_progress($token, 0, __('Update failed.'), true, $message, 'failed', false);
     }
     return ['success' => false, 'message' => $message];
+}
+
+function _cms_update_checkpoint(string $token, ?ZipArchive $zip = null): void {
+    if ($token === '' || !update_operation_cancellation_requested($token)) return;
+    if ($zip instanceof ZipArchive) $zip->close();
+    update_operation_checkpoint($token);
+}
+
+function _cms_atomic_apply_metadata(string $temporaryPath, string $targetPath): bool {
+    clearstatcache(true, $temporaryPath);
+    $temporary = @lstat($temporaryPath);
+    if (!is_array($temporary) || (($temporary['mode'] ?? 0) & 0170000) !== 0100000 || is_link($temporaryPath)) return false;
+
+    if (!file_exists($targetPath) && !is_link($targetPath)) return @chmod($temporaryPath, 0644);
+    clearstatcache(true, $targetPath);
+    $target = @lstat($targetPath);
+    if (!is_array($target) || (($target['mode'] ?? 0) & 0170000) !== 0100000 || is_link($targetPath)) return false;
+    // Atomic replacement necessarily gives the inode to the trusted updater
+    // worker; preserve the deployment group and permission contract.
+    if (($temporary['gid'] ?? null) !== ($target['gid'] ?? null) && !@chgrp($temporaryPath, (int)$target['gid'])) return false;
+    if (!@chmod($temporaryPath, (int)$target['mode'] & 07777)) return false;
+
+    clearstatcache(true, $temporaryPath);
+    $updated = @lstat($temporaryPath);
+    return is_array($updated)
+        && ($updated['gid'] ?? null) === ($target['gid'] ?? null)
+        && (($updated['mode'] ?? 0) & 07777) === (($target['mode'] ?? 0) & 07777);
+}
+
+function _cms_atomic_replace_ready(string $targetPath): bool {
+    $parent = dirname($targetPath);
+    if (!is_dir($parent) || !is_writable($parent)) return false;
+    try {
+        $probe = $parent . '/.' . basename($targetPath) . '.cms-update-probe-' . bin2hex(random_bytes(6));
+    } catch (Throwable $error) {
+        return false;
+    }
+    $handle = @fopen($probe, 'xb');
+    if (!is_resource($handle)) return false;
+    @fclose($handle);
+    try {
+        return _cms_atomic_apply_metadata($probe, $targetPath);
+    } finally {
+        @unlink($probe);
+    }
+}
+
+function _cms_atomic_replace_file(string $targetPath, string $contents): bool {
+    $parent = dirname($targetPath);
+    if (!is_dir($parent)) return false;
+    try {
+        $temporaryPath = $parent . '/.' . basename($targetPath) . '.cms-update-' . bin2hex(random_bytes(6));
+    } catch (Throwable $error) {
+        return false;
+    }
+    $handle = @fopen($temporaryPath, 'xb');
+    if (!is_resource($handle)) return false;
+    $written = 0;
+    $length = strlen($contents);
+    $ok = true;
+    try {
+        while ($ok && $written < $length) {
+            $count = @fwrite($handle, substr($contents, $written));
+            if (!is_int($count) || $count <= 0) {
+                $ok = false;
+                break;
+            }
+            $written += $count;
+        }
+        if ($ok) $ok = @fflush($handle);
+        if ($ok && function_exists('fsync')) $ok = @fsync($handle);
+    } finally {
+        @fclose($handle);
+    }
+    if (!$ok) {
+        @unlink($temporaryPath);
+        return false;
+    }
+    if (!_cms_atomic_apply_metadata($temporaryPath, $targetPath) || !@rename($temporaryPath, $targetPath)) {
+        @unlink($temporaryPath);
+        return false;
+    }
+    return true;
 }
 
 function _cms_is_preserved(string $path, array $patterns): bool {
@@ -77,7 +149,8 @@ function _cms_rollback_files(array $backupFiles, array $createdFiles, string $pr
         }
         $targetParent = dirname($targetPath);
         if (!is_dir($targetParent)) @mkdir($targetParent, 0755, true);
-        if (!is_file($backupPath) || !@copy($backupPath, $targetPath)) $errors[] = $targetPath;
+        $backupContents = is_file($backupPath) ? @file_get_contents($backupPath) : false;
+        if (!is_string($backupContents) || !_cms_atomic_replace_file($targetPath, $backupContents)) $errors[] = $targetPath;
     }
     foreach ($createdFiles as $logicalPath => $createdFile) {
         if (_cms_target_path((string)$logicalPath, $projectRoot) !== $createdFile) {
@@ -203,6 +276,10 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     if ($zip->open($zipPath) !== true) {
         return _cms_update_failure($progressToken, __('Failed to open ZIP package.'));
     }
+    if ($progressToken !== '') {
+        _cms_write_progress($progressToken, 15, __('Validating update package…'), false, null, 'validate', true);
+        _cms_update_checkpoint($progressToken, $zip);
+    }
 
     $totalFiles = $zip->numFiles;
     if ($totalFiles === 0) {
@@ -218,6 +295,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     foreach ($remoteFiles as $filename => $expectedHash) {
+        _cms_update_checkpoint($progressToken, $zip);
         if (!is_string($filename) || _cms_safe_relative_path($filename) !== $filename
             || $filename === 'tools/cms-manifest.json'
             || !is_string($expectedHash) || $expectedHash !== strtolower(trim($expectedHash))
@@ -232,6 +310,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     $seenEntries = [];
     $verifiedFiles = [];
     for ($i = 0; $i < $totalFiles; $i++) {
+        _cms_update_checkpoint($progressToken, $zip);
         $entry = $zip->getNameIndex($i);
         if ($entry === false) continue;
         if (_cms_zip_entry_is_symlink($zip, $i)) {
@@ -261,6 +340,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     foreach ($remoteFiles as $filename => $_expectedHash) {
+        _cms_update_checkpoint($progressToken, $zip);
         if (!isset($verifiedFiles[$filename])) {
             $zip->close();
             return _cms_update_failure($progressToken, __('Update package is missing:') . ' ' . $filename);
@@ -286,6 +366,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
     $localFiles = is_array($localManifest['files'] ?? null) ? $localManifest['files'] : [];
     foreach ($localFiles as $filename => $_hash) {
+        _cms_update_checkpoint($progressToken, $zip);
         if (!is_string($filename) || _cms_safe_relative_path($filename) !== $filename) {
             $zip->close();
             return _cms_update_failure($progressToken, __('Local manifest contains an invalid path.'));
@@ -296,6 +377,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     $obsolete = [];
     $writeErrors = [];
     foreach ($remoteFiles as $filename => $remoteHash) {
+        _cms_update_checkpoint($progressToken, $zip);
         if (_cms_is_preserved($filename, $preservePatterns)) continue;
         $targetPath = _cms_target_path($filename, $projectRoot);
         if ($targetPath === null) {
@@ -306,6 +388,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         $changed[$filename] = $targetPath;
     }
     foreach ($localFiles as $filename => $_hash) {
+        _cms_update_checkpoint($progressToken, $zip);
         if (isset($remoteFiles[$filename]) || _cms_is_preserved($filename, $preservePatterns)) continue;
         $targetPath = _cms_target_path($filename, $projectRoot);
         if ($targetPath === null) {
@@ -350,8 +433,12 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     foreach ($changed + $obsolete + [$manifestLogicalPath => $manifestPath] as $filename => $targetPath) {
+        _cms_update_checkpoint($progressToken, $zip);
         if (file_exists($targetPath)) {
-            if (!is_file($targetPath) || is_link($targetPath) || !is_writable($targetPath)) $writeErrors[] = $filename;
+            if (!is_file($targetPath) || is_link($targetPath)
+                || (isset($obsolete[$filename]) ? !is_writable(dirname($targetPath)) : !_cms_atomic_replace_ready($targetPath))) {
+                $writeErrors[] = $filename;
+            }
             continue;
         }
         $writePath = dirname($targetPath);
@@ -369,13 +456,12 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         $zip->close();
         return _cms_update_failure($progressToken, __('Unsafe backup directory.'));
     }
+    if ($progressToken !== '') {
+        update_operation_enter_critical($progressToken, 30, 'backup', __('Backing up existing files…'));
+    }
     if (!is_dir($backupDir) && !@mkdir($backupDir, 0755, true)) {
         $zip->close();
         return _cms_update_failure($progressToken, __('Failed to create backup directory.'));
-    }
-
-    if ($progressToken !== '') {
-        _cms_write_progress($progressToken, 1, __('Backing up existing files…'));
     }
 
     $processable = max(1, count($changed));
@@ -406,18 +492,18 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         $contents = $filename === 'version.json' && !isset($remoteFiles['version.json'])
             ? $versionContents
             : $zip->getFromIndex($verifiedFiles[$filename]);
-        if (!is_string($contents) || @file_put_contents($targetPath, $contents, LOCK_EX) === false) {
+        if (!is_string($contents) || !_cms_atomic_replace_file($targetPath, $contents)) {
             $errors[] = __('Failed to write:') . ' ' . $filename;
             break;
         } else {
             $updated++;
         }
         if ($progressToken !== '' && $processable > 0) {
-            $pct = 2 + (int)round(($processedIndex / $processable) * 73);
-            if ($pct > 75) $pct = 75;
+            $pct = 30 + (int)round(($processedIndex / $processable) * 50);
+            if ($pct > 80) $pct = 80;
             if ($processedIndex % max(1, intdiv($processable, 20)) === 0 || $processedIndex === $processable) {
                 _cms_write_progress($progressToken, $pct,
-                    sprintf(__('Processing: %s (%d/%d)'), basename($filename), $processedIndex, $processable));
+                    sprintf(__('Processing: %s (%d/%d)'), basename($filename), $processedIndex, $processable), false, null, 'write', false);
             }
         }
     }
@@ -446,8 +532,8 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         $deleted++;
         $obsoleteIndex++;
         if ($progressToken !== '' && $obsolete !== []) {
-            $pct = 75 + (int)round(($obsoleteIndex / count($obsolete)) * 10);
-            _cms_write_progress($progressToken, min(85, $pct), __('Removing obsolete files…'));
+            $pct = 80 + (int)round(($obsoleteIndex / count($obsolete)) * 8);
+            _cms_write_progress($progressToken, min(88, $pct), __('Removing obsolete files…'), false, null, 'remove-obsolete', false);
         }
     }
 
@@ -459,7 +545,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     if ($progressToken !== '') {
-        _cms_write_progress($progressToken, 91, __('Verifying installed files…'));
+        _cms_write_progress($progressToken, 92, __('Verifying installed files…'), false, null, 'verify', false);
     }
 
     foreach ($remoteFiles as $filename => $expectedHash) {
@@ -479,7 +565,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         return _cms_update_failure($progressToken, $message);
     }
 
-    if ($progressToken !== '') _cms_write_progress($progressToken, 95, __('Installing verified manifest…'));
+    if ($progressToken !== '') _cms_write_progress($progressToken, 96, __('Installing verified manifest…'), false, null, 'manifest', false);
     try {
         $manifestContents = json_encode($remoteManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
     } catch (JsonException $error) {
@@ -492,19 +578,9 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
             $errors[] = __('Failed to back up:') . ' ' . $manifestLogicalPath;
         } else {
             if (count($backupFiles) > $backupCount) $backedUp++;
-            try {
-                do {
-                    $manifestTemp = $manifestPath . '.tmp-' . bin2hex(random_bytes(6));
-                } while (file_exists($manifestTemp) || is_link($manifestTemp));
-                if (@file_put_contents($manifestTemp, $manifestContents, LOCK_EX) === false
-                    || _cms_target_path($manifestLogicalPath, $projectRoot) !== $manifestPath
-                    || !@rename($manifestTemp, $manifestPath)) {
-                    @unlink($manifestTemp);
-                    $errors[] = __('Failed to install local manifest.');
-                }
-            } catch (Throwable $error) {
-                if (isset($manifestTemp)) @unlink($manifestTemp);
-                $errors[] = __('Failed to install local manifest:') . ' ' . $error->getMessage();
+            if (_cms_target_path($manifestLogicalPath, $projectRoot) !== $manifestPath
+                || !_cms_atomic_replace_file($manifestPath, $manifestContents)) {
+                $errors[] = __('Failed to install local manifest.');
             }
         }
     }
@@ -517,7 +593,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     if ($progressToken !== '') {
-        _cms_write_progress($progressToken, 97, __('Finalizing…'));
+        _cms_write_progress($progressToken, 98, __('Finalizing…'), false, null, 'finalize', false);
     }
 
     $msg = __('Update complete:') . ' ' . $updated . ' ' . __('files updated') . ', ' . $backedUp . ' ' . __('files backed up') . '.';
@@ -527,7 +603,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     $msg .= ' Backup: ' . basename($backupDir);
 
     if ($progressToken !== '') {
-        _cms_write_progress($progressToken, 100, __('Complete!'), true);
+        _cms_write_progress($progressToken, 100, __('Complete!'), true, null, 'complete', false);
     }
 
     return ['success' => true, 'message' => $msg];
@@ -545,52 +621,16 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
             $downloadUrl = $baseUrl;
         }
 
-        if ($progressToken !== '') {
-            _cms_write_progress($progressToken, 0, __('Downloading update package…'));
-        }
-
-        $tmpZip = sys_get_temp_dir() . '/cms-update-' . bin2hex(random_bytes(8)) . '.zip';
-
-        $ctx = stream_context_create([
-            'http' => [
-                'timeout' => 120,
-                'user_agent' => 'JyavaniCMS-Update/' . $currentVer,
-            ],
-        ]);
-
-        $input = @fopen($downloadUrl, 'rb', false, $ctx);
-        $output = $input === false ? false : @fopen($tmpZip, 'wb');
-        if ($input === false || $output === false) {
-            if (is_resource($input)) fclose($input);
-            if (is_resource($output)) fclose($output);
-            @unlink($tmpZip);
-            if ($progressToken !== '') {
-                _cms_write_progress($progressToken, 0, __('Download failed.'), true, __('Failed to download update package.'));
-            }
-            return ['success' => false, 'message' => __('Failed to download update package.')];
-        }
-
-        $length = 0;
-        foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
-            if (preg_match('/^Content-Length:\s*(\d+)/i', (string)$header, $match)) $length = (int)$match[1];
-        }
-        $downloaded = 0;
-        while (!feof($input)) {
-            $chunk = fread($input, 1024 * 1024);
-            if ($chunk === false || ($chunk !== '' && fwrite($output, $chunk) !== strlen($chunk))) {
-                fclose($input);
-                fclose($output);
-                @unlink($tmpZip);
-                if ($progressToken !== '') _cms_write_progress($progressToken, 0, __('Download failed.'), true, __('Failed to download update package.'));
-                return ['success' => false, 'message' => __('Failed to download update package.')];
-            }
-            $downloaded += strlen($chunk);
-            if ($progressToken !== '' && $length > 0) {
-                _cms_write_progress($progressToken, (int)floor(5 * min(1, $downloaded / $length)), __('Downloading update package…'));
-            }
-        }
-        fclose($input);
-        fclose($output);
+        if ($progressToken !== '') _cms_write_progress($progressToken, 0, __('Downloading update package…'), false, null, 'download', true);
+        $tmpZip = package_download($downloadUrl, 'cms-update-', 'JyavaniCMS-Update/' . $currentVer,
+            static function (int $downloaded, int $total) use ($progressToken): bool {
+                if ($progressToken !== '' && $total > 0) {
+                    _cms_write_progress($progressToken, (int)floor(15 * min(1, $downloaded / $total)), __('Downloading update package…'), false, null, 'download', true);
+                }
+                return $progressToken === '' || !update_operation_cancellation_requested($progressToken);
+            });
+        _cms_update_checkpoint($progressToken);
+        if ($tmpZip === null) return _cms_update_failure($progressToken, __('Failed to download update package.'));
 
         $expectedPackageHash = strtolower(trim((string)($remoteManifest['package_sha256'] ?? '')));
         if ($expectedPackageHash !== '' && (!preg_match('/^[a-f0-9]{64}$/', $expectedPackageHash)
@@ -600,16 +640,20 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
         }
 
         if ($progressToken !== '') {
-            _cms_write_progress($progressToken, 5, __('Download complete. Extracting…'));
+            _cms_write_progress($progressToken, 15, __('Download complete. Validating…'), false, null, 'validate', true);
         }
 
         $result = _apply_cms_update_from_zip($tmpZip, $remoteManifest, $currentVer, $progressToken);
         @unlink($tmpZip);
         return $result;
 
+    } catch (UpdateOperationCancelled $e) {
+        if (isset($tmpZip) && is_string($tmpZip)) @unlink($tmpZip);
+        if ($progressToken !== '') update_operation_mark_cancelled($progressToken, __('Update cancelled.'));
+        return ['success' => false, 'cancelled' => true, 'message' => __('Update cancelled.')];
     } catch (Throwable $e) {
         if ($progressToken !== '') {
-            _cms_write_progress($progressToken, 0, __('Error.'), true, $e->getMessage());
+            _cms_write_progress($progressToken, 0, __('Error.'), true, $e->getMessage(), 'failed', false);
         }
         return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
     }

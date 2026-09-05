@@ -75,11 +75,12 @@ function package_safe_relative_path(string $relative): bool {
 }
 
 /** Extract an already validated source-to-relative-file map without extractTo(). */
-function package_archive_extract_files(ZipArchive $zip, array $files, string $directory): bool {
+function package_archive_extract_files(ZipArchive $zip, array $files, string $directory, ?callable $checkpoint = null): bool {
     $root = realpath($directory);
     if ($root === false || is_link($directory)) return false;
     $totalExtracted = 0;
     foreach ($files as $file) {
+        if ($checkpoint !== null && $checkpoint() === false) return false;
         $source = is_array($file) && is_string($file['source'] ?? null) ? $file['source'] : '';
         $relative = is_array($file) && is_string($file['relative'] ?? null) ? $file['relative'] : '';
         if ($source === '' || !package_safe_relative_path($relative)) return false;
@@ -113,12 +114,19 @@ function package_archive_extract_files(ZipArchive $zip, array $files, string $di
                 $streamOk = false;
                 break;
             }
+            if ($checkpoint !== null && $checkpoint() === false) {
+                $streamOk = false;
+                break;
+            }
         }
         $flushed = $streamOk && $copied === $expectedBytes && fflush($output)
             && (!function_exists('fsync') || fsync($output));
         fclose($input);
         fclose($output);
-        if (!$flushed) return false;
+        if (!$flushed) {
+            @unlink($target);
+            return false;
+        }
     }
     return package_tree_identity($root) !== null;
 }
@@ -439,29 +447,39 @@ function package_download(string $url, string $prefix, string $userAgent, ?calla
     if (!is_resource($output)) { @unlink($path); return null; }
     $downloaded = 0;
     $ok = false;
-    if (function_exists('curl_init')) {
-        $curl = curl_init($url);
-        curl_setopt_array($curl, [
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_CONNECTTIMEOUT => 15,
-            CURLOPT_TIMEOUT => 120,
-            CURLOPT_USERAGENT => $userAgent,
-            CURLOPT_FAILONERROR => false,
-            CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use ($output, &$downloaded, &$ok, $progress): int {
-                $length = strlen($chunk);
-                $downloaded += $length;
-                if ($downloaded > PACKAGE_MAX_BYTES || fwrite($output, $chunk) !== $length) return 0;
-                if ($progress !== null) $progress($downloaded, 0);
-                return $length;
-            },
-        ]);
-        $executed = curl_exec($curl) === true;
-        $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        $declared = (int)curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
-        curl_close($curl);
-        $ok = $executed && $status >= 200 && $status < 300 && $downloaded > 0
-            && $downloaded <= PACKAGE_MAX_BYTES && ($declared <= 0 || $declared <= PACKAGE_MAX_BYTES);
-    } else {
+    $cancelled = false;
+    try {
+        if (function_exists('curl_init')) {
+            $curl = curl_init($url);
+            curl_setopt_array($curl, [
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_TIMEOUT => 120,
+                CURLOPT_USERAGENT => $userAgent,
+                CURLOPT_FAILONERROR => false,
+                CURLOPT_NOPROGRESS => false,
+                CURLOPT_PROGRESSFUNCTION => static function ($handle, float $total, float $current) use ($progress, &$cancelled): int {
+                    if ($progress !== null && $progress((int)$current, (int)$total) === false) {
+                        $cancelled = true;
+                        return 1;
+                    }
+                    return 0;
+                },
+                CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use ($output, &$downloaded): int {
+                    $length = strlen($chunk);
+                    $downloaded += $length;
+                    if ($downloaded > PACKAGE_MAX_BYTES || fwrite($output, $chunk) !== $length) return 0;
+                    return $length;
+                },
+            ]);
+            $executed = curl_exec($curl) === true;
+            $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            $declared = (int)curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+            curl_close($curl);
+            unset($curl);
+            $ok = !$cancelled && $executed && $status >= 200 && $status < 300 && $downloaded > 0
+                && $downloaded <= PACKAGE_MAX_BYTES && ($declared <= 0 || $declared <= PACKAGE_MAX_BYTES);
+        } else {
         $context = stream_context_create(['http' => [
             'timeout' => 120, 'user_agent' => $userAgent, 'follow_location' => 1,
             'max_redirects' => 5, 'ignore_errors' => true,
@@ -483,14 +501,22 @@ function package_download(string $url, string $prefix, string $userAgent, ?calla
                     $length = strlen($chunk);
                     $downloaded += $length;
                     if ($downloaded > PACKAGE_MAX_BYTES || fwrite($output, $chunk) !== $length) { $ok = false; break; }
-                    if ($progress !== null) $progress($downloaded, $declared);
+                    if ($progress !== null && $progress($downloaded, $declared) === false) {
+                        $cancelled = true;
+                        $ok = false;
+                        break;
+                    }
                 }
                 $ok = $ok && $downloaded > 0;
             }
             fclose($input);
         }
+        }
+    } finally {
+        if (isset($curl) && is_object($curl)) curl_close($curl);
+        if (isset($input) && is_resource($input)) fclose($input);
+        $ok = fclose($output) && $ok;
     }
-    $ok = fclose($output) && $ok;
     if (!$ok) { @unlink($path); return null; }
     return $path;
 }

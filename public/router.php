@@ -2,6 +2,17 @@
 // router.php
 require_once __DIR__ . '/dev_lock.php';
 
+// Progress polling and cancellation must remain available while an updater owns
+// the lifecycle writer lock. The endpoint performs its own exact configured-path guard.
+$updateProcessPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+if (str_ends_with($updateProcessPath, '/admin/update/process.php')) {
+    define('UPDATE_PROCESS_CONTROL_REQUEST', true);
+    require_once __DIR__ . '/../app/bootstrap_core.php';
+    require_once __DIR__ . '/../dashboard/bootstrap.php';
+    require __DIR__ . '/../dashboard/admin/update/process.php';
+    exit;
+}
+
 // BOOTSTRAP
 require_once __DIR__ . '/../app/bootstrap_core.php';
 require_once __DIR__ . '/../app/bootstrap_theme.php';

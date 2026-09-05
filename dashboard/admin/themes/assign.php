@@ -448,8 +448,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     throw new RuntimeException(__('Invalid update decisions.'), 0, $error);
                 }
                 if (!is_array($decisions)) throw new RuntimeException(__('Invalid update decisions.'));
+                if (!update_operation_begin($token, (int)$user_id, 'theme', $folder, __('Starting...'))) {
+                    throw new RuntimeException(__('Unable to start update operation.'));
+                }
+                $directUpdateLock = update_operation_acquire_lock();
+                if (!is_resource($directUpdateLock)) {
+                    update_operation_fail($token, __('Update failed.'), __('Another update is already running.'));
+                    throw new RuntimeException(__('Another update is already running.'));
+                }
                 session_write_close();
-                $result = ThemeStoreClient::applyUpdate($pdo, $folder, $token, $decisions);
+                try {
+                    $result = ThemeStoreClient::applyUpdate($pdo, $folder, $token, $decisions);
+                } finally {
+                    if (($result['success'] ?? false) !== true) {
+                        $record = update_operation_read($token);
+                        if (($record['outcome'] ?? '') !== 'cancelled') {
+                            update_operation_fail($token, __('Update failed.'), (string)($result['error'] ?? __('Update failed.')));
+                        }
+                    }
+                    update_operation_release_lock($directUpdateLock);
+                }
                 if ($result['success']) {
                     UpdateStatusController::removeUpdate('themes', $folder, (string)$result['new_version']);
                     $messages[] = __("Theme '{$folder}' updated to v{$result['new_version']}.");
@@ -563,6 +581,7 @@ foreach ($themes as $t) {
     if (!empty($t['is_active'])) { $activeThemeFolder = $t['folder_name']; break; }
 }
 ?>
+<link rel="stylesheet" href="/static/dashboard/css/update.css?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/css/update.css') ?: 0) ?>">
 <div class="tm-wrap">
   <div data-update-status-page hidden></div>
   <h2 class="tm-title"><?= _e('Theme Manager & Assignments') ?></h2>
@@ -888,15 +907,22 @@ if (!empty($all_toasts) && function_exists('adiwira_bootstrap_toasts_script')) {
 }
 ?>
 
-<div id="themeProgressOverlay" class="progress-overlay" style="display:none">
-  <div class="progress-box">
-    <div class="progress-spinner"></div>
-    <div class="progress-status" id="themeProgressStatus"><?=__('Starting update...')?></div>
-    <div class="progress-bar-track"><div class="progress-bar-fill" id="themeProgressFill" style="width:0%"></div></div>
-    <div class="progress-pct" id="themeProgressPct">0%</div>
+<div id="themeProgressOverlay" class="update-process-overlay" role="dialog" aria-modal="true" aria-labelledby="themeProgressTitle" style="display:none">
+  <div class="update-process-panel" data-update-process-panel tabindex="-1">
+    <h3 id="themeProgressTitle" class="update-process-title" data-update-process-title><?=_e('Theme update in progress')?></h3>
+    <div class="update-process-spinner" data-update-process-spinner aria-hidden="true"></div>
+    <div class="update-process-stage" data-update-process-stage><?=_e('Stage:')?> <?=_e('Starting...')?></div>
+    <div class="update-process-status" id="themeProgressStatus" data-update-process-status aria-live="polite"><?=__('Starting update...')?></div>
+    <p class="update-process-warning"><?=_e('Do not close or leave this page while the update is running.')?></p>
+    <div class="update-process-track"><div class="update-process-bar" id="themeProgressFill" data-update-process-bar style="width:0%"></div></div>
+    <div class="update-process-pct" id="themeProgressPct" data-update-process-pct>0%</div>
+    <div class="update-process-actions" data-update-process-actions>
+      <button type="button" class="btn btn-outline" data-update-process-cancel disabled><?=_e('Cancel update')?></button>
+    </div>
   </div>
 </div>
 
+<script src="/static/dashboard/js/update.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/js/update.js') ?: 0) ?>"></script>
 <script>
 window.ADIWIRA = window.ADIWIRA || {};
 window.ADIWIRA.activeTheme = <?= json_encode($activeThemeFolder, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT) ?>;
@@ -1209,49 +1235,38 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     var fillEl = document.getElementById('themeProgressFill');
     var pctEl = document.getElementById('themeProgressPct');
     var updateInFlight = false;
+    var updateProcess = window.createUpdateProcessUI({
+      overlayId: 'themeProgressOverlay',
+      processUrl: '<?= h($scriptBase) ?>/admin/update/process.php?token=',
+      csrfToken: <?= json_encode(csrf_token()) ?>,
+      labels: <?= json_encode([
+        'runningTitle' => __('Theme update in progress'),
+        'completeTitle' => __('Theme update complete'),
+        'failedTitle' => __('Theme update failed'),
+        'cancelledTitle' => __('Theme update cancelled'),
+        'stage' => __('Stage:'),
+        'starting' => __('Starting...'),
+        'cancel' => __('Cancel update'),
+        'cancelling' => __('Cancelling...'),
+        'finishing' => __('Finishing process...'),
+        'done' => __('Reload'),
+        'timeout' => __('The update is taking longer than expected. Waiting for a confirmed result.'),
+        'invalidResponse' => __('The update server returned an invalid response.'),
+        'requestFailed' => __('The update request failed.'),
+        'cancelFailed' => __('Unable to request cancellation. The update is still running.'),
+      ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+      onDone: function(){ window.location.reload(); }
+    });
 
     function setUpdateInFlight(active){
       updateInFlight = active;
       document.querySelectorAll('.btn-update-theme').forEach(function(button){ button.disabled = active; });
     }
 
-    function showOverlay(){ if (overlay) overlay.style.display = 'flex'; }
-    function hideOverlay(){ if (overlay) overlay.style.display = 'none'; }
-    function setProgress(pct, status){
-      if (fillEl) fillEl.style.width = pct + '%';
-      if (pctEl) pctEl.textContent = pct + '%';
-      if (statusEl) statusEl.textContent = status;
-    }
-
     function makeProgressToken(){
       var bytes = new Uint8Array(16);
       window.crypto.getRandomValues(bytes);
       return Array.prototype.map.call(bytes, function(value){ return value.toString(16).padStart(2, '0'); }).join('');
-    }
-
-    function pollProgress(token){
-      var interval = setInterval(function(){
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '<?= h($scriptBase) ?>/admin/themes/update_progress.php?token=' + token, true);
-        xhr.onload = function(){
-          if (xhr.status === 200) {
-            try {
-              var data = JSON.parse(xhr.responseText);
-              setProgress(data.percentage, data.status);
-              if (data.done) {
-                clearInterval(interval);
-                if (data.error) {
-                  setTimeout(function(){ setUpdateInFlight(false); hideOverlay(); toast('error', data.error, <?= json_encode(__('Update Failed')) ?>); }, 1000);
-                } else {
-                  setTimeout(function(){ hideOverlay(); window.location.reload(); }, 1500);
-                }
-              }
-            } catch(e){}
-          }
-        };
-        xhr.send();
-      }, 1500);
-      return interval;
     }
 
     function appendParams(url, params){
@@ -1429,9 +1444,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
     function startThemeUpdate(folderName, decisions){
       var token = makeProgressToken();
-      showOverlay();
-      setProgress(2, <?= json_encode(__('Preparing...')) ?>);
-      var pollingInterval = pollProgress(token);
+      updateProcess.start(token, folderName);
 
       var xhr = new XMLHttpRequest();
       xhr.open('POST', '<?= h($scriptBase) ?>/admin/themes/update_apply.php', true);
@@ -1439,25 +1452,21 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
       xhr.onload = function(){
         var data = null;
         try { data = JSON.parse(xhr.responseText); } catch(e) {}
-        if (xhr.status !== 200 || !data || !data.ok) {
-          clearInterval(pollingInterval);
-          hideOverlay();
-          if (data && data.code === 'theme_update_preflight_required' && Array.isArray(data.issues)) {
-            showPreflightModal(folderName, data.issues).then(function(nextDecisions){
-              if (nextDecisions !== null) startThemeUpdate(folderName, nextDecisions);
-              else setUpdateInFlight(false);
-            });
-          } else {
-            setUpdateInFlight(false);
-            toast('error', (data && data.error) || <?= json_encode(__('Failed to start update.')) ?>, <?= json_encode(__('Error')) ?>);
-          }
+        if (data && data.code === 'theme_update_preflight_required' && Array.isArray(data.issues)) {
+          updateProcess.fail(data.error || <?= json_encode(__('Theme update requirements must be resolved before continuing.')) ?>);
+          updateProcess.dismissTerminal();
+          showPreflightModal(folderName, data.issues).then(function(nextDecisions){
+            if (nextDecisions !== null) startThemeUpdate(folderName, nextDecisions);
+            else setUpdateInFlight(false);
+          });
+        } else if (data && !data.ok && !data.cancelled) {
+          updateProcess.dispatchFailed(data.error || <?= json_encode(__('Failed to start update.')) ?>);
+        } else if (!data || xhr.status !== 200) {
+          updateProcess.dispatchFailed(<?= json_encode(__('The update server returned an invalid response.')) ?>);
         }
       };
       xhr.onerror = function(){
-        clearInterval(pollingInterval);
-        setUpdateInFlight(false);
-        hideOverlay();
-        toast('error', <?= json_encode(__('Failed to start update.')) ?>, <?= json_encode(__('Error')) ?>);
+        updateProcess.dispatchFailed(<?= json_encode(__('The update request failed.')) ?>);
       };
       xhr.send('csrf_token=<?= h(csrf_token()) ?>&action=apply_theme_update&theme=' + encodeURIComponent(folderName) + '&token=' + token + '&decisions=' + encodeURIComponent(JSON.stringify(decisions || {})));
     }

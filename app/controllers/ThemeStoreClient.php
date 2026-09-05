@@ -241,11 +241,11 @@ class ThemeStoreClient
             return ['success' => false, 'error' => 'Invalid theme name.'];
         }
         require_once __DIR__ . '/UpdateStatusController.php';
-        $p = static function (int $pct, string $status) use ($progressToken): void {
-            if ($progressToken !== '') self::writeProgress($progressToken, $pct, $status);
+        $p = static function (int $pct, string $status, string $stage = 'preparing', bool $cancelAllowed = true) use ($progressToken): void {
+            if ($progressToken !== '') self::writeProgress($progressToken, $pct, $status, false, null, $stage, $cancelAllowed);
         };
         $fail = static function (string $error, ?string $code = null, array $extra = []) use ($progressToken): array {
-            self::writeProgress($progressToken, 0, $error, true, $error);
+            self::writeProgress($progressToken, 0, $error, true, $error, 'failed', false);
             return array_merge(['success' => false, 'error' => $error], $code === null ? [] : ['code' => $code], $extra);
         };
         $locks = [];
@@ -256,6 +256,14 @@ class ThemeStoreClient
         $oldManifest = null;
         $rollbackPath = null;
         $swapped = false;
+        $zip = null;
+        $standaloneUpdateLock = null;
+        if ($progressToken === '') {
+            $standaloneUpdateLock = update_operation_acquire_lock();
+            if (!is_resource($standaloneUpdateLock)) {
+                return ['success' => false, 'error' => __('Another update is already running.')];
+            }
+        }
         try {
             self::loadThemeHelpers();
             $normalizedDecisions = self::normalizeDecisions($decisions);
@@ -276,16 +284,19 @@ class ThemeStoreClient
             $oldIdentity = package_tree_identity($themeDir);
             if ($oldIdentity === null) return $fail(__('Installed theme tree contains unsupported entries.'));
 
-            $p(18, __('Downloading update package...'));
-            $tmpZip = self::downloadPackage((string)$update['download_url'], $p);
+            $p(18, __('Downloading update package...'), 'download');
+            $tmpZip = self::downloadPackage((string)$update['download_url'], $p, $progressToken);
+            if ($progressToken !== '') update_operation_checkpoint($progressToken);
             if ($tmpZip === null) return $fail(__('Failed to download update from store.'));
             if (!is_string($update['checksum'] ?? null) || preg_match('/\A[a-f0-9]{64}\z/i', (string)$update['checksum']) !== 1
                 || !hash_equals(strtolower((string)$update['checksum']), (string)hash_file('sha256', $tmpZip))) {
                 return $fail(__('Invalid update package.'));
             }
+            if ($progressToken !== '') update_operation_checkpoint($progressToken);
             $zip = new ZipArchive();
             if ($zip->open($tmpZip) !== true) return $fail(__('Invalid update package.'));
             $validation = package_archive_validate($zip);
+            if ($progressToken !== '') update_operation_checkpoint($progressToken);
             if (!$validation['success']) { $zip->close(); return $fail($validation['error']); }
             $manifestIndex = $zip->locateName('theme.json', ZipArchive::FL_NOCASE);
             if ($manifestIndex === false || (string)($zip->statIndex($manifestIndex)['name'] ?? '') !== 'theme.json') {
@@ -305,6 +316,11 @@ class ThemeStoreClient
             $files = [];
             $hasPhp = false;
             foreach ($validation['entries'] as $entry) {
+                if ($progressToken !== '' && update_operation_cancellation_requested($progressToken)) {
+                    $zip->close();
+                    $zip = null;
+                    update_operation_checkpoint($progressToken);
+                }
                 if ($entry['directory']) continue;
                 $relative = $entry['path'];
                 $relativeKey = strtolower($relative);
@@ -318,11 +334,16 @@ class ThemeStoreClient
             if (!$hasPhp) { $zip->close(); return $fail(__('Invalid update package.')); }
             $stage = package_private_directory(dirname($themeDir), 'theme-stage-' . $folderName);
             if ($stage === null) { $zip->close(); return $fail(__('Failed to create theme staging directory.')); }
-            $p(55, __('Installing update files to staging...'));
-            $extracted = package_archive_extract_files($zip, $files, $stage);
+            $p(55, __('Installing update files to staging...'), 'extract');
+            // Legacy callers may still use package_archive_extract_files($zip, $files, $stage).
+            $extracted = package_archive_extract_files($zip, $files, $stage, static function () use ($progressToken): bool {
+                return $progressToken === '' || !update_operation_cancellation_requested($progressToken);
+            });
             $zip->close();
+            $zip = null;
             @unlink($tmpZip);
             $tmpZip = null;
+            if ($progressToken !== '') update_operation_checkpoint($progressToken);
             if (!$extracted || !package_chmod_tree($stage)
                 || !package_copy_preserved_paths($themeDir, $stage, ['.store.json', '.git'])) {
                 return $fail(__('Failed to build the complete theme staging tree.'));
@@ -332,9 +353,14 @@ class ThemeStoreClient
             if (!is_array($stagedManifest) || $stagedManifest !== $manifest || package_tree_identity($stage) === null) {
                 return $fail(__('Staged theme verification failed.'));
             }
-            $p(80, __('Publishing complete theme tree...'));
+            $p(75, __('Verifying staged theme tree...'), 'validate');
             $newIdentity = package_tree_identity($stage);
             if ($newIdentity === null) return $fail(__('Staged theme identity verification failed.'));
+            if ($progressToken !== '') {
+                update_operation_enter_critical($progressToken, 80, 'publish', __('Publishing complete theme tree...'));
+            } else {
+                $p(80, __('Publishing complete theme tree...'), 'publish', false);
+            }
             $publication = package_guarded_publish($stage, $themeDir, $oldIdentity, $newIdentity);
             if (!$publication['success']) {
                 $recovery = $publication['recovery_paths'][0] ?? null;
@@ -403,10 +429,13 @@ class ThemeStoreClient
                     error_log('[theme_update_completed] ' . $hookError['message']);
                 }
             }
-            self::writeProgress($progressToken, 100, __('Done!'), true);
+            self::writeProgress($progressToken, 100, __('Done!'), true, null, 'complete', false);
             $result = ['success' => true, 'new_version' => $update['new_version']];
             if ($cleanupWarning !== '' || $metadataWarning !== '') $result['warning'] = trim($cleanupWarning . ' ' . $metadataWarning);
             return $result;
+        } catch (UpdateOperationCancelled $error) {
+            if ($progressToken !== '') update_operation_mark_cancelled($progressToken, __('Update cancelled.'));
+            return ['success' => false, 'cancelled' => true, 'error' => null];
         } catch (Throwable $error) {
             error_log('[theme-update] ' . $error->getMessage());
             if ($swapped && is_string($rollbackPath) && is_string($themeDir) && is_array($oldIdentity) && is_array($oldManifest)) {
@@ -429,9 +458,11 @@ class ThemeStoreClient
             }
             return $fail(__('Theme update failed safely.'));
         } finally {
+            if ($zip instanceof ZipArchive) $zip->close();
             if (is_string($tmpZip) && is_file($tmpZip)) @unlink($tmpZip);
             if (!$swapped && is_string($stage) && is_dir($stage)) package_remove_tree($stage);
             if ($locks !== []) theme_operation_release($locks);
+            update_operation_release_lock($standaloneUpdateLock);
         }
     }
 
@@ -722,22 +753,12 @@ class ThemeStoreClient
 
     public static function readProgress(string $token): ?array
     {
-        if (!preg_match('/^[a-f0-9]{32}$/', $token)) return null;
-        $file = self::progressFile($token);
-        if (!is_file($file)) return null;
-        if (time() - filemtime($file) > 3600) {
-            @unlink($file);
-            return null;
-        }
-        $data = json_decode(file_get_contents($file), true);
-        return is_array($data) ? $data : null;
+        return update_operation_read($token);
     }
 
     public static function clearProgress(string $token): void
     {
-        if (!preg_match('/^[a-f0-9]{32}$/', $token)) return;
-        $file = self::progressFile($token);
-        if (is_file($file)) @unlink($file);
+        update_operation_clear($token);
     }
 
     private static function transientFile(): string
@@ -820,25 +841,23 @@ class ThemeStoreClient
         return $backend . '/var/update-progress-' . $token . '.json';
     }
 
-    private static function writeProgress(string $token, int $percentage, string $status, bool $done = false, ?string $error = null): void
+    private static function writeProgress(string $token, int $percentage, string $status, bool $done = false, ?string $error = null, string $stage = 'working', bool $cancelAllowed = true): void
     {
-        if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) return;
-        $file = self::progressFile($token);
-        $dir = dirname($file);
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
-        file_put_contents($file, json_encode([
-            'percentage' => $percentage,
-            'status' => $status,
-            'done' => $done,
-            'error' => $error,
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+        if ($token === '') return;
+        if ($done) {
+            if ($error !== null) update_operation_fail($token, $status, $error);
+            else update_operation_complete($token, $status);
+            return;
+        }
+        update_operation_progress($token, $percentage, $stage, $status, $cancelAllowed);
     }
 
-    private static function downloadPackage(string $url, callable $progress): ?string
+    private static function downloadPackage(string $url, callable $progress, string $progressToken = ''): ?string
     {
-        $progress(18, __('Downloading update package...'));
-        return package_download($url, 'theme-update-', 'JyavaniCMS-ThemeUpdate', static function (int $downloaded, int $total) use ($progress): void {
-            if ($total > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $total)), __('Downloading update package...'));
+        $progress(18, __('Downloading update package...'), 'download');
+        return package_download($url, 'theme-update-', 'JyavaniCMS-ThemeUpdate', static function (int $downloaded, int $total) use ($progress, $progressToken): bool {
+            if ($total > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $total)), __('Downloading update package...'), 'download');
+            return $progressToken === '' || !update_operation_cancellation_requested($progressToken);
         });
     }
 

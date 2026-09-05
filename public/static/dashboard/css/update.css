@@ -1,5 +1,57 @@
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.update-process-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, .72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.update-process-panel {
+  width: min(100%, 440px);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 2rem 2.25rem;
+  border: 1px solid var(--adam-border);
+  border-radius: 14px;
+  background: var(--adam-card);
+  color: var(--adam-text);
+  text-align: center;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .35);
+}
+.update-process-panel:focus { outline: none; }
+.update-process-title { margin: 0 0 1rem; font-size: 1.15rem; line-height: 1.35; }
+.update-process-spinner {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 1rem;
+  border: 4px solid var(--adam-border-2);
+  border-top-color: var(--adam-primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+.update-process-stage { margin-bottom: .35rem; color: var(--adam-muted); font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .045em; }
+.update-process-status { min-height: 1.4em; font-size: .92rem; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
+.update-process-warning { margin: .85rem 0; color: #b45309; font-size: .8rem; line-height: 1.45; }
+.update-process-track { height: 9px; margin-top: 1rem; overflow: hidden; border-radius: 999px; background: var(--adam-border-2); }
+.update-process-bar { height: 100%; border-radius: inherit; background: var(--adam-primary); transition: width .35s ease; }
+.update-process-pct { margin-top: .4rem; color: var(--adam-muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+.update-process-actions { display: flex; justify-content: center; margin-top: 1.15rem; }
+.update-process-actions .btn { min-width: 150px; }
+.update-process-overlay.is-completed .update-process-title,
+.update-process-overlay.is-completed .update-process-stage { color: var(--adam-success); }
+.update-process-overlay.is-completed .update-process-bar { background: var(--adam-success); }
+.update-process-overlay.is-failed .update-process-title,
+.update-process-overlay.is-failed .update-process-stage { color: var(--adam-danger); }
+.update-process-overlay.is-failed .update-process-bar { background: var(--adam-danger); }
+.update-process-overlay.is-cancelled .update-process-title,
+.update-process-overlay.is-cancelled .update-process-stage { color: #b45309; }
+.update-process-overlay.is-cancelled .update-process-bar { background: #d97706; }
+
 .up-page {
   width: min(100%, 1180px);
   margin: 0 auto;
@@ -123,6 +175,8 @@ html.theme-dark .up-dev-notice { border-color: #d97706; background: #1a1500; col
   .up-file-row .btn { width: 100%; }
 }
 @media (max-width: 480px) {
+  .update-process-panel { padding: 1.5rem 1.1rem; }
+  .update-process-actions .btn { width: 100%; }
   .up-page .btn { width: 100%; }
   .up-flex, .up-flex form { width: 100%; }
   .up-table td { display: block; width: 100%; padding: .28rem 0; border: 0; }

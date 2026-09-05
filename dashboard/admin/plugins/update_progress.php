@@ -14,6 +14,10 @@ if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
 
 require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
 
+$record = update_operation_read($token);
+if ($record !== null && ((int)$record['owner_id'] !== (int)$uid || (string)$record['type'] !== 'plugin')) {
+    adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
+}
 $progress = PluginStoreController::readProgress($token);
 if ($progress) {
     adiwira_json([
@@ -21,6 +25,10 @@ if ($progress) {
         'status' => $progress['status'],
         'done' => (bool)($progress['done'] ?? false),
         'error' => $progress['error'] ?? null,
+        'stage' => $progress['stage'] ?? 'working',
+        'outcome' => $progress['outcome'] ?? 'running',
+        'cancel_allowed' => (bool)($progress['cancel_allowed'] ?? false),
+        'cancel_requested' => (bool)($progress['cancel_requested'] ?? false),
     ]);
 }
 
@@ -29,4 +37,8 @@ adiwira_json([
     'status' => __('Starting...'),
     'done' => false,
     'error' => null,
+    'stage' => 'starting',
+    'outcome' => 'running',
+    'cancel_allowed' => false,
+    'cancel_requested' => false,
 ]);

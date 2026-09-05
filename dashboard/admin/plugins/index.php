@@ -252,6 +252,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
     return $base . '/?' . http_build_query($q);
 };
 ?>
+<link rel="stylesheet" href="/static/dashboard/css/update.css?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/css/update.css') ?: 0) ?>">
 <h2 class="pg-title"><?=_e('Plugin')?></h2>
 <div data-update-status-page hidden></div>
 <p class="pg-subtitle"><?=_e('Manage installed plugins.')?></p>
@@ -497,21 +498,21 @@ $buildUrl = function(array $overrides = []) use ($base): string {
   </div>
 </div>
 
-<!-- Progress Overlay -->
-<div id="pluginUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
-  <div style="background:var(--adam-card);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
-    <div id="progressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
-    <div id="progressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
-    <div id="progressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
-    <div style="margin-top:1rem;background:var(--adam-border-2);border-radius:999px;height:8px;overflow:hidden">
-      <div id="progressBar" style="width:0%;height:100%;background:var(--adam-primary);border-radius:999px;transition:width .4s ease"></div>
+<!-- Generic operations remain blocking; update-only controls are enabled by the process coordinator. -->
+<div id="pluginUpdateProgress" class="update-process-overlay" role="dialog" aria-modal="true" aria-labelledby="pluginProgressTitle" style="display:none">
+  <div class="update-process-panel" data-update-process-panel tabindex="-1">
+    <h3 id="pluginProgressTitle" class="update-process-title" data-update-process-title><?=_e('Processing…')?></h3>
+    <div id="progressSpinner" class="update-process-spinner" data-update-process-spinner aria-hidden="true"></div>
+    <div class="update-process-stage" data-update-process-stage style="display:none"></div>
+    <div id="progressStatus" class="update-process-status" data-update-process-status aria-live="polite"><?=__('Processing…')?></div>
+    <p class="update-process-warning" data-update-process-warning style="display:none"><?=_e('Do not close or leave this page while the update is running.')?></p>
+    <div class="update-process-track"><div id="progressBar" class="update-process-bar" data-update-process-bar style="width:0%"></div></div>
+    <div id="progressPct" class="update-process-pct" data-update-process-pct>0%</div>
+    <div class="update-process-actions" data-update-process-actions style="display:none">
+      <button type="button" class="btn btn-outline" data-update-process-cancel disabled><?=_e('Cancel update')?></button>
     </div>
-    <div id="progressPct" style="margin-top:.3rem;font-size:.75rem;color:var(--adam-muted)">0%</div>
   </div>
 </div>
-<style>
-@keyframes spin { to { transform:rotate(360deg); } }
-</style>
 
 <style>
 .pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; color:var(--adam-text); }
@@ -605,10 +606,33 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 tr.row-selected { background:var(--adam-surface-4); }
 </style>
 
+<script src="/static/dashboard/js/update.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/js/update.js') ?: 0) ?>"></script>
 <script>
 var _confirmForm = null;
 var _confirmAction = '';
 var _csrfToken = '<?= h(csrf_token()) ?>';
+var _pluginUpdateProcess = window.createUpdateProcessUI({
+  overlayId: 'pluginUpdateProgress',
+  processUrl: '<?= h($base) ?>/admin/update/process.php?token=',
+  csrfToken: _csrfToken,
+  labels: <?= json_encode([
+    'runningTitle' => __('Plugin update in progress'),
+    'completeTitle' => __('Plugin update complete'),
+    'failedTitle' => __('Plugin update failed'),
+    'cancelledTitle' => __('Plugin update cancelled'),
+    'stage' => __('Stage:'),
+    'starting' => __('Starting...'),
+    'cancel' => __('Cancel update'),
+    'cancelling' => __('Cancelling...'),
+    'finishing' => __('Finishing process...'),
+    'done' => __('Reload'),
+    'timeout' => __('The update is taking longer than expected. Waiting for a confirmed result.'),
+    'invalidResponse' => __('The update server returned an invalid response.'),
+    'requestFailed' => __('The update request failed.'),
+    'cancelFailed' => __('Unable to request cancellation. The update is still running.'),
+  ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+  onDone: function(){ window.location.reload(); }
+});
 
 // ─── Confirm modal ───
 document.querySelectorAll('.js-confirm-btn').forEach(function(btn) {
@@ -667,6 +691,15 @@ function updateProgressBar(pct, status) {
 function showProgressOverlay() {
   var overlay = document.getElementById('pluginUpdateProgress');
   if (!overlay) return;
+  overlay.classList.remove('is-running', 'is-terminal', 'is-completed', 'is-failed', 'is-cancelled');
+  var title = overlay.querySelector('[data-update-process-title]');
+  var stage = overlay.querySelector('[data-update-process-stage]');
+  var warning = overlay.querySelector('[data-update-process-warning]');
+  var actions = overlay.querySelector('[data-update-process-actions]');
+  if (title) title.textContent = '<?=__('Processing…')?>';
+  if (stage) stage.style.display = 'none';
+  if (warning) warning.style.display = 'none';
+  if (actions) actions.style.display = 'none';
   updateProgressBar(0, '<?=__('Starting...')?>');
   overlay.style.display = 'flex';
 }
@@ -677,10 +710,9 @@ function hideProgressOverlay() {
 }
 
 function makeProgressToken() {
-  var hex = '0123456789abcdef';
-  var token = '';
-  for (var i = 0; i < 32; i++) token += hex[Math.floor(Math.random() * 16)];
-  return token;
+  var bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  return Array.prototype.map.call(bytes, function(value){ return value.toString(16).padStart(2, '0'); }).join('');
 }
 
 function applyPluginConfirm() {
@@ -710,40 +742,17 @@ function applyPluginConfirm() {
 
 function startPluginUpdate(pluginName) {
   var token = makeProgressToken();
-  document.getElementById('progressStatus').textContent = '<?=__('Updating plugin…')?>';
-  showProgressOverlay();
-  updateProgressBar(2, '<?=__('Preparing...')?>');
+  var overlay = document.getElementById('pluginUpdateProgress');
+  var stage = overlay && overlay.querySelector('[data-update-process-stage]');
+  var warning = overlay && overlay.querySelector('[data-update-process-warning]');
+  var actions = overlay && overlay.querySelector('[data-update-process-actions]');
+  if (stage) stage.style.display = '';
+  if (warning) warning.style.display = '';
+  if (actions) actions.style.display = '';
+  _pluginUpdateProcess.start(token, pluginName);
 
   var baseUrl = '<?= $base ?>';
-  var progressUrl = baseUrl + '/admin/plugins/update_progress.php?token=' + token;
   var applyUrl = baseUrl + '/admin/plugins/update_apply.php';
-
-  var pollTimer = setInterval(function() {
-    fetch(progressUrl, {
-      method: 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      updateProgressBar(data.percentage || 0, data.status || '');
-      if (data.done || data.error) {
-        clearInterval(pollTimer);
-        if (data.error) {
-          setTimeout(function() {
-            hideProgressOverlay();
-            alert('<?=__('Failed: ')?>' + data.error);
-          }, 1500);
-        } else {
-          setTimeout(function() {
-            if (window.adamRefreshUpdateStatus) window.adamRefreshUpdateStatus();
-            window.location.href = '<?= $selfUrl ?>&update_ok=1';
-          }, 1000);
-        }
-      }
-    })
-    .catch(function() {});
-  }, 1500);
 
   var formData = new FormData();
   formData.append('csrf_token', _csrfToken);
@@ -761,22 +770,14 @@ function startPluginUpdate(pluginName) {
       'Accept': 'application/json',
     },
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    return r.json().catch(function() { return {ok: false, error: '<?=__('The update server returned an invalid response.')?>'}; });
+  })
   .then(function(data) {
-    if (!data.ok && data.error && !pollTimer._done) {
-      clearInterval(pollTimer);
-      setTimeout(function() {
-        hideProgressOverlay();
-        alert('<?=__('Failed: ')?>' + data.error);
-      }, 1500);
-    }
+    if (!data.ok && !data.cancelled) _pluginUpdateProcess.dispatchFailed(data.error || '<?=__('Update failed.')?>');
   })
   .catch(function(err) {
-    clearInterval(pollTimer);
-    setTimeout(function() {
-      hideProgressOverlay();
-      alert('<?=__('Failed: ')?>' + err.message);
-    }, 1500);
+    _pluginUpdateProcess.dispatchFailed(err.message || '<?=__('The update request failed.')?>');
   });
 }
 
@@ -862,12 +863,4 @@ function startPluginUpdate(pluginName) {
   }
 })();
 
-// Flash sukses update
-document.addEventListener('DOMContentLoaded', function() {
-  var urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('update_ok') === '1' && window.NewNotifToast) {
-    NewNotifToast.success('<?=__('Plugin updated successfully!')?>');
-    window.history.replaceState({}, '', '<?= $selfUrl ?>');
-  }
-});
 </script>

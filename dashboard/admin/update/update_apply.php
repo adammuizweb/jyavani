@@ -23,6 +23,23 @@ if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
 require_once __DIR__ . '/_update_helpers.php';
 require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
+if (!update_operation_begin($token, (int)$uid, 'core', '', __('Starting...'))) {
+    adiwira_json(['ok' => false, 'error' => __('Unable to start update operation.')], 409);
+}
+$updateLock = update_operation_acquire_lock();
+if (!is_resource($updateLock)) {
+    update_operation_fail($token, __('Update failed.'), __('Another update is already running.'));
+    adiwira_json(['ok' => false, 'error' => __('Another update is already running.')], 409);
+}
+$lifecycleLocks = [];
+try {
+    $lifecycleLocks = theme_operation_acquire(theme_lifecycle_lock_keys());
+} catch (Throwable $error) {
+    update_operation_fail($token, __('Update failed.'), __('Unable to lock the CMS during update.'));
+    update_operation_release_lock($updateLock);
+    adiwira_json(['ok' => false, 'error' => __('Unable to lock the CMS during update.')], 409);
+}
+
 // Copy and clear pending state, then release the lock for the long update.
 ensure_session_started(false);
 $remote = $_SESSION['cms_update_remote'] ?? null;
@@ -39,47 +56,55 @@ $cleanupPackage = static function (string $path): void {
     }
 };
 
-// Load version info
-$versionFile = dirname(DASH_PATH) . '/version.json';
-$currentVersion = ['version' => '0.0.0'];
-if (is_file($versionFile)) {
-    try {
+$result = ['success' => false, 'message' => __('Update failed.')];
+try {
+    // Load version info
+    $versionFile = dirname(DASH_PATH) . '/version.json';
+    $currentVersion = ['version' => '0.0.0'];
+    if (is_file($versionFile)) {
         $currentVersion = array_merge($currentVersion, _cms_decode_json_array((string)file_get_contents($versionFile), 'version.json'));
-    } catch (Throwable $error) {
-        $cleanupPackage((string)$packageZip);
-        _cms_write_progress($token, 0, __('Invalid local version data.'), true, $error->getMessage());
-        adiwira_json(['ok' => false, 'error' => $error->getMessage()]);
     }
+
+    if (!is_array($remote)) throw new RuntimeException(__('No update data in session. Run "Check for Updates" first.'));
+    $hasUploadedPackage = $packageZip !== '' && is_file($packageZip);
+    if (!$hasUploadedPackage && !UpdateStatusController::isUpdateActionable('core', '', (string)($remote['version'] ?? ''))) {
+        throw new RuntimeException(__('No update data in session. Run "Check for Updates" first.'));
+    }
+
+    if ($hasUploadedPackage) {
+        $result = _apply_cms_update_from_zip($packageZip, $remote, $currentVersion['version'] ?? '0.0.0', $token);
+    } elseif ($baseUrl !== '') {
+        $downloadUrl = $remote['download_url'] ?? $baseUrl;
+        $result = _apply_cms_update($remote, $downloadUrl, $currentVersion['version'] ?? '0.0.0', $token);
+    } else {
+        throw new RuntimeException(__('No download URL or uploaded package found.'));
+    }
+
+    if (($result['success'] ?? false) === true) {
+        try {
+            UpdateStatusController::removeUpdate('core');
+        } catch (Throwable $error) {
+            error_log('[core-update-status] ' . $error->getMessage());
+        }
+    }
+} catch (UpdateOperationCancelled $error) {
+    update_operation_mark_cancelled($token, __('Update cancelled.'));
+    $result = ['success' => false, 'cancelled' => true, 'message' => __('Update cancelled.')];
+} catch (Throwable $error) {
+    error_log('[core-update-apply] ' . $error->getMessage());
+    $result = ['success' => false, 'message' => $error->getMessage()];
+} finally {
+    $cleanupPackage((string)$packageZip);
+    if (($result['success'] ?? false) !== true) {
+        $record = update_operation_read($token);
+        if (($record['outcome'] ?? '') !== 'cancelled') {
+            update_operation_fail($token, __('Update failed.'), (string)($result['message'] ?? __('Update failed.')));
+        }
+    }
+    if ($lifecycleLocks !== []) theme_operation_release($lifecycleLocks);
+    update_operation_release_lock($updateLock);
 }
 
-if (!$remote) {
-    $cleanupPackage((string)$packageZip);
-    _cms_write_progress($token, 0, __('No update data.'), true, __('No update data in session. Run "Check for Updates" first.'));
-    adiwira_json(['ok' => false, 'error' => __('No update data in session.')]);
-}
-$hasUploadedPackage = $packageZip !== '' && is_file($packageZip);
-if (!$hasUploadedPackage && !UpdateStatusController::isUpdateActionable('core', '', (string)($remote['version'] ?? ''))) {
-    _cms_write_progress($token, 0, __('No update data.'), true, __('No update data in session. Run "Check for Updates" first.'));
-    adiwira_json(['ok' => false, 'error' => __('No update data in session. Run "Check for Updates" first.')]);
-}
-
-if ($hasUploadedPackage) {
-    // Apply from uploaded zip
-    $result = _apply_cms_update_from_zip($packageZip, $remote, $currentVersion['version'] ?? '0.0.0', $token);
-    $cleanupPackage((string)$packageZip);
-} elseif ($baseUrl !== '') {
-    // Download and apply from remote
-    $downloadUrl = $remote['download_url'] ?? $baseUrl;
-    $result = _apply_cms_update($remote, $downloadUrl, $currentVersion['version'] ?? '0.0.0', $token);
-} else {
-    $cleanupPackage((string)$packageZip);
-    _cms_write_progress($token, 0, __('No source URL.'), true, __('No download URL or uploaded package found.'));
-    adiwira_json(['ok' => false, 'error' => __('No download URL or uploaded package found.')]);
-}
-
-if ($result['success']) {
-    UpdateStatusController::removeUpdate('core');
-    adiwira_json(['ok' => true, 'message' => $result['message']]);
-} else {
-    adiwira_json(['ok' => false, 'error' => $result['message']]);
-}
+adiwira_json(($result['success'] ?? false) === true
+    ? ['ok' => true, 'message' => $result['message']]
+    : ['ok' => false, 'error' => $result['message'] ?? null, 'cancelled' => ($result['cancelled'] ?? false) === true]);

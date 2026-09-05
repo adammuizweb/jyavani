@@ -54,6 +54,7 @@ if (!defined('UPDATE_STATUS_FILE')) {
 
 require_once __DIR__ . '/helpers/hooks.php';
 require_once __DIR__ . '/helpers/package_archive.php';
+require_once __DIR__ . '/helpers/update_operation.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';
 app_configure_error_reporting();
 app_register_shutdown_handler();
@@ -70,6 +71,17 @@ require_once __DIR__ . '/db.php';
 // 4. Definisikan konstanta global (opsional)
 define('cfg_PATH', __DIR__);
 
+// Progress and cancellation must not discover executable themes/plugins or run
+// unrelated application helpers while Core publication holds the writer lock.
+if (defined('UPDATE_PROCESS_CONTROL_REQUEST')) {
+    require_once __DIR__ . '/helpers/null_helpers.php';
+    require_once __DIR__ . '/helpers/settings_helpers.php';
+    require_once __DIR__ . '/helpers/authorization.php';
+    require_once __DIR__ . '/helpers/lang_helpers.php';
+    require_once __DIR__ . '/helpers/auth_helpers.php';
+    return;
+}
+
 // 5. Konstanta path untuk public (dibutuhkan oleh theme_helper & widget_helper)
 if (!defined('VIEWS_BASE')) {
     $appViews = realpath(PUBLIC_PATH . '/views/themes');
@@ -82,7 +94,7 @@ if (!defined('DEFAULT_THEME_FOLDER')) {
 // 6. Frontend helpers (widget sebelum theme, karena theme_helper bisa depend)
 require_once __DIR__ . '/helpers/widget_helper.php';
 require_once __DIR__ . '/helpers/theme_helper.php';
-if (PHP_SAPI !== 'cli') theme_lifecycle_reader_start();
+if (PHP_SAPI !== 'cli' && !defined('UPDATE_PROCESS_CONTROL_REQUEST')) theme_lifecycle_reader_start();
 require_once __DIR__ . '/helpers/theme_sections.php';
 
 // 8. Gunakan helper ini jika ingin gunakan waktu indo

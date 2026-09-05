@@ -238,12 +238,31 @@ class PluginStoreController
         if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) {
             return ['success' => false, 'error' => 'Invalid plugin name.'];
         }
-        $operationLocks = function_exists('plugin_lifecycle_locks') ? plugin_lifecycle_locks($name) : null;
-        if ($operationLocks === null) return ['success' => false, 'error' => 'Unable to lock plugin lifecycle operation.'];
+        $standaloneUpdateLock = null;
+        if ($progressToken === '') {
+            $standaloneUpdateLock = update_operation_acquire_lock();
+            if (!is_resource($standaloneUpdateLock)) {
+                return ['success' => false, 'error' => __('Another update is already running.')];
+            }
+        }
+        try {
+            $operationLocks = function_exists('plugin_lifecycle_locks') ? plugin_lifecycle_locks($name) : null;
+        } catch (Throwable $error) {
+            update_operation_release_lock($standaloneUpdateLock);
+            throw $error;
+        }
+        if ($operationLocks === null) {
+            update_operation_release_lock($standaloneUpdateLock);
+            return ['success' => false, 'error' => 'Unable to lock plugin lifecycle operation.'];
+        }
         try {
             return self::applyUpdateAlreadyLocked($pdo, $name, $progressToken);
+        } catch (UpdateOperationCancelled $error) {
+            if ($progressToken !== '') update_operation_mark_cancelled($progressToken, __('Update cancelled.'));
+            return ['success' => false, 'cancelled' => true, 'error' => null];
         } finally {
             if (function_exists('theme_operation_release')) theme_operation_release($operationLocks);
+            update_operation_release_lock($standaloneUpdateLock);
         }
     }
 
@@ -298,7 +317,7 @@ class PluginStoreController
         if ($pluginRoot === false || $pluginReal === false || is_link($pluginDir)
             || !str_starts_with($pluginReal, $pluginRoot . DIRECTORY_SEPARATOR)) {
             if ($progressToken !== '') {
-                self::writeProgress($progressToken, 0, 'Direktori plugin tidak ditemukan.', true, 'Direktori plugin tidak ditemukan.');
+                self::writeProgress($progressToken, 0, __('Plugin directory not found.'), true, __('Plugin directory not found.'));
             }
             return ['success' => false, 'error' => 'Plugin directory not found.'];
         }
@@ -309,38 +328,48 @@ class PluginStoreController
         }
         $oldStaticCopy = $oldStaticValue;
 
-        $p = function ($pct, $status) use ($progressToken) {
-            if ($progressToken !== '') self::writeProgress($progressToken, $pct, $status);
+        $p = function ($pct, $status, string $stage = 'preparing', bool $cancelAllowed = true) use ($progressToken) {
+            if ($progressToken !== '') self::writeProgress($progressToken, $pct, $status, false, null, $stage, $cancelAllowed);
         };
 
-        $p(3, 'Memulai update...');
+        $p(3, __('Starting update...'), 'preparing');
 
         // Legacy installers may have left npm links behind. Snapshot links without
         // following them so the old directory can still be renamed and rolled back.
         $oldIdentity = package_tree_identity($pluginDir, true);
         if ($oldIdentity === null) return ['success' => false, 'error' => 'Installed plugin tree contains unsupported entries.'];
+        if ($progressToken !== '') update_operation_checkpoint($progressToken);
 
-        $tmpZip = self::downloadPackage((string)$update['download_url'], $p);
+        $tmpZip = self::downloadPackage((string)$update['download_url'], $p, $progressToken);
+        if ($progressToken !== '' && update_operation_cancellation_requested($progressToken)) {
+            if (is_string($tmpZip) && is_file($tmpZip)) @unlink($tmpZip);
+            update_operation_checkpoint($progressToken);
+        }
         if ($tmpZip === null) {
-            self::writeProgress($progressToken, 0, 'Gagal mengunduh update.', true, 'Gagal mengunduh update dari store.');
-            return ['success' => false, 'error' => 'Gagal mengunduh update dari store.'];
+            self::writeProgress($progressToken, 0, __('Failed to download update.'), true, __('Failed to download update from store.'));
+            return ['success' => false, 'error' => __('Failed to download update from store.')];
         }
         if (empty($update['checksum']) || !hash_equals(strtolower((string)$update['checksum']), hash_file('sha256', $tmpZip))) {
             @unlink($tmpZip);
-            self::writeProgress($progressToken, 0, 'Paket update tidak valid.', true, 'Plugin package integrity verification failed.');
+            self::writeProgress($progressToken, 0, __('Invalid update package.'), true, 'Plugin package integrity verification failed.');
             return ['success' => false, 'error' => 'Plugin package integrity verification failed.'];
         }
 
-        $p(35, 'Unduhan selesai. Memverifikasi paket...');
+        $p(35, __('Download complete. Verifying package...'), 'validate');
 
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
             unlink($tmpZip);
-            self::writeProgress($progressToken, 0, 'Paket update tidak valid.', true, 'Paket update tidak valid.');
-            return ['success' => false, 'error' => 'Paket update tidak valid.'];
+            self::writeProgress($progressToken, 0, __('Invalid update package.'), true, __('Invalid update package.'));
+            return ['success' => false, 'error' => __('Invalid update package.')];
         }
 
         $validation = package_archive_validate($zip);
+        if ($progressToken !== '' && update_operation_cancellation_requested($progressToken)) {
+            $zip->close();
+            @unlink($tmpZip);
+            update_operation_checkpoint($progressToken);
+        }
         if (!$validation['success']) {
             $zip->close(); @unlink($tmpZip);
             return ['success' => false, 'error' => $validation['error']];
@@ -387,6 +416,11 @@ class PluginStoreController
         $filesToExtract = [];
         $logical = [];
         foreach ($validation['entries'] as $entry) {
+            if ($progressToken !== '' && update_operation_cancellation_requested($progressToken)) {
+                $zip->close();
+                @unlink($tmpZip);
+                update_operation_checkpoint($progressToken);
+            }
             if ($entry['directory']) continue;
             if ($prefix !== '' && !str_starts_with($entry['source'], $prefix)) {
                 $zip->close(); @unlink($tmpZip);
@@ -408,17 +442,24 @@ class PluginStoreController
             $zip->close(); @unlink($tmpZip);
             return ['success' => false, 'error' => 'Unable to create a private plugin staging directory.'];
         }
-        $p(55, 'Memasang file update ke staging...');
-        $extracted = package_archive_extract_files($zip, $filesToExtract, $stage);
+        $p(55, __('Installing update files to staging...'), 'extract');
+        // Legacy callers may still use package_archive_extract_files($zip, $files, $stage).
+        $extracted = package_archive_extract_files($zip, $filesToExtract, $stage, static function () use ($progressToken): bool {
+            return $progressToken === '' || !update_operation_cancellation_requested($progressToken);
+        });
         $zip->close();
         @unlink($tmpZip);
+        if ($progressToken !== '' && update_operation_cancellation_requested($progressToken)) {
+            package_remove_tree($stage);
+            update_operation_checkpoint($progressToken);
+        }
         if (!$extracted || !self::chmodPluginTree($stage)
             || !package_copy_preserved_paths($pluginDir, $stage, ['.store.json', '.git'])) {
             package_remove_tree($stage);
             return ['success' => false, 'error' => 'Failed to build the complete plugin staging tree.'];
         }
 
-        $p(70, __('Verifying plugin manifest...'));
+        $p(70, __('Verifying plugin manifest...'), 'validate');
         $manifestPath = $stage . '/plugin.json';
         $manifest = is_file($manifestPath) && !is_link($manifestPath) ? json_decode((string)file_get_contents($manifestPath), true) : null;
         if (!is_array($manifest) || ($manifest['name'] ?? '') !== $name
@@ -450,6 +491,16 @@ class PluginStoreController
         }
         $migrationStarted = $migrationPlan['pending'] !== [];
         $wasEnabled = !in_array($name, plugin_disabled_names(), true);
+        if ($progressToken !== '') {
+            try {
+                update_operation_enter_critical($progressToken, 80, 'publish', __('Publishing complete plugin tree...'));
+            } catch (UpdateOperationCancelled $error) {
+                package_remove_tree($stage);
+                throw $error;
+            }
+        } else {
+            $p(80, __('Publishing complete plugin tree...'), 'publish', false);
+        }
         $publication = package_guarded_publish($stage, $pluginDir, $oldIdentity, $newIdentity);
         if (!$publication['success']) {
             if (is_dir($stage)) package_remove_tree($stage);
@@ -487,7 +538,7 @@ class PluginStoreController
                         : __('Plugin update was stopped and exact file rollback failed.'))
                         . ' ' . (plugin_last_error() ?: __('Failed to update plugin state.'))];
                 }
-                $p(85, __('Running plugin database migrations...'));
+                $p(85, __('Running plugin database migrations...'), 'migrations', false);
                 try {
                     plugin_migrations_run_pending_already_locked($pdo, $name, (string)$manifest['version'], $pluginDir);
                 } catch (Throwable $migrationError) {
@@ -497,7 +548,7 @@ class PluginStoreController
                 }
             }
             if ($staticCopy !== [] || $oldStaticCopy !== []) {
-                $p(90, __('Copying static files...'));
+                $p(90, __('Copying static files...'), 'static-copy', false);
                 $copyResult = plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy);
                 if ($copyResult['failed'] > 0) {
                     $restoration = $rollback();
@@ -514,7 +565,7 @@ class PluginStoreController
                 $staticApplied = true;
             }
 
-            $p(93, __('Running plugin installer...'));
+            $p(93, __('Running plugin installer...'), 'install', false);
             $installResult = plugin_run_install_script($pluginDir);
             try {
                 plugin_migrations_assert_complete_already_locked($pdo, $name, (string)$manifest['version'], $pluginDir);
@@ -573,7 +624,7 @@ class PluginStoreController
                     . ($migrationStarted ? ' ' . __('Database changes remain; the plugin is inactive.') : '')];
         }
 
-        $p(95, 'Menyelesaikan...');
+        $p(95, __('Finalizing…'), 'finalize', false);
         $metadataWarning = '';
         try {
             self::removeCachedUpdate($name, (string)$update['new_version']);
@@ -583,7 +634,7 @@ class PluginStoreController
         }
         if (function_exists('plugin_reset_runtime_cache')) plugin_reset_runtime_cache();
 
-        self::writeProgress($progressToken, 100, 'Selesai!', true);
+        self::writeProgress($progressToken, 100, __('Done!'), true, null, 'complete', false);
 
         $result = ['success' => true, 'new_version' => $update['new_version']];
         if ($cleanupWarning !== '' || $metadataWarning !== '') $result['warning'] = trim($cleanupWarning . $metadataWarning);
@@ -592,15 +643,7 @@ class PluginStoreController
 
     public static function readProgress(string $token): ?array
     {
-        if (!preg_match('/^[a-f0-9]{32}$/', $token)) return null;
-        $file = self::progressFile($token);
-        if (!is_file($file)) return null;
-        if (time() - filemtime($file) > 3600) {
-            @unlink($file);
-            return null;
-        }
-        $data = json_decode(file_get_contents($file), true);
-        return is_array($data) ? $data : null;
+        return update_operation_read($token);
     }
 
     private static function transientFile(): string
@@ -713,9 +756,7 @@ class PluginStoreController
 
     public static function clearProgress(string $token): void
     {
-        if (!preg_match('/^[a-f0-9]{32}$/', $token)) return;
-        $file = self::progressFile($token);
-        if (is_file($file)) @unlink($file);
+        update_operation_clear($token);
     }
 
     private static function progressFile(string $token): string
@@ -724,28 +765,26 @@ class PluginStoreController
         return $backend . '/var/update-progress-' . $token . '.json';
     }
 
-    private static function writeProgress(string $token, int $percentage, string $status, bool $done = false, ?string $error = null): void
+    private static function writeProgress(string $token, int $percentage, string $status, bool $done = false, ?string $error = null, string $stage = 'working', bool $cancelAllowed = true): void
     {
-        if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) return;
-        $file = self::progressFile($token);
-        $dir = dirname($file);
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
-        file_put_contents($file, json_encode([
-            'percentage' => $percentage,
-            'status' => $status,
-            'done' => $done,
-            'error' => $error,
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+        if ($token === '') return;
+        if ($done) {
+            if ($error !== null) update_operation_fail($token, $status, $error);
+            else update_operation_complete($token, $status);
+            return;
+        }
+        update_operation_progress($token, $percentage, $stage, $status, $cancelAllowed);
     }
 
-    private static function downloadPackage(string $url, callable $progress): ?string
+    private static function downloadPackage(string $url, callable $progress, string $progressToken = ''): ?string
     {
-        $progress(18, 'Mengunduh paket update...');
-        $tmp = package_download($url, 'plugin-update-', 'JyavaniCMS-PluginUpdate', static function (int $downloaded, int $total) use ($progress): void {
-            if ($total > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $total)), 'Mengunduh paket update...');
+        $progress(18, __('Downloading update package...'), 'download');
+        $tmp = package_download($url, 'plugin-update-', 'JyavaniCMS-PluginUpdate', static function (int $downloaded, int $total) use ($progress, $progressToken): bool {
+            if ($total > 0) $progress(18 + (int)floor(17 * min(1, $downloaded / $total)), __('Downloading update package...'), 'download');
+            return $progressToken === '' || !update_operation_cancellation_requested($progressToken);
         });
         if ($tmp === null) return null;
-        $progress(35, 'Unduhan selesai. Memverifikasi paket...');
+        $progress(35, __('Download complete. Verifying package...'), 'validate');
         return $tmp;
     }
 
