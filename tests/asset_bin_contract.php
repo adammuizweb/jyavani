@@ -43,6 +43,11 @@ $check(str_contains($sources['helper'], 'function asset_lifecycle_trash')
     && str_contains($sources['helper'], 'function asset_lifecycle_restore')
     && str_contains($sources['helper'], 'function asset_lifecycle_purge'),
     'one lifecycle service owns trash, restore, and purge');
+$check(substr_count($sources['helper'], 'resource_lifecycle_capture(') === 3
+    && substr_count($sources['helper'], 'resource_lifecycle_before_commit(') === 3
+    && substr_count($sources['helper'], 'asset_lifecycle_committed(') === 4
+    && str_contains($sources['helper'], '"SELECT *'),
+    'asset mutations publish full locked snapshots across all lifecycle phases');
 $check(str_contains($sources['helper'], 'Managed storage is shared by multiple asset records.')
     && str_contains($sources['helper'], 'throw new AssetLifecycleConflict'),
     'duplicate storage identities fail closed');

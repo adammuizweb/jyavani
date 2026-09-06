@@ -299,7 +299,7 @@ function asset_lifecycle_locked_rows(PDO $pdo, string $table, array $ids, int $d
 {
     $in = implode(',', array_fill(0, count($ids), '?'));
     $stmt = $pdo->prepare(
-        "SELECT id, user_id, url, storage_disk, storage_path, quarantine_path
+        "SELECT *
          FROM $table
          WHERE id IN ($in) AND is_deleted = ?
          ORDER BY id
@@ -316,6 +316,56 @@ function asset_lifecycle_locked_rows(PDO $pdo, string $table, array $ids, int $d
     }
     unset($row);
     return $rows;
+}
+
+function asset_lifecycle_capture_items(ResourceLifecycleDatabase $database, string $operation, array $lockedItems): array
+{
+    if (!in_array($operation, ['trash', 'restore', 'purge'], true)) {
+        throw new InvalidArgumentException('Unsupported asset lifecycle operation.');
+    }
+    $items = [];
+    foreach ($lockedItems as $lockedItem) {
+        $row = is_array($lockedItem['row'] ?? null) ? $lockedItem['row'] : null;
+        $artifacts = $lockedItem['artifacts'] ?? [];
+        if ($row === null || (int)($row['id'] ?? 0) <= 0 || !is_array($artifacts)) {
+            throw new InvalidArgumentException('Invalid locked asset lifecycle item.');
+        }
+        $items[] = [
+            'id' => (int)$row['id'],
+            'before' => $row,
+            'after' => null,
+            'artifacts' => $artifacts,
+        ];
+    }
+    return $items;
+}
+
+foreach (['media', 'file'] as $assetLifecycleResource) {
+    if (!register_resource_lifecycle_provider($assetLifecycleResource, [
+        'owner' => 'core',
+        'capture' => 'asset_lifecycle_capture_items',
+    ])) {
+        throw new LogicException('Unable to register Core asset lifecycle provider.');
+    }
+}
+unset($assetLifecycleResource);
+
+function asset_lifecycle_unmanaged_artifact(string $status): array
+{
+    return [[
+        'kind' => 'file',
+        'role' => 'primary',
+        'managed' => false,
+        'state' => $status === 'missing' ? 'missing' : 'unmanaged',
+    ]];
+}
+
+function asset_lifecycle_committed(PDO $pdo, array $event): void
+{
+    foreach (resource_lifecycle_after_commit($pdo, $event) as $error) {
+        error_log('[resource-lifecycle] Committed observer failed for ' . $event['resource'] . '.' . $event['operation']
+            . ': ' . ($error['message'] ?? 'Unknown listener error'));
+    }
 }
 
 function asset_lifecycle_authorize(PDO $pdo, array $config, string $action, array $rows, int $actorUserId): void
@@ -485,6 +535,8 @@ function asset_lifecycle_trash(PDO $pdo, string $resource, array $ids, int $acto
     }
     $moved = [];
     $warnings = [];
+    $event = null;
+    $result = null;
     try {
         if (!$pdo->beginTransaction()) {
             throw new RuntimeException('Unable to begin asset lifecycle transaction.');
@@ -494,6 +546,53 @@ function asset_lifecycle_trash(PDO $pdo, string $resource, array $ids, int $acto
         }
         $rows = asset_lifecycle_locked_rows($pdo, $config['table'], $ids, 0);
         asset_lifecycle_authorize($pdo, $config, 'delete', $rows, $actorUserId);
+        $plans = [];
+        $lockedItems = [];
+        foreach ($rows as $row) {
+            $id = $row['id'];
+            $source = asset_lifecycle_managed_source($config, $row['storage_disk'], $row['storage_path']);
+            if ($source['status'] !== 'file') {
+                if (asset_lifecycle_local_url_path($resource, $row['url'] ?? null) !== null) {
+                    throw new AssetLifecycleConflict('Local asset storage metadata is missing or invalid.');
+                }
+                $warnings[] = asset_lifecycle_warning($id, $source['status'], $source['warning']);
+                $plans[$id] = ['source' => null, 'quarantine_relative' => null];
+                $lockedItems[] = ['row' => $row, 'artifacts' => asset_lifecycle_unmanaged_artifact($source['status'])];
+                continue;
+            }
+            $shared = $pdo->prepare(
+                "SELECT id FROM {$config['table']}
+                 WHERE id <> :id
+                   AND storage_disk = :disk AND storage_path = :path
+                 ORDER BY id LIMIT 1 FOR UPDATE"
+            );
+            $shared->execute([':id' => $id, ':disk' => $source['disk'], ':path' => $source['storage_path']]);
+            if ($shared->fetchColumn() !== false) {
+                throw new AssetLifecycleConflict('Managed storage is shared by multiple asset records.');
+            }
+            $quarantineRelative = asset_lifecycle_quarantine_relative($resource, $id, $source['disk'], $source['storage_path']);
+            $plans[$id] = ['source' => $source, 'quarantine_relative' => $quarantineRelative];
+            $lockedItems[] = ['row' => $row, 'artifacts' => [[
+                'kind' => 'file',
+                'role' => 'primary',
+                'managed' => true,
+                'disk' => $source['disk'],
+                'root' => $resource . '.' . $source['disk'],
+                'relative_path' => $source['storage_path'],
+                'absolute_path' => $source['path'],
+                'state' => 'present',
+                'transition' => [
+                    'operation' => 'move',
+                    'from' => ['root' => $resource . '.' . $source['disk'], 'relative_path' => $source['storage_path']],
+                    'to' => ['root' => 'asset.quarantine', 'relative_path' => $quarantineRelative],
+                ],
+            ]]];
+        }
+        $event = resource_lifecycle_capture($pdo, $resource, 'trash', $lockedItems, [
+            'actor_id' => $actorUserId,
+            'source' => 'core.asset_lifecycle',
+            'metadata' => [],
+        ]);
         $items = [];
         $bulk = count($ids) > 1;
         $update = $pdo->prepare(
@@ -503,30 +602,19 @@ function asset_lifecycle_trash(PDO $pdo, string $resource, array $ids, int $acto
         );
         foreach ($rows as &$row) {
             $id = $row['id'];
-            $quarantineRelative = null;
-            $source = asset_lifecycle_managed_source($config, $row['storage_disk'], $row['storage_path']);
-            if ($source['status'] !== 'file') {
-                if (asset_lifecycle_local_url_path($resource, $row['url'] ?? null) !== null) {
-                    throw new AssetLifecycleConflict('Local asset storage metadata is missing or invalid.');
+            $plan = &$plans[$id];
+            $quarantineRelative = $plan['quarantine_relative'];
+            if ($plan['source'] !== null) {
+                $currentSource = asset_lifecycle_managed_source($config, $row['storage_disk'], $row['storage_path']);
+                if (($currentSource['status'] ?? null) !== 'file'
+                    || !hash_equals($plan['source']['path'], $currentSource['path'])) {
+                    throw new AssetLifecycleConflict('Managed asset changed before moving to trash.');
                 }
-                $warnings[] = asset_lifecycle_warning($id, $source['status'], $source['warning']);
-            } else {
-                $shared = $pdo->prepare(
-                    "SELECT id FROM {$config['table']}
-                     WHERE id <> :id
-                       AND storage_disk = :disk AND storage_path = :path
-                     ORDER BY id LIMIT 1 FOR UPDATE"
-                );
-                $shared->execute([':id' => $id, ':disk' => $source['disk'], ':path' => $source['storage_path']]);
-                if ($shared->fetchColumn() !== false) {
-                    throw new AssetLifecycleConflict('Managed storage is shared by multiple asset records.');
-                } else {
-                    $quarantineRelative = asset_lifecycle_quarantine_relative($resource, $id, $source['disk'], $source['storage_path']);
-                    $quarantineRoot = asset_lifecycle_quarantine_root(true);
-                    $quarantineTarget = asset_lifecycle_ensure_quarantine_parent($quarantineRoot, $quarantineRelative);
-                    asset_lifecycle_rename($source['path'], $quarantineTarget);
-                    $moved[] = ['original' => $source['path'], 'artifact' => $quarantineTarget];
-                }
+                $quarantineRoot = asset_lifecycle_quarantine_root(true);
+                $quarantineTarget = asset_lifecycle_ensure_quarantine_parent($quarantineRoot, $quarantineRelative);
+                asset_lifecycle_rename($plan['source']['path'], $quarantineTarget);
+                $moved[] = ['original' => $plan['source']['path'], 'artifact' => $quarantineTarget];
+                $plan['artifact'] = $quarantineTarget;
             }
             $update->execute([':quarantine_path' => $quarantineRelative, ':id' => $id]);
             if ($update->rowCount() !== 1) {
@@ -542,10 +630,29 @@ function asset_lifecycle_trash(PDO $pdo, string $resource, array $ids, int $acto
             $items[] = ['id' => $id, 'audit_id' => $auditId];
         }
         unset($row);
+        $afterRows = asset_lifecycle_locked_rows($pdo, $config['table'], $ids, 1);
+        $afterById = array_column($afterRows, null, 'id');
+        $changedItems = $event['items'];
+        foreach ($changedItems as &$changedItem) {
+            $id = (int)$changedItem['id'];
+            $changedItem['after'] = $afterById[$id];
+            if (isset($plans[$id]['artifact'])) {
+                $changedItem['artifacts'][0]['disk'] = 'quarantine';
+                $changedItem['artifacts'][0]['root'] = 'asset.quarantine';
+                $changedItem['artifacts'][0]['relative_path'] = $plans[$id]['quarantine_relative'];
+                $changedItem['artifacts'][0]['absolute_path'] = $plans[$id]['artifact'];
+            }
+        }
+        unset($changedItem);
+        $event = resource_lifecycle_before_commit($pdo, $event, [
+            'items' => $changedItems,
+            'result' => ['affected' => count($ids), 'audit_ids' => array_column($items, 'audit_id')],
+            'warnings' => $warnings,
+        ]);
         if (!$pdo->commit()) {
             throw new RuntimeException('Unable to commit asset trash transaction.');
         }
-        return ['count' => count($ids), 'ids' => $ids, 'items' => $items, 'warnings' => $warnings, 'rows' => $rows];
+        $result = ['count' => count($ids), 'ids' => $ids, 'items' => $items, 'warnings' => $warnings, 'rows' => $afterRows];
     } catch (Throwable $e) {
         // Files move before their database state; reverse every move if the transaction cannot commit.
         foreach (array_reverse($moved) as $move) {
@@ -558,6 +665,8 @@ function asset_lifecycle_trash(PDO $pdo, string $resource, array $ids, int $acto
         }
         throw $e;
     }
+    asset_lifecycle_committed($pdo, $event);
+    return $result;
 }
 
 function asset_lifecycle_restore(PDO $pdo, string $resource, array $ids, int $actorUserId, ?array $expectedAuditIds = null): array
@@ -570,6 +679,8 @@ function asset_lifecycle_restore(PDO $pdo, string $resource, array $ids, int $ac
     }
     $restored = [];
     $warnings = [];
+    $event = null;
+    $result = null;
     try {
         if (!$pdo->beginTransaction()) {
             throw new RuntimeException('Unable to begin asset lifecycle transaction.');
@@ -579,7 +690,48 @@ function asset_lifecycle_restore(PDO $pdo, string $resource, array $ids, int $ac
         }
         $rows = asset_lifecycle_locked_rows($pdo, $config['table'], $ids, 1);
         asset_lifecycle_authorize($pdo, $config, 'restore', $rows, $actorUserId);
+        $plans = [];
+        $lockedItems = [];
+        foreach ($rows as $row) {
+            $id = $row['id'];
+            if ($expected !== null && asset_lifecycle_latest_audit_id($pdo, $resource, $id) !== $expected[$id]) {
+                throw new AssetLifecycleConflict('Asset audit state changed before restore.');
+            }
+            if ($row['quarantine_path'] === null) {
+                $warnings[] = asset_lifecycle_warning($id, 'metadata_only', 'Asset had no quarantine artifact; only metadata was restored.');
+                $plans[$id] = ['artifact' => null, 'target' => null];
+                $lockedItems[] = ['row' => $row, 'artifacts' => asset_lifecycle_unmanaged_artifact('missing')];
+                continue;
+            }
+            $artifact = asset_lifecycle_existing_quarantine($resource, $row);
+            if ($artifact['status'] !== 'file') {
+                throw new RuntimeException('Quarantine artifact is missing.');
+            }
+            $target = asset_lifecycle_safe_original_target($config, $row['storage_disk'], $row['storage_path']);
+            $plans[$id] = ['artifact' => $artifact, 'target' => $target];
+            $lockedItems[] = ['row' => $row, 'artifacts' => [[
+                'kind' => 'file',
+                'role' => 'primary',
+                'managed' => true,
+                'disk' => 'quarantine',
+                'root' => 'asset.quarantine',
+                'relative_path' => $artifact['relative'],
+                'absolute_path' => $artifact['path'],
+                'state' => 'present',
+                'transition' => [
+                    'operation' => 'move',
+                    'from' => ['root' => 'asset.quarantine', 'relative_path' => $artifact['relative']],
+                    'to' => ['root' => $resource . '.' . $row['storage_disk'], 'relative_path' => $row['storage_path']],
+                ],
+            ]]];
+        }
+        $event = resource_lifecycle_capture($pdo, $resource, 'restore', $lockedItems, [
+            'actor_id' => $actorUserId,
+            'source' => 'core.asset_lifecycle',
+            'metadata' => ['undo' => $expected !== null],
+        ]);
         $bulk = count($ids) > 1;
+        $auditIds = [];
         $update = $pdo->prepare(
             "UPDATE {$config['table']}
              SET is_deleted = 0, deleted_at = NULL, quarantine_path = NULL
@@ -587,33 +739,50 @@ function asset_lifecycle_restore(PDO $pdo, string $resource, array $ids, int $ac
         );
         foreach ($rows as $row) {
             $id = $row['id'];
-            if ($expected !== null && asset_lifecycle_latest_audit_id($pdo, $resource, $id) !== $expected[$id]) {
-                throw new AssetLifecycleConflict('Asset audit state changed before restore.');
-            }
-            if ($row['quarantine_path'] !== null) {
-                $artifact = asset_lifecycle_existing_quarantine($resource, $row);
-                if ($artifact['status'] !== 'file') {
-                    throw new RuntimeException('Quarantine artifact is missing.');
+            $plan = $plans[$id];
+            if ($plan['artifact'] !== null) {
+                $currentArtifact = asset_lifecycle_existing_quarantine($resource, $row);
+                $currentTarget = asset_lifecycle_safe_original_target($config, $row['storage_disk'], $row['storage_path']);
+                if (($currentArtifact['status'] ?? null) !== 'file'
+                    || !hash_equals($plan['artifact']['path'], $currentArtifact['path'])
+                    || !hash_equals($plan['target'], $currentTarget)) {
+                    throw new AssetLifecycleConflict('Asset storage changed before restore.');
                 }
-                $target = asset_lifecycle_safe_original_target($config, $row['storage_disk'], $row['storage_path']);
-                asset_lifecycle_rename($artifact['path'], $target);
-                $restored[] = ['original' => $target, 'artifact' => $artifact['path']];
-            } else {
-                $warnings[] = asset_lifecycle_warning($id, 'metadata_only', 'Asset had no quarantine artifact; only metadata was restored.');
+                asset_lifecycle_rename($currentArtifact['path'], $currentTarget);
+                $restored[] = ['original' => $currentTarget, 'artifact' => $currentArtifact['path']];
             }
             $update->execute([':id' => $id]);
             if ($update->rowCount() !== 1) {
                 throw new AssetLifecycleConflict('Asset state changed while restoring.');
             }
-            asset_lifecycle_audit($pdo, $resource . '.restored', $actorUserId, $resource, $id, [
+            $auditIds[] = asset_lifecycle_audit($pdo, $resource . '.restored', $actorUserId, $resource, $id, [
                 'bulk' => $bulk,
                 'undo' => $expected !== null,
             ]);
         }
+        $afterRows = asset_lifecycle_locked_rows($pdo, $config['table'], $ids, 0);
+        $afterById = array_column($afterRows, null, 'id');
+        $changedItems = $event['items'];
+        foreach ($changedItems as &$changedItem) {
+            $id = (int)$changedItem['id'];
+            $changedItem['after'] = $afterById[$id];
+            if ($plans[$id]['target'] !== null) {
+                $changedItem['artifacts'][0]['disk'] = $afterById[$id]['storage_disk'];
+                $changedItem['artifacts'][0]['root'] = $resource . '.' . $afterById[$id]['storage_disk'];
+                $changedItem['artifacts'][0]['relative_path'] = $afterById[$id]['storage_path'];
+                $changedItem['artifacts'][0]['absolute_path'] = $plans[$id]['target'];
+            }
+        }
+        unset($changedItem);
+        $event = resource_lifecycle_before_commit($pdo, $event, [
+            'items' => $changedItems,
+            'result' => ['affected' => count($ids), 'audit_ids' => $auditIds],
+            'warnings' => $warnings,
+        ]);
         if (!$pdo->commit()) {
             throw new RuntimeException('Unable to commit asset restore transaction.');
         }
-        return ['count' => count($ids), 'ids' => $ids, 'warnings' => $warnings];
+        $result = ['count' => count($ids), 'ids' => $ids, 'warnings' => $warnings];
     } catch (Throwable $e) {
         // Restore compensation puts bytes back under the exact quarantine name before rolling back metadata.
         foreach (array_reverse($restored) as $move) {
@@ -626,6 +795,8 @@ function asset_lifecycle_restore(PDO $pdo, string $resource, array $ids, int $ac
         }
         throw $e;
     }
+    asset_lifecycle_committed($pdo, $event);
+    return $result;
 }
 
 function asset_lifecycle_purge(PDO $pdo, string $resource, array $ids, int $actorUserId): array
@@ -637,6 +808,7 @@ function asset_lifecycle_purge(PDO $pdo, string $resource, array $ids, int $acto
     }
     $recoveries = [];
     $warnings = [];
+    $event = null;
     try {
         if (!$pdo->beginTransaction()) {
             throw new RuntimeException('Unable to begin asset lifecycle transaction.');
@@ -646,37 +818,103 @@ function asset_lifecycle_purge(PDO $pdo, string $resource, array $ids, int $acto
         }
         $rows = asset_lifecycle_locked_rows($pdo, $config['table'], $ids, 1);
         asset_lifecycle_authorize($pdo, $config, 'purge', $rows, $actorUserId);
+        $plans = [];
+        $lockedItems = [];
+        foreach ($rows as $row) {
+            $id = $row['id'];
+            if ($row['quarantine_path'] === null && asset_lifecycle_local_url_path($resource, $row['url'] ?? null) !== null) {
+                throw new AssetLifecycleConflict('Local asset storage metadata is missing or invalid.');
+            }
+            if ($row['quarantine_path'] === null) {
+                $plans[$id] = ['artifact' => null];
+                $lockedItems[] = ['row' => $row, 'artifacts' => asset_lifecycle_unmanaged_artifact('unmanaged')];
+                continue;
+            }
+            $artifact = asset_lifecycle_existing_quarantine($resource, $row);
+            if ($artifact['status'] === 'missing') {
+                $warnings[] = asset_lifecycle_warning($id, 'missing_quarantine', 'Quarantine artifact is missing; metadata purge continued.');
+                $plans[$id] = ['artifact' => null];
+                $lockedItems[] = ['row' => $row, 'artifacts' => asset_lifecycle_unmanaged_artifact('missing')];
+                continue;
+            }
+            $plans[$id] = ['artifact' => $artifact];
+            $lockedItems[] = ['row' => $row, 'artifacts' => [[
+                'kind' => 'file',
+                'role' => 'primary',
+                'managed' => true,
+                'disk' => 'quarantine',
+                'root' => 'asset.quarantine',
+                'relative_path' => $artifact['relative'],
+                'absolute_path' => $artifact['path'],
+                'state' => 'present',
+                'transition' => [
+                    'operation' => 'delete',
+                    'from' => ['root' => 'asset.quarantine', 'relative_path' => $artifact['relative']],
+                ],
+            ]]];
+        }
+        $event = resource_lifecycle_capture($pdo, $resource, 'purge', $lockedItems, [
+            'actor_id' => $actorUserId,
+            'source' => 'core.asset_lifecycle',
+            'metadata' => [],
+        ]);
         $bulk = count($ids) > 1;
+        $auditIds = [];
         $deleteLinks = $resource === 'media'
             ? $pdo->prepare('DELETE FROM post_media_items WHERE media_id = :id')
             : null;
         $delete = $pdo->prepare("DELETE FROM {$config['table']} WHERE id = :id AND is_deleted = 1 LIMIT 1");
         foreach ($rows as $row) {
             $id = $row['id'];
-            if ($row['quarantine_path'] === null && asset_lifecycle_local_url_path($resource, $row['url'] ?? null) !== null) {
-                throw new AssetLifecycleConflict('Local asset storage metadata is missing or invalid.');
-            }
-            if ($row['quarantine_path'] !== null) {
-                $artifact = asset_lifecycle_existing_quarantine($resource, $row);
-                if ($artifact['status'] === 'missing') {
-                    $warnings[] = asset_lifecycle_warning($id, 'missing_quarantine', 'Quarantine artifact is missing; metadata purge continued.');
-                } else {
-                    do {
-                        $recovery = dirname($artifact['path']) . '/.purge-recovery-' . bin2hex(random_bytes(16));
-                    } while (file_exists($recovery) || is_link($recovery));
-                    asset_lifecycle_rename($artifact['path'], $recovery);
-                    $recoveries[] = ['artifact' => $artifact['path'], 'recovery' => $recovery, 'id' => $id];
+            $artifact = $plans[$id]['artifact'];
+            if ($artifact !== null) {
+                $currentArtifact = asset_lifecycle_existing_quarantine($resource, $row);
+                if (($currentArtifact['status'] ?? null) !== 'file'
+                    || !hash_equals($artifact['path'], $currentArtifact['path'])) {
+                    throw new AssetLifecycleConflict('Quarantine artifact changed before purge.');
                 }
+                do {
+                    $recovery = dirname($currentArtifact['path']) . '/.purge-recovery-' . bin2hex(random_bytes(16));
+                } while (file_exists($recovery) || is_link($recovery));
+                asset_lifecycle_rename($currentArtifact['path'], $recovery);
+                $recoveries[] = [
+                    'artifact' => $currentArtifact['path'],
+                    'recovery' => $recovery,
+                    'relative' => dirname($currentArtifact['relative']) . '/' . basename($recovery),
+                    'id' => $id,
+                ];
             }
             if ($deleteLinks !== null) {
                 $deleteLinks->execute([':id' => $id]);
             }
-            asset_lifecycle_audit($pdo, $resource . '.purged', $actorUserId, $resource, $id, ['bulk' => $bulk]);
+            $auditIds[] = asset_lifecycle_audit($pdo, $resource . '.purged', $actorUserId, $resource, $id, ['bulk' => $bulk]);
             $delete->execute([':id' => $id]);
             if ($delete->rowCount() !== 1) {
                 throw new AssetLifecycleConflict('Asset state changed while purging.');
             }
         }
+        $recoveryById = array_column($recoveries, null, 'id');
+        $changedItems = $event['items'];
+        foreach ($changedItems as &$changedItem) {
+            $id = (int)$changedItem['id'];
+            $changedItem['after'] = null;
+            if (isset($recoveryById[$id])) {
+                $changedItem['artifacts'][0]['disk'] = 'recovery';
+                $changedItem['artifacts'][0]['root'] = 'asset.recovery';
+                $changedItem['artifacts'][0]['relative_path'] = $recoveryById[$id]['relative'];
+                $changedItem['artifacts'][0]['absolute_path'] = $recoveryById[$id]['recovery'];
+                $changedItem['artifacts'][0]['transition']['from'] = [
+                    'root' => 'asset.recovery',
+                    'relative_path' => $recoveryById[$id]['relative'],
+                ];
+            }
+        }
+        unset($changedItem);
+        $event = resource_lifecycle_before_commit($pdo, $event, [
+            'items' => $changedItems,
+            'result' => ['affected' => count($ids), 'audit_ids' => $auditIds],
+            'warnings' => $warnings,
+        ]);
         if (!$pdo->commit()) {
             throw new RuntimeException('Unable to commit asset purge transaction.');
         }
@@ -698,5 +936,15 @@ function asset_lifecycle_purge(PDO $pdo, string $resource, array $ids, int $acto
             $warnings[] = asset_lifecycle_warning($move['id'], 'recovery_unlink_failed', 'Purge committed but its recovery artifact could not be removed.');
         }
     }
+    $recoveryById = array_column($recoveries, null, 'id');
+    foreach ($event['items'] as &$committedItem) {
+        $id = (int)$committedItem['id'];
+        if (isset($recoveryById[$id])) {
+            $committedItem['artifacts'][0]['state'] = file_exists($recoveryById[$id]['recovery']) ? 'present' : 'removed';
+        }
+    }
+    unset($committedItem);
+    $event['warnings'] = $warnings;
+    asset_lifecycle_committed($pdo, resource_lifecycle_event($event));
     return ['count' => count($ids), 'ids' => $ids, 'warnings' => $warnings];
 }

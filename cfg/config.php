@@ -53,6 +53,7 @@ if (!defined('UPDATE_STATUS_FILE')) {
 }
 
 require_once __DIR__ . '/helpers/hooks.php';
+require_once __DIR__ . '/helpers/resource_lifecycle.php';
 require_once __DIR__ . '/helpers/package_archive.php';
 require_once __DIR__ . '/helpers/update_operation.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';

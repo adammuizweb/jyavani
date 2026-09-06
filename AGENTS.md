@@ -559,6 +559,21 @@ Used for bin items (`apply_filters('bin_items', ...)`), allowing plugins to exte
 
 Fired from `dashboard/admin/posts/{add,save,delete}.php` and `dashboard/admin/pages/{add,save,delete}.php`.
 
+### Resource lifecycle contract
+
+`cfg/helpers/resource_lifecycle.php` provides transaction-aware mutation events for resources with a registered provider:
+
+| Function | Description |
+|---|---|
+| `register_resource_lifecycle_provider($resource, $provider)` | Register one first-wins snapshot provider. Core providers load before plugins. |
+| `resource_lifecycle_capture($pdo, $resource, $operation, $lockedItems, $context)` | Build the immutable pre-mutation snapshot and run the fail-fast `resource_lifecycle_before_mutation` action. |
+| `resource_lifecycle_before_commit($pdo, $event, $changes)` | Add intended after-state/results and run the fail-fast `resource_lifecycle_before_commit` action. |
+| `resource_lifecycle_after_commit($pdo, $event)` | Run `resource_lifecycle_committed` listeners independently after commit and return listener errors. |
+
+The same 64-hex `event_id` is retained across all phases. Events include resource, operation, actor, source, full before/after item snapshots, structurally validated filesystem artifact descriptors, result metadata, and warnings. Listeners receive `ResourceLifecycleDatabase`, which exposes transaction-safe `SELECT`, `INSERT`, `UPDATE`, and `DELETE` operations but no transaction-control methods. Pre-mutation and pre-commit listeners run while the caller owns the transaction and throwing aborts the mutation. Committed observers are best-effort, and transactions accidentally left by an observer are rolled back before the next observer runs.
+
+Providers normalize state that Core has already locked. They must not use an ambient PDO connection, control transactions, or acquire locks in a conflicting order. The facade reduces accidental transaction misuse but is not a sandbox for active PHP plugins, which are trusted code. Generic lifecycle helpers never move/delete files or own transactions. Media and File trash, restore, and permanent purge are the first Core integrations; their managed artifact paths are exposed only after the existing containment and symlink checks pass, and filesystem identities are revalidated immediately before mutation.
+
 ## Plugin System (v1.0)
 
 Third-party features installed as removable plugins via `plugins/{name}/plugin.json`.
