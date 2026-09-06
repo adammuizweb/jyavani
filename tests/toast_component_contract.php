@@ -21,8 +21,12 @@ $check(str_contains($script, "credentials: 'same-origin'")
 $check(str_contains($script, 'error.terminal = response.status === 409')
     && str_contains($script, 'if (terminal)')
     && str_contains($script, 'removeToast(toast);'), 'expired or conflicting Undo actions close instead of remaining retryable');
-$check(str_contains($script, 'let finalDuration = action ? 0')
-    && str_contains($script, 'Number(rawDuration) >= 0'), 'action toasts remain available longer and explicit persistent toasts are supported');
+$check(str_contains($script, "success: { title: 'Berhasil', duration: 4000 }")
+    && str_contains($script, "warning: { title: 'Perhatian', duration: 6000 }")
+    && str_contains($script, "info:    { title: 'Informasi', duration: 4000 }")
+    && str_contains($script, "error:   { title: 'Terjadi masalah', duration: 0 }")
+    && str_contains($script, 'let finalDuration = action ? 8000')
+    && str_contains($script, 'Number(rawDuration) >= 0'), 'toast types and Undo actions use the agreed dismissal policy');
 $check(str_contains($script, 'lucide-undo-2')
     && str_contains($script, 'newnotif-toast__action')
     && strpos($script, "'  ' + leading") < strpos($script, 'newnotif-toast__content'), 'Undo renders in the leading slot before notification text');
@@ -32,6 +36,9 @@ foreach (['lucide-circle-check', 'lucide-alert-triangle', 'lucide-info', 'lucide
 $check(str_contains($script, "toast.addEventListener('mouseenter'")
     && str_contains($script, "toast.addEventListener('focusin'")
     && str_contains($style, '.newnotif-toast.is-paused'), 'hover and keyboard focus pause dismissal and progress');
+$check(str_contains($script, "document.addEventListener('visibilitychange', handleVisibilityChange)")
+    && str_contains($script, "document.removeEventListener('visibilitychange', handleVisibilityChange)")
+    && str_contains($script, "document.visibilityState === 'hidden'"), 'background tabs pause dismissal without leaking document listeners');
 $check(str_contains($script, "actionBtn.setAttribute('aria-busy', 'true')")
     && str_contains($script, "Promise.resolve(result).then"), 'asynchronous actions expose and guard their pending state');
 $check(str_contains($style, '@media (prefers-reduced-motion: reduce)')

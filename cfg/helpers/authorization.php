@@ -509,8 +509,10 @@ if (!function_exists('authorization_change_user_status')) {
         string $action,
         ?int $actorUserId = null,
         ?string $auditEvent = null,
-        ?string $requiredPermission = null
+        ?string $requiredPermission = null,
+        ?int &$auditId = null
     ): string {
+        $auditId = null;
         if ($targetUserId <= 0 || !in_array($action, ['delete', 'lock', 'unlock'], true)) {
             return 'invalid';
         }
@@ -610,6 +612,10 @@ if (!function_exists('authorization_change_user_status')) {
             if (!authorization_audit($pdo, $event, $actorUserId, $targetUserId, 'user', (string)$targetUserId)) {
                 throw new RuntimeException('Authorization audit failed.');
             }
+            $auditId = (int)$pdo->lastInsertId();
+            if ($auditId <= 0) {
+                throw new RuntimeException('Authorization audit ID unavailable.');
+            }
 
             if ($ownsTransaction) {
                 $pdo->commit();
@@ -618,6 +624,7 @@ if (!function_exists('authorization_change_user_status')) {
             }
             return 'ok';
         } catch (Throwable $e) {
+            $auditId = null;
             if ($ownsTransaction && $pdo->inTransaction()) {
                 $pdo->rollBack();
             } elseif (!$ownsTransaction && $pdo->inTransaction()) {

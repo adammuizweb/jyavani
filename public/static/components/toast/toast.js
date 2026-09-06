@@ -85,10 +85,10 @@
       : 'info';
 
     const defaults = {
-      success: { title: 'Berhasil', duration: 2000 },
-      warning: { title: 'Perhatian', duration: 2000 },
-      info:    { title: 'Informasi', duration: 2000 },
-      error:   { title: 'Terjadi masalah', duration: 2000 }
+      success: { title: 'Berhasil', duration: 4000 },
+      warning: { title: 'Perhatian', duration: 6000 },
+      info:    { title: 'Informasi', duration: 4000 },
+      error:   { title: 'Terjadi masalah', duration: 0 }
     };
     const rawAction = opts.action;
     const rawRequest = rawAction && typeof rawAction.request === 'object' ? rawAction.request : null;
@@ -114,7 +114,7 @@
         }
       : null;
     const rawDuration = opts.duration;
-    let finalDuration = action ? 0 : defaults[finalType].duration;
+    let finalDuration = action ? 8000 : defaults[finalType].duration;
 
     if (
       rawDuration !== null &&
@@ -155,6 +155,10 @@
   function removeToast(el){
     if (!el || el.dataset.leaving === '1') return;
     el.dataset.leaving = '1';
+    if (typeof el.__newnotifCleanup === 'function') {
+      el.__newnotifCleanup();
+      delete el.__newnotifCleanup;
+    }
     el.classList.add('is-leaving');
     setTimeout(function(){
       if (el.parentNode) {
@@ -200,6 +204,7 @@
     let remaining = opts.duration;
     let pointerPaused = false;
     let focusPaused = false;
+    let visibilityPaused = document.visibilityState === 'hidden';
     let actionPending = false;
 
     function pauseTimer(){
@@ -212,7 +217,7 @@
     }
 
     function startTimer(){
-      if (opts.duration <= 0 || actionPending || pointerPaused || focusPaused || toast.dataset.leaving === '1') return;
+      if (opts.duration <= 0 || actionPending || pointerPaused || focusPaused || visibilityPaused || toast.dataset.leaving === '1') return;
       toast.classList.remove('is-paused');
       if (remaining <= 0) {
         removeToast(toast);
@@ -244,6 +249,22 @@
         if (!focusPaused) startTimer();
       }, 0);
     });
+    function handleVisibilityChange(){
+      visibilityPaused = document.visibilityState === 'hidden';
+      if (visibilityPaused) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    toast.__newnotifCleanup = function(){
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
 
     const actionBtn = toast.querySelector('.newnotif-toast__action');
     if (actionBtn && opts.action) {
@@ -299,7 +320,11 @@
     });
 
     if (opts.duration > 0) {
-      startTimer();
+      if (visibilityPaused) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
     } else {
       const progress = toast.querySelector('.newnotif-toast__progress');
       if (progress) progress.style.display = 'none';

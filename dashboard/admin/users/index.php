@@ -176,7 +176,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
         <?php if ($canBulkAssign): ?><option value="change_role"><?= _e('Replace All Roles') ?></option><?php endif; ?>
         <?php if ($canBulkLock): ?><option value="lock"><?=_e('Lock')?></option>
         <option value="unlock"><?=_e('Unlock / Approve')?></option><?php endif; ?>
-        <?php if ($canBulkDelete): ?><option value="delete"><?=_e('Delete (soft)')?></option><?php endif; ?>
+        <?php if ($canBulkDelete): ?><option value="delete"><?=_e('Move to trash')?></option><?php endif; ?>
       </select>
 
       <select id="bulkRole" name="role_id" class="inp" style="display:none;">
@@ -395,6 +395,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
         <div class="adam-modal__text" id="siteOwnerModalText" style="margin-bottom:1rem;line-height:1.5"></div>
         <form method="post" action="<?= htmlspecialchars($base . '/admin/users/site_owner.php', ENT_QUOTES, 'UTF-8') ?>" id="siteOwnerForm">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="text" name="username" value="<?= htmlspecialchars((string)($currentActor['username'] ?: $currentActor['email']), ENT_QUOTES, 'UTF-8') ?>" autocomplete="username" hidden>
           <input type="hidden" name="id" id="siteOwnerUserId">
           <input type="hidden" name="mode" id="siteOwnerMode">
           <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES, 'UTF-8') ?>">

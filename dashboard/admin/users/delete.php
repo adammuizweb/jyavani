@@ -47,13 +47,12 @@ if (!$stmt->fetch()) {
     adiwira_redirect_with_flash($returnTo, 'error', __('User tidak ditemukan atau sudah dihapus.'));
 }
 
-$deleteAuditId = 0;
+$deleteAuditId = null;
 try {
     $pdo->beginTransaction();
-    $result = authorization_change_user_status($pdo, $id, 'delete', $uid, null, 'core.users.delete');
+    $result = authorization_change_user_status($pdo, $id, 'delete', $uid, null, 'core.users.delete', $deleteAuditId);
     if ($result === 'ok') {
-        $deleteAuditId = (int)$pdo->lastInsertId();
-        if ($deleteAuditId <= 0) {
+        if (!is_int($deleteAuditId) || $deleteAuditId <= 0) {
             throw new RuntimeException('User deletion audit ID unavailable.');
         }
         $pdo->commit();
@@ -70,7 +69,7 @@ try {
 if ($result === 'ok') {
     $extra = [];
     if (user_can($pdo, $uid, 'core.users.restore', ['owner_id' => $id])) {
-        $undoToken = adiwira_undo_issue('user.delete', $id, $uid, ['audit_id' => $deleteAuditId]);
+        $undoToken = adiwira_undo_issue('user.delete', $id, $uid, ['audit_id' => (int)$deleteAuditId]);
         if ($undoToken !== null) {
             $extra['action'] = [
                 'label' => __('Undo'),

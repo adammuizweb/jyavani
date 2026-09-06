@@ -5135,4 +5135,8 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Undo', 'Urungkan', 'id'),
 ('default', 'Undo', 'Rückgängig', 'de'),
 ('default', 'This action can no longer be undone.', 'Tindakan ini tidak dapat diurungkan lagi.', 'id'),
-('default', 'This action can no longer be undone.', 'Diese Aktion kann nicht mehr rückgängig gemacht werden.', 'de');
+('default', 'This action can no longer be undone.', 'Diese Aktion kann nicht mehr rückgängig gemacht werden.', 'de'),
+('default', '%d user(s) restored.', '%d pengguna berhasil dipulihkan.', 'id'),
+('default', '%d user(s) restored.', '%d Benutzer erfolgreich wiederhergestellt.', 'de'),
+('default', 'You can select up to 100 users at a time.', 'Anda dapat memilih maksimal 100 pengguna sekaligus.', 'id'),
+('default', 'You can select up to 100 users at a time.', 'Sie können bis zu 100 Benutzer gleichzeitig auswählen.', 'de');

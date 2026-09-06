@@ -41,7 +41,7 @@ if (!function_exists('adiwira_users_bulk_respond')) {
             exit;
         }
 
-        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message);
+        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message, 302, $extra);
     }
 }
 
@@ -61,9 +61,13 @@ if (!is_array($ids) || empty($ids)) {
 
 $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
 $ids = array_values(array_filter($ids, fn($v) => $v !== $uid)); // jangan proses diri sendiri
+sort($ids, SORT_NUMERIC);
 
 if (empty($ids)) {
     adiwira_users_bulk_respond(false, __('No valid user selected.'), 400, [], $returnTo);
+}
+if (count($ids) > 100) {
+    adiwira_users_bulk_respond(false, __('You can select up to 100 users at a time.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
@@ -80,6 +84,7 @@ if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPer
     adiwira_users_bulk_respond(false, __('Access denied.'), 403, [], $returnTo);
 }
 $bulkActor = authorization_actor($pdo, $uid);
+$canUndoDelete = $action === 'delete' && user_permission_scope($pdo, $uid, 'core.users.restore') !== null;
 if ($action === 'change_role' && ($bulkActor === null || $bulkActor['is_site_owner'] !== true)) {
     adiwira_users_bulk_respond(false, __('Only a Site Owner can change role assignments.'), 403, [], $returnTo);
 }
@@ -111,6 +116,9 @@ try {
             $pdo->rollBack();
             adiwira_users_bulk_respond(false, __('You cannot modify one or more selected users.'), 403, [], $returnTo);
         }
+        if ($canUndoDelete && !user_can($pdo, $uid, 'core.users.restore', ['owner_id' => $selectedId])) {
+            $canUndoDelete = false;
+        }
     }
 
     if ($action === 'delete') {
@@ -119,9 +127,51 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($ids);
         $cnt = $stmt->rowCount();
+        if ($cnt !== count($ids)) {
+            throw new RuntimeException('Bulk user deletion did not affect the complete selection.');
+        }
 
+        $undoItems = [];
+        foreach ($ids as $selectedId) {
+            if (!authorization_audit($pdo, 'user.deleted', $uid, $selectedId, 'user', (string)$selectedId, ['bulk' => true])) {
+                throw new RuntimeException('Failed to audit bulk deletion for user ID ' . $selectedId);
+            }
+            $auditId = (int)$pdo->lastInsertId();
+            if ($auditId <= 0) {
+                throw new RuntimeException('Bulk user deletion audit ID unavailable.');
+            }
+            $undoItems[] = ['id' => $selectedId, 'audit_id' => $auditId];
+        }
+
+        $successMessage = sprintf(__('%d user(s) deleted.'), $cnt);
         $pdo->commit();
-        adiwira_users_bulk_respond(true, sprintf(__('%d user(s) deleted.'), $cnt), 200, ['count' => $cnt], $returnTo);
+        try {
+            $extra = ['count' => $cnt];
+            if ($canUndoDelete) {
+                $undoToken = adiwira_undo_issue('user.bulk_delete', $ids[0], $uid, ['items' => $undoItems]);
+                if ($undoToken !== null) {
+                    $extra['action'] = [
+                        'label' => __('Undo'),
+                        'request' => [
+                            'url' => ADMIN_BASE_PATH . '/admin/users/undo_bulk_delete.php',
+                            'body' => [
+                                'csrf_token' => csrf_token(),
+                                'undo_token' => $undoToken,
+                            ],
+                            'errorMessage' => __('Failed to restore user.'),
+                        ],
+                    ];
+                }
+            }
+            adiwira_users_bulk_respond(true, $successMessage, 200, $extra, $returnTo);
+        } catch (Throwable $notifyError) {
+            error_log('[users/bulk_action] deletion committed but notification failed: ' . $notifyError->getMessage());
+            if (adiwira_users_is_ajax_request()) {
+                adiwira_json(['ok' => true, 'message' => $successMessage, 'count' => $cnt, 'redirect' => $returnTo]);
+            }
+            header('Location: ' . $returnTo, true, 302);
+            exit;
+        }
     }
 
     if ($action === 'change_role') {

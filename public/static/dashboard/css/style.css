@@ -5585,6 +5585,9 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 .users-filter{
   align-self:center;
 }
+.users-toolbar .toolbar-add{
+  align-self:center;
+}
 .users-search{
   min-width:220px !important;
 }
@@ -5801,6 +5804,7 @@ a.user-name:hover{ color:var(--adam-link); }
 @media (max-width:900px){
   .users-heading{ flex-basis:100%; }
   .users-filter{ width:100%; }
+  .users-toolbar .toolbar-add{ align-self:flex-start; }
   .users-search{ min-width:min(100%,220px) !important; }
 }
 

@@ -88,8 +88,12 @@ try {
     }
     $pdo->commit();
 
-    adiwira_undo_consume($undoToken);
-    adiwira_flash_push('success', __('User berhasil direstore.'));
+    try {
+        adiwira_undo_consume($undoToken);
+        adiwira_flash_push('success', __('User berhasil direstore.'));
+    } catch (Throwable $notifyError) {
+        error_log('[users/undo_delete] restore committed but notification failed: ' . $notifyError->getMessage());
+    }
     adiwira_json(['ok' => true, 'reload' => true]);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
