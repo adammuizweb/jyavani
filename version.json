@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.105",
+    "version": "2.3.106",
     "build": "2026-09-06",
-    "changelog": "Add secure Undo actions across content, Media and File Bin lifecycle with quarantine, restore and permanent purge, plus themed static-asset 404 handling for nginx, Apache, and LiteSpeed.",
+    "changelog": "Add a transaction-aware resource lifecycle extension contract with complete Media and File snapshots, validated artifact descriptors, fail-closed mutation observers, and isolated committed notifications.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

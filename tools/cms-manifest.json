@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.105",
+    "version": "2.3.106",
     "build": "2026-09-06",
-    "generated": "2026-09-06T14:58:16+00:00",
+    "generated": "2026-09-06T15:49:41+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
-    "total_files": 561,
+    "total_files": 562,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "402a7cadaa3dac6593c08d5ce6a7c5f98e2c30a50553196c4c4dff279148f245",
+        "VERSION": "486cb34ccce189a87fbeeba8a04b90a0ff244ee7ec2f49013aa2603f19fec789",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "38f2e74347fc93719e3b91131b07a1346c4bc0a489bcdc6d915cf9cd43c197c9",
@@ -28,11 +28,11 @@
         "app/dev_lock.php": "f8f4bf25a571a7f127fc703025e6e4253efdf8174a2f46316fca13a9f006d0fb",
         "app/frontend_404.php": "5daf41f6e88924972e02f1c984fe2062c6f2ddb593543a129f5900efd3a54d05",
         "app/layout.php": "1e6a4fb5d2bb145bba4b92a1e6c526527b3bb7beed0ebd8c3d53d35f04d2eea4",
-        "cfg/config.php": "a80dd52949910e65cd4010b9495ec8a8418a442c32d1a9d92990a5f96b2c1c9a",
+        "cfg/config.php": "77acbda617b71e76f4b8d3653ee8bd9090c0516344169633631ef0cd036d5f06",
         "cfg/db.php": "d515bd402dc21c4dd66b39e35e655aaaa0331df3f8195cd9d6ae2b62d7d9003f",
         "cfg/env-sample": "07318aa2c5073371219c304578b8f856d2ff2fa9eee6829b29f95dec6152d0f3",
         "cfg/env.php": "068efbc57d33873a63277c5334092426cce0e0f9913092e2a1f05b880b56eab3",
-        "cfg/helpers/asset_lifecycle.php": "883e9bca7accfe38328e86316ce88c88bf012770c275d54c7674d188ed5cb791",
+        "cfg/helpers/asset_lifecycle.php": "42a54a6e29c2af4d1f69f7f1c574ec06f070ea7ae7022438c94f21fbb331cad4",
         "cfg/helpers/auth_helpers.php": "b3553b1fcde3bb0e1f304693ea32c0dbcf537e1b3972391aa909004ea75c8924",
         "cfg/helpers/author_helpers.php": "0f99b7cd76659a0d1087859e64093bb9fa32de309ce02e74370ef491148de31c",
         "cfg/helpers/authorization.php": "4aa9ece893b4d99137db39aa963267a729398484d91d695d108bad758d976e06",
@@ -53,6 +53,7 @@
         "cfg/helpers/permission_helper.php": "1150cb0a1d672c5899ce3add0c6db71dfb75e332b895f5f55a5c40af10f7062d",
         "cfg/helpers/private_file_shortcodes.php": "3f9d51778c4a1492dca460286211a7e5220af4b37b187706915b11eac5438949",
         "cfg/helpers/redirct_helpers.php": "3b38516ff6c89f1b57c071bdde9d8f4dc8593f5438403cedca667a34ed78f510",
+        "cfg/helpers/resource_lifecycle.php": "62adca61b2444649faf774b254ef3232429556f62865a765da48685c0228fa53",
         "cfg/helpers/role_helpers.php": "97ccc52a61899cec4545de62a25089e2abf376383f228e2965257c12eb8e7da4",
         "cfg/helpers/settings_helpers.php": "002ea6f19d844d31189ad9f198f55fee905643d17d3e4601c0c0ef3158d24c66",
         "cfg/helpers/shortcode_builder.php": "fbe4c08fafa361a5d6ab854ada1a896178bebe5e58d7f273cb7b845a6c86f2eb",
@@ -568,6 +569,6 @@
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "4280874e201f70ab1bb7e4aef3e00088e0c82d825b3c07c725bc4fd0c396cf5d",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
-        "version.json": "fcd979771095b9056cf092a92272616ececd882d22de5994ec21b3626acf1c37"
+        "version.json": "8349011d2f21eaadbf51d1ae4e92d516f83b82842c42c7df0031f6c79b539fe9"
     }
 }
