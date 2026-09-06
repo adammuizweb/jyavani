@@ -185,6 +185,13 @@ direct PHP view requests through Core's cosmetic 404 before physical-file or
 per-directory authorization runs. They also apply the same browser security
 headers to static responses that PHP emits for dynamic responses.
 
+Hostinger's Apache/LiteSpeed deployments use this same `public/.htaccess` flow.
+Existing files under `/static/img/` and `/static/files/` are served directly;
+missing or quarantined assets continue to `router.php` and Core's themed 404.
+Keep `Options -MultiViews` enabled so content negotiation cannot intercept a
+missing asset path. This behavior requires the domain document root to be the
+CMS `public/` directory and the hosting layer to honor rewrite rules.
+
 Do not replace the early sensitive-path rewrites with `[F]` or rely only on
 `Require all denied`: those controls prevent execution but expose resource
 existence with a server-generated 403. Keep the deny rules as defense in depth

@@ -5,6 +5,7 @@ $root = dirname(__DIR__);
 $router = (string)file_get_contents($root . '/public/router.php');
 $notFound = (string)file_get_contents($root . '/app/frontend_404.php');
 $setup = (string)file_get_contents($root . '/SERVER_SETUP.md');
+$apache = (string)file_get_contents($root . '/public/.htaccess');
 $failures = [];
 $checks = 0;
 $check = static function (bool $condition, string $message) use (&$failures, &$checks): void {
@@ -27,6 +28,10 @@ $check(strpos($setup, 'location ^~ /static/img/') < strpos($setup, 'location ~* 
     && str_contains($setup, 'server_tokens off;')
     && str_contains($setup, 'more_clear_headers Server;'),
     'nginx guidance preserves location priority and documents server-header masking');
+$check(str_contains($apache, 'Options -Indexes -MultiViews')
+    && strpos($apache, 'RewriteCond %{REQUEST_FILENAME} -f') < strpos($apache, 'RewriteRule ^ router.php [L,QSA]')
+    && str_contains($setup, "Hostinger's Apache/LiteSpeed deployments"),
+    'Apache and LiteSpeed serve real assets directly and route missing assets through Core');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " static asset 404 contract check(s) failed.\n");
