@@ -16,6 +16,8 @@ if (!function_exists('plugins_all')) {
 plugin_run_frontend_init();
 
 http_response_code(404);
+header('Cache-Control: no-store, max-age=0');
+header('X-Content-Type-Options: nosniff');
 
 // pastikan layout memakai pdo global yang benar
 $layout_pdo = $GLOBALS['pdo'] ?? ($pdo ?? null);

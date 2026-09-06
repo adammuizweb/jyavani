@@ -229,3 +229,44 @@ if (!function_exists('adiwira_content_issue_status_undo')) {
         ];
     }
 }
+
+if (!function_exists('adiwira_asset_issue_trash_undo')) {
+    function adiwira_asset_issue_trash_undo(PDO $pdo, string $resource, int $actorId, array $items): ?array
+    {
+        if (!in_array($resource, ['media', 'file'], true) || $actorId <= 0) return null;
+        $itemsById = adiwira_bin_parse_undo_items($items);
+        if ($itemsById === []) return null;
+
+        $config = asset_lifecycle_config($resource);
+        $ids = array_keys($itemsById);
+        $in = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("SELECT id, user_id FROM {$config['table']} WHERE id IN ($in) AND is_deleted = 1");
+        $stmt->execute($ids);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if (count($rows) !== count($ids)) return null;
+        foreach ($rows as $row) {
+            if (!user_can($pdo, $actorId, $config['permissions']['restore'], [
+                'owner_id' => (int)($row['user_id'] ?? 0),
+            ])) return null;
+        }
+
+        $token = adiwira_undo_issue('asset.trash.' . $resource, $ids[0], $actorId, [
+            'resource' => $resource,
+            'items' => array_values($itemsById),
+        ]);
+        if ($token === null) return null;
+
+        return [
+            'label' => __('Undo'),
+            'request' => [
+                'url' => ADMIN_BASE_PATH . '/admin/assets/undo_trash.php',
+                'body' => [
+                    'csrf_token' => csrf_token(),
+                    'undo_token' => $token,
+                    'resource' => $resource,
+                ],
+                'errorMessage' => __('Failed to restore asset.'),
+            ],
+        ];
+    }
+}

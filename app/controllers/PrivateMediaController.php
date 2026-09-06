@@ -63,7 +63,7 @@ class PrivateMediaController
     {
         if ($id <= 0) return null;
 
-        $stmt = $pdo->prepare("SELECT * FROM media WHERE id = :id LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM media WHERE id = :id AND is_deleted = 0 LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

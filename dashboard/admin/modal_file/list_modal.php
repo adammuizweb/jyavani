@@ -136,7 +136,7 @@ if (!function_exists('mdlib_has_column')) {
 }
 
 try {
-    $where = [];
+    $where = ['is_deleted = 0'];
     $params = [];
 
     if (!$isAdmin) {

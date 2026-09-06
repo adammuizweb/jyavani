@@ -63,6 +63,14 @@ if (!function_exists('count_users_trash')) {
     }
 }
 
+if (!function_exists('count_asset_trash')) {
+    function count_asset_trash(PDO $pdo, string $table): int
+    {
+        if (!in_array($table, ['media', 'file'], true)) return 0;
+        return (int)$pdo->query("SELECT COUNT(*) FROM `$table` WHERE is_deleted = 1")->fetchColumn();
+    }
+}
+
 // counts
 try {
     $countArticle = count_posts_trash($pdo, 'article');
@@ -70,10 +78,12 @@ try {
     $countTheme   = count_posts_trash($pdo, 'theme');
     $countCat     = count_categories_trash($pdo);
     $countUsers   = count_users_trash($pdo);
+    $countMedia   = count_asset_trash($pdo, 'media');
+    $countFile    = count_asset_trash($pdo, 'file');
 } catch (Throwable $e) {
     error_log('admin/bin/? stats error: ' . $e->getMessage());
     $errors[] = __('Failed to load trash statistics.');
-    $countArticle = $countPage = $countTheme = $countCat = $countUsers = 0;
+    $countArticle = $countPage = $countTheme = $countCat = $countUsers = $countMedia = $countFile = 0;
 }
 
 // cek apakah halaman bin sudah ada
@@ -83,6 +93,8 @@ $exists = [
     'category' => is_file(__DIR__ . '/category/index.php'),
     'theme'    => is_file(__DIR__ . '/theme/index.php'),
     'users'    => is_file(__DIR__ . '/users/index.php'),
+    'media'    => is_file(__DIR__ . '/media/index.php'),
+    'file'     => is_file(__DIR__ . '/file/index.php'),
 ];
 
 $items = [
@@ -117,6 +129,22 @@ $items = [
         'count' => $countTheme,
         'href' => $base . '/?page=admin/bin/theme/index',
         'svg' => 'palette',
+    ],
+    [
+        'key' => 'media',
+        'title' => __('Bin Media'),
+        'desc' => __('Trash for media library items.'),
+        'count' => $countMedia,
+        'href' => $base . '/?page=admin/bin/media/index',
+        'svg' => 'image',
+    ],
+    [
+        'key' => 'file',
+        'title' => __('Bin Files'),
+        'desc' => __('Trash for file library items.'),
+        'count' => $countFile,
+        'href' => $base . '/?page=admin/bin/file/index',
+        'svg' => 'folder',
     ],
     [
         'key' => 'users',

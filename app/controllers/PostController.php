@@ -161,7 +161,7 @@ class PostController
 
         try {
             // 1) exact match by url
-            $stm = $pdo->prepare('SELECT target_url, target_attribute FROM media WHERE url = :url LIMIT 1');
+            $stm = $pdo->prepare('SELECT target_url, target_attribute FROM media WHERE url = :url AND is_deleted = 0 LIMIT 1');
             $stm->execute([':url' => $displayUrl]);
             $m = $stm->fetch(PDO::FETCH_ASSOC) ?: null;
 
@@ -170,7 +170,7 @@ class PostController
                 $path = parse_url($displayUrl, PHP_URL_PATH) ?: $displayUrl;
                 $likePath = '%' . ltrim((string)$path, '/');
 
-                $stm2 = $pdo->prepare('SELECT target_url, target_attribute FROM media WHERE url LIKE :like_path LIMIT 1');
+                $stm2 = $pdo->prepare('SELECT target_url, target_attribute FROM media WHERE url LIKE :like_path AND is_deleted = 0 LIMIT 1');
                 $stm2->execute([':like_path' => $likePath]);
                 $m = $stm2->fetch(PDO::FETCH_ASSOC) ?: null;
             }

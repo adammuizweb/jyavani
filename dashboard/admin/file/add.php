@@ -102,13 +102,13 @@ $hasVisibility = mdlib_has_column('visibility');
     }
   })();
 
-  function uiToast(type, title, message, duration) {
+  function uiToast(type, title, message, duration, action) {
     if (window.fileUi && typeof window.fileUi.toast === 'function') {
-      window.fileUi.toast(type, title, message, duration);
+      window.fileUi.toast(type, title, message, duration, action);
       return;
     }
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-      window.NewNotifToast.show({ type, title, message, duration });
+      window.NewNotifToast.show({ type, title, message, duration, action: action || null });
       return;
     }
     alert(message || title || <?= json_encode(__('Something happened.')) ?>);
@@ -335,9 +335,9 @@ $hasVisibility = mdlib_has_column('visibility');
         e.preventDefault();
 
         const ok = await uiAsk('danger', {
-          title: <?= json_encode(__('Delete file')) ?>,
-          message: '<?=__('This file will be permanently deleted from the server. Continue?')?>',
-          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          title: <?= json_encode(__('Move file to trash')) ?>,
+          message: '<?=__('This file will be moved to trash. Continue?')?>',
+          confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         });
         if (!ok) return;
@@ -366,7 +366,7 @@ $hasVisibility = mdlib_has_column('visibility');
 
           if (j && j.ok) {
             box.remove();
-            uiToast('success', '<?=__('File')?>', '<?=__('File deleted successfully.')?>', 3000);
+            uiToast('success', '<?=__('File')?>', '<?=__('File moved to trash.')?>', undefined, j.action);
             if (j.warning) {
               uiToast('warning', '<?=__('File')?>', j.warning, 6000);
             }

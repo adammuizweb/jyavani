@@ -87,9 +87,12 @@ server {
     server_name [domain];
     root /path/to/project/public;
     index index.php index.html;
+    server_tokens off;
 
     # Configure the certificate and baseline security headers here.
     # HSTS must be enabled only after every required hostname supports HTTPS.
+    # To remove the Server header entirely, install nginx headers-more and use:
+    # more_clear_headers Server;
 
     location @jyavani_404 {
         include fastcgi_params;
@@ -104,6 +107,20 @@ server {
     location ~ (^|/)\.(?!well-known(?:/|$)) { error_page 418 = @jyavani_404; return 418; }
     location ~* \.(?:ini|env|log|sh|sql|bak|dist|ya?ml|md)(?:/|$) { error_page 418 = @jyavani_404; return 418; }
     location ~* ^/views/.*\.php(?:/|$) { error_page 418 = @jyavani_404; return 418; }
+
+    # Existing public uploads stay on nginx's fast path. Missing files, including
+    # assets moved into Core quarantine, use the themed CMS 404 instead of the
+    # default nginx error page. Keep these ^~ blocks before regex locations.
+    location ^~ /static/img/ {
+        try_files $uri @jyavani_404;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
+    location ^~ /static/files/ {
+        try_files $uri @jyavani_404;
+        expires 7d;
+        add_header Cache-Control "public, immutable";
+    }
 
     location ~* ^/views/.*\.(?:css|js|mjs|map|png|jpe?g|gif|ico|svg|webp|avif|woff2?|ttf|eot|otf)$ {
         try_files $uri =404;
@@ -144,6 +161,15 @@ The named `@jyavani_404` handler pins FastCGI to Core's 404 renderer. It keeps
 physical directories, `/cfg/`, dotfiles, sensitive extensions, and PHP views
 indistinguishable without deriving an executable script path from the request.
 Keep every sensitive regex before the generic PHP and static-asset locations.
+The `/static/img/` and `/static/files/` locations are also security boundaries:
+real files are served directly, while missing or quarantined paths execute the
+same themed 404 handler. Without these blocks, a broad static-extension location
+can return nginx's built-in 404 before Core runs.
+
+`server_tokens off` suppresses the nginx version but does not remove nginx's
+built-in `Server` response header. Complete product masking requires the optional
+headers-more module (`more_clear_headers Server;`) or equivalent header removal
+at the reverse proxy. PHP cannot remove a header added later by nginx.
 
 `location = /sw.js` must remain an exact root route and must execute `router.php`, even if a physical `public/sw.js` remains from an older plugin. Core supplies the install/activate lifecycle and appends active plugin contributions. When no plugin contributes code, Core still returns a lifecycle-only worker so browsers replace stale push handlers. `location = /manifest.webmanifest` must likewise execute `router.php` so an active plugin route can generate it and stale files cannot take precedence. Verify both endpoints with `curl -I`; responses must be `200`, use the expected JavaScript/manifest MIME, and must not be HTML.
 

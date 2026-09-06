@@ -37,7 +37,7 @@ function _filesave_has_col(PDO $pdo, string $col): bool {
 }
 
 try {
-    $checkSql = "SELECT * FROM `file` WHERE id = :id";
+    $checkSql = "SELECT * FROM `file` WHERE id = :id AND is_deleted = 0";
     $checkParams = [':id' => $id];
 
     if (!$isAdmin) {
@@ -73,10 +73,10 @@ try {
         $execParams[':is_downloadable'] = $isDownloadable;
     }
 
-    $stmt = $pdo->prepare("UPDATE `file` SET {$setClause} WHERE id = :id LIMIT 1");
+    $stmt = $pdo->prepare("UPDATE `file` SET {$setClause} WHERE id = :id AND is_deleted = 0 LIMIT 1");
     $stmt->execute($execParams);
 
-    $rowSql = "SELECT * FROM `file` WHERE id = :id";
+    $rowSql = "SELECT * FROM `file` WHERE id = :id AND is_deleted = 0";
     $rowParams = [':id' => $id];
 
     if (!$isAdmin) {
@@ -89,6 +89,9 @@ try {
     $stmt2 = $pdo->prepare($rowSql);
     $stmt2->execute($rowParams);
     $row = $stmt2->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        adiwira_json(['ok' => false, 'error' => __('File is no longer active.')], 409);
+    }
 
     adiwira_json([
         'ok'   => true,

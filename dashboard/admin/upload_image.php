@@ -231,6 +231,13 @@ $access_scope = $visibility === 'private' ? $accessScopeInput : 'public';
 if ($access_scope === 'public' && $visibility === 'private') {
     $access_scope = 'editorial';
 }
+if ($visibility === 'private' && !$auto_save) {
+    adiwira_json([
+        'success' => false,
+        'ok' => false,
+        'error' => __('Private files require auto-save so a protected URL can be generated.'),
+    ], 400);
+}
 
 if (array_key_exists('is_downloadable', $_POST)) {
     $is_downloadable = in_array((string)$_POST['is_downloadable'], ['1','true','on','yes'], true) ? 1 : 0;
@@ -289,6 +296,16 @@ $response = [
     'access_scope'  => $access_scope,
     'is_downloadable' => $is_downloadable,
 ];
+
+if (!$auto_save) {
+    try {
+        $response['cleanup_token'] = asset_lifecycle_temporary_issue('media', $uid, $storage_path);
+    } catch (Throwable $e) {
+        @unlink($target_path);
+        error_log('upload_image.php cleanup grant failed: ' . $e->getMessage());
+        adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to prepare temporary upload.')], 500);
+    }
+}
 
 if ($auto_save) {
     $title   = trim((string)($_POST['title'] ?? $original_name));

@@ -167,11 +167,15 @@ INSERT INTO `permissions` (`permission_key`,`provider`,`resource`,`action`,`labe
   ('core.media.read','core','media','read','View media',1),
   ('core.media.upload','core','media','upload','Upload media',0),
   ('core.media.update','core','media','update','Update media',1),
-  ('core.media.delete','core','media','delete','Delete media',1),
+  ('core.media.delete','core','media','trash','Move media to trash',1),
+  ('core.media.restore','core','media','restore','Restore media',1),
+  ('core.media.purge','core','media','purge','Permanently delete media',1),
   ('core.files.read','core','files','read','View files',1),
   ('core.files.upload','core','files','upload','Upload files',0),
   ('core.files.update','core','files','update','Update files',1),
-  ('core.files.delete','core','files','delete','Delete files',1),
+  ('core.files.delete','core','files','trash','Move files to trash',1),
+  ('core.files.restore','core','files','restore','Restore files',1),
+  ('core.files.purge','core','files','purge','Permanently delete files',1),
   ('core.menus.manage','core','menus','manage','Manage menus',0),
   ('core.sidebar.manage','core','sidebar','manage','Manage sidebar zones',0),
   ('core.theme_content.read','core','theme_content','read','View theme content',1),
@@ -239,10 +243,12 @@ JOIN (
   SELECT 'core.media.upload', 'global' UNION ALL
   SELECT 'core.media.update', 'own' UNION ALL
   SELECT 'core.media.delete', 'own' UNION ALL
+  SELECT 'core.media.restore', 'own' UNION ALL
   SELECT 'core.files.read', 'own' UNION ALL
   SELECT 'core.files.upload', 'global' UNION ALL
   SELECT 'core.files.update', 'own' UNION ALL
   SELECT 'core.files.delete', 'own' UNION ALL
+  SELECT 'core.files.restore', 'own' UNION ALL
   SELECT 'core.theme_content.read', 'any' UNION ALL
   SELECT 'core.theme_content.create', 'global' UNION ALL
   SELECT 'core.theme_content.update', 'own' UNION ALL
@@ -275,7 +281,9 @@ JOIN (
   SELECT 'core.menus.manage', 'global' UNION ALL
   SELECT 'core.sidebar.manage', 'global' UNION ALL
   SELECT 'core.categories.purge', 'own' UNION ALL
-  SELECT 'core.theme_content.purge', 'own'
+  SELECT 'core.theme_content.purge', 'own' UNION ALL
+  SELECT 'core.media.purge', 'own' UNION ALL
+  SELECT 'core.files.purge', 'own'
 ) grants ON r.slug = 'editor'
 ON DUPLICATE KEY UPDATE `scope`=VALUES(`scope`);
 
@@ -413,10 +421,16 @@ CREATE TABLE IF NOT EXISTS `media` (
   `user_id` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  `deleted_at` datetime DEFAULT NULL,
+  `quarantine_path` varchar(600) DEFAULT NULL,
   `target_url` varchar(2048) DEFAULT NULL,
   `target_attribute` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `created_at` (`created_at`)
+  KEY `created_at` (`created_at`),
+  KEY `idx_media_deleted_owner` (`is_deleted`,`user_id`,`id`),
+  KEY `idx_media_deleted_at` (`is_deleted`,`deleted_at`,`id`),
+  KEY `idx_media_storage_identity` (`storage_disk`,`storage_path`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────
@@ -459,8 +473,14 @@ CREATE TABLE IF NOT EXISTS `file` (
   `thumb_url` varchar(512) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  `deleted_at` datetime DEFAULT NULL,
+  `quarantine_path` varchar(600) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `created_at` (`created_at`)
+  KEY `created_at` (`created_at`),
+  KEY `idx_file_deleted_owner` (`is_deleted`,`user_id`,`id`),
+  KEY `idx_file_deleted_at` (`is_deleted`,`deleted_at`,`id`),
+  KEY `idx_file_storage_identity` (`storage_disk`,`storage_path`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────

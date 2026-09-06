@@ -42,7 +42,7 @@ function _mdlib_has_col(PDO $pdo, string $col): bool {
 }
 
 try {
-    $sql = "SELECT * FROM `file` WHERE id = :id";
+    $sql = "SELECT * FROM `file` WHERE id = :id AND is_deleted = 0";
     $params = [':id' => $id];
 
     if (!$isAdmin) {
@@ -78,10 +78,10 @@ try {
         $execParams[':is_downloadable'] = $isDownloadable;
     }
 
-    $stmt = $pdo->prepare("UPDATE `file` SET {$setClause} WHERE id = :id LIMIT 1");
+    $stmt = $pdo->prepare("UPDATE `file` SET {$setClause} WHERE id = :id AND is_deleted = 0 LIMIT 1");
     $stmt->execute($execParams);
 
-    $sql2 = "SELECT * FROM `file` WHERE id = :id";
+    $sql2 = "SELECT * FROM `file` WHERE id = :id AND is_deleted = 0";
     $params2 = [':id' => $id];
 
     if (!$isAdmin) {
@@ -94,6 +94,9 @@ try {
     $q = $pdo->prepare($sql2);
     $q->execute($params2);
     $row = $q->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        adiwira_json(['ok' => false, 'error' => __('File is no longer active.')], 409);
+    }
 
     adiwira_json([
         'ok'   => true,

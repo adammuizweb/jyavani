@@ -112,7 +112,7 @@ if (!function_exists('media_detect_link_columns')) {
 }
 
 try {
-    $sql = "SELECT id FROM media WHERE id = :id";
+    $sql = "SELECT id FROM media WHERE id = :id AND is_deleted = 0";
     $params = [':id' => $id];
 
     if (!$isAdmin) {
@@ -152,7 +152,7 @@ try {
     };
 
     if ($checkMediaCol('access_scope') && $checkMediaCol('is_downloadable')) {
-        $q = $pdo->prepare("SELECT visibility FROM media WHERE id = :id LIMIT 1");
+        $q = $pdo->prepare("SELECT visibility FROM media WHERE id = :id AND is_deleted = 0 LIMIT 1");
         $q->execute([':id' => $id]);
         $mediaRow = $q->fetch(PDO::FETCH_ASSOC);
         $visibility = $mediaRow ? strtolower((string)($mediaRow['visibility'] ?? 'public')) : 'public';
@@ -180,10 +180,16 @@ try {
         UPDATE media
            SET " . implode(",\n               ", $setParts) . "
          WHERE id = :id
+           AND is_deleted = 0
          LIMIT 1
     ");
 
     $stmt->execute($exec);
+
+    $check->execute($params);
+    if (!$check->fetchColumn()) {
+        adiwira_json(['ok' => false, 'error' => __('Media is no longer active.')], 409);
+    }
 
     adiwira_json([
         'ok' => true,

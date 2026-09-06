@@ -221,15 +221,25 @@ if (function_exists('plugin_nav_items')) {
     }
 }
 
-echo nav_item($base, $requested, 'admin/media', adam_icon('image'), __('Media'), [
+$mediaLinks = [
   [$base . '/?page=admin/media/index&tab=list',__('List'), adam_icon('list','adam-svg-icon--sm')],
   [$base . '/?page=admin/media/index&tab=add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
-]);
+];
+if ($navActor !== null && (user_permission_scope($pdo, (int)$navActor['id'], 'core.media.restore') !== null
+    || user_permission_scope($pdo, (int)$navActor['id'], 'core.media.purge') !== null)) {
+  $mediaLinks[] = [$base . '/?page=admin/bin/media/index', __('Trash'), adam_icon('trash-2','adam-svg-icon--sm')];
+}
+echo nav_item($base, $requested, 'admin/media', adam_icon('image'), __('Media'), $mediaLinks);
 
-echo nav_item($base, $requested, 'admin/file', adam_icon('folder'), __('File'), [
+$fileLinks = [
   [$base . '/?page=admin/file/index&tab=list',__('List'), adam_icon('list','adam-svg-icon--sm')],
   [$base . '/?page=admin/file/index&tab=add',__('Add'), adam_icon('plus','adam-svg-icon--sm')]
-]);
+];
+if ($navActor !== null && (user_permission_scope($pdo, (int)$navActor['id'], 'core.files.restore') !== null
+    || user_permission_scope($pdo, (int)$navActor['id'], 'core.files.purge') !== null)) {
+  $fileLinks[] = [$base . '/?page=admin/bin/file/index', __('Trash'), adam_icon('trash-2','adam-svg-icon--sm')];
+}
+echo nav_item($base, $requested, 'admin/file', adam_icon('folder'), __('File'), $fileLinks);
 
 $themeLinks = [
   [$base . '/?page=admin/themes/index',__('List'), adam_icon('list','adam-svg-icon--sm')],

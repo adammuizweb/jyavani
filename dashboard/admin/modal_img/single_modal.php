@@ -28,7 +28,7 @@ if ($id <= 0) {
     exit;
 }
 
-$sql = "SELECT * FROM media WHERE id = :id";
+$sql = "SELECT * FROM media WHERE id = :id AND is_deleted = 0";
 $params = [':id' => $id];
 
 if (!$isAdmin) {
@@ -242,14 +242,15 @@ if (!function_exists('modalimg_human_filesize')) {
     return null;
   }
 
-  function uiToast(type, title, message, duration){
+  function uiToast(type, title, message, duration, action){
     const api = getToastApi();
     if (api) {
       api.show({
         type: type || 'info',
         title: title || null,
         message: message || '',
-        duration: duration
+        duration: duration,
+        action: action || null
       });
       return;
     }
@@ -330,9 +331,9 @@ if (!function_exists('modalimg_human_filesize')) {
 
   document.getElementById('mdlib-media-delete-btn')?.addEventListener('click', async function(){
     const ok = await uiAsk('danger', {
-      title: <?= json_encode(__('Delete media')) ?>,
-      message: <?= json_encode(__('This media will be permanently deleted from the gallery. Proceed?')) ?>,
-      confirmText: <?= json_encode(__('Yes, delete')) ?>,
+      title: <?= json_encode(__('Move media to trash')) ?>,
+      message: <?= json_encode(__('This media will be moved to trash. Proceed?')) ?>,
+      confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
       cancelText: <?= json_encode(__('Cancel')) ?>
     });
     if (!ok) return;
@@ -372,7 +373,7 @@ if (!function_exists('modalimg_human_filesize')) {
         const j = resp.json || {};
         const finalUrl = urlEl ? String(urlEl.value || '') : '';
 
-        uiToast('success', 'Gallery', <?= json_encode(__('Media deleted successfully.')) ?>, 2500);
+        uiToast('success', <?= json_encode(__('Gallery')) ?>, <?= json_encode(__('Media moved to trash.')) ?>, undefined, j.action);
         if (j.warning) uiToast('warning', 'Gallery', j.warning, 6000);
 
         const payload = Object.assign({}, j || {}, {

@@ -113,14 +113,15 @@ try {
     return null;
   }
 
-  function uiToast(type, title, message, duration){
+  function uiToast(type, title, message, duration, action){
     const api = getToastApi();
     if (api) {
       api.show({
         type: type || 'info',
         title: title || null,
         message: message || '',
-        duration: duration
+        duration: duration,
+        action: action || null
       });
       return;
     }
@@ -365,9 +366,9 @@ try {
 
     box.querySelector('.mdlib-btn-danger').addEventListener('click', async function(){
       const ok = await uiAsk('danger', {
-        title: <?= json_encode(__('Delete media')) ?>,
-        message: '<?=__('This media will be permanently deleted from the gallery. Continue?')?>',
-        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        title: <?= json_encode(__('Move media to trash')) ?>,
+        message: '<?=__('This media will be moved to trash. Continue?')?>',
+        confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
@@ -405,7 +406,7 @@ try {
             deleted_urls: url ? [url] : []
           });
 
-          uiToast('success', '<?=__('Gallery')?>', '<?=__('Media deleted successfully.')?>', 2500);
+          uiToast('success', '<?=__('Gallery')?>', '<?=__('Media moved to trash.')?>', undefined, j.action);
           if (j.warning) uiToast('warning', '<?=__('Gallery')?>', j.warning, 6000);
 
           broadcast('media:deleted', payload);

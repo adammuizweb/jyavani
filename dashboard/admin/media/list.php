@@ -71,7 +71,7 @@ $perPageOptions = [20, 50, 100, 200];
 $requestedPerPage = (int)($_GET['per_page'] ?? 20);
 $per_page = in_array($requestedPerPage, $perPageOptions, true) ? $requestedPerPage : 20;
 
-$where = [];
+$where = ['is_deleted = 0'];
 $params = [];
 
 if (!$isAdmin) {
@@ -277,13 +277,13 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
   let listRequestSequence = 0;
   let listController = null;
 
-  function uiToast(type, title, message) {
+  function uiToast(type, title, message, duration, action) {
     if (window.mediaUi && typeof window.mediaUi.toast === 'function') {
-      window.mediaUi.toast(type, title, message);
+      window.mediaUi.toast(type, title, message, duration, action);
       return;
     }
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
-      window.NewNotifToast.show({ type: type, title: title, message: message });
+      window.NewNotifToast.show({ type: type, title: title, message: message, duration: duration, action: action || null });
       return;
     }
     alert(message || title || <?= json_encode(__('Something happened.')) ?>);
@@ -401,9 +401,9 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
       }
 
       const ok = await uiAsk('danger', {
-        title: <?= json_encode(__('Delete selected media')) ?>,
-        message: <?= json_encode(__('')) ?> + checked.length + <?= json_encode(__(' media will be permanently deleted. This action cannot be undone.')) ?>,
-        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        title: <?= json_encode(__('Move selected media to trash')) ?>,
+        message: <?= json_encode(__('')) ?> + checked.length + <?= json_encode(__(' media will be moved to trash.')) ?>,
+        confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
@@ -429,9 +429,9 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
         }
 
         if (j && j.ok) {
-          uiToast('success', '<?=__('Media')?>', <?= json_encode(__('%d media deleted.')) ?>.replace('%d', j.deleted_count || checked.length));
+          uiToast('success', '<?=__('Media')?>', <?= json_encode(__('%d media moved to trash.')) ?>.replace('%d', j.deleted_count || checked.length), undefined, j.action);
           if (Array.isArray(j.warnings) && j.warnings.length) {
-            uiToast('warning', '<?=__('Media')?>', j.warnings.join('\n'));
+            uiToast('warning', '<?=__('Media')?>', j.warnings.map(item => item && item.message ? item.message : String(item)).join('\n'));
           }
 
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: { ids: checked, result: j } }));

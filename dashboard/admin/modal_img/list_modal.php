@@ -61,7 +61,7 @@ if (!function_exists('mdlib_media_client_url')) {
     }
 }
 
-$where = [];
+$where = ['is_deleted = 0'];
 $params = [];
 
 if (!$isAdmin) {

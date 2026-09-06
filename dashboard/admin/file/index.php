@@ -30,10 +30,9 @@ if (function_exists('adiwira_flash_pull')) {
             $type = isset($f['type']) ? (string)$f['type'] : 'info';
             $text = isset($f['message']) ? (string)$f['message'] : (isset($f['text']) ? (string)$f['text'] : '');
             if ($text !== '') {
-                $page_toasts[] = [
-                    'type' => $type,
-                    'message' => $text,
-                ];
+            $f['type'] = $type;
+            $f['message'] = $text;
+            $page_toasts[] = $f;
             }
         }
     }
@@ -84,13 +83,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   let listRequestSequence = 0;
   let listController = null;
 
-  function uiToast(type, title, message, duration) {
+  function uiToast(type, title, message, duration, action) {
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
       window.NewNotifToast.show({
         type: type || 'info',
         title: title || null,
         message: message || '',
-        duration: duration
+        duration: duration,
+        action: action || null
       });
       return;
     }
@@ -430,9 +430,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const ok = await uiAsk('danger', {
-        title: <?= json_encode(__('Delete file')) ?>,
-        message: <?= json_encode(__('This file will be permanently deleted. Proceed?')) ?>,
-        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        title: <?= json_encode(__('Move file to trash')) ?>,
+        message: <?= json_encode(__('This file will be moved to trash. Proceed?')) ?>,
+        confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
@@ -465,7 +465,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
-          uiToast('success', '<?=__('File')?>', '<?=__('File deleted successfully.')?>', 3000);
+          uiToast('success', '<?=__('File')?>', '<?=__('File moved to trash.')?>', undefined, j.action);
           if (j.warning) {
             uiToast('warning', '<?=__('File')?>', j.warning, 6000);
           }
@@ -541,9 +541,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       }
 
       const ok = await uiAsk('danger', {
-        title: <?= json_encode(__('Delete selected files')) ?>,
-        message: <?= json_encode(__('')) ?> + checked.length + <?= json_encode(__(' file(s) will be permanently deleted. This action cannot be undone.')) ?>,
-        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        title: <?= json_encode(__('Move selected files to trash')) ?>,
+        message: <?= json_encode(__('')) ?> + checked.length + <?= json_encode(__(' file(s) will be moved to trash.')) ?>,
+        confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
@@ -570,9 +570,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
-          uiToast('success', '<?=__('File')?>', <?= json_encode(__('%d file(s) deleted.')) ?>.replace('%d', j.deleted_count || checked.length), 3000);
+          uiToast('success', '<?=__('File')?>', <?= json_encode(__('%d file(s) moved to trash.')) ?>.replace('%d', j.deleted_count || checked.length), undefined, j.action);
           if (Array.isArray(j.warnings) && j.warnings.length) {
-            uiToast('warning', '<?=__('File')?>', j.warnings.join('\n'), 6000);
+            uiToast('warning', '<?=__('File')?>', j.warnings.map(item => item && item.message ? item.message : String(item)).join('\n'), 6000);
           }
           document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
         } else {

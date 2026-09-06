@@ -15,7 +15,7 @@ if ($id <= 0) {
     exit;
 }
 
-$sql = "SELECT * FROM media WHERE id = :id";
+$sql = "SELECT * FROM media WHERE id = :id AND is_deleted = 0";
 $params = [':id' => $id];
 
 if (!$isAdmin) {

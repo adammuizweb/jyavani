@@ -1,129 +1,52 @@
 <?php
 declare(strict_types=1);
 
-// /adiwira/admin/file/delete.php
 ob_start();
 require_once __DIR__ . '/../_guard.php';
+require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/../bin/_undo.php';
 
 adiwira_cosmetic_404_on_direct_open();
-
-[$uid, $role] = adiwira_require_editorial($pdo, true);
-$isAdmin = ($role === 'admin');
-
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-    adiwira_json(['ok' => false, 'error' => __('Method not allowed')], 405);
+$identity = adiwira_fetch_identity($pdo);
+if (($identity['ok'] ?? false) !== true) adiwira_json(['ok' => false, 'error' => __('Access denied.')], 403);
+$uid = (int)$identity['uid'];
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') adiwira_json(['ok' => false, 'error' => __('Method not allowed.')], 405);
+if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')))) {
+    adiwira_json(['ok' => false, 'error' => __('Invalid CSRF token.')], 419);
 }
 
-$csrf = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
-if (!adiwira_csrf_validate($csrf)) {
-    adiwira_json(['ok' => false, 'error' => __('CSRF invalid')], 419);
-}
-
-$id  = (int)($_POST['id'] ?? 0);
+$id = (int)($_POST['id'] ?? 0);
 $url = trim((string)($_POST['url'] ?? ''));
-
-if ($id <= 0 && $url === '') {
-    adiwira_json(['ok' => false, 'error' => __('Missing id or url')], 400);
-}
-
-if (!function_exists('file_static_root')) {
-    function file_static_root(): ?string {
-        $root = realpath(rtrim((string)PUBLIC_PATH, '/\\') . '/static');
-        return ($root && is_dir($root)) ? $root : null;
-    }
-}
-
-if (!function_exists('file_local_path_from_url')) {
-    function file_local_path_from_url(string $url): ?string {
-        $path = parse_url($url, PHP_URL_PATH) ?: '';
-        if (!is_string($path) || !str_starts_with($path, '/static/files/')) {
-            return null;
-        }
-
-        $static_root = file_static_root();
-        if (!$static_root) return null;
-
-        $rel = substr($path, strlen('/static'));
-        $local = $static_root . $rel;
-        $realLocal = realpath($local);
-
-        if ($realLocal && str_starts_with($realLocal, $static_root) && is_file($realLocal)) {
-            return $realLocal;
-        }
-
-        return null;
-    }
-}
-
-if (!function_exists('file_private_path')) {
-    function file_private_path(): string {
-        $appRoot = realpath(__DIR__ . '/../../..');
-        if ($appRoot === false) $appRoot = dirname(__DIR__, 3);
-        return rtrim(str_replace('\\', '/', $appRoot), '/') . '/private_files';
-    }
-}
-
 try {
-    if ($id > 0) {
-        $sql = "SELECT id, url, storage_path, storage_disk FROM `file` WHERE id = :id";
-        $params = [':id' => $id];
-    } else {
-        $sql = "SELECT id, url, storage_path, storage_disk FROM `file` WHERE url = :url";
-        $params = [':url' => $url];
+    if ($id <= 0) {
+        asset_lifecycle_delete_temporary_public($pdo, 'file', $url, $uid, (string)($_POST['cleanup_token'] ?? ''));
+        adiwira_json(['ok' => true, 'operation' => 'purged', 'url' => $url]);
     }
 
-    if (!$isAdmin) {
-        $sql .= " AND user_id = :uid";
-        $params[':uid'] = $uid;
+    $result = asset_lifecycle_trash($pdo, 'file', [$id], $uid);
+    $action = null;
+    try {
+        $action = adiwira_asset_issue_trash_undo($pdo, 'file', $uid, $result['items']);
+    } catch (Throwable $undoError) {
+        error_log('[file/delete] trash committed but Undo grant failed: ' . $undoError->getMessage());
     }
-
-    $sql .= " LIMIT 1";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$row) {
-        adiwira_json(['ok' => false, 'error' => __('File not found')], 404);
-    }
-
-    $deleted_id = (int)($row['id'] ?? 0);
-    $final_url = (string)($row['url'] ?? '');
-    $storageDisk = strtolower((string)($row['storage_disk'] ?? 'public'));
-    $storagePath = (string)($row['storage_path'] ?? '');
-
-    $warning = null;
-
-    if ($storageDisk === 'private' && $storagePath !== '') {
-        $privateRoot = file_private_path();
-        if ($privateRoot) {
-            $privateFile = realpath($privateRoot . '/' . ltrim($storagePath, '/\\'));
-            if ($privateFile && str_starts_with($privateFile, $privateRoot) && is_file($privateFile)) {
-                if (!@unlink($privateFile)) {
-                    $warning = __('Physical file failed to delete, but database record was deleted.');
-                }
-            }
-        }
-    } else {
-        $localFile = file_local_path_from_url($final_url);
-        if ($localFile && is_file($localFile)) {
-            if (!@unlink($localFile)) {
-                $warning = __('Physical file failed to delete, but database record was deleted.');
-            }
-        }
-    }
-
-    $pdo->prepare("DELETE FROM `file` WHERE id = :id LIMIT 1")->execute([':id' => $deleted_id]);
-
     adiwira_json([
-        'ok'            => true,
-        'id'            => $deleted_id,
-        'deleted_ids'   => [$deleted_id],
+        'ok' => true,
+        'operation' => 'trashed',
+        'id' => $id,
+        'deleted_ids' => [$id],
         'deleted_count' => 1,
-        'warning'       => $warning,
-    ], 200);
-
+        'warning' => $result['warnings'][0]['message'] ?? null,
+        'warnings' => $result['warnings'],
+        'action' => $action,
+    ]);
+} catch (AssetLifecycleAccessDenied $e) {
+    adiwira_json(['ok' => false, 'error' => $e->getMessage()], 403);
+} catch (AssetLifecycleConflict $e) {
+    adiwira_json(['ok' => false, 'error' => __($e->getMessage())], 409);
+} catch (InvalidArgumentException $e) {
+    adiwira_json(['ok' => false, 'error' => $e->getMessage()], 400);
 } catch (Throwable $e) {
-    error_log('file/delete.php error: ' . $e->getMessage());
-    adiwira_json(['ok' => false, 'error' => __('Server error')], 500);
+    error_log('[file/delete] ' . $e->getMessage());
+    adiwira_json(['ok' => false, 'error' => __('Failed to move file to trash.')], 500);
 }

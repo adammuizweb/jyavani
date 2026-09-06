@@ -70,7 +70,7 @@ class PrivateFileController
             return null;
         }
 
-        $stmt = $pdo->prepare("SELECT * FROM `file` WHERE id = :id LIMIT 1");
+        $stmt = $pdo->prepare("SELECT * FROM `file` WHERE id = :id AND is_deleted = 0 LIMIT 1");
         $stmt->execute([':id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 

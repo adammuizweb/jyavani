@@ -88,14 +88,15 @@ if (!$embedded):
         return null;
       }
 
-      function toast(type, title, message, duration){
+      function toast(type, title, message, duration, action){
         const api = getToastApi();
         if (api) {
           api.show({
             type: type || 'info',
             title: title || null,
             message: message || '',
-            duration: duration
+            duration: duration,
+            action: action || null
           });
           return;
         }
@@ -159,8 +160,8 @@ if (!$embedded):
   let listRequestSequence = 0;
   let listRequestController = null;
 
-  function uiToast(type, title, message, duration){
-    window.mdlibUi.toast(type, title, message, duration);
+  function uiToast(type, title, message, duration, action){
+    window.mdlibUi.toast(type, title, message, duration, action);
   }
 
   function getHost() {

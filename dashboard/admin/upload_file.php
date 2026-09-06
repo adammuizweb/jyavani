@@ -299,6 +299,16 @@ $response = [
     'is_downloadable' => $is_downloadable,
 ];
 
+if (!$auto_save) {
+    try {
+        $response['cleanup_token'] = asset_lifecycle_temporary_issue('file', $uid, $storage_path);
+    } catch (Throwable $e) {
+        @unlink($target_path);
+        error_log('upload_file.php cleanup grant failed: ' . $e->getMessage());
+        adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to prepare temporary upload.')], 500);
+    }
+}
+
 if ($auto_save) {
     $title = trim((string)($_POST['title'] ?? $original_name));
     $caption = trim((string)($_POST['caption'] ?? ''));

@@ -111,9 +111,9 @@ try {
   if (visSelect) visSelect.addEventListener('change', updatePrivateOptions);
   updatePrivateOptions();
 
-  function uiToast(type, title, message, duration) {
+  function uiToast(type, title, message, duration, action) {
     if (window.mdlibUi && typeof window.mdlibUi.toast === 'function') {
-      window.mdlibUi.toast(type, title, message, duration);
+      window.mdlibUi.toast(type, title, message, duration, action);
       return;
     }
     alert(message || title || <?= json_encode(__('Something happened.')) ?>);
@@ -294,9 +294,9 @@ try {
     if (deleteBtn) {
       deleteBtn.addEventListener('click', async function(){
         const ok = await uiAsk('danger', {
-          title: <?= json_encode(__('Delete file')) ?>,
-          message: <?= json_encode(__('This file will be permanently deleted. Proceed?')) ?>,
-          confirmText: <?= json_encode(__('Yes, delete')) ?>,
+          title: <?= json_encode(__('Move file to trash')) ?>,
+          message: <?= json_encode(__('This file will be moved to trash. Proceed?')) ?>,
+          confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
           cancelText: <?= json_encode(__('Cancel')) ?>
         });
         if (!ok) return;
@@ -326,7 +326,7 @@ try {
           if (j && j.ok) {
             box.remove();
             updateClearButton();
-            uiToast('success', '<?=__('Library File')?>', '<?=__('File deleted successfully.')?>', 2200);
+            uiToast('success', '<?=__('Library File')?>', '<?=__('File moved to trash.')?>', undefined, j.action);
             if (j.warning) {
               uiToast('warning', '<?=__('Library File')?>', j.warning, 6000);
             }

@@ -30,10 +30,9 @@ if (function_exists('adiwira_flash_pull')) {
             $type = isset($f['type']) ? (string)$f['type'] : 'info';
             $text = isset($f['message']) ? (string)$f['message'] : (isset($f['text']) ? (string)$f['text'] : '');
             if ($text !== '') {
-                $page_toasts[] = [
-                    'type' => $type,
-                    'message' => $text,
-                ];
+            $f['type'] = $type;
+            $f['message'] = $text;
+            $page_toasts[] = $f;
             }
         }
     }
@@ -74,13 +73,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   let listRequestSequence = 0;
   let listController = null;
 
-  function uiToast(type, title, message, duration) {
+  function uiToast(type, title, message, duration, action) {
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
       window.NewNotifToast.show({
         type: type || 'info',
         title: title || null,
         message: message || '',
-        duration: duration
+        duration: duration,
+        action: action || null
       });
       return;
     }
@@ -336,9 +336,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const ok = await uiAsk('danger', {
-        title: <?= json_encode(__('Delete media')) ?>,
-        message: <?= json_encode(__('This media will be permanently deleted. Proceed?')) ?>,
-        confirmText: <?= json_encode(__('Yes, delete')) ?>,
+        title: <?= json_encode(__('Move media to trash')) ?>,
+        message: <?= json_encode(__('This media will be moved to trash. Proceed?')) ?>,
+        confirmText: <?= json_encode(__('Yes, move to trash')) ?>,
         cancelText: <?= json_encode(__('Cancel')) ?>
       });
       if (!ok) return;
@@ -368,7 +368,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
-          uiToast('success', '<?=__('Media')?>', '<?=__('Media deleted successfully.')?>');
+          uiToast('success', '<?=__('Media')?>', '<?=__('Media moved to trash.')?>', undefined, j.action);
           if (j.warning) {
             uiToast('warning', '<?=__('Media')?>', j.warning);
           }

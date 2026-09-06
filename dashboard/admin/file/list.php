@@ -100,7 +100,7 @@ $perPageOptions = [20, 50, 100, 200];
 $requestedPerPage = (int)($_GET['per_page'] ?? 20);
 $per_page = in_array($requestedPerPage, $perPageOptions, true) ? $requestedPerPage : 20;
 
-$where = [];
+$where = ['is_deleted = 0'];
 $params = [];
 
 if (!$isAdmin) {

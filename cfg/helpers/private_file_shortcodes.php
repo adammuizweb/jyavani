@@ -38,7 +38,7 @@ if (!function_exists('private_file_sc_fetch')) {
         if ($id <= 0) return null;
 
         try {
-            $stmt = $pdo->prepare("SELECT * FROM `file` WHERE id = :id LIMIT 1");
+            $stmt = $pdo->prepare("SELECT * FROM `file` WHERE id = :id AND is_deleted = 0 LIMIT 1");
             $stmt->execute([':id' => $id]);
             $row = $stmt->fetch(PDO::FETCH_ASSOC);
             return is_array($row) ? $row : null;

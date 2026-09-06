@@ -77,6 +77,7 @@ if (defined('UPDATE_PROCESS_CONTROL_REQUEST')) {
     require_once __DIR__ . '/helpers/null_helpers.php';
     require_once __DIR__ . '/helpers/settings_helpers.php';
     require_once __DIR__ . '/helpers/authorization.php';
+    require_once __DIR__ . '/helpers/asset_lifecycle.php';
     require_once __DIR__ . '/helpers/lang_helpers.php';
     require_once __DIR__ . '/helpers/auth_helpers.php';
     return;
@@ -111,6 +112,7 @@ require_once __DIR__ . '/helpers/role_helpers.php';
 
 // 11b. Dynamic role and permission authorization
 require_once __DIR__ . '/helpers/authorization.php';
+require_once __DIR__ . '/helpers/asset_lifecycle.php';
 
 // 12. helpers Editor
 require_once __DIR__ . '/helpers/editor_helpers.php';

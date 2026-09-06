@@ -133,6 +133,13 @@ if (is_file($absFile) || is_dir($absFile)) {
     require __DIR__ . '/../app/frontend_404.php';
 }
 
+// Web servers should serve existing uploads directly and forward only misses.
+// Keep a Core fallback for managed public asset roots so deleted/quarantined
+// paths never fall through to content routing or a technology-specific 404.
+if (preg_match('#^/static/(?:img|files)(?:/|$)#', $rawPath) === 1) {
+    require __DIR__ . '/../app/frontend_404.php';
+}
+
 // trailing slash — BUT skip requests that look like files (have an extension)
 // i.e. /sitemap.xml  or /static/script.js should NOT be redirected to /sitemap.xml/
 if (substr($rawPath, -1) !== '/') {

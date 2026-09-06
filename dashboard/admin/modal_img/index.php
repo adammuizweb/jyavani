@@ -59,14 +59,15 @@ if (!$embedded):
     return null;
   }
 
-  function modalToast(type, title, message, duration){
+  function modalToast(type, title, message, duration, action){
     const api = getToastApi();
     if (api) {
       api.show({
         type: type || 'info',
         title: title || null,
         message: message || '',
-        duration: duration
+        duration: duration,
+        action: action || null
       });
       return;
     }
