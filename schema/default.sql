@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS `authorization_audit_log` (
   KEY `idx_authz_audit_actor` (`actor_user_id`,`created_at`),
   KEY `idx_authz_audit_subject` (`subject_user_id`,`created_at`),
   KEY `idx_authz_audit_event` (`event_key`,`created_at`),
+  KEY `idx_authz_audit_resource` (`resource_type`,`resource_id`,`id`),
   CONSTRAINT `fk_authz_audit_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_authz_audit_subject` FOREIGN KEY (`subject_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -331,6 +332,7 @@ CREATE TABLE IF NOT EXISTS `posts` (
   `youtube` varchar(255) DEFAULT NULL,
   `thumbnail` varchar(255) DEFAULT NULL,
   `status` enum('draft','published','private') NOT NULL DEFAULT 'draft',
+  `status_revision` bigint(20) unsigned NOT NULL DEFAULT 0,
   `created_by` int(10) unsigned DEFAULT NULL,
   `updated_by` int(10) unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),

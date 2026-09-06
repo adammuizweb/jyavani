@@ -8,6 +8,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/../bin/_undo.php';
 
 $defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/posts/index';
 $returnTo = function_exists('adiwira_safe_return_to')
@@ -64,15 +65,13 @@ try {
 
     $stmt = $pdo->prepare("\n        UPDATE posts\n        SET is_deleted = 1,\n            deleted_at = NOW(),\n            updated_at = NOW(),\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
     $stmt->execute([':id' => $id, ':updated_by' => $uid]);
+    if ($stmt->rowCount() !== 1) {
+        throw new RuntimeException('Article deletion did not affect exactly one row.');
+    }
 
-    $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")
-        ->execute([':id' => $id]);
-
+    $categoryMap = adiwira_bin_post_category_map($pdo, [$id]);
+    $auditId = adiwira_bin_record_audit($pdo, 'article', $id, $uid, 'article.trashed');
     $pdo->commit();
-
-    do_action('admin_post_after_delete', $id, $pdo);
-
-    adiwira_redirect_with_flash($returnTo, 'success', __('Article moved to trash successfully.'));
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
@@ -81,4 +80,32 @@ try {
 
     error_log('posts/delete.php error: ' . $e->getMessage());
     adiwira_redirect_with_flash($returnTo, 'error', __('Failed to delete article.'));
+}
+
+$extra = [];
+try {
+    $action = adiwira_bin_issue_trash_undo($pdo, 'article', $uid, [[
+        'id' => $id,
+        'audit_id' => $auditId,
+        'category_ids' => $categoryMap[$id] ?? [],
+    ]]);
+    if ($action !== null) {
+        $extra['action'] = $action;
+    }
+} catch (Throwable $e) {
+    error_log('posts/delete.php undo issuance error: ' . $e->getMessage());
+}
+
+try {
+    do_action('admin_post_after_delete', $id, $pdo);
+} catch (Throwable $e) {
+    error_log('posts/delete.php post-delete hook error: ' . $e->getMessage());
+}
+
+try {
+    adiwira_redirect_with_flash($returnTo, 'success', __('Article moved to trash successfully.'), 302, $extra);
+} catch (Throwable $notifyError) {
+    error_log('posts/delete.php deletion committed but notification failed: ' . $notifyError->getMessage());
+    header('Location: ' . $returnTo, true, 302);
+    exit;
 }

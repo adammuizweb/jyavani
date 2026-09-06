@@ -25,13 +25,10 @@ if (function_exists('adiwira_flash_pull')) {
     $flash = adiwira_flash_pull();
     if (is_array($flash)) {
         foreach ($flash as $f) {
-            $type = isset($f['type']) ? (string)$f['type'] : 'info';
             $text = isset($f['message']) ? (string)$f['message'] : (isset($f['text']) ? (string)$f['text'] : '');
             if ($text !== '') {
-                $page_toasts[] = [
-                    'type' => $type,
-                    'message' => $text,
-                ];
+                $f['message'] = $text;
+                $page_toasts[] = $f;
             }
         }
     }

@@ -8,6 +8,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/../bin/_undo.php';
 
 $defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/categories/index';
 $returnTo = function_exists('adiwira_safe_return_to')
@@ -66,7 +67,7 @@ try {
     }
     if ($hasChildren) throw new DomainException(__('Category still has active subcategories. Move/delete them first.'));
 
-    $pdo->prepare("
+    $trashStmt = $pdo->prepare("
         UPDATE categories
         SET is_deleted = 1,
             deleted_at = NOW(),
@@ -74,11 +75,50 @@ try {
         WHERE id = :id
           AND is_deleted = 0
         LIMIT 1
-    ")->execute([':id' => $id]);
+    ");
+    $trashStmt->execute([':id' => $id]);
+    if ($trashStmt->rowCount() !== 1) {
+        throw new RuntimeException('Category trash update did not affect exactly one row.');
+    }
 
     do_action('admin_category_before_trash_commit', $id, $pdo);
+
+    $newlyTrashedIds = [];
+    $deletedRows = $pdo->query('SELECT id FROM categories WHERE is_deleted = 1 ORDER BY id')->fetchAll(PDO::FETCH_COLUMN, 0) ?: [];
+    $activeIdMap = [];
+    foreach ($lockedRows as $lockedRow) {
+        $activeIdMap[(int)$lockedRow['id']] = true;
+    }
+    foreach ($deletedRows as $deletedId) {
+        $deletedId = (int)$deletedId;
+        if (isset($activeIdMap[$deletedId])) $newlyTrashedIds[] = $deletedId;
+    }
+    if ($newlyTrashedIds !== [$id]) {
+        throw new RuntimeException('Category trash mutation affected an unexpected row set.');
+    }
+
+    $parentId = $lockedCategory['parent_id'] === null ? null : (int)$lockedCategory['parent_id'];
+    $auditId = adiwira_bin_record_audit(
+        $pdo,
+        'category',
+        $id,
+        $uid,
+        'category.trashed',
+        ['parent_id' => $parentId]
+    );
+    $undoItems = [['id' => $id, 'audit_id' => $auditId, 'parent_id' => $parentId]];
     $pdo->commit();
-    adiwira_redirect_with_flash($returnTo, 'success', __('Category moved to trash successfully.'));
+
+    try {
+        $extra = [];
+        $undoAction = adiwira_bin_issue_trash_undo($pdo, 'category', $uid, $undoItems);
+        if ($undoAction !== null) $extra['action'] = $undoAction;
+        adiwira_redirect_with_flash($returnTo, 'success', __('Category moved to trash successfully.'), 302, $extra);
+    } catch (Throwable $notifyError) {
+        error_log('[categories/delete] trash committed but notification failed: ' . $notifyError->getMessage());
+        header('Location: ' . $returnTo, true, 302);
+        exit;
+    }
 
 } catch (DomainException $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();

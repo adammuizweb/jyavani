@@ -175,6 +175,7 @@ try {
         ':slug'    => $slug,
         ':content' => $content,
         ':status'  => $status,
+        ':revision_status' => $status,
         ':meta'    => $finalMeta,
         ':updated_by' => $user_id,
         ':id'      => $id,
@@ -201,6 +202,7 @@ try {
                 SET title = :title,
                     slug = :slug,
                     content = :content,
+                    status_revision = status_revision + IF(status <> :revision_status, 1, 0),
                     status = :status,
                     meta = :meta,
                     " . ($isAdmin ? "created_by = :author_id," : "") . "

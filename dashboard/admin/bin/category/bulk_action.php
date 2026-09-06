@@ -60,8 +60,12 @@ if (!is_array($ids) || empty($ids)) {
 }
 
 $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
+sort($ids, SORT_NUMERIC);
 if (empty($ids)) {
     respond_category_bin_bulk(false, __('Invalid category ID.'), 400, [], $returnTo);
+}
+if (count($ids) > 100) {
+    respond_category_bin_bulk(false, __('You can select up to 100 items at a time.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
@@ -111,23 +115,22 @@ try {
     }
 
     if ($action === 'restore') {
-        // restore + null-kan parent kalau parent masih deleted / parent hilang
-        $sql = "
-            UPDATE categories c
-            LEFT JOIN categories p ON p.id = c.parent_id
-            SET
-              c.is_deleted = 0,
-              c.deleted_at = NULL,
-              c.parent_id = CASE
-                WHEN c.parent_id IS NULL OR c.parent_id = 0 THEN NULL
-                WHEN p.id IS NULL THEN NULL
-                WHEN p.is_deleted = 1 THEN NULL
-                ELSE c.parent_id
-              END,
-              c.updated_at = NOW()
-            WHERE c.id IN ($in)
-              AND c.is_deleted = 1
-        ";
+        $selectedIdMap = array_fill_keys($ids, true);
+        foreach ($selectedCategories as $selectedCategory) {
+            $parentId = (int)($selectedCategory['parent_id'] ?? 0);
+            if ($parentId <= 0) continue;
+            $parent = $lockedById[$parentId] ?? null;
+            if (!$parent || ((int)$parent['is_deleted'] === 1 && !isset($selectedIdMap[$parentId]))) {
+                $pdo->rollBack();
+                respond_category_bin_bulk(false, __('Restore the parent category first.'), 409, [], $returnTo);
+            }
+        }
+        $sql = "UPDATE categories
+            SET is_deleted = 0,
+                deleted_at = NULL,
+                updated_at = NOW()
+            WHERE id IN ($in)
+              AND is_deleted = 1";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($ids);
         $affected = $stmt->rowCount();

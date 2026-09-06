@@ -8,6 +8,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/../bin/_undo.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
@@ -41,7 +42,7 @@ if (!function_exists('respond')) {
             exit;
         }
 
-        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message);
+        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message, 302, $extra);
     }
 }
 
@@ -90,8 +91,12 @@ if (!is_array($ids) || empty($ids)) {
 }
 
 $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
+sort($ids, SORT_NUMERIC);
 if (empty($ids)) {
     respond(false, __('Invalid article ID.'), 400, [], $returnTo);
+}
+if (count($ids) > 100) {
+    respond(false, __('You can select up to 100 items at a time.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
@@ -116,13 +121,23 @@ try {
         respond(false, __('Access denied.'), 403, [], $returnTo);
     }
     $in = implode(',', array_fill(0, count($ids), '?'));
-    $selectedStmt = $pdo->prepare("SELECT id, status, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $selectedStmt = $pdo->prepare("SELECT id, status, status_revision, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $selectedStmt->execute($ids);
     $selectedPosts = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     if (count($selectedPosts) !== count($ids)) {
         $pdo->rollBack();
         respond(false, __('Article not found.'), 404, [], $returnTo);
     }
+    $rawStatusesById = [];
+    $statusRevisionsById = [];
+    if ($action === 'change_status') {
+        foreach ($selectedPosts as $selectedPost) {
+            $rawStatusesById[(int)$selectedPost['id']] = (string)$selectedPost['status'];
+            $statusRevisionsById[(int)$selectedPost['id']] = (int)$selectedPost['status_revision'];
+        }
+        ksort($rawStatusesById, SORT_NUMERIC);
+    }
+    $statusUndoEligible = $action === 'change_status';
     if (!authorization_lock_owner_contexts($pdo, array_column($selectedPosts, 'created_by'))) {
         $pdo->rollBack();
         respond(false, __('Access denied.'), 403, [], $returnTo);
@@ -133,6 +148,9 @@ try {
             throw new DomainException('Post editor status is invalid.');
         }
         $selectedPost['status'] = $editorStatus;
+        if ($statusUndoEligible && $editorStatus !== $rawStatusesById[(int)$selectedPost['id']]) {
+            $statusUndoEligible = false;
+        }
     }
     unset($selectedPost);
     foreach ($selectedPosts as $selectedPost) {
@@ -161,11 +179,42 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute(array_merge([$uid], $ids));
         $affected = $stmt->rowCount();
+        if ($affected !== count($ids)) {
+            throw new RuntimeException('Bulk article deletion did not affect the complete selection.');
+        }
 
-        $pdo->prepare("DELETE FROM post_categories WHERE post_id IN ($in)")->execute($ids);
+        $categoryMap = adiwira_bin_post_category_map($pdo, $ids);
+        $undoItems = [];
+        foreach ($ids as $selectedId) {
+            $auditId = adiwira_bin_record_audit($pdo, 'article', $selectedId, $uid, 'article.trashed', ['bulk' => true]);
+            $undoItems[] = [
+                'id' => $selectedId,
+                'audit_id' => $auditId,
+                'category_ids' => $categoryMap[$selectedId] ?? [],
+            ];
+        }
 
         $pdo->commit();
-        respond(true, sprintf(__('%d article(s) deleted.'), $affected), 200, ['count' => $affected], $returnTo);
+        $extra = ['count' => $affected];
+        try {
+            $undoAction = adiwira_bin_issue_trash_undo($pdo, 'article', $uid, $undoItems);
+            if ($undoAction !== null) {
+                $extra['action'] = $undoAction;
+            }
+        } catch (Throwable $e) {
+            error_log('posts/bulk_action undo issuance error: ' . $e->getMessage());
+        }
+        $successMessage = sprintf(__('%d article(s) moved to trash.'), $affected);
+        try {
+            respond(true, $successMessage, 200, $extra, $returnTo);
+        } catch (Throwable $notifyError) {
+            error_log('posts/bulk_action deletion committed but notification failed: ' . $notifyError->getMessage());
+            if (is_ajax_request()) {
+                adiwira_json(['ok' => true, 'message' => $successMessage, 'count' => $affected, 'redirect' => $returnTo]);
+            }
+            header('Location: ' . $returnTo, true, 302);
+            exit;
+        }
     }
 
     if ($action === 'change_status') {
@@ -188,18 +237,81 @@ try {
         $hookInput = array_replace($_POST, ['status' => $new_status]);
         do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
 
+        $changedIds = [];
+        foreach ($ids as $selectedId) {
+            if ($rawStatusesById[$selectedId] !== $new_status) {
+                $changedIds[] = $selectedId;
+            }
+        }
+
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "UPDATE posts
-                SET status = ?, updated_at = NOW(), updated_by = ?
-                WHERE id IN ($in) AND type = 'article' AND is_deleted = 0";
-        $params = array_merge([$new_status, $uid], $ids);
+                SET status = ?, status_revision = status_revision + 1, updated_at = NOW(), updated_by = ?
+                WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 AND status <> ?";
+        $params = array_merge([$new_status, $uid], $ids, [$new_status]);
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $affected = $stmt->rowCount();
+        if ($affected !== count($changedIds)) {
+            throw new RuntimeException('Bulk article status change did not affect the expected selection.');
+        }
+
+        if ($statusUndoEligible) {
+            foreach ($selectedPosts as $selectedPost) {
+                $changedPost = array_replace($selectedPost, ['status' => $new_status]);
+                if (apply_filters('admin_post_editor_status', $new_status, $changedPost, $pdo) !== $new_status) {
+                    $statusUndoEligible = false;
+                    break;
+                }
+            }
+        }
+        $undoItems = [];
+        if ($statusUndoEligible) {
+            foreach ($changedIds as $selectedId) {
+                $previousStatus = $rawStatusesById[$selectedId];
+                $auditId = adiwira_bin_record_audit($pdo, 'article', $selectedId, $uid, 'article.status_changed', [
+                    'bulk' => true,
+                    'from' => $previousStatus,
+                    'to' => $new_status,
+                ]);
+                $undoItems[] = [
+                    'id' => $selectedId,
+                    'audit_id' => $auditId,
+                    'previous_status' => $previousStatus,
+                    'changed_status' => $new_status,
+                    'status_revision' => $statusRevisionsById[$selectedId] + 1,
+                ];
+            }
+        }
 
         $pdo->commit();
-        respond(true, sprintf(__('%d article(s) status changed to "%s".'), $affected, $new_status), 200, ['count' => $affected], $returnTo);
+        $extra = ['count' => $affected];
+        if ($undoItems !== []) {
+            try {
+                $undoAction = adiwira_content_issue_status_undo($pdo, 'article', $uid, $undoItems);
+                if ($undoAction !== null) {
+                    $extra['action'] = $undoAction;
+                }
+            } catch (Throwable $e) {
+                error_log('posts/bulk_action status undo issuance error: ' . $e->getMessage());
+            }
+        }
+        $successMessage = sprintf(__('%d article(s) status changed to "%s".'), $affected, $new_status);
+        try {
+            respond(true, $successMessage, 200, $extra, $returnTo);
+        } catch (Throwable $notifyError) {
+            error_log('posts/bulk_action status change committed but notification failed: ' . $notifyError->getMessage());
+            if (is_ajax_request()) {
+                adiwira_json(array_merge([
+                    'ok' => true,
+                    'message' => $successMessage,
+                    'redirect' => $returnTo,
+                ], $extra));
+            }
+            header('Location: ' . $returnTo, true, 302);
+            exit;
+        }
     }
 
     if ($action === 'change_categories') {

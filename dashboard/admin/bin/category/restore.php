@@ -66,21 +66,21 @@ try {
         throw new DomainException('Category restore permission changed.');
     }
     $pid = (int)($lockedCategory['parent_id'] ?? 0);
-    $parentSql = $pid > 0 && isset($activeIds[$pid]) ? $pid : null;
+    if ($pid > 0 && !isset($activeIds[$pid])) {
+        throw new DomainException(__('Restore the parent category first.'));
+    }
 
     $stmt = $pdo->prepare("
         UPDATE categories
         SET is_deleted = 0,
             deleted_at = NULL,
-            parent_id = :pid,
             updated_at = NOW()
         WHERE id = :id
           AND is_deleted = 1
         LIMIT 1
     ");
     $stmt->execute([
-        ':id'  => $id,
-        ':pid' => $parentSql,
+        ':id' => $id,
     ]);
 
     do_action('admin_category_before_restore_commit', $id, $pdo);
@@ -88,6 +88,9 @@ try {
 
     adiwira_redirect_with_flash($returnTo, 'success', __('Category restored successfully.'));
 
+} catch (DomainException $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    adiwira_redirect_with_flash($returnTo, 'error', $e->getMessage());
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('bin/category/restore.php error: ' . $e->getMessage());

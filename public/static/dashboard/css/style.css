@@ -3043,6 +3043,10 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
     min-width:0;
     flex:1 1 100%;
   }
+  .toolbar-filter .bin-trash-total{
+    width:100%;
+    margin-left:0;
+  }
   .toolbar-add,
   .toolbar-trash{
     flex-shrink:0;
@@ -5547,6 +5551,31 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 .toolbar-filter input[type="text"].inp{
   min-width:120px;
   flex:1;
+}
+.bin-filter-bar{
+  margin-bottom:1rem;
+}
+.bin-trash-total{
+  margin-left:auto;
+  color:var(--adam-muted);
+  white-space:nowrap;
+}
+.bin-bulk-note{
+  color:var(--adam-muted);
+}
+@media (max-width:640px){
+  .bin-filter-bar input[type="text"].inp{
+    min-width:0;
+    flex:1 1 100%;
+  }
+  .bin-filter-bar select.inp{
+    min-width:0;
+    flex:1 1 auto;
+  }
+  .bin-filter-bar .bin-trash-total{
+    width:100%;
+    margin-left:0;
+  }
 }
 .toolbar-add,
 .toolbar-trash{

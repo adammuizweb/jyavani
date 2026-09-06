@@ -29,7 +29,8 @@ $check(str_contains($script, "success: { title: 'Berhasil', duration: 4000 }")
     && str_contains($script, 'Number(rawDuration) >= 0'), 'toast types and Undo actions use the agreed dismissal policy');
 $check(str_contains($script, 'lucide-undo-2')
     && str_contains($script, 'newnotif-toast__action')
-    && strpos($script, "'  ' + leading") < strpos($script, 'newnotif-toast__content'), 'Undo renders in the leading slot before notification text');
+    && strpos($script, "'  ' + action") < strpos($script, 'newnotif-toast__icon')
+    && strpos($script, 'newnotif-toast__icon') < strpos($script, 'newnotif-toast__content'), 'total Undo renders before the status icon and notification text');
 foreach (['lucide-circle-check', 'lucide-alert-triangle', 'lucide-info', 'lucide-circle-x'] as $icon) {
     $check(str_contains($script, $icon), $icon . ' is available as a Lucide status icon');
 }
@@ -43,6 +44,19 @@ $check(str_contains($script, "actionBtn.setAttribute('aria-busy', 'true')")
     && str_contains($script, "Promise.resolve(result).then"), 'asynchronous actions expose and guard their pending state');
 $check(str_contains($style, '@media (prefers-reduced-motion: reduce)')
     && str_contains($style, '.newnotif-toast__action:focus-visible'), 'action styling supports keyboard focus and reduced motion');
+$check(str_contains($style, '.newnotif-toast.has-action .newnotif-toast__inner')
+    && str_contains($style, 'grid-template-columns:auto auto minmax(0, 1fr) auto')
+    && str_contains($style, 'border-radius:999px')
+    && str_contains($style, 'flex-direction:column')
+    && str_contains($script, 'aria-label="'), 'action Toast renders circular icon-and-label Undo separately from status and text');
+$check(str_contains($style, '--newnotif-action: #2563eb')
+    && str_contains($style, 'width:46px')
+    && str_contains($style, 'background:color-mix(in srgb, var(--newnotif-action) 10%, var(--adam-card))')
+    && str_contains($style, 'border:2px solid color-mix(in srgb, var(--newnotif-action) 72%, transparent)'), 'Undo uses a balanced high-contrast action treatment independent from Toast status');
+$check(str_contains($style, 'html.theme-dark .newnotif-toast')
+    && str_contains($style, '--newnotif-action: #22d3ee')
+    && str_contains($style, '--newnotif-action-hover: #06b6d4')
+    && str_contains($style, 'html:not(.theme-light):not(.theme-dark) .newnotif-toast'), 'Undo switches from blue to aqua for explicit and automatic dark themes');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " toast component contract check(s) failed.\n");

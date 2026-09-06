@@ -8,6 +8,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/../bin/_undo.php';
 
 $defaultReturnTo = ADMIN_BASE_PATH . '/?page=admin/themes/index';
 $returnTo = function_exists('adiwira_safe_return_to')
@@ -48,15 +49,35 @@ try {
         throw new DomainException('Theme delete permission changed.');
     }
 
-    $pdo->prepare("
+    $delete = $pdo->prepare("
         UPDATE posts
         SET is_deleted = 1, deleted_at = NOW(), updated_at = NOW(), updated_by = :updated_by
         WHERE id = :id AND type = 'theme' AND is_deleted = 0
         LIMIT 1
-    ")->execute([':id' => $id, ':updated_by' => $uid]);
+    ");
+    $delete->execute([':id' => $id, ':updated_by' => $uid]);
+    if ($delete->rowCount() !== 1) {
+        throw new RuntimeException('Theme deletion did not affect the selected item.');
+    }
+    $undoItems = [[
+        'id' => $id,
+        'audit_id' => adiwira_bin_record_audit($pdo, 'theme', $id, $uid, 'theme.trashed'),
+    ]];
 
     $pdo->commit();
-    adiwira_redirect_with_flash($returnTo, 'success', __('Theme partial berhasil dipindahkan ke trash.'));
+    $successMessage = __('Theme partial moved to trash successfully.');
+    try {
+        $extra = [];
+        $undoAction = adiwira_bin_issue_trash_undo($pdo, 'theme', $uid, $undoItems);
+        if ($undoAction !== null) {
+            $extra['action'] = $undoAction;
+        }
+        adiwira_redirect_with_flash($returnTo, 'success', $successMessage, 302, $extra);
+    } catch (Throwable $notifyError) {
+        error_log('[themes/delete] deletion committed but notification failed: ' . $notifyError->getMessage());
+        header('Location: ' . $returnTo, true, 302);
+        exit;
+    }
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

@@ -8,6 +8,7 @@ if (!defined('DASHBOARD_CONTEXT')) {
 
 require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
+require_once __DIR__ . '/../bin/_undo.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
@@ -41,7 +42,7 @@ if (!function_exists('respond_categories_bulk')) {
             exit;
         }
 
-        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message);
+        adiwira_redirect_with_flash($redirect, $ok ? 'success' : 'error', $message, 302, $extra);
     }
 }
 
@@ -75,6 +76,9 @@ $requiredPermission = match ($action) {
 };
 if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPermission) === null) {
     respond_categories_bulk(false, __('Access denied.'), 403, [], $returnTo);
+}
+if ($action === 'delete' && count($ids) > 100) {
+    respond_categories_bulk(false, __('You can select up to 100 items at a time.'), 400, [], $returnTo);
 }
 
 $in = implode(',', array_fill(0, count($ids), '?'));
@@ -150,13 +154,65 @@ try {
         ");
         $stmt->execute($ids);
         $affected = $stmt->rowCount();
+        if ($affected !== count($ids)) {
+            throw new RuntimeException('Category bulk trash did not affect the complete selection.');
+        }
 
         foreach ($selectedCategories as $selectedCategory) {
             do_action('admin_category_before_trash_commit', (int)$selectedCategory['id'], $pdo);
         }
 
+        $expectedIds = $ids;
+        sort($expectedIds, SORT_NUMERIC);
+        $newlyTrashedIds = [];
+        $deletedRows = $pdo->query('SELECT id FROM categories WHERE is_deleted = 1 ORDER BY id')->fetchAll(PDO::FETCH_COLUMN, 0) ?: [];
+        foreach ($deletedRows as $deletedId) {
+            $deletedId = (int)$deletedId;
+            if (isset($activeById[$deletedId])) $newlyTrashedIds[] = $deletedId;
+        }
+        if ($newlyTrashedIds !== $expectedIds) {
+            throw new RuntimeException('Category bulk trash mutation affected an unexpected row set.');
+        }
+
+        $undoItems = [];
+        foreach ($expectedIds as $trashedId) {
+            $parentId = $activeById[$trashedId]['parent_id'] === null
+                ? null
+                : (int)$activeById[$trashedId]['parent_id'];
+            $auditId = adiwira_bin_record_audit(
+                $pdo,
+                'category',
+                $trashedId,
+                $uid,
+                'category.trashed',
+                ['bulk' => true, 'parent_id' => $parentId]
+            );
+            $undoItems[] = ['id' => $trashedId, 'audit_id' => $auditId, 'parent_id' => $parentId];
+        }
+
+        $successMessage = sprintf(__('%d category(ies) moved to trash.'), $affected);
         $pdo->commit();
-        respond_categories_bulk(true, sprintf(__('%d category(ies) moved to trash.'), $affected), 200, ['count' => $affected], $returnTo);
+        try {
+            $extra = ['count' => $affected];
+            $undoAction = adiwira_bin_issue_trash_undo($pdo, 'category', $uid, $undoItems);
+            if ($undoAction !== null) $extra['action'] = $undoAction;
+            respond_categories_bulk(true, $successMessage, 200, $extra, $returnTo);
+        } catch (Throwable $notifyError) {
+            error_log('[categories/bulk_action] trash committed but notification failed: ' . $notifyError->getMessage());
+            if (is_ajax_request()) {
+                http_response_code(200);
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode([
+                    'ok' => true,
+                    'message' => $successMessage,
+                    'count' => $affected,
+                    'redirect' => $returnTo,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                exit;
+            }
+            header('Location: ' . $returnTo, true, 302);
+            exit;
+        }
     }
 
     if ($action === 'change_parent') {

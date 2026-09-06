@@ -61,9 +61,13 @@ if (!is_array($ids) || empty($ids)) {
     respond_users_bin_bulk(false, __('No users selected.'), 400, [], $returnTo);
 }
 
-$ids = array_values(array_filter(array_map('intval', $ids), fn($v) => $v > 0));
+$ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($v) => $v > 0)));
+sort($ids, SORT_NUMERIC);
 if (empty($ids)) {
     respond_users_bin_bulk(false, __('Invalid user ID.'), 400, [], $returnTo);
+}
+if (count($ids) > 100) {
+    respond_users_bin_bulk(false, __('You can select up to 100 users at a time.'), 400, [], $returnTo);
 }
 
 $action = (string)($_POST['action'] ?? '');
@@ -89,6 +93,10 @@ try {
     );
     $selectedStmt->execute($ids);
     $selectedUsers = $selectedStmt->fetchAll(PDO::FETCH_ASSOC);
+    if (count($selectedUsers) !== count($ids)) {
+        $pdo->rollBack();
+        respond_users_bin_bulk(false, __('One or more selected users are no longer in trash.'), 409, [], $returnTo);
+    }
     foreach ($selectedUsers as $selectedUser) {
         $selectedId = (int)$selectedUser['id'];
         if ((int)$selectedUser['is_site_owner'] === 1 && !$actorIsSiteOwner) {

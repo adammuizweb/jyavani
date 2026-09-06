@@ -174,17 +174,18 @@
     if (!opts.message) return null;
 
     const toast = document.createElement('section');
-    toast.className = 'newnotif-toast is-' + opts.type;
+    toast.className = 'newnotif-toast is-' + opts.type + (opts.action ? ' has-action' : '');
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', opts.type === 'error' ? 'assertive' : 'polite');
 
-    const leading = opts.action
-      ? '<button type="button" class="newnotif-toast__action">' + undoIcon() + '<span>' + escapeHtml(opts.action.label) + '</span></button>'
-      : '<div class="newnotif-toast__icon">' + icon(opts.type) + '</div>';
+    const action = opts.action
+      ? '<button type="button" class="newnotif-toast__action" aria-label="' + escapeHtml(opts.action.label) + '" title="' + escapeHtml(opts.action.label) + '">' + undoIcon() + '<span>' + escapeHtml(opts.action.label) + '</span></button>'
+      : '';
 
     toast.innerHTML = [
       '<div class="newnotif-toast__inner">',
-      '  ' + leading,
+      '  ' + action,
+      '  <div class="newnotif-toast__icon">' + icon(opts.type) + '</div>',
       '  <div class="newnotif-toast__content">',
       '    <div class="newnotif-toast__title">' + escapeHtml(opts.title) + '</div>',
       '    <p class="newnotif-toast__message">' + escapeHtml(opts.message) + '</p>',

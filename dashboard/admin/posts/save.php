@@ -395,7 +395,7 @@ try {
     if ($slugLock->fetchColumn()) throw new DomainException('Post slug changed.');
     $effectiveCreatedAt = $created_at_in !== '' ? $final_created : (string)$lockedPost['created_at'];
 
-    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at,\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
+    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status_revision = status_revision + IF(status <> :revision_status, 1, 0),\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at,\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
 
     $ok = $upd->execute([
         ':title'      => $title,
@@ -404,6 +404,7 @@ try {
         ':youtube'    => $youtube,
         ':thumbnail'  => $thumbnail,
         ':status'     => $status,
+        ':revision_status' => $status,
         ':meta'       => $finalMeta,
         ':created_by' => $final_creator,
         ':created_at' => $effectiveCreatedAt,

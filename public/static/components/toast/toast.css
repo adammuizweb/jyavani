@@ -16,6 +16,9 @@
 
 .newnotif-toast{
   --newnotif-tone: var(--adam-primary);
+  --newnotif-action: #2563eb;
+  --newnotif-action-hover: #1d4ed8;
+  --newnotif-action-contrast: #fff;
   width:min(92vw, 420px);
   background:var(--adam-card);
   color:var(--adam-text);
@@ -45,17 +48,37 @@
 .newnotif-toast.is-info{ --newnotif-tone: var(--adam-primary); }
 .newnotif-toast.is-error{ --newnotif-tone: var(--adam-danger); }
 
+html.theme-dark .newnotif-toast{
+  --newnotif-action: #22d3ee;
+  --newnotif-action-hover: #06b6d4;
+  --newnotif-action-contrast: #042f3a;
+}
+
+@media (prefers-color-scheme: dark){
+  html:not(.theme-light):not(.theme-dark) .newnotif-toast{
+    --newnotif-action: #22d3ee;
+    --newnotif-action-hover: #06b6d4;
+    --newnotif-action-contrast: #042f3a;
+  }
+}
+
 .newnotif-toast__inner{
   display:grid;
   grid-template-columns:auto minmax(0, 1fr) auto;
   gap:12px;
-  align-items:start;
+  align-items:center;
   padding:14px 14px 12px;
+}
+
+.newnotif-toast.has-action .newnotif-toast__inner{
+  grid-template-columns:auto auto minmax(0, 1fr) auto;
+  gap:10px;
 }
 
 .newnotif-toast__icon{
   width:40px;
   height:40px;
+  flex:0 0 40px;
   display:grid;
   place-items:center;
   border-radius:12px;
@@ -71,16 +94,19 @@
 
 .newnotif-toast__action{
   appearance:none;
-  min-height:40px;
+  width:46px;
+  height:46px;
   display:inline-flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
-  gap:7px;
-  padding:0 11px;
-  border:1px solid color-mix(in srgb, var(--newnotif-tone) 34%, transparent);
-  border-radius:12px;
-  background:color-mix(in srgb, var(--newnotif-tone) 12%, transparent);
-  color:var(--newnotif-tone);
+  gap:2px;
+  padding:0;
+  border:2px solid color-mix(in srgb, var(--newnotif-action) 72%, transparent);
+  border-radius:999px;
+  background:color-mix(in srgb, var(--newnotif-action) 10%, var(--adam-card));
+  color:var(--newnotif-action);
+  box-shadow:none;
   font:inherit;
   font-size:.82rem;
   font-weight:800;
@@ -88,14 +114,27 @@
   transition:background 140ms ease, border-color 140ms ease, opacity 140ms ease;
 }
 
+.newnotif-toast__action span{
+  display:block;
+  max-width:40px;
+  overflow:hidden;
+  font-size:.6rem;
+  line-height:1;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
 .newnotif-toast__action:hover{
-  border-color:color-mix(in srgb, var(--newnotif-tone) 55%, transparent);
-  background:color-mix(in srgb, var(--newnotif-tone) 19%, transparent);
+  border-color:var(--newnotif-action-hover);
+  background:var(--newnotif-action-hover);
+  color:var(--newnotif-action-contrast);
+  box-shadow:0 4px 10px color-mix(in srgb, var(--newnotif-action) 24%, transparent);
 }
 
 .newnotif-toast__action:focus-visible{
   outline:none;
-  box-shadow:0 0 0 4px var(--adam-focus);
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--newnotif-action) 28%, transparent),
+    0 4px 10px color-mix(in srgb, var(--newnotif-action) 22%, transparent);
 }
 
 .newnotif-toast__action:disabled{

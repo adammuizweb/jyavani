@@ -143,7 +143,7 @@ try {
             $undoItems[] = ['id' => $selectedId, 'audit_id' => $auditId];
         }
 
-        $successMessage = sprintf(__('%d user(s) deleted.'), $cnt);
+        $successMessage = sprintf(__('%d user(s) moved to trash.'), $cnt);
         $pdo->commit();
         try {
             $extra = ['count' => $cnt];
