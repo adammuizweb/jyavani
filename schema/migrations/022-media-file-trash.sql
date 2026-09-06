@@ -3,14 +3,14 @@ ALTER TABLE `media` ADD COLUMN `deleted_at` datetime DEFAULT NULL AFTER `is_dele
 ALTER TABLE `media` ADD COLUMN `quarantine_path` varchar(600) DEFAULT NULL AFTER `deleted_at`;
 ALTER TABLE `media` ADD KEY `idx_media_deleted_owner` (`is_deleted`,`user_id`,`id`);
 ALTER TABLE `media` ADD KEY `idx_media_deleted_at` (`is_deleted`,`deleted_at`,`id`);
-ALTER TABLE `media` ADD KEY `idx_media_storage_identity` (`storage_disk`,`storage_path`);
+ALTER TABLE `media` ADD KEY `idx_media_storage_identity` (`storage_disk`,`storage_path`(180));
 
 ALTER TABLE `file` ADD COLUMN `is_deleted` tinyint(1) NOT NULL DEFAULT 0 AFTER `updated_at`;
 ALTER TABLE `file` ADD COLUMN `deleted_at` datetime DEFAULT NULL AFTER `is_deleted`;
 ALTER TABLE `file` ADD COLUMN `quarantine_path` varchar(600) DEFAULT NULL AFTER `deleted_at`;
 ALTER TABLE `file` ADD KEY `idx_file_deleted_owner` (`is_deleted`,`user_id`,`id`);
 ALTER TABLE `file` ADD KEY `idx_file_deleted_at` (`is_deleted`,`deleted_at`,`id`);
-ALTER TABLE `file` ADD KEY `idx_file_storage_identity` (`storage_disk`,`storage_path`);
+ALTER TABLE `file` ADD KEY `idx_file_storage_identity` (`storage_disk`,`storage_path`(180));
 
 UPDATE `media`
 SET `storage_disk` = 'public',

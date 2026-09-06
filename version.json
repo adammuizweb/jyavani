@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.104",
-    "build": "2026-09-05",
-    "changelog": "Add secure Toast Undo actions for user deletion, accessible Lucide notification states, and the Upload Plugin icon.",
+    "version": "2.3.105",
+    "build": "2026-09-06",
+    "changelog": "Add secure Undo actions across content, Media and File Bin lifecycle with quarantine, restore and permanent purge, plus themed static-asset 404 handling for nginx, Apache, and LiteSpeed.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

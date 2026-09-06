@@ -30,7 +30,7 @@ $check(strpos($setup, 'location ^~ /static/img/') < strpos($setup, 'location ~* 
     'nginx guidance preserves location priority and documents server-header masking');
 $check(str_contains($apache, 'Options -Indexes -MultiViews')
     && strpos($apache, 'RewriteCond %{REQUEST_FILENAME} -f') < strpos($apache, 'RewriteRule ^ router.php [L,QSA]')
-    && str_contains($setup, "Hostinger's Apache/LiteSpeed deployments"),
+    && str_contains($setup, 'Shared Apache/LiteSpeed deployments'),
     'Apache and LiteSpeed serve real assets directly and route missing assets through Core');
 
 if ($failures !== []) {

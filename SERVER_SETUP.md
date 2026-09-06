@@ -185,7 +185,7 @@ direct PHP view requests through Core's cosmetic 404 before physical-file or
 per-directory authorization runs. They also apply the same browser security
 headers to static responses that PHP emits for dynamic responses.
 
-Hostinger's Apache/LiteSpeed deployments use this same `public/.htaccess` flow.
+Shared Apache/LiteSpeed deployments use this same `public/.htaccess` flow.
 Existing files under `/static/img/` and `/static/files/` are served directly;
 missing or quarantined assets continue to `router.php` and Core's themed 404.
 Keep `Options -MultiViews` enabled so content negotiation cannot intercept a

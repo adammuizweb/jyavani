@@ -46,7 +46,7 @@ $check(str_contains($sources['helper'], "['article', 'page', 'theme', 'category'
 $check(str_contains($sources['helper'], "ORDER BY id DESC")
     && str_contains($sources['helper'], 'FOR UPDATE')
     && str_contains($sources['schema'], 'idx_authz_audit_resource')
-    && str_contains($sources['migration'], 'idx_authz_audit_resource'),
+    && str_contains($sources['migration'], '`resource_id`(150)'),
     'latest resource mutation checks use a dedicated audit index');
 $check(str_contains($sources['undo'], "adiwira_undo_get(\$undoToken, 'bin.trash.' . \$resource, \$uid)")
     && str_contains($sources['undo'], 'adiwira_bin_latest_audit_id($pdo, $resource, $id)')

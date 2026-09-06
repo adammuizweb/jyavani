@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `authorization_audit_log` (
   KEY `idx_authz_audit_actor` (`actor_user_id`,`created_at`),
   KEY `idx_authz_audit_subject` (`subject_user_id`,`created_at`),
   KEY `idx_authz_audit_event` (`event_key`,`created_at`),
-  KEY `idx_authz_audit_resource` (`resource_type`,`resource_id`,`id`),
+  KEY `idx_authz_audit_resource` (`resource_type`,`resource_id`(150),`id`),
   CONSTRAINT `fk_authz_audit_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_authz_audit_subject` FOREIGN KEY (`subject_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -430,7 +430,7 @@ CREATE TABLE IF NOT EXISTS `media` (
   KEY `created_at` (`created_at`),
   KEY `idx_media_deleted_owner` (`is_deleted`,`user_id`,`id`),
   KEY `idx_media_deleted_at` (`is_deleted`,`deleted_at`,`id`),
-  KEY `idx_media_storage_identity` (`storage_disk`,`storage_path`)
+  KEY `idx_media_storage_identity` (`storage_disk`,`storage_path`(180))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────
@@ -480,7 +480,7 @@ CREATE TABLE IF NOT EXISTS `file` (
   KEY `created_at` (`created_at`),
   KEY `idx_file_deleted_owner` (`is_deleted`,`user_id`,`id`),
   KEY `idx_file_deleted_at` (`is_deleted`,`deleted_at`,`id`),
-  KEY `idx_file_storage_identity` (`storage_disk`,`storage_path`)
+  KEY `idx_file_storage_identity` (`storage_disk`,`storage_path`(180))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────

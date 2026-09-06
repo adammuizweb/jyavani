@@ -29,8 +29,8 @@ $check = static function (bool $condition, string $message) use (&$failures, &$c
 
 foreach (['media', 'file'] as $resource) {
     $check(str_contains($sources['migration'], "ALTER TABLE `{$resource}` ADD COLUMN `is_deleted`")
-        && str_contains($sources['migration'], "idx_{$resource}_storage_identity")
-        && str_contains($sources['schema'], "idx_{$resource}_storage_identity"),
+        && str_contains($sources['migration'], "`idx_{$resource}_storage_identity` (`storage_disk`,`storage_path`(180))")
+        && str_contains($sources['schema'], "`idx_{$resource}_storage_identity` (`storage_disk`,`storage_path`(180))"),
         $resource . ' lifecycle schema and storage identity index are installed');
     $check(is_file($root . '/dashboard/admin/bin/' . $resource . '/index.php')
         && is_file($root . '/dashboard/admin/bin/' . $resource . '/restore.php')
