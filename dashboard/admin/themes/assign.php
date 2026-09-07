@@ -590,14 +590,14 @@ foreach ($themes as $t) {
     <div class="tm-scan" aria-hidden="false" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
       <a href="<?= h($browseUrl) ?>" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:6px;font-size:.82rem"><?= svg_ico('globe', '', ['style' => 'width:14px;height:14px']) ?> <?= _e('Browse Themes') ?></a>
 
-      <form method="post" style="margin:0;display:inline-flex">
+      <form method="post" class="js-theme-manager-page-action" style="margin:0;display:inline-flex">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="check_updates">
         <button class="btn btn-sm btn-outline" type="submit" style="padding:6px 14px;border-radius:6px;font-size:.82rem;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('refresh-cw', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Check All Updates')?></button>
       </form>
     </div>
     <div class="tm-scan" aria-hidden="false">
-      <form id="theme-scan-form" method="post" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <form id="theme-scan-form" class="js-theme-manager-page-action" method="post" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="register_themes">
         <button class="tm-ghost" type="submit"><?=_e('Scan filesystem')?></button>
@@ -776,7 +776,7 @@ foreach ($themes as $t) {
   <div class="tm-card">
     <h3 class="tm-title" style="font-size:16px;margin:0"><?=_e('Per-slot assignments')?></h3>
 
-    <form method="post" id="theme-assign-form" style="margin-top:12px">
+    <form method="post" id="theme-assign-form" data-unsaved-guard style="margin-top:12px">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="save_assignments">
 
@@ -959,6 +959,29 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     return Promise.resolve(window.confirm(opts.message || <?= json_encode(__('Proceed with this action?')) ?>));
   }
 
+  function guardApi(){
+    return window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  }
+
+  function confirmAssignmentDiscard(){
+    var guard = guardApi();
+    var assignForm = qs('#theme-assign-form');
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') return Promise.resolve(true);
+    return guard.confirmDiscardForm(assignForm);
+  }
+
+  function submitIntentional(form){
+    var guard = guardApi();
+    if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+    form.submit();
+  }
+
+  function submitAfterAssignmentDiscard(form){
+    confirmAssignmentDiscard().then(function(confirmed){
+      if (confirmed) submitIntentional(form);
+    });
+  }
+
   function updateHidden(slot) {
     try {
       var themeSel  = qs('.theme-select[data-slot="'+slot+'"]');
@@ -1047,10 +1070,17 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         cancelText: <?= json_encode(__('Cancel')) ?>
       }).then(function(ok){
         if (!ok) return;
-        assignForm.submit();
+        submitIntentional(assignForm);
       });
     });
   })();
+
+  qsa('.js-theme-manager-page-action').forEach(function(form){
+    on(form, 'submit', function(event){
+      event.preventDefault();
+      submitAfterAssignmentDiscard(form);
+    });
+  });
 
   (function(){
     var fileInput   = qs('#theme_zip_input');
@@ -1098,20 +1128,23 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     updateUploadBtn();
 
     on(uploadForm, 'submit', function(e){
+      e.preventDefault();
       var f = fileInput.files && fileInput.files[0];
       if (!f) {
-        e.preventDefault();
         toast('error', <?= json_encode(__('Select a .zip file first.')) ?>, <?= json_encode(__('Upload failed')) ?>);
         return;
       }
       if (!/\.zip$/i.test(f.name)) {
-        e.preventDefault();
         toast('error', <?= json_encode(__('Upload must be a .zip file.')) ?>, <?= json_encode(__('Upload failed')) ?>);
         return;
       }
-      syncActivate();
-      uploadBtn.disabled = true;
-      try { uploadBtn.textContent = <?= json_encode(__('Installing…')) ?>; } catch(e2){}
+      confirmAssignmentDiscard().then(function(confirmed){
+        if (!confirmed) return;
+        syncActivate();
+        uploadBtn.disabled = true;
+        try { uploadBtn.textContent = <?= json_encode(__('Installing…')) ?>; } catch(e2){}
+        submitIntentional(uploadForm);
+      });
     });
   })();
 
@@ -1127,7 +1160,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
           cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
-          form.submit();
+          submitAfterAssignmentDiscard(form);
         });
       });
     });
@@ -1143,7 +1176,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
           cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
-          form.submit();
+          submitAfterAssignmentDiscard(form);
         });
       });
     });
@@ -1167,7 +1200,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
           cancelText: <?= json_encode(__('Cancel')) ?>
         }).then(function(ok){
           if (!ok) return;
-          form.submit();
+          submitAfterAssignmentDiscard(form);
         });
       });
     });
@@ -1255,7 +1288,11 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         'requestFailed' => __('The update request failed.'),
         'cancelFailed' => __('Unable to request cancellation. The update is still running.'),
       ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-      onDone: function(){ window.location.reload(); }
+      onDone: function(){
+        var guard = guardApi();
+        if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+        window.location.reload();
+      }
     });
 
     function setUpdateInFlight(active){
@@ -1498,7 +1535,9 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
       btn.addEventListener('click', function(){
         var folder = btn.getAttribute('data-folder');
         if (!folder) return;
-        beginThemeUpdate(folder);
+        confirmAssignmentDiscard().then(function(confirmed){
+          if (confirmed) beginThemeUpdate(folder);
+        });
       });
     });
   })();

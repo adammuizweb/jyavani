@@ -32,6 +32,7 @@ $forms = [
     'dashboard/admin/users/save.php' => 'user-save-form',
     'dashboard/admin/users/roles/index.php' => 'authzRoleForm',
     'dashboard/admin/users/roles/index.php#create-role' => 'authzCreateForm',
+    'dashboard/admin/themes/assign.php' => 'theme-assign-form',
     'dashboard/admin/sidebar/index.php' => 'sidebar-create-zone-form',
     'dashboard/admin/sidebar/index.php#edit-zone' => 'sidebar-edit-zone-form',
     'dashboard/admin/sidebar/index.php#add-widget' => 'sidebar-add-widget-form',
@@ -94,6 +95,17 @@ $check(str_contains($roleManager, 'guard.confirmDiscardForm(form)')
     && str_contains($roleManager, 'createForm.submit()')
     && str_contains($roleManager, 'deleteForm?.submit()'),
     'Create and delete role actions protect active drafts and bypass only intentional navigation');
+$themeAssignments = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
+$check(str_contains($themeAssignments, 'function confirmAssignmentDiscard()')
+    && str_contains($themeAssignments, 'guard.confirmDiscardForm(assignForm)')
+    && str_contains($themeAssignments, 'function submitIntentional(form)')
+    && str_contains($themeAssignments, 'submitIntentional(assignForm)'),
+    'Per-slot assignment save uses the shared guard and bypasses only its approved submission');
+$check(substr_count($themeAssignments, 'submitAfterAssignmentDiscard(form)') >= 4
+    && str_contains($themeAssignments, "qsa('.js-theme-manager-page-action')")
+    && str_contains($themeAssignments, 'confirmAssignmentDiscard().then(function(confirmed)')
+    && str_contains($themeAssignments, 'if (confirmed) beginThemeUpdate(folder);'),
+    'Theme management actions protect active per-slot assignment drafts');
 
 $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $confirmScript = strpos($layout, '/static/components/confirm/confirm.js');
