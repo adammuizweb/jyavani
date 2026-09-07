@@ -266,7 +266,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
   <?php if (!empty($translationLocales)): ?>
   <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
     <label for="ct-sidebar-locale" style="font-weight:600;font-size:13px;"><?=_e('Edit translation')?></label>
-    <select id="ct-sidebar-locale" class="pht-select" onchange="location=this.value">
+    <select id="ct-sidebar-locale" class="pht-select">
       <option value="<?= h($self_url . '&zone_id=' . $selectedZoneId) ?>"><?=_e('Source language')?></option>
       <?php foreach ($translationLocales as $locale): ?>
       <option value="<?= h($self_url . '&zone_id=' . $selectedZoneId . '&ct_locale=' . rawurlencode($locale)) ?>" <?= $translationLocale === $locale ? 'selected' : '' ?>><?= h(strtoupper($locale)) ?></option>
@@ -288,7 +288,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
   <!-- Zone Selector & Management -->
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);padding:12px 16px;margin-bottom:16px;">
     <strong style="font-size:14px;white-space:nowrap;"><?=_e('Select Zone:')?></strong>
-    <select id="zone-selector" onchange="location=this.value" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+    <select id="zone-selector" style="flex:1;min-width:140px;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
       <?php foreach ($zones as $z): ?>
         <option value="<?= h($self_url . '&zone_id=' . $z['id']) ?>" <?= (int)$z['id'] === $selectedZoneId ? 'selected' : '' ?>>
           <?= h($z['name']) ?><?= !empty($z['is_primary']) ? ' ★' : '' ?>
@@ -301,7 +301,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
     <?php if ($currentZone): ?>
       <a href="<?= h($self_url . '&zone_id=' . $selectedZoneId . '&edit_zone=' . $selectedZoneId) ?>" class="adam-cancle" style="padding:6px 12px;font-size:13px;text-decoration:none;">&#9998; Edit</a>
       <?php if (empty($currentZone['is_primary'])): ?>
-        <form method="post" action="<?= h($base) ?>/?page=admin/sidebar/save" style="display:inline;">
+        <form method="post" action="<?= h($base) ?>/?page=admin/sidebar/save" style="display:inline;" id="sidebar-primary-form">
           <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
           <input type="hidden" name="action" value="set_primary">
           <input type="hidden" name="zone_id" value="<?= $selectedZoneId ?>">
@@ -314,7 +314,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
 
   <!-- Create Zone Modal (inline toggle) -->
   <div id="create-zone-box" style="display:none;background:var(--adam-card);border:1px solid var(--adam-border-2);border-radius:var(--adam-radius);padding:16px;margin-bottom:16px;">
-    <form method="post" action="<?= h($base) ?>/?page=admin/sidebar/save">
+    <form method="post" action="<?= h($base) ?>/?page=admin/sidebar/save" id="sidebar-create-zone-form" data-unsaved-guard>
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="action" value="create">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:500px;">
@@ -333,7 +333,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;">
         <button type="submit" class="adam-button" style="padding:6px 16px;"><?=_e('Create Zone')?></button>
-        <button type="button" class="adam-cancle" style="padding:6px 16px;" onclick="document.getElementById('create-zone-box').style.display='none'"><?=_e('Cancel')?></button>
+        <button type="button" class="adam-cancle" style="padding:6px 16px;" id="sidebar-create-zone-cancel"><?=_e('Cancel')?></button>
       </div>
     </form>
   </div>
@@ -341,7 +341,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
   <!-- Edit Zone Modal (inline toggle) -->
   <?php if ($zone_to_edit): ?>
   <div id="edit-zone-box" style="background:var(--adam-card);border:1px solid var(--adam-border-2);border-radius:var(--adam-radius);padding:16px;margin-bottom:16px;">
-    <form method="post" action="<?= h($base) ?>/?page=admin/sidebar/save">
+    <form method="post" action="<?= h($base) ?>/?page=admin/sidebar/save" id="sidebar-edit-zone-form" data-unsaved-guard>
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="action" value="rename">
       <input type="hidden" name="zone_id" value="<?= $selectedZoneId ?>">
@@ -379,7 +379,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
   <?php if ($currentZone): ?>
   <!-- Add Widget Form -->
   <div style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);padding:16px;margin-bottom:16px;">
-    <form method="post" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <form method="post" id="sidebar-add-widget-form" data-unsaved-guard style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="_action" value="add">
       <strong style="font-size:14px;white-space:nowrap;"><?=_e('+ Add Widget')?></strong>
@@ -415,7 +415,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
   </script>
 
   <!-- Widget Items List -->
-  <form method="post" id="sidebar-widgets-form">
+  <form method="post" id="sidebar-widgets-form" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="_action" value="save">
     <input type="hidden" name="_widget_order" id="widget-order" value="<?= h(implode(',', array_map(fn($it) => $it['id'] ?? '', $currentItems))) ?>">
@@ -645,8 +645,20 @@ function moveWidget(btn, dir) {
 
 function deleteWidget(btn, id) {
   if (!confirm('<?=__('Delete this widget?')?>')) return;
-  document.getElementById('sw-delete-id').value = id;
-  document.getElementById('sw-delete-form').submit();
+  var deleteForm = document.getElementById('sw-delete-form');
+  var guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  function submitDelete() {
+    document.getElementById('sw-delete-id').value = id;
+    if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+    deleteForm.submit();
+  }
+  if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+    submitDelete();
+    return;
+  }
+  guard.confirmDiscardForm().then(function(confirmed) {
+    if (confirmed) submitDelete();
+  });
 }
 
 function updateOrder() {
@@ -661,13 +673,104 @@ function updateOrder() {
 
 function showCreateZone() {
   var box = document.getElementById('create-zone-box');
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'none') {
+    box.style.display = 'block';
+    return;
+  }
+  closeCreateZone();
+}
+
+function closeCreateZone() {
+  var box = document.getElementById('create-zone-box');
+  var form = document.getElementById('sidebar-create-zone-form');
+  var guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  function close() {
+    if (form) form.reset();
+    if (guard && typeof guard.markSaved === 'function') guard.markSaved(null, null, form);
+    box.style.display = 'none';
+  }
+  if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+    close();
+    return;
+  }
+  guard.confirmDiscardForm(form).then(function(confirmed) {
+    if (confirmed) close();
+  });
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   var observer = new MutationObserver(function() { updateOrder(); });
   var list = document.getElementById('sidebar-widgets-list');
   if (list) observer.observe(list, { childList: true, subtree: false });
+
+  var guardedForms = [
+    document.getElementById('sidebar-create-zone-form'),
+    document.getElementById('sidebar-edit-zone-form'),
+    document.getElementById('sidebar-add-widget-form'),
+    document.getElementById('sidebar-widgets-form')
+  ].filter(Boolean);
+
+  function guardApi() {
+    return window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  }
+
+  function firstDirtyForm(excluded) {
+    var guard = guardApi();
+    if (!guard || typeof guard.isDirty !== 'function') return null;
+    return guardedForms.find(function(form) {
+      return form !== excluded && guard.isDirty(form);
+    }) || null;
+  }
+
+  function submitActionForm(form, ownDraft) {
+    if (!form) return;
+    form.addEventListener('submit', function(event) {
+      event.preventDefault();
+      var guard = guardApi();
+      var dirtyForm = firstDirtyForm(ownDraft);
+      function submit() {
+        if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+        form.submit();
+      }
+      if (!dirtyForm || !guard || typeof guard.confirmDiscardForm !== 'function') {
+        submit();
+        return;
+      }
+      guard.confirmDiscardForm(dirtyForm).then(function(confirmed) {
+        if (confirmed) submit();
+      });
+    });
+  }
+
+  guardedForms.forEach(function(form) { submitActionForm(form, form); });
+  submitActionForm(document.getElementById('sidebar-primary-form'), null);
+
+  function bindNavigationSelect(select) {
+    if (!select) return;
+    var originalValue = select.value;
+    select.addEventListener('change', function() {
+      var target = select.value;
+      var guard = guardApi();
+      if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+        window.location.assign(target);
+        return;
+      }
+      guard.confirmDiscardForm().then(function(confirmed) {
+        if (!confirmed) {
+          select.value = originalValue;
+          return;
+        }
+        if (typeof guard.allowNavigation === 'function') guard.allowNavigation();
+        window.location.assign(target);
+      });
+    });
+  }
+
+  bindNavigationSelect(document.getElementById('zone-selector'));
+  bindNavigationSelect(document.getElementById('ct-sidebar-locale'));
+
+  var createCancel = document.getElementById('sidebar-create-zone-cancel');
+  if (createCancel) createCancel.addEventListener('click', closeCreateZone);
 });
 </script>
 

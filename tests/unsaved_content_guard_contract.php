@@ -27,12 +27,17 @@ $forms = [
     'dashboard/admin/settings/email.php' => 'email-settings-form',
     'dashboard/admin/settings/auth.php' => 'auth-settings-form',
     'dashboard/admin/settings/sidebar.php' => 'sidebar-settings-form',
+    'dashboard/admin/sidebar/index.php' => 'sidebar-create-zone-form',
+    'dashboard/admin/sidebar/index.php#edit-zone' => 'sidebar-edit-zone-form',
+    'dashboard/admin/sidebar/index.php#add-widget' => 'sidebar-add-widget-form',
+    'dashboard/admin/sidebar/index.php#widgets' => 'sidebar-widgets-form',
     'dashboard/admin/shortcodes/edit.php' => 'sc-form',
     'dashboard/admin/shortcodes/layout.php' => 'layout-form',
 ];
 
 foreach ($forms as $path => $id) {
-    $source = (string)file_get_contents($root . '/' . $path);
+    $sourcePath = explode('#', $path, 2)[0];
+    $source = (string)file_get_contents($root . '/' . $sourcePath);
     $idPosition = strpos($source, 'id="' . $id . '"');
     $formMarkup = $idPosition !== false ? substr($source, max(0, $idPosition - 100), 1400) : '';
     $check($idPosition !== false && str_contains($formMarkup, 'data-unsaved-guard'),
@@ -192,6 +197,25 @@ $check(str_contains($mediaIndex, 'guard.confirmDiscardForm(form)')
     && str_contains($fileModal, "__('Insert without saving')")
     && str_contains((string)file_get_contents($root . '/dashboard/admin/modal_file/index.php'), 'guard.confirmDiscardForm(form)'),
     'single detail close, Back, and Insert paths confirm before discarding dirty metadata');
+
+$sidebarManager = (string)file_get_contents($root . '/dashboard/admin/sidebar/index.php');
+$check(str_contains($sidebarManager, 'guard.confirmDiscardForm(form)')
+    && str_contains($sidebarManager, 'form.reset();')
+    && str_contains($sidebarManager, 'guard.markSaved(null, null, form)'),
+    'Create Zone close confirms before discarding and resets its guarded draft baseline');
+$check(str_contains($sidebarManager, 'function firstDirtyForm(excluded)')
+    && str_contains($sidebarManager, 'guard.isDirty(form)')
+    && str_contains($sidebarManager, 'guard.confirmDiscardForm(dirtyForm)')
+    && str_contains($sidebarManager, "submitActionForm(document.getElementById('sidebar-primary-form'), null)"),
+    'Sidebar actions confirm before discarding a different dirty zone or gadget form');
+$check(substr_count($sidebarManager, 'bindNavigationSelect(') >= 3
+    && str_contains($sidebarManager, 'guard.confirmDiscardForm()')
+    && str_contains($sidebarManager, 'select.value = originalValue;'),
+    'zone and translation selectors guard programmatic navigation and restore cancelled selections');
+$check(str_contains($sidebarManager, 'function deleteWidget(btn, id)')
+    && str_contains($sidebarManager, 'if (confirmed) submitDelete();')
+    && str_contains($sidebarManager, 'guard.allowNavigation();'),
+    'widget deletion confirms before abandoning unsaved gadget settings');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " unsaved content guard contract check(s) failed.\n");
