@@ -161,6 +161,9 @@ $allPlugins = plugins_all();
 $activePlugins = plugins_active();
 $requirementDiagnostics = plugin_requirement_diagnostics();
 $availableUpdates = UpdateStatusController::getComponentUpdates('plugins');
+$pluginUpdateOrder = function_exists('plugin_order_names_by_dependencies')
+    ? plugin_order_names_by_dependencies(array_keys($availableUpdates), true)
+    : array_keys($availableUpdates);
 $hasStoreUrl = false;
 foreach ($allPlugins as $name => $p) {
     if (!empty($p['store'])) { $hasStoreUrl = true; break; }
@@ -309,6 +312,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
     <option value=""><?=_e('-- Bulk action --')?></option>
     <option value="activate"><?=_e('Activate')?></option>
     <option value="deactivate"><?=_e('Deactivate')?></option>
+    <option value="update"><?=_e('Update available')?></option>
     <option value="uninstall"><?=_e('Uninstall (keep data)')?></option>
   </select>
   <button type="submit" class="btn btn-sm btn-primary" id="bulkApplyBtn" disabled><?=_e('Apply')?></button>
@@ -359,7 +363,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
     ?>
     <tr data-plugin="<?= h($name) ?>">
       <td class="td-check">
-        <input type="checkbox" class="plugin-checkbox" value="<?= h($name) ?>">
+        <input type="checkbox" class="plugin-checkbox" value="<?= h($name) ?>" data-update-eligible="<?= $hasUpdate && $updateActionable && $updateCompatible ? '1' : '0' ?>">
       </td>
       <td>
         <div class="plugin-cell">
@@ -533,6 +537,9 @@ $buildUrl = function(array $overrides = []) use ($base): string {
   .toolbar-search{ min-width:0; width:100%; }
   .plugin-toolbar select.inp{ width:100%; }
   .plugin-toolbar .btn-outline{ width:100%; text-align:center; justify-content:center; }
+  .bulk-bar{ flex-wrap:wrap; }
+  .bulk-bar .inp-sm{ flex:1 1 180px; min-width:0; }
+  .bulk-bar .btn{ flex:1 1 auto; justify-content:center; }
 }
 .inp-sm { font-size:.8rem; padding:.25rem .5rem; }
 
@@ -742,6 +749,15 @@ function applyPluginConfirm() {
 
 function startPluginUpdate(pluginName) {
   var token = makeProgressToken();
+  preparePluginUpdateProgress(token, pluginName);
+  dispatchPluginUpdate(pluginName, token).then(function(data) {
+    if (!data.ok && !data.cancelled) _pluginUpdateProcess.dispatchFailed(data.error || '<?=__('Update failed.')?>');
+  }).catch(function(err) {
+    _pluginUpdateProcess.dispatchFailed(err.message || '<?=__('The update request failed.')?>');
+  });
+}
+
+function preparePluginUpdateProgress(token, context) {
   var overlay = document.getElementById('pluginUpdateProgress');
   var stage = overlay && overlay.querySelector('[data-update-process-stage]');
   var warning = overlay && overlay.querySelector('[data-update-process-warning]');
@@ -749,8 +765,10 @@ function startPluginUpdate(pluginName) {
   if (stage) stage.style.display = '';
   if (warning) warning.style.display = '';
   if (actions) actions.style.display = '';
-  _pluginUpdateProcess.start(token, pluginName);
+  _pluginUpdateProcess.start(token, context);
+}
 
+function dispatchPluginUpdate(pluginName, token) {
   var baseUrl = '<?= $base ?>';
   var applyUrl = baseUrl + '/admin/plugins/update_apply.php';
 
@@ -760,7 +778,7 @@ function startPluginUpdate(pluginName) {
   formData.append('plugin', pluginName);
   formData.append('token', token);
 
-  fetch(applyUrl, {
+  return fetch(applyUrl, {
     method: 'POST',
     credentials: 'same-origin',
     cache: 'no-store',
@@ -773,12 +791,43 @@ function startPluginUpdate(pluginName) {
   .then(function(r) {
     return r.json().catch(function() { return {ok: false, error: '<?=__('The update server returned an invalid response.')?>'}; });
   })
-  .then(function(data) {
-    if (!data.ok && !data.cancelled) _pluginUpdateProcess.dispatchFailed(data.error || '<?=__('Update failed.')?>');
-  })
-  .catch(function(err) {
-    _pluginUpdateProcess.dispatchFailed(err.message || '<?=__('The update request failed.')?>');
-  });
+  .then(function(data) { return data; });
+}
+
+function startBulkPluginUpdate(pluginNames) {
+  var succeeded = 0;
+  var failed = 0;
+  var total = pluginNames.length;
+
+  function finish(outcome, message) {
+    _pluginUpdateProcess.finish(outcome, message, '<?=__('Bulk plugin update')?>');
+  }
+
+  function updateNext(index) {
+    if (index >= total) {
+      var summary = <?= json_encode(__('%d updated, %d failed.')) ?>
+        .replace('%d', String(succeeded)).replace('%d', String(failed));
+      finish(failed > 0 ? 'failed' : 'completed', summary);
+      return;
+    }
+
+    var pluginName = pluginNames[index];
+    var token = makeProgressToken();
+    preparePluginUpdateProgress(token, (index + 1) + '/' + total + ' ' + pluginName);
+    dispatchPluginUpdate(pluginName, token).then(function(data) {
+      if (data.cancelled) {
+        finish('cancelled', <?= json_encode(__('Bulk update cancelled after %d successful update(s).')) ?>.replace('%d', String(succeeded)));
+        return;
+      }
+      if (data.ok) succeeded++;
+      else failed++;
+      updateNext(index + 1);
+    }).catch(function(err) {
+      _pluginUpdateProcess.dispatchFailed(err.message || '<?=__('The update request failed.')?>');
+    });
+  }
+
+  updateNext(0);
 }
 
 // ─── Bulk selection ───
@@ -793,9 +842,11 @@ function startPluginUpdate(pluginName) {
   function updateBulkBar() {
     var checked = document.querySelectorAll('.plugin-checkbox:checked');
     var count = checked.length;
+    var action = bulkSelect ? bulkSelect.value : '';
+    var updateCount = document.querySelectorAll('.plugin-checkbox:checked[data-update-eligible="1"]').length;
     if (bulkCount) bulkCount.textContent = count;
     if (bulkBar) bulkBar.style.display = count > 0 ? 'flex' : 'none';
-    if (bulkApply) bulkApply.disabled = count === 0 || !bulkSelect || bulkSelect.value === '';
+    if (bulkApply) bulkApply.disabled = count === 0 || !action || (action === 'update' && updateCount === 0);
     // Row highlight
     checkboxes.forEach(function(cb) {
       var row = cb.closest('tr');
@@ -831,6 +882,34 @@ function startPluginUpdate(pluginName) {
       if (checked.length === 0) { e.preventDefault(); return; }
       var action = bulkSelect ? bulkSelect.value : '';
       if (!action) { e.preventDefault(); return; }
+
+      if (action === 'update') {
+        e.preventDefault();
+        var updateNames = Array.prototype.map.call(
+          document.querySelectorAll('.plugin-checkbox:checked[data-update-eligible="1"]'),
+          function(cb) { return cb.value; }
+        );
+        if (updateNames.length === 0) return;
+        var dependencyOrder = <?= json_encode(array_values($pluginUpdateOrder), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        updateNames.sort(function(a, b) {
+          var aIndex = dependencyOrder.indexOf(a);
+          var bIndex = dependencyOrder.indexOf(b);
+          return (aIndex < 0 ? Number.MAX_SAFE_INTEGER : aIndex) - (bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex);
+        });
+        var options = {
+          title: <?= json_encode(__('Update selected plugins')) ?>,
+          message: <?= json_encode(__('Update %d selected plugin(s)? Updates run one at a time with a backup before each plugin.')) ?>.replace('%d', String(updateNames.length)),
+          confirmText: <?= json_encode(__('Yes, update')) ?>,
+          cancelText: <?= json_encode(__('Cancel')) ?>
+        };
+        var decision = window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function'
+          ? window.NewNotifConfirm.warning(options)
+          : Promise.resolve(window.confirm(options.message));
+        decision.then(function(confirmed) {
+          if (confirmed) startBulkPluginUpdate(updateNames);
+        });
+        return;
+      }
 
       // Clear old hidden inputs
       bulkBar.querySelectorAll('input[name="plugins[]"]').forEach(function(el) { el.remove(); });

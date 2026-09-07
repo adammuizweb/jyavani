@@ -106,6 +106,7 @@ $emailTestRoute = (string)file_get_contents($root . '/dashboard/admin/settings/e
 $settingsRoutes = $siteSettingsRoute . $authSettingsRoute . $emailSettingsRoute . $emailTestRoute;
 $pluginManagerRoutes = '';
 foreach (glob($root . '/dashboard/admin/plugins/*.php') ?: [] as $pluginManagerRoute) {
+    if (str_starts_with(basename($pluginManagerRoute), '_')) continue;
     $pluginManagerRoutes .= (string)file_get_contents($pluginManagerRoute);
 }
 $installedThemeRoutes = '';
@@ -408,8 +409,8 @@ $check(
 $check(
     !str_contains($pluginManagerRoutes, 'adiwira_require_role')
     && !str_contains($pluginManagerRoutes, 'adiwira_require_admin')
-    && substr_count($pluginManagerRoutes, "core.plugins.manage") === 6
-    && substr_count($pluginManagerRoutes, 'adiwira_require_site_owner') === 6
+    && substr_count($pluginManagerRoutes, "core.plugins.manage") === 7
+    && substr_count($pluginManagerRoutes, 'adiwira_require_site_owner') === 7
     && !str_contains($roleManager, "'core.plugins.manage'"),
     'code-executing plugin management remains Site Owner-only'
 );

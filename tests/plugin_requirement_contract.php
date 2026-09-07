@@ -5,8 +5,10 @@ $root = dirname(__DIR__);
 $fixture = sys_get_temp_dir() . '/plugin-requirement-contract-' . getmypid() . '-' . bin2hex(random_bytes(4));
 define('BACKEND_PATH', $fixture . '/cfg');
 define('PUBLIC_PATH', $fixture . '/public');
+define('PLUGIN_PATH', $fixture . '/plugins');
 mkdir(BACKEND_PATH . '/var', 0775, true);
 mkdir(PUBLIC_PATH, 0775, true);
+mkdir(PLUGIN_PATH, 0775, true);
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/plugins/index.php';
 require_once $root . '/app/controllers/PluginStoreController.php';
@@ -40,6 +42,23 @@ $check(plugin_package_requirement_errors(
     ['requires' => ['jyavani' => '>=2.3.0', 'php' => '>=8.1']],
     ['requires' => ['jyavani' => '>=2.0.0', 'php' => '>=8.1']]
 ) !== [], 'store install rejects weaker or mismatched package requirements');
+$versionPackage = $fixture . '/version-mismatch.zip';
+$versionZip = new ZipArchive();
+$versionZip->open($versionPackage, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+$versionZip->addFromString('plugin.json', json_encode([
+    'name' => 'contract-version',
+    'title' => 'Contract Version',
+    'version' => '1.0.0',
+    'requires' => [],
+], JSON_THROW_ON_ERROR));
+$versionZip->close();
+$versionMismatch = plugin_prepare_package_stage($versionPackage, 'contract-version', false, [
+    'version' => '2.0.0',
+    'requires' => [],
+]);
+$check(($versionMismatch['success'] ?? true) === false
+    && str_contains((string)($versionMismatch['error'] ?? ''), 'version does not match'),
+    'store install rejects a package whose manifest version differs from authoritative metadata');
 $refreshed = PluginStoreController::refreshCompatibility([
     'contract-plugin' => [
         'new_version' => '2.0.0',
@@ -102,7 +121,11 @@ $check(str_contains($updater, "'checksum' => is_string(\$checksum) ? \$checksum 
 $check(str_contains($updater, 'plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy)') && str_contains($updater, "'rollback_incomplete'"), 'updates track old and new static destinations and report incomplete static rollback');
 $check(str_contains($browse, 'plugin_prepare_package_stage($tmpZip, $pluginName, $activatePlugin, $pluginData)')
     && str_contains($registry, 'plugin_package_requirement_errors($catalog, $manifest)')
-    && str_contains($browse, 'plugin_install_requirements_error_message($pluginData, $activatePlugin)'),
+    && str_contains($registry, 'hash_equals($catalogVersion, $packageVersion)')
+    && str_contains($browse, 'plugin_install_requirements_error_message($pluginData, $activatePlugin)')
+    && str_contains($browse, 'PluginStoreController::fetchOfficialPlugin($pluginName)')
+    && str_contains($browse, "hash_file('sha256', \$tmpZip)")
+    && str_contains($browse, 'hash_equals($checksum, strtolower($actualChecksum))'),
     'store initial install enforces catalog parity and activation-aware requirements');
 $staticCleanup = strpos($registry, '// Remove the complete live tree first');
 $deleteFunction = strpos($registry, 'function plugin_delete');
