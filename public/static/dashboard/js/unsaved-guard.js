@@ -4,12 +4,13 @@
   window.ADIWIRA = window.ADIWIRA || {};
   if (window.ADIWIRA.unsavedGuard) return;
 
-  const ignoredNames = new Set(['csrf_token', 'save_nonce', 'return_to', 'id', 'ajax', 'content']);
+  const ignoredNames = new Set(['csrf_token', 'save_nonce', 'return_to', 'id', 'ajax']);
   const state = {
     form: null,
     baseline: '',
     forms: [],
     baselines: new WeakMap(),
+    forcedDirty: new WeakSet(),
     bypass: false,
     confirming: false
   };
@@ -82,10 +83,14 @@
   function snapshot(form) {
     if (!form) return '';
     const fields = [];
+    const hasManagedContentEditor = Boolean(form.querySelector(
+      '#content-input, #content-textarea, #quill-editor, #cm-textarea, input[name="editor_mode"]'
+    ));
     Array.from(form.elements || []).forEach(function (control) {
       const name = String(control.name || '');
       const type = String(control.type || '').toLowerCase();
       if (!name || control.disabled || ignoredNames.has(name)
+          || (name === 'content' && hasManagedContentEditor)
           || type === 'submit' || type === 'button' || type === 'reset' || type === 'image') return;
       controlValues(control).forEach(function (value) {
         fields.push([name, value]);
@@ -110,6 +115,7 @@
       state.forms.push(form);
       form.addEventListener('submit', handleNativeSubmit);
     }
+    if (form.hasAttribute('data-unsaved-guard-initial-dirty')) state.forcedDirty.add(form);
     activate(form);
   }
 
@@ -117,6 +123,7 @@
     if (!form) return;
     state.forms = state.forms.filter(function (candidate) { return candidate !== form; });
     state.baselines.delete(form);
+    state.forcedDirty.delete(form);
     if (state.form !== form) return;
     state.form = null;
     state.baseline = '';
@@ -135,6 +142,7 @@
 
   function formIsDirty(form) {
     if (!form || !form.isConnected) return false;
+    if (state.forcedDirty.has(form)) return true;
     const baseline = form === state.form ? state.baseline : state.baselines.get(form);
     return typeof baseline === 'string' && snapshot(form) !== baseline;
   }
@@ -173,6 +181,7 @@
       ? rebaseSnapshot(snapshotValue, canonicalValues)
       : snapshot(target);
     state.baselines.set(target, baseline);
+    state.forcedDirty.delete(target);
     if (target === state.form) state.baseline = baseline;
     state.bypass = false;
   }

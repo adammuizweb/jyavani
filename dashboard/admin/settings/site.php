@@ -267,7 +267,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
     </div>
   <?php endif; ?>
 
-  <form method="post" novalidate id="site-settings-form">
+  <form method="post" novalidate id="site-settings-form" data-unsaved-guard<?= ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
     <!-- General -->

@@ -23,6 +23,7 @@ $forms = [
     'dashboard/admin/modal_img/single_modal.php' => 'mdlib-media-edit-form',
     'dashboard/admin/file/single.php' => 'file-edit-form',
     'dashboard/admin/modal_file/single_modal.php' => 'mdlib-file-edit-form',
+    'dashboard/admin/settings/site.php' => 'site-settings-form',
 ];
 
 foreach ($forms as $path => $id) {
@@ -47,12 +48,17 @@ $check(str_contains($layout, "'badge' => __('Confirmation required')")
 
 $guard = (string)file_get_contents($root . '/public/static/dashboard/js/unsaved-guard.js');
 $check(str_contains($guard, 'Array.from(form.elements || [])')
-    && str_contains($guard, "new Set(['csrf_token', 'save_nonce', 'return_to', 'id', 'ajax', 'content'])")
+    && str_contains($guard, "new Set(['csrf_token', 'save_nonce', 'return_to', 'id', 'ajax'])")
     && str_contains($guard, 'control.disabled')
+    && str_contains($guard, "name === 'content' && hasManagedContentEditor")
     && str_contains($guard, "type === 'checkbox' || type === 'radio'")
     && str_contains($guard, "type === 'select-multiple'")
     && str_contains($guard, "type === 'file'"),
     'state snapshots cover successful form controls while excluding server-only fields');
+$check(str_contains($guard, "form.hasAttribute('data-unsaved-guard-initial-dirty')")
+    && str_contains($guard, 'state.forcedDirty.add(form)')
+    && str_contains($guard, 'state.forcedDirty.delete(target)'),
+    'server-rejected form values remain dirty until a successful save');
 $check(str_contains($guard, 'window.__adam_quill_instance.root.innerHTML')
     && str_contains($guard, 'editQuill.getInstance()')
     && str_contains($guard, 'helper.getInstance()')
