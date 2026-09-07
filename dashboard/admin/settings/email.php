@@ -254,7 +254,7 @@ $testRecipient = is_array($actor) ? (string)($actor['email'] ?? '') : '';
 
   <div class="mail-settings__content">
   <div class="mail-settings__grid">
-    <form class="mail-settings__panel mail-settings__panel--primary" method="post" novalidate>
+    <form id="email-settings-form" class="mail-settings__panel mail-settings__panel--primary" method="post" novalidate data-unsaved-guard<?= (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
       <input type="hidden" name="csrf_token" value="<?=h(csrf_token())?>">
       <h2><?=_e('Mail Configuration')?></h2>
       <p><?=_e('Plugins send through the Core Mail API and do not need to depend on a specific SMTP plugin.')?></p>
@@ -309,7 +309,7 @@ $testRecipient = is_array($actor) ? (string)($actor['email'] ?? '') : '';
         <div class="mail-settings__status"><div><b><?=h($transports[$transport]['label'] ?? $transport)?></b><small><?=h($transport)?></small></div><span class="mail-settings__badge <?=$configuredStatus?'ok':'bad'?>"><?php if($configuredStatus):?><?=_e('Available')?><?php else:?><?=_e('Unavailable')?><?php endif;?></span></div>
       </div>
 
-      <form class="mail-settings__panel" method="post" action="<?=h($base)?>/admin/settings/email_test.php">
+      <form id="email-test-form" class="mail-settings__panel" method="post" action="<?=h($base)?>/admin/settings/email_test.php">
         <input type="hidden" name="csrf_token" value="<?=h(csrf_token())?>">
         <input type="hidden" name="return_to" value="<?=h($selfUrl)?>">
         <h2><?=_e('Send Test Email')?></h2>

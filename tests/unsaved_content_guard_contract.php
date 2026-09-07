@@ -24,6 +24,8 @@ $forms = [
     'dashboard/admin/file/single.php' => 'file-edit-form',
     'dashboard/admin/modal_file/single_modal.php' => 'mdlib-file-edit-form',
     'dashboard/admin/settings/site.php' => 'site-settings-form',
+    'dashboard/admin/settings/email.php' => 'email-settings-form',
+    'dashboard/admin/settings/auth.php' => 'auth-settings-form',
 ];
 
 foreach ($forms as $path => $id) {
@@ -33,6 +35,15 @@ foreach ($forms as $path => $id) {
     $check($idPosition !== false && str_contains($formMarkup, 'data-unsaved-guard'),
         $id . ' opts into the shared unsaved-change guard');
 }
+
+$emailSettings = (string)file_get_contents($root . '/dashboard/admin/settings/email.php');
+$emailTestPosition = strpos($emailSettings, 'id="email-test-form"');
+$emailTestMarkup = $emailTestPosition !== false ? substr($emailSettings, $emailTestPosition, 300) : '';
+$check($emailTestPosition !== false && !str_contains($emailTestMarkup, 'data-unsaved-guard'),
+    'Send Test Email remains an action form rather than an independently guarded settings form');
+$check(str_contains($emailSettings, "data-unsaved-guard-initial-dirty' : ''")
+    && str_contains((string)file_get_contents($root . '/dashboard/admin/settings/auth.php'), "data-unsaved-guard-initial-dirty' : ''"),
+    'Email and Auth settings preserve guard state after server-side validation errors');
 
 $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $confirmScript = strpos($layout, '/static/components/confirm/confirm.js');
