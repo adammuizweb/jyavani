@@ -131,7 +131,7 @@ if (!function_exists('human_filesize')) {
       <div class="single-file-section asset-detail-editor">
         <div class="file-section-title"><?=_e('Metadata')?></div>
 
-        <form id="file-edit-form" class="asset-detail-fields">
+        <form id="file-edit-form" class="asset-detail-fields" data-unsaved-guard>
           <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -250,6 +250,8 @@ if (!function_exists('human_filesize')) {
       if (!ok) return;
 
       saveBtn.disabled = true;
+      const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+      const submittedSnapshot = guard && typeof guard.capture === 'function' ? guard.capture(form) : null;
 
       const fd = new FormData(form);
       const csrf = getCsrfToken();
@@ -271,6 +273,7 @@ if (!function_exists('human_filesize')) {
         }
 
         if (j && j.ok) {
+          if (guard && typeof guard.markSaved === 'function') guard.markSaved(submittedSnapshot, null, form);
           uiToast('success', '<?=__('File')?>', '<?=__('File updated successfully.')?>', 3000);
           document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
@@ -319,6 +322,8 @@ if (!function_exists('human_filesize')) {
         }
 
         if (j && j.ok) {
+          const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+          if (guard && typeof guard.unregister === 'function') guard.unregister(form);
           uiToast('success', '<?=__('File')?>', '<?=__('File moved to trash.')?>', undefined, j.action);
           if (j.warning) {
             uiToast('warning', '<?=__('File')?>', j.warning, 6000);

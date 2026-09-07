@@ -222,7 +222,7 @@ function showNotif(title, msg, ms, forcedType){
     fd.set('ajax', '1');
     const unsavedGuard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
     const submittedSnapshot = unsavedGuard && typeof unsavedGuard.capture === 'function'
-      ? unsavedGuard.capture()
+      ? unsavedGuard.capture(formEl)
       : null;
     const slugField = formEl.querySelector('input[name="slug"]');
     const submittedSlug = slugField ? slugField.value : undefined;
@@ -282,7 +282,7 @@ if (j.ok) {
   updateNonceIfAny(j);
 
   if (unsavedGuard && typeof unsavedGuard.markSaved === 'function') {
-    unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);
+    unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null, formEl);
   }
 
   showNotif('Success', j.message || 'Changes saved successfully.', 2000, 'success');

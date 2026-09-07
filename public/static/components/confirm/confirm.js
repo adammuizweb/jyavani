@@ -88,6 +88,7 @@
 
     if (ev.key === 'Escape') {
       ev.preventDefault();
+      ev.stopImmediatePropagation();
       close(false);
       return;
     }

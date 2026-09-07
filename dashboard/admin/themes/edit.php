@@ -251,7 +251,7 @@ if ($isReadOnly) {
     syncContent();
     const unsavedGuard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
     const submittedSnapshot = unsavedGuard && typeof unsavedGuard.capture === 'function'
-      ? unsavedGuard.capture()
+      ? unsavedGuard.capture(form)
       : null;
     const slugField = form.querySelector('input[name="slug"]');
     const submittedSlug = slugField ? slugField.value : undefined;
@@ -300,7 +300,7 @@ if ($isReadOnly) {
         slugField.value = canonicalSlug;
       }
       if (unsavedGuard && typeof unsavedGuard.markSaved === 'function') {
-        unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);
+        unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null, form);
       }
 
       if (data.redirect) {

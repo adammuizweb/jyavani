@@ -277,12 +277,24 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
   };
 
-  window.adamModalClose = function(){
+  window.adamModalClose = function(force){
     if (!modalBackdrop || !modalBox) return;
+    const form = modalBox.querySelector('form[data-unsaved-guard]');
+    const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    if (form && force !== true && guard && typeof guard.confirmDiscardForm === 'function' && guard.isDirty(form)) {
+      guard.confirmDiscardForm(form).then(function(ok){
+        if (!ok) return;
+        if (typeof guard.unregister === 'function') guard.unregister(form);
+        window.adamModalClose(true);
+      });
+      return false;
+    }
+    if (guard && typeof guard.unregister === 'function') guard.unregister(form);
     modalBackdrop.style.display = 'none';
     modalBox.innerHTML = '';
     document.documentElement.style.overflow = '';
     document.body.style.overflow = '';
+    return true;
   };
 
   if (modalBackdrop) {
@@ -389,6 +401,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       const form = saveBtn.closest('form');
       if (!form) return;
+      const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+      const submittedSnapshot = guard && typeof guard.capture === 'function' ? guard.capture(form) : null;
 
       saveBtn.disabled = true;
 
@@ -412,6 +426,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
+          if (guard && typeof guard.markSaved === 'function') guard.markSaved(submittedSnapshot, null, form);
           uiToast('success', '<?=__('File')?>', '<?=__('File updated successfully.')?>', 3000);
           document.dispatchEvent(new CustomEvent('file:updated', { detail: j.file || j }));
         } else {
@@ -465,12 +480,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
+          const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+          if (guard && typeof guard.unregister === 'function') guard.unregister(form);
           uiToast('success', '<?=__('File')?>', '<?=__('File moved to trash.')?>', undefined, j.action);
           if (j.warning) {
             uiToast('warning', '<?=__('File')?>', j.warning, 6000);
           }
           document.dispatchEvent(new CustomEvent('file:deleted', { detail: j }));
-          window.adamModalClose();
+          window.adamModalClose(true);
         } else {
           uiToast('error', '<?=__('File')?>', ((j && j.error) ? j.error : (txt || 'unknown')), 6000);
         }

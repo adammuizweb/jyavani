@@ -130,7 +130,8 @@
 
     var old = document.getElementById('adam-modal-backdrop');
     if (old && typeof window.adamModalClose === 'function') {
-      window.adamModalClose();
+      var closed = window.adamModalClose(false, function(){ window.adamModalOpen(url, opts); });
+      if (closed === false) return old;
     }
 
     var bd = document.createElement('div');
@@ -234,7 +235,7 @@
     return bd;
   };
 
-  window.adamModalClose = function(){
+  function closeModalNow(){
     var bd = document.getElementById('adam-modal-backdrop');
     if (!bd) return;
 
@@ -257,5 +258,24 @@
     if (bd.parentNode) {
       bd.parentNode.removeChild(bd);
     }
+  }
+
+  window.adamModalClose = function(force, afterDiscard){
+    var bd = document.getElementById('adam-modal-backdrop');
+    if (!bd) return true;
+    var form = bd.querySelector('form[data-unsaved-guard]');
+    var guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    if (form && force !== true && guard && typeof guard.confirmDiscardForm === 'function' && guard.isDirty(form)) {
+      guard.confirmDiscardForm(form).then(function(ok){
+        if (!ok) return;
+        if (typeof guard.unregister === 'function') guard.unregister(form);
+        closeModalNow();
+        if (typeof afterDiscard === 'function') afterDiscard();
+      });
+      return false;
+    }
+    if (guard && typeof guard.unregister === 'function') guard.unregister(form);
+    closeModalNow();
+    return true;
   };
 })();

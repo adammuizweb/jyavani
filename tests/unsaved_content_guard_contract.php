@@ -19,12 +19,16 @@ $forms = [
     'dashboard/admin/themes/edit.php' => 'theme-edit-form',
     'dashboard/admin/categories/add.php' => 'category-add-form',
     'dashboard/admin/categories/edit.php' => 'category-edit-form',
+    'dashboard/admin/media/single.php' => 'media-edit-form',
+    'dashboard/admin/modal_img/single_modal.php' => 'mdlib-media-edit-form',
+    'dashboard/admin/file/single.php' => 'file-edit-form',
+    'dashboard/admin/modal_file/single_modal.php' => 'mdlib-file-edit-form',
 ];
 
 foreach ($forms as $path => $id) {
     $source = (string)file_get_contents($root . '/' . $path);
     $idPosition = strpos($source, 'id="' . $id . '"');
-    $formMarkup = $idPosition !== false ? substr($source, max(0, $idPosition - 100), 500) : '';
+    $formMarkup = $idPosition !== false ? substr($source, max(0, $idPosition - 100), 1400) : '';
     $check($idPosition !== false && str_contains($formMarkup, 'data-unsaved-guard'),
         $id . ' opts into the shared unsaved-change guard');
 }
@@ -71,9 +75,18 @@ $check(str_contains($guard, "badgeText: labels.badge || 'Confirmation required'"
     'the confirmation badge uses English source text with Indonesian and German seeds');
 $check(str_contains($guard, 'window.NewNotifConfirm.warning(options)')
     && str_contains($guard, "focus: 'cancel'")
-    && str_contains($guard, "event.preventDefault();\n    if (state.confirming) return;")
+    && str_contains($guard, 'event.preventDefault();')
+    && str_contains($guard, 'if (state.confirming) return Promise.resolve(false);')
+    && str_contains($guard, 'confirmDiscardForm().then(function (confirmed)')
     && str_contains($guard, 'window.location.assign(url.href)'),
     'current-tab navigation uses one accessible Core warning modal and blocks repeated clicks before leaving');
+$check(str_contains($confirm, 'ev.stopImmediatePropagation();'),
+    'Escape dismisses only the active confirmation without closing its parent asset modal');
+$check(str_contains($translations, "('default', 'Insert this file without saving its metadata changes?', 'Sisipkan file ini tanpa menyimpan perubahan metadatanya?', 'id')")
+    && str_contains($translations, "('default', 'Insert this file without saving its metadata changes?', 'Diese Datei einfügen, ohne die Metadatenänderungen zu speichern?', 'de')")
+    && str_contains($translations, "('default', 'Insert without saving', 'Sisipkan tanpa menyimpan', 'id')")
+    && str_contains($translations, "('default', 'Insert without saving', 'Ohne Speichern einfügen', 'de')"),
+    'File Insert warning has Indonesian and German translation seeds');
 $check(str_contains($guard, "window.addEventListener('beforeunload', handleBeforeUnload)")
     && str_contains($guard, 'event.preventDefault()')
     && str_contains($guard, "event.returnValue = ''"),
@@ -84,6 +97,14 @@ $check(str_contains($guard, "form.addEventListener('submit', handleNativeSubmit)
     'only uncancelled native submissions temporarily bypass the unload warning');
 $check(str_contains($guard, 'setTimeout(mount, 0);'),
     'the initial baseline waits for existing DOMContentLoaded editor initializers');
+$check(str_contains($guard, 'state.forms.push(form)')
+    && str_contains($guard, 'baselines: new WeakMap()')
+    && str_contains($guard, 'new MutationObserver(function (mutations)')
+    && str_contains($guard, "node.matches('form[data-unsaved-guard]')")
+    && str_contains($guard, 'function pruneForms()')
+    && str_contains($guard, 'if (!state.form || state.form.isConnected) return;')
+    && str_contains($guard, 'function unregister(form)'),
+    'the guard registers dynamic modal forms and restores previously active guarded forms');
 
 $ajaxSave = (string)file_get_contents($root . '/public/static/js/edit/ajax_save.js');
 $check(str_contains($ajaxSave, "formEl.querySelector('input[name=\"editor_mode\"]:checked')")
@@ -105,15 +126,41 @@ $check(str_contains($categoryAdd, 'confirmed = true;')
     && !str_contains($categoryEdit, 'form.submit();'),
     'Category save confirmation redispatches outside the original submit task so the guard can allow approved navigation');
 $check(str_contains($ajaxSave, 'const submittedSnapshot = unsavedGuard')
+    && str_contains($ajaxSave, 'unsavedGuard.capture(formEl)')
     && str_contains($ajaxSave, 'slugEl.value === submittedSlug')
-    && str_contains($ajaxSave, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);')
+    && str_contains($ajaxSave, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null, formEl);')
     && str_contains($guard, 'function rebaseSnapshot(snapshotValue, canonicalValues)'),
     'AJAX success rebases the submitted state while preserving newer edits and canonical slug state');
 $themeEdit = (string)file_get_contents($root . '/dashboard/admin/themes/edit.php');
 $check(str_contains($themeEdit, 'const submittedSnapshot = unsavedGuard')
+    && str_contains($themeEdit, 'unsavedGuard.capture(form)')
     && str_contains($themeEdit, 'slugField.value === submittedSlug')
-    && str_contains($themeEdit, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);'),
+    && str_contains($themeEdit, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null, form);'),
     'Theme AJAX success also rebases submitted state and preserves edits made during the request');
+
+$mediaIndex = (string)file_get_contents($root . '/dashboard/admin/media/index.php');
+$fileIndex = (string)file_get_contents($root . '/dashboard/admin/file/index.php');
+$mediaModal = (string)file_get_contents($root . '/dashboard/admin/modal_img/single_modal.php');
+$fileModal = (string)file_get_contents($root . '/dashboard/admin/modal_file/single_modal.php');
+$fileSingle = (string)file_get_contents($root . '/dashboard/admin/file/single.php');
+$modalHelpers = (string)file_get_contents($root . '/public/static/js/add/modal-helpers.js');
+$check(str_contains($mediaIndex, 'guard.capture(form)') && str_contains($mediaIndex, 'guard.markSaved(submittedSnapshot, null, form)')
+    && str_contains($fileIndex, 'guard.capture(form)') && str_contains($fileIndex, 'guard.markSaved(submittedSnapshot, null, form)')
+    && str_contains($mediaModal, 'guard.capture(form)') && str_contains($mediaModal, 'guard.markSaved(submittedSnapshot, null, form)')
+    && str_contains($fileModal, 'guard.capture(form)') && str_contains($fileModal, 'guard.markSaved(submittedSnapshot, null, form)')
+    && str_contains($fileSingle, 'guard.capture(form)') && str_contains($fileSingle, 'guard.markSaved(submittedSnapshot, null, form)'),
+    'Media and File single AJAX saves rebase the submitted form while preserving newer edits');
+$check(str_contains($mediaIndex, 'guard.confirmDiscardForm(form)')
+    && str_contains($mediaIndex, 'if (e.target === modalBackdrop)')
+    && str_contains($mediaIndex, 'window.adamModalClose();')
+    && str_contains($fileIndex, 'guard.confirmDiscardForm(form)')
+    && str_contains($modalHelpers, 'guard.confirmDiscardForm(form)')
+    && str_contains($mediaModal, 'guard.confirmDiscardForm(form)')
+    && str_contains($mediaModal, 'guard.capture(form) !== departureSnapshot')
+    && str_contains($fileModal, "__('Insert this file without saving its metadata changes?')")
+    && str_contains($fileModal, "__('Insert without saving')")
+    && str_contains((string)file_get_contents($root . '/dashboard/admin/modal_file/index.php'), 'guard.confirmDiscardForm(form)'),
+    'single detail close, Back, and Insert paths confirm before discarding dirty metadata');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " unsaved content guard contract check(s) failed.\n");

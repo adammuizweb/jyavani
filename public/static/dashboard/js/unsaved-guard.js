@@ -8,6 +8,8 @@
   const state = {
     form: null,
     baseline: '',
+    forms: [],
+    baselines: new WeakMap(),
     bypass: false,
     confirming: false
   };
@@ -92,8 +94,55 @@
     return JSON.stringify({ fields: fields, content: editorValue(form) });
   }
 
-  function isDirty() {
-    return Boolean(state.form) && snapshot(state.form) !== state.baseline;
+  function activate(form) {
+    if (!form) return;
+    if (state.form && state.form !== form) {
+      state.baselines.set(state.form, state.baseline);
+    }
+    state.form = form;
+    state.baseline = state.baselines.has(form) ? state.baselines.get(form) : snapshot(form);
+    state.baselines.set(form, state.baseline);
+  }
+
+  function register(form) {
+    if (!form || !form.matches('form[data-unsaved-guard]')) return;
+    if (!state.forms.includes(form)) {
+      state.forms.push(form);
+      form.addEventListener('submit', handleNativeSubmit);
+    }
+    activate(form);
+  }
+
+  function unregister(form) {
+    if (!form) return;
+    state.forms = state.forms.filter(function (candidate) { return candidate !== form; });
+    state.baselines.delete(form);
+    if (state.form !== form) return;
+    state.form = null;
+    state.baseline = '';
+    const previous = state.forms.filter(function (candidate) { return candidate.isConnected; }).pop();
+    if (previous) activate(previous);
+  }
+
+  function pruneForms() {
+    state.forms = state.forms.filter(function (candidate) { return candidate.isConnected; });
+    if (!state.form || state.form.isConnected) return;
+    state.form = null;
+    state.baseline = '';
+    const previous = state.forms[state.forms.length - 1];
+    if (previous) activate(previous);
+  }
+
+  function formIsDirty(form) {
+    if (!form || !form.isConnected) return false;
+    const baseline = form === state.form ? state.baseline : state.baselines.get(form);
+    return typeof baseline === 'string' && snapshot(form) !== baseline;
+  }
+
+  function isDirty(form) {
+    pruneForms();
+    if (form) return formIsDirty(form);
+    return state.forms.some(formIsDirty);
   }
 
   function rebaseSnapshot(snapshotValue, canonicalValues) {
@@ -117,11 +166,14 @@
     return JSON.stringify(parsed);
   }
 
-  function markSaved(snapshotValue, canonicalValues) {
-    if (!state.form) return;
-    state.baseline = typeof snapshotValue === 'string'
+  function markSaved(snapshotValue, canonicalValues, form) {
+    const target = form || state.form;
+    if (!target) return;
+    const baseline = typeof snapshotValue === 'string'
       ? rebaseSnapshot(snapshotValue, canonicalValues)
-      : snapshot(state.form);
+      : snapshot(target);
+    state.baselines.set(target, baseline);
+    if (target === state.form) state.baseline = baseline;
     state.bypass = false;
   }
 
@@ -153,6 +205,19 @@
     return Promise.resolve(window.confirm(options.message));
   }
 
+  function confirmDiscardForm(form) {
+    if (!isDirty(form)) return Promise.resolve(true);
+    if (state.confirming) return Promise.resolve(false);
+    state.confirming = true;
+    return confirmDiscard().then(function (confirmed) {
+      state.confirming = false;
+      return confirmed;
+    }, function () {
+      state.confirming = false;
+      return false;
+    });
+  }
+
   function currentTabLink(event) {
     if (event.defaultPrevented || event.button !== 0
         || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
@@ -178,15 +243,10 @@
     if (!url) return;
 
     event.preventDefault();
-    if (state.confirming) return;
-    state.confirming = true;
-    confirmDiscard().then(function (confirmed) {
-      state.confirming = false;
+    confirmDiscardForm().then(function (confirmed) {
       if (!confirmed) return;
       allowNavigation();
       window.location.assign(url.href);
-    }, function () {
-      state.confirming = false;
     });
   }
 
@@ -197,23 +257,31 @@
   }
 
   function mount() {
-    const form = document.querySelector('form[data-unsaved-guard]');
-    if (!form) return;
-    state.form = form;
-    markSaved();
-
-    form.addEventListener('submit', handleNativeSubmit);
+    document.querySelectorAll('form[data-unsaved-guard]').forEach(register);
     document.addEventListener('click', handleClick);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    new MutationObserver(function (mutations) {
+      mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) {
+          if (!(node instanceof Element)) return;
+          if (node.matches('form[data-unsaved-guard]')) register(node);
+          node.querySelectorAll('form[data-unsaved-guard]').forEach(register);
+        });
+      });
+      pruneForms();
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   window.ADIWIRA.unsavedGuard = {
     isDirty: isDirty,
-    capture: function () { return snapshot(state.form); },
+    capture: function (form) { pruneForms(); return snapshot(form || state.form); },
     markSaved: markSaved,
     allowNavigation: allowNavigation,
     confirmDiscard: confirmDiscard,
-    snapshot: function () { return snapshot(state.form); }
+    confirmDiscardForm: confirmDiscardForm,
+    register: register,
+    unregister: unregister,
+    snapshot: function (form) { return snapshot(form || state.form); }
   };
 
   if (document.readyState === 'loading') {
