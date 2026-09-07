@@ -28,12 +28,15 @@ window.createUpdateProcessUI = function(options) {
     var missingAfterDispatch = 0;
     var inertElements = [];
     var previousOverflow = '';
+    var backgroundInert = false;
 
     function text(key, fallback) {
         return options.labels && options.labels[key] ? options.labels[key] : fallback;
     }
     function contextual(label) { return context ? label + ': ' + context : label; }
     function setBackgroundInert(inert) {
+        if (inert === backgroundInert) return;
+        backgroundInert = inert;
         if (inert) {
             previousOverflow = document.body.style.overflow;
             document.body.style.overflow = 'hidden';
@@ -256,6 +259,12 @@ window.createUpdateProcessUI = function(options) {
             if (terminal) return;
             dispatchError = message || text('requestFailed', 'The update request failed.');
             if (statusEl) statusEl.textContent = dispatchError;
+        },
+        finish: function(outcome, message, nextContext) {
+            if (['completed', 'failed', 'cancelled'].indexOf(outcome) === -1) outcome = 'failed';
+            if (typeof nextContext === 'string') context = nextContext;
+            if (terminal) terminal = false;
+            finish(outcome, message);
         },
         dismissTerminal: function() {
             if (!terminal) return false;

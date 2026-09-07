@@ -50,6 +50,17 @@ $check(str_contains($sources['script'], "['completed', 'failed', 'cancelled']")
     && str_contains($sources['core'], "'done' => __('Done')")
     && str_contains($sources['plugin'], "'done' => __('Reload')")
     && str_contains($sources['theme'], "'done' => __('Reload')"), 'terminal outcomes remain in place and expose only a user-driven Done or Reload action');
+$check(str_contains($sources['plugin'], '<option value="update">')
+    && str_contains($sources['plugin'], 'data-update-eligible=')
+    && str_contains($sources['plugin'], 'function startBulkPluginUpdate(pluginNames)')
+    && str_contains($sources['plugin'], 'dispatchPluginUpdate(pluginName, token)')
+    && str_contains($sources['plugin'], 'plugin_order_names_by_dependencies(array_keys($availableUpdates), true)')
+    && str_contains($sources['plugin'], "_pluginUpdateProcess.finish(outcome, message"),
+    'Plugin Manager bulk update queues only actionable compatible selections through coordinated update operations');
+$check(str_contains($sources['script'], "['completed', 'failed', 'cancelled'].indexOf(outcome)")
+    && str_contains($sources['script'], 'if (inert === backgroundInert) return;')
+    && str_contains($sources['plugin'], '.bulk-bar{ flex-wrap:wrap; }'),
+    'bulk update terminal rendering validates outcomes and remains usable on mobile');
 $check(!preg_match('/setTimeout\s*\([^;]{0,300}(?:location\.(?:reload|assign)|location\.href|alert\s*\()/s', $sources['script'])
     && !preg_match('/setTimeout\s*\([^;]{0,300}(?:location\.(?:reload|assign)|location\.href|alert\s*\()/s', $sources['plugin'])
     && !preg_match('/setTimeout\s*\([^;]{0,300}(?:location\.(?:reload|assign)|location\.href|alert\s*\()/s', substr($sources['theme'], strpos($sources['theme'], '// Theme update preflight and progress') ?: 0)), 'update terminal handling has no automatic reload, redirect, or alert');
@@ -83,7 +94,9 @@ foreach (['Cancel update', 'Cancelling...', 'Finishing process...', 'Do not clos
     'Plugin update cancelled', 'Theme update complete', 'Theme update failed', 'Theme update cancelled',
     'The update server returned an invalid response.', 'The update request failed.',
     'Unable to request cancellation. The update is still running.',
-    'The update is taking longer than expected. Waiting for a confirmed result.'] as $key) {
+    'The update is taking longer than expected. Waiting for a confirmed result.', 'Update selected plugins',
+    'Update %d selected plugin(s)? Updates run one at a time with a backup before each plugin.', 'Bulk plugin update',
+    '%d updated, %d failed.', 'Bulk update cancelled after %d successful update(s).'] as $key) {
     $quoted = preg_quote("('default', '" . str_replace("'", "''", $key) . "'", '/');
     $check(preg_match_all('/' . $quoted . '/', $sources['translations']) === 2, $key . ' has Indonesian and German translation seeds');
 }
