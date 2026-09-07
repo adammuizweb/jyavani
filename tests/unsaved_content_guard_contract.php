@@ -17,6 +17,8 @@ $forms = [
     'dashboard/admin/pages/edit.php' => 'page-edit-form',
     'dashboard/admin/themes/add.php' => 'theme-add-form',
     'dashboard/admin/themes/edit.php' => 'theme-edit-form',
+    'dashboard/admin/categories/add.php' => 'category-add-form',
+    'dashboard/admin/categories/edit.php' => 'category-edit-form',
 ];
 
 foreach ($forms as $path => $id) {
@@ -93,6 +95,15 @@ $pageEdit = (string)file_get_contents($root . '/dashboard/admin/pages/edit.php')
 $check(str_contains($postEdit, "if (mode !== 'quill' && mode !== 'codemirror') return;")
     && str_contains($pageEdit, "if (mode !== 'quill' && mode !== 'codemirror') return;"),
     'legacy Post and Page fallback savers also defer to extension-owned editor modes');
+$categoryAdd = (string)file_get_contents($root . '/dashboard/admin/categories/add.php');
+$categoryEdit = (string)file_get_contents($root . '/dashboard/admin/categories/edit.php');
+$check(str_contains($categoryAdd, 'confirmed = true;')
+    && str_contains($categoryAdd, 'setTimeout(function(){ form.requestSubmit(); }, 0);')
+    && !str_contains($categoryAdd, 'form.submit();')
+    && str_contains($categoryEdit, 'confirmed = true;')
+    && str_contains($categoryEdit, 'setTimeout(function(){ form.requestSubmit(); }, 0);')
+    && !str_contains($categoryEdit, 'form.submit();'),
+    'Category save confirmation redispatches outside the original submit task so the guard can allow approved navigation');
 $check(str_contains($ajaxSave, 'const submittedSnapshot = unsavedGuard')
     && str_contains($ajaxSave, 'slugEl.value === submittedSlug')
     && str_contains($ajaxSave, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);')
