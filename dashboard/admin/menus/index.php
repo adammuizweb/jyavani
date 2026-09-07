@@ -131,7 +131,7 @@ if (!function_exists('render_menu_items_admin')) {
     <div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
         <label style="font-weight:600;"><?=_e('Select Menu:')?></label>
-        <select id="menuSelect" onchange="if(this.value) window.location.href='<?= htmlspecialchars($base . '/?page=admin/menus/index&menu_id=', ENT_QUOTES, 'UTF-8') ?>'+this.value" class="pht-select" style="min-width:200px;">
+        <select id="menuSelect" class="pht-select" style="min-width:200px;">
           <option value=""><?=_e('-- Select Menu --')?></option>
           <?php foreach ($allMenus as $m): ?>
             <option value="<?= (int)$m['id'] ?>" <?= $selectedMenuId === (int)$m['id'] ? 'selected' : '' ?>>
@@ -142,7 +142,7 @@ if (!function_exists('render_menu_items_admin')) {
         </select>
 
         <?php if ($selectedMenu && empty($selectedMenu['is_default'])): ?>
-          <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;">
+          <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;" id="menu-default-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="set_default">
             <input type="hidden" name="menu_id" value="<?= (int)$selectedMenu['id'] ?>">
@@ -161,7 +161,7 @@ if (!function_exists('render_menu_items_admin')) {
 
           <?php if (count($allMenus) > 1): ?>
             <span style="margin-left:auto;">
-              <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;" onsubmit="return confirm('<?=__('Delete menu')?> &quot;<?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>&quot;? <?=__('All items will be deleted.')?>');">
+              <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/delete.php', ENT_QUOTES, 'UTF-8') ?>" style="display:inline;" id="menu-delete-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="menu_id" value="<?= (int)$selectedMenu['id'] ?>">
                 <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/?page=admin/menus/index', ENT_QUOTES, 'UTF-8') ?>">
@@ -182,27 +182,32 @@ if (!function_exists('render_menu_items_admin')) {
           <?php endif; ?>
         </div>
 
-        <div id="menuItemEditForm" style="display:none;margin-top:16px;padding:16px;border:1px solid var(--adam-border-2);border-radius:12px;background:var(--adam-surface-4);">
-          <h4 style="margin:0 0 12px 0;"><?=_e('Edit Item')?></h4>
-           <input type="hidden" id="editItemId" value="">
+        <form id="menu-items-draft-form" data-unsaved-guard style="display:none;">
+          <input type="hidden" name="menu_items_json" id="menuItemsDraftState" value="">
+        </form>
+
+        <div id="menuItemEditModal" class="menu-item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="menuItemEditTitle" hidden>
+        <form id="menuItemEditForm" class="menu-item-edit-dialog" data-unsaved-guard>
+          <h4 id="menuItemEditTitle" style="margin:0 0 12px 0;"><?=_e('Edit Item')?></h4>
+           <input type="hidden" id="editItemId" name="edit_item_id" value="">
            <div style="display:grid;gap:8px;">
              <?php if (!empty($translationLocales)): ?>
              <div>
                <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('Language')?></label>
-               <select id="editItemLocale" class="pht-select"><option value=""><?=_e('Source language')?></option><?php foreach ($translationLocales as $locale): ?><option value="<?= htmlspecialchars($locale, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($locale), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select>
+               <select id="editItemLocale" name="edit_item_locale" class="pht-select"><option value=""><?=_e('Source language')?></option><?php foreach ($translationLocales as $locale): ?><option value="<?= htmlspecialchars($locale, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($locale), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select>
              </div>
              <?php endif; ?>
             <div>
               <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('Label')?></label>
-              <input id="editItemLabel" class="pht-input" placeholder="<?=_e('Label menu')?>">
+               <input id="editItemLabel" name="edit_item_label" class="pht-input" placeholder="<?=_e('Label menu')?>">
             </div>
             <div>
               <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('URL (custom link only)')?></label>
-              <input id="editItemUrl" class="pht-input" placeholder="<?=_e('https://...')?>">
+               <input id="editItemUrl" name="edit_item_url" class="pht-input" placeholder="<?=_e('https://...')?>">
             </div>
             <div>
               <label style="display:block;font-size:12px;margin-bottom:4px;">
-                <input type="checkbox" id="editItemTargetBlank"> <?=_e('Open in new tab')?>
+                 <input type="checkbox" id="editItemTargetBlank" name="edit_item_target_blank" value="1"> <?=_e('Open in new tab')?>
               </label>
             </div>
             <div style="display:flex;gap:8px;">
@@ -210,6 +215,7 @@ if (!function_exists('render_menu_items_admin')) {
               <button type="button" id="cancelItemEdit" class="adam-cancle" style="padding:6px 16px;"><?= _e('Cancel') ?></button>
             </div>
           </div>
+        </form>
         </div>
 
         <div style="margin-top:12px;display:flex;gap:8px;">
@@ -229,7 +235,7 @@ if (!function_exists('render_menu_items_admin')) {
       <!-- Create New Menu -->
       <div style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;margin-bottom:16px;background:var(--adam-surface-4);">
         <h4 style="margin:0 0 12px 0;"><?=_e('Create New Menu')?></h4>
-        <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>">
+        <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>" id="menu-create-form" data-unsaved-guard>
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
           <input type="hidden" name="action" value="create">
           <input type="hidden" name="return_to" value="<?= htmlspecialchars($base . '/?page=admin/menus/index', ENT_QUOTES, 'UTF-8') ?>">
@@ -243,7 +249,7 @@ if (!function_exists('render_menu_items_admin')) {
 
       <?php if ($selectedMenu): ?>
       <!-- Add Items -->
-      <div style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;background:var(--adam-surface-4);">
+      <form id="menu-add-item-form" data-unsaved-guard style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;background:var(--adam-surface-4);">
         <h4 style="margin:0 0 12px 0;"><?=_e('Add Item')?></h4>
 
         <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
@@ -257,9 +263,9 @@ if (!function_exists('render_menu_items_admin')) {
         <!-- Custom Link -->
         <div class="add-item-panel" id="panel-custom">
           <div style="display:grid;gap:8px;">
-            <input type="text" id="customLabel" class="pht-input" placeholder="<?=_e('Label')?>">
-            <input type="url" id="customUrl" class="pht-input" placeholder="<?=_e('https://...')?>">
-            <label style="font-size:12px;"><input type="checkbox" id="customTargetBlank"> <?=_e('Open in new tab')?></label>
+            <input type="text" id="customLabel" name="custom_label" class="pht-input" placeholder="<?=_e('Label')?>">
+            <input type="url" id="customUrl" name="custom_url" class="pht-input" placeholder="<?=_e('https://...')?>">
+            <label style="font-size:12px;"><input type="checkbox" id="customTargetBlank" name="custom_target_blank" value="1"> <?=_e('Open in new tab')?></label>
             <button type="button" class="add-item-btn adam-button" data-type="custom"><?=_e('Add to Menu')?></button>
           </div>
         </div>
@@ -327,7 +333,7 @@ if (!function_exists('render_menu_items_admin')) {
             <?php endif; ?>
           </div>
         </div>
-      </div>
+      </form>
       <?php endif; ?>
     </div>
 
@@ -341,10 +347,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 ?>
 
 <!-- Rename Menu Modal -->
-<div id="renameModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;" onclick="if(event.target===this)document.getElementById('renameModal').style.display='none'">
+<div id="renameModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
   <div style="background:var(--adam-card);padding:24px;border-radius:16px;min-width:320px;max-width:90vw;" onclick="event.stopPropagation()">
     <h4 style="margin:0 0 12px 0;"><?=_e('Rename Menu')?></h4>
-    <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>">
+    <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>" id="menu-rename-form" data-unsaved-guard>
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="rename">
       <input type="hidden" name="menu_id" value="<?= $selectedMenuId ?>">
@@ -356,7 +362,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         <input type="text" name="slug" class="pht-input" value="<?= htmlspecialchars((string)($selectedMenu['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" required>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button type="submit" class="adam-button"><?= _e('Save') ?></button>
-          <button type="button" class="adam-cancle" onclick="document.getElementById('renameModal').style.display='none'"><?= _e('Cancel') ?></button>
+          <button type="button" class="adam-cancle" id="cancelRenameMenu"><?= _e('Cancel') ?></button>
         </div>
       </div>
     </form>
@@ -372,6 +378,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const container = document.getElementById('menuItemsContainer');
   const saveBtn = document.getElementById('btnSaveItems');
   const saveStatus = document.getElementById('saveItemsStatus');
+  const itemsDraftForm = document.getElementById('menu-items-draft-form');
+  const itemsDraftState = document.getElementById('menuItemsDraftState');
+  const itemEditModal = document.getElementById('menuItemEditModal');
+  const itemEditForm = document.getElementById('menuItemEditForm');
+  const addItemForm = document.getElementById('menu-add-item-form');
+  const createMenuForm = document.getElementById('menu-create-form');
+  const renameMenuForm = document.getElementById('menu-rename-form');
 
   // Temporary ID counter for new items (negative numbers avoid DB ID conflicts)
   var tempIdCounter = 0;
@@ -384,6 +397,30 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return;
     }
     alert(message);
+  }
+
+  function guardApi(){
+    return window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  }
+
+  function markFormSaved(form){
+    var guard = guardApi();
+    if (guard && typeof guard.markSaved === 'function') guard.markSaved(null, null, form);
+  }
+
+  function firstDirtyForm(excluded){
+    var guard = guardApi();
+    if (!guard || typeof guard.isDirty !== 'function') return null;
+    return [itemsDraftForm, itemEditForm, addItemForm, createMenuForm, renameMenuForm].find(function(form){
+      return form && form !== excluded && guard.isDirty(form);
+    }) || null;
+  }
+
+  function confirmOtherDrafts(excluded){
+    var guard = guardApi();
+    var dirtyForm = firstDirtyForm(excluded);
+    if (!dirtyForm || !guard || typeof guard.confirmDiscardForm !== 'function') return Promise.resolve(true);
+    return guard.confirmDiscardForm(dirtyForm);
   }
 
   function escapeHtml(s){
@@ -430,6 +467,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       li.classList.remove('menu-item-hidden');
       if (hideBtn) hideBtn.innerHTML = '&#128065;';
     }
+    syncItemsDraft();
   }
 
   function buildListItemHTML(data){
@@ -491,9 +529,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       }
 
       addItemToMenu({ type: 'custom', label: label, targetId: 0, url: url, targetBlank: targetBlank });
-      document.getElementById('customLabel').value = '';
-      document.getElementById('customUrl').value = '';
-      document.getElementById('customTargetBlank').checked = false;
+      if (addItemForm) addItemForm.reset();
+      markFormSaved(addItemForm);
     });
   }
 
@@ -542,6 +579,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-translations', '{}');
 
     ul.appendChild(li);
+    syncItemsDraft();
     toast('success', '<?=__('Item added to menu')?> "' + data.label + '"');
   }
 
@@ -571,10 +609,56 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       if (!container.querySelector('ul.menu-sortable') || !container.querySelector('ul.menu-sortable').querySelector('li')) {
         showEmptyState();
       }
+      syncItemsDraft();
     }
   });
 
   // =============== Edit item ===============
+
+  function openItemEditor(li, trigger){
+    var data = getItemData(li);
+    document.getElementById('editItemId').value = data.id || '';
+    document.getElementById('editItemLabel').value = data.label;
+    document.getElementById('editItemUrl').value = data.url;
+    document.getElementById('editItemTargetBlank').checked = data.targetBlank;
+
+    itemEditModal.hidden = false;
+    itemEditModal.classList.add('is-open');
+    itemEditModal._previousBodyOverflow = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
+    itemEditForm._targetLi = li;
+    itemEditForm._returnFocus = trigger || null;
+    itemEditForm._originalData = JSON.parse(JSON.stringify(data));
+    itemEditForm._editingLocale = '';
+    var localeSelect = document.getElementById('editItemLocale');
+    if (localeSelect) localeSelect.value = '';
+    markFormSaved(itemEditForm);
+    window.setTimeout(function(){ document.getElementById('editItemLabel').focus(); }, 0);
+  }
+
+  function closeItemEditor(revert){
+    if (!itemEditForm) return;
+    if (revert && itemEditForm._targetLi && itemEditForm._originalData) {
+      var currentData = getItemData(itemEditForm._targetLi);
+      currentData.label = itemEditForm._originalData.label;
+      currentData.url = itemEditForm._originalData.url;
+      currentData.targetBlank = itemEditForm._originalData.targetBlank;
+      currentData.translations = itemEditForm._originalData.translations;
+      setItemData(itemEditForm._targetLi, currentData);
+    }
+    itemEditForm.reset();
+    itemEditModal.classList.remove('is-open');
+    itemEditModal.hidden = true;
+    document.body.style.overflow = itemEditModal._previousBodyOverflow || '';
+    itemEditForm._targetLi = null;
+    itemEditForm._originalData = null;
+    itemEditForm._editingLocale = '';
+    markFormSaved(itemEditForm);
+    if (itemEditForm._returnFocus && typeof itemEditForm._returnFocus.focus === 'function') {
+      itemEditForm._returnFocus.focus();
+    }
+    itemEditForm._returnFocus = null;
+  }
 
   container.addEventListener('click', function(e){
     var btn = e.target.closest('.menu-item-edit');
@@ -582,18 +666,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var li = btn.closest('.menu-item-admin');
     if (!li) return;
 
-    var data = getItemData(li);
-    document.getElementById('editItemId').value = data.id || '';
-    document.getElementById('editItemLabel').value = data.label;
-    document.getElementById('editItemUrl').value = data.url;
-    document.getElementById('editItemTargetBlank').checked = data.targetBlank;
-
-    var form = document.getElementById('menuItemEditForm');
-    form.style.display = '';
-    form._targetLi = li;
-    form._editingLocale = '';
-    var localeSelect = document.getElementById('editItemLocale');
-    if (localeSelect) localeSelect.value = '';
+    var guard = guardApi();
+    if (!itemEditForm || !guard || typeof guard.confirmDiscardForm !== 'function') {
+      openItemEditor(li, btn);
+      return;
+    }
+    guard.confirmDiscardForm(itemEditForm).then(function(confirmed){
+      if (!confirmed) return;
+      if (itemEditForm._targetLi) closeItemEditor(true);
+      openItemEditor(li, btn);
+    });
   });
 
   var localeSelect = document.getElementById('editItemLocale');
@@ -631,13 +713,29 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     data.targetBlank = document.getElementById('editItemTargetBlank').checked;
 
     setItemData(li, data);
-    form.style.display = 'none';
+    closeItemEditor(false);
     toast('success', '<?=__('Item updated')?>');
   });
 
   document.getElementById('cancelItemEdit').addEventListener('click', function(){
-    document.getElementById('menuItemEditForm').style.display = 'none';
+    requestCloseItemEditor();
   });
+  if (itemEditModal) itemEditModal.addEventListener('click', function(event){
+    if (event.target === itemEditModal) requestCloseItemEditor();
+  });
+
+  function requestCloseItemEditor(){
+    var guard = guardApi();
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+      closeItemEditor(true);
+      return;
+    }
+    guard.confirmDiscardForm(itemEditForm).then(function(confirmed){
+      if (confirmed) closeItemEditor(true);
+    });
+  }
+  if (itemEditForm) itemEditForm.addEventListener('submit', function(event){ event.preventDefault(); });
+  if (addItemForm) addItemForm.addEventListener('submit', function(event){ event.preventDefault(); });
 
   // =============== Indent / Outdent ===============
 
@@ -658,6 +756,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       prevLi.appendChild(childUl);
     }
     childUl.appendChild(li);
+    syncItemsDraft();
   });
 
   container.addEventListener('click', function(e){
@@ -685,6 +784,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (parentUl && !parentUl.querySelector('li')) {
       parentUl.remove();
     }
+    syncItemsDraft();
   });
 
   // =============== Drag and Drop ===============
@@ -706,6 +806,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     document.querySelectorAll('.menu-item-admin').forEach(function(el){
       el.classList.remove('drag-over');
     });
+    syncItemsDraft();
   });
 
   container.addEventListener('dragover', function(e){
@@ -818,39 +919,62 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     return items;
   }
 
+  function syncItemsDraft(){
+    if (itemsDraftState && container) itemsDraftState.value = JSON.stringify(collectItems());
+  }
+
   // =============== Save ===============
 
   if (saveBtn) {
     saveBtn.addEventListener('click', function(){
-      var items = collectItems();
-      saveBtn.disabled = true;
-      saveStatus.textContent = '<?=__('Saving...')?>';
+      confirmOtherDrafts(itemsDraftForm).then(function(confirmed){
+        if (!confirmed) return;
+        var activeGuard = guardApi();
+        if (itemEditForm && itemEditForm._targetLi && activeGuard
+            && typeof activeGuard.isDirty === 'function' && activeGuard.isDirty(itemEditForm)) {
+          closeItemEditor(true);
+        }
+        syncItemsDraft();
+        var items = collectItems();
+        var guard = guardApi();
+        var submittedSnapshot = guard && typeof guard.capture === 'function'
+          ? guard.capture(itemsDraftForm)
+          : null;
+        var menusGrid = document.querySelector('.menus-grid');
+        saveBtn.disabled = true;
+        if (menusGrid) menusGrid.setAttribute('inert', '');
+        saveStatus.textContent = '<?=__('Saving...')?>';
 
-      fetch(SAVE_URL, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          csrf_token: CSRF,
-          menu_id: MENU_ID,
-          items: items
-        }),
-        credentials: 'same-origin'
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (data && data.ok) {
-          toast('success', '<?=__('Menu saved successfully.')?>');
-          setTimeout(function(){ window.location.reload(); }, 600);
-        } else {
+        fetch(SAVE_URL, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            csrf_token: CSRF,
+            menu_id: MENU_ID,
+            items: items
+          }),
+          credentials: 'same-origin'
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (data && data.ok) {
+            if (guard && typeof guard.markSaved === 'function') guard.markSaved(submittedSnapshot, null, itemsDraftForm);
+            toast('success', '<?=__('Menu saved successfully.')?>');
+            if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+            setTimeout(function(){ window.location.reload(); }, 600);
+            return;
+          }
           toast('error', (data && data.error) ? data.error : '<?=__('Failed to save.')?>');
           saveBtn.disabled = false;
+          if (menusGrid) menusGrid.removeAttribute('inert');
           saveStatus.textContent = '';
-        }
-      })
-      .catch(function(err){
-        toast('error', 'Error: ' + err.message);
-        saveBtn.disabled = false;
-        saveStatus.textContent = '';
+        })
+        .catch(function(err){
+          toast('error', 'Error: ' + err.message);
+          saveBtn.disabled = false;
+          if (menusGrid) menusGrid.removeAttribute('inert');
+          saveStatus.textContent = '';
+        });
       });
     });
   }
@@ -863,6 +987,99 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       document.getElementById('renameModal').style.display = 'flex';
     });
   }
+
+  function closeRenameModal(){
+    var modal = document.getElementById('renameModal');
+    var guard = guardApi();
+    function close(){
+      if (renameMenuForm) renameMenuForm.reset();
+      markFormSaved(renameMenuForm);
+      modal.style.display = 'none';
+    }
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+      close();
+      return;
+    }
+    guard.confirmDiscardForm(renameMenuForm).then(function(confirmed){
+      if (confirmed) close();
+    });
+  }
+
+  var renameModal = document.getElementById('renameModal');
+  if (renameModal) renameModal.addEventListener('click', function(event){
+    if (event.target === renameModal) closeRenameModal();
+  });
+  var cancelRename = document.getElementById('cancelRenameMenu');
+  if (cancelRename) cancelRename.addEventListener('click', closeRenameModal);
+
+  function submitActionForm(form, ownDraft, confirmMessage){
+    if (!form) return;
+    form.addEventListener('submit', function(event){
+      event.preventDefault();
+      if (confirmMessage && !window.confirm(confirmMessage)) return;
+      confirmOtherDrafts(ownDraft).then(function(confirmed){
+        if (!confirmed) return;
+        var guard = guardApi();
+        if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+        form.submit();
+      });
+    });
+  }
+
+  submitActionForm(document.getElementById('menu-default-form'), null, '');
+  submitActionForm(document.getElementById('menu-delete-form'), null, <?= json_encode(__('Delete menu') . ' "' . (string)($selectedMenu['name'] ?? '') . '"? ' . __('All items will be deleted.'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
+  submitActionForm(createMenuForm, createMenuForm, '');
+  submitActionForm(renameMenuForm, renameMenuForm, '');
+
+  var menuSelect = document.getElementById('menuSelect');
+  if (menuSelect) {
+    var originalMenu = menuSelect.value;
+    menuSelect.addEventListener('change', function(){
+      if (!menuSelect.value) return;
+      var target = <?= json_encode($base . '/?page=admin/menus/index&menu_id=') ?> + menuSelect.value;
+      var guard = guardApi();
+      if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+        window.location.assign(target);
+        return;
+      }
+      guard.confirmDiscardForm().then(function(confirmed){
+        if (!confirmed) {
+          menuSelect.value = originalMenu;
+          return;
+        }
+        if (typeof guard.allowNavigation === 'function') guard.allowNavigation();
+        window.location.assign(target);
+      });
+    });
+  }
+
+  document.addEventListener('keydown', function(event){
+    if (itemEditModal && !itemEditModal.hidden) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        requestCloseItemEditor();
+        return;
+      }
+      if (event.key === 'Tab') {
+        var focusable = Array.from(itemEditForm.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+          .filter(function(element){ return !element.disabled && element.offsetParent !== null; });
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+      return;
+    }
+    if (event.key === 'Escape' && renameModal && renameModal.style.display !== 'none') closeRenameModal();
+  });
+
+  syncItemsDraft();
 })();
 </script>
 
@@ -871,6 +1088,29 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.menu-item-edit-modal {
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(15,23,42,.58);
+  backdrop-filter:blur(2px);
+}
+.menu-item-edit-modal.is-open { display:flex; }
+.menu-item-edit-dialog {
+  box-sizing:border-box;
+  width:min(520px,100%);
+  max-height:min(720px,calc(100vh - 40px));
+  overflow:auto;
+  padding:20px;
+  border:1px solid var(--adam-border-2);
+  border-radius:14px;
+  background:var(--adam-card);
+  box-shadow:0 24px 60px rgba(15,23,42,.28);
 }
 .menu-item-admin {
   margin: 4px 0;
@@ -945,5 +1185,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 }
 @media (max-width:768px){
   .menus-grid{ grid-template-columns:1fr !important; }
+  .menu-item-edit-modal{ align-items:flex-end;padding:12px; }
+  .menu-item-edit-dialog{ max-height:calc(100vh - 24px);padding:18px;border-radius:14px; }
 }
 </style>

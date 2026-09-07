@@ -432,7 +432,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <section class="adam-card">
   <h2 class="edit-heading"><?=_e('Add Article')?></h2>
 
-  <form id="post-add-form" method="post" novalidate>
+  <form id="post-add-form" method="post" novalidate data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -442,13 +442,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
-        <label><?=_e('Title')?><br>
-          <input type="text" name="title" value="<?= htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
+        <label><?=_e('Title')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span><br>
+          <input type="text" name="title" value="<?= htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud" required aria-required="true">
         </label>
 
-        <label><?=_e('Slug (optional)')?><br>
-          <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
-        </label>
+        <div class="field-heading">
+          <label for="post-add-slug"><?=_e('Slug (optional)')?></label>
+          <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('What is a slug?'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="post-add-slug-help" aria-controls="post-add-slug-help" aria-expanded="false">?</button><span id="post-add-slug-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('A slug is the URL-friendly part of the web address. Leave it empty to generate one automatically from the title.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+        </div>
+        <input type="text" id="post-add-slug" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
 
         <div class="cat-accordion">
           <button type="button" class="cat-accordion-toggle" aria-expanded="false" aria-controls="cat-accordion-body">
@@ -533,7 +535,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       </div>
     </div>
 
-    <label for="quill-editor"><?=_e('Content (rich text)')?></label>
+    <div id="post-add-content-label" class="field-label" data-required-editor-label><?=_e('Content (rich text)')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
     <div id="quill-editor-box" class="adam-quill adam-quill--auto">
       <div id="quill-editor"></div>
     </div>

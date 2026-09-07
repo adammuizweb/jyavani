@@ -224,8 +224,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       modalBackdrop.style.display = 'flex';
       modalBackdrop.onclick = function(e){
         if (e.target === modalBackdrop) {
-          modalBackdrop.style.display = 'none';
-          modalBox.innerHTML = '';
+          window.adamModalClose();
         }
       };
     } catch (err) {
@@ -233,10 +232,22 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
   };
 
-  window.adamModalClose = function(){
+  window.adamModalClose = function(force){
     if (!modalBackdrop || !modalBox) return;
+    const form = modalBox.querySelector('form[data-unsaved-guard]');
+    const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    if (form && force !== true && guard && typeof guard.confirmDiscardForm === 'function' && guard.isDirty(form)) {
+      guard.confirmDiscardForm(form).then(function(ok){
+        if (!ok) return;
+        if (typeof guard.unregister === 'function') guard.unregister(form);
+        window.adamModalClose(true);
+      });
+      return false;
+    }
+    if (guard && typeof guard.unregister === 'function') guard.unregister(form);
     modalBackdrop.style.display = 'none';
     modalBox.innerHTML = '';
+    return true;
   };
 
   window.mediaUi = {
@@ -295,6 +306,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       const btn = target;
       const form = btn.closest('form');
       if (!form) return;
+      const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+      const submittedSnapshot = guard && typeof guard.capture === 'function' ? guard.capture(form) : null;
 
       btn.disabled = true;
       const fd = new FormData(form);
@@ -319,6 +332,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
+          if (guard && typeof guard.markSaved === 'function') guard.markSaved(submittedSnapshot, null, form);
           uiToast('success', '<?=__('Media')?>', '<?=__('Media updated successfully.')?>');
           document.dispatchEvent(new CustomEvent('media:updated', { detail: j }));
         } else {
@@ -368,12 +382,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
         }
 
         if (j && j.ok) {
+          const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+          if (guard && typeof guard.unregister === 'function') guard.unregister(form);
           uiToast('success', '<?=__('Media')?>', '<?=__('Media moved to trash.')?>', undefined, j.action);
           if (j.warning) {
             uiToast('warning', '<?=__('Media')?>', j.warning);
           }
           document.dispatchEvent(new CustomEvent('media:deleted', { detail: j }));
-          window.adamModalClose();
+          window.adamModalClose(true);
         } else {
           uiToast('error', '<?=__('Media')?>', j?.error || txt || '<?=__('Something happened.')?>');
         }

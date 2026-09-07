@@ -278,7 +278,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <section class="adam-card">
   <h2><?=_e('Edit Category')?></h2>
 
-  <form method="post" novalidate id="category-edit-form">
+  <form method="post" novalidate id="category-edit-form" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" value="<?= (int)$cat['id'] ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
@@ -376,7 +376,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     }).then(function(ok){
       if (!ok) return;
       confirmed = true;
-      form.submit();
+      setTimeout(function(){ form.requestSubmit(); }, 0);
     });
   });
 })();

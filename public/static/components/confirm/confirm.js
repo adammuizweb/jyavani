@@ -88,6 +88,7 @@
 
     if (ev.key === 'Escape') {
       ev.preventDefault();
+      ev.stopImmediatePropagation();
       close(false);
       return;
     }
@@ -127,7 +128,7 @@
     state.overlay.removeAttribute('hidden');
     state.overlay.classList.add('is-open');
 
-    state.badge.textContent = variant === 'danger' ? 'Aksi berbahaya' : 'Perlu konfirmasi';
+    state.badge.textContent = String(opts.badgeText || (variant === 'danger' ? 'Aksi berbahaya' : 'Perlu konfirmasi'));
     state.title.textContent = String(opts.title || (variant === 'danger' ? 'Konfirmasi Hapus' : 'Konfirmasi Perubahan'));
 
     if (opts.html) {

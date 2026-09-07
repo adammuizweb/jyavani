@@ -63,6 +63,8 @@ $check($fileFormStart !== false && $fileFormEnd !== false && $fileSaveButton !==
 $check(str_contains($files['file_single'], 'id="file-url-path"'), 'file manager copy action has an addressable URL field');
 $check(str_contains($files['modal_file_single'], 'querySelector(\'select[name="access_scope"]\')')
     && str_contains($files['modal_file_single'], 'querySelector(\'input[name="is_downloadable"]\')'), 'file modal insert reads current editable access values');
+$check(str_contains($files['modal_file_single'], "__('Insert this file without saving its metadata changes?')")
+    && str_contains($files['modal_file_single'], "__('Insert without saving')"), 'file modal explains that Insert does not persist dirty metadata');
 $check(str_contains($files['css'], '.asset-detail-card') && str_contains($files['css'], '.media-list-footer'), 'shared stylesheet defines detail and list pagination enhancements');
 
 if ($failures !== []) {

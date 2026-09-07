@@ -12,6 +12,8 @@ require_once __DIR__ . '/../_notify.php';
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 $isAdmin = ($role === 'admin');
+$actor = function_exists('authorization_actor') ? authorization_actor($pdo, $uid) : null;
+$isSiteOwner = $actor !== null && $actor['is_site_owner'] === true;
 
 $base = ADMIN_BASE_PATH;
 $return_to = function_exists('adiwira_safe_return_to')
@@ -118,7 +120,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
 <section class="adam-card">
   <h2><?= $isEdit ? _e('Edit Preset') : _e('Add New Preset') ?></h2>
 
-  <form method="post" id="sc-form" action="<?= h($base . '/admin/shortcodes/save.php') ?>">
+  <form method="post" id="sc-form" action="<?= h($base . '/admin/shortcodes/save.php') ?>" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="save_nonce" value="<?= h($save_nonce) ?>">
     <input type="hidden" name="id" value="<?= $id ?>">
@@ -138,7 +140,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     <div class="adam-accordion" id="sc-general-accordion" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-general-body">
         <?= svg_ico('cog', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Preset Settings')?>
-        <span class="chevron">▸</span>
+        <?= svg_ico('chevron-right', 'chevron') ?>
       </button>
       <div class="adam-accordion-body" id="sc-general-body">
         <label><?=_e('Preset Name')?><br>
@@ -160,7 +162,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     <div class="adam-accordion" id="sc-filter-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-filter-body">
         <?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Content Filter')?>
-        <span class="chevron">▸</span>
+        <?= svg_ico('chevron-right', 'chevron') ?>
       </button>
       <div class="adam-accordion-body" id="sc-filter-body">
         <?php if ($isAdmin): ?>
@@ -235,7 +237,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     <div class="adam-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-order-body">
         <?= svg_ico('chart-bar', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Order & Date')?>
-        <span class="chevron">▸</span>
+        <?= svg_ico('chevron-right', 'chevron') ?>
       </button>
       <div class="adam-accordion-body" id="sc-order-body">
         <label><?=_e('Order')?><br>
@@ -279,7 +281,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     <div class="adam-accordion" style="margin-top:.5rem" data-open="1">
       <button type="button" class="adam-accordion-toggle" aria-expanded="true" aria-controls="sc-layout-body">
         <?= svg_ico('palette', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Display (Layout)')?>
-        <span class="chevron">▸</span>
+        <?= svg_ico('chevron-right', 'chevron') ?>
       </button>
       <div class="adam-accordion-body" id="sc-layout-body">
         <label><?=_e('Layout Template')?><br>
@@ -307,16 +309,18 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
 </section>
 
 <div style="margin-top:1rem;display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
-  <span>🧩 <strong><?=_e('Layout:')?></strong></span>
+  <span style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('puzzle', '', ['style' => 'width:16px;height:16px']) ?> <strong><?=_e('Layout:')?></strong></span>
   <span id="edit-layout-name" style="color:var(--adam-accent);font-weight:600;"><?= h($pref_config['layout'] ?? 'list') ?></span>
-  <a id="edit-layout-link" href="<?= h($base . '/?page=admin/shortcodes/layout&file=' . ($pref_config['layout'] ?? 'list') . '.php') ?>" class="adam-link" style="font-size:.8rem;" target="_blank">✏️ <?=_e('Edit This Layout')?></a>
+  <?php if ($isSiteOwner): ?>
+    <a id="edit-layout-link" href="<?= h($base . '/?page=admin/shortcodes/layout&file=' . ($pref_config['layout'] ?? 'list') . '.php') ?>" class="adam-link" style="font-size:.8rem;display:inline-flex;align-items:center;gap:4px;" target="_blank"><?= svg_ico('pen', '', ['style' => 'width:13px;height:13px']) ?> <?=_e('Edit This Layout')?></a>
+  <?php endif; ?>
   <span style="flex:1"></span>
   <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Preset = content filter · Layout = visual style')?></span>
 </div>
 
 <section class="adam-card" style="margin-top:1rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.6rem;">
-    <h3 style="margin:0;font-size:.95rem;">👁️ <?=_e('Live Preview')?></h3>
+    <h3 style="margin:0;font-size:.95rem;display:flex;align-items:center;gap:5px;"><?= svg_ico('eye', '', ['style' => 'width:16px;height:16px']) ?> <?=_e('Live Preview')?></h3>
     <span style="display:flex;align-items:center;gap:6px;">
       <span id="edit-preview-mode" style="font-size:.72rem;background:var(--adam-surface-3);padding:.15rem .45rem;border-radius:3px;color:var(--adam-muted,#888);"><?=_e('preset config')?></span>
       <span id="edit-preview-status" style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Ready')?></span>
@@ -327,19 +331,21 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     <?=_e('Press the "Preview" button to render the layout with real database content.')?>
   </div>
   <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
-    <button type="button" id="edit-preview-btn" class="adam-button" style="font-size:.85rem;">🔄 <?=_e('Preview with Real Data')?></button>
+    <button type="button" id="edit-preview-btn" class="adam-button" style="font-size:.85rem;display:inline-flex;align-items:center;gap:5px;"><?= svg_ico('refresh-cw', '', ['style' => 'width:15px;height:15px']) ?> <?=_e('Preview with Real Data')?></button>
     <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Fetches real content from the selected source according to the filters above')?></span>
   </div>
 </section>
 
 <div class="sc-help" style="margin-top:1rem;padding:1rem;background:var(--adam-surface-3);border-radius:var(--adam-radius,8px);border:1px solid var(--adam-border-soft);font-size:.85rem;color:var(--adam-text);line-height:1.5;">
   <div style="display:flex;align-items:flex-start;gap:.5rem;">
-    <div style="font-size:1.1rem;flex-shrink:0;">💡</div>
+    <div style="flex-shrink:0;"><?= svg_ico('book-open', '', ['style' => 'width:18px;height:18px']) ?></div>
     <div>
       <?=_e('<strong>How Preset &amp; Layout relate:</strong>')?><br>
       <?=_e('<strong>Preset</strong> = "what to display" (category, count, order, etc.).')?><br>
       <?=_e('<strong>Layout</strong> = the PHP file in <code>app/views/partials/shortcodes/post_cat/</code> that controls "how it looks".')?><br>
-      <?= sprintf(__('One layout can be reused by many presets. Edit the layout in the %sLayouts Manager%s → changes instantly apply to every preset using that layout.'), '<a href="' . h($base . '/?page=admin/shortcodes/index&tab=layouts') . '" class="adam-link">', '</a>') ?>
+      <?php if ($isSiteOwner): ?>
+        <?= sprintf(__('One layout can be reused by many presets. Edit the layout in the %sLayouts Manager%s → changes instantly apply to every preset using that layout.'), '<a href="' . h($base . '/?page=admin/shortcodes/index&tab=layouts') . '" class="adam-link">', '</a>') ?>
+      <?php endif; ?>
     </div>
   </div>
 </div>
@@ -576,21 +582,21 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
       if (data.ok) {
         previewContent.innerHTML = data.html;
         previewError.style.display = 'none';
-        previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
-        previewMode.textContent = '📦 ' + config.layout;
+        previewStatus.textContent = <?=json_encode(__('Ready'))?>;
+        previewMode.textContent = config.layout;
       } else {
         previewContent.innerHTML = data.html || '<div style="color:#e74c3c;padding:1rem;">' + <?=json_encode(__('Error'))?> + '</div>';
         if (data.error) {
           previewError.style.display = 'block';
-          previewError.textContent = '⚠ ' + data.error;
+          previewError.textContent = data.error;
         }
-        previewStatus.textContent = 'error ✗';
+        previewStatus.textContent = <?=json_encode(__('Error'))?>;
       }
     })
     .catch(function(err) {
       previewContent.innerHTML = '<div style="color:#e74c3c;padding:1rem;"><?=__('Failed: ')?>' + err.message + '</div>';
       previewError.style.display = 'none';
-      previewStatus.textContent = 'error ✗';
+      previewStatus.textContent = <?=json_encode(__('Error'))?>;
     });
   }
 
@@ -598,11 +604,11 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     previewBtn.addEventListener('click', doPresetPreview);
   }
 
-  if (layoutSelect && layoutLink && layoutNameSpan) {
+  if (layoutSelect && layoutNameSpan) {
     layoutSelect.addEventListener('change', function() {
       var v = this.value;
       layoutNameSpan.textContent = v;
-      layoutLink.href = '<?= $base ?>/?page=admin/shortcodes/layout&file=' + encodeURIComponent(v) + '.php';
+      if (layoutLink) layoutLink.href = '<?= $base ?>/?page=admin/shortcodes/layout&file=' + encodeURIComponent(v) + '.php';
     });
   }
 

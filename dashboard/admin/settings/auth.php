@@ -255,7 +255,7 @@ function auth_path_example(string $path): string {
     </div>
   <?php endif; ?>
 
-  <form method="post" novalidate>
+  <form id="auth-settings-form" method="post" novalidate data-unsaved-guard<?= ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
     <h3 style="margin:1.2rem 0 .5rem;"><?=_e('User Registration')?></h3>

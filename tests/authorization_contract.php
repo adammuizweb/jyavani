@@ -346,7 +346,8 @@ $check(
     && str_contains($roleManager, '$formGrants')
     && str_contains($roleManager, 'authzPermissionSearch')
     && str_contains($roleManager, 'authzDirtyState')
-    && str_contains($roleManager, 'NewNotifConfirm?.warning'),
+    && str_contains($roleManager, 'data-unsaved-guard')
+    && str_contains($roleManager, 'guard.confirmDiscardForm(createForm)'),
     'Role Manager preserves grants and provides searchable guarded editing'
 );
 $check(

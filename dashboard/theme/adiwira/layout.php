@@ -176,6 +176,7 @@ foreach ($pa['css'] ?? [] as $css_url) {
   <script src="/static/dashboard/js/panel.js" defer></script>
   <script src="/static/dashboard/js/accordion.js" defer></script>
   <script src="/static/dashboard/js/theme-toggle.js" defer></script>
+  <script src="/static/dashboard/js/field-guidance.js" defer></script>
   <?php
   $initialUpdateStatus = null;
   if (($canCheckUpdates ?? false) === true) {
@@ -202,12 +203,24 @@ window.i18n_upd = <?= json_encode([
     'stale_result'      => __('Update information is out of date. Checking again…'),
     'last_checked'      => __('Last checked:'),
 ]) ?>;
+window.adiwiraUnsavedI18n = <?= json_encode([
+    'badge' => __('Confirmation required'),
+    'title' => __('Unsaved changes'),
+    'message' => __('Discard unsaved changes?'),
+    'confirm' => __('Discard changes'),
+    'cancel' => __('Keep editing'),
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
 <?php
   $updateNotifFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/update-notif.js' : '';
   $updateNotifVer = is_file($updateNotifFile) ? filemtime($updateNotifFile) : '';
 ?>
   <script src="/static/dashboard/js/update-notif.js?v=<?= $updateNotifVer ?>" defer></script>
+<?php
+  $unsavedGuardFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/unsaved-guard.js' : '';
+  $unsavedGuardVer = is_file($unsavedGuardFile) ? filemtime($unsavedGuardFile) : '';
+?>
+  <script src="/static/dashboard/js/unsaved-guard.js?v=<?= $unsavedGuardVer ?>" defer></script>
 
 <?php
 $pa_js = function_exists('plugin_assets') ? plugin_assets() : [];

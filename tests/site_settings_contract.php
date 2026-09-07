@@ -37,6 +37,9 @@ $check(settings_favicon_url_validation_error('/static/img/favicon/missing.png', 
 $layout = (string)file_get_contents($root . '/app/layout.php');
 $dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $settingsPage = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
+$check(str_contains($settingsPage, 'id="site-settings-form" data-unsaved-guard')
+    && str_contains($settingsPage, "data-unsaved-guard-initial-dirty' : ''"),
+    'Site Settings warns before leaving changed or server-rejected values unsaved');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $check(str_contains($layout, '$defaultAppleTouchIconUrl = $faviconUrl !== \'\' ? $faviconUrl')
     && str_contains($layout, "apply_filters('apple_touch_icon_url', \$defaultAppleTouchIconUrl, \$pdo)"),

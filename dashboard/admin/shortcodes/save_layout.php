@@ -9,7 +9,7 @@ require_once __DIR__ . '/_layout_manager.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_admin($pdo, true);
+[$uid, $role] = adiwira_require_site_owner($pdo, true);
 $layoutScope = is_string($_POST['scope'] ?? null) ? $_POST['scope'] : 'collection';
 if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'collection';
 $isSectionScope = $layoutScope === 'section';
@@ -92,6 +92,7 @@ try {
         adiwira_json([
             'ok' => true,
             'message' => __('Layout') . ' "' . $saved['file'] . '" ' . __('saved successfully.'),
+            'file' => $saved['file'],
             'new_save_nonce' => $newNonce,
             'redirect' => $return_to,
         ], 200);

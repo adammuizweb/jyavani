@@ -8,6 +8,8 @@ require_once __DIR__ . '/_layout_manager.php';
 adiwira_cosmetic_404_on_direct_open();
 
 [$uid, $role] = adiwira_require_editorial($pdo, true);
+$actor = function_exists('authorization_actor') ? authorization_actor($pdo, $uid) : null;
+$isSiteOwner = $actor !== null && $actor['is_site_owner'] === true;
 $presetIdInput = $_POST['preset_id'] ?? 0;
 $presetId = (is_string($presetIdInput) || is_int($presetIdInput))
     ? (filter_var($presetIdInput, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 0)
@@ -17,8 +19,8 @@ if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'co
 $isSectionScope = $layoutScope === 'section';
 $presetConfigJson = is_string($_POST['preset_config'] ?? null) ? $_POST['preset_config'] : '';
 $isValidatedPresetPreview = !$isSectionScope && ($presetConfigJson !== '' || $presetId > 0);
-if ($role !== 'admin' && !$isValidatedPresetPreview) {
-    adiwira_require_admin($pdo, true);
+if (!$isSiteOwner && !$isValidatedPresetPreview) {
+    adiwira_require_site_owner($pdo, true);
 }
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -277,7 +279,15 @@ try {
             adiwira_json(['ok' => false, 'error' => (string)$validation['errors'][0], 'errors' => $validation['errors']], 422);
         }
         $config = $validation['config'];
-        $previewResult = shortcode_preset_preview_result(null, $config, $previewContext + ['template_content' => $content], $pdo);
+        $previewTemplateContent = $isSiteOwner ? $content : '';
+        if (!$isSiteOwner && ($config['source'] ?? 'posts') === 'posts') {
+            $storedLayout = post_cat__find_layout_template($pdo, (string)($config['layout'] ?? ''));
+            $storedContent = $storedLayout ? file_get_contents($storedLayout) : false;
+            if (!is_string($storedContent)) throw new RuntimeException(__('Failed to prepare template preview.'));
+            $content = $storedContent;
+            $previewTemplateContent = $storedContent;
+        }
+        $previewResult = shortcode_preset_preview_result(null, $config, $previewContext + ['template_content' => $previewTemplateContent], $pdo);
         if ($previewResult !== null) {
             adiwira_json(array_merge(['ok' => true, 'preset_id' => $presetId], $previewResult));
             return;
@@ -295,12 +305,6 @@ try {
             return;
         }
 
-        if ($role !== 'admin') {
-            $storedLayout = post_cat__find_layout_template($pdo, (string)($config['layout'] ?? ''));
-            $storedContent = $storedLayout ? file_get_contents($storedLayout) : false;
-            if (!is_string($storedContent)) throw new RuntimeException(__('Failed to prepare template preview.'));
-            $content = $storedContent;
-        }
         if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
             throw new RuntimeException(__('Failed to prepare template preview.'));
         }

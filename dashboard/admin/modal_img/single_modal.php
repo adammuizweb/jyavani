@@ -137,7 +137,7 @@ if (!function_exists('modalimg_human_filesize')) {
   </div>
 
   <div class="mdlib-media-right">
-    <form id="mdlib-media-edit-form">
+    <form id="mdlib-media-edit-form" data-unsaved-guard>
       <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -293,6 +293,8 @@ if (!function_exists('modalimg_human_filesize')) {
     const btn = this;
     const form = document.getElementById('mdlib-media-edit-form');
     if (!form) return;
+    const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    const submittedSnapshot = guard && typeof guard.capture === 'function' ? guard.capture(form) : null;
 
     btn.disabled = true;
 
@@ -317,6 +319,7 @@ if (!function_exists('modalimg_human_filesize')) {
         }
 
         const j = resp.json || {};
+        if (guard && typeof guard.markSaved === 'function') guard.markSaved(submittedSnapshot, null, form);
         uiToast('success', 'Gallery', <?= json_encode(__('Media updated successfully.')) ?>, 2500);
         broadcast('media:updated', j);
       })
@@ -384,6 +387,8 @@ if (!function_exists('modalimg_human_filesize')) {
         });
 
         broadcast('media:deleted', payload);
+        const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+        if (guard && typeof guard.unregister === 'function') guard.unregister(form);
 
         try {
           if (window.parent && window.parent.adamModalClose) window.parent.adamModalClose();
@@ -403,29 +408,54 @@ if (!function_exists('modalimg_human_filesize')) {
   });
 
   document.getElementById('mdlib-back-btn')?.addEventListener('click', function(){
-    var listUrl = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?embedded=1';
+    const form = document.getElementById('mdlib-media-edit-form');
+    const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    const goBack = function(departureSnapshot){
+      var listUrl = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?embedded=1';
 
-    var content = null;
-    try { content = document.getElementById('adam-modal-content'); } catch(e){}
-    if (!content) {
-      try { content = window.parent.document.getElementById('adam-modal-content'); } catch(e){}
-    }
+      var content = null;
+      try { content = document.getElementById('adam-modal-content'); } catch(e){}
+      if (!content) {
+        try { content = window.parent.document.getElementById('adam-modal-content'); } catch(e){}
+      }
 
-    if (content && typeof window.injectHtmlWithScriptsTo === 'function') {
-      fetch(listUrl, { credentials: 'include', cache: 'no-store' })
-        .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-        .then(function(html){ return window.injectHtmlWithScriptsTo(content, html); })
-        .catch(function(err){
-          console.error('back-to-list error', err);
-          uiToast('error', 'Gallery', <?= json_encode(__('Failed to load media list.')) ?>, 4000);
-        });
-    } else {
-      try {
-        if (window.parent && window.parent.adamModalOpen) {
-          window.parent.adamModalOpen(listUrl, { maxWidth: '980px' });
-        }
-      } catch(e){}
+      if (content && typeof window.injectHtmlWithScriptsTo === 'function') {
+        fetch(listUrl, { credentials: 'include', cache: 'no-store' })
+          .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+          .then(function(html){
+            const replaceContent = function(){
+              if (guard && typeof guard.unregister === 'function') guard.unregister(form);
+              return window.injectHtmlWithScriptsTo(content, html);
+            };
+            if (guard && typeof guard.capture === 'function' && guard.capture(form) !== departureSnapshot) {
+              return guard.confirmDiscardForm(form).then(function(ok){
+                return ok ? replaceContent() : false;
+              });
+            }
+            return replaceContent();
+          })
+          .catch(function(err){
+            console.error('back-to-list error', err);
+            uiToast('error', 'Gallery', <?= json_encode(__('Failed to load media list.')) ?>, 4000);
+          });
+      } else {
+        try {
+          if (window.parent && window.parent.adamModalOpen) {
+            if (guard && typeof guard.unregister === 'function') guard.unregister(form);
+            window.parent.adamModalOpen(listUrl, { maxWidth: '980px' });
+          }
+        } catch(e){}
+      }
+    };
+
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+      goBack(null);
+      return;
     }
+    guard.confirmDiscardForm(form).then(function(ok){
+      if (!ok) return;
+      goBack(typeof guard.capture === 'function' ? guard.capture(form) : null);
+    });
   });
 
   document.querySelector('[data-action="copy-url"]')?.addEventListener('click', function(ev){

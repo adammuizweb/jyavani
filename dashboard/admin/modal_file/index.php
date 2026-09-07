@@ -391,8 +391,20 @@ if (!$embedded):
     return loadList(true, lastListUrl);
   };
   window.mdlibBackToLibrary = function(){
-    setActive('library');
-    return loadList(true, lastListUrl);
+    const host = getHost();
+    const form = host ? host.querySelector('form[data-unsaved-guard]') : null;
+    const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    const loadLibrary = function(){
+      if (guard && typeof guard.unregister === 'function') guard.unregister(form);
+      setActive('library');
+      return loadList(true, lastListUrl);
+    };
+    if (!form || !guard || typeof guard.confirmDiscardForm !== 'function' || !guard.isDirty(form)) {
+      return loadLibrary();
+    }
+    return guard.confirmDiscardForm(form).then(function(ok){
+      return ok ? loadLibrary() : false;
+    });
   };
   window.mdlibLoadIntoRoot = function(url){
     setActive('library');

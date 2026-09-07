@@ -129,6 +129,7 @@ if (!$embedded):
       data-storage-disk="<?= htmlspecialchars($storageDisk, ENT_QUOTES, 'UTF-8') ?>"
       data-access-scope="<?= htmlspecialchars($accessScope, ENT_QUOTES, 'UTF-8') ?>"
       data-is-downloadable="<?= (int)$isDownloadable ?>"
+      data-unsaved-guard
     >
       <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -263,6 +264,8 @@ if (!$embedded):
   }
 
   document.getElementById('mdlib-file-insert')?.addEventListener('click', function(){
+    const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    const insertFile = function(){
     const detail = getDetailPayload();
     broadcast('file:insert', detail);
     broadcast('media:insert', detail);
@@ -279,6 +282,22 @@ if (!$embedded):
         window.adamModalClose();
       }
     } catch(e){}
+    };
+
+    if (!guard || typeof guard.isDirty !== 'function' || !guard.isDirty(form)) {
+      insertFile();
+      return;
+    }
+    uiAsk('warning', {
+      title: <?= json_encode(__('Unsaved changes')) ?>,
+      message: <?= json_encode(__('Insert this file without saving its metadata changes?')) ?>,
+      confirmText: <?= json_encode(__('Insert without saving')) ?>,
+      cancelText: <?= json_encode(__('Keep editing')) ?>
+    }).then(function(ok){
+      if (!ok) return;
+      if (typeof guard.unregister === 'function') guard.unregister(form);
+      insertFile();
+    });
   });
 
   document.getElementById('mdlib-file-save')?.addEventListener('click', async function(){
@@ -292,6 +311,8 @@ if (!$embedded):
 
     const btn = this;
     btn.disabled = true;
+    const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    const submittedSnapshot = guard && typeof guard.capture === 'function' ? guard.capture(form) : null;
 
     try {
       const fd = new FormData(form);
@@ -323,6 +344,7 @@ if (!$embedded):
         form.dataset.accessScope = j.file.access_scope || form.dataset.accessScope || 'public';
         form.dataset.isDownloadable = String(j.file.is_downloadable ?? form.dataset.isDownloadable ?? '1');
       }
+      if (guard && typeof guard.markSaved === 'function') guard.markSaved(submittedSnapshot, null, form);
 
       broadcast('file:updated', j.file || j);
       uiToast('success', '<?=__('Library File')?>', '<?=__('File updated successfully.')?>', 2200);
@@ -381,6 +403,8 @@ if (!$embedded):
       });
 
       broadcast('file:deleted', payload);
+      const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+      if (guard && typeof guard.unregister === 'function') guard.unregister(form);
 
       uiToast('success', '<?=__('Library File')?>', '<?=__('File moved to trash.')?>', undefined, j.action);
       if (j.warning) {

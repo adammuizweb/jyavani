@@ -193,7 +193,7 @@ $walk(0, 0);
 <section class="adam-card">
   <h2><?=_e('Add Category')?></h2>
 
-  <form method="post" novalidate id="category-add-form">
+  <form method="post" novalidate id="category-add-form" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
     
@@ -279,7 +279,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     }).then(function(ok){
       if (!ok) return;
       confirmed = true;
-      form.submit();
+      setTimeout(function(){ form.requestSubmit(); }, 0);
     });
   });
 })();

@@ -512,11 +512,11 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
         <div class="tz-position" data-position="<?= h($posKey) ?>" style="background:var(--adam-card, rgba(127,127,127,.04)); border:1px dashed rgba(127,127,127,.35); border-radius:8px; padding:1rem; min-height:120px;">
           <div style="font-weight:700; font-size:.85rem; margin-bottom:.75rem; color:var(--adam-muted); text-transform:uppercase; letter-spacing:.5px;"><?= h($posDef['label'] ?? $posKey) ?></div>
 
-          <form method="post" id="tz-form-<?= h($zSlug) ?>-<?= h($posKey) ?>">
+          <form method="post" class="tz-draft-form" id="tz-form-<?= h($zSlug) ?>-<?= h($posKey) ?>" data-unsaved-guard>
             <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="tz_action" value="save">
             <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
-            <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
+            <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>" data-unsaved-guard-ignore>
             <input type="hidden" name="_widget_order" id="tz-order-<?= h($zSlug) ?>-<?= h($posKey) ?>" value="<?= h(implode(',', array_map(fn($it) => $it['id'] ?? '', $posItems))) ?>">
 
             <div class="tz-list" id="tz-list-<?= h($zSlug) ?>-<?= h($posKey) ?>" data-position="<?= h($posKey) ?>" style="display:flex; flex-direction:column; gap:.75rem; margin-bottom:1rem;">
@@ -580,12 +580,12 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
 
           <!-- Add Widget to this position -->
           <div style="background:var(--adam-surface-2, rgba(127,127,127,.08)); border-radius:6px; padding:.75rem;">
-            <form class="tz-add-form" method="post" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+            <form class="tz-add-form tz-draft-form" method="post" data-unsaved-guard style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
               <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
               <input type="hidden" name="tz_action" value="add">
               <input type="hidden" name="tz_zone" value="<?= h($zSlug) ?>">
               <input type="hidden" name="tz_position" value="<?= h($posKey) ?>">
-              <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>">
+              <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>" data-unsaved-guard-ignore>
               <select name="tz_type" required style="flex:1; min-width:140px; padding:.4rem .6rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">
                 <option value=""><?= __('- Select gadget -') ?></option>
                 <?php foreach ($tzWidgets as $typeKey => $typeDef): ?>
@@ -792,7 +792,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                   <p class="muted" style="margin-top:0; margin-bottom:1rem;"><?= __('Configure the main content area and sidebar visibility.') ?></p>
                   <?php $mainSection = $pzSections['main'] ?? []; ?>
                   <?php if (!empty($mainSection['fields'])): ?>
-                    <form method="post" style="display:flex; flex-direction:column; gap:1rem; max-width:700px;">
+                    <form method="post" class="tz-draft-form" id="tc-main-form" data-unsaved-guard style="display:flex; flex-direction:column; gap:1rem; max-width:700px;">
                       <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
                       <input type="hidden" name="tc_main_save" value="1">
                       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem;">
@@ -926,6 +926,54 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 <script>
 window.TZ_SHORTCODE_PRESETS = <?= json_encode($scPresets, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 (function(){
+  function guardApi(){
+    return window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  }
+
+  function submitIntentional(form){
+    var guard = guardApi();
+    if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+    form.submit();
+  }
+
+  function firstDirtyDraft(excluded){
+    var guard = guardApi();
+    if (!guard || typeof guard.isDirty !== 'function') return null;
+    return Array.prototype.find.call(document.querySelectorAll('.tz-draft-form[data-unsaved-guard]'), function(form){
+      return form !== excluded && guard.isDirty(form);
+    }) || null;
+  }
+
+  function confirmDraftDiscard(form){
+    var guard = guardApi();
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') return Promise.resolve(true);
+    return guard.confirmDiscardForm(form);
+  }
+
+  function submitDraft(form){
+    var otherDraft = firstDirtyDraft(form);
+    if (!otherDraft) {
+      submitIntentional(form);
+      return;
+    }
+    confirmDraftDiscard(otherDraft).then(function(confirmed){
+      if (confirmed) submitIntentional(form);
+    });
+  }
+
+  function submitActionAfterDraftDiscard(form){
+    confirmDraftDiscard().then(function(confirmed){
+      if (confirmed) submitIntentional(form);
+    });
+  }
+
+  document.querySelectorAll('.tz-draft-form[data-unsaved-guard]').forEach(function(form){
+    form.addEventListener('submit', function(event){
+      event.preventDefault();
+      submitDraft(form);
+    });
+  });
+
   document.querySelectorAll('input[type="text"][id^="tc-"]').forEach(function(inp){
     const preview = document.getElementById('tc-preview-' + inp.id.replace('tc-',''));
     if (!preview) return;
@@ -1114,9 +1162,10 @@ window.TZ_SHORTCODE_PRESETS = <?= json_encode($scPresets, JSON_UNESCAPED_UNICODE
 
   window.tzDeleteWidget = function(id, zone){
     var doDelete = function(){
+      var form = document.getElementById('tz-delete-form');
       document.getElementById('tz-delete-id').value = id;
       document.getElementById('tz-delete-zone').value = zone;
-      document.getElementById('tz-delete-form').submit();
+      submitActionAfterDraftDiscard(form);
     };
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.danger === 'function') {
       window.NewNotifConfirm.danger({
@@ -1132,7 +1181,7 @@ window.TZ_SHORTCODE_PRESETS = <?= json_encode($scPresets, JSON_UNESCAPED_UNICODE
   window.tzLoadDefaults = function(zone){
     var form = document.getElementById('tz-defaults-' + zone);
     if (!form) return;
-    var go = function(){ form.submit(); };
+    var go = function(){ submitActionAfterDraftDiscard(form); };
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       window.NewNotifConfirm.warning({
         title: <?= json_encode(__('Load Default Layout')) ?>,

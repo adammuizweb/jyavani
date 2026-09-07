@@ -93,6 +93,7 @@ $root = dirname(__DIR__);
 $files = [
     'index' => $root . '/dashboard/admin/shortcodes/index.php',
     'editor' => $root . '/dashboard/admin/shortcodes/layout.php',
+    'save' => $root . '/dashboard/admin/shortcodes/save_layout.php',
     'delete' => $root . '/dashboard/admin/shortcodes/delete_layout.php',
     'bulk' => $root . '/dashboard/admin/shortcodes/bulk_layout_action.php',
     'manager' => $root . '/dashboard/admin/shortcodes/_layout_manager.php',
@@ -342,8 +343,12 @@ $check(shortcode_layout_directory($pdo, 'collection') === null, 'collection root
 unlink($collectionDirectory);
 rename($realCollectionDirectory, $collectionDirectory);
 
-$check(str_contains($source['index'], "if (\$tab === 'layouts' && !\$isAdmin)") && str_contains($source['editor'], 'adiwira_require_admin($pdo, false)'), 'layouts listing and editor are administrator-only');
-$check(str_contains($source['delete'], 'adiwira_require_admin($pdo, true)') && str_contains($source['bulk'], 'adiwira_require_admin($pdo, true)'), 'single and bulk layout deletion endpoints require administrators');
+$check(str_contains($source['index'], "if (\$tab === 'layouts' && !\$isSiteOwner)")
+    && str_contains($source['index'], 'if ($isSiteOwner)')
+    && str_contains($source['editor'], 'adiwira_require_site_owner($pdo, false)'), 'layouts listing and PHP editor are Site Owner-only');
+$check(str_contains($source['save'], 'adiwira_require_site_owner($pdo, true)')
+    && str_contains($source['delete'], 'adiwira_require_site_owner($pdo, true)')
+    && str_contains($source['bulk'], 'adiwira_require_site_owner($pdo, true)'), 'layout save and single or bulk deletion endpoints require Site Owner access');
 $check(str_contains($source['index'], '$layoutPerPage = 15') && str_contains($source['index'], '$layoutPagingItems'), 'both layout scopes paginate at 15 rows with numbered pagination');
 $check(str_contains($source['index'], '$pageQuery = $layoutQuery') && str_contains($source['index'], "\$pageQuery['p'] = \$pageNumber"), 'layout pagination preserves validated scope, search, and filter query values');
 $check(str_contains($source['index'], "['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => \$layoutScope]") && str_contains($source['index'], "\$layoutQuery['q']") && str_contains($source['index'], "\$layoutQuery['filter']"), 'layout return URLs preserve scope, search, and filter state');

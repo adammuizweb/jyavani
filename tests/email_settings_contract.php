@@ -46,6 +46,11 @@ $check(str_contains($page, 'adiwira_csrf_validate(')
     && str_contains($page, 'jy_mail_header_text_is_valid(')
     && str_contains($page, 'jy_mail_address_is_valid(')
     && str_contains($page, "settings_set(\$pdo"), 'Email settings save validates CSRF, headers, addresses, and persisted values');
+$check(str_contains($page, 'id="email-settings-form"')
+    && str_contains($page, 'data-unsaved-guard')
+    && str_contains($page, 'data-unsaved-guard-initial-dirty')
+    && str_contains($page, 'id="email-test-form"'),
+    'Email configuration is guarded independently from the test-send action');
 $check(str_contains($page, '$ownsTransaction = false')
     && str_contains($page, 'if ($ownsTransaction && $pdo->inTransaction())')
     && str_contains($page, "unset(\$GLOBALS['__jy_settings_autoload_cache'])"), 'Email settings own their transaction and invalidate rolled-back cache values');

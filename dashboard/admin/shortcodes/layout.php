@@ -11,7 +11,7 @@ require_once __DIR__ . '/../_guard.php';
 require_once __DIR__ . '/../_notify.php';
 require_once __DIR__ . '/_layout_manager.php';
 
-[$uid, $role] = adiwira_require_admin($pdo, false);
+[$uid, $role] = adiwira_require_site_owner($pdo, false);
 
 $base = ADMIN_BASE_PATH;
 $layoutScope = is_string($_REQUEST['scope'] ?? null) ? $_REQUEST['scope'] : 'collection';
@@ -313,7 +313,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
   display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;
 }
 .lyo-header h2 {
-  margin:0;font-size:1.1rem;
+  margin:0;font-size:1.1rem;display:flex;align-items:center;gap:6px;
 }
 .lyo-header-left {
   display:flex;align-items:center;gap:.75rem;
@@ -344,8 +344,9 @@ $snippetWrapper = '<?php if ($wrap): ?>
   border-color:var(--adam-accent,#4361ee);background:var(--adam-surface-3,#f0f4ff);
 }
 .lyo-tpl-icon {
-  font-size:2rem;margin-bottom:.4rem;display:block;
+  margin-bottom:.4rem;display:flex;justify-content:center;
 }
+.lyo-tpl-icon .lucide-icon { width:30px;height:30px; }
 .lyo-tpl-title {
   font-weight:600;font-size:.9rem;margin-bottom:.2rem;
 }
@@ -407,6 +408,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
   font-size:.78rem;padding:.25rem .55rem;border:1px solid var(--adam-border-soft,var(--adam-border,#ddd));
   border-radius:4px;background:var(--adam-surface-3,var(--adam-card,#fff));
   color:var(--adam-text,#333);cursor:pointer;white-space:nowrap;
+  display:inline-flex;align-items:center;gap:4px;
   transition:background .12s,border-color .12s;
 }
 .lyo-toolbar button:hover {
@@ -460,20 +462,20 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
     <div class="lyo-header">
       <div class="lyo-header-left">
-        <h2><?= $isNew
-            ? '📄 ' . ($isSectionScope ? __('New Theme Section') : __('New Layout'))
-            : '✏️ ' . ($isSectionScope ? __('Edit Theme Section:') : __('Edit Layout:')) . ' ' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?></h2>
+        <h2><?= svg_ico($isNew ? 'file' : 'pen', '', ['style' => 'width:18px;height:18px']) ?> <?= $isNew
+            ? ($isSectionScope ? __('New Theme Section') : __('New Layout'))
+            : ($isSectionScope ? __('Edit Theme Section:') : __('Edit Layout:')) . ' ' . htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?></h2>
         <?php if ($isNew): ?>
           <input type="text" id="lyo-name" class="lyo-name-input" placeholder="<?= $isSectionScope ? __('Section name (for example: page.hero)') : __('Layout name (slug)') ?>" value="<?= htmlspecialchars($pref_layout_name, ENT_QUOTES, 'UTF-8') ?>" autofocus>
         <?php endif; ?>
       </div>
       <div class="lyo-header-right">
-        <button type="button" class="adam-button" id="btn-save">💾 <?= $isNew ? __('Save') : __('Save Changes') ?></button>
+        <button type="button" class="adam-button" id="btn-save"><?= svg_ico('save', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?= $isNew ? __('Save') : __('Save Changes') ?></button>
         <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
       </div>
     </div>
 
-    <form method="post" id="layout-form" action="<?= htmlspecialchars($base . '/admin/shortcodes/save_layout.php', ENT_QUOTES, 'UTF-8') ?>">
+    <form method="post" id="layout-form" action="<?= htmlspecialchars($base . '/admin/shortcodes/save_layout.php', ENT_QUOTES, 'UTF-8') ?>" data-unsaved-guard>
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="save_nonce" value="<?= htmlspecialchars($save_nonce, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
@@ -508,34 +510,34 @@ $snippetWrapper = '<?php if ($wrap): ?>
     <div style="font-size:.85rem;font-weight:600;color:var(--adam-muted,#888);margin-bottom:-.5rem;"><?=_e('Choose starting template:')?></div>
     <div id="lyo-starter" class="lyo-templates">
       <div class="lyo-tpl-card selected" data-template="0">
-        <span class="lyo-tpl-icon">📄</span>
+        <span class="lyo-tpl-icon"><?= svg_ico('file') ?></span>
         <div class="lyo-tpl-title"><?=_e('Blank')?></div>
         <div class="lyo-tpl-desc"><?=_e('Start from a blank page')?></div>
       </div>
       <?php if ($isSectionScope): ?>
       <div class="lyo-tpl-card" data-template="1">
-        <span class="lyo-tpl-icon">▤</span>
+        <span class="lyo-tpl-icon"><?= svg_ico('panel-top') ?></span>
         <div class="lyo-tpl-title"><?=_e('Semantic Section')?></div>
         <div class="lyo-tpl-desc"><?=_e('Title and summary from shortcode attributes')?></div>
       </div>
       <?php else: ?>
       <div class="lyo-tpl-card" data-template="1">
-        <span class="lyo-tpl-icon">📋</span>
+        <span class="lyo-tpl-icon"><?= svg_ico('list') ?></span>
         <div class="lyo-tpl-title"><?=_e('Simple List')?></div>
         <div class="lyo-tpl-desc"><?=_e('Vertical article list with excerpt + date')?></div>
       </div>
       <div class="lyo-tpl-card" data-template="2">
-        <span class="lyo-tpl-icon">🗂️</span>
+        <span class="lyo-tpl-icon"><?= svg_ico('grid-3x3') ?></span>
         <div class="lyo-tpl-title"><?=_e('Card Grid')?></div>
         <div class="lyo-tpl-desc"><?=_e('Card grid with thumbnail, excerpt & date')?></div>
       </div>
       <div class="lyo-tpl-card" data-template="3">
-        <span class="lyo-tpl-icon">🃏</span>
+        <span class="lyo-tpl-icon"><?= svg_ico('box') ?></span>
         <div class="lyo-tpl-title"><?=_e('Card Accent')?></div>
         <div class="lyo-tpl-desc"><?=_e('Vertical card with gradient accent')?></div>
       </div>
       <div class="lyo-tpl-card" data-template="4">
-        <span class="lyo-tpl-icon">🎠</span>
+        <span class="lyo-tpl-icon"><?= svg_ico('columns-2') ?></span>
         <div class="lyo-tpl-title"><?=_e('Slider')?></div>
         <div class="lyo-tpl-desc"><?=_e('Horizontal carousel with navigation')?></div>
       </div>
@@ -545,10 +547,10 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
     <?php if (!$isNew && !empty($connectedPresets)): ?>
     <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
-      <span>🔗 <strong><?=_e('Connected Presets:')?></strong></span>
+      <span style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('link', '', ['style' => 'width:15px;height:15px']) ?> <strong><?=_e('Connected Presets:')?></strong></span>
       <?php foreach ($connectedPresets as $cp): ?>
         <a href="<?= h($base . '/?page=admin/shortcodes/edit&id=' . (int)$cp['id']) ?>" class="adam-link" style="font-size:.82rem;display:inline-flex;align-items:center;gap:3px;">
-          📦 <?= h((string)($cp['title'] ?? $cp['slug'] ?? '')) ?>
+          <?= svg_ico('box', '', ['style' => 'width:13px;height:13px']) ?> <?= h((string)($cp['title'] ?? $cp['slug'] ?? '')) ?>
         </a><?= $cp !== end($connectedPresets) ? '<span style="color:var(--adam-muted,#888);font-size:.7rem;">|</span>' : '' ?>
       <?php endforeach; ?>
       <span style="font-size:.78rem;color:var(--adam-muted,#888);margin-left:auto;"><?= sprintf(__('This layout is used by %d preset(s)'), count($connectedPresets)) ?></span>
@@ -558,7 +560,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
     <?php if (!$isSectionScope && (empty($allPresets) || (isset($connectedPresets) && empty($connectedPresets)))): ?>
     <?php if (!empty($allPresets)): ?>
     <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
-      <span>🔗 <strong><?=_e('Preview with real data:')?></strong></span>
+      <span style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('link', '', ['style' => 'width:15px;height:15px']) ?> <strong><?=_e('Preview with real data:')?></strong></span>
       <select id="preview-preset-select" style="font-size:.82rem;padding:.25rem .5rem;border:1px solid var(--adam-border-soft,#ddd);border-radius:4px;background:var(--adam-bg,#fff);color:var(--adam-text,#333);">
         <option value=""><?=_e('— Choose a preset —')?></option>
         <?php foreach ($allPresets as $p): ?>
@@ -572,7 +574,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
     <?php endif; ?>
 
     <div style="display:flex;align-items:flex-start;gap:.5rem;padding:.6rem .75rem;background:var(--adam-surface-2);border-radius:8px;font-size:.85rem;line-height:1.5;">
-      <div style="font-size:1.1rem;flex-shrink:0;">💡</div>
+      <div style="flex-shrink:0;"><?= svg_ico('book-open', '', ['style' => 'width:18px;height:18px']) ?></div>
       <div>
         <?php if ($isSectionScope): ?>
         <?=_e('<strong>Theme Sections</strong> render reusable page sections from <code>[[widget:theme_section name=&quot;page.hero&quot;]]</code>.')?><br>
@@ -594,22 +596,22 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <button data-snippet="1" title="<?=_e('Insert section summary')?>"><?=_e('Summary')?></button>
       <button data-snippet="2" title="<?=_e('Insert section link')?>"><?=_e('Link')?></button>
       <?php else: ?>
-      <button data-snippet="0" title="<?=_e('Insert foreach loop')?>">🔁 <?=_e('Loop Items')?></button>
-      <button data-snippet="1" title="<?=_e('Insert thumbnail block')?>">🖼️ <?=_e('Thumbnail')?></button>
-      <button data-snippet="2" title="<?=_e('Insert excerpt')?>">📝 <?=_e('Excerpt')?></button>
-      <button data-snippet="3" title="<?=_e('Insert date')?>">📅 <?=_e('Date')?></button>
-      <button data-snippet="4" title="<?=_e('Insert kicker')?>">🏷️ <?=_e('Kicker')?></button>
-      <button data-snippet="5" title="<?=_e('Insert slider nav buttons')?>">🎠 <?=_e('Slider Nav')?></button>
-      <button data-snippet="6" title="<?=_e('Insert wrapper div')?>">📦 <?=_e('Wrapper')?></button>
+      <button data-snippet="0" title="<?=_e('Insert foreach loop')?>"><?= svg_ico('redo-2', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Loop Items')?></button>
+      <button data-snippet="1" title="<?=_e('Insert thumbnail block')?>"><?= svg_ico('image', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Thumbnail')?></button>
+      <button data-snippet="2" title="<?=_e('Insert excerpt')?>"><?= svg_ico('file-text', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Excerpt')?></button>
+      <button data-snippet="3" title="<?=_e('Insert date')?>"><?= svg_ico('history', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Date')?></button>
+      <button data-snippet="4" title="<?=_e('Insert kicker')?>"><?= svg_ico('tag', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Kicker')?></button>
+      <button data-snippet="5" title="<?=_e('Insert slider nav buttons')?>"><?= svg_ico('columns-2', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Slider Nav')?></button>
+      <button data-snippet="6" title="<?=_e('Insert wrapper div')?>"><?= svg_ico('box', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Wrapper')?></button>
       <?php endif; ?>
       <span style="flex:1"></span>
-      <button data-snippet="clear" class="danger" style="border-color:#e74c3c;color:#e74c3c;" title="<?=_e('Clear editor')?>">🗑️ <?=_e('Clear')?></button>
+      <button data-snippet="clear" class="danger" style="border-color:#e74c3c;color:#e74c3c;" title="<?=_e('Clear editor')?>"><?= svg_ico('trash-2', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Clear')?></button>
     </div>
 
     <div class="lyo-editor-area">
       <div class="lyo-editor-pane" id="lyo-editor-pane">
         <div class="lyo-pane-header">
-          <span class="lyo-pane-title">&lt;&gt; <?=_e('Code Editor')?></span>
+          <span class="lyo-pane-title"><?= svg_ico('code', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Code Editor')?></span>
           <span class="lyo-pane-meta">
             <span style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);"><?=_e('PHP + HTML — click a component to insert code')?></span>
             <button type="button" class="lyo-pane-toggle" data-pane-toggle="lyo-editor-pane" aria-expanded="true" aria-label="<?= htmlspecialchars(__('Code Editor'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Code Editor'), ENT_QUOTES, 'UTF-8') ?>">-</button>
@@ -621,7 +623,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
       </div>
       <div class="lyo-preview-pane" id="lyo-preview-pane">
         <div class="lyo-pane-header">
-          <span class="lyo-pane-title">👁️ <?=_e('Live Preview')?></span>
+          <span class="lyo-pane-title"><?= svg_ico('eye', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Live Preview')?></span>
           <span class="lyo-pane-meta">
             <span id="preview-mode" style="font-weight:400;font-size:.7rem;background:var(--adam-surface-3);padding:.1rem .4rem;border-radius:3px;color:var(--adam-muted,#888);">dummy</span>
             <span id="preview-status" style="font-weight:400;font-size:.75rem;color:var(--adam-muted,#888);"><?=_e('typing...')?></span>
@@ -637,8 +639,8 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
     <div class="lyo-variables">
       <button type="button" class="lyo-var-toggle" id="lyo-var-toggle">
-        <span>📖 Template Variables</span>
-        <span class="chevron">▶</span>
+        <span style="display:inline-flex;align-items:center;gap:5px;"><?= svg_ico('book-open', '', ['style' => 'width:15px;height:15px']) ?> <?=_e('Template Variables')?></span>
+        <?= svg_ico('chevron-right', 'chevron', ['style' => 'width:15px;height:15px']) ?>
       </button>
       <div class="lyo-var-body" id="lyo-var-body">
         <table class="lyo-var-table">
@@ -669,7 +671,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
           </tbody>
         </table>
         <div style="margin-top:.6rem;font-size:.8rem;color:var(--adam-muted,#888);background:var(--adam-surface-3);padding:.5rem .7rem;border-radius:4px;">
-          <strong>📍 <?=_e('Layout file:')?></strong> <code><?= $isSectionScope ? 'views/themes/' . htmlspecialchars(get_active_theme_folder($pdo), ENT_QUOTES, 'UTF-8') . '/partials/shortcodes/section/' : 'views/partials/shortcodes/post_cat/' ?><span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{' . __('name') . '}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
+          <strong style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('file', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Layout file:')?></strong> <code><?= $isSectionScope ? 'views/themes/' . htmlspecialchars(get_active_theme_folder($pdo), ENT_QUOTES, 'UTF-8') . '/partials/shortcodes/section/' : 'views/partials/shortcodes/post_cat/' ?><span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{' . __('name') . '}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
         </div>
       </div>
     </div>
@@ -815,27 +817,27 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
         }
         previewError.style.display = 'none';
         if (data.mode === 'preset') {
-          previewMode.textContent = '📦 ' + (presetSelect ? presetSelect.options[presetSelect.selectedIndex].text : 'preset');
-          previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
+          previewMode.textContent = presetSelect ? presetSelect.options[presetSelect.selectedIndex].text : 'preset';
+          previewStatus.textContent = <?=json_encode(__('Ready'))?>;
         } else {
           previewMode.textContent = data.mode === 'section' ? <?= json_encode(__('Theme Section')) ?> : 'dummy';
-          previewStatus.textContent = <?=json_encode(__('Ready'))?> + ' ✔';
+          previewStatus.textContent = <?=json_encode(__('Ready'))?>;
         }
       } else {
         previewContent.innerHTML = data.html || '<div style="color:#e74c3c;padding:1rem;">' + <?=json_encode(__('Preview error'))?> + '</div>';
         if (data.error) {
           previewError.style.display = 'flex';
-          previewError.textContent = '⚠ ' + data.error;
+          previewError.textContent = data.error;
         } else {
           previewError.style.display = 'none';
         }
-        previewStatus.textContent = 'error ✗';
+        previewStatus.textContent = <?=json_encode(__('Error'))?>;
       }
     })
     .catch(function(err) {
       previewContent.innerHTML = '<div style="color:#e74c3c;padding:1rem;"><?=__('Failed to reach server:')?> ' + err.message + '</div>';
       previewError.style.display = 'none';
-      previewStatus.textContent = 'error ✗';
+      previewStatus.textContent = <?=json_encode(__('Error'))?>;
     })
     .finally(function() {
       previewRunning = false;
@@ -949,7 +951,12 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
 
   async function submitAjax(){
     syncContent();
-    var oldLabel = btn ? btn.textContent : '';
+    var unsavedGuard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    var submittedSnapshot = unsavedGuard && typeof unsavedGuard.capture === 'function'
+      ? unsavedGuard.capture(form)
+      : null;
+    var submittedName = hiddenName ? hiddenName.value : undefined;
+    var oldMarkup = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
 
     try {
@@ -975,6 +982,15 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
         nonceField.value = data.new_save_nonce;
       }
 
+      var canonicalName = data.file ? String(data.file).replace(/\.php$/, '') : null;
+      if (canonicalName && hiddenName && hiddenName.value === submittedName) {
+        hiddenName.value = canonicalName;
+        if (lyoName && lyoName.value === submittedName) lyoName.value = canonicalName;
+      }
+      if (unsavedGuard && typeof unsavedGuard.markSaved === 'function') {
+        unsavedGuard.markSaved(submittedSnapshot, canonicalName ? { layout_name: canonicalName } : null, form);
+      }
+
       if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
         window.NewNotifToast.show({ type: 'success', title: <?= json_encode(__('Success')) ?>, message: data.message || <?= json_encode(__('Layout saved successfully.')) ?> });
       }
@@ -987,7 +1003,7 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = oldLabel || '<?= $isNew ? __('Save') : __('Save Changes') ?>';
+        btn.innerHTML = oldMarkup || '<?= svg_ico('save', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?= $isNew ? __('Save') : __('Save Changes') ?>';
       }
     }
   }
