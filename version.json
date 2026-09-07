@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.106",
-    "build": "2026-09-06",
-    "changelog": "Add a transaction-aware resource lifecycle extension contract with complete Media and File snapshots, validated artifact descriptors, fail-closed mutation observers, and isolated committed notifications.",
+    "version": "2.3.107",
+    "build": "2026-09-07",
+    "changelog": "Scale Theme Store browsing with bounded search and cursor pagination, strengthen exact-theme installation validation, and align Plugin and Theme Store action controls.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

@@ -121,6 +121,29 @@ try {
     $identityResult = install_theme_from_zip(null, $identity, false, null, 'different');
     $check(($identityResult['success'] ?? false) === false, 'Store theme installation binds the requested package identity');
 
+    $metadataPackage = $fixture . '/metadata.zip';
+    $zip = new ZipArchive();
+    $zip->open($metadataPackage, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString('theme.json', json_encode(['folder' => 'metadata', 'name' => 'Metadata', 'version' => '1.0.0', 'php_required' => '8.1']));
+    $zip->addFromString('header.php', '<?php echo "safe";');
+    $zip->close();
+    $versionMismatch = install_theme_from_zip(null, $metadataPackage, false, null, 'metadata', ['version' => '2.0.0', 'php_required' => '8.1']);
+    $check(($versionMismatch['success'] ?? false) === false && str_contains((string)$versionMismatch['message'], 'version does not match'),
+        'Store theme installation rejects a package version that differs from authoritative metadata');
+    $requirementMismatch = install_theme_from_zip(null, $metadataPackage, false, null, 'metadata', ['version' => '1.0.0', 'php_required' => '8.2']);
+    $check(($requirementMismatch['success'] ?? false) === false && str_contains((string)$requirementMismatch['message'], 'requirements do not match'),
+        'Store theme installation rejects package requirements that differ from authoritative metadata');
+
+    $unsupportedPackage = $fixture . '/unsupported.zip';
+    $zip = new ZipArchive();
+    $zip->open($unsupportedPackage, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString('theme.json', json_encode(['folder' => 'unsupported', 'name' => 'Unsupported', 'version' => '1.0.0', 'php_required' => '999.0']));
+    $zip->addFromString('header.php', '<?php echo "safe";');
+    $zip->close();
+    $unsupported = install_theme_from_zip(null, $unsupportedPackage, false, null, 'unsupported', ['version' => '1.0.0', 'php_required' => '999.0']);
+    $check(($unsupported['success'] ?? false) === false && str_contains((string)$unsupported['message'], 'requires PHP'),
+        'Store theme installation enforces the authoritative PHP requirement before publication');
+
     $caseConflict = $fixture . '/case-conflict.zip';
     $zip = new ZipArchive();
     $zip->open($caseConflict, ZipArchive::CREATE | ZipArchive::OVERWRITE);

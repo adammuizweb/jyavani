@@ -15,6 +15,93 @@ class ThemeStoreClient
     private const MAX_DECISIONS = 64;
     private const MAX_ISSUES = 64;
 
+    public static function fetchCatalogPage(string $query = '', string $cursor = '', int $limit = 24): ?array
+    {
+        $query = trim($query);
+        if (preg_match('//u', $query) !== 1 || strlen($query) > 400 || mb_strlen($query) > 100
+            || strlen($cursor) > 2048 || $limit < 1 || $limit > 48) return null;
+        $url = self::STORE_BASE . '/?api_version=2&limit=' . $limit;
+        if ($query !== '') $url .= '&q=' . rawurlencode($query);
+        if ($cursor !== '') $url .= '&cursor=' . rawurlencode($cursor);
+        $data = update_metadata_fetch_json($url, 'JyavaniCMS-ThemeCatalog');
+        if (!is_array($data) || ($data['schema_version'] ?? null) !== 2
+            || !is_array($data['themes'] ?? null) || count($data['themes']) > $limit
+            || !is_array($data['pagination'] ?? null)) return null;
+
+        $themes = [];
+        $seen = [];
+        foreach ($data['themes'] as $theme) {
+            if (!is_array($theme)) return null;
+            $name = (string)($theme['name'] ?? '');
+            $title = trim((string)($theme['title'] ?? ''));
+            $version = trim((string)($theme['version'] ?? ''));
+            if (preg_match('/\A[a-zA-Z0-9_-]{1,100}\z/', $name) !== 1 || isset($seen[$name])
+                || $title === '' || strlen($title) > 1020 || $version === '' || strlen($version) > 50) return null;
+            $seen[$name] = true;
+            $screenshot = self::validatedThemeAssetUrl((string)($theme['screenshot'] ?? ''), $name);
+            $homepage = self::validatedPublicUrl((string)($theme['homepage'] ?? ''));
+            $themes[] = [
+                'name' => $name,
+                'title' => $title,
+                'version' => $version,
+                'php_required' => mb_substr(trim((string)($theme['php_required'] ?? '')), 0, 20),
+                'description' => mb_substr(trim((string)($theme['description'] ?? '')), 0, 500),
+                'author' => mb_substr(trim((string)($theme['author'] ?? '')), 0, 255),
+                'homepage' => $homepage,
+                'screenshot' => $screenshot,
+                'avg_rating' => max(0, min(5, (float)($theme['avg_rating'] ?? 0))),
+                'total_ratings' => max(0, (int)($theme['total_ratings'] ?? 0)),
+            ];
+        }
+        $pagination = $data['pagination'];
+        $hasMore = ($pagination['has_more'] ?? false) === true;
+        $nextCursor = $pagination['next_cursor'] ?? null;
+        if (($nextCursor !== null && (!is_string($nextCursor) || preg_match('/\A[A-Za-z0-9_-]{1,2048}\z/', $nextCursor) !== 1))
+            || ($hasMore && (!is_string($nextCursor) || $nextCursor === $cursor))) return null;
+        return [
+            'store_name' => mb_substr(trim((string)($data['store_name'] ?? 'Jyavani Theme Store')), 0, 100),
+            'themes' => $themes,
+            'pagination' => ['has_more' => $hasMore, 'next_cursor' => $hasMore ? $nextCursor : null],
+        ];
+    }
+
+    public static function fetchOfficialTheme(string $name): ?array
+    {
+        if (preg_match('/\A[a-zA-Z0-9_-]{1,100}\z/', $name) !== 1) return null;
+        $data = update_metadata_fetch_json(self::STORE_BASE . '/' . rawurlencode($name) . '/version.json', 'JyavaniCMS-ThemeInstall');
+        if (!is_array($data) || !hash_equals($name, (string)($data['name'] ?? ''))
+            || !is_string($data['version'] ?? null) || trim($data['version']) === ''
+            || preg_match('/\A[a-f0-9]{64}\z/', strtolower((string)($data['checksum'] ?? ''))) !== 1) return null;
+        $download = self::validatedStoreUrl((string)($data['download_url'] ?? ''), '/theme-store/download/' . rawurlencode($name) . '/');
+        if ($download === '') return null;
+        $data['download_url'] = $download;
+        $data['checksum'] = strtolower((string)$data['checksum']);
+        return $data;
+    }
+
+    private static function validatedThemeAssetUrl(string $url, string $name): string
+    {
+        if ($url === '') return '';
+        $preview = self::validatedStoreUrl($url, '/theme-store/preview/');
+        return $preview !== '' ? $preview : self::validatedStoreUrl($url, '/theme-store/screenshot/' . rawurlencode($name) . '/');
+    }
+
+    private static function validatedStoreUrl(string $url, string $pathPrefix): string
+    {
+        $parts = parse_url($url);
+        if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || strtolower((string)($parts['host'] ?? '')) !== 'jyavani.com' || isset($parts['port'])
+            || !str_starts_with((string)($parts['path'] ?? ''), $pathPrefix)) return '';
+        return $url;
+    }
+
+    private static function validatedPublicUrl(string $url): string
+    {
+        if ($url === '') return '';
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ? $url : '';
+    }
+
     public static function checkUpdates(PDO $pdo): array
     {
         return self::checkUpdatesDetailed($pdo)['updates'];

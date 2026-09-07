@@ -113,6 +113,7 @@ $installedThemeRoutes = '';
 foreach ([
     'dashboard/admin/themes/assign.php',
     'dashboard/admin/themes/browse.php',
+    'dashboard/admin/themes/catalog.php',
     'dashboard/admin/themes/customize.php',
     'dashboard/admin/themes/upload.php',
     'dashboard/admin/themes/update_apply.php',
@@ -155,8 +156,8 @@ $check(str_contains($schema, "('core.dashboard.access','core'") && str_contains(
 $check(str_contains($migration, "enum('none','author','editor','admin')") && str_contains($schema, "enum('none','author','editor','admin')"), 'legacy role bridge has a fail-closed none value');
 $check(str_contains($installer, "'site_owner.installed'") && str_contains($installer, 'is_site_owner = 1'), 'Pondasi creates and audits the initial Site Owner');
 $check(
-    substr_count($installedThemeRoutes, "'core.themes.manage'") === 7
-    && substr_count($installedThemeRoutes, 'adiwira_require_site_owner') === 7
+    substr_count($installedThemeRoutes, "'core.themes.manage'") === 8
+    && substr_count($installedThemeRoutes, 'adiwira_require_site_owner') === 8
     && !str_contains($installedThemeRoutes, 'adiwira_require_admin')
     && !str_contains($installedThemeRoutes, "adiwira_require_role(\$pdo, ['admin']"),
     'executable installed-theme operations require permission and Site Owner authority'

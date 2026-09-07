@@ -1759,7 +1759,7 @@ function theme_lifecycle_reader_stop(): void {
  * Robust install_theme_from_zip replacement.
  * Returns array: success, message, folder, errors (array)
  */
-function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = false, ?int $by_user_id = null, ?string $expectedFolder = null): array {
+function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = false, ?int $by_user_id = null, ?string $expectedFolder = null, ?array $storeMetadata = null): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $ret = ['success' => false, 'message' => '', 'folder' => null, 'errors' => []];
 
@@ -1892,6 +1892,27 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
         $zip->close();
         $ret['message'] = 'theme.json error: ' . implode('; ', $manifestErrors);
         return $ret;
+    }
+    if (is_array($storeMetadata)) {
+        $storeVersion = trim((string)($storeMetadata['version'] ?? ''));
+        $packageVersion = trim((string)($manifestArray['version'] ?? ''));
+        $storePhp = trim((string)($storeMetadata['php_required'] ?? '8.1'));
+        $packagePhp = trim((string)($manifestArray['php_required'] ?? '8.1'));
+        if ($storeVersion === '' || $packageVersion === '' || !hash_equals($storeVersion, $packageVersion)) {
+            $zip->close();
+            $ret['message'] = function_exists('__') ? __('Theme package version does not match the store catalog.') : 'Theme package version does not match the store catalog.';
+            return $ret;
+        }
+        if ($storePhp === '' || $packagePhp === '' || !hash_equals($storePhp, $packagePhp)) {
+            $zip->close();
+            $ret['message'] = function_exists('__') ? __('Theme package requirements do not match the store catalog.') : 'Theme package requirements do not match the store catalog.';
+            return $ret;
+        }
+        if (version_compare(PHP_VERSION, $packagePhp, '<')) {
+            $zip->close();
+            $ret['message'] = function_exists('__') ? __('This theme requires PHP %s or newer.', $packagePhp) : sprintf('This theme requires PHP %s or newer.', $packagePhp);
+            return $ret;
+        }
     }
 
     try {
