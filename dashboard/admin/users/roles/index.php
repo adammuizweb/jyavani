@@ -496,7 +496,7 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
       </div>
     </nav>
 
-    <form method="post" class="authz-role-form" id="authzRoleForm">
+    <form method="post" class="authz-role-form" id="authzRoleForm" data-unsaved-guard<?= $hasPreservedUnsavedState ? ' data-unsaved-guard-initial-dirty' : '' ?>>
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="save">
       <input type="hidden" name="role_id" value="<?= (int)($selectedRole['id'] ?? 0) ?>">
@@ -650,7 +650,7 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
         <h3 id="authzModalTitle"><?= _e('New custom role') ?></h3>
         <button type="button" class="authz-modal-close" id="authzModalClose" aria-label="<?= __('Close') ?>">&times;</button>
       </div>
-      <form method="post" class="authz-modal-body" id="authzCreateForm">
+      <form method="post" class="authz-modal-body" id="authzCreateForm" data-unsaved-guard>
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="save">
         <input type="hidden" name="role_id" value="0">
@@ -703,6 +703,10 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   const searchInput = document.getElementById('authzPermissionSearch');
   let slugTouched = !!(slugInput && slugInput.value);
   let submitting = false;
+
+  function unsavedGuard(){
+    return window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  }
 
   function syncScope(toggle){
     const select = toggle.closest('.authz-permission-row')?.querySelector('.authz-scope-select');
@@ -787,23 +791,9 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   document.getElementById('authzExpandAll')?.addEventListener('click', function(){ groups.forEach(function(group){ group.open = true; }); });
   document.getElementById('authzCollapseAll')?.addEventListener('click', function(){ groups.forEach(function(group){ group.open = false; }); });
 
-  document.querySelectorAll('[data-role-nav]').forEach(function(link){
-    link.addEventListener('click', function(event){
-      if (!dirtyState?.classList.contains('is-dirty') || submitting) return;
-      event.preventDefault();
-      const options = {title:<?= json_encode(__('Discard unsaved changes?')) ?>,message:<?= json_encode(__('Your changes to this role have not been saved.')) ?>,confirmText:<?= json_encode(__('Discard changes')) ?>,cancelText:<?= json_encode(__('Keep editing')) ?>};
-      const decision = window.NewNotifConfirm?.warning ? window.NewNotifConfirm.warning(options) : Promise.resolve(window.confirm(options.message));
-      decision.then(function(ok){ if (ok) { submitting = true; window.location.href = link.href; } });
-    });
-  });
   form.addEventListener('submit', function(){
     submitting = true;
     if (saveButton) { saveButton.disabled = true; saveButton.textContent = <?= json_encode(__('Saving...')) ?>; }
-  });
-  window.addEventListener('beforeunload', function(event){
-    if (submitting || !dirtyState?.classList.contains('is-dirty')) return;
-    event.preventDefault();
-    event.returnValue = '';
   });
 
   const deleteButton = document.getElementById('authzDeleteRoleOpen');
@@ -811,7 +801,13 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   deleteButton?.addEventListener('click', function(){
     const options = {title:<?= json_encode(__('Delete Role')) ?>,message:<?= json_encode(sprintf(__('Delete %s? Assigned users will immediately lose this role.'), (string)($selectedRole['name'] ?? ''))) ?>,confirmText:<?= json_encode(__('Delete Role')) ?>,cancelText:<?= json_encode(__('Cancel')) ?>};
     const decision = window.NewNotifConfirm?.danger ? window.NewNotifConfirm.danger(options) : Promise.resolve(window.confirm(options.message));
-    decision.then(function(ok){ if (ok) { submitting = true; deleteForm?.submit(); } });
+    decision.then(function(ok){
+      if (!ok) return;
+      submitting = true;
+      const guard = unsavedGuard();
+      if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+      deleteForm?.submit();
+    });
   });
   document.getElementById('authzRoleErrors')?.focus();
   updateCounts();
@@ -830,15 +826,25 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   }
   function closeCreateModal(){
     if (!createModal) return;
-    createModal.hidden = true;
-    document.documentElement.style.overflow = '';
+    const guard = unsavedGuard();
+    function close(){
+      createForm?.reset();
+      modalSlugTouched = false;
+      if (guard && typeof guard.markSaved === 'function') guard.markSaved(null, null, createForm);
+      createModal.hidden = true;
+      document.documentElement.style.overflow = '';
+    }
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+      close();
+      return;
+    }
+    guard.confirmDiscardForm(createForm).then(function(confirmed){
+      if (confirmed) close();
+    });
   }
 
   document.getElementById('authzOpenCreateModal')?.addEventListener('click', function(){
-    if (!dirtyState?.classList.contains('is-dirty') || submitting) { openCreateModal(); return; }
-    const options = {title:<?= json_encode(__('Discard unsaved changes?')) ?>,message:<?= json_encode(__('Your changes to this role have not been saved.')) ?>,confirmText:<?= json_encode(__('Discard changes')) ?>,cancelText:<?= json_encode(__('Keep editing')) ?>};
-    const decision = window.NewNotifConfirm?.warning ? window.NewNotifConfirm.warning(options) : Promise.resolve(window.confirm(options.message));
-    decision.then(function(ok){ if (ok) { submitting = true; openCreateModal(); } });
+    if (!submitting) openCreateModal();
   });
   document.getElementById('authzModalClose')?.addEventListener('click', closeCreateModal);
   document.getElementById('authzModalCancel')?.addEventListener('click', closeCreateModal);
@@ -847,6 +853,18 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
 
   modalName?.addEventListener('input', function(){ if (modalSlug && !modalSlugTouched) modalSlug.value = slugify(modalName.value); });
   modalSlug?.addEventListener('input', function(){ modalSlugTouched = true; });
-  createForm?.addEventListener('submit', function(){ submitting = true; });
+  createForm?.addEventListener('submit', function(event){
+    event.preventDefault();
+    const guard = unsavedGuard();
+    const confirmEditorDiscard = guard && typeof guard.confirmDiscardForm === 'function'
+      ? guard.confirmDiscardForm(form)
+      : Promise.resolve(true);
+    confirmEditorDiscard.then(function(confirmed){
+      if (!confirmed) return;
+      submitting = true;
+      if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+      createForm.submit();
+    });
+  });
 })();
 </script>

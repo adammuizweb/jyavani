@@ -30,6 +30,8 @@ $forms = [
     'dashboard/admin/profile/index.php' => 'profile-save-form',
     'dashboard/admin/profile/index.php#delete-account' => 'profile-delete-form',
     'dashboard/admin/users/save.php' => 'user-save-form',
+    'dashboard/admin/users/roles/index.php' => 'authzRoleForm',
+    'dashboard/admin/users/roles/index.php#create-role' => 'authzCreateForm',
     'dashboard/admin/sidebar/index.php' => 'sidebar-create-zone-form',
     'dashboard/admin/sidebar/index.php#edit-zone' => 'sidebar-edit-zone-form',
     'dashboard/admin/sidebar/index.php#add-widget' => 'sidebar-add-widget-form',
@@ -78,6 +80,20 @@ $check(str_contains($profileSettings, 'guard.confirmDiscardForm(profileSaveForm)
     && substr_count($profileSettings, 'guard.allowNavigation()') >= 2
     && str_contains($userEditor, 'guard.allowNavigation()'),
     'approved Profile save/delete and User save actions bypass only their intentional navigation');
+$roleManager = (string)file_get_contents($root . '/dashboard/admin/users/roles/index.php');
+$check(str_contains($roleManager, "\$hasPreservedUnsavedState ? ' data-unsaved-guard-initial-dirty'")
+    && !str_contains($roleManager, "window.addEventListener('beforeunload'")
+    && !str_contains($roleManager, "document.querySelectorAll('[data-role-nav]').forEach"),
+    'Role editor preserves rejected values and delegates navigation and unload protection to the shared guard');
+$check(str_contains($roleManager, 'guard.confirmDiscardForm(createForm)')
+    && str_contains($roleManager, 'createForm?.reset()')
+    && str_contains($roleManager, 'guard.markSaved(null, null, createForm)'),
+    'Create Role modal confirms before closing and resets its discarded draft baseline');
+$check(str_contains($roleManager, 'guard.confirmDiscardForm(form)')
+    && substr_count($roleManager, 'guard.allowNavigation()') >= 2
+    && str_contains($roleManager, 'createForm.submit()')
+    && str_contains($roleManager, 'deleteForm?.submit()'),
+    'Create and delete role actions protect active drafts and bypass only intentional navigation');
 
 $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $confirmScript = strpos($layout, '/static/components/confirm/confirm.js');
