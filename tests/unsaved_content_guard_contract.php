@@ -27,6 +27,9 @@ $forms = [
     'dashboard/admin/settings/email.php' => 'email-settings-form',
     'dashboard/admin/settings/auth.php' => 'auth-settings-form',
     'dashboard/admin/settings/sidebar.php' => 'sidebar-settings-form',
+    'dashboard/admin/profile/index.php' => 'profile-save-form',
+    'dashboard/admin/profile/index.php#delete-account' => 'profile-delete-form',
+    'dashboard/admin/users/save.php' => 'user-save-form',
     'dashboard/admin/sidebar/index.php' => 'sidebar-create-zone-form',
     'dashboard/admin/sidebar/index.php#edit-zone' => 'sidebar-edit-zone-form',
     'dashboard/admin/sidebar/index.php#add-widget' => 'sidebar-add-widget-form',
@@ -62,6 +65,19 @@ $sidebarSettings = (string)file_get_contents($root . '/dashboard/admin/settings/
 $check(strpos($sidebarSettings, '$current_enabled = $enabled;') < strpos($sidebarSettings, "if (!in_array(\$enabled")
     && strpos($sidebarSettings, '$current_overrides = $new_overrides;') < strpos($sidebarSettings, "if (!in_array(\$enabled"),
     'Sidebar Settings redisplays submitted global and controller values after a rejected save');
+$profileSettings = (string)file_get_contents($root . '/dashboard/admin/profile/index.php');
+$userEditor = (string)file_get_contents($root . '/dashboard/admin/users/save.php');
+$check(str_contains($profileSettings, "'save_profile' && \$errors")
+    && str_contains($userEditor, "data-unsaved-guard-initial-dirty' : ''"),
+    'Profile and User add/edit forms remain dirty after server-side validation errors');
+$check(str_contains($profileSettings, 'guard.confirmDiscardForm(profileDeleteForm)')
+    && str_contains($profileSettings, 'profileDeleteForm?.reset()')
+    && str_contains($profileSettings, 'guard.markSaved(null, null, profileDeleteForm)'),
+    'Profile account-deletion modal confirms and clears an abandoned password draft');
+$check(str_contains($profileSettings, 'guard.confirmDiscardForm(profileSaveForm)')
+    && substr_count($profileSettings, 'guard.allowNavigation()') >= 2
+    && str_contains($userEditor, 'guard.allowNavigation()'),
+    'approved Profile save/delete and User save actions bypass only their intentional navigation');
 
 $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $confirmScript = strpos($layout, '/static/components/confirm/confirm.js');

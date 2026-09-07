@@ -273,7 +273,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <section class="adam-card">
   <h2 class="edit-heading"><?=_e('Edit My Profile')?></h2>
 
-  <form method="post" novalidate id="profile-save-form">
+  <form method="post" novalidate id="profile-save-form" data-unsaved-guard<?= (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'save_profile' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="save_profile">
     <input type="hidden" name="img_url" id="inp_img_url" value="<?= htmlspecialchars($_POST['img_url'] ?? ($user['img'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -434,7 +434,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
   <div style="background:#fff; padding:2rem; border-radius:8px; max-width:400px; width:90%; position:relative;">
     <h3 style="margin-top:0; color:#c0392b;"><?=_e('Confirm Deletion')?></h3>
 
-    <form method="post" id="profile-delete-form">
+    <form method="post" id="profile-delete-form" data-unsaved-guard>
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="delete_account">
 
@@ -511,6 +511,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   const closeDeleteBtn = document.getElementById('btn-close-delete-account-modal');
   const deletePasswordInput = document.getElementById('del_password');
 
+  function unsavedGuard(){
+    return window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+  }
+
   function currentDefaultAvatar(){
     const name = (nameInput ? nameInput.value : '') || '';
     return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=random&color=fff';
@@ -531,7 +535,19 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
   function closeDeleteModal(){
     if (!deleteModal) return;
-    deleteModal.style.display = 'none';
+    const guard = unsavedGuard();
+    function close(){
+      profileDeleteForm?.reset();
+      if (guard && typeof guard.markSaved === 'function') guard.markSaved(null, null, profileDeleteForm);
+      deleteModal.style.display = 'none';
+    }
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+      close();
+      return;
+    }
+    guard.confirmDiscardForm(profileDeleteForm).then(function(confirmed){
+      if (confirmed) close();
+    });
   }
 
   document.getElementById('btn-view-profile')?.addEventListener('click', function () {
@@ -645,6 +661,8 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     }).then(function(ok){
       if (!ok) return;
       saveConfirmed = true;
+      const guard = unsavedGuard();
+      if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
       profileSaveForm.submit();
     });
   });
@@ -690,8 +708,16 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
       cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){
       if (!ok) return;
-      deleteConfirmed = true;
-      profileDeleteForm.submit();
+      const guard = unsavedGuard();
+      const confirmProfileDiscard = guard && typeof guard.confirmDiscardForm === 'function'
+        ? guard.confirmDiscardForm(profileSaveForm)
+        : Promise.resolve(true);
+      confirmProfileDiscard.then(function(confirmed){
+        if (!confirmed) return;
+        deleteConfirmed = true;
+        if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
+        profileDeleteForm.submit();
+      });
     });
     });
   })();

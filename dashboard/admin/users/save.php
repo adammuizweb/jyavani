@@ -336,7 +336,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <section class="adam-card">
   <h2 class="edit-heading"><?= $editing ? _e('Edit User') : _e('Add User') ?></h2>
 
-  <form method="post" novalidate id="user-save-form">
+  <form method="post" novalidate id="user-save-form" data-unsaved-guard<?= (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" value="<?= $editing ? (int)$user['id'] : 0 ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
@@ -568,6 +568,8 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
       }).then(function(ok){
         if (!ok) return;
         confirmed = true;
+        const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+        if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
         form.submit();
       });
     });
