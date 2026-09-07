@@ -204,7 +204,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 <section class="adam-card">
   <h2 class="edit-heading"><?=_e('Add Page')?></h2>
 
-  <form id="page-add-form" method="post" novalidate>
+  <form id="page-add-form" method="post" novalidate data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -218,13 +218,15 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       </button>
 
       <div class="adam-accordion-body" id="theme-meta-body">
-        <label><?=_e('Title')?><br>
-          <input type="text" name="title" value="<?= htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
+        <label><?=_e('Title')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span><br>
+          <input type="text" name="title" value="<?= htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud" required aria-required="true">
         </label>
 
-        <label><?=_e('Slug (optional)')?><br>
-          <input type="text" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
-        </label>
+        <div class="field-heading">
+          <label for="page-add-slug"><?=_e('Slug (optional)')?></label>
+          <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('What is a slug?'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="page-add-slug-help" aria-controls="page-add-slug-help" aria-expanded="false">?</button><span id="page-add-slug-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('A slug is the URL-friendly part of the web address. Leave it empty to generate one automatically from the title.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+        </div>
+        <input type="text" id="page-add-slug" name="slug" value="<?= htmlspecialchars($_POST['slug'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud">
 
         <label><?=_e('Thumbnail')?><br>
           <div class="thumb-row">
@@ -251,7 +253,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       </div>
     </div>
 
-    <label for="quill-editor"><?=_e('Content (rich text)')?></label>
+    <div id="page-add-content-label" class="field-label" data-required-editor-label><?=_e('Content (rich text)')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
     <div id="quill-editor-box" class="adam-quill adam-quill--auto" style="margin-top:.4rem;">
       <div id="quill-editor"></div>
     </div>

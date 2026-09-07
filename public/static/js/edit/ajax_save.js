@@ -40,7 +40,9 @@ function showNotif(title, msg, ms, forcedType){
   }
 
   function detectEditorMode(formEl) {
-    // default: codemirror if radio exists & checked, else quill
+    const selected = formEl && formEl.querySelector('input[name="editor_mode"]:checked');
+    if (selected) return selected.value;
+    // Theme editors use a hidden CodeMirror marker instead of mode radios.
     const cmRadio = (formEl && formEl.querySelector('#editor-codemirror')) || document.getElementById('editor-codemirror');
     if (cmRadio && cmRadio.checked) return 'codemirror';
     // if quill area exists, assume quill; else codemirror
@@ -153,17 +155,18 @@ function showNotif(title, msg, ms, forcedType){
     }
   }
 
-  function updateSlugIfAny(formEl, json) {
+  function updateSlugIfAny(formEl, json, submittedSlug) {
     const newSlug =
       (json && json.post && json.post.slug) ||
       (json && json.page && json.page.slug) ||
       (json && json.theme && json.theme.slug) ||
       null;
 
-    if (!newSlug) return;
+    if (!newSlug) return null;
 
     const slugEl = (formEl && formEl.querySelector('input[name="slug"]')) || document.querySelector('input[name="slug"]');
-    if (slugEl) slugEl.value = newSlug;
+    if (slugEl && (submittedSlug === undefined || slugEl.value === submittedSlug)) slugEl.value = newSlug;
+    return newSlug;
   }
 
   function updateUpdatedAtIfAny(json) {
@@ -187,6 +190,12 @@ function showNotif(title, msg, ms, forcedType){
       return;
     }
 
+    const mode = detectEditorMode(formEl);
+    if (mode !== 'quill' && mode !== 'codemirror') {
+      formEl.requestSubmit();
+      return;
+    }
+
     const saveUrl = resolveSaveUrl(formEl);
     if (!saveUrl) {
       showNotif('Gagal', 'Save URL tidak ditemukan (ADIWIRA_SAVE_URL/action kosong).');
@@ -200,12 +209,10 @@ function showNotif(title, msg, ms, forcedType){
 
     // sync editor -> canonical textarea
     const canonical = getCanonicalTextarea();
-    const mode = detectEditorMode(formEl);
-
     try {
       if (canonical) {
         if (mode === 'codemirror') canonical.value = getCodeMirrorValue(formEl);
-        else canonical.value = getQuillHTML();
+        else if (mode === 'quill') canonical.value = getQuillHTML();
       }
     } catch (e) {
       warn('sync editor failed', e);
@@ -213,6 +220,12 @@ function showNotif(title, msg, ms, forcedType){
 
     const fd = new FormData(formEl);
     fd.set('ajax', '1');
+    const unsavedGuard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
+    const submittedSnapshot = unsavedGuard && typeof unsavedGuard.capture === 'function'
+      ? unsavedGuard.capture()
+      : null;
+    const slugField = formEl.querySelector('input[name="slug"]');
+    const submittedSlug = slugField ? slugField.value : undefined;
 
     // ensure content present
     if (canonical) fd.set('content', canonical.value);
@@ -264,9 +277,13 @@ function showNotif(title, msg, ms, forcedType){
       }
 
 if (j.ok) {
-  updateSlugIfAny(formEl, j);
+  const canonicalSlug = updateSlugIfAny(formEl, j, submittedSlug);
   updateUpdatedAtIfAny(j);
   updateNonceIfAny(j);
+
+  if (unsavedGuard && typeof unsavedGuard.markSaved === 'function') {
+    unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);
+  }
 
   showNotif('Success', j.message || 'Changes saved successfully.', 2000, 'success');
 } else {
@@ -297,6 +314,8 @@ if (j.ok) {
     formEl.__adiwiraSaveBound = true;
 
     formEl.addEventListener('submit', function (e) {
+      const mode = detectEditorMode(formEl);
+      if (mode !== 'quill' && mode !== 'codemirror') return;
       e.preventDefault();
       e.stopPropagation();
       ajaxSave();
@@ -305,6 +324,9 @@ if (j.ok) {
     document.addEventListener('keydown', function (e) {
       const isSave = (e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S');
       if (!isSave) return;
+      const formEl = resolveForm();
+      const mode = detectEditorMode(formEl);
+      if (mode !== 'quill' && mode !== 'codemirror') return;
       e.preventDefault();
       e.stopPropagation();
       ajaxSave();

@@ -1,0 +1,112 @@
+<?php
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+$failures = [];
+$checks = 0;
+$check = static function (bool $condition, string $message) use (&$failures, &$checks): void {
+    $checks++;
+    echo ($condition ? 'PASS' : 'FAIL') . ' ' . $message . PHP_EOL;
+    if (!$condition) $failures[] = $message;
+};
+
+$forms = [
+    'dashboard/admin/posts/add.php' => 'post-add-form',
+    'dashboard/admin/posts/edit.php' => 'post-edit-form',
+    'dashboard/admin/pages/add.php' => 'page-add-form',
+    'dashboard/admin/pages/edit.php' => 'page-edit-form',
+    'dashboard/admin/themes/add.php' => 'theme-add-form',
+    'dashboard/admin/themes/edit.php' => 'theme-edit-form',
+];
+
+foreach ($forms as $path => $id) {
+    $source = (string)file_get_contents($root . '/' . $path);
+    $idPosition = strpos($source, 'id="' . $id . '"');
+    $formMarkup = $idPosition !== false ? substr($source, max(0, $idPosition - 100), 500) : '';
+    $check($idPosition !== false && str_contains($formMarkup, 'data-unsaved-guard'),
+        $id . ' opts into the shared unsaved-change guard');
+}
+
+$layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
+$confirmScript = strpos($layout, '/static/components/confirm/confirm.js');
+$guardScript = strpos($layout, '/static/dashboard/js/unsaved-guard.js');
+$check($confirmScript !== false && $guardScript !== false && $confirmScript < $guardScript,
+    'the dashboard loads the shared guard after the Core confirmation component');
+$check(str_contains($layout, "'badge' => __('Confirmation required')")
+    && str_contains($layout, "'title' => __('Unsaved changes')")
+    && str_contains($layout, "'message' => __('Discard unsaved changes?')")
+    && str_contains($layout, "'confirm' => __('Discard changes')")
+    && str_contains($layout, "'cancel' => __('Keep editing')"),
+    'guard modal labels use existing translated Core strings');
+
+$guard = (string)file_get_contents($root . '/public/static/dashboard/js/unsaved-guard.js');
+$check(str_contains($guard, 'Array.from(form.elements || [])')
+    && str_contains($guard, "new Set(['csrf_token', 'save_nonce', 'return_to', 'id', 'ajax', 'content'])")
+    && str_contains($guard, 'control.disabled')
+    && str_contains($guard, "type === 'checkbox' || type === 'radio'")
+    && str_contains($guard, "type === 'select-multiple'")
+    && str_contains($guard, "type === 'file'"),
+    'state snapshots cover successful form controls while excluding server-only fields');
+$check(str_contains($guard, 'window.__adam_quill_instance.root.innerHTML')
+    && str_contains($guard, 'editQuill.getInstance()')
+    && str_contains($guard, 'helper.getInstance()')
+    && str_contains($guard, "input[name=\"editor_mode\"]:checked")
+    && str_contains($guard, 'if (selectedMode) return String(canonical.value);'),
+    'snapshots read add/edit Quill, CodeMirror, and extension-owned canonical editor state');
+$check(str_contains($guard, "document.addEventListener('click', handleClick)")
+    && str_contains($guard, 'event.defaultPrevented')
+    && str_contains($guard, 'event.metaKey || event.ctrlKey || event.shiftKey || event.altKey')
+    && str_contains($guard, "link.hasAttribute('download')")
+    && str_contains($guard, ".startsWith('#')")
+    && str_contains($guard, "target !== '_self'"),
+    'delegated navigation guard preserves handled, modified, download, hash, and new-context links');
+$confirm = (string)file_get_contents($root . '/public/static/components/confirm/confirm.js');
+$translations = (string)file_get_contents($root . '/schema/translations.sql');
+$check(str_contains($guard, "badgeText: labels.badge || 'Confirmation required'")
+    && str_contains($confirm, 'opts.badgeText')
+    && str_contains($translations, "('default', 'Confirmation required', 'Perlu konfirmasi', 'id')")
+    && str_contains($translations, "('default', 'Confirmation required', 'Bestätigung erforderlich', 'de')"),
+    'the confirmation badge uses English source text with Indonesian and German seeds');
+$check(str_contains($guard, 'window.NewNotifConfirm.warning(options)')
+    && str_contains($guard, "focus: 'cancel'")
+    && str_contains($guard, "event.preventDefault();\n    if (state.confirming) return;")
+    && str_contains($guard, 'window.location.assign(url.href)'),
+    'current-tab navigation uses one accessible Core warning modal and blocks repeated clicks before leaving');
+$check(str_contains($guard, "window.addEventListener('beforeunload', handleBeforeUnload)")
+    && str_contains($guard, 'event.preventDefault()')
+    && str_contains($guard, "event.returnValue = ''"),
+    'tab close, browser close, reload, and document history use the native beforeunload guard');
+$check(str_contains($guard, "form.addEventListener('submit', handleNativeSubmit)")
+    && str_contains($guard, 'if (event.defaultPrevented) return;')
+    && str_contains($guard, 'setTimeout(function () { state.bypass = false; }, 1000);'),
+    'only uncancelled native submissions temporarily bypass the unload warning');
+$check(str_contains($guard, 'setTimeout(mount, 0);'),
+    'the initial baseline waits for existing DOMContentLoaded editor initializers');
+
+$ajaxSave = (string)file_get_contents($root . '/public/static/js/edit/ajax_save.js');
+$check(str_contains($ajaxSave, "formEl.querySelector('input[name=\"editor_mode\"]:checked')")
+    && substr_count($ajaxSave, "mode !== 'quill' && mode !== 'codemirror'") >= 3
+    && str_contains($ajaxSave, 'formEl.requestSubmit();'),
+    'the Core AJAX saver leaves extension-owned editor modes and native submit synchronization intact');
+$postEdit = (string)file_get_contents($root . '/dashboard/admin/posts/edit.php');
+$pageEdit = (string)file_get_contents($root . '/dashboard/admin/pages/edit.php');
+$check(str_contains($postEdit, "if (mode !== 'quill' && mode !== 'codemirror') return;")
+    && str_contains($pageEdit, "if (mode !== 'quill' && mode !== 'codemirror') return;"),
+    'legacy Post and Page fallback savers also defer to extension-owned editor modes');
+$check(str_contains($ajaxSave, 'const submittedSnapshot = unsavedGuard')
+    && str_contains($ajaxSave, 'slugEl.value === submittedSlug')
+    && str_contains($ajaxSave, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);')
+    && str_contains($guard, 'function rebaseSnapshot(snapshotValue, canonicalValues)'),
+    'AJAX success rebases the submitted state while preserving newer edits and canonical slug state');
+$themeEdit = (string)file_get_contents($root . '/dashboard/admin/themes/edit.php');
+$check(str_contains($themeEdit, 'const submittedSnapshot = unsavedGuard')
+    && str_contains($themeEdit, 'slugField.value === submittedSlug')
+    && str_contains($themeEdit, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null);'),
+    'Theme AJAX success also rebases submitted state and preserves edits made during the request');
+
+if ($failures !== []) {
+    fwrite(STDERR, count($failures) . " unsaved content guard contract check(s) failed.\n");
+    exit(1);
+}
+
+echo "Unsaved content guard contract passed ({$checks} checks).\n";

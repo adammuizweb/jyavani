@@ -166,7 +166,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <section class="adam-card">
   <h2><?=_e('Add Theme / Partial')?></h2>
 
-  <form method="post" id="theme-add-form">
+  <form method="post" id="theme-add-form" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="save_nonce" value="<?= htmlspecialchars($save_nonce, ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
@@ -189,24 +189,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
       <div class="adam-accordion-body" id="theme-meta-body">
         <label>
-          <?=_e('Title')?><br>
+          <?=_e('Title')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span><br>
           <input
             type="text"
             name="title"
             value="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"
             class="inpud"
+            required
+            aria-required="true"
           >
         </label>
 
-        <label style="margin-top:.6rem;display:block">
-          <?=_e('Internal slug (optional)')?><br>
-          <input
-            type="text"
-            name="slug"
-            value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
-            class="inpud"
-          >
-        </label>
+        <div class="field-heading field-heading--spaced">
+          <label for="theme-add-slug"><?=_e('Internal slug (optional)')?></label>
+          <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('What is a slug?'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="theme-add-slug-help" aria-controls="theme-add-slug-help" aria-expanded="false">?</button><span id="theme-add-slug-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('An internal slug is a stable identifier for this theme partial. The public path below controls its web address.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+        </div>
+        <input
+          type="text"
+          id="theme-add-slug"
+          name="slug"
+          value="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>"
+          class="inpud"
+        >
 
         <label style="margin-top:.6rem;display:block">
           <?=_e('Public path (optional)')?><br>
@@ -246,13 +250,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       </div>
     </div>
 
-    <label style="margin-top:.75rem;display:block">
-      <?=_e('Content (HTML / PHP fragment)')?><br>
-      <div class="adam-cm-wrap">
-        <textarea id="cm-textarea" style="width:100%;min-height:70vh;"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
-      </div>
-      <textarea id="content-textarea" name="content" style="display:none"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
-    </label>
+    <div id="theme-add-content-label" class="field-label" data-required-editor-label><?=_e('Content (HTML / PHP fragment)')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
+    <div class="adam-cm-wrap">
+      <textarea id="cm-textarea" style="width:100%;min-height:70vh;" aria-labelledby="theme-add-content-label" aria-required="true"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
+    </div>
+    <textarea id="content-textarea" name="content" style="display:none"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
   </form>
 </section>
 
