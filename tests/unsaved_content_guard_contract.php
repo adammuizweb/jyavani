@@ -26,6 +26,8 @@ $forms = [
     'dashboard/admin/settings/site.php' => 'site-settings-form',
     'dashboard/admin/settings/email.php' => 'email-settings-form',
     'dashboard/admin/settings/auth.php' => 'auth-settings-form',
+    'dashboard/admin/shortcodes/edit.php' => 'sc-form',
+    'dashboard/admin/shortcodes/layout.php' => 'layout-form',
 ];
 
 foreach ($forms as $path => $id) {
@@ -154,6 +156,12 @@ $check(str_contains($themeEdit, 'const submittedSnapshot = unsavedGuard')
     && str_contains($themeEdit, 'slugField.value === submittedSlug')
     && str_contains($themeEdit, 'unsavedGuard.markSaved(submittedSnapshot, canonicalSlug ? { slug: canonicalSlug } : null, form);'),
     'Theme AJAX success also rebases submitted state and preserves edits made during the request');
+$layoutEditor = (string)file_get_contents($root . '/dashboard/admin/shortcodes/layout.php');
+$check(str_contains($layoutEditor, 'var submittedSnapshot = unsavedGuard')
+    && str_contains($layoutEditor, 'unsavedGuard.capture(form)')
+    && str_contains($layoutEditor, 'hiddenName.value === submittedName')
+    && str_contains($layoutEditor, 'unsavedGuard.markSaved(submittedSnapshot, canonicalName ? { layout_name: canonicalName } : null, form);'),
+    'Layout AJAX success rebases submitted PHP and the canonical layout name while preserving newer edits');
 
 $mediaIndex = (string)file_get_contents($root . '/dashboard/admin/media/index.php');
 $fileIndex = (string)file_get_contents($root . '/dashboard/admin/file/index.php');

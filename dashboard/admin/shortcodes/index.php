@@ -13,14 +13,16 @@ require_once __DIR__ . '/_layout_manager.php';
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 $isAdmin = ($role === 'admin');
+$actor = function_exists('authorization_actor') ? authorization_actor($pdo, $uid) : null;
+$isSiteOwner = $actor !== null && $actor['is_site_owner'] === true;
 
 $base = ADMIN_BASE_PATH;
 $tab = is_string($_GET['tab'] ?? null) ? $_GET['tab'] : 'presets';
-if ($tab === 'layouts' && !$isAdmin) {
-    adiwira_require_admin($pdo, false);
+if ($tab === 'layouts' && !$isSiteOwner) {
+    adiwira_require_site_owner($pdo, false);
 }
 $layoutScope = is_string($_GET['scope'] ?? null) ? $_GET['scope'] : 'collection';
-if (!in_array($layoutScope, ['collection', 'section'], true) || ($layoutScope === 'section' && !$isAdmin)) {
+if (!in_array($layoutScope, ['collection', 'section'], true) || ($layoutScope === 'section' && !$isSiteOwner)) {
     $layoutScope = 'collection';
 }
 
@@ -93,12 +95,14 @@ $presetPagingItems = $buildPresetPaginationItems($presetFilters['p'], $presetPag
 $activeThemeFolder = function_exists('get_active_theme_folder') ? get_active_theme_folder($pdo) : DEFAULT_THEME_FOLDER;
 $layoutFilters = shortcode_layout_list_filters($_GET, $layoutScope);
 $layoutManagerError = '';
-try {
-    $layoutEntries = shortcode_layout_list($pdo, $layoutScope);
-} catch (Throwable $error) {
-    error_log('shortcode layout list failed: ' . $error->getMessage());
-    $layoutEntries = [];
-    $layoutManagerError = __('Layout manager is temporarily unavailable. No layout changes were made.');
+$layoutEntries = [];
+if ($isSiteOwner) {
+    try {
+        $layoutEntries = shortcode_layout_list($pdo, $layoutScope);
+    } catch (Throwable $error) {
+        error_log('shortcode layout list failed: ' . $error->getMessage());
+        $layoutManagerError = __('Layout manager is temporarily unavailable. No layout changes were made.');
+    }
 }
 $layoutEntries = array_values(array_filter($layoutEntries, static function (array $layout) use ($layoutFilters, $layoutScope): bool {
     if ($layoutFilters['q'] !== ''
@@ -135,7 +139,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
 
   <div style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid var(--adam-border,#ddd);">
     <a href="?page=admin/shortcodes/index&tab=presets" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'presets' ? 'bold' : 'normal' ?>;"><?=_e('Presets')?></a>
-    <?php if ($isAdmin): ?>
+    <?php if ($isSiteOwner): ?>
       <a href="?page=admin/shortcodes/index&tab=layouts" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'layouts' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'layouts' ? 'bold' : 'normal' ?>;"><?=_e('Layouts')?></a>
     <?php endif; ?>
   </div>
@@ -260,7 +264,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
   <?php endif; ?>
   <div class="sc-toolbar">
     <a class="<?= $layoutScope === 'collection' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=collection') ?>"><?=_e('Collection Layouts')?></a>
-    <?php if ($isAdmin): ?>
+    <?php if ($isSiteOwner): ?>
       <a class="<?= $layoutScope === 'section' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=section') ?>"><?=_e('Theme Sections')?></a>
     <?php endif; ?>
     <span style="flex:1"></span>
@@ -424,7 +428,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <?=_e('How to Use Shortcodes')?>
   </h3>
 
-  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">📦 <?=_e('Preset — Save Configurations, Reuse Later')?></h4>
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);display:flex;align-items:center;gap:5px;"><?= svg_ico('box', '', ['style' => 'width:16px;height:16px']) ?> <?=_e('Preset — Save Configurations, Reuse Later')?></h4>
   <p style="margin:0 0 .5rem;">
     <?=_e('A preset is a <strong>collection of filter + layout settings</strong> stored in the database.')?>
     <?=_e('Use a preset to show a post/page list anywhere without reconfiguring.')?>
@@ -441,7 +445,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     </tbody>
   </table>
 
-  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🧩 <?=_e('Layout — Visual Template for Post Display')?></h4>
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);display:flex;align-items:center;gap:5px;"><?= svg_ico('puzzle', '', ['style' => 'width:16px;height:16px']) ?> <?=_e('Layout — Visual Template for Post Display')?></h4>
   <p style="margin:0 0 .5rem;">
     <?=_e('A layout is a <strong>PHP file</strong> in <code>views/partials/shortcodes/post_cat/</code> that controls <em>how</em> posts/pages are rendered. Six built-in layouts are available:')?>
   </p>
@@ -458,7 +462,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <?=_e('New files automatically appear in the layout dropdown when editing a preset.')?>
   </p>
 
-  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);">🔗 <?=_e('Sidebar Integration')?></h4>
+  <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);display:flex;align-items:center;gap:5px;"><?= svg_ico('link', '', ['style' => 'width:16px;height:16px']) ?> <?=_e('Sidebar Integration')?></h4>
   <p style="margin:0;">
     <?=_e('The "Post/Page List" sidebar widget under <strong>Dashboard → Appearance → Widgets</strong> supports direct preset selection.')?>
     <?=_e('All presets with status <code>published</code> will appear in the widget selection dropdown.')?>

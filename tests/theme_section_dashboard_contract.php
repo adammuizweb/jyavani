@@ -24,13 +24,13 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 
 $check(str_contains($source['index'], "['collection', 'section']"), 'layouts index exposes explicit collection and section scopes');
 $check(str_contains($source['index'], 'shortcode_layout_list($pdo, $layoutScope)') && str_contains($source['manager'], 'theme_section_theme_directory($pdo)'), 'section listing reads only the active-theme directory');
-$check(str_contains($source['editor'], "adiwira_require_admin(\$pdo, false)"), 'PHP layout editor is restricted to administrators');
+$check(str_contains($source['editor'], "adiwira_require_site_owner(\$pdo, false)"), 'PHP layout editor is restricted to Site Owners');
 $check(str_contains($source['editor'], "do_action('shortcode_layout_editor_after_header'") && str_contains($source['editor'], "'editor_url' =>"), 'layout editor exposes a generic contextual extension hook');
 
 foreach (['save', 'delete', 'preview'] as $endpoint) {
     $check(
-        str_contains($source[$endpoint], "adiwira_require_admin(\$pdo, true)"),
-        $endpoint . ' endpoint enforces administrator access for PHP template operations'
+        str_contains($source[$endpoint], "adiwira_require_site_owner(\$pdo, true)"),
+        $endpoint . ' endpoint enforces Site Owner access for PHP template operations'
     );
 }
 
@@ -41,8 +41,19 @@ $check(str_contains($source['delete'], 'shortcode_layout_delete_files') && str_c
 $check(str_contains($source['preview'], 'adiwira_csrf_validate($csrf)'), 'PHP template preview requires CSRF validation');
 $check(str_contains($source['preview'], 'theme_section_preview_document') && str_contains($source['editor'], 'data.document') && str_contains($source['editor'], "frame.setAttribute('sandbox', 'allow-same-origin')"), 'Theme Section preview loads its script-free theme-styled document with same-origin assets in a sandboxed frame');
 $check(str_contains($source['editor'], '/static/js/edit/codemirror.js') && substr_count($source['editor'], 'data-pane-toggle=') >= 2, 'Theme Section editor initializes CodeMirror and exposes independent pane controls');
+$shortcodeUi = $source['index'] . $source['editor'] . $source['preset'];
+$check(preg_match('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', $shortcodeUi) === 0
+    && !str_contains($shortcodeUi, '▶')
+    && !str_contains($shortcodeUi, '▸'), 'Shortcodes dashboard UI contains no decorative emoji or text glyph icons');
+$check(str_contains($source['editor'], "svg_ico('eye'")
+    && str_contains($source['editor'], "svg_ico('book-open'")
+    && str_contains($source['editor'], "svg_ico('file'")
+    && str_contains($source['preset'], "svg_ico('puzzle'"), 'Shortcodes editors use Core Lucide assets for visual labels and controls');
 $check(str_contains($source['preview'], '$isValidatedPresetPreview'), 'editorial preview is limited to validated preset layouts');
 $check(str_contains($source['preview'], "file_get_contents(\$layoutReal)"), 'preset preview replaces posted code with a validated layout file');
+$check(str_contains($source['preview'], '$previewTemplateContent = $isSiteOwner ? $content :')
+    && str_contains($source['preview'], "if (!\$isSiteOwner && (\$config['source'] ?? 'posts') === 'posts')")
+    && str_contains($source['preview'], "['template_content' => \$previewTemplateContent]"), 'non-owner stored-preset preview hooks cannot receive posted PHP');
 $check(strpos($source['preview'], 'file_put_contents($tmpFile, $content') > strpos($source['preview'], 'if ($isSectionScope) {'), 'editorial preset preview does not write posted PHP before validating its layout');
 $check(str_contains($source['preview'], "__('Layout template not found.')"), 'preset preview fails closed when its validated layout is missing');
 $check(str_contains($source['save'], "'application/json'"), 'AJAX layout saves explicitly negotiate a JSON response');

@@ -9,7 +9,7 @@ require_once __DIR__ . '/_layout_manager.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-[$uid, $role] = adiwira_require_admin($pdo, true);
+[$uid, $role] = adiwira_require_site_owner($pdo, true);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
