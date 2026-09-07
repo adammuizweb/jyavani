@@ -30,6 +30,11 @@ $check(str_contains($browser, 'new IntersectionObserver(')
     && str_contains($browser, "input.addEventListener('input'")
     && str_contains($browser, "grid.addEventListener('click'"),
     'Plugin Store browser incrementally loads, cancels stale searches, deduplicates, and delegates dynamic actions');
+$check(str_contains($browser, '.plugin-store-browser .btn{text-decoration:none}')
+    && str_contains($browser, 'grid-template-columns:repeat(3,minmax(0,1fr))')
+    && str_contains($browser, '.plugin-card-actions .plugin-install-form{display:contents}')
+    && str_contains($browser, '.plugin-card-actions .btn{box-sizing:border-box;display:inline-flex'),
+    'Plugin Store links have no underline and card actions share consistent flex sizing');
 $check(str_contains($client, '$nextCursor === $cursor')
     && str_contains($browser, '!visitedCursors.has(nextCursor)')
     && str_contains($browser, 'hasMore && appended > 0')
