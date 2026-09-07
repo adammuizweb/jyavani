@@ -26,6 +26,7 @@ $forms = [
     'dashboard/admin/settings/site.php' => 'site-settings-form',
     'dashboard/admin/settings/email.php' => 'email-settings-form',
     'dashboard/admin/settings/auth.php' => 'auth-settings-form',
+    'dashboard/admin/settings/sidebar.php' => 'sidebar-settings-form',
     'dashboard/admin/shortcodes/edit.php' => 'sc-form',
     'dashboard/admin/shortcodes/layout.php' => 'layout-form',
 ];
@@ -44,8 +45,13 @@ $emailTestMarkup = $emailTestPosition !== false ? substr($emailSettings, $emailT
 $check($emailTestPosition !== false && !str_contains($emailTestMarkup, 'data-unsaved-guard'),
     'Send Test Email remains an action form rather than an independently guarded settings form');
 $check(str_contains($emailSettings, "data-unsaved-guard-initial-dirty' : ''")
-    && str_contains((string)file_get_contents($root . '/dashboard/admin/settings/auth.php'), "data-unsaved-guard-initial-dirty' : ''"),
-    'Email and Auth settings preserve guard state after server-side validation errors');
+    && str_contains((string)file_get_contents($root . '/dashboard/admin/settings/auth.php'), "data-unsaved-guard-initial-dirty' : ''")
+    && str_contains((string)file_get_contents($root . '/dashboard/admin/settings/sidebar.php'), "data-unsaved-guard-initial-dirty' : ''"),
+    'Email, Auth, and Sidebar settings preserve guard state after server-side validation errors');
+$sidebarSettings = (string)file_get_contents($root . '/dashboard/admin/settings/sidebar.php');
+$check(strpos($sidebarSettings, '$current_enabled = $enabled;') < strpos($sidebarSettings, "if (!in_array(\$enabled")
+    && strpos($sidebarSettings, '$current_overrides = $new_overrides;') < strpos($sidebarSettings, "if (!in_array(\$enabled"),
+    'Sidebar Settings redisplays submitted global and controller values after a rejected save');
 
 $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $confirmScript = strpos($layout, '/static/components/confirm/confirm.js');

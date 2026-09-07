@@ -58,6 +58,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $enabled = (string)($_POST['sidebar_enabled'] ?? '0');
     $position = (string)($_POST['sidebar_position'] ?? 'right');
+    $current_enabled = $enabled;
+    $current_position = $position;
+
+    $new_overrides = [];
+    $submitted_ctx = (array)($_POST['ctx'] ?? []);
+    foreach ($submitted_ctx as $ctx_key => $val) {
+        $ctx_key = (string)$ctx_key;
+        if ($ctx_key === '' || !isset($controller_contexts[$ctx_key])) continue;
+
+        $pos = trim((string)($val['position'] ?? ''));
+        $hide = !empty($val['hide']);
+
+        if ($pos !== '' && $pos !== 'left' && $pos !== 'right') {
+            $pos = '';
+        }
+
+        if ($hide || $pos !== '') {
+            $entry = [];
+            if ($hide) $entry['hide'] = true;
+            if ($pos !== '') $entry['position'] = $pos;
+            $new_overrides[$ctx_key] = $entry;
+        }
+    }
+    $current_overrides = $new_overrides;
 
     if (!in_array($enabled, ['0', '1'], true)) {
         $errors[] = __('Invalid enable value.');
@@ -75,27 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!$errors) {
-        $new_overrides = [];
-        $submitted_ctx = (array)($_POST['ctx'] ?? []);
-        foreach ($submitted_ctx as $ctx_key => $val) {
-            $ctx_key = (string)$ctx_key;
-            if ($ctx_key === '' || !isset($controller_contexts[$ctx_key])) continue;
-
-            $pos = trim((string)($val['position'] ?? ''));
-            $hide = !empty($val['hide']);
-
-            if ($pos !== '' && $pos !== 'left' && $pos !== 'right') {
-                $pos = '';
-            }
-
-            if ($hide || $pos !== '') {
-                $entry = [];
-                if ($hide) $entry['hide'] = true;
-                if ($pos !== '') $entry['position'] = $pos;
-                $new_overrides[$ctx_key] = $entry;
-            }
-        }
-
         $encoded = !empty($new_overrides) ? json_encode($new_overrides, JSON_UNESCAPED_UNICODE) : '';
         $ok3 = settings_set($pdo, 'sidebar_controller_overrides', $encoded, 1);
 
@@ -139,7 +142,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
     </div>
   <?php endif; ?>
 
-  <form method="post" novalidate>
+  <form method="post" novalidate id="sidebar-settings-form" data-unsaved-guard<?= (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
     <!-- Priority Z & A -->
