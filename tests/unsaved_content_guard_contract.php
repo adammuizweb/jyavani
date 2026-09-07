@@ -31,6 +31,11 @@ $forms = [
     'dashboard/admin/sidebar/index.php#edit-zone' => 'sidebar-edit-zone-form',
     'dashboard/admin/sidebar/index.php#add-widget' => 'sidebar-add-widget-form',
     'dashboard/admin/sidebar/index.php#widgets' => 'sidebar-widgets-form',
+    'dashboard/admin/menus/index.php' => 'menu-items-draft-form',
+    'dashboard/admin/menus/index.php#edit-item' => 'menuItemEditForm',
+    'dashboard/admin/menus/index.php#add-item' => 'menu-add-item-form',
+    'dashboard/admin/menus/index.php#create-menu' => 'menu-create-form',
+    'dashboard/admin/menus/index.php#rename-menu' => 'menu-rename-form',
     'dashboard/admin/shortcodes/edit.php' => 'sc-form',
     'dashboard/admin/shortcodes/layout.php' => 'layout-form',
 ];
@@ -216,6 +221,33 @@ $check(str_contains($sidebarManager, 'function deleteWidget(btn, id)')
     && str_contains($sidebarManager, 'if (confirmed) submitDelete();')
     && str_contains($sidebarManager, 'guard.allowNavigation();'),
     'widget deletion confirms before abandoning unsaved gadget settings');
+
+$menuManager = (string)file_get_contents($root . '/dashboard/admin/menus/index.php');
+$check(str_contains($menuManager, 'name="menu_items_json"')
+    && substr_count($menuManager, 'syncItemsDraft();') >= 7
+    && str_contains($menuManager, 'itemsDraftState.value = JSON.stringify(collectItems())'),
+    'Menu Manager mirrors add, edit, visibility, hierarchy, removal, and drag changes into a guarded tree snapshot');
+$check(str_contains($menuManager, 'guard.confirmDiscardForm(itemEditForm)')
+    && str_contains($menuManager, 'currentData.translations = itemEditForm._originalData.translations')
+    && str_contains($menuManager, 'closeItemEditor(true)'),
+    'menu item editor confirms cancellation and restores only its staged editable fields');
+$check(str_contains($menuManager, 'var submittedSnapshot = guard')
+    && str_contains($menuManager, 'guard.capture(itemsDraftForm)')
+    && str_contains($menuManager, "menusGrid.setAttribute('inert', '')")
+    && str_contains($menuManager, 'guard.markSaved(submittedSnapshot, null, itemsDraftForm)')
+    && str_contains($menuManager, 'guard.allowNavigation();'),
+    'Menu item AJAX save freezes editing and rebases the submitted tree before its intentional reload');
+$check(str_contains($menuManager, 'function confirmOtherDrafts(excluded)')
+    && str_contains($menuManager, 'submitActionForm(createMenuForm, createMenuForm')
+    && str_contains($menuManager, "submitActionForm(document.getElementById('menu-default-form'), null")
+    && str_contains($menuManager, 'guard.confirmDiscardForm()')
+    && str_contains($menuManager, 'menuSelect.value = originalMenu;'),
+    'menu create, rename, default, delete, and menu switching protect other active drafts');
+$check(str_contains($menuManager, 'function closeRenameModal()')
+    && str_contains($menuManager, 'renameMenuForm.reset()')
+    && str_contains($menuManager, 'markFormSaved(renameMenuForm)')
+    && str_contains($menuManager, 'event.target === renameModal'),
+    'Rename Menu backdrop, Cancel, and Escape use the guarded close path');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " unsaved content guard contract check(s) failed.\n");
