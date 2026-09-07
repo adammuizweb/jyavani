@@ -934,6 +934,12 @@ function plugin_prepare_package_stage(string $zipPath, ?string $expectedName, bo
     $requirementError = plugin_install_requirements_error_message($manifest, $activate);
     if ($requirementError !== '') { $zip->close(); return ['success' => false, 'error' => $requirementError]; }
     if (is_array($catalog)) {
+        $catalogVersion = trim((string)($catalog['version'] ?? ''));
+        $packageVersion = is_string($manifest['version'] ?? null) ? trim($manifest['version']) : '';
+        if ($catalogVersion === '' || $packageVersion === '' || !hash_equals($catalogVersion, $packageVersion)) {
+            $zip->close();
+            return ['success' => false, 'error' => plugin_message('Plugin package version does not match the store catalog.')];
+        }
         $metadataErrors = plugin_package_requirement_errors($catalog, $manifest);
         if ($metadataErrors !== []) {
             $zip->close();

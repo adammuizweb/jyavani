@@ -1,101 +1,35 @@
 <?php
 declare(strict_types=1);
-// Plugin Store Browser — Cari & install plugin dari jyavani.com
+
 require_once DASH_PATH . '/admin/_deny.php';
 if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) adiwira_admin_404();
 require_once DASH_PATH . '/admin/_guard.php';
 require_once DASH_PATH . '/admin/_notify.php';
+require_once __DIR__ . '/../../../app/controllers/PluginStoreController.php';
+require_once __DIR__ . '/_store_card.php';
 
 [$uid] = adiwira_require_permission($pdo, 'core.plugins.manage', false);
 adiwira_require_site_owner($pdo, false);
-
-if (!function_exists('_rmdir_recursive')) {
-    function _rmdir_recursive(string $dir): bool {
-        if (!is_dir($dir)) return true;
-        $it = new RecursiveDirectoryIterator($dir, RecursiveDirectoryIterator::SKIP_DOTS);
-        foreach (new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST) as $file) {
-            $path = $file->getPathname();
-            @chmod($path, $file->isDir() ? 0777 : 0666);
-            if ($file->isLink() || !$file->isDir()) {
-                @unlink($path);
-            } else {
-                @rmdir($path);
-            }
-        }
-        @chmod($dir, 0777);
-        if (@rmdir($dir) || !is_dir($dir)) return true;
-
-        if (function_exists('exec')) {
-            exec('rm -rf ' . escapeshellarg($dir) . ' 2>&1', $output, $code);
-        }
-        return !is_dir($dir);
-    }
-}
 
 $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/plugins/browse';
 $listUrl = $base . '/?page=admin/plugins/index';
 
-$apiBase = 'https://jyavani.com/plugin-store';
-$cacheFile = (defined('BACKEND_PATH') ? BACKEND_PATH : __DIR__ . '/../../cfg') . '/var/store-cache.json';
-
-$error = '';
-
-// --- Cache helpers ---
-function store_cache_read(string $file): ?array {
-    if (!is_file($file)) return null;
-    if (time() - filemtime($file) > 3600) return null;
-    $data = json_decode(file_get_contents($file), true);
-    return is_array($data) ? $data : null;
-}
-
-function store_cache_write(string $file, array $data): void {
-    $dir = dirname($file);
-    if (!is_dir($dir)) mkdir($dir, 0755, true);
-    file_put_contents($file, json_encode($data, JSON_UNESCAPED_SLASHES), LOCK_EX);
-}
-
-// --- Fetch from API with cache ---
-$plugins = [];
-$storeName = 'Jyavani Plugin Store';
-
-$cached = store_cache_read($cacheFile);
-if ($cached !== null) {
-    $plugins = $cached['plugins'] ?? [];
-    $storeName = $cached['store_name'] ?? $storeName;
-} else {
-    $ctx = stream_context_create(['http' => ['timeout' => 10, 'user_agent' => 'JyavaniCMS/2.0']]);
-    $json = @file_get_contents($apiBase . '/', false, $ctx);
-    if ($json === false) {
-        $error = __('Failed to connect to jyavani.com. Try again later.');
-    } else {
-        $data = json_decode($json, true);
-        if (is_array($data) && isset($data['plugins'])) {
-            $plugins = $data['plugins'];
-            $storeName = $data['store_name'] ?? $storeName;
-            store_cache_write($cacheFile, ['store_name' => $storeName, 'plugins' => $plugins]);
-        } else {
-            $error = __('Invalid response from jyavani.com.');
-        }
-    }
-}
-
-// --- Handle install ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $installAction = (string)($_POST['action'] ?? '');
     if (!in_array($installAction, ['install', 'install_activate'], true)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid action.'));
     }
-    $activatePlugin = $installAction === 'install_activate';
-
-    $csrf = (string)($_POST['csrf_token'] ?? '');
-    if (!csrf_check($csrf)) {
+    if (!csrf_check((string)($_POST['csrf_token'] ?? ''))) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid CSRF token.'));
     }
-
     $pluginName = (string)($_POST['plugin'] ?? '');
-    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
+    if (preg_match('/\A[a-zA-Z0-9_-]{1,100}\z/', $pluginName) !== 1) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid plugin name.'));
+    }
+    $activatePlugin = $installAction === 'install_activate';
+    if (file_exists(PLUGIN_PATH . '/' . $pluginName) || is_link(PLUGIN_PATH . '/' . $pluginName)) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already installed.') . ' "' . h($pluginName) . '"');
     }
 
     $installLocks = plugin_lifecycle_locks($pluginName);
@@ -105,30 +39,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     register_shutdown_function(static function () use (&$installLocks): void {
         if (is_array($installLocks) && $installLocks !== []) theme_operation_release($installLocks);
     });
-
-    // Cari data plugin dari API list
-    $pluginData = null;
-    foreach ($plugins as $p) {
-        if ($p['name'] === $pluginName) { $pluginData = $p; break; }
-    }
-    if (!$pluginData) {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin not found in store.') . ' "' . h($pluginName) . '"');
-    }
-    $catalogRequirementError = plugin_install_requirements_error_message($pluginData, $activatePlugin);
-    if ($catalogRequirementError !== '') {
-        adiwira_redirect_with_flash($selfUrl, 'error', $catalogRequirementError);
-    }
-
-    $pluginDir = PLUGIN_PATH . '/' . $pluginName;
-
-    if (file_exists($pluginDir) || is_link($pluginDir)) {
+    if (file_exists(PLUGIN_PATH . '/' . $pluginName) || is_link(PLUGIN_PATH . '/' . $pluginName)) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin already installed.') . ' "' . h($pluginName) . '"');
     }
 
-    $downloadUrl = $pluginData['download_url'] ?? ($apiBase . '/download/' . $pluginName . '/');
-    $tmpZip = package_download((string)$downloadUrl, 'plugin-install-', 'JyavaniCMS-PluginInstall');
+    $pluginData = PluginStoreController::fetchOfficialPlugin($pluginName);
+    if ($pluginData === null) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin not found in store.') . ' "' . h($pluginName) . '"');
+    }
+    $requirementError = plugin_install_requirements_error_message($pluginData, $activatePlugin);
+    if ($requirementError !== '') adiwira_redirect_with_flash($selfUrl, 'error', $requirementError);
+
+    $tmpZip = package_download((string)$pluginData['download_url'], 'plugin-install-', 'JyavaniCMS-PluginInstall', null, false);
     if ($tmpZip === null) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download plugin from jyavani.com.'));
+    }
+    $checksum = strtolower((string)$pluginData['checksum']);
+    $actualChecksum = hash_file('sha256', $tmpZip);
+    if (!is_string($actualChecksum) || !hash_equals($checksum, strtolower($actualChecksum))) {
+        @unlink($tmpZip);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Plugin package integrity verification failed.'));
     }
     $prepared = plugin_prepare_package_stage($tmpZip, $pluginName, $activatePlugin, $pluginData);
     @unlink($tmpZip);
@@ -136,242 +66,183 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = plugin_publish_staged_install_already_locked($prepared, $activatePlugin, $pdo);
     if (!($result['success'] ?? false)) adiwira_redirect_with_flash($selfUrl, 'error', (string)$result['error']);
 
-    // Hapus cache agar daftar plugin terbaru
-    $msg = $activatePlugin
-        ? __('Plugin installed and activated from store.')
-        : __('Plugin installed from store.');
+    $message = $activatePlugin ? __('Plugin installed and activated from store.') : __('Plugin installed from store.');
     theme_operation_release($installLocks);
     $installLocks = [];
-    adiwira_redirect_with_flash($listUrl, 'success', $msg . ' "' . h($prepared['manifest']['title'] ?? $pluginName) . '"');
+    adiwira_redirect_with_flash($listUrl, 'success', $message . ' "' . h($prepared['manifest']['title'] ?? $pluginName) . '"');
 }
 
+$query = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
+$requestedCursor = is_string($_GET['cursor'] ?? null) ? trim($_GET['cursor']) : '';
+$catalog = PluginStoreController::fetchCatalogPage($query, $requestedCursor, 24);
+$error = $catalog === null ? __('Failed to connect to jyavani.com. Try again later.') : '';
+$plugins = $catalog['plugins'] ?? [];
+$storeName = (string)($catalog['store_name'] ?? 'Jyavani Plugin Store');
+$hasMore = ($catalog['pagination']['has_more'] ?? false) === true;
+$nextCursor = is_string($catalog['pagination']['next_cursor'] ?? null) ? $catalog['pagination']['next_cursor'] : '';
 $installedPlugins = plugins_all();
-$installedNames = array_keys($installedPlugins);
-
-$pageToasts = function_exists('adiwira_collect_query_toasts') ? adiwira_collect_query_toasts() : [];
-
-// Hapus cache + re-fetch dari API jika ada parameter refresh (tanpa redirect — sudah terlambat karena layout terlanjur render)
-if (isset($_GET['refresh'])) {
-    if (is_file($cacheFile)) @unlink($cacheFile);
-    $cached = null;
-    $plugins = [];
-    store_cache_write($cacheFile, ['store_name' => $storeName, 'plugins' => []]);
-    $ctx = stream_context_create(['http' => ['timeout' => 10, 'user_agent' => 'JyavaniCMS/2.0']]);
-    $json = @file_get_contents($apiBase . '/', false, $ctx);
-    if ($json !== false) {
-        $data = json_decode($json, true);
-        if (is_array($data) && isset($data['plugins'])) {
-            $plugins = $data['plugins'];
-            $storeName = $data['store_name'] ?? $storeName;
-            store_cache_write($cacheFile, ['store_name' => $storeName, 'plugins' => $plugins]);
-        } else {
-            $error = __('Invalid response from jyavani.com.');
-        }
-    }
-}
+$csrfToken = csrf_token();
+$nextUrl = $selfUrl . ($query !== '' ? '&q=' . rawurlencode($query) : '') . ($nextCursor !== '' ? '&cursor=' . rawurlencode($nextCursor) : '');
 ?>
-<h2 class="pg-title"><?=_e('Browse Plugins')?></h2>
-<p class="pg-subtitle"><?=_e('Browse plugins from')?> <a href="https://jyavani.com/plugins/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?=_e('Jyavani community.')?></p>
-
-<div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
-  <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?=_e('&larr; Back to Installed Plugins')?></a>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-outline" style="border-color:var(--adam-primary);color:var(--adam-primary);display:inline-flex;align-items:center;gap:4px"><?= svg_ico('refresh-cw', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Refresh')?></a>
-</div>
-
-<?php if ($error): ?>
-<div class="alert alert-error">
-  <strong><?=_e('Failed to load plugin list.')?></strong><br>
-  <?= h($error) ?>
-  <br><br>
-  <a href="<?= h($selfUrl) ?>&refresh=1" class="btn btn-sm btn-primary"><?=_e('Try Again')?></a>
-</div>
-<?php elseif (empty($plugins)): ?>
-<div class="empty-state">
-  <p><?=_e('No plugins available in the store yet. Please check back later.')?></p>
-</div>
-<?php else: ?>
-<div class="plugin-grid">
-  <?php foreach ($plugins as $p):
-    $isInstalled = in_array($p['name'], $installedNames, true);
-    $installedManifest = $isInstalled ? ($installedPlugins[$p['name']] ?? null) : null;
-    $installedVersion = $installedManifest ? ($installedManifest['version'] ?? '') : '';
-    $hasUpdate = $isInstalled && $installedVersion !== '' && version_compare($p['version'] ?? '0.0.0', $installedVersion, '>');
-  ?>
-  <?php
-    $iconUrl = $p['icon'] ?? '';
-    $firstLetter = mb_strtoupper(mb_substr(($p['title'] ?? $p['name']), 0, 1));
-    $iconColors = ['#6366f1','#ec4899','#14b8a6','#f97316','#8b5cf6','#ef4444','#06b6d4','#84cc16','#d946ef','#0ea5e9'];
-    $iconColor = $iconColors[crc32($p['name']) % count($iconColors)];
-  ?>
-  <div class="plugin-card">
-    <div class="plugin-card-head">
-      <?php if ($iconUrl): ?>
-      <img class="plugin-icon" src="<?= h($iconUrl) ?>" alt="" loading="lazy" width="48" height="48">
-      <?php else: ?>
-      <span class="plugin-icon-placeholder" style="background:<?= $iconColor ?>"><?= h($firstLetter) ?></span>
-      <?php endif; ?>
-      <div>
-        <div class="plugin-card-title"><?= h($p['title'] ?? $p['name']) ?></div>
-        <div class="plugin-card-meta">
-          <span>v<?= h($p['version'] ?? '—') ?></span>
-          <?php if (!empty($p['php_required'])): ?>
-          <span class="badge-php">PHP <?= h($p['php_required']) ?></span>
-          <?php endif; ?>
-          <?php if (!empty($p['author'])): ?>
-          <span><?=_e('by')?> <?= h($p['author']) ?></span>
-          <?php endif; ?>
-        </div>
-      </div>
+<section class="plugin-store-browser">
+  <div class="plugin-store-heading">
+    <div>
+      <h2 class="pg-title"><?= _e('Browse Plugins') ?></h2>
+      <p class="pg-subtitle"><?= _e('Browse plugins from') ?> <a href="https://jyavani.com/plugins/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?= _e('Jyavani community.') ?></p>
     </div>
-    <div class="plugin-card-body">
-      <?php if (!empty($p['description'])): ?>
-      <div class="plugin-card-desc"><?= h(mb_strimwidth($p['description'], 0, 120, '…')) ?></div>
-      <?php endif; ?>
-    </div>
-    <div class="plugin-card-actions">
-      <?php if ($isInstalled): ?>
-        <?php if ($hasUpdate): ?>
-        <a href="<?= h($listUrl) ?>" class="btn btn-sm btn-update"><?=_e('Update Available')?></a>
-        <?php else: ?>
-        <span class="btn btn-sm btn-disabled" style="cursor:default;opacity:.5;display:inline-flex;align-items:center;gap:4px"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Installed')?></span>
-        <?php endif; ?>
-      <?php else: ?>
-      <form method="post" style="display:inline-flex;gap:3px" class="js-confirm-form">
-        <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
-        <input type="hidden" name="plugin" value="<?= h($p['name']) ?>">
-        <input type="hidden" name="action" value="" class="js-form-action">
-        <button type="submit" class="btn btn-sm btn-outline js-confirm-btn"
-          data-confirm-title="<?=_e('Install Plugin')?>"
-          data-confirm-text="<?=__('Install plugin')?> &quot;<?= h($p['title'] ?? $p['name']) ?>&quot;?"
-          data-confirm-action="install"><?=_e('Install')?></button>
-        <button type="submit" class="btn btn-sm btn-primary js-confirm-btn"
-          data-confirm-title="<?=_e('Install & Activate Plugin')?>"
-          data-confirm-text="<?=__('Install and activate plugin')?> &quot;<?= h($p['title'] ?? $p['name']) ?>&quot;?"
-          data-confirm-action="install_activate"><?=_e('Install & Activate')?></button>
-      </form>
-      <?php endif; ?>
-      <?php if (!empty($p['plugin_uri'])): ?>
-      <a href="<?= h($p['plugin_uri']) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Detail</a>
-      <?php endif; ?>
-    </div>
+    <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?= _e('&larr; Back to Installed Plugins') ?></a>
   </div>
-  <?php endforeach; ?>
+
+  <form method="get" class="plugin-store-search" id="pluginStoreSearch">
+    <input type="hidden" name="page" value="admin/plugins/browse">
+    <label class="sr-only" for="pluginStoreQuery"><?= _e('Search plugins') ?></label>
+    <input type="search" id="pluginStoreQuery" name="q" value="<?= h($query) ?>" maxlength="100" placeholder="<?= _e('Search plugins…') ?>" autocomplete="off">
+    <button type="submit" class="btn btn-primary"><?= svg_ico('search', '', ['style' => 'width:15px;height:15px']) ?> <?= _e('Search') ?></button>
+    <?php if ($query !== ''): ?><a href="<?= h($selfUrl) ?>" class="btn btn-outline"><?= _e('Clear') ?></a><?php endif; ?>
+  </form>
+
+  <div id="pluginStoreError" class="alert alert-error"<?= $error === '' ? ' hidden' : '' ?>><?= h($error) ?></div>
+  <div id="pluginStoreEmpty" class="empty-state"<?= $error !== '' || $plugins !== [] ? ' hidden' : '' ?>><?= _e('No plugins match your search.') ?></div>
+  <div class="plugin-grid" id="pluginStoreGrid">
+    <?php foreach ($plugins as $plugin) echo plugin_store_card_html($plugin, $installedPlugins, $base, $csrfToken); ?>
+  </div>
+  <div class="plugin-store-loader" id="pluginStoreLoader" aria-live="polite">
+    <a class="btn btn-outline" id="pluginStoreMore" href="<?= h($nextUrl) ?>"<?= !$hasMore ? ' hidden' : '' ?>><?= _e('Next page') ?></a>
+    <span id="pluginStoreStatus"><?= $hasMore ? '' : ($plugins !== [] ? _e('All plugins loaded.') : '') ?></span>
+    <span id="pluginStoreSentinel" aria-hidden="true"></span>
+  </div>
+</section>
+
+<div id="pluginInstallProgress" class="plugin-install-progress" hidden role="dialog" aria-modal="true" aria-labelledby="pluginInstallProgressText">
+  <div class="plugin-install-progress__panel">
+    <span class="plugin-install-spinner" aria-hidden="true"></span>
+    <strong id="pluginInstallProgressText"><?= _e('Installing plugin…') ?></strong>
+  </div>
 </div>
-<?php endif; ?>
 
 <style>
-.pg-title { font-size:1.4rem; font-weight:700; margin:0 0 .25rem; color:var(--adam-text); }
-.pg-subtitle { color:var(--adam-muted); font-size:.9rem; margin:0 0 1.5rem; }
-.pg-subtitle a { color:var(--adam-primary); text-decoration:none; }
-.pg-subtitle a:hover { text-decoration:underline; }
-.alert { padding:.75rem 1rem; border-radius:6px; font-size:.875rem; margin-bottom:1rem; }
-.alert-error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-.empty-state { padding:2rem; text-align:center; color:var(--adam-muted); }
-
-.plugin-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
-
-.plugin-card { background:var(--adam-card); border:1px solid var(--adam-border); border-radius:10px; display:flex; flex-direction:column; overflow:hidden; transition:box-shadow .15s; }
-.plugin-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
-.plugin-card-head { display:flex; gap:.75rem; align-items:center; padding:1rem 1rem 0; }
-.plugin-icon { width:48px; height:48px; border-radius:8px; object-fit:contain; flex-shrink:0; background:var(--adam-surface-4); }
-.plugin-icon-placeholder { width:48px; height:48px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:700; color:#fff; flex-shrink:0; }
-.plugin-card-body { flex:1; padding:.5rem 1rem .75rem; }
-.plugin-card-title { font-size:1rem; font-weight:600; color:var(--adam-text); margin-bottom:.35rem; }
-.plugin-card-desc { font-size:.82rem; color:var(--adam-muted); line-height:1.5; }
-.plugin-card-meta { display:flex; gap:.5rem; flex-wrap:wrap; font-size:.75rem; color:var(--adam-muted-2); }
-.badge-php { background:var(--adam-surface-3); padding:.1rem .4rem; border-radius:4px; font-size:.72rem; }
-.plugin-card-actions { display:flex; gap:.35rem; padding:.6rem 1rem; border-top:1px solid var(--adam-border); background:var(--adam-surface-4); }
-
-.btn { display:inline-flex; align-items:center; gap:.35rem; padding:.4rem .75rem; font-size:.8rem; font-weight:500; border-radius:6px; cursor:pointer; border:1px solid transparent; font-family:inherit; line-height:1; text-decoration:none; }
-.btn-sm { padding:.3rem .6rem; font-size:.75rem; }
-.btn-primary { background:var(--adam-primary); color:#fff; border-color:var(--adam-primary); }
-.btn-primary:hover { background:var(--adam-primary-600); }
-.btn-outline { background:transparent; color:var(--adam-muted); border-color:var(--adam-border-2); }
-.btn-outline:hover { background:var(--adam-surface-3); color:var(--adam-text); }
-.btn-update { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
-</style>
-
-<!-- Konfirmasi Modal -->
-<div class="adam-modal" id="pluginConfirmModal" style="display:none">
-  <div class="adam-modal__panel" style="max-width:420px">
-    <div class="adam-modal__title" id="pluginConfirmTitle"><?=_e('Confirmation')?></div>
-    <div class="adam-modal__text" id="pluginConfirmText" style="margin-bottom:1.25rem;line-height:1.5"></div>
-    <div class="adam-modal__actions" style="display:flex;gap:.5rem;justify-content:flex-end">
-      <button type="button" class="btn btn-outline" onclick="hidePluginConfirm()"><?=_e('Cancel')?></button>
-      <button type="button" class="btn btn-primary" id="pluginConfirmApply" onclick="applyPluginConfirm()"><?=_e('Yes')?></button>
-    </div>
-  </div>
-</div>
-
-<!-- Progress Overlay -->
-<div id="pluginUpdateProgress" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
-  <div style="background:var(--adam-card);padding:2rem 2.5rem;border-radius:12px;text-align:center;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:90%">
-    <div id="progressSpinner" style="width:40px;height:40px;border:4px solid var(--adam-border-2);border-top-color:var(--adam-primary);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem"></div>
-    <div id="progressStatus" style="font-weight:600;font-size:1rem;color:var(--adam-text)"><?=__('Processing…')?></div>
-    <div id="progressDetail" style="margin-top:.4rem;font-size:.8rem;color:var(--adam-muted);min-height:1.2em"></div>
-    <div style="margin-top:1rem;background:var(--adam-border-2);border-radius:999px;height:8px;overflow:hidden">
-      <div id="progressBar" style="width:0%;height:100%;background:var(--adam-primary);border-radius:999px;transition:width .4s ease"></div>
-    </div>
-    <div id="progressPct" style="margin-top:.3rem;font-size:.75rem;color:var(--adam-muted)">0%</div>
-  </div>
-</div>
-<style>
-@keyframes spin { to { transform:rotate(360deg); } }
+.plugin-store-browser{max-width:1200px}.plugin-store-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}.pg-title{font-size:1.4rem;font-weight:700;margin:0 0 .25rem;color:var(--adam-text)}.pg-subtitle{color:var(--adam-muted);font-size:.9rem;margin:0 0 1.25rem}.pg-subtitle a{color:var(--adam-primary);text-decoration:none}.plugin-store-search{display:flex;gap:.5rem;align-items:center;margin-bottom:1.25rem}.plugin-store-search input{flex:1;min-width:180px;padding:.62rem .8rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-card);color:var(--adam-text);font:inherit}.alert{padding:.75rem 1rem;border-radius:6px;font-size:.875rem;margin-bottom:1rem}.alert-error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}.empty-state{padding:2rem;text-align:center;color:var(--adam-muted)}.plugin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem}.plugin-card{background:var(--adam-card);border:1px solid var(--adam-border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;transition:box-shadow .15s}.plugin-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.08)}.plugin-card-head{display:flex;gap:.75rem;align-items:center;padding:1rem 1rem 0}.plugin-icon,.plugin-icon-placeholder{width:48px;height:48px;border-radius:8px;flex-shrink:0}.plugin-icon{object-fit:contain;background:var(--adam-surface-4)}.plugin-icon-placeholder{display:flex;align-items:center;justify-content:center;font-size:1.2rem;font-weight:700;color:#fff}.plugin-card-body{flex:1;padding:.5rem 1rem .75rem}.plugin-card-title{font-size:1rem;font-weight:600;color:var(--adam-text);margin-bottom:.35rem}.plugin-card-desc{font-size:.82rem;color:var(--adam-muted);line-height:1.5}.plugin-card-meta{display:flex;gap:.5rem;flex-wrap:wrap;font-size:.75rem;color:var(--adam-muted-2)}.badge-php{background:var(--adam-surface-3);padding:.1rem .4rem;border-radius:4px;font-size:.72rem}.plugin-card-actions{display:flex;gap:.35rem;padding:.6rem 1rem;border-top:1px solid var(--adam-border);background:var(--adam-surface-4);flex-wrap:wrap}.plugin-install-form{display:inline-flex;gap:3px;flex-wrap:wrap}.btn-disabled{cursor:default;opacity:.55}.btn-update{background:#dbeafe;color:#1e40af;border-color:#93c5fd}.plugin-store-loader{display:flex;min-height:80px;align-items:center;justify-content:center;gap:.75rem;color:var(--adam-muted);font-size:.85rem;position:relative}.plugin-store-loader.is-loading::before{content:'';width:18px;height:18px;border:2px solid var(--adam-border-2);border-top-color:var(--adam-primary);border-radius:50%;animation:plugin-store-spin .7s linear infinite}.plugin-store-loader.is-loading #pluginStoreMore{display:none}.plugin-store-loader.is-error #pluginStoreMore{display:inline-flex}.plugin-install-progress{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);align-items:center;justify-content:center}.plugin-install-progress:not([hidden]){display:flex}.plugin-install-progress__panel{background:var(--adam-card);padding:2rem;border-radius:12px;display:flex;align-items:center;gap:1rem}.plugin-install-spinner{width:26px;height:26px;border:3px solid var(--adam-border-2);border-top-color:var(--adam-primary);border-radius:50%;animation:plugin-store-spin .7s linear infinite}@keyframes plugin-store-spin{to{transform:rotate(360deg)}}@media(max-width:640px){.plugin-store-search{align-items:stretch;flex-direction:column}.plugin-store-search>*{width:100%;box-sizing:border-box;justify-content:center}.plugin-grid{grid-template-columns:1fr}.plugin-card-actions .btn{flex:1 1 auto;justify-content:center}}@media(prefers-reduced-motion:reduce){.plugin-card{transition:none}.plugin-store-loader.is-loading::before,.plugin-install-spinner{animation-duration:1.5s}}
 </style>
 
 <script>
-var _confirmForm = null;
-var _confirmAction = '';
-var _csrfToken = '<?= h(csrf_token()) ?>';
+(function(){
+  'use strict';
+  var grid = document.getElementById('pluginStoreGrid');
+  var form = document.getElementById('pluginStoreSearch');
+  var input = document.getElementById('pluginStoreQuery');
+  var more = document.getElementById('pluginStoreMore');
+  var loader = document.getElementById('pluginStoreLoader');
+  var status = document.getElementById('pluginStoreStatus');
+  var empty = document.getElementById('pluginStoreEmpty');
+  var error = document.getElementById('pluginStoreError');
+  var sentinel = document.getElementById('pluginStoreSentinel');
+  var endpoint = <?= json_encode($base . '/admin/plugins/catalog.php') ?>;
+  var selfUrl = <?= json_encode($selfUrl) ?>;
+  var query = <?= json_encode($query) ?>;
+  var cursor = <?= json_encode($nextCursor) ?>;
+  var hasMore = <?= $hasMore ? 'true' : 'false' ?>;
+  var loading = false;
+  var requestSequence = 0;
+  var controller = null;
+  var debounce = null;
+  var visitedCursors = new Set();
+  var seen = new Set(Array.prototype.map.call(grid.querySelectorAll('[data-plugin]'), function(card){ return card.dataset.plugin; }));
+  more.textContent = <?= json_encode(__('Load more')) ?>;
 
-document.querySelectorAll('.js-confirm-btn').forEach(function(btn) {
-  btn.addEventListener('click', function(e) {
-    var form = this.closest('.js-confirm-form') || this.closest('form');
-    if (!form) return;
-    var title = this.getAttribute('data-confirm-title') || '<?=__('Confirmation')?>';
-    var text = this.getAttribute('data-confirm-text') || '<?=__('Continue?')?>';
-    var action = this.getAttribute('data-confirm-action') || '';
-    var actionInput = form.querySelector('.js-form-action');
-    if (actionInput) actionInput.value = action;
-    document.getElementById('pluginConfirmTitle').textContent = title;
-    document.getElementById('pluginConfirmText').textContent = text;
-    var applyBtn = document.getElementById('pluginConfirmApply');
-    if (action === 'install' || action === 'install_activate') {
-      applyBtn.className = 'btn btn-primary';
-      applyBtn.textContent = '<?=__('Yes, Install')?>';
-    } else {
-      applyBtn.className = 'btn btn-primary';
-      applyBtn.textContent = '<?=__('Yes')?>';
+  function setUrl(){
+    if (!history.replaceState) return;
+    var url = new URL(selfUrl, window.location.origin);
+    if (query) url.searchParams.set('q', query);
+    history.replaceState(null, '', url.pathname + url.search);
+  }
+  function updateState(message){
+    loader.classList.toggle('is-loading', loading);
+    loader.classList.remove('is-error');
+    more.hidden = loading || !hasMore;
+    if (message !== undefined) status.textContent = message;
+    if (!loading && !hasMore && seen.size > 0) status.textContent = <?= json_encode(__('All plugins loaded.')) ?>;
+    empty.hidden = seen.size > 0 || loading || error.textContent !== '';
+  }
+  function appendCards(html){
+    var template = document.createElement('template');
+    template.innerHTML = html;
+    var appended = 0;
+    template.content.querySelectorAll('[data-plugin]').forEach(function(card){
+      var name = card.dataset.plugin || '';
+      if (!name || seen.has(name)) { card.remove(); return; }
+      seen.add(name);
+      appended++;
+    });
+    grid.appendChild(template.content);
+    return appended;
+  }
+  function load(reset){
+    if (loading && !reset) return;
+    if (!reset && !hasMore) return;
+    if (controller) controller.abort();
+    controller = new AbortController();
+    var sequence = ++requestSequence;
+    if (reset) {
+      query = input.value.trim(); cursor = ''; hasMore = true; visitedCursors.clear(); seen.clear(); grid.replaceChildren(); error.textContent = ''; error.hidden = true; setUrl();
+    } else if (cursor) {
+      if (visitedCursors.has(cursor)) { hasMore = false; updateState(''); return; }
     }
-    _confirmForm = form;
-    _confirmAction = action;
-    document.getElementById('pluginConfirmModal').style.display = 'flex';
-    e.preventDefault();
+    var requestedCursor = cursor;
+    loading = true;
+    updateState(<?= json_encode(__('Loading plugins…')) ?>);
+    var url = endpoint + '?limit=24&q=' + encodeURIComponent(query) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+    fetch(url, {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'},signal:controller.signal})
+      .then(function(response){ return response.json().then(function(data){ if (!response.ok || !data.ok) throw new Error(data.error || <?= json_encode(__('Failed to load plugin list.')) ?>); return data; }); })
+      .then(function(data){
+        if (sequence !== requestSequence) return;
+        var appended = appendCards(data.html || '');
+        if (requestedCursor) visitedCursors.add(requestedCursor);
+        var nextCursor = typeof data.next_cursor === 'string' ? data.next_cursor : '';
+        hasMore = data.has_more === true && nextCursor !== '' && !visitedCursors.has(nextCursor);
+        cursor = nextCursor;
+        loading = false;
+        more.textContent = <?= json_encode(__('Load more')) ?>;
+        more.href = selfUrl + (query ? '&q=' + encodeURIComponent(query) : '') + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+        updateState('');
+        window.requestAnimationFrame(function(){
+          if (hasMore && appended > 0 && sentinel.getBoundingClientRect().top <= window.innerHeight + 320) load(false);
+        });
+      })
+      .catch(function(reason){
+        if (reason.name === 'AbortError' || sequence !== requestSequence) return;
+        loading = false; loader.classList.add('is-error'); more.hidden = false; more.textContent = <?= json_encode(__('Try Again')) ?>;
+        status.textContent = reason.message || <?= json_encode(__('Failed to load plugin list.')) ?>;
+        empty.hidden = true;
+      });
+  }
+  form.addEventListener('submit', function(event){ event.preventDefault(); window.clearTimeout(debounce); load(true); });
+  input.addEventListener('input', function(){ window.clearTimeout(debounce); debounce = window.setTimeout(function(){ load(true); }, 350); });
+  more.addEventListener('click', function(event){ event.preventDefault(); load(false); });
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function(entries){ if (entries[0] && entries[0].isIntersecting) load(false); }, {rootMargin:'320px'}).observe(sentinel);
+  }
+  grid.addEventListener('click', function(event){
+    var button = event.target.closest('[data-install-action]');
+    if (!button) return;
+    event.preventDefault();
+    var installForm = button.closest('form');
+    var action = button.dataset.installAction;
+    var title = button.dataset.pluginTitle || '';
+    var options = {
+      title: action === 'install_activate' ? <?= json_encode(__('Install & Activate Plugin')) ?> : <?= json_encode(__('Install Plugin')) ?>,
+      message: (action === 'install_activate' ? <?= json_encode(__('Install and activate plugin')) ?> : <?= json_encode(__('Install plugin')) ?>) + ' "' + title + '"?',
+      confirmText: <?= json_encode(__('Yes, Install')) ?>,
+      cancelText: <?= json_encode(__('Cancel')) ?>
+    };
+    var decision = window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function'
+      ? window.NewNotifConfirm.warning(options) : Promise.resolve(window.confirm(options.message));
+    decision.then(function(confirmed){
+      if (!confirmed) return;
+      installForm.querySelector('input[name="action"]').value = action;
+      document.getElementById('pluginInstallProgress').hidden = false;
+      installForm.submit();
+    });
   });
-});
-
-function hidePluginConfirm() {
-  document.getElementById('pluginConfirmModal').style.display = 'none';
-  _confirmForm = null;
-  _confirmAction = '';
-}
-
-function showProgressOverlay() {
-  var overlay = document.getElementById('pluginUpdateProgress');
-  if (!overlay) return;
-  overlay.style.display = 'flex';
-}
-
-function hideProgressOverlay() {
-  var overlay = document.getElementById('pluginUpdateProgress');
-  if (overlay) overlay.style.display = 'none';
-}
-
-function applyPluginConfirm() {
-  if (!_confirmForm) return;
-  var form = _confirmForm;
-  hidePluginConfirm();
-  showProgressOverlay();
-  setTimeout(function() { form.submit(); }, 100);
-}
+  updateState();
+})();
 </script>

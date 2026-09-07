@@ -440,7 +440,7 @@ function package_guarded_finalize(string $target, string $rollbackPath, array $o
 }
 
 /** Bounded HTTP download streamed directly to an exclusive temporary file. */
-function package_download(string $url, string $prefix, string $userAgent, ?callable $progress = null): ?string {
+function package_download(string $url, string $prefix, string $userAgent, ?callable $progress = null, bool $followRedirects = true): ?string {
     $path = tempnam(sys_get_temp_dir(), $prefix);
     if ($path === false) return null;
     $output = @fopen($path, 'wb');
@@ -452,7 +452,8 @@ function package_download(string $url, string $prefix, string $userAgent, ?calla
         if (function_exists('curl_init')) {
             $curl = curl_init($url);
             curl_setopt_array($curl, [
-                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_FOLLOWLOCATION => $followRedirects,
+                CURLOPT_MAXREDIRS => $followRedirects ? 5 : 0,
                 CURLOPT_CONNECTTIMEOUT => 15,
                 CURLOPT_TIMEOUT => 120,
                 CURLOPT_USERAGENT => $userAgent,
@@ -481,8 +482,8 @@ function package_download(string $url, string $prefix, string $userAgent, ?calla
                 && $downloaded <= PACKAGE_MAX_BYTES && ($declared <= 0 || $declared <= PACKAGE_MAX_BYTES);
         } else {
         $context = stream_context_create(['http' => [
-            'timeout' => 120, 'user_agent' => $userAgent, 'follow_location' => 1,
-            'max_redirects' => 5, 'ignore_errors' => true,
+            'timeout' => 120, 'user_agent' => $userAgent, 'follow_location' => $followRedirects ? 1 : 0,
+            'max_redirects' => $followRedirects ? 5 : 0, 'ignore_errors' => true,
         ]]);
         $input = @fopen($url, 'rb', false, $context);
         if (is_resource($input)) {

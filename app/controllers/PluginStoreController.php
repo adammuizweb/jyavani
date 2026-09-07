@@ -7,6 +7,86 @@ require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
 class PluginStoreController
 {
     private const UPDATE_TTL = 3600;
+    private const STORE_URL = 'https://jyavani.com/plugin-store';
+
+    public static function fetchCatalogPage(string $query = '', string $cursor = '', int $limit = 24): ?array
+    {
+        $query = trim($query);
+        if (preg_match('//u', $query) !== 1 || strlen($query) > 400 || mb_strlen($query) > 100
+            || strlen($cursor) > 2048 || $limit < 1 || $limit > 48) return null;
+        $url = self::STORE_URL . '/?api_version=2&limit=' . $limit;
+        if ($query !== '') $url .= '&q=' . rawurlencode($query);
+        if ($cursor !== '') $url .= '&cursor=' . rawurlencode($cursor);
+        $data = update_metadata_fetch_json($url, 'JyavaniCMS-PluginCatalog');
+        if (!is_array($data) || ($data['schema_version'] ?? null) !== 2
+            || !is_array($data['plugins'] ?? null) || count($data['plugins']) > $limit
+            || !is_array($data['pagination'] ?? null)) return null;
+
+        $plugins = [];
+        $seen = [];
+        foreach ($data['plugins'] as $plugin) {
+            if (!is_array($plugin)) return null;
+            $name = (string)($plugin['name'] ?? '');
+            $title = trim((string)($plugin['title'] ?? ''));
+            $version = trim((string)($plugin['version'] ?? ''));
+            if (preg_match('/\A[a-zA-Z0-9_-]{1,100}\z/', $name) !== 1 || isset($seen[$name])
+                || $title === '' || strlen($title) > 1020 || $version === '' || strlen($version) > 50) return null;
+            $seen[$name] = true;
+            $icon = self::validatedStoreUrl((string)($plugin['icon'] ?? ''), '/plugin-store/static/' . rawurlencode($name) . '/');
+            $pluginUri = self::validatedPublicUrl((string)($plugin['plugin_uri'] ?? ''));
+            $plugins[] = [
+                'name' => $name,
+                'title' => $title,
+                'version' => $version,
+                'php_required' => mb_substr(trim((string)($plugin['php_required'] ?? '')), 0, 20),
+                'description' => mb_substr(trim((string)($plugin['description'] ?? '')), 0, 500),
+                'author' => mb_substr(trim((string)($plugin['author'] ?? '')), 0, 255),
+                'icon' => $icon,
+                'plugin_uri' => $pluginUri,
+            ];
+        }
+        $pagination = $data['pagination'];
+        $hasMore = ($pagination['has_more'] ?? false) === true;
+        $nextCursor = $pagination['next_cursor'] ?? null;
+        if (($nextCursor !== null && (!is_string($nextCursor) || preg_match('/\A[A-Za-z0-9_-]{1,2048}\z/', $nextCursor) !== 1))
+            || ($hasMore && (!is_string($nextCursor) || $nextCursor === $cursor))) return null;
+        return [
+            'store_name' => mb_substr(trim((string)($data['store_name'] ?? 'Jyavani Plugin Store')), 0, 100),
+            'plugins' => $plugins,
+            'pagination' => ['has_more' => $hasMore, 'next_cursor' => $hasMore ? $nextCursor : null],
+        ];
+    }
+
+    public static function fetchOfficialPlugin(string $name): ?array
+    {
+        if (preg_match('/\A[a-zA-Z0-9_-]{1,100}\z/', $name) !== 1) return null;
+        $data = update_metadata_fetch_json(self::STORE_URL . '/' . rawurlencode($name) . '/version.json', 'JyavaniCMS-PluginInstall');
+        if (!is_array($data) || !hash_equals($name, (string)($data['name'] ?? ''))
+            || !is_string($data['version'] ?? null) || trim($data['version']) === ''
+            || preg_match('/\A[a-f0-9]{64}\z/', (string)($data['checksum'] ?? '')) !== 1
+            || !is_array($data['requires'] ?? null)) return null;
+        $download = self::validatedStoreUrl((string)($data['download_url'] ?? ''), '/plugin-store/download/' . rawurlencode($name) . '/');
+        if ($download === '') return null;
+        $data['download_url'] = $download;
+        $data['description'] = '';
+        return $data;
+    }
+
+    private static function validatedStoreUrl(string $url, string $pathPrefix): string
+    {
+        $parts = parse_url($url);
+        if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+            || strtolower((string)($parts['host'] ?? '')) !== 'jyavani.com' || isset($parts['port'])
+            || !str_starts_with((string)($parts['path'] ?? ''), $pathPrefix)) return '';
+        return $url;
+    }
+
+    private static function validatedPublicUrl(string $url): string
+    {
+        if ($url === '') return '';
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ? $url : '';
+    }
 
     public static function reconcileInstalledState(string $name): bool
     {
