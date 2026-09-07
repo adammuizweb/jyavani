@@ -231,6 +231,18 @@ $check(str_contains($menuManager, 'guard.confirmDiscardForm(itemEditForm)')
     && str_contains($menuManager, 'currentData.translations = itemEditForm._originalData.translations')
     && str_contains($menuManager, 'closeItemEditor(true)'),
     'menu item editor confirms cancellation and restores only its staged editable fields');
+$check(str_contains($menuManager, 'id="menuItemEditModal"')
+    && str_contains($menuManager, 'role="dialog" aria-modal="true"')
+    && str_contains($menuManager, 'itemEditModal.hidden = false')
+    && str_contains($menuManager, "document.body.style.overflow = 'hidden'")
+    && str_contains($menuManager, "document.getElementById('editItemLabel').focus()")
+    && str_contains($menuManager, 'itemEditForm._returnFocus.focus()'),
+    'menu item editing uses an accessible modal with scroll lock and deterministic focus restoration');
+$check(str_contains($menuManager, 'event.target === itemEditModal')
+    && str_contains($menuManager, "if (event.key === 'Escape')")
+    && str_contains($menuManager, "if (event.key === 'Tab')")
+    && str_contains($menuManager, 'requestCloseItemEditor();'),
+    'menu item modal backdrop, Escape, and keyboard focus remain inside the guarded dialog flow');
 $check(str_contains($menuManager, 'var submittedSnapshot = guard')
     && str_contains($menuManager, 'guard.capture(itemsDraftForm)')
     && str_contains($menuManager, "menusGrid.setAttribute('inert', '')")

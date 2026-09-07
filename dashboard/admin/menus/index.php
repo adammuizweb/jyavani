@@ -186,8 +186,9 @@ if (!function_exists('render_menu_items_admin')) {
           <input type="hidden" name="menu_items_json" id="menuItemsDraftState" value="">
         </form>
 
-        <form id="menuItemEditForm" data-unsaved-guard style="display:none;margin-top:16px;padding:16px;border:1px solid var(--adam-border-2);border-radius:12px;background:var(--adam-surface-4);">
-          <h4 style="margin:0 0 12px 0;"><?=_e('Edit Item')?></h4>
+        <div id="menuItemEditModal" class="menu-item-edit-modal" role="dialog" aria-modal="true" aria-labelledby="menuItemEditTitle" hidden>
+        <form id="menuItemEditForm" class="menu-item-edit-dialog" data-unsaved-guard>
+          <h4 id="menuItemEditTitle" style="margin:0 0 12px 0;"><?=_e('Edit Item')?></h4>
            <input type="hidden" id="editItemId" name="edit_item_id" value="">
            <div style="display:grid;gap:8px;">
              <?php if (!empty($translationLocales)): ?>
@@ -215,6 +216,7 @@ if (!function_exists('render_menu_items_admin')) {
             </div>
           </div>
         </form>
+        </div>
 
         <div style="margin-top:12px;display:flex;gap:8px;">
           <button type="button" id="btnSaveItems" class="adam-button"><?=_e('Save All Items')?></button>
@@ -378,6 +380,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const saveStatus = document.getElementById('saveItemsStatus');
   const itemsDraftForm = document.getElementById('menu-items-draft-form');
   const itemsDraftState = document.getElementById('menuItemsDraftState');
+  const itemEditModal = document.getElementById('menuItemEditModal');
   const itemEditForm = document.getElementById('menuItemEditForm');
   const addItemForm = document.getElementById('menu-add-item-form');
   const createMenuForm = document.getElementById('menu-create-form');
@@ -612,20 +615,25 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   // =============== Edit item ===============
 
-  function openItemEditor(li){
+  function openItemEditor(li, trigger){
     var data = getItemData(li);
     document.getElementById('editItemId').value = data.id || '';
     document.getElementById('editItemLabel').value = data.label;
     document.getElementById('editItemUrl').value = data.url;
     document.getElementById('editItemTargetBlank').checked = data.targetBlank;
 
-    itemEditForm.style.display = '';
+    itemEditModal.hidden = false;
+    itemEditModal.classList.add('is-open');
+    itemEditModal._previousBodyOverflow = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
     itemEditForm._targetLi = li;
+    itemEditForm._returnFocus = trigger || null;
     itemEditForm._originalData = JSON.parse(JSON.stringify(data));
     itemEditForm._editingLocale = '';
     var localeSelect = document.getElementById('editItemLocale');
     if (localeSelect) localeSelect.value = '';
     markFormSaved(itemEditForm);
+    window.setTimeout(function(){ document.getElementById('editItemLabel').focus(); }, 0);
   }
 
   function closeItemEditor(revert){
@@ -639,11 +647,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       setItemData(itemEditForm._targetLi, currentData);
     }
     itemEditForm.reset();
-    itemEditForm.style.display = 'none';
+    itemEditModal.classList.remove('is-open');
+    itemEditModal.hidden = true;
+    document.body.style.overflow = itemEditModal._previousBodyOverflow || '';
     itemEditForm._targetLi = null;
     itemEditForm._originalData = null;
     itemEditForm._editingLocale = '';
     markFormSaved(itemEditForm);
+    if (itemEditForm._returnFocus && typeof itemEditForm._returnFocus.focus === 'function') {
+      itemEditForm._returnFocus.focus();
+    }
+    itemEditForm._returnFocus = null;
   }
 
   container.addEventListener('click', function(e){
@@ -654,13 +668,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
     var guard = guardApi();
     if (!itemEditForm || !guard || typeof guard.confirmDiscardForm !== 'function') {
-      openItemEditor(li);
+      openItemEditor(li, btn);
       return;
     }
     guard.confirmDiscardForm(itemEditForm).then(function(confirmed){
       if (!confirmed) return;
       if (itemEditForm._targetLi) closeItemEditor(true);
-      openItemEditor(li);
+      openItemEditor(li, btn);
     });
   });
 
@@ -704,6 +718,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   });
 
   document.getElementById('cancelItemEdit').addEventListener('click', function(){
+    requestCloseItemEditor();
+  });
+  if (itemEditModal) itemEditModal.addEventListener('click', function(event){
+    if (event.target === itemEditModal) requestCloseItemEditor();
+  });
+
+  function requestCloseItemEditor(){
     var guard = guardApi();
     if (!guard || typeof guard.confirmDiscardForm !== 'function') {
       closeItemEditor(true);
@@ -712,7 +733,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     guard.confirmDiscardForm(itemEditForm).then(function(confirmed){
       if (confirmed) closeItemEditor(true);
     });
-  });
+  }
   if (itemEditForm) itemEditForm.addEventListener('submit', function(event){ event.preventDefault(); });
   if (addItemForm) addItemForm.addEventListener('submit', function(event){ event.preventDefault(); });
 
@@ -1033,6 +1054,28 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   }
 
   document.addEventListener('keydown', function(event){
+    if (itemEditModal && !itemEditModal.hidden) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        requestCloseItemEditor();
+        return;
+      }
+      if (event.key === 'Tab') {
+        var focusable = Array.from(itemEditForm.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+          .filter(function(element){ return !element.disabled && element.offsetParent !== null; });
+        if (!focusable.length) return;
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+      return;
+    }
     if (event.key === 'Escape' && renameModal && renameModal.style.display !== 'none') closeRenameModal();
   });
 
@@ -1045,6 +1088,29 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.menu-item-edit-modal {
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(15,23,42,.58);
+  backdrop-filter:blur(2px);
+}
+.menu-item-edit-modal.is-open { display:flex; }
+.menu-item-edit-dialog {
+  box-sizing:border-box;
+  width:min(520px,100%);
+  max-height:min(720px,calc(100vh - 40px));
+  overflow:auto;
+  padding:20px;
+  border:1px solid var(--adam-border-2);
+  border-radius:14px;
+  background:var(--adam-card);
+  box-shadow:0 24px 60px rgba(15,23,42,.28);
 }
 .menu-item-admin {
   margin: 4px 0;
@@ -1119,5 +1185,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 }
 @media (max-width:768px){
   .menus-grid{ grid-template-columns:1fr !important; }
+  .menu-item-edit-modal{ align-items:flex-end;padding:12px; }
+  .menu-item-edit-dialog{ max-height:calc(100vh - 24px);padding:18px;border-radius:14px; }
 }
 </style>
