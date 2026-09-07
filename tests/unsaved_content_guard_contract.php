@@ -33,6 +33,7 @@ $forms = [
     'dashboard/admin/users/roles/index.php' => 'authzRoleForm',
     'dashboard/admin/users/roles/index.php#create-role' => 'authzCreateForm',
     'dashboard/admin/themes/assign.php' => 'theme-assign-form',
+    'dashboard/admin/themes/customize.php' => 'tc-main-form',
     'dashboard/admin/sidebar/index.php' => 'sidebar-create-zone-form',
     'dashboard/admin/sidebar/index.php#edit-zone' => 'sidebar-edit-zone-form',
     'dashboard/admin/sidebar/index.php#add-widget' => 'sidebar-add-widget-form',
@@ -106,6 +107,21 @@ $check(substr_count($themeAssignments, 'submitAfterAssignmentDiscard(form)') >= 
     && str_contains($themeAssignments, 'confirmAssignmentDiscard().then(function(confirmed)')
     && str_contains($themeAssignments, 'if (confirmed) beginThemeUpdate(folder);'),
     'Theme management actions protect active per-slot assignment drafts');
+$themeCustomizer = (string)file_get_contents($root . '/dashboard/admin/themes/customize.php');
+$check(substr_count($themeCustomizer, 'data-unsaved-guard') >= 5
+    && str_contains($themeCustomizer, 'class="tz-draft-form" id="tz-form-')
+    && str_contains($themeCustomizer, 'class="tz-add-form tz-draft-form"')
+    && str_contains($themeCustomizer, 'class="tz-draft-form" id="tc-main-form"'),
+    'Core Customize main, widget, and add-gadget editors use the shared guard');
+$check(str_contains($themeCustomizer, 'function firstDirtyDraft(excluded)')
+    && str_contains($themeCustomizer, 'guard.isDirty(form)')
+    && str_contains($themeCustomizer, 'confirmDraftDiscard(otherDraft)')
+    && str_contains($themeCustomizer, 'submitIntentional(form)'),
+    'Customize saves protect other active drafts and bypass only the approved submission');
+$check(substr_count($themeCustomizer, 'submitActionAfterDraftDiscard(form)') >= 3
+    && str_contains($themeCustomizer, 'window.tzDeleteWidget')
+    && str_contains($themeCustomizer, 'window.tzLoadDefaults'),
+    'Customize delete and default-layout actions protect all active drafts');
 
 $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $confirmScript = strpos($layout, '/static/components/confirm/confirm.js');
@@ -123,6 +139,7 @@ $guard = (string)file_get_contents($root . '/public/static/dashboard/js/unsaved-
 $check(str_contains($guard, 'Array.from(form.elements || [])')
     && str_contains($guard, "new Set(['csrf_token', 'save_nonce', 'return_to', 'id', 'ajax'])")
     && str_contains($guard, 'control.disabled')
+    && str_contains($guard, "control.hasAttribute('data-unsaved-guard-ignore')")
     && str_contains($guard, "name === 'content' && hasManagedContentEditor")
     && str_contains($guard, "type === 'checkbox' || type === 'radio'")
     && str_contains($guard, "type === 'select-multiple'")

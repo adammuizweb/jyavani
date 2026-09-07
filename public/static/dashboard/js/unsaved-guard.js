@@ -89,7 +89,7 @@
     Array.from(form.elements || []).forEach(function (control) {
       const name = String(control.name || '');
       const type = String(control.type || '').toLowerCase();
-      if (!name || control.disabled || ignoredNames.has(name)
+      if (!name || control.disabled || control.hasAttribute('data-unsaved-guard-ignore') || ignoredNames.has(name)
           || (name === 'content' && hasManagedContentEditor)
           || type === 'submit' || type === 'button' || type === 'reset' || type === 'image') return;
       controlValues(control).forEach(function (value) {
