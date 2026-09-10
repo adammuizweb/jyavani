@@ -13,6 +13,9 @@ $sources = [
     'theme_bin' => $read('dashboard/admin/bin/theme/index.php'),
     'users_bin' => $read('dashboard/admin/bin/users/index.php'),
     'dashboard_style' => $read('public/static/dashboard/css/style.css'),
+    'toast_style' => $read('public/static/components/toast/toast.css'),
+    'toast_script' => $read('public/static/components/toast/toast.js'),
+    'notify' => $read('dashboard/admin/_notify.php'),
     'post_delete' => $read('dashboard/admin/posts/delete.php'),
     'post_bulk' => $read('dashboard/admin/posts/bulk_action.php'),
     'page_delete' => $read('dashboard/admin/pages/delete.php'),
@@ -107,6 +110,17 @@ $check(str_contains($sources['dashboard_style'], '.bin-filter-bar')
     && str_contains($sources['dashboard_style'], '@media (max-width:640px)')
     && str_contains($sources['dashboard_style'], '.bin-filter-bar input[type="text"].inp'),
     'Bin filter metadata has responsive Core styling');
+$check(str_contains($sources['notify'], 'function adiwira_notification_identity')
+    && str_contains($sources['post_delete'], "SELECT id, title, created_by")
+    && str_contains($sources['page_delete'], 'SELECT id, title, created_by')
+    && str_contains($sources['category_delete'], 'SELECT id, name, created_by')
+    && str_contains($sources['theme_delete'], 'SELECT id, title, created_by'),
+    'single-content notifications identify the title or name with an ID fallback');
+$check(str_contains($sources['toast_script'], 'newnotif-toast__action-progress')
+    && str_contains($sources['toast_style'], '@keyframes newnotif-toast-action-progress')
+    && str_contains($sources['toast_style'], '.newnotif-toast.is-paused .newnotif-toast__action-value')
+    && str_contains($sources['toast_style'], '.newnotif-toast__progress > span'),
+    'Undo countdown ring is separate from the toast progress bar and shares pause state');
 
 foreach ([
     'Failed to undo move to trash.',

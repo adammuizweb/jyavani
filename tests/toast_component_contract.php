@@ -52,7 +52,10 @@ $check(str_contains($style, '.newnotif-toast.has-action .newnotif-toast__inner')
 $check(str_contains($style, '--newnotif-action: #2563eb')
     && str_contains($style, 'width:46px')
     && str_contains($style, 'background:color-mix(in srgb, var(--newnotif-action) 10%, var(--adam-card))')
-    && str_contains($style, 'border:2px solid color-mix(in srgb, var(--newnotif-action) 72%, transparent)'), 'Undo uses a balanced high-contrast action treatment independent from Toast status');
+    && str_contains($style, '.newnotif-toast__action-track')
+    && str_contains($style, '.newnotif-toast__action-value')
+    && str_contains($style, 'animation:newnotif-toast-action-progress linear forwards')
+    && str_contains($style, '.newnotif-toast__progress > span'), 'Undo uses a countdown outline independent from the Toast progress bar and status');
 $check(str_contains($style, 'html.theme-dark .newnotif-toast')
     && str_contains($style, '--newnotif-action: #22d3ee')
     && str_contains($style, '--newnotif-action-hover: #06b6d4')

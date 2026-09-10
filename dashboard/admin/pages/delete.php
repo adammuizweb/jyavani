@@ -32,7 +32,7 @@ if ($id <= 0) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT id, created_by
+    SELECT id, title, created_by
     FROM posts
     WHERE id = :id
       AND type = 'page'
@@ -118,7 +118,8 @@ try {
 }
 
 try {
-    adiwira_redirect_with_flash($returnTo, 'success', __('Page moved to trash successfully.'), 302, $extra);
+    $message = adiwira_notification_identity($page['title'] ?? '', $id) . ': ' . __('Page moved to trash successfully.');
+    adiwira_redirect_with_flash($returnTo, 'success', $message, 302, $extra);
 } catch (Throwable $notifyError) {
     error_log('pages/delete.php deletion committed but notification failed: ' . $notifyError->getMessage());
     header('Location: ' . $returnTo, true, 302);

@@ -23,6 +23,14 @@ if (!function_exists('adiwira_normalize_toast_type')) {
     }
 }
 
+if (!function_exists('adiwira_notification_identity')) {
+    function adiwira_notification_identity(mixed $label, int $id): string
+    {
+        $label = trim((string)$label);
+        return $label !== '' ? '"' . $label . '"' : '#' . $id;
+    }
+}
+
 if (!function_exists('adiwira_flash_push')) {
     function adiwira_flash_push(string $type, string $message, array $extra = []): void
     {

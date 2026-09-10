@@ -31,7 +31,7 @@ if ($id <= 0) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 }
 
-$stmt = $pdo->prepare("\n    SELECT id, created_by\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
+$stmt = $pdo->prepare("\n    SELECT id, title, created_by\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
 $stmt->execute([':id' => $id]);
 $post = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -103,7 +103,8 @@ try {
 }
 
 try {
-    adiwira_redirect_with_flash($returnTo, 'success', __('Article moved to trash successfully.'), 302, $extra);
+    $message = adiwira_notification_identity($post['title'] ?? '', $id) . ': ' . __('Article moved to trash successfully.');
+    adiwira_redirect_with_flash($returnTo, 'success', $message, 302, $extra);
 } catch (Throwable $notifyError) {
     error_log('posts/delete.php deletion committed but notification failed: ' . $notifyError->getMessage());
     header('Location: ' . $returnTo, true, 302);

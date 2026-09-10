@@ -32,7 +32,7 @@ if ($id <= 0) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT id, created_by
+    SELECT id, name, created_by
     FROM categories
     WHERE id = :id
       AND is_deleted = 0
@@ -113,7 +113,8 @@ try {
         $extra = [];
         $undoAction = adiwira_bin_issue_trash_undo($pdo, 'category', $uid, $undoItems);
         if ($undoAction !== null) $extra['action'] = $undoAction;
-        adiwira_redirect_with_flash($returnTo, 'success', __('Category moved to trash successfully.'), 302, $extra);
+        $message = adiwira_notification_identity($category['name'] ?? '', $id) . ': ' . __('Category moved to trash successfully.');
+        adiwira_redirect_with_flash($returnTo, 'success', $message, 302, $extra);
     } catch (Throwable $notifyError) {
         error_log('[categories/delete] trash committed but notification failed: ' . $notifyError->getMessage());
         header('Location: ' . $returnTo, true, 302);

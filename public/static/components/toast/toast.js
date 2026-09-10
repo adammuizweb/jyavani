@@ -152,6 +152,13 @@
     return '<svg class="lucide lucide-undo-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></svg>';
   }
 
+  function actionProgress(duration){
+    return '<svg class="newnotif-toast__action-progress" viewBox="0 0 52 52" aria-hidden="true">'
+      + '<circle class="newnotif-toast__action-track" cx="26" cy="26" r="24" pathLength="100"/>'
+      + '<circle class="newnotif-toast__action-value" cx="26" cy="26" r="24" pathLength="100" style="animation-duration:' + Math.max(0, duration) + 'ms"/>'
+      + '</svg>';
+  }
+
   function removeToast(el){
     if (!el || el.dataset.leaving === '1') return;
     el.dataset.leaving = '1';
@@ -179,7 +186,10 @@
     toast.setAttribute('aria-live', opts.type === 'error' ? 'assertive' : 'polite');
 
     const action = opts.action
-      ? '<button type="button" class="newnotif-toast__action" aria-label="' + escapeHtml(opts.action.label) + '" title="' + escapeHtml(opts.action.label) + '">' + undoIcon() + '<span>' + escapeHtml(opts.action.label) + '</span></button>'
+      ? '<button type="button" class="newnotif-toast__action" aria-label="' + escapeHtml(opts.action.label) + '" title="' + escapeHtml(opts.action.label) + '">'
+        + actionProgress(opts.duration)
+        + '<span class="newnotif-toast__action-content">' + undoIcon() + '<span>' + escapeHtml(opts.action.label) + '</span></span>'
+        + '</button>'
       : '';
 
     toast.innerHTML = [

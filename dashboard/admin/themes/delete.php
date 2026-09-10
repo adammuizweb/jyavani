@@ -31,7 +31,7 @@ if ($id <= 0) {
     adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'));
 }
 
-$stmt = $pdo->prepare("SELECT id, created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 LIMIT 1");
+$stmt = $pdo->prepare("SELECT id, title, created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 LIMIT 1");
 $stmt->execute([':id' => $id]);
 $theme = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$theme || !user_can($pdo, $uid, 'core.theme_content.delete', ['owner_id' => (int)($theme['created_by'] ?? 0)])) {
@@ -65,7 +65,7 @@ try {
     ]];
 
     $pdo->commit();
-    $successMessage = __('Theme partial moved to trash successfully.');
+    $successMessage = adiwira_notification_identity($theme['title'] ?? '', $id) . ': ' . __('Theme partial moved to trash successfully.');
     try {
         $extra = [];
         $undoAction = adiwira_bin_issue_trash_undo($pdo, 'theme', $uid, $undoItems);
