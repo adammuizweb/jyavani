@@ -1003,7 +1003,7 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = oldMarkup || '<?= svg_ico('save', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?= $isNew ? __('Save') : __('Save Changes') ?>';
+        btn.innerHTML = oldMarkup;
       }
     }
   }
