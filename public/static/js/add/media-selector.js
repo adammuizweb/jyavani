@@ -10,7 +10,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       title: (m.title != null) ? String(m.title || '') : '',
       alt: (m.alt != null) ? String(m.alt || '') : '',
       caption: (m.caption != null) ? String(m.caption || '') : '',
-      credit: (m.credit != null) ? String(m.credit || '') : ''
+      credit: (m.credit != null) ? String(m.credit || '') : '',
+      extensions: (m.extensions && typeof m.extensions === 'object' && !Array.isArray(m.extensions)) ? m.extensions : {}
     };
   }
 
@@ -18,7 +19,16 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 
   function openMediaSelector(opts) {
     opts = opts || {};
-    const url = opts.url || ADMIN_PATH + '/admin/modal_img/index.php?embedded=1';
+    let url = opts.url || ADMIN_PATH + '/admin/modal_img/index.php?embedded=1';
+    const context = opts.context && typeof opts.context === 'object' ? opts.context : null;
+    if (context) {
+      const params = new URLSearchParams();
+      ['surface', 'consumer', 'resource_id', 'field', 'content_locale'].forEach(function(key){
+        if (context[key] != null && String(context[key]).trim() !== '') params.set('media_' + key, String(context[key]));
+      });
+      const query = params.toString();
+      if (query) url += (url.indexOf('?') >= 0 ? '&' : '?') + query;
+    }
     return new Promise(function(resolve, reject){
       let resolved = false;
 

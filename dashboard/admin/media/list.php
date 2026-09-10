@@ -13,7 +13,7 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
 }
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
-$isAdmin = ($role === 'admin');
+$readCondition = authorization_owner_scope_condition($pdo, $uid, 'core.media.read', 'media.user_id', 'media_read');
 
 if (!headers_sent()) {
     header('Content-Type: text/html; charset=utf-8');
@@ -51,19 +51,6 @@ if (!function_exists('mdlib_has_column')) {
 }
 $hasVisibility = mdlib_has_column('visibility');
 
-if (!function_exists('modalfilez_client_url')) {
-    function modalfilez_client_url(array $row): string
-    {
-        $id = (int)($row['id'] ?? 0);
-        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
-        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
-        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
-            return '/private/media/view/?id=' . $id;
-        }
-        return (string)($row['url'] ?? '');
-    }
-}
-
 $search   = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $visFilter = $hasVisibility ? trim((string)($_GET['v'] ?? '')) : '';
 $page     = max(1, (int)($_GET['p'] ?? 1));
@@ -72,12 +59,8 @@ $requestedPerPage = (int)($_GET['per_page'] ?? 20);
 $per_page = in_array($requestedPerPage, $perPageOptions, true) ? $requestedPerPage : 20;
 
 $where = ['is_deleted = 0'];
-$params = [];
-
-if (!$isAdmin) {
-    $where[] = 'user_id = :uid';
-    $params[':uid'] = $uid;
-}
+$where[] = '(' . ($readCondition['sql'] ?? '0=1') . ')';
+$params = $readCondition['params'] ?? [];
 
 if ($search !== '') {
     $where[] = '(title LIKE :q OR filename LIKE :q OR caption LIKE :q)';
@@ -201,7 +184,8 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
             $accessScope = strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public';
             $isDownloadable = (int)($r['is_downloadable'] ?? 1);
             $isPrivate = ($visibility === 'private');
-            $clientUrl = $hasVisibility ? modalfilez_client_url($r) : $r['url'];
+            $mediaData = media_filter_data($pdo, $r, ['surface' => 'admin.media.list', 'consumer' => 'core'], true);
+            $clientUrl = (string)($mediaData['url'] ?? '');
           ?>
           <tr data-id="<?= (int)$r['id'] ?>" data-visibility="<?= e($visibility) ?>" data-access-scope="<?= e($accessScope) ?>">
             <td><input type="checkbox" class="row-checkbox" value="<?= (int)$r['id'] ?>"></td>

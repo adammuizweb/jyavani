@@ -237,7 +237,7 @@ if (!function_exists('widget_fetch_recent_posts')) {
             $params[':uid'] = (int)$created_by;
         }
 
-        $sql = "SELECT id, title, slug, thumbnail, content, created_at, created_by
+        $sql = "SELECT id, title, slug, youtube, thumbnail, thumbnail_media_id, content, created_at, created_by
                 FROM posts
                 WHERE " . implode(' AND ', $where) . "
                 ORDER BY created_at DESC
@@ -253,7 +253,12 @@ if (!function_exists('widget_fetch_recent_posts')) {
         $st->execute();
 
         $items = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-        return apply_filters('widget_recent_posts', $items, $pdo, $type, $created_by);
+        $items = apply_filters('widget_recent_posts', $items, $pdo, $type, $created_by);
+        if (!is_array($items)) $items = [];
+        if (function_exists('media_normalize_featured_posts')) {
+            media_normalize_featured_posts($pdo, $items, ['surface' => 'frontend.widget', 'consumer' => 'recent_posts']);
+        }
+        return $items;
     }
 }
 

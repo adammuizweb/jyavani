@@ -53,6 +53,10 @@ if (!adiwira_csrf_validate(is_string($csrf) ? $csrf : '')) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('CSRF invalid')], 419);
 }
 
+if (!user_can($pdo, $uid, 'core.media.upload')) {
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Access denied.')], 403);
+}
+
 if (empty($_FILES['image']) || !is_array($_FILES['image'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('File not found')], 400);
 }
@@ -274,14 +278,12 @@ if ($slug === '') {
 $rand = bin2hex(random_bytes(4));
 $filename = $slug . '-' . $rand . '.' . $ext;
 $target_path = $target_dir . '/' . $filename;
+$stage_path = $target_dir . '/.media-upload-stage-' . bin2hex(random_bytes(16));
 
-if (!move_uploaded_file($file['tmp_name'], $target_path)) {
+if (!move_uploaded_file($file['tmp_name'], $stage_path)) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to save file')], 500);
 }
-
-file_put_contents('/tmp/upload_debug.log', date('H:i:s') . ' file moved OK' . PHP_EOL, FILE_APPEND);
-
-@chmod($target_path, $storage_disk === 'private' ? 0640 : 0644);
+@chmod($stage_path, 0600);
 
 $storage_path = $relative_storage_path . '/' . $filename;
 $public_url = rtrim($upload_base_url, '/') . '/' . $storage_path;
@@ -297,31 +299,51 @@ $response = [
     'is_downloadable' => $is_downloadable,
 ];
 
-if (!$auto_save) {
-    try {
-        $response['cleanup_token'] = asset_lifecycle_temporary_issue('media', $uid, $storage_path);
-    } catch (Throwable $e) {
-        @unlink($target_path);
-        error_log('upload_image.php cleanup grant failed: ' . $e->getMessage());
-        adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to prepare temporary upload.')], 500);
+$title   = trim((string)($_POST['title'] ?? $original_name));
+$alt     = trim((string)($_POST['alt'] ?? ''));
+$caption = trim((string)($_POST['caption'] ?? ''));
+$credit  = trim((string)($_POST['credit'] ?? ''));
+$size = (int)(@filesize($stage_path) ?: 0);
+$g2 = @getimagesize($stage_path);
+$width = is_array($g2) ? (int)$g2[0] : null;
+$height = is_array($g2) ? (int)$g2[1] : null;
+$mediaContext = media_picker_context_from_request($_POST, ['surface' => 'admin.media.upload']);
+$extensionInput = media_extension_input($_POST);
+$event = null;
+$committed = false;
+$published = false;
+
+try {
+    $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)
+        || !user_can($pdo, $uid, 'core.media.upload')) {
+        throw new AssetLifecycleAccessDenied('Media upload permission denied.');
     }
-}
+    media_create_before_publication($pdo, [
+        'schema' => 1,
+        'filename' => $filename,
+        'mime' => $mime,
+        'ext' => $ext,
+        'size' => $size,
+        'width' => $width,
+        'height' => $height,
+        'url' => $public_url,
+        'visibility' => $visibility,
+        'storage_disk' => $storage_disk,
+        'access_scope' => $access_scope,
+        'is_downloadable' => $is_downloadable,
+    ], $mediaContext, $extensionInput);
 
-if ($auto_save) {
-    $title   = trim((string)($_POST['title'] ?? $original_name));
-    $alt     = trim((string)($_POST['alt'] ?? ''));
-    $caption = trim((string)($_POST['caption'] ?? ''));
-    $credit  = trim((string)($_POST['credit'] ?? ''));
-
-    $size = @filesize($target_path) ?: 0;
-    $g2 = @getimagesize($target_path);
-    $width = $height = null;
-    if ($g2) {
-        $width = $g2[0];
-        $height = $g2[1];
+    $stageStat = lstat($stage_path);
+    if ($stageStat === false || (($stageStat['mode'] ?? 0) & 0170000) !== 0100000
+        || file_exists($target_path) || is_link($target_path)) {
+        throw new RuntimeException('Staged media artifact changed before publication.');
     }
+    asset_lifecycle_rename($stage_path, $target_path);
+    $published = true;
+    @chmod($target_path, $storage_disk === 'private' ? 0640 : 0644);
 
-    try {
+    if ($auto_save) {
         $commonCols = 'url, filename, mime, ext, size, width, height, title, alt, caption, credit, user_id, created_at';
         $commonVals = ':url, :filename, :mime, :ext, :size, :width, :height, :title, :alt, :caption, :credit, :user_id, NOW()';
 
@@ -365,31 +387,49 @@ if ($auto_save) {
             $up->execute([':url' => $client_url, ':id' => $media_id]);
             $response['url'] = $client_url;
         }
+        $createdRow = media_load_live($pdo, $media_id, true);
+        if ($createdRow === null) throw new RuntimeException('Created media row is unavailable.');
+        $artifact = resource_lifecycle_artifact([
+            'kind' => 'file', 'role' => 'primary', 'managed' => true,
+            'disk' => $storage_disk, 'root' => 'media.' . $storage_disk,
+            'relative_path' => $storage_path, 'absolute_path' => $target_path, 'state' => 'present',
+            'transition' => ['operation' => 'create', 'to' => ['root' => 'media.' . $storage_disk, 'relative_path' => $storage_path]],
+        ]);
+        $event = resource_lifecycle_capture($pdo, 'media', 'create', [['row' => $createdRow, 'artifacts' => [$artifact]]], [
+            'actor_id' => $uid, 'source' => 'core.media_upload',
+            'metadata' => media_mutation_metadata($pdo, 'create', $createdRow, $_POST, $mediaContext),
+        ]);
+        $items = $event['items'];
+        $items[0]['after'] = $createdRow;
+        $event = resource_lifecycle_before_commit($pdo, $event, ['items' => $items, 'result' => ['affected' => 1]]);
+        $response['media'] = media_filter_data($pdo, $createdRow, $mediaContext, true);
+    }
 
-        $response['media'] = [
-            'id'             => $media_id,
-            'url'            => $client_url,
-            'filename'       => $filename,
-            'mime'           => $mime,
-            'ext'            => $ext,
-            'size'           => $size,
-            'width'          => $width,
-            'height'         => $height,
-            'title'          => $title,
-            'visibility'     => $visibility,
-            'storage_disk'   => $storage_disk,
-            'storage_path'   => $storage_path,
-            'access_scope'   => $access_scope,
-            'is_downloadable'=> $is_downloadable,
-        ];
+    if (!$pdo->commit()) throw new RuntimeException('Unable to commit media publication.');
+    $committed = true;
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    if (!$committed) {
+        if ($published) @unlink($target_path);
+        else @unlink($stage_path);
+    }
+    error_log('upload_image.php publication failed: ' . $e->getMessage());
+    adiwira_json([
+        'success' => false,
+        'ok' => false,
+        'error' => $e instanceof AssetLifecycleAccessDenied ? __('Access denied.') : __('Database insert failed'),
+    ], $e instanceof AssetLifecycleAccessDenied ? 403 : 500);
+}
+
+if ($event !== null) asset_lifecycle_committed($pdo, $event);
+
+if (!$auto_save) {
+    try {
+        $response['cleanup_token'] = asset_lifecycle_temporary_issue('media', $uid, $storage_path);
     } catch (Throwable $e) {
         @unlink($target_path);
-        error_log('upload_image.php DB insert failed: ' . $e->getMessage());
-        adiwira_json([
-            'success' => false,
-            'ok'      => false,
-            'error'   => __('Database insert failed'),
-        ], 500);
+        error_log('upload_image.php cleanup grant failed: ' . $e->getMessage());
+        adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to prepare temporary upload.')], 500);
     }
 }
 

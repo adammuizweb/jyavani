@@ -76,26 +76,7 @@ class PostController
 
     public static function resolve_post_display_image(array $post): ?string
     {
-        if (!empty($post['youtube'])) {
-            $yt = self::youtube_thumb_url((string)$post['youtube']);
-            if ($yt) {
-                return $yt;
-            }
-        }
-
-        if (!empty($post['display_image'])) {
-            $url = (string)$post['display_image'];
-            if (str_starts_with($url, '/private/')) return null;
-            return $url;
-        }
-
-        if (!empty($post['thumbnail'])) {
-            $url = (string)$post['thumbnail'];
-            if (str_starts_with($url, '/private/')) return null;
-            return $url;
-        }
-
-        return null;
+        return media_post_display_url($post);
     }
 
     /**
@@ -111,6 +92,10 @@ class PostController
         // prefer provided PDO, fallback to global if available
         $pdoToUse = $pdo ?? ($GLOBALS['pdo'] ?? null);
 
+        if ($pdoToUse instanceof PDO) {
+            media_normalize_featured_posts($pdoToUse, $posts, ['surface' => 'frontend.collection', 'consumer' => 'post']);
+        }
+
         foreach ($posts as &$p) {
             if (!is_array($p)) {
                 continue;
@@ -122,16 +107,7 @@ class PostController
                 $p['thumbnail'] = null;
             }
 
-            // only attach target info if we have a PDO connection
-            if ($pdoToUse instanceof PDO) {
-                try {
-                    self::attach_display_image_target($p, $pdoToUse);
-                } catch (Throwable $e) {
-                    error_log('[PostController::attach_display_images] attach target error: ' . $e->getMessage());
-                    $p['display_image_target_url'] = null;
-                    $p['display_image_target_attribute'] = null;
-                }
-            } else {
+            if (!$pdoToUse instanceof PDO) {
                 $p['display_image_target_url'] = $p['display_image_target_url'] ?? null;
                 $p['display_image_target_attribute'] = $p['display_image_target_attribute'] ?? null;
             }
@@ -328,7 +304,7 @@ class PostController
         $offset = ($page - 1) * $perPage;
 
         try {
-            $sql = "SELECT id, title, slug, content, youtube, thumbnail, created_at
+            $sql = "SELECT id, title, slug, content, youtube, thumbnail, thumbnail_media_id, created_at
                     FROM posts
                     WHERE {$whereSql}
                     ORDER BY created_at DESC
@@ -598,17 +574,12 @@ class PostController
 
         $postData = $row;
 
+        $single = [$postData];
+        media_normalize_featured_posts($pdo, $single, ['surface' => 'frontend.single', 'consumer' => 'post']);
+        $postData = $single[0];
         $postData['display_image'] = self::resolve_post_display_image($postData);
         self::augmentAuthor($postData, $pdo);
         self::augmentCategories($postData, $pdo);
-
-        try {
-            self::attach_display_image_target($postData, $pdo);
-        } catch (Throwable $e) {
-            error_log('[PostController::renderArticle] attach target error: ' . $e->getMessage());
-            $postData['display_image_target_url'] = null;
-            $postData['display_image_target_attribute'] = null;
-        }
 
         $postData['content'] = apply_filters('post_content', (string)$postData['content'], $postData);
 

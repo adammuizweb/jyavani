@@ -20,27 +20,14 @@ if (!isset($uid) || !isset($role)) {
     [$uid, $role] = adiwira_require_editorial($pdo, false);
 }
 
-$isAdmin = ((string)$role === 'admin');
-
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) {
     echo '<div>Invalid ID</div>';
     exit;
 }
 
-$sql = "SELECT * FROM media WHERE id = :id AND is_deleted = 0";
-$params = [':id' => $id];
-
-if (!$isAdmin) {
-    $sql .= " AND user_id = :uid";
-    $params[':uid'] = $uid;
-}
-
-$sql .= " LIMIT 1";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$r = $stmt->fetch(PDO::FETCH_ASSOC);
+$r = media_load_live($pdo, $id);
+if ($r && !media_user_can_read($pdo, (int)$uid, $r)) $r = null;
 
 if (!$r) {
     echo '<div>' . __('Media not found') . '</div>';
@@ -61,19 +48,6 @@ if (!function_exists('mdlib_has_column')) {
 }
 $hasVisibility = mdlib_has_column($pdo, 'visibility');
 
-if (!function_exists('mdlib_media_client_url')) {
-    function mdlib_media_client_url(array $row): string
-    {
-        $id = (int)($row['id'] ?? 0);
-        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
-        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
-        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
-            return '/private/media/view/?id=' . $id;
-        }
-        return (string)($row['url'] ?? '');
-    }
-}
-
 $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
 $baseUrl = rtrim($proto . '://' . $host, '/');
@@ -84,8 +58,10 @@ $storageDisk = $hasVisibility ? (strtolower((string)($r['storage_disk'] ?? 'publ
 $accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
 $isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
 
-$clientUrl = mdlib_media_client_url($r);
-$url = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $rawUrl;
+$mediaContext = media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal.detail']);
+$mediaData = media_filter_data($pdo, $r, $mediaContext, true);
+$clientUrl = (string)($mediaData['url'] ?? '');
+$url = $clientUrl;
 
 if ($url !== '' && !preg_match('#^https?://#i', $url)) {
     if (substr($url, 0, 1) === '/') $url = $baseUrl . $url;
@@ -140,6 +116,11 @@ if (!function_exists('modalimg_human_filesize')) {
     <form id="mdlib-media-edit-form" data-unsaved-guard>
       <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+      <?php foreach ($mediaContext as $key => $value): if ($key === 'schema' || $value === null) continue; ?>
+        <input type="hidden" name="media_<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8') ?>">
+      <?php endforeach; ?>
+
+      <?php do_action('media_admin_detail_before_fields', $r, $mediaData, $mediaContext, $pdo); ?>
 
       <div class="asset-detail-kicker"><?=_e('Media')?> / <?=_e('Details')?></div>
       <div class="asset-detail-title"><?= htmlspecialchars((string)($r['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></div>
@@ -152,7 +133,6 @@ if (!function_exists('modalimg_human_filesize')) {
         <label for="mdlib-field-title"><?=_e('Title')?></label>
         <input id="mdlib-field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
       </div>
-
       <div class="mdlib-field">
         <label for="mdlib-field-alt"><?=_e('Alt')?></label>
         <input id="mdlib-field-alt" type="text" name="alt" value="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -207,13 +187,14 @@ if (!function_exists('modalimg_human_filesize')) {
         <label><?=_e('File URL (read-only)')?></label>
         <div class="mdlib-urlrow">
           <span class="mdlib-url-prefix" id="mdlib-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-          <input type="text" id="mdlib-url-path" class="mdlib-url" readonly value="<?= htmlspecialchars((string)(parse_url((string)($r['url'] ?? ''), PHP_URL_PATH) ?: ($r['url'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="text" id="mdlib-url-path" class="mdlib-url" readonly value="<?= htmlspecialchars((string)(parse_url($url, PHP_URL_PATH) ?: $url), ENT_QUOTES, 'UTF-8') ?>">
           <button type="button" class="mdlib-btn-copy" data-action="copy-url"><?=_e('Copy')?></button>
         </div>
       </div>
       </div>
+      <?php do_action('media_admin_detail_after_fields', $r, $mediaData, $mediaContext, $pdo); ?>
 
-      <input type="hidden" name="url" value="<?= htmlspecialchars((string)($r['url'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="url" value="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>">
 
       <div class="mdlib-actions">
         <button type="button" class="mdlib-btn" id="mdlib-back-btn"><?=_e('← Back to Gallery')?></button>
@@ -411,7 +392,7 @@ if (!function_exists('modalimg_human_filesize')) {
     const form = document.getElementById('mdlib-media-edit-form');
     const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
     const goBack = function(departureSnapshot){
-      var listUrl = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?embedded=1';
+        var listUrl = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/list_modal.php?embedded=1&' . media_picker_query($mediaContext)) ?>;
 
       var content = null;
       try { content = document.getElementById('adam-modal-content'); } catch(e){}

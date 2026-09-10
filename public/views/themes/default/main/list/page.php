@@ -41,8 +41,11 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
              ? htmlspecialchars(date('Y-m-d', strtotime($p['created_at'])), ENT_QUOTES, 'UTF-8')
              : '';
          $dateLabel = $date ? htmlspecialchars(date('j F Y', strtotime($p['created_at'])), ENT_QUOTES, 'UTF-8') : '';
+         $image = function_exists('media_post_display_url') ? media_post_display_url($p) : ($p['display_image'] ?? $p['thumbnail'] ?? null);
+         $imageAlt = function_exists('media_post_image_alt') ? media_post_image_alt($p, html_entity_decode((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8')) : html_entity_decode((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8');
       ?>
         <li class="adam-pages-list__item">
+          <?php if ($image): ?><img src="<?= htmlspecialchars($image, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($imageAlt, ENT_QUOTES, 'UTF-8') ?>" loading="lazy"><?php endif; ?>
           <div class="adam-pages-list__item-main">
             <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>" class="adam-page-link" title="<?= $title ?>">
               <?= $title ?>

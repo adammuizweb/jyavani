@@ -62,6 +62,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $content   = (string)($_POST['content'] ?? '');
     $status    = in_array($_POST['status'] ?? '', ['draft', 'published', 'private'], true) ? (string)$_POST['status'] : 'draft';
     $thumbnail = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
+    $thumbnailMediaIdInput = $_POST['thumbnail_media_id'] ?? null;
 
     $created_at_in = trim((string)($_POST['created_at'] ?? ''));
     $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
@@ -137,7 +138,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 
         try {
             $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
-            $page_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $metaVal, $thumbnail, $status, $uid, $final_created, $final_updated, $requiresDatePermission): int {
+            $page_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $metaVal, $thumbnail, $thumbnailMediaIdInput, $status, $uid, $final_created, $final_updated, $requiresDatePermission): int {
                 $pdo->beginTransaction();
                 try {
                 if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
@@ -152,11 +153,12 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                 $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
                 $slugLock->execute([':slug' => $slug]);
                 if ($slugLock->fetchColumn()) throw new DomainException('Page slug changed.');
+                $thumbnailMediaId = media_validate_featured_selection($pdo, $thumbnailMediaIdInput, $thumbnail, $uid, true);
                 $stmt = $pdo->prepare("
                     INSERT INTO posts
-                    (title, slug, content, type, meta, thumbnail, status, created_by, updated_by, created_at, updated_at)
+                    (title, slug, content, type, meta, thumbnail, thumbnail_media_id, status, created_by, updated_by, created_at, updated_at)
                     VALUES
-                    (:title, :slug, :content, 'page', :meta, :thumbnail, :status, :created_by, :updated_by, :created_at, :updated_at)
+                    (:title, :slug, :content, 'page', :meta, :thumbnail, :thumbnail_media_id, :status, :created_by, :updated_by, :created_at, :updated_at)
                 ");
                 $ok = $stmt->execute([
                     ':title'      => $title,
@@ -164,6 +166,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                     ':content'    => $content,
                     ':meta'       => $metaVal,
                     ':thumbnail'  => $thumbnail,
+                    ':thumbnail_media_id' => $thumbnailMediaId,
                     ':status'     => $status,
                     ':created_by' => $uid,
                     ':updated_by' => $uid,
@@ -235,7 +238,8 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
             <?php else: ?>
             <input type="text" id="thumbnail-input" name="thumbnail" value="<?= htmlspecialchars($_POST['thumbnail'] ?? '', ENT_QUOTES, 'UTF-8') ?>" class="inpud" placeholder="<?=_e('Thumbnail URL')?>" style="display:none">
             <?php endif; ?>
-            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn">
+            <input type="hidden" id="thumbnail-media-id-input" name="thumbnail_media_id" value="<?= (int)($_POST['thumbnail_media_id'] ?? 0) ?: '' ?>">
+            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn" data-content-locale="<?= htmlspecialchars(content_default_locale(), ENT_QUOTES, 'UTF-8') ?>">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>

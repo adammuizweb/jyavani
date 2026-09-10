@@ -294,7 +294,7 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   }
 
   $sql = "
-    SELECT DISTINCT p.id, p.title, p.slug, p.content, p.type, p.meta, p.youtube, p.thumbnail,
+    SELECT DISTINCT p.id, p.title, p.slug, p.content, p.type, p.meta, p.youtube, p.thumbnail, p.thumbnail_media_id,
            p.status, p.created_by, p.created_at, p.updated_at
     FROM $from
     WHERE " . implode(' AND ', $where) . "
@@ -305,9 +305,13 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   $stmt = $pdo->prepare($sql);
   $stmt->execute($params);
   $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-  return $collectionContext !== [] && function_exists('collection_filter_rows')
+  $rows = $collectionContext !== [] && function_exists('collection_filter_rows')
     ? collection_filter_rows($rows, $collectionContext)
     : $rows;
+  if (function_exists('media_normalize_featured_posts')) {
+    media_normalize_featured_posts($pdo, $rows, ['surface' => 'frontend.collection', 'consumer' => 'cms']);
+  }
+  return $rows;
 }
 
 function cms_posts_by_category(PDO $pdo, $categoryKey, array $opt = []) {

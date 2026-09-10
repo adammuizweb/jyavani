@@ -76,6 +76,7 @@ if (!function_exists('_theme_posts_extract_first_img')) {
 
 if (!function_exists('_theme_posts_resolve_image')) {
     function _theme_posts_resolve_image(array $p): ?string {
+        if (function_exists('media_post_display_url')) return media_post_display_url($p);
         // 1) youtube
         if (!empty($p['youtube'])) {
             $yt = _theme_posts_youtube_thumb($p['youtube']);
@@ -122,12 +123,17 @@ if (!function_exists('_theme_posts_resolve_image')) {
               ? htmlspecialchars(function_exists('format_datetime_id') ? format_datetime_id($p['created_at']) : $p['created_at'], ENT_QUOTES, 'UTF-8')
               : '';
           $displayImage = _theme_posts_resolve_image($p);
+          $imageAlt = function_exists('media_post_image_alt')
+              ? media_post_image_alt($p, html_entity_decode((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8'))
+              : html_entity_decode((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8');
+          $imageCaption = function_exists('media_post_image_caption') ? media_post_image_caption($p) : '';
       ?>
         <article class="post-card">
           <?php if (!empty($displayImage)): ?>
             <div style="flex:0 0 160px;">
               <a href="<?= htmlspecialchars($slug, ENT_QUOTES, 'UTF-8') ?>">
-                <img src="<?= htmlspecialchars($displayImage, ENT_QUOTES, 'UTF-8') ?>" alt="<?= $title ?>" style="width:100%;height:auto;border-radius:6px;display:block;object-fit:cover;">
+                <img src="<?= htmlspecialchars($displayImage, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($imageAlt, ENT_QUOTES, 'UTF-8') ?>" style="width:100%;height:auto;border-radius:6px;display:block;object-fit:cover;">
+                <?php if ($imageCaption !== ''): ?><span class="sr-only"><?= htmlspecialchars($imageCaption, ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
               </a>
             </div>
           <?php endif; ?>

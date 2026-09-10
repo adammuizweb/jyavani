@@ -63,6 +63,18 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
     </div>
   </header>
 
+  <?php
+    $pageImage = function_exists('media_post_display_url') ? media_post_display_url($post) : ($post['display_image'] ?? $post['thumbnail'] ?? null);
+    $pageImageAlt = function_exists('media_post_image_alt') ? media_post_image_alt($post, (string)($post['title'] ?? '')) : (string)($post['title'] ?? '');
+    $pageImageCaption = function_exists('media_post_image_caption') ? media_post_image_caption($post) : '';
+  ?>
+  <?php if ($pageImage): ?>
+    <figure class="adam-page-thumb">
+      <img src="<?= htmlspecialchars($pageImage, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($pageImageAlt, ENT_QUOTES, 'UTF-8') ?>" loading="lazy">
+      <?php if ($pageImageCaption !== ''): ?><figcaption><?= htmlspecialchars($pageImageCaption, ENT_QUOTES, 'UTF-8') ?></figcaption><?php endif; ?>
+    </figure>
+  <?php endif; ?>
+
   <!-- Baris 3: content -->
   <?php if (function_exists('theme_zone_has_position') && theme_zone_has_position($pdo, 'single.page', 'before_content')): ?>
     <div class="tz-single-page-before"><?= theme_zone_render_position($pdo, 'single.page', 'before_content') ?></div>

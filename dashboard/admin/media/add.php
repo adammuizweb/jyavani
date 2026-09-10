@@ -27,9 +27,17 @@ if (!function_exists('mdlib_has_column')) {
     }
 }
 $hasVisibility = mdlib_has_column('visibility');
+$mediaContext = media_picker_context_from_request($_GET, [
+    'surface' => 'admin.media.upload',
+    'consumer' => 'core',
+    'content_locale' => function_exists('content_default_locale') ? content_default_locale() : null,
+]);
 ?>
 <section class="media-uploader">
   <input type="hidden" id="media-csrf-token" value="<?= htmlspecialchars($mediaCsrf, ENT_QUOTES, 'UTF-8') ?>">
+  <div data-media-extension-fields>
+    <?php do_action('media_admin_upload_fields', $mediaContext, $pdo); ?>
+  </div>
 
   <?php if ($hasVisibility): ?>
   <div style="margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:4px 0">
@@ -127,6 +135,26 @@ $hasVisibility = mdlib_has_column('visibility');
     return '';
   }
 
+  function appendMediaExtensionFields(fd) {
+    const root = document.querySelector('[data-media-extension-fields]');
+    if (!root) return;
+    const reserved = new Set(['image','auto_save','csrf_token','title','alt','caption','credit','visibility','storage_disk','storage_path','access_scope','is_downloadable']);
+    const controls = Array.from(root.querySelectorAll('input[name],select[name],textarea[name]')).slice(0, 100);
+    let bytes = 0;
+    controls.forEach(function(control){
+      if (control.matches(':disabled') || reserved.has(control.name) || !/^media_extension\[[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\]\[[A-Za-z][A-Za-z0-9._-]{0,99}\](?:\[\])?$/.test(control.name)) return;
+      if ((control.type === 'checkbox' || control.type === 'radio') && !control.checked) return;
+      if (['file','button','submit','reset','image'].includes(control.type)) return;
+      const values = control.tagName === 'SELECT'
+        ? Array.from(control.selectedOptions).filter(function(option){ return !option.disabled; }).map(function(option){ return option.value; }) : [control.value];
+      values.slice(0, 20).forEach(function(value){
+        value = String(value);
+        const length = new Blob([value]).size;
+        if (length <= 4096 && bytes + length <= 65536) { fd.append(control.name, value); bytes += length; }
+      });
+    });
+  }
+
   browseBtn.onclick = () => fileInput.click();
   fileInput.onchange = e => {
     handleFiles(e.target.files);
@@ -177,6 +205,11 @@ $hasVisibility = mdlib_has_column('visibility');
     if (visEl) fd.append('visibility', visEl.value);
     if (scopeEl) fd.append('access_scope', scopeEl.value);
     if (dlEl) fd.append('is_downloadable', dlEl.checked ? '1' : '0');
+    appendMediaExtensionFields(fd);
+    const mediaContext = <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>;
+    Object.keys(mediaContext).forEach(function(key){
+      if (key !== 'schema' && mediaContext[key] != null) fd.append('media_' + key, String(mediaContext[key]));
+    });
 
     const csrf = getCsrfToken();
     if (csrf) fd.append('csrf_token', csrf);

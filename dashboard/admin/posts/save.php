@@ -213,6 +213,7 @@ $statusIn      = (string)($_POST['status'] ?? 'draft');
 $status        = in_array($statusIn, ['draft','published','private'], true) ? $statusIn : 'draft';
 $youtube       = trim((string)($_POST['youtube'] ?? '')) ?: null;
 $thumbnail     = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
+$thumbnailMediaIdInput = $_POST['thumbnail_media_id'] ?? null;
 $created_at_in = trim((string)($_POST['created_at'] ?? ''));
 $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 $created_by_in = (int)($_POST['created_by'] ?? 0);
@@ -253,7 +254,7 @@ $slug = preg_replace('/[-]{2,}/', '-', (string)$slug);
 $slug = trim((string)$slug, '-');
 if ($slug === '') $slug = bin2hex(random_bytes(4));
 
-$st = $pdo->prepare("\n    SELECT id, slug, status, created_by, created_at, updated_at, meta\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
+$st = $pdo->prepare("\n    SELECT id, slug, status, created_by, created_at, updated_at, meta, thumbnail, thumbnail_media_id\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
 $st->execute([':id' => $id]);
 $existing = $st->fetch(PDO::FETCH_ASSOC);
 
@@ -349,7 +350,7 @@ $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNI
 $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in, $sidebarOverride, $metaDescription): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in, $sidebarOverride, $metaDescription): void {
     $pdo->beginTransaction();
     try {
 
@@ -360,7 +361,7 @@ try {
         $content = cms_sanitize_restricted_html($content);
     }
 
-    $lock = $pdo->prepare("SELECT id, created_by, status, created_at FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, created_by, status, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedOwnerId = (int)($lockedPost['created_by'] ?? 0);
@@ -394,8 +395,11 @@ try {
     $slugLock->execute([':slug' => $slug, ':id' => $id]);
     if ($slugLock->fetchColumn()) throw new DomainException('Post slug changed.');
     $effectiveCreatedAt = $created_at_in !== '' ? $final_created : (string)$lockedPost['created_at'];
+    $thumbnailMediaId = array_key_exists('thumbnail_media_id', $_POST)
+        ? media_validate_featured_selection($pdo, $thumbnailMediaIdInput, $thumbnail, $uid, true)
+        : ((string)($lockedPost['thumbnail'] ?? '') === (string)$thumbnail ? (int)($lockedPost['thumbnail_media_id'] ?? 0) ?: null : null);
 
-    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            status_revision = status_revision + IF(status <> :revision_status, 1, 0),\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at,\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
+    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            thumbnail_media_id = :thumbnail_media_id,\n            status_revision = status_revision + IF(status <> :revision_status, 1, 0),\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at,\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
 
     $ok = $upd->execute([
         ':title'      => $title,
@@ -403,6 +407,7 @@ try {
         ':content'    => $content,
         ':youtube'    => $youtube,
         ':thumbnail'  => $thumbnail,
+        ':thumbnail_media_id' => $thumbnailMediaId,
         ':status'     => $status,
         ':revision_status' => $status,
         ':meta'       => $finalMeta,

@@ -158,6 +158,7 @@ if (!$canUseUnfilteredHtml && function_exists('cms_sanitize_restricted_html')) {
 $status     = $val('status', $post['status'] ?? 'draft');
 $youtube    = $val('youtube', $post['youtube'] ?? '');
 $thumbnail  = $val('thumbnail', $post['thumbnail'] ?? '');
+$thumbnailMediaId = (int)$val('thumbnail_media_id', $post['thumbnail_media_id'] ?? 0);
 $created_by = (int)($val('created_by', $post['created_by'] ?? 0));
 $chosenMode = (string)($_POST['editor_mode'] ?? '');
 ?>
@@ -264,7 +265,8 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
                    placeholder="<?= _e('Thumbnail URL') ?>"
                    style="display:none">
             <?php endif; ?>
-            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn">
+            <input type="hidden" id="thumbnail-media-id-input" name="thumbnail_media_id" value="<?= $thumbnailMediaId ?: '' ?>">
+            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn" data-content-locale="<?= htmlspecialchars(content_default_locale(), ENT_QUOTES, 'UTF-8') ?>">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>
@@ -275,7 +277,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
           </div>
           <div id="thumbnail-preview" style="margin-top:.6rem;">
             <?php if (!empty($thumbnail)): ?>
-              <img src="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>" alt="preview" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
+              <img src="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>" data-media-id="<?= $thumbnailMediaId ?: '' ?>" alt="preview" style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
             <?php endif; ?>
           </div>
         </label>

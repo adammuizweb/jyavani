@@ -60,13 +60,14 @@ $categoryDescription = (string)($category['description'] ?? '');
                     $postContent = (string)($p['content'] ?? '');
                     $postCreatedAt = !empty($p['created_at']) ? strtotime((string)$p['created_at']) : false;
 
-                    $imgToShow = $p['display_image'] ?? ($p['thumbnail'] ?? '');
+                    $imgToShow = function_exists('media_post_display_url') ? media_post_display_url($p) : ($p['display_image'] ?? ($p['thumbnail'] ?? ''));
+                    $imgAlt = function_exists('media_post_image_alt') ? media_post_image_alt($p, $postTitle) : $postTitle;
                 ?>
                 <article class="post-card" aria-labelledby="post-title-<?= $postId ?>">
                     <?php if (!empty($imgToShow)): ?>
                         <img
                             src="<?= htmlspecialchars((string)$imgToShow, ENT_QUOTES, 'UTF-8') ?>"
-                            alt="<?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8') ?>"
+                            alt="<?= htmlspecialchars($imgAlt, ENT_QUOTES, 'UTF-8') ?>"
                             style="max-width:220px;display:block;margin-bottom:.6rem"
                         >
                     <?php endif; ?>

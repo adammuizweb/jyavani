@@ -74,9 +74,9 @@ $authorLink     = $authorSlug !== ''
           $content   = (string)($p['content'] ?? '');
           $createdAt = (string)($p['created_at'] ?? '');
 
-          $imgUrl  = !empty($p['display_image'])
-            ? (string)$p['display_image']
-            : (!empty($p['thumbnail']) ? (string)$p['thumbnail'] : '');
+          $imgUrl = function_exists('media_post_display_url') ? (string)(media_post_display_url($p) ?? '')
+            : (!empty($p['display_image']) ? (string)$p['display_image'] : (!empty($p['thumbnail']) ? (string)$p['thumbnail'] : ''));
+          $imgAlt = function_exists('media_post_image_alt') ? media_post_image_alt($p, $titleRaw) : $titleRaw;
 
           $postUrl = $slug !== ''
               ? (function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($slug) . '/')
@@ -88,7 +88,7 @@ $authorLink     = $authorSlug !== ''
             <a class="thumb-wrap" href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>">
               <img
                 src="<?= htmlspecialchars($imgUrl, ENT_QUOTES, 'UTF-8') ?>"
-                alt="<?= $title ?>"
+                alt="<?= htmlspecialchars($imgAlt, ENT_QUOTES, 'UTF-8') ?>"
               >
             </a>
           <?php endif; ?>

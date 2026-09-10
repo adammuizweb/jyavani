@@ -339,6 +339,7 @@ CREATE TABLE IF NOT EXISTS `posts` (
   `meta` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`meta`)),
   `youtube` varchar(255) DEFAULT NULL,
   `thumbnail` varchar(255) DEFAULT NULL,
+  `thumbnail_media_id` int(10) unsigned DEFAULT NULL,
   `status` enum('draft','published','private') NOT NULL DEFAULT 'draft',
   `status_revision` bigint(20) unsigned NOT NULL DEFAULT 0,
   `created_by` int(10) unsigned DEFAULT NULL,
@@ -353,6 +354,7 @@ CREATE TABLE IF NOT EXISTS `posts` (
   KEY `idx_status` (`status`),
   KEY `idx_created_by` (`created_by`),
   KEY `idx_posts_updated_by` (`updated_by`),
+  KEY `idx_posts_thumbnail_media` (`thumbnail_media_id`),
   FULLTEXT KEY `ft_title_content` (`title`,`content`),
   CONSTRAINT `fk_posts_created_by_users` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_posts_updated_by_users` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
@@ -436,6 +438,9 @@ CREATE TABLE IF NOT EXISTS `media` (
 -- ──────────────────────────────────────────────────────────────
 -- 7. post_media_items
 -- ──────────────────────────────────────────────────────────────
+ALTER TABLE `posts`
+  ADD CONSTRAINT `fk_posts_thumbnail_media` FOREIGN KEY (`thumbnail_media_id`) REFERENCES `media` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
 CREATE TABLE IF NOT EXISTS `post_media_items` (
   `post_id` int(10) unsigned NOT NULL,
   `media_id` int(10) unsigned NOT NULL,

@@ -52,8 +52,9 @@ function hp_post_url(array $post): string {
 }
 
 function hp_post_thumb(array $post): string {
-    $thumb = trim((string)($post['thumbnail'] ?? ''));
+    $thumb = function_exists('media_post_display_url') ? (string)(media_post_display_url($post) ?? '') : trim((string)($post['thumbnail'] ?? ''));
     if ($thumb !== '') return $thumb;
+    if (array_key_exists('display_image', $post) || array_key_exists('featured_media', $post)) return '';
     if (function_exists('widget_first_image_from_content')) {
         return widget_first_image_from_content((string)($post['content'] ?? ''));
     }

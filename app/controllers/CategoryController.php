@@ -158,13 +158,6 @@ class CategoryController
         $catBase = $hasPrefix ? '/' . $catPrefix . '/' : '/';
         $isCategoryIndex = $hasPrefix && $slug === '';
 
-        // Helper: attach display images
-        $attachDisplayImages = function (&$posts) {
-            if (class_exists('PostController') && method_exists('PostController', 'attach_display_images')) {
-                try { PostController::attach_display_images($posts); } catch (Throwable $e) {}
-            }
-        };
-
         // Root-level categories with empty prefix have no index page
         if (!$hasPrefix && $slug === '') {
             http_response_code(404);
@@ -382,7 +375,7 @@ class CategoryController
 
         // FETCH
         try {
-            $selectCols = "p.id,p.title,p.slug,p.content,p.thumbnail,p.youtube,p.meta,p.created_at";
+            $selectCols = "p.id,p.title,p.slug,p.content,p.thumbnail,p.thumbnail_media_id,p.youtube,p.meta,p.created_at";
 
             $sql = "
               SELECT DISTINCT $selectCols
@@ -423,7 +416,7 @@ class CategoryController
         }
 
         $posts = collection_filter_rows($posts, $collectionContext);
-        $attachDisplayImages($posts);
+        if (class_exists('PostController')) PostController::attach_display_images($posts, $pdo);
 
         $catBaseUrl = get_category_permalink($pdo, $categoryIdentity);
         $paginationHtml = '';

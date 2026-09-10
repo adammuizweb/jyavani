@@ -59,14 +59,15 @@ if ($archive_label !== '') {
                     $title   = htmlspecialchars($titleRaw, ENT_QUOTES, 'UTF-8');
                     $date    = $createdAt ? date('d M Y', $createdAt) : '-';
 
-                    // display_image > thumbnail > placeholder
-                    $img = $p['display_image'] ?? $p['thumbnail'] ?? 'https://via.placeholder.com/600x450?text=No+Image';
+                    $resolvedImage = function_exists('media_post_display_url') ? media_post_display_url($p) : ($p['display_image'] ?? $p['thumbnail'] ?? null);
+                    $img = $resolvedImage ?? 'https://via.placeholder.com/600x450?text=No+Image';
+                    $imgAlt = $resolvedImage !== null && function_exists('media_post_image_alt') ? media_post_image_alt($p, $titleRaw) : $titleRaw;
                 ?>
                 <article class="adamz-arch-card">
                     <a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8') ?>" class="adamz-arch-img-link">
                         <img
                             src="<?= htmlspecialchars((string)$img, ENT_QUOTES, 'UTF-8') ?>"
-                            alt="<?= $title ?>"
+                            alt="<?= htmlspecialchars($imgAlt, ENT_QUOTES, 'UTF-8') ?>"
                             class="adamz-arch-img"
                             loading="lazy"
                         >

@@ -99,7 +99,7 @@ class ArchiveController
 
         // fetch posts
         try {
-            $sql = "SELECT p.id, p.title, p.slug, p.content, p.thumbnail, p.youtube, p.created_at
+            $sql = "SELECT p.id, p.title, p.slug, p.content, p.thumbnail, p.thumbnail_media_id, p.youtube, p.created_at
                     FROM posts p
                     WHERE $whereSql
                     ORDER BY p.created_at DESC
@@ -127,7 +127,7 @@ class ArchiveController
         }
         if (class_exists('PostController') && method_exists('PostController', 'attach_display_images')) {
             try {
-                PostController::attach_display_images($posts);
+                PostController::attach_display_images($posts, $pdo);
             } catch (Throwable $e) {
                 error_log("[ArchiveController] attach_display_images error: " . $e->getMessage());
             }

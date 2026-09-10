@@ -5,7 +5,6 @@ declare(strict_types=1);
 require_once __DIR__ . '/../_guard.php';
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
-$isAdmin = ($role === 'admin');
 
 header('Content-Type: text/html; charset=utf-8');
 
@@ -15,19 +14,8 @@ if ($id <= 0) {
     exit;
 }
 
-$sql = "SELECT * FROM media WHERE id = :id AND is_deleted = 0";
-$params = [':id' => $id];
-
-if (!$isAdmin) {
-    $sql .= " AND user_id = :uid";
-    $params[':uid'] = $uid;
-}
-
-$sql .= " LIMIT 1";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$r = $stmt->fetch(PDO::FETCH_ASSOC);
+$r = media_load_live($pdo, $id);
+if ($r && !media_user_can_read($pdo, $uid, $r)) $r = null;
 
 if (!$r) {
     echo '<div>' . __('Media not found') . '</div>';
@@ -83,19 +71,14 @@ $visibility = $hasVisibility ? (strtolower((string)($r['visibility'] ?? 'public'
 $accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
 $isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
 $isPrivate = ($visibility === 'private');
-if (!function_exists('modalfilez_client_url')) {
-    function modalfilez_client_url(array $row): string
-    {
-        $id = (int)($row['id'] ?? 0);
-        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
-        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
-        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
-            return '/private/media/view/?id=' . $id;
-        }
-        return (string)($row['url'] ?? '');
-    }
-}
-$displayClientUrl = modalfilez_client_url($r);
+$mediaContext = media_picker_context_from_request($_GET, [
+    'surface' => 'admin.media.detail',
+    'consumer' => 'core',
+    'resource_id' => $id,
+    'content_locale' => function_exists('content_default_locale') ? content_default_locale() : null,
+]);
+$mediaData = media_filter_data($pdo, $r, $mediaContext, true);
+$displayClientUrl = (string)($mediaData['url'] ?? '');
 ?>
 <div class="media-single-wrap asset-detail">
   <div class="media-single-card asset-detail-card">
@@ -151,6 +134,11 @@ $displayClientUrl = modalfilez_client_url($r);
         <form id="media-edit-form" class="asset-detail-fields" data-media-id="<?= (int)$r['id'] ?>" data-unsaved-guard>
           <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string)$csrf, ENT_QUOTES, 'UTF-8') ?>">
+          <?php foreach ($mediaContext as $key => $value): if ($key === 'schema' || $value === null) continue; ?>
+            <input type="hidden" name="media_<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8') ?>">
+          <?php endforeach; ?>
+
+          <?php do_action('media_admin_detail_before_fields', $r, $mediaData, $mediaContext, $pdo); ?>
 
           <label for="field-title"><?=_e('Title')?></label>
           <input id="field-title" type="text" name="title" value="<?= htmlspecialchars((string)($r['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
@@ -202,6 +190,7 @@ $displayClientUrl = modalfilez_client_url($r);
             <button type="button" class="media-btn media-btn-save" id="media-save-btn"><?=_e('Save')?></button>
             <button type="button" class="media-btn media-btn-delete" id="media-delete-btn"><?=_e('Delete')?></button>
           </div>
+          <?php do_action('media_admin_detail_after_fields', $r, $mediaData, $mediaContext, $pdo); ?>
         </form>
       </div>
     </div>

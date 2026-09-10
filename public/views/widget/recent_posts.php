@@ -42,7 +42,10 @@ function _recent_posts_date(?string $date): string {
         $postUrl = function_exists('get_post_permalink')
           ? get_post_permalink($p)
           : '/' . rawurlencode($p['slug'] ?? '') . '/';
-        $thumb = _recent_posts_thumb($p['content'] ?? null, $p['thumbnail'] ?? null);
+        $thumb = function_exists('media_post_display_url') ? (media_post_display_url($p) ?? '') : _recent_posts_thumb($p['content'] ?? null, $p['thumbnail'] ?? null);
+        if ($thumb === '' && !array_key_exists('display_image', $p) && !array_key_exists('featured_media', $p)) {
+          $thumb = _recent_posts_thumb($p['content'] ?? null, $p['thumbnail'] ?? null);
+        }
         $dateLabel = _recent_posts_date($p['created_at'] ?? null);
       ?>
         <li class="w-recent-item">

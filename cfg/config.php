@@ -114,6 +114,7 @@ require_once __DIR__ . '/helpers/role_helpers.php';
 // 11b. Dynamic role and permission authorization
 require_once __DIR__ . '/helpers/authorization.php';
 require_once __DIR__ . '/helpers/asset_lifecycle.php';
+require_once __DIR__ . '/helpers/media_helpers.php';
 
 // 12. helpers Editor
 require_once __DIR__ . '/helpers/editor_helpers.php';

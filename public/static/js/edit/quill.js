@@ -173,7 +173,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       title: (m.title != null) ? String(m.title || '') : '',
       alt: (m.alt != null) ? String(m.alt || '') : '',
       caption: (m.caption != null) ? String(m.caption || '') : '',
-      credit: (m.credit != null) ? String(m.credit || '') : ''
+      credit: (m.credit != null) ? String(m.credit || '') : '',
+      extensions: (m.extensions && typeof m.extensions === 'object' && !Array.isArray(m.extensions)) ? m.extensions : {}
     };
   }
 

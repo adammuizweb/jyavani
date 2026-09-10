@@ -125,9 +125,8 @@ $dateModified  = !empty($post['updated_at']) ? date('c', strtotime((string)$post
 
 // URL gambar: gunakan display_image (controller sudah menyiapkannya).
 // fallback ke thumbnail hanya jika display_image tidak ada (safety).
-$thumbUrl = !empty($post['display_image'])
-    ? $post['display_image']
-    : (!empty($post['thumbnail']) ? $post['thumbnail'] : '');
+$thumbUrl = function_exists('media_post_display_url') ? (media_post_display_url($post) ?? '')
+    : (!empty($post['display_image']) ? $post['display_image'] : (!empty($post['thumbnail']) ? $post['thumbnail'] : ''));
 ?>
 
 <?php if ($datePublished): ?>
@@ -336,9 +335,8 @@ $ytAnimClass = 'flip-y onload';
 $imgAnimClass = 'frag-reveal onload';
 
 // fallback image: display_image dulu, baru thumbnail
-$imgSrcRaw = !empty($post['display_image'])
-    ? $post['display_image']
-    : (!empty($post['thumbnail']) ? $post['thumbnail'] : null);
+$imgSrcRaw = function_exists('media_post_display_url') ? media_post_display_url($post)
+    : (!empty($post['display_image']) ? $post['display_image'] : (!empty($post['thumbnail']) ? $post['thumbnail'] : null));
 ?>
 
 <?php if ($ytid): ?>
@@ -360,7 +358,8 @@ $imgSrcRaw = !empty($post['display_image'])
 <?php elseif ($imgSrcRaw): ?>
 
   <?php
-    $imgAltRaw = $post['title'] ?? '';
+    $imgAltRaw = function_exists('media_post_image_alt') ? media_post_image_alt($post, (string)($post['title'] ?? '')) : ($post['title'] ?? '');
+    $imgCaptionRaw = function_exists('media_post_image_caption') ? media_post_image_caption($post) : '';
     $turlRaw   = $post['display_image_target_url'] ?? null;
     $tattrRaw  = $post['display_image_target_attribute'] ?? null;
 
@@ -396,6 +395,10 @@ $imgSrcRaw = !empty($post['display_image'])
       </a>
     <?php else: ?>
       <img src="<?= $imgSrc ?>" alt="<?= $imgAlt ?>" loading="lazy">
+    <?php endif; ?>
+
+    <?php if ($imgCaptionRaw !== ''): ?>
+      <figcaption><?= htmlspecialchars($imgCaptionRaw, ENT_QUOTES, 'UTF-8') ?></figcaption>
     <?php endif; ?>
 
   </figure>

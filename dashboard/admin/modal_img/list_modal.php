@@ -20,7 +20,11 @@ if (!isset($uid) || !isset($role)) {
     [$uid, $role] = adiwira_require_editorial($pdo, false);
 }
 
-$isAdmin = ((string)$role === 'admin');
+$readCondition = authorization_owner_scope_condition($pdo, (int)$uid, 'core.media.read', 'media.user_id', 'modal_media_read');
+$mediaContext = isset($mediaContext) && is_array($mediaContext)
+    ? media_extension_context($mediaContext)
+    : media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal']);
+$mediaContextQuery = media_picker_query($mediaContext);
 
 $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
@@ -48,26 +52,9 @@ if (!function_exists('mdlib_has_column')) {
 }
 $hasVisibility = mdlib_has_column($pdo, 'visibility');
 
-if (!function_exists('mdlib_media_client_url')) {
-    function mdlib_media_client_url(array $row): string
-    {
-        $id = (int)($row['id'] ?? 0);
-        $visibility = strtolower((string)($row['visibility'] ?? 'public'));
-        $disk = strtolower((string)($row['storage_disk'] ?? 'public'));
-        if ($id > 0 && ($visibility === 'private' || $disk === 'private')) {
-            return '/private/media/view/?id=' . $id;
-        }
-        return (string)($row['url'] ?? '');
-    }
-}
-
 $where = ['is_deleted = 0'];
-$params = [];
-
-if (!$isAdmin) {
-    $where[] = 'user_id = :uid';
-    $params[':uid'] = $uid;
-}
+$where[] = '(' . ($readCondition['sql'] ?? '0=1') . ')';
+$params = $readCondition['params'] ?? [];
 
 if ($search !== '') {
     $where[] = '(title LIKE :q OR filename LIKE :q OR caption LIKE :q)';
@@ -104,6 +91,8 @@ try {
     $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
     $stmt->execute();
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $filteredRows = apply_filters('media_admin_list_rows', $rows, $mediaContext, $pdo);
+    $rows = media_filter_authorized_rows($rows, $filteredRows);
 } catch (Throwable $e) {
     error_log('modal_img/list_modal.php error: ' . $e->getMessage());
     $rows = [];
@@ -146,21 +135,22 @@ try {
             $accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
             $isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
 
-            $clientUrl = mdlib_media_client_url($r);
-            $url = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $rawUrl;
+            $mediaData = media_filter_data($pdo, $r, $mediaContext, true);
+            $clientUrl = (string)($mediaData['url'] ?? '');
+            $url = $clientUrl;
 
             if ($url !== '' && !preg_match('#^https?://#i', $url)) {
                 if (substr($url, 0, 1) === '/') $url = $baseUrl . $url;
                 else $url = $baseUrl . '/' . ltrim($url, '/');
             }
 
-            $title = (string)($r['title'] ?? '');
-            $caption = (string)($r['caption'] ?? '');
-            $alt = (string)($r['alt'] ?? '');
-            $credit = (string)($r['credit'] ?? '');
-            $filename = (string)($r['filename'] ?? '');
-            $mime = (string)($r['mime'] ?? '');
-            $size = (string)($r['size'] ?? '');
+            $title = (string)($mediaData['title'] ?? '');
+            $caption = (string)($mediaData['caption'] ?? '');
+            $alt = (string)($mediaData['alt'] ?? '');
+            $credit = (string)($mediaData['credit'] ?? '');
+            $filename = (string)($mediaData['filename'] ?? '');
+            $mime = (string)($mediaData['mime'] ?? '');
+            $size = (string)($mediaData['size'] ?? '');
           ?>
           <div class="mdlib-pic"
                data-id="<?= $id ?>"
@@ -176,8 +166,9 @@ try {
                data-visibility="<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"
                data-storage-disk="<?= htmlspecialchars($storageDisk, ENT_QUOTES, 'UTF-8') ?>"
                data-access-scope="<?= htmlspecialchars($accessScope, ENT_QUOTES, 'UTF-8') ?>"
-               data-is-downloadable="<?= (int)$isDownloadable ?>">
-            <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($alt ?: $title, ENT_QUOTES, 'UTF-8') ?>" loading="lazy" decoding="async">
+               data-is-downloadable="<?= (int)$isDownloadable ?>"
+               data-extensions="<?= htmlspecialchars(json_encode($mediaData['extensions'], JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
+            <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($alt, ENT_QUOTES, 'UTF-8') ?>" loading="lazy" decoding="async">
             <div class="mdlib-pic-info">
               <div class="mdlib-pic-title"><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></div>
               <div class="mdlib-pic-sub"><?= htmlspecialchars($filename, ENT_QUOTES, 'UTF-8') ?></div>
@@ -201,13 +192,13 @@ try {
           $pageNumbers = array_values(array_unique(array_filter($pageNumbers, static fn(int $number): bool => $number >= 1 && $number <= $total_pages)));
           sort($pageNumbers);
 
-          $pageUrl = function(int $p, string $q, int $perPage, string $vf): string {
+          $pageUrl = function(int $p, string $q, int $perPage, string $vf) use ($mediaContextQuery): string {
               $parts = [];
               if ($q !== '') $parts[] = 'q=' . urlencode($q);
               $parts[] = 'page=' . $p;
               $parts[] = 'per_page=' . $perPage;
               if ($vf !== '') $parts[] = 'visibility=' . urlencode($vf);
-              return ADMIN_BASE_PATH . '/admin/modal_img/list_modal.php?' . implode('&', $parts);
+              return ADMIN_BASE_PATH . '/admin/modal_img/list_modal.php?' . implode('&', $parts) . '&' . $mediaContextQuery;
           };
 
           if ($page <= 1) {
@@ -299,7 +290,7 @@ try {
     var input = root.querySelector('#mdlib-search');
     var visibility = root.querySelector('#mdlib-visibility-filter');
     var perPage = root.querySelector('#mdlib-per-page');
-    var url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?q=' + encodeURIComponent(input ? input.value || '' : '') + '&page=' + encodeURIComponent(page || 1) + '&per_page=' + encodeURIComponent(perPage ? perPage.value : '<?= (int)$per_page ?>');
+    var url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/list_modal.php?<?= htmlspecialchars($mediaContextQuery, ENT_QUOTES, 'UTF-8') ?>&q=' + encodeURIComponent(input ? input.value || '' : '') + '&page=' + encodeURIComponent(page || 1) + '&per_page=' + encodeURIComponent(perPage ? perPage.value : '<?= (int)$per_page ?>');
     if (visibility && visibility.value) url += '&visibility=' + encodeURIComponent(visibility.value);
     return url;
   }
@@ -365,7 +356,7 @@ try {
         return;
       }
 
-      var url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1';
+      var url = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/single_modal.php?embedded=1&' . $mediaContextQuery . '&id=') ?> + encodeURIComponent(id);
 
       try {
         if (window.parent && window.parent !== window && typeof window.parent.adamModalOpen === 'function') {
@@ -406,6 +397,8 @@ try {
       var storageDisk = thumb.getAttribute('data-storage-disk') || 'public';
       var accessScope = thumb.getAttribute('data-access-scope') || 'public';
       var isDownloadable = thumb.getAttribute('data-is-downloadable') || '1';
+      var extensions = {};
+      try { extensions = JSON.parse(thumb.getAttribute('data-extensions') || '{}'); } catch(e) {}
 
       var detail = {
         id: id ? parseInt(id, 10) : null,
@@ -421,7 +414,9 @@ try {
         visibility: visibility,
         storage_disk: storageDisk,
         access_scope: accessScope,
-        is_downloadable: isDownloadable
+        is_downloadable: isDownloadable,
+        extensions: extensions,
+        context: <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>
       };
 
       broadcast('media:insert', detail);

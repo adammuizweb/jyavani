@@ -237,6 +237,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     $youtube      = trim((string)($_POST['youtube'] ?? '')) ?: null;
     $thumbnail    = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
+    $thumbnailMediaIdInput = $_POST['thumbnail_media_id'] ?? null;
     $category_ids = (array)($_POST['categories'] ?? []);
 
     $title = trim((string)preg_replace('/[\x00-\x1F\x7F]/u', '', strip_tags($title)));
@@ -323,11 +324,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $metaVal = !empty($postMeta) ? json_encode($postMeta, JSON_UNESCAPED_UNICODE) : null;
 
         $insertSql = "INSERT INTO posts
-            (title, slug, content, type, meta, youtube, thumbnail, status, created_by, updated_by, created_at, updated_at)
+            (title, slug, content, type, meta, youtube, thumbnail, thumbnail_media_id, status, created_by, updated_by, created_at, updated_at)
             VALUES
-            (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :status, :created_by, :updated_by, :created_at, :updated_at)";
+            (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :thumbnail_media_id, :status, :created_by, :updated_by, :created_at, :updated_at)";
         try {
-            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $status, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription): int {
+            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription): int {
                 $pdo->beginTransaction();
                 try {
                 if (!authorization_lock_actor_permissions($pdo, $uid)) {
@@ -348,6 +349,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
                 $slugLock->execute([':slug' => $slug]);
                 if ($slugLock->fetchColumn()) throw new DomainException('Post slug changed.');
+                $thumbnailMediaId = media_validate_featured_selection($pdo, $thumbnailMediaIdInput, $thumbnail, $uid, true);
                 if (!empty($category_ids)) {
                     $categoryPlaceholders = implode(',', array_fill(0, count($category_ids), '?'));
                     $categoryLock = $pdo->prepare("SELECT id, created_by FROM categories WHERE id IN ($categoryPlaceholders) AND is_deleted = 0 FOR UPDATE");
@@ -373,6 +375,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     ':meta'       => $metaVal,
                     ':youtube'    => $youtube,
                     ':thumbnail'  => $thumbnail,
+                    ':thumbnail_media_id' => $thumbnailMediaId,
                     ':status'     => $status,
                     ':created_by' => $uid,
                     ':updated_by' => $uid,
@@ -517,7 +520,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                    placeholder="<?=_e('Thumbnail URL')?>"
                    style="display:none">
             <?php endif; ?>
-            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn">
+            <input type="hidden" id="thumbnail-media-id-input" name="thumbnail_media_id" value="<?= (int)($_POST['thumbnail_media_id'] ?? 0) ?: '' ?>">
+            <button type="button" id="btn-open-media-for-thumb" class="thumb-gallery-btn" data-content-locale="<?= htmlspecialchars(content_default_locale(), ENT_QUOTES, 'UTF-8') ?>">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
               <?=_e('Gallery')?>
             </button>

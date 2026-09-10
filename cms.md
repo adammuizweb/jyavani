@@ -564,3 +564,16 @@ Key regression areas:
 Core content resources use separate scoped read and mutation permissions. A user may receive `any` read access while retaining only `own` mutation access; list and editor interfaces must therefore treat readability and mutability as independent decisions. Use `authorization_editor_context()` for a single owned resource and continue to enforce the action-specific mutation permission under a row lock at write time.
 
 The shared `posts` table records original ownership in `created_by` and the authenticated actor responsible for the latest surviving Core mutation in `updated_by`. Creates initialize both fields. Content edits, relationship-only touches, soft deletion, and restoration update `updated_by`; permanent deletion needs no surviving attribution.
+
+## Media Extension Contract
+
+Core passes a validated schema-1 context with `surface`, `consumer`, nullable `resource_id`, `field`, and `content_locale` through the media picker and its `media:insert` browser payload. Callers may pass the same keys as `openMediaSelector({context: {...}})`; invalid or oversized values normalize to safe defaults.
+
+- `media_data` filters the client-safe media projection and receives the raw row, context, and PDO connection. Add namespaced values under `extensions`; storage paths and owner data are never projected.
+- `media_mutation_metadata` adds bounded, JSON-safe extension metadata to `create` and `update` lifecycle events; it receives the operation, locked/created row, normalized namespaced extension input, and PDO connection.
+- `featured_media` filters the resolved live media (or legacy `posts.thumbnail` URL fallback) before controller data reaches single and collection themes.
+- `media_admin_detail_before_fields` and `media_admin_detail_after_fields` run on both full and modal detail forms with the raw row, safe media data, context, and PDO connection.
+- `media_admin_upload_fields` renders controls inside the full and modal upload extension container. Successful controls must use `media_extension[owner][field]` names; Core accepts at most 100 controls, 20 values per control, 4 KiB per value, and 64 KiB total, and never accepts these controls as Core-owned upload keys.
+- `media_admin_list_rows` may remove, reorder, or decorate rows already authorized by Core. Core discards unknown/duplicate identities and restores ownership, URL, storage, visibility, scope, deletion, and download fields before client projection.
+- `media_create_before_publication` is a fail-fast preflight action inside the authorization-locked transaction. It receives a bounded candidate without filesystem paths, validated context, normalized extension input, and `ResourceLifecycleDatabase`; Core has staged the bytes privately but has not renamed them to the final path or inserted a visible row.
+- Media `create` and `update` use the same `resource_lifecycle_*` event phases as `trash`, `restore`, and `purge`, under caller-owned transactions and row/authorization locks. Create lifecycle capture follows atomic file publication and row insertion but precedes commit; `resource_lifecycle_before_commit` remains transactional and `resource_lifecycle_committed` runs only after commit. Listener failures before commit roll back the row and remove staged or published bytes.

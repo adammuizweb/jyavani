@@ -88,6 +88,7 @@ $content       = (string)($_POST['content'] ?? '');
 $statusIn      = (string)($_POST['status'] ?? 'draft');
 $status        = in_array($statusIn, ['draft', 'published', 'private'], true) ? $statusIn : 'draft';
 $thumbnail     = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
+$thumbnailMediaIdInput = $_POST['thumbnail_media_id'] ?? null;
 $created_at_in = trim((string)($_POST['created_at'] ?? ''));
 $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 $created_by_in = (int)($_POST['created_by'] ?? 0);
@@ -130,7 +131,7 @@ if ($slug === '') {
 
 // existing page
 $st = $pdo->prepare("
-    SELECT id, slug, status, created_by, created_at, meta
+    SELECT id, slug, status, created_by, created_at, meta, thumbnail, thumbnail_media_id
     FROM posts
     WHERE id = :id
       AND type = 'page'
@@ -243,12 +244,12 @@ $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNI
 $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $thumbnail, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $uid, $requiresDatePermission, $created_at_in): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $thumbnail, $thumbnailMediaIdInput, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $uid, $requiresDatePermission, $created_at_in): void {
     $pdo->beginTransaction();
     try {
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
     if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
-    $lock = $pdo->prepare("SELECT id, created_by, status, created_at FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, created_by, status, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPage = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedEditorStatus = is_array($lockedPage)
@@ -286,12 +287,16 @@ try {
     $slugLock->execute([':slug' => $slug, ':id' => $id]);
     if ($slugLock->fetchColumn()) throw new DomainException('Page slug changed.');
     $effectiveCreatedAt = $created_at_in !== '' ? $final_created : (string)$lockedPage['created_at'];
+    $thumbnailMediaId = array_key_exists('thumbnail_media_id', $_POST)
+        ? media_validate_featured_selection($pdo, $thumbnailMediaIdInput, $thumbnail, $uid, true)
+        : ((string)($lockedPage['thumbnail'] ?? '') === (string)$thumbnail ? (int)($lockedPage['thumbnail_media_id'] ?? 0) ?: null : null);
     $upd = $pdo->prepare("
         UPDATE posts
         SET title      = :title,
             slug       = :slug,
             content    = :content,
             thumbnail  = :thumbnail,
+            thumbnail_media_id = :thumbnail_media_id,
             status_revision = status_revision + IF(status <> :revision_status, 1, 0),
             status     = :status,
             meta       = :meta,
@@ -310,6 +315,7 @@ try {
         ':slug'       => $slug,
         ':content'    => $content,
         ':thumbnail'  => $thumbnail,
+        ':thumbnail_media_id' => $thumbnailMediaId,
         ':status'     => $status,
         ':revision_status' => $status,
         ':meta'       => $finalMeta,

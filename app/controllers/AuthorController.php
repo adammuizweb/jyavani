@@ -353,7 +353,7 @@ class AuthorController
 
         // Fetch posts
         try {
-            $sql = "SELECT p.id, p.title, p.slug, p.content, p.thumbnail, p.youtube, p.created_at
+            $sql = "SELECT p.id, p.title, p.slug, p.content, p.thumbnail, p.thumbnail_media_id, p.youtube, p.created_at
                     FROM posts p
                     WHERE $whereSQL
                     ORDER BY p.created_at DESC

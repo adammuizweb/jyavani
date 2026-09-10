@@ -83,7 +83,7 @@ class SearchController
 
         try {
             $sql = "
-                SELECT id, title, slug, content, youtube, thumbnail, created_at
+                SELECT id, title, slug, content, youtube, thumbnail, thumbnail_media_id, created_at
                 FROM posts
                 WHERE {$whereSql}
                 ORDER BY created_at DESC

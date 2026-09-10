@@ -112,21 +112,20 @@ if (!function_exists('media_detect_link_columns')) {
 }
 
 try {
-    $sql = "SELECT id FROM media WHERE id = :id AND is_deleted = 0";
-    $params = [':id' => $id];
-
-    if (!$isAdmin) {
-        $sql .= " AND user_id = :uid";
-        $params[':uid'] = $uid;
+    $pdo->beginTransaction();
+    if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Media actor permission lock failed.');
+    $mediaRow = media_load_live($pdo, $id, true);
+    if (!$mediaRow || (!$isAdmin && (int)($mediaRow['user_id'] ?? 0) !== $uid)
+        || !authorization_lock_owner_contexts($pdo, [(int)($mediaRow['user_id'] ?? 0)])
+        || !user_can($pdo, $uid, 'core.media.update', ['owner_id' => (int)($mediaRow['user_id'] ?? 0)])) {
+        throw new AssetLifecycleAccessDenied('Media update permission denied.');
     }
-
-    $sql .= " LIMIT 1";
-
-    $check = $pdo->prepare($sql);
-    $check->execute($params);
-    if (!$check->fetchColumn()) {
-        adiwira_json(['ok' => false, 'error' => __('Media not found')], 404);
-    }
+    $mediaContext = media_picker_context_from_request($_POST, ['surface' => 'admin.media.detail']);
+    $event = resource_lifecycle_capture($pdo, 'media', 'update', [['row' => $mediaRow, 'artifacts' => []]], [
+        'actor_id' => $uid,
+        'source' => 'core.media_editor',
+        'metadata' => media_mutation_metadata($pdo, 'update', $mediaRow, $_POST, $mediaContext),
+    ]);
 
     [$urlColumn, $targetColumn] = media_detect_link_columns($pdo);
 
@@ -152,10 +151,7 @@ try {
     };
 
     if ($checkMediaCol('access_scope') && $checkMediaCol('is_downloadable')) {
-        $q = $pdo->prepare("SELECT visibility FROM media WHERE id = :id AND is_deleted = 0 LIMIT 1");
-        $q->execute([':id' => $id]);
-        $mediaRow = $q->fetch(PDO::FETCH_ASSOC);
-        $visibility = $mediaRow ? strtolower((string)($mediaRow['visibility'] ?? 'public')) : 'public';
+        $visibility = strtolower((string)($mediaRow['visibility'] ?? 'public'));
 
         if ($visibility === 'public') $accessScope = 'public';
         if ($visibility === 'private' && $accessScope === 'public') $accessScope = 'editorial';
@@ -185,11 +181,13 @@ try {
     ");
 
     $stmt->execute($exec);
-
-    $check->execute($params);
-    if (!$check->fetchColumn()) {
-        adiwira_json(['ok' => false, 'error' => __('Media is no longer active.')], 409);
-    }
+    $after = media_load_live($pdo, $id, true);
+    if ($after === null) throw new AssetLifecycleConflict('Media is no longer active.');
+    $items = $event['items'];
+    $items[0]['after'] = $after;
+    $event = resource_lifecycle_before_commit($pdo, $event, ['items' => $items, 'result' => ['affected' => 1]]);
+    if (!$pdo->commit()) throw new RuntimeException('Unable to commit media update.');
+    asset_lifecycle_committed($pdo, $event);
 
     adiwira_json([
         'ok' => true,
@@ -207,9 +205,10 @@ try {
     ], 200);
 
 } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('media/save.php error: ' . $e->getMessage());
     adiwira_json([
         'ok'    => false,
-        'error' => __('DB error'),
-    ], 500);
+        'error' => $e instanceof AssetLifecycleAccessDenied ? __('Access denied.') : __('DB error'),
+    ], $e instanceof AssetLifecycleAccessDenied ? 403 : 500);
 }

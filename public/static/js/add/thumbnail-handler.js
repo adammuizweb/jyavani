@@ -121,6 +121,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     window.__ADIWIRA_THUMBNAIL_MEDIA = media;
 
     if (thumbInput) thumbInput.value = media.url;
+    const mediaIdInput = document.getElementById('thumbnail-media-id-input');
+    if (mediaIdInput) mediaIdInput.value = media.id || '';
     updateClearBtn();
     if (thumbPreview) {
       thumbPreview.innerHTML =
@@ -139,6 +141,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     });
 
     window.__ADIWIRA_THUMBNAIL_MEDIA = null;
+    const mediaIdInput = document.getElementById('thumbnail-media-id-input');
+    if (mediaIdInput) mediaIdInput.value = '';
 
     if (thumbInput) thumbInput.value = '';
     updateClearBtn();
@@ -159,6 +163,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 
   function clearThumb(showToast) {
     window.__ADIWIRA_THUMBNAIL_MEDIA = null;
+    const mediaIdInput = document.getElementById('thumbnail-media-id-input');
+    if (mediaIdInput) mediaIdInput.value = '';
     if (thumbInput) thumbInput.value = '';
     if (thumbPreview) thumbPreview.innerHTML = '';
     updateClearBtn();
@@ -245,7 +251,18 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       console.warn('openMediaSelector not available');
       return;
     }
-    openMediaSelector({ url: ADMIN_PATH + '/admin/modal_img/index.php?embedded=1' })
+    const form = btn.closest('form');
+    const resourceId = form && form.querySelector('input[name="id"]');
+    openMediaSelector({
+      url: ADMIN_PATH + '/admin/modal_img/index.php?embedded=1',
+      context: {
+        surface: 'admin.content.editor',
+        consumer: form && form.id && form.id.indexOf('page') >= 0 ? 'page' : 'post',
+        resource_id: resourceId ? resourceId.value : null,
+        field: 'featured',
+        content_locale: btn.getAttribute('data-content-locale') || null
+      }
+    })
       .then(function(detail){
         const m = (typeof normalizeMedia === 'function') ? normalizeMedia(detail) : (detail || null);
         if (!m || !m.url) return;

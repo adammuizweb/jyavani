@@ -10,7 +10,7 @@ class PageController
     {
         try {
             $stmt = $pdo->prepare("
-                SELECT id, title, slug, content, type, meta, thumbnail, youtube,
+                SELECT id, title, slug, content, type, meta, thumbnail, thumbnail_media_id, youtube,
                        created_at, updated_at, created_by, status
                 FROM posts
                 WHERE slug = :slug 
@@ -123,7 +123,7 @@ class PageController
         $offset = ($page - 1) * $perPage;
 
         try {
-            $sql = "SELECT id, title, slug, content, created_at, status
+            $sql = "SELECT id, title, slug, content, youtube, thumbnail, thumbnail_media_id, created_at, status
                     FROM posts
                     WHERE {$whereSql}
                     ORDER BY created_at DESC
@@ -135,6 +135,7 @@ class PageController
             $stmt->execute();
             $pagesRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $pagesRows = collection_filter_rows($pagesRows, $collectionContext);
+            media_normalize_featured_posts($pdo, $pagesRows, ['surface' => 'frontend.collection', 'consumer' => 'page']);
         } catch (Throwable $e) {
             error_log("[PageController::listPages] Fetch error: " . $e->getMessage());
             http_response_code(500);
@@ -296,6 +297,9 @@ $pdo = $layout_pdo;
 
         // Allow plugins (e.g. content translation) to swap page data before rendering
         $pageData = apply_filters('post_data', $pageData, $pdo);
+        $single = [$pageData];
+        media_normalize_featured_posts($pdo, $single, ['surface' => 'frontend.single', 'consumer' => 'page']);
+        $pageData = $single[0];
 
         // Perkaya data (author, dll)
         self::augmentAuthor($pageData, $pdo);

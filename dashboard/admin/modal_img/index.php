@@ -13,6 +13,7 @@ if (function_exists('adiwira_is_navigate_request') && adiwira_is_navigate_reques
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 
 $embedded = isset($_GET['embedded']) && (($_GET['embedded'] === '1') || ($_GET['embedded'] === 'true'));
+$mediaContext = media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal']);
 
 $csrfToken = '';
 try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } catch (Throwable $e) { $csrfToken = ''; }
@@ -29,7 +30,7 @@ if (!$embedded):
 <body>
 <?php endif; ?>
 
-<div id="mdlib-root">
+<div id="mdlib-root" data-media-context="<?= htmlspecialchars(json_encode($mediaContext, JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
   <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px">
@@ -139,7 +140,7 @@ function injectHtmlWithScriptsTo(container, html) {
 
 function openSingleDetailInModal(id) {
   if (!id) return;
-  const url = '<?= ADMIN_BASE_PATH ?>/admin/modal_img/single_modal.php?id=' + encodeURIComponent(id) + '&embedded=1';
+  const url = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/single_modal.php?embedded=1&' . media_picker_query($mediaContext) . '&id=') ?> + encodeURIComponent(id);
 
   const modalContent =
     document.getElementById('adam-modal-content') ||
@@ -259,11 +260,13 @@ document.addEventListener('click', function(ev){
       const title = tr.getAttribute('data-title') || '';
       const caption = tr.getAttribute('data-caption') || '';
       const credit = tr.getAttribute('data-credit') || '';
+      const extensions = tr.getAttribute('data-extensions') || '';
 
       if (alt) insertBtn.setAttribute('data-alt', alt);
       if (title) insertBtn.setAttribute('data-title', title);
       if (caption) insertBtn.setAttribute('data-caption', caption);
       if (credit) insertBtn.setAttribute('data-credit', credit);
+      if (extensions) insertBtn.setAttribute('data-extensions', extensions);
 
       actions.appendChild(detailBtn);
       actions.appendChild(insertBtn);
@@ -295,6 +298,8 @@ document.addEventListener('click', function(ev){
       const alt = (ins.getAttribute('data-alt') || (thumb && thumb.getAttribute('data-alt')) || (tr && tr.getAttribute('data-alt')) || '').trim();
       const caption = (ins.getAttribute('data-caption') || (thumb && thumb.getAttribute('data-caption')) || (tr && tr.getAttribute('data-caption')) || '').trim();
       const credit = (ins.getAttribute('data-credit') || (thumb && thumb.getAttribute('data-credit')) || (tr && tr.getAttribute('data-credit')) || '').trim();
+      let extensions = {};
+      try { extensions = JSON.parse(ins.getAttribute('data-extensions') || (thumb && thumb.getAttribute('data-extensions')) || (tr && tr.getAttribute('data-extensions')) || '{}'); } catch(e) {}
 
       const detail = {
         id: id ? parseInt(id, 10) : null,
@@ -302,7 +307,9 @@ document.addEventListener('click', function(ev){
         title,
         alt,
         caption,
-        credit
+        credit,
+        extensions,
+        context: <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>
       };
 
       try { document.dispatchEvent(new CustomEvent('media:insert', { detail })); } catch(e){}

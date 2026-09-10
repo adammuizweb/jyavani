@@ -320,7 +320,7 @@ function asset_lifecycle_locked_rows(PDO $pdo, string $table, array $ids, int $d
 
 function asset_lifecycle_capture_items(ResourceLifecycleDatabase $database, string $operation, array $lockedItems): array
 {
-    if (!in_array($operation, ['trash', 'restore', 'purge'], true)) {
+    if (!in_array($operation, ['create', 'update', 'trash', 'restore', 'purge'], true)) {
         throw new InvalidArgumentException('Unsupported asset lifecycle operation.');
     }
     $items = [];
@@ -332,7 +332,7 @@ function asset_lifecycle_capture_items(ResourceLifecycleDatabase $database, stri
         }
         $items[] = [
             'id' => (int)$row['id'],
-            'before' => $row,
+            'before' => $operation === 'create' ? null : $row,
             'after' => null,
             'artifacts' => $artifacts,
         ];
@@ -863,6 +863,9 @@ function asset_lifecycle_purge(PDO $pdo, string $resource, array $ids, int $acto
         $deleteLinks = $resource === 'media'
             ? $pdo->prepare('DELETE FROM post_media_items WHERE media_id = :id')
             : null;
+        $clearFeatured = $resource === 'media'
+            ? $pdo->prepare('UPDATE posts SET thumbnail_media_id = NULL WHERE thumbnail_media_id = :id')
+            : null;
         $delete = $pdo->prepare("DELETE FROM {$config['table']} WHERE id = :id AND is_deleted = 1 LIMIT 1");
         foreach ($rows as $row) {
             $id = $row['id'];
@@ -886,6 +889,7 @@ function asset_lifecycle_purge(PDO $pdo, string $resource, array $ids, int $acto
             }
             if ($deleteLinks !== null) {
                 $deleteLinks->execute([':id' => $id]);
+                $clearFeatured->execute([':id' => $id]);
             }
             $auditIds[] = asset_lifecycle_audit($pdo, $resource . '.purged', $actorUserId, $resource, $id, ['bulk' => $bulk]);
             $delete->execute([':id' => $id]);
