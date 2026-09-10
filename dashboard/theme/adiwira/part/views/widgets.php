@@ -27,7 +27,7 @@ function dash_widget_cms_info(PDO $pdo): string
     return '
 <div class="dw-card">
   <div class="dw-card-head">
-    <span class="dw-card-icon">' . svg_ico('terminal') . '</span>
+    <span class="dw-card-icon">' . svg_ico('braces') . '</span>
     <span class="dw-card-title">' . __('CMS Info') . '</span>
   </div>
   <div class="dw-card-body">
@@ -162,7 +162,7 @@ function dash_widget_quick_stats(PDO $pdo): string
     return '
 <div class="dw-card">
   <div class="dw-card-head">
-    <span class="dw-card-icon">' . svg_ico('bar-chart-3') . '</span>
+    <span class="dw-card-icon">' . svg_ico('chart-bar') . '</span>
     <span class="dw-card-title">' . __('Quick Stats') . '</span>
   </div>
   <div class="dw-card-body">
