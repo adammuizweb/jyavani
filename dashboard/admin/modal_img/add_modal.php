@@ -30,9 +30,6 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
 <div class="mdlib-uploader mdlib-uploader--split">
-  <div data-media-extension-fields>
-    <?php do_action('media_admin_upload_fields', $mediaContext, $pdo); ?>
-  </div>
   <div class="mdlib-uploader-left">
     <div class="mdlib-upload-config">
       <label class="mdlib-config-label"><?= _e('Media storage mode') ?></label>
@@ -55,6 +52,9 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
           <?= _e('Allow direct download') ?>
         </label>
       </div>
+    </div>
+    <div data-media-extension-fields>
+      <?php do_action('media_admin_upload_fields', $mediaContext, $pdo); ?>
     </div>
   </div>
 

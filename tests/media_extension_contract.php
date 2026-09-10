@@ -254,6 +254,8 @@ $check(substr_count($fullUpload . $modalUpload, '<div data-media-extension-field
     && substr_count($fullUpload . $modalUpload, "reserved = new Set(['image','auto_save','csrf_token'") === 2
     && substr_count($fullUpload . $modalUpload, 'media_extension\\[') >= 2,
     'both upload surfaces serialize bounded namespaced controls without Core-key overwrite');
+$check(preg_match('/<div class="mdlib-uploader-left">.*<div data-media-extension-fields>.*<div class="mdlib-uploader-right">/s', $modalUpload) === 1,
+    'modal upload extension fields stay inside the configuration column without creating a phantom grid cell');
 $check(str_contains($modalIndex, 'media_picker_query($mediaContext)') && str_contains($modalList, 'context: <?= json_encode($mediaContext')
     && str_contains($modalList, "broadcast('media:insert', detail)"), 'modal routes preserve context in the insert payload');
 $check(!str_contains($modalDetail, "parse_url((string)(\$r['url']")
@@ -299,6 +301,9 @@ $check(!str_contains($thumbnailScripts, 'document.documentElement.lang')
     && substr_count($thumbnailScripts, "getAttribute('data-content-locale')") === 2
     && substr_count($pickerForms, 'data-content-locale="<?= htmlspecialchars(content_default_locale()') === 4,
     'Core thumbnail pickers use the explicit source content locale rather than dashboard UI locale');
+$check(substr_count($thumbnailScripts, "form.getAttribute('id')") === 2
+    && !str_contains($thumbnailScripts, 'form.id.indexOf'),
+    'thumbnail pickers avoid named form controls shadowing the DOM form id property');
 
 if (!function_exists('__')) { function __(string $text): string { return $text; } }
 if (!function_exists('safe_strip_tags')) { function safe_strip_tags(string $html): string { return strip_tags($html); } }

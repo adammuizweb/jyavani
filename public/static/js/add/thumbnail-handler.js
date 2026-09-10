@@ -253,11 +253,12 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     }
     const form = btn.closest('form');
     const resourceId = form && form.querySelector('input[name="id"]');
+    const formId = form ? String(form.getAttribute('id') || '') : '';
     openMediaSelector({
       url: ADMIN_PATH + '/admin/modal_img/index.php?embedded=1',
       context: {
         surface: 'admin.content.editor',
-        consumer: form && form.id && form.id.indexOf('page') >= 0 ? 'page' : 'post',
+        consumer: formId.indexOf('page') >= 0 ? 'page' : 'post',
         resource_id: resourceId ? resourceId.value : null,
         field: 'featured',
         content_locale: btn.getAttribute('data-content-locale') || null

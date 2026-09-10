@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.108",
+    "version": "2.3.109",
     "build": "2026-09-10",
-    "changelog": "Add stable featured-media identities and a generic contextual media extension contract with transactional create and update lifecycle, secure picker integration, and consistent frontend resolution.",
+    "changelog": "Fix media picker form detection and align modal upload configuration, extension fields, and the dropzone without phantom grid spacing.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
