@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.111",
+    "version": "2.3.112",
     "build": "2026-09-10",
-    "generated": "2026-09-10T13:49:47+00:00",
+    "generated": "2026-09-10T14:20:10+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
-    "total_files": 570,
+    "total_files": 571,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "c6a784c5c2113cfc99f7c28ded7bc29a1a4bc31fe918160a32078130a94b71da",
+        "VERSION": "054b943f4f759df2678482705cb97b8b1725169e076e38e66d7747c1ae081693",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "5c1aceb013a0dc1e9e1ff93f60aaa68e8fa773e22f96733790b8c014080877eb",
@@ -236,7 +236,7 @@
         "dashboard/theme/adiwira/part/header.php": "72794a9cbc9cb2cddb49d5372f8ffee2ea49306ab752ee36415e51c98f95db0f",
         "dashboard/theme/adiwira/part/main.php": "912b5633954e69886341d11b8c8e3f9535801abdcd63653b1e1199baaeda5e8b",
         "dashboard/theme/adiwira/part/views/home.php": "9e064ed401204bb975840e3b5043b110968b8298c86d8ac3e6119b18b10830e1",
-        "dashboard/theme/adiwira/part/views/widgets.php": "a796dfe3d3b5896760227c06d5d533a857f8d3a67e94a22a4f2300abde8c71e3",
+        "dashboard/theme/adiwira/part/views/widgets.php": "f875de9707612aa7ae982d5cee3a52d4999ce34415b32d70679eafcbeacf5d40",
         "dashboard/theme/index.php": "63b729bd27edb61a3fb4d332e1c95904bcd1b33a16193266e6c790bd05f89260",
         "plugins/index.php": "0e8f48a8c3085c03a7b08bb31bbb530a4fb33516a8497bf9117600583102c3e6",
         "public/.htaccess": "f5833412373996046986fc788656abf74eb29dd8b8a6527901c2bedd83c53083",
@@ -358,6 +358,7 @@
         "public/static/icons/lucide/rows-3.svg": "8b55ae6a22770c64db6568f6c92d9ce9f2e4f9b5e81e76e261603a4f8f515fa3",
         "public/static/icons/lucide/save.svg": "ee9d56a7fec4b20dd6689546d41f68219ea8cbd67f99bd17a1bdaff5be6edb53",
         "public/static/icons/lucide/search.svg": "283d371c2e433817bb9c0c8310caa6c77fa4177c0f4f1168d9c83b97af7389dc",
+        "public/static/icons/lucide/server.svg": "f7bea54b609dc488f3b848995014041846b2443fd2a880653e9e583d7a034f61",
         "public/static/icons/lucide/settings.svg": "0ae27fd0f81999229e3127ac96c5b32edfea448e291d509e76212b917551d66b",
         "public/static/icons/lucide/shield-check.svg": "8d4fcdbde5bba4abb1a2f6fe53e37ceb6343a1d5449a9d88f6f97c1971d26c4e",
         "public/static/icons/lucide/smartphone.svg": "4d23f7b60b9e47fd986f7a5ae5145fc2954f11fe3a20b2c3a7616e58f875f67e",
@@ -577,6 +578,6 @@
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "4280874e201f70ab1bb7e4aef3e00088e0c82d825b3c07c725bc4fd0c396cf5d",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
-        "version.json": "6cd780ecf2fb053dd9615efa984a5787edceb2920ca6539c3a4efec88b4cf75f"
+        "version.json": "a6d3fc8d3923151fe98477f8f26bfc6f36e007ed74d995484f79434a7a32a3a9"
     }
 }

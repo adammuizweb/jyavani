@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.111",
+    "version": "2.3.112",
     "build": "2026-09-10",
-    "changelog": "Identify deleted content in Undo notifications and separate the Undo countdown ring from Toast progress.",
+    "changelog": "Replace dashboard widget placeholder icons with bundled Lucide assets.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
