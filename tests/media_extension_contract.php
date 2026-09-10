@@ -245,6 +245,9 @@ $migration = (string)file_get_contents($root . '/schema/migrations/023-post-feat
 $check(substr_count($detail . $modalDetail, "do_action('media_admin_detail_before_fields'") === 2
     && substr_count($detail . $modalDetail, "do_action('media_admin_detail_after_fields'") === 2,
     'both mandatory detail surfaces expose matching form hooks');
+$check(preg_match('/asset-detail-kicker.*media_admin_detail_before_fields.*(?:asset-detail-form|field-title)/s', $detail) === 1
+    && preg_match('/asset-detail-kicker.*media_admin_detail_before_fields.*asset-detail-form/s', $modalDetail) === 1,
+    'both detail surfaces place extension fields below the Core Media Details header');
 $check(str_contains($detail, 'media_picker_context_from_request($_GET')
     && str_contains($detail, 'name="media_<?= htmlspecialchars($key')
     && str_contains($detail, 'content_default_locale()'),

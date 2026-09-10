@@ -120,12 +120,12 @@ if (!function_exists('modalimg_human_filesize')) {
         <input type="hidden" name="media_<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8') ?>">
       <?php endforeach; ?>
 
-      <?php do_action('media_admin_detail_before_fields', $r, $mediaData, $mediaContext, $pdo); ?>
-
       <div class="asset-detail-kicker"><?=_e('Media')?> / <?=_e('Details')?></div>
       <div class="asset-detail-title"><?= htmlspecialchars((string)($r['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></div>
       <div class="asset-detail-subtitle"><?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
       <a class="asset-detail-open" href="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+
+      <?php do_action('media_admin_detail_before_fields', $r, $mediaData, $mediaContext, $pdo); ?>
 
       <div class="asset-detail-form">
 
