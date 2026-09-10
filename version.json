@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.109",
+    "version": "2.3.110",
     "build": "2026-09-10",
-    "changelog": "Fix media picker form detection and align modal upload configuration, extension fields, and the dropzone without phantom grid spacing.",
+    "changelog": "Place media extension fields below the detail header and restore live previews in the Shortcode Layout editor.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
