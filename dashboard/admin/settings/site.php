@@ -422,6 +422,8 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
           <span class="field-note"><?=_e('Leave empty to disable the pages list page.')?></span>
         </div>
 
+        <?php do_action('site_settings_after_collection_paths', $pdo, $_POST); ?>
+
       </div>
     </div>
 

@@ -74,6 +74,16 @@ $userEditor = (string)file_get_contents($root . '/dashboard/admin/users/save.php
 $check(str_contains($profileSettings, "'save_profile' && \$errors")
     && str_contains($userEditor, "data-unsaved-guard-initial-dirty' : ''"),
     'Profile and User add/edit forms remain dirty after server-side validation errors');
+$currentPasswordPosition = strpos($profileSettings, 'name="current_password"');
+$currentPasswordMarkup = $currentPasswordPosition !== false ? substr($profileSettings, $currentPasswordPosition, 220) : '';
+$newPasswordPosition = strpos($profileSettings, 'name="password"');
+$newPasswordMarkup = $newPasswordPosition !== false ? substr($profileSettings, $newPasswordPosition, 220) : '';
+$check(str_contains($currentPasswordMarkup, 'data-unsaved-guard-ignore')
+    && !str_contains($newPasswordMarkup, 'data-unsaved-guard-ignore'),
+    'Profile ignores autofilled reauthentication proof without ignoring a new password draft');
+$check(str_contains($profileSettings, 'name="del_password"')
+    && str_contains(substr($profileSettings, (int)strpos($profileSettings, 'name="del_password"'), 220), 'autocomplete="off"'),
+    'Profile discourages autofill for the guarded account-deletion password draft');
 $check(str_contains($profileSettings, 'guard.confirmDiscardForm(profileDeleteForm)')
     && str_contains($profileSettings, 'profileDeleteForm?.reset()')
     && str_contains($profileSettings, 'guard.markSaved(null, null, profileDeleteForm)'),

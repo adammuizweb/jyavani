@@ -372,6 +372,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
               <input type="password"
                      name="current_password"
                      autocomplete="current-password"
+                     data-unsaved-guard-ignore
                      style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
               <button type="button" class="pw-toggle" data-toggle="current_password" aria-label="<?= _e('Show password') ?>">
                 <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
@@ -441,6 +442,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <input type="password"
              id="del_password"
              name="del_password"
+             autocomplete="off"
              placeholder="<?=_e('Your Password')?>"
              required
              style="width:100%; padding:.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:1rem;">

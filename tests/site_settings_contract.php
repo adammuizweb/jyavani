@@ -40,6 +40,13 @@ $settingsPage = (string)file_get_contents($root . '/dashboard/admin/settings/sit
 $check(str_contains($settingsPage, 'id="site-settings-form" data-unsaved-guard')
     && str_contains($settingsPage, "data-unsaved-guard-initial-dirty' : ''"),
     'Site Settings warns before leaving changed or server-rejected values unsaved');
+$collectionHook = strpos($settingsPage, "do_action('site_settings_after_collection_paths', \$pdo, \$_POST)");
+$postsPath = strpos($settingsPage, 'id="posts_list_path"');
+$pagesPath = strpos($settingsPage, 'id="pages_list_path"');
+$categoriesSection = strpos($settingsPage, 'settings-section--categories');
+$check($collectionHook !== false && $postsPath !== false && $pagesPath !== false && $categoriesSection !== false
+    && $postsPath < $pagesPath && $pagesPath < $collectionHook && $collectionHook < $categoriesSection,
+    'Site Settings exposes collection extensions directly below the Core Post and Page list paths');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $check(str_contains($layout, '$defaultAppleTouchIconUrl = $faviconUrl !== \'\' ? $faviconUrl')
     && str_contains($layout, "apply_filters('apple_touch_icon_url', \$defaultAppleTouchIconUrl, \$pdo)"),

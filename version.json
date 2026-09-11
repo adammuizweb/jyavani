@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.114",
+    "version": "2.3.115",
     "build": "2026-09-11",
-    "changelog": "Add validated extension filters and locale-aware base URLs for Post and Page list routes.",
+    "changelog": "Add an inline collection settings extension point and ignore autofilled reauthentication proofs in Profile draft detection.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

@@ -232,6 +232,17 @@ apply_filters(
 Validation is monotonic: Core preserves every existing error and only accepts
 additional string errors from filters.
 
+Extensions can render companion controls directly below the Core Post and Page
+list path fields inside the same Site Settings section:
+
+```php
+do_action('site_settings_after_collection_paths', PDO $pdo, array $input): void
+```
+
+The controls participate in the encompassing Site Settings form. Extensions
+remain responsible for authorization, validation, persistence, and safe
+redisplay of submitted values.
+
 Dashboard article, page, and Theme Template lists expose `post_list_join` to
 both count and row queries. Plugins may align localized filters through the
 status and search filters; Theme Template rows additionally expose a final
