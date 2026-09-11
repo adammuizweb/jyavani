@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.112",
-    "build": "2026-09-10",
-    "changelog": "Replace dashboard widget placeholder icons with bundled Lucide assets.",
+    "version": "2.3.113",
+    "build": "2026-09-11",
+    "changelog": "Fix Theme Template editor JavaScript and support authorized saves of legacy ownerless templates.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

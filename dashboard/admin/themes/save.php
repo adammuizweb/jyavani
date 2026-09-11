@@ -187,10 +187,12 @@ try {
         $pdo->beginTransaction();
         try {
             if (!authorization_lock_actor_permissions($pdo, $user_id)) throw new DomainException('Theme actor permission lock failed.');
-            $themeLock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 FOR UPDATE");
+            $themeLock = $pdo->prepare("SELECT id, created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 FOR UPDATE");
             $themeLock->execute([':id' => $id]);
-            $lockedOwnerId = (int)$themeLock->fetchColumn();
-            if ($lockedOwnerId <= 0 || !authorization_lock_owner_contexts($pdo, [$lockedOwnerId])
+            $lockedTheme = $themeLock->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($lockedTheme)) throw new DomainException('Theme changed.');
+            $lockedOwnerId = (int)($lockedTheme['created_by'] ?? 0);
+            if (!authorization_lock_owner_contexts($pdo, [$lockedOwnerId])
                 || !user_can($pdo, $user_id, 'core.theme_content.update', ['owner_id' => $lockedOwnerId])) {
                 throw new DomainException('Theme update permission changed.');
             }

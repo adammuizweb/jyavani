@@ -5317,4 +5317,6 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Theme package requirements do not match the store catalog.', 'Persyaratan paket theme tidak cocok dengan katalog store.', 'id'),
 ('default', 'Theme package requirements do not match the store catalog.', 'Die Anforderungen des Theme-Pakets stimmen nicht mit dem Store-Katalog überein.', 'de'),
 ('default', 'This theme requires PHP %s or newer.', 'Theme ini memerlukan PHP %s atau yang lebih baru.', 'id'),
-('default', 'This theme requires PHP %s or newer.', 'Dieses Theme erfordert PHP %s oder neuer.', 'de');
+('default', 'This theme requires PHP %s or newer.', 'Dieses Theme erfordert PHP %s oder neuer.', 'de'),
+('default', 'The server returned an invalid response.', 'Server mengembalikan respons yang tidak valid.', 'id'),
+('default', 'The server returned an invalid response.', 'Der Server hat eine ungültige Antwort zurückgegeben.', 'de');

@@ -69,6 +69,8 @@ $pref_title   = (string)($theme['title'] ?? '');
 $pref_slug    = (string)($theme['slug'] ?? '');
 $pref_content = (string)($theme['content'] ?? '');
 $pref_status  = (string)($theme['status'] ?? 'draft');
+$jsFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+$saveButtonHtml = svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) . ' ' . __('Save Changes');
 $canonicalRoute = function_exists('content_route_find_canonical')
     ? content_route_find_canonical($pdo, (int)$theme['id'])
     : null;
@@ -227,7 +229,7 @@ if ($isReadOnly) {
     if (window.NewNotifConfirm && typeof window.NewNotifConfirm.warning === 'function') {
       return window.NewNotifConfirm.warning(opts);
     }
-    return Promise.resolve(window.confirm(opts.message || '<?=__('Continue this action?')?>'));
+    return Promise.resolve(window.confirm(opts.message || <?= json_encode(__('Continue this action?'), $jsFlags) ?>));
   }
 
   function getCMValue(){
@@ -259,7 +261,7 @@ if ($isReadOnly) {
     const oldLabel = saveBtn ? saveBtn.textContent : '';
     if (saveBtn) {
       saveBtn.disabled = true;
-      saveBtn.textContent = 'Menyimpan...';
+      saveBtn.textContent = <?= json_encode(__('Saving...'), $jsFlags) ?>;
     }
 
     try {
@@ -273,7 +275,7 @@ if ($isReadOnly) {
       });
 
       const data = await res.json().catch(function(){
-        return { ok:false, errors:['Respons server tidak valid.'] };
+        return { ok:false, errors:[<?= json_encode(__('The server returned an invalid response.'), $jsFlags) ?>] };
       });
 
       if (!res.ok || !data.ok) {
@@ -308,14 +310,14 @@ if ($isReadOnly) {
         return;
       }
 
-      notify('success', data.message || '<?=__('Changes saved successfully.')?>', '<?=__('Success')?>');
+      notify('success', data.message || <?= json_encode(__('Changes saved successfully.'), $jsFlags) ?>, <?= json_encode(__('Success'), $jsFlags) ?>);
 
     } catch (err) {
-      notify('error', '<?=__('Network error while saving.')?>', '<?=__('Network')?>');
+      notify('error', <?= json_encode(__('Network error while saving.'), $jsFlags) ?>, <?= json_encode(__('Network'), $jsFlags) ?>);
     } finally {
       if (saveBtn) {
         saveBtn.disabled = false;
-        saveBtn.innerHTML = oldLabel || '<?= svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=__('Save Changes')?>';
+        saveBtn.innerHTML = oldLabel || <?= json_encode($saveButtonHtml, $jsFlags) ?>;
       }
     }
   }
@@ -326,7 +328,7 @@ if ($isReadOnly) {
 
     askWarning({
       title: <?= json_encode(__('Save changes')) ?>,
-      message: '<?=__('Changes to this theme partial will be saved. Continue?')?>',
+      message: <?= json_encode(__('Changes to this theme partial will be saved. Continue?'), $jsFlags) ?>,
       confirmText: <?= json_encode(__('Yes, save')) ?>,
       cancelText: <?= json_encode(__('Cancel')) ?>
     }).then(function(ok){
