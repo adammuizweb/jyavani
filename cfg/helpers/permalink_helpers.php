@@ -347,13 +347,21 @@ function permalink_structure_segment_count(string $structure): int
 function get_posts_list_path(PDO $pdo): string
 {
     $path = settings_get($pdo, 'posts_list_path', 'artikel') ?? 'artikel';
-    return trim($path, '/');
+    $path = trim($path, '/');
+    $filtered = apply_filters('posts_list_path', $path, $pdo);
+    return is_string($filtered) && ($filtered === '' || preg_match('/^[a-z0-9_\/-]+$/', $filtered))
+        ? trim($filtered, '/')
+        : $path;
 }
 
 function get_pages_list_path(PDO $pdo): string
 {
     $path = settings_get($pdo, 'pages_list_path', 'halaman') ?? 'halaman';
-    return trim($path, '/');
+    $path = trim($path, '/');
+    $filtered = apply_filters('pages_list_path', $path, $pdo);
+    return is_string($filtered) && ($filtered === '' || preg_match('/^[a-z0-9_\/-]+$/', $filtered))
+        ? trim($filtered, '/')
+        : $path;
 }
 
 function is_posts_list_enabled(PDO $pdo): bool
@@ -371,13 +379,13 @@ function is_pages_list_enabled(PDO $pdo): bool
 function get_posts_list_base(PDO $pdo): string
 {
     $path = get_posts_list_path($pdo);
-    return $path !== '' ? '/' . $path . '/' : '/artikel/';
+    return localized_path_url($path !== '' ? '/' . $path . '/' : '/artikel/');
 }
 
 function get_pages_list_base(PDO $pdo): string
 {
     $path = get_pages_list_path($pdo);
-    return $path !== '' ? '/' . $path . '/' : '/halaman/';
+    return localized_path_url($path !== '' ? '/' . $path . '/' : '/halaman/');
 }
 
 function get_posts_list_routes(PDO $pdo): array
