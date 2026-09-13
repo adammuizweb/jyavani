@@ -411,6 +411,7 @@ CREATE TABLE IF NOT EXISTS `media` (
   `size` int(10) unsigned DEFAULT 0,
   `width` int(10) unsigned DEFAULT NULL,
   `height` int(10) unsigned DEFAULT NULL,
+  `content_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `title` varchar(255) DEFAULT NULL,
   `alt` varchar(255) DEFAULT NULL,
   `caption` text DEFAULT NULL,
@@ -432,7 +433,8 @@ CREATE TABLE IF NOT EXISTS `media` (
   KEY `created_at` (`created_at`),
   KEY `idx_media_deleted_owner` (`is_deleted`,`user_id`,`id`),
   KEY `idx_media_deleted_at` (`is_deleted`,`deleted_at`,`id`),
-  KEY `idx_media_storage_identity` (`storage_disk`,`storage_path`(180))
+  KEY `idx_media_storage_identity` (`storage_disk`,`storage_path`(180)),
+  KEY `idx_media_content_hash` (`content_hash`,`is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────

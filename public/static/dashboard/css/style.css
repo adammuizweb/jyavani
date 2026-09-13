@@ -2333,6 +2333,9 @@ html.theme-dark .mdlib-actions{ border-top: 1px solid rgba(255,255,255,0.08); }
 }
 .mdlib-pill-public{ background: #e8f5e9; color:#2e7d32; border-color:#a5d6a7; }
 .mdlib-pill-private{ background: #fce4ec; color:#c62828; border-color:#ef9a9a; }
+.mdlib-pill-ready{ background:#e8f5e9; color:#256b2a; border-color:#a5d6a7; }
+.mdlib-pill-source-fallback,.mdlib-pill-draft{ background:#fff8e1; color:#8a5a00; border-color:#ffe082; }
+.mdlib-pill-stale,.mdlib-pill-unavailable{ background:#fce4ec; color:#9f2430; border-color:#ef9a9a; }
 
 .mdlib-singlehead{
   display:flex;

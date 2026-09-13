@@ -14,6 +14,7 @@ if (function_exists('adiwira_is_navigate_request') && adiwira_is_navigate_reques
 
 $embedded = isset($_GET['embedded']) && (($_GET['embedded'] === '1') || ($_GET['embedded'] === 'true'));
 $mediaContext = media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal']);
+$mediaPickerId = media_picker_id_from_request($_GET);
 
 $csrfToken = '';
 try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } catch (Throwable $e) { $csrfToken = ''; }
@@ -140,7 +141,7 @@ function injectHtmlWithScriptsTo(container, html) {
 
 function openSingleDetailInModal(id) {
   if (!id) return;
-  const url = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/single_modal.php?embedded=1&' . media_picker_query($mediaContext) . '&id=') ?> + encodeURIComponent(id);
+  const url = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/single_modal.php?embedded=1&' . media_picker_query($mediaContext, $mediaPickerId) . '&id=') ?> + encodeURIComponent(id);
 
   const modalContent =
     document.getElementById('adam-modal-content') ||
@@ -309,13 +310,14 @@ document.addEventListener('click', function(ev){
         caption,
         credit,
         extensions,
-        context: <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>
+        context: <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>,
+        picker_id: <?= json_encode($mediaPickerId) ?>
       };
 
       try { document.dispatchEvent(new CustomEvent('media:insert', { detail })); } catch(e){}
       try {
         if (window.parent && window.parent !== window) {
-          window.parent.postMessage({ type: 'media:insert', detail }, '*');
+          window.parent.postMessage({ type: 'media:insert', detail, picker_id: <?= json_encode($mediaPickerId) ?> }, window.location.origin);
         }
       } catch(e){}
     }, false);

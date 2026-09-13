@@ -89,6 +89,7 @@ if (!function_exists('mdlib_has_column')) {
     }
 }
 $hasPrivateCols = isset($pdo) ? mdlib_has_column($pdo, 'visibility') : false;
+$hasContentHash = isset($pdo) ? mdlib_has_column($pdo, 'content_hash') : false;
 
 if (!function_exists('adiwira_media_private_base_dir')) {
     function adiwira_media_private_base_dir(): string
@@ -216,6 +217,21 @@ if (!isset($allowed[$mime])) {
 }
 
 $ext = $allowed[$mime];
+$contentHash = hash_file('sha256', $tmp);
+if (!is_string($contentHash) || preg_match('/\A[a-f0-9]{64}\z/D', $contentHash) !== 1) {
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to hash uploaded image.')], 500);
+}
+try {
+    $contentHashLocks = function_exists('theme_operation_acquire')
+        ? theme_operation_acquire(['media-content-' . $contentHash], LOCK_EX, microtime(true) + 10.0)
+        : [];
+} catch (Throwable $lockError) {
+    error_log('upload_image.php identity lock failed: ' . $lockError->getMessage());
+    $contentHashLocks = [];
+}
+if ($contentHashLocks === []) {
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Unable to lock uploaded image identity.')], 503);
+}
 
 // visibility logic
 $visibilityInput = $hasPrivateCols
@@ -249,6 +265,56 @@ if (array_key_exists('is_downloadable', $_POST)) {
     $is_downloadable = ($visibility === 'private') ? 0 : 1;
 }
 
+$mediaContext = media_picker_context_from_request($_POST, ['surface' => 'admin.media.upload']);
+$extensionInput = media_extension_input($_POST);
+
+if ($auto_save && $hasContentHash) {
+    try {
+        $pdo->beginTransaction();
+        if (!authorization_lock_actor_permissions($pdo, $uid)
+            || !user_can($pdo, $uid, 'core.media.upload')) {
+            throw new AssetLifecycleAccessDenied('Media upload permission denied.');
+        }
+        $duplicateRow = media_find_authorized_duplicate($pdo, $contentHash, $uid, true);
+        if ($duplicateRow !== null) {
+            $duplicateVisibility = strtolower((string)($duplicateRow['visibility'] ?? 'public'));
+            $duplicateDisk = strtolower((string)($duplicateRow['storage_disk'] ?? 'public'));
+            $duplicateScope = strtolower((string)($duplicateRow['access_scope'] ?? 'public'));
+            $duplicateDownloadable = (int)($duplicateRow['is_downloadable'] ?? 1);
+            if ($duplicateVisibility !== $visibility || $duplicateDisk !== $storage_disk
+                || $duplicateScope !== $access_scope || $duplicateDownloadable !== $is_downloadable) {
+                $duplicateRow = null;
+            }
+        }
+        if ($duplicateRow !== null && $extensionInput !== [] && $mediaContext['selection_mode'] !== 'review') {
+            $duplicateRow = null;
+        }
+        if ($duplicateRow !== null) {
+            if (!$pdo->commit()) throw new RuntimeException('Unable to complete duplicate media lookup.');
+            theme_operation_release($contentHashLocks);
+            $contentHashLocks = [];
+            $duplicateMedia = media_filter_data($pdo, $duplicateRow, $mediaContext, true);
+            adiwira_json([
+                'success' => true,
+                'ok' => true,
+                'duplicate' => true,
+                'message' => __('This image already exists. You can reuse the existing media.'),
+                'url' => $duplicateMedia['url'],
+                'media' => $duplicateMedia,
+                'context' => $mediaContext,
+            ], 200);
+        }
+        if (!$pdo->commit()) throw new RuntimeException('Unable to complete duplicate media lookup.');
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($e instanceof AssetLifecycleAccessDenied) {
+            adiwira_json(['success' => false, 'ok' => false, 'error' => __('Access denied.')], 403);
+        }
+        error_log('upload_image.php duplicate lookup failed: ' . $e->getMessage());
+        adiwira_json(['success' => false, 'ok' => false, 'error' => __('Database insert failed')], 500);
+    }
+}
+
 $year = date('Y');
 $month = date('m');
 $relative_storage_path = $year . '/' . $month;
@@ -263,6 +329,7 @@ if ($storage_disk === 'private') {
 }
 
 if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true)) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to create upload folder')], 500);
 }
 
@@ -281,6 +348,7 @@ $target_path = $target_dir . '/' . $filename;
 $stage_path = $target_dir . '/.media-upload-stage-' . bin2hex(random_bytes(16));
 
 if (!move_uploaded_file($file['tmp_name'], $stage_path)) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to save file')], 500);
 }
 @chmod($stage_path, 0600);
@@ -307,8 +375,6 @@ $size = (int)(@filesize($stage_path) ?: 0);
 $g2 = @getimagesize($stage_path);
 $width = is_array($g2) ? (int)$g2[0] : null;
 $height = is_array($g2) ? (int)$g2[1] : null;
-$mediaContext = media_picker_context_from_request($_POST, ['surface' => 'admin.media.upload']);
-$extensionInput = media_extension_input($_POST);
 $event = null;
 $committed = false;
 $published = false;
@@ -320,13 +386,14 @@ try {
         throw new AssetLifecycleAccessDenied('Media upload permission denied.');
     }
     media_create_before_publication($pdo, [
-        'schema' => 1,
+        'schema' => 2,
         'filename' => $filename,
         'mime' => $mime,
         'ext' => $ext,
         'size' => $size,
         'width' => $width,
         'height' => $height,
+        'content_hash' => $contentHash,
         'url' => $public_url,
         'visibility' => $visibility,
         'storage_disk' => $storage_disk,
@@ -350,16 +417,21 @@ try {
         $extraCols = '';
         $extraVals = '';
         $extraParams = [];
+        if ($hasContentHash) {
+            $extraCols .= ', content_hash';
+            $extraVals .= ', :content_hash';
+            $extraParams[':content_hash'] = $contentHash;
+        }
         if ($hasPrivateCols) {
-            $extraCols = ', visibility, storage_disk, storage_path, access_scope, is_downloadable';
-            $extraVals = ', :visibility, :storage_disk, :storage_path, :access_scope, :is_downloadable';
-            $extraParams = [
+            $extraCols .= ', visibility, storage_disk, storage_path, access_scope, is_downloadable';
+            $extraVals .= ', :visibility, :storage_disk, :storage_path, :access_scope, :is_downloadable';
+            $extraParams = array_merge($extraParams, [
                 ':visibility'      => $visibility,
                 ':storage_disk'    => $storage_disk,
                 ':storage_path'    => $storage_path,
                 ':access_scope'    => $access_scope,
                 ':is_downloadable' => $is_downloadable,
-            ];
+            ]);
         }
 
         $sql = "INSERT INTO media ({$commonCols}{$extraCols}) VALUES ({$commonVals}{$extraVals})";
@@ -403,11 +475,15 @@ try {
         $items[0]['after'] = $createdRow;
         $event = resource_lifecycle_before_commit($pdo, $event, ['items' => $items, 'result' => ['affected' => 1]]);
         $response['media'] = media_filter_data($pdo, $createdRow, $mediaContext, true);
+        $response['context'] = $mediaContext;
     }
 
     if (!$pdo->commit()) throw new RuntimeException('Unable to commit media publication.');
     $committed = true;
+    theme_operation_release($contentHashLocks);
+    $contentHashLocks = [];
 } catch (Throwable $e) {
+    if ($contentHashLocks !== []) theme_operation_release($contentHashLocks);
     if ($pdo->inTransaction()) $pdo->rollBack();
     if (!$committed) {
         if ($published) @unlink($target_path);

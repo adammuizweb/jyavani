@@ -23,13 +23,19 @@ $check = static function (bool $condition, string $message) use (&$failures, &$c
 $context = media_picker_context_from_request([
     'media_surface' => 'admin.content.editor', 'media_consumer' => 'post',
     'media_resource_id' => '42', 'media_field' => 'featured', 'media_content_locale' => 'pt-BR',
+    'media_selection_mode' => 'review',
 ]);
-$check($context === ['schema' => 1, 'surface' => 'admin.content.editor', 'consumer' => 'post', 'resource_id' => 42, 'field' => 'featured', 'content_locale' => 'pt-BR'],
+$check($context === ['schema' => 2, 'surface' => 'admin.content.editor', 'consumer' => 'post', 'resource_id' => 42, 'field' => 'featured', 'content_locale' => 'pt-BR', 'selection_mode' => 'review'],
     'picker context has a stable validated structure');
-$invalid = media_extension_context(['surface' => '../bad', 'consumer' => str_repeat('x', 101)]);
-$check($invalid['surface'] === 'media' && $invalid['consumer'] === null, 'unsafe context values fail to bounded defaults');
-$check(str_contains(media_picker_query($context), 'media_resource_id=42') && str_contains(media_picker_query($context), 'media_content_locale=pt-BR'),
+$invalid = media_extension_context(['surface' => '../bad', 'consumer' => str_repeat('x', 101), 'selection_mode' => 'later']);
+$check($invalid['surface'] === 'media' && $invalid['consumer'] === null && $invalid['selection_mode'] === 'immediate',
+    'unsafe context values and selection modes fail to bounded defaults');
+$pickerQuery = media_picker_query($context, 'picker-123');
+$check(str_contains($pickerQuery, 'media_resource_id=42') && str_contains($pickerQuery, 'media_content_locale=pt-BR')
+    && str_contains($pickerQuery, 'media_selection_mode=review') && str_contains($pickerQuery, 'media_picker_id=picker-123'),
     'validated context serializes for modal routes');
+$check(media_picker_id_from_request(['media_picker_id' => 'picker-123']) === 'picker-123'
+    && media_picker_id_from_request(['media_picker_id' => '../picker']) === null, 'picker correlation identifiers are bounded and validated');
 
 $pdo = new PDO('sqlite::memory:');
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -151,6 +157,19 @@ $tooManyFields = [];
 for ($index = 0; $index < 101; $index++) $tooManyFields['field' . $index] = 'value';
 $check(media_extension_input(['media_extension' => ['example.extension' => $tooManyFields]]) === [],
     'direct requests cannot exceed the extension field-count bound');
+$responseFilter = static function (array $response): array {
+    $response['id'] = 999;
+    $response['media'] = ['id' => 999, 'url' => 'javascript:bad'];
+    $response['extensions']['example.extension'] = ['admin_state' => ['locale' => 'pt-BR']];
+    return $response;
+};
+add_filter('media_mutation_response', $responseFilter);
+$mutationResponse = media_mutation_response($pdo, 'update', media_load_live($pdo, 1), $context, ['updated' => ['title' => 'Base']]);
+$check($mutationResponse['id'] === 1 && $mutationResponse['media']['id'] === 1
+    && $mutationResponse['media']['alt'] === 'Localized alt' && $mutationResponse['context'] === $context
+    && $mutationResponse['extensions']['example.extension']['admin_state']['locale'] === 'pt-BR',
+    'mutation responses preserve canonical refreshed media and bounded extension admin state');
+remove_filter('media_mutation_response', $responseFilter);
 
 $pdo->beginTransaction();
 $createEvent = resource_lifecycle_capture($pdo, 'media', 'create', [['row' => media_load_live($pdo, 1), 'artifacts' => []]], [
@@ -195,8 +214,9 @@ $preflightListener = static function (array $candidate, array $ctx, array $input
 };
 add_action('media_create_before_publication', $preflightListener);
 $candidate = [
-    'schema' => 1, 'filename' => 'candidate.jpg', 'mime' => 'image/jpeg', 'ext' => 'jpg',
+    'schema' => 2, 'filename' => 'candidate.jpg', 'mime' => 'image/jpeg', 'ext' => 'jpg',
     'size' => 10, 'width' => 20, 'height' => 30, 'url' => '/static/img/2026/01/candidate.jpg',
+    'content_hash' => str_repeat('a', 64),
     'visibility' => 'public', 'storage_disk' => 'public', 'access_scope' => 'public', 'is_downloadable' => 1,
 ];
 $pdo->beginTransaction();
@@ -216,12 +236,14 @@ $auth->exec('CREATE TABLE permissions (permission_key TEXT PRIMARY KEY, provider
 $auth->exec('CREATE TABLE user_roles (user_id INTEGER, role_id INTEGER, expires_at TEXT)');
 $auth->exec('CREATE TABLE role_permissions (role_id INTEGER, permission_key TEXT, scope TEXT)');
 $auth->exec('CREATE TABLE authorized_media (id INTEGER PRIMARY KEY, user_id INTEGER)');
+$auth->exec('CREATE TABLE media (id INTEGER PRIMARY KEY, user_id INTEGER, content_hash TEXT, is_deleted INTEGER)');
 $auth->exec("INSERT INTO users VALUES (10,'own@test','own','Own','author',0,0,0),(11,'other@test','other','Other','author',0,0,0),(12,'admin@test','admin','Admin','admin',0,0,0)");
 $auth->exec("INSERT INTO roles VALUES (1,'author','Author',10,1),(2,'admin','Admin',100,1)");
 $auth->exec("INSERT INTO permissions VALUES ('core.media.read','core','media','read','Read media',1,1,1)");
 $auth->exec("INSERT INTO user_roles VALUES (10,1,NULL),(11,1,NULL),(12,2,NULL)");
 $auth->exec("INSERT INTO role_permissions VALUES (1,'core.media.read','own'),(2,'core.media.read','any')");
 $auth->exec('INSERT INTO authorized_media VALUES (1,10),(2,11)');
+$auth->exec("INSERT INTO media VALUES (1,10,'" . str_repeat('a', 64) . "',0),(2,11,'" . str_repeat('a', 64) . "',0),(3,10,'" . str_repeat('b', 64) . "',1)");
 $ownRead = authorization_owner_scope_condition($auth, 10, 'core.media.read', 'authorized_media.user_id', 'contract_media_read');
 $readStmt = $auth->prepare('SELECT id FROM authorized_media WHERE ' . ($ownRead['sql'] ?? '0=1') . ' ORDER BY id');
 $readStmt->execute($ownRead['params'] ?? []);
@@ -230,6 +252,10 @@ $check(media_user_can_read($auth, 10, ['id' => 1, 'user_id' => 10])
     && media_user_can_read($auth, 12, ['id' => 2, 'user_id' => 11])
     && array_map('intval', $readStmt->fetchAll(PDO::FETCH_COLUMN)) === [1],
     'media read permission enforces owner context consistently for details, rows, and counts');
+$check((int)(media_find_authorized_duplicate($auth, str_repeat('a', 64), 10)['id'] ?? 0) === 1
+    && media_find_authorized_duplicate($auth, str_repeat('a', 64), 11)['id'] === 2
+    && media_find_authorized_duplicate($auth, str_repeat('b', 64), 10) === null,
+    'duplicate lookup returns only a live media row authorized for the actor');
 
 $detail = (string)file_get_contents($root . '/dashboard/admin/media/single.php');
 $modalDetail = (string)file_get_contents($root . '/dashboard/admin/modal_img/single_modal.php');
@@ -242,6 +268,8 @@ $save = (string)file_get_contents($root . '/dashboard/admin/media/save.php');
 $fullList = (string)file_get_contents($root . '/dashboard/admin/media/list.php');
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $migration = (string)file_get_contents($root . '/schema/migrations/023-post-featured-media.sql');
+$hashMigration = (string)file_get_contents($root . '/schema/migrations/024-media-content-hash.sql');
+$selector = (string)file_get_contents($root . '/public/static/js/add/media-selector.js');
 $check(substr_count($detail . $modalDetail, "do_action('media_admin_detail_before_fields'") === 2
     && substr_count($detail . $modalDetail, "do_action('media_admin_detail_after_fields'") === 2,
     'both mandatory detail surfaces expose matching form hooks');
@@ -259,7 +287,7 @@ $check(substr_count($fullUpload . $modalUpload, '<div data-media-extension-field
     'both upload surfaces serialize bounded namespaced controls without Core-key overwrite');
 $check(preg_match('/<div class="mdlib-uploader-left">.*<div data-media-extension-fields>.*<div class="mdlib-uploader-right">/s', $modalUpload) === 1,
     'modal upload extension fields stay inside the configuration column without creating a phantom grid cell');
-$check(str_contains($modalIndex, 'media_picker_query($mediaContext)') && str_contains($modalList, 'context: <?= json_encode($mediaContext')
+$check(str_contains($modalIndex, 'media_picker_query($mediaContext, $mediaPickerId)') && str_contains($modalList, 'context: <?= json_encode($mediaContext')
     && str_contains($modalList, "broadcast('media:insert', detail)"), 'modal routes preserve context in the insert payload');
 $check(!str_contains($modalDetail, "parse_url((string)(\$r['url']")
     && str_contains($modalDetail, 'parse_url($url, PHP_URL_PATH)')
@@ -274,6 +302,26 @@ $check(str_contains($upload, "resource_lifecycle_capture(\$pdo, 'media', 'create
     && str_contains($save, "resource_lifecycle_capture(\$pdo, 'media', 'update'")
     && strpos($save, 'FOR UPDATE') < strpos($save, "resource_lifecycle_capture(\$pdo, 'media', 'update'"),
     'create and lock-aware update participate in generic lifecycle phases');
+$check(str_contains($schema, '`content_hash` char(64)') && str_contains($schema, 'idx_media_content_hash')
+    && str_contains($hashMigration, 'ADD COLUMN `content_hash` char(64)')
+    && str_contains($hashMigration, 'ADD INDEX `idx_media_content_hash`')
+    && !str_contains($hashMigration, 'UNIQUE'), 'fresh schema and append-only migration add a non-unique SHA-256 media index');
+$hashCall = strpos($upload, "hash_file('sha256', \$tmp)");
+$duplicateLookup = strpos($upload, 'media_find_authorized_duplicate');
+$stageMove = strpos($upload, 'move_uploaded_file');
+$check($hashCall !== false && $duplicateLookup !== false && $stageMove !== false && $hashCall < $duplicateLookup && $duplicateLookup < $stageMove
+    && str_contains($upload, "'duplicate' => true") && str_contains($upload, "'content_hash' => \$contentHash")
+    && str_contains($upload, "theme_operation_acquire(['media-content-' . \$contentHash]")
+    && str_contains($upload, "\$duplicateVisibility !== \$visibility")
+    && str_contains($upload, "\$extensionInput !== [] && \$mediaContext['selection_mode'] !== 'review'"),
+    'upload hashes and resolves authorized duplicates before moving or publishing bytes');
+$check(str_contains($save, '$refreshed = media_load_live($pdo, $id)')
+    && str_contains($save, 'media_mutation_response(') && str_contains($save, "'update', \$refreshed, \$mediaContext")
+    && str_contains($save, "'updated' => ["), 'media save returns refreshed projected media through the generic mutation response filter');
+$check(str_contains($save, "\$mutationMetadata['core_fields']")
+    && str_contains($save, 'Invalid Core media field override.')
+    && strpos($save, "\$mutationMetadata['core_fields']") < strpos($save, 'UPDATE media'),
+    'trusted extensions may preserve bounded canonical media fields before Core persistence');
 $initialUploadAuth = strpos($upload, "user_can(\$pdo, \$uid, 'core.media.upload')");
 $stageMove = strpos($upload, 'move_uploaded_file');
 $preflight = strpos($upload, 'media_create_before_publication');
@@ -346,6 +394,24 @@ $modalScripts = $modalList . $modalIndex . (string)file_get_contents($root . '/p
 $check(str_contains($modalList, 'data-extensions=') && substr_count($modalScripts, 'extensions') >= 6
     && str_contains($modalList, 'JSON.parse') && str_contains($modalIndex, 'JSON.parse'),
     'modal gallery and normalized insert payloads carry safe media extensions');
+$check(str_contains($modalUpload, 'if (!reviewMode) useMedia(media)')
+    && str_contains($modalUpload, 'mdlib-btn-use') && str_contains($modalDetail, 'if (reviewMode)')
+    && str_contains($modalDetail, 'j.media || Object.assign({}, currentMedia')
+    && str_contains($modalDetail, "broadcast('media:insert'") && str_contains($modalList, "\$reviewMode ? _e('Use')"),
+    'review mode keeps uploads open for explicit use and detail save inserts refreshed media');
+$check(str_contains($modalDetail, "\$reviewMode ? _e('Save and use')")
+    && !str_contains($modalDetail, 'mdlib-media-use-btn')
+    && str_contains($modalList, 'media_admin_list_badges('),
+    'review details use one unambiguous save-and-use action and media cards expose extension badges');
+$pickerMessageSources = $modalUpload . $modalList . $modalDetail . $modalIndex;
+$check(!preg_match('/postMessage\([^\n]+,\s*[\'\"]\*[\'\"]\)/', $pickerMessageSources)
+    && substr_count($pickerMessageSources, 'window.location.origin') >= 4
+    && str_contains($selector, 'ev.origin !== window.location.origin')
+    && str_contains($selector, 'ev.data.picker_id !== pickerId')
+    && str_contains($selector, 'frame.contentWindow === ev.source'),
+    'picker messages target same-origin and selector acceptance checks origin, source, and correlation');
+$check(str_contains($selector, "'selection_mode'") && str_contains($selector, 'context: context'),
+    'browser selector preserves selection mode in requests and normalized media context');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " media extension contract check(s) failed.\n");

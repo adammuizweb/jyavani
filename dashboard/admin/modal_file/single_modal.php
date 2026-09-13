@@ -241,7 +241,7 @@ if (!$embedded):
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try {
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ type: name, detail: detail }, '*');
+        window.parent.postMessage({ type: name, detail: detail }, window.location.origin);
       }
     } catch(e){}
   }

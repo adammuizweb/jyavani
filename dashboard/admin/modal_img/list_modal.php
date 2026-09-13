@@ -24,7 +24,9 @@ $readCondition = authorization_owner_scope_condition($pdo, (int)$uid, 'core.medi
 $mediaContext = isset($mediaContext) && is_array($mediaContext)
     ? media_extension_context($mediaContext)
     : media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal']);
-$mediaContextQuery = media_picker_query($mediaContext);
+$mediaPickerId = isset($mediaPickerId) ? $mediaPickerId : media_picker_id_from_request($_GET);
+$mediaContextQuery = media_picker_query($mediaContext, $mediaPickerId);
+$reviewMode = $mediaContext['selection_mode'] === 'review';
 
 $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
@@ -151,6 +153,7 @@ try {
             $filename = (string)($mediaData['filename'] ?? '');
             $mime = (string)($mediaData['mime'] ?? '');
             $size = (string)($mediaData['size'] ?? '');
+            $extensionBadges = media_admin_list_badges($pdo, $mediaData, $r, $mediaContext);
           ?>
           <div class="mdlib-pic"
                data-id="<?= $id ?>"
@@ -175,11 +178,14 @@ try {
               <div class="mdlib-badges" style="margin-top:4px">
                 <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
                 <span class="mdlib-pill"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+                <?php foreach ($extensionBadges as $badge): ?>
+                  <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($badge['tone'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($badge['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                <?php endforeach; ?>
               </div>
             </div>
             <div class="mdlib-pic-actions">
-              <button class="mdlib-btn-detail" type="button" data-id="<?= $id ?>">Detail</button>
-              <button class="mdlib-btn-insert" type="button" data-id="<?= $id ?>" data-url="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>">Insert</button>
+              <button class="mdlib-btn-detail" type="button" data-id="<?= $id ?>"><?= _e('Detail') ?></button>
+              <button class="mdlib-btn-insert" type="button" data-id="<?= $id ?>" data-url="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>"><?= $reviewMode ? _e('Use') : _e('Insert') ?></button>
             </div>
           </div>
         <?php endforeach; ?>
@@ -256,11 +262,12 @@ try {
   }
 
   function broadcast(name, detail) {
+    detail = Object.assign({}, detail || {}, { picker_id: <?= json_encode($mediaPickerId) ?> });
     try { document.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail: detail })); } catch(e){}
     try {
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ type: name, detail: detail }, '*');
+        window.parent.postMessage({ type: name, detail: detail, picker_id: <?= json_encode($mediaPickerId) ?> }, window.location.origin);
       }
     } catch(e){}
   }
@@ -416,7 +423,8 @@ try {
         access_scope: accessScope,
         is_downloadable: isDownloadable,
         extensions: extensions,
-        context: <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>
+        context: <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>,
+        picker_id: <?= json_encode($mediaPickerId) ?>
       };
 
       broadcast('media:insert', detail);

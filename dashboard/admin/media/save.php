@@ -121,10 +121,20 @@ try {
         throw new AssetLifecycleAccessDenied('Media update permission denied.');
     }
     $mediaContext = media_picker_context_from_request($_POST, ['surface' => 'admin.media.detail']);
+    $mutationMetadata = media_mutation_metadata($pdo, 'update', $mediaRow, $_POST, $mediaContext);
+    $coreFields = is_array($mutationMetadata['core_fields'] ?? null) ? $mutationMetadata['core_fields'] : [];
+    foreach (['title' => 255, 'alt' => 255, 'caption' => 65535, 'credit' => 255] as $field => $maxLength) {
+        if (array_key_exists($field, $coreFields) && is_string($coreFields[$field])) {
+            if (strlen($coreFields[$field]) > $maxLength || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $coreFields[$field]) === 1) {
+                throw new InvalidArgumentException('Invalid Core media field override.');
+            }
+            ${$field} = trim($coreFields[$field]);
+        }
+    }
     $event = resource_lifecycle_capture($pdo, 'media', 'update', [['row' => $mediaRow, 'artifacts' => []]], [
         'actor_id' => $uid,
         'source' => 'core.media_editor',
-        'metadata' => media_mutation_metadata($pdo, 'update', $mediaRow, $_POST, $mediaContext),
+        'metadata' => $mutationMetadata,
     ]);
 
     [$urlColumn, $targetColumn] = media_detect_link_columns($pdo);
@@ -188,8 +198,7 @@ try {
     $event = resource_lifecycle_before_commit($pdo, $event, ['items' => $items, 'result' => ['affected' => 1]]);
     if (!$pdo->commit()) throw new RuntimeException('Unable to commit media update.');
     asset_lifecycle_committed($pdo, $event);
-
-    adiwira_json([
+    $response = [
         'ok' => true,
         'id' => $id,
         'updated' => [
@@ -201,8 +210,15 @@ try {
             'link_target'      => $link_target,
             'target_url'       => $link_url,
             'target_attribute' => $link_target,
-        ]
-    ], 200);
+        ],
+    ];
+    try {
+        $refreshed = media_load_live($pdo, $id);
+        if ($refreshed !== null) $response = media_mutation_response($pdo, 'update', $refreshed, $mediaContext, $response, $mutationMetadata);
+    } catch (Throwable $responseError) {
+        error_log('media/save.php response extension error: ' . $responseError->getMessage());
+    }
+    adiwira_json($response, 200);
 
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();

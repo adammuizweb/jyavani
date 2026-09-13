@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.115",
-    "build": "2026-09-11",
-    "changelog": "Add an inline collection settings extension point and ignore autofilled reauthentication proofs in Profile draft detection.",
+    "version": "2.3.116",
+    "build": "2026-09-13",
+    "changelog": "Add review-first media selection, exact duplicate detection, extension badges, refreshed mutation responses, and correlated same-origin picker messaging.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

@@ -25,6 +25,7 @@ try {
 $mediaContext = isset($mediaContext) && is_array($mediaContext)
     ? media_extension_context($mediaContext)
     : media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal']);
+$mediaPickerId = isset($mediaPickerId) ? $mediaPickerId : media_picker_id_from_request($_GET);
 
 ?>
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
@@ -84,6 +85,8 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
   const previewWrap = document.getElementById('mdlib-preview-container');
   const accessScopeEl = document.getElementById('mdlib-access-scope');
   const downloadableEl = document.getElementById('mdlib-is-downloadable');
+  const reviewMode = <?= json_encode($mediaContext['selection_mode'] === 'review') ?>;
+  const mediaPickerId = <?= json_encode($mediaPickerId) ?>;
 
   if (!dropzone || !fileInput || !browseBtn || !progressWrap || !previewWrap) return;
 
@@ -179,11 +182,12 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
   });
 
   function broadcast(name, detail) {
+    detail = Object.assign({}, detail || {}, { picker_id: mediaPickerId });
     try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try {
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ type: name, detail }, '*');
+        window.parent.postMessage({ type: name, detail, picker_id: mediaPickerId }, window.location.origin);
       }
     } catch(e){}
   }
@@ -318,10 +322,13 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
           bar.style.width = '100%';
           showThumb(media.url || data.url || '', media);
 
-          uiToast('success', '<?=__('Gallery')?>', '<?=__('Upload successful: ')?>' + file.name, 1800);
+          if (data.duplicate) {
+            uiToast('info', <?= json_encode(__('Existing media found')) ?>, data.message || <?= json_encode(__('This image already exists. You can reuse the existing media.')) ?>, 4000);
+          } else {
+            uiToast('success', '<?=__('Gallery')?>', '<?=__('Upload successful: ')?>' + file.name, 1800);
+          }
           broadcast('media:added', media);
-          media.context = mediaContext;
-          broadcast('media:insert', media);
+          if (!reviewMode) useMedia(media);
           resolve(media);
         } else {
           const httpMap = {
@@ -355,6 +362,7 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
     const visibility = (media && media.visibility) || 'public';
     const scope = (media && media.access_scope) || 'public';
 
+    const useButton = reviewMode ? '<button class="mdlib-btn mdlib-btn-use" type="button">' + <?= json_encode(__('Use')) ?> + '</button>' : '';
     box.innerHTML = `
       <img src="${escapeHtml(url)}" alt="${escapeHtml(media && (media.alt || media.title) || '')}">
       <div class="mdlib-preview-meta">
@@ -364,6 +372,7 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
           <span class="mdlib-pill">${escapeHtml(scope.toUpperCase())}</span>
         </div>
         <div class="mdlib-preview-actions">
+          ${useButton}
           <button class="mdlib-btn-edit" type="button">Edit</button>
           <button class="mdlib-btn-danger" type="button">Del</button>
         </div>
@@ -373,11 +382,13 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
     previewWrap.prepend(box);
     requestAnimationFrame(() => box.classList.add('mdlib-is-show'));
 
+    box.querySelector('.mdlib-btn-use')?.addEventListener('click', function(){ useMedia(media); });
+
     box.querySelector('.mdlib-btn-edit').addEventListener('click', function(){
       const id = box.dataset.mediaId || (media && media.id);
       if (!id) return;
 
-      const link = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/single_modal.php?embedded=1&' . media_picker_query($mediaContext) . '&id=') ?> + encodeURIComponent(id);
+      const link = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/single_modal.php?embedded=1&' . media_picker_query($mediaContext, $mediaPickerId) . '&id=') ?> + encodeURIComponent(id);
 
       try {
         if (window.parent && window.parent !== window && typeof window.parent.adamModalOpen === 'function') {
@@ -450,6 +461,15 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
         uiToast('error', '<?=__('Gallery')?>', '<?=__('Network error:')?> ' + (err.message || ''), 6000);
       }
     });
+  }
+
+  function useMedia(media) {
+    const detail = Object.assign({}, media || {}, { context: <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?> });
+    broadcast('media:insert', detail);
+    try {
+      if (window.parent && window.parent !== window && typeof window.parent.adamModalClose === 'function') window.parent.adamModalClose();
+      else if (typeof window.adamModalClose === 'function') window.adamModalClose();
+    } catch(e){}
   }
 
   function escapeHtml(s) {

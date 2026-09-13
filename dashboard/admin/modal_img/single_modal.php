@@ -59,6 +59,8 @@ $accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'publ
 $isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
 
 $mediaContext = media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal.detail']);
+$mediaPickerId = media_picker_id_from_request($_GET);
+$reviewMode = $mediaContext['selection_mode'] === 'review';
 $mediaData = media_filter_data($pdo, $r, $mediaContext, true);
 $clientUrl = (string)($mediaData['url'] ?? '');
 $url = $clientUrl;
@@ -94,7 +96,7 @@ if (!function_exists('modalimg_human_filesize')) {
 <div class="mdlib-media-wrap asset-detail asset-detail--modal">
   <div class="mdlib-media-left">
     <div class="mdlib-img-frame" title="<?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-      <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($r['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+      <img src="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string)($mediaData['alt'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     </div>
 
     <div class="mdlib-meta-row">
@@ -121,7 +123,7 @@ if (!function_exists('modalimg_human_filesize')) {
       <?php endforeach; ?>
 
       <div class="asset-detail-kicker"><?=_e('Media')?> / <?=_e('Details')?></div>
-      <div class="asset-detail-title"><?= htmlspecialchars((string)($r['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></div>
+      <div class="asset-detail-title"><?= htmlspecialchars((string)($mediaData['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></div>
       <div class="asset-detail-subtitle"><?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
       <a class="asset-detail-open" href="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
 
@@ -198,7 +200,7 @@ if (!function_exists('modalimg_human_filesize')) {
 
       <div class="mdlib-actions">
         <button type="button" class="mdlib-btn" id="mdlib-back-btn"><?=_e('← Back to Gallery')?></button>
-        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-media-save-btn"><?=_e('Save')?></button>
+        <button type="button" class="mdlib-btn mdlib-btn-primary" id="mdlib-media-save-btn"><?= $reviewMode ? _e('Save and use') : _e('Save') ?></button>
         <button type="button" class="mdlib-btn mdlib-btn-danger" id="mdlib-media-delete-btn"><?=_e('Delete')?></button>
       </div>
     </form>
@@ -207,6 +209,10 @@ if (!function_exists('modalimg_human_filesize')) {
 
 <script>
 (function(){
+  const reviewMode = <?= json_encode($reviewMode) ?>;
+  const mediaPickerId = <?= json_encode($mediaPickerId) ?>;
+  const currentMedia = <?= json_encode($mediaData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+  const mediaContext = <?= json_encode($mediaContext, JSON_UNESCAPED_SLASHES) ?>;
   function getToastApi(){
     try {
       if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') return window.NewNotifToast;
@@ -248,11 +254,12 @@ if (!function_exists('modalimg_human_filesize')) {
   }
 
   function broadcast(name, detail){
+    detail = Object.assign({}, detail || {}, { picker_id: mediaPickerId });
     try { document.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(e){}
     try {
       if (window.parent && window.parent !== window) {
-        window.parent.postMessage({ type: name, detail }, '*');
+        window.parent.postMessage({ type: name, detail, picker_id: mediaPickerId }, window.location.origin);
       }
     } catch(e){}
   }
@@ -303,6 +310,10 @@ if (!function_exists('modalimg_human_filesize')) {
         if (guard && typeof guard.markSaved === 'function') guard.markSaved(submittedSnapshot, null, form);
         uiToast('success', 'Gallery', <?= json_encode(__('Media updated successfully.')) ?>, 2500);
         broadcast('media:updated', j);
+        if (reviewMode) {
+          const selected = j.media || Object.assign({}, currentMedia, j.updated || {});
+          broadcast('media:insert', Object.assign({}, selected, { context: j.context || mediaContext }));
+        }
       })
       .catch(err => {
         console.error('Save error', err);
@@ -392,7 +403,7 @@ if (!function_exists('modalimg_human_filesize')) {
     const form = document.getElementById('mdlib-media-edit-form');
     const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
     const goBack = function(departureSnapshot){
-        var listUrl = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/list_modal.php?embedded=1&' . media_picker_query($mediaContext)) ?>;
+        var listUrl = <?= json_encode(ADMIN_BASE_PATH . '/admin/modal_img/list_modal.php?embedded=1&' . media_picker_query($mediaContext, $mediaPickerId)) ?>;
 
       var content = null;
       try { content = document.getElementById('adam-modal-content'); } catch(e){}

@@ -15,14 +15,18 @@ function media_extension_context(array $input = [], array $defaults = []): array
     $resourceId = $source['resource_id'] ?? null;
     if (is_string($resourceId) && preg_match('/\A[1-9][0-9]*\z/D', $resourceId) === 1) $resourceId = (int)$resourceId;
     if (!is_int($resourceId) || $resourceId <= 0) $resourceId = null;
+    $selectionMode = $source['selection_mode'] ?? 'immediate';
+    $selectionMode = is_string($selectionMode) && in_array($selectionMode, ['immediate', 'review'], true)
+        ? $selectionMode : 'immediate';
 
     return [
-        'schema' => 1,
+        'schema' => 2,
         'surface' => $value('surface') ?? 'media',
         'consumer' => $value('consumer'),
         'resource_id' => $resourceId,
         'field' => $value('field'),
         'content_locale' => $value('content_locale', 32),
+        'selection_mode' => $selectionMode,
     ];
 }
 
@@ -34,15 +38,28 @@ function media_picker_context_from_request(array $request, array $defaults = [])
         'resource_id' => $request['media_resource_id'] ?? null,
         'field' => $request['media_field'] ?? null,
         'content_locale' => $request['media_content_locale'] ?? null,
+        'selection_mode' => $request['media_selection_mode'] ?? null,
     ], $defaults);
 }
 
-function media_picker_query(array $context): string
+function media_picker_id_from_request(array $request): ?string
+{
+    $value = $request['media_picker_id'] ?? null;
+    if (!is_scalar($value)) return null;
+    $value = trim((string)$value);
+    return $value !== '' && strlen($value) <= 100
+        && preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9-]*\z/D', $value) === 1 ? $value : null;
+}
+
+function media_picker_query(array $context, ?string $pickerId = null): string
 {
     $context = media_extension_context($context);
     $query = [];
-    foreach (['surface', 'consumer', 'resource_id', 'field', 'content_locale'] as $key) {
+    foreach (['surface', 'consumer', 'resource_id', 'field', 'content_locale', 'selection_mode'] as $key) {
         if ($context[$key] !== null) $query['media_' . $key] = $context[$key];
+    }
+    if ($pickerId !== null && media_picker_id_from_request(['media_picker_id' => $pickerId]) !== null) {
+        $query['media_picker_id'] = $pickerId;
     }
     return http_build_query($query, '', '&', PHP_QUERY_RFC3986);
 }
@@ -162,6 +179,22 @@ function media_public_extensions(mixed $extensions): array
     return is_string($json) && strlen($json) <= 65536 ? $normalized : [];
 }
 
+function media_admin_list_badges(PDO $pdo, array $data, array $row, array $context = []): array
+{
+    $filtered = apply_filters('media_admin_list_badges', [], $data, $row, media_extension_context($context), $pdo);
+    if (!is_array($filtered) || !array_is_list($filtered)) return [];
+    $badges = [];
+    foreach (array_slice($filtered, 0, 10) as $badge) {
+        if (!is_array($badge)) continue;
+        $label = trim((string)($badge['label'] ?? ''));
+        $tone = trim((string)($badge['tone'] ?? 'neutral'));
+        if ($label === '' || strlen($label) > 100 || preg_match('/[\x00-\x1F\x7F]/', $label) === 1) continue;
+        if (preg_match('/\A[a-z][a-z0-9-]{0,31}\z/D', $tone) !== 1) $tone = 'neutral';
+        $badges[] = ['label' => $label, 'tone' => $tone];
+    }
+    return $badges;
+}
+
 function media_filter_data(PDO $pdo, array $row, array $context = [], bool $allowProtected = false): array
 {
     $context = media_extension_context($context);
@@ -235,18 +268,58 @@ function media_mutation_metadata(PDO $pdo, string $operation, array $row, array 
     return $metadata;
 }
 
+function media_mutation_response(PDO $pdo, string $operation, array $row, array $context, array $response = [], array $metadata = []): array
+{
+    $context = media_extension_context($context);
+    $canonical = [
+        'ok' => true,
+        'id' => (int)($row['id'] ?? 0),
+        'media' => media_filter_data($pdo, $row, $context, true),
+        'context' => $context,
+        'extensions' => [],
+    ];
+    $base = array_replace($response, $canonical);
+    $filtered = apply_filters('media_mutation_response', $base, $operation, $row, $context, $pdo, $metadata);
+    if (!is_array($filtered) || array_is_list($filtered)) $filtered = $base;
+    $filtered['ok'] = true;
+    $filtered['id'] = $canonical['id'];
+    $filtered['media'] = $canonical['media'];
+    $filtered['context'] = $canonical['context'];
+    $filtered['extensions'] = media_public_extensions($filtered['extensions'] ?? []);
+    try {
+        $json = json_encode($filtered, JSON_THROW_ON_ERROR);
+    } catch (JsonException $error) {
+        return $base;
+    }
+    return strlen($json) <= 65536 ? $filtered : $base;
+}
+
+function media_find_authorized_duplicate(PDO $pdo, string $contentHash, int $actorUserId, bool $forUpdate = false): ?array
+{
+    if (preg_match('/\A[a-f0-9]{64}\z/D', $contentHash) !== 1 || $actorUserId <= 0) return null;
+    $lock = $forUpdate && $pdo->inTransaction() && in_array((string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME), ['mysql', 'pgsql'], true)
+        ? ' FOR UPDATE' : '';
+    $stmt = $pdo->prepare('SELECT * FROM media WHERE content_hash = :content_hash AND is_deleted = 0 ORDER BY id ASC' . $lock);
+    $stmt->execute([':content_hash' => $contentHash]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if (is_array($row) && media_user_can_read($pdo, $actorUserId, $row)) return $row;
+    }
+    return null;
+}
+
 function media_create_before_publication(PDO $pdo, array $candidate, array $context, array $extensionInput): void
 {
     if (!$pdo->inTransaction()) throw new RuntimeException('Media create preflight requires an active transaction.');
-    $keys = ['schema', 'filename', 'mime', 'ext', 'size', 'width', 'height', 'url', 'visibility', 'storage_disk', 'access_scope', 'is_downloadable'];
+    $keys = ['schema', 'filename', 'mime', 'ext', 'size', 'width', 'height', 'content_hash', 'url', 'visibility', 'storage_disk', 'access_scope', 'is_downloadable'];
     if (array_diff(array_keys($candidate), $keys) !== [] || array_diff($keys, array_keys($candidate)) !== []
-        || ($candidate['schema'] ?? null) !== 1
+        || ($candidate['schema'] ?? null) !== 2
         || !is_string($candidate['filename']) || $candidate['filename'] === '' || strlen($candidate['filename']) > 255
         || !is_string($candidate['mime']) || !str_starts_with($candidate['mime'], 'image/')
         || !is_string($candidate['ext']) || preg_match('/\A[a-z0-9]{1,10}\z/D', $candidate['ext']) !== 1
         || !is_int($candidate['size']) || $candidate['size'] < 0
         || ($candidate['width'] !== null && (!is_int($candidate['width']) || $candidate['width'] <= 0))
         || ($candidate['height'] !== null && (!is_int($candidate['height']) || $candidate['height'] <= 0))
+        || !is_string($candidate['content_hash']) || preg_match('/\A[a-f0-9]{64}\z/D', $candidate['content_hash']) !== 1
         || !is_string($candidate['url']) || !media_projected_url_is_valid($candidate['url'], false)
         || !in_array($candidate['visibility'], ['public', 'private'], true)
         || !in_array($candidate['storage_disk'], ['public', 'private'], true)

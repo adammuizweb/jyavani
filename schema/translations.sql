@@ -5319,4 +5319,16 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'This theme requires PHP %s or newer.', 'Theme ini memerlukan PHP %s atau yang lebih baru.', 'id'),
 ('default', 'This theme requires PHP %s or newer.', 'Dieses Theme erfordert PHP %s oder neuer.', 'de'),
 ('default', 'The server returned an invalid response.', 'Server mengembalikan respons yang tidak valid.', 'id'),
-('default', 'The server returned an invalid response.', 'Der Server hat eine ungültige Antwort zurückgegeben.', 'de');
+('default', 'The server returned an invalid response.', 'Der Server hat eine ungültige Antwort zurückgegeben.', 'de'),
+('default', 'Use', 'Gunakan', 'id'),
+('default', 'Use', 'Verwenden', 'de'),
+('default', 'Existing media found', 'Media yang sudah ada ditemukan', 'id'),
+('default', 'Existing media found', 'Vorhandenes Medium gefunden', 'de'),
+('default', 'This image already exists. You can reuse the existing media.', 'Gambar ini sudah ada. Anda dapat menggunakan kembali media yang ada.', 'id'),
+('default', 'This image already exists. You can reuse the existing media.', 'Dieses Bild ist bereits vorhanden. Sie können das vorhandene Medium wiederverwenden.', 'de'),
+('default', 'Failed to hash uploaded image.', 'Gagal membuat hash gambar yang diunggah.', 'id'),
+('default', 'Failed to hash uploaded image.', 'Der Hash des hochgeladenen Bildes konnte nicht erstellt werden.', 'de'),
+('default', 'Save and use', 'Simpan dan gunakan', 'id'),
+('default', 'Save and use', 'Speichern und verwenden', 'de'),
+('default', 'Unable to lock uploaded image identity.', 'Tidak dapat mengunci identitas gambar yang diunggah.', 'id'),
+('default', 'Unable to lock uploaded image identity.', 'Die Identität des hochgeladenen Bildes konnte nicht gesperrt werden.', 'de');
