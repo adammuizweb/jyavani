@@ -10,6 +10,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 
 $installer = (string)file_get_contents($root . '/public/pondasi/index.php');
 $generator = (string)file_get_contents($root . '/tools/generate-manifest.php');
+$manifestPolicy = (string)file_get_contents($root . '/cfg/helpers/cms_manifest.php');
 $builder = (string)file_get_contents($root . '/tools/build-package.php');
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $pluginMigration = (string)file_get_contents($root . '/schema/migrations/015-plugin-migrations.sql');
@@ -24,11 +25,13 @@ $check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `plugin_migrations`')
     && str_contains($pluginMigration, '`checksum` char(64)'),
     'fresh and upgraded installations define the immutable plugin migration ledger');
 $check(
-    str_contains($generator, "#^public/static/img/\\d{4}/#"),
+    str_contains($generator, 'cms_manifest_is_preserved(')
+        && str_contains($manifestPolicy, "#^public/static/img/\\d{4}/#"),
     'dated uploaded images remain excluded from Core packages'
 );
 $check(
-    str_contains($generator, '(?!default(?:/|$))'),
+    str_contains($generator, 'cms_manifest_allowed_directories(')
+        && str_contains($manifestPolicy, '(?!default(?:/|$))'),
     'only the default system theme is included while Store themes remain preserved'
 );
 $check(

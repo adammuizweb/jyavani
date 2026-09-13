@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.116",
+    "version": "2.3.117",
     "build": "2026-09-13",
-    "changelog": "Add review-first media selection, exact duplicate detection, extension badges, refreshed mutation responses, and correlated same-origin picker messaging.",
+    "changelog": "Add bounded Site Health scans for Core integrity, extension inventory, and media or file safety with a clean-file percentage indicator.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

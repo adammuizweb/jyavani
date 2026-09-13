@@ -664,6 +664,16 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 
 ## Development
 
+### Site Health and Core Integrity
+
+- The Site Owner-only page is `dashboard/admin/settings/health.php`. One manual full scan covers Core integrity, extension inventory/filesystem safety, and site-owned media/file safety while keeping their ownership and trust results separate.
+- `cfg/helpers/cms_manifest.php` is the shared Core ownership, preservation, path mapping, bounded manifest-read, and manifest-validation policy used by packaging, updates, and integrity checks.
+- `cfg/helpers/core_integrity.php` resolves a canonical HTTPS manifest for the exact installed version, falls back to the installed manifest as explicitly untrusted, hashes stable regular-file descriptors under the shared lifecycle reader, inventories unexpected managed artifacts, and atomically persists a bounded private report.
+- Status precedence is `infected`, `contaminated`, `modified`, `unverified`, `clean`, except manifest-dependent conclusions cannot override `unverified` when the baseline is not trusted. Modified or contaminated does not by itself prove malware.
+- Site Health is a detection control, not an antivirus, repair tool, or security guarantee. Its disclaimer and explicit unscanned scope are mandatory. Detailed design and limits are in `/var/www/md/security/cms-core/core-integrity.md`.
+- `cfg/helpers/site_health.php` orchestrates the shared-lock scan. Plugins and non-system themes remain `unverified` until an authoritative Store file manifest exists; hook usage does not modify Core. Media/files report `scanned` when bounded executable, symlink, special-file, and image-MIME checks complete without a finding; this is not a malware-free guarantee.
+- Run `php tests/core_integrity_contract.php` and `php tests/site_health_contract.php` after scanner, manifest, updater, Site Health UI, ownership-boundary, or report-schema changes.
+
 - Keep Core repository-neutral: source, docs, tests, commits, releases, and PR
   metadata must not name private clients, employers, or office projects. Use
   generic terms such as `downstream consumer` and keep integration-specific

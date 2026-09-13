@@ -291,6 +291,9 @@ if ($navActor !== null && $navActor['is_site_owner'] === true
 
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/auth') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/auth') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('lock','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Auth') . '</span></a>';
+
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/health') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/health') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('server','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Site Health') . '</span></a>';
 }
 
 if ($userRole === 'admin') {

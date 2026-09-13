@@ -56,6 +56,7 @@ require_once __DIR__ . '/helpers/hooks.php';
 require_once __DIR__ . '/helpers/resource_lifecycle.php';
 require_once __DIR__ . '/helpers/package_archive.php';
 require_once __DIR__ . '/helpers/update_operation.php';
+require_once __DIR__ . '/helpers/cms_manifest.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';
 app_configure_error_reporting();
 app_register_shutdown_handler();
@@ -97,6 +98,8 @@ if (!defined('DEFAULT_THEME_FOLDER')) {
 require_once __DIR__ . '/helpers/widget_helper.php';
 require_once __DIR__ . '/helpers/theme_helper.php';
 if (PHP_SAPI !== 'cli' && !defined('UPDATE_PROCESS_CONTROL_REQUEST')) theme_lifecycle_reader_start();
+require_once __DIR__ . '/helpers/core_integrity.php';
+require_once __DIR__ . '/helpers/site_health.php';
 require_once __DIR__ . '/helpers/theme_sections.php';
 
 // 8. Gunakan helper ini jika ingin gunakan waktu indo

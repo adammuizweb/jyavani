@@ -52,6 +52,13 @@ if ($canManageSettings && $isSiteOwner) {
         'desc'  => __('Manage registration, login path, reCAPTCHA, and anti brute-force.'),
         'badge' => null,
     ];
+    $items[] = [
+        'label' => __('Site Health'),
+        'href'  => $base . '/?page=admin/settings/health',
+        'icon'  => 'server',
+        'desc'  => __('Verify Core release integrity and review security signals by ownership boundary.'),
+        'badge' => __('Site Owner'),
+    ];
 }
 
 if ($canManageSidebar) {

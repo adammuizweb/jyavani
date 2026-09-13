@@ -10,87 +10,15 @@ declare(strict_types=1);
  */
 
 $ROOT = dirname(__DIR__);
+require_once $ROOT . '/cfg/helpers/cms_manifest.php';
 
 // Allow re-use from build-package.php (skip re-run if already defined)
 if (!defined('GENERATE_MANIFEST_RUNNING')) {
     define('GENERATE_MANIFEST_RUNNING', true);
 }
 
-// Patterns that are SITE-SPECIFIC (preserved during update)
-const PRESERVE_PATTERNS = [
-    // Config
-    '#^cfg/\.env$#',
-    '#^cfg/var/#',
-    '#^cfg/session_debug\.log$#',
-    '#^cfg/php-noteloc\.ini$#',
-    '#^cfg/\.env\.old$#',
-    '#^cfg/site-router\.php$#',
-    '#^cfg/community-i18n\.php$#',
-
-    // Git
-    '#^\.git/#',
-    '#^\.gitignore$#',
-    '#^\.gitattributes$#',
-
-    // Docs
-    '#^AGENTS\.md$#',
-    '#^README\.md$#',
-    '#^INSTALL\.md$#',
-    '#^SERVER_SETUP\.md$#',
-
-    // Uploaded content. Root image assets are bundled Core branding; dated
-    // directories hold site uploads and must survive updates.
-    '#^public/static/img/\d{4}/#',
-    '#^public/static/files/#',
-    '#^public/sitemaps/#',
-    '#^private_files/#',
-
-    // User-installed themes are preserved; only the default system theme ships with Core.
-    '#^public/views/themes/(?!default(?:/|$))[^/]+$#',
-    '#^public/views/themes/(?!default(?:/|$))[^/]+/.+#',
-
-    // Plugins
-    '#^plugins/[^/]+/.+#',
-    '#^public/static/plugins/#',
-
-    // Community/Store extensions maintained outside the Core package
-    '#^app/controllers/DownloadController\.php$#',
-    '#^dashboard/admin/community/#',
-    '#^public/download/#',
-    '#^public/static/community/#',
-    '#^public/views/community/#',
-    '#^public/views/member/#',
-    '#^schema/community\.sql$#',
-    '#^schema/migrations/008-dev-status-varchar\.sql$#',
-    '#^theme-store/#',
-    '#^tools/import_core_demo_multilingual\.php$#',
-    '#^tools/localize_community\.php$#',
-    '#^tools/dev-user\.php$#',
-    '#^tools/data/#',
-
-    // Plugin-installed vendor assets
-    '#^public/static/vendor/xterm/#',
-    '#^public/static/vendor/jyavani-builder/#',
-    '#^public/static/js/photo_canvas\.js$#',
-
-    // Node modules
-    '#node_modules/#',
-
-    // Generated / runtime
-    '#^tools/cms-manifest\.json$#',
-    '#^var/#',
-    '#\.DS_Store$#',
-    '#Thumbs\.db$#',
-
-    // PWA files (adammuiz.com specific, preserved)
-    '#^public/pdf/#',
-];
-
 function isPreserved(string $relative): bool {
-    foreach (PRESERVE_PATTERNS as $pattern) {
-        if (preg_match($pattern, $relative)) return true;
-    }
-    return false;
+    return cms_manifest_is_preserved($relative);
 }
 
 echo "Scanning {$ROOT}...\n";
@@ -115,8 +43,8 @@ foreach ($it as $fileinfo) {
     $parts = explode('/', $relative, 2);
     $topDir = $parts[0];
 
-    $allowedDirs = ['app', 'cfg', 'dashboard', 'plugins', 'public', 'schema', 'tools'];
-    $allowedRootFiles = ['version.json', 'router.php', 'VERSION', '.gitattributes', 'LICENSE'];
+    $allowedDirs = cms_manifest_allowed_directories();
+    $allowedRootFiles = cms_manifest_allowed_root_files();
 
     if ($topDir === $relative) {
         if (!in_array($relative, $allowedRootFiles, true)) continue;

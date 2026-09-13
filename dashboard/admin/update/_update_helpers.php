@@ -1,5 +1,7 @@
 <?php
 declare(strict_types=1);
+require_once dirname(__DIR__, 3) . '/cfg/helpers/cms_manifest.php';
+
 // Shared helpers for CMS update page + AJAX handlers
 
 // --- Progress tracking ---
@@ -173,45 +175,15 @@ function _cms_new_backup_dir(string $projectRoot): string {
 
 // --- Helper: get preserve regex patterns ---
 function _get_preserve_patterns(): array {
-    return [
-        '#^cfg/\.env$#',
-        '#^cfg/var/#',
-        '#^cfg/session_debug\.log$#',
-        '#^cfg/php-noteloc\.ini$#',
-        '#^cfg/site-router\.php$#',
-        '#^cfg/community-i18n\.php$#',
-        '#^private_files/#',
-        '#^public/static/img/\d{4}/#',
-        '#^public/static/files/#',
-        '#^public/static/plugins/#',
-        '#^public/sitemaps/#',
-        '#^public/pdf/#',
-        '#^public/views/themes/(?!default(?:/|$))[^/]+/.+#',
-        '#^plugins/[^/]+/.+#',
-        '#^plugin-store/#',
-        '#^theme-store/#',
-        '#^app/controllers/DownloadController\.php$#',
-        '#^dashboard/admin/community/#',
-        '#^public/download/#',
-        '#^public/static/community/#',
-        '#^public/views/community/#',
-        '#^public/views/member/#',
-        '#^schema/community\.sql$#',
-        '#^schema/migrations/008-dev-status-varchar\.sql$#',
-        '#^tools/import_core_demo_multilingual\.php$#',
-        '#^tools/localize_community\.php$#',
-        '#^tools/data/#',
-        '#node_modules/#',
-        '#\.git/#',
-        '#^\.gitignore$#',
-    ];
+    return cms_manifest_preserve_patterns();
 }
 
 // --- Helper: load local manifest ---
 function _get_local_manifest(): ?array {
     $f = dirname(DASH_PATH) . '/tools/cms-manifest.json';
-    if (!is_file($f)) return null;
-    return _cms_decode_json_array((string)file_get_contents($f), 'tools/cms-manifest.json');
+    $json = cms_manifest_read_bounded_regular_file($f, 4 * 1024 * 1024);
+    if (!is_string($json)) return null;
+    return cms_manifest_decode($json, 'tools/cms-manifest.json', true);
 }
 
 function _cms_decode_json_array(string $json, string $label): array {
@@ -225,41 +197,12 @@ function _cms_decode_json_array(string $json, string $label): array {
 }
 
 function _cms_safe_relative_path(string $path): ?string {
-    if ($path === '' || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/')) return null;
-    $segments = explode('/', rtrim($path, '/'));
-    foreach ($segments as $segment) {
-        if ($segment === '' || $segment === '.' || $segment === '..') return null;
-    }
-    return implode('/', $segments);
+    return cms_manifest_safe_relative_path($path);
 }
 
 function _cms_target_path(string $logicalPath, string $projectRoot): ?string {
-    $safe = _cms_safe_relative_path($logicalPath);
-    if ($safe === null || $safe !== $logicalPath) return null;
-
-    if ($logicalPath === 'public' || str_starts_with($logicalPath, 'public/')) {
-        $root = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : $projectRoot . '/public';
-        $relative = $logicalPath === 'public' ? '' : substr($logicalPath, 7);
-    } else {
-        $root = $projectRoot;
-        $relative = $logicalPath;
-    }
-
-    $rootReal = realpath($root);
-    if ($rootReal === false || !is_dir($rootReal)) return null;
-    $rootReal = rtrim($rootReal, '/\\');
-    $target = $rootReal;
-    $segments = $relative === '' ? [] : explode('/', $relative);
-    foreach ($segments as $index => $segment) {
-        $target .= DIRECTORY_SEPARATOR . $segment;
-        if (is_link($target)) return null;
-        if (file_exists($target)) {
-            $real = realpath($target);
-            if ($real === false || ($real !== $rootReal && !str_starts_with($real, $rootReal . DIRECTORY_SEPARATOR))) return null;
-            if ($index < count($segments) - 1 && !is_dir($target)) return null;
-        }
-    }
-    return $target;
+    $publicRoot = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : $projectRoot . '/public';
+    return cms_manifest_target_path($logicalPath, $projectRoot, $publicRoot);
 }
 
 function _cms_zip_entry_is_symlink(ZipArchive $zip, int $index): bool {
@@ -287,7 +230,13 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         return _cms_update_failure($progressToken, __('Update package is empty.'));
     }
 
-    $remoteFiles = is_array($remoteManifest['files'] ?? null) ? $remoteManifest['files'] : null;
+    try {
+        $remoteManifest = cms_manifest_validate($remoteManifest, 'update package manifest');
+    } catch (Throwable $error) {
+        $zip->close();
+        return _cms_update_failure($progressToken, __('Update package manifest is missing or invalid.'));
+    }
+    $remoteFiles = $remoteManifest['files'];
     $preservePatterns = _get_preserve_patterns();
     if ($remoteFiles === null || $remoteFiles === []) {
         $zip->close();

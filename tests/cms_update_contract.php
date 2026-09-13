@@ -155,10 +155,6 @@ try {
         'app/core.php' => "new core\n",
         'version.json' => "{\"version\":\"1.0.0\"}\n",
         'public/views/themes/default/canary.txt' => "new default theme\n",
-        'public/views/themes/custom/canary.txt' => "replace theme\n",
-        'public/static/plugins/custom/canary.txt' => "replace static plugin\n",
-        'plugins/custom/canary.txt' => "replace plugin\n",
-        'cfg/var/runtime-canary.txt' => "replace runtime\n",
     ];
     $remoteManifest = contract_manifest('1.0.0', $remoteFiles);
     $successZip = $fixtureBase . '/success.zip';
@@ -186,7 +182,7 @@ try {
     $check(is_string($successBackup) && is_file($successBackup . '/tools/cms-manifest.json'), 'previous manifest is tracked in the canonical backup');
     $check(is_string($successBackup) && !file_exists($successBackup . '/public_html'), 'backup never records the physical mapped root name');
     $installedManifest = _cms_decode_json_array((string)file_get_contents($projectRoot . '/tools/cms-manifest.json'), 'installed manifest');
-    $check($installedManifest === $remoteManifest, 'verified remote logical manifest is installed verbatim');
+    $check($installedManifest === cms_manifest_validate($remoteManifest, 'contract remote manifest'), 'verified normalized remote logical manifest is installed verbatim');
 
     $rollbackOld = [
         'public/rollback/changed.txt' => "rollback original\n",
@@ -223,6 +219,12 @@ try {
     contract_zip($traversalZip, contract_entries($traversalFiles));
     $check(_apply_cms_update_from_zip($traversalZip, contract_manifest('1.0.0', $traversalFiles), '1.0.0')['success'] === false, 'manifest traversal is refused');
     $check(!file_exists($fixtureBase . '/escape.txt'), 'traversal refusal does not write outside either root');
+
+    $unmanagedFiles = ['custom/file.php' => "<?php\n"];
+    $unmanagedZip = $fixtureBase . '/unmanaged.zip';
+    contract_zip($unmanagedZip, contract_entries($unmanagedFiles));
+    $check(_apply_cms_update_from_zip($unmanagedZip, contract_manifest('1.0.0', $unmanagedFiles), '1.0.0')['success'] === false, 'safe but unmanaged manifest paths are refused');
+    $check(!file_exists($projectRoot . '/custom/file.php'), 'unmanaged path refusal occurs before mutation');
 
     $hashFiles = ['public/refusal/hash.txt' => "actual\n"];
     $hashManifest = contract_manifest('1.0.0', $hashFiles);
@@ -268,6 +270,7 @@ try {
 
     $generatorRoot = $fixtureBase . '/generator-app';
     contract_write($generatorRoot . '/tools/generate-manifest.php', (string)file_get_contents($sourceRoot . '/tools/generate-manifest.php'));
+    contract_write($generatorRoot . '/cfg/helpers/cms_manifest.php', (string)file_get_contents($sourceRoot . '/cfg/helpers/cms_manifest.php'));
     contract_write($generatorRoot . '/version.json', json_encode(['name' => 'Fixture', 'version' => '1.0.0'], JSON_THROW_ON_ERROR));
     contract_write($generatorRoot . '/cfg/env.php', "<?php\nfunction fixture_env(): void {}\n");
     contract_write($generatorRoot . '/plugins/example/plugin.json', json_encode([
