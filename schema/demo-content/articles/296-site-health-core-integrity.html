@@ -1,0 +1,42 @@
+<p>Site Health membantu Site Owner memeriksa apakah file Jyavani Core masih sesuai dengan paket rilis tepercaya serta meninjau sinyal keamanan dari plugin, theme, media, dan file milik situs. Hasilnya adalah laporan diagnostik dari pemindaian terakhir, bukan pemantauan keamanan secara realtime.</p>
+
+<h2>Membuka dan menjalankan pemindaian</h2>
+<p>Buka <strong>Settings &gt; Site Health</strong>, lalu pilih <strong>Run full scan</strong>. Pemindaian berjalan secara manual karena proses membaca dan menghitung hash banyak file. Core tidak menjalankan full scan setiap kali dashboard dibuka agar request normal tetap ringan dan tidak bersaing dengan operasi update.</p>
+<ol>
+  <li>Pastikan tidak ada update Core, plugin, atau theme yang sedang berjalan.</li>
+  <li>Jalankan full scan dan tunggu sampai halaman menampilkan report baru.</li>
+  <li>Periksa waktu pemindaian, sumber baseline, status setiap komponen, dan error atau area yang tidak selesai.</li>
+  <li>Buka panel temuan untuk meninjau path, alasan, serta hash yang diharapkan dan diamati bila tersedia.</li>
+</ol>
+<p>Widget Site Health pada halaman utama dashboard hanya membaca report yang sudah tersimpan. Jika belum pernah dipindai, widget mengarahkan Site Owner untuk menjalankan full scan. Setelah itu, widget menampilkan persentase file Core yang bersih, jumlah temuan, status komponen, dan waktu scan terakhir.</p>
+
+<h2>Arti status</h2>
+<ul>
+  <li><code>clean</code>: seluruh file pada manifest tepercaya cocok dan tidak ditemukan artefak terlarang dalam scope komponen.</li>
+  <li><code>unverified</code>: baseline tepercaya tidak tersedia, provenance belum dapat dibuktikan, pemindaian tidak selesai, atau resource tidak dapat dibaca.</li>
+  <li><code>modified</code>: file milik manifest hilang, hash berbeda, atau tipe file tidak sesuai.</li>
+  <li><code>contaminated</code>: area terkelola berisi artefak tidak diharapkan atau terlarang, misalnya executable, symbolic link, atau file yang melintasi batas ownership.</li>
+  <li><code>infected</code>: detector berkeyakinan tinggi mengidentifikasi konten berbahaya dan menyertakan identitas detector serta kategori bukti.</li>
+</ul>
+<p>Status <code>modified</code> tidak membuktikan malware; perubahan lokal yang sah tetap berbeda dari paket rilis. Status <code>contaminated</code> menunjukkan kondisi mencurigakan, tetapi tidak otomatis berarti <code>infected</code>.</p>
+
+<h2>Core Integrity dan baseline rilis</h2>
+<p>Core Integrity membandingkan file terkelola dengan manifest HTTPS untuk versi Jyavani yang sama persis. Scanner memvalidasi path, jumlah file, dan SHA-256, lalu melaporkan file yang hilang, berubah, atau tidak diharapkan. Manifest lokal berguna sebagai metadata instalasi, tetapi tidak menjadi satu-satunya trust root karena pihak yang dapat mengubah Core mungkin juga dapat mengubah manifest lokal.</p>
+<p>Scanner tidak membandingkan instalasi lama dengan manifest versi terbaru. Status update dan integritas file adalah dua hal berbeda. Bila manifest canonical untuk versi yang terpasang tidak tersedia atau tidak valid, hasilnya harus <code>unverified</code>, bukan <code>clean</code>.</p>
+
+<h2>Plugin, theme, media, dan file</h2>
+<p>Setiap komponen mempertahankan batas ownership sendiri. Penggunaan hook resmi oleh plugin tidak mengubah file Core. Scanner saat ini hanya menginventaris plugin dan non-system theme; scanner belum mengonsumsi manifest file authoritative dari Store, sehingga extension tetap <code>unverified</code> kecuali artefak tidak aman menaikkan statusnya.</p>
+<p>Media dan file situs tidak dibandingkan dengan manifest Core. Scanner memeriksa containment, tipe file, symbolic link, executable pada lokasi upload, double extension, dan kecocokan MIME gambar. File biasa dapat berstatus <code>scanned</code>; status tersebut berarti pemeriksaan yang tersedia selesai, bukan jaminan bebas malware.</p>
+
+<h2>Menindaklanjuti temuan</h2>
+<ul>
+  <li>Bandingkan waktu scan dengan perubahan atau update terakhir yang memang direncanakan.</li>
+  <li>Untuk file Core yang berubah, gunakan paket terverifikasi dan alur update atau reinstall resmi setelah membuat backup.</li>
+  <li>Kelola plugin dan theme melalui lifecycle masing-masing; jangan menghapus file langsung dari tabel temuan.</li>
+  <li>Pertahankan artefak yang dicurigai untuk pemeriksaan operator atau proses karantina yang dirancang khusus.</li>
+  <li>Jalankan scan ulang setelah tindakan perbaikan selesai untuk membuat report generasi baru.</li>
+</ul>
+
+<h2>Batas hasil clean</h2>
+<p>Hasil <code>clean</code> berarti file terverifikasi cocok dengan manifest tepercaya dan tidak ada kondisi mencurigakan yang dikenal dalam scope yang dipindai. Hasil ini tidak membuktikan bahwa kode, database, server, dependency, jaringan, atau website bebas dari kerentanan dan kompromi. File dapat berubah setelah scan dan scanner dapat menghasilkan false positive atau false negative.</p>
+<p>Gunakan Site Health bersama backup teruji, least privilege, update tepat waktu, monitoring server, audit file system, pemindaian malware host, dan review keamanan independen. Jaminan mendekati realtime membutuhkan kontrol di luar CMS, bukan full scan pada setiap request dashboard.</p>

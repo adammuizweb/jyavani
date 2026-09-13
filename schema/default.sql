@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   KEY `idx_users_username` (`username`),
   KEY `idx_users_status` (`is_deleted`,`is_locked`,`role`),
   KEY `idx_users_site_owner_active` (`is_site_owner`,`is_deleted`,`is_locked`,`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────
 -- 1b. dynamic authorization
@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS `settings` (
   `autoload` tinyint(1) NOT NULL DEFAULT 1,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`key`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────
 -- 3. categories
@@ -511,7 +511,7 @@ CREATE TABLE IF NOT EXISTS `themes` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_theme_folder` (`folder_name`),
   KEY `idx_active` (`is_active`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────
 -- 10. assignments
@@ -530,7 +530,7 @@ CREATE TABLE IF NOT EXISTS `assignments` (
   UNIQUE KEY `uq_assignment_slot` (`slot_key`),
   KEY `idx_theme_id` (`theme_id`),
   KEY `idx_custom_post_id` (`custom_post_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ──────────────────────────────────────────────────────────────
 -- 11. login_attempts

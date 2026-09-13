@@ -37,6 +37,9 @@ $check(settings_favicon_url_validation_error('/static/img/favicon/missing.png', 
 $layout = (string)file_get_contents($root . '/app/layout.php');
 $dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $settingsPage = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
+$check(!is_file($public . '/static/img/favicon-16x16.png')
+    && !is_file($public . '/static/img/favicon-32x32.png'),
+    'obsolete root favicon assets cannot be mistaken for canonical Jyavani fallbacks');
 $check(str_contains($settingsPage, 'id="site-settings-form" data-unsaved-guard')
     && str_contains($settingsPage, "data-unsaved-guard-initial-dirty' : ''"),
     'Site Settings warns before leaving changed or server-rejected values unsaved');
@@ -52,8 +55,11 @@ $check(str_contains($layout, '$defaultAppleTouchIconUrl = $faviconUrl !== \'\' ?
     && str_contains($layout, "apply_filters('apple_touch_icon_url', \$defaultAppleTouchIconUrl, \$pdo)"),
     'frontend custom favicon is the default Apple touch icon while preserving plugin override');
 $check(str_contains($dashboardLayout, "settings_get(\$pdo, 'favicon_url', '')")
-    && str_contains($dashboardLayout, '<link rel="icon" href="<?= htmlspecialchars($faviconUrl'),
-    'dashboard uses the same custom favicon setting');
+    && str_contains($dashboardLayout, '<link rel="icon" href="<?= htmlspecialchars($faviconUrl')
+    && str_contains($dashboardLayout, '/static/img/favicon/jyavani.svg')
+    && str_contains($dashboardLayout, '/static/img/favicon/favicon-32x32.png')
+    && !str_contains($dashboardLayout, 'href="/static/img/favicon-32x32.png"'),
+    'dashboard uses the custom favicon setting with canonical Jyavani fallbacks');
 $check(str_contains($settingsPage, 'settings_favicon_url_validation_error($favicon_url)')
     && str_contains($settingsPage, 'Use a square (1:1) PNG, ICO, or SVG at least 48×48 pixels.'),
     'Site Settings validates favicon input and documents search-compatible dimensions');

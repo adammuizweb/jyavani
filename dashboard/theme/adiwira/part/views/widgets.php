@@ -153,6 +153,7 @@ function dash_widget_site_health(PDO $pdo): string
         $componentHtml .= '<div class="dw-health-component"><span>' . h($label) . '</span><strong class="dw-health-text--' . h($componentStatus) . '">' . h($labels[$componentStatus]) . '</strong></div>';
     }
     $url = ADMIN_BASE_PATH . '/?page=admin/settings/health';
+    $actionLabel = $completedAt > 0 ? __('View Site Health') : __('Run full scan');
 
     return '
 <div class="dw-card dw-health-card dw-health-card--' . h($status) . '">
@@ -169,7 +170,7 @@ function dash_widget_site_health(PDO $pdo): string
     <div class="dw-health-progress" aria-hidden="true"><span style="width:' . h($cleanPercentage === null ? '0' : number_format($cleanPercentage, 4, '.', '')) . '%"></span></div>
     <div class="dw-health-scan-time">' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</div>
     <div class="dw-health-components">' . $componentHtml . '</div>
-    <a class="dw-health-action" href="' . h($url) . '"><span>' . __('View Site Health') . '</span>' . svg_ico('chevron-right') . '</a>
+    <a class="dw-health-action" href="' . h($url) . '"><span>' . h($actionLabel) . '</span>' . svg_ico('chevron-right') . '</a>
   </div>
 </div>';
 }

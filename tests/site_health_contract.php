@@ -170,6 +170,7 @@ try {
         && !str_contains($dashboardWidgets, 'core_integrity_run('), 'dashboard Site Health widget reads only the persisted report and links to the manual scan page');
     $check(str_contains($dashboardWidgets, '$cleanPercentage')
         && str_contains($dashboardWidgets, '$findingCount')
+        && str_contains($dashboardWidgets, '$completedAt > 0 ? __(\'View Site Health\') : __(\'Run full scan\')')
         && str_contains($dashboardWidgets, 'dw-health-score')
         && str_contains($dashboardStyles, '.dw-health-progress')
         && !str_contains($dashboardWidgets, 'fetch('), 'dashboard widget presents persisted Core percentages and findings without automatic scan requests');

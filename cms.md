@@ -346,7 +346,7 @@ Plugin deactivation and deletion/uninstall expose `plugin_state_change_preflight
 
 Plugin packages may contain a top-level `migrations/` directory. Core accepts only safe regular files named `{exactly four positive digits}-{slug}.sql` or `.php`, orders them numerically, and records each completed file in `plugin_migrations` with its exact plugin name, filename, SHA-256 checksum, and applying plugin version. Applied files must be the complete discovered prefix: a missing, changed, or newly backfilled historical file fails preflight. Core preserves each original ledger checksum while allowing only an otherwise identical whole-file LF/CRLF checkout conversion; mixed line endings, lone carriage returns, and content changes fail closed. Gaps are allowed but permanently consume lower sequence positions once a later file is applied. No migration path, callback, SQL, or command is accepted from `plugin.json`.
 
-SQL migrations are split into ordinary statements without PDO multi-statement mode. To make parsing independent of MySQL `sql_mode`, Core lexically rejects raw backslashes and executable/version-comment or optimizer-hint tokens anywhere in the file, including literals and otherwise inert comments. It also rejects `DELIMITER`, every `SET` statement, transaction/XA control, table locks, and `USE`. PHP migrations must return `static function (PDO $pdo): void`. The runner rejects caller-owned transactions and MySQL connections with autocommit disabled. After execution it re-discovers and rehashes the complete migration tree. Immediately before ledger insertion it verifies that no transaction is open and both PDO autocommit and MySQL `@@SESSION.autocommit` remain enabled; leaked state is restored before the file fails. MySQL and MariaDB DDL may commit implicitly, so all migrations must be replay-safe and forward-compatible. A failed file is not tracked, later files do not run, and database effects may survive.
+SQL migrations are split into ordinary statements without PDO multi-statement mode. To make parsing independent of MySQL `sql_mode`, Core lexically rejects raw backslashes and executable/version-comment or optimizer-hint tokens anywhere in the file, including literals and otherwise inert comments. It also rejects `DELIMITER`, every `SET` statement, transaction/XA control, table locks, and `USE`. PHP migrations must return a `Closure(PDO $pdo): void`; a static closure is recommended but not required. The runner rejects caller-owned transactions and MySQL connections with autocommit disabled. After execution it re-discovers and rehashes the complete migration tree. Immediately before ledger insertion it verifies that no transaction is open and both PDO autocommit and MySQL `@@SESSION.autocommit` remain enabled; leaked state is restored before the file fails. MySQL and MariaDB DDL may commit implicitly, so all migrations must be replay-safe and forward-compatible. A failed file is not tracked, later files do not run, and database effects may survive.
 
 Install, update, and activation run migrations only while Core holds the global exclusive lifecycle lock and the exact plugin lock. Fresh installs are published disabled before migration. Updates validate staged history before publication, retain the exact old file tree during migration, and temporarily disable an enabled plugin when pending migrations exist. Install and update revalidate the complete history after every `install.sh` run. Update reactivation failure restores both the exact old plugin tree and old declared static assets. Any failure after migration starts leaves the plugin inactive even if old files are restored; a successful operation restores its prior enabled state.
 
@@ -462,7 +462,6 @@ Three gadgets depend on `$GLOBALS['jy_current_post']` being set:
 
 - `tz_post_author`
 - `tz_post_meta`
-- `tz_post_contact`
 
 Set the global before rendering single post/page zones:
 
@@ -548,14 +547,7 @@ theme_zone_render_widget($pdo, 'tz_html', ['html' => '<p>Hello</p>']);
 
 ## Testing
 
-Run Playwright tests after changing theme structure or `theme.json`:
-
-```bash
-cd tests/playwright
-npm install
-npm run user:create
-npx playwright test
-```
+After changing theme structure or `theme.json`, run the standalone PHP contract suite and manually verify the Customize interactions listed below in a browser.
 
 Key regression areas:
 

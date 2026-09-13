@@ -68,7 +68,7 @@ plugins/         Plugin registry and installed plugin directories
 private_files/   Protected media and files outside the web root
 public/          The only web root: router, public entrypoints, assets, and themes
 schema/          Fresh-install schema, translation seeds, and migrations
-tests/           Standalone PHP contract tests and browser checks
+tests/           Standalone PHP contract tests
 tools/           i18n checks, manifest generation, packaging, and permissions tools
 ```
 
@@ -130,8 +130,6 @@ for test in tests/*_contract.php; do php "$test" || exit 1; done
 # Review likely untranslated dashboard strings
 php tools/check-dashboard-i18n.php
 ```
-
-The scripts in `tests/playwright/` are targeted browser diagnostics with deployment-specific URLs, not a packaged test suite. Install Playwright separately and configure their target URL before running them.
 
 When adding dashboard text, use `__()` or `_e()` and update `schema/translations.sql`. Follow the existing strict-types, static-controller, PDO, plain-template, and escaping conventions described in [`AGENTS.md`](AGENTS.md).
 

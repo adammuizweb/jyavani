@@ -44,8 +44,10 @@ $faviconUrl = (isset($pdo) && $pdo instanceof PDO && function_exists('settings_g
 if ($faviconUrl !== ''): ?>
   <link rel="icon" href="<?= htmlspecialchars($faviconUrl, ENT_QUOTES, 'UTF-8') ?>">
 <?php else: ?>
-  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon-16x16.png">
+  <link rel="shortcut icon" href="/static/img/favicon/favicon.ico">
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/img/favicon/favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon/favicon-32x32.png">
+  <link rel="icon" href="/static/img/favicon/jyavani.svg" type="image/svg+xml">
 <?php endif; ?>
   
   <script>

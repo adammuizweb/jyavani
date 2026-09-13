@@ -5,36 +5,29 @@
 
 ## Prasyarat
 
-- PHP 8.4 + PHP-FPM
-- MySQL / MariaDB
-- nginx
-- Composer (jika ada dependency)
-- Cloudflare Tunnel (cloudflared) — **wajib** untuk HTTPS (atau SSL langsung)
+- PHP 8.1+ dengan PHP-FPM, PDO MySQL, `mbstring`, dan `ZipArchive` (contoh di bawah memakai PHP 8.4-FPM)
+- MySQL 5.7+ atau MariaDB yang kompatibel
+- nginx, Apache/LiteSpeed, atau web server kompatibel lainnya
+- HTTPS untuk production, baik melalui TLS langsung maupun reverse proxy tepercaya
 
 ## 1. User & Groups
 
-Pastikan user CLI (`[user]`) dan `www-data` saling berada di grup masing-masing:
+Gunakan satu trusted deployment group yang dipakai user CLI (`[user]`) dan PHP-FPM. Contoh berikut memakai grup `www-data`:
 
 ```bash
 sudo usermod -aG www-data [user]
-sudo usermod -aG [user] www-data
 ```
 
 Verifikasi:
 ```bash
 groups [user]     # harus ada www-data
-id www-data       # harus ada [user]
 ```
 
 ## 2. Direktori & Permission
 
-Semua file proyek harus grup `www-data` dengan permission yang sesuai.
+Jangan memberi group-write ke seluruh proyek tanpa kebutuhan. Beri PHP-FPM akses tulis ke runtime state, upload/private storage, dan target Core hanya bila dashboard-managed updates diaktifkan.
 
 ```bash
-# Root proyek
-sudo chown -R [user]:www-data /path/to/project
-sudo chmod -R g+rwX /path/to/project
-
 # Session save path (custom — sesuaikan dengan SESSION_SAVE_PATH di .env)
 sudo chmod -R 770 /path/to/project/cfg/var
 sudo chgrp -R www-data /path/to/project/cfg/var
@@ -173,12 +166,12 @@ at the reverse proxy. PHP cannot remove a header added later by nginx.
 
 `location = /sw.js` must remain an exact root route and must execute `router.php`, even if a physical `public/sw.js` remains from an older plugin. Core supplies the install/activate lifecycle and appends active plugin contributions. When no plugin contributes code, Core still returns a lifecycle-only worker so browsers replace stale push handlers. `location = /manifest.webmanifest` must likewise execute `router.php` so an active plugin route can generate it and stale files cannot take precedence. Verify both endpoints with `curl -I`; responses must be `200`, use the expected JavaScript/manifest MIME, and must not be HTML.
 
-The web manifest must be served as `application/manifest+json`. If the system-wide `/etc/nginx/mime.types` already maps `webmanifest`, the dedicated location is still safe; alternatively add `application/manifest+json webmanifest;` to the `types` block and omit that location.
+The web manifest must be served as `application/manifest+json`. If the system-wide `/etc/nginx/mime.types` does not map `webmanifest`, add `application/manifest+json webmanifest;` to the `types` block. Keep the dedicated exact location in either case so a stale physical file cannot bypass Core routing.
 
 ## Apache / LiteSpeed
 
 Core ships `public/.htaccess` for Apache-compatible deployments. Enable
-`mod_rewrite` and `mod_headers`, allow the web root to use `FileInfo`, `Indexes`,
+`mod_rewrite` and `mod_headers`, allow the web root to use `FileInfo`, `Options`,
 and `AuthConfig` overrides, and point the virtual-host document root to
 `public/`. The rules route dotfiles, sensitive extensions, `dev_lock.php`, and
 direct PHP view requests through Core's cosmetic 404 before physical-file or
@@ -210,11 +203,7 @@ perlu memaksa `HTTPS on`.
 
 ## 4. Database
 
-```bash
-mysql -u root -p < schema/schema.sql
-```
-
-Konfigurasi koneksi di `cfg/.env` (copy dari `cfg/env-sample`).
+Gunakan Pondasi untuk instalasi baru. Jika deployment memerlukan import manual yang telah direview, import `schema/default.sql`, kemudian `schema/translations.sql`, dan pastikan ledger migrasi tetap konsisten. Konfigurasi koneksi berada di `cfg/.env` (copy dari `cfg/env-sample`).
 
 ## 5. Environment (.env)
 
@@ -228,6 +217,7 @@ DB_NAME=[db_name]
 DB_USER=[db_user]
 DB_PASS=[db_pass]
 DB_SESSION_WAIT_TIMEOUT=
+APP_DEBUG=0
 PUBLIC_PATH=/absolute/path/to/project/public
 SESSION_SAVE_PATH=/path/to/project/cfg/var/sessions
 THEME_OPERATION_LOCK_DIR=/var/lib/php/[project]-theme-locks
@@ -246,7 +236,7 @@ PLUGIN_INSTALL_TIMEOUT_SECONDS=120
 PLUGIN_INSTALL_OUTPUT_LIMIT=65536
 ```
 
-`PUBLIC_PATH` must be an existing absolute directory. For split deployments it may point to a sibling web root such as `/home/account/public_html`; logical release paths remain `public/...`. Configure nginx `root` to the same directory. If `cfg/` cannot be found relative to the public installer, expose `BACKEND_PATH=/absolute/path/to/project/cfg` to PHP-FPM so fresh-install bootstrap can locate it.
+`PUBLIC_PATH` boleh dikosongkan agar Core mendeteksi `public/`, `public_html/`, `www/`, atau `htdocs/`. Jika diisi, nilainya harus berupa direktori absolut yang sudah ada. Untuk split deployment, nilainya dapat menunjuk ke sibling web root seperti `/home/account/public_html`; logical release path tetap memakai `public/...`. Arahkan `root` nginx ke direktori yang sama. Jika installer publik tidak dapat menemukan `cfg/` secara relatif, expose `BACKEND_PATH=/absolute/path/to/project/cfg` ke PHP-FPM agar fresh-install bootstrap dapat menemukannya.
 
 `DB_SESSION_WAIT_TIMEOUT` is optional. When set, it must be an integer from 1 to 31536000 and configures only the current MySQL session's idle timeout.
 
@@ -278,8 +268,8 @@ private_files/
   media/     ← gambar private, diorganisir per tahun/bulan
 ```
 
-Controller: `public/controllers/PrivateMediaController.php`
-Routing: `router.php` → `$prefix === 'private'` → action `media/view`
+Controller: `app/controllers/PrivateMediaController.php`
+Routing: `public/router.php` meneruskan `/private/media/...` ke controller tersebut.
 
 ## 7. Cloudflare Tunnel
 

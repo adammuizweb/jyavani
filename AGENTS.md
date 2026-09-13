@@ -1,6 +1,6 @@
-# AGENTS.md — Jyavani CMS v2.1.3
+# AGENTS.md — Jyavani CMS
 
-Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework, no Composer, no build tools. Playwright regression tests available.
+Native PHP CMS by Adam Muiz. Dashboard theme is named "Adiwira". No framework or Composer runtime is required; release tooling lives in `tools/`.
 
 ## v2.0 — Hidden Admin (Admin PHP Outside `public/`)
 
@@ -29,7 +29,7 @@ The admin PHP files live at `dashboard/` (project root, alongside `app/`, `cfg/`
 public/router.php
   → app/bootstrap_core.php           (env, DB, helpers, session, locale bootstrap)
   → cfg/config.php                   (.env via env.php, DB via db.php → $pdo,
-                                      26 helpers in cfg/helpers/, session via session.php)
+                                      helpers in cfg/helpers/, session via session.php)
   → app/bootstrap_theme.php          (theme helper, widget helper, asset_url)
   → route matching
 ```
@@ -51,16 +51,15 @@ It then calls `set_locale($contentDefault)` so the public frontend uses the cont
 | (empty) | `index.php` | Homepage |
 | `{login_path}` | `melbu/index.php` | Custom login path (configurable in settings) |
 | `{register_path}` | `daptar/index.php` | Custom register path (configurable in settings) |
-| `{admin_path}` | `dashboard/index.php` (via router) | Custom admin path (configurable in settings; default: `adiwira`) |
+| `{admin_path}` | `dashboard/index.php` (via router) | Custom admin path (configurable in settings; default: `dashboard`) |
 | `/private/media/` | `PrivateMediaController` | Private image serving via PHP stream |
 | `/private/file/`, `/private/pdf/` | `PrivateFileController` | Private file serving + PDF.js viewer |
 | `/author/` | `AuthorController` | |
-| `/category/` | `CategoryController` | Nested category paths |
+| `{category_path}` | `CategoryController` | Configurable nested category collection path |
 | `/YYYY/` | `ArchiveController` | Year/month archive |
 | `sitemap*.xml` | `SitemapController` | XML sitemaps |
-| `/artikel/` or `/posts/` | `PostController::listArticles()` | |
-| `/halaman/` | `PageController::listPages()` | |
-| `/gallery/` | `PhotoController` | Gallery with categories |
+| `{posts_list_path}` or compatibility alias `/posts/` | `PostController::listArticles()` | Configurable article collection path |
+| `{pages_list_path}` | `PageController::listPages()` | Configurable page collection path |
 | fallback slug | `PostController::dispatchBySlug()` | Single post/page by slug |
 
 All controllers are in `app/controllers/`, all are static methods.
@@ -70,7 +69,7 @@ All controllers are in `app/controllers/`, all are static methods.
 ## Admin (`dashboard/` — outside web root)
 
 - Entry: `dashboard/index.php` — path guard (matches `admin_path` setting) + session check + DB status check
-- Admin pages: `dashboard/admin/` — each requires `_guard.php` which calls `adiwira_require_editorial($pdo)` (author/editor/admin) or `adiwira_require_admin($pdo)` (admin only)
+- Admin pages: `dashboard/admin/` — each requires `_guard.php` and applies the action-specific dynamic permission/scope or Site Owner guard. Legacy role guards remain only where the current endpoint contract requires them.
 - Admin layout: `dashboard/theme/adiwira/layout.php` (requires `DASHBOARD_CONTEXT` defined)
 - Admin pages can be loaded via AJAX (no layout) or navigation (with layout); `adiwira_is_navigate_request()` detects this
 - `ADMIN_BASE_PATH` constant — used for all internal navigation links (`$base = ADMIN_BASE_PATH;` replaces old `dirname(SCRIPT_NAME)`)
@@ -115,7 +114,7 @@ All controllers are in `app/controllers/`, all are static methods.
 - `$context_for_layout` variable determines which main slot renders
 - Fallback chain: assigned theme → active theme → `default` theme
 - Widgets search: active theme → default theme → `public/views/widget/`
-- **Theme Zones**: Blogspot-style visual layout editor. Themes declare `layout` in `theme.json` with zones (`header`/`footer`) and positions (e.g. header: `logo`, `nav`, `controls`). Header/footer theme files call `theme_zone_render_position()` and fall back to hardcoded HTML when a position has no gadgets. Admin `Customize` shows the layout grid; gadgets can be added, configured, reordered, and removed per position. Built-in gadgets: `tz_logo`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`.
+- **Theme Zones**: Blogspot-style visual layout editor. Themes declare `layout` in `theme.json` with zones (`header`/`footer`) and positions (e.g. header: `logo`, `nav`, `controls`). Header/footer theme files call `theme_zone_render_position()` and fall back to hardcoded HTML when a position has no gadgets. Admin `Customize` shows the layout grid; gadgets can be added, configured, reordered, and removed per position. The authoritative built-in gadget registry is `theme_zone_default_widget_types()` in `cfg/helpers/theme_zones.php`.
 
 ### Theme Customizer (v2.3.13)
 
@@ -159,7 +158,7 @@ All controllers are in `app/controllers/`, all are static methods.
 - Table: `theme_zone_items` (`theme_folder`, `zone_slug`, `position`, `type`, `title`, `config`, `ordering`, `active`). Each theme has its own isolated gadget rows; switching themes does not leak gadgets across themes.
 - Migration `010-theme-zone-theme-folder.sql` adds `theme_folder` column and backfills existing rows with the active theme.
 - Helper: `cfg/helpers/theme_zones.php` — `theme_zone_items()`, `theme_zone_layout()`, `theme_zone_discover_partials()`, `theme_zone_partial_positions()`, `theme_zone_render()`, `theme_zone_render_position()`, `theme_zone_has_position()`, `theme_zone_add_item()`, `theme_zone_delete_item()`, `theme_zone_set_order()`, `theme_zone_toggle_item()`, plus `theme_zone_render_title()`, `theme_zone_content_align()`, `theme_zone_universal_defaults()`.
-- 13 built-in gadgets: `tz_image`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`, `tz_html`, `tz_richtext`, `tz_pages`, `tz_social`, `tz_sidebar_zone`, `tz_post_author`, `tz_post_meta`, `tz_post_contact`. All gadgets support universal title/alignment settings (`_title_tag`, `_align_title`, `_align_content`). Gadgets are registered via filters so plugins can add their own.
+- Built-in gadgets are declared by `theme_zone_default_widget_types()`; plugins may add more through `theme_zone_widget_types`. All registered gadgets support universal title/alignment settings (`_title_tag`, `_align_title`, `_align_content`).
 - Admin UI shows a full-page canvas: Header band → Main row (partial selector + Sidebar) → Footer band. Partials are discovered automatically from `main/**/*.php`. Supports drag & drop between positions, multi-row positions, and gadget configuration.
 - Theme template files check `theme_zone_has_position()` and use `theme_zone_render_position()`; positions without gadgets fall back to the theme's original hardcoded HTML.
 - Migrations: `schema/migrations/008-theme-zones.sql` + `009-theme-zone-position.sql` + `010-theme-zone-theme-folder.sql` (also in `schema/default.sql`).
@@ -316,7 +315,7 @@ Files starting with `_` are ignored. Subfolders become dotted slugs (`dir.file` 
 
 ### Post-aware gadgets
 
-`tz_post_author`, `tz_post_meta`, and `tz_post_contact` read `$GLOBALS['jy_current_post']`. Single/page templates must set it before rendering the zone:
+`tz_post_author` and `tz_post_meta` read `$GLOBALS['jy_current_post']`. Single/page templates must set it before rendering the zone:
 
 ```php
 <?php $GLOBALS['jy_current_post'] = $post; ?>
@@ -335,13 +334,11 @@ If the global is not set, these gadgets render empty string.
 | `tz_nav_menu` | Menu from Menu Manager. | `menu`, `menu_class`, `depth`, `ul_attr` |
 | `tz_search` | Search form. | `placeholder`, `button` |
 | `tz_theme_toggle` | Light/dark toggle. | — |
-| `tz_lang_switcher` | Language switcher. | `label` |
 | `tz_pages` | List of published pages. | `pages[]`, `list_class` |
 | `tz_social` | Social icon links. | `enabled[]`, `links` |
 | `tz_sidebar_zone` | Embed a Sidebar zone. | `zone` |
 | `tz_post_author` | Author box (single context). | `show_avatar` |
 | `tz_post_meta` | Date/read time (single context). | `show_date`, `show_updated`, `show_read_time` |
-| `tz_post_contact` | Contact info (single context). | — |
 
 All gadgets support universal settings: `_title_tag` (`div`/`h1`–`h6`), `_align_title` (`left`/`center`/`right`), `_align_content` (`left`/`center`/`right`).
 
@@ -413,7 +410,7 @@ PHP helpers available anywhere after bootstrap:
 3. **Use `theme.json` `align` for footer cells**, but apply the actual CSS in your theme. The value is just a hint; your template decides how to use it.
 4. **Keep `columns` as a visual hint** for the admin canvas; do not let it force your frontend CSS grid.
 5. **Test `layout.defaults`** by clicking **Load Default Layout** on a fresh install or after deleting all gadgets.
-6. **Run Playwright tests** after changing theme structure (`tests/playwright/`).
+6. **Run the PHP contract suite and browser checks** after changing theme structure.
 
 ## Content & Shortcodes
 
@@ -431,7 +428,7 @@ PHP helpers available anywhere after bootstrap:
 - Media images: `private_files/media/{year}/{month}/{file}` served by `PrivateMediaController`
 - Other files: `private_files/files/{path}` served by `PrivateFileController`
 - Both stream via PHP (`fopen`/`fread`), not nginx static serving
-- Access: if `visibility=public` AND `storage_disk=public` AND `access_scope=public` → public; otherwise requires login
+- Access: an asset is public only when visibility, disk, and scope are all public. Protected `editorial`/`admin` scope currently uses authenticated legacy role hierarchy checks.
 - Private PDFs require signed time-limited token (`t` param) for raw streaming
 - Uploads go through `dashboard/admin/upload_image.php` and `upload_file.php`
 
@@ -441,16 +438,15 @@ PHP helpers available anywhere after bootstrap:
 
 | File | Purpose |
 |---|---|
-| `schema/default.sql` | Core tables (single file, no migration files — merged into one) |
-| `schema/translations.sql` | UI translations seed data (id + de locales, 3,804 INSERT IGNORE rows) |
-| `schema/migrations/006-theme-store.sql` | Adds `is_system`, `store_url`, `store_slug` to `themes` table |
-| `schema/migrations/007-i18n.sql` | Adds `ui_translations` and `post_translations` tables |
+| `schema/default.sql` | Fresh-install Core schema with the current table shape |
+| `schema/translations.sql` | UI translation seed data for supported non-source locales |
+| `schema/migrations/` | Forward migrations for existing installations; the migration ledger determines pending files |
 
 ### Core tables
 
-`users`, `posts`, `categories`, `post_categories`, `media`, `post_media_items`, `file`, `themes`, `assignments`, `menus`, `menu_items`, `settings`, `sidebar_zones`, `sidebar_zone_items`, `login_attempts`, `post_translations`, `ui_translations`
+Treat `schema/default.sql` as the authoritative fresh-install table inventory; do not maintain a duplicate table list here.
 
-- Soft-delete pattern: `is_deleted` column on most tables
+- Soft-delete resources with `is_deleted` are `users`, `categories`, `posts`, `media`, and `file`.
 - `users` has `is_locked` for manual ban
 
 ## i18n (Internationalization)
@@ -679,16 +675,16 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
   generic terms such as `downstream consumer` and keep integration-specific
   fixtures in the consuming repository.
 - Read the current version from `VERSION` and `version.json`; do not rely on a version copied into documentation.
-- Playwright regression tests available — run after changes to verify
+- Run the standalone PHP contract suite after changes and perform deployment-specific browser verification where needed.
 - Error display controlled by `APP_DEBUG=1` in `.env`
 - The pre-bootstrap development gate is Core-managed and configured only through `DEV_LOCK_ENABLED` plus an environment-owned `DEV_LOCK_PASSWORD_HASH`. Both public entrypoints enforce it before database/plugin bootstrap. Enabled gates return HTTP 503 with `noindex` and no-store headers until an isolated authenticated session unlocks them; never hardcode or commit the password/hash.
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
 - `reset_admin_cache()` must be called after enabling a plugin for nav to appear (deletes `cfg/var/theme_cache.json`)
-- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. After `default.sql`, imports `translations.sql` for seed data. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. Link to dashboard uses URL `/adiwira/gerbank/melbu/` (default login path, router serves from `dashboard/`).
+- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. After `default.sql`, imports `translations.sql` for seed data. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. The default admin, login, and registration paths are `dashboard`, `login`, and `register`; the router serves their PHP entrypoints from outside the web root.
 - **Release workflow:** `/var/www/md/update.md` defines version bump semantics, candidate build, commit, push, canonical package publication, and endpoint verification.
 - **Build tools:** `tools/build-package.php [output-path]` regenerates the manifest and builds a verified ZIP atomically; `tools/generate-manifest.php` only regenerates `tools/cms-manifest.json`.
 - **Server setup guide** at `SERVER_SETUP.md`
-- `PUBLIC_PATH` is resolved once in `cfg/config.php` after `.env` loading. It must be an existing absolute deployed web root; updater manifests still use canonical `public/...` paths.
+- `PUBLIC_PATH` is resolved once in `cfg/config.php` after `.env` loading. Blank values trigger conventional web-root detection; explicit values must be an existing absolute directory. Updater manifests still use canonical `public/...` paths.
 - `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
 - Timezone: `Asia/Jakarta`
 - `.gitignore` excludes: `.env`, `private_files/`, `cfg/var/sessions/`, `public/static/img/{year}/`
@@ -702,7 +698,7 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 - Strict types: `declare(strict_types=1);` on most files
 - Admin AJAX endpoints return JSON via `adiwira_json()`
 
-## Helpers (`cfg/helpers/` — 26 files)
+## Helpers (`cfg/helpers/`)
 
 `sessions.php` and `lang_helpers.php` are loaded inline (not via config.php loop):
 
@@ -736,9 +732,9 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 ### Key auth helpers (`cfg/helpers/auth_helpers.php`)
 
 - `auth_path_matches(string $path): bool` — compares request URI against configured path
-- `get_login_path(PDO $pdo): string` — reads `login_path` with fallback to old `login_slug`
-- `get_register_path(PDO $pdo): string` — reads `register_path` with fallback to old `login_slug`
-- `get_admin_path(PDO $pdo): string` — reads `admin_path` with fallback to `adiwira`
+- `get_login_path(PDO $pdo): string` — reads `login_path` with fallback to `login`
+- `get_register_path(PDO $pdo): string` — reads `register_path` with fallback to `register`
+- `get_admin_path(PDO $pdo): string` — reads `admin_path` with fallback to `dashboard`
 - `is_blocked($attempt): bool` — checks if IP/email is blocked
 - `get_login_attempt(PDO $pdo, $email, $ip): ?array`
 - `record_failed_attempt(PDO $pdo, $email, $ip): int` — hardcoded 5 attempts / 15 min (legacy default; login page uses `melbu_record_failed()` with configurable params)

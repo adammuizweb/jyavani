@@ -1,5 +1,10 @@
 # AGENTS-CUSTOMIZE.md — Pedoman BIG Project: Visual Customize
 
+> Historical implementation record. The `feat/customize` project is complete;
+> current behavior and extension contracts are documented in `AGENTS.md` and
+> `cms.md`. Branch names, routes, versions, and intermediate decisions below are
+> retained as project history rather than current instructions.
+>
 > Branch kerja: `feat/customize` pada repo `jyavani.git`.
 > Dokumen ini adalah pedoman utama (source of truth) untuk refactor fitur Customize.
 > Baca dokumen ini SEBELUM mengerjakan apapun di branch ini. Jangan lupakan isinya.
