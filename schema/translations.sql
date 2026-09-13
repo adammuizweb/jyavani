@@ -5524,4 +5524,27 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Reserved for a configured high-confidence malware detector.', 'Dicadangkan untuk pendeteksi malware berkeyakinan tinggi yang dikonfigurasi.', 'id'),
 ('default', 'Reserved for a configured high-confidence malware detector.', 'Für einen konfigurierten Malware-Detektor mit hoher Sicherheit reserviert.', 'de'),
 ('default', 'The file type detector was unavailable or could not identify the image.', 'Pendeteksi jenis file tidak tersedia atau tidak dapat mengidentifikasi gambar.', 'id'),
-('default', 'The file type detector was unavailable or could not identify the image.', 'Der Dateitypdetektor war nicht verfügbar oder konnte das Bild nicht identifizieren.', 'de');
+('default', 'The file type detector was unavailable or could not identify the image.', 'Der Dateitypdetektor war nicht verfügbar oder konnte das Bild nicht identifizieren.', 'de'),
+('default', 'Core file status', 'Status file Core', 'id'),
+('default', 'Core file status', 'Core-Dateistatus', 'de'),
+('default', 'Search results…', 'Cari hasil…', 'id'),
+('default', 'Search results…', 'Ergebnisse suchen…', 'de'),
+('default', 'Filter by status', 'Filter berdasarkan status', 'id'),
+('default', 'Filter by status', 'Nach Status filtern', 'de'),
+('default', 'All statuses', 'Semua status', 'id'),
+('default', 'All statuses', 'Alle Status', 'de'),
+('default', 'Showing %d-%d of %d results', 'Menampilkan %d-%d dari %d hasil', 'id'),
+('default', 'Showing %d-%d of %d results', '%d-%d von %d Ergebnissen angezeigt', 'de'),
+('default', 'No results match these filters.', 'Tidak ada hasil yang cocok dengan filter ini.', 'id'),
+('default', 'No results match these filters.', 'Keine Ergebnisse entsprechen diesen Filtern.', 'de');
+
+-- Site Health visual overview and dashboard widget
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Integrity center', 'Pusat integritas', 'id'),
+('default', 'Integrity center', 'Integritätszentrum', 'de'),
+('default', 'Observed state', 'Status teramati', 'id'),
+('default', 'Observed state', 'Beobachteter Zustand', 'de'),
+('default', 'Overall health', 'Kesehatan keseluruhan', 'id'),
+('default', 'Overall health', 'Gesamtzustand', 'de'),
+('default', 'View Site Health', 'Lihat Kesehatan Situs', 'id'),
+('default', 'View Site Health', 'Website-Zustand anzeigen', 'de');

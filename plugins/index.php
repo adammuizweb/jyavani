@@ -1146,7 +1146,15 @@ function plugin_static_copy(string $pluginDir, array $entries, array $oldEntries
     try {
         foreach ($validated as $item) {
             $destDir = dirname($item['dest']);
-            if (!is_dir($destDir) && !@mkdir($destDir, 0755, true) && !is_dir($destDir)) throw new RuntimeException('Could not create static directory.');
+            $createdDestDir = !is_dir($destDir);
+            if ($createdDestDir && !@mkdir($destDir, 0775, true) && !is_dir($destDir)) throw new RuntimeException('Could not create static directory.');
+            if ($createdDestDir) {
+                @chmod($destDir, 02775);
+                $directoryStat = @lstat($destDir);
+                if (!is_array($directoryStat) || (($directoryStat['mode'] ?? 0) & 0020) === 0) {
+                    throw new RuntimeException('Could not establish shared static directory permissions.');
+                }
+            }
             if (is_link($destDir) || is_link($item['dest'])) throw new RuntimeException('Static destination is a symlink.');
             $token = bin2hex(random_bytes(8));
             $temporary = $destDir . '/.plugin-copy-' . $token . '.tmp';
@@ -1162,7 +1170,7 @@ function plugin_static_copy(string $pluginDir, array $entries, array $oldEntries
             }
             fclose($input);
             fclose($output);
-            @chmod($temporary, 0644);
+            @chmod($temporary, 0664);
             $hadExisting = is_file($item['dest']);
             $backupHash = $hadExisting ? hash_file('sha256', $item['dest']) : null;
             if ($hadExisting && !rename($item['dest'], $backup)) {

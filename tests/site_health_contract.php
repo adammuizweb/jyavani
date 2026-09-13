@@ -9,7 +9,7 @@ $removeTree = static function (string $path) use (&$removeTree): void {
     foreach (new FilesystemIterator($path, FilesystemIterator::SKIP_DOTS) as $entry) $removeTree($entry->getPathname());
     @rmdir($path);
 };
-foreach (['cfg/var', 'app', 'tools', 'public/views/themes/default', 'public/views/themes/store-theme', 'public/static/img/2026', 'plugins/local-plugin', 'private_files/media/2026'] as $directory) {
+foreach (['cfg/var', 'app', 'tools', 'public/views/themes/default', 'public/views/themes/store-theme', 'public/static/img/2026', 'plugins/local-plugin', 'plugins/.backup-local-plugin', 'private_files/media/2026'] as $directory) {
     if (!is_dir($fixture . '/' . $directory) && !mkdir($fixture . '/' . $directory, 0755, true)) throw new RuntimeException('Unable to create fixture.');
 }
 define('BACKEND_PATH', $fixture . '/cfg');
@@ -37,6 +37,8 @@ try {
     file_put_contents($fixture . '/tools/cms-manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/local-plugin/plugin.json', json_encode(['name' => 'Local Plugin', 'version' => '1.0.0'], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/local-plugin/plugin.php', '<?php');
+    file_put_contents($fixture . '/plugins/.backup-local-plugin/plugin.json', json_encode(['name' => 'Local Plugin', 'version' => '0.9.0'], JSON_THROW_ON_ERROR));
+    file_put_contents($fixture . '/plugins/.backup-local-plugin/plugin.php', '<?php');
     file_put_contents($fixture . '/public/views/themes/store-theme/theme.json', json_encode([
         'name' => 'Store Theme', 'version' => '2.0.0', 'store' => ['url' => 'https://example.test/themes/', 'slug' => 'store-theme'],
     ], JSON_THROW_ON_ERROR));
@@ -48,6 +50,7 @@ try {
     $check($report['components']['core']['status'] === 'clean', 'full scan retains independent clean Core integrity');
     $check($report['components']['extensions']['status'] === 'unverified'
         && $report['components']['extensions']['summary']['total'] === 2, 'plugins and themes are inventoried but remain unverified without trusted file manifests');
+    $check(!in_array('.backup-local-plugin', array_column($report['components']['extensions']['items'], 'folder'), true), 'hidden plugin backups are excluded from installed extension inventory');
     $check($report['components']['content']['status'] === 'scanned'
         && $report['components']['content']['files_scanned'] === 1, 'safe site-owned content receives a completed safety scan');
     $check($report['status'] === 'unverified', 'overall state preserves the unverified extension boundary');
@@ -116,15 +119,50 @@ try {
     $page = (string)file_get_contents($root . '/dashboard/admin/settings/health.php');
     $config = (string)file_get_contents($root . '/cfg/config.php');
     $translations = (string)file_get_contents($root . '/schema/translations.sql');
+    $dashboardHome = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/views/home.php');
+    $dashboardWidgets = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/views/widgets.php');
     $check(str_contains($config, "helpers/site_health.php") && str_contains($page, 'site_health_run_and_store('), 'dashboard loads and executes the locked full Site Health orchestrator');
     $check(str_contains($page, 'name="site_health_action" value="run_site_health"')
         && !str_contains($page, 'name="action"'), 'full scan form cannot trigger the layout-bypassing dashboard action dispatcher');
     $check(str_contains($page, "'Plugin and Theme Inventory'")
         && str_contains($page, "'Media and File Safety'")
         && !str_contains($page, "_e('Not scanned')"), 'dashboard presents real extension and content results instead of placeholder coverage');
-    $check(str_contains($page, 'site-health__clean-ring')
-        && str_contains($page, 'max((int)$summary[\'expected\'], $observedTotal)'), 'dashboard presents a conservative clean Core percentage ring');
-    foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Inventory and filesystem safety', 'Executable and MIME safety rules'] as $source) {
+    $check(str_contains($page, 'site-health__status-chart')
+        && str_contains($page, "distributionCounts['unverified'] += max")
+        && !str_contains($page, 'site-health__panel-result'), 'dashboard presents a conservative multi-status Core distribution outside the panel header');
+    $check(str_contains($page, "item.addEventListener('mouseenter'")
+        && str_contains($page, "item.addEventListener('focus'")
+        && str_contains($page, "chart.classList.add('is-ready')")
+        && str_contains($page, 'prefers-reduced-motion:reduce'), 'Core distribution exposes hover and keyboard details with a reduced-motion-aware load animation');
+    $check(substr_count($page, 'data-health-list data-page-size="15"') === 3
+        && str_contains($page, "search.addEventListener('input'")
+        && str_contains($page, "status.addEventListener('change'")
+        && str_contains($page, "list.healthFilterStatus=function"), 'all report tables provide client-side search, status filters, and pagination');
+    $check(str_contains($page, "item.dataset.chartStatus==='clean'")
+        && str_contains($page, "document.getElementById('core-findings')")
+        && str_contains($page, "list.healthFilterStatus(item.dataset.chartStatus)"), 'non-clean chart selections navigate to matching filtered Core findings');
+    $check(str_contains($page, 'site-health__signals')
+        && str_contains($page, 'site-health__hero-state')
+        && str_contains($page, 'site-health__panel--accent'), 'Site Health uses a status-aware visual hierarchy for its overview and component panels');
+    $check(substr_count($page, 'site-health__disclosure" id=') === 3
+        && substr_count($page, '<summary class="site-health__panel-head">') === 3
+        && str_contains($page, "findings.open=true")
+        && str_contains($page, "target.open=true"), 'Core, extension, and content result panels collapse accessibly and reopen for direct navigation');
+    foreach (['clean', 'unverified', 'modified', 'contaminated', 'infected'] as $colorStatus) {
+        $check(str_contains($page, '.site-health__count--' . $colorStatus . '{--health-color:')
+            && str_contains($page, 'site-health__count--<?=h($countStatus)?>'), 'light theme keeps an explicit count-card color for ' . $colorStatus);
+    }
+    $check(str_contains($dashboardHome, "\$widgets['site_health']")
+        && str_contains($dashboardHome, "'render' => 'dash_widget_site_health'")
+        && str_contains($dashboardHome, "'site_health:r'")
+        && str_contains($dashboardHome, "current_user_can(\$pdo, 'core.settings.manage')"), 'Site Health registers as a Site Owner settings widget in the Core dashboard layout');
+    $check(str_contains($dashboardWidgets, 'function dash_widget_site_health')
+        && str_contains($dashboardWidgets, 'site_health_read_report()')
+        && str_contains($dashboardWidgets, "ADMIN_BASE_PATH . '/?page=admin/settings/health'")
+        && !str_contains($dashboardWidgets, 'site_health_run_and_store(')
+        && !str_contains($dashboardWidgets, 'site_health_run(')
+        && !str_contains($dashboardWidgets, 'core_integrity_run('), 'dashboard Site Health widget reads only the persisted report and links to the manual scan page');
+    foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Inventory and filesystem safety', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
         $check(substr_count($translations, "'" . str_replace("'", "''", $source) . "'") >= 2, 'full Site Health translation coverage: ' . $source);
     }
 } finally {

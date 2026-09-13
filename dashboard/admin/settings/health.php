@@ -74,16 +74,32 @@ $extensions = is_array($report['components']['extensions'] ?? null) ? $report['c
 $content = is_array($report['components']['content'] ?? null) ? $report['components']['content'] : null;
 $status = is_array($report) ? (string)($report['status'] ?? 'unverified') : 'unverified';
 $coreStatus = is_array($coreReport) ? (string)($coreReport['status'] ?? 'unverified') : 'unverified';
+$extensionStatus = is_array($extensions) ? (string)($extensions['status'] ?? 'unverified') : 'unverified';
+$contentStatus = is_array($content) ? (string)($content['status'] ?? 'unverified') : 'unverified';
 $summary = is_array($coreReport['summary'] ?? null) ? $coreReport['summary'] : [];
 $baseline = is_array($coreReport['baseline'] ?? null) ? $coreReport['baseline'] : [];
 $findings = is_array($coreReport['findings'] ?? null) ? $coreReport['findings'] : [];
 $extensionItems = is_array($extensions['items'] ?? null) ? $extensions['items'] : [];
 $contentFindings = is_array($content['findings'] ?? null) ? $content['findings'] : [];
-$cleanPercentage = null;
+$coreDistribution = [];
 if (is_array($coreReport) && (int)($summary['expected'] ?? 0) > 0) {
-    $observedTotal = array_sum(array_map('intval', array_intersect_key($summary, array_flip(['clean', 'unverified', 'modified', 'contaminated', 'infected']))));
-    $cleanTotal = max((int)$summary['expected'], $observedTotal);
-    $cleanPercentage = min(100, max(0, (int)round(((int)($summary['clean'] ?? 0) / $cleanTotal) * 100)));
+    $distributionCounts = [];
+    foreach (['clean', 'unverified', 'modified', 'contaminated', 'infected'] as $distributionStatus) {
+        $distributionCounts[$distributionStatus] = max(0, (int)($summary[$distributionStatus] ?? 0));
+    }
+    $observedTotal = array_sum($distributionCounts);
+    $distributionCounts['unverified'] += max(0, (int)$summary['expected'] - $observedTotal);
+    $distributionTotal = array_sum($distributionCounts);
+    $distributionOffset = 0.0;
+    foreach ($distributionCounts as $distributionStatus => $distributionCount) {
+        $percentage = $distributionTotal > 0 ? ($distributionCount / $distributionTotal) * 100 : 0.0;
+        $coreDistribution[$distributionStatus] = [
+            'percentage' => $percentage,
+            'display' => number_format($percentage, $percentage === floor($percentage) ? 0 : 1),
+            'offset' => $distributionOffset,
+        ];
+        $distributionOffset += $percentage;
+    }
 }
 $statusLabel = $statusLabels[$status] ?? $statusLabels['unverified'];
 $scanTime = is_array($report) && (int)($report['completed_at'] ?? 0) > 0
@@ -93,108 +109,143 @@ $disclaimer = __('Site Health reports the state observed during the most recent 
 ?>
 <style>
 .site-health{max-width:1100px;margin:18px auto;color:var(--adam-text,#0f172a)}
-.site-health__topline{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.site-health__back{display:inline-flex;align-items:center;gap:6px;color:var(--adam-muted,#64748b);font-size:.83rem;font-weight:700;text-decoration:none}.site-health__back:hover{color:var(--adam-primary,#ef3f28)}.site-health__back svg{width:15px;height:15px}
-.site-health__hero{position:relative;overflow:hidden;padding:24px;border:1px solid var(--adam-border,#e2e8f0);border-radius:20px;background:linear-gradient(135deg,var(--adam-card,#fff) 10%,var(--adam-surface-3,#f8fafc));box-shadow:0 18px 50px rgba(15,23,42,.07)}
-.site-health__hero:after{content:"";position:absolute;right:-70px;top:-95px;width:240px;height:240px;border-radius:50%;background:color-mix(in srgb,var(--adam-primary,#ef3f28) 10%,transparent);pointer-events:none}
+.site-health__topline{display:flex;align-items:center;margin-bottom:10px}.site-health__back{display:inline-flex;align-items:center;gap:6px;color:var(--adam-muted,#64748b);font-size:.83rem;font-weight:700;text-decoration:none}.site-health__back:hover{color:var(--adam-primary,#ef3f28)}.site-health__back svg{width:15px;height:15px}
+.site-health__hero{position:relative;overflow:hidden;padding:28px;border:1px solid color-mix(in srgb,var(--adam-primary,#ef3f28) 18%,var(--adam-border,#e2e8f0));border-radius:22px;background:radial-gradient(circle at 85% 10%,color-mix(in srgb,var(--adam-primary,#ef3f28) 15%,transparent),transparent 32%),linear-gradient(135deg,var(--adam-card,#fff) 20%,var(--adam-surface-3,#f8fafc));box-shadow:0 22px 60px rgba(15,23,42,.09)}
+.site-health__hero:before{content:"";position:absolute;inset:0;background-image:linear-gradient(color-mix(in srgb,var(--adam-border,#e2e8f0) 34%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--adam-border,#e2e8f0) 34%,transparent) 1px,transparent 1px);background-size:28px 28px;mask-image:linear-gradient(90deg,transparent 15%,#000);opacity:.45;pointer-events:none}.site-health__hero:after{content:"";position:absolute;right:-70px;top:-95px;width:240px;height:240px;border:1px solid color-mix(in srgb,var(--adam-primary,#ef3f28) 18%,transparent);border-radius:50%;pointer-events:none}
 .site-health__head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:20px}
 .site-health__identity{display:flex;align-items:center;gap:15px}.site-health__icon{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:var(--adam-primary-soft,#fff1ed);color:var(--adam-primary,#ef3f28)}
-.site-health__icon svg{width:26px;height:26px}.site-health h1{margin:0;font-size:1.65rem}.site-health__lead{margin:.4rem 0 0;color:var(--adam-muted,#64748b);line-height:1.5}
-.site-health__action{position:relative;z-index:1}.site-health__action .adam-button{min-height:42px;padding-inline:16px;border-radius:999px;white-space:nowrap}.site-health__action svg{width:17px;height:17px}
+.site-health__icon svg{width:26px;height:26px}.site-health h1{margin:0;font-size:1.72rem;letter-spacing:-.025em}.site-health__eyebrow{display:block;margin-bottom:4px;color:var(--adam-primary,#ef3f28);font-size:.68rem;font-weight:850;letter-spacing:.11em;text-transform:uppercase}.site-health__lead{max-width:620px;margin:.4rem 0 0;color:var(--adam-muted,#64748b);line-height:1.55}.site-health__hero-controls{display:flex;align-items:center;gap:12px}.site-health__hero-state{min-width:154px;padding:11px 14px;border:1px solid color-mix(in srgb,var(--health-color,#64748b) 28%,var(--adam-border,#e2e8f0));border-radius:14px;background:color-mix(in srgb,var(--health-color,#64748b) 7%,var(--adam-card,#fff));text-align:right}.site-health__hero-state small,.site-health__hero-state span{display:block;color:var(--adam-muted,#64748b);font-size:.68rem}.site-health__hero-state strong{display:block;margin:2px 0;color:var(--health-color,#475569);font-size:1rem}.site-health__action{position:relative;z-index:1}.site-health__action .adam-button{min-height:44px;padding-inline:17px;border-radius:999px;white-space:nowrap;box-shadow:0 8px 18px color-mix(in srgb,var(--adam-primary,#ef3f28) 18%,transparent)}.site-health__action svg{width:17px;height:17px}
+.site-health__status-color--clean{--health-color:#16a34a}.site-health__status-color--unverified,.site-health__status-color--scanned{--health-color:#64748b}.site-health__status-color--modified{--health-color:#d97706}.site-health__status-color--contaminated{--health-color:#ea580c}.site-health__status-color--infected{--health-color:#dc2626}
 .site-health__alerts{display:grid;gap:10px;margin-top:15px}.site-health__alert{padding:12px 14px;border-radius:12px;border:1px solid var(--adam-danger-light,#fecaca);background:var(--adam-danger-soft,#fef2f2);color:var(--adam-danger,#b91c1c)}
 .site-health__disclaimer{margin-top:16px;padding:15px 17px;border:1px solid color-mix(in srgb,#d97706 32%,var(--adam-border,#e2e8f0));border-radius:14px;background:color-mix(in srgb,#f59e0b 8%,var(--adam-card,#fff));color:var(--adam-text-3,#334155);font-size:.88rem;line-height:1.6}
-.site-health__disclaimer b{display:block;margin-bottom:3px;color:#a16207}.site-health__layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,.75fr);gap:16px;margin-top:16px;align-items:start}
-.site-health__panel{padding:19px;border:1px solid var(--adam-border,#e2e8f0);border-radius:16px;background:var(--adam-card,#fff);box-shadow:0 8px 24px rgba(15,23,42,.045)}
-.site-health__panel h2{margin:0;font-size:1.08rem}.site-health__panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}.site-health__panel-result{display:flex;align-items:center;gap:12px}.site-health__clean-ring{--clean-percent:0;position:relative;display:grid;place-items:center;width:72px;height:72px;flex:0 0 72px;border-radius:50%;background:conic-gradient(var(--adam-success,#16a34a) calc(var(--clean-percent) * 1%),color-mix(in srgb,var(--adam-success,#16a34a) 13%,var(--adam-border,#e2e8f0)) 0);color:var(--adam-success,#15803d);font-size:1.18rem;font-weight:850;line-height:1}.site-health__clean-ring:before{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--adam-card,#fff)}.site-health__clean-ring-value{position:relative;z-index:1}.site-health__clean-ring small{font-size:.68em}.site-health__clean-ring-label{position:absolute;z-index:1;top:47px;font-size:.54rem;font-style:normal;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.site-health__meta{margin-top:4px;color:var(--adam-muted,#64748b);font-size:.8rem}
+.site-health__disclaimer b{display:block;margin-bottom:3px;color:#a16207}.site-health__signals{position:relative;z-index:2;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}.site-health__signal{--health-color:#64748b;display:flex;align-items:center;gap:11px;min-width:0;padding:13px 14px;border:1px solid color-mix(in srgb,var(--health-color) 22%,var(--adam-border,#e2e8f0));border-radius:14px;background:linear-gradient(145deg,color-mix(in srgb,var(--health-color) 8%,var(--adam-card,#fff)),var(--adam-card,#fff));color:inherit;text-decoration:none;box-shadow:0 7px 20px rgba(15,23,42,.04);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.site-health__signal[href]:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--health-color) 48%,var(--adam-border,#e2e8f0));box-shadow:0 12px 26px rgba(15,23,42,.08)}.site-health__signal-icon{display:grid;place-items:center;width:36px;height:36px;flex:0 0 36px;border-radius:11px;background:color-mix(in srgb,var(--health-color) 13%,transparent);color:var(--health-color)}.site-health__signal-icon svg{width:18px;height:18px}.site-health__signal-copy{min-width:0}.site-health__signal-copy small{display:block;overflow:hidden;color:var(--adam-muted,#64748b);font-size:.68rem;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.site-health__signal-copy strong{display:block;margin-top:2px;color:var(--health-color);font-size:.84rem}.site-health__layout{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,.75fr);gap:16px;margin-top:16px;align-items:start}
+.site-health__panel{position:relative;overflow:hidden;padding:19px;border:1px solid var(--adam-border,#e2e8f0);border-radius:17px;background:var(--adam-card,#fff);box-shadow:0 9px 28px rgba(15,23,42,.05)}.site-health__panel--accent:before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--health-color,#64748b)}
+.site-health__panel h2{margin:0;font-size:1.08rem}.site-health__panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}.site-health__section-title{display:flex;align-items:center;gap:10px}.site-health__section-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:color-mix(in srgb,var(--health-color,#64748b) 11%,transparent);color:var(--health-color,#64748b)}.site-health__section-icon svg{width:17px;height:17px}.site-health__meta{margin-top:4px;color:var(--adam-muted,#64748b);font-size:.8rem}
+.site-health__disclosure>summary{margin-bottom:0;list-style:none;cursor:pointer;user-select:none}.site-health__disclosure>summary::-webkit-details-marker{display:none}.site-health__disclosure[open]>summary{margin-bottom:15px}.site-health__disclosure-state{display:flex;align-items:center;gap:9px}.site-health__disclosure-chevron{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:var(--adam-surface-3,#f8fafc);color:var(--adam-muted,#64748b);transition:transform .2s ease,background .2s ease}.site-health__disclosure-chevron svg{width:16px;height:16px}.site-health__disclosure[open] .site-health__disclosure-chevron{transform:rotate(180deg);background:color-mix(in srgb,var(--health-color,#64748b) 10%,var(--adam-surface-3,#f8fafc));color:var(--health-color,#64748b)}.site-health__disclosure-body{animation:site-health-reveal .22s ease both}@keyframes site-health-reveal{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
 .site-health__badge{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.035em}.site-health__badge--clean{background:#dcfce7;color:#166534}.site-health__badge--unverified{background:#e2e8f0;color:#475569}.site-health__badge--modified{background:#fef3c7;color:#92400e}.site-health__badge--contaminated,.site-health__badge--infected{background:#fee2e2;color:#991b1b}.site-health__badge--scanned{background:#dbeafe;color:#1d4ed8}
-.site-health__counts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.site-health__count{padding:12px 8px;border:1px solid var(--adam-border,#e2e8f0);border-radius:12px;background:var(--adam-surface-3,#f8fafc);text-align:center}.site-health__count strong{display:block;font-size:1.35rem}.site-health__count span{color:var(--adam-muted,#64748b);font-size:.72rem}
+.site-health__status-chart{position:relative;width:190px;max-width:100%;margin:0 auto 16px}.site-health__status-chart svg{display:block;width:100%;height:auto;overflow:visible}.site-health__chart-track,.site-health__chart-segment{fill:none;stroke-width:12}.site-health__chart-track{stroke:var(--adam-surface-3,#f1f5f9)}.site-health__chart-segment{stroke-linecap:butt;stroke-dasharray:0 100;stroke-dashoffset:calc(var(--segment-offset) * -1);cursor:pointer;transition:stroke-dasharray .9s cubic-bezier(.22,1,.36,1),stroke-width .18s ease,filter .18s ease}.site-health__status-chart.is-ready .site-health__chart-segment{stroke-dasharray:var(--segment-size) calc(100 - var(--segment-size))}.site-health__chart-segment:hover,.site-health__chart-segment:focus{stroke-width:16;filter:drop-shadow(0 2px 3px rgba(15,23,42,.2));outline:none}.site-health__chart-segment--clean{stroke:#16a34a}.site-health__chart-segment--unverified{stroke:#94a3b8}.site-health__chart-segment--modified{stroke:#f59e0b}.site-health__chart-segment--contaminated{stroke:#f97316}.site-health__chart-segment--infected{stroke:#dc2626}.site-health__chart-center{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}.site-health__chart-center strong{font-size:1.55rem;line-height:1;color:var(--adam-text,#0f172a)}.site-health__chart-center span{margin-top:5px;color:var(--adam-muted,#64748b);font-size:.7rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.site-health__chart-legend{display:grid;gap:4px}.site-health__chart-key{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:8px;width:100%;padding:7px 8px;border:0;border-radius:8px;background:transparent;color:var(--adam-text-3,#334155);font:inherit;font-size:.79rem;text-align:left;cursor:pointer}.site-health__chart-key:hover,.site-health__chart-key:focus-visible{background:var(--adam-surface-3,#f8fafc);outline:2px solid color-mix(in srgb,var(--adam-primary,#ef3f28) 35%,transparent);outline-offset:1px}.site-health__chart-dot{width:9px;height:9px;border-radius:50%}.site-health__chart-dot--clean{background:#16a34a}.site-health__chart-dot--unverified{background:#94a3b8}.site-health__chart-dot--modified{background:#f59e0b}.site-health__chart-dot--contaminated{background:#f97316}.site-health__chart-dot--infected{background:#dc2626}.site-health__chart-key b{font-size:.76rem}
+.site-health__counts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.site-health__count{--health-color:#64748b;position:relative;overflow:hidden;padding:13px 8px 11px;border:1px solid color-mix(in srgb,var(--health-color) 18%,var(--adam-border,#e2e8f0));border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,var(--health-color) 7%,var(--adam-card,#fff)),var(--adam-card,#fff));text-align:center}.site-health__count:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:var(--health-color)}.site-health__count strong{display:block;color:var(--health-color);font-size:1.38rem}.site-health__count span{color:var(--adam-muted,#64748b);font-size:.72rem}
+.site-health__count--clean{--health-color:#15803d;border-color:#bbf7d0;background:#f0fdf4}.site-health__count--unverified{--health-color:#475569;border-color:#cbd5e1;background:#f8fafc}.site-health__count--modified{--health-color:#b45309;border-color:#fde68a;background:#fffbeb}.site-health__count--contaminated{--health-color:#c2410c;border-color:#fed7aa;background:#fff7ed}.site-health__count--infected{--health-color:#b91c1c;border-color:#fecaca;background:#fef2f2}
 .site-health__scope{display:grid;gap:9px}.site-health__scope-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--adam-border,#e2e8f0);border-radius:11px}.site-health__scope-row small{display:block;margin-top:2px;color:var(--adam-muted,#64748b)}
 .site-health__scope-state{font-size:.73rem;font-weight:800;color:var(--adam-muted,#64748b);white-space:nowrap}.site-health__scope-state.active{color:var(--adam-success,#15803d)}
-.site-health__findings{margin-top:16px}.site-health__table-wrap{overflow:auto;border:1px solid var(--adam-border,#e2e8f0);border-radius:12px}.site-health__table{width:100%;border-collapse:collapse;font-size:.84rem}.site-health__table th,.site-health__table td{padding:11px 12px;border-bottom:1px solid var(--adam-border,#e2e8f0);text-align:left;vertical-align:top}.site-health__table th{background:var(--adam-surface-3,#f8fafc);font-size:.73rem;text-transform:uppercase;letter-spacing:.04em}.site-health__table tr:last-child td{border-bottom:0}.site-health__path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}.site-health__empty{padding:24px;text-align:center;color:var(--adam-muted,#64748b)}
+.site-health__findings{margin-top:16px}.site-health__list-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,.35fr);gap:9px;margin-bottom:10px}.site-health__list-tools input,.site-health__list-tools select{width:100%;min-height:40px;padding:8px 11px;border:1px solid var(--adam-border,#cbd5e1);border-radius:10px;background:var(--adam-card,#fff);color:var(--adam-text,#0f172a);font:inherit}.site-health__list-tools input:focus,.site-health__list-tools select:focus{outline:2px solid color-mix(in srgb,var(--adam-primary,#ef3f28) 35%,transparent);border-color:var(--adam-primary,#ef3f28)}.site-health__table-wrap{overflow:auto;border:1px solid var(--adam-border,#e2e8f0);border-radius:12px}.site-health__table{width:100%;border-collapse:collapse;font-size:.84rem}.site-health__table th,.site-health__table td{padding:11px 12px;border-bottom:1px solid var(--adam-border,#e2e8f0);text-align:left;vertical-align:top}.site-health__table th{background:var(--adam-surface-3,#f8fafc);font-size:.73rem;text-transform:uppercase;letter-spacing:.04em}.site-health__table tr:last-child td{border-bottom:0}.site-health__path{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}.site-health__list-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;color:var(--adam-muted,#64748b);font-size:.78rem}.site-health__pager{display:flex;gap:6px}.site-health__pager button{min-height:34px;padding:6px 10px;border:1px solid var(--adam-border,#cbd5e1);border-radius:8px;background:var(--adam-card,#fff);color:var(--adam-text,#0f172a);font:inherit;font-weight:700;cursor:pointer}.site-health__pager button:hover:not(:disabled){border-color:var(--adam-primary,#ef3f28);color:var(--adam-primary,#ef3f28)}.site-health__pager button:disabled{cursor:not-allowed;opacity:.45}.site-health__empty{padding:24px;text-align:center;color:var(--adam-muted,#64748b)}
 .site-health__legend{display:grid;gap:9px}.site-health__legend-row{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:start;font-size:.82rem;color:var(--adam-text-3,#334155)}
 .site-health__ext-name{font-weight:750}.site-health__ext-meta{margin-top:3px;color:var(--adam-muted,#64748b);font-size:.76rem}.site-health__section-gap{margin-top:16px}
-@media(max-width:800px){.site-health__head{align-items:flex-start;flex-direction:column}.site-health__action,.site-health__action form{width:100%}.site-health__action .adam-button{width:100%;justify-content:center}.site-health__layout{grid-template-columns:1fr}.site-health__counts{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:480px){.site-health__panel-head{align-items:flex-start}.site-health__panel-result{flex-direction:column-reverse;align-items:flex-end}.site-health__clean-ring{width:64px;height:64px;flex-basis:64px}.site-health__clean-ring:before{inset:6px}.site-health__clean-ring-label{top:42px}}
+@media(max-width:900px){.site-health__signals{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:800px){.site-health__head{align-items:flex-start;flex-direction:column}.site-health__hero-controls{width:100%;align-items:stretch}.site-health__hero-state{flex:1;text-align:left}.site-health__action,.site-health__action form{flex:1;height:100%}.site-health__action .adam-button{width:100%;height:100%;justify-content:center}.site-health__layout{grid-template-columns:1fr}.site-health__counts{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.site-health__hero{padding:21px}.site-health__identity{align-items:flex-start}.site-health__hero-controls,.site-health__signals{grid-template-columns:1fr;display:grid}.site-health__signals{grid-template-columns:1fr 1fr}.site-health__signal{padding:11px}.site-health__signal-icon{display:none}}
+@media(max-width:520px){.site-health__list-tools{grid-template-columns:1fr}.site-health__list-foot{align-items:flex-start;flex-direction:column}.site-health__pager{width:100%}.site-health__pager button{flex:1}}
+@media(prefers-reduced-motion:reduce){.site-health__chart-segment{transition:stroke-width .18s ease,filter .18s ease}.site-health__disclosure-chevron{transition:none}.site-health__disclosure-body{animation:none}}
 </style>
 
 <section class="site-health">
-  <div class="site-health__topline"><a class="site-health__back" href="<?=h($base)?>/?page=admin/settings/index"><?=svg_ico('arrow-left')?> <?=_e('Settings')?></a><span class="site-health__badge site-health__badge--<?=h($status)?>"><?=h($statusLabel)?></span></div>
+  <div class="site-health__topline"><a class="site-health__back" href="<?=h($base)?>/?page=admin/settings/index"><?=svg_ico('arrow-left')?> <?=_e('Settings')?></a></div>
   <div class="site-health__hero">
     <div class="site-health__head">
       <div class="site-health__identity">
         <span class="site-health__icon" aria-hidden="true"><?=svg_ico('shield-check')?></span>
-        <div><h1><?=_e('Site Health')?></h1><p class="site-health__lead"><?=_e('Verify Core release integrity and review security signals by ownership boundary.')?></p></div>
+        <div><span class="site-health__eyebrow"><?=_e('Integrity center')?></span><h1><?=_e('Site Health')?></h1><p class="site-health__lead"><?=_e('Verify Core release integrity and review security signals by ownership boundary.')?></p></div>
       </div>
-      <div class="site-health__action">
-        <form method="post">
-          <input type="hidden" name="csrf_token" value="<?=h(csrf_token())?>">
-          <input type="hidden" name="site_health_action" value="run_site_health">
-          <button class="adam-button" type="submit"><?=svg_ico('refresh-cw')?> <?=_e('Run full scan')?></button>
-        </form>
+      <div class="site-health__hero-controls">
+        <div class="site-health__hero-state site-health__status-color--<?=h($status)?>"><small><?=_e('Observed state')?></small><strong><?=h($statusLabel)?></strong><span><?=h($scanTime)?></span></div>
+        <div class="site-health__action"><form method="post"><input type="hidden" name="csrf_token" value="<?=h(csrf_token())?>"><input type="hidden" name="site_health_action" value="run_site_health"><button class="adam-button" type="submit"><?=svg_ico('refresh-cw')?> <?=_e('Run full scan')?></button></form></div>
       </div>
     </div>
     <?php if ($errors !== []): ?><div class="site-health__alerts" role="alert"><?php foreach ($errors as $error): ?><div class="site-health__alert"><?=h($error)?></div><?php endforeach;?></div><?php endif;?>
     <div class="site-health__disclaimer"><b><?=_e('Important limitation')?></b><?=h($disclaimer)?></div>
   </div>
 
+  <div class="site-health__signals" aria-label="<?=h(__('Scan Coverage'))?>">
+    <div class="site-health__signal site-health__status-color--<?=h($status)?>"><span class="site-health__signal-icon" aria-hidden="true"><?=svg_ico('shield-check')?></span><span class="site-health__signal-copy"><small><?=_e('Overall health')?></small><strong><?=h($statusLabel)?></strong></span></div>
+    <a class="site-health__signal site-health__status-color--<?=h($coreStatus)?>" href="#core-integrity"><span class="site-health__signal-icon" aria-hidden="true"><?=svg_ico('monitor')?></span><span class="site-health__signal-copy"><small><?=_e('Core files')?></small><strong><?=h($statusLabels[$coreStatus]??$statusLabels['unverified'])?></strong></span></a>
+    <a class="site-health__signal site-health__status-color--<?=h($extensionStatus)?>" href="#extension-inventory"><span class="site-health__signal-icon" aria-hidden="true"><?=svg_ico('puzzle')?></span><span class="site-health__signal-copy"><small><?=_e('Plugins and themes')?></small><strong><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></strong></span></a>
+    <a class="site-health__signal site-health__status-color--<?=h($contentStatus)?>" href="#content-safety"><span class="site-health__signal-icon" aria-hidden="true"><?=svg_ico('image')?></span><span class="site-health__signal-copy"><small><?=_e('Media and files')?></small><strong><?=h($statusLabels[$contentStatus]??$statusLabels['unverified'])?></strong></span></a>
+  </div>
+
   <div class="site-health__layout" aria-live="polite">
     <div>
-      <article class="site-health__panel">
+      <article class="site-health__panel site-health__panel--accent site-health__status-color--<?=h($coreStatus)?>" id="core-integrity">
         <div class="site-health__panel-head">
-          <div><h2><?=_e('Core Integrity')?></h2><div class="site-health__meta"><?=h(sprintf(__('Last scan: %s'), $scanTime))?></div></div>
-          <div class="site-health__panel-result">
-            <?php if ($cleanPercentage !== null): ?><div class="site-health__clean-ring" style="--clean-percent:<?=$cleanPercentage?>" role="img" aria-label="<?=h(sprintf('%s: %d%%', __('Clean'), $cleanPercentage))?>"><span class="site-health__clean-ring-value"><?=$cleanPercentage?><small>%</small></span><em class="site-health__clean-ring-label"><?=_e('Clean')?></em></div><?php endif;?>
-            <span class="site-health__badge site-health__badge--<?=h($coreStatus)?>"><?=h($statusLabels[$coreStatus] ?? $statusLabels['unverified'])?></span>
-          </div>
+          <div class="site-health__section-title"><span class="site-health__section-icon" aria-hidden="true"><?=svg_ico('monitor')?></span><div><h2><?=_e('Core Integrity')?></h2><div class="site-health__meta"><?=h(sprintf(__('Last scan: %s'), $scanTime))?></div></div></div>
+          <span class="site-health__badge site-health__badge--<?=h($coreStatus)?>"><?=h($statusLabels[$coreStatus] ?? $statusLabels['unverified'])?></span>
         </div>
         <?php if (is_array($coreReport)): ?>
           <div class="site-health__counts">
             <?php foreach (['clean','unverified','modified','contaminated','infected'] as $countStatus): ?>
-              <div class="site-health__count"><strong><?=number_format((int)($summary[$countStatus] ?? 0))?></strong><span><?=h($statusLabels[$countStatus])?></span></div>
+              <div class="site-health__count site-health__count--<?=h($countStatus)?>"><strong><?=number_format((int)($summary[$countStatus] ?? 0))?></strong><span><?=h($statusLabels[$countStatus])?></span></div>
             <?php endforeach;?>
           </div>
           <div class="site-health__meta" style="margin-top:12px"><?=h(sprintf(__('Baseline version: %s'), (string)($baseline['version'] ?? '?')))?> · <?=h(($baseline['trusted'] ?? false) === true ? __('Canonical HTTPS manifest') : __('Local manifest, not independently verified'))?> · <?=h(sprintf(__('%d expected files'), (int)($summary['expected'] ?? 0)))?> · <?=h(sprintf(__('%d ms'), (int)($coreReport['duration_ms'] ?? 0)))?></div>
         <?php else: ?><div class="site-health__empty"><?=_e('Run the first Core scan to establish the observed integrity state.')?></div><?php endif;?>
       </article>
 
-      <article class="site-health__panel site-health__findings">
-        <div class="site-health__panel-head"><h2><?=_e('Core Findings')?></h2><?php if (($coreReport['findings_truncated'] ?? false) === true): ?><span class="site-health__badge site-health__badge--unverified"><?=_e('Results truncated')?></span><?php endif;?></div>
+      <details class="site-health__panel site-health__panel--accent site-health__status-color--<?=h($coreStatus)?> site-health__findings site-health__disclosure" id="core-findings" open>
+        <summary class="site-health__panel-head"><div class="site-health__section-title"><span class="site-health__section-icon" aria-hidden="true"><?=svg_ico('file-text')?></span><h2><?=_e('Core Findings')?></h2></div><span class="site-health__disclosure-state"><?php if (($coreReport['findings_truncated'] ?? false) === true): ?><span class="site-health__badge site-health__badge--unverified"><?=_e('Results truncated')?></span><?php endif;?><span class="site-health__disclosure-chevron" aria-hidden="true"><?=svg_ico('chevron-down')?></span></span></summary>
+        <div class="site-health__disclosure-body">
         <?php if ($findings !== []): ?>
+          <div data-health-list data-page-size="15" data-summary="<?=h(__('Showing %d-%d of %d results'))?>">
+          <div class="site-health__list-tools"><input type="search" data-health-search placeholder="<?=h(__('Search results…'))?>" aria-label="<?=h(__('Search results…'))?>"><select data-health-status aria-label="<?=h(__('Filter by status'))?>"><option value=""><?=_e('All statuses')?></option><?php foreach (['unverified','modified','contaminated','infected'] as $filterStatus): ?><option value="<?=h($filterStatus)?>"><?=h($statusLabels[$filterStatus])?></option><?php endforeach;?></select></div>
           <div class="site-health__table-wrap"><table class="site-health__table"><thead><tr><th><?=_e('File')?></th><th><?=_e('Status')?></th><th><?=_e('Reason')?></th></tr></thead><tbody>
           <?php foreach ($findings as $finding): $findingStatus=(string)($finding['status']??'unverified'); $reason=(string)($finding['reason']??''); ?>
-            <tr><td class="site-health__path"><?=h((string)($finding['path']??''))?></td><td><span class="site-health__badge site-health__badge--<?=h($findingStatus)?>"><?=h($statusLabels[$findingStatus]??$statusLabels['unverified'])?></span></td><td><?=h($reasonLabels[$reason]??__('The file requires manual review.'))?></td></tr>
+            <tr data-health-row data-status="<?=h($findingStatus)?>"><td class="site-health__path"><?=h((string)($finding['path']??''))?></td><td><span class="site-health__badge site-health__badge--<?=h($findingStatus)?>"><?=h($statusLabels[$findingStatus]??$statusLabels['unverified'])?></span></td><td><?=h($reasonLabels[$reason]??__('The file requires manual review.'))?></td></tr>
           <?php endforeach;?></tbody></table></div>
+          <div class="site-health__empty" data-health-empty hidden><?=_e('No results match these filters.')?></div><div class="site-health__list-foot"><span data-health-summary></span><div class="site-health__pager"><button type="button" data-health-prev><?=_e('Previous')?></button><button type="button" data-health-next><?=_e('Next')?></button></div></div></div>
         <?php elseif (is_array($coreReport)): ?><div class="site-health__empty"><?=_e('No Core file findings were detected in this scan.')?></div>
         <?php else: ?><div class="site-health__empty"><?=_e('No scan report is available yet.')?></div><?php endif;?>
-      </article>
+        </div>
+      </details>
 
-      <article class="site-health__panel site-health__section-gap">
-        <div class="site-health__panel-head"><div><h2><?=_e('Plugin and Theme Inventory')?></h2><div class="site-health__meta"><?=_e('Hook usage does not modify Core; each extension keeps its own integrity state.')?></div></div><?php if (is_array($extensions)): $extensionStatus=(string)($extensions['status']??'unverified'); ?><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span><?php endif;?></div>
-        <?php if ($extensionItems !== []): ?><div class="site-health__table-wrap"><table class="site-health__table"><thead><tr><th><?=_e('Extension')?></th><th><?=_e('Status')?></th><th><?=_e('Reason')?></th></tr></thead><tbody>
+      <details class="site-health__panel site-health__panel--accent site-health__status-color--<?=h($extensionStatus)?> site-health__section-gap site-health__disclosure" id="extension-inventory" open>
+        <summary class="site-health__panel-head"><div class="site-health__section-title"><span class="site-health__section-icon" aria-hidden="true"><?=svg_ico('puzzle')?></span><div><h2><?=_e('Plugin and Theme Inventory')?></h2><div class="site-health__meta"><?=_e('Hook usage does not modify Core; each extension keeps its own integrity state.')?></div></div></div><span class="site-health__disclosure-state"><?php if (is_array($extensions)): ?><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span><?php endif;?><span class="site-health__disclosure-chevron" aria-hidden="true"><?=svg_ico('chevron-down')?></span></span></summary>
+        <div class="site-health__disclosure-body">
+        <?php if ($extensionItems !== []): ?><div data-health-list data-page-size="15" data-summary="<?=h(__('Showing %d-%d of %d results'))?>"><div class="site-health__list-tools"><input type="search" data-health-search placeholder="<?=h(__('Search results…'))?>" aria-label="<?=h(__('Search results…'))?>"><select data-health-status aria-label="<?=h(__('Filter by status'))?>"><option value=""><?=_e('All statuses')?></option><?php foreach (['clean','unverified','modified','contaminated','infected'] as $filterStatus): ?><option value="<?=h($filterStatus)?>"><?=h($statusLabels[$filterStatus])?></option><?php endforeach;?></select></div><div class="site-health__table-wrap"><table class="site-health__table"><thead><tr><th><?=_e('Extension')?></th><th><?=_e('Status')?></th><th><?=_e('Reason')?></th></tr></thead><tbody>
         <?php foreach ($extensionItems as $extension): $extensionStatus=(string)($extension['status']??'unverified'); $extensionReason=(string)($extension['reason']??''); $extensionVersion=(string)($extension['version']??''); if($extensionVersion==='')$extensionVersion=__('Unknown version'); ?>
-          <tr><td><div class="site-health__ext-name"><?=h((string)($extension['name']??$extension['folder']??''))?></div><div class="site-health__ext-meta"><?=h(ucfirst((string)($extension['type']??'')))?> · <?=h($extensionVersion)?> · <?=h(sprintf(__('%d files inventoried'), (int)($extension['files_scanned']??0)))?></div></td><td><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></td><td><?=h($extensionReasonLabels[$extensionReason]??__('The extension requires manual review.'))?></td></tr>
-        <?php endforeach;?></tbody></table></div>
+          <tr data-health-row data-status="<?=h($extensionStatus)?>"><td><div class="site-health__ext-name"><?=h((string)($extension['name']??$extension['folder']??''))?></div><div class="site-health__ext-meta"><?=h(ucfirst((string)($extension['type']??'')))?> · <?=h($extensionVersion)?> · <?=h(sprintf(__('%d files inventoried'), (int)($extension['files_scanned']??0)))?></div></td><td><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></td><td><?=h($extensionReasonLabels[$extensionReason]??__('The extension requires manual review.'))?></td></tr>
+        <?php endforeach;?></tbody></table></div><div class="site-health__empty" data-health-empty hidden><?=_e('No results match these filters.')?></div><div class="site-health__list-foot"><span data-health-summary></span><div class="site-health__pager"><button type="button" data-health-prev><?=_e('Previous')?></button><button type="button" data-health-next><?=_e('Next')?></button></div></div></div>
         <?php elseif (is_array($extensions) && ($extensions['complete']??false)===true): ?><div class="site-health__empty"><?=_e('No non-Core plugins or themes were found.')?></div>
         <?php elseif (is_array($extensions)): ?><div class="site-health__empty"><?=_e('The plugin and theme inventory could not be completed.')?></div>
         <?php else: ?><div class="site-health__empty"><?=_e('Run a full scan to inventory plugins and themes.')?></div><?php endif;?>
-      </article>
+        </div>
+      </details>
 
-      <article class="site-health__panel site-health__section-gap">
-        <div class="site-health__panel-head"><div><h2><?=_e('Media and File Safety')?></h2><?php if (is_array($content)): ?><div class="site-health__meta"><?=h(sprintf(__('%d site-owned files inspected'), (int)($content['files_scanned']??0)))?></div><?php endif;?></div><?php if (is_array($content)): $contentStatus=(string)($content['status']??'unverified'); ?><span class="site-health__badge site-health__badge--<?=h($contentStatus)?>"><?=h($statusLabels[$contentStatus]??$statusLabels['unverified'])?></span><?php endif;?></div>
-        <?php if ($contentFindings !== []): ?><div class="site-health__table-wrap"><table class="site-health__table"><thead><tr><th><?=_e('File')?></th><th><?=_e('Status')?></th><th><?=_e('Reason')?></th></tr></thead><tbody>
+      <details class="site-health__panel site-health__panel--accent site-health__status-color--<?=h($contentStatus)?> site-health__section-gap site-health__disclosure" id="content-safety" open>
+        <summary class="site-health__panel-head"><div class="site-health__section-title"><span class="site-health__section-icon" aria-hidden="true"><?=svg_ico('image')?></span><div><h2><?=_e('Media and File Safety')?></h2><?php if (is_array($content)): ?><div class="site-health__meta"><?=h(sprintf(__('%d site-owned files inspected'), (int)($content['files_scanned']??0)))?></div><?php endif;?></div></div><span class="site-health__disclosure-state"><?php if (is_array($content)): ?><span class="site-health__badge site-health__badge--<?=h($contentStatus)?>"><?=h($statusLabels[$contentStatus]??$statusLabels['unverified'])?></span><?php endif;?><span class="site-health__disclosure-chevron" aria-hidden="true"><?=svg_ico('chevron-down')?></span></span></summary>
+        <div class="site-health__disclosure-body">
+        <?php if ($contentFindings !== []): ?><div data-health-list data-page-size="15" data-summary="<?=h(__('Showing %d-%d of %d results'))?>"><div class="site-health__list-tools"><input type="search" data-health-search placeholder="<?=h(__('Search results…'))?>" aria-label="<?=h(__('Search results…'))?>"><select data-health-status aria-label="<?=h(__('Filter by status'))?>"><option value=""><?=_e('All statuses')?></option><?php foreach (['unverified','modified','contaminated','infected'] as $filterStatus): ?><option value="<?=h($filterStatus)?>"><?=h($statusLabels[$filterStatus])?></option><?php endforeach;?></select></div><div class="site-health__table-wrap"><table class="site-health__table"><thead><tr><th><?=_e('File')?></th><th><?=_e('Status')?></th><th><?=_e('Reason')?></th></tr></thead><tbody>
         <?php foreach ($contentFindings as $finding): $findingStatus=(string)($finding['status']??'unverified'); $reason=(string)($finding['reason']??''); ?>
-          <tr><td class="site-health__path"><?=h((string)($finding['path']??''))?></td><td><span class="site-health__badge site-health__badge--<?=h($findingStatus)?>"><?=h($statusLabels[$findingStatus]??$statusLabels['unverified'])?></span></td><td><?=h($reasonLabels[$reason]??__('The file requires manual review.'))?></td></tr>
-        <?php endforeach;?></tbody></table></div>
+          <tr data-health-row data-status="<?=h($findingStatus)?>"><td class="site-health__path"><?=h((string)($finding['path']??''))?></td><td><span class="site-health__badge site-health__badge--<?=h($findingStatus)?>"><?=h($statusLabels[$findingStatus]??$statusLabels['unverified'])?></span></td><td><?=h($reasonLabels[$reason]??__('The file requires manual review.'))?></td></tr>
+        <?php endforeach;?></tbody></table></div><div class="site-health__empty" data-health-empty hidden><?=_e('No results match these filters.')?></div><div class="site-health__list-foot"><span data-health-summary></span><div class="site-health__pager"><button type="button" data-health-prev><?=_e('Previous')?></button><button type="button" data-health-next><?=_e('Next')?></button></div></div></div>
         <?php elseif (is_array($content) && ($content['complete']??false)===true): ?><div class="site-health__empty"><?=_e('No suspicious media or file artifacts were detected by the enabled safety rules.')?></div>
         <?php elseif (is_array($content)): ?><div class="site-health__empty"><?=_e('The media and file safety scan could not be completed.')?></div>
         <?php else: ?><div class="site-health__empty"><?=_e('Run a full scan to inspect site-owned media and files.')?></div><?php endif;?>
-      </article>
+        </div>
+      </details>
     </div>
 
     <aside style="display:grid;gap:16px">
+      <?php if ($coreDistribution !== []): $defaultDistribution = $coreDistribution['clean']; ?>
+      <article class="site-health__panel">
+        <div class="site-health__panel-head"><h2><?=_e('Core file status')?></h2></div>
+        <div class="site-health__status-chart" data-health-chart data-default-label="<?=h($statusLabels['clean'])?>" data-default-percent="<?=h($defaultDistribution['display'])?>">
+          <svg viewBox="0 0 120 120" role="img" aria-label="<?=h(__('Core file status'))?>">
+            <circle class="site-health__chart-track" cx="60" cy="60" r="47"></circle>
+            <?php foreach ($coreDistribution as $distributionStatus => $distribution): if ($distribution['percentage'] <= 0) continue; $distributionLabel = $statusLabels[$distributionStatus]; ?>
+              <circle class="site-health__chart-segment site-health__chart-segment--<?=h($distributionStatus)?>" cx="60" cy="60" r="47" pathLength="100" transform="rotate(-90 60 60)" tabindex="0" style="--segment-size:<?=h(number_format($distribution['percentage'], 4, '.', ''))?>;--segment-offset:<?=h(number_format($distribution['offset'], 4, '.', ''))?>" data-chart-status="<?=h($distributionStatus)?>" data-chart-label="<?=h($distributionLabel)?>" data-chart-percent="<?=h($distribution['display'])?>"><title><?=h(sprintf('%s: %s%%', $distributionLabel, $distribution['display']))?></title></circle>
+            <?php endforeach;?>
+          </svg>
+          <div class="site-health__chart-center" aria-live="polite"><strong data-chart-percent><?=$defaultDistribution['display']?>%</strong><span data-chart-label><?=h($statusLabels['clean'])?></span></div>
+        </div>
+        <div class="site-health__chart-legend">
+          <?php foreach ($coreDistribution as $distributionStatus => $distribution): $distributionLabel = $statusLabels[$distributionStatus]; ?>
+            <button class="site-health__chart-key" type="button" data-chart-status="<?=h($distributionStatus)?>" data-chart-label="<?=h($distributionLabel)?>" data-chart-percent="<?=h($distribution['display'])?>"><span class="site-health__chart-dot site-health__chart-dot--<?=h($distributionStatus)?>" aria-hidden="true"></span><span><?=h($distributionLabel)?></span><b><?=$distribution['display']?>%</b></button>
+          <?php endforeach;?>
+        </div>
+      </article>
+      <?php endif;?>
       <article class="site-health__panel"><div class="site-health__panel-head"><h2><?=_e('Scan Coverage')?></h2></div><div class="site-health__scope">
         <div class="site-health__scope-row"><div><b><?=_e('Core files')?></b><small><?=_e('Release hashes and unexpected files')?></small></div><span class="site-health__badge site-health__badge--<?=h($coreStatus)?>"><?=h($statusLabels[$coreStatus]??$statusLabels['unverified'])?></span></div>
-        <?php $extensionStatus=is_array($extensions)?(string)($extensions['status']??'unverified'):'unverified'; ?><div class="site-health__scope-row"><div><b><?=_e('Plugins and themes')?></b><small><?=_e('Inventory and filesystem safety')?></small></div><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></div>
-        <?php $contentStatus=is_array($content)?(string)($content['status']??'unverified'):'unverified'; ?><div class="site-health__scope-row"><div><b><?=_e('Media and files')?></b><small><?=_e('Executable and MIME safety rules')?></small></div><span class="site-health__badge site-health__badge--<?=h($contentStatus)?>"><?=h($statusLabels[$contentStatus]??$statusLabels['unverified'])?></span></div>
+        <div class="site-health__scope-row"><div><b><?=_e('Plugins and themes')?></b><small><?=_e('Inventory and filesystem safety')?></small></div><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></div>
+        <div class="site-health__scope-row"><div><b><?=_e('Media and files')?></b><small><?=_e('Executable and MIME safety rules')?></small></div><span class="site-health__badge site-health__badge--<?=h($contentStatus)?>"><?=h($statusLabels[$contentStatus]??$statusLabels['unverified'])?></span></div>
       </div></article>
       <article class="site-health__panel"><div class="site-health__panel-head"><h2><?=_e('Status Guide')?></h2></div><div class="site-health__legend">
         <div class="site-health__legend-row"><span class="site-health__badge site-health__badge--clean"><?=_e('Clean')?></span><span><?=_e('Matches a trusted manifest.')?></span></div>
@@ -207,3 +258,61 @@ $disclaimer = __('Site Health reports the state observed during the most recent 
   </div>
 </section>
 <?=adiwira_bootstrap_toasts_script($toasts)?>
+<script>
+document.querySelectorAll('[data-health-list]').forEach(function(list){
+  var rows=Array.prototype.slice.call(list.querySelectorAll('[data-health-row]'));
+  var search=list.querySelector('[data-health-search]');
+  var status=list.querySelector('[data-health-status]');
+  var summary=list.querySelector('[data-health-summary]');
+  var empty=list.querySelector('[data-health-empty]');
+  var previous=list.querySelector('[data-health-prev]');
+  var next=list.querySelector('[data-health-next]');
+  var page=1;
+  var size=parseInt(list.dataset.pageSize,10)||15;
+  var render=function(){
+    var query=search.value.trim().toLocaleLowerCase();
+    var filtered=rows.filter(function(row){return(!status.value||row.dataset.status===status.value)&&(!query||row.textContent.toLocaleLowerCase().indexOf(query)!==-1);});
+    var pages=Math.max(1,Math.ceil(filtered.length/size));
+    page=Math.min(page,pages);
+    var start=(page-1)*size;
+    var end=Math.min(start+size,filtered.length);
+    rows.forEach(function(row){row.hidden=true;});
+    filtered.slice(start,end).forEach(function(row){row.hidden=false;});
+    empty.hidden=filtered.length!==0;
+    summary.textContent=list.dataset.summary.replace('%d',filtered.length?start+1:0).replace('%d',end).replace('%d',filtered.length);
+    previous.disabled=page<=1;
+    next.disabled=page>=pages;
+  };
+  search.addEventListener('input',function(){page=1;render();});
+  status.addEventListener('change',function(){page=1;render();});
+  previous.addEventListener('click',function(){if(page>1){page--;render();}});
+  next.addEventListener('click',function(){page++;render();});
+  list.healthFilterStatus=function(value){status.value=value;page=1;render();};
+  render();
+});
+document.querySelectorAll('[data-health-chart]').forEach(function(chart){
+  var percent=chart.querySelector('[data-chart-percent]:not([data-chart-label])');
+  var label=chart.querySelector('.site-health__chart-center [data-chart-label]');
+  var show=function(item){percent.textContent=item.dataset.chartPercent+'%';label.textContent=item.dataset.chartLabel;};
+  var reset=function(){percent.textContent=chart.dataset.defaultPercent+'%';label.textContent=chart.dataset.defaultLabel;};
+  chart.querySelectorAll('[data-chart-label][data-chart-percent]').forEach(function(item){
+    item.addEventListener('mouseenter',function(){show(item);});
+    item.addEventListener('mouseleave',reset);
+    item.addEventListener('focus',function(){show(item);});
+    item.addEventListener('blur',reset);
+    item.addEventListener('click',function(){
+      show(item);
+      if(item.dataset.chartStatus==='clean')return;
+      var findings=document.getElementById('core-findings');
+      var list=findings?findings.querySelector('[data-health-list]'):null;
+      if(findings&&findings.tagName==='DETAILS')findings.open=true;
+      if(list&&typeof list.healthFilterStatus==='function')list.healthFilterStatus(item.dataset.chartStatus);
+      if(findings)findings.scrollIntoView({behavior:'smooth',block:'start'});
+    });
+  });
+  requestAnimationFrame(function(){requestAnimationFrame(function(){chart.classList.add('is-ready');});});
+});
+document.querySelectorAll('.site-health__signal[href^="#"]').forEach(function(link){
+  link.addEventListener('click',function(){var target=document.querySelector(link.getAttribute('href'));if(target&&target.tagName==='DETAILS')target.open=true;});
+});
+</script>

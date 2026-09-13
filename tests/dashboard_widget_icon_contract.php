@@ -7,6 +7,7 @@ $expected = [
     'CMS Info' => 'braces',
     'Quick Stats' => 'chart-bar',
     'System Info' => 'server',
+    'Site Health' => 'shield-check',
 ];
 
 $failures = [];

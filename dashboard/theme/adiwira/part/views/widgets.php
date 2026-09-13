@@ -104,6 +104,60 @@ function dash_widget_update_status(PDO $pdo): string
 </div>';
 }
 
+function dash_widget_site_health(PDO $pdo): string
+{
+    $actor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
+    if ($actor === null || $actor['is_site_owner'] !== true
+        || !function_exists('current_user_can') || !current_user_can($pdo, 'core.settings.manage')) return '';
+
+    $labels = [
+        'clean' => __('Clean'),
+        'unverified' => __('Unverified'),
+        'modified' => __('Modified'),
+        'contaminated' => __('Contaminated'),
+        'infected' => __('Infected'),
+        'scanned' => __('Scanned'),
+    ];
+    $report = function_exists('site_health_read_report') ? site_health_read_report() : null;
+    $status = is_array($report) ? (string)($report['status'] ?? 'unverified') : 'unverified';
+    if (!isset($labels[$status]) || $status === 'scanned') $status = 'unverified';
+    $completedAt = is_array($report) ? (int)($report['completed_at'] ?? 0) : 0;
+    $scanTime = $completedAt > 0
+        ? format_date_ddmmyyyy_time_bracket(date('Y-m-d H:i:s', $completedAt))
+        : __('Never scanned');
+    $components = is_array($report['components'] ?? null) ? $report['components'] : [];
+    $componentRows = [
+        [__('Core files'), 'core', 'unverified'],
+        [__('Plugins and themes'), 'extensions', 'unverified'],
+        [__('Media and files'), 'content', 'unverified'],
+    ];
+    $componentHtml = '';
+    foreach ($componentRows as [$label, $key, $fallback]) {
+        $component = is_array($components[$key] ?? null) ? $components[$key] : [];
+        $componentStatus = (string)($component['status'] ?? $fallback);
+        if (!isset($labels[$componentStatus])) $componentStatus = $fallback;
+        $componentHtml .= '<div class="dw-health-component"><span>' . h($label) . '</span><strong class="dw-health-text--' . h($componentStatus) . '">' . h($labels[$componentStatus]) . '</strong></div>';
+    }
+    $url = ADMIN_BASE_PATH . '/?page=admin/settings/health';
+
+    return '
+<div class="dw-card dw-health-card dw-health-card--' . h($status) . '">
+  <div class="dw-card-head">
+    <span class="dw-card-icon">' . svg_ico('shield-check') . '</span>
+    <span class="dw-card-title">' . __('Site Health') . '</span>
+    <span class="dw-health-badge dw-health-text--' . h($status) . '">' . h($labels[$status]) . '</span>
+  </div>
+  <div class="dw-card-body">
+    <div class="dw-health-overview">
+      <span class="dw-health-orb" aria-hidden="true">' . svg_ico('shield-check') . '</span>
+      <div><small>' . __('Observed state') . '</small><strong class="dw-health-text--' . h($status) . '">' . h($labels[$status]) . '</strong><span>' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</span></div>
+    </div>
+    <div class="dw-health-components">' . $componentHtml . '</div>
+    <a class="dw-health-action" href="' . h($url) . '"><span>' . __('View Site Health') . '</span>' . svg_ico('chevron-right') . '</a>
+  </div>
+</div>';
+}
+
 function dash_widget_quick_stats(PDO $pdo): string
 {
     $uid = (int)($_SESSION['user_id'] ?? 0);

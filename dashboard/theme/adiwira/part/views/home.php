@@ -28,13 +28,17 @@ if ($homeActor !== null && $homeActor['is_site_owner'] === true
     && function_exists('current_user_can') && current_user_can($pdo, 'core.updates.manage')) {
     $widgets['update_status'] = ['title' => __('Update Status'), 'render' => 'dash_widget_update_status'];
 }
+if ($homeActor !== null && $homeActor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
+    $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health'];
+}
 $widgets = apply_filters('dashboard_widgets', $widgets);
 
 $layoutJson = settings_get($pdo, 'dashboard_widget_layout', '');
 $order = $layoutJson ? json_decode($layoutJson, true) : null;
 
 if (!$order || !is_array($order)) {
-    $order = ['cms_info:l', 'quick_stats:r', 'system_info:l', 'update_status:r', 'recent_posts:l'];
+    $order = ['cms_info:l', 'quick_stats:r', 'system_info:l', 'update_status:r', 'recent_posts:l', 'site_health:r'];
 }
 // backward compat: old format [{"w":"cms_info","col":1},...] → new format ["cms_info:l",...]
 if ($order && isset($order[0]['w'])) {

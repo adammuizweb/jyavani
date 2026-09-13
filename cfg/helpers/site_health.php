@@ -185,6 +185,7 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
                 }
                 $folder = $entry->getBasename();
                 if ($folder === '' || strlen($folder) > 255 || in_array($folder, $group['skip'], true)) continue;
+                if ($group['type'] === 'plugin' && str_starts_with($folder, '.')) continue;
                 $logical = ($group['type'] === 'plugin' ? 'plugins/' : 'public/views/themes/') . $folder;
                 clearstatcache(true, $entry->getPathname());
                 $entryStat = @lstat($entry->getPathname());

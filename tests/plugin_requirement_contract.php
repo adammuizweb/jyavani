@@ -75,8 +75,18 @@ $pluginDir = $fixture . '/contract-plugin';
 mkdir($pluginDir, 0775, true);
 file_put_contents($pluginDir . '/asset.js', 'fresh asset');
 $destination = PUBLIC_PATH . '/static/plugins/contract-plugin/asset.js';
-$result = plugin_static_copy($pluginDir, [['from' => 'asset.js', 'to' => 'static/plugins/contract-plugin/asset.js']]);
+$previousUmask = umask(0022);
+try {
+    $result = plugin_static_copy($pluginDir, [['from' => 'asset.js', 'to' => 'static/plugins/contract-plugin/asset.js']]);
+} finally {
+    umask($previousUmask);
+}
 $check($result['failed'] === 0 && file_get_contents($destination) === 'fresh asset', 'declared static copies publish the complete source');
+$staticDirectoryMode = fileperms(dirname($destination));
+$staticFileMode = fileperms($destination);
+$check(is_int($staticDirectoryMode) && ($staticDirectoryMode & 0020) !== 0
+    && is_int($staticFileMode) && ($staticFileMode & 0020) !== 0,
+    'static publication establishes shared-group writable permissions under a restrictive umask');
 file_put_contents($destination, 'retained asset');
 $failed = plugin_static_copy($pluginDir, [
     ['from' => 'asset.js', 'to' => 'static/plugins/contract-plugin/asset.js'],

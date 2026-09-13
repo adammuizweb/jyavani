@@ -5494,6 +5494,80 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 .dw-link:hover{
   text-decoration:underline;
 }
+.dw-health-card{
+  --dw-health:#64748b;
+  position:relative;
+  overflow:hidden;
+  padding:0;
+}
+.dw-health-card::after{
+  content:"";
+  position:absolute;
+  right:-52px;
+  top:52px;
+  width:150px;
+  height:150px;
+  border:1px solid color-mix(in srgb,var(--dw-health) 18%,transparent);
+  border-radius:50%;
+  pointer-events:none;
+}
+.dw-health-card--clean{--dw-health:#16a34a}
+.dw-health-card--unverified{--dw-health:#64748b}
+.dw-health-card--modified{--dw-health:#d97706}
+.dw-health-card--contaminated{--dw-health:#ea580c}
+.dw-health-card--infected{--dw-health:#dc2626}
+.dw-health-card .dw-card-head{
+  border-top:3px solid var(--dw-health);
+}
+.dw-health-card .dw-card-body{
+  position:relative;
+  z-index:1;
+  padding:1rem 1.15rem 1.1rem;
+}
+.dw-health-badge{
+  padding:.2rem .5rem;
+  border:1px solid currentColor;
+  border-radius:999px;
+  font-size:.65rem;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+.dw-health-overview{
+  display:flex;
+  align-items:center;
+  gap:.8rem;
+  padding:.8rem;
+  border:1px solid color-mix(in srgb,var(--dw-health) 20%,var(--adam-border));
+  border-radius:12px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--dw-health) 9%,var(--adam-card)),var(--adam-card));
+}
+.dw-health-orb{
+  display:grid;
+  place-items:center;
+  width:46px;
+  height:46px;
+  flex:0 0 46px;
+  border-radius:14px;
+  background:color-mix(in srgb,var(--dw-health) 14%,transparent);
+  color:var(--dw-health);
+}
+.dw-health-orb svg{width:23px;height:23px}
+.dw-health-overview small,.dw-health-overview span{display:block;color:var(--adam-muted);font-size:.7rem}
+.dw-health-overview strong{display:block;margin:.12rem 0;font-size:1.02rem}
+.dw-health-components{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;margin-top:.65rem}
+.dw-health-component{min-width:0;padding:.55rem .5rem;border-radius:9px;background:var(--adam-surface-3);text-align:center}
+.dw-health-component span,.dw-health-component strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-health-component span{color:var(--adam-muted);font-size:.62rem}
+.dw-health-component strong{margin-top:.15rem;font-size:.68rem}
+.dw-health-text--clean{color:#15803d}
+.dw-health-text--unverified,.dw-health-text--scanned{color:#64748b}
+.dw-health-text--modified{color:#b45309}
+.dw-health-text--contaminated{color:#c2410c}
+.dw-health-text--infected{color:#b91c1c}
+.dw-health-action{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;padding:.6rem .7rem;border-radius:9px;background:var(--adam-surface-2);color:var(--adam-link);font-size:.76rem;font-weight:750;text-decoration:none;transition:background .15s,color .15s}
+.dw-health-action:hover{background:color-mix(in srgb,var(--dw-health) 9%,var(--adam-surface-2));color:var(--dw-health)}
+.dw-health-action svg{width:15px;height:15px}
 .dw-stats{
   display:grid;
   grid-template-columns:repeat(4,1fr);

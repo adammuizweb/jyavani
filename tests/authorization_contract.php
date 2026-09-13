@@ -445,6 +445,9 @@ $check(
 $check(
     str_contains($dashboardHome, "core.dashboard.stats.read")
     && str_contains($dashboardWidgets, "core.dashboard.stats.read")
+    && str_contains($dashboardHome, "\$widgets['site_health']")
+    && str_contains($dashboardHome, "current_user_can(\$pdo, 'core.settings.manage')")
+    && str_contains($dashboardWidgets, "current_user_can(\$pdo, 'core.settings.manage')")
     && str_contains($dashboardLayoutSave, "core.dashboard.layout.manage")
     && str_contains($dashboardHeader, '$canCheckUpdates')
     && str_contains($roleManager, "'core.dashboard.stats.read'")
