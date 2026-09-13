@@ -5533,28 +5533,13 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   letter-spacing:.04em;
   text-transform:uppercase;
 }
-.dw-health-overview{
-  display:flex;
-  align-items:center;
-  gap:.8rem;
-  padding:.8rem;
-  border:1px solid color-mix(in srgb,var(--dw-health) 20%,var(--adam-border));
-  border-radius:12px;
-  background:linear-gradient(135deg,color-mix(in srgb,var(--dw-health) 9%,var(--adam-card)),var(--adam-card));
-}
-.dw-health-orb{
-  display:grid;
-  place-items:center;
-  width:46px;
-  height:46px;
-  flex:0 0 46px;
-  border-radius:14px;
-  background:color-mix(in srgb,var(--dw-health) 14%,transparent);
-  color:var(--dw-health);
-}
-.dw-health-orb svg{width:23px;height:23px}
-.dw-health-overview small,.dw-health-overview span{display:block;color:var(--adam-muted);font-size:.7rem}
-.dw-health-overview strong{display:block;margin:.12rem 0;font-size:1.02rem}
+.dw-health-metrics{display:grid;grid-template-columns:1.35fr 1fr;gap:.55rem}
+.dw-health-score,.dw-health-finding-count{padding:.75rem;border:1px solid var(--adam-border);border-radius:11px;background:var(--adam-surface-3)}
+.dw-health-score strong,.dw-health-finding-count strong{display:block;font-size:1.55rem;line-height:1.05}.dw-health-score strong{color:#16a34a}.dw-health-finding-count strong{color:var(--dw-health)}
+.dw-health-score span,.dw-health-finding-count span{display:block;margin-top:.25rem;color:var(--adam-muted);font-size:.68rem;font-weight:650}
+.dw-health-progress{height:6px;margin-top:.65rem;overflow:hidden;border-radius:999px;background:var(--adam-surface-3)}
+.dw-health-progress span{display:block;height:100%;border-radius:inherit;background:#16a34a}
+.dw-health-scan-time{margin-top:.45rem;color:var(--adam-muted);font-size:.68rem}
 .dw-health-components{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;margin-top:.65rem}
 .dw-health-component{min-width:0;padding:.55rem .5rem;border-radius:9px;background:var(--adam-surface-3);text-align:center}
 .dw-health-component span,.dw-health-component strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -5565,6 +5550,7 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 .dw-health-text--modified{color:#b45309}
 .dw-health-text--contaminated{color:#c2410c}
 .dw-health-text--infected{color:#b91c1c}
+html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-text--unverified,html.theme-dark .dw-health-text--scanned{color:#cbd5e1}html.theme-dark .dw-health-text--modified{color:#fbbf24}html.theme-dark .dw-health-text--contaminated{color:#fb923c}html.theme-dark .dw-health-text--infected{color:#f87171}
 .dw-health-action{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;padding:.6rem .7rem;border-radius:9px;background:var(--adam-surface-2);color:var(--adam-link);font-size:.76rem;font-weight:750;text-decoration:none;transition:background .15s,color .15s}
 .dw-health-action:hover{background:color-mix(in srgb,var(--dw-health) 9%,var(--adam-surface-2));color:var(--dw-health)}
 .dw-health-action svg{width:15px;height:15px}

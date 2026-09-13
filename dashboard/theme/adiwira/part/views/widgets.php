@@ -126,6 +126,20 @@ function dash_widget_site_health(PDO $pdo): string
         ? format_date_ddmmyyyy_time_bracket(date('Y-m-d H:i:s', $completedAt))
         : __('Never scanned');
     $components = is_array($report['components'] ?? null) ? $report['components'] : [];
+    $core = is_array($components['core'] ?? null) ? $components['core'] : [];
+    $coreSummary = is_array($core['summary'] ?? null) ? $core['summary'] : [];
+    $expected = max(0, (int)($coreSummary['expected'] ?? 0));
+    $observed = 0;
+    foreach (['clean', 'unverified', 'modified', 'contaminated', 'infected'] as $summaryStatus) {
+        $observed += max(0, (int)($coreSummary[$summaryStatus] ?? 0));
+    }
+    $scoreTotal = max($expected, $observed);
+    $cleanPercentage = $scoreTotal > 0 ? min(100, max(0, ((int)($coreSummary['clean'] ?? 0) / $scoreTotal) * 100)) : null;
+    $cleanDisplay = $cleanPercentage === null ? '—' : number_format($cleanPercentage, $cleanPercentage === floor($cleanPercentage) ? 0 : 1) . '%';
+    $findingCount = array_sum(array_map(
+        static fn(string $findingStatus): int => max(0, (int)($coreSummary[$findingStatus] ?? 0)),
+        ['unverified', 'modified', 'contaminated', 'infected']
+    ));
     $componentRows = [
         [__('Core files'), 'core', 'unverified'],
         [__('Plugins and themes'), 'extensions', 'unverified'],
@@ -148,10 +162,12 @@ function dash_widget_site_health(PDO $pdo): string
     <span class="dw-health-badge dw-health-text--' . h($status) . '">' . h($labels[$status]) . '</span>
   </div>
   <div class="dw-card-body">
-    <div class="dw-health-overview">
-      <span class="dw-health-orb" aria-hidden="true">' . svg_ico('shield-check') . '</span>
-      <div><small>' . __('Observed state') . '</small><strong class="dw-health-text--' . h($status) . '">' . h($labels[$status]) . '</strong><span>' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</span></div>
+    <div class="dw-health-metrics">
+      <div class="dw-health-score"><strong>' . h($cleanDisplay) . '</strong><span>' . __('Core files') . '</span></div>
+      <div class="dw-health-finding-count"><strong>' . number_format($findingCount) . '</strong><span>' . __('Core Findings') . '</span></div>
     </div>
+    <div class="dw-health-progress" aria-hidden="true"><span style="width:' . h($cleanPercentage === null ? '0' : number_format($cleanPercentage, 4, '.', '')) . '%"></span></div>
+    <div class="dw-health-scan-time">' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</div>
     <div class="dw-health-components">' . $componentHtml . '</div>
     <a class="dw-health-action" href="' . h($url) . '"><span>' . __('View Site Health') . '</span>' . svg_ico('chevron-right') . '</a>
   </div>

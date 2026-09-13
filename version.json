@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.117",
+    "version": "2.3.118",
     "build": "2026-09-13",
-    "changelog": "Add bounded Site Health scans for Core integrity, extension inventory, and media or file safety with a clean-file percentage indicator.",
+    "changelog": "Improve Site Health dark-mode clarity, disclosure controls, scan metadata, and the persisted Core integrity dashboard summary.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
