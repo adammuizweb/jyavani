@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.119",
-    "build": "2026-09-13",
-    "changelog": "Refresh favicon fallbacks, add Site Health demo guidance, align demo media metadata, and audit active installation, extension, and integrity documentation.",
+    "version": "2.3.120",
+    "build": "2026-09-14",
+    "changelog": "Replace the dashboard Site Health progress cards with a compact Core status percentage ring that keeps zero-value states visible.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

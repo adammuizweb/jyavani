@@ -5533,13 +5533,23 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   letter-spacing:.04em;
   text-transform:uppercase;
 }
-.dw-health-metrics{display:grid;grid-template-columns:1.35fr 1fr;gap:.55rem}
-.dw-health-score,.dw-health-finding-count{padding:.75rem;border:1px solid var(--adam-border);border-radius:11px;background:var(--adam-surface-3)}
-.dw-health-score strong,.dw-health-finding-count strong{display:block;font-size:1.55rem;line-height:1.05}.dw-health-score strong{color:#16a34a}.dw-health-finding-count strong{color:var(--dw-health)}
-.dw-health-score span,.dw-health-finding-count span{display:block;margin-top:.25rem;color:var(--adam-muted);font-size:.68rem;font-weight:650}
-.dw-health-progress{height:6px;margin-top:.65rem;overflow:hidden;border-radius:999px;background:var(--adam-surface-3)}
-.dw-health-progress span{display:block;height:100%;border-radius:inherit;background:#16a34a}
-.dw-health-scan-time{margin-top:.45rem;color:var(--adam-muted);font-size:.68rem}
+.dw-health-overview{display:grid;grid-template-columns:minmax(112px,.78fr) minmax(130px,1fr);align-items:center;gap:.75rem}
+.dw-health-chart{position:relative;width:132px;max-width:100%;margin:auto}
+.dw-health-chart svg{display:block;width:100%;height:auto;overflow:visible}
+.dw-health-chart-track,.dw-health-chart-segment{fill:none;stroke-width:12}
+.dw-health-chart-track{stroke:var(--adam-surface-3)}
+.dw-health-chart-segment{stroke-linecap:butt;stroke-dasharray:var(--segment-size) calc(100 - var(--segment-size));stroke-dashoffset:calc(var(--segment-offset) * -1)}
+.dw-health-chart-segment--clean{stroke:#16a34a}.dw-health-chart-segment--unverified{stroke:#94a3b8}.dw-health-chart-segment--modified{stroke:#f59e0b}.dw-health-chart-segment--contaminated{stroke:#f97316}.dw-health-chart-segment--infected{stroke:#dc2626}
+.dw-health-chart-center{position:absolute;inset:0;display:grid;place-content:center;text-align:center;pointer-events:none}
+.dw-health-chart-center strong{font-size:1.45rem;line-height:1;color:var(--adam-text)}
+.dw-health-chart-center span{margin-top:.28rem;color:var(--adam-muted);font-size:.62rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.dw-health-chart-legend{display:grid;gap:.12rem}
+.dw-health-chart-key{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:center;gap:.42rem;padding:.22rem .3rem;border-radius:6px;color:var(--adam-muted);font-size:.66rem}
+.dw-health-chart-key span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dw-health-chart-key strong{color:var(--adam-text);font-size:.68rem;font-variant-numeric:tabular-nums}
+.dw-health-chart-dot{width:7px;height:7px;border-radius:50%;background:#94a3b8}.dw-health-chart-dot--clean{background:#16a34a}.dw-health-chart-dot--modified{background:#f59e0b}.dw-health-chart-dot--contaminated{background:#f97316}.dw-health-chart-dot--infected{background:#dc2626}
+.dw-health-meta{display:flex;align-items:center;justify-content:space-between;gap:.65rem;margin-top:.55rem;color:var(--adam-muted);font-size:.68rem}
+.dw-health-meta strong{color:var(--dw-health);font-variant-numeric:tabular-nums}
 .dw-health-components{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;margin-top:.65rem}
 .dw-health-component{min-width:0;padding:.55rem .5rem;border-radius:9px;background:var(--adam-surface-3);text-align:center}
 .dw-health-component span,.dw-health-component strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -5554,6 +5564,7 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
 .dw-health-action{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;padding:.6rem .7rem;border-radius:9px;background:var(--adam-surface-2);color:var(--adam-link);font-size:.76rem;font-weight:750;text-decoration:none;transition:background .15s,color .15s}
 .dw-health-action:hover{background:color-mix(in srgb,var(--dw-health) 9%,var(--adam-surface-2));color:var(--dw-health)}
 .dw-health-action svg{width:15px;height:15px}
+@media(max-width:420px){.dw-health-overview{grid-template-columns:1fr}.dw-health-chart{width:144px}.dw-health-meta{align-items:flex-start;flex-direction:column;gap:.2rem}}
 .dw-stats{
   display:grid;
   grid-template-columns:repeat(4,1fr);

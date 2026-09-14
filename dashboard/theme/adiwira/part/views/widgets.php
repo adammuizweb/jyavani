@@ -134,8 +134,25 @@ function dash_widget_site_health(PDO $pdo): string
         $observed += max(0, (int)($coreSummary[$summaryStatus] ?? 0));
     }
     $scoreTotal = max($expected, $observed);
-    $cleanPercentage = $scoreTotal > 0 ? min(100, max(0, ((int)($coreSummary['clean'] ?? 0) / $scoreTotal) * 100)) : null;
-    $cleanDisplay = $cleanPercentage === null ? '—' : number_format($cleanPercentage, $cleanPercentage === floor($cleanPercentage) ? 0 : 1) . '%';
+    $distributionCounts = [];
+    foreach (['clean', 'unverified', 'modified', 'contaminated', 'infected'] as $summaryStatus) {
+        $distributionCounts[$summaryStatus] = max(0, (int)($coreSummary[$summaryStatus] ?? 0));
+    }
+    $distributionCounts['unverified'] += max(0, $expected - array_sum($distributionCounts));
+    $distributionOffset = 0.0;
+    $distributionHtml = '';
+    $legendHtml = '';
+    foreach ($distributionCounts as $distributionStatus => $distributionCount) {
+        $percentage = $scoreTotal > 0 ? min(100, max(0, ($distributionCount / $scoreTotal) * 100)) : 0.0;
+        $display = number_format($percentage, $percentage === floor($percentage) ? 0 : 1);
+        if ($percentage > 0) {
+            $distributionHtml .= '<circle class="dw-health-chart-segment dw-health-chart-segment--' . h($distributionStatus) . '" cx="60" cy="60" r="47" pathLength="100" transform="rotate(-90 60 60)" style="--segment-size:' . h(number_format($percentage, 4, '.', '')) . ';--segment-offset:' . h(number_format($distributionOffset, 4, '.', '')) . '"><title>' . h(sprintf('%s: %s%%', $labels[$distributionStatus], $display)) . '</title></circle>';
+        }
+        $legendHtml .= '<div class="dw-health-chart-key"><span class="dw-health-chart-dot dw-health-chart-dot--' . h($distributionStatus) . '" aria-hidden="true"></span><span>' . h($labels[$distributionStatus]) . '</span><strong>' . h($display) . '%</strong></div>';
+        $distributionOffset += $percentage;
+    }
+    $cleanPercentage = $scoreTotal > 0 ? min(100, max(0, ($distributionCounts['clean'] / $scoreTotal) * 100)) : 0.0;
+    $cleanDisplay = number_format($cleanPercentage, $cleanPercentage === floor($cleanPercentage) ? 0 : 1) . '%';
     $findingCount = array_sum(array_map(
         static fn(string $findingStatus): int => max(0, (int)($coreSummary[$findingStatus] ?? 0)),
         ['unverified', 'modified', 'contaminated', 'infected']
@@ -163,12 +180,16 @@ function dash_widget_site_health(PDO $pdo): string
     <span class="dw-health-badge dw-health-text--' . h($status) . '">' . h($labels[$status]) . '</span>
   </div>
   <div class="dw-card-body">
-    <div class="dw-health-metrics">
-      <div class="dw-health-score"><strong>' . h($cleanDisplay) . '</strong><span>' . __('Core files') . '</span></div>
-      <div class="dw-health-finding-count"><strong>' . number_format($findingCount) . '</strong><span>' . __('Core Findings') . '</span></div>
+    <div class="dw-health-overview">
+      <div class="dw-health-chart">
+        <svg viewBox="0 0 120 120" role="img" aria-label="' . h(__('Core file status')) . '">
+          <circle class="dw-health-chart-track" cx="60" cy="60" r="47"></circle>' . $distributionHtml . '
+        </svg>
+        <div class="dw-health-chart-center"><strong>' . h($cleanDisplay) . '</strong><span>' . h($labels['clean']) . '</span></div>
+      </div>
+      <div class="dw-health-chart-legend">' . $legendHtml . '</div>
     </div>
-    <div class="dw-health-progress" aria-hidden="true"><span style="width:' . h($cleanPercentage === null ? '0' : number_format($cleanPercentage, 4, '.', '')) . '%"></span></div>
-    <div class="dw-health-scan-time">' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</div>
+    <div class="dw-health-meta"><span>' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</span><span><strong>' . number_format($findingCount) . '</strong> ' . h(__('Core Findings')) . '</span></div>
     <div class="dw-health-components">' . $componentHtml . '</div>
     <a class="dw-health-action" href="' . h($url) . '"><span>' . h($actionLabel) . '</span>' . svg_ico('chevron-right') . '</a>
   </div>

@@ -171,9 +171,13 @@ try {
     $check(str_contains($dashboardWidgets, '$cleanPercentage')
         && str_contains($dashboardWidgets, '$findingCount')
         && str_contains($dashboardWidgets, '$completedAt > 0 ? __(\'View Site Health\') : __(\'Run full scan\')')
-        && str_contains($dashboardWidgets, 'dw-health-score')
-        && str_contains($dashboardStyles, '.dw-health-progress')
-        && !str_contains($dashboardWidgets, 'fetch('), 'dashboard widget presents persisted Core percentages and findings without automatic scan requests');
+        && str_contains($dashboardWidgets, '$scoreTotal > 0 ? min(100, max(0, ($distributionCount / $scoreTotal) * 100)) : 0.0')
+        && str_contains($dashboardWidgets, 'dw-health-chart-segment')
+        && str_contains($dashboardWidgets, 'dw-health-chart-legend')
+        && str_contains($dashboardStyles, '.dw-health-chart-track,.dw-health-chart-segment')
+        && str_contains($dashboardStyles, '.dw-health-chart-dot--clean')
+        && !str_contains($dashboardStyles, '.dw-health-progress')
+        && !str_contains($dashboardWidgets, 'fetch('), 'dashboard widget presents a complete persisted Core percentage ring including explicit zero values without automatic scan requests');
     foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Inventory and filesystem safety', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
         $check(substr_count($translations, "'" . str_replace("'", "''", $source) . "'") >= 2, 'full Site Health translation coverage: ' . $source);
     }
