@@ -11,6 +11,7 @@ if (realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 $isAdmin = ($role === 'admin');
+if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
 $proto   = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host    = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');

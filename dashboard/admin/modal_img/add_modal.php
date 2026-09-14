@@ -14,13 +14,15 @@ if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
     [$uid, $role] = adiwira_require_editorial($pdo, false);
 }
 
-$csrfToken = '';
-try {
-    if (function_exists('csrf_token')) {
-        $csrfToken = (string) csrf_token();
+$csrfToken = isset($csrfToken) && is_string($csrfToken) ? $csrfToken : '';
+if ($csrfToken === '') {
+    try {
+        if (function_exists('csrf_token')) {
+            $csrfToken = (string) csrf_token();
+        }
+    } catch (Throwable $e) {
+        $csrfToken = '';
     }
-} catch (Throwable $e) {
-    $csrfToken = '';
 }
 $mediaContext = isset($mediaContext) && is_array($mediaContext)
     ? media_extension_context($mediaContext)

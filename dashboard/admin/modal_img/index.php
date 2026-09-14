@@ -18,6 +18,7 @@ $mediaPickerId = media_picker_id_from_request($_GET);
 
 $csrfToken = '';
 try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } catch (Throwable $e) { $csrfToken = ''; }
+if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
 if (!$embedded):
 ?><!doctype html>

@@ -14,6 +14,10 @@ $files = [
     'file_single' => (string)file_get_contents($root . '/dashboard/admin/file/single.php'),
     'modal_media_single' => (string)file_get_contents($root . '/dashboard/admin/modal_img/single_modal.php'),
     'modal_file_single' => (string)file_get_contents($root . '/dashboard/admin/modal_file/single_modal.php'),
+    'media_index_modal' => (string)file_get_contents($root . '/dashboard/admin/modal_img/index.php'),
+    'media_selector' => (string)file_get_contents($root . '/public/static/js/add/media-selector.js'),
+    'file_selector' => (string)file_get_contents($root . '/public/static/js/add/file-selector.js'),
+    'modal_helpers' => (string)file_get_contents($root . '/public/static/js/add/modal-helpers.js'),
     'css' => (string)file_get_contents($root . '/public/static/dashboard/css/style.css'),
 ];
 $failures = [];
@@ -66,6 +70,14 @@ $check(str_contains($files['modal_file_single'], 'querySelector(\'select[name="a
 $check(str_contains($files['modal_file_single'], "__('Insert this file without saving its metadata changes?')")
     && str_contains($files['modal_file_single'], "__('Insert without saving')"), 'file modal explains that Insert does not persist dirty metadata');
 $check(str_contains($files['css'], '.asset-detail-card') && str_contains($files['css'], '.media-list-footer'), 'shared stylesheet defines detail and list pagination enhancements');
+$check(str_contains($files['modal_helpers'], 'opts.timeoutMs || 30000')
+    && str_contains($files['modal_helpers'], "dispatchEvent(new CustomEvent('adam-modal:error'")
+    && str_contains($files['media_selector'], 'onError: fail')
+    && str_contains($files['file_selector'], 'onError: fail'), 'modal picker fetches have a bounded timeout and reject callers on load failure');
+$check(str_contains($files['media_index_modal'], 'session_write_close()')
+    && str_contains($files['file_index'], 'session_write_close()')
+    && str_contains($files['image'], 'session_write_close()')
+    && str_contains($files['file'], 'session_write_close()'), 'read-only modal rendering releases the authenticated session lock before expensive queries');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " modal library contract check(s) failed.\n");

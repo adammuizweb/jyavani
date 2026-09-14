@@ -5,6 +5,7 @@ function cms_manifest_preserve_patterns(): array
 {
     return [
         '#^cfg/\.env$#',
+        '#^cfg/site-files\.json$#',
         '#^cfg/var/#',
         '#^cfg/session_debug\.log$#',
         '#^cfg/php-noteloc\.ini$#',
@@ -50,6 +51,45 @@ function cms_manifest_preserve_patterns(): array
         '#Thumbs\.db$#',
         '#^public/pdf/#',
     ];
+}
+
+function cms_manifest_site_files(string $projectRoot): array
+{
+    $path = rtrim($projectRoot, '/\\') . '/cfg/site-files.json';
+    clearstatcache(true, $path);
+    if (!file_exists($path) && !is_link($path)) return ['files' => [], 'reason' => null];
+    $raw = cms_manifest_read_bounded_regular_file($path, 4 * 1024 * 1024);
+    if (!is_string($raw)) return ['files' => [], 'reason' => 'site_manifest_unreadable'];
+    try {
+        $manifest = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+    } catch (JsonException $error) {
+        return ['files' => [], 'reason' => 'site_manifest_invalid'];
+    }
+    if (!is_array($manifest) || array_is_list($manifest) || ($manifest['schema'] ?? null) !== 1
+        || !is_array($manifest['files'] ?? null) || array_is_list($manifest['files'])
+        || count($manifest['files']) > 100000) {
+        return ['files' => [], 'reason' => 'site_manifest_invalid'];
+    }
+    $files = [];
+    foreach ($manifest['files'] as $logical => $hash) {
+        if (!is_string($logical) || cms_manifest_safe_relative_path($logical) !== $logical
+            || !cms_manifest_site_file_allowed($logical) || cms_manifest_is_preserved($logical)
+            || !is_string($hash) || preg_match('/\A[a-f0-9]{64}\z/D', $hash) !== 1) {
+            return ['files' => [], 'reason' => 'site_manifest_invalid'];
+        }
+        $files[$logical] = $hash;
+    }
+    ksort($files, SORT_STRING);
+    return ['files' => $files, 'reason' => null];
+}
+
+function cms_manifest_site_file_allowed(string $path): bool
+{
+    if (str_starts_with($path, 'tools/')) return true;
+    if (!str_starts_with($path, 'public/')) return false;
+    $basename = strtolower(basename($path));
+    return !in_array($basename, ['.htaccess', '.user.ini', 'php.ini'], true)
+        && preg_match('/\.(?:php\d*|phtml|pht|phar|cgi|pl|py|sh)(?:\.|$)/i', $basename) !== 1;
 }
 
 function cms_manifest_is_preserved(string $path, ?array $patterns = null): bool

@@ -27,6 +27,7 @@ $mediaContext = isset($mediaContext) && is_array($mediaContext)
 $mediaPickerId = isset($mediaPickerId) ? $mediaPickerId : media_picker_id_from_request($_GET);
 $mediaContextQuery = media_picker_query($mediaContext, $mediaPickerId);
 $reviewMode = $mediaContext['selection_mode'] === 'review';
+if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
 $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');

@@ -200,7 +200,16 @@
 
     bd.__isClosed = false;
 
-    fetch(url, {
+    var timedOut = false;
+    var timeoutMs = Number(opts.timeoutMs || 30000);
+    if (!Number.isFinite(timeoutMs)) timeoutMs = 30000;
+    timeoutMs = Math.max(5000, Math.min(120000, timeoutMs));
+    var timeoutId = controller ? setTimeout(function(){
+      timedOut = true;
+      try { controller.abort(); } catch (e) {}
+    }, timeoutMs) : null;
+
+    bd.__loadPromise = fetch(url, {
       credentials: 'include',
       cache: 'no-store',
       signal: controller ? controller.signal : undefined
@@ -210,15 +219,22 @@
         return r.text();
       })
       .then(function(html){
+        if (timeoutId) clearTimeout(timeoutId);
         if (bd.__isClosed || !document.body.contains(bd)) return;
         return injectHtmlWithScriptsTo(content, html);
       })
       .catch(function(err){
-        if (err && err.name === 'AbortError') return;
+        if (timeoutId) clearTimeout(timeoutId);
+        if (err && err.name === 'AbortError' && !timedOut) return;
         if (bd.__isClosed || !document.body.contains(bd)) return;
 
+        var failure = timedOut ? new Error('Modal request timed out') : err;
         content.innerHTML = '<div style="color:#c00">Gagal memuat modal.</div>';
-        console.error(err);
+        if (typeof opts.onError === 'function') {
+          try { opts.onError(failure); } catch (callbackError) { console.error(callbackError); }
+        }
+        try { bd.dispatchEvent(new CustomEvent('adam-modal:error', { detail: failure })); } catch (eventError) {}
+        console.error(failure);
       });
 
     bd.addEventListener('click', function(ev){

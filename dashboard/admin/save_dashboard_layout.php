@@ -29,6 +29,7 @@ foreach ($decoded as $i => $item) {
 }
 
 $ok = settings_set($pdo, 'dashboard_widget_layout', json_encode($decoded), 1);
+if ($ok) settings_set($pdo, 'dashboard_widget_layout_version', '1', 1);
 session_write_close();
 
 if ($ok) {

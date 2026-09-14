@@ -84,12 +84,14 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     opts = opts || {};
     const url = opts.url || ADMIN_PATH + '/admin/modal_file/index.php?embedded=1';
 
-    return new Promise(function(resolve){
+    return new Promise(function(resolve, reject){
       let done = false;
+      let iv = null;
 
       function cleanup(){
         document.removeEventListener('file:insert', onInsert, true);
         window.removeEventListener('message', onMsg, true);
+        if (iv) clearInterval(iv);
       }
 
       function finish(payload){
@@ -98,6 +100,13 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         cleanup();
         try { if (typeof window.adamModalClose === 'function') window.adamModalClose(); } catch(e){}
         resolve(payload || null);
+      }
+
+      function fail(error){
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(error instanceof Error ? error : new Error('File selector failed'));
       }
 
       function onInsert(e){
@@ -116,14 +125,15 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       window.addEventListener('message', onMsg, true);
 
       try{
-        window.adamModalOpen(url, opts);
+        const modalOpts = Object.assign({}, opts, { onError: fail });
+        window.adamModalOpen(url, modalOpts);
       }catch(e){
         // fallback new tab (catatan: event tidak balik otomatis)
-        window.open(url, '_blank');
+        if (!window.open(url, '_blank')) fail(e);
       }
 
       // kalau modal ditutup manual, resolve null
-      const iv = setInterval(function(){
+      iv = setInterval(function(){
         const bd = document.getElementById('adam-modal-backdrop');
         if (!bd){
           clearInterval(iv);

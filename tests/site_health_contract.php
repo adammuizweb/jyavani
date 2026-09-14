@@ -162,6 +162,10 @@ try {
         && str_contains($dashboardHome, "'render' => 'dash_widget_site_health'")
         && str_contains($dashboardHome, "'site_health:r'")
         && str_contains($dashboardHome, "current_user_can(\$pdo, 'core.settings.manage')"), 'Site Health registers as a Site Owner settings widget in the Core dashboard layout');
+    $saveDashboardLayout = (string)file_get_contents($root . '/dashboard/admin/save_dashboard_layout.php');
+    $check(str_contains($dashboardHome, "dashboard_widget_layout_version")
+        && str_contains($dashboardHome, "\$order[] = 'site_health:r'")
+        && str_contains($saveDashboardLayout, "dashboard_widget_layout_version"), 'persisted pre-Site-Health layouts receive the widget once and retain later hide choices');
     $check(str_contains($dashboardWidgets, 'function dash_widget_site_health')
         && str_contains($dashboardWidgets, 'site_health_read_report()')
         && str_contains($dashboardWidgets, "ADMIN_BASE_PATH . '/?page=admin/settings/health'")

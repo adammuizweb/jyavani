@@ -10,13 +10,15 @@ if (realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
 
 [$uid, $role] = adiwira_require_editorial($pdo, false);
 
-$csrfToken = '';
-try {
-    if (function_exists('csrf_token')) {
-        $csrfToken = (string) csrf_token();
+$csrfToken = isset($csrfToken) && is_string($csrfToken) ? $csrfToken : '';
+if ($csrfToken === '') {
+    try {
+        if (function_exists('csrf_token')) {
+            $csrfToken = (string) csrf_token();
+        }
+    } catch (Throwable $e) {
+        $csrfToken = '';
     }
-} catch (Throwable $e) {
-    $csrfToken = '';
 }
 ?>
 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">

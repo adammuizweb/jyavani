@@ -70,6 +70,20 @@ try {
     $preserved = core_integrity_scan(['manifest' => $manifest, 'trusted' => true, 'source' => 'test', 'reason' => null], $fixture, $fixture . '/public');
     $check($preserved['status'] === 'clean' && $preserved['findings'] === [], 'plugin, Store theme, and dated upload ownership boundaries are preserved');
 
+    file_put_contents($fixture . '/public/site-owned.js', 'expected site asset');
+    file_put_contents($fixture . '/cfg/site-files.json', json_encode([
+        'schema' => 1,
+        'files' => ['public/site-owned.js' => hash_file('sha256', $fixture . '/public/site-owned.js')],
+    ], JSON_THROW_ON_ERROR));
+    $siteOwned = core_integrity_scan(['manifest' => $manifest, 'trusted' => true, 'source' => 'test', 'reason' => null], $fixture, $fixture . '/public');
+    $check($siteOwned['status'] === 'clean' && $siteOwned['findings'] === [], 'an exact hash-bound site file is outside Core ownership');
+    file_put_contents($fixture . '/public/site-owned.js', 'changed site asset');
+    $siteChanged = core_integrity_scan(['manifest' => $manifest, 'trusted' => true, 'source' => 'test', 'reason' => null], $fixture, $fixture . '/public');
+    $check($siteChanged['status'] === 'contaminated'
+        && in_array('site_file_hash_mismatch', array_column($siteChanged['findings'], 'reason'), true), 'a changed site-owned file remains visible as contamination');
+    unlink($fixture . '/public/site-owned.js');
+    unlink($fixture . '/cfg/site-files.json');
+
     file_put_contents($fixture . '/app/core.php', "<?php\nreturn false;\n");
     $modified = core_integrity_scan(['manifest' => $manifest, 'trusted' => true, 'source' => 'test', 'reason' => null], $fixture, $fixture . '/public');
     $check($modified['status'] === 'modified'
@@ -129,6 +143,15 @@ try {
         $remotePreservedRejected = true;
     }
     $check($remotePreservedRejected, 'new remote manifests cannot claim preserved site-owned paths');
+    file_put_contents($fixture . '/cfg/site-files.json', '{bad json');
+    $invalidSiteManifest = core_integrity_scan(['manifest' => $manifest, 'trusted' => true, 'source' => 'test', 'reason' => null], $fixture, $fixture . '/public');
+    $check($invalidSiteManifest['status'] === 'unverified'
+        && in_array('site_manifest_invalid', array_column($invalidSiteManifest['findings'], 'reason'), true), 'an invalid site ownership manifest fails closed');
+    unlink($fixture . '/cfg/site-files.json');
+    $check(!cms_manifest_site_file_allowed('app/backdoor.php')
+        && !cms_manifest_site_file_allowed('public/backdoor.php')
+        && cms_manifest_site_file_allowed('public/site.css')
+        && cms_manifest_site_file_allowed('tools/site-import.php'), 'site ownership cannot exempt Core runtime or public executable files');
     file_put_contents($fixture . '/app/large.php', str_repeat('x', 32));
     $check(core_integrity_hash_regular_file($fixture . '/app/large.php', 8)['status'] === 'too_large', 'descriptor size limits stop oversized Core files before hashing');
     $check(core_integrity_hash_regular_file($fixture . '/app/large.php', 64, microtime(true) - 1)['status'] === 'limit', 'chunked hashing enforces the wall-clock deadline');

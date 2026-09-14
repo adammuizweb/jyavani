@@ -45,6 +45,13 @@ if ($order && isset($order[0]['w'])) {
     $map = [1 => 'l', 2 => 'r'];
     $order = array_map(fn($o) => ($o['w'] ?? '?') . ':' . ($map[$o['col'] ?? 1] ?? 'l'), $order);
 }
+if ($layoutJson !== '' && (int)settings_get($pdo, 'dashboard_widget_layout_version', '0') < 1) {
+    $layoutKeys = array_map(static fn($item): string => explode(':', (string)$item, 2)[0], $order);
+    if (isset($widgets['site_health']) && !in_array('site_health', $layoutKeys, true)) $order[] = 'site_health:r';
+    if (settings_set($pdo, 'dashboard_widget_layout', json_encode($order), 1)) {
+        settings_set($pdo, 'dashboard_widget_layout_version', '1', 1);
+    }
+}
 
 function dash_parse_item(string $item): array
 {

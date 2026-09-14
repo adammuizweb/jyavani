@@ -40,10 +40,19 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     return new Promise(function(resolve, reject){
       let resolved = false;
       let openedWindow = null;
+      let iv = null;
 
       function cleanup() {
         document.removeEventListener('media:insert', onInsert);
         window.removeEventListener('message', onMessage);
+        if (iv) clearInterval(iv);
+      }
+
+      function fail(error) {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        reject(error instanceof Error ? error : new Error('Media selector failed'));
       }
 
       function onInsert(e) {
@@ -79,13 +88,15 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       window.addEventListener('message', onMessage);
 
       try {
-        window.adamModalOpen(url, opts);
+        const modalOpts = Object.assign({}, opts, { onError: fail });
+        window.adamModalOpen(url, modalOpts);
       } catch(e){
         openedWindow = window.open(url, '_blank');
-        console.warn('modal open fallback to new tab');
+        if (!openedWindow) fail(e);
+        else console.warn('modal open fallback to new tab');
       }
 
-      const iv = setInterval(function(){
+      iv = setInterval(function(){
         const closed = openedWindow
           ? openedWindow.closed
           : !document.getElementById('adam-modal-backdrop');

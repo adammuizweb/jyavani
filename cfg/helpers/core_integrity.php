@@ -143,8 +143,9 @@ function core_integrity_add_finding(array &$report, string $path, string $status
     $report['findings'][] = $finding;
 }
 
-function core_integrity_inventory_root(array &$report, string $physicalRoot, string $logicalPrefix, array $expected, ?float $deadline = null): void
+function core_integrity_inventory_root(array &$report, string $physicalRoot, string $logicalPrefix, array $expected, ?float $deadline = null, array $siteFiles = [], ?int &$hashedBytes = null): void
 {
+    if ($hashedBytes === null) $hashedBytes = 0;
     clearstatcache(true, $physicalRoot);
     $rootStat = @lstat($physicalRoot);
     if (!is_array($rootStat)) return;
@@ -192,6 +193,25 @@ function core_integrity_inventory_root(array &$report, string $physicalRoot, str
             }
             $type = ($stat['mode'] ?? 0) & 0170000;
             if ($type === 0040000) continue;
+            if ($type === 0100000 && isset($siteFiles[$logical])) {
+                $remainingBytes = CORE_INTEGRITY_MAX_TOTAL_BYTES - $hashedBytes;
+                if ($remainingBytes <= 0) {
+                    core_integrity_add_finding($report, $logical, 'unverified', 'site_file_scan_limit');
+                    $report['complete'] = false;
+                    continue;
+                }
+                $observed = core_integrity_hash_regular_file($entry->getPathname(), min(CORE_INTEGRITY_MAX_FILE_BYTES, $remainingBytes), $deadline);
+                $hashedBytes += (int)($observed['size'] ?? 0);
+                if ($observed['status'] === 'ok' && hash_equals($siteFiles[$logical], (string)$observed['hash'])) continue;
+                if ($observed['status'] !== 'ok') {
+                    $reason = in_array($observed['status'], ['too_large', 'limit'], true) ? 'site_file_scan_limit' : 'site_file_unreadable';
+                    core_integrity_add_finding($report, $logical, 'unverified', $reason);
+                    $report['complete'] = false;
+                    continue;
+                }
+                core_integrity_add_finding($report, $logical, 'contaminated', 'site_file_hash_mismatch', $siteFiles[$logical], (string)$observed['hash']);
+                continue;
+            }
             core_integrity_add_finding(
                 $report,
                 $logical,
@@ -262,10 +282,16 @@ function core_integrity_scan(array $baseline, string $projectRoot, string $publi
     }
 
     $expected = array_fill_keys(array_keys($manifest['files']), true);
-    foreach (array_diff(cms_manifest_allowed_directories(), ['public']) as $directory) {
-        core_integrity_inventory_root($report, rtrim($projectRoot, '/\\') . '/' . $directory, $directory, $expected, $deadline);
+    $siteManifest = cms_manifest_site_files($projectRoot);
+    $siteFiles = array_diff_key($siteManifest['files'], $expected);
+    if ($siteManifest['reason'] !== null) {
+        core_integrity_add_finding($report, 'cfg/site-files.json', 'unverified', $siteManifest['reason']);
+        $report['complete'] = false;
     }
-    core_integrity_inventory_root($report, $publicRoot, 'public', $expected, $deadline);
+    foreach (array_diff(cms_manifest_allowed_directories(), ['public']) as $directory) {
+        core_integrity_inventory_root($report, rtrim($projectRoot, '/\\') . '/' . $directory, $directory, $expected, $deadline, $siteFiles, $hashedBytes);
+    }
+    core_integrity_inventory_root($report, $publicRoot, 'public', $expected, $deadline, $siteFiles, $hashedBytes);
     unset($report['_inventory_entries']);
     usort($report['findings'], static fn(array $left, array $right): int => strcmp((string)$left['path'], (string)$right['path']));
 

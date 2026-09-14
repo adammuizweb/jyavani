@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.121",
+    "version": "2.3.122",
     "build": "2026-09-14",
-    "changelog": "Add safe cache-aware public media file responses for extension-owned image aliases without duplicating stored files.",
+    "changelog": "Add hash-bound site file ownership, migrate new dashboard widgets safely, and harden media modal loading and concurrency.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
