@@ -5548,3 +5548,24 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Overall health', 'Gesamtzustand', 'de'),
 ('default', 'View Site Health', 'Lihat Kesehatan Situs', 'id'),
 ('default', 'View Site Health', 'Website-Zustand anzeigen', 'de');
+
+-- Canonical extension integrity baselines
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'The canonical Store manifest for this exact version could not be fetched.', 'Manifest Store kanonis untuk versi persis ini tidak dapat diambil.', 'id'),
+('default', 'The canonical Store manifest for this exact version could not be fetched.', 'Das kanonische Store-Manifest für genau diese Version konnte nicht abgerufen werden.', 'de'),
+('default', 'The canonical Store returned an invalid or mismatched release manifest.', 'Store kanonis mengembalikan manifest rilis yang tidak valid atau tidak cocok.', 'id'),
+('default', 'The canonical Store returned an invalid or mismatched release manifest.', 'Der kanonische Store lieferte ein ungültiges oder nicht passendes Release-Manifest.', 'de'),
+('default', 'Every extension file matches the canonical exact-version HTTPS Store baseline.', 'Setiap file extension cocok dengan baseline Store HTTPS kanonis untuk versi persis.', 'id'),
+('default', 'Every extension file matches the canonical exact-version HTTPS Store baseline.', 'Jede Erweiterungsdatei stimmt mit der kanonischen HTTPS-Store-Basis für genau diese Version überein.', 'de'),
+('default', 'A required extension file or copied static asset changed or is missing.', 'File extension wajib atau aset statis yang disalin berubah atau hilang.', 'id'),
+('default', 'A required extension file or copied static asset changed or is missing.', 'Eine erforderliche Erweiterungsdatei oder kopierte statische Ressource wurde geändert oder fehlt.', 'de'),
+('default', 'An unexpected or unsafe artifact exists in the extension tree or copied static assets.', 'Artefak tidak terduga atau tidak aman ada di pohon extension atau aset statis yang disalin.', 'id'),
+('default', 'An unexpected or unsafe artifact exists in the extension tree or copied static assets.', 'Im Erweiterungsbaum oder in kopierten statischen Ressourcen befindet sich ein unerwartetes oder unsicheres Artefakt.', 'de'),
+('default', 'The extension could not be fully hashed within the scan limits.', 'Extension tidak dapat di-hash sepenuhnya dalam batas pemindaian.', 'id'),
+('default', 'The extension could not be fully hashed within the scan limits.', 'Die Erweiterung konnte innerhalb der Prüfgrenzen nicht vollständig gehasht werden.', 'de'),
+('default', 'Canonical exact HTTPS Store baseline', 'Baseline Store HTTPS kanonis versi persis', 'id'),
+('default', 'Canonical exact HTTPS Store baseline', 'Kanonische HTTPS-Store-Basis für die exakte Version', 'de'),
+('default', 'No trusted release baseline', 'Tidak ada baseline rilis tepercaya', 'id'),
+('default', 'No trusted release baseline', 'Keine vertrauenswürdige Release-Basis', 'de'),
+('default', 'Canonical exact-version Store hashes and filesystem safety', 'Hash Store kanonis versi persis dan keamanan filesystem', 'id'),
+('default', 'Canonical exact-version Store hashes and filesystem safety', 'Kanonische Store-Hashes der exakten Version und Dateisystemsicherheit', 'de');

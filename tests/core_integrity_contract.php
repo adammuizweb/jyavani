@@ -219,7 +219,8 @@ try {
         && str_contains($hub, "'href'  => \$base . '/?page=admin/settings/health'"), 'Site Health is linked from the Site Owner settings surfaces');
     $check(str_contains($page, 'It does not prove that the website')
         && str_contains($page, "'Plugins and themes'")
-        && str_contains($page, "'The extension declares Store metadata, but no trusted file manifest is available for verification.'"), 'the UI carries the mandatory disclaimer and explicit extension verification limit');
+        && str_contains($page, "'Canonical exact HTTPS Store baseline'")
+        && str_contains($page, "'No trusted release baseline'"), 'the UI carries the mandatory disclaimer and explicit extension trust boundary');
     foreach (['Site Health', 'Core Integrity', 'Clean', 'Unverified', 'Modified', 'Contaminated', 'Infected', 'Run full scan', 'Important limitation'] as $source) {
         $check(substr_count($translations, "'" . str_replace("'", "''", $source) . "'") >= 2, 'Site Health translation coverage: ' . $source);
     }

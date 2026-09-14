@@ -2,11 +2,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/core_integrity.php';
+require_once __DIR__ . '/extension_release_manifest.php';
 
 const SITE_HEALTH_SCHEMA = 1;
 const SITE_HEALTH_MAX_ENTRIES = 200000;
 const SITE_HEALTH_MAX_FINDINGS = 500;
+const SITE_HEALTH_MAX_EXTENSION_ITEMS = 2000;
 const SITE_HEALTH_SCAN_SECONDS = 30.0;
+const SITE_HEALTH_EXTENSION_MAX_FILE_BYTES = 64 * 1024 * 1024;
+const SITE_HEALTH_EXTENSION_MAX_TOTAL_BYTES = 512 * 1024 * 1024;
+const SITE_HEALTH_STORE_METADATA_MAX_BYTES = 64 * 1024;
 
 function site_health_add_finding(array &$result, string $path, string $status, string $reason): void
 {
@@ -134,7 +139,229 @@ function site_health_read_regular_prefix(string $path, int $limit): ?string
     return $safe ? $prefix : null;
 }
 
-function site_health_scan_extensions(string $projectRoot, string $publicRoot, float $deadline, ?int &$remainingEntries = null): array
+function site_health_extension_finding_path(string $logicalRoot, string $relative): string
+{
+    return extension_release_manifest_path_valid($relative)
+        ? $logicalRoot . '/' . $relative
+        : $logicalRoot . '/unsafe-path-' . substr(hash('sha256', $relative), 0, 16);
+}
+
+function site_health_scan_extension_tree(
+    string $root,
+    string $logicalRoot,
+    array $manifest,
+    float $deadline,
+    int &$remainingEntries,
+    int &$remainingBytes,
+    bool $allowStoreMetadata = true
+): array {
+    $result = [
+        'complete' => true,
+        'files_scanned' => 0,
+        'summary' => ['unverified' => 0, 'modified' => 0, 'contaminated' => 0, 'infected' => 0],
+        'findings' => [],
+        'findings_truncated' => false,
+    ];
+    $seen = [];
+    clearstatcache(true, $root);
+    $rootBefore = @lstat($root);
+    if (!is_array($rootBefore)) {
+        site_health_add_finding($result, $logicalRoot, 'unverified', 'extension_root_unreadable');
+        $result['complete'] = false;
+        return $result;
+    }
+    if ((($rootBefore['mode'] ?? 0) & 0170000) !== 0040000 || is_link($root)) {
+        site_health_add_finding($result, $logicalRoot, 'contaminated', 'unsafe_extension_root');
+        return $result;
+    }
+    if (!is_readable($root) || realpath($root) === false) {
+        site_health_add_finding($result, $logicalRoot, 'unverified', 'extension_root_unreadable');
+        $result['complete'] = false;
+        return $result;
+    }
+    try {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::SELF_FIRST
+        );
+        clearstatcache(true, $root);
+        $rootAfter = @lstat($root);
+        if (!is_array($rootAfter) || (($rootAfter['mode'] ?? 0) & 0170000) !== 0040000
+            || ($rootBefore['dev'] ?? null) !== ($rootAfter['dev'] ?? null)
+            || ($rootBefore['ino'] ?? null) !== ($rootAfter['ino'] ?? null)
+            || is_link($root)) {
+            site_health_add_finding($result, $logicalRoot, 'contaminated', 'unsafe_extension_root');
+            return $result;
+        }
+        if (!is_readable($root)) {
+            site_health_add_finding($result, $logicalRoot, 'unverified', 'extension_root_unreadable');
+            $result['complete'] = false;
+            return $result;
+        }
+        $prefixLength = strlen(rtrim($root, '/\\')) + 1;
+        foreach ($iterator as $entry) {
+            if ($remainingEntries-- <= 0 || $remainingBytes <= 0 || microtime(true) >= $deadline) {
+                site_health_add_finding($result, $logicalRoot, 'unverified', 'scan_limit_reached');
+                $result['complete'] = false;
+                break;
+            }
+            $relative = str_replace('\\', '/', substr($entry->getPathname(), $prefixLength));
+            $logical = site_health_extension_finding_path($logicalRoot, $relative);
+            clearstatcache(true, $entry->getPathname());
+            $stat = @lstat($entry->getPathname());
+            if (!is_array($stat)) {
+                site_health_add_finding($result, $logical, 'unverified', 'file_unreadable');
+                $result['complete'] = false;
+                continue;
+            }
+            $type = ($stat['mode'] ?? 0) & 0170000;
+            $relativeKey = strtolower($relative);
+            if ($relativeKey === '.git' || str_starts_with($relativeKey, '.git/')) {
+                site_health_add_finding($result, $logical, 'contaminated', 'prohibited_extension_metadata');
+                continue;
+            }
+            if ($allowStoreMetadata && $relative === '.store.json') {
+                $result['files_scanned']++;
+                if ($type !== 0100000 || $entry->isLink()) {
+                    site_health_add_finding($result, $logical, 'contaminated', 'unsafe_store_metadata');
+                    continue;
+                }
+                $size = max(0, (int)($stat['size'] ?? 0));
+                if ($size > $remainingBytes || microtime(true) >= $deadline) {
+                    site_health_add_finding($result, $logical, 'unverified', 'scan_limit_reached');
+                    $result['complete'] = false;
+                    continue;
+                }
+                $metadataRaw = cms_manifest_read_bounded_regular_file($entry->getPathname(), SITE_HEALTH_STORE_METADATA_MAX_BYTES);
+                $remainingBytes -= min($remainingBytes, $size);
+                try {
+                    $metadata = is_string($metadataRaw)
+                        ? json_decode($metadataRaw, false, 16, JSON_THROW_ON_ERROR)
+                        : null;
+                } catch (JsonException $error) {
+                    $metadata = null;
+                }
+                if (!$metadata instanceof stdClass) {
+                    site_health_add_finding($result, $logical, 'unverified', 'store_metadata_invalid_or_unreadable');
+                    $result['complete'] = false;
+                }
+                continue;
+            }
+            // Release manifests identify files only; ordinary empty directories do not affect identity.
+            if ($type === 0040000 && !$entry->isLink()) continue;
+            $result['files_scanned']++;
+            if (!extension_release_manifest_path_valid($relative) || $type !== 0100000 || $entry->isLink()) {
+                site_health_add_finding($result, $logical, 'contaminated', 'unsafe_extension_file');
+                continue;
+            }
+            if (!isset($manifest['files'][$relative])) {
+                site_health_add_finding($result, $logical, 'contaminated', 'unexpected_extension_file');
+                continue;
+            }
+            $seen[$relative] = true;
+            $observed = core_integrity_hash_regular_file(
+                $entry->getPathname(),
+                min(SITE_HEALTH_EXTENSION_MAX_FILE_BYTES, $remainingBytes),
+                $deadline
+            );
+            $remainingBytes -= min($remainingBytes, (int)($observed['size'] ?? 0));
+            if ($observed['status'] === 'ok') {
+                if (!hash_equals($manifest['files'][$relative], (string)$observed['hash'])) {
+                    site_health_add_finding($result, $logical, 'modified', 'extension_hash_mismatch');
+                }
+            } elseif ($observed['status'] === 'unsafe') {
+                site_health_add_finding($result, $logical, 'contaminated', 'unsafe_extension_file');
+            } else {
+                site_health_add_finding($result, $logical, 'unverified', 'extension_file_unreadable_or_limited');
+                $result['complete'] = false;
+            }
+        }
+    } catch (Throwable $error) {
+        site_health_add_finding($result, $logicalRoot, 'unverified', 'extension_inventory_incomplete');
+        $result['complete'] = false;
+    }
+    clearstatcache(true, $root);
+    $rootFinal = @lstat($root);
+    if (!is_array($rootFinal) || (($rootFinal['mode'] ?? 0) & 0170000) !== 0040000
+        || ($rootBefore['dev'] ?? null) !== ($rootFinal['dev'] ?? null)
+        || ($rootBefore['ino'] ?? null) !== ($rootFinal['ino'] ?? null)
+        || is_link($root)) {
+        site_health_add_finding($result, $logicalRoot, 'contaminated', 'unsafe_extension_root');
+        $result['complete'] = false;
+    }
+    if ($result['complete']) {
+        foreach ($manifest['files'] as $relative => $_hash) {
+            if (!isset($seen[$relative])) {
+                site_health_add_finding($result, $logicalRoot . '/' . $relative, 'modified', 'extension_file_missing');
+            }
+        }
+    }
+    return $result;
+}
+
+function site_health_verify_plugin_static_copy(
+    array &$tree,
+    array $pluginManifest,
+    array $releaseManifest,
+    string $folder,
+    string $publicRoot,
+    float $deadline,
+    int &$remainingEntries,
+    int &$remainingBytes
+): void {
+    $entries = $pluginManifest['static']['copy'] ?? [];
+    if (!is_array($entries) || array_is_list($entries) === false) {
+        site_health_add_finding($tree, 'plugins/' . $folder . '/plugin.json', 'contaminated', 'static_copy_mapping_unsafe');
+        return;
+    }
+    $staticFiles = [];
+    $namespacePrefix = 'static/plugins/' . $folder . '/';
+    foreach ($entries as $entry) {
+        $from = is_array($entry) && is_string($entry['from'] ?? null) ? $entry['from'] : '';
+        $to = is_array($entry) && is_string($entry['to'] ?? null) ? $entry['to'] : '';
+        $logical = extension_release_manifest_path_valid($to) ? 'public/' . $to : 'plugins/' . $folder . '/plugin.json';
+        if (!extension_release_manifest_path_valid($from) || !isset($releaseManifest['files'][$from])
+            || !extension_release_manifest_path_valid($to)
+            || !str_starts_with($to, $namespacePrefix)
+            || isset($staticFiles[substr($to, strlen($namespacePrefix))])) {
+            site_health_add_finding($tree, $logical, 'contaminated', 'static_copy_mapping_unsafe');
+            continue;
+        }
+        $staticFiles[substr($to, strlen($namespacePrefix))] = $releaseManifest['files'][$from];
+    }
+    $namespace = rtrim($publicRoot, '/\\') . '/' . rtrim($namespacePrefix, '/');
+    if (!file_exists($namespace) && !is_link($namespace)) {
+        foreach ($staticFiles as $relative => $_hash) {
+            site_health_add_finding($tree, 'public/' . $namespacePrefix . $relative, 'modified', 'static_copy_missing');
+        }
+        return;
+    }
+    $staticTree = site_health_scan_extension_tree(
+        $namespace, 'public/' . rtrim($namespacePrefix, '/'), ['files' => $staticFiles],
+        $deadline, $remainingEntries, $remainingBytes, false
+    );
+    $tree['complete'] = $tree['complete'] && $staticTree['complete'];
+    $tree['files_scanned'] += $staticTree['files_scanned'];
+    foreach (array_keys($tree['summary']) as $status) {
+        $tree['summary'][$status] += $staticTree['summary'][$status];
+    }
+    foreach ($staticTree['findings'] as $finding) {
+        if (count($tree['findings']) >= SITE_HEALTH_MAX_FINDINGS) {
+            $tree['findings_truncated'] = true;
+            break;
+        }
+        $tree['findings'][] = $finding;
+    }
+    if ($staticTree['findings_truncated']) $tree['findings_truncated'] = true;
+}
+
+function site_health_scan_extensions(
+    string $projectRoot,
+    string $publicRoot,
+    float $deadline,
+    ?int &$remainingEntries = null,
+    ?callable $manifestProvider = null
+): array
 {
     if ($remainingEntries === null) $remainingEntries = SITE_HEALTH_MAX_ENTRIES;
     $result = [
@@ -145,6 +372,7 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
         'findings' => [],
         'findings_truncated' => false,
     ];
+    $remainingBytes = SITE_HEALTH_EXTENSION_MAX_TOTAL_BYTES;
     $groups = [
         ['type' => 'plugin', 'root' => rtrim($projectRoot, '/\\') . '/plugins', 'manifest' => 'plugin.json', 'skip' => []],
         ['type' => 'theme', 'root' => rtrim($publicRoot, '/\\') . '/views/themes', 'manifest' => 'theme.json', 'skip' => ['default']],
@@ -158,7 +386,7 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
         $groupStat = @lstat($group['root']);
         if (!is_array($groupStat)) {
             $logicalRoot = $group['type'] === 'plugin' ? 'plugins' : 'public/views/themes';
-            $result['items'][] = ['type' => $group['type'], 'folder' => '(root)', 'name' => $logicalRoot, 'version' => '', 'status' => 'unverified', 'reason' => 'extension_root_unreadable', 'files_scanned' => 0, 'store_backed' => false];
+            $result['items'][] = ['type' => $group['type'], 'folder' => '(root)', 'name' => $logicalRoot, 'version' => '', 'status' => 'unverified', 'reason' => 'extension_root_unreadable', 'files_scanned' => 0, 'store_backed' => false, 'baseline' => 'none'];
             $result['summary']['total']++;
             $result['summary']['unverified']++;
             $result['findings'][] = ['path' => $logicalRoot, 'status' => 'unverified', 'reason' => 'scan_root_unreadable'];
@@ -167,7 +395,7 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
         }
         if ((($groupStat['mode'] ?? 0) & 0170000) !== 0040000 || is_link($group['root'])) {
             $logicalRoot = $group['type'] === 'plugin' ? 'plugins' : 'public/views/themes';
-            $result['items'][] = ['type' => $group['type'], 'folder' => '(root)', 'name' => $logicalRoot, 'version' => '', 'status' => 'contaminated', 'reason' => 'unsafe_extension_artifact', 'files_scanned' => 0, 'store_backed' => false];
+            $result['items'][] = ['type' => $group['type'], 'folder' => '(root)', 'name' => $logicalRoot, 'version' => '', 'status' => 'contaminated', 'reason' => 'unsafe_extension_artifact', 'files_scanned' => 0, 'store_backed' => false, 'baseline' => 'none'];
             $result['summary']['total']++;
             $result['summary']['contaminated']++;
             $result['findings'][] = ['path' => $logicalRoot, 'status' => 'contaminated', 'reason' => 'unsafe_extension_root'];
@@ -176,9 +404,10 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
         try {
             $entries = new FilesystemIterator($group['root'], FilesystemIterator::SKIP_DOTS);
             foreach ($entries as $entry) {
-                if (microtime(true) >= $deadline) {
+                if ($remainingEntries-- <= 0 || microtime(true) >= $deadline
+                    || $result['summary']['total'] >= SITE_HEALTH_MAX_EXTENSION_ITEMS - 1) {
                     $result['complete'] = false;
-                    $result['items'][] = ['type' => $group['type'], 'folder' => '(limit)', 'name' => $group['type'] === 'plugin' ? 'plugins' : 'public/views/themes', 'version' => '', 'status' => 'unverified', 'reason' => 'extension_inventory_incomplete', 'files_scanned' => 0, 'store_backed' => false];
+                    $result['items'][] = ['type' => $group['type'], 'folder' => '(limit)', 'name' => $group['type'] === 'plugin' ? 'plugins' : 'public/views/themes', 'version' => '', 'status' => 'unverified', 'reason' => 'extension_inventory_incomplete', 'files_scanned' => 0, 'store_backed' => false, 'baseline' => 'none'];
                     $result['summary']['total']++;
                     $result['summary']['unverified']++;
                     break 2;
@@ -192,13 +421,13 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
                 $entryType = is_array($entryStat) ? (($entryStat['mode'] ?? 0) & 0170000) : 0;
                 if ($entryType === 0100000) {
                     if ($group['type'] === 'plugin' && $folder === 'index.php') continue;
-                    $result['items'][] = ['type' => $group['type'], 'folder' => $folder, 'name' => $folder, 'version' => '', 'status' => 'contaminated', 'reason' => 'unsafe_extension_artifact', 'files_scanned' => 1, 'store_backed' => false];
+                    $result['items'][] = ['type' => $group['type'], 'folder' => $folder, 'name' => $folder, 'version' => '', 'status' => 'contaminated', 'reason' => 'unsafe_extension_artifact', 'files_scanned' => 1, 'store_backed' => false, 'baseline' => 'none'];
                     $result['summary']['total']++;
                     site_health_add_finding($result, $logical, 'contaminated', 'unexpected_file');
                     continue;
                 }
                 if (!is_array($entryStat) || $entryType !== 0040000 || $entry->isLink()) {
-                    $result['items'][] = ['type' => $group['type'], 'folder' => $folder, 'name' => $folder, 'version' => '', 'status' => 'contaminated', 'reason' => 'unsafe_extension_artifact', 'files_scanned' => 0, 'store_backed' => false];
+                    $result['items'][] = ['type' => $group['type'], 'folder' => $folder, 'name' => $folder, 'version' => '', 'status' => 'contaminated', 'reason' => 'unsafe_extension_artifact', 'files_scanned' => 0, 'store_backed' => false, 'baseline' => 'none'];
                     $result['summary']['total']++;
                     site_health_add_finding($result, $logical, 'contaminated', 'unexpected_symlink');
                     continue;
@@ -213,23 +442,55 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
                         $manifestData = null;
                     }
                 }
-                $tree = site_health_inspect_tree($entry->getPathname(), $logical, $deadline, false, $remainingEntries);
-                $itemStatus = $tree['summary']['infected'] > 0 ? 'infected'
-                    : ($tree['summary']['contaminated'] > 0 ? 'contaminated' : 'unverified');
                 $store = is_array($manifestData['store'] ?? null) ? $manifestData['store'] : [];
                 $storeUrl = is_string($store['url'] ?? null) ? trim($store['url']) : '';
                 $storeSlug = is_string($store['slug'] ?? null) ? trim($store['slug']) : '';
-                $storeBacked = $storeUrl !== '' && strtolower((string)parse_url($storeUrl, PHP_URL_SCHEME)) === 'https' && $storeSlug !== '';
-                $reason = $manifestData === null ? 'extension_manifest_invalid' : ($storeBacked ? 'store_file_manifest_unavailable' : 'extension_source_unverified');
+                $version = is_string($manifestData['version'] ?? null) ? trim($manifestData['version']) : '';
+                $canonicalStore = extension_release_manifest_canonical_store($group['type'], $storeUrl);
+                $storeBacked = $canonicalStore && extension_release_manifest_slug_valid($storeSlug);
+                $baseline = null;
+                $reason = 'extension_source_unverified';
+                if ($manifestData === null || ($canonicalStore && (!$storeBacked || !extension_release_manifest_version_valid($version)))) {
+                    $reason = 'extension_manifest_invalid';
+                } elseif ($storeBacked && extension_release_manifest_version_valid($version)) {
+                    $resolved = extension_release_manifest_fetch($group['type'], $storeSlug, $version, $deadline, $manifestProvider);
+                    $baseline = $resolved['manifest'];
+                    $reason = (string)($resolved['reason'] ?? '');
+                }
+                if (is_array($baseline)) {
+                    $tree = site_health_scan_extension_tree(
+                        $entry->getPathname(), $logical, $baseline, $deadline,
+                        $remainingEntries, $remainingBytes
+                    );
+                    if ($group['type'] === 'plugin' && isset($baseline['files']['plugin.json'])) {
+                        site_health_verify_plugin_static_copy(
+                            $tree, $manifestData, $baseline, $folder, $publicRoot, $deadline, $remainingEntries, $remainingBytes
+                        );
+                    }
+                    $itemStatus = $tree['summary']['infected'] > 0 ? 'infected'
+                        : ($tree['summary']['contaminated'] > 0 ? 'contaminated'
+                            : ($tree['summary']['modified'] > 0 ? 'modified'
+                                : (!$tree['complete'] || $tree['summary']['unverified'] > 0 ? 'unverified' : 'clean')));
+                    $reason = $itemStatus === 'clean' ? 'canonical_store_manifest_match'
+                        : ($itemStatus === 'modified' ? 'extension_files_modified'
+                            : ($itemStatus === 'contaminated' ? 'unexpected_or_unsafe_extension_file' : 'extension_scan_incomplete'));
+                } else {
+                    $tree = site_health_inspect_tree($entry->getPathname(), $logical, $deadline, false, $remainingEntries);
+                    $tree['summary']['modified'] = 0;
+                    $itemStatus = $tree['summary']['infected'] > 0 ? 'infected'
+                        : ($tree['summary']['contaminated'] > 0 ? 'contaminated' : 'unverified');
+                    if ($itemStatus === 'contaminated') $reason = 'unsafe_extension_artifact';
+                }
                 $result['items'][] = [
                     'type' => $group['type'],
                     'folder' => $folder,
                     'name' => is_string($manifestData['name'] ?? null) ? substr($manifestData['name'], 0, 200) : $folder,
-                    'version' => is_string($manifestData['version'] ?? null) ? substr($manifestData['version'], 0, 64) : '',
+                    'version' => substr($version, 0, 64),
                     'status' => $itemStatus,
-                    'reason' => $itemStatus === 'contaminated' ? 'unsafe_extension_artifact' : $reason,
+                    'reason' => $reason,
                     'files_scanned' => $tree['files_scanned'],
                     'store_backed' => $storeBacked,
+                    'baseline' => is_array($baseline) ? 'canonical_exact_https_store' : 'none',
                 ];
                 $result['summary']['total']++;
                 $result['summary'][$itemStatus]++;
@@ -246,7 +507,7 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
         } catch (Throwable $error) {
             $result['complete'] = false;
             $logicalRoot = $group['type'] === 'plugin' ? 'plugins' : 'public/views/themes';
-            $result['items'][] = ['type' => $group['type'], 'folder' => '(root)', 'name' => $logicalRoot, 'version' => '', 'status' => 'unverified', 'reason' => 'extension_inventory_incomplete', 'files_scanned' => 0, 'store_backed' => false];
+            $result['items'][] = ['type' => $group['type'], 'folder' => '(root)', 'name' => $logicalRoot, 'version' => '', 'status' => 'unverified', 'reason' => 'extension_inventory_incomplete', 'files_scanned' => 0, 'store_backed' => false, 'baseline' => 'none'];
             $result['summary']['total']++;
             $result['summary']['unverified']++;
             if (count($result['findings']) < SITE_HEALTH_MAX_FINDINGS) $result['findings'][] = ['path' => $logicalRoot, 'status' => 'unverified', 'reason' => 'inventory_incomplete'];
@@ -256,6 +517,7 @@ function site_health_scan_extensions(string $projectRoot, string $publicRoot, fl
     usort($result['items'], static fn(array $left, array $right): int => strcmp($left['type'] . '/' . $left['folder'], $right['type'] . '/' . $right['folder']));
     if ($result['summary']['infected'] > 0) $result['status'] = 'infected';
     elseif ($result['summary']['contaminated'] > 0) $result['status'] = 'contaminated';
+    elseif ($result['summary']['modified'] > 0) $result['status'] = 'modified';
     elseif (!$result['complete'] || $result['summary']['unverified'] > 0) $result['status'] = 'unverified';
     return $result;
 }
@@ -335,7 +597,12 @@ function site_health_aggregate_status(array $components): string
     return 'clean';
 }
 
-function site_health_run(string $projectRoot, string $publicRoot, ?callable $coreProvider = null): array
+function site_health_run(
+    string $projectRoot,
+    string $publicRoot,
+    ?callable $coreProvider = null,
+    ?callable $extensionManifestProvider = null
+): array
 {
     $startedAt = time();
     $started = microtime(true);
@@ -350,7 +617,7 @@ function site_health_run(string $projectRoot, string $publicRoot, ?callable $cor
         $remainingEntries = SITE_HEALTH_MAX_ENTRIES;
         $components = [
             'core' => core_integrity_run($projectRoot, $publicRoot, $coreProvider),
-            'extensions' => site_health_scan_extensions($projectRoot, $publicRoot, $deadline, $remainingEntries),
+            'extensions' => site_health_scan_extensions($projectRoot, $publicRoot, $deadline, $remainingEntries, $extensionManifestProvider),
             'content' => site_health_scan_content($projectRoot, $publicRoot, $deadline, $remainingEntries),
         ];
         return [
@@ -371,7 +638,12 @@ function site_health_report_path(): string
     return defined('BACKEND_PATH') ? rtrim((string)BACKEND_PATH, '/\\') . '/var/site-health-report.json' : '';
 }
 
-function site_health_run_and_store(string $projectRoot, string $publicRoot, ?callable $coreProvider = null): array
+function site_health_run_and_store(
+    string $projectRoot,
+    string $publicRoot,
+    ?callable $coreProvider = null,
+    ?callable $extensionManifestProvider = null
+): array
 {
     $path = site_health_report_path();
     $directory = $path === '' ? '' : dirname($path);
@@ -389,7 +661,7 @@ function site_health_run_and_store(string $projectRoot, string $publicRoot, ?cal
         throw new RuntimeException('Another Site Health scan is already running.');
     }
     try {
-        $report = site_health_run($projectRoot, $publicRoot, $coreProvider);
+        $report = site_health_run($projectRoot, $publicRoot, $coreProvider, $extensionManifestProvider);
         if (!site_health_write_report($report)) throw new RuntimeException('Site Health report could not be saved.');
         return $report;
     } finally {
@@ -410,7 +682,7 @@ function site_health_report_valid(array $report): bool
     if (!core_integrity_report_valid($report['components']['core'])) return false;
     $extensions = $report['components']['extensions'];
     $content = $report['components']['content'];
-    if (!in_array($extensions['status'] ?? null, ['clean', 'unverified', 'contaminated', 'infected'], true)
+    if (!in_array($extensions['status'] ?? null, ['clean', 'unverified', 'modified', 'contaminated', 'infected'], true)
         || !is_bool($extensions['complete'] ?? null) || !is_bool($extensions['findings_truncated'] ?? null)
         || !is_array($extensions['summary'] ?? null)
         || !is_array($extensions['items'] ?? null) || count($extensions['items']) > 2000
@@ -433,15 +705,21 @@ function site_health_report_valid(array $report): bool
             || !is_string($item['folder'] ?? null) || strlen($item['folder']) > 255
             || !is_string($item['name'] ?? null) || strlen($item['name']) > 200
             || !is_string($item['version'] ?? null) || strlen($item['version']) > 64
-            || !in_array($item['status'] ?? null, ['unverified', 'contaminated', 'infected'], true)
-            || !is_string($item['reason'] ?? null) || !is_int($item['files_scanned'] ?? null)
-            || $item['files_scanned'] < 0 || !is_bool($item['store_backed'] ?? null)) return false;
+            || !in_array($item['status'] ?? null, ['clean', 'unverified', 'modified', 'contaminated', 'infected'], true)
+            || !is_string($item['reason'] ?? null) || strlen($item['reason']) > 64
+            || !is_int($item['files_scanned'] ?? null)
+            || $item['files_scanned'] < 0 || !is_bool($item['store_backed'] ?? null)
+            || !in_array($item['baseline'] ?? null, ['none', 'canonical_exact_https_store'], true)
+            || ($item['baseline'] === 'canonical_exact_https_store' && !$item['store_backed'])
+            || (in_array($item['status'], ['clean', 'modified'], true)
+                && $item['baseline'] !== 'canonical_exact_https_store')) return false;
         $itemCounts[$item['status']]++;
     }
     foreach ($itemCounts as $key => $count) if ($extensions['summary'][$key] !== $count) return false;
     $extensionStatus = $extensions['summary']['infected'] > 0 ? 'infected'
         : ($extensions['summary']['contaminated'] > 0 ? 'contaminated'
-            : (!$extensions['complete'] || $extensions['summary']['unverified'] > 0 ? 'unverified' : 'clean'));
+            : ($extensions['summary']['modified'] > 0 ? 'modified'
+                : (!$extensions['complete'] || $extensions['summary']['unverified'] > 0 ? 'unverified' : 'clean')));
     if ($extensions['status'] !== $extensionStatus) return false;
     foreach (['unverified', 'contaminated', 'infected'] as $key) {
         if (!is_int($content['summary'][$key] ?? null) || $content['summary'][$key] < 0 || $content['summary'][$key] > SITE_HEALTH_MAX_ENTRIES) return false;
@@ -450,16 +728,16 @@ function site_health_report_valid(array $report): bool
         : ($content['summary']['contaminated'] > 0 ? 'contaminated'
             : (!$content['complete'] || $content['summary']['unverified'] > 0 ? 'unverified' : 'scanned'));
     if ($content['status'] !== $contentStatus) return false;
-    foreach ([$extensions, $content] as $component) {
+    foreach ([[$extensions, ['unverified', 'modified', 'contaminated', 'infected']], [$content, ['unverified', 'contaminated', 'infected']]] as [$component, $findingStatuses]) {
         foreach ($component['findings'] as $finding) {
             if (!is_array($finding) || !is_string($finding['path'] ?? null)
                 || cms_manifest_safe_relative_path($finding['path']) !== $finding['path']
-                || !in_array($finding['status'] ?? null, ['unverified', 'contaminated', 'infected'], true)
+                || !in_array($finding['status'] ?? null, $findingStatuses, true)
                 || !is_string($finding['reason'] ?? null) || strlen($finding['reason']) > 64) return false;
         }
         if ($component['findings_truncated'] && count($component['findings']) !== SITE_HEALTH_MAX_FINDINGS) return false;
     }
-    $extensionRank = ['clean' => 0, 'unverified' => 1, 'contaminated' => 2, 'infected' => 3];
+    $extensionRank = ['clean' => 0, 'unverified' => 1, 'modified' => 2, 'contaminated' => 3, 'infected' => 4];
     foreach ($extensions['findings'] as $finding) {
         if ($extensionRank[$finding['status']] > $extensionRank[$extensions['status']]) return false;
     }
