@@ -2,13 +2,23 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+$mediaPublicFixture = sys_get_temp_dir() . '/jy-media-public-' . bin2hex(random_bytes(8));
+mkdir($mediaPublicFixture . '/static/img/contract', 0770, true);
+define('PUBLIC_PATH', $mediaPublicFixture);
+register_shutdown_function(static function () use ($mediaPublicFixture): void {
+    @unlink($mediaPublicFixture . '/static/img/contract/image.png');
+    @unlink($mediaPublicFixture . '/static/img/contract/link.png');
+    @rmdir($mediaPublicFixture . '/static/img/contract');
+    @rmdir($mediaPublicFixture . '/static/img');
+    @rmdir($mediaPublicFixture . '/static');
+    @rmdir($mediaPublicFixture);
+});
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/resource_lifecycle.php';
 require_once $root . '/cfg/helpers/authorization.php';
 require_once $root . '/cfg/helpers/media_helpers.php';
 require_once $root . '/cfg/helpers/cms_content.php';
 require_once $root . '/cfg/helpers/widget_helper.php';
-if (!defined('PUBLIC_PATH')) define('PUBLIC_PATH', $root . '/public');
 require_once $root . '/cfg/helpers/asset_lifecycle.php';
 require_once $root . '/app/controllers/PostController.php';
 
@@ -54,6 +64,45 @@ $check(media_client_url(media_load_live($pdo, 4), false) === null
     && media_client_url(media_load_live($pdo, 4), true) === '/private/media/view/?id=4'
     && media_filter_data($pdo, media_load_live($pdo, 4), $context, true)['url'] === '/private/media/view/?id=4',
     'nonpublic scope on public disk always projects through the protected controller');
+$png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', true);
+file_put_contents($mediaPublicFixture . '/static/img/contract/image.png', $png);
+$publicFileRow = array_replace(media_load_live($pdo, 1), [
+    'url' => '/static/img/contract/image.png', 'filename' => 'image.png', 'mime' => 'image/png',
+    'size' => strlen($png), 'storage_path' => 'contract/image.png', 'content_hash' => hash('sha256', $png),
+]);
+$descriptor = media_public_file_descriptor($publicFileRow);
+$getPlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'GET']) : [];
+$headPlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'HEAD']) : [];
+$cachedPlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'GET', 'HTTP_IF_NONE_MATCH' => $descriptor['etag']]) : [];
+$rangePlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'GET', 'HTTP_RANGE' => 'bytes=1-3']) : [];
+$invalidRangePlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'GET', 'HTTP_RANGE' => 'bytes=999-1000']) : [];
+$multiRangePlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'GET', 'HTTP_RANGE' => 'bytes=0-1,4-5']) : [];
+$weakCachedPlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'GET', 'HTTP_IF_NONE_MATCH' => substr($descriptor['etag'], 2)]) : [];
+$invalidDatePlan = is_array($descriptor) ? media_public_file_response_plan($descriptor, ['REQUEST_METHOD' => 'GET', 'HTTP_IF_MODIFIED_SINCE' => 'tomorrow']) : [];
+$check(is_array($descriptor) && $descriptor['mime'] === 'image/png' && $descriptor['size'] === strlen($png)
+    && $getPlan['status'] === 200 && $getPlan['send_body'] === true && $getPlan['headers']['Content-Length'] === (string)strlen($png)
+    && $headPlan['status'] === 200 && $headPlan['send_body'] === false
+    && $cachedPlan['status'] === 304 && $rangePlan['status'] === 206 && $rangePlan['offset'] === 1 && $rangePlan['length'] === 3
+    && $invalidRangePlan['status'] === 416 && $multiRangePlan['status'] === 200
+    && $weakCachedPlan['status'] === 304 && $invalidDatePlan['status'] === 200,
+    'public media response resolves one contained image and plans GET, HEAD, cache, and byte-range responses');
+$privateFileRow = array_replace($publicFileRow, ['visibility' => 'private']);
+$externalFileRow = array_replace($publicFileRow, ['url' => 'https://cdn.example/image.png', 'storage_path' => 'missing.png']);
+$traversalFileRow = array_replace($publicFileRow, ['storage_path' => '../image.png']);
+$symlinkRejected = true;
+if (function_exists('symlink') && @symlink($mediaPublicFixture . '/static/img/contract/image.png', $mediaPublicFixture . '/static/img/contract/link.png')) {
+    $symlinkRejected = media_public_file_descriptor(array_replace($publicFileRow, ['storage_path' => 'contract/link.png'])) === null;
+}
+$check(media_public_file_descriptor($privateFileRow) === null
+    && media_public_file_descriptor($externalFileRow) === null
+    && media_public_file_descriptor($traversalFileRow) === null
+    && $symlinkRejected,
+    'public media response rejects private, unmanaged, traversal, and symlink-backed media');
+$changedIdentity = $descriptor;
+$changedIdentity['inode']++;
+$check(media_public_file_identity_matches($descriptor, lstat($descriptor['path']))
+    && !media_public_file_identity_matches($changedIdentity, lstat($descriptor['path'])),
+    'public media streaming binds the opened regular file to the validated filesystem identity');
 $check(!media_projected_url_is_valid('/private/media/view/?id=999', false)
     && !media_projected_url_is_valid('/private/media/view/?id=999', true, '/private/media/view/?id=2')
     && media_projected_url_is_valid('/private/media/view/?id=2', true, '/private/media/view/?id=2'),

@@ -122,6 +122,168 @@ function media_client_url(array $row, bool $allowProtected = false): ?string
     return $scheme === null || in_array(strtolower((string)$scheme), ['http', 'https'], true) ? $url : null;
 }
 
+function media_public_file_descriptor(array $row): ?array
+{
+    if (strtolower((string)($row['visibility'] ?? '')) !== 'public'
+        || strtolower((string)($row['storage_disk'] ?? '')) !== 'public'
+        || strtolower((string)($row['access_scope'] ?? '')) !== 'public'
+        || (int)($row['is_deleted'] ?? 0) !== 0
+        || !function_exists('asset_lifecycle_config') || !function_exists('asset_lifecycle_managed_source')) {
+        return null;
+    }
+    $source = asset_lifecycle_managed_source(asset_lifecycle_config('media'), 'public', $row['storage_path'] ?? null);
+    if (($source['status'] ?? '') !== 'file' || !is_string($source['path'] ?? null)) return null;
+    $path = $source['path'];
+    $size = filesize($path);
+    $modified = filemtime($path);
+    if ($size === false || $modified === false || $size < 0) return null;
+
+    $image = @getimagesize($path);
+    $mime = is_array($image) ? strtolower(trim((string)($image['mime'] ?? ''))) : '';
+    if (!in_array($mime, ['image/avif', 'image/jpeg', 'image/png', 'image/webp'], true)) return null;
+    $stat = lstat($path);
+    if (!is_array($stat) || (($stat['mode'] ?? 0) & 0170000) !== 0100000) return null;
+    $etag = 'W/"' . hash('sha256', implode("\0", [
+        (string)($stat['dev'] ?? ''), (string)($stat['ino'] ?? ''), (string)$size,
+        (string)$modified, (string)($source['storage_path'] ?? ''),
+    ])) . '"';
+    return [
+        'path' => $path, 'mime' => $mime, 'size' => (int)$size, 'modified' => (int)$modified, 'etag' => $etag,
+        'device' => (int)($stat['dev'] ?? -1), 'inode' => (int)($stat['ino'] ?? -1),
+    ];
+}
+
+function media_public_file_identity_matches(array $descriptor, array $stat): bool
+{
+    return (($stat['mode'] ?? 0) & 0170000) === 0100000
+        && (int)($stat['dev'] ?? -2) === (int)($descriptor['device'] ?? -1)
+        && (int)($stat['ino'] ?? -2) === (int)($descriptor['inode'] ?? -1)
+        && (int)($stat['size'] ?? -1) === (int)($descriptor['size'] ?? -2)
+        && (int)($stat['mtime'] ?? -1) === (int)($descriptor['modified'] ?? -2);
+}
+
+function media_http_date_timestamp(string $value): ?int
+{
+    $value = trim($value);
+    if ($value === '') return null;
+    $date = DateTimeImmutable::createFromFormat('!D, d M Y H:i:s \\G\\M\\T', $value, new DateTimeZone('UTC'));
+    $errors = DateTimeImmutable::getLastErrors();
+    if (!$date || (is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
+        || $date->format('D, d M Y H:i:s \\G\\M\\T') !== $value) {
+        return null;
+    }
+    return $date->getTimestamp();
+}
+
+function media_etag_weak_value(string $etag): string
+{
+    return str_starts_with($etag, 'W/') ? substr($etag, 2) : $etag;
+}
+
+function media_public_file_response_plan(array $descriptor, array $server): array
+{
+    $method = strtoupper(trim((string)($server['REQUEST_METHOD'] ?? 'GET')));
+    $size = max(0, (int)($descriptor['size'] ?? 0));
+    $modified = max(0, (int)($descriptor['modified'] ?? 0));
+    $etag = (string)($descriptor['etag'] ?? '');
+    $headers = [
+        'Content-Type' => (string)($descriptor['mime'] ?? 'application/octet-stream'),
+        'X-Content-Type-Options' => 'nosniff',
+        'Cache-Control' => 'public, max-age=0, must-revalidate',
+        'ETag' => $etag,
+        'Last-Modified' => gmdate('D, d M Y H:i:s', $modified) . ' GMT',
+        'Accept-Ranges' => 'bytes',
+    ];
+    if (!in_array($method, ['GET', 'HEAD'], true)) {
+        return ['status' => 405, 'headers' => $headers + ['Allow' => 'GET, HEAD'], 'offset' => 0, 'length' => 0, 'send_body' => false];
+    }
+
+    $ifNoneMatch = trim((string)($server['HTTP_IF_NONE_MATCH'] ?? ''));
+    $notModified = false;
+    if ($ifNoneMatch !== '') {
+        $expected = media_etag_weak_value($etag);
+        $notModified = $ifNoneMatch === '*';
+        foreach (array_map('trim', explode(',', $ifNoneMatch)) as $candidate) {
+            if (media_etag_weak_value($candidate) === $expected) $notModified = true;
+        }
+    } else {
+        $ifModifiedSince = media_http_date_timestamp((string)($server['HTTP_IF_MODIFIED_SINCE'] ?? ''));
+        $notModified = $ifModifiedSince !== null && $ifModifiedSince >= $modified;
+    }
+    if ($notModified) {
+        return ['status' => 304, 'headers' => $headers, 'offset' => 0, 'length' => 0, 'send_body' => false];
+    }
+
+    $offset = 0;
+    $length = $size;
+    $status = 200;
+    $range = trim((string)($server['HTTP_RANGE'] ?? ''));
+    if (str_contains($range, ',')) $range = '';
+    $ifRange = trim((string)($server['HTTP_IF_RANGE'] ?? ''));
+    if ($range !== '' && $ifRange !== '') {
+        $ifRangeDate = media_http_date_timestamp($ifRange);
+        $strongMatch = !str_starts_with($etag, 'W/') && hash_equals($etag, $ifRange);
+        if (!$strongMatch && ($ifRangeDate === null || $ifRangeDate < $modified)) $range = '';
+    }
+    if ($range !== '') {
+        $valid = preg_match('/\Abytes=(\d*)-(\d*)\z/D', $range, $match) === 1 && ($match[1] !== '' || $match[2] !== '') && $size > 0;
+        if ($valid && $match[1] === '') {
+            $suffix = (int)$match[2];
+            $valid = $suffix > 0;
+            $offset = max(0, $size - $suffix);
+            $length = $size - $offset;
+        } elseif ($valid) {
+            $offset = (int)$match[1];
+            $end = $match[2] === '' ? $size - 1 : (int)$match[2];
+            $valid = $offset < $size && $end >= $offset;
+            if ($valid) $length = min($end, $size - 1) - $offset + 1;
+        }
+        if (!$valid) {
+            return ['status' => 416, 'headers' => $headers + ['Content-Range' => 'bytes */' . $size], 'offset' => 0, 'length' => 0, 'send_body' => false];
+        }
+        $status = 206;
+        $headers['Content-Range'] = 'bytes ' . $offset . '-' . ($offset + $length - 1) . '/' . $size;
+    }
+    $headers['Content-Length'] = (string)$length;
+    return ['status' => $status, 'headers' => $headers, 'offset' => $offset, 'length' => $length, 'send_body' => $method === 'GET'];
+}
+
+function media_serve_public_file(array $row, ?array $server = null): bool
+{
+    $descriptor = media_public_file_descriptor($row);
+    if ($descriptor === null) return false;
+    $beforeOpen = lstat($descriptor['path']);
+    if (!is_array($beforeOpen) || !media_public_file_identity_matches($descriptor, $beforeOpen)) return false;
+    $stream = fopen($descriptor['path'], 'rb');
+    if ($stream === false) return false;
+    $opened = fstat($stream);
+    if (!is_array($opened) || !media_public_file_identity_matches($descriptor, $opened)) {
+        fclose($stream);
+        return false;
+    }
+    $plan = media_public_file_response_plan($descriptor, $server ?? $_SERVER);
+    if ($plan['send_body'] && $plan['offset'] > 0 && fseek($stream, (int)$plan['offset']) !== 0) {
+        fclose($stream);
+        return false;
+    }
+    http_response_code((int)$plan['status']);
+    foreach ($plan['headers'] as $name => $value) header($name . ': ' . $value);
+    if (!$plan['send_body'] || $plan['length'] <= 0) {
+        fclose($stream);
+        return true;
+    }
+    $remaining = (int)$plan['length'];
+    while ($remaining > 0 && !feof($stream)) {
+        $chunk = fread($stream, min(8192, $remaining));
+        if ($chunk === false || $chunk === '') break;
+        echo $chunk;
+        $remaining -= strlen($chunk);
+    }
+    fclose($stream);
+    if ($remaining !== 0) error_log('[media] Public media response ended before the planned content length.');
+    return true;
+}
+
 function media_projected_url_is_valid(string $url, bool $allowProtected, ?string $canonicalProtectedUrl = null): bool
 {
     if ($url === '' || strlen($url) > 4096 || preg_match('/[\x00-\x1F\x7F]/', $url) === 1) return false;
