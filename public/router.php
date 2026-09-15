@@ -377,8 +377,13 @@ if (preg_match('/^\d{4}$/', $prefix)) {
 
 // SITEMAP routes (no htaccess needed)
 // /sitemap.xml
+// /content_list.xml
 // /sitemap_posts_1.xml
 // /sitemap_pages_2.xml
+if ($rawPath === '/content_list.xml') {
+    require_once __DIR__ . '/../app/controllers/SitemapController.php';
+    SitemapController::contentList($pdo);
+}
 if (preg_match('#^sitemap_([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)_(\d+)\.xml$#', $pathTrimmed, $m)) {
     require_once __DIR__ . '/../app/controllers/SitemapController.php';
     if (SitemapController::renderLocale($pdo, $m[1], $m[2], max(1, (int)$m[3]))) exit;

@@ -295,6 +295,28 @@ The same clauses are applied to sitemap counts and rows. Parameter names must be
 plugin-namespaced and may not replace Core bindings. Malformed output is ignored
 as a complete value; filters must return the complete `where`/`params` structure.
 
+`/sitemap.xml` always includes `/content_list.xml`. That fixed sitemap is a valid
+`urlset` containing the enabled Post list and Page list landing URLs configured
+in Site Settings, independently of whether either collection currently has any
+items. Collection landing URLs are not repeated in paginated item sitemaps.
+Extensions may alter the complete entry list through:
+
+```php
+apply_filters(
+    'sitemap_content_list_entries',
+    array $entries, // list of ['loc' => absolute same-origin URL]
+    PDO $pdo,
+    string $domain
+): array
+```
+
+A non-array result preserves Core defaults. Core inspects and emits at most
+50,000 entries, accepts only string `loc` values up to 2,048 bytes using absolute
+same-origin HTTP(S) URLs, and rejects credentials, fragments, control bytes, and
+malformed XML text. Canonically equivalent URLs are emitted once and all output
+is XML-escaped. `/content_list.xml` is an exact Core-owned and content-reserved
+route; extensions and canonical content paths cannot claim it.
+
 ## Theme slot context hook
 
 Plugins can augment the prepared context for every available theme slot at the

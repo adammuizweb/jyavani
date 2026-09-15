@@ -107,7 +107,7 @@ if (!function_exists('content_route_normalize_path')) {
                 return ['type' => 'core_prefix', 'value' => $prefix];
             }
         }
-        if ($path === 'sw.js' || $path === 'robots.txt'
+        if ($path === 'sw.js' || $path === 'robots.txt' || $path === 'content_list.xml'
             || preg_match('/^sitemap(?:_[a-z0-9-]+)?(?:_(?:posts|pages)_\d+)?\.xml$/', $path)) {
             return ['type' => 'core_route', 'value' => $path];
         }

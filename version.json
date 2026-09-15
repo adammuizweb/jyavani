@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.129",
+    "version": "2.3.130",
     "build": "2026-09-15",
-    "changelog": "Refine Theme Store card actions and correct current authorization, Theme Zone, and server configuration documentation.",
+    "changelog": "Add a dedicated content-list sitemap for configured Post and Page collection landing URLs.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

@@ -4,6 +4,8 @@ class SitemapController
 {
     // how many content item URLs per sitemap file
     private const LIMIT = 30;
+    private const CONTENT_LIST_MAX_ENTRIES = 50000;
+    private const CONTENT_LIST_MAX_URL_LENGTH = 2048;
 
     // sitemap index: lists all sitemap_posts_X and sitemap_pages_X
     public static function index(PDO $pdo)
@@ -27,6 +29,9 @@ class SitemapController
         echo '<?xml version="1.0" encoding="UTF-8"?>';
         echo '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
 
+        $contentListLoc = $domain . '/content_list.xml';
+        echo "  <sitemap>\n    <loc>" . htmlspecialchars($contentListLoc, ENT_XML1, 'UTF-8') . "</loc>\n  </sitemap>\n";
+
         for ($i = 1; $i <= $postMaps; $i++) {
             $loc = $domain . '/sitemap_posts_' . $i . '.xml';
             echo "  <sitemap>\n    <loc>" . htmlspecialchars($loc, ENT_XML1) . "</loc>\n  </sitemap>\n";
@@ -45,6 +50,14 @@ class SitemapController
         }
 
         echo '</sitemapindex>';
+        exit;
+    }
+
+    public static function contentList(PDO $pdo): void
+    {
+        header('Content-Type: application/xml; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        echo self::contentListXml($pdo, self::domain());
         exit;
     }
 
@@ -99,13 +112,6 @@ class SitemapController
         echo '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
 
-        $collectionLoc = self::collectionLandingUrl($pdo, $type, $pageNum, $domain);
-        if ($collectionLoc !== null) {
-            echo "  <url>\n";
-            echo "    <loc>" . htmlspecialchars($collectionLoc, ENT_XML1) . "</loc>\n";
-            echo "  </url>\n";
-        }
-
         foreach ($rows as $r) {
             $slug = trim($r['slug'], '/');
             if ($slug === '') continue;
@@ -130,16 +136,74 @@ class SitemapController
         exit;
     }
 
-    private static function collectionLandingUrl(PDO $pdo, string $type, int $pageNum, string $domain): ?string
+    private static function contentListXml(PDO $pdo, string $domain): string
     {
-        if ($pageNum !== 1) return null;
-        if ($type === 'posts' && function_exists('is_posts_list_enabled') && is_posts_list_enabled($pdo)) {
-            return rtrim($domain, '/') . get_posts_list_base($pdo);
+        $defaults = [];
+        if (function_exists('is_posts_list_enabled') && is_posts_list_enabled($pdo)) {
+            $defaults[] = ['loc' => rtrim($domain, '/') . get_posts_list_base($pdo)];
         }
-        if ($type === 'pages' && function_exists('is_pages_list_enabled') && is_pages_list_enabled($pdo)) {
-            return rtrim($domain, '/') . get_pages_list_base($pdo);
+        if (function_exists('is_pages_list_enabled') && is_pages_list_enabled($pdo)) {
+            $defaults[] = ['loc' => rtrim($domain, '/') . get_pages_list_base($pdo)];
         }
-        return null;
+
+        $filtered = apply_filters('sitemap_content_list_entries', $defaults, $pdo, $domain);
+        if (!is_array($filtered)) {
+            error_log('[sitemap] Ignored malformed content list entries.');
+            $filtered = $defaults;
+        }
+
+        $origin = parse_url($domain);
+        if (!is_array($origin) || !isset($origin['scheme'], $origin['host'])) $filtered = [];
+        $originScheme = strtolower((string)($origin['scheme'] ?? ''));
+        $originHost = strtolower((string)($origin['host'] ?? ''));
+        $originPort = (int)($origin['port'] ?? ($originScheme === 'https' ? 443 : 80));
+        $originAuthority = str_contains($originHost, ':') ? '[' . $originHost . ']' : $originHost;
+        if (isset($origin['port'])) $originAuthority .= ':' . (int)$origin['port'];
+
+        $locations = [];
+        $seen = [];
+        $inspected = 0;
+        foreach ($filtered as $entry) {
+            if (++$inspected > self::CONTENT_LIST_MAX_ENTRIES) break;
+            if (!is_array($entry) || !is_string($entry['loc'] ?? null)) continue;
+            $loc = $entry['loc'];
+            if ($loc === '' || $loc !== trim($loc) || strlen($loc) > self::CONTENT_LIST_MAX_URL_LENGTH
+                || preg_match('/[\x00-\x1F\x7F]/', $loc)
+                || preg_match('/%(?:0[0-9a-f]|1[0-9a-f]|7f)/i', $loc)
+                || preg_match('/[^\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]/u', $loc)
+                || filter_var($loc, FILTER_VALIDATE_URL) === false) {
+                continue;
+            }
+            try {
+                $parts = parse_url($loc);
+            } catch (ValueError) {
+                continue;
+            }
+            if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])
+                || !in_array(strtolower((string)$parts['scheme']), ['http', 'https'], true)
+                || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) {
+                continue;
+            }
+            $scheme = strtolower((string)$parts['scheme']);
+            $host = strtolower((string)$parts['host']);
+            $port = (int)($parts['port'] ?? ($scheme === 'https' ? 443 : 80));
+            if ($scheme !== $originScheme || $host !== $originHost || $port !== $originPort) continue;
+
+            $path = (string)($parts['path'] ?? '/');
+            if ($path === '') $path = '/';
+            $canonical = $originScheme . '://' . $originAuthority . $path;
+            if (isset($parts['query'])) $canonical .= '?' . $parts['query'];
+            if (isset($seen[$canonical])) continue;
+            $seen[$canonical] = true;
+            $locations[] = $canonical;
+        }
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
+        $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
+        foreach ($locations as $loc) {
+            $xml .= "  <url>\n    <loc>" . htmlspecialchars($loc, ENT_XML1 | ENT_QUOTES, 'UTF-8') . "</loc>\n  </url>\n";
+        }
+        return $xml . '</urlset>';
     }
 
     private static function domain(): string

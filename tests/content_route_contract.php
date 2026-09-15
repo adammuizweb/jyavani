@@ -293,6 +293,9 @@ $check(content_route_find_canonical($pdo, 1)['path'] === 'guides/start', 'a reje
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'draft-direct'), DomainException::class), 'direct post slugs participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'author/someone'), DomainException::class), 'Core route prefixes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'robots.txt'), InvalidArgumentException::class), 'the Core crawler policy file path is rejected before content routing');
+$check($throws(fn() => content_route_set_canonical($pdo, 1, 'content_list.xml'), InvalidArgumentException::class)
+    && str_contains((string)file_get_contents($root . '/cfg/helpers/content_route_helpers.php'), "\$path === 'content_list.xml'"),
+    'the exact content-list sitemap path is explicitly reserved before content routing');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'articles/archive'), DomainException::class), 'configured collection routes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'shop/item'), DomainException::class), 'registered plugin route prefixes participate in collision checks');
 $check($throws(fn() => content_route_set_canonical($pdo, 1, 'shop-status'), DomainException::class), 'registered exact plugin routes participate in collision checks');

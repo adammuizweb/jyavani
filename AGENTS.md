@@ -57,7 +57,7 @@ It then calls `set_locale($contentDefault)` so the public frontend uses the cont
 | `/author/` | `AuthorController` | |
 | `{category_path}` | `CategoryController` | Configurable nested category collection path |
 | `/YYYY/` | `ArchiveController` | Year/month archive |
-| `sitemap*.xml` | `SitemapController` | XML sitemaps |
+| `sitemap*.xml`, `/content_list.xml` | `SitemapController` | Sitemap index, paginated content-item maps, and the fixed collection-landing urlset |
 | `{posts_list_path}` or compatibility alias `/posts/` | `PostController::listArticles()` | Configurable article collection path |
 | `{pages_list_path}` | `PageController::listPages()` | Configurable page collection path |
 | fallback slug | `PostController::dispatchBySlug()` | Single post/page by slug |

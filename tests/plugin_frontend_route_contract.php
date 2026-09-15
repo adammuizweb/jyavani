@@ -151,6 +151,7 @@ $protectedPaths = [
     'private/file/stream' => 'Core private file path',
     'static/dashboard/app.js' => 'Core static path',
     'sitemap.xml' => 'Core sitemap path',
+    'content_list.xml' => 'Core content-list sitemap path',
     'sitemap_pt-BR_themes_2.xml' => 'localized Core sitemap path',
     'admin/control-room/settings' => 'configured admin path',
     'account/sign-in' => 'configured login path',
