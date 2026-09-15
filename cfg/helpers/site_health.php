@@ -446,7 +446,12 @@ function site_health_scan_extensions(
                 $storeUrl = is_string($store['url'] ?? null) ? trim($store['url']) : '';
                 $storeSlug = is_string($store['slug'] ?? null) ? trim($store['slug']) : '';
                 $version = is_string($manifestData['version'] ?? null) ? trim($manifestData['version']) : '';
-                $canonicalStore = extension_release_manifest_canonical_store($group['type'], $storeUrl);
+                $legacyOfficialPlugin = $group['type'] === 'plugin' && $storeUrl === ''
+                    && extension_release_manifest_slug_valid($folder)
+                    && is_string($manifestData['plugin_uri'] ?? null)
+                    && extension_release_manifest_official_plugin_uri($manifestData['plugin_uri']);
+                if ($legacyOfficialPlugin) $storeSlug = $folder;
+                $canonicalStore = extension_release_manifest_canonical_store($group['type'], $storeUrl) || $legacyOfficialPlugin;
                 $storeBacked = $canonicalStore && extension_release_manifest_slug_valid($storeSlug);
                 $baseline = null;
                 $reason = 'extension_source_unverified';

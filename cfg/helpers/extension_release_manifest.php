@@ -50,6 +50,17 @@ function extension_release_manifest_canonical_store(string $type, string $url): 
     return $expected !== '' && ($url === $expected || $url === $expected . '/');
 }
 
+function extension_release_manifest_official_plugin_uri(string $url): bool
+{
+    $parts = parse_url(trim($url));
+    if (!is_array($parts) || strtolower((string)($parts['scheme'] ?? '')) !== 'https'
+        || strtolower((string)($parts['host'] ?? '')) !== 'jyavani.com'
+        || isset($parts['user']) || isset($parts['pass']) || isset($parts['port'])
+        || isset($parts['query']) || isset($parts['fragment'])) return false;
+    $path = '/' . trim((string)($parts['path'] ?? ''), '/');
+    return preg_match('#\A/plugin/[a-z0-9][a-z0-9_-]{0,99}\z#D', $path) === 1;
+}
+
 function extension_release_manifest_validate(array $manifest, string $type, string $slug, string $version): array
 {
     if (array_is_list($manifest)) throw new RuntimeException('Invalid extension release manifest.');
@@ -123,23 +134,17 @@ function extension_release_manifest_fetch(
 ): array {
     $url = extension_release_manifest_url($type, $slug, $version);
     if ($url === null || microtime(true) >= $deadline) {
-        return ['manifest' => null, 'url' => $url ?? '', 'reason' => 'store_release_manifest_invalid'];
+        return ['manifest' => null, 'url' => $url ?? '', 'reason' => $url === null ? 'store_release_manifest_invalid' : 'store_release_manifest_unavailable'];
     }
     try {
         if ($provider !== null) {
             $data = $provider($url, $type, $slug, $version, $deadline);
         } else {
-            $response = update_metadata_stream_request_once(
+            $data = update_metadata_fetch_json(
                 $url,
                 'JyavaniCMS-SiteHealth-Extension/' . $version,
                 min($deadline, microtime(true) + UPDATE_METADATA_REQUEST_SECONDS)
             );
-            if (!is_array($response) || $response['status'] < 200 || $response['status'] >= 300
-                || !is_string($response['body']) || $response['body'] === ''
-                || strlen($response['body']) > EXTENSION_RELEASE_MANIFEST_MAX_BYTES) {
-                return ['manifest' => null, 'url' => $url, 'reason' => 'store_release_manifest_unavailable'];
-            }
-            $data = json_decode($response['body'], true, 32, JSON_THROW_ON_ERROR);
         }
         if (!is_array($data)) return ['manifest' => null, 'url' => $url, 'reason' => 'store_release_manifest_unavailable'];
         return ['manifest' => extension_release_manifest_validate($data, $type, $slug, $version), 'url' => $url, 'reason' => null];

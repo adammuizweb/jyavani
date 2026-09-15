@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.122",
-    "build": "2026-09-14",
-    "changelog": "Add hash-bound site file ownership, migrate new dashboard widgets safely, and harden media modal loading and concurrency.",
+    "version": "2.3.123",
+    "build": "2026-09-15",
+    "changelog": "Verify Store extensions against canonical exact-version manifests with resilient metadata transport and strict legacy plugin provenance.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

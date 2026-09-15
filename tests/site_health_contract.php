@@ -36,7 +36,8 @@ try {
     $manifest = ['version' => '9.8.7', 'total_files' => count($coreFiles), 'files' => $coreFiles];
     file_put_contents($fixture . '/tools/cms-manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/local-plugin/plugin.json', json_encode([
-        'name' => 'Local Plugin', 'version' => '1.0.0',
+        'name' => 'local-plugin', 'version' => '1.0.0',
+        'plugin_uri' => 'https://jyavani.com/plugin/local-plugin/',
         'release_manifest_url' => 'https://localhost/plugin-manifest.json',
     ], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/local-plugin/plugin.php', '<?php');
@@ -83,13 +84,15 @@ try {
         ];
     };
     $pluginRelease = $releaseManifest('plugin', 'store-plugin', '1.2.3', $fixture . '/plugins/store-plugin');
+    $legacyPluginRelease = $releaseManifest('plugin', 'local-plugin', '1.0.0', $fixture . '/plugins/local-plugin');
     file_put_contents($fixture . '/plugins/store-plugin/.store.json', json_encode(['source' => 'preserved'], JSON_THROW_ON_ERROR));
 
     mkdir($fixture . '/plugins/store-plugin/empty-runtime-directory');
     $requestedManifestUrls = [];
-    $extensionProvider = static function (string $url, string $type, string $slug, string $version, float $deadline) use (&$requestedManifestUrls, $pluginRelease): ?array {
+    $extensionProvider = static function (string $url, string $type, string $slug, string $version, float $deadline) use (&$requestedManifestUrls, $pluginRelease, $legacyPluginRelease): ?array {
         $requestedManifestUrls[] = $url;
         if ($slug === 'store-plugin') return $pluginRelease;
+        if ($slug === 'local-plugin') return $legacyPluginRelease;
         if ($slug === 'wrong-theme') {
             return [
                 'schema_version' => 1, 'type' => $type, 'name' => $slug, 'version' => '3.0.1',
@@ -106,12 +109,18 @@ try {
     $extensionItemsByFolder = array_column($report['components']['extensions']['items'], null, 'folder');
     $check(($extensionItemsByFolder['store-plugin']['status'] ?? null) === 'clean'
         && ($extensionItemsByFolder['store-plugin']['baseline'] ?? null) === 'canonical_exact_https_store', 'an exact plugin file tree, valid preserved Store metadata, ignored empty directory, and matching static.copy destination are clean');
-    $check(($extensionItemsByFolder['local-plugin']['status'] ?? null) === 'unverified'
-        && ($extensionItemsByFolder['store-theme']['status'] ?? null) === 'unverified', 'a local manifest URL and noncanonical HTTPS Store metadata remain unverified');
+    $check(($extensionItemsByFolder['local-plugin']['status'] ?? null) === 'clean'
+        && ($extensionItemsByFolder['local-plugin']['baseline'] ?? null) === 'canonical_exact_https_store'
+        && ($extensionItemsByFolder['store-theme']['status'] ?? null) === 'unverified', 'an official legacy plugin URI can resolve an exact Store baseline while noncanonical theme metadata remains unverified');
     $check(($extensionItemsByFolder['wrong-theme']['reason'] ?? null) === 'store_release_manifest_invalid'
         && ($extensionItemsByFolder['missing-theme']['reason'] ?? null) === 'store_release_manifest_unavailable', 'wrong and missing exact-version release manifests remain unverified with distinct reasons');
     $check(in_array('https://jyavani.com/plugin-store/store-plugin/releases/1.2.3/manifest.json', $requestedManifestUrls, true)
+        && in_array('https://jyavani.com/plugin-store/local-plugin/releases/1.0.0/manifest.json', $requestedManifestUrls, true)
         && in_array('https://jyavani.com/theme-store/wrong-theme/releases/3.0.0/manifest.json', $requestedManifestUrls, true), 'Site Health requests canonical exact-version plugin and theme manifest paths');
+    $check(extension_release_manifest_official_plugin_uri('https://jyavani.com/plugin/example/')
+        && !extension_release_manifest_official_plugin_uri('http://jyavani.com/plugin/example/')
+        && !extension_release_manifest_official_plugin_uri('https://user@jyavani.com/plugin/example/')
+        && !extension_release_manifest_official_plugin_uri('https://example.com/plugin/example/'), 'legacy plugin provenance accepts only a strict official HTTPS listing URL');
     $unsortedManifest = $pluginRelease;
     $unsortedManifest['files'] = array_reverse($unsortedManifest['files'], true);
     try {
