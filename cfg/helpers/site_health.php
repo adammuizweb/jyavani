@@ -146,6 +146,34 @@ function site_health_extension_finding_path(string $logicalRoot, string $relativ
         : $logicalRoot . '/unsafe-path-' . substr(hash('sha256', $relative), 0, 16);
 }
 
+function site_health_generated_image_directories(array $pluginManifest, string $folder): ?array
+{
+    $health = $pluginManifest['site_health'] ?? null;
+    if ($health === null) return [];
+    $directories = is_array($health) ? ($health['generated_public_image_directories'] ?? null) : null;
+    if (!is_array($directories) || !array_is_list($directories) || count($directories) > 8) return null;
+    $prefix = 'static/plugins/' . $folder . '/';
+    $result = [];
+    foreach ($directories as $directory) {
+        if (!is_string($directory) || !extension_release_manifest_path_valid($directory)
+            || !str_starts_with($directory, $prefix)) return null;
+        $relative = rtrim(substr($directory, strlen($prefix)), '/');
+        if ($relative === '' || isset($result[strtolower($relative)])) return null;
+        $result[strtolower($relative)] = $relative;
+    }
+    return array_values($result);
+}
+
+function site_health_generated_image_prefix(string $relative, array $directories): ?string
+{
+    $relativeKey = strtolower($relative);
+    foreach ($directories as $directory) {
+        $directoryKey = strtolower($directory);
+        if ($relativeKey === $directoryKey || str_starts_with($relativeKey, $directoryKey . '/')) return $directory;
+    }
+    return null;
+}
+
 function site_health_scan_extension_tree(
     string $root,
     string $logicalRoot,
@@ -153,7 +181,8 @@ function site_health_scan_extension_tree(
     float $deadline,
     int &$remainingEntries,
     int &$remainingBytes,
-    bool $allowStoreMetadata = true
+    bool $allowStoreMetadata = true,
+    array $generatedImageDirectories = []
 ): array {
     $result = [
         'complete' => true,
@@ -216,6 +245,36 @@ function site_health_scan_extension_tree(
             }
             $type = ($stat['mode'] ?? 0) & 0170000;
             $relativeKey = strtolower($relative);
+            $generatedDirectory = site_health_generated_image_prefix($relative, $generatedImageDirectories);
+            if ($generatedDirectory !== null) {
+                if ($relativeKey === strtolower($generatedDirectory) && $type === 0040000 && !$entry->isLink()) continue;
+                $result['files_scanned']++;
+                if ($type !== 0100000 || $entry->isLink()
+                    || preg_match('/\.(?:php\d*|phtml|pht|phar|cgi|pl|py|sh)(?:\.|$)/i', $entry->getBasename()) === 1) {
+                    site_health_add_finding($result, $logical, 'contaminated', 'unsafe_generated_public_image');
+                    continue;
+                }
+                $size = max(0, (int)($stat['size'] ?? 0));
+                if ($size > 16 * 1024 * 1024 || $size > $remainingBytes) {
+                    site_health_add_finding($result, $logical, 'unverified', 'generated_public_image_limited');
+                    $result['complete'] = false;
+                    continue;
+                }
+                $remainingBytes -= $size;
+                $extension = strtolower(pathinfo($entry->getBasename(), PATHINFO_EXTENSION));
+                $expectedMimes = [
+                    'jpg' => ['image/jpeg'], 'jpeg' => ['image/jpeg'], 'png' => ['image/png'],
+                    'gif' => ['image/gif'], 'webp' => ['image/webp'], 'avif' => ['image/avif'],
+                ][$extension] ?? null;
+                $prefix = $expectedMimes !== null ? site_health_read_regular_prefix($entry->getPathname(), 16384) : null;
+                $finfo = function_exists('finfo_open') ? @finfo_open(FILEINFO_MIME_TYPE) : null;
+                $mime = $prefix !== null && (is_resource($finfo) || $finfo instanceof finfo) ? @finfo_buffer($finfo, $prefix) : null;
+                if (is_resource($finfo) || $finfo instanceof finfo) @finfo_close($finfo);
+                if ($expectedMimes === null || !is_string($mime) || !in_array(strtolower($mime), $expectedMimes, true)) {
+                    site_health_add_finding($result, $logical, 'contaminated', 'unsafe_generated_public_image');
+                }
+                continue;
+            }
             if ($relativeKey === '.git' || str_starts_with($relativeKey, '.git/')) {
                 site_health_add_finding($result, $logical, 'contaminated', 'prohibited_extension_metadata');
                 continue;
@@ -315,6 +374,11 @@ function site_health_verify_plugin_static_copy(
         return;
     }
     $staticFiles = [];
+    $generatedImageDirectories = site_health_generated_image_directories($pluginManifest, $folder);
+    if ($generatedImageDirectories === null) {
+        site_health_add_finding($tree, 'plugins/' . $folder . '/plugin.json', 'contaminated', 'generated_image_contract_invalid');
+        $generatedImageDirectories = [];
+    }
     $namespacePrefix = 'static/plugins/' . $folder . '/';
     foreach ($entries as $entry) {
         $from = is_array($entry) && is_string($entry['from'] ?? null) ? $entry['from'] : '';
@@ -338,7 +402,7 @@ function site_health_verify_plugin_static_copy(
     }
     $staticTree = site_health_scan_extension_tree(
         $namespace, 'public/' . rtrim($namespacePrefix, '/'), ['files' => $staticFiles],
-        $deadline, $remainingEntries, $remainingBytes, false
+        $deadline, $remainingEntries, $remainingBytes, false, $generatedImageDirectories
     );
     $tree['complete'] = $tree['complete'] && $staticTree['complete'];
     $tree['files_scanned'] += $staticTree['files_scanned'];

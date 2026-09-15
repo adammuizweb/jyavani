@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.123",
+    "version": "2.3.124",
     "build": "2026-09-15",
-    "changelog": "Verify Store extensions against canonical exact-version manifests with resilient metadata transport and strict legacy plugin provenance.",
+    "changelog": "Verify bounded plugin-declared generated public images without weakening exact Store code and static asset integrity.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

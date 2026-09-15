@@ -9,7 +9,7 @@ $removeTree = static function (string $path) use (&$removeTree): void {
     foreach (new FilesystemIterator($path, FilesystemIterator::SKIP_DOTS) as $entry) $removeTree($entry->getPathname());
     @rmdir($path);
 };
-foreach (['cfg/var', 'app', 'tools', 'public/views/themes/default', 'public/views/themes/store-theme', 'public/views/themes/wrong-theme', 'public/views/themes/missing-theme', 'public/static/img/2026', 'public/static/plugins/store-plugin', 'plugins/local-plugin', 'plugins/store-plugin/assets', 'plugins/.backup-local-plugin', 'private_files/media/2026'] as $directory) {
+foreach (['cfg/var', 'app', 'tools', 'public/views/themes/default', 'public/views/themes/store-theme', 'public/views/themes/wrong-theme', 'public/views/themes/missing-theme', 'public/static/img/2026', 'public/static/plugins/store-plugin/generated', 'plugins/local-plugin', 'plugins/store-plugin/assets', 'plugins/.backup-local-plugin', 'private_files/media/2026'] as $directory) {
     if (!is_dir($fixture . '/' . $directory) && !mkdir($fixture . '/' . $directory, 0755, true)) throw new RuntimeException('Unable to create fixture.');
 }
 define('BACKEND_PATH', $fixture . '/cfg');
@@ -46,11 +46,13 @@ try {
         'version' => '1.2.3',
         'store' => ['url' => 'https://jyavani.com/plugin-store/', 'slug' => 'store-plugin'],
         'static' => ['copy' => [['from' => 'assets/app.js', 'to' => 'static/plugins/store-plugin/app.js']]],
+        'site_health' => ['generated_public_image_directories' => ['static/plugins/store-plugin/generated']],
     ];
     file_put_contents($fixture . '/plugins/store-plugin/plugin.json', json_encode($storePluginData, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/store-plugin/plugin.php', '<?php return true;');
     file_put_contents($fixture . '/plugins/store-plugin/assets/app.js', 'window.storePlugin=true;');
     file_put_contents($fixture . '/public/static/plugins/store-plugin/app.js', 'window.storePlugin=true;');
+    file_put_contents($fixture . '/public/static/plugins/store-plugin/generated/icon.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='));
     file_put_contents($fixture . '/plugins/.backup-local-plugin/plugin.json', json_encode(['name' => 'Local Plugin', 'version' => '0.9.0'], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/.backup-local-plugin/plugin.php', '<?php');
     file_put_contents($fixture . '/public/views/themes/store-theme/theme.json', json_encode([
@@ -108,7 +110,16 @@ try {
         && $report['components']['extensions']['summary']['total'] === 5, 'plugins and themes retain an unverified component boundary when local or unresolved extensions exist');
     $extensionItemsByFolder = array_column($report['components']['extensions']['items'], null, 'folder');
     $check(($extensionItemsByFolder['store-plugin']['status'] ?? null) === 'clean'
-        && ($extensionItemsByFolder['store-plugin']['baseline'] ?? null) === 'canonical_exact_https_store', 'an exact plugin file tree, valid preserved Store metadata, ignored empty directory, and matching static.copy destination are clean');
+        && ($extensionItemsByFolder['store-plugin']['baseline'] ?? null) === 'canonical_exact_https_store', 'an exact plugin tree, matching static copy, and declared MIME-valid generated image directory are clean');
+    file_put_contents($fixture . '/public/static/plugins/store-plugin/generated/shell.php.png', '<?php echo 1;');
+    $unsafeGenerated = site_health_run($fixture, $fixture . '/public', $provider, $extensionProvider);
+    $unsafeGeneratedItems = array_column($unsafeGenerated['components']['extensions']['items'], null, 'folder');
+    $check(($unsafeGeneratedItems['store-plugin']['status'] ?? null) === 'contaminated'
+        && in_array('unsafe_generated_public_image', array_column($unsafeGenerated['components']['extensions']['findings'], 'reason'), true),
+        'declared generated image directories still reject executable names and false image bytes');
+    unlink($fixture . '/public/static/plugins/store-plugin/generated/shell.php.png');
+    $check(site_health_generated_image_directories(['site_health' => ['generated_public_image_directories' => ['static/other/generated']]], 'store-plugin') === null,
+        'generated image declarations cannot escape the exact plugin static namespace');
     $check(($extensionItemsByFolder['local-plugin']['status'] ?? null) === 'clean'
         && ($extensionItemsByFolder['local-plugin']['baseline'] ?? null) === 'canonical_exact_https_store'
         && ($extensionItemsByFolder['store-theme']['status'] ?? null) === 'unverified', 'an official legacy plugin URI can resolve an exact Store baseline while noncanonical theme metadata remains unverified');
