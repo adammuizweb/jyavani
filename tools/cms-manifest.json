@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.124",
+    "version": "2.3.125",
     "build": "2026-09-15",
-    "generated": "2026-09-15T03:19:04+00:00",
+    "generated": "2026-09-15T04:27:28+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 577,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "2c6b0f7763f49fbe9007856cdf6cffc96dc8811129563c174094db3854320687",
+        "VERSION": "2e746d937ed92e9e72f85ea68dc869d48010392bac133c43bac5fc49e1def0c5",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "5c1aceb013a0dc1e9e1ff93f60aaa68e8fa773e22f96733790b8c014080877eb",
@@ -177,7 +177,7 @@
         "dashboard/admin/settings/auth.php": "08e9aa943bb165e3a6641acc6eb6adad06d611835f5fd229aac03e58fc72ed65",
         "dashboard/admin/settings/email.php": "7d8d4d58451d60a8a24a90a47dffcc0f240fcfd5da58219e156c682c0272d804",
         "dashboard/admin/settings/email_test.php": "dd77743a4cde0a247ec7e504280c1a7a255ca1c46eb4b21ee8fe5418aac8361a",
-        "dashboard/admin/settings/health.php": "609fe6c8810a88e528213a37620702ce46f63a9c3f64ab9ac4eb4fe2c0a6d844",
+        "dashboard/admin/settings/health.php": "639cf783c581d6491afff90765b4bfd4cdc86134118fae93e3f4f2cf4de9eef6",
         "dashboard/admin/settings/index.php": "2f020c3fe4b864d8e46678296f5e5805dde54649c15ab30f370917300ce2877e",
         "dashboard/admin/settings/sidebar.php": "f22859d44fa34a51ae6f83d4089387d68f0ae4d75269dad75d58962d3725c472",
         "dashboard/admin/settings/site.php": "db8dbceabb15268cc6fbfaded63a2ea838fe458042a7c6907c5488b6a86110be",
@@ -551,13 +551,13 @@
         "schema/demo-content/articles/293-content-routes.html": "82a468eda48d70d29683a6049eec71b7965801054f086de569c699c5c1864be4",
         "schema/demo-content/articles/294-locale.html": "31d9bf6cdb3bc0ac41a25ff411af2edccfbbd4771d3cc7f8c0c5125325ddf8d9",
         "schema/demo-content/articles/295-core-mail-api.html": "458611ec66c9556f25952690957a7c5b10f779fe9d37ef6197a1195468e5a537",
-        "schema/demo-content/articles/296-site-health-core-integrity.html": "b21c3c0717ad8d18960d1bb15dc636f1440f9f36ee62ee9e8927623b6b0d3ef7",
-        "schema/demo-content/manifest.json": "27ddb87c9f4477d3079d3ad8fa187612e8f9b86247872a7294309ff622ecdc32",
+        "schema/demo-content/articles/296-site-health-core-integrity.html": "4c488e816166b4d8df8248ec86e39526b930f6655994658820a7360f6a983ace",
+        "schema/demo-content/manifest.json": "8ed0905edd1a6f007aae8da1aed2276a7a640bb238be998eef092f8f568c5551",
         "schema/demo-content/media.json": "d61c274fc5abbe031648ad5043421f0cb63b99488ae3fe1eaf2f7bb704d48106",
         "schema/demo-content/pages/283-tentang.html": "1080a6767411b4e6dd57bcf82eff87293451662b0be671ab652746bbeefbdcc1",
         "schema/demo-content/pages/284-kontak.html": "a0802184b4c0bac9056594a0f25700b8d5bc1695f580a811bfbe3c4b396439fa",
         "schema/demo-content/pages/285-privacy.html": "91dede39a886e5e58bb39f29cca5d4a5915e6b3105e736fb00e450d0352bba36",
-        "schema/demo.sql": "bc2b45d1c45cca463f59ebc07aec36f190fa45d45902cd3a416408facb890748",
+        "schema/demo.sql": "1f4c9b20a8aab329f0e88c381463653f83fe27f0a203a4b1079b43ba0bcc79a5",
         "schema/migrations/006-theme-store.sql": "e9d3307df3820d3e7c64a24c363f6badb45defe619006133e38da508586ec26d",
         "schema/migrations/007-i18n.sql": "977132f036cff82a40dab746f31e09356ae4e9420f0acc1e11224dd1c9e4caa9",
         "schema/migrations/008-theme-zones.sql": "c2057de4dc28339a6f2f5b8fcef3ef8de3b05af6a714ce218a92bf9fd5af9cb9",
@@ -584,6 +584,6 @@
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
-        "version.json": "d610d6321b93cee62213d8260363b47c82240a44bfef31bd5b5d9ca8e294bddf"
+        "version.json": "78af3721a6abda6ea50609b11e10b828f5d446737a391709bc5dea588a08bcc7"
     }
 }

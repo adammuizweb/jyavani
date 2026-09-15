@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.124",
+    "version": "2.3.125",
     "build": "2026-09-15",
-    "changelog": "Verify bounded plugin-declared generated public images without weakening exact Store code and static asset integrity.",
+    "changelog": "Give Site Health overview signals vivid semantic colors and clear mouse and keyboard navigation affordances.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

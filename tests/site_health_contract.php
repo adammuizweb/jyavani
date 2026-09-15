@@ -345,6 +345,22 @@ try {
         && str_contains($page, 'site-health__hero-meta')
         && !str_contains($page, 'site-health__hero-state')
         && str_contains($page, 'site-health__panel--accent'), 'Site Health uses a status-aware visual hierarchy for its overview and component panels');
+    $check(str_contains($page, 'border-inline-start:4px solid var(--health-color)')
+        && str_contains($page, '.site-health__status-color--unverified{--health-color:#6366f1}')
+        && str_contains($page, '.site-health__status-color--scanned{--health-color:#0284c7}')
+        && str_contains($page, 'box-shadow:0 9px 24px color-mix(in srgb,var(--health-color) 13%,transparent)'),
+        'overview signals use vivid semantic status colors rather than a shared neutral treatment');
+    $check(substr_count($page, 'class="site-health__signal-action"') === 3
+        && substr_count($page, "svg_ico('chevron-right')") === 3
+        && str_contains($page, '.site-health__signal[href]{cursor:pointer}')
+        && str_contains($page, '.site-health__signal[href]:focus-visible')
+        && str_contains($page, '.site-health__signal[href]:hover .site-health__signal-action')
+        && str_contains($page, '.site-health__signal,.site-health__signal-action{transition:none}'),
+        'linked overview signals expose chevron, pointer, hover, and keyboard-focus affordances');
+    $check(substr_count($page, 'href="#core-integrity"') === 1
+        && substr_count($page, 'href="#extension-inventory"') === 1
+        && substr_count($page, 'href="#content-safety"') === 1,
+        'exactly three overview signals navigate to their component details');
     $check(substr_count($page, 'site-health__disclosure" id=') === 3
         && substr_count($page, '<summary class="site-health__panel-head">') === 3
         && str_contains($chevronAsset, 'lucide-chevron-down')
