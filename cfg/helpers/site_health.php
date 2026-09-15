@@ -3,8 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/core_integrity.php';
 require_once __DIR__ . '/extension_release_manifest.php';
+require_once __DIR__ . '/deployment_extension_manifest.php';
 
-const SITE_HEALTH_SCHEMA = 1;
+const SITE_HEALTH_SCHEMA = 2;
 const SITE_HEALTH_MAX_ENTRIES = 200000;
 const SITE_HEALTH_MAX_FINDINGS = 500;
 const SITE_HEALTH_MAX_EXTENSION_ITEMS = 2000;
@@ -438,6 +439,7 @@ function site_health_scan_extensions(
         'findings_truncated' => false,
     ];
     $remainingBytes = SITE_HEALTH_EXTENSION_MAX_TOTAL_BYTES;
+    $deploymentManifest = site_health_deployment_manifest_load(null, null, $publicRoot);
     $groups = [
         ['type' => 'plugin', 'root' => rtrim($projectRoot, '/\\') . '/plugins', 'manifest' => 'plugin.json', 'skip' => []],
         ['type' => 'theme', 'root' => rtrim($publicRoot, '/\\') . '/views/themes', 'manifest' => 'theme.json', 'skip' => ['default']],
@@ -519,6 +521,7 @@ function site_health_scan_extensions(
                 $canonicalStore = extension_release_manifest_canonical_store($group['type'], $storeUrl) || $legacyOfficialPlugin;
                 $storeBacked = $canonicalStore && extension_release_manifest_slug_valid($storeSlug);
                 $baseline = null;
+                $baselineType = 'none';
                 $reason = 'extension_source_unverified';
                 if ($manifestData === null || ($canonicalStore && (!$storeBacked || !extension_release_manifest_version_valid($version)))) {
                     $reason = 'extension_manifest_invalid';
@@ -526,6 +529,21 @@ function site_health_scan_extensions(
                     $resolved = extension_release_manifest_fetch($group['type'], $storeSlug, $version, $deadline, $manifestProvider);
                     $baseline = $resolved['manifest'];
                     $reason = (string)($resolved['reason'] ?? '');
+                    if (is_array($baseline)) $baselineType = 'canonical_exact_https_store';
+                }
+                if (!is_array($baseline) && !$canonicalStore && $reason !== 'extension_manifest_invalid') {
+                    $deploymentIdentity = $group['type'] . '/' . $folder;
+                    $deploymentEntry = $deploymentManifest['components'][$deploymentIdentity] ?? null;
+                    if (is_array($deploymentEntry) && is_string($deploymentEntry['version'] ?? null)
+                        && hash_equals($deploymentEntry['version'], $version)) {
+                        $baseline = $deploymentEntry;
+                        $baselineType = 'signed_local_deployment';
+                        $storeBacked = false;
+                    } elseif (($deploymentManifest['configured'] ?? false) === true) {
+                        $reason = is_string($deploymentManifest['reason'] ?? null)
+                            ? $deploymentManifest['reason']
+                            : 'signed_deployment_manifest_entry_unavailable';
+                    }
                 }
                 if (is_array($baseline)) {
                     $tree = site_health_scan_extension_tree(
@@ -541,7 +559,7 @@ function site_health_scan_extensions(
                         : ($tree['summary']['contaminated'] > 0 ? 'contaminated'
                             : ($tree['summary']['modified'] > 0 ? 'modified'
                                 : (!$tree['complete'] || $tree['summary']['unverified'] > 0 ? 'unverified' : 'clean')));
-                    $reason = $itemStatus === 'clean' ? 'canonical_store_manifest_match'
+                    $reason = $itemStatus === 'clean' ? ($baselineType === 'signed_local_deployment' ? 'signed_deployment_manifest_match' : 'canonical_store_manifest_match')
                         : ($itemStatus === 'modified' ? 'extension_files_modified'
                             : ($itemStatus === 'contaminated' ? 'unexpected_or_unsafe_extension_file' : 'extension_scan_incomplete'));
                 } else {
@@ -560,7 +578,7 @@ function site_health_scan_extensions(
                     'reason' => $reason,
                     'files_scanned' => $tree['files_scanned'],
                     'store_backed' => $storeBacked,
-                    'baseline' => is_array($baseline) ? 'canonical_exact_https_store' : 'none',
+                    'baseline' => $baselineType,
                 ];
                 $result['summary']['total']++;
                 $result['summary'][$itemStatus]++;
@@ -804,10 +822,11 @@ function site_health_report_valid(array $report): bool
             || !is_string($item['reason'] ?? null) || strlen($item['reason']) > 64
             || !is_int($item['files_scanned'] ?? null)
             || $item['files_scanned'] < 0 || !is_bool($item['store_backed'] ?? null)
-            || !in_array($item['baseline'] ?? null, ['none', 'canonical_exact_https_store'], true)
+            || !in_array($item['baseline'] ?? null, ['none', 'canonical_exact_https_store', 'signed_local_deployment'], true)
             || ($item['baseline'] === 'canonical_exact_https_store' && !$item['store_backed'])
+            || ($item['baseline'] === 'signed_local_deployment' && $item['store_backed'])
             || (in_array($item['status'], ['clean', 'modified'], true)
-                && $item['baseline'] !== 'canonical_exact_https_store')) return false;
+                && !in_array($item['baseline'], ['canonical_exact_https_store', 'signed_local_deployment'], true))) return false;
         $itemCounts[$item['status']]++;
     }
     foreach ($itemCounts as $key => $count) if ($extensions['summary'][$key] !== $count) return false;

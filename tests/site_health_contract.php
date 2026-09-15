@@ -9,7 +9,7 @@ $removeTree = static function (string $path) use (&$removeTree): void {
     foreach (new FilesystemIterator($path, FilesystemIterator::SKIP_DOTS) as $entry) $removeTree($entry->getPathname());
     @rmdir($path);
 };
-foreach (['cfg/var', 'app', 'tools', 'public/views/themes/default', 'public/views/themes/store-theme', 'public/views/themes/wrong-theme', 'public/views/themes/missing-theme', 'public/static/img/2026', 'public/static/plugins/store-plugin/generated', 'plugins/local-plugin', 'plugins/store-plugin/assets', 'plugins/.backup-local-plugin', 'private_files/media/2026'] as $directory) {
+    foreach (['cfg/var', 'app', 'tools', 'public/views/themes/default', 'public/views/themes/store-theme', 'public/views/themes/wrong-theme', 'public/views/themes/missing-theme', 'public/views/themes/local-deployment-theme', 'public/static/img/2026', 'public/static/plugins/store-plugin/generated', 'plugins/local-plugin', 'plugins/local-deployment-plugin', 'plugins/store-plugin/assets', 'plugins/invalid-store-plugin', 'plugins/malformed-plugin', 'plugins/.backup-local-plugin', 'private_files/media/2026'] as $directory) {
     if (!is_dir($fixture . '/' . $directory) && !mkdir($fixture . '/' . $directory, 0755, true)) throw new RuntimeException('Unable to create fixture.');
 }
 define('BACKEND_PATH', $fixture . '/cfg');
@@ -41,6 +41,10 @@ try {
         'release_manifest_url' => 'https://localhost/plugin-manifest.json',
     ], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/local-plugin/plugin.php', '<?php');
+    file_put_contents($fixture . '/plugins/local-deployment-plugin/plugin.json', json_encode([
+        'name' => 'Local Deployment Plugin', 'version' => '4.5.6',
+    ], JSON_THROW_ON_ERROR));
+    file_put_contents($fixture . '/plugins/local-deployment-plugin/plugin.php', '<?php return true;');
     $storePluginData = [
         'name' => 'Store Plugin',
         'version' => '1.2.3',
@@ -53,12 +57,23 @@ try {
     file_put_contents($fixture . '/plugins/store-plugin/assets/app.js', 'window.storePlugin=true;');
     file_put_contents($fixture . '/public/static/plugins/store-plugin/app.js', 'window.storePlugin=true;');
     file_put_contents($fixture . '/public/static/plugins/store-plugin/generated/icon.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='));
+    file_put_contents($fixture . '/plugins/invalid-store-plugin/plugin.json', json_encode([
+        'name' => 'Invalid Store Plugin', 'version' => '2.1.0',
+        'store' => ['url' => 'https://jyavani.com/plugin-store', 'slug' => 'Invalid Slug'],
+    ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    file_put_contents($fixture . '/plugins/invalid-store-plugin/plugin.php', '<?php return true;');
+    file_put_contents($fixture . '/plugins/malformed-plugin/plugin.json', '{not-json');
+    file_put_contents($fixture . '/plugins/malformed-plugin/plugin.php', '<?php return true;');
     file_put_contents($fixture . '/plugins/.backup-local-plugin/plugin.json', json_encode(['name' => 'Local Plugin', 'version' => '0.9.0'], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/.backup-local-plugin/plugin.php', '<?php');
     file_put_contents($fixture . '/public/views/themes/store-theme/theme.json', json_encode([
         'name' => 'Store Theme', 'version' => '2.0.0', 'store' => ['url' => 'https://example.test/themes/', 'slug' => 'store-theme'],
     ], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/public/views/themes/store-theme/index.php', '<?php');
+    file_put_contents($fixture . '/public/views/themes/local-deployment-theme/theme.json', json_encode([
+        'name' => 'Local Deployment Theme', 'version' => '7.8.9',
+    ], JSON_THROW_ON_ERROR));
+    file_put_contents($fixture . '/public/views/themes/local-deployment-theme/index.php', '<?php return true;');
     foreach (['wrong-theme', 'missing-theme'] as $canonicalTheme) {
         file_put_contents($fixture . '/public/views/themes/' . $canonicalTheme . '/theme.json', json_encode([
             'name' => ucfirst(str_replace('-', ' ', $canonicalTheme)), 'version' => '3.0.0',
@@ -87,6 +102,47 @@ try {
     };
     $pluginRelease = $releaseManifest('plugin', 'store-plugin', '1.2.3', $fixture . '/plugins/store-plugin');
     $legacyPluginRelease = $releaseManifest('plugin', 'local-plugin', '1.0.0', $fixture . '/plugins/local-plugin');
+    $deploymentComponents = [];
+    foreach ([
+        ['plugin', 'local-deployment-plugin', '4.5.6', $fixture . '/plugins/local-deployment-plugin'],
+        ['plugin', 'store-plugin', '1.2.3', $fixture . '/plugins/store-plugin'],
+        ['plugin', 'invalid-store-plugin', '2.1.0', $fixture . '/plugins/invalid-store-plugin'],
+        ['theme', 'local-deployment-theme', '7.8.9', $fixture . '/public/views/themes/local-deployment-theme'],
+    ] as [$deploymentType, $deploymentFolder, $deploymentVersion, $deploymentDirectory]) {
+        $component = $releaseManifest($deploymentType, $deploymentFolder, $deploymentVersion, $deploymentDirectory);
+        $deploymentComponents[] = [
+            'type' => $deploymentType,
+            'folder' => $deploymentFolder,
+            'version' => $deploymentVersion,
+            'total_files' => $component['total_files'],
+            'files' => $deploymentFolder === 'store-plugin' ? ['not-the-store-tree.php' => str_repeat('f', 64)] : $component['files'],
+        ];
+        if ($deploymentFolder === 'store-plugin') $deploymentComponents[array_key_last($deploymentComponents)]['total_files'] = 1;
+    }
+    usort($deploymentComponents, static fn(array $left, array $right): int => strcmp(
+        $left['type'] . '/' . $left['folder'],
+        $right['type'] . '/' . $right['folder']
+    ));
+    $deploymentPayload = site_health_deployment_manifest_canonical_json([
+        'schema' => 1,
+        'deployment_id' => 'contract deployment',
+        'source_revision' => str_repeat('1', 40),
+        'components' => $deploymentComponents,
+    ]);
+    $deploymentKeypair = sodium_crypto_sign_keypair();
+    $deploymentSecretKey = sodium_crypto_sign_secretkey($deploymentKeypair);
+    $deploymentPublicKey = sodium_crypto_sign_publickey($deploymentKeypair);
+    $deploymentManifestPath = $fixture . '/deployment-extensions.json';
+    $writeDeploymentEnvelope = static function (string $signature) use ($deploymentManifestPath, $deploymentPayload): void {
+        file_put_contents($deploymentManifestPath, json_encode([
+            'schema' => 1, 'algorithm' => 'ed25519', 'payload' => base64_encode($deploymentPayload),
+            'signature' => base64_encode($signature),
+        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    };
+    $writeDeploymentEnvelope(sodium_crypto_sign_detached(SITE_HEALTH_DEPLOYMENT_MANIFEST_DOMAIN . $deploymentPayload, $deploymentSecretKey));
+    $_ENV['SITE_HEALTH_DEPLOYMENT_MANIFEST_PATH'] = $deploymentManifestPath;
+    $_ENV['SITE_HEALTH_DEPLOYMENT_PUBLIC_KEY'] = base64_encode($deploymentPublicKey);
+    $_ENV['SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION'] = str_repeat('1', 40);
     file_put_contents($fixture . '/plugins/store-plugin/.store.json', json_encode(['source' => 'preserved'], JSON_THROW_ON_ERROR));
 
     mkdir($fixture . '/plugins/store-plugin/empty-runtime-directory');
@@ -107,7 +163,7 @@ try {
     $report = site_health_run($fixture, $fixture . '/public', $provider, $extensionProvider);
     $check($report['components']['core']['status'] === 'clean', 'full scan retains independent clean Core integrity');
     $check($report['components']['extensions']['status'] === 'unverified'
-        && $report['components']['extensions']['summary']['total'] === 5, 'plugins and themes retain an unverified component boundary when local or unresolved extensions exist');
+        && $report['components']['extensions']['summary']['total'] === 9, 'plugins and themes retain an unverified component boundary when local or unresolved extensions exist');
     $extensionItemsByFolder = array_column($report['components']['extensions']['items'], null, 'folder');
     $check(($extensionItemsByFolder['store-plugin']['status'] ?? null) === 'clean'
         && ($extensionItemsByFolder['store-plugin']['baseline'] ?? null) === 'canonical_exact_https_store', 'an exact plugin tree, matching static copy, and declared MIME-valid generated image directory are clean');
@@ -123,6 +179,56 @@ try {
     $check(($extensionItemsByFolder['local-plugin']['status'] ?? null) === 'clean'
         && ($extensionItemsByFolder['local-plugin']['baseline'] ?? null) === 'canonical_exact_https_store'
         && ($extensionItemsByFolder['store-theme']['status'] ?? null) === 'unverified', 'an official legacy plugin URI can resolve an exact Store baseline while noncanonical theme metadata remains unverified');
+    $check(($extensionItemsByFolder['local-deployment-plugin']['status'] ?? null) === 'clean'
+        && ($extensionItemsByFolder['local-deployment-plugin']['baseline'] ?? null) === 'signed_local_deployment'
+        && ($extensionItemsByFolder['local-deployment-plugin']['store_backed'] ?? null) === false
+        && ($extensionItemsByFolder['local-deployment-plugin']['reason'] ?? null) === 'signed_deployment_manifest_match'
+        && ($extensionItemsByFolder['local-deployment-theme']['status'] ?? null) === 'clean'
+        && ($extensionItemsByFolder['local-deployment-theme']['baseline'] ?? null) === 'signed_local_deployment',
+        'signed exact-version local plugin and theme trees receive a clean deployment baseline');
+    $check(($extensionItemsByFolder['store-plugin']['baseline'] ?? null) === 'canonical_exact_https_store'
+        && ($extensionItemsByFolder['store-plugin']['status'] ?? null) === 'clean',
+        'a canonical Store baseline takes precedence over a conflicting signed deployment entry');
+    $check(($extensionItemsByFolder['invalid-store-plugin']['baseline'] ?? null) === 'none'
+        && ($extensionItemsByFolder['invalid-store-plugin']['status'] ?? null) === 'unverified'
+        && ($extensionItemsByFolder['invalid-store-plugin']['reason'] ?? null) === 'extension_manifest_invalid',
+        'canonical Store metadata with an invalid slug cannot fall back to a signed deployment entry');
+    $check(($extensionItemsByFolder['malformed-plugin']['baseline'] ?? null) === 'none'
+        && ($extensionItemsByFolder['malformed-plugin']['reason'] ?? null) === 'extension_manifest_invalid',
+        'malformed extension metadata preserves the extension_manifest_invalid diagnostic');
+    $storeUnavailableProvider = static function (string $url, string $type, string $slug, string $version, float $deadline) use ($extensionProvider): ?array {
+        return $slug === 'store-plugin' ? null : $extensionProvider($url, $type, $slug, $version, $deadline);
+    };
+    $storeFallback = site_health_run($fixture, $fixture . '/public', $provider, $storeUnavailableProvider);
+    $storeFallbackItems = array_column($storeFallback['components']['extensions']['items'], null, 'folder');
+    $check(($storeFallbackItems['store-plugin']['baseline'] ?? null) === 'none'
+        && ($storeFallbackItems['store-plugin']['store_backed'] ?? null) === true
+        && ($storeFallbackItems['store-plugin']['status'] ?? null) === 'unverified'
+        && ($storeFallbackItems['store-plugin']['reason'] ?? null) === 'store_release_manifest_unavailable',
+        'a signed deployment entry cannot replace unavailable canonical Store provenance');
+
+    $writeDeploymentEnvelope(str_repeat("\0", 64));
+    $badSignature = site_health_run($fixture, $fixture . '/public', $provider, $extensionProvider);
+    $badSignatureItems = array_column($badSignature['components']['extensions']['items'], null, 'folder');
+    $check(($badSignatureItems['local-deployment-plugin']['status'] ?? null) === 'unverified'
+        && ($badSignatureItems['local-deployment-plugin']['reason'] ?? null) === 'signed_deployment_manifest_signature_invalid'
+        && ($badSignatureItems['store-plugin']['status'] ?? null) === 'clean',
+        'a bad deployment signature fails local entries closed without displacing Store trust');
+    $writeDeploymentEnvelope(sodium_crypto_sign_detached(SITE_HEALTH_DEPLOYMENT_MANIFEST_DOMAIN . $deploymentPayload, $deploymentSecretKey));
+
+    file_put_contents($fixture . '/plugins/local-deployment-plugin/plugin.php', '<?php return false;');
+    $modifiedDeployment = site_health_run($fixture, $fixture . '/public', $provider, $extensionProvider);
+    $modifiedDeploymentItems = array_column($modifiedDeployment['components']['extensions']['items'], null, 'folder');
+    $check(($modifiedDeploymentItems['local-deployment-plugin']['status'] ?? null) === 'modified'
+        && ($modifiedDeploymentItems['local-deployment-plugin']['baseline'] ?? null) === 'signed_local_deployment',
+        'a signed deployment file mismatch retains trusted modified semantics');
+    file_put_contents($fixture . '/plugins/local-deployment-plugin/plugin.php', '<?php return true;');
+    file_put_contents($fixture . '/plugins/local-deployment-plugin/unexpected.php', '<?php');
+    $contaminatedDeployment = site_health_run($fixture, $fixture . '/public', $provider, $extensionProvider);
+    $contaminatedDeploymentItems = array_column($contaminatedDeployment['components']['extensions']['items'], null, 'folder');
+    $check(($contaminatedDeploymentItems['local-deployment-plugin']['status'] ?? null) === 'contaminated',
+        'an unexpected signed deployment file retains contaminated semantics');
+    unlink($fixture . '/plugins/local-deployment-plugin/unexpected.php');
     $check(($extensionItemsByFolder['wrong-theme']['reason'] ?? null) === 'store_release_manifest_invalid'
         && ($extensionItemsByFolder['missing-theme']['reason'] ?? null) === 'store_release_manifest_unavailable', 'wrong and missing exact-version release manifests remain unverified with distinct reasons');
     $check(in_array('https://jyavani.com/plugin-store/store-plugin/releases/1.2.3/manifest.json', $requestedManifestUrls, true)
@@ -299,13 +405,19 @@ try {
     }
     unset($fabricatedItem);
     $check(!site_health_report_valid($fabricated), 'persisted clean extension results require a canonical exact HTTPS Store baseline');
-    $check(site_health_report_valid($modifiedExtension), 'a modified trusted extension report has valid structure');
+    $check(site_health_report_valid($modifiedExtension) && site_health_report_valid($modifiedDeployment), 'modified Store and signed deployment extension reports have valid structure');
     $fabricated = $modifiedExtension;
     foreach ($fabricated['components']['extensions']['items'] as &$fabricatedItem) {
         if ($fabricatedItem['folder'] === 'store-plugin') $fabricatedItem['baseline'] = 'none';
     }
     unset($fabricatedItem);
-    $check(!site_health_report_valid($fabricated), 'persisted modified extension results require a canonical exact HTTPS Store baseline');
+    $check(!site_health_report_valid($fabricated), 'persisted modified extension results require a trusted Store or signed deployment baseline');
+    $fabricated = $report;
+    foreach ($fabricated['components']['extensions']['items'] as &$fabricatedItem) {
+        if ($fabricatedItem['folder'] === 'local-deployment-plugin') $fabricatedItem['store_backed'] = true;
+    }
+    unset($fabricatedItem);
+    $check(!site_health_report_valid($fabricated), 'persisted signed local deployment baselines cannot claim Store backing');
     $fabricated = $report;
     $fabricated['components']['content']['findings'][] = ['path' => 'private_files/fake.php', 'status' => 'contaminated', 'reason' => 'executable_upload'];
     $check(!site_health_report_valid($fabricated), 'persisted content counters must agree with untruncated findings');
@@ -454,10 +566,11 @@ try {
         && str_contains($automaticScript, 'keepalive: true')
         && str_contains($automaticScript, 'Date.now() - lastAttempt < 300000'),
         'stale Site Health reports trigger one throttled asynchronous scan independently of widget visibility');
-    foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Canonical exact-version Store hashes and filesystem safety', 'Canonical exact HTTPS Store baseline', 'No trusted release baseline', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Integrity Findings', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
+    foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Canonical Store or signed deployment hashes and filesystem safety', 'Canonical exact HTTPS Store baseline', 'Signed local deployment baseline', 'Every extension file matches the signed local deployment baseline.', 'No trusted release baseline', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Integrity Findings', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
         $check(substr_count($translations, "'" . str_replace("'", "''", $source) . "'") >= 2, 'full Site Health translation coverage: ' . $source);
     }
 } finally {
+    unset($_ENV['SITE_HEALTH_DEPLOYMENT_MANIFEST_PATH'], $_ENV['SITE_HEALTH_DEPLOYMENT_PUBLIC_KEY'], $_ENV['SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION']);
     $removeTree($fixture);
 }
 

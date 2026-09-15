@@ -38,6 +38,10 @@ THEME_OPERATION_LOCK_DIR=
 PLUGIN_DISABLED_JSON=
 # Update snapshots need atomic rename support; use a native Linux path on WSL /mnt projects.
 UPDATE_STATUS_FILE=
+# Optional signed local extension baseline. Configure all three; never deploy the private key.
+SITE_HEALTH_DEPLOYMENT_MANIFEST_PATH=
+SITE_HEALTH_DEPLOYMENT_PUBLIC_KEY=
+SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION=
 SESSION_LIFETIME=604800
 SESSION_IDLE_TIMEOUT=0
 SESSION_COOKIE_SAMESITE=Lax

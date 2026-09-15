@@ -194,6 +194,9 @@ function cms_manifest_read_bounded_regular_file(string $path, int $maxBytes): ?s
         && is_array($descriptor) && is_array($after)
         && (($descriptor['mode'] ?? 0) & 0170000) === 0100000
         && ($descriptor['nlink'] ?? 0) === 1
+        && ($before['dev'] ?? null) === ($descriptor['dev'] ?? null)
+        && ($before['ino'] ?? null) === ($descriptor['ino'] ?? null)
+        && ($before['size'] ?? null) === ($descriptor['size'] ?? null)
         && ($descriptor['dev'] ?? null) === ($after['dev'] ?? null)
         && ($descriptor['ino'] ?? null) === ($after['ino'] ?? null)
         && ($descriptor['size'] ?? null) === ($after['size'] ?? null)

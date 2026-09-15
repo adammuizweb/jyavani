@@ -67,6 +67,10 @@ $extensionReasonLabels = [
     'store_release_manifest_invalid' => __('The canonical Store returned an invalid or mismatched release manifest.'),
     'extension_source_unverified' => __('The extension has no independently trusted file manifest.'),
     'canonical_store_manifest_match' => __('Every extension file matches the canonical exact-version HTTPS Store baseline.'),
+    'signed_deployment_manifest_match' => __('Every extension file matches the signed local deployment baseline.'),
+    'signed_deployment_manifest_invalid' => __('The configured signed deployment manifest or public key is invalid or unavailable.'),
+    'signed_deployment_manifest_signature_invalid' => __('The configured deployment manifest signature is invalid.'),
+    'signed_deployment_manifest_entry_unavailable' => __('The signed deployment manifest has no matching entry for this extension version.'),
     'extension_files_modified' => __('A required extension file or copied static asset changed or is missing.'),
     'unexpected_or_unsafe_extension_file' => __('An unexpected or unsafe artifact exists in the extension tree or copied static assets.'),
     'extension_scan_incomplete' => __('The extension could not be fully hashed within the scan limits.'),
@@ -85,6 +89,11 @@ $summary = is_array($coreReport['summary'] ?? null) ? $coreReport['summary'] : [
 $baseline = is_array($coreReport['baseline'] ?? null) ? $coreReport['baseline'] : [];
 $findings = is_array($coreReport['findings'] ?? null) ? $coreReport['findings'] : [];
 $extensionItems = is_array($extensions['items'] ?? null) ? $extensions['items'] : [];
+$extensionBaselineLabels = [
+    'canonical_exact_https_store' => __('Canonical exact HTTPS Store baseline'),
+    'signed_local_deployment' => __('Signed local deployment baseline'),
+    'none' => __('No trusted release baseline'),
+];
 $contentFindings = is_array($content['findings'] ?? null) ? $content['findings'] : [];
 $coreDistribution = [];
 if (is_array($coreReport) && (int)($summary['expected'] ?? 0) > 0) {
@@ -211,7 +220,7 @@ html.theme-dark .site-health__count--clean{--health-color:#4ade80;border-color:r
         <div class="site-health__disclosure-body">
         <?php if ($extensionItems !== []): ?><div data-health-list data-page-size="15" data-summary="<?=h(__('Showing %d-%d of %d results'))?>"><div class="site-health__list-tools"><input type="search" data-health-search placeholder="<?=h(__('Search results…'))?>" aria-label="<?=h(__('Search results…'))?>"><select data-health-status aria-label="<?=h(__('Filter by status'))?>"><option value=""><?=_e('All statuses')?></option><?php foreach (['clean','unverified','modified','contaminated','infected'] as $filterStatus): ?><option value="<?=h($filterStatus)?>"><?=h($statusLabels[$filterStatus])?></option><?php endforeach;?></select></div><div class="site-health__table-wrap"><table class="site-health__table"><thead><tr><th><?=_e('Extension')?></th><th><?=_e('Status')?></th><th><?=_e('Reason')?></th></tr></thead><tbody>
         <?php foreach ($extensionItems as $extension): $extensionStatus=(string)($extension['status']??'unverified'); $extensionReason=(string)($extension['reason']??''); $extensionVersion=(string)($extension['version']??''); if($extensionVersion==='')$extensionVersion=__('Unknown version'); ?>
-          <tr data-health-row data-status="<?=h($extensionStatus)?>"><td><div class="site-health__ext-name"><?=h((string)($extension['name']??$extension['folder']??''))?></div><div class="site-health__ext-meta"><?=h(ucfirst((string)($extension['type']??'')))?> · <?=h($extensionVersion)?> · <?=h(sprintf(__('%d files inventoried'), (int)($extension['files_scanned']??0)))?> · <?=h(($extension['baseline']??'none')==='canonical_exact_https_store' ? __('Canonical exact HTTPS Store baseline') : __('No trusted release baseline'))?></div></td><td><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></td><td><?=h($extensionReasonLabels[$extensionReason]??__('The extension requires manual review.'))?></td></tr>
+          <tr data-health-row data-status="<?=h($extensionStatus)?>"><td><div class="site-health__ext-name"><?=h((string)($extension['name']??$extension['folder']??''))?></div><div class="site-health__ext-meta"><?=h(ucfirst((string)($extension['type']??'')))?> · <?=h($extensionVersion)?> · <?=h(sprintf(__('%d files inventoried'), (int)($extension['files_scanned']??0)))?> · <?=h($extensionBaselineLabels[$extension['baseline']??'none']??$extensionBaselineLabels['none'])?></div></td><td><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></td><td><?=h($extensionReasonLabels[$extensionReason]??__('The extension requires manual review.'))?></td></tr>
         <?php endforeach;?></tbody></table></div><div class="site-health__empty" data-health-empty hidden><?=_e('No results match these filters.')?></div><div class="site-health__list-foot"><span data-health-summary></span><div class="site-health__pager"><button type="button" data-health-prev><?=_e('Previous')?></button><button type="button" data-health-next><?=_e('Next')?></button></div></div></div>
         <?php elseif (is_array($extensions) && ($extensions['complete']??false)===true): ?><div class="site-health__empty"><?=_e('No non-Core plugins or themes were found.')?></div>
         <?php elseif (is_array($extensions)): ?><div class="site-health__empty"><?=_e('The plugin and theme inventory could not be completed.')?></div>
@@ -255,7 +264,7 @@ html.theme-dark .site-health__count--clean{--health-color:#4ade80;border-color:r
       <?php endif;?>
       <article class="site-health__panel"><div class="site-health__panel-head"><h2><?=_e('Scan Coverage')?></h2></div><div class="site-health__scope">
         <div class="site-health__scope-row"><div><b><?=_e('Core files')?></b><small><?=_e('Release hashes and unexpected files')?></small></div><span class="site-health__badge site-health__badge--<?=h($coreStatus)?>"><?=h($statusLabels[$coreStatus]??$statusLabels['unverified'])?></span></div>
-        <div class="site-health__scope-row"><div><b><?=_e('Plugins and themes')?></b><small><?=_e('Canonical exact-version Store hashes and filesystem safety')?></small></div><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></div>
+        <div class="site-health__scope-row"><div><b><?=_e('Plugins and themes')?></b><small><?=_e('Canonical Store or signed deployment hashes and filesystem safety')?></small></div><span class="site-health__badge site-health__badge--<?=h($extensionStatus)?>"><?=h($statusLabels[$extensionStatus]??$statusLabels['unverified'])?></span></div>
         <div class="site-health__scope-row"><div><b><?=_e('Media and files')?></b><small><?=_e('Executable and MIME safety rules')?></small></div><span class="site-health__badge site-health__badge--<?=h($contentStatus)?>"><?=h($statusLabels[$contentStatus]??$statusLabels['unverified'])?></span></div>
       </div></article>
       <article class="site-health__panel"><div class="site-health__panel-head"><div class="site-health__section-title"><span class="site-health__section-icon" aria-hidden="true"><?=svg_ico('clipboard-list')?></span><h2><?=_e('Status Guide')?></h2></div></div><div class="site-health__legend">

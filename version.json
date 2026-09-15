@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.127",
+    "version": "2.3.128",
     "build": "2026-09-15",
-    "changelog": "Include configured collection landing URLs in sitemaps and refine Plugin Store completion and card actions.",
+    "changelog": "Add revision-bound signed integrity manifests for deployment-owned plugins and themes while preserving canonical Store precedence.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

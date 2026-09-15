@@ -17,7 +17,7 @@ The current release and platform requirements are the source of truth in [`VERSI
 - Canonical nested content routes, redirect history, configurable collection paths, and custom permalink support.
 - UI internationalization for English, Indonesian, and German, with separate dashboard and default-content locale settings.
 - Plugin and theme upload, activation, dependency checks, store discovery, update checks, and integrity-aware update flows.
-- Site Health verifies Store plugin and theme package files against canonical exact-version HTTPS release manifests; local and noncanonical extensions remain explicitly unverified.
+- Site Health verifies Store plugin and theme package files against canonical exact-version HTTPS release manifests. A deployment may optionally trust otherwise local extensions through one environment-pinned signed manifest.
 - Optional PWA, offline, web-manifest, and browser-push behavior can be supplied by plugins. These are not core Jyavani CMS features.
 
 ## Requirements
@@ -30,7 +30,7 @@ The current release and platform requirements are the source of truth in [`VERSI
 
 Outbound HTTPS access is needed for Store browsing, release-manifest verification, and remote updates. The `curl` extension is used when available, with the bounded PHP stream transport as fallback. The `pcntl` extension is only needed by one local contract test.
 
-Site Health trusts extension release hashes only when installed metadata names the canonical `https://jyavani.com/plugin-store` or `https://jyavani.com/theme-store` and the exact installed version manifest is fetched from `/plugin-store/{slug}/releases/{version}/manifest.json` or `/theme-store/{slug}/releases/{version}/manifest.json`. Legacy plugins with a strict official `https://jyavani.com/plugin/{listing}` URI may use their validated folder as the Store slug, but become clean only when every installed byte matches that canonical exact-version manifest. A local manifest URL or other HTTPS origin is not a trusted baseline. These manifests are integrity baselines, not signatures; signed release metadata is not required yet.
+Site Health trusts canonical Store release hashes only for the exact installed version. As an optional deployment-owned alternative for extensions without canonical Store metadata, `SITE_HEALTH_DEPLOYMENT_MANIFEST_PATH` may name one absolute private envelope path, `SITE_HEALTH_DEPLOYMENT_PUBLIC_KEY` may pin its strict-base64 raw 32-byte Ed25519 public key, and `SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION` must identify the exact deployed 40-lowercase-hex revision. Configure all three or none. The private key never belongs on the CMS host. The schema-1 envelope signs canonical payload bytes containing that source revision and sorted plugin/theme file maps; mismatched revisions, invalid configuration, signatures, schemas, paths, or unavailable sodium support remain `unverified`. Canonical Store metadata always retains precedence, including when its slug, version, or release baseline is invalid.
 
 Extension release identity is file-only: every regular package file must appear in the manifest, but ordinary empty directories are ignored because the release contract has no directory map. Updater-preserved `.store.json` is outside package identity and is ignored only when it is a bounded, readable regular file containing a JSON object; it never establishes trust. Unsafe or invalid metadata prevents a clean result. `.git` is always prohibited from a clean Store tree, including an empty `.git` directory.
 

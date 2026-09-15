@@ -5577,3 +5577,18 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'No trusted release baseline', 'Keine vertrauenswürdige Release-Basis', 'de'),
 ('default', 'Canonical exact-version Store hashes and filesystem safety', 'Hash Store kanonis versi persis dan keamanan filesystem', 'id'),
 ('default', 'Canonical exact-version Store hashes and filesystem safety', 'Kanonische Store-Hashes der exakten Version und Dateisystemsicherheit', 'de');
+
+-- Signed local deployment extension baselines
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Every extension file matches the signed local deployment baseline.', 'Setiap file ekstensi cocok dengan baseline deployment lokal bertanda tangan.', 'id'),
+('default', 'Every extension file matches the signed local deployment baseline.', 'Jede Erweiterungsdatei stimmt mit der signierten lokalen Deployment-Basis überein.', 'de'),
+('default', 'The configured signed deployment manifest or public key is invalid or unavailable.', 'Manifest deployment bertanda tangan atau kunci publik yang dikonfigurasi tidak valid atau tidak tersedia.', 'id'),
+('default', 'The configured signed deployment manifest or public key is invalid or unavailable.', 'Das konfigurierte signierte Deployment-Manifest oder der öffentliche Schlüssel ist ungültig oder nicht verfügbar.', 'de'),
+('default', 'The configured deployment manifest signature is invalid.', 'Tanda tangan manifest deployment yang dikonfigurasi tidak valid.', 'id'),
+('default', 'The configured deployment manifest signature is invalid.', 'Die Signatur des konfigurierten Deployment-Manifests ist ungültig.', 'de'),
+('default', 'The signed deployment manifest has no matching entry for this extension version.', 'Manifest deployment bertanda tangan tidak memiliki entri yang cocok untuk versi ekstensi ini.', 'id'),
+('default', 'The signed deployment manifest has no matching entry for this extension version.', 'Das signierte Deployment-Manifest enthält keinen passenden Eintrag für diese Erweiterungsversion.', 'de'),
+('default', 'Signed local deployment baseline', 'Baseline deployment lokal bertanda tangan', 'id'),
+('default', 'Signed local deployment baseline', 'Signierte lokale Deployment-Basis', 'de'),
+('default', 'Canonical Store or signed deployment hashes and filesystem safety', 'Hash Store kanonis atau deployment bertanda tangan dan keamanan filesystem', 'id'),
+('default', 'Canonical Store or signed deployment hashes and filesystem safety', 'Kanonische Store- oder signierte Deployment-Hashes und Dateisystemsicherheit', 'de');

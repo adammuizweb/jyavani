@@ -223,6 +223,9 @@ SESSION_SAVE_PATH=/path/to/project/cfg/var/sessions
 THEME_OPERATION_LOCK_DIR=/var/lib/php/[project]-theme-locks
 PLUGIN_DISABLED_JSON=/var/lib/php/[project]-plugin-state/plugins-disabled.json
 UPDATE_STATUS_FILE=/var/lib/php/[project]-update-state/update-status.json
+SITE_HEALTH_DEPLOYMENT_MANIFEST_PATH=
+SITE_HEALTH_DEPLOYMENT_PUBLIC_KEY=
+SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION=
 DEV_LOCK_ENABLED=0
 DEV_LOCK_PASSWORD_HASH=
 SESSION_NAME=[session_name]
@@ -247,6 +250,8 @@ PLUGIN_INSTALL_OUTPUT_LIMIT=65536
 `PLUGIN_DISABLED_JSON` is likewise optional on a native Linux project filesystem and required when the configured project filesystem cannot provide reliable `fsync`, atomic rename, and Unix modes. Point it to a file inside an absolute native Linux directory that is not world-writable and is shared by the deployment user and PHP-FPM group. Core creates the state file atomically with mode `0640`.
 
 `UPDATE_STATUS_FILE` is optional on a native Linux project filesystem. Set it to an absolute file path on a native Linux filesystem when the project is served from WSL `/mnt` or another mount without reliable atomic rename and Unix mode behavior. Its parent directory must be writable by PHP-FPM; mode `02770` with the deployment user and PHP-FPM shared group is recommended.
+
+`SITE_HEALTH_DEPLOYMENT_MANIFEST_PATH`, `SITE_HEALTH_DEPLOYMENT_PUBLIC_KEY`, and `SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION` are an optional all-or-none set for local extension integrity. The path must be an absolute private regular-file path, the key is strict base64 for a raw 32-byte Ed25519 public key, and the revision is the exact deployed 40-character lowercase hexadecimal source revision. Keep the signing private key off this server. Invalid or partial configuration, a payload/revision mismatch, and unavailable sodium support fail closed to unverified local extensions.
 
 `PLUGIN_INSTALL_TIMEOUT_SECONDS` and `PLUGIN_INSTALL_OUTPUT_LIMIT` bound the fixed plugin `install.sh` runner. Defaults are 120 seconds and 65536 bytes; Core hard-caps them at 900 seconds and 1048576 bytes.
 
