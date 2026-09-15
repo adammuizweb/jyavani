@@ -30,9 +30,11 @@ $check(str_contains($browser, 'JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSO
     && str_contains($browser, 'id="themeStoreMore"') && str_contains($browser, 'href="<?= h($nextUrl) ?>"'),
     'inline data is script-safe and no-JavaScript cursor navigation remains available');
 $check(str_contains($browser, '.theme-store-browser .btn{text-decoration:none}')
-    && str_contains($browser, '.theme-card-actions form{display:flex;flex:1 1 0}')
-    && str_contains($browser, '.theme-card-actions .btn{box-sizing:border-box;display:inline-flex'),
-    'Theme Store links have no underline and card actions share consistent flex sizing');
+    && str_contains($browser, '.theme-card-actions form{display:flex;flex:0 0 auto}')
+    && str_contains($browser, '.theme-card-actions .theme-card-action--detail{margin-left:auto')
+    && str_contains($card, 'theme-card-action--primary')
+    && str_contains($card, 'theme-card-action--detail'),
+    'Theme Store cards use a compact primary install action and a quiet trailing Detail action');
 $check(str_contains($browser, 'ThemeStoreClient::fetchOfficialTheme($themeName)')
     && str_contains($browser, "hash_file('sha256', \$tmpZip)")
     && str_contains($browser, "'JyavaniCMS-ThemeInstall', null, false")

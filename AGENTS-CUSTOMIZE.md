@@ -1,13 +1,10 @@
 # AGENTS-CUSTOMIZE.md — Pedoman BIG Project: Visual Customize
 
-> Historical implementation record. The `feat/customize` project is complete;
+> **Historical and non-operative implementation record.** The `feat/customize` project is complete;
 > current behavior and extension contracts are documented in `AGENTS.md` and
 > `cms.md`. Branch names, routes, versions, and intermediate decisions below are
-> retained as project history rather than current instructions.
->
-> Branch kerja: `feat/customize` pada repo `jyavani.git`.
-> Dokumen ini adalah pedoman utama (source of truth) untuk refactor fitur Customize.
-> Baca dokumen ini SEBELUM mengerjakan apapun di branch ini. Jangan lupakan isinya.
+> retained as project history rather than current instructions. Nothing below
+> overrides current code, `AGENTS.md`, or `cms.md`.
 
 ## 1. Visi
 
@@ -66,9 +63,9 @@ Sudah ada:
 - `cfg/helpers/theme_zones.php` — schema gadget, CRUD, render, `theme_zone_render_position()`,
   `theme_zone_render_title()`, `theme_zone_content_align()`, `theme_zone_universal_defaults()`.
 - Tabel `theme_zone_items` dengan kolom `theme_folder` (per-theme scoping, migration `010`).
-- 13 gadget bawaan: `tz_image`, `tz_nav_menu`, `tz_theme_toggle`, `tz_lang_switcher`, `tz_search`,
-  `tz_html`, `tz_richtext`, `tz_pages`, `tz_social`, `tz_sidebar_zone`, `tz_post_author`,
-  `tz_post_meta`, `tz_post_contact`. Semua support universal title/alignment settings.
+- Historical count at project close: 13 built-ins. The current operative registry has 11:
+  `tz_image`, `tz_nav_menu`, `tz_social`, `tz_pages`, `tz_richtext`, `tz_sidebar_zone`,
+  `tz_theme_toggle`, `tz_search`, `tz_html`, `tz_post_author`, and `tz_post_meta`.
 - Admin `dashboard/admin/themes/customize.php` — kanvas full-page ala Blogspot (Header band →
   Main row + Sidebar → Footer band), select partials, drag & drop antar-position,
   gadget config form dengan alignment icon buttons + title tag selector.
@@ -232,7 +229,7 @@ Konsekuensi desain:
     - `theme_zone_content_align(array $config): string` — baca `_align_content` → css value.
     - `theme_zone_universal_defaults(): array` — return `['_title_tag'=>'div', '_align_title'=>'left',
       '_align_content'=>'left']`.
-    - Semua 13 gadget registrasi pakai `array_merge($uni, ...)`.
+    - Pada saat fase ini ditutup, semua 13 gadget historis memakai `array_merge($uni, ...)`.
     - Renderer `tz_html`, `tz_richtext`, `tz_social`, `tz_pages` panggil helpers.
     - Admin config form: dropdown Title Tag, icon buttons Title Align + Content Align
       (Lucide SVG icons). Backward compat: gadget tanpa universal keys render tanpa inline style.
@@ -377,7 +374,7 @@ add_filter('theme_zone_render_widget', function(string $html, string $type, arra
     $form = fb_get_form_by_slug($pdo, (string)($config['slug'] ?? ''));
     if (!$form) return $html;
     return fb_render_form($pdo, $form);
-}, 10, 5);
+}, 10);
 ```
 
 ### 9.8 Catatan keamanan

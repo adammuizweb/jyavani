@@ -11,7 +11,7 @@ The current release and platform requirements are the source of truth in [`VERSI
 ## Highlights
 
 - Articles, pages, reusable theme templates, drafts, published and private content, hierarchical categories, archives, search, authors, and XML sitemaps.
-- Adiwira editorial dashboard with `author`, `editor`, and `admin` roles, configurable login, registration, and admin paths, CSRF protection, session hardening, and login throttling.
+- Adiwira editorial dashboard with database-backed roles, action-specific permissions and scopes, a separately protected Site Owner identity, configurable authentication/admin paths, CSRF protection, session hardening, and login throttling. The legacy `author`, `editor`, and `admin` values remain compatibility identities rather than the authorization policy.
 - Media and file management with protected storage outside the web root and signed, time-limited access for private PDFs.
 - Slot-based themes with fallback resolution, customizer fields, menus, sidebars, widgets, shortcodes, and drag-and-drop Theme Zones.
 - Canonical nested content routes, redirect history, configurable collection paths, and custom permalink support.
@@ -87,7 +87,7 @@ tools/           i18n checks, manifest generation, packaging, and permissions to
 
 ### Plugins
 
-A plugin lives in `plugins/{slug}/`, declares metadata and requirements in `plugin.json`, and may provide a `plugin.php` entrypoint. Active plugins can register actions and filters, frontend routes, shortcodes, dashboard pages/navigation, CSS or JavaScript assets, and Theme Zone gadgets. Requirements can constrain Jyavani, PHP, PHP extensions, and other plugins; dependency entrypoints are loaded in dependency order.
+A plugin lives in `plugins/{slug}/`, declares metadata and requirements in `plugin.json`, and may provide a `plugin.php` entrypoint. Active plugins can register actions and filters, frontend routes, shortcodes, dashboard pages/navigation, CSS or JavaScript assets, and Theme Zone gadgets. Requirements can constrain Jyavani, PHP, PHP extensions, and other plugins; dependency entrypoints are loaded in dependency order. Plugins may declare owned `permissions[]` and bind an admin page to an unscoped declared `permission`; `roles` on that page only seed compatibility defaults. A page may instead require `site_owner`, but cannot combine both guards.
 
 Frontend routes use `register_frontend_route($path, $handler, $options)`. Register routes directly while `plugin.php` loads or from `plugins_loaded`; Core seals the registry afterward so frontend dispatch and dashboard content-route validation share the same definitions. Existing two-argument calls register a prefix route for every HTTP method. Optional `match` (`prefix` or `exact`), `methods`, and integer `priority` keys support exact root endpoints, method constraints, and deterministic ordering. Site routes and the Core service worker retain precedence; an exact root plugin route intentionally replaces the Core homepage, while other managed Core routes retain their existing precedence. Repeating an identical registration is safe, but a later conflicting registration no longer replaces the first route and is rejected with a diagnostic.
 

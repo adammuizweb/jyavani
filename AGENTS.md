@@ -83,7 +83,7 @@ All controllers are in `app/controllers/`, all are static methods.
 - `ensure_session_started(false)` — resume only, no auto-create
 - `login_user($id, $email)` — creates session, regenerates ID, sets cookie
 - `logout_user()` — clears + destroys session on multiple paths
-- Roles: `author` < `editor` < `admin` (enum in `users.role`)
+- `users.role` retains the compatibility hierarchy `author` < `editor` < `admin`; current authorization is determined by database-backed role assignments, permission grants/scopes, and the separate Site Owner identity.
 - Session cookie config is in `.env`: `SESSION_NAME`, `SESSION_COOKIE_DOMAIN`, `FORCE_HTTPS`, `SESSION_ALLOW_INSECURE_COOKIES`
 - With `FORCE_HTTPS=1` + nginx `fastcgi_param HTTPS on` (see `SERVER_SETUP.md`)
 - CSRF: stateless HMAC for public endpoints, session-backed for admin; `csrf_token()` / `csrf_check()`
@@ -357,12 +357,12 @@ add_filter('theme_zone_widget_types', function(array $types): array {
     return $types;
 });
 
-// Render gadget
+// Render gadget. add_filter() accepts only hook, callback, and optional priority.
 add_filter('theme_zone_render_widget', function(string $html, string $type, array $config, PDO $pdo): string {
     if ($type !== 'tz_hello') return $html;
     $msg = htmlspecialchars((string)($config['message'] ?? 'Hello'), ENT_QUOTES, 'UTF-8');
     return '<p class="tz-hello">' . $msg . '</p>';
-}, 10, 5);
+}, 10);
 ```
 
 If a gadget is registered with `sidebar_widget_types`/`render_sidebar_widget` filters, it will also work in sidebar zones.
@@ -390,7 +390,7 @@ add_filter('theme_zone_widget_types', function(array $types): array {
 add_filter('theme_zone_render_widget', function(string $html, string $type, array $config, PDO $pdo): string {
     if ($type !== 'tz_my_block') return $html;
     return '<div class="tz-my-block">' . htmlspecialchars((string)($config['foo'] ?? '')) . '</div>';
-}, 10, 5);
+}, 10);
 ```
 
 Built-in gadgets render through the same filter chain at priority 10. Use a higher priority to override a built-in renderer, or lower priority to provide a fallback.
@@ -600,7 +600,8 @@ Third-party features installed as removable plugins via `plugins/{name}/plugin.j
 ### Plugin Manifest (`plugin.json`) — Key Fields
 
 - `name` (req): unique identifier, alphanumeric + dash/underscore
-- `admin.pages[]` (req): `route`, `file`, `title`, `roles`, `hidden`
+- `permissions[]`: plugin-owned `plugin.{name}.{resource}.{action}` keys with label, scope support, delegability, and optional compatibility `default_roles`
+- `admin.pages[]` (req): `route`, `file`, `title`, `hidden`, and either a declared unscoped `permission` or `site_owner`; `roles` only seeds compatibility grants for a permission
 - `admin.nav[]`: `label`, `icon`, `page`, `parent` (`"settings"` / `"tools"`), `roles`
 - `static.copy[]`: `from` (relative to plugin dir), `to` (relative to `public/`) — files copied on upload
 - `assets.css` / `assets.js`: URLs loaded on admin pages

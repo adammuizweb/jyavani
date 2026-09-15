@@ -138,7 +138,7 @@ Zones and positions are fully flexible — these names are conventions only. The
 
 ## Partial discovery
 
-Files inside `main/` are automatically discovered as partials. A partial gets the slug `main.{filename}` (subfolders become dotted prefixes). Files starting with `_` are ignored.
+PHP files inside the theme's `main/` tree are automatically discovered as partials. A top-level file gets the slug `main.{filename}`; nested paths drop the `main` prefix and become dotted slugs, so `main/list/post.php` becomes `list.post`. Files starting with `_` are ignored.
 
 When a partial is selected in Customize, the editor exposes positions from either:
 
@@ -147,19 +147,22 @@ When a partial is selected in Customize, the editor exposes positions from eithe
 
 Best practice: declare partial positions explicitly in `theme.json` so labels and rows are consistent.
 
+Discovery helpers are `theme_zone_discover_partials(string $folder): array` and
+`theme_zone_partial_positions(string $slug): array`.
+
 ## Rendering helpers
 
 All helpers live in `cfg/helpers/theme_zones.php`.
 
 ```php
 // True if the position has at least one active gadget.
-theme_zone_has_position(PDO $pdo, string $zone, string $position): bool
+theme_zone_has_position(PDO $pdo, string $zone, string $position, ?string $folder = null): bool
 
 // Render all gadgets for a position as a single HTML string.
-theme_zone_render_position(PDO $pdo, string $zone, string $position): string
+theme_zone_render_position(PDO $pdo, string $zone, string $position, ?string $folder = null): string
 
 // Render an entire zone (all positions) grouped by row.
-theme_zone_render(PDO $pdo, string $zone): string
+theme_zone_render(PDO $pdo, string $zone, ?string $folder = null): string
 ```
 
 Use `theme_zone_has_position()` to decide whether to output fallback HTML.
@@ -458,7 +461,7 @@ Gadgets are created as active rows in `theme_zone_items` scoped to the current t
 
 ## Post-aware gadgets
 
-Three gadgets depend on `$GLOBALS['jy_current_post']` being set:
+Two built-in gadgets depend on `$GLOBALS['jy_current_post']` being set:
 
 - `tz_post_author`
 - `tz_post_meta`
@@ -473,6 +476,8 @@ Set the global before rendering single post/page zones:
 ## Custom gadgets
 
 Register custom gadgets with filters so they appear in the admin dropdown and render on the frontend:
+Core currently registers 11 built-in gadget types; always inspect
+`theme_zone_widget_types()` rather than relying on a copied count.
 
 ```php
 add_filter('theme_zone_widget_types', function(array $types): array {
@@ -488,7 +493,7 @@ add_filter('theme_zone_render_widget', function(string $html, string $type, arra
     if ($type !== 'tz_hello') return $html;
     $msg = htmlspecialchars((string)($config['message'] ?? 'Hello'), ENT_QUOTES, 'UTF-8');
     return '<p class="tz-hello">' . $msg . '</p>';
-}, 10, 5);
+}, 10);
 ```
 
 ## Builder integration
@@ -514,7 +519,7 @@ add_filter('theme_zone_widget_types', function(array $types): array {
 add_filter('theme_zone_render_widget', function(string $html, string $type, array $config, PDO $pdo): string {
     if ($type !== 'tz_my_block') return $html;
     return '<div class="tz-my-block">' . htmlspecialchars((string)($config['foo'] ?? '')) . '</div>';
-}, 10, 5);
+}, 10);
 ```
 
 ### Preview zones via PHP helpers

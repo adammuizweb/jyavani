@@ -61,12 +61,12 @@ function theme_store_card_html(array $theme, array $installedThemes, string $bas
       </div>
       <div class="theme-card-actions">
         <?php if (is_array($installed)): ?>
-          <?php if ($hasUpdate): ?><a href="<?= h($base) ?>/?page=admin/themes/assign" class="btn btn-sm btn-update"><?= _e('Update Available') ?></a>
-          <?php else: ?><span class="btn btn-sm btn-disabled" aria-disabled="true"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> <?= _e('Installed') ?></span><?php endif; ?>
+          <?php if ($hasUpdate): ?><a href="<?= h($base) ?>/?page=admin/themes/assign" class="btn btn-sm btn-update theme-card-action--primary"><?= _e('Update Available') ?></a>
+          <?php else: ?><span class="btn btn-sm btn-disabled theme-card-state" aria-disabled="true"><?= svg_ico('circle-check', '', ['style' => 'width:14px;height:14px']) ?> <?= _e('Installed') ?></span><?php endif; ?>
         <?php else: ?>
-          <form method="post"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="install"><input type="hidden" name="theme" value="<?= h($name) ?>"><button type="submit" class="btn btn-sm btn-primary" data-install-theme data-theme-title="<?= h($title) ?>"><?= _e('Install') ?></button></form>
+          <form method="post" class="theme-install-form"><input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>"><input type="hidden" name="action" value="install"><input type="hidden" name="theme" value="<?= h($name) ?>"><button type="submit" class="btn btn-sm btn-primary theme-card-action--primary" data-install-theme data-theme-title="<?= h($title) ?>"><?= svg_ico('download', '', ['style' => 'width:14px;height:14px']) ?> <?= _e('Install') ?></button></form>
         <?php endif; ?>
-        <?php if (($theme['homepage'] ?? '') !== ''): ?><a href="<?= h((string)$theme['homepage']) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline"><?= _e('Detail') ?></a><?php endif; ?>
+        <?php if (($theme['homepage'] ?? '') !== ''): ?><a href="<?= h((string)$theme['homepage']) ?>" target="_blank" rel="noopener" class="btn btn-sm theme-card-action--detail"><?= _e('Detail') ?> <?= svg_ico('external-link', '', ['style' => 'width:13px;height:13px']) ?></a><?php endif; ?>
       </div>
     </article>
     <?php

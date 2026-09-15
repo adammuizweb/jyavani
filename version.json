@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.128",
+    "version": "2.3.129",
     "build": "2026-09-15",
-    "changelog": "Add revision-bound signed integrity manifests for deployment-owned plugins and themes while preserving canonical Store precedence.",
+    "changelog": "Refine Theme Store card actions and correct current authorization, Theme Zone, and server configuration documentation.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
