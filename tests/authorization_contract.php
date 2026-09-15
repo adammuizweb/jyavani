@@ -103,6 +103,7 @@ $siteSettingsRoute = (string)file_get_contents($root . '/dashboard/admin/setting
 $authSettingsRoute = (string)file_get_contents($root . '/dashboard/admin/settings/auth.php');
 $emailSettingsRoute = (string)file_get_contents($root . '/dashboard/admin/settings/email.php');
 $emailTestRoute = (string)file_get_contents($root . '/dashboard/admin/settings/email_test.php');
+$siteHealthScanEndpoint = (string)file_get_contents($root . '/dashboard/admin/site_health_scan_ajax.php');
 $settingsRoutes = $siteSettingsRoute . $authSettingsRoute . $emailSettingsRoute . $emailTestRoute;
 $pluginManagerRoutes = '';
 foreach (glob($root . '/dashboard/admin/plugins/*.php') ?: [] as $pluginManagerRoute) {
@@ -406,6 +407,13 @@ $check(
     str_contains($profile, "adiwira_require_permission(\$pdo, 'core.profile.manage'")
     && str_contains($roleManager, "'core.profile.manage'"),
     'Profile uses its assignable Core permission'
+);
+$check(
+    str_contains($siteHealthScanEndpoint, "adiwira_require_permission(\$pdo, 'core.settings.manage', true)")
+    && str_contains($siteHealthScanEndpoint, 'adiwira_require_site_owner($pdo, true)')
+    && !str_contains($siteHealthScanEndpoint, 'adiwira_require_role')
+    && !str_contains($siteHealthScanEndpoint, 'adiwira_require_admin'),
+    'automatic Site Health scans remain Site Owner-only settings operations'
 );
 $check(
     !str_contains($pluginManagerRoutes, 'adiwira_require_role')

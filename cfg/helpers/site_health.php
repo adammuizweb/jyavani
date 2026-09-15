@@ -9,6 +9,7 @@ const SITE_HEALTH_MAX_ENTRIES = 200000;
 const SITE_HEALTH_MAX_FINDINGS = 500;
 const SITE_HEALTH_MAX_EXTENSION_ITEMS = 2000;
 const SITE_HEALTH_SCAN_SECONDS = 30.0;
+const SITE_HEALTH_AUTO_SCAN_TTL_SECONDS = 3600;
 const SITE_HEALTH_EXTENSION_MAX_FILE_BYTES = 64 * 1024 * 1024;
 const SITE_HEALTH_EXTENSION_MAX_TOTAL_BYTES = 512 * 1024 * 1024;
 const SITE_HEALTH_STORE_METADATA_MAX_BYTES = 64 * 1024;
@@ -707,11 +708,22 @@ function site_health_report_path(): string
     return defined('BACKEND_PATH') ? rtrim((string)BACKEND_PATH, '/\\') . '/var/site-health-report.json' : '';
 }
 
+function site_health_report_is_stale(?array $report, ?int $now = null, ?string $expectedCoreVersion = null): bool
+{
+    if (!is_array($report) || !site_health_report_valid($report)) return true;
+    $baselineVersion = (string)($report['components']['core']['baseline']['version'] ?? '');
+    if ($expectedCoreVersion !== null && !hash_equals($expectedCoreVersion, $baselineVersion)) return true;
+    $now ??= time();
+    $completedAt = (int)$report['completed_at'];
+    return $completedAt > $now + 300 || $completedAt <= $now - SITE_HEALTH_AUTO_SCAN_TTL_SECONDS;
+}
+
 function site_health_run_and_store(
     string $projectRoot,
     string $publicRoot,
     ?callable $coreProvider = null,
-    ?callable $extensionManifestProvider = null
+    ?callable $extensionManifestProvider = null,
+    bool $onlyIfStale = false
 ): array
 {
     $path = site_health_report_path();
@@ -730,6 +742,10 @@ function site_health_run_and_store(
         throw new RuntimeException('Another Site Health scan is already running.');
     }
     try {
+        if ($onlyIfStale) {
+            $existing = site_health_read_report();
+            if (!site_health_report_is_stale($existing, null, core_integrity_local_version($projectRoot))) return $existing;
+        }
         $report = site_health_run($projectRoot, $publicRoot, $coreProvider, $extensionManifestProvider);
         if (!site_health_write_report($report)) throw new RuntimeException('Site Health report could not be saved.');
         return $report;
@@ -737,6 +753,16 @@ function site_health_run_and_store(
         @flock($lock, LOCK_UN);
         @fclose($lock);
     }
+}
+
+function site_health_run_and_store_if_stale(
+    string $projectRoot,
+    string $publicRoot,
+    ?callable $coreProvider = null,
+    ?callable $extensionManifestProvider = null
+): array
+{
+    return site_health_run_and_store($projectRoot, $publicRoot, $coreProvider, $extensionManifestProvider, true);
 }
 
 function site_health_report_valid(array $report): bool

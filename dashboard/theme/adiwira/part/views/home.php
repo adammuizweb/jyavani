@@ -28,11 +28,15 @@ if ($homeActor !== null && $homeActor['is_site_owner'] === true
     && function_exists('current_user_can') && current_user_can($pdo, 'core.updates.manage')) {
     $widgets['update_status'] = ['title' => __('Update Status'), 'render' => 'dash_widget_update_status'];
 }
-if ($homeActor !== null && $homeActor['is_site_owner'] === true
-    && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
-    $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health'];
+$siteHealthRequired = $homeActor !== null && $homeActor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage');
+if ($siteHealthRequired) {
+    $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
 }
 $widgets = apply_filters('dashboard_widgets', $widgets);
+if ($siteHealthRequired) {
+    $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
+}
 
 $layoutJson = settings_get($pdo, 'dashboard_widget_layout', '');
 $order = $layoutJson ? json_decode($layoutJson, true) : null;
@@ -45,12 +49,16 @@ if ($order && isset($order[0]['w'])) {
     $map = [1 => 'l', 2 => 'r'];
     $order = array_map(fn($o) => ($o['w'] ?? '?') . ':' . ($map[$o['col'] ?? 1] ?? 'l'), $order);
 }
-if ($layoutJson !== '' && (int)settings_get($pdo, 'dashboard_widget_layout_version', '0') < 1) {
+if ($layoutJson !== '' && (int)settings_get($pdo, 'dashboard_widget_layout_version', '0') < 2) {
     $layoutKeys = array_map(static fn($item): string => explode(':', (string)$item, 2)[0], $order);
     if (isset($widgets['site_health']) && !in_array('site_health', $layoutKeys, true)) $order[] = 'site_health:r';
     if (settings_set($pdo, 'dashboard_widget_layout', json_encode($order), 1)) {
-        settings_set($pdo, 'dashboard_widget_layout_version', '1', 1);
+        settings_set($pdo, 'dashboard_widget_layout_version', '2', 1);
     }
+}
+$layoutKeys = array_map(static fn($item): string => explode(':', (string)$item, 2)[0], $order);
+foreach ($widgets as $requiredKey => $definition) {
+    if (!empty($definition['required']) && !in_array($requiredKey, $layoutKeys, true)) $order[] = $requiredKey . ':r';
 }
 
 function dash_parse_item(string $item): array
@@ -68,13 +76,12 @@ function dash_render_widget(string $key, array $widgets, PDO $pdo): string
     $html = function_exists($fn) ? $fn($pdo) : '';
     if (!$html) return '';
     $fw = !empty($widgets[$key]['full_width']) ? ' data-full-width="1"' : '';
+    $required = !empty($widgets[$key]['required']);
     $h = h($key);
-    return '<div class="dw-widget" data-widget="' . $h . '"' . $fw . '>'
+    return '<div class="dw-widget" data-widget="' . $h . '"' . $fw . ($required ? ' data-required="1"' : '') . '>'
          . '<div class="dw-drag-handle" draggable="true" title="' . __('Drag to reorder') . '">'
          . svg_ico('grip-vertical')
-         . '<button type="button" class="dw-hide-btn" title="' . __('Hide widget') . '">'
-         . svg_ico('eye-off')
-         . '</button>'
+         . ($required ? '' : '<button type="button" class="dw-hide-btn" title="' . __('Hide widget') . '">' . svg_ico('eye-off') . '</button>')
          . '</div><div class="dw-widget-body">' . $html . '</div></div>';
 }
 

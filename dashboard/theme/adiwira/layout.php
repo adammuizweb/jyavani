@@ -185,10 +185,21 @@ foreach ($pa['css'] ?? [] as $css_url) {
       require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
       $initialUpdateStatus = UpdateStatusController::publicPayload();
   }
+  $siteHealthActor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
+  $canAutoScanSiteHealth = $siteHealthActor !== null && $siteHealthActor['is_site_owner'] === true
+      && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage');
+  $siteHealthAuto = null;
+  if ($canAutoScanSiteHealth) {
+      $siteHealthAuto = [
+          'stale' => site_health_report_is_stale(site_health_read_report(), null, core_integrity_local_version(dirname(DASH_PATH))),
+          'csrf' => csrf_token(),
+      ];
+  }
   ?>
   <script>
 window.jyavaniUpdateStatus = <?= json_encode($initialUpdateStatus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 window.jyavaniUpdateCsrf = <?= json_encode(($canCheckUpdates ?? false) ? csrf_token() : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+window.jyavaniSiteHealthAuto = <?= json_encode($siteHealthAuto, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 window.i18n_upd = <?= json_encode([
     'failed_to_check'   => __('Failed to check updates.'),
     'all_up_to_date'    => __('All up to date.'),
@@ -218,6 +229,11 @@ window.adiwiraUnsavedI18n = <?= json_encode([
   $updateNotifVer = is_file($updateNotifFile) ? filemtime($updateNotifFile) : '';
 ?>
   <script src="/static/dashboard/js/update-notif.js?v=<?= $updateNotifVer ?>" defer></script>
+<?php
+  $siteHealthAutoFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/site-health-auto.js' : '';
+  $siteHealthAutoVer = is_file($siteHealthAutoFile) ? filemtime($siteHealthAutoFile) : '';
+?>
+  <script src="/static/dashboard/js/site-health-auto.js?v=<?= $siteHealthAutoVer ?>" defer></script>
 <?php
   $unsavedGuardFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/unsaved-guard.js' : '';
   $unsavedGuardVer = is_file($unsavedGuardFile) ? filemtime($unsavedGuardFile) : '';

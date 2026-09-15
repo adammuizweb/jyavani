@@ -189,7 +189,7 @@ function dash_widget_site_health(PDO $pdo): string
       </div>
       <div class="dw-health-chart-legend">' . $legendHtml . '</div>
     </div>
-    <div class="dw-health-meta"><span>' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</span><span><strong>' . number_format($findingCount) . '</strong> ' . h(__('Core Findings')) . '</span></div>
+    <div class="dw-health-meta"><span>' . h(sprintf(__('Last scan: %s'), $scanTime)) . '</span><span><strong>' . number_format($findingCount) . '</strong> ' . h(__('Integrity Findings')) . '</span></div>
     <div class="dw-health-components">' . $componentHtml . '</div>
     <a class="dw-health-action" href="' . h($url) . '"><span>' . h($actionLabel) . '</span>' . svg_ico('chevron-right') . '</a>
   </div>

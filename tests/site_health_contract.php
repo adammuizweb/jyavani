@@ -273,6 +273,20 @@ try {
     $stored = site_health_read_report();
     $check(is_array($stored) && $stored['status'] === 'unverified'
         && isset($stored['components']['extensions'], $stored['components']['content']), 'combined report reload retains every ownership component');
+    $automaticCoreRuns = 0;
+    $automaticProvider = static function (string $url, string $version) use (&$automaticCoreRuns, $manifest): array {
+        $automaticCoreRuns++;
+        return $manifest;
+    };
+    $freshAutomaticRun = site_health_run_and_store_if_stale($fixture, $fixture . '/public', $automaticProvider, $extensionProvider);
+    $check($automaticCoreRuns === 0 && $freshAutomaticRun['completed_at'] === $storedRun['completed_at'], 'automatic Site Health skips a fresh validated report');
+    $check(site_health_report_is_stale($storedRun, time(), '9.8.8'), 'a report for a different Core version is immediately stale');
+    $expiredReport = $storedRun;
+    $expiredReport['started_at'] -= SITE_HEALTH_AUTO_SCAN_TTL_SECONDS + 1;
+    $expiredReport['completed_at'] -= SITE_HEALTH_AUTO_SCAN_TTL_SECONDS + 1;
+    $check(site_health_write_report($expiredReport), 'an expired automatic-scan fixture remains a valid report');
+    $expiredAutomaticRun = site_health_run_and_store_if_stale($fixture, $fixture . '/public', $automaticProvider, $extensionProvider);
+    $check($automaticCoreRuns === 1 && $expiredAutomaticRun['completed_at'] > $expiredReport['completed_at'], 'automatic Site Health replaces an expired report');
     $fabricated = $report;
     $fabricated['components']['extensions']['summary']['unverified'] = 0;
     $fabricated['components']['extensions']['summary']['clean'] = 2;
@@ -319,7 +333,10 @@ try {
     $translations = (string)file_get_contents($root . '/schema/translations.sql');
     $dashboardHome = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/views/home.php');
     $dashboardWidgets = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/views/widgets.php');
+    $dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
     $dashboardStyles = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
+    $automaticEndpoint = (string)file_get_contents($root . '/dashboard/admin/site_health_scan_ajax.php');
+    $automaticScript = (string)file_get_contents($root . '/public/static/dashboard/js/site-health-auto.js');
     $chevronAsset = (string)file_get_contents($root . '/public/static/icons/lucide/chevron-down.svg');
     $check(str_contains($config, "helpers/site_health.php") && str_contains($page, 'site_health_run_and_store('), 'dashboard loads and executes the locked full Site Health orchestrator');
     $check(str_contains($page, 'name="site_health_action" value="run_site_health"')
@@ -345,11 +362,31 @@ try {
         && str_contains($page, 'site-health__hero-meta')
         && !str_contains($page, 'site-health__hero-state')
         && str_contains($page, 'site-health__panel--accent'), 'Site Health uses a status-aware visual hierarchy for its overview and component panels');
-    $check(str_contains($page, 'border-inline-start:4px solid var(--health-color)')
+    $check(str_contains($page, '.site-health__disclaimer b{display:flex;align-items:center;justify-content:center;width:9ch;min-height:100%')
+        && str_contains($page, 'font-size:1.28rem;line-height:1.15;text-align:center')
+        && str_contains($page, '.site-health__disclaimer-copy{display:grid;gap:6px;max-width:82ch}')
+        && str_contains($page, 'foreach ($disclaimer as $paragraph)')
+        && str_contains($page, '.site-health__disclaimer{grid-template-columns:1fr;gap:7px}'),
+        'the mandatory disclaimer is split into readable responsive paragraphs');
+    $check(substr_count($page, 'class="site-health__legend-icon site-health__status-color--') === 5
+        && str_contains($page, "svg_ico('clipboard-list')")
+        && str_contains($page, "svg_ico('circle-check')")
+        && str_contains($page, "svg_ico('search')")
+        && str_contains($page, "svg_ico('file-text')")
+        && str_contains($page, "svg_ico('alert-triangle')")
+        && str_contains($page, "svg_ico('circle-x')"),
+        'Status Guide uses a heading icon and one semantic icon for every legend status');
+    $check(str_contains($page, 'border-inline-start:4px solid var(--signal-color)')
+        && str_contains($page, '.site-health__signal--overall{--signal-color:#7c3aed}')
+        && str_contains($page, '.site-health__signal--core{--signal-color:#2563eb}')
+        && str_contains($page, '.site-health__signal--extensions{--signal-color:#ea580c}')
+        && str_contains($page, '.site-health__signal--content{--signal-color:#0891b2}')
         && str_contains($page, '.site-health__status-color--unverified{--health-color:#6366f1}')
         && str_contains($page, '.site-health__status-color--scanned{--health-color:#0284c7}')
-        && str_contains($page, 'box-shadow:0 9px 24px color-mix(in srgb,var(--health-color) 13%,transparent)'),
-        'overview signals use vivid semantic status colors rather than a shared neutral treatment');
+        && str_contains($page, '.site-health__signal-copy strong{display:block;margin-top:2px;color:var(--health-color)')
+        && str_contains($page, '0 5px 14px rgba(15,23,42,.05)')
+        && !str_contains($page, '0 14px 30px color-mix(in srgb,var(--signal-color)'),
+        'overview signals use restrained distinct identities without an external colored glow');
     $check(substr_count($page, 'class="site-health__signal-action"') === 3
         && substr_count($page, "svg_ico('chevron-right')") === 3
         && str_contains($page, '.site-health__signal[href]{cursor:pointer}')
@@ -379,7 +416,11 @@ try {
     $saveDashboardLayout = (string)file_get_contents($root . '/dashboard/admin/save_dashboard_layout.php');
     $check(str_contains($dashboardHome, "dashboard_widget_layout_version")
         && str_contains($dashboardHome, "\$order[] = 'site_health:r'")
-        && str_contains($saveDashboardLayout, "dashboard_widget_layout_version"), 'persisted pre-Site-Health layouts receive the widget once and retain later hide choices');
+        && str_contains($dashboardHome, "'required' => true")
+        && strrpos($dashboardHome, "\$widgets['site_health']") > strpos($dashboardHome, "apply_filters('dashboard_widgets'")
+        && str_contains($dashboardHome, 'data-required="1"')
+        && str_contains($saveDashboardLayout, "if (!in_array('site_health', \$layoutKeys, true)) \$decoded[] = 'site_health:r'")
+        && str_contains($saveDashboardLayout, "'dashboard_widget_layout_version', '2'"), 'Site Health is migrated into saved layouts and cannot be hidden from an authorized Site Owner dashboard');
     $check(str_contains($dashboardWidgets, 'function dash_widget_site_health')
         && str_contains($dashboardWidgets, 'site_health_read_report()')
         && str_contains($dashboardWidgets, "ADMIN_BASE_PATH . '/?page=admin/settings/health'")
@@ -388,6 +429,7 @@ try {
         && !str_contains($dashboardWidgets, 'core_integrity_run('), 'dashboard Site Health widget reads only the persisted report and links to the manual scan page');
     $check(str_contains($dashboardWidgets, '$cleanPercentage')
         && str_contains($dashboardWidgets, '$findingCount')
+        && str_contains($dashboardWidgets, "__('Integrity Findings')")
         && str_contains($dashboardWidgets, '$completedAt > 0 ? __(\'View Site Health\') : __(\'Run full scan\')')
         && str_contains($dashboardWidgets, '$scoreTotal > 0 ? min(100, max(0, ($distributionCount / $scoreTotal) * 100)) : 0.0')
         && str_contains($dashboardWidgets, 'dw-health-chart-segment')
@@ -395,8 +437,24 @@ try {
         && str_contains($dashboardStyles, '.dw-health-chart-track,.dw-health-chart-segment')
         && str_contains($dashboardStyles, '.dw-health-chart-dot--clean')
         && !str_contains($dashboardStyles, '.dw-health-progress')
-        && !str_contains($dashboardWidgets, 'fetch('), 'dashboard widget presents a complete persisted Core percentage ring including explicit zero values without automatic scan requests');
-    foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Canonical exact-version Store hashes and filesystem safety', 'Canonical exact HTTPS Store baseline', 'No trusted release baseline', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
+        && !str_contains($dashboardWidgets, 'fetch('), 'dashboard widget presents a complete persisted Core percentage ring without running a scan during rendering');
+    $check(str_contains($automaticEndpoint, "adiwira_require_permission(\$pdo, 'core.settings.manage', true)")
+        && str_contains($automaticEndpoint, 'adiwira_require_site_owner($pdo, true)')
+        && str_contains($automaticEndpoint, "REQUEST_METHOD'] ?? '') !== 'POST'")
+        && strpos($automaticEndpoint, 'adiwira_csrf_validate(') < strpos($automaticEndpoint, 'session_write_close()')
+        && strpos($automaticEndpoint, 'session_write_close()') < strpos($automaticEndpoint, 'site_health_run_and_store_if_stale('),
+        'automatic Site Health endpoint is POST and CSRF protected, privileged, and releases the session before scanning');
+    $check(str_contains($dashboardLayout, 'site_health_report_is_stale(site_health_read_report(), null, core_integrity_local_version(dirname(DASH_PATH)))')
+        && str_contains($dashboardLayout, 'window.jyavaniSiteHealthAuto')
+        && str_contains($dashboardLayout, '/static/dashboard/js/site-health-auto.js')
+        && str_contains($automaticScript, "config.stale !== true")
+        && str_contains($automaticScript, "'jyavani-site-health-auto-scan'")
+        && str_contains($automaticScript, "'/admin/site_health_scan_ajax.php'")
+        && str_contains($automaticScript, "method: 'POST'")
+        && str_contains($automaticScript, 'keepalive: true')
+        && str_contains($automaticScript, 'Date.now() - lastAttempt < 300000'),
+        'stale Site Health reports trigger one throttled asynchronous scan independently of widget visibility');
+    foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Canonical exact-version Store hashes and filesystem safety', 'Canonical exact HTTPS Store baseline', 'No trusted release baseline', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Integrity Findings', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
         $check(substr_count($translations, "'" . str_replace("'", "''", $source) . "'") >= 2, 'full Site Health translation coverage: ' . $source);
     }
 } finally {

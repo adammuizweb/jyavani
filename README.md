@@ -36,6 +36,10 @@ Extension release identity is file-only: every regular package file must appear 
 
 Plugins may declare up to eight runtime-generated public image directories under their own `static/plugins/{folder}/` namespace. Those generated JPEG, PNG, GIF, WebP, or AVIF files are bounded and verified by regular-file, executable-name, extension, size, and MIME rules rather than immutable release hashes. The declaration never relaxes exact verification for packaged plugin code or copied static assets.
 
+For a Site Owner with settings access, opening the dashboard asynchronously refreshes a missing, different-Core-version, or older-than-one-hour Site Health report. The browser trigger is throttled, while the server rechecks freshness under the nonblocking scan lock before doing work. Manual full scans remain available for immediate verification.
+
+The Site Health dashboard widget is required for authorized Site Owners. It is included in new and migrated layouts, cannot be hidden by the widget arranger, and labels non-clean Core counts as integrity findings rather than vulnerabilities.
+
 ## Installation
 
 For production, start from a tagged release or a clean checkout:

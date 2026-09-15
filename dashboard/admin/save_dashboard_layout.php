@@ -28,8 +28,15 @@ foreach ($decoded as $i => $item) {
     }
 }
 
+$actor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
+if ($actor !== null && $actor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
+    $layoutKeys = array_map(static fn(string $item): string => explode(':', $item, 2)[0], $decoded);
+    if (!in_array('site_health', $layoutKeys, true)) $decoded[] = 'site_health:r';
+}
+
 $ok = settings_set($pdo, 'dashboard_widget_layout', json_encode($decoded), 1);
-if ($ok) settings_set($pdo, 'dashboard_widget_layout_version', '1', 1);
+if ($ok) settings_set($pdo, 'dashboard_widget_layout_version', '2', 1);
 session_write_close();
 
 if ($ok) {

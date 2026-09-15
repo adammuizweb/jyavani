@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.125",
+    "version": "2.3.126",
     "build": "2026-09-15",
-    "changelog": "Give Site Health overview signals vivid semantic colors and clear mouse and keyboard navigation affordances.",
+    "changelog": "Automatically refresh Site Health reports and improve security status visibility and dashboard persistence.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",

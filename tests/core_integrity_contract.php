@@ -207,8 +207,9 @@ try {
         && str_contains($page, 'adiwira_require_site_owner($pdo, false)')
         && !str_contains($page, 'adiwira_require_admin'), 'Site Health requires settings permission and Site Owner authority');
     $check(strpos($page, 'adiwira_csrf_validate(') < strpos($page, 'site_health_run_and_store(')
+        && !str_contains($page, 'session_write_close()')
         && str_contains($page, 'name="site_health_action" value="run_site_health"')
-        && !str_contains($page, 'name="action"'), 'manual scans require an allowlisted non-dispatch action and CSRF before execution');
+        && !str_contains($page, 'name="action"'), 'manual scans validate their allowlisted action and CSRF while retaining the session needed to render a fresh token');
     $check(str_contains($page, "sprintf(__('Last scan: %s'), \$scanTime)")
         && str_contains($page, "sprintf(__('%d expected files'),")
         && !str_contains($page, "__('Last scan: %s',"), 'translated format strings use sprintf instead of passing values as the translation scope');
