@@ -2,7 +2,7 @@
 // controllers/SitemapController.php
 class SitemapController
 {
-    // how many urls per sitemap file
+    // how many content item URLs per sitemap file
     private const LIMIT = 30;
 
     // sitemap index: lists all sitemap_posts_X and sitemap_pages_X
@@ -99,6 +99,13 @@ class SitemapController
         echo '<?xml version="1.0" encoding="UTF-8"?>' . PHP_EOL;
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . PHP_EOL;
 
+        $collectionLoc = self::collectionLandingUrl($pdo, $type, $pageNum, $domain);
+        if ($collectionLoc !== null) {
+            echo "  <url>\n";
+            echo "    <loc>" . htmlspecialchars($collectionLoc, ENT_XML1) . "</loc>\n";
+            echo "  </url>\n";
+        }
+
         foreach ($rows as $r) {
             $slug = trim($r['slug'], '/');
             if ($slug === '') continue;
@@ -121,6 +128,18 @@ class SitemapController
 
         echo '</urlset>';
         exit;
+    }
+
+    private static function collectionLandingUrl(PDO $pdo, string $type, int $pageNum, string $domain): ?string
+    {
+        if ($pageNum !== 1) return null;
+        if ($type === 'posts' && function_exists('is_posts_list_enabled') && is_posts_list_enabled($pdo)) {
+            return rtrim($domain, '/') . get_posts_list_base($pdo);
+        }
+        if ($type === 'pages' && function_exists('is_pages_list_enabled') && is_pages_list_enabled($pdo)) {
+            return rtrim($domain, '/') . get_pages_list_base($pdo);
+        }
+        return null;
     }
 
     private static function domain(): string

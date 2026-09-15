@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.126",
+    "version": "2.3.127",
     "build": "2026-09-15",
-    "generated": "2026-09-15T06:40:52+00:00",
+    "generated": "2026-09-15T10:01:26+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 579,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "bfc6d13a6fc09aa33817fca59b2211a203fcd5c738e138836cc45ea04213ce1b",
+        "VERSION": "2ecacb093f20c0aaccdc062369962c501bfa1e1fcb6ee09e5edf92be1e4addf1",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "5c1aceb013a0dc1e9e1ff93f60aaa68e8fa773e22f96733790b8c014080877eb",
@@ -21,7 +21,7 @@
         "app/controllers/PrivateFileController.php": "994487f38cf4c9b90cc9e12b76c17987c593ee35a38f071b6dbaca4b8b8bdb54",
         "app/controllers/PrivateMediaController.php": "b50ffcc325618773733cc60c24688821033859d0162eaa5d49ac0ad9bb148f0b",
         "app/controllers/SearchController.php": "3866ebb45974302e3d421f68f7ecb8abc6c7b125d3920af274c615cefbf2e852",
-        "app/controllers/SitemapController.php": "932f11597fa20a525c65f1f84138ec55ba0e5dff25bfc79b0937dc58cfdc8ac3",
+        "app/controllers/SitemapController.php": "695b32548953fb3aa27dbd5cb22c76b5ac75a369002bf4f5d609555f0dded929",
         "app/controllers/ThemeController.php": "249980d85c3b60d9c240d9fe764874d5c9f74e30d2dd8d45f044652139d02728",
         "app/controllers/ThemeStoreClient.php": "7b75841a20aa7d5e71b497951749a52ae6d1c9eb3214dad104805a90b2adab49",
         "app/controllers/UpdateStatusController.php": "767bec62e833d3b9e0eba3445139a3106a83fd56304de96381d751b412b1c70c",
@@ -158,11 +158,11 @@
         "dashboard/admin/pages/edit.php": "83ab917f6c8216ab194410ac96a653f92b801fe131479c54acf186e36259df27",
         "dashboard/admin/pages/index.php": "8e1f6e065f2914939dc1961151a4e069b8432474fe9bf9048d84ff5f208bd984",
         "dashboard/admin/pages/save.php": "9b0edc3184271e0c46409d69480ee4287bacc00160cd33a4f911434a13e92bc4",
-        "dashboard/admin/plugins/_store_card.php": "b01e31b9cea34e7c6d7063ca10b928e5944e48433cbbded2ed2fdff250adc72d",
-        "dashboard/admin/plugins/browse.php": "7a864bd2dffc46673ccba7a1df284b3a77c850c45b4888e0869be4291cd7de73",
+        "dashboard/admin/plugins/_store_card.php": "5ee8e63f0635335dd6261a0d510b48b35f962fa6f156619578d7a95bcdcca94a",
+        "dashboard/admin/plugins/browse.php": "40b320215f4fcab22174e31d1fce91940e05a0e027675277c5f1a55e380c2446",
         "dashboard/admin/plugins/catalog.php": "c38dede51000578463e700fb797fdd6fd8dbeec293a34f8218d320639b5e7e0f",
         "dashboard/admin/plugins/detail.php": "9ba13805cb81d8af0415bb366c046244883135fa80774b7d8c331b28977b76ce",
-        "dashboard/admin/plugins/index.php": "bd415f9b743cfa7c15271f0005da9da340b12d0c01bc7892e9c6b52368ab5867",
+        "dashboard/admin/plugins/index.php": "22e8afea1e0a5df8fd5ca1fad17420382ce4ca662cb80081d74458dbd2803bf3",
         "dashboard/admin/plugins/update_apply.php": "60b09c8975093cce63812c481ef2c1978427fadd2ed348b36184ef6d6a013630",
         "dashboard/admin/plugins/update_progress.php": "dd990884b2c1d7658a350a629a71513dee62c24dc7f46e420159973c7d9fb095",
         "dashboard/admin/plugins/upload.php": "ebd7c2c108c921cbd661a8b152f737aaf22c23398c419cc3cf40e62ae127d4a0",
@@ -586,6 +586,6 @@
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
-        "version.json": "3ceda59f362fbfbb6692e415a52c2f931272e297be3c4342c7e97c66854e143c"
+        "version.json": "a447aafdf37c65eaf8fcc560e6dc692c1b339ae4b7035bf7de1248bb89b3b181"
     }
 }

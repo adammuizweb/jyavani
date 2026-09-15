@@ -48,7 +48,7 @@ $check(str_contains($sources['script'], "['completed', 'failed', 'cancelled']")
     && str_contains($sources['script'], 'actions.replaceChildren()')
     && str_contains($sources['script'], "done.addEventListener('click'")
     && str_contains($sources['core'], "'done' => __('Done')")
-    && str_contains($sources['plugin'], "'done' => __('Reload')")
+    && str_contains($sources['plugin'], "'done' => __('Done')")
     && str_contains($sources['theme'], "'done' => __('Reload')"), 'terminal outcomes remain in place and expose only a user-driven Done or Reload action');
 $check(str_contains($sources['plugin'], '<option value="update">')
     && str_contains($sources['plugin'], 'data-update-eligible=')

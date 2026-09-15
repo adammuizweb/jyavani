@@ -46,11 +46,11 @@ function plugin_store_card_html(array $plugin, array $installedPlugins, string $
             <input type="hidden" name="csrf_token" value="<?= h($csrfToken) ?>">
             <input type="hidden" name="plugin" value="<?= h($name) ?>">
             <input type="hidden" name="action" value="">
-            <button type="submit" class="btn btn-sm btn-outline" data-install-action="install" data-plugin-title="<?= h($title) ?>"><?= _e('Install') ?></button>
-            <button type="submit" class="btn btn-sm btn-primary" data-install-action="install_activate" data-plugin-title="<?= h($title) ?>"><?= _e('Install & Activate') ?></button>
+            <button type="submit" class="btn btn-sm btn-primary plugin-card-action--primary" data-install-action="install_activate" data-plugin-title="<?= h($title) ?>"><?= _e('Install & Activate') ?></button>
+            <button type="submit" class="btn btn-sm btn-outline plugin-card-action--secondary" data-install-action="install" data-plugin-title="<?= h($title) ?>"><?= _e('Install') ?></button>
           </form>
         <?php endif; ?>
-        <?php if (($plugin['plugin_uri'] ?? '') !== ''): ?><a href="<?= h((string)$plugin['plugin_uri']) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline"><?= _e('Detail') ?></a><?php endif; ?>
+        <?php if (($plugin['plugin_uri'] ?? '') !== ''): ?><a href="<?= h((string)$plugin['plugin_uri']) ?>" target="_blank" rel="noopener" class="btn btn-sm plugin-card-action--detail"><?= _e('Detail') ?></a><?php endif; ?>
       </div>
     </article>
     <?php
