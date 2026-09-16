@@ -42,9 +42,11 @@ $checkLabel = 'CMS Info links its CMS value and version details with the bundled
 echo ($externalLinksOk ? 'PASS' : 'FAIL') . ' ' . $checkLabel . PHP_EOL;
 if (!$externalLinksOk) $failures[] = $checkLabel;
 
+$releaseVersion = is_array($version) ? (string)($version['version'] ?? '') : '';
 $changelogUrl = is_array($version) ? (string)($version['changelog_url'] ?? '') : '';
-$changelogOk = preg_match('#\Ahttps://github\.com/adammuizweb/jyavani/commit/[a-f0-9]{40}\z#D', $changelogUrl) === 1;
-$checkLabel = 'version metadata links to an exact GitHub release commit';
+$changelogOk = $releaseVersion !== ''
+    && $changelogUrl === 'https://github.com/adammuizweb/jyavani/releases/tag/v' . $releaseVersion;
+$checkLabel = 'version metadata links to its exact user-facing GitHub Release';
 echo ($changelogOk ? 'PASS' : 'FAIL') . ' ' . $checkLabel . PHP_EOL;
 if (!$changelogOk) $failures[] = $checkLabel;
 
