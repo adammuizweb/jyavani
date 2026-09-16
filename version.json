@@ -1,11 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.130",
-    "build": "2026-09-15",
-    "changelog": "Add a dedicated content-list sitemap for configured Post and Page collection landing URLs.",
+    "version": "2.3.131",
+    "build": "2026-09-16",
+    "changelog": "Improve dashboard CMS information links and recent post titles, and expand the Site Health demo guide with screenshots.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
-    "homepage": "https://jyavani.com"
+    "homepage": "https://jyavani.com",
+    "changelog_url": "https://github.com/adammuizweb/jyavani/commit/3cfb01fcedc573c5018053b2a9fcc48d64181577"
 }
