@@ -31,6 +31,9 @@ $pluginProgress = (string)file_get_contents($root . '/dashboard/admin/plugins/up
 $themeProgress = (string)file_get_contents($root . '/dashboard/admin/themes/update_progress.php');
 $check(str_contains($sources['core endpoint'], 'theme_operation_acquire(theme_lifecycle_lock_keys())')
     && str_contains($sources['core endpoint'], 'theme_operation_release($lifecycleLocks)'), 'Core update blocks cooperating requests while managed files are changing');
+$check(str_contains($sources['core endpoint'], 'hash_equals(UpdateStatusController::officialCoreUrl(), $baseUrl)')
+    && str_contains($sources['core endpoint'], "UpdateStatusController::isUpdateActionable('core'"),
+    'Core apply rejects stale metadata from a non-official update source');
 $actions = (string)file_get_contents($root . '/dashboard/admin/update/_update_actions.php');
 $check(str_contains($actions, 'function cms_update_reinstall')
     && str_contains($actions, '$updateLock = update_operation_acquire_lock()')

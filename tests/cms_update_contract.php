@@ -80,6 +80,7 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 
 $updatePageSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/index.php');
 $updateActionsSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/_update_actions.php');
+$updateStatusSource = (string)file_get_contents($sourceRoot . '/app/controllers/UpdateStatusController.php');
 $updateScriptSource = (string)file_get_contents($sourceRoot . '/public/static/dashboard/js/update.js');
 $updateProcessSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/process.php');
 $dashboardLayoutSource = (string)file_get_contents($sourceRoot . '/dashboard/theme/adiwira/layout.php');
@@ -94,6 +95,18 @@ $check(
         && str_contains($updateActionsSource, 'function cms_update_store_upload(')
         && str_contains($updateActionsSource, 'function cms_update_reinstall('),
     'update actions remain separated by use case'
+);
+$check(
+    str_contains($updateStatusSource, 'public static function officialCoreUrl(): string')
+        && substr_count($updatePageSource, 'readonly aria-readonly="true"') === 2
+        && !str_contains($updatePageSource, 'name="update_url"')
+        && !str_contains($updatePageSource, 'name="reinstall_url"')
+        && !str_contains($updateActionsSource, "\$_POST['update_url']")
+        && !str_contains($updateActionsSource, "\$_POST['reinstall_url']")
+        && substr_count($updateActionsSource, 'UpdateStatusController::officialCoreUrl()') === 2
+        && str_contains($updateStyleSource, '.up-input[readonly]:hover')
+        && str_contains($updateStyleSource, 'cursor: not-allowed;'),
+    'Core check and reinstall URLs are read-only in the UI and authoritative on the server'
 );
 $check(
     !str_contains($updatePageSource, '<style>')

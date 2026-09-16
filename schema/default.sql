@@ -652,6 +652,24 @@ INSERT INTO `theme_zone_items` (`theme_folder`, `zone_slug`, `position`, `type`,
   ('default', 'single.post', 'after_content', 'tz_post_meta', 'Post Meta', '{"title":"Post Meta","_title_tag":"div","_align_title":"left","_align_content":"left","show_date":true,"show_updated":false,"show_read_time":true}', 0, 0),
   ('default', 'single.post', 'after_content', 'tz_post_author', 'Author Box', '{"title":"Author Box","_title_tag":"div","_align_title":"left","_align_content":"left","show_avatar":true}', 1, 0);
 
+-- Keep the built-in wordmark synchronized with the current Default Theme preset.
+UPDATE `theme_zone_items`
+SET `config` = JSON_SET(
+  `config`,
+  '$.html',
+  REPLACE(
+    JSON_UNQUOTE(JSON_EXTRACT(`config`, '$.html')),
+    '<span class="letter base" data-word="Your">y</span>\n    <span class="letter accent" data-word="Visiting">v</span>',
+    '<span class="letter base" data-word="Your">y</span>\n    <span class="letter base" data-word="Available">a</span>\n    <span class="letter accent" data-word="Visiting">v</span>'
+  )
+)
+WHERE `theme_folder` = 'default'
+  AND `type` = 'tz_html'
+  AND (
+    (`zone_slug` = 'header' AND `position` = 'logo')
+    OR (`zone_slug` = 'footer' AND `position` = 'about' AND `title` = 'Site Logo')
+  );
+
 -- Core settings (installed overrides title/desc/url via installer)
 INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
   ('posts_per_page',   '10',  1),

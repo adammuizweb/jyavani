@@ -103,6 +103,17 @@ html.theme-dark .up-card-warning { border-color: #d97706; background: #1a1500; }
   box-shadow: 0 0 0 3px var(--adam-primary-soft);
 }
 .up-input::placeholder { color: var(--adam-muted); opacity: .82; }
+.up-input[readonly],
+.up-input[readonly]:hover,
+.up-input[readonly]:focus {
+  border-color: var(--adam-border);
+  outline: none;
+  background: var(--adam-surface-3);
+  color: var(--adam-muted);
+  box-shadow: none;
+  caret-color: transparent;
+  cursor: not-allowed;
+}
 .up-file-input { padding: .3rem; cursor: pointer; }
 .up-file-input::file-selector-button {
   min-height: 34px;

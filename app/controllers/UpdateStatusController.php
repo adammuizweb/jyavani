@@ -9,6 +9,11 @@ final class UpdateStatusController
     private const CHECK_BUDGET_SECONDS = 12.0;
     private const DEFAULT_CORE_URL = 'https://jyavani.com/download/latest/';
 
+    public static function officialCoreUrl(): string
+    {
+        return self::DEFAULT_CORE_URL;
+    }
+
     public static function getSnapshot(): array
     {
         $snapshot = self::readSnapshot();
@@ -395,6 +400,8 @@ final class UpdateStatusController
             $update = $snapshot['components']['core'] ?? null;
             if (!is_array($update) || ($update['state'] ?? 'unknown') !== 'ok'
                 || ($update['has_update'] ?? false) !== true || ($update['actionable'] ?? false) !== true
+                || !hash_equals(self::DEFAULT_CORE_URL, (string)($update['check_url'] ?? ''))
+                || !hash_equals(self::DEFAULT_CORE_URL, (string)($update['base_url'] ?? ''))
                 || (int)($update['checked_at'] ?? 0) < $freshAfter) {
                 return false;
             }

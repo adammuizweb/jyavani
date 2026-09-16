@@ -183,10 +183,14 @@ try {
     $check($calls === ['core' => 1, 'plugins' => 1, 'themes' => 1] && $readOnly['generation'] === $snapshot['generation'], 'snapshot reads perform no remote checks');
 
     UpdateStatusController::hydrateCoreSession($snapshot);
+    $check(!isset($_SESSION['cms_update_remote']) && !UpdateStatusController::isUpdateActionable('core'),
+        'custom Core metadata cannot hydrate or pass the apply-time guard');
+    $officialSnapshot = UpdateStatusController::checkAll($pdo, UpdateStatusController::officialCoreUrl(), $providers);
+    UpdateStatusController::hydrateCoreSession($officialSnapshot);
     $check(($_SESSION['cms_update_remote']['version'] ?? '') === '99.0.0'
-        && ($_SESSION['cms_update_base_url'] ?? '') === 'https://updates.example.test/latest/', 'shared Core result hydrates the existing apply flow without a second check');
-    $check(UpdateStatusController::isUpdateActionable('core', '', '99.0.0'), 'fresh Core metadata is actionable only for the checked target version');
-    $expired = $snapshot;
+        && ($_SESSION['cms_update_base_url'] ?? '') === UpdateStatusController::officialCoreUrl(), 'official shared Core result hydrates the existing apply flow without a second check');
+    $check(UpdateStatusController::isUpdateActionable('core', '', '99.0.0'), 'fresh official Core metadata is actionable only for the checked target version');
+    $expired = $officialSnapshot;
     $expired['checked_at'] = time() - 3601;
     $expired['expires_at'] = time() - 1;
     $expired['components']['core']['checked_at'] = time() - 3601;
@@ -195,10 +199,10 @@ try {
     unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url']);
     UpdateStatusController::hydrateCoreSession(UpdateStatusController::getSnapshot());
     $check(!isset($_SESSION['cms_update_remote']) && !UpdateStatusController::isUpdateActionable('core'), 'expired Core metadata cannot hydrate or pass the apply-time guard');
-    $writeSnapshot->invoke(null, $snapshot);
+    $writeSnapshot->invoke(null, $officialSnapshot);
     $_SESSION['cms_update_package'] = '/tmp/manual-update.zip';
     $_SESSION['cms_update_remote'] = ['version' => '88.0.0'];
-    UpdateStatusController::hydrateCoreSession($snapshot);
+    UpdateStatusController::hydrateCoreSession($officialSnapshot);
     $check(($_SESSION['cms_update_remote']['version'] ?? '') === '88.0.0', 'shared status never overwrites a pending manual upload manifest');
     unset($_SESSION['cms_update_package'], $_SESSION['cms_update_remote']);
 
@@ -211,7 +215,7 @@ try {
             'sample-theme' => ['current_version' => '2.0.0', 'new_version' => '2.1.0'],
         ]],
     ];
-    $partial = UpdateStatusController::checkAll($pdo, 'https://updates.example.test/latest/', $partialProviders);
+    $partial = UpdateStatusController::checkAll($pdo, UpdateStatusController::officialCoreUrl(), $partialProviders);
     $check($partial['state'] === 'partial' && $partial['components']['core']['state'] === 'error', 'failed sources produce a partial state instead of a false success');
     $check(($partial['components']['core']['latest'] ?? '') === '99.0.0' && $partial['total'] === 2, 'partial checks retain last-known data without counting non-actionable failures');
     UpdateStatusController::hydrateCoreSession($partial);
@@ -266,7 +270,7 @@ try {
     $check(str_contains($layout, 'JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT'), 'remote update metadata is safe inside the dashboard script context');
     $check(str_contains($pluginPage, 'UpdateStatusController::checkAll($pdo)')
         && str_contains($themePage, 'UpdateStatusController::checkAll($pdo)')
-        && str_contains($coreActions, 'UpdateStatusController::checkAll($pdo, $inputUrl)'), 'all dedicated Check buttons invoke the same coordinator');
+        && str_contains($coreActions, 'UpdateStatusController::checkAll($pdo);'), 'all dedicated Check buttons invoke the same coordinator');
     $metadataClient = (string)file_get_contents($root . '/cfg/helpers/update_metadata_http.php');
     $check(str_contains($statusController, 'CHECK_BUDGET_SECONDS')
         && str_contains($statusController, 'LOCK_EX | LOCK_NB')

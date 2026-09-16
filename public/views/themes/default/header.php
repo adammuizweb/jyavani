@@ -43,14 +43,15 @@ $hasControlsZone = function_exists('theme_zone_has_position') && theme_zone_has_
           data-fl-duration="900"
           data-fl-delay="120"
         >
-        <span class="jyavani-logo" aria-label="Jyavani">
-          <span class="letter accent" data-word="Just">J</span>
-          <span class="letter base" data-word="Your">y</span>
-          <span class="letter accent" data-word="Visiting">v</span>
-          <span class="letter base" data-word="Always">a</span>
-          <span class="letter base" data-word="Nice">n</span>
-          <span class="letter base" data-word="Inspire">i</span>
-        </span>
+          <span class="jyavani-logo" aria-label="Jyavani">
+            <span class="letter accent" data-word="Just">J</span>
+            <span class="letter base" data-word="Your">y</span>
+            <span class="letter base" data-word="Available">a</span>
+            <span class="letter accent" data-word="Visiting">v</span>
+            <span class="letter base" data-word="Always">a</span>
+            <span class="letter base" data-word="Nice">n</span>
+            <span class="letter base" data-word="Inspire">i</span>
+          </span>
       </a>
     <?php endif; ?>
 

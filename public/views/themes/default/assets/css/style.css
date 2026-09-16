@@ -3023,6 +3023,7 @@ table a:hover{
 .jyavani-logo .letter:nth-child(4) { transition-delay: 240ms; }
 .jyavani-logo .letter:nth-child(5) { transition-delay: 320ms; }
 .jyavani-logo .letter:nth-child(6) { transition-delay: 400ms; }
+.jyavani-logo .letter:nth-child(7) { transition-delay: 480ms; }
 
 .jyavani-logo .letter:hover {
   color: var(--let-hover);

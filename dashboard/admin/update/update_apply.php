@@ -67,7 +67,10 @@ try {
 
     if (!is_array($remote)) throw new RuntimeException(__('No update data in session. Run "Check for Updates" first.'));
     $hasUploadedPackage = $packageZip !== '' && is_file($packageZip);
-    if (!$hasUploadedPackage && !UpdateStatusController::isUpdateActionable('core', '', (string)($remote['version'] ?? ''))) {
+    if (!$hasUploadedPackage && (
+        !hash_equals(UpdateStatusController::officialCoreUrl(), $baseUrl)
+        || !UpdateStatusController::isUpdateActionable('core', '', (string)($remote['version'] ?? ''))
+    )) {
         throw new RuntimeException(__('No update data in session. Run "Check for Updates" first.'));
     }
 

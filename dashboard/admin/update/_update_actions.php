@@ -35,14 +35,11 @@ function cms_update_handle_post(PDO $pdo, array $currentVersion, string $selfUrl
 
 function cms_update_check_remote(PDO $pdo, array $currentVersion, string $selfUrl): void
 {
-    $inputUrl = trim((string)($_POST['update_url'] ?? ''));
-    if ($inputUrl === '') {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Update URL cannot be empty.'));
-    }
+    $officialUrl = UpdateStatusController::officialCoreUrl();
 
     try {
         session_write_close();
-        $snapshot = UpdateStatusController::checkAll($pdo, $inputUrl);
+        $snapshot = UpdateStatusController::checkAll($pdo);
     } catch (Throwable $error) {
         ensure_session_started(true);
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to check updates.'));
@@ -51,7 +48,7 @@ function cms_update_check_remote(PDO $pdo, array $currentVersion, string $selfUr
     UpdateStatusController::hydrateCoreSession($snapshot);
     $core = $snapshot['components']['core'] ?? [];
     if (($core['state'] ?? 'error') === 'error') {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to fetch update info from URL:') . ' ' . htmlspecialchars($inputUrl));
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to fetch update info from URL:') . ' ' . htmlspecialchars($officialUrl));
     }
     if (($snapshot['state'] ?? 'ok') !== 'ok') {
         adiwira_redirect_with_flash(
@@ -176,10 +173,7 @@ function cms_update_clear_pending(string $selfUrl): void
 
 function cms_update_reinstall(PDO $pdo, array $currentVersion, string $selfUrl, string $base): void
 {
-    $url = trim((string)($_POST['reinstall_url'] ?? ''));
-    if ($url === '') {
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Reinstall URL cannot be empty.'));
-    }
+    $url = UpdateStatusController::officialCoreUrl();
 
     $hardReset = !empty($_POST['hard_reset']);
     if (session_status() === PHP_SESSION_ACTIVE) session_write_close();

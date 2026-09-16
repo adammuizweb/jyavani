@@ -18,7 +18,7 @@ $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/update/index';
 
 // Dev instance detection
-$defaultUpdateUrl = 'https://jyavani.com/download/latest/';
+$defaultUpdateUrl = UpdateStatusController::officialCoreUrl();
 $localHost = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
 $updateHost = parse_url($defaultUpdateUrl, PHP_URL_HOST);
 $isDevSelfCheck = $localHost !== '' && strcasecmp($updateHost ?: '', $localHost) === 0;
@@ -120,9 +120,8 @@ $totalCore = $localManifest['total_files'] ?? 0;
             <input type="hidden" name="action" value="check_remote">
 
             <label class="up-label"><?=_e('Update URL')?></label>
-            <input type="url" name="update_url" class="up-input" autocomplete="off" spellcheck="false"
-                   value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
-                   placeholder="https://example.com/download/latest/">
+            <input type="url" class="up-input" value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
+                   readonly aria-readonly="true">
 
             <div class="up-hint"><?=_e('Checks Core, plugins, and themes in one operation. The URL is used for Core update metadata.')?></div>
 
@@ -172,9 +171,8 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <input type="hidden" name="action" value="reinstall">
         <label class="up-label"><?=_e('Download URL')?></label>
-        <input type="url" name="reinstall_url" class="up-input" autocomplete="off" spellcheck="false"
-               value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
-               placeholder="https://example.com/download/latest/">
+        <input type="url" class="up-input" value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
+               readonly aria-readonly="true">
         <label class="up-checkline">
             <input type="checkbox" name="hard_reset" value="1" id="chkHard">
             <?=_e('Hard reset')?> &mdash; <?=_e('reset theme, auth paths, plugins, slots, sidebar, and menus to defaults')?>
