@@ -393,50 +393,69 @@ if (!$result[''ok'']) {
 
 <p>Dengan pola ini, fitur seperti OTP, notifikasi akun, formulir, atau laporan dapat memakai satu API yang sama. Operasional situs tetap bebas memilih native mail, SMTP, atau provider lain tanpa membuat plugin fitur saling bergantung.</p>
 ', 'article', '{"meta_tags":{"description":"Panduan Core Mail API Jyavani untuk pengaturan sender, transport native atau SMTP, fallback, logging teredaksi, keamanan, dan email uji."}}', NULL, '/static/img/2026/08/core-mail-api-thumbnail.jpg', 'published', 1, 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', 0, NULL, 0),
-(296, 'Site Health dan Core Integrity: Membaca Hasil Pemindaian', 'site-health-core-integrity-membaca-hasil-pemindaian', '<p>Site Health membantu Site Owner memeriksa apakah file Jyavani Core masih sesuai dengan paket rilis tepercaya serta meninjau sinyal keamanan dari plugin, theme, media, dan file milik situs. Hasilnya adalah laporan diagnostik dari pemindaian terakhir, bukan pemantauan keamanan secara realtime.</p>
+(296, 'Site Health dan Core Integrity: Membaca Hasil Pemindaian', 'site-health-core-integrity-membaca-hasil-pemindaian', '<p>Site Health membantu Site Owner memeriksa apakah file Jyavani Core dan extension masih sesuai dengan baseline tepercaya, sekaligus meninjau keamanan media serta file milik situs. Hasilnya adalah snapshot diagnostik dari pemindaian terakhir, bukan antivirus atau pemantauan keamanan secara realtime.</p>
+
+<figure>
+  <img src="/static/img/2026/09/site-health-overview.png" alt="Ringkasan Site Health Jyavani dengan status Core, plugin dan theme, serta media dan file" loading="lazy">
+  <figcaption>Ringkasan memisahkan integritas Core, provenance extension, dan pemeriksaan file milik situs agar satu status tidak menyamarkan batas pemeriksaan komponen lain.</figcaption>
+</figure>
 
 <h2>Membuka dan menjalankan pemindaian</h2>
-<p>Buka <strong>Settings &gt; Site Health</strong>, lalu pilih <strong>Run full scan</strong>. Pemindaian berjalan secara manual karena proses membaca dan menghitung hash banyak file. Core tidak menjalankan full scan setiap kali dashboard dibuka agar request normal tetap ringan dan tidak bersaing dengan operasi update.</p>
-<ol>
-  <li>Pastikan tidak ada update Core, plugin, atau theme yang sedang berjalan.</li>
-  <li>Jalankan full scan dan tunggu sampai halaman menampilkan report baru.</li>
-  <li>Periksa waktu pemindaian, sumber baseline, status setiap komponen, dan error atau area yang tidak selesai.</li>
-  <li>Buka panel temuan untuk meninjau path, alasan, serta hash yang diharapkan dan diamati bila tersedia.</li>
-</ol>
-<p>Widget Site Health pada halaman utama dashboard hanya membaca report yang sudah tersimpan. Jika belum pernah dipindai, widget mengarahkan Site Owner untuk menjalankan full scan. Setelah itu, widget menampilkan persentase file Core yang bersih, jumlah temuan, status komponen, dan waktu scan terakhir.</p>
+<p>Buka <strong>Settings &gt; Site Health</strong>. Tombol <strong>Run full scan</strong> menjalankan pemeriksaan manual dan menampilkan report baru setelah proses selesai. Hindari menjalankannya ketika update Core, plugin, atau theme sedang berlangsung.</p>
+<p>Dashboard juga dapat meminta pemindaian otomatis ketika report belum ada, berasal dari versi Core lain, atau berusia setidaknya satu jam. Permintaan ini berjalan melalui endpoint POST terpisah setelah pemeriksaan permission, Site Owner, dan CSRF. Render dashboard dan widget tetap read-only; hashing tidak dilakukan di dalam request halaman biasa.</p>
+<p>Pemindaian otomatis dibatasi di browser dan diperiksa ulang setelah scan lock diperoleh agar beberapa dashboard yang dibuka bersamaan tidak membuat antrean scan. Mekanisme ini bersifat oportunistik, bukan scheduler server: situs tanpa aktivitas Site Owner tetap membutuhkan monitoring host atau jadwal terkelola sendiri.</p>
 
-<h2>Arti status</h2>
+<h2>Membaca ringkasan hasil</h2>
+<ol>
+  <li>Periksa waktu scan, versi dan sumber baseline, serta apakah report selesai tanpa error.</li>
+  <li>Bandingkan status <strong>Core files</strong>, <strong>Plugins and themes</strong>, dan <strong>Media and files</strong> secara terpisah.</li>
+  <li>Buka panel temuan untuk membaca path relatif, alasan, serta hash expected dan observed bila tersedia.</li>
+  <li>Gunakan filter status dan pencarian untuk memisahkan perubahan file dari artefak yang tidak diharapkan.</li>
+</ol>
+<p>Widget Site Health pada halaman utama dashboard hanya membaca report tersimpan. Widget menampilkan persentase file Core yang bersih, jumlah integrity findings, status komponen, dan waktu scan terakhir. Jumlah temuan integritas bukan jumlah kerentanan yang telah dikonfirmasi.</p>
+
+<h2>Arti lima status</h2>
+<figure>
+  <img src="/static/img/2026/09/site-health-status-guide.png" alt="Panduan status Clean, Unverified, Modified, Contaminated, dan Infected pada Site Health" loading="lazy">
+  <figcaption>Setiap status menjelaskan kondisi file atau tingkat kepercayaan baseline, bukan nilai keamanan absolut.</figcaption>
+</figure>
 <ul>
-  <li><code>clean</code>: seluruh file pada manifest tepercaya cocok dan tidak ditemukan artefak terlarang dalam scope komponen.</li>
-  <li><code>unverified</code>: baseline tepercaya tidak tersedia, provenance belum dapat dibuktikan, pemindaian tidak selesai, atau resource tidak dapat dibaca.</li>
-  <li><code>modified</code>: file milik manifest hilang, hash berbeda, atau tipe file tidak sesuai.</li>
-  <li><code>contaminated</code>: area terkelola berisi artefak tidak diharapkan atau terlarang, misalnya executable, symbolic link, atau file yang melintasi batas ownership.</li>
+  <li><code>clean</code>: semua file yang diwajibkan baseline tepercaya cocok dan tidak ada artefak terlarang dalam scope komponen.</li>
+  <li><code>unverified</code>: baseline tepercaya tidak tersedia, provenance belum dapat dibuktikan, scan tidak selesai, atau resource tidak dapat dibaca.</li>
+  <li><code>modified</code>: file milik manifest hilang, hash berbeda, atau tipe file aman tidak sesuai dengan identitas rilis.</li>
+  <li><code>contaminated</code>: area terkelola berisi artefak tidak diharapkan atau terlarang, misalnya executable, symbolic link, special file, atau file yang melintasi batas ownership.</li>
   <li><code>infected</code>: detector berkeyakinan tinggi mengidentifikasi konten berbahaya dan menyertakan identitas detector serta kategori bukti.</li>
 </ul>
-<p>Status <code>modified</code> tidak membuktikan malware; perubahan lokal yang sah tetap berbeda dari paket rilis. Status <code>contaminated</code> menunjukkan kondisi mencurigakan, tetapi tidak otomatis berarti <code>infected</code>.</p>
+<p>Status <code>modified</code> tidak membuktikan malware; perubahan lokal yang sah tetap berbeda dari paket rilis. Status <code>contaminated</code> membutuhkan review, tetapi tidak otomatis berarti <code>infected</code>. Jyavani saat ini belum mengonfigurasi malware engine; status <code>infected</code> disediakan untuk detector berkeyakinan tinggi pada masa mendatang.</p>
 
 <h2>Core Integrity dan baseline rilis</h2>
 <p>Core Integrity membandingkan file terkelola dengan manifest HTTPS untuk versi Jyavani yang sama persis. Scanner memvalidasi path, jumlah file, dan SHA-256, lalu melaporkan file yang hilang, berubah, atau tidak diharapkan. Manifest lokal berguna sebagai metadata instalasi, tetapi tidak menjadi satu-satunya trust root karena pihak yang dapat mengubah Core mungkin juga dapat mengubah manifest lokal.</p>
-<p>Scanner tidak membandingkan instalasi lama dengan manifest versi terbaru. Status update dan integritas file adalah dua hal berbeda. Bila manifest canonical untuk versi yang terpasang tidak tersedia atau tidak valid, hasilnya harus <code>unverified</code>, bukan <code>clean</code>.</p>
+<p>Scanner tidak membandingkan instalasi lama dengan manifest versi terbaru. Status update dan integritas file adalah dua hal berbeda. Bila manifest canonical untuk versi terpasang tidak tersedia, tidak valid, atau tidak cocok, komponen Core tetap <code>unverified</code>; temuan lain tetap ditampilkan untuk review.</p>
+<p>Deployment dapat mencatat public asset non-executable dan local tool yang memang dimiliki situs di <code>cfg/site-files.json</code>. Hash yang cocok menegaskan ownership boundary agar file tersebut tidak dianggap file Core asing. Manifest ini bukan release trust root: hash berubah, symlink, special file, path runtime Core, dan public executable tetap gagal secara tertutup.</p>
 
-<h2>Plugin, theme, media, dan file</h2>
-<p>Setiap komponen mempertahankan batas ownership sendiri. Penggunaan hook resmi oleh plugin tidak mengubah file Core. Plugin dan non-system theme dari Store canonical diverifikasi terhadap manifest HTTPS untuk versi terpasang yang sama persis. Tree yang cocok dapat berstatus <code>clean</code>; file rilis yang hilang atau berubah menjadi <code>modified</code>; artefak tidak diharapkan atau tidak aman menjadi <code>contaminated</code>; baseline yang tidak tersedia, tidak valid, lokal, atau noncanonical tetap <code>unverified</code>.</p>
-<p>Plugin dapat mendeklarasikan direktori gambar publik yang dihasilkan saat runtime di dalam namespace <code>static/plugins/{folder}/</code>. Gambar tersebut tidak dibandingkan dengan hash rilis, tetapi tetap dibatasi jumlah, ukuran, extension, MIME, nama executable, tipe file, dan symbolic link. File plugin serta static asset yang berasal dari paket tetap wajib cocok dengan manifest Store.</p>
-<p>Media dan file situs tidak dibandingkan dengan manifest Core. Scanner memeriksa containment, tipe file, symbolic link, executable pada lokasi upload, double extension, dan kecocokan MIME gambar. File biasa dapat berstatus <code>scanned</code>; status tersebut berarti pemeriksaan yang tersedia selesai, bukan jaminan bebas malware.</p>
+<h2>Plugin dan theme</h2>
+<p>Penggunaan hook resmi oleh plugin tidak mengubah file Core. Plugin dan non-system theme dari Store canonical diverifikasi terhadap manifest HTTPS untuk versi terpasang yang sama persis. Tree yang cocok dapat berstatus <code>clean</code>; file rilis yang hilang atau berubah menjadi <code>modified</code>; artefak tidak diharapkan atau tidak aman menjadi <code>contaminated</code>.</p>
+<p>Extension lokal yang tidak mempunyai provenance Store dapat menggunakan signed deployment manifest Ed25519 yang dipasang oleh operator. Baseline Store selalu diprioritaskan; extension yang mengaku berasal dari Store tidak boleh jatuh kembali ke baseline lokal ketika manifest canonical gagal. File <code>.store.json</code> hanya metadata updater dan tidak memberi kepercayaan, sedangkan direktori atau file <code>.git</code> selalu dilarang di tree extension.</p>
+<p>Plugin dapat mendeklarasikan paling banyak delapan direktori gambar publik yang dihasilkan saat runtime di dalam namespace <code>static/plugins/{folder}/</code>. Gambar tersebut tidak dibandingkan dengan hash rilis, tetapi tetap dibatasi jumlah, ukuran, extension, MIME, nama executable, tipe file, dan symbolic link. File plugin serta static asset yang berasal dari paket tetap wajib cocok dengan manifest Store.</p>
+
+<h2>Media dan file milik situs</h2>
+<p>Media dan file situs tidak dibandingkan dengan manifest Core. Scanner memeriksa containment, tipe file, symbolic link, executable atau konfigurasi server pada lokasi upload, double extension, serta kecocokan MIME gambar. File biasa dapat berstatus <code>scanned</code>; status tersebut berarti pemeriksaan yang tersedia selesai, bukan jaminan bebas malware.</p>
+<p>Report tidak menampilkan isi file privat, absolute deployment path, hidden administration route, credential, atau data pengguna. Hanya path relatif dan metadata temuan yang diperlukan untuk diagnosis yang boleh muncul.</p>
 
 <h2>Menindaklanjuti temuan</h2>
 <ul>
   <li>Bandingkan waktu scan dengan perubahan atau update terakhir yang memang direncanakan.</li>
   <li>Untuk file Core yang berubah, gunakan paket terverifikasi dan alur update atau reinstall resmi setelah membuat backup.</li>
   <li>Kelola plugin dan theme melalui lifecycle masing-masing; jangan menghapus file langsung dari tabel temuan.</li>
+  <li>Review file deployment milik situs terhadap hash yang disetujui sebelum memperbarui <code>cfg/site-files.json</code>.</li>
   <li>Pertahankan artefak yang dicurigai untuk pemeriksaan operator atau proses karantina yang dirancang khusus.</li>
-  <li>Jalankan scan ulang setelah tindakan perbaikan selesai untuk membuat report generasi baru.</li>
+  <li>Jalankan scan ulang setelah tindakan perbaikan selesai untuk membuat snapshot baru.</li>
 </ul>
 
 <h2>Batas hasil clean</h2>
 <p>Hasil <code>clean</code> berarti file terverifikasi cocok dengan manifest tepercaya dan tidak ada kondisi mencurigakan yang dikenal dalam scope yang dipindai. Hasil ini tidak membuktikan bahwa kode, database, server, dependency, jaringan, atau website bebas dari kerentanan dan kompromi. File dapat berubah setelah scan dan scanner dapat menghasilkan false positive atau false negative.</p>
-<p>Gunakan Site Health bersama backup teruji, least privilege, update tepat waktu, monitoring server, audit file system, pemindaian malware host, dan review keamanan independen. Jaminan mendekati realtime membutuhkan kontrol di luar CMS, bukan full scan pada setiap request dashboard.</p>
-', 'article', '{"meta_tags":{"description":"Panduan Site Health dan Core Integrity Jyavani untuk menjalankan scan, membaca status, meninjau temuan, memahami baseline tepercaya, dan menindaklanjuti hasil secara aman."}}', NULL, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'published', 1, 1, '2026-09-13 22:30:00', '2026-09-15 11:21:00', 0, NULL, 0);
+<p>Site Health hanya menyimpan satu report saat ini; history, export, notifikasi, scheduled scan, environment panel, dan quarantine workflow belum tersedia. Gunakan Site Health bersama backup teruji, least privilege, update tepat waktu, monitoring server, audit file system, pemindaian malware host, dan review keamanan independen.</p>
+', 'article', '{"meta_tags":{"description":"Panduan lengkap Site Health Jyavani untuk menjalankan scan, membaca status integritas, memahami baseline Core dan extension, serta menindaklanjuti temuan secara aman."}}', NULL, '/static/img/2026/07/keamanan-cms-thumb.jpg', 'published', 1, 1, '2026-09-13 22:30:00', '2026-09-16 14:45:00', 0, NULL, 0);
 
 INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `height`, `title`, `alt`, `caption`, `credit`, `visibility`, `storage_disk`, `storage_path`, `access_scope`, `is_downloadable`, `user_id`, `created_at`, `updated_at`, `target_url`, `target_attribute`) VALUES
 (64, '/static/img/2026/07/content-management-71b8788f.jpg', 'content-management-71b8788f.jpg', 'image/jpeg', 'jpg', 71345, 1200, 675, 'Content Management', 'Content Management System Dashboard', NULL, NULL, 'public', 'public', '2026/07/content-management-71b8788f.jpg', 'public', 1, 1, '2026-07-24 09:57:56', NULL, NULL, NULL),
@@ -495,7 +514,9 @@ INSERT INTO `media` (`id`, `url`, `filename`, `mime`, `ext`, `size`, `width`, `h
 (127, '/static/img/2026/08/roles-permissions-thumbnail.jpg', 'roles-permissions-thumbnail.jpg', 'image/jpeg', 'jpg', 62350, 1200, 675, 'Roles and Permissions', 'Ilustrasi pengaturan role dan permission pengguna di Jyavani CMS', NULL, 'AI-generated illustration', 'public', 'public', 'public/static/img/2026/08/roles-permissions-thumbnail.jpg', 'public', 1, 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', NULL, NULL),
 (128, '/static/img/2026/08/roles-permissions-light.jpg', 'roles-permissions-light.jpg', 'image/jpeg', 'jpg', 157950, 1440, 1000, 'Roles and Permissions Light Theme', 'Tampilan light theme menu Roles dan Permissions di dashboard Jyavani CMS', NULL, 'Screenshot from authorized OpenCode test environment', 'public', 'public', 'public/static/img/2026/08/roles-permissions-light.jpg', 'public', 1, 1, '2026-08-18 18:00:00', '2026-08-18 18:00:00', NULL, NULL),
 (129, '/static/img/2026/08/core-mail-api-thumbnail.jpg', 'core-mail-api-thumbnail.jpg', 'image/jpeg', 'jpg', 92042, 1280, 720, 'Jyavani Core Mail API', 'Ilustrasi alur plugin fitur melalui Jyavani Core Mail API menuju transport SMTP atau native', NULL, 'Original Jyavani documentation illustration', 'public', 'public', 'public/static/img/2026/08/core-mail-api-thumbnail.jpg', 'public', 1, 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', NULL, NULL),
-(130, '/static/img/2026/08/core-mail-api-flow.jpg', 'core-mail-api-flow.jpg', 'image/jpeg', 'jpg', 123777, 1200, 675, 'Alur Jyavani Core Mail API', 'Diagram plugin fitur mengirim pesan terstruktur melalui Core menuju transport SMTP atau native', NULL, 'Original Jyavani documentation illustration', 'public', 'public', 'public/static/img/2026/08/core-mail-api-flow.jpg', 'public', 1, 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', NULL, NULL);
+(130, '/static/img/2026/08/core-mail-api-flow.jpg', 'core-mail-api-flow.jpg', 'image/jpeg', 'jpg', 123777, 1200, 675, 'Alur Jyavani Core Mail API', 'Diagram plugin fitur mengirim pesan terstruktur melalui Core menuju transport SMTP atau native', NULL, 'Original Jyavani documentation illustration', 'public', 'public', 'public/static/img/2026/08/core-mail-api-flow.jpg', 'public', 1, 1, '2026-08-23 20:50:00', '2026-08-23 20:50:00', NULL, NULL),
+(131, '/static/img/2026/09/site-health-overview.png', 'site-health-overview.png', 'image/png', 'png', 421961, 1280, 720, 'Ringkasan Site Health Jyavani', 'Ringkasan Site Health Jyavani dengan status Core, plugin dan theme, serta media dan file', 'Tampilan Site Health setelah pemindaian selesai pada lingkungan dokumentasi Jyavani.', 'Screenshot from authorized Jyavani development environment', 'public', 'public', '2026/09/site-health-overview.png', 'public', 1, 1, '2026-09-16 14:45:00', '2026-09-16 14:45:00', NULL, NULL),
+(132, '/static/img/2026/09/site-health-status-guide.png', 'site-health-status-guide.png', 'image/png', 'png', 82642, 960, 535, 'Panduan Status Site Health', 'Panduan status Clean, Unverified, Modified, Contaminated, dan Infected pada Site Health', 'Lima status membedakan kecocokan file, kepercayaan baseline, perubahan, kontaminasi, dan deteksi berkeyakinan tinggi.', 'Screenshot from authorized Jyavani development environment', 'public', 'public', '2026/09/site-health-status-guide.png', 'public', 1, 1, '2026-09-16 14:45:00', '2026-09-16 14:45:00', NULL, NULL);
 
 INSERT INTO `post_categories` (`post_id`, `category_id`, `assigned_by`, `assigned_at`) VALUES
 (272, 1, 1, '2026-07-25 09:07:48'),

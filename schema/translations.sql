@@ -5592,3 +5592,10 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Signed local deployment baseline', 'Signierte lokale Deployment-Basis', 'de'),
 ('default', 'Canonical Store or signed deployment hashes and filesystem safety', 'Hash Store kanonis atau deployment bertanda tangan dan keamanan filesystem', 'id'),
 ('default', 'Canonical Store or signed deployment hashes and filesystem safety', 'Kanonische Store- oder signierte Deployment-Hashes und Dateisystemsicherheit', 'de');
+
+-- Dashboard CMS information links
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Visit the official Jyavani website', 'Kunjungi situs resmi Jyavani', 'id'),
+('default', 'Visit the official Jyavani website', 'Offizielle Jyavani-Website besuchen', 'de'),
+('default', 'View this version on GitHub', 'Lihat versi ini di GitHub', 'id'),
+('default', 'View this version on GitHub', 'Diese Version auf GitHub ansehen', 'de');

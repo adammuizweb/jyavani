@@ -14,6 +14,9 @@ function dash_widget_cms_info(PDO $pdo): string
     $edition = $ver['edition'] ?? '—';
     $build   = $ver['build'] ?? '—';
     $phpReq  = $ver['php_required'] ?? '8.1';
+    $homepage = filter_var($ver['homepage'] ?? null, FILTER_VALIDATE_URL) ?: 'https://jyavani.com';
+    $changelogUrl = filter_var($ver['changelog_url'] ?? null, FILTER_VALIDATE_URL)
+        ?: 'https://github.com/adammuizweb/jyavani/releases';
     $updateSnapshot = UpdateStatusController::getSnapshot();
     $cmsStatus = $updateSnapshot['components']['core'] ?? [];
     $cmsLatest = ($cmsStatus['state'] ?? 'unknown') === 'ok' && ($cmsStatus['has_update'] ?? false) !== true
@@ -32,8 +35,8 @@ function dash_widget_cms_info(PDO $pdo): string
   </div>
   <div class="dw-card-body">
     <table class="dw-table">
-      <tr><td>' . __('CMS') . '</td><td><strong>' . h($name) . '</strong></td></tr>
-      <tr><td>' . __('Version') . '</td><td><strong>v' . h($version) . '</strong> <span data-cms-latest>' . $cmsLatest . '</span></td></tr>
+      <tr><td>' . __('CMS') . '</td><td><a class="dw-cms-link" href="' . h($homepage) . '" target="_blank" rel="noopener noreferrer" title="' . h(__('Visit the official Jyavani website')) . '"><strong>' . h($name) . '</strong>' . svg_ico('external-link') . '</a></td></tr>
+      <tr><td>' . __('Version') . '</td><td><a class="dw-version-link" href="' . h($changelogUrl) . '" target="_blank" rel="noopener noreferrer" title="' . h(__('View this version on GitHub')) . '"><strong>v' . h($version) . '</strong>' . svg_ico('external-link') . '</a> <span data-cms-latest>' . $cmsLatest . '</span></td></tr>
       <tr><td>' . __('Edition') . '</td><td>' . $editionBadge . '</td></tr>
       <tr><td>' . __('Build') . '</td><td>' . h($build) . '</td></tr>
       <tr><td>' . __('PHP Required') . '</td><td>' . h($phpReq) . '+ (' . __('server:') . ' ' . PHP_VERSION . ')</td></tr>
@@ -307,7 +310,11 @@ function dash_widget_recent_posts(PDO $pdo): string
         $ownerId = (int)($r['created_by'] ?? 0);
         $canUpdate = user_can($pdo, $uid, 'core.posts.update', ['owner_id' => $ownerId])
             && ($status === 'draft' || user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $ownerId]));
-        $title = h(mb_substr((string)$r['title'], 0, 40));
+        $rawTitle = trim((string)$r['title']);
+        $displayTitle = mb_strlen($rawTitle, 'UTF-8') > 40
+            ? rtrim(mb_substr($rawTitle, 0, 40, 'UTF-8')) . '...'
+            : $rawTitle;
+        $title = '<span class="dw-post-title" title="' . h($rawTitle) . '">' . h($displayTitle) . '</span>';
         $titleCell = $canUpdate
             ? '<a href="' . h($base) . '/?page=admin/posts/edit&id=' . (int)$r['id'] . '" class="dw-link">' . $title . '</a>'
             : $title;

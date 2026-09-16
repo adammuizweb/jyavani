@@ -46,7 +46,7 @@ $documents = $manifest['documents'] ?? [];
 $media = $mediaSource['media'] ?? [];
 $check(is_array($categories) && count($categories) === 4, 'four canonical categories are declared');
 $check(is_array($documents) && count($documents) === 25, 'twenty-two articles and three pages are declared');
-$check(is_array($media) && count($media) === 57, 'all 57 demo media rows are declared');
+$check(is_array($media) && count($media) === 59, 'all 59 demo media rows are declared');
 
 $categoryIds = [];
 $categorySlugs = [];
@@ -83,8 +83,8 @@ foreach ($media as $item) {
     }
 }
 $check($mediaMetadataMatchesAssets, 'demo media metadata matches the shipped asset bytes');
-$expectedMediaIds = [64,65,66,67,68,70,71,72,73,75,76,77,78,79,80,81,82,84,85,86,88,89,90,92,93,94,96,97,98,100,101,102,104,105,106,108,109,110,111,112,113,114,115,117,118,119,120,121,122,123,124,125,126,127,128,129,130];
-$check(array_keys($mediaIds) === $expectedMediaIds, 'demo media identity set includes Core Mail assets');
+$expectedMediaIds = [64,65,66,67,68,70,71,72,73,75,76,77,78,79,80,81,82,84,85,86,88,89,90,92,93,94,96,97,98,100,101,102,104,105,106,108,109,110,111,112,113,114,115,117,118,119,120,121,122,123,124,125,126,127,128,129,130,131,132];
+$check(array_keys($mediaIds) === $expectedMediaIds, 'demo media identity set includes Core Mail and Site Health assets');
 
 $documentIds = [];
 $documentSlugs = [];
