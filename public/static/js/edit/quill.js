@@ -6,7 +6,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   let suppress = false;
 
   const complexPattern =
-    /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|table|thead|tbody|tfoot|tr|th|td)[\s>]|on[a-z]+\s*=/i;
+    /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta)[\s>]|on[a-z]+\s*=/i;
 
   const canonical = document.getElementById('content-textarea');
   const EDITOR_IMG_MAX_WIDTH = 560;
@@ -41,7 +41,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     [{ indent: '-1' }, { indent: '+1' }],
     [{ align: [] }],
     ['blockquote','code-block'],
-    ['link','image','video'],
+    ['link','image','video','table'],
     [{ size: ['small', false, 'large', 'huge'] }],
     ['clean']
   ];
@@ -449,6 +449,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       modules: { toolbar: toolbarOption },
       placeholder: window.QUILL_PLACEHOLDER || 'Write article content here...'
     });
+
+    if (window.JyavaniQuillTable) window.JyavaniQuillTable.configure(quill);
 
     attachToolbarHandlers(quill);
 

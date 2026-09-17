@@ -5773,3 +5773,25 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Turning this setting off removes scheduling controls. Existing scheduled items remain queued and can still be published by an active worker.', 'Wenn diese Einstellung deaktiviert wird, werden die Planungssteuerungen entfernt. Bereits geplante Elemente bleiben in der Warteschlange und können weiterhin von einem aktiven Worker veröffentlicht werden.', 'de'),
 ('default', 'Scheduled publishing is disabled in Site Settings.', 'Publikasi terjadwal dinonaktifkan di Pengaturan Situs.', 'id'),
 ('default', 'Scheduled publishing is disabled in Site Settings.', 'Geplante Veröffentlichungen sind in den Website-Einstellungen deaktiviert.', 'de');
+
+-- Rich editor table dialog
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Insert table', 'Sisipkan tabel', 'id'),
+('default', 'Insert table', 'Tabelle einfügen', 'de'),
+('default', 'Edit table', 'Edit tabel', 'id'),
+('default', 'Edit table', 'Tabelle bearbeiten', 'de'),
+('default', 'Rows', 'Baris', 'id'),
+('default', 'Rows', 'Zeilen', 'de'),
+('default', 'Columns', 'Spalten', 'de'),
+('default', 'Use first row as header', 'Gunakan baris pertama sebagai header', 'id'),
+('default', 'Use first row as header', 'Erste Zeile als Kopfzeile verwenden', 'de'),
+('default', 'Row %d, column %d', 'Baris %d, kolom %d', 'id'),
+('default', 'Row %d, column %d', 'Zeile %d, Spalte %d', 'de'),
+('default', 'Update table', 'Perbarui tabel', 'id'),
+('default', 'Update table', 'Tabelle aktualisieren', 'de'),
+('default', 'Remove table', 'Hapus tabel', 'id'),
+('default', 'Remove table', 'Tabelle entfernen', 'de'),
+('default', 'Media Library', 'Pustaka Media', 'id'),
+('default', 'Media Library', 'Medienbibliothek', 'de'),
+('default', 'File Library', 'Pustaka File', 'id'),
+('default', 'File Library', 'Dateibibliothek', 'de');

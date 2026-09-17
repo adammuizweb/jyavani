@@ -104,6 +104,7 @@ if ($faviconUrl !== ''): ?>
   <!-- quill -->
   <link href="/static/vendor/quill/quill.snow.css" rel="stylesheet">
   <script src="/static/vendor/quill/quill.min.js"></script>
+  <script src="/static/vendor/quill/quill-table.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/vendor/quill/quill-table.js') ?: 0) ?>"></script>
   <style>.ql-editor p{margin:.35em 0 .75em}.ql-editor p:first-child{margin-top:0}.ql-editor p:last-child{margin-bottom:0}</style>
 
   <!-- codemirror -->
@@ -204,6 +205,20 @@ foreach ($pa['css'] ?? [] as $css_url) {
 window.jyavaniUpdateStatus = <?= json_encode($initialUpdateStatus, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 window.jyavaniUpdateCsrf = <?= json_encode(($canCheckUpdates ?? false) ? csrf_token() : '', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 window.jyavaniSiteHealthAuto = <?= json_encode($siteHealthAuto, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+window.jyavaniTableEditorI18n = <?= json_encode([
+    'title' => __('Insert table'),
+    'editTitle' => __('Edit table'),
+    'rows' => __('Rows'),
+    'columns' => __('Columns'),
+    'header' => __('Use first row as header'),
+    'cell' => __('Row %d, column %d'),
+    'cancel' => __('Cancel'),
+    'insert' => __('Insert table'),
+    'update' => __('Update table'),
+    'remove' => __('Remove table'),
+    'mediaLibrary' => __('Media Library'),
+    'fileLibrary' => __('File Library'),
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 window.i18n_upd = <?= json_encode([
     'failed_to_check'   => __('Failed to check updates.'),
     'all_up_to_date'    => __('All up to date.'),

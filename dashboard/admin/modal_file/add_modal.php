@@ -4,11 +4,15 @@ declare(strict_types=1);
 // /adiwira/admin/modal_file/add_modal.php
 require_once __DIR__ . '/../_guard.php';
 
-if (realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
-    adiwira_cosmetic_404_on_direct_open();
-}
+if (!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')) {
+    if (function_exists('adiwira_is_navigate_request') && adiwira_is_navigate_request()) {
+        http_response_code(404);
+        require FRONTEND_404_PATH;
+        exit;
+    }
 
-[$uid, $role] = adiwira_require_editorial($pdo, false);
+    [$uid, $role] = adiwira_require_editorial($pdo, false);
+}
 
 $csrfToken = isset($csrfToken) && is_string($csrfToken) ? $csrfToken : '';
 if ($csrfToken === '') {

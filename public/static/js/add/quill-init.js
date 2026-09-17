@@ -127,7 +127,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
             [{ indent: '-1' }, { indent: '+1' }],
             [{ align: [] }],
             ['blockquote','code-block'],
-            ['link','image','video'],
+            ['link','image','video','table'],
             [{ size: ['small', false, 'large', 'huge'] }],
             ['clean']
           ]
@@ -136,9 +136,16 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         placeholder: window.QUILL_PLACEHOLDER || 'Write article content here...'
       });
 
+      if (window.JyavaniQuillTable) window.JyavaniQuillTable.configure(window.__adam_quill_instance);
+
       try {
         var initial = document.getElementById('content-input') ? document.getElementById('content-input').value : '';
-        if (initial) window.__adam_quill_instance.root.innerHTML = initial;
+        if (initial) {
+          window.__adam_quill_instance.setContents(
+            window.__adam_quill_instance.clipboard.convert(initial),
+            'silent'
+          );
+        }
       } catch(e){
         console.warn('restore quill initial content error', e);
       }

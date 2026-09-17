@@ -421,8 +421,8 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
 <!-- editor spesifik edit tetap -->
 <script>window.QUILL_PLACEHOLDER = <?= json_encode(__('Write article content here...')) ?>;</script>
 <script src="/static/js/edit/codemirror.js"></script>
-<script src="/static/js/edit/quill.js"></script>
-<script src="/static/js/edit/editor_mode.js"></script>
+<script src="/static/js/edit/quill.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/quill.js') ?: 0) ?>"></script>
+<script src="/static/js/edit/editor_mode.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/editor_mode.js') ?: 0) ?>"></script>
 <script src="/static/js/edit/thumbnail.js"></script>
 <script src="/static/js/edit/youtube_preview.js"></script>
 <script src="/static/js/edit/ajax_save.js"></script>

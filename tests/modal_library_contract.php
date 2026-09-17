@@ -6,6 +6,7 @@ $files = [
     'image' => (string)file_get_contents($root . '/dashboard/admin/modal_img/list_modal.php'),
     'file' => (string)file_get_contents($root . '/dashboard/admin/modal_file/list_modal.php'),
     'file_index' => (string)file_get_contents($root . '/dashboard/admin/modal_file/index.php'),
+    'file_add_modal' => (string)file_get_contents($root . '/dashboard/admin/modal_file/add_modal.php'),
     'media_list' => (string)file_get_contents($root . '/dashboard/admin/media/list.php'),
     'file_list' => (string)file_get_contents($root . '/dashboard/admin/file/list.php'),
     'media_index' => (string)file_get_contents($root . '/dashboard/admin/media/index.php'),
@@ -15,6 +16,7 @@ $files = [
     'modal_media_single' => (string)file_get_contents($root . '/dashboard/admin/modal_img/single_modal.php'),
     'modal_file_single' => (string)file_get_contents($root . '/dashboard/admin/modal_file/single_modal.php'),
     'media_index_modal' => (string)file_get_contents($root . '/dashboard/admin/modal_img/index.php'),
+    'media_add_modal' => (string)file_get_contents($root . '/dashboard/admin/modal_img/add_modal.php'),
     'media_selector' => (string)file_get_contents($root . '/public/static/js/add/media-selector.js'),
     'file_selector' => (string)file_get_contents($root . '/public/static/js/add/file-selector.js'),
     'modal_helpers' => (string)file_get_contents($root . '/public/static/js/add/modal-helpers.js'),
@@ -78,6 +80,16 @@ $check(str_contains($files['media_index_modal'], 'session_write_close()')
     && str_contains($files['file_index'], 'session_write_close()')
     && str_contains($files['image'], 'session_write_close()')
     && str_contains($files['file'], 'session_write_close()'), 'read-only modal rendering releases the authenticated session lock before expensive queries');
+$check(str_contains($files['media_index_modal'], 'adiwira_is_navigate_request()')
+    && str_contains($files['file_index'], 'adiwira_is_navigate_request()')
+    && !str_contains($files['file_index'], "realpath((string)(\$_SERVER['SCRIPT_FILENAME']")
+    && str_contains($files['modal_helpers'], 'fetch(url, {'),
+    'media and file modals allow authenticated fetch injection while masking direct document navigation');
+$check(str_contains($files['media_add_modal'], "!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')")
+    && str_contains($files['file_add_modal'], "!defined('DASHBOARD_CONTEXT') && !defined('ADAM_THEME')")
+    && !str_contains($files['file_add_modal'], "realpath((string)(\$_SERVER['SCRIPT_FILENAME']")
+    && substr_count($files['file_add_modal'], 'adiwira_require_editorial($pdo, false)') === 1,
+    'embedded upload partials do not re-authenticate after their parent modal releases the session');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " modal library contract check(s) failed.\n");

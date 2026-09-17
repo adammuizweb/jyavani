@@ -623,7 +623,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 <script src="/static/js/add/media-selector.js"></script>
 <script src="/static/js/add/file-selector.js"></script>
 <script>window.QUILL_PLACEHOLDER = <?= json_encode(__('Write article content here...')) ?>;</script>
-<script src="/static/js/add/quill-init.js"></script>
+<script src="/static/js/add/quill-init.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/add/quill-init.js') ?: 0) ?>"></script>
 <script src="/static/js/add/thumbnail-handler.js"></script>
 <script src="/static/js/add/youtube_preview.js"></script>
 <script src="/static/dashboard/js/content-schedule.js"></script>

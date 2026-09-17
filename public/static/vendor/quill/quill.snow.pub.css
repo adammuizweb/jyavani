@@ -29,6 +29,26 @@
   margin: 0;
   padding: 0;
 }
+.jy-editor-table {
+  display: table;
+  width: 100%;
+  margin: 1.25em 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.jy-editor-table th,
+.jy-editor-table td {
+  padding: .65em .75em;
+  border: 1px solid currentColor;
+  overflow-wrap: anywhere;
+  text-align: left;
+  vertical-align: top;
+}
+.jy-editor-table th { font-weight: 700; }
+@media (max-width: 640px) {
+  .jy-editor-table { display: block; overflow-x: auto; table-layout: auto; }
+  .jy-editor-table tbody { min-width: 36rem; }
+}
 ol li.ql-indent-1 {
   counter-increment: list-1;
 }
