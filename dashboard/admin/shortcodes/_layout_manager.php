@@ -153,6 +153,31 @@ function shortcode_layout_resolve_file(string $directory, string $file, string $
     return $realPath;
 }
 
+function shortcode_layout_preview_bind_source_path(string $content, string $sourceFile): string
+{
+    $sourceFile = trim($sourceFile);
+    if ($sourceFile === '' || basename($sourceFile) === '') {
+        throw new InvalidArgumentException('Preview source path is invalid.');
+    }
+
+    $sourceDirectory = dirname($sourceFile);
+    $output = '';
+    foreach (token_get_all($content) as $token) {
+        if (!is_array($token)) {
+            $output .= $token;
+            continue;
+        }
+        if ($token[0] === T_DIR) {
+            $output .= var_export($sourceDirectory, true);
+        } elseif ($token[0] === T_FILE) {
+            $output .= var_export($sourceFile, true);
+        } else {
+            $output .= $token[1];
+        }
+    }
+    return $output;
+}
+
 function shortcode_layout_collection_dependencies(PDO $pdo, array $names): array
 {
     $names = array_values(array_unique(array_filter(

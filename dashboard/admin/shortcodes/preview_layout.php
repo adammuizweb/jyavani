@@ -78,7 +78,20 @@ try {
         $section = $sectionName;
         $section_name = $sectionName;
 
-        if (file_put_contents($tmpFile, $content, LOCK_EX) === false) {
+        $sectionDirectory = shortcode_layout_directory($pdo, 'section');
+        if (!is_string($sectionDirectory) || $sectionDirectory === '') {
+            throw new RuntimeException(__('Failed to prepare template preview.'));
+        }
+        $sectionFilename = $sectionName . '.php';
+        $sectionSourceFile = shortcode_layout_resolve_file($sectionDirectory, $sectionFilename, 'section');
+        if ($sectionSourceFile === null) {
+            $sectionSourceFile = $sectionDirectory . DIRECTORY_SEPARATOR . $sectionFilename;
+            if (file_exists($sectionSourceFile) || is_link($sectionSourceFile)) {
+                throw new RuntimeException(__('Failed to prepare template preview.'));
+            }
+        }
+        $sectionPreviewContent = shortcode_layout_preview_bind_source_path($content, $sectionSourceFile);
+        if (file_put_contents($tmpFile, $sectionPreviewContent, LOCK_EX) === false) {
             throw new RuntimeException(__('Failed to prepare template preview.'));
         }
 

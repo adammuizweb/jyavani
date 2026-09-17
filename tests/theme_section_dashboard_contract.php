@@ -62,9 +62,40 @@ $check(str_contains($source['preview'], "__('Layout template not found.')"), 'pr
 $check(str_contains($source['save'], "'application/json'"), 'AJAX layout saves explicitly negotiate a JSON response');
 $check(str_contains($source['preview'], 'register_shutdown_function'), 'preview temporary files are removed even when the JSON responder exits');
 $check(!str_contains($source['preview'], "\$_POST['file']"), 'preview does not accept a filesystem path from the request');
+$check(str_contains($source['preview'], 'shortcode_layout_preview_bind_source_path($content, $sectionSourceFile)')
+    && str_contains($source['preview'], "shortcode_layout_resolve_file(\$sectionDirectory, \$sectionFilename, 'section')"), 'Theme Section preview binds magic paths to the validated active-theme renderer');
 $check(str_contains($source['preset'], "fd.append('csrf_token'"), 'preset preview sends the required CSRF token');
 $check(str_contains($source['save'], 'shortcode_layout_atomic_save($pdo') && str_contains($source['manager'], "shortcode_layout_directory(\$pdo, 'collection')") && str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'collection saves use the shared canonical legacy directory');
 $check(str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'legacy collection delete path remains supported');
+
+require_once $files['manager'];
+$fixture = sys_get_temp_dir() . '/jyavani-section-preview-' . bin2hex(random_bytes(6));
+$sectionDirectory = $fixture . '/theme/partials/shortcodes/section';
+$delegatedDirectory = $fixture . '/theme/main/sections';
+mkdir($sectionDirectory, 0770, true);
+mkdir($delegatedDirectory, 0770, true);
+$sourceFile = $sectionDirectory . '/sample.section.php';
+$delegatedFile = $delegatedDirectory . '/delegated.php';
+$temporaryFile = $fixture . '/runtime-preview.php';
+file_put_contents($delegatedFile, '<?php echo "DELEGATED:" . basename(__FILE__);');
+$previewSource = '<?php /* __DIR__ */ require __DIR__ . \'/../../../main/sections/delegated.php\'; $label = "__FILE__";';
+$boundPreview = shortcode_layout_preview_bind_source_path($previewSource, $sourceFile);
+file_put_contents($temporaryFile, $boundPreview);
+ob_start();
+include $temporaryFile;
+$delegatedOutput = (string)ob_get_clean();
+$check($delegatedOutput === 'DELEGATED:delegated.php'
+    && str_contains($boundPreview, '/* __DIR__ */')
+    && str_contains($boundPreview, '"__FILE__"'), 'temporary preview preserves renderer-relative delegated includes without rewriting comments or strings');
+@unlink($temporaryFile);
+@unlink($delegatedFile);
+@rmdir($delegatedDirectory);
+@rmdir(dirname($delegatedDirectory));
+@rmdir($sectionDirectory);
+@rmdir(dirname($sectionDirectory));
+@rmdir(dirname(dirname($sectionDirectory)));
+@rmdir($fixture . '/theme');
+@rmdir($fixture);
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

@@ -470,7 +470,7 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
 }
 
 // Render satu zone editor lengkap (tombol defaults + grid positions + gadget list + add form)
-function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, array $sidebarZones = [], array $pagesList = []): string {
+function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, int $uid, array $sidebarZones = [], array $pagesList = []): string {
     global $base;
     $base = $base ?? (defined('ADMIN_BASE_PATH') ? ADMIN_BASE_PATH : '/adiwira');
     ob_start();
@@ -763,7 +763,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
               <?= tz_override_notice($mixedAssignments['header']['label'] ?? '', $mixedAssignments['header']['post_id'] ?? null) ?>
             <?php else: ?>
               <?php $headerLayout = $headerSourceFolder === $folder ? $themeLayout['header'] : (theme_zone_layout($headerSourceFolder)['header'] ?? $themeLayout['header']); ?>
-              <?= tz_zone_editor_html($pdo, $headerSourceFolder, 'header', $headerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+              <?= tz_zone_editor_html($pdo, $headerSourceFolder, 'header', $headerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList) ?>
             <?php endif; ?>
           </div>
         </section>
@@ -852,7 +852,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                   }
                   ?>
                   <?php if (!empty($pzDef) && !empty($pzDef['positions']) && is_array($pzDef['positions'])): ?>
-                    <?= tz_zone_editor_html($pdo, $pzSourceFolder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+                    <?= tz_zone_editor_html($pdo, $pzSourceFolder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList) ?>
                   <?php else: ?>
                     <div class="adam-alert info"><?= __('This partial does not declare positions.') ?></div>
                   <?php endif; ?>
@@ -903,7 +903,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
               <?= tz_override_notice($mixedAssignments['footer']['label'] ?? '', $mixedAssignments['footer']['post_id'] ?? null) ?>
             <?php else: ?>
               <?php $footerLayout = $footerSourceFolder === $folder ? $themeLayout['footer'] : (theme_zone_layout($footerSourceFolder)['footer'] ?? $themeLayout['footer']); ?>
-              <?= tz_zone_editor_html($pdo, $footerSourceFolder, 'footer', $footerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $zones, $pagesList) ?>
+              <?= tz_zone_editor_html($pdo, $footerSourceFolder, 'footer', $footerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList) ?>
             <?php endif; ?>
           </div>
         </section>
