@@ -53,13 +53,7 @@ if (!function_exists('fetch_users_for_dropdown')) {
 
 if (!function_exists('to_datetime_local')) {
     function to_datetime_local(?string $mysqlDt): ?string {
-        if (!$mysqlDt) return null;
-        try {
-            $d = new DateTime($mysqlDt, new DateTimeZone('Asia/Jakarta'));
-            return $d->format('Y-m-d\\TH:i');
-        } catch (Exception $e) {
-            return null;
-        }
+        return app_wall_mysql_to_datetime_local($mysqlDt);
     }
 }
 

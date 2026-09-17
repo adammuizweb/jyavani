@@ -177,7 +177,7 @@ if (!function_exists('search_theme_build_page_url')) {
 
         <?php if (!empty($p['created_at'])): ?>
           <time datetime="<?= htmlspecialchars((string)$p['created_at'], ENT_QUOTES, 'UTF-8') ?>">
-            <?= htmlspecialchars(date('d M Y', strtotime((string)$p['created_at'])), ENT_QUOTES, 'UTF-8') ?>
+            <?= htmlspecialchars(app_display_date($p['created_at']), ENT_QUOTES, 'UTF-8') ?>
           </time>
         <?php endif; ?>
 

@@ -85,7 +85,9 @@ function dash_widget_update_status(PDO $pdo): string
     }
 
     $checkedAt = (int)($snapshot['checked_at'] ?? 0);
-    $statusNote = $checkedAt > 0 ? __('Last checked:') . ' ' . date('Y-m-d H:i', $checkedAt) : __('Updates have not been checked yet.');
+    $statusNote = $checkedAt > 0
+        ? __('Last checked:') . ' ' . app_display_datetime(new DateTimeImmutable('@' . $checkedAt))
+        : __('Updates have not been checked yet.');
     if (($snapshot['state'] ?? 'unknown') !== 'ok' && ($snapshot['state'] ?? 'unknown') !== 'unknown') {
         $statusNote = __('Some update sources could not be reached. Showing the last known results.');
     }

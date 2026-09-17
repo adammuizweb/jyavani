@@ -99,7 +99,7 @@ $authorLink     = $authorSlug !== ''
             </h2>
 
             <?php if ($createdAt !== ''): ?>
-              <div class="post-meta"><?= htmlspecialchars($createdAt, ENT_QUOTES, 'UTF-8') ?></div>
+              <div class="post-meta"><?= htmlspecialchars(app_display_date($createdAt), ENT_QUOTES, 'UTF-8') ?></div>
             <?php endif; ?>
 
             <p class="post-excerpt">

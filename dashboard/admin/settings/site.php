@@ -97,6 +97,19 @@ $current_category_path = function_exists('get_category_path')
 $current_site_language = settings_get($pdo, 'site_language', 'en') ?? 'en';
 $current_content_language = settings_get($pdo, 'content_default_language', $current_site_language) ?? $current_site_language;
 $stored_content_language = $current_content_language;
+$current_site_timezone = settings_get($pdo, 'site_timezone', app_timezone_default_id()) ?? app_timezone_default_id();
+if (!app_timezone_is_valid($current_site_timezone)) $current_site_timezone = app_timezone_default_id();
+$timezone_options = app_timezone_identifiers();
+$current_date_format = settings_get($pdo, 'date_format', app_date_format_default()) ?? app_date_format_default();
+if (!app_display_format_is_valid($current_date_format, 'date')) $current_date_format = app_date_format_default();
+$current_time_format = settings_get($pdo, 'time_format', app_time_format_default()) ?? app_time_format_default();
+if (!app_display_format_is_valid($current_time_format, 'time')) $current_time_format = app_time_format_default();
+$date_format_presets = app_date_format_presets();
+$time_format_presets = app_time_format_presets();
+$current_date_format_choice = in_array($current_date_format, $date_format_presets, true) ? $current_date_format : 'custom';
+$current_time_format_choice = in_array($current_time_format, $time_format_presets, true) ? $current_time_format : 'custom';
+$current_date_format_custom = $current_date_format_choice === 'custom' ? $current_date_format : app_date_format_default();
+$current_time_format_custom = $current_time_format_choice === 'custom' ? $current_time_format : app_time_format_default();
 
 $current_favicon_url = settings_get($pdo, 'favicon_url', '') ?? '';
 $current_search_engines_enabled = settings_get($pdo, 'search_engines_enabled', '1') !== '0';
@@ -122,6 +135,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $category_path = trim((string)($_POST['category_path'] ?? 'category'));
     $current_site_language = trim((string)($_POST['site_language'] ?? 'en'));
     $current_content_language = trim((string)($_POST['content_default_language'] ?? $current_site_language));
+    $current_site_timezone = trim((string)($_POST['site_timezone'] ?? app_timezone_default_id()));
+    $current_date_format_choice = trim((string)($_POST['date_format_choice'] ?? app_date_format_default()));
+    $current_time_format_choice = trim((string)($_POST['time_format_choice'] ?? app_time_format_default()));
+    $current_date_format_custom = trim((string)($_POST['date_format_custom'] ?? app_date_format_default()));
+    $current_time_format_custom = trim((string)($_POST['time_format_custom'] ?? app_time_format_default()));
+    $current_date_format = $current_date_format_choice === 'custom' ? $current_date_format_custom : $current_date_format_choice;
+    $current_time_format = $current_time_format_choice === 'custom' ? $current_time_format_custom : $current_time_format_choice;
+    if ($current_date_format_choice !== 'custom' && !in_array($current_date_format_choice, $date_format_presets, true)) {
+        $current_date_format_custom = $current_date_format;
+        $current_date_format_choice = 'custom';
+    }
+    if ($current_time_format_choice !== 'custom' && !in_array($current_time_format_choice, $time_format_presets, true)) {
+        $current_time_format_custom = $current_time_format;
+        $current_time_format_choice = 'custom';
+    }
     $favicon_url = trim((string)($_POST['favicon_url'] ?? ''));
     $search_engines_enabled = (string)($_POST['search_engines_enabled'] ?? '0') === '1';
     $search_engine_indexing = (string)($_POST['search_engine_indexing'] ?? '0') === '1';
@@ -198,6 +226,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($current_content_language, get_supported_locales(), true)) {
         $current_content_language = $current_site_language;
     }
+    if (!app_timezone_is_valid($current_site_timezone)) {
+        $errors[] = __('Invalid site timezone.');
+    }
+    $dateFormatError = app_display_format_validation_error($current_date_format, 'date');
+    if ($dateFormatError !== null) $errors[] = __($dateFormatError);
+    $timeFormatError = app_display_format_validation_error($current_time_format, 'time');
+    if ($timeFormatError !== null) $errors[] = __($timeFormatError);
 
     $filteredErrors = apply_filters('site_settings_validation_errors', $errors, $pdo, $_POST, [
         'stored_content_default_language' => $stored_content_language,
@@ -228,8 +263,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok12 = settings_set($pdo, 'search_engines_enabled', $search_engines_enabled ? '1' : '0', 1);
         $ok13 = settings_set($pdo, 'search_engine_indexing', $search_engine_indexing ? '1' : '0', 1);
         $ok14 = settings_set($pdo, 'robots_txt_custom', site_robots_txt_normalize($robots_txt_custom), 1);
+        $ok15 = settings_set($pdo, 'site_timezone', $current_site_timezone, 1);
+        $ok16 = settings_set($pdo, 'date_format', $current_date_format, 1);
+        $ok17 = settings_set($pdo, 'time_format', $current_time_format, 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11 && $ok12 && $ok13 && $ok14) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11 && $ok12 && $ok13 && $ok14 && $ok15 && $ok16 && $ok17) {
+            app_time_bootstrap($pdo);
             do_action('site_settings_after_save', $pdo, $_POST);
             if (function_exists('adiwira_redirect_with_flash')) {
                 adiwira_redirect_with_flash($self_url, 'success', __('Site settings saved successfully.'));
@@ -303,6 +342,73 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
             class="inp inp-w100">
         </div>
 
+      </div>
+    </div>
+
+    <!-- Timezone -->
+    <div class="settings-section settings-section--timezone" data-open="1">
+      <button type="button" class="settings-section-toggle" aria-expanded="true">
+        <?= svg_ico('timer') ?> <?=_e('Timezone')?>
+        <span class="chevron">▸</span>
+      </button>
+      <div class="settings-section-body">
+        <div class="form-group">
+          <label for="site_timezone"><?=_e('Site Timezone')?></label>
+          <select name="site_timezone" id="site_timezone" class="inp inp-w100">
+            <?php foreach ($timezone_options as $timezone_id):
+              $timezone = new DateTimeZone($timezone_id);
+              $offset = (new DateTimeImmutable('now', $timezone))->format('P');
+            ?>
+              <option value="<?= h($timezone_id) ?>"<?= $current_site_timezone === $timezone_id ? ' selected' : '' ?>><?= h('(UTC' . $offset . ') ' . $timezone_id) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <span class="field-note"><?=_e('Controls how local dates and times are entered, displayed, and written to legacy wall-clock fields.')?></span>
+          <span class="field-note"><?=_e('Current site time:')?> <strong><?= h((new DateTimeImmutable('now', new DateTimeZone(app_timezone_is_valid($current_site_timezone) ? $current_site_timezone : app_timezone_default_id())))->format('Y-m-d H:i:s T')) ?></strong></span>
+          <span class="field-note"><?=_e('Existing timestamps are not shifted when this setting changes.')?></span>
+        </div>
+
+        <?php
+          $formatPreviewNow = new DateTimeImmutable('now', new DateTimeZone(app_timezone_is_valid($current_site_timezone) ? $current_site_timezone : app_timezone_default_id()));
+        ?>
+        <div class="form-group">
+          <label><?=_e('Date Format')?></label>
+          <div class="search-policy-options">
+            <?php foreach ($date_format_presets as $format): ?>
+              <label class="search-policy-option">
+                <input type="radio" name="date_format_choice" value="<?= h($format) ?>"<?= $current_date_format_choice === $format ? ' checked' : '' ?>>
+                <span><strong><?= h(app_display_format($formatPreviewNow, $format)) ?></strong><small><code><?= h($format) ?></code></small></span>
+              </label>
+            <?php endforeach; ?>
+            <label class="search-policy-option">
+              <input type="radio" name="date_format_choice" value="custom"<?= $current_date_format_choice === 'custom' ? ' checked' : '' ?>>
+              <span><strong><?=_e('Custom:')?></strong><small><?=_e('Enter a custom date format below.')?></small></span>
+            </label>
+          </div>
+          <input type="text" name="date_format_custom" value="<?= h($current_date_format_custom) ?>" maxlength="64" class="inp inp-w100" style="margin-top:.65rem;font-family:monospace;">
+          <span class="field-note"><?=_e('Preview:')?> <strong id="date-format-preview"><?= h(app_display_format_is_valid($current_date_format, 'date') ? app_display_format($formatPreviewNow, $current_date_format) : '') ?></strong></span>
+          <span class="field-note"><?=_e('Supported date tokens: d, j, m, n, F, M, Y, y, l, D.')?></span>
+          <span class="field-note"><?=_e('Use spaces or - . , / : ( ) as separators.')?></span>
+        </div>
+
+        <div class="form-group">
+          <label><?=_e('Time Format')?></label>
+          <div class="search-policy-options">
+            <?php foreach ($time_format_presets as $format): ?>
+              <label class="search-policy-option">
+                <input type="radio" name="time_format_choice" value="<?= h($format) ?>"<?= $current_time_format_choice === $format ? ' checked' : '' ?>>
+                <span><strong><?= h(app_display_format($formatPreviewNow, $format)) ?></strong><small><code><?= h($format) ?></code></small></span>
+              </label>
+            <?php endforeach; ?>
+            <label class="search-policy-option">
+              <input type="radio" name="time_format_choice" value="custom"<?= $current_time_format_choice === 'custom' ? ' checked' : '' ?>>
+              <span><strong><?=_e('Custom:')?></strong><small><?=_e('Enter a custom time format below.')?></small></span>
+            </label>
+          </div>
+          <input type="text" name="time_format_custom" value="<?= h($current_time_format_custom) ?>" maxlength="64" class="inp inp-w100" style="margin-top:.65rem;font-family:monospace;">
+          <span class="field-note"><?=_e('Preview:')?> <strong id="time-format-preview"><?= h(app_display_format_is_valid($current_time_format, 'time') ? app_display_format($formatPreviewNow, $current_time_format) : '') ?></strong></span>
+          <span class="field-note"><?=_e('Supported time tokens: H, G, h, g, i, s, a, A, T, P.')?></span>
+          <span class="field-note"><?=_e('Use spaces or - . , / : ( ) as separators.')?></span>
+        </div>
       </div>
     </div>
 
@@ -656,6 +762,47 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
       if (preview) preview.innerHTML = '';
     });
   }
+})();
+</script>
+<script>
+(function(){
+  var tokenValues = <?= json_encode(array_combine(
+      str_split('djmnFMYylDHGhgisaATP'),
+      array_map(static fn(string $token): string => app_display_format($formatPreviewNow, $token), str_split('djmnFMYylDHGhgisaATP'))
+    ), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  var separatorPattern = /^[ .,/():-]*$/;
+
+  function bindFormatPreview(kind, tokens) {
+    var radios = document.querySelectorAll('input[name="' + kind + '_format_choice"]');
+    var custom = document.querySelector('input[name="' + kind + '_format_custom"]');
+    var preview = document.getElementById(kind + '-format-preview');
+    if (!radios.length || !custom || !preview) return;
+
+    function refresh() {
+      var selected = document.querySelector('input[name="' + kind + '_format_choice"]:checked');
+      var format = selected && selected.value === 'custom' ? custom.value : (selected ? selected.value : '');
+      var output = '';
+      var valid = format.length > 0 && format.length <= 64;
+      for (var index = 0; valid && index < format.length; index++) {
+        var character = format.charAt(index);
+        if (tokens.indexOf(character) !== -1) output += tokenValues[character];
+        else if (separatorPattern.test(character)) output += character;
+        else valid = false;
+      }
+      preview.textContent = valid ? output : <?= json_encode(__('Invalid format.'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    }
+
+    Array.prototype.forEach.call(radios, function(radio){ radio.addEventListener('change', refresh); });
+    custom.addEventListener('focus', function(){
+      var customRadio = document.querySelector('input[name="' + kind + '_format_choice"][value="custom"]');
+      if (customRadio) customRadio.checked = true;
+      refresh();
+    });
+    custom.addEventListener('input', refresh);
+  }
+
+  bindFormatPreview('date', 'djmnFMYylD');
+  bindFormatPreview('time', 'HGhgisaATP');
 })();
 </script>
 <script>

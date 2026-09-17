@@ -63,23 +63,13 @@ if (!adiwira_csrf_validate($csrf)) {
 
 if (!function_exists('parse_dt_jkt')) {
     function parse_dt_jkt(string $s): ?string {
-        $s = trim($s);
-        if ($s === '') return null;
-
-        $d = DateTime::createFromFormat('Y-m-d\\TH:i', $s, new DateTimeZone('Asia/Jakarta'));
-        if ($d !== false) return $d->format('Y-m-d H:i:s');
-
-        try {
-            $d2 = new DateTime($s, new DateTimeZone('Asia/Jakarta'));
-            return $d2->format('Y-m-d H:i:s');
-        } catch (Exception $e) {
-            return null;
-        }
+        $date = app_parse_site_datetime_local($s);
+        return $date ? app_mysql_datetime($date) : null;
     }
 }
 
 $errors = [];
-$now = (new DateTime('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d H:i:s');
+$now = app_now_wall_mysql();
 
 $id            = (int)($_POST['id'] ?? 0);
 $title         = trim((string)($_POST['title'] ?? ''));

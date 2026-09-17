@@ -281,7 +281,7 @@ $readDelay = $d1; // default kalau updated tidak muncul
        data-delay="200">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
     <time datetime="<?= htmlspecialchars((string)($datePublished ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-      <?= htmlspecialchars(!empty($post['created_at']) ? date('d M Y', strtotime((string)$post['created_at'])) : '', ENT_QUOTES, 'UTF-8') ?>
+      <?= htmlspecialchars(app_display_date($post['created_at'] ?? null), ENT_QUOTES, 'UTF-8') ?>
     </time>
   </div>
   <?php endif; ?>
@@ -293,7 +293,7 @@ $readDelay = $d1; // default kalau updated tidak muncul
          data-duration="300"
          data-delay="<?= $d1 ?>">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9"/></svg>
-      <?= __('Updated:') ?> <?= htmlspecialchars(date('d M Y', strtotime((string)$post['updated_at'])), ENT_QUOTES, 'UTF-8') ?>
+      <?= __('Updated:') ?> <?= htmlspecialchars(app_display_date($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>
     </div>
     <?php $readDelay = $d2; ?>
   <?php endif; ?>

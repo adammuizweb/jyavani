@@ -543,10 +543,10 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 $showReadTime = !array_key_exists('show_read_time', $config) || !empty($config['show_read_time']);
                 $parts = [];
                 if ($showDate && !empty($post['created_at'])) {
-                    $parts[] = '<time datetime="' . htmlspecialchars(date('c', strtotime((string)$post['created_at'])), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars(date('d M Y', strtotime((string)$post['created_at'])), ENT_QUOTES, 'UTF-8') . '</time>';
+                    $parts[] = '<time datetime="' . htmlspecialchars(date('c', strtotime((string)$post['created_at'])), ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars(app_display_date($post['created_at']), ENT_QUOTES, 'UTF-8') . '</time>';
                 }
                 if ($showUpdated && !empty($post['updated_at']) && !empty($post['created_at']) && $post['updated_at'] > $post['created_at']) {
-                    $parts[] = '<span class="tz-meta-updated">' . __('Updated:') . ' ' . htmlspecialchars(date('d M Y', strtotime((string)$post['updated_at'])), ENT_QUOTES, 'UTF-8') . '</span>';
+                    $parts[] = '<span class="tz-meta-updated">' . __('Updated:') . ' ' . htmlspecialchars(app_display_date($post['updated_at']), ENT_QUOTES, 'UTF-8') . '</span>';
                 }
                 if ($showReadTime) {
                     $wordCount = str_word_count(function_exists('safe_strip_tags') ? safe_strip_tags((string)($post['content'] ?? '')) : strip_tags((string)($post['content'] ?? '')));

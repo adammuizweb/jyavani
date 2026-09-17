@@ -28,7 +28,7 @@ function _recent_posts_date(?string $date): string {
     if (empty($date)) return '';
     $ts = strtotime($date);
     if (!$ts) return '';
-    return function_exists('format_date_id') ? format_date_id($ts) : date('d M Y', $ts);
+    return function_exists('app_display_date') ? app_display_date($date) : date('d M Y', $ts);
 }
 ?>
 <div class="w-box w-recent-posts">

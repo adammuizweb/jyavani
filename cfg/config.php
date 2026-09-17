@@ -58,12 +58,13 @@ require_once __DIR__ . '/helpers/package_archive.php';
 require_once __DIR__ . '/helpers/update_operation.php';
 require_once __DIR__ . '/helpers/cms_manifest.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';
+require_once __DIR__ . '/helpers/time_helpers.php';
 app_configure_error_reporting();
 app_register_shutdown_handler();
 app_configure_security_headers();
 
-// set timezone dan locale global (Indonesia, GMT+7)
-date_default_timezone_set('Asia/Jakarta'); // GMT+7
+// Compatibility default until the database-backed site timezone is loaded.
+date_default_timezone_set(app_timezone_default_id());
 // coba beberapa variasi locale untuk kompatibilitas server
 setlocale(LC_TIME, 'id_ID.UTF-8', 'id_ID', 'indonesian', 'Indonesia');
 
@@ -103,9 +104,6 @@ if (PHP_SAPI !== 'cli' && !defined('UPDATE_PROCESS_CONTROL_REQUEST')) theme_life
 require_once __DIR__ . '/helpers/core_integrity.php';
 require_once __DIR__ . '/helpers/site_health.php';
 require_once __DIR__ . '/helpers/theme_sections.php';
-
-// 8. Gunakan helper ini jika ingin gunakan waktu indo
-require_once __DIR__ . '/helpers/time_helpers.php';
 
 // 9. helpers Redirect
 require_once __DIR__ . '/helpers/success_redirect.php';

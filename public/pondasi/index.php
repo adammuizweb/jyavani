@@ -24,6 +24,8 @@ if (str_contains($publicDir, "\n") || str_contains($publicDir, "\r") || str_cont
 $envFile = $cfgDir . '/.env';
 $schemaDir = $projectRoot . '/schema';
 $sessionDir = $cfgDir . '/var/sessions';
+require_once $cfgDir . '/helpers/time_helpers.php';
+date_default_timezone_set(app_timezone_default_id());
 $normalizedProjectRoot = str_replace('\\', '/', $projectRoot);
 if (PHP_OS_FAMILY === 'Linux' && preg_match('#^/mnt/[a-z](?:/|$)#i', $normalizedProjectRoot) === 1) {
     // DrvFS permission and locking semantics vary by WSL mount options. Keep
@@ -201,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                 $pdo->exec("USE `{$dbName}`");
+                app_db_set_session_timezone($pdo, app_timezone_default_id());
 
                 // Ensure backslash is escape char (remove NO_BACKSLASH_ESCAPES if set)
                 $pdo->exec("SET SESSION sql_mode = REPLACE(@@SESSION.sql_mode, 'NO_BACKSLASH_ESCAPES', '')");
@@ -308,6 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pdo = new PDO($dsn, $dbFields['DB_USER'], $dbFields['DB_PASS'], [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 ]);
+                app_db_set_session_timezone($pdo, app_timezone_default_id());
                 $pdo->beginTransaction();
 
                 $hash = password_hash($adminPass, PASSWORD_DEFAULT);
@@ -373,6 +377,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->execute(['admin_path', 'dashboard']);
                 $st->execute(['login_path', 'login']);
                 $st->execute(['register_path', 'register']);
+                $st->execute(['site_timezone', app_timezone_default_id()]);
+                $st->execute(['date_format', app_date_format_default()]);
+                $st->execute(['time_format', app_time_format_default()]);
 
                 // write .env
                 verify_session_storage($sessionDir);

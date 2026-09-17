@@ -282,10 +282,7 @@ if (!function_exists('widget_first_image_from_content')) {
 
 if (!function_exists('widget_format_date_id')) {
     function widget_format_date_id(?string $date): string {
-        if (empty($date)) return '';
-        $ts = strtotime($date);
-        if (!$ts) return '';
-        return function_exists('format_date_id') ? format_date_id($ts) : date('d M Y', $ts);
+        return function_exists('app_display_date') ? app_display_date($date) : '';
     }
 }
 

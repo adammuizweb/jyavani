@@ -21,7 +21,7 @@ $basePath      = isset($basePath) && is_string($basePath) && $basePath !== '' ? 
 if ($archive_label !== '') {
     $archiveTitle = $archive_label;
 } elseif ($month !== null && $month >= 1 && $month <= 12 && $year !== null && $year > 0) {
-    $archiveTitle = date('F', mktime(0, 0, 0, $month, 1, $year)) . ' ' . $year;
+    $archiveTitle = app_display_format(new DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $year, $month), app_timezone()), 'F Y');
 } elseif ($year !== null && $year > 0) {
     $archiveTitle = __('Year') . ' ' . $year;
 } else {
@@ -57,7 +57,7 @@ if ($archive_label !== '') {
 
                     $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' . rawurlencode($slug) . '/';
                     $title   = htmlspecialchars($titleRaw, ENT_QUOTES, 'UTF-8');
-                    $date    = $createdAt ? date('d M Y', $createdAt) : '-';
+                    $date    = $createdAt ? app_display_date($p['created_at']) : '-';
 
                     $resolvedImage = function_exists('media_post_display_url') ? media_post_display_url($p) : ($p['display_image'] ?? $p['thumbnail'] ?? null);
                     $img = $resolvedImage ?? 'https://via.placeholder.com/600x450?text=No+Image';

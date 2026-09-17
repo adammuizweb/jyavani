@@ -5683,3 +5683,47 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Live Theme Preview', 'Live-Themenvorschau', 'de'),
 ('default', 'Live Theme Preview (ID: %d)', 'Pratinjau Tema Langsung (ID: %d)', 'id'),
 ('default', 'Live Theme Preview (ID: %d)', 'Live-Themenvorschau (ID: %d)', 'de');
+
+-- Configurable site timezone
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Timezone', 'Zona Waktu', 'id'),
+('default', 'Timezone', 'Zeitzone', 'de'),
+('default', 'Site Timezone', 'Zona Waktu Situs', 'id'),
+('default', 'Site Timezone', 'Website-Zeitzone', 'de'),
+('default', 'Invalid site timezone.', 'Zona waktu situs tidak valid.', 'id'),
+('default', 'Invalid site timezone.', 'Ungültige Website-Zeitzone.', 'de'),
+('default', 'Controls how local dates and times are entered, displayed, and written to legacy wall-clock fields.', 'Mengatur cara tanggal dan waktu lokal dimasukkan, ditampilkan, dan ditulis ke field wall-clock lama.', 'id'),
+('default', 'Controls how local dates and times are entered, displayed, and written to legacy wall-clock fields.', 'Steuert, wie lokale Datums- und Zeitangaben eingegeben, angezeigt und in bestehende Wanduhrfelder geschrieben werden.', 'de'),
+('default', 'Current site time:', 'Waktu situs saat ini:', 'id'),
+('default', 'Current site time:', 'Aktuelle Website-Zeit:', 'de'),
+('default', 'Existing timestamps are not shifted when this setting changes.', 'Timestamp yang sudah ada tidak digeser saat pengaturan ini berubah.', 'id'),
+('default', 'Existing timestamps are not shifted when this setting changes.', 'Vorhandene Zeitstempel werden bei einer Änderung dieser Einstellung nicht verschoben.', 'de'),
+('default', 'Leave empty to use the current site time.', 'Biarkan kosong untuk menggunakan waktu situs saat ini.', 'id'),
+('default', 'Leave empty to use the current site time.', 'Leer lassen, um die aktuelle Website-Zeit zu verwenden.', 'de');
+
+-- Configurable human-readable date and time formats
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Date Format', 'Format Tanggal', 'id'),
+('default', 'Date Format', 'Datumsformat', 'de'),
+('default', 'Time Format', 'Format Waktu', 'id'),
+('default', 'Time Format', 'Zeitformat', 'de'),
+('default', 'Custom:', 'Kustom:', 'id'),
+('default', 'Custom:', 'Benutzerdefiniert:', 'de'),
+('default', 'Enter a custom date format below.', 'Masukkan format tanggal kustom di bawah.', 'id'),
+('default', 'Enter a custom date format below.', 'Geben Sie unten ein benutzerdefiniertes Datumsformat ein.', 'de'),
+('default', 'Enter a custom time format below.', 'Masukkan format waktu kustom di bawah.', 'id'),
+('default', 'Enter a custom time format below.', 'Geben Sie unten ein benutzerdefiniertes Zeitformat ein.', 'de'),
+('default', 'Preview:', 'Pratinjau:', 'id'),
+('default', 'Preview:', 'Vorschau:', 'de'),
+('default', 'Supported date tokens: d, j, m, n, F, M, Y, y, l, D.', 'Token tanggal yang didukung: d, j, m, n, F, M, Y, y, l, D.', 'id'),
+('default', 'Supported date tokens: d, j, m, n, F, M, Y, y, l, D.', 'Unterstützte Datumstoken: d, j, m, n, F, M, Y, y, l, D.', 'de'),
+('default', 'Supported time tokens: H, G, h, g, i, s, a, A, T, P.', 'Token waktu yang didukung: H, G, h, g, i, s, a, A, T, P.', 'id'),
+('default', 'Supported time tokens: H, G, h, g, i, s, a, A, T, P.', 'Unterstützte Zeittoken: H, G, h, g, i, s, a, A, T, P.', 'de'),
+('default', 'Use spaces or - . , / : ( ) as separators.', 'Gunakan spasi atau - . , / : ( ) sebagai pemisah.', 'id'),
+('default', 'Use spaces or - . , / : ( ) as separators.', 'Verwenden Sie Leerzeichen oder - . , / : ( ) als Trennzeichen.', 'de'),
+('default', 'Invalid date format.', 'Format tanggal tidak valid.', 'id'),
+('default', 'Invalid date format.', 'Ungültiges Datumsformat.', 'de'),
+('default', 'Invalid time format.', 'Format waktu tidak valid.', 'id'),
+('default', 'Invalid time format.', 'Ungültiges Zeitformat.', 'de'),
+('default', 'Invalid format.', 'Format tidak valid.', 'id'),
+('default', 'Invalid format.', 'Ungültiges Format.', 'de');

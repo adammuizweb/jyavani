@@ -29,8 +29,8 @@ $authorUrl = $authorIdOrSlug !== '' && function_exists('get_author_permalink') ?
 // dates (safe)
 $createdTs = !empty($post['created_at']) ? @strtotime($post['created_at']) : null;
 $updatedTs = !empty($post['updated_at']) ? @strtotime($post['updated_at']) : null;
-$displayCreated = $createdTs ? date('d M Y', $createdTs) : '';
-$displayUpdated = $updatedTs ? date('d M Y', $updatedTs) : '';
+$displayCreated = $createdTs ? app_display_date($post['created_at']) : '';
+$displayUpdated = $updatedTs ? app_display_date($post['updated_at']) : '';
 
 // ensure title safe
 $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');

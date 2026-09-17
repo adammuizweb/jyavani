@@ -19,6 +19,7 @@ try {
         }
         $pdo->exec('SET SESSION wait_timeout = ' . $waitTimeout);
     }
+    app_time_bootstrap($pdo);
 } catch (Throwable $e) {
     error_log("[DB] Connection failed: " . $e->getMessage());
 

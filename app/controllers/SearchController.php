@@ -206,7 +206,7 @@ class SearchController
                             </a>
                         </h2>
                         <time datetime="<?= htmlspecialchars((string)($p['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
-                            <?= htmlspecialchars(date('d M Y', strtotime((string)($p['created_at'] ?? 'now'))), ENT_QUOTES, 'UTF-8') ?>
+                            <?= htmlspecialchars(app_display_date($p['created_at'] ?? null), ENT_QUOTES, 'UTF-8') ?>
                         </time>
                         <p><?= htmlspecialchars(mb_strimwidth(safe_strip_tags((string)($p['content'] ?? '')), 0, 250, '…'), ENT_QUOTES, 'UTF-8') ?></p>
                     </article>

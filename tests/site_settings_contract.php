@@ -63,11 +63,46 @@ $check(str_contains($dashboardLayout, "settings_get(\$pdo, 'favicon_url', '')")
 $check(str_contains($settingsPage, 'settings_favicon_url_validation_error($favicon_url)')
     && str_contains($settingsPage, 'Use a square (1:1) PNG, ICO, or SVG at least 48×48 pixels.'),
     'Site Settings validates favicon input and documents search-compatible dimensions');
+$check(str_contains($settingsPage, 'settings-section--timezone')
+    && str_contains($settingsPage, 'name="site_timezone"')
+    && str_contains($settingsPage, 'app_timezone_identifiers()')
+    && str_contains($settingsPage, 'app_timezone_is_valid($current_site_timezone)')
+    && str_contains($settingsPage, "settings_set(\$pdo, 'site_timezone'"),
+    'Site Settings exposes, validates, and persists the IANA site timezone');
+$check(str_contains($settingsPage, 'name="date_format_choice"')
+    && str_contains($settingsPage, 'name="date_format_custom"')
+    && str_contains($settingsPage, 'name="time_format_choice"')
+    && str_contains($settingsPage, 'name="time_format_custom"')
+    && str_contains($settingsPage, 'id="date-format-preview"')
+    && str_contains($settingsPage, 'id="time-format-preview"')
+    && str_contains($settingsPage, "bindFormatPreview('date'")
+    && str_contains($settingsPage, "bindFormatPreview('time'")
+    && str_contains($settingsPage, "app_display_format_validation_error(\$current_date_format, 'date')")
+    && str_contains($settingsPage, "app_display_format_validation_error(\$current_time_format, 'time')")
+    && str_contains($settingsPage, "settings_set(\$pdo, 'date_format'")
+    && str_contains($settingsPage, "settings_set(\$pdo, 'time_format'"),
+    'Site Settings provides preset and custom validated date/time display formats');
 
 foreach ([$invalidUrl, $invalidFile, $invalidDimensions,
     'Use a square (1:1) PNG, ICO, or SVG at least 48×48 pixels. Use a stable URL for search engines, or leave empty for the default favicon.'] as $source) {
     $escaped = str_replace("'", "''", $source);
     $check(substr_count($translations, "'{$escaped}'") >= 2, "favicon UI translation coverage: {$source}");
+}
+foreach (['Timezone', 'Site Timezone', 'Invalid site timezone.',
+    'Controls how local dates and times are entered, displayed, and written to legacy wall-clock fields.',
+    'Current site time:', 'Existing timestamps are not shifted when this setting changes.',
+    'Leave empty to use the current site time.'] as $source) {
+    $escaped = str_replace("'", "''", $source);
+    $check(substr_count($translations, "'{$escaped}'") >= 2, "timezone UI translation coverage: {$source}");
+}
+foreach (['Date Format', 'Time Format', 'Custom:', 'Enter a custom date format below.',
+    'Enter a custom time format below.', 'Preview:',
+    'Supported date tokens: d, j, m, n, F, M, Y, y, l, D.',
+    'Supported time tokens: H, G, h, g, i, s, a, A, T, P.',
+    'Use spaces or - . , / : ( ) as separators.',
+    'Invalid date format.', 'Invalid time format.', 'Invalid format.'] as $source) {
+    $escaped = str_replace("'", "''", $source);
+    $check(substr_count($translations, "'{$escaped}'") >= 2, "date/time format translation coverage: {$source}");
 }
 
 if ($failures !== []) {

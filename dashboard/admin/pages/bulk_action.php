@@ -228,9 +228,8 @@ try {
     $values = [];
     foreach (['created_at' => $createdAt, 'updated_at' => $updatedAt] as $field => $value) {
         if ($value === '') continue;
-        $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $value, new DateTimeZone('Asia/Jakarta'));
-        $errors = DateTimeImmutable::getLastErrors();
-        if (!$date || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+        $date = app_parse_site_datetime_local($value);
+        if (!$date) {
             throw new InvalidArgumentException('Invalid date format.');
         }
         $fields[] = "$field = ?";

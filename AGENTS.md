@@ -461,6 +461,17 @@ PHP helpers available anywhere after bootstrap:
 
 ## Database
 
+### Time system
+
+- `site_timezone` is the configurable IANA timezone used for local input, display, legacy wall-clock `DATETIME` values, PHP's default timezone, and the primary MySQL session. Its compatibility default is `Asia/Jakarta`.
+- `cfg/helpers/time_helpers.php` loads before `cfg/db.php`; `app_time_bootstrap()` reads the setting directly, configures PHP, and sets the MySQL session to the named zone or its current numeric offset when MySQL timezone tables are unavailable.
+- Existing Core date columns remain literal site-local wall-clock values. Never bulk-convert them or reinterpret them as UTC; doing so can alter archives and date-based permalinks.
+- `date_format` and `time_format` control human-readable display only. Use `app_display_date()`, `app_display_time()`, or `app_display_datetime()` for Core UI; never use these settings for database values, HTML datetime attributes, APIs, sitemaps, archive routing, or permalink tokens.
+- Custom display formats accept only the documented bounded PHP-style token subsets. Textual day/month names follow the active UI/content locale when Intl is available.
+- New instant-bearing fields, including scheduler fields, must use a `_utc` suffix with `DATETIME`/`DATETIME(6)`, explicit UTC writes such as `app_now_utc_mysql()`, comparisons against `UTC_TIMESTAMP()`, and display conversion through `app_utc_mysql_to_site()`.
+- Do not use bare `CURRENT_TIMESTAMP`, `NOW()`, or legacy local formatters for a `_utc` field. Long-running workers must refresh their database session timezone before each processing cycle.
+- Plugins that create independent PDO connections must call `app_db_set_session_timezone()`; shared Core PDO connections are already configured.
+
 ### Schema files
 
 | File | Purpose |
@@ -500,7 +511,7 @@ Defined in `$supported_locales` (`cfg/helpers/lang_helpers.php`):
 3. Sets `__APP_ADMIN_LOCALE` (used by `admin_ui_locale()`) and `__APP_DEFAULT_LOCALE` (used by `default_locale()`)
 4. Calls `set_locale($contentDefault)` for the public frontend
 5. `dashboard/index.php` re-applies `set_locale(admin_ui_locale())` so the admin dashboard stays in `site_language`
-6. Calls `setlocale(LC_TIME, ...)` for date/time formatting
+6. Calls `setlocale(LC_TIME, ...)` for legacy compatibility; configured display formatting uses `IntlDateFormatter` when available.
 
 Helper functions:
 - `default_locale()` — returns the configured content default (`__APP_DEFAULT_LOCALE`).
@@ -712,13 +723,13 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 - The pre-bootstrap development gate is Core-managed and configured only through `DEV_LOCK_ENABLED` plus an environment-owned `DEV_LOCK_PASSWORD_HASH`. Both public entrypoints enforce it before database/plugin bootstrap. Enabled gates return HTTP 503 with `noindex` and no-store headers until an isolated authenticated session unlocks them; never hardcode or commit the password/hash.
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
 - `reset_admin_cache()` must be called after enabling a plugin for nav to appear (deletes `cfg/var/theme_cache.json`)
-- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. After `default.sql`, imports `translations.sql` for seed data. No hardcoded defaults. Run on fresh install, then delete `pondasi/` folder. The default admin, login, and registration paths are `dashboard`, `login`, and `register`; the router serves their PHP entrypoints from outside the web root.
+- **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. After `default.sql`, imports `translations.sql` for seed data. Installer defaults are centralized in schema and helpers rather than duplicated ad hoc. Run on fresh install, then delete `pondasi/` folder. The default admin, login, and registration paths are `dashboard`, `login`, and `register`; the router serves their PHP entrypoints from outside the web root.
 - **Release workflow:** `/var/www/md/update.md` defines version bump semantics, candidate build, commit, push, canonical package publication, and endpoint verification.
 - **Build tools:** `tools/build-package.php [output-path]` regenerates the manifest and builds a verified ZIP atomically; `tools/generate-manifest.php` only regenerates `tools/cms-manifest.json`.
 - **Server setup guide** at `SERVER_SETUP.md`
 - `PUBLIC_PATH` is resolved once in `cfg/config.php` after `.env` loading. Blank values trigger conventional web-root detection; explicit values must be an existing absolute directory. Updater manifests still use canonical `public/...` paths.
 - `e()` is `htmlspecialchars()` (from `cfg/helpers/null_helpers.php`)
-- Timezone: `Asia/Jakarta`
+- Timezone behavior follows the Database > Time system contract above.
 - `.gitignore` excludes: `.env`, `private_files/`, `cfg/var/sessions/`, `public/static/img/{year}/`
 
 ## Conventions

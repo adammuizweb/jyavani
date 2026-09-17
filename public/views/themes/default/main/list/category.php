@@ -82,7 +82,7 @@ $categoryDescription = (string)($category['description'] ?? '');
                         <div class="meta">
                             <?php if ($postCreatedAt): ?>
                                 <time datetime="<?= htmlspecialchars(date('c', $postCreatedAt), ENT_QUOTES, 'UTF-8') ?>">
-                                    <?= htmlspecialchars(date('Y-m-d H:i', $postCreatedAt), ENT_QUOTES, 'UTF-8') ?>
+                                    <?= htmlspecialchars(app_display_datetime($p['created_at']), ENT_QUOTES, 'UTF-8') ?>
                                 </time>
                             <?php endif; ?>
                         </div>

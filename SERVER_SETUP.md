@@ -205,6 +205,12 @@ perlu memaksa `HTTPS on`.
 
 Gunakan Pondasi untuk instalasi baru. Jika deployment memerlukan import manual yang telah direview, import `schema/default.sql`, kemudian `schema/translations.sql`, dan pastikan ledger migrasi tetap konsisten. Konfigurasi koneksi berada di `cfg/.env` (copy dari `cfg/env-sample`).
 
+### Timezone
+
+Timezone situs disimpan sebagai setting IANA `site_timezone`, bukan di `.env` atau konfigurasi `date.timezone` PHP. Saat bootstrap, Core mengatur timezone PHP dan session MySQL utama. Tabel timezone MySQL disarankan agar nama zona dan perubahan DST dapat diterapkan langsung; jika tabel tersebut tidak tersedia, Core memakai offset numerik zona saat request dimulai.
+
+Worker yang berjalan lama harus memperbarui timezone session database pada setiap siklus. Plugin yang membuat koneksi PDO sendiri harus memanggil `app_db_set_session_timezone()`. Setting `date_format` dan `time_format` hanya memengaruhi tampilan manusia, bukan nilai database, API, sitemap, archive route, atau permalink.
+
 ## 5. Environment (.env)
 
 ```bash

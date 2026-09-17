@@ -167,6 +167,20 @@ theme_zone_render(PDO $pdo, string $zone, ?string $folder = null): string
 
 Use `theme_zone_has_position()` to decide whether to output fallback HTML.
 
+## Date and time rendering
+
+Use the configured site-time display helpers for human-readable theme output:
+
+```php
+app_display_date($post['created_at']);
+app_display_time($post['created_at']);
+app_display_datetime($post['created_at']);
+```
+
+`tz_post_meta` follows the same `date_format` and `time_format` settings. Custom date formats accept `d`, `j`, `m`, `n`, `F`, `M`, `Y`, `y`, `l`, and `D`; custom time formats accept `H`, `G`, `h`, `g`, `i`, `s`, `a`, `A`, `T`, and `P`. Spaces and `- . , / : ( )` are supported separators. Textual names follow the active locale when PHP Intl is available.
+
+These settings are presentation-only. Do not apply them to database values, editor inputs, HTML `datetime` attributes, APIs, sitemaps, archive routing, or `%year%`/`%monthnum%`/`%day%` permalink tokens.
+
 ## Custom theme post hooks
 
 Custom posts with `type = theme` can be rendered directly by slug or assigned to a

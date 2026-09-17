@@ -40,7 +40,7 @@ $pagesCount = max(1, (int)ceil($total / max(1, $perPage)));
          $date  = isset($p['created_at']) && $p['created_at']
              ? htmlspecialchars(date('Y-m-d', strtotime($p['created_at'])), ENT_QUOTES, 'UTF-8')
              : '';
-         $dateLabel = $date ? htmlspecialchars(date('j F Y', strtotime($p['created_at'])), ENT_QUOTES, 'UTF-8') : '';
+         $dateLabel = $date ? htmlspecialchars(app_display_date($p['created_at']), ENT_QUOTES, 'UTF-8') : '';
          $image = function_exists('media_post_display_url') ? media_post_display_url($p) : ($p['display_image'] ?? $p['thumbnail'] ?? null);
          $imageAlt = function_exists('media_post_image_alt') ? media_post_image_alt($p, html_entity_decode((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8')) : html_entity_decode((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8');
       ?>

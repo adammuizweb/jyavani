@@ -673,7 +673,10 @@ WHERE `theme_folder` = 'default'
 -- Core settings (installed overrides title/desc/url via installer)
 INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
   ('posts_per_page',   '10',  1),
-  ('active_theme',     'default', 1)
+  ('active_theme',     'default', 1),
+  ('site_timezone',    'Asia/Jakarta', 1),
+  ('date_format',      'F j, Y', 1),
+  ('time_format',      'H:i', 1)
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
 
 -- Default theme

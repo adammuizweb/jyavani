@@ -281,7 +281,7 @@ class ArchiveController
             ob_start();
             ?>
             <div class="container">
-              <h1><?= htmlspecialchars($month ? date('F', mktime(0,0,0,$month,1,$year)) . ' ' . $year : 'Arsip — ' . $year, ENT_QUOTES, 'UTF-8') ?></h1>
+              <h1><?= htmlspecialchars($month ? app_display_format(new DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $year, $month), app_timezone()), 'F Y') : 'Arsip — ' . $year, ENT_QUOTES, 'UTF-8') ?></h1>
 
               <?php if (empty($posts)): ?>
                 <p>Tidak ada artikel.</p>
@@ -310,7 +310,9 @@ class ArchiveController
         }
 
         // expose canonical and rel prev/next and layout vars
-        $page_title = $month ? (date('F', mktime(0,0,0,$month,1,$year)) . ' ' . $year) : ('Arsip — ' . $year);
+        $page_title = $month
+            ? app_display_format(new DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $year, $month), app_timezone()), 'F Y')
+            : ('Arsip — ' . $year);
         $context_for_layout = 'archive';
         $layout_pdo = $GLOBALS['pdo'] ?? $pdo;
         $pdo = $layout_pdo;

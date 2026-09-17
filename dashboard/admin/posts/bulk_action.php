@@ -52,31 +52,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 if (!function_exists('parse_datetime_local')) {
     function parse_datetime_local(string $value): ?DateTimeImmutable {
-        $value = trim($value);
-        if ($value === '') {
-            return null;
-        }
-        if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2})?$/', $value)) {
-            return null;
-        }
-        $normalized = str_replace('T', ' ', $value);
-        if (strlen($normalized) === 16) {
-            $normalized .= ':00';
-        }
-        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/', $normalized, $m)) {
-            return null;
-        }
-        if (!checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
-            return null;
-        }
-        if ((int)$m[4] > 23 || (int)$m[5] > 59 || (int)$m[6] > 59) {
-            return null;
-        }
-        $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $normalized);
-        if (!$dt) {
-            return null;
-        }
-        return $dt;
+        return app_parse_site_datetime_local($value);
     }
 }
 

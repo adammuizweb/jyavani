@@ -209,7 +209,7 @@ try {
                         $ts = strtotime($createdAt);
                         if ($ts) {
                             $dateIso = date('c', $ts);
-                            $dateLabel = date('d M Y', $ts);
+                            $dateLabel = app_display_date(new DateTimeImmutable('@' . $ts));
                         }
                     }
 
@@ -370,7 +370,7 @@ try {
                         $ts = strtotime($createdAt);
                         if ($ts) {
                             $dateIso = date('c', $ts);
-                            $dateLabel = date('d M Y', $ts);
+                            $dateLabel = app_display_date(new DateTimeImmutable('@' . $ts));
                         }
                     }
 

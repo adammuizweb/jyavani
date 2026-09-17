@@ -14,12 +14,26 @@ $manifestPolicy = (string)file_get_contents($root . '/cfg/helpers/cms_manifest.p
 $builder = (string)file_get_contents($root . '/tools/build-package.php');
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $pluginMigration = (string)file_get_contents($root . '/schema/migrations/015-plugin-migrations.sql');
+$timezoneMigration = (string)file_get_contents($root . '/schema/migrations/026-site-timezone.sql');
+$dateTimeFormatMigration = (string)file_get_contents($root . '/schema/migrations/027-date-time-formats.sql');
 require_once $root . '/dashboard/admin/update/_update_helpers.php';
 
 $check(
     str_contains($installer, 'elseif ($step === 2)'),
     'step 1 must not fall through into step 2 validation on the same request'
 );
+$check(str_contains($schema, "('site_timezone',    'Asia/Jakarta', 1)")
+    && str_contains($timezoneMigration, "VALUES ('site_timezone', 'Asia/Jakarta', 1)")
+    && substr_count($installer, 'app_db_set_session_timezone($pdo, app_timezone_default_id())') >= 2
+    && str_contains($installer, "['site_timezone', app_timezone_default_id()]"),
+    'fresh and upgraded installations establish the Jakarta-compatible site timezone contract');
+$check(str_contains($schema, "('date_format',      'F j, Y', 1)")
+    && str_contains($schema, "('time_format',      'H:i', 1)")
+    && str_contains($dateTimeFormatMigration, "('date_format', 'F j, Y', 1)")
+    && str_contains($dateTimeFormatMigration, "('time_format', 'H:i', 1)")
+    && str_contains($installer, "['date_format', app_date_format_default()]")
+    && str_contains($installer, "['time_format', app_time_format_default()]"),
+    'fresh and upgraded installations establish date and time display format defaults');
 $check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `plugin_migrations`')
     && str_contains($pluginMigration, 'CREATE TABLE IF NOT EXISTS `plugin_migrations`')
     && str_contains($pluginMigration, '`checksum` char(64)'),

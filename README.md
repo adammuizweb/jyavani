@@ -16,6 +16,7 @@ The current release and platform requirements are the source of truth in [`VERSI
 - Slot-based themes with fallback resolution, customizer fields, menus, sidebars, widgets, shortcodes, and drag-and-drop Theme Zones.
 - Canonical nested content routes, redirect history, configurable collection paths, and custom permalink support.
 - UI internationalization for English, Indonesian, and German, with separate dashboard and default-content locale settings.
+- Configurable IANA site timezone and localized human-readable date/time formats, while preserving existing wall-clock timestamps and date-based permalinks.
 - Plugin and theme upload, activation, dependency checks, store discovery, update checks, and integrity-aware update flows.
 - Site Health verifies Store plugin and theme package files against canonical exact-version HTTPS release manifests. A deployment may optionally trust otherwise local extensions through one environment-pinned signed manifest.
 - Optional PWA, offline, web-manifest, and browser-push behavior can be supplied by plugins. These are not core Jyavani CMS features.
@@ -54,6 +55,7 @@ cd jyavani
 3. Give the PHP process controlled write access to `cfg/`, `cfg/var/`, `private_files/`, and upload destinations. Core files must also be writable if dashboard-managed updates will be used.
 4. Open `/pondasi/` and complete the one-time database, site, and administrator setup. The installer creates `cfg/.env`, generates secrets, loads the schema, and seeds dashboard translations.
 5. Remove `public/pondasi/` after installation and verify HTTPS/session settings.
+6. In **Site Settings → Timezone**, confirm the site timezone and preferred date/time display formats. The compatibility defaults are `Asia/Jakarta`, `F j, Y`, and `H:i`; changing the timezone does not shift existing Core timestamps.
 
 Do not commit `cfg/.env`, credentials, generated secrets, private uploads, sessions, or runtime backups. For manual deployments, [`cfg/env-sample`](cfg/env-sample) documents supported settings without usable secrets.
 
