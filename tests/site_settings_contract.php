@@ -36,6 +36,7 @@ $check(settings_favicon_url_validation_error('/static/img/favicon/missing.png', 
 
 $layout = (string)file_get_contents($root . '/app/layout.php');
 $dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
+$dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $settingsPage = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $check(!is_file($public . '/static/img/favicon-16x16.png')
     && !is_file($public . '/static/img/favicon-32x32.png'),
@@ -89,6 +90,18 @@ $check(str_contains($settingsPage, '<select name="date_format_choice"')
     && str_contains($settingsPage, 'customWrap.hidden = !isCustom')
     && str_contains($settingsPage, 'custom.disabled = !isCustom'),
     'Date and Time Format use compact selects and reveal custom inputs only when selected');
+$timeFormatPosition = strpos($settingsPage, 'id="time-format-choice"');
+$schedulingPosition = strpos($settingsPage, 'id="content_scheduling_enabled"');
+$permalinkPosition = strpos($settingsPage, 'settings-section--permalink');
+$check($timeFormatPosition !== false && $schedulingPosition !== false && $permalinkPosition !== false
+    && $timeFormatPosition < $schedulingPosition && $schedulingPosition < $permalinkPosition
+    && str_contains($settingsPage, "settings_set(\$pdo, 'content_scheduling_enabled'")
+    && str_contains($settingsPage, "'php ' . dirname(__DIR__, 3) . '/tools/publish-scheduled.php'")
+    && str_contains($settingsPage, 'Scheduled publishing setup guide')
+    && str_contains($dashboardCss, '.content-scheduling-card')
+    && str_contains($dashboardCss, '.content-scheduling-guide code')
+    && str_contains($dashboardCss, 'overflow-x:auto'),
+    'Site Settings places the persisted opt-in and readable server setup guide after Time Format');
 
 foreach ([$invalidUrl, $invalidFile, $invalidDimensions,
     'Use a square (1:1) PNG, ICO, or SVG at least 48×48 pixels. Use a stable URL for search engines, or leave empty for the default favicon.'] as $source) {
@@ -110,6 +123,19 @@ foreach (['Date Format', 'Time Format', 'Custom:', 'Enter a custom date format b
     'Invalid date format.', 'Invalid time format.', 'Invalid format.'] as $source) {
     $escaped = str_replace("'", "''", $source);
     $check(substr_count($translations, "'{$escaped}'") >= 2, "date/time format translation coverage: {$source}");
+}
+foreach (['Enable scheduled publishing',
+    'Shows Scheduled status and Publish At controls in Article, Page, and Theme Content editors.',
+    'Scheduled publishing setup guide', 'A server task is required.',
+    'Enabling this setting only enables the editor controls; it does not start the publishing worker.',
+    'Configure your server to run this command once every minute:',
+    'On shared hosting, create a Cron Job in the hosting control panel and use the command above.',
+    'On a VPS or home server, use cron or a systemd timer and run the worker as a user that can read the CMS environment and connect to its database.',
+    'If the worker is not running, scheduled content remains safely stored as a draft and will not appear on the public site.',
+    'Turning this setting off removes scheduling controls. Existing scheduled items remain queued and can still be published by an active worker.',
+    'Scheduled publishing is disabled in Site Settings.'] as $source) {
+    $escaped = str_replace("'", "''", $source);
+    $check(substr_count($translations, "'{$escaped}'") >= 2, "scheduled publishing translation coverage: {$source}");
 }
 
 if ($failures !== []) {

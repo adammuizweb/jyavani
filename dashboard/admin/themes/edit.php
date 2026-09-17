@@ -166,10 +166,10 @@ if ($isReadOnly) {
               <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
               <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
               <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
-              <?php if ($pref_status !== 'published'): ?><option value="scheduled" <?= $pref_status === 'scheduled' ? 'selected' : '' ?>><?= _e('Scheduled') ?></option><?php endif; ?>
+              <?php if (content_scheduling_enabled($pdo) && $pref_status !== 'published'): ?><option value="scheduled" <?= $pref_status === 'scheduled' ? 'selected' : '' ?>><?= _e('Scheduled') ?></option><?php endif; ?>
             </select>
           </label>
-          <?php if ($pref_status !== 'published'): ?><label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+          <?php if (content_scheduling_enabled($pdo) && $pref_status !== 'published'): ?><label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
             <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars(content_schedule_datetime_local($theme['publish_at_utc'] ?? null), ENT_QUOTES, 'UTF-8') ?>" class="inp">
             <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
           </label><?php endif; ?>

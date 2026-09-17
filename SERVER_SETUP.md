@@ -221,6 +221,8 @@ Jalankan worker Core setiap menit agar Article, Page, dan Theme Content berstatu
 
 Worker memproses maksimum 100 item per eksekusi secara default. Gunakan `--limit=500` bila diperlukan. Eksekusi bersamaan aman: perubahan status memakai kondisi due-time atomik sehingga satu item hanya berhasil dipublikasikan sekali. Pastikan user cron dapat membaca `cfg/.env`, terhubung ke database, dan menulis tujuan log. Pantau exit code dan log; tanpa worker aktif, item tetap aman sebagai draft terjadwal dan tidak tampil di frontend.
 
+Setelah task server terverifikasi, aktifkan **Scheduled publishing** di bagian paling bawah **Site Settings → Timezone**. Setting ini sengaja nonaktif secara default dan hanya mengontrol ketersediaan status Scheduled di editor; worker tetap menyelesaikan item yang sudah terjadwal agar antrean lama tidak terjebak.
+
 ## 5. Environment (.env)
 
 ```bash

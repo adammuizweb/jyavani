@@ -442,7 +442,7 @@ PHP helpers available anywhere after bootstrap:
 ## Content & Shortcodes
 
 - Posts/pages share `posts` table; `type` column: `article`, `page`, `theme`, `sc_preset`
-- Stored status: `draft`, `published`, `private`. Article/Page scheduling is represented by stored `draft` plus non-null `publish_at_utc`; dashboard UI exposes the derived `scheduled` status.
+- Stored status: `draft`, `published`, `private`. Article/Page scheduling is represented by stored `draft` plus non-null `publish_at_utc`; dashboard UI exposes the derived `scheduled` status only when the opt-in `content_scheduling_enabled` setting allows new schedules. Lists retain visibility of existing scheduled rows.
 - Hierarchical categories via `categories.parent_id`
 - Shortcodes in post content are expanded at render time:
   - `[[widget:name key=val]]` → `widget_expand_shortcodes()`
@@ -471,7 +471,7 @@ PHP helpers available anywhere after bootstrap:
 - New instant-bearing fields, including scheduler fields, must use a `_utc` suffix with `DATETIME`/`DATETIME(6)`, explicit UTC writes such as `app_now_utc_mysql()`, comparisons against `UTC_TIMESTAMP()`, and display conversion through `app_utc_mysql_to_site()`.
 - Do not use bare `CURRENT_TIMESTAMP`, `NOW()`, or legacy local formatters for a `_utc` field. Long-running workers must refresh their database session timezone before each processing cycle.
 - Plugins that create independent PDO connections must call `app_db_set_session_timezone()`; shared Core PDO connections are already configured.
-- `tools/publish-scheduled.php` publishes due Article, Page, and Theme Content rows in bounded batches. Configure it as a once-per-minute cron job; concurrent runs use conditional updates so only one worker publishes each row.
+- `tools/publish-scheduled.php` publishes due Article, Page, and Theme Content rows in bounded batches. Configure it as a once-per-minute cron job before enabling scheduling in Site Settings; concurrent runs use conditional updates so only one worker publishes each row. Disabling the editor setting does not strand previously scheduled rows.
 
 ### Schema files
 

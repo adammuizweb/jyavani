@@ -322,10 +322,10 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
           <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
           <?php if ($canPublish || $currentStatus === 'published'): ?><option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option><?php endif; ?>
           <?php if ($canPublish || $currentStatus === 'private'): ?><option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option><?php endif; ?>
-          <?php if ($canPublish && $currentStatus !== 'published'): ?><option value="scheduled" <?= ($currentStatus === 'scheduled') ? 'selected' : '' ?>><?=_e('Scheduled')?></option><?php endif; ?>
+          <?php if ($canPublish && content_scheduling_enabled($pdo) && $currentStatus !== 'published'): ?><option value="scheduled" <?= ($currentStatus === 'scheduled') ? 'selected' : '' ?>><?=_e('Scheduled')?></option><?php endif; ?>
         </select>
       </label>
-      <?php if ($canPublish && $currentStatus !== 'published'): ?><label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+      <?php if ($canPublish && content_scheduling_enabled($pdo) && $currentStatus !== 'published'): ?><label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
         <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars((string)($_POST['schedule_at'] ?? content_schedule_datetime_local($post['publish_at_utc'] ?? null)), ENT_QUOTES, 'UTF-8') ?>" class="inp">
         <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
       </label><?php endif; ?>

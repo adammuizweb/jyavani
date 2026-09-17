@@ -203,7 +203,7 @@ $statusIn      = (string)($_POST['status'] ?? 'draft');
 $requestedStatus = in_array($statusIn, content_schedule_statuses(), true) ? $statusIn : 'draft';
 $scheduleAtIn = trim((string)($_POST['schedule_at'] ?? ''));
 try {
-    $schedule = content_schedule_resolve($requestedStatus, $scheduleAtIn);
+    $schedule = content_schedule_resolve_for_site($pdo, $requestedStatus, $scheduleAtIn);
 } catch (InvalidArgumentException $error) {
     $errors[] = __($error->getMessage());
     $schedule = ['status' => 'draft', 'publish_at_utc' => null];

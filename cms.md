@@ -240,6 +240,12 @@ Article/Page bulk rows preserve the extension-filtered source value in `status`,
 expose the database value as `stored_status`, and expose the scheduling-aware UI
 value as `editor_status`.
 
+New schedules are opt-in through the autoloaded `content_scheduling_enabled`
+setting. When disabled, Core omits Scheduled and Publish At from add/edit forms
+and rejects a forged `scheduled` mutation. Existing queued rows remain visible
+and the worker may finish them so disabling the editor control cannot strand
+already accepted work.
+
 The CLI worker locks each due row and first runs a fail-fast transactional action:
 
 ```php

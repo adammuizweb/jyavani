@@ -55,7 +55,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $requestedStatus = in_array($_POST['status'] ?? '', content_schedule_statuses(), true) ? (string)$_POST['status'] : 'draft';
     $schedule_at_in = trim((string)($_POST['schedule_at'] ?? ''));
     try {
-        $schedule = content_schedule_resolve($requestedStatus, $schedule_at_in);
+        $schedule = content_schedule_resolve_for_site($pdo, $requestedStatus, $schedule_at_in);
     } catch (InvalidArgumentException $error) {
         $schedule = ['status' => 'draft', 'publish_at_utc' => null, 'editor_status' => 'draft'];
         $errors[] = __($error->getMessage());
@@ -283,11 +283,11 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
           <?php if ($canPublish): ?>
             <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?= _e('Published') ?></option>
             <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?= _e('Private') ?></option>
-            <option value="scheduled" <?= (($_POST['status'] ?? '') === 'scheduled') ? 'selected' : '' ?>><?= _e('Scheduled') ?></option>
+            <?php if (content_scheduling_enabled($pdo)): ?><option value="scheduled" <?= (($_POST['status'] ?? '') === 'scheduled') ? 'selected' : '' ?>><?= _e('Scheduled') ?></option><?php endif; ?>
           <?php endif; ?>
         </select>
       </label>
-      <?php if ($canPublish): ?>
+      <?php if ($canPublish && content_scheduling_enabled($pdo)): ?>
         <label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
           <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars((string)($_POST['schedule_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="inp">
           <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>

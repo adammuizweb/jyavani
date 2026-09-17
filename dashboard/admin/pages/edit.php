@@ -289,11 +289,11 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
           <?php if ($canPublish): ?>
             <option value="published" <?= ($status === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
             <option value="private" <?= ($status === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
-            <?php if ($status !== 'published'): ?><option value="scheduled" <?= ($status === 'scheduled') ? 'selected' : '' ?>><?=_e('Scheduled')?></option><?php endif; ?>
+            <?php if (content_scheduling_enabled($pdo) && $status !== 'published'): ?><option value="scheduled" <?= ($status === 'scheduled') ? 'selected' : '' ?>><?=_e('Scheduled')?></option><?php endif; ?>
           <?php endif; ?>
         </select>
       </label>
-      <?php if ($canPublish && $status !== 'published'): ?>
+      <?php if ($canPublish && content_scheduling_enabled($pdo) && $status !== 'published'): ?>
         <label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
           <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars((string)($_POST['schedule_at'] ?? content_schedule_datetime_local($post['publish_at_utc'] ?? null)), ENT_QUOTES, 'UTF-8') ?>" class="inp">
           <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>

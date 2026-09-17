@@ -380,6 +380,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $st->execute(['site_timezone', app_timezone_default_id()]);
                 $st->execute(['date_format', app_date_format_default()]);
                 $st->execute(['time_format', app_time_format_default()]);
+                $st->execute(['content_scheduling_enabled', '0']);
 
                 // write .env
                 verify_session_storage($sessionDir);

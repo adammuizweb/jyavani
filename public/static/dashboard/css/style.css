@@ -7062,6 +7062,24 @@ html.theme-dark .profile-loader{
   background: transparent;
 }
 
+.content-scheduling-card {
+  --sec-clr:#0f766e;
+  --sec-clr-soft:rgba(15,118,110,.10);
+  --sec-clr-border:rgba(15,118,110,.24);
+}
+
+.content-scheduling-guide code {
+  display:block;
+  max-width:100%;
+  overflow-x:auto;
+  padding:.55rem .65rem;
+  border:1px solid var(--adam-border-2);
+  border-radius:7px;
+  background:var(--adam-surface-2);
+  color:var(--adam-text-2);
+  white-space:nowrap;
+}
+
 .metatags-row {
   display:flex;
   align-items:flex-start;

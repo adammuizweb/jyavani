@@ -8,6 +8,14 @@ if (!function_exists('content_schedule_statuses')) {
     }
 }
 
+if (!function_exists('content_scheduling_enabled')) {
+    function content_scheduling_enabled(PDO $pdo): bool
+    {
+        return function_exists('settings_get')
+            && settings_get($pdo, 'content_scheduling_enabled', '0') === '1';
+    }
+}
+
 if (!function_exists('content_schedule_editor_status')) {
     function content_schedule_editor_status(string $status, array $content): string
     {
@@ -61,6 +69,16 @@ if (!function_exists('content_schedule_resolve')) {
             throw new InvalidArgumentException('Scheduled publication time must be in the future.');
         }
         return ['status' => 'draft', 'publish_at_utc' => $publishAtUtc, 'editor_status' => 'scheduled'];
+    }
+}
+
+if (!function_exists('content_schedule_resolve_for_site')) {
+    function content_schedule_resolve_for_site(PDO $pdo, string $requestedStatus, ?string $localInput): array
+    {
+        if ($requestedStatus === 'scheduled' && !content_scheduling_enabled($pdo)) {
+            throw new InvalidArgumentException('Scheduled publishing is disabled in Site Settings.');
+        }
+        return content_schedule_resolve($requestedStatus, $localInput);
     }
 }
 

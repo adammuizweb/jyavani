@@ -4,6 +4,14 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/time_helpers.php';
+if (!function_exists('settings_get')) {
+    function settings_get(PDO $pdo, string $key, mixed $default = null): mixed
+    {
+        return $key === 'content_scheduling_enabled'
+            ? ($GLOBALS['__TEST_CONTENT_SCHEDULING_ENABLED'] ?? $default)
+            : $default;
+    }
+}
 require_once $root . '/cfg/helpers/content_scheduler.php';
 
 $failures = [];
@@ -55,6 +63,7 @@ $check(content_schedule_transition_error('published', 'scheduled') !== null
 
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $migration = (string)file_get_contents($root . '/schema/migrations/028-content-scheduling.sql');
+$settingMigration = (string)file_get_contents($root . '/schema/migrations/029-content-scheduling-setting.sql');
 $worker = (string)file_get_contents($root . '/tools/publish-scheduled.php');
 $helper = (string)file_get_contents($root . '/cfg/helpers/content_scheduler.php');
 $scheduleScript = (string)file_get_contents($root . '/public/static/dashboard/js/content-schedule.js');
@@ -68,6 +77,9 @@ foreach (['dashboard/admin/posts/add.php', 'dashboard/admin/posts/edit.php', 'da
 $check(str_contains($schema, '`publish_at_utc` datetime DEFAULT NULL')
     && str_contains($migration, 'idx_posts_scheduled_publish'),
     'fresh and upgraded schemas include the indexed UTC scheduler field');
+$check(str_contains($schema, "('content_scheduling_enabled', '0', 1)")
+    && str_contains($settingMigration, "('content_scheduling_enabled', '0', 1)"),
+    'fresh and upgraded sites keep scheduled publishing opt-in');
 $check(str_contains($helper, 'publish_at_utc <= UTC_TIMESTAMP()')
     && str_contains($helper, "type IN ('article', 'page', 'theme')")
     && str_contains($helper, "AND status = 'draft'")
@@ -92,6 +104,8 @@ $check(str_contains($worker, "PHP_SAPI !== 'cli'")
 $check(substr_count($editors, 'name="schedule_at"') === 6
     && substr_count($editors, "value=\"scheduled\"") === 6
     && substr_count($editors, 'data-content-schedule hidden') === 6
+    && substr_count($editors, 'content_scheduling_enabled($pdo)') === 12
+    && substr_count($editors, 'content_schedule_resolve_for_site(') === 6
     && str_contains($scheduleScript, "status.value === 'scheduled'")
     && str_contains($scheduleScript, 'input.disabled = !scheduled')
     && str_contains($scheduleScript, 'input.required = scheduled')
@@ -109,6 +123,18 @@ $check(str_contains((string)file_get_contents($root . '/dashboard/admin/posts/ed
 if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $sqlite = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
     $sqlite->sqliteCreateFunction('UTC_TIMESTAMP', static fn(): string => '2026-09-17 12:00:00');
+    $GLOBALS['__TEST_CONTENT_SCHEDULING_ENABLED'] = '0';
+    $disabledRejected = false;
+    try {
+        content_schedule_resolve_for_site($sqlite, 'scheduled', '2099-01-02T03:04');
+    } catch (InvalidArgumentException $error) {
+        $disabledRejected = $error->getMessage() === 'Scheduled publishing is disabled in Site Settings.';
+    }
+    $GLOBALS['__TEST_CONTENT_SCHEDULING_ENABLED'] = '1';
+    $enabledSchedule = content_schedule_resolve_for_site($sqlite, 'scheduled', '2099-01-02T03:04');
+    $check($disabledRejected && ($enabledSchedule['editor_status'] ?? null) === 'scheduled',
+        'site setting rejects forged schedules while allowing enabled editors');
+    $GLOBALS['__TEST_CONTENT_SCHEDULING_ENABLED'] = '0';
     $sqlite->exec('CREATE TABLE posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT, title TEXT, status TEXT,
         status_revision INTEGER NOT NULL DEFAULT 0, publish_at_utc TEXT,
@@ -145,6 +171,7 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         && !$sqlite->inTransaction(),
         'a transaction-leaking observer cannot roll back or block later publications in the batch');
 }
+unset($GLOBALS['__TEST_CONTENT_SCHEDULING_ENABLED']);
 
 if ($originalTimezone === null) unset($GLOBALS['__APP_TIMEZONE_ID']);
 else $GLOBALS['__APP_TIMEZONE_ID'] = $originalTimezone;

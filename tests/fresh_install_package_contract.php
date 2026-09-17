@@ -16,6 +16,7 @@ $schema = (string)file_get_contents($root . '/schema/default.sql');
 $pluginMigration = (string)file_get_contents($root . '/schema/migrations/015-plugin-migrations.sql');
 $timezoneMigration = (string)file_get_contents($root . '/schema/migrations/026-site-timezone.sql');
 $dateTimeFormatMigration = (string)file_get_contents($root . '/schema/migrations/027-date-time-formats.sql');
+$schedulingSettingMigration = (string)file_get_contents($root . '/schema/migrations/029-content-scheduling-setting.sql');
 require_once $root . '/dashboard/admin/update/_update_helpers.php';
 
 $check(
@@ -34,6 +35,10 @@ $check(str_contains($schema, "('date_format',      'F j, Y', 1)")
     && str_contains($installer, "['date_format', app_date_format_default()]")
     && str_contains($installer, "['time_format', app_time_format_default()]"),
     'fresh and upgraded installations establish date and time display format defaults');
+$check(str_contains($schema, "('content_scheduling_enabled', '0', 1)")
+    && str_contains($schedulingSettingMigration, "('content_scheduling_enabled', '0', 1)")
+    && str_contains($installer, "['content_scheduling_enabled', '0']"),
+    'fresh and upgraded installations keep scheduled publishing disabled until server setup is complete');
 $check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `plugin_migrations`')
     && str_contains($pluginMigration, 'CREATE TABLE IF NOT EXISTS `plugin_migrations`')
     && str_contains($pluginMigration, '`checksum` char(64)'),

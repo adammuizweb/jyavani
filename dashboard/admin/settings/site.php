@@ -110,6 +110,7 @@ $current_date_format_choice = in_array($current_date_format, $date_format_preset
 $current_time_format_choice = in_array($current_time_format, $time_format_presets, true) ? $current_time_format : 'custom';
 $current_date_format_custom = $current_date_format_choice === 'custom' ? $current_date_format : app_date_format_default();
 $current_time_format_custom = $current_time_format_choice === 'custom' ? $current_time_format : app_time_format_default();
+$current_content_scheduling_enabled = content_scheduling_enabled($pdo);
 
 $current_favicon_url = settings_get($pdo, 'favicon_url', '') ?? '';
 $current_search_engines_enabled = settings_get($pdo, 'search_engines_enabled', '1') !== '0';
@@ -142,6 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $current_time_format_custom = trim((string)($_POST['time_format_custom'] ?? app_time_format_default()));
     $current_date_format = $current_date_format_choice === 'custom' ? $current_date_format_custom : $current_date_format_choice;
     $current_time_format = $current_time_format_choice === 'custom' ? $current_time_format_custom : $current_time_format_choice;
+    $current_content_scheduling_enabled = (string)($_POST['content_scheduling_enabled'] ?? '0') === '1';
     if ($current_date_format_choice !== 'custom' && !in_array($current_date_format_choice, $date_format_presets, true)) {
         $current_date_format_custom = $current_date_format;
         $current_date_format_choice = 'custom';
@@ -266,8 +268,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok15 = settings_set($pdo, 'site_timezone', $current_site_timezone, 1);
         $ok16 = settings_set($pdo, 'date_format', $current_date_format, 1);
         $ok17 = settings_set($pdo, 'time_format', $current_time_format, 1);
+        $ok18 = settings_set($pdo, 'content_scheduling_enabled', $current_content_scheduling_enabled ? '1' : '0', 1);
 
-        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11 && $ok12 && $ok13 && $ok14 && $ok15 && $ok16 && $ok17) {
+        if ($ok1 && $ok2 && $ok3 && $ok4 && $ok5 && $ok6 && $ok7 && $ok8 && $ok9 && $ok10 && $ok11 && $ok12 && $ok13 && $ok14 && $ok15 && $ok16 && $ok17 && $ok18) {
             app_time_bootstrap($pdo);
             do_action('site_settings_after_save', $pdo, $_POST);
             if (function_exists('adiwira_redirect_with_flash')) {
@@ -403,6 +406,35 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
           <span class="field-note"><?=_e('Supported time tokens: H, G, h, g, i, s, a, A, T, P.')?></span>
           <span class="field-note"><?=_e('Use spaces or - . , / : ( ) as separators.')?></span>
         </div>
+
+        <div class="metatags-card content-scheduling-card">
+          <div class="metatags-row">
+            <div class="metatags-info">
+              <label class="metatags-label" for="content_scheduling_enabled"><?=_e('Enable scheduled publishing')?></label>
+              <p class="metatags-desc"><?=_e('Shows Scheduled status and Publish At controls in Article, Page, and Theme Content editors.')?></p>
+            </div>
+            <label class="metatags-toggle">
+              <input type="hidden" name="content_scheduling_enabled" value="0">
+              <input type="checkbox" name="content_scheduling_enabled" id="content_scheduling_enabled" value="1"<?= $current_content_scheduling_enabled ? ' checked' : '' ?>>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <details class="settings-details content-scheduling-guide" style="margin-top:.75rem">
+          <summary><?=_e('Scheduled publishing setup guide')?></summary>
+          <div class="inner">
+            <p><strong><?=_e('A server task is required.')?></strong> <?=_e('Enabling this setting only enables the editor controls; it does not start the publishing worker.')?></p>
+            <p><?=_e('Configure your server to run this command once every minute:')?></p>
+            <p><code><?= h('php ' . dirname(__DIR__, 3) . '/tools/publish-scheduled.php') ?></code></p>
+            <ul>
+              <li><?=_e('On shared hosting, create a Cron Job in the hosting control panel and use the command above.')?></li>
+              <li><?=_e('On a VPS or home server, use cron or a systemd timer and run the worker as a user that can read the CMS environment and connect to its database.')?></li>
+              <li><?=_e('If the worker is not running, scheduled content remains safely stored as a draft and will not appear on the public site.')?></li>
+              <li><?=_e('Turning this setting off removes scheduling controls. Existing scheduled items remain queued and can still be published by an active worker.')?></li>
+            </ul>
+          </div>
+        </details>
       </div>
     </div>
 

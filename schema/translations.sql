@@ -5748,3 +5748,28 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
 ('default', 'Scheduled publication time is ambiguous in the site timezone.', 'Waktu publikasi terjadwal ambigu dalam zona waktu situs.', 'id'),
 ('default', 'Scheduled publication time is ambiguous in the site timezone.', 'Der geplante Veröffentlichungszeitpunkt ist in der Website-Zeitzone mehrdeutig.', 'de');
+
+-- Scheduled publishing feature control and setup guide
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Enable scheduled publishing', 'Aktifkan publikasi terjadwal', 'id'),
+('default', 'Enable scheduled publishing', 'Geplante Veröffentlichung aktivieren', 'de'),
+('default', 'Shows Scheduled status and Publish At controls in Article, Page, and Theme Content editors.', 'Menampilkan status Terjadwal dan kontrol Publikasikan Pada di editor Artikel, Halaman, dan Konten Tema.', 'id'),
+('default', 'Shows Scheduled status and Publish At controls in Article, Page, and Theme Content editors.', 'Zeigt den Status Geplant und die Steuerung Veröffentlichen am in den Editoren für Artikel, Seiten und Theme-Inhalte an.', 'de'),
+('default', 'Scheduled publishing setup guide', 'Panduan pengaturan publikasi terjadwal', 'id'),
+('default', 'Scheduled publishing setup guide', 'Einrichtungsanleitung für geplante Veröffentlichungen', 'de'),
+('default', 'A server task is required.', 'Tugas server diperlukan.', 'id'),
+('default', 'A server task is required.', 'Eine Serveraufgabe ist erforderlich.', 'de'),
+('default', 'Enabling this setting only enables the editor controls; it does not start the publishing worker.', 'Mengaktifkan pengaturan ini hanya mengaktifkan kontrol editor; tindakan ini tidak menjalankan worker publikasi.', 'id'),
+('default', 'Enabling this setting only enables the editor controls; it does not start the publishing worker.', 'Diese Einstellung aktiviert nur die Editor-Steuerung; sie startet nicht den Veröffentlichungs-Worker.', 'de'),
+('default', 'Configure your server to run this command once every minute:', 'Konfigurasikan server agar menjalankan perintah ini setiap satu menit:', 'id'),
+('default', 'Configure your server to run this command once every minute:', 'Konfigurieren Sie den Server so, dass dieser Befehl einmal pro Minute ausgeführt wird:', 'de'),
+('default', 'On shared hosting, create a Cron Job in the hosting control panel and use the command above.', 'Pada shared hosting, buat Cron Job di panel kontrol hosting dan gunakan perintah di atas.', 'id'),
+('default', 'On shared hosting, create a Cron Job in the hosting control panel and use the command above.', 'Erstellen Sie bei Shared Hosting einen Cronjob im Hosting-Kontrollpanel und verwenden Sie den obigen Befehl.', 'de'),
+('default', 'On a VPS or home server, use cron or a systemd timer and run the worker as a user that can read the CMS environment and connect to its database.', 'Pada VPS atau home server, gunakan cron atau timer systemd dan jalankan worker sebagai pengguna yang dapat membaca environment CMS serta terhubung ke databasenya.', 'id'),
+('default', 'On a VPS or home server, use cron or a systemd timer and run the worker as a user that can read the CMS environment and connect to its database.', 'Verwenden Sie auf einem VPS oder Heimserver cron oder einen systemd-Timer und führen Sie den Worker als Benutzer aus, der die CMS-Umgebung lesen und eine Verbindung zur Datenbank herstellen kann.', 'de'),
+('default', 'If the worker is not running, scheduled content remains safely stored as a draft and will not appear on the public site.', 'Jika worker tidak berjalan, konten terjadwal tetap tersimpan dengan aman sebagai draf dan tidak akan tampil di situs publik.', 'id'),
+('default', 'If the worker is not running, scheduled content remains safely stored as a draft and will not appear on the public site.', 'Wenn der Worker nicht läuft, bleiben geplante Inhalte sicher als Entwurf gespeichert und erscheinen nicht auf der öffentlichen Website.', 'de'),
+('default', 'Turning this setting off removes scheduling controls. Existing scheduled items remain queued and can still be published by an active worker.', 'Menonaktifkan pengaturan ini menghapus kontrol penjadwalan. Item yang sudah terjadwal tetap berada dalam antrean dan masih dapat diterbitkan oleh worker yang aktif.', 'id'),
+('default', 'Turning this setting off removes scheduling controls. Existing scheduled items remain queued and can still be published by an active worker.', 'Wenn diese Einstellung deaktiviert wird, werden die Planungssteuerungen entfernt. Bereits geplante Elemente bleiben in der Warteschlange und können weiterhin von einem aktiven Worker veröffentlicht werden.', 'de'),
+('default', 'Scheduled publishing is disabled in Site Settings.', 'Publikasi terjadwal dinonaktifkan di Pengaturan Situs.', 'id'),
+('default', 'Scheduled publishing is disabled in Site Settings.', 'Geplante Veröffentlichungen sind in den Website-Einstellungen deaktiviert.', 'de');

@@ -678,7 +678,8 @@ INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
   ('active_theme',     'default', 1),
   ('site_timezone',    'Asia/Jakarta', 1),
   ('date_format',      'F j, Y', 1),
-  ('time_format',      'H:i', 1)
+  ('time_format',      'H:i', 1),
+  ('content_scheduling_enabled', '0', 1)
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
 
 -- Default theme
