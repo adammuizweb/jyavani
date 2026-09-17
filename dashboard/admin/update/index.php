@@ -78,7 +78,7 @@ $cmsLatest = ($coreUpdateStatus['state'] ?? 'unknown') === 'ok' && ($coreUpdateS
 $totalCore = $localManifest['total_files'] ?? 0;
 ?>
 <div class="up-page">
-<h2 class="pg-title"><?=_e('CMS Update')?></h2>
+<h2 class="pg-title page-heading"><?=_e('CMS Update')?></h2>
 <div data-update-status-page hidden></div>
 <p class="pg-subtitle"><?=_e('Version')?> <?= htmlspecialchars($currentVersion['version'] ?? '—') ?> &mdash; <?= htmlspecialchars($currentVersion['build'] ?? '') ?></p>
 

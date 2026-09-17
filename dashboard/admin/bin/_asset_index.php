@@ -72,15 +72,17 @@ $canRestore = $restoreCondition !== null;
 $canPurge = $purgeCondition !== null;
 ?>
 <section class="adam-card">
-  <h2><?= htmlspecialchars(sprintf(__('Bin / Trash - %s'), $resourceLabel), ENT_QUOTES, 'UTF-8') ?></h2>
+  <div class="toolbar-top bin-asset-toolbar">
+    <h2 class="page-heading"><?= htmlspecialchars(sprintf(__('Bin / Trash - %s'), $resourceLabel), ENT_QUOTES, 'UTF-8') ?></h2>
 
-  <form method="get" class="toolbar-filter bin-filter-bar">
+    <form method="get" class="toolbar-filter bin-filter-bar">
     <input type="hidden" name="page" value="<?= htmlspecialchars($route, ENT_QUOTES, 'UTF-8') ?>">
     <input type="text" name="q" class="inp" placeholder="<?= htmlspecialchars(__('Search title, filename, or path...'), ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
     <button type="submit" class="adam-button"><?=_e('Apply')?></button>
     <a class="adam-cancle" href="<?= htmlspecialchars($base . '/?page=' . $route, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Reset')?></a>
     <span class="bin-trash-total"><?=_e('Total trash:')?> <strong><?= $total ?></strong></span>
-  </form>
+    </form>
+  </div>
 
   <form id="assetBinForm" method="post" action="<?= htmlspecialchars($base . '/admin/bin/' . $assetResource . '/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -94,6 +96,10 @@ $canPurge = $purgeCondition !== null;
       </select>
       <button type="submit" class="adam-button" data-bulk-submit="1"><?=_e('Apply')?></button>
       <small class="bin-bulk-note"><?=_e('Bulk only affects checked items.')?></small>
+      <span id="bulkSelectionCountBinAsset" class="bulk-selection-count" role="status" aria-live="polite" hidden>
+        <span class="bsc-number">0</span>
+        <span class="bsc-label"><?= $assetResource === 'media' ? __('Media Selected') : __('File Selected') ?></span>
+      </span>
     </div>
 
     <div class="adam-table-wrapper">
@@ -117,11 +123,19 @@ $canPurge = $purgeCondition !== null;
             <td><?= htmlspecialchars(ucfirst((string)($asset['storage_disk'] ?? '-')), ENT_QUOTES, 'UTF-8') ?><div style="color:var(--adam-muted);font-size:.85rem;"><?= htmlspecialchars((string)($asset['storage_path'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div></td>
             <td><?= htmlspecialchars(!empty($asset['deleted_at']) ? format_date_ddmmyyyy_time_bracket((string)$asset['deleted_at']) : '-', ENT_QUOTES, 'UTF-8') ?></td>
             <td><?= htmlspecialchars((string)($asset['owner_name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
-            <td>
-              <?php if ($rowCanRestore): ?><button type="submit" class="adam-link-button" formaction="<?= htmlspecialchars($base . '/admin/bin/' . $assetResource . '/restore.php', ENT_QUOTES, 'UTF-8') ?>" name="id" value="<?= (int)$asset['id'] ?>" data-single-action="restore" data-title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?></button><?php endif; ?>
-              <?php if ($rowCanRestore && $rowCanPurge): ?> <span class="muted-divider">|</span> <?php endif; ?>
-              <?php if ($rowCanPurge): ?><button type="submit" class="adam-link-button" formaction="<?= htmlspecialchars($base . '/admin/bin/' . $assetResource . '/delete_permanent.php', ENT_QUOTES, 'UTF-8') ?>" name="id" value="<?= (int)$asset['id'] ?>" data-single-action="delete_permanent" data-title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?></button><?php endif; ?>
-            </td>
+            <td><div class="bin-row-actions">
+              <?php if ($rowCanRestore): ?><button type="submit" class="bin-restore-action" formaction="<?= htmlspecialchars($base . '/admin/bin/' . $assetResource . '/restore.php', ENT_QUOTES, 'UTF-8') ?>" name="id" value="<?= (int)$asset['id'] ?>" data-single-action="restore" data-title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('rotate-ccw') ?><?=_e('Restore')?></button><?php endif; ?>
+              <?php if ($rowCanPurge): $menuId = 'bin-' . $assetResource . '-actions-' . (int)$asset['id']; ?>
+                <div class="user-actions bin-row-overflow">
+                  <button type="button" class="user-actions-toggle bin-actions-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="<?= h($menuId) ?>" aria-label="<?= h(__('Actions') . ': ' . $title) ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+                  </button>
+                  <div id="<?= h($menuId) ?>" class="user-actions-menu bin-actions-menu" role="menu" hidden>
+                    <button type="submit" role="menuitem" class="is-danger" formaction="<?= htmlspecialchars($base . '/admin/bin/' . $assetResource . '/delete_permanent.php', ENT_QUOTES, 'UTF-8') ?>" name="id" value="<?= (int)$asset['id'] ?>" data-single-action="delete_permanent" data-title="<?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?><?=_e('Delete Permanently')?></button>
+                  </div>
+                </div>
+              <?php endif; ?>
+            </div></td>
           </tr>
         <?php endforeach; endif; ?>
         </tbody>
@@ -142,9 +156,39 @@ $canPurge = $purgeCondition !== null;
   const form = document.getElementById('assetBinForm');
   const selectAll = document.getElementById('assetBinSelectAll');
   const action = document.getElementById('assetBinAction');
+  const bulkSelectionCount = document.getElementById('bulkSelectionCountBinAsset');
   let confirmed = false;
   if (!form) return;
-  if (selectAll) selectAll.addEventListener('change', function(){ document.querySelectorAll('.asset-bin-checkbox').forEach(cb => { cb.checked = this.checked; }); });
+  function updateSelectionCount(){
+    const checkboxes = Array.from(document.querySelectorAll('.asset-bin-checkbox'));
+    const count = checkboxes.filter(function(cb){ return cb.checked; }).length;
+    if (selectAll) {
+      selectAll.checked = checkboxes.length > 0 && count === checkboxes.length;
+      selectAll.indeterminate = count > 0 && count < checkboxes.length;
+      selectAll.disabled = checkboxes.length === 0;
+    }
+    if (!bulkSelectionCount) return;
+    const numEl = bulkSelectionCount.querySelector('.bsc-number');
+    const labelEl = bulkSelectionCount.querySelector('.bsc-label');
+    if (numEl) numEl.textContent = String(count);
+    if (labelEl) labelEl.textContent = count === 1
+      ? <?= json_encode($assetResource === 'media' ? __('Media Selected') : __('File Selected')) ?>
+      : <?= json_encode($assetResource === 'media' ? __('Media Selected') : __('Files Selected')) ?>;
+    bulkSelectionCount.hidden = count === 0;
+    if (count > 0) {
+      bulkSelectionCount.classList.remove('is-pulse');
+      void bulkSelectionCount.offsetWidth;
+      bulkSelectionCount.classList.add('is-pulse');
+    }
+  }
+  if (selectAll) selectAll.addEventListener('change', function(){
+    document.querySelectorAll('.asset-bin-checkbox').forEach(cb => { cb.checked = this.checked; });
+    updateSelectionCount();
+  });
+  document.querySelectorAll('.asset-bin-checkbox').forEach(function(cb){
+    cb.addEventListener('change', updateSelectionCount);
+  });
+  updateSelectionCount();
   form.addEventListener('submit', function(event){
     if (confirmed) {
       confirmed = false;

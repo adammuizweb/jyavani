@@ -584,7 +584,7 @@ foreach ($themes as $t) {
 <link rel="stylesheet" href="/static/dashboard/css/update.css?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/css/update.css') ?: 0) ?>">
 <div class="tm-wrap">
   <div data-update-status-page hidden></div>
-  <h2 class="tm-title"><?= _e('Theme Manager & Assignments') ?></h2>
+  <h2 class="tm-title page-heading page-heading--compact"><?= _e('Theme Manager & Assignments') ?></h2>
 
   <div class="tm-row" role="region" aria-label="<?= _e('Theme management controls') ?>">
     <div class="tm-scan" aria-hidden="false" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">

@@ -382,6 +382,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
         <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
         <small class="adam-muted"><?= _e('Bulk only affects checked items.') ?></small>
+        <span id="bulkSelectionCountCategories" class="bulk-selection-count" role="status" aria-live="polite" hidden>
+          <span class="bsc-number">0</span>
+          <span class="bsc-label"><?=_e('Category Selected')?></span>
+        </span>
 
         <div class="cols-toggle ml-auto">
           <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
@@ -522,6 +526,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const bulkForm = document.getElementById('categoriesBulkForm');
   const bulkAction = document.getElementById('bulkActionCategories');
   const bulkParent = document.getElementById('bulkParentCategories');
+  const bulkSelectionCount = document.getElementById('bulkSelectionCountCategories');
   const deleteForm = document.getElementById('newnotif-category-delete-form');
   const deleteIdInput = document.getElementById('newnotif-category-delete-id');
   const deleteReturnTo = document.getElementById('newnotif-category-delete-return-to');
@@ -548,6 +553,27 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function checkedCount(){
     return document.querySelectorAll('.bulkCheckboxCategory:checked').length;
+  }
+
+  function updateSelectionCount(){
+    const checkboxes = Array.from(document.querySelectorAll('.bulkCheckboxCategory'));
+    const count = checkboxes.filter(function(cb){ return cb.checked; }).length;
+    if (selectAll) {
+      selectAll.checked = checkboxes.length > 0 && count === checkboxes.length;
+      selectAll.indeterminate = count > 0 && count < checkboxes.length;
+      selectAll.disabled = checkboxes.length === 0;
+    }
+    if (!bulkSelectionCount) return;
+    const number = bulkSelectionCount.querySelector('.bsc-number');
+    const label = bulkSelectionCount.querySelector('.bsc-label');
+    if (number) number.textContent = String(count);
+    if (label) label.textContent = count === 1 ? <?= json_encode(__('Category Selected')) ?> : <?= json_encode(__('Categories Selected')) ?>;
+    bulkSelectionCount.hidden = count === 0;
+    if (count > 0) {
+      bulkSelectionCount.classList.remove('is-pulse');
+      void bulkSelectionCount.offsetWidth;
+      bulkSelectionCount.classList.add('is-pulse');
+    }
   }
 
   function getBulkSummary(){
@@ -597,8 +623,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       document.querySelectorAll('.bulkCheckboxCategory').forEach(function(cb){
         cb.checked = checked;
       });
+      updateSelectionCount();
     });
   }
+
+  document.querySelectorAll('.bulkCheckboxCategory').forEach(function(cb){
+    cb.addEventListener('change', updateSelectionCount);
+  });
+  updateSelectionCount();
 
   if (bulkAction) {
     bulkAction.addEventListener('change', function(){

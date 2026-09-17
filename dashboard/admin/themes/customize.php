@@ -722,7 +722,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 
 <div class="tc-wrap" style="max-width:1100px;">
   <div class="tc-header" style="margin-bottom:1.25rem;">
-    <h2 style="margin:0 0 .25rem;"><?= __('Customize Layout') ?> — <?= h($folder) ?></h2>
+    <h2 class="page-heading page-heading--compact"><?= __('Customize Layout') ?> — <?= h($folder) ?></h2>
     <p class="muted"><?= __('Drag or place gadgets into the theme layout positions. Each position maps to a real area in the active theme.') ?></p>
   </div>
 

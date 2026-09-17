@@ -122,7 +122,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
 <div class="panel" style="max-width:820px;margin:20px auto;">
 
   <div style="margin-bottom:20px;">
-    <h2 style="margin:0 0 4px;">Sidebar</h2>
+    <h2 class="edit-heading edit-heading--compact"><?=_e('Sidebar')?></h2>
     <div class="muted" style="font-size:13px;"><?=_e('Manage sidebar display — enable/disable, position, and per-page override.')?></div>
   </div>
 

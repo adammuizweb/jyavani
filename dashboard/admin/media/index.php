@@ -38,7 +38,7 @@ if (function_exists('adiwira_flash_pull')) {
     }
 }
 ?>
-<h2><?=_e('Media Manager')?></h2>
+<h2 class="page-heading page-heading--spaced"><?=_e('Media Manager')?></h2>
 
 <input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 

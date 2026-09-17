@@ -191,7 +191,7 @@ $walk = function(int $pid, int $depth) use (&$children, &$flatten, &$walk): void
 $walk(0, 0);
 ?>
 <section class="adam-card">
-  <h2><?=_e('Add Category')?></h2>
+  <h2 class="edit-heading"><?=_e('Add Category')?></h2>
 
   <form method="post" novalidate id="category-add-form" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">

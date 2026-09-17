@@ -135,7 +135,7 @@ $layoutAddHref = $base . '/?' . http_build_query([
 $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPages, 9);
 ?>
 <section class="adam-card">
-  <h2><?=_e('Shortcode Builder')?></h2>
+  <h2 class="page-heading page-heading--spaced"><?=_e('Shortcode Builder')?></h2>
 
   <div style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid var(--adam-border,#ddd);">
     <a href="?page=admin/shortcodes/index&tab=presets" style="padding:.6rem 1.2rem;text-decoration:none;border-bottom:2px solid <?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'transparent' ?>;margin-bottom:-2px;color:<?= $tab === 'presets' ? 'var(--adam-accent,#4361ee)' : 'var(--adam-text,#333)' ?>;font-weight:<?= $tab === 'presets' ? 'bold' : 'normal' ?>;"><?=_e('Presets')?></a>
@@ -375,7 +375,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
                 <?php if ($canDelete): ?>
                   <input type="checkbox" class="layout-row-check" name="files[]" value="<?= h($f) ?>" aria-label="<?= h(sprintf(__('Select %s'), $layoutName)) ?>">
                 <?php else: ?>
-                  <span class="sr-only"><?=_e('Built-in')?></span>
+                  <input type="checkbox" disabled aria-label="<?= h(__('Built-in layouts stay protected and cannot be selected.')) ?>" title="<?= h(__('Built-in layouts stay protected and cannot be selected.')) ?>">
                 <?php endif; ?>
               </td>
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h($f) ?></a></td>

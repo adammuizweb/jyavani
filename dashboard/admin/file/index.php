@@ -39,7 +39,7 @@ if (function_exists('adiwira_flash_pull')) {
 }
 ?>
 <div id="file-manager-root">
-  <h2><?=_e('File Manager')?></h2>
+  <h2 class="page-heading page-heading--spaced"><?=_e('File Manager')?></h2>
 
   <input type="hidden" id="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
 

@@ -10,6 +10,8 @@ $sources = [
     'undo' => $read('dashboard/admin/assets/undo_trash.php'),
     'bin_index' => $read('dashboard/admin/bin/_asset_index.php'),
     'bin_action' => $read('dashboard/admin/bin/_asset_action.php'),
+    'media_bin' => $read('dashboard/admin/bin/media/index.php'),
+    'file_bin' => $read('dashboard/admin/bin/file/index.php'),
     'hub' => $read('dashboard/admin/bin/index.php'),
     'media_delete' => $read('dashboard/admin/media/delete.php'),
     'file_delete' => $read('dashboard/admin/file/delete.php'),
@@ -17,6 +19,7 @@ $sources = [
     'file_ui' => $read('dashboard/admin/file/index.php'),
     'upload_media' => $read('dashboard/admin/upload_image.php'),
     'upload_file' => $read('dashboard/admin/upload_file.php'),
+    'translations' => $read('schema/translations.sql'),
 ];
 
 $failures = [];
@@ -80,6 +83,30 @@ $check(str_contains($sources['bin_index'], 'authorization_owner_scope_condition'
     && str_contains($sources['bin_action'], 'asset_lifecycle_restore')
     && str_contains($sources['bin_action'], 'asset_lifecycle_purge'),
     'asset Bin listing and mutations enforce scoped lifecycle permissions');
+$check(str_contains($sources['media_bin'], "\$assetResource = 'media'")
+    && str_contains($sources['file_bin'], "\$assetResource = 'file'")
+    && str_contains($sources['media_bin'], "require __DIR__ . '/../_asset_index.php'")
+    && str_contains($sources['file_bin'], "require __DIR__ . '/../_asset_index.php'"),
+    'Media and File Bin lists share the hardened asset index');
+$check(str_contains($sources['bin_index'], 'class="toolbar-top bin-asset-toolbar"')
+    && str_contains($sources['bin_index'], '<h2 class="page-heading"')
+    && str_contains($sources['bin_index'], 'id="bulkSelectionCountBinAsset"'),
+    'Media and File Bin lists use the structured heading and live selection counter');
+$check(str_contains($sources['bin_index'], 'function updateSelectionCount()')
+    && str_contains($sources['bin_index'], 'selectAll.indeterminate')
+    && str_contains($sources['bin_index'], "cb.addEventListener('change', updateSelectionCount)"),
+    'Media and File Bin selection state supports partial and individual selection');
+$check(str_contains($sources['bin_index'], 'class="bin-row-actions"')
+    && str_contains($sources['bin_index'], 'class="bin-restore-action"')
+    && str_contains($sources['bin_index'], 'class="user-actions-toggle bin-actions-toggle"')
+    && str_contains($sources['bin_index'], 'class="user-actions-menu bin-actions-menu"')
+    && str_contains($sources['bin_index'], 'data-single-action="delete_permanent"')
+    && str_contains($sources['bin_index'], 'role="menuitem"'),
+    'Media and File keep Restore visible while permanent deletion retains submitter semantics in overflow');
+$check(substr_count($sources['translations'], "'Media Selected'") >= 2
+    && substr_count($sources['translations'], "'File Selected'") >= 2
+    && substr_count($sources['translations'], "'Files Selected'") >= 2,
+    'Media and File Bin selection labels have Indonesian and German seeds');
 $check(str_contains($sources['hub'], "'key' => 'media'") && str_contains($sources['hub'], "'key' => 'file'"),
     'Bin hub includes Media and File');
 $check(str_contains($sources['media_ui'], 'action: action || null')

@@ -71,7 +71,7 @@ $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 <section class="theme-store-browser">
   <div class="theme-store-heading">
     <div>
-      <h2 class="pg-title"><?= _e('Browse Themes') ?></h2>
+      <h2 class="pg-title page-heading page-heading--compact"><?= _e('Browse Themes') ?></h2>
       <p class="pg-subtitle"><?= _e('Explore themes from') ?> <a href="https://jyavani.com/themes/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?= _e('Jyavani community.') ?></p>
     </div>
     <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?= _e('&larr; Back to Theme Manager') ?></a>

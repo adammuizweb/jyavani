@@ -87,7 +87,7 @@ $nextUrl = $selfUrl . ($query !== '' ? '&q=' . rawurlencode($query) : '') . ($ne
 <section class="plugin-store-browser">
   <div class="plugin-store-heading">
     <div>
-      <h2 class="pg-title"><?= _e('Browse Plugins') ?></h2>
+      <h2 class="pg-title page-heading page-heading--compact"><?= _e('Browse Plugins') ?></h2>
       <p class="pg-subtitle"><?= _e('Browse plugins from') ?> <a href="https://jyavani.com/plugins/" target="_blank" rel="noopener"><?= h($storeName) ?></a> — <?= _e('Jyavani community.') ?></p>
     </div>
     <a href="<?= h($listUrl) ?>" class="btn btn-outline btn-sm"><?= _e('&larr; Back to Installed Plugins') ?></a>

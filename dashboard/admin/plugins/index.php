@@ -256,7 +256,7 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 };
 ?>
 <link rel="stylesheet" href="/static/dashboard/css/update.css?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/css/update.css') ?: 0) ?>">
-<h2 class="pg-title"><?=_e('Plugin')?></h2>
+<h2 class="pg-title page-heading page-heading--compact"><?=_e('Plugin')?></h2>
 <div data-update-status-page hidden></div>
 <p class="pg-subtitle"><?=_e('Manage installed plugins.')?></p>
 

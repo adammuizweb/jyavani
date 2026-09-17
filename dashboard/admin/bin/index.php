@@ -330,9 +330,9 @@ $show_inline_errors = !empty($errors) && !function_exists('adiwira_bootstrap_toa
 </style>
 
 <section class="adam-card binhub-wrap">
-  <div class="binhub-head">
+  <div class="binhub-head toolbar-top">
     <div>
-      <h2><?=_e('Bin / Trash')?></h2>
+      <h2 class="page-heading"><?=_e('Bin / Trash')?></h2>
       <div class="binhub-sub"><?=_e('Manage deleted items menu (admin only).')?></div>
     </div>
     <div class="binhub-back">

@@ -116,7 +116,7 @@ if (!function_exists('render_menu_items_admin')) {
 <section class="adam-card">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
     <div>
-      <h2 style="margin:0"><?=_e('Menu Manager')?></h2>
+      <h2 class="page-heading page-heading--compact"><?=_e('Menu Manager')?></h2>
       <div style="margin-top:6px;font-size:12px" class="pht-muted">
         <?=_e('Create and manage navigation menus like WordPress.')?>
       </div>

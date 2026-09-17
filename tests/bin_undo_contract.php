@@ -13,6 +13,7 @@ $sources = [
     'theme_bin' => $read('dashboard/admin/bin/theme/index.php'),
     'users_bin' => $read('dashboard/admin/bin/users/index.php'),
     'dashboard_style' => $read('public/static/dashboard/css/style.css'),
+    'index_list_script' => $read('public/static/dashboard/js/index-list.js'),
     'toast_style' => $read('public/static/components/toast/toast.css'),
     'toast_script' => $read('public/static/components/toast/toast.js'),
     'notify' => $read('dashboard/admin/_notify.php'),
@@ -110,6 +111,52 @@ $check(str_contains($sources['dashboard_style'], '.bin-filter-bar')
     && str_contains($sources['dashboard_style'], '@media (max-width:640px)')
     && str_contains($sources['dashboard_style'], '.bin-filter-bar input[type="text"].inp'),
     'Bin filter metadata has responsive Core styling');
+$check(str_contains($sources['hub'], 'class="binhub-head toolbar-top"')
+    && str_contains($sources['hub'], '<h2 class="page-heading"'),
+    'Bin hub uses the Core structured page heading');
+foreach ([
+    'article_bin' => ['Article', 'bulkCheckboxBinArticle'],
+    'page_bin' => ['Page', 'bulkCheckboxBinPage'],
+    'category_bin' => ['Category', 'bulkCheckboxBinCategory'],
+    'theme_bin' => ['Theme', 'bulkCheckboxBinTheme'],
+    'users_bin' => ['Users', 'bulkCheckboxBinUsers'],
+] as $key => [$resource, $checkboxClass]) {
+    $check(str_contains($sources[$key], 'class="toolbar-top bin-')
+        && str_contains($sources[$key], '<h2 class="page-heading"'),
+        $resource . ' Bin uses the same structured heading treatment as its active list');
+    $check(str_contains($sources[$key], 'id="bulkSelectionCountBin' . $resource . '"')
+        && str_contains($sources[$key], 'function updateSelectionCount()')
+        && str_contains($sources[$key], 'selectAll.indeterminate')
+        && str_contains($sources[$key], "cb.addEventListener('change', updateSelectionCount)")
+        && str_contains($sources[$key], "document.querySelectorAll('." . $checkboxClass . "')"),
+        $resource . ' Bin reports live bulk selection count and mixed select-all state');
+    $check(str_contains($sources[$key], 'class="bin-row-actions"')
+        && str_contains($sources[$key], 'class="bin-restore-action')
+        && str_contains($sources[$key], 'class="user-actions-toggle bin-actions-toggle"')
+        && str_contains($sources[$key], 'class="user-actions-menu bin-actions-menu"')
+        && str_contains($sources[$key], 'role="menuitem"')
+        && !preg_match('/class="adam-link-button js-bin-[^"]+-delete-permanent"/', $sources[$key]),
+        $resource . ' Bin keeps Restore visible and moves permanent deletion into an overflow menu');
+}
+$check(str_contains($sources['dashboard_style'], '.bin-restore-action')
+    && str_contains($sources['dashboard_style'], '.bin-row-actions')
+    && str_contains($sources['dashboard_style'], '.bin-row-overflow .user-actions-toggle'),
+    'Bin row actions use compact non-link button styling');
+$check(str_contains($sources['index_list_script'], "event.key === 'Escape'")
+    && str_contains($sources['index_list_script'], "event.key === 'ArrowDown'")
+    && str_contains($sources['index_list_script'], "event.key === 'Home'")
+    && str_contains($sources['index_list_script'], 'getBoundingClientRect()')
+    && str_contains($sources['index_list_script'], 'trigger.focus()')
+    && str_contains($sources['index_list_script'], 'openBinMenu(trigger, true)')
+    && str_contains($sources['index_list_script'], '.newnotif-confirm.is-open')
+    && str_contains($sources['dashboard_style'], '.bulk-selection-count.is-pulse{ animation:none; }'),
+    'shared Bin overflow controller supports viewport positioning and keyboard focus management');
+foreach (['Article', 'Category', 'Theme', 'User'] as $resource) {
+    $plural = $resource === 'Category' ? 'Categories' : $resource . 's';
+    $check(substr_count($sources['translations'], "'" . $resource . " Selected'") >= 2
+        && substr_count($sources['translations'], "'" . $plural . " Selected'") >= 2,
+        $resource . ' Bin selection labels have Indonesian and German seeds');
+}
 $check(str_contains($sources['notify'], 'function adiwira_notification_identity')
     && str_contains($sources['post_delete'], "SELECT id, title, created_by")
     && str_contains($sources['page_delete'], 'SELECT id, title, created_by')

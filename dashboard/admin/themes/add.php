@@ -164,7 +164,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Add Theme / Partial')?></h2>
+  <h2 class="edit-heading"><?=_e('Add Theme / Partial')?></h2>
 
   <form method="post" id="theme-add-form" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">

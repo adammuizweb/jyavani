@@ -467,7 +467,7 @@ $assignablePermissionCount = count(array_filter($permissions, static fn(array $p
   <div class="authz-role-header">
     <div>
       <span class="authz-eyebrow"><?= _e('Access Control') ?></span>
-      <h1><?= _e('Roles & Permissions') ?></h1>
+      <h1 class="page-heading"><?= _e('Roles & Permissions') ?></h1>
       <p><?= _e('Build a role, choose what it can do, then limit which resources it can affect.') ?></p>
     </div>
     <div class="authz-header-summary" aria-label="<?= __('Role summary') ?>"><span><strong><?= count($roles) ?></strong><?= _e('Roles') ?></span><span><strong><?= $assignablePermissionCount ?></strong><?= _e('Available permissions') ?></span></div>

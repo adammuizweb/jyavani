@@ -133,9 +133,10 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 ?>
 
 <section class="adam-card">
-  <h2><?=_e('Bin / Trash — Users')?></h2>
+  <div class="toolbar-top bin-users-toolbar">
+    <h2 class="page-heading"><?=_e('Bin / Trash — Users')?></h2>
 
-  <form method="get" class="toolbar-filter bin-filter-bar">
+    <form method="get" class="toolbar-filter bin-filter-bar">
     <input type="hidden" name="page" value="admin/bin/users/index">
 
     <input type="text" name="q" placeholder="<?= _e('Search name, email or username...') ?>"
@@ -163,7 +164,8 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
     <span class="bin-trash-total">
       <?=_e('Total trash:')?> <strong><?= (int)$total ?></strong>
     </span>
-  </form>
+    </form>
+  </div>
 
   <form id="binUsersBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/bin/users/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -182,6 +184,10 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <small class="bin-bulk-note"><?= _e('Bulk affects checked users.') ?></small>
+      <span id="bulkSelectionCountBinUsers" class="bulk-selection-count" role="status" aria-live="polite" hidden>
+        <span class="bsc-number">0</span>
+        <span class="bsc-label"><?=_e('User Selected')?></span>
+      </span>
     </div>
 
     <div class="adam-table-wrapper">
@@ -264,29 +270,31 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
                 <?= htmlspecialchars(format_date_ddmmyyyy_time_bracket((string)($u['updated_at'] ?? '')), ENT_QUOTES, 'UTF-8') ?>
               </td>
 
-              <td>
+              <td><div class="bin-row-actions">
                 <?php if ($canMutateUser): ?>
                   <?php if ($canRestoreUser): ?><button type="button"
-                        class="adam-link-button js-bin-user-restore"
+                        class="bin-restore-action js-bin-user-restore"
                         data-id="<?= (int)$u['id'] ?>"
                         data-title="<?= htmlspecialchars($labelName, ENT_QUOTES, 'UTF-8') ?>"
                         data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
                   <?= svg_ico('rotate-ccw', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Restore')?>
                   </button><?php endif; ?>
-
-                  <?php if ($canRestoreUser && $canPurgeUser): ?>&nbsp;<span class="muted-divider">|</span>&nbsp;<?php endif; ?>
-
-                  <?php if ($canPurgeUser): ?><button type="button"
-                        class="adam-link-button js-bin-user-delete-permanent"
-                        data-id="<?= (int)$u['id'] ?>"
-                        data-title="<?= htmlspecialchars($labelName, ENT_QUOTES, 'UTF-8') ?>"
-                        data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-                  <?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete Permanently')?>
-                  </button><?php endif; ?>
+                  <?php if ($canPurgeUser): $menuId = 'bin-user-actions-' . (int)$u['id']; ?>
+                    <div class="user-actions bin-row-overflow">
+                      <button type="button" class="user-actions-toggle bin-actions-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="<?= h($menuId) ?>" aria-label="<?= h(__('Actions') . ': ' . $labelName) ?>">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+                      </button>
+                      <div id="<?= h($menuId) ?>" class="user-actions-menu bin-actions-menu" role="menu" hidden>
+                        <button type="button" role="menuitem" class="js-bin-user-delete-permanent is-danger" data-id="<?= (int)$u['id'] ?>" data-title="<?= htmlspecialchars($labelName, ENT_QUOTES, 'UTF-8') ?>" data-return-to="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+                          <?= svg_ico('trash-2') ?><?=_e('Delete Permanently')?>
+                        </button>
+                      </div>
+                    </div>
+                  <?php endif; ?>
                 <?php else: ?>
                   <span style="color:var(--adam-muted);font-size:12px"><?= _e('Protected') ?></span>
                 <?php endif; ?>
-              </td>
+              </div></td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>
@@ -341,6 +349,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const selectAll = document.getElementById('selectAllBinUsers');
   const bulkForm = document.getElementById('binUsersBulkForm');
   const bulkAction = document.getElementById('bulkActionBinUsers');
+  const bulkSelectionCount = document.getElementById('bulkSelectionCountBinUsers');
 
   const restoreForm = document.getElementById('bin-user-restore-form');
   const restoreId = document.getElementById('bin-user-restore-id');
@@ -372,6 +381,27 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function checkedCount(){
     return document.querySelectorAll('.bulkCheckboxBinUsers:checked').length;
+  }
+
+  function updateSelectionCount(){
+    const checkboxes = Array.from(document.querySelectorAll('.bulkCheckboxBinUsers'));
+    const count = checkboxes.filter(function(cb){ return cb.checked; }).length;
+    if (selectAll) {
+      selectAll.checked = checkboxes.length > 0 && count === checkboxes.length;
+      selectAll.indeterminate = count > 0 && count < checkboxes.length;
+      selectAll.disabled = checkboxes.length === 0;
+    }
+    if (!bulkSelectionCount) return;
+    const numEl = bulkSelectionCount.querySelector('.bsc-number');
+    const labelEl = bulkSelectionCount.querySelector('.bsc-label');
+    if (numEl) numEl.textContent = String(count);
+    if (labelEl) labelEl.textContent = count === 1 ? <?= json_encode(__('User Selected')) ?> : <?= json_encode(__('Users Selected')) ?>;
+    bulkSelectionCount.hidden = count === 0;
+    if (count > 0) {
+      bulkSelectionCount.classList.remove('is-pulse');
+      void bulkSelectionCount.offsetWidth;
+      bulkSelectionCount.classList.add('is-pulse');
+    }
   }
 
   function getBulkSummary(){
@@ -418,8 +448,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       document.querySelectorAll('.bulkCheckboxBinUsers').forEach(function(cb){
         cb.checked = checked;
       });
+      updateSelectionCount();
     });
   }
+
+  document.querySelectorAll('.bulkCheckboxBinUsers').forEach(function(cb){
+    cb.addEventListener('change', updateSelectionCount);
+  });
+  updateSelectionCount();
 
   document.querySelectorAll('.js-bin-user-restore').forEach(function(btn){
     btn.addEventListener('click', function(){

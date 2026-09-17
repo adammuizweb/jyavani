@@ -102,7 +102,7 @@ if ($cur) $segments[] = ['normal' => $cur];
 <?php do_action('admin_home'); ?>
 <div class="dw-dashboard">
   <div class="dw-heading">
-    <h2 class="dw-heading-title"><?=_e('Dashboard')?></h2>
+    <h2 class="dw-heading-title page-heading"><?=_e('Dashboard')?></h2>
     <div class="dw-heading-actions">
       <?php if ($canManageDashboardLayout): ?><button type="button" class="adam-button" id="dw-arrange-toggle" data-active="0"><?=_e('Arrange Widgets')?></button><?php endif; ?>
     </div>

@@ -259,7 +259,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
 <div class="panel" style="max-width:900px;margin:20px auto;">
 
   <div style="margin-bottom:20px;">
-    <h2 style="margin:0 0 4px;">Sidebar Zones</h2>
+    <h2 class="page-heading page-heading--compact"><?=_e('Sidebar Zones')?></h2>
     <div class="muted" style="font-size:13px;"><?=__('Create & manage multiple sidebar zones, then select the primary one to display on the front page.')?></div>
   </div>
 

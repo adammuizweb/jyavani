@@ -79,6 +79,7 @@ foreach ([
     $pageRoutes .= (string)file_get_contents($root . '/' . $pageRoute);
 }
 $aside = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/aside.php');
+$translations = (string)file_get_contents($root . '/schema/translations.sql');
 $themeWriters = (string)file_get_contents($root . '/dashboard/admin/themes/add.php')
     . (string)file_get_contents($root . '/dashboard/admin/themes/save.php');
 $menuRoutes = '';
@@ -164,6 +165,12 @@ $check(
     'executable installed-theme operations require permission and Site Owner authority'
 );
 $check(str_contains($aside, "current_user_can(\$pdo, 'core.themes.manage')") && str_contains($aside, "\$navActor['is_site_owner'] === true"), 'installed-theme navigation follows the Site Owner boundary');
+$check(str_contains($aside, "admin/themes/assign")
+    && str_contains($aside, "__('Assign')")
+    && !str_contains($aside, "Assign (Dev)")
+    && !str_contains($aside, "admin/themes/browse"), 'Theme navigation keeps concise assignment access without redundant development or browse labels');
+$check(substr_count($translations, "('default', 'Assign',") === 2
+    && !str_contains($translations, "('default', 'Assign (Dev)',"), 'Assign navigation label has Indonesian and German seeds without the development suffix');
 $check(str_contains($guard, 'adiwira_require_permission') && str_contains($guard, 'adiwira_authorize_resource'), 'dashboard exposes permission and resource guards');
 $check(str_contains($guard, 'if (headers_sent())') && str_contains($guard, 'The requested dashboard page is unavailable.'), 'late dashboard denials render safely after layout output');
 $check(str_contains($dashboard, "current_user_can(\$pdo, 'core.dashboard.access')"), 'dashboard entry requires an explicit permission');

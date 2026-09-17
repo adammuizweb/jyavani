@@ -356,6 +356,7 @@ $check(substr_count($source['index'], "'return_to' => \$layoutReturnTo") >= 2 &&
 $check(str_contains($source['index'], "['registered', 'unregistered']") === false && str_contains($source['manager'], "['registered', 'unregistered']") && str_contains($source['manager'], "['builtin', 'custom']"), 'scope-specific filters distinguish registered sections and built-in collection layouts');
 $check(str_contains($source['manager'], 'theme_section_definitions()') && str_contains($source['manager'], "array_key_exists(\$name, \$definitions)"), 'section registration filtering uses the validated runtime registry');
 $check(str_contains($source['index'], 'id="layout-select-all"') && str_contains($source['index'], 'class="layout-row-check"') && str_contains($source['index'], 'name="files[]"'), 'layout rows expose checkboxes and select-all behavior');
+$check(str_contains($source['index'], '<input type="checkbox" disabled aria-label="<?= h(__(\'Built-in layouts stay protected and cannot be selected.\')) ?>"'), 'built-in collection layouts expose a visible disabled checkbox without becoming bulk-selectable');
 $check(str_contains($source['index'], 'class="sc-scope-switch"')
     && str_contains($source['index'], 'class="sc-toolbar sc-layouts-filter-toolbar"')
     && str_contains($source['index'], 'class="sc-layout-filter-fields"')
