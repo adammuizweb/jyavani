@@ -356,6 +356,17 @@ $check(substr_count($source['index'], "'return_to' => \$layoutReturnTo") >= 2 &&
 $check(str_contains($source['index'], "['registered', 'unregistered']") === false && str_contains($source['manager'], "['registered', 'unregistered']") && str_contains($source['manager'], "['builtin', 'custom']"), 'scope-specific filters distinguish registered sections and built-in collection layouts');
 $check(str_contains($source['manager'], 'theme_section_definitions()') && str_contains($source['manager'], "array_key_exists(\$name, \$definitions)"), 'section registration filtering uses the validated runtime registry');
 $check(str_contains($source['index'], 'id="layout-select-all"') && str_contains($source['index'], 'class="layout-row-check"') && str_contains($source['index'], 'name="files[]"'), 'layout rows expose checkboxes and select-all behavior');
+$check(str_contains($source['index'], 'class="sc-scope-switch"')
+    && str_contains($source['index'], 'class="sc-toolbar sc-layouts-filter-toolbar"')
+    && str_contains($source['index'], 'class="sc-layout-filter-fields"')
+    && str_contains($source['index'], '@media (max-width: 620px)'), 'both layout scopes use the responsive scope switcher and filter panel');
+$check(str_contains($source['index'], 'id="layout-bulk-bar" data-active="false"')
+    && str_contains($source['index'], 'id="layout-selection-count"')
+    && str_contains($source['index'], 'updateLayoutSelection()')
+    && str_contains($source['index'], 'layoutSelectAll.indeterminate'), 'layout bulk bar exposes contextual selection state and mixed select-all feedback');
+$check(str_contains($source['index'], 'layoutBulkAction.disabled = selected === 0')
+    && str_contains($source['index'], 'layoutBulkSubmit.disabled = selected === 0')
+    && str_contains($source['index'], "closest('.sc-layouts-table-row')"), 'layout bulk controls and row highlighting follow the removable selection');
 
 $check(str_contains($source['bulk'], "REQUEST_METHOD") && str_contains($source['bulk'], 'adiwira_csrf_validate($csrf)'), 'bulk layout deletion requires POST and CSRF');
 $check(strpos($source['bulk'], 'adiwira_safe_return_to') < strpos($source['bulk'], 'adiwira_csrf_validate'), 'bulk deletion sanitizes return_to before CSRF failures');
@@ -369,7 +380,7 @@ $check(str_contains($source['manager'], 'shortcode_layout_sync_directory'), 'ato
 $check(str_contains($source['delete'], 'shortcode_layout_delete_files($pdo, $layoutScope, [$fileName])'), 'single delete remains available through the shared hardened deletion path');
 $check(!str_contains($source['index'], 'window.alert(') && str_contains($source['index'], 'NewNotifToast') && str_contains($source['index'], 'aria-live="polite"'), 'layout bulk validation uses NewNotif toast with an accessible inline fallback');
 
-foreach (['Search layout file or name…', 'All layout types', 'All registration statuses', 'Built-in', 'Unregistered', 'Delete selected layouts', 'No layouts selected.'] as $translation) {
+foreach (['Search layout file or name…', 'All layout types', 'All registration statuses', 'Built-in', 'Unregistered', 'Delete selected layouts', 'No layouts selected.', 'Layout scope', 'Select all removable', 'Layout Selected', 'Layouts Selected', 'Built-in layouts stay protected and cannot be selected.'] as $translation) {
     $check(substr_count($source['translations'], "'" . $translation . "'") >= 2, 'translation seeds include ' . $translation);
 }
 

@@ -24,6 +24,17 @@ $check(str_contains($source['index'], '$presetPagingItems') && str_contains($sou
 $check(str_contains($source['index'], '$pageQuery = $presetQuery') && str_contains($source['index'], '$pageQuery[\'p\'] = $pageNumber'), 'numbered preset pagination preserves validated filters');
 $check(str_contains($source['index'], 'shortcode_preset_list_filters($_GET, $isAdmin)'), 'preset listing uses validated query filters');
 $check(str_contains($source['index'], 'shortcode_preset_list_spec($presetFilters, $uid, $role)'), 'preset listing applies role-aware ownership SQL');
+$check(str_contains($source['index'], 'class="sc-toolbar sc-presets-toolbar"')
+    && str_contains($source['index'], 'class="sc-filter-fields<?= $isAdmin ? \' has-owner\' : \'\' ?>"')
+    && str_contains($source['index'], '@media (max-width: 620px)'), 'preset toolbar separates responsive filters from its primary action');
+$check(str_contains($source['index'], 'id="preset-bulk-bar" data-active="false"')
+    && str_contains($source['index'], 'id="preset-selection-count"')
+    && str_contains($source['index'], 'updatePresetSelection()')
+    && str_contains($source['index'], 'presetSelectAll.indeterminate'), 'preset bulk bar exposes contextual selection state and mixed select-all feedback');
+$check(str_contains($source['index'], 'id="preset-bulk-action" class="inp" required')
+    && str_contains($source['index'], 'id="preset-bulk-submit" class="adam-button"')
+    && str_contains($source['index'], 'presetBulkAction.disabled = selected === 0')
+    && str_contains($source['index'], 'presetBulkSubmit.disabled = selected === 0'), 'preset bulk controls become contextual when JavaScript selection state is available');
 $check(str_contains($source['index'], "name=\"return_to\" value=\"<?= h(\$presetReturnTo)"), 'bulk and delete forms preserve the filtered return URL');
 $check(str_contains($source['edit'], "shortcode_preset_editor_fields") && str_contains($source['edit'], 'basePresetConfig'), 'editor hook and config roundtrip preserve plugin fields');
 $check(str_contains($source['edit'], 'shortcode_source_providers($sourceContext, $pdo)') && str_contains($source['edit'], 'name="filter_source"'), 'preset editor discovers source providers and exposes a source selector');
@@ -50,6 +61,7 @@ $check(str_contains($source['translations'], "'Adopt the currently registered pr
     && str_contains($source['translations'], "'This ownerless legacy preset will remain unavailable unless you explicitly adopt its current provider.'")
     && str_contains($source['translations'], "'Provider adoption could not be confirmed. Reload the preset and try again.'")
     && str_contains($source['translations'], "'Explicit provider adoption is required for this ownerless preset.'"), 'provider adoption UI and validation messages have translation seeds');
+$check(str_contains($source['translations'], "'Preset Selected'") && str_contains($source['translations'], "'Presets Selected'"), 'preset selection count has Indonesian and German translation seeds');
 $check(strpos($source['save'], 'shortcode_preset_normalize_source_transition(') < strpos($source['save'], 'shortcode_preset_apply_source_defaults($config, $context, $pdo)')
     && strpos($source['save'], 'shortcode_preset_apply_source_defaults($config, $context, $pdo)') < strpos($source['save'], "apply_filters('shortcode_preset_config_before_save'"), 'save normalizes source transitions before merging provider defaults, hooks, and validation');
 $check(str_contains($source['helper'], "apply_filters('shortcode_source_providers'") && str_contains($source['helper'], "'validate'"), 'source provider registry and validation callback contracts are present');

@@ -145,48 +145,59 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
   </div>
 
 <?php if ($tab === 'presets'): ?>
-  <div class="sc-toolbar">
+  <div class="sc-toolbar sc-presets-toolbar">
     <form method="get" class="sc-filter-form">
       <input type="hidden" name="page" value="admin/shortcodes/index">
       <input type="hidden" name="tab" value="presets">
-      <input type="search" name="q" value="<?= h($presetFilters['q']) ?>" placeholder="<?= h(__('Search preset title or slug…')) ?>" class="inpud">
-      <select name="status" class="inpud">
-        <option value=""><?=_e('All Status')?></option>
-        <option value="published" <?= $presetFilters['status'] === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
-        <option value="draft" <?= $presetFilters['status'] === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <option value="private" <?= $presetFilters['status'] === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
-      </select>
-      <?php if ($isAdmin): ?>
-        <select name="owner" class="inpud">
-          <option value=""><?=_e('All Owners')?></option>
-          <?php foreach ($presetOwners as $owner):
-            $ownerLabel = (string)($owner['name'] ?: ($owner['username'] ?: $owner['id']));
-          ?>
-            <option value="<?= (int)$owner['id'] ?>" <?= $presetFilters['owner'] === (int)$owner['id'] ? 'selected' : '' ?>><?= h($ownerLabel) ?></option>
-          <?php endforeach; ?>
+      <div class="sc-filter-fields<?= $isAdmin ? ' has-owner' : '' ?>">
+        <input type="search" name="q" value="<?= h($presetFilters['q']) ?>" placeholder="<?= h(__('Search preset title or slug…')) ?>" class="inp sc-search-control">
+        <select name="status" class="inp">
+          <option value=""><?=_e('All Status')?></option>
+          <option value="published" <?= $presetFilters['status'] === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
+          <option value="draft" <?= $presetFilters['status'] === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
+          <option value="private" <?= $presetFilters['status'] === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
         </select>
-      <?php endif; ?>
-      <button type="submit" class="adam-button"><?=_e('Apply')?></button>
-      <a class="adam-cancle" href="<?= h($base . '/?page=admin/shortcodes/index&tab=presets') ?>"><?=_e('Reset')?></a>
+        <?php if ($isAdmin): ?>
+          <select name="owner" class="inp">
+            <option value=""><?=_e('All Owners')?></option>
+            <?php foreach ($presetOwners as $owner):
+              $ownerLabel = (string)($owner['name'] ?: ($owner['username'] ?: $owner['id']));
+            ?>
+              <option value="<?= (int)$owner['id'] ?>" <?= $presetFilters['owner'] === (int)$owner['id'] ? 'selected' : '' ?>><?= h($ownerLabel) ?></option>
+            <?php endforeach; ?>
+          </select>
+        <?php endif; ?>
+      </div>
+      <div class="sc-filter-actions">
+        <button type="submit" class="adam-button"><?=_e('Apply')?></button>
+        <a class="adam-cancle" href="<?= h($base . '/?page=admin/shortcodes/index&tab=presets') ?>"><?=_e('Reset')?></a>
+      </div>
     </form>
-    <span style="flex:1"></span>
-    <a class="adam-button" href="<?= h($presetAddHref) ?>"><?=_e('+ Add Preset')?></a>
+    <a class="adam-button sc-toolbar-primary" href="<?= h($presetAddHref) ?>"><?=_e('+ Add Preset')?></a>
   </div>
 
   <form id="preset-bulk-form" method="post" action="<?= h($base . '/admin/shortcodes/bulk_action.php') ?>">
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="return_to" value="<?= h($presetReturnTo) ?>">
-    <div class="sc-bulk-bar">
-      <label><input type="checkbox" id="preset-select-all"> <?=_e('Select all on page')?></label>
-      <select name="action" class="inpud" required>
-        <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="publish"><?=_e('Publish')?></option>
-        <option value="draft"><?=_e('Set to draft')?></option>
-        <option value="private"><?=_e('Set to private')?></option>
-        <option value="delete"><?=_e('Move to trash')?></option>
-      </select>
-      <button type="submit" class="adam-button"><?=_e('Apply')?></button>
-      <small><?=_e('Bulk only affects checked items.')?></small>
+    <div class="sc-bulk-bar sc-presets-bulk" id="preset-bulk-bar" data-active="false">
+      <div class="sc-bulk-summary">
+        <label class="check-row"><input type="checkbox" id="preset-select-all"> <?=_e('Select all on page')?></label>
+        <span id="preset-selection-count" class="bulk-selection-count" role="status" aria-live="polite" hidden>
+          <span class="bsc-number">0</span>
+          <span class="bsc-label"><?=_e('Presets Selected')?></span>
+        </span>
+      </div>
+      <div class="sc-bulk-actions">
+        <select name="action" id="preset-bulk-action" class="inp" required>
+          <option value=""><?=_e('-- Bulk action --')?></option>
+          <option value="publish"><?=_e('Publish')?></option>
+          <option value="draft"><?=_e('Set to draft')?></option>
+          <option value="private"><?=_e('Set to private')?></option>
+          <option value="delete"><?=_e('Move to trash')?></option>
+        </select>
+        <button type="submit" id="preset-bulk-submit" class="adam-button"><?=_e('Apply')?></button>
+      </div>
+      <small class="sc-bulk-hint"><?=_e('Bulk only affects checked items.')?></small>
     </div>
   <div class="adam-table-wrapper">
     <table class="adam-table">
@@ -211,7 +222,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
               $stClass = in_array($st, ['published','draft','private'], true) ? $st : 'unknown';
               $editHref = $base . '/?' . http_build_query(['page' => 'admin/shortcodes/edit', 'id' => (int)$p['id'], 'return_to' => $presetReturnTo]);
             ?>
-            <tr class="adam-row">
+            <tr class="adam-row sc-presets-table-row">
               <td><input type="checkbox" class="preset-row-check" name="ids[]" value="<?= (int)$p['id'] ?>" aria-label="<?= h(sprintf(__('Select %s'), (string)($p['title'] ?? ''))) ?>"></td>
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h((string)($p['title'] ?? '-')) ?></a></td>
               <td><code><?= h((string)($p['slug'] ?? '-')) ?></code></td>
@@ -262,13 +273,14 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
   <?php if ($layoutManagerError !== ''): ?>
     <p role="alert" style="padding:.65rem .8rem;border:1px solid var(--adam-danger,#b42318);color:var(--adam-danger,#b42318);border-radius:6px;"><?= h($layoutManagerError) ?></p>
   <?php endif; ?>
-  <div class="sc-toolbar">
-    <a class="<?= $layoutScope === 'collection' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=collection') ?>"><?=_e('Collection Layouts')?></a>
-    <?php if ($isSiteOwner): ?>
-      <a class="<?= $layoutScope === 'section' ? 'adam-button' : 'adam-cancle' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=section') ?>"><?=_e('Theme Sections')?></a>
-    <?php endif; ?>
-    <span style="flex:1"></span>
-    <a class="adam-button" href="<?= h($layoutAddHref) ?>"><?= $layoutScope === 'section' ? __('+ Add Theme Section') : __('+ Add Layout') ?></a>
+  <div class="sc-toolbar sc-layouts-toolbar">
+    <nav class="sc-scope-switch" aria-label="<?= h(__('Layout scope')) ?>">
+      <a class="<?= $layoutScope === 'collection' ? 'is-active' : '' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=collection') ?>" <?= $layoutScope === 'collection' ? 'aria-current="page"' : '' ?>><?=_e('Collection Layouts')?></a>
+      <?php if ($isSiteOwner): ?>
+        <a class="<?= $layoutScope === 'section' ? 'is-active' : '' ?>" href="<?= h($base . '/?page=admin/shortcodes/index&tab=layouts&scope=section') ?>" <?= $layoutScope === 'section' ? 'aria-current="page"' : '' ?>><?=_e('Theme Sections')?></a>
+      <?php endif; ?>
+    </nav>
+    <a class="adam-button sc-toolbar-primary" href="<?= h($layoutAddHref) ?>"><?= $layoutScope === 'section' ? __('+ Add Theme Section') : __('+ Add Layout') ?></a>
   </div>
 
   <?php if ($layoutScope === 'section'): ?>
@@ -280,24 +292,28 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <?=_e('Layout removal moves files one at a time under an operation lock. After interruption, Core restores the group on the next manager operation when destinations are unchanged; conflicts stay retained for recovery and are logged.')?>
   </p>
 
-  <div class="sc-toolbar">
+  <div class="sc-toolbar sc-layouts-filter-toolbar">
     <form method="get" class="sc-filter-form">
       <input type="hidden" name="page" value="admin/shortcodes/index">
       <input type="hidden" name="tab" value="layouts">
       <input type="hidden" name="scope" value="<?= h($layoutScope) ?>">
-      <input type="search" name="q" value="<?= h($layoutFilters['q']) ?>" maxlength="120" placeholder="<?= h(__('Search layout file or name…')) ?>" class="inpud">
-      <select name="filter" class="inpud">
-        <option value=""><?= $layoutScope === 'section' ? __('All registration statuses') : __('All layout types') ?></option>
-        <?php if ($layoutScope === 'section'): ?>
-          <option value="registered" <?= $layoutFilters['filter'] === 'registered' ? 'selected' : '' ?>><?=_e('Registered')?></option>
-          <option value="unregistered" <?= $layoutFilters['filter'] === 'unregistered' ? 'selected' : '' ?>><?=_e('Unregistered')?></option>
-        <?php else: ?>
-          <option value="builtin" <?= $layoutFilters['filter'] === 'builtin' ? 'selected' : '' ?>><?=_e('Built-in')?></option>
-          <option value="custom" <?= $layoutFilters['filter'] === 'custom' ? 'selected' : '' ?>><?=_e('Custom')?></option>
-        <?php endif; ?>
-      </select>
-      <button type="submit" class="adam-button"><?=_e('Apply')?></button>
-      <a class="adam-cancle" href="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => $layoutScope])) ?>"><?=_e('Reset')?></a>
+      <div class="sc-layout-filter-fields">
+        <input type="search" name="q" value="<?= h($layoutFilters['q']) ?>" maxlength="120" placeholder="<?= h(__('Search layout file or name…')) ?>" class="inp sc-search-control">
+        <select name="filter" class="inp">
+          <option value=""><?= $layoutScope === 'section' ? __('All registration statuses') : __('All layout types') ?></option>
+          <?php if ($layoutScope === 'section'): ?>
+            <option value="registered" <?= $layoutFilters['filter'] === 'registered' ? 'selected' : '' ?>><?=_e('Registered')?></option>
+            <option value="unregistered" <?= $layoutFilters['filter'] === 'unregistered' ? 'selected' : '' ?>><?=_e('Unregistered')?></option>
+          <?php else: ?>
+            <option value="builtin" <?= $layoutFilters['filter'] === 'builtin' ? 'selected' : '' ?>><?=_e('Built-in')?></option>
+            <option value="custom" <?= $layoutFilters['filter'] === 'custom' ? 'selected' : '' ?>><?=_e('Custom')?></option>
+          <?php endif; ?>
+        </select>
+      </div>
+      <div class="sc-filter-actions">
+        <button type="submit" class="adam-button"><?=_e('Apply')?></button>
+        <a class="adam-cancle" href="<?= h($base . '/?' . http_build_query(['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => $layoutScope])) ?>"><?=_e('Reset')?></a>
+      </div>
     </form>
   </div>
 
@@ -305,14 +321,22 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <input type="hidden" name="csrf_token" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="scope" value="<?= h($layoutScope) ?>">
     <input type="hidden" name="return_to" value="<?= h($layoutReturnTo) ?>">
-    <div class="sc-bulk-bar">
-      <label><input type="checkbox" id="layout-select-all"> <?=_e('Select all on page')?></label>
-      <select name="action" class="inpud" required>
-        <option value=""><?=_e('-- Bulk action --')?></option>
-        <option value="delete"><?=_e('Remove to quarantine')?></option>
-      </select>
-      <button type="submit" class="adam-button"><?=_e('Apply')?></button>
-      <small><?=_e('Bulk only affects checked items.')?></small>
+    <div class="sc-bulk-bar sc-layouts-bulk" id="layout-bulk-bar" data-active="false">
+      <div class="sc-bulk-summary">
+        <label class="check-row"><input type="checkbox" id="layout-select-all"> <?=_e('Select all removable')?></label>
+        <span id="layout-selection-count" class="bulk-selection-count" role="status" aria-live="polite" hidden>
+          <span class="bsc-number">0</span>
+          <span class="bsc-label"><?=_e('Layouts Selected')?></span>
+        </span>
+      </div>
+      <div class="sc-bulk-actions">
+        <select name="action" id="layout-bulk-action" class="inp" required>
+          <option value=""><?=_e('-- Bulk action --')?></option>
+          <option value="delete"><?=_e('Remove to quarantine')?></option>
+        </select>
+        <button type="submit" id="layout-bulk-submit" class="adam-button"><?=_e('Apply')?></button>
+      </div>
+      <small class="sc-bulk-hint"><?= $layoutScope === 'collection' ? __('Built-in layouts stay protected and cannot be selected.') : __('Bulk only affects checked items.') ?></small>
     </div>
   <div class="adam-table-wrapper">
     <table class="adam-table">
@@ -346,7 +370,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
               'return_to' => $layoutReturnTo,
             ]);
           ?>
-            <tr class="adam-row">
+            <tr class="adam-row sc-layouts-table-row">
               <td>
                 <?php if ($canDelete): ?>
                   <input type="checkbox" class="layout-row-check" name="files[]" value="<?= h($f) ?>" aria-label="<?= h(sprintf(__('Select %s'), $layoutName)) ?>">
@@ -408,6 +432,92 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
 .sc-toolbar,.sc-filter-form,.sc-bulk-bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .sc-toolbar{ margin-bottom:1rem; }
 .sc-bulk-bar{ margin-bottom:.65rem; }
+.sc-presets-toolbar{
+  align-items:stretch;
+  background:var(--adam-surface-3, rgba(127,127,127,.06));
+  border:1px solid var(--adam-border-soft, rgba(127,127,127,.2));
+  border-radius:10px;
+  display:grid;
+  gap:.75rem;
+  grid-template-columns:minmax(0, 1fr) auto;
+  padding:.8rem;
+}
+.sc-presets-toolbar .sc-filter-form{ align-items:stretch; min-width:0; }
+.sc-filter-fields{ display:grid; flex:1 1 32rem; gap:.6rem; grid-template-columns:minmax(14rem, 2fr) minmax(9rem, 1fr); min-width:0; }
+.sc-filter-fields.has-owner{ grid-template-columns:minmax(14rem, 2fr) minmax(9rem, .8fr) minmax(10rem, 1fr); }
+.sc-filter-fields .inp{ margin:0; min-height:2.55rem; min-width:0; width:100%; }
+.sc-filter-actions{ align-items:center; display:flex; gap:.5rem; }
+.sc-filter-actions .adam-button,.sc-filter-actions .adam-cancle,.sc-toolbar-primary{ align-items:center; display:inline-flex; justify-content:center; min-height:2.55rem; white-space:nowrap; }
+.sc-presets-bulk{
+  background:var(--adam-surface-3, rgba(127,127,127,.06));
+  border:1px solid var(--adam-border-soft, rgba(127,127,127,.2));
+  border-radius:10px;
+  display:grid;
+  gap:.65rem 1rem;
+  grid-template-columns:minmax(14rem, 1fr) auto;
+  margin-bottom:.85rem;
+  padding:.7rem .8rem;
+  transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.sc-presets-bulk[data-active="true"]{ background:var(--adam-primary-soft, rgba(67,97,238,.08)); border-color:var(--adam-primary, #4361ee); box-shadow:0 0 0 2px var(--adam-focus, rgba(67,97,238,.12)); }
+.sc-bulk-summary,.sc-bulk-actions{ align-items:center; display:flex; gap:.65rem; min-width:0; }
+.sc-presets-bulk .bulk-selection-count{ margin-left:0; }
+.sc-bulk-actions .inp{ margin:0; min-height:2.45rem; min-width:12rem; width:auto; }
+.sc-bulk-actions .adam-button{ min-height:2.45rem; }
+.sc-bulk-actions :disabled{ cursor:not-allowed; opacity:.48; }
+.sc-bulk-hint{ color:var(--adam-muted, #777); grid-column:1 / -1; }
+.sc-presets-table-row.is-selected td,.sc-layouts-table-row.is-selected td{ background:var(--adam-primary-soft, rgba(67,97,238,.08)); }
+.sc-layouts-toolbar{
+  align-items:center;
+  background:var(--adam-surface-3, rgba(127,127,127,.06));
+  border:1px solid var(--adam-border-soft, rgba(127,127,127,.2));
+  border-radius:10px;
+  display:flex;
+  justify-content:space-between;
+  padding:.65rem .75rem;
+}
+.sc-scope-switch{ background:var(--adam-card, #fff); border:1px solid var(--adam-border-soft, rgba(127,127,127,.2)); border-radius:8px; display:inline-flex; padding:3px; }
+.sc-scope-switch a{ border-radius:6px; color:var(--adam-muted, #666); font-size:.86rem; font-weight:700; padding:.48rem .8rem; text-decoration:none; transition:background .15s ease, color .15s ease, box-shadow .15s ease; }
+.sc-scope-switch a:hover{ color:var(--adam-text, #222); }
+.sc-scope-switch a.is-active{ background:var(--adam-primary, #4361ee); box-shadow:0 2px 7px var(--adam-primary-soft, rgba(67,97,238,.2)); color:#fff; }
+.sc-layouts-filter-toolbar{ background:var(--adam-surface-3, rgba(127,127,127,.06)); border:1px solid var(--adam-border-soft, rgba(127,127,127,.2)); border-radius:10px; padding:.75rem; }
+.sc-layouts-filter-toolbar .sc-filter-form{ align-items:stretch; flex:1; }
+.sc-layout-filter-fields{ display:grid; flex:1; gap:.6rem; grid-template-columns:minmax(14rem, 2fr) minmax(10rem, 1fr); min-width:0; }
+.sc-layout-filter-fields .inp{ margin:0; min-height:2.55rem; min-width:0; width:100%; }
+.sc-layouts-bulk{
+  background:var(--adam-surface-3, rgba(127,127,127,.06));
+  border:1px solid var(--adam-border-soft, rgba(127,127,127,.2));
+  border-radius:10px;
+  display:grid;
+  gap:.65rem 1rem;
+  grid-template-columns:minmax(14rem, 1fr) auto;
+  margin-bottom:.85rem;
+  padding:.7rem .8rem;
+  transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.sc-layouts-bulk[data-active="true"]{ background:var(--adam-primary-soft, rgba(67,97,238,.08)); border-color:var(--adam-primary, #4361ee); box-shadow:0 0 0 2px var(--adam-focus, rgba(67,97,238,.12)); }
+.sc-layouts-bulk .bulk-selection-count{ margin-left:0; }
+@media (max-width: 900px){
+  .sc-presets-toolbar{ grid-template-columns:1fr; }
+  .sc-toolbar-primary{ width:100%; }
+  .sc-filter-fields,.sc-filter-fields.has-owner{ grid-template-columns:minmax(0, 1fr) minmax(9rem, .55fr); }
+  .sc-filter-fields select[name="owner"]{ grid-column:1 / -1; }
+  .sc-layout-filter-fields{ grid-template-columns:minmax(0, 1fr) minmax(10rem, .6fr); }
+}
+@media (max-width: 620px){
+  .sc-filter-fields,.sc-filter-fields.has-owner{ grid-template-columns:1fr; }
+  .sc-filter-fields select[name="owner"]{ grid-column:auto; }
+  .sc-filter-actions,.sc-bulk-actions{ display:grid; grid-template-columns:1fr 1fr; width:100%; }
+  .sc-filter-actions .adam-button,.sc-filter-actions .adam-cancle,.sc-bulk-actions .inp,.sc-bulk-actions .adam-button{ width:100%; }
+  .sc-presets-bulk{ grid-template-columns:1fr; }
+  .sc-bulk-summary{ align-items:flex-start; flex-direction:column; }
+  .sc-bulk-hint{ grid-column:auto; }
+  .sc-layouts-toolbar{ align-items:stretch; flex-direction:column; }
+  .sc-scope-switch{ display:grid; grid-template-columns:1fr 1fr; width:100%; }
+  .sc-scope-switch a{ text-align:center; }
+  .sc-layout-filter-fields{ grid-template-columns:1fr; width:100%; }
+  .sc-layouts-bulk{ grid-template-columns:1fr; }
+}
 </style>
 
 <div class="sc-help" style="margin-top:2rem;padding:1.2rem;background:var(--adam-surface-3);border-radius:var(--adam-radius,8px);border:1px solid var(--adam-border-soft);font-size:.9rem;color:var(--adam-text);line-height:1.6;">
@@ -474,15 +584,41 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
 (function(){
   var presetSelectAll = document.getElementById('preset-select-all');
   var presetChecks = Array.prototype.slice.call(document.querySelectorAll('.preset-row-check'));
+  var presetBulkBar = document.getElementById('preset-bulk-bar');
+  var presetBulkAction = document.getElementById('preset-bulk-action');
+  var presetBulkSubmit = document.getElementById('preset-bulk-submit');
+  var presetSelectionCount = document.getElementById('preset-selection-count');
+  function updatePresetSelection(){
+    var selected = presetChecks.filter(function(check){ return check.checked; }).length;
+    if (presetSelectAll) {
+      presetSelectAll.checked = presetChecks.length > 0 && selected === presetChecks.length;
+      presetSelectAll.indeterminate = selected > 0 && selected < presetChecks.length;
+      presetSelectAll.disabled = presetChecks.length === 0;
+    }
+    if (presetBulkBar) presetBulkBar.setAttribute('data-active', selected > 0 ? 'true' : 'false');
+    if (presetBulkAction) presetBulkAction.disabled = selected === 0;
+    if (presetBulkSubmit) presetBulkSubmit.disabled = selected === 0;
+    if (presetSelectionCount) {
+      var number = presetSelectionCount.querySelector('.bsc-number');
+      var label = presetSelectionCount.querySelector('.bsc-label');
+      if (number) number.textContent = String(selected);
+      if (label) label.textContent = selected === 1 ? <?= json_encode(__('Preset Selected')) ?> : <?= json_encode(__('Presets Selected')) ?>;
+      presetSelectionCount.hidden = selected === 0;
+    }
+    presetChecks.forEach(function(check){
+      var row = check.closest('.sc-presets-table-row');
+      if (row) row.classList.toggle('is-selected', check.checked);
+    });
+  }
   if (presetSelectAll) {
     presetSelectAll.addEventListener('change', function(){
       presetChecks.forEach(function(check){ check.checked = presetSelectAll.checked; });
+      updatePresetSelection();
     });
     presetChecks.forEach(function(check){
-      check.addEventListener('change', function(){
-        presetSelectAll.checked = presetChecks.length > 0 && presetChecks.every(function(item){ return item.checked; });
-      });
+      check.addEventListener('change', updatePresetSelection);
     });
+    updatePresetSelection();
   }
 
   function ask(variant, opts) {
@@ -497,15 +633,41 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
 
   var layoutSelectAll = document.getElementById('layout-select-all');
   var layoutChecks = Array.prototype.slice.call(document.querySelectorAll('.layout-row-check'));
+  var layoutBulkBar = document.getElementById('layout-bulk-bar');
+  var layoutBulkAction = document.getElementById('layout-bulk-action');
+  var layoutBulkSubmit = document.getElementById('layout-bulk-submit');
+  var layoutSelectionCount = document.getElementById('layout-selection-count');
+  function updateLayoutSelection(){
+    var selected = layoutChecks.filter(function(check){ return check.checked; }).length;
+    if (layoutSelectAll) {
+      layoutSelectAll.checked = layoutChecks.length > 0 && selected === layoutChecks.length;
+      layoutSelectAll.indeterminate = selected > 0 && selected < layoutChecks.length;
+      layoutSelectAll.disabled = layoutChecks.length === 0;
+    }
+    if (layoutBulkBar) layoutBulkBar.setAttribute('data-active', selected > 0 ? 'true' : 'false');
+    if (layoutBulkAction) layoutBulkAction.disabled = selected === 0;
+    if (layoutBulkSubmit) layoutBulkSubmit.disabled = selected === 0;
+    if (layoutSelectionCount) {
+      var number = layoutSelectionCount.querySelector('.bsc-number');
+      var label = layoutSelectionCount.querySelector('.bsc-label');
+      if (number) number.textContent = String(selected);
+      if (label) label.textContent = selected === 1 ? <?= json_encode(__('Layout Selected')) ?> : <?= json_encode(__('Layouts Selected')) ?>;
+      layoutSelectionCount.hidden = selected === 0;
+    }
+    layoutChecks.forEach(function(check){
+      var row = check.closest('.sc-layouts-table-row');
+      if (row) row.classList.toggle('is-selected', check.checked);
+    });
+  }
   if (layoutSelectAll) {
     layoutSelectAll.addEventListener('change', function(){
       layoutChecks.forEach(function(check){ check.checked = layoutSelectAll.checked; });
+      updateLayoutSelection();
     });
     layoutChecks.forEach(function(check){
-      check.addEventListener('change', function(){
-        layoutSelectAll.checked = layoutChecks.length > 0 && layoutChecks.every(function(item){ return item.checked; });
-      });
+      check.addEventListener('change', updateLayoutSelection);
     });
+    updateLayoutSelection();
   }
 
   var layoutBulkForm = document.getElementById('layout-bulk-form');

@@ -4133,6 +4133,10 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Select %s', '%s auswählen', 'de'),
 ('default', 'No presets selected.', 'Tidak ada preset yang dipilih.', 'id'),
 ('default', 'No presets selected.', 'Keine Presets ausgewählt.', 'de'),
+('default', 'Preset Selected', 'Preset Dipilih', 'id'),
+('default', 'Preset Selected', 'Preset ausgewählt', 'de'),
+('default', 'Presets Selected', 'Preset Dipilih', 'id'),
+('default', 'Presets Selected', 'Presets ausgewählt', 'de'),
 ('default', '%d preset(s) moved to trash.', '%d preset dipindahkan ke trash.', 'id'),
 ('default', '%d preset(s) moved to trash.', '%d Preset(s) in den Papierkorb verschoben.', 'de'),
 ('default', '%d preset(s) updated.', '%d preset diperbarui.', 'id'),
@@ -5599,3 +5603,16 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Visit the official Jyavani website', 'Offizielle Jyavani-Website besuchen', 'de'),
 ('default', 'View this version on GitHub', 'Lihat versi ini di GitHub', 'id'),
 ('default', 'View this version on GitHub', 'Diese Version auf GitHub ansehen', 'de');
+
+-- Shortcode layout dashboard selection UI
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Layout scope', 'Cakupan layout', 'id'),
+('default', 'Layout scope', 'Layout-Bereich', 'de'),
+('default', 'Select all removable', 'Pilih semua yang dapat dihapus', 'id'),
+('default', 'Select all removable', 'Alle entfernbaren auswählen', 'de'),
+('default', 'Layout Selected', 'Layout Dipilih', 'id'),
+('default', 'Layout Selected', 'Layout ausgewählt', 'de'),
+('default', 'Layouts Selected', 'Layout Dipilih', 'id'),
+('default', 'Layouts Selected', 'Layouts ausgewählt', 'de'),
+('default', 'Built-in layouts stay protected and cannot be selected.', 'Layout bawaan tetap terlindungi dan tidak dapat dipilih.', 'id'),
+('default', 'Built-in layouts stay protected and cannot be selected.', 'Integrierte Layouts bleiben geschützt und können nicht ausgewählt werden.', 'de');
