@@ -13,6 +13,11 @@ require_once __DIR__ . '/../../admin/_notify.php';
 
 $themePath = __DIR__;
 $dashboard_toasts = function_exists('adiwira_flash_pull') ? adiwira_flash_pull() : [];
+$dashboardPage = trim((string)($_GET['page'] ?? 'home'), '/');
+if ($dashboardPage === '') $dashboardPage = 'home';
+$detailsUserId = is_array($user ?? null) ? (int)($user['id'] ?? 0) : 0;
+$adminDetailsContext = admin_details_context($pdo, $dashboardPage, $detailsUserId);
+$adminDetailsVisible = admin_details_visible($pdo, $adminDetailsContext);
 
 // server-side theme: read cookie so browser never flashes dark during nav
 $adamTheme = '';
@@ -87,7 +92,6 @@ if ($faviconUrl !== ''): ?>
   $cssVer = is_file($cssFile) ? filemtime($cssFile) : '';
 ?><link rel="stylesheet" href="/static/dashboard/css/style.css?v=<?= $cssVer ?>">
 <?php
-  $dashboardPage = trim((string)($_GET['page'] ?? ''), '/');
   if ($dashboardPage === 'admin/update/index'):
       $updateCssFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/css/update.css' : '';
       $updateCssVer = is_file($updateCssFile) ? filemtime($updateCssFile) : '';
@@ -131,7 +135,7 @@ foreach ($pa['css'] ?? [] as $css_url) {
 ?>
 </head>
 
-<body id="adam-body" class="adam-body ad-body">
+<body id="adam-body" class="adam-body ad-body<?= $adminDetailsVisible ? '' : ' details-panel-disabled' ?>">
   <div id="adam-app" class="adam-app">
 
     <?php require_once $themePath . '/part/header.php'; ?>

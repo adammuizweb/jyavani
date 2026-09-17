@@ -574,6 +574,10 @@ select:focus{
   transition: grid-template-columns var(--transition-standard);
 }
 
+body.details-panel-disabled{
+  --current-panel-w:0px;
+}
+
 body.aside-collapsed{
   --current-aside-w: var(--aside-collapsed-width);
 }
@@ -582,6 +586,10 @@ body.aside-collapsed{
 @media (min-width: 901px){
   body:not(.panel-expanded){
     --current-panel-w: 0px;
+  }
+  body:not(.panel-expanded) .adam-layout,
+  body.details-panel-disabled .adam-layout{
+    grid-template-columns:var(--current-aside-w) minmax(0, 1fr);
   }
   body:not(.panel-expanded) .adam-panel{
     display:none;
@@ -824,6 +832,8 @@ html.theme-dark .adam-nav-item + .adam-nav-item{
   display:none;
   height:100%;
   min-height:0;
+  min-width:0;
+  overflow:auto;
   opacity:0;
   transition: opacity .2s ease-in;
 }
@@ -852,6 +862,35 @@ body.panel-expanded .adam-panel-body{
 body.panel-expanded .adam-panel-resizer{ display:block; }
 body.panel-expanded .adam-panel-resizer:hover,
 body.is-resizing .adam-panel-resizer{ background: rgba(0,123,255,0.5); }
+.adam-panel-resizer:focus-visible{
+  background:var(--adam-primary);
+  outline:2px solid var(--adam-primary);
+  outline-offset:1px;
+}
+
+.admin-details-preview{
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-height:0;
+}
+.admin-details-preview h3{
+  margin:0 0 12px;
+  padding:0 12px;
+}
+.admin-details-preview iframe{
+  width:calc(100% - 24px);
+  min-height:320px;
+  flex:1 1 auto;
+  border:1px solid var(--adam-border);
+  box-sizing:border-box;
+  margin:0 12px;
+  background:#fff;
+}
+.admin-details-close,
+.admin-details-focus-sentinel{
+  display:none;
+}
 
 body.is-resizing{ cursor: col-resize; user-select:none; }
 
@@ -3006,6 +3045,37 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
   }
 
   .adam-panel-body{ display:block; opacity:1; }
+
+  .admin-details-close{
+    display:inline-flex;
+    position:absolute;
+    top:8px;
+    right:10px;
+    z-index:2;
+    width:34px;
+    height:34px;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--adam-border);
+    border-radius:999px;
+    background:var(--adam-card);
+    color:var(--adam-text-1);
+    font-size:1.35rem;
+    cursor:pointer;
+  }
+  .admin-details-close + .adam-panel-body{
+    box-sizing:border-box;
+    padding-top:38px;
+  }
+  .admin-details-focus-sentinel{
+    display:block;
+    position:absolute;
+    width:1px;
+    height:1px;
+    overflow:hidden;
+    opacity:0;
+    pointer-events:none;
+  }
 
   body.panel-mobile-open .adam-panel{
     display:block;

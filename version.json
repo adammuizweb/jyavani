@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.132",
-    "build": "2026-09-16",
-    "changelog": "Correct the default Jyavani wordmark and lock Core update and reinstall URLs to the official endpoint.",
+    "version": "2.3.133",
+    "build": "2026-09-17",
+    "changelog": "Improve dashboard consistency and provide a stable, accessible Details Panel extension contract for plugins.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.132"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.133"
 }

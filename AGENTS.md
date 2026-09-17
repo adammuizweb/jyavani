@@ -77,6 +77,33 @@ All controllers are in `app/controllers/`, all are static methods.
 - `FRONTEND_404_PATH` constant — resolves to `app/frontend_404.php` for all admin 404s
 - Static assets at `/static/dashboard/` + `/static/` (absolute paths, no `$base_url` prefix)
 
+### Details panel extension contract
+
+The resizable right-side dashboard panel is a stable extension surface. Plugins must register its hooks from their normal bootstrap entrypoint, not from a page template. Panel hooks run only after dashboard identity and `core.dashboard.access` checks; they do not grant access to a page or resource.
+
+`admin_details_context` filters the schema-1 context before any other panel hook. It may append extension-owned keys, but Core restores these protected keys after filtering: `schema`, `page`, `page_valid`, `mode`, `entity_id`, `user_id`, `request_method`, `admin_base_path`, `is_plugin_page`, `plugin`, and `plugin_title`. The filter receives `($context, $pdo)`.
+
+Other extension points:
+
+- `admin_details_visible` filters a strict boolean and receives `($visible, $context, $pdo)`. Returning `false` removes the panel, toggle, and layout column for that request.
+- `admin_details_core_content` filters the complete Core HTML string and receives `($html, $context, $pdo)`. Return `''` to suppress only Core content.
+- `admin_details_before($context, $pdo)` renders before Core content.
+- `admin_details($context, $pdo)` is the backward-compatible primary content action after Core content.
+- `admin_details_after($context, $pdo)` renders after the primary action.
+
+Context and visibility filters run before page dispatch so the header can omit disabled panel chrome; they must not emit resource data. Render actions run after successful page dispatch. Panel filters and actions isolate listener exceptions, discard partial output from failed render listeners, log failures, and continue with remaining listeners. Plugins remain responsible for authorization checks and escaping their own output. Example:
+
+```php
+add_filter('admin_details_core_content', function (string $html, array $context, PDO $pdo): string {
+    return $context['page'] === 'plugin/example/report' ? '' : $html;
+}, 10);
+
+add_action('admin_details', function (array $context, PDO $pdo): void {
+    if ($context['page'] !== 'plugin/example/report') return;
+    echo '<section class="example-details"><h3>' . h(__('Report details')) . '</h3></section>';
+});
+```
+
 ## Auth & Session (`cfg/session.php`)
 
 - `is_logged_in()` — checks `$_SESSION['user_id']` + fingerprint (UA hash)

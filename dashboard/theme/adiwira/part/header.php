@@ -55,10 +55,12 @@ if (!defined('ADAM_THEME')) {
 </div>
 <?php endif; ?>
 
-<button id="adam-panel-toggle" class="adam-button" type="button"
-        aria-controls="adam-panel" aria-expanded="true" title="<?=_e('Show/hide panel')?>">
-  <?=_e('Panel')?>
-</button>
+<?php if (($adminDetailsVisible ?? true) === true): ?>
+  <button id="adam-panel-toggle" class="adam-button" type="button"
+          aria-controls="adam-panel" aria-expanded="false" title="<?=_e('Show/hide panel')?>">
+    <?=_e('Panel')?>
+  </button>
+<?php endif; ?>
     </div>
 
   </div>

@@ -5670,3 +5670,16 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Maximum failed login attempts must be a whole number between 1 and 100.', 'Die maximale Anzahl fehlgeschlagener Anmeldeversuche muss eine ganze Zahl zwischen 1 und 100 sein.', 'de'),
 ('default', 'Block duration must be a whole number between 1 and 1440 minutes.', 'Durasi blokir harus berupa bilangan bulat antara 1 dan 1440 menit.', 'id'),
 ('default', 'Block duration must be a whole number between 1 and 1440 minutes.', 'Die Sperrdauer muss eine ganze Zahl zwischen 1 und 1440 Minuten sein.', 'de');
+
+-- Dashboard details panel extension contract
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Details panel', 'Panel detail', 'id'),
+('default', 'Details panel', 'Detailbereich', 'de'),
+('default', 'Resize details panel', 'Ubah ukuran panel detail', 'id'),
+('default', 'Resize details panel', 'Größe des Detailbereichs ändern', 'de'),
+('default', 'Close details panel', 'Tutup panel detail', 'id'),
+('default', 'Close details panel', 'Detailbereich schließen', 'de'),
+('default', 'Live Theme Preview', 'Pratinjau Tema Langsung', 'id'),
+('default', 'Live Theme Preview', 'Live-Themenvorschau', 'de'),
+('default', 'Live Theme Preview (ID: %d)', 'Pratinjau Tema Langsung (ID: %d)', 'id'),
+('default', 'Live Theme Preview (ID: %d)', 'Live-Themenvorschau (ID: %d)', 'de');

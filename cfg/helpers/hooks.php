@@ -63,6 +63,40 @@ function do_action_isolated(string $name, mixed ...$args): array {
     return $errors;
 }
 
+/** Run action listeners independently and retain output only from successful listeners. */
+function do_action_isolated_output(string $name, mixed ...$args): array {
+    $errors = [];
+    $output = '';
+    foreach (array_merge([$name], _hook_legacy_aliases($name)) as $hookName) {
+        $hooks = $GLOBALS['_hooks']['actions'][$hookName] ?? [];
+        ksort($hooks);
+        foreach ($hooks as $priority => $listeners) {
+            foreach ($listeners as $index => $listener) {
+                $level = ob_get_level();
+                // The outer quarantine retains flushed listener output until success.
+                ob_start();
+                ob_start();
+                try {
+                    call_user_func($listener, ...$args);
+                    while (ob_get_level() > $level + 1) ob_end_flush();
+                    $output .= (string)ob_get_clean();
+                } catch (Throwable $error) {
+                    while (ob_get_level() > $level) ob_end_clean();
+                    $errors[] = [
+                        'hook' => $hookName,
+                        'priority' => (int)$priority,
+                        'listener' => (int)$index,
+                        'exception' => get_class($error),
+                        'message' => $error->getMessage(),
+                        'code' => $error->getCode(),
+                    ];
+                }
+            }
+        }
+    }
+    return ['output' => $output, 'errors' => $errors];
+}
+
 function add_filter(string $name, callable $callback, int $priority = 10): void {
     $GLOBALS['_hooks']['filters'][$name][$priority][] = $callback;
 }
@@ -76,6 +110,34 @@ function apply_filters(string $name, mixed $value, mixed ...$args): mixed {
         }
     }
     return $value;
+}
+
+/** Run every filter listener independently, retaining the last valid pipeline value. */
+function apply_filters_isolated(string $name, mixed $value, callable $validator, mixed ...$args): array {
+    $errors = [];
+    $hooks = $GLOBALS['_hooks']['filters'][$name] ?? [];
+    ksort($hooks);
+    foreach ($hooks as $priority => $listeners) {
+        foreach ($listeners as $index => $listener) {
+            try {
+                $candidate = call_user_func($listener, $value, ...$args);
+                if (!$validator($candidate)) {
+                    throw new UnexpectedValueException('Filter returned a value outside its contract.');
+                }
+                $value = $candidate;
+            } catch (Throwable $error) {
+                $errors[] = [
+                    'hook' => $name,
+                    'priority' => (int)$priority,
+                    'listener' => (int)$index,
+                    'exception' => get_class($error),
+                    'message' => $error->getMessage(),
+                    'code' => $error->getCode(),
+                ];
+            }
+        }
+    }
+    return ['value' => $value, 'errors' => $errors];
 }
 
 function remove_action(string $name, callable $callback, int $priority = 10): void {

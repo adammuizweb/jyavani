@@ -1,86 +1,82 @@
 <?php
-// /adiwira/theme/adiwira/part/details.php
+declare(strict_types=1);
+
 if (!defined('ADAM_THEME')) {
     http_response_code(403);
     exit('Forbidden');
 }
 
-$requested = (string)($_GET['page'] ?? 'home');
-$requested = trim($requested, "/ \t\n\r\0\x0B");
+$detailsContext = is_array($adminDetailsContext ?? null)
+    ? $adminDetailsContext
+    : admin_details_context($pdo, (string)($_GET['page'] ?? 'home'), is_array($user ?? null) ? (int)($user['id'] ?? 0) : 0);
+$detailsVisible = isset($adminDetailsVisible)
+    ? $adminDetailsVisible === true
+    : admin_details_visible($pdo, $detailsContext);
+if (!$detailsVisible) return;
+
+$requested = (string)$detailsContext['page'];
+$themeId = (int)$detailsContext['entity_id'];
+$isThemeEditor = $detailsContext['mode'] === 'theme_preview';
+
+ob_start();
+if ($isThemeEditor):
 ?>
-
-<aside id="adam-panel" class="adam-panel" role="complementary">
-    
-    <div id="adam-panel-resizer" class="adam-panel-resizer"></div>
-
-    <div class="adam-panel-body">
-        <?php 
-        // Ambil ID tema dari URL utama
-        $theme_id = (int)($_GET['id'] ?? 0);
-        $is_theme_editor = ($requested === 'admin/themes/edit' && $theme_id > 0);
-        ?>
-
-        <?php if ($is_theme_editor): ?>
-            
-            <div style="
-                display: flex; 
-                flex-direction: column; 
-                height: 100%; /* PENTING: Mengambil 100% tinggi dari parent .adam-panel-body */
-                /* Hapus padding dari .adam-panel-body jika ada konflik, dan tambahkan di sini jika perlu */
-            ">
-                <h3 style="margin-top:0; margin-bottom: 12px; padding: 0 12px;">Live Theme Preview (ID: <?= $theme_id ?>)</h3>
-<iframe 
-  id="theme-live-preview"
-  src="<?= ADMIN_BASE_PATH ?>/live.php?id=<?= $theme_id ?>" 
-  sandbox="allow-same-origin allow-scripts allow-forms"
-  style="width:100%; flex-grow:1; border:1px solid #ddd; margin: 0 12px;"
-  frameborder="0"
-></iframe>
-            </div>
-
+  <div class="admin-details-preview">
+    <h3><?= h(sprintf(__('Live Theme Preview (ID: %d)'), $themeId)) ?></h3>
+    <iframe
+      id="theme-live-preview"
+      src="<?= h((string)$detailsContext['admin_base_path'] . '/live.php?id=' . $themeId) ?>"
+      title="<?= h(__('Live Theme Preview')) ?>"
+      sandbox="allow-same-origin allow-scripts allow-forms"
+    ></iframe>
+  </div>
 <?php else: ?>
+  <?php if (str_starts_with($requested, 'admin/posts')): ?>
+    <h3><?=_e('Posts')?></h3>
+    <p>
+      <?=_e('Posts are used to publish dynamic articles such as news, activities, agendas, announcements, and other informative content.')?>
+      <?=_e('All posts are sorted by date, can be categorized, and can be published or saved as drafts.')?>
+    </p>
+  <?php elseif (str_starts_with($requested, 'admin/pages')): ?>
+    <h3><?=_e('Pages')?></h3>
+    <p>
+      <?=_e('Pages are used to create static pages such as Profile, Vision & Mission, About Us, and Contact Page.')?>
+      <?=_e('Unlike posts, pages are not date-based and are typically used for permanent or rarely changed content.')?>
+    </p>
+  <?php elseif (str_starts_with($requested, 'admin/categories')): ?>
+    <h3><?=_e('Categories')?></h3>
+    <p>
+      <?=_e('Categories are used to create labels or topic groups that can be used to organize and filter articles or programs.')?>
+      <?=_e('Categories help visitors find relevant content according to their interests.')?>
+    </p>
+  <?php elseif (str_starts_with($requested, 'admin/themes')): ?>
+    <h3><?=_e('Themes')?></h3>
+    <p>
+      <?=_e('Themes are used to create or edit theme partials using HTML, CSS, and JavaScript.')?>
+      <?=_e('This menu is intended for users who understand frontend basics to design the website appearance as needed.')?>
+    </p>
+  <?php elseif ($requested === 'home'): ?>
+    <h3><?=_e('Information')?></h3>
+    <p><?=_e('Welcome to the control panel. Select a menu on the side to start managing content.')?></p>
+  <?php endif; ?>
 
-    <?php if (strpos($requested, 'admin/posts') === 0): ?>
-        <h3><?=_e('Posts')?></h3>
-        <p>
-            <?=_e('Posts are used to publish dynamic articles such as news, activities, agendas, announcements, and other informative content.')?>
-            <?=_e('All posts are sorted by date, can be categorized, and can be published or saved as drafts.')?>
-        </p>
-
-    <?php elseif (strpos($requested, 'admin/pages') === 0): ?>
-        <h3><?=_e('Pages')?></h3>
-        <p>
-            <?=_e('Pages are used to create static pages such as Profile, Vision & Mission, About Us, and Contact Page.')?>
-            <?=_e('Unlike posts, pages are not date-based and are typically used for permanent or rarely changed content.')?>
-        </p>
-
-    <?php elseif (strpos($requested, 'admin/categories') === 0): ?>
-        <h3><?=_e('Categories')?></h3>
-        <p>
-            <?=_e('Categories are used to create labels or topic groups that can be used to organize and filter articles or programs.')?>
-            <?=_e('Categories help visitors find relevant content according to their interests.')?>
-        </p>
-
-    <?php elseif (strpos($requested, 'admin/themes') === 0): ?>
-        <h3><?=_e('Themes')?></h3>
-        <p>
-            <?=_e('Themes are used to create or edit theme partials using HTML, CSS, and JavaScript.')?>
-            <?=_e('This menu is intended for users who understand frontend basics to design the website appearance as needed.')?>
-        </p>
-
-    <?php elseif ($requested === 'home'): ?>
-        <h3><?=_e('Information')?></h3>
-        <p><?=_e('Welcome to the control panel. Select a menu on the side to start managing content.')?></p>
-
-    <?php endif; ?>
-
-    <section class="panel-info">
-        <p><?=_e('This panel displays contextual information according to the menu currently being opened.')?></p>
-    </section>
-
-<?php endif; ?>
-
-
-    <?php do_action('admin_details'); ?>
-    </div>
+  <section class="panel-info">
+    <p><?=_e('This panel displays contextual information according to the menu currently being opened.')?></p>
+  </section>
+<?php
+endif;
+$coreDetailsContent = (string)ob_get_clean();
+$coreDetailsContent = admin_details_filter_core_content($pdo, $coreDetailsContent, $detailsContext);
+?>
+<aside id="adam-panel" class="adam-panel" role="complementary" aria-label="<?= h(__('Details panel')) ?>" aria-hidden="true" data-details-schema="1" data-details-page="<?= h($requested) ?>">
+  <div id="adam-panel-resizer" class="adam-panel-resizer" role="separator" aria-label="<?= h(__('Resize details panel')) ?>" aria-controls="adam-panel-body" aria-orientation="vertical" aria-valuemin="250" aria-valuemax="1500" aria-valuenow="360" tabindex="0"></div>
+  <span class="admin-details-focus-sentinel" data-panel-focus-start tabindex="0"></span>
+  <button id="adam-panel-close" class="admin-details-close" type="button" aria-label="<?= h(__('Close details panel')) ?>">&times;</button>
+  <div id="adam-panel-body" class="adam-panel-body" tabindex="-1">
+    <?php admin_details_run_action('admin_details_before', $pdo, $detailsContext); ?>
+    <?= $coreDetailsContent ?>
+    <?php admin_details_run_action('admin_details', $pdo, $detailsContext); ?>
+    <?php admin_details_run_action('admin_details_after', $pdo, $detailsContext); ?>
+  </div>
+  <span class="admin-details-focus-sentinel" data-panel-focus-end tabindex="0"></span>
 </aside>

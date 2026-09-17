@@ -85,6 +85,8 @@ if (defined('UPDATE_PROCESS_CONTROL_REQUEST')) {
     return;
 }
 
+require_once __DIR__ . '/helpers/admin_details.php';
+
 // 5. Konstanta path untuk public (dibutuhkan oleh theme_helper & widget_helper)
 if (!defined('VIEWS_BASE')) {
     $appViews = realpath(PUBLIC_PATH . '/views/themes');
