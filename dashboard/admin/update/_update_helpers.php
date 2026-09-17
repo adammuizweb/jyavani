@@ -79,6 +79,29 @@ function _cms_atomic_replace_ready(string $targetPath): bool {
     }
 }
 
+function _cms_create_target_directory(string $directory): bool {
+    if (is_dir($directory)) return !is_link($directory) && is_writable($directory);
+
+    $missing = [];
+    $cursor = $directory;
+    while (!file_exists($cursor) && !is_link($cursor)) {
+        $missing[] = $cursor;
+        $parent = dirname($cursor);
+        if ($parent === $cursor) return false;
+        $cursor = $parent;
+    }
+    if (!is_dir($cursor) || is_link($cursor) || !is_writable($cursor)) return false;
+    if (!@mkdir($directory, 02775, true) && !is_dir($directory)) return false;
+
+    foreach (array_reverse($missing) as $created) {
+        clearstatcache(true, $created);
+        $stat = @lstat($created);
+        if (!is_array($stat) || (($stat['mode'] ?? 0) & 0170000) !== 0040000
+            || is_link($created) || !@chmod($created, 02775)) return false;
+    }
+    return is_dir($directory) && !is_link($directory) && is_writable($directory);
+}
+
 function _cms_atomic_replace_file(string $targetPath, string $contents): bool {
     $parent = dirname($targetPath);
     if (!is_dir($parent)) return false;
@@ -150,7 +173,7 @@ function _cms_rollback_files(array $backupFiles, array $createdFiles, string $pr
             continue;
         }
         $targetParent = dirname($targetPath);
-        if (!is_dir($targetParent)) @mkdir($targetParent, 0755, true);
+        if (!is_dir($targetParent)) _cms_create_target_directory($targetParent);
         $backupContents = is_file($backupPath) ? @file_get_contents($backupPath) : false;
         if (!is_string($backupContents) || !_cms_atomic_replace_file($targetPath, $backupContents)) $errors[] = $targetPath;
     }
@@ -430,7 +453,7 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         }
         if (count($backupFiles) > $backupCount) $backedUp++;
         $targetParent = dirname($targetPath);
-        if (!is_dir($targetParent) && !@mkdir($targetParent, 0755, true)) {
+        if (!is_dir($targetParent) && !_cms_create_target_directory($targetParent)) {
             $errors[] = __('Failed to create directory:') . ' ' . $filename;
             break;
         }

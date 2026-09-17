@@ -262,6 +262,16 @@ try {
     $check(str_contains($javascript, "xhr.open(refreshMode ? 'POST' : 'GET'")
         && str_contains($javascript, 'window.jyavaniUpdateStatus')
         && str_contains($javascript, 'jyavani:update-status'), 'notification client renders the shared snapshot and broadcasts refreshes');
+    $check(str_contains($javascript, "basePath + '/?page=admin/update/index'")
+        && str_contains($javascript, "basePath + '/?page=admin/plugins/index'")
+        && str_contains($javascript, "basePath + '/?page=admin/themes/assign'")
+        && substr_count($javascript, '<a class="adam-update-dd-item" href="') === 3,
+        'notification dropdown links each update to its actionable Core, Plugin, or Theme manager');
+    $check(str_contains($javascript, "if (refreshMode && document.querySelector('[data-update-status-page]'))")
+        && !str_contains($javascript, "if (refreshMode && !silent && document.querySelector('[data-update-status-page]'))")
+        && strpos($javascript, 'sessionStorage.setItem(autoCheckKey') < strpos($javascript, '_lastResult = data;')
+        && !str_contains($javascript, 'sessionStorage.setItem(autoKey'),
+        'successful silent refreshes hydrate the Core Update page and abandoned requests do not suppress its retry');
     $check(str_contains($updatePage, 'data-cms-latest data-latest-class="up-latest"')
         && str_contains($javascript, "document.querySelectorAll('[data-cms-latest]')")
         && str_contains($javascript, "latest.getAttribute('data-latest-class') || 'dw-latest'"), 'dashboard and Update Manager receive the live Latest badge after an asynchronous check');

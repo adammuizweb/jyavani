@@ -522,11 +522,18 @@ select:focus{
   padding:8px;
   border-radius:8px;
   font-size:.82rem;
+  color:inherit;
+  text-decoration:none;
 }
 .adam-update-dd-item + .adam-update-dd-item{
   margin-top:4px;
 }
 .adam-update-dd-item:hover{
+  background:var(--adam-surface-3);
+}
+.adam-update-dd-item:focus-visible{
+  outline:2px solid var(--adam-primary);
+  outline-offset:1px;
   background:var(--adam-surface-3);
 }
 .adam-update-dd-item-cat{

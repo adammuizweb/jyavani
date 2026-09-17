@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.136",
+    "version": "2.3.137",
     "build": "2026-09-17",
-    "generated": "2026-09-17T14:18:11+00:00",
+    "generated": "2026-09-17T15:15:35+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 591,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "8ff95893342b9bdf4baf12073745e9327c41d52b9db7a6289f4c725c09790e61",
+        "VERSION": "4e2babe88112d6a99e88bc884d3d24a649d94c9764964441a404fb518eedcc1d",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -216,7 +216,7 @@
         "dashboard/admin/themes/upload.php": "70caa108a97a240cbe575a5e529723be5fcd4301037795be4204c73220ae5057",
         "dashboard/admin/update/_reset_service.php": "6e7ec5f1879a9753960f620a24eae62fb41b38e5d2e5658bdfd2eabb86a452a3",
         "dashboard/admin/update/_update_actions.php": "c396ca03363245b9aff9a132e5fa4284682ff858e23fdeba65cf7c50fa491925",
-        "dashboard/admin/update/_update_helpers.php": "7214d77444ede97e659b99cfdc3542b5be31ca1cf52ae178b9cec525f56c9162",
+        "dashboard/admin/update/_update_helpers.php": "cab66799c14a53e31cd139426c4010d3aa3e43316b73fbbe531dbaeab3a03d9e",
         "dashboard/admin/update/index.php": "78cf06a0874bccd92f8b61250d4f9f0ab6abef73aa88645bc34a6e3111113218",
         "dashboard/admin/update/process.php": "24e30eab5307c52c9ee9a05273f6188a1df52f33b9764bdd198899c8a93fa8f9",
         "dashboard/admin/update/update_apply.php": "5784363a0d6f4467827d3bff71d4527cc212d65dfca0e5d3cb7266e8b40fe1d5",
@@ -284,7 +284,7 @@
         "public/static/dashboard/css/aside.css": "816d27ba988047b763da4919fd07b04ba620819af910cdaf195f42ad520d5509",
         "public/static/dashboard/css/login.css": "b24a2413e2a8971ffd93e2886f6e4eb70dae38adc03718b3cb60bc545f990217",
         "public/static/dashboard/css/notif.css": "f60a9a8a27ad61b8eef4a90adce56f952e773163dccdda55fd8b067fd6a1ec46",
-        "public/static/dashboard/css/style.css": "460391cf7b8fcc6573af7dff74f11c12781ef2ac1db3468dc8207351c9328790",
+        "public/static/dashboard/css/style.css": "830a99273ec215c855f883a3cb6bdd001a35af7b54711525450b3eeacb0068a8",
         "public/static/dashboard/css/update.css": "64bf243441b9642aad2632a83b66fd93341191d7b3a2c8faeee4621537a5f597",
         "public/static/dashboard/js/accordion.js": "53df12e1ef62951730703206027b5e72a8654378e77fa3dd0c3f4e89c123783f",
         "public/static/dashboard/js/alerts.js": "f02084526f9ef44859f41dbd87e6cea5d5212a1222fc82cce091c3651ee0ea6f",
@@ -300,7 +300,7 @@
         "public/static/dashboard/js/site-health-auto.js": "c0b89bd3ed633c3ca243d6301eb51d170be278d9523c4084437ec47afef92af8",
         "public/static/dashboard/js/theme-toggle.js": "6809d18ace31f134d65d098496dfd9c4341eeffd2c8cf6de3f17beacbc1e8f59",
         "public/static/dashboard/js/unsaved-guard.js": "5a526d562128f746c3a7ae5e608010278b496b0d4175f48be83cd8e78f0a39bb",
-        "public/static/dashboard/js/update-notif.js": "2b5aeb48f37dc141fa8c8ec765d8a1a0bc34076651760be5b6a9a51f68944c31",
+        "public/static/dashboard/js/update-notif.js": "814612db8071b0439512b4e21109019ee2e4f2bd646c7a28dadd09a3f211b31e",
         "public/static/dashboard/js/update.js": "45c7adc70b8da59ae512a857b9ed548930b299a3029f5f985b1c0acd4eb4ed63",
         "public/static/icons/lucide/LICENSE": "f8d8098717f8527d1911064c99076536e18404624ded74ffaa33a393deec4d69",
         "public/static/icons/lucide/alert-triangle.svg": "afae3468688ceec52b10d9615cb4d360a589af74ff282ca22fb74ead3f1a1908",
@@ -598,6 +598,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "9f100c61c51d2c74bf9f612b0db1cf9b4fdfc7e98d8c2465ee9e330e119621c7"
+        "version.json": "eb29041ec8f8f4ad1d2689026b142b1a3c7d9c9beb290475e585e3459ee7eb2d"
     }
 }

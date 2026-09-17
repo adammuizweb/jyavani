@@ -164,6 +164,7 @@ try {
     $remoteFiles = [
         'public/assets/changed.txt' => "new changed\n",
         'public/assets/new.txt' => "new file\n",
+        'public/new/nested/file.txt' => "new nested file\n",
         'public/assets/unchanged.txt' => "same\n",
         'app/core.php' => "new core\n",
         'version.json' => "{\"version\":\"1.0.0\"}\n",
@@ -177,6 +178,10 @@ try {
     $check($result['success'] === true, 'same-version update applies successfully');
     $check(file_get_contents($publicRoot . '/assets/changed.txt') === "new changed\n", 'changed public file maps to public_html');
     $check(file_get_contents($publicRoot . '/assets/new.txt') === "new file\n", 'new public file maps to public_html');
+    $check(file_get_contents($publicRoot . '/new/nested/file.txt') === "new nested file\n", 'new nested public file maps to public_html');
+    $check((fileperms($publicRoot . '/new') & 07777) === 02775
+        && (fileperms($publicRoot . '/new/nested') & 07777) === 02775,
+        'new Core target directories remain shared-group writable for future atomic updates');
     $check(!file_exists($publicRoot . '/assets/obsolete.txt'), 'obsolete mapped public file is deleted');
     $check(file_get_contents($projectRoot . '/app/core.php') === "new core\n", 'non-public file remains rooted in the project');
     $check(!file_exists($projectRoot . '/public/assets/changed.txt'), 'mapped files are not written to the source public directory');

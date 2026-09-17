@@ -10,6 +10,7 @@ var basePath = window.ADMIN_PATH || '';
 
 var checkUrl   = basePath + '/admin/check_updates_ajax.php';
 var csrfToken  = window.jyavaniUpdateCsrf || '';
+var autoCheckKey = 'jyavani-update-auto-check';
 
 var shown = false;
 var _lastResult = null;
@@ -97,6 +98,9 @@ function loadUpdates(refreshMode, silent) {
   }
   fetchUpdates(refreshMode, function(data, err){
     if (data) {
+      if (refreshMode && silent) {
+        try { sessionStorage.setItem(autoCheckKey, String(Date.now())); } catch (_) {}
+      }
       _lastResult = data;
       updateBadge(data.total || 0);
       showCriticalAdvisory(data.critical_advisory);
@@ -104,7 +108,7 @@ function loadUpdates(refreshMode, silent) {
       window.jyavaniUpdateStatus = data;
       window.dispatchEvent(new CustomEvent('jyavani:update-status', {detail: data}));
       if (shown) renderDropdown(data);
-      if (refreshMode && !silent && document.querySelector('[data-update-status-page]')) {
+      if (refreshMode && document.querySelector('[data-update-status-page]')) {
         window.setTimeout(function(){ window.location.reload(); }, 500);
       }
     } else {
@@ -171,22 +175,22 @@ function renderDropdown(data, error) {
 
   if (data.cms && data.cms.has_update) {
     items.push(
-      '<div class="adam-update-dd-item">',
+      '<a class="adam-update-dd-item" href="' + escapeHtml(basePath + '/?page=admin/update/index') + '">',
         '<span class="adam-update-dd-item-cat">CMS</span>',
         '<span class="adam-update-dd-item-name">Jyavani CMS</span>',
         '<span class="adam-update-dd-item-versions">v' + escapeHtml(data.cms.current) + ' → v' + escapeHtml(data.cms.latest) + '</span>',
-      '</div>'
+      '</a>'
     );
   }
 
   if (data.plugins && data.plugins.length) {
     data.plugins.forEach(function(p){
       items.push(
-        '<div class="adam-update-dd-item">',
+        '<a class="adam-update-dd-item" href="' + escapeHtml(basePath + '/?page=admin/plugins/index') + '">',
           '<span class="adam-update-dd-item-cat">' + (tr.plugin || 'Plugin') + '</span>',
           '<span class="adam-update-dd-item-name">' + escapeHtml(p.name) + '</span>',
           '<span class="adam-update-dd-item-versions">v' + escapeHtml(p.current) + ' → v' + escapeHtml(p.latest) + '</span>',
-        '</div>'
+        '</a>'
       );
     });
   }
@@ -194,11 +198,11 @@ function renderDropdown(data, error) {
   if (data.themes && data.themes.length) {
     data.themes.forEach(function(th){
       items.push(
-        '<div class="adam-update-dd-item">',
+        '<a class="adam-update-dd-item" href="' + escapeHtml(basePath + '/?page=admin/themes/assign') + '">',
           '<span class="adam-update-dd-item-cat">' + (tr.theme || 'Theme') + '</span>',
           '<span class="adam-update-dd-item-name">' + escapeHtml(th.name) + '</span>',
           '<span class="adam-update-dd-item-versions">v' + escapeHtml(th.current) + ' → v' + escapeHtml(th.latest) + '</span>',
-        '</div>'
+        '</a>'
       );
     });
   }
@@ -271,11 +275,9 @@ if (bell) {
     showCriticalAdvisory(initial.critical_advisory);
     updateDashboardWidget(initial);
     if (initial.stale) {
-      var autoKey = 'jyavani-update-auto-check';
       var lastAuto = 0;
-      try { lastAuto = parseInt(sessionStorage.getItem(autoKey) || '0', 10); } catch (_) {}
+      try { lastAuto = parseInt(sessionStorage.getItem(autoCheckKey) || '0', 10); } catch (_) {}
       if (!lastAuto || Date.now() - lastAuto > 300000) {
-        try { sessionStorage.setItem(autoKey, String(Date.now())); } catch (_) {}
         loadUpdates(true, true);
       }
     }
