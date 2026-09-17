@@ -48,9 +48,18 @@ $title   = trim((string)($_POST['title'] ?? ''));
 $slug    = trim((string)($_POST['slug'] ?? ''));
 $publicPath = trim((string)($_POST['public_path'] ?? ''));
 $content = (string)($_POST['content'] ?? '');
-$status  = in_array((string)($_POST['status'] ?? ''), ['draft', 'published', 'private'], true)
+$requestedStatus = in_array((string)($_POST['status'] ?? ''), content_schedule_statuses(), true)
     ? (string)$_POST['status']
     : 'draft';
+$scheduleAtIn = trim((string)($_POST['schedule_at'] ?? ''));
+try {
+    $schedule = content_schedule_resolve($requestedStatus, $scheduleAtIn);
+} catch (InvalidArgumentException $error) {
+    $errors[] = __($error->getMessage());
+    $schedule = ['status' => 'draft', 'publish_at_utc' => null];
+}
+$status = $schedule['status'];
+$publishAtUtc = $schedule['publish_at_utc'];
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ''))) {
@@ -102,7 +111,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ? (int)$_POST['created_by']
                 : $user_id;
 
-            $postId = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $status, $finalMeta, $authorId, $publicPath, $user_id): int {
+            $postId = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $status, $publishAtUtc, $finalMeta, $authorId, $publicPath, $user_id): int {
                 $pdo->beginTransaction();
                 try {
                     if (!authorization_lock_actor_permissions($pdo, $user_id)
@@ -117,15 +126,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     if ($slugLock->fetchColumn()) throw new DomainException('Theme slug changed.');
                     $stmt = $pdo->prepare("
                         INSERT INTO posts
-                            (title, slug, content, type, status, meta, created_by, updated_by, created_at, updated_at)
+                            (title, slug, content, type, status, publish_at_utc, meta, created_by, updated_by, created_at, updated_at)
                         VALUES
-                            (:title, :slug, :content, 'theme', :status, :meta, :uid, :updated_by, NOW(), NOW())
+                            (:title, :slug, :content, 'theme', :status, :publish_at_utc, :meta, :uid, :updated_by, NOW(), NOW())
                     ");
                     if (!$stmt->execute([
                         ':title'   => $title,
                         ':slug'    => $slug,
                         ':content' => $content,
                         ':status'  => $status,
+                        ':publish_at_utc' => $publishAtUtc,
                         ':meta'    => $finalMeta,
                         ':uid'     => $authorId,
                         ':updated_by' => $user_id,
@@ -143,7 +153,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             });
 
             if ($postId > 0) {
-                do_action('admin_theme_after_add', $postId, $pdo, $_POST);
+                do_action('admin_theme_after_add', $postId, $pdo, array_replace($_POST, [
+                    'status' => $status,
+                    'editor_status' => $requestedStatus,
+                    'publish_at_utc' => $publishAtUtc,
+                ]));
                 unset($_SESSION[$nonce_key]);
                 adiwira_redirect_with_flash($return_to, 'success', __('Theme partial berhasil disimpan.'));
             }
@@ -223,14 +237,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <textarea name="meta_description" rows="2" style="width:100%;padding:.4rem;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:13px;resize:vertical;box-sizing:border-box;margin-top:4px" maxlength="320" placeholder="<?=_e('Custom description for SEO & social share')?>"><?= htmlspecialchars((string)($_POST['meta_description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
 
-        <label style="margin-top:.6rem;display:block">
-          <?=_e('Status')?><br>
-          <select name="status" class="inpud">
-            <option value="draft" <?= $status === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
-            <option value="published" <?= $status === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
-            <option value="private" <?= $status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
-          </select>
-        </label>
+        <div class="content-publish-row" style="margin-top:.6rem">
+          <label><?=_e('Status')?><br>
+            <select name="status" class="inp">
+              <option value="draft" <?= $requestedStatus === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
+              <option value="published" <?= $requestedStatus === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
+              <option value="private" <?= $requestedStatus === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
+              <option value="scheduled" <?= $requestedStatus === 'scheduled' ? 'selected' : '' ?>><?= _e('Scheduled') ?></option>
+            </select>
+          </label>
+          <label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+            <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars($scheduleAtIn, ENT_QUOTES, 'UTF-8') ?>" class="inp">
+            <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
+          </label>
+        </div>
 
         <?php if ($user_role === 'admin'): ?>
         <label style="margin-top:.6rem;display:block">
@@ -274,6 +294,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
 <script src="/static/js/edit/codemirror.js"></script>
 <script src="/static/js/edit/main-init.js"></script>
+<script src="/static/dashboard/js/content-schedule.js"></script>
 
 <script>
 (function(){

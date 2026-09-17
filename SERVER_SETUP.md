@@ -211,6 +211,16 @@ Timezone situs disimpan sebagai setting IANA `site_timezone`, bukan di `.env` at
 
 Worker yang berjalan lama harus memperbarui timezone session database pada setiap siklus. Plugin yang membuat koneksi PDO sendiri harus memanggil `app_db_set_session_timezone()`. Setting `date_format` dan `time_format` hanya memengaruhi tampilan manusia, bukan nilai database, API, sitemap, archive route, atau permalink.
 
+### Scheduled Publication
+
+Jalankan worker Core setiap menit agar Article, Page, dan Theme Content berstatus **Scheduled** dipublikasikan saat instant UTC-nya jatuh tempo:
+
+```cron
+* * * * * cd /path/to/project && /usr/bin/php tools/publish-scheduled.php >> /var/log/[project]-scheduler.log 2>&1
+```
+
+Worker memproses maksimum 100 item per eksekusi secara default. Gunakan `--limit=500` bila diperlukan. Eksekusi bersamaan aman: perubahan status memakai kondisi due-time atomik sehingga satu item hanya berhasil dipublikasikan sekali. Pastikan user cron dapat membaca `cfg/.env`, terhubung ke database, dan menulis tujuan log. Pantau exit code dan log; tanpa worker aktif, item tetap aman sebagai draft terjadwal dan tidak tampil di frontend.
+
 ## 5. Environment (.env)
 
 ```bash

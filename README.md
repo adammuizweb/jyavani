@@ -10,7 +10,7 @@ The current release and platform requirements are the source of truth in [`VERSI
 
 ## Highlights
 
-- Articles, pages, reusable theme templates, drafts, published and private content, hierarchical categories, archives, search, authors, and XML sitemaps.
+- Articles, pages, reusable theme templates, drafts, scheduled publication, published and private content, hierarchical categories, archives, search, authors, and XML sitemaps.
 - Adiwira editorial dashboard with database-backed roles, action-specific permissions and scopes, a separately protected Site Owner identity, configurable authentication/admin paths, CSRF protection, session hardening, and login throttling. The legacy `author`, `editor`, and `admin` values remain compatibility identities rather than the authorization policy.
 - Media and file management with protected storage outside the web root and signed, time-limited access for private PDFs.
 - Slot-based themes with fallback resolution, customizer fields, menus, sidebars, widgets, shortcodes, and drag-and-drop Theme Zones.
@@ -56,6 +56,7 @@ cd jyavani
 4. Open `/pondasi/` and complete the one-time database, site, and administrator setup. The installer creates `cfg/.env`, generates secrets, loads the schema, and seeds dashboard translations.
 5. Remove `public/pondasi/` after installation and verify HTTPS/session settings.
 6. In **Site Settings → Timezone**, confirm the site timezone and preferred date/time display formats. The compatibility defaults are `Asia/Jakarta`, `F j, Y`, and `H:i`; changing the timezone does not shift existing Core timestamps.
+7. Configure the scheduled-publication CLI runner described in [`SERVER_SETUP.md`](SERVER_SETUP.md) if editors will schedule articles or pages.
 
 Do not commit `cfg/.env`, credentials, generated secrets, private uploads, sessions, or runtime backups. For manual deployments, [`cfg/env-sample`](cfg/env-sample) documents supported settings without usable secrets.
 

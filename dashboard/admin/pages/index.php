@@ -35,10 +35,11 @@ $where = ["p.is_deleted = 0", "p.type = 'page'"];
 $where[] = '(' . $readCondition['sql'] . ')';
 $params = $readCondition['params'];
 $listContext = ['type' => 'page', 'status' => $filter_status, 'search' => $search];
-$statusExpression = apply_filters('post_list_status_expression', 'p.status', $listContext);
-if (!is_string($statusExpression) || trim($statusExpression) === '' || str_contains($statusExpression, ';')) {
-    $statusExpression = 'p.status';
+$extensionStatusExpression = apply_filters('post_list_status_expression', 'p.status', $listContext);
+if (!is_string($extensionStatusExpression) || trim($extensionStatusExpression) === '' || str_contains($extensionStatusExpression, ';')) {
+    $extensionStatusExpression = 'p.status';
 }
+$statusExpression = content_schedule_status_sql($extensionStatusExpression, 'p');
 
 // filter status
 if ($filter_status !== '') {
@@ -82,7 +83,7 @@ if (!is_string($listSelect) || str_contains($listSelect, ';')) $listSelect = '';
 
 $sql = "
 SELECT
-  p.id, p.title, p.slug, p.status, p.created_at, p.updated_at, p.created_by AS owner_id,
+  p.id, p.title, p.slug, p.status, p.publish_at_utc, p.created_at, p.updated_at, p.created_by AS owner_id,
   ({$statusExpression}) AS editor_status,
   u.id AS author_id,
   u.username AS author_username,
@@ -209,6 +210,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
         <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
         <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
+        <option value="scheduled" <?= $filter_status === 'scheduled' ? 'selected' : '' ?>><?=_e('Scheduled')?></option>
       </select>
 
       <?php if ($readScope !== 'own'): ?><select name="author" class="inp">
@@ -326,12 +328,13 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                     || user_can($pdo, $uid, 'core.pages.update', ['owner_id' => $pageOwnerId])
                     || user_can($pdo, $uid, 'core.pages.change_owner', ['owner_id' => $pageOwnerId])
                     || user_can($pdo, $uid, 'core.pages.change_dates', ['owner_id' => $pageOwnerId]);
-                $statusClass = in_array($status, ['published','draft','private'], true) ? $status : 'unknown';
+                $statusClass = in_array($status, ['published','draft','private','scheduled'], true) ? $status : 'unknown';
 
                 $icons = [
                   'published' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
                   'draft'     => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M3 21v-3l11-11 3 3L6 21H3z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
                   'private'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 11V8a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+                  'scheduled' => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
                   'unknown'   => '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/><path d="M9.5 9a2.5 2.5 0 1 1 5 1c0 1.5-1.5 1.75-1.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="17.2" r="0.6" fill="currentColor"/></svg>',
                 ];
                 $iconSvg = $icons[$statusClass] ?? $icons['unknown'];
@@ -392,6 +395,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                     <span class="adam-status-icon"><?= $iconSvg ?></span>
                     <span class="adam-status-text"><?= htmlspecialchars(__(ucfirst($status)), ENT_QUOTES, 'UTF-8') ?></span>
                   </span>
+                  <?php if ($status === 'scheduled'): ?><div class="field-note"><?= htmlspecialchars(app_display_datetime(app_utc_mysql_to_site($p['publish_at_utc'] ?? null)), ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
                 </td>
 
                 <td class="col-created"><?= htmlspecialchars(format_date_ddmmyyyy_time_bracket($p['created_at']), ENT_QUOTES, 'UTF-8') ?></td>

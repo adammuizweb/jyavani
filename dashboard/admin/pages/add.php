@@ -52,7 +52,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $title     = trim((string)($_POST['title'] ?? ''));
     $slug      = trim((string)($_POST['slug'] ?? ''));
     $content   = (string)($_POST['content'] ?? '');
-    $status    = in_array($_POST['status'] ?? '', ['draft', 'published', 'private'], true) ? (string)$_POST['status'] : 'draft';
+    $requestedStatus = in_array($_POST['status'] ?? '', content_schedule_statuses(), true) ? (string)$_POST['status'] : 'draft';
+    $schedule_at_in = trim((string)($_POST['schedule_at'] ?? ''));
+    try {
+        $schedule = content_schedule_resolve($requestedStatus, $schedule_at_in);
+    } catch (InvalidArgumentException $error) {
+        $schedule = ['status' => 'draft', 'publish_at_utc' => null, 'editor_status' => 'draft'];
+        $errors[] = __($error->getMessage());
+    }
+    $status = $schedule['status'];
+    $publishAtUtc = $schedule['publish_at_utc'];
     $thumbnail = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
     $thumbnailMediaIdInput = $_POST['thumbnail_media_id'] ?? null;
 
@@ -95,7 +104,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
     $created_at_parsed = null;
     $updated_at_parsed = null;
 
-    if ($status !== 'draft' && !$canPublish) $errors[] = __('Access denied.');
+    if ($requestedStatus !== 'draft' && !$canPublish) $errors[] = __('Access denied.');
     if (($created_at_in !== '' || $updated_at_in !== '') && !$canChangeDates) $errors[] = __('Access denied.');
     if ($created_at_in !== '') {
         $created_at_parsed = parse_datetime_local($created_at_in);
@@ -130,13 +139,13 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 
         try {
             $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
-            $page_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $metaVal, $thumbnail, $thumbnailMediaIdInput, $status, $uid, $final_created, $final_updated, $requiresDatePermission): int {
+            $page_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $metaVal, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $uid, $final_created, $final_updated, $requiresDatePermission): int {
                 $pdo->beginTransaction();
                 try {
                 if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
                 if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
                 if (!user_can($pdo, $uid, 'core.pages.create')) throw new DomainException('Page create permission changed.');
-                if ($status !== 'draft' && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $uid])) {
+                if ($requestedStatus !== 'draft' && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $uid])) {
                     throw new DomainException('Page publish permission changed.');
                 }
                 if ($requiresDatePermission && !user_can($pdo, $uid, 'core.pages.change_dates', ['owner_id' => $uid])) {
@@ -148,9 +157,9 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                 $thumbnailMediaId = media_validate_featured_selection($pdo, $thumbnailMediaIdInput, $thumbnail, $uid, true);
                 $stmt = $pdo->prepare("
                     INSERT INTO posts
-                    (title, slug, content, type, meta, thumbnail, thumbnail_media_id, status, created_by, updated_by, created_at, updated_at)
+                    (title, slug, content, type, meta, thumbnail, thumbnail_media_id, status, publish_at_utc, created_by, updated_by, created_at, updated_at)
                     VALUES
-                    (:title, :slug, :content, 'page', :meta, :thumbnail, :thumbnail_media_id, :status, :created_by, :updated_by, :created_at, :updated_at)
+                    (:title, :slug, :content, 'page', :meta, :thumbnail, :thumbnail_media_id, :status, :publish_at_utc, :created_by, :updated_by, :created_at, :updated_at)
                 ");
                 $ok = $stmt->execute([
                     ':title'      => $title,
@@ -160,6 +169,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                     ':thumbnail'  => $thumbnail,
                     ':thumbnail_media_id' => $thumbnailMediaId,
                     ':status'     => $status,
+                    ':publish_at_utc' => $publishAtUtc,
                     ':created_by' => $uid,
                     ':updated_by' => $uid,
                     ':created_at' => $final_created,
@@ -172,6 +182,8 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                     'slug' => $slug,
                     'content' => $content,
                     'status' => $status,
+                    'editor_status' => $requestedStatus,
+                    'publish_at_utc' => $publishAtUtc,
                     'created_by' => $uid,
                 ]);
                 $pdo->commit();
@@ -183,7 +195,11 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
             });
 
             if ($page_id > 0) {
-                do_action('admin_page_after_add', $page_id, $pdo, $_POST);
+                do_action('admin_page_after_add', $page_id, $pdo, array_replace($_POST, [
+                    'status' => $status,
+                    'editor_status' => $requestedStatus,
+                    'publish_at_utc' => $publishAtUtc,
+                ]));
                 adiwira_redirect_with_flash($return_to, 'success', __('Page saved successfully.'));
             }
 
@@ -260,15 +276,24 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       <div id="media-single-content"><?=_e('Click an image in Media to view details & edit.')?></div>
     </div>
 
-    <label><?=_e('Status')?><br>
-      <select name="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px;">
-        <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?= _e('Draft') ?></option>
-        <?php if ($canPublish): ?>
-          <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?= _e('Published') ?></option>
-          <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?= _e('Private') ?></option>
-        <?php endif; ?>
-      </select>
-    </label>
+    <div class="content-publish-row mt-12">
+      <label><?=_e('Status')?><br>
+        <select name="status" class="inp">
+          <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?= _e('Draft') ?></option>
+          <?php if ($canPublish): ?>
+            <option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?= _e('Published') ?></option>
+            <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?= _e('Private') ?></option>
+            <option value="scheduled" <?= (($_POST['status'] ?? '') === 'scheduled') ? 'selected' : '' ?>><?= _e('Scheduled') ?></option>
+          <?php endif; ?>
+        </select>
+      </label>
+      <?php if ($canPublish): ?>
+        <label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+          <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars((string)($_POST['schedule_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="inp">
+          <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
+        </label>
+      <?php endif; ?>
+    </div>
 
     <?php if ($canChangeDates): ?>
       <label style="display:block;margin-top:.6rem"><?=_e('Created At (optional)')?><br>
@@ -325,3 +350,4 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 <script>window.QUILL_PLACEHOLDER = <?= json_encode(__('Write article content here...')) ?>;</script>
 <script src="/static/js/add/quill-init.js"></script>
 <script src="/static/js/add/thumbnail-handler.js"></script>
+<script src="/static/dashboard/js/content-schedule.js"></script>

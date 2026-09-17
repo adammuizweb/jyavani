@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.134",
+    "version": "2.3.135",
     "build": "2026-09-17",
-    "changelog": "Add configurable site timezone and localized date/time display formats while preserving legacy timestamps and date-based permalinks.",
+    "changelog": "Add scheduled publishing for articles, pages, and theme content, plus compact date and time format selectors.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.134"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.135"
 }

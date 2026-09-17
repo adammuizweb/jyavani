@@ -38,11 +38,14 @@ $writers = [
     'preset save' => 'dashboard/admin/shortcodes/save.php',
     'preset trash' => 'dashboard/admin/shortcodes/delete.php',
     'preset bulk' => 'dashboard/admin/shortcodes/bulk_action.php',
+    'scheduled publication' => 'cfg/helpers/content_scheduler.php',
 ];
 foreach ($writers as $label => $relative) {
     $source = (string)file_get_contents($root . '/' . $relative);
     $check(str_contains($source, 'updated_by'), $label . ' attributes surviving post mutations');
 }
+$scheduler = (string)file_get_contents($root . '/cfg/helpers/content_scheduler.php');
+$check(str_contains($scheduler, 'updated_by = NULL'), 'scheduled publication records an automated system mutation');
 
 $check(!str_contains((string)file_get_contents($root . '/dashboard/admin/bin/article/delete_permanent.php'), 'updated_by')
     && !str_contains((string)file_get_contents($root . '/dashboard/admin/bin/page/delete_permanent.php'), 'updated_by'),

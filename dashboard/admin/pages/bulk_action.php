@@ -58,15 +58,17 @@ try {
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
 
     $in = implode(',', array_fill(0, count($ids), '?'));
-    $selectedStmt = $pdo->prepare("SELECT id, status, status_revision, created_by FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $selectedStmt = $pdo->prepare("SELECT id, status, status_revision, publish_at_utc, created_by FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 0 FOR UPDATE");
     $selectedStmt->execute($ids);
     $selectedPages = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     if (count($selectedPages) !== count($ids)) throw new DomainException('Page selection changed.');
     $rawStatusesById = [];
     $statusRevisionsById = [];
+    $publishAtById = [];
     foreach ($selectedPages as $selectedPage) {
         $rawStatusesById[(int)$selectedPage['id']] = (string)($selectedPage['status'] ?? 'draft');
         $statusRevisionsById[(int)$selectedPage['id']] = (int)($selectedPage['status_revision'] ?? 0);
+        $publishAtById[(int)$selectedPage['id']] = $selectedPage['publish_at_utc'] ?? null;
     }
     ksort($rawStatusesById, SORT_NUMERIC);
     $statusUndoEligible = $action === 'change_status';
@@ -78,10 +80,14 @@ try {
         if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published', 'private'], true)) {
             throw new DomainException('Page editor status is invalid.');
         }
+        $selectedPage['stored_status'] = (string)$selectedPage['status'];
         $selectedPage['status'] = $editorStatus;
+        $editorStatus = content_schedule_editor_status($editorStatus, $selectedPage);
+        $selectedPage['editor_status'] = $editorStatus;
         if ($statusUndoEligible && $editorStatus !== $rawStatusesById[(int)$selectedPage['id']]) {
             $statusUndoEligible = false;
         }
+        if (!empty($selectedPage['publish_at_utc'])) $statusUndoEligible = false;
     }
     unset($selectedPage);
     foreach ($selectedPages as $page) {
@@ -131,7 +137,7 @@ try {
     if ($action === 'change_status') {
         $newStatus = (string)($_POST['status'] ?? '');
         if (!in_array($newStatus, ['draft', 'published', 'private'], true)) throw new InvalidArgumentException('Invalid status.');
-        if ($newStatus !== 'draft' || array_filter($selectedPages, static fn(array $page): bool => (string)$page['status'] !== 'draft')) {
+        if ($newStatus !== 'draft' || array_filter($selectedPages, static fn(array $page): bool => (string)($page['editor_status'] ?? $page['status']) !== 'draft')) {
             foreach ($selectedPages as $page) {
                 if (!user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => (int)$page['created_by']])) {
                     throw new DomainException('Page publish permission changed.');
@@ -141,11 +147,11 @@ try {
         do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, ['status' => $newStatus]);
         $changedIds = [];
         foreach ($rawStatusesById as $selectedId => $previousStatus) {
-            if ($previousStatus !== $newStatus) $changedIds[] = $selectedId;
+            if ($previousStatus !== $newStatus || !empty($publishAtById[$selectedId])) $changedIds[] = $selectedId;
         }
         $affected = 0;
         if ($changedIds !== []) {
-            $stmt = $pdo->prepare("UPDATE posts SET status = ?, status_revision = status_revision + 1, updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = 'page' AND is_deleted = 0 AND status <> ?");
+            $stmt = $pdo->prepare("UPDATE posts SET status = ?, publish_at_utc = NULL, status_revision = status_revision + 1, updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = 'page' AND is_deleted = 0 AND (status <> ? OR publish_at_utc IS NOT NULL)");
             $stmt->execute(array_merge([$newStatus, $uid], $ids, [$newStatus]));
             $affected = $stmt->rowCount();
         }
@@ -154,7 +160,7 @@ try {
         }
         if ($statusUndoEligible) {
             foreach ($selectedPages as $selectedPage) {
-                $changedPage = array_replace($selectedPage, ['status' => $newStatus]);
+                $changedPage = array_replace($selectedPage, ['status' => $newStatus, 'publish_at_utc' => null]);
                 if (apply_filters('admin_page_editor_status', $newStatus, $changedPage, $pdo) !== $newStatus) {
                     $statusUndoEligible = false;
                     break;

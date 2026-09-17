@@ -1275,6 +1275,13 @@ html.theme-dark .adam-table tbody tr:nth-child(even){ background: rgba(255,255,2
 .adam-status.published{ background: rgba(30,143,74,0.08); color: var(--adam-success); border-color: rgba(30,143,74,0.18); }
 .adam-status.draft{ background: rgba(122,79,43,0.08); color:#b07745; border-color: rgba(122,79,43,0.16); }
 .adam-status.private{ background: rgba(229,57,53,0.08); color: var(--adam-danger); border-color: rgba(229,57,53,0.16); }
+.adam-status.scheduled{ background: rgba(79,70,229,0.08); color:#6366f1; border-color: rgba(79,70,229,0.18); }
+.content-publish-row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-start}
+.content-publish-row>label{display:block;flex:0 0 auto;min-width:0}
+.content-publish-row>[data-content-schedule][hidden]{display:none!important}
+.content-publish-row .inp{width:auto;box-sizing:border-box;margin-top:.2rem}
+.content-publish-row .field-note{display:block;margin-top:.3rem}
+@media (max-width:640px){.content-publish-row{flex-direction:column}}
 .adam-status.unknown{ background: rgba(107,114,128,0.12); color: var(--adam-muted); border-color: rgba(107,114,128,0.18); }
 
 /* ============================

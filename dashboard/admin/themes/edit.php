@@ -68,7 +68,7 @@ $_SESSION['theme_save_nonce_' . $id] = $save_nonce;
 $pref_title   = (string)($theme['title'] ?? '');
 $pref_slug    = (string)($theme['slug'] ?? '');
 $pref_content = (string)($theme['content'] ?? '');
-$pref_status  = (string)($theme['status'] ?? 'draft');
+$pref_status  = content_schedule_editor_status((string)($theme['status'] ?? 'draft'), $theme);
 $jsFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 $saveButtonHtml = svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) . ' ' . __('Save Changes');
 $canonicalRoute = function_exists('content_route_find_canonical')
@@ -160,13 +160,20 @@ if ($isReadOnly) {
         </label>
         <?php endif; ?>
 
-        <label style="margin-top:.6rem;display:block"><?=_e('Status')?><br>
-          <select name="status" class="inpud">
-            <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
-            <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
-            <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
-          </select>
-        </label>
+        <div class="content-publish-row" style="margin-top:.6rem">
+          <label><?=_e('Status')?><br>
+            <select name="status" class="inp">
+              <option value="draft" <?= $pref_status === 'draft' ? 'selected' : '' ?>><?= _e('Draft') ?></option>
+              <option value="published" <?= $pref_status === 'published' ? 'selected' : '' ?>><?= _e('Published') ?></option>
+              <option value="private" <?= $pref_status === 'private' ? 'selected' : '' ?>><?= _e('Private') ?></option>
+              <?php if ($pref_status !== 'published'): ?><option value="scheduled" <?= $pref_status === 'scheduled' ? 'selected' : '' ?>><?= _e('Scheduled') ?></option><?php endif; ?>
+            </select>
+          </label>
+          <?php if ($pref_status !== 'published'): ?><label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+            <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars(content_schedule_datetime_local($theme['publish_at_utc'] ?? null), ENT_QUOTES, 'UTF-8') ?>" class="inp">
+            <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
+          </label><?php endif; ?>
+        </div>
 
         <?php if ($isAdmin): ?>
         <label style="margin-top:.6rem;display:block">
@@ -206,6 +213,7 @@ if ($isReadOnly) {
 
 <script src="/static/js/edit/codemirror.js"></script>
 <script src="/static/js/edit/main-init.js"></script>
+<script src="/static/dashboard/js/content-schedule.js"></script>
 
 <script>
 (function(){

@@ -21,7 +21,7 @@ $check(str_contains($edit, 'JSON_HEX_TAG')
     'theme editor serializes translated JavaScript values with script-safe flags');
 $check(substr_count($translations, "'The server returned an invalid response.'") === 2,
     'invalid editor responses have Indonesian and German translation seeds');
-$check(str_contains($save, 'SELECT id, created_by FROM posts')
+$check(str_contains($save, 'SELECT id, status, publish_at_utc, created_by FROM posts')
     && str_contains($save, '$lockedTheme = $themeLock->fetch(PDO::FETCH_ASSOC);')
     && !str_contains($save, '$lockedOwnerId <= 0'),
     'theme save distinguishes a missing row from a legacy ownerless row');

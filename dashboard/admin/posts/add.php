@@ -217,9 +217,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $slug    = trim((string)($_POST['slug'] ?? ''));
     $content = (string)($_POST['content'] ?? '');
 
-    $status = in_array($_POST['status'] ?? '', ['draft','published','private'], true)
+    $requestedStatus = in_array($_POST['status'] ?? '', content_schedule_statuses(), true)
         ? (string)$_POST['status']
         : 'draft';
+    $schedule_at_in = trim((string)($_POST['schedule_at'] ?? ''));
+    try {
+        $schedule = content_schedule_resolve($requestedStatus, $schedule_at_in);
+    } catch (InvalidArgumentException $error) {
+        $schedule = ['status' => 'draft', 'publish_at_utc' => null, 'editor_status' => 'draft'];
+        $errors[] = __($error->getMessage());
+    }
+    $status = $schedule['status'];
+    $publishAtUtc = $schedule['publish_at_utc'];
 
     $youtube      = trim((string)($_POST['youtube'] ?? '')) ?: null;
     $thumbnail    = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
@@ -253,7 +262,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $created_at_in = trim((string)($_POST['created_at'] ?? ''));
     $updated_at_in = trim((string)($_POST['updated_at'] ?? ''));
 
-    if ($status !== 'draft' && !$canPublish) {
+    if ($requestedStatus !== 'draft' && !$canPublish) {
         $errors[] = __('Access denied.');
     }
     if (($created_at_in !== '' || $updated_at_in !== '') && !$canChangeDates) {
@@ -310,11 +319,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $metaVal = !empty($postMeta) ? json_encode($postMeta, JSON_UNESCAPED_UNICODE) : null;
 
         $insertSql = "INSERT INTO posts
-            (title, slug, content, type, meta, youtube, thumbnail, thumbnail_media_id, status, created_by, updated_by, created_at, updated_at)
+            (title, slug, content, type, meta, youtube, thumbnail, thumbnail_media_id, status, publish_at_utc, created_by, updated_by, created_at, updated_at)
             VALUES
-            (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :thumbnail_media_id, :status, :created_by, :updated_by, :created_at, :updated_at)";
+            (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :thumbnail_media_id, :status, :publish_at_utc, :created_by, :updated_by, :created_at, :updated_at)";
         try {
-            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription): int {
+            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription): int {
                 $pdo->beginTransaction();
                 try {
                 if (!authorization_lock_actor_permissions($pdo, $uid)) {
@@ -326,7 +335,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if (!user_can($pdo, $uid, 'core.posts.create')) {
                     throw new DomainException('Post create permission changed.');
                 }
-                if ($status !== 'draft' && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $uid])) {
+                if ($requestedStatus !== 'draft' && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $uid])) {
                     throw new DomainException('Post publish permission changed.');
                 }
                 if ($requiresDatePermission && !user_can($pdo, $uid, 'core.posts.change_dates', ['owner_id' => $uid])) {
@@ -363,6 +372,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     ':thumbnail'  => $thumbnail,
                     ':thumbnail_media_id' => $thumbnailMediaId,
                     ':status'     => $status,
+                    ':publish_at_utc' => $publishAtUtc,
                     ':created_by' => $uid,
                     ':updated_by' => $uid,
                     ':created_at' => $final_created,
@@ -386,6 +396,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     'slug' => $slug,
                     'content' => $content,
                     'status' => $status,
+                    'editor_status' => $requestedStatus,
+                    'publish_at_utc' => $publishAtUtc,
                     'youtube' => $youtube,
                     'thumbnail' => $thumbnail,
                     'categories' => $category_ids,
@@ -409,7 +421,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
 
         if ($post_id > 0) {
-            do_action('admin_post_after_add', $post_id, $pdo, $_POST);
+            do_action('admin_post_after_add', $post_id, $pdo, array_replace($_POST, [
+                'status' => $status,
+                'editor_status' => $requestedStatus,
+                'publish_at_utc' => $publishAtUtc,
+            ]));
             adiwira_redirect_with_flash($return_to, 'success', __('Article saved successfully.'));
         }
 
@@ -537,13 +553,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       $updated_val = $_POST['updated_at'] ?? '';
     ?>
 
-    <div class="form-row mt-12">
-      <label for="status"><?=_e('Status')?></label>
-      <select name="status" id="status" class="inp">
-        <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <?php if ($canPublish): ?><option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
-        <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option><?php endif; ?>
-      </select>
+    <div class="content-publish-row mt-12">
+      <label><?=_e('Status')?><br>
+        <select name="status" id="status" class="inp">
+          <option value="draft" <?= (($_POST['status'] ?? '') === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
+          <?php if ($canPublish): ?><option value="published" <?= (($_POST['status'] ?? '') === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
+          <option value="private" <?= (($_POST['status'] ?? '') === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
+          <option value="scheduled" <?= (($_POST['status'] ?? '') === 'scheduled') ? 'selected' : '' ?>><?=_e('Scheduled')?></option><?php endif; ?>
+        </select>
+      </label>
+      <?php if ($canPublish): ?><label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+        <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars((string)($_POST['schedule_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>" class="inp">
+        <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
+      </label><?php endif; ?>
     </div>
 
     <?php if ($canChangeDates): ?><label class="form-group"><?=_e('Created At (optional)')?><br>
@@ -604,3 +626,4 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 <script src="/static/js/add/quill-init.js"></script>
 <script src="/static/js/add/thumbnail-handler.js"></script>
 <script src="/static/js/add/youtube_preview.js"></script>
+<script src="/static/dashboard/js/content-schedule.js"></script>

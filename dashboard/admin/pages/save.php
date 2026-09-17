@@ -76,7 +76,16 @@ $title         = trim((string)($_POST['title'] ?? ''));
 $slug_in       = trim((string)($_POST['slug'] ?? ''));
 $content       = (string)($_POST['content'] ?? '');
 $statusIn      = (string)($_POST['status'] ?? 'draft');
-$status        = in_array($statusIn, ['draft', 'published', 'private'], true) ? $statusIn : 'draft';
+$requestedStatus = in_array($statusIn, content_schedule_statuses(), true) ? $statusIn : 'draft';
+$scheduleAtIn = trim((string)($_POST['schedule_at'] ?? ''));
+try {
+    $schedule = content_schedule_resolve($requestedStatus, $scheduleAtIn);
+} catch (InvalidArgumentException $error) {
+    $errors[] = __($error->getMessage());
+    $schedule = ['status' => 'draft', 'publish_at_utc' => null];
+}
+$status = $schedule['status'];
+$publishAtUtc = $schedule['publish_at_utc'];
 $thumbnail     = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
 $thumbnailMediaIdInput = $_POST['thumbnail_media_id'] ?? null;
 $created_at_in = trim((string)($_POST['created_at'] ?? ''));
@@ -121,7 +130,7 @@ if ($slug === '') {
 
 // existing page
 $st = $pdo->prepare("
-    SELECT id, slug, status, created_by, created_at, meta, thumbnail, thumbnail_media_id
+    SELECT id, slug, status, publish_at_utc, created_by, created_at, meta, thumbnail, thumbnail_media_id
     FROM posts
     WHERE id = :id
       AND type = 'page'
@@ -141,11 +150,14 @@ if (!is_string($existingEditorStatus) || !in_array($existingEditorStatus, ['draf
     $errors[] = __('Page editor status is invalid.');
     $existingEditorStatus = 'draft';
 }
+$existingEditorStatus = content_schedule_editor_status($existingEditorStatus, is_array($existing) ? $existing : []);
+$scheduleTransitionError = content_schedule_transition_error($existingEditorStatus, $requestedStatus);
+if ($scheduleTransitionError !== null) $errors[] = __($scheduleTransitionError);
 
 if (empty($errors) && !user_can($pdo, $uid, 'core.pages.update', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
-if (empty($errors) && ($existingEditorStatus !== 'draft' || $status !== 'draft')
+if (empty($errors) && ($existingEditorStatus !== 'draft' || $requestedStatus !== 'draft')
     && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
@@ -234,12 +246,12 @@ $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNI
 $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $thumbnail, $thumbnailMediaIdInput, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $uid, $requiresDatePermission, $created_at_in): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $finalMeta, $final_creator, $final_created, $final_updated, $id, $uid, $requiresDatePermission, $created_at_in): void {
     $pdo->beginTransaction();
     try {
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
     if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
-    $lock = $pdo->prepare("SELECT id, created_by, status, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, created_by, status, publish_at_utc, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPage = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedEditorStatus = is_array($lockedPage)
@@ -248,12 +260,16 @@ try {
     if (!is_string($lockedEditorStatus) || !in_array($lockedEditorStatus, ['draft', 'published', 'private'], true)) {
         throw new DomainException('Page editor status is invalid.');
     }
+    $lockedEditorStatus = content_schedule_editor_status($lockedEditorStatus, is_array($lockedPage) ? $lockedPage : []);
+    if (content_schedule_transition_error($lockedEditorStatus, $requestedStatus) !== null) {
+        throw new DomainException('Published content cannot be scheduled directly.');
+    }
     $lockedOwnerId = (int)($lockedPage['created_by'] ?? 0);
     if (!authorization_lock_owner_contexts($pdo, [$lockedOwnerId])) throw new DomainException('Page owner context lock failed.');
     if (!$lockedPage || !user_can($pdo, $uid, 'core.pages.update', ['owner_id' => $lockedOwnerId])) {
         throw new DomainException('Page update permission changed.');
     }
-    if (($lockedEditorStatus !== 'draft' || $status !== 'draft')
+    if (($lockedEditorStatus !== 'draft' || $requestedStatus !== 'draft')
         && !user_can($pdo, $uid, 'core.pages.publish', ['owner_id' => $lockedOwnerId])) {
         throw new DomainException('Page publish permission changed.');
     }
@@ -287,8 +303,9 @@ try {
             content    = :content,
             thumbnail  = :thumbnail,
             thumbnail_media_id = :thumbnail_media_id,
-            status_revision = status_revision + IF(status <> :revision_status, 1, 0),
+            status_revision = status_revision + IF(status <> :revision_status OR NOT (publish_at_utc <=> :revision_publish_at_utc), 1, 0),
             status     = :status,
+            publish_at_utc = :publish_at_utc,
             meta       = :meta,
             created_by = :created_by,
             created_at = :created_at,
@@ -308,6 +325,8 @@ try {
         ':thumbnail_media_id' => $thumbnailMediaId,
         ':status'     => $status,
         ':revision_status' => $status,
+        ':revision_publish_at_utc' => $publishAtUtc,
+        ':publish_at_utc' => $publishAtUtc,
         ':meta'       => $finalMeta,
         ':created_by' => $final_creator,
         ':created_at' => $effectiveCreatedAt,
@@ -324,6 +343,8 @@ try {
         'slug' => $slug,
         'content' => $content,
         'status' => $status,
+        'editor_status' => $requestedStatus,
+        'publish_at_utc' => $publishAtUtc,
         'previous_created_by' => $lockedOwnerId,
         'created_by' => $final_creator,
         'updated_by' => $uid,
@@ -335,13 +356,19 @@ try {
     }
     });
 
-    do_action('admin_page_after_edit', $id, $pdo, $_POST);
+    do_action('admin_page_after_edit', $id, $pdo, array_replace($_POST, [
+        'status' => $status,
+        'editor_status' => $requestedStatus,
+        'publish_at_utc' => $publishAtUtc,
+    ]));
 
     save_success_response(__('Page updated successfully.'), $return_to, [
         'page' => [
             'id'         => $id,
             'slug'       => $slug,
             'status'     => $status,
+            'editor_status' => $requestedStatus,
+            'publish_at_utc' => $publishAtUtc,
             'created_by' => $final_creator,
             'updated_at' => $final_updated,
         ],

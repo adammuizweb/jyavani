@@ -133,6 +133,7 @@ require_once __DIR__ . '/helpers/url_helpers.php';
 
 // 16. helpers untuk konfigurasi setting
 require_once __DIR__ . '/helpers/settings_helpers.php';
+require_once __DIR__ . '/helpers/content_scheduler.php';
 require_once __DIR__ . '/helpers/mail.php';
 
 // 17. helpers untuk Redirect

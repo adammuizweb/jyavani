@@ -371,40 +371,34 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
           $formatPreviewNow = new DateTimeImmutable('now', new DateTimeZone(app_timezone_is_valid($current_site_timezone) ? $current_site_timezone : app_timezone_default_id()));
         ?>
         <div class="form-group">
-          <label><?=_e('Date Format')?></label>
-          <div class="search-policy-options">
+          <label for="date-format-choice"><?=_e('Date Format')?></label>
+          <select name="date_format_choice" id="date-format-choice" class="inp inp-w100">
             <?php foreach ($date_format_presets as $format): ?>
-              <label class="search-policy-option">
-                <input type="radio" name="date_format_choice" value="<?= h($format) ?>"<?= $current_date_format_choice === $format ? ' checked' : '' ?>>
-                <span><strong><?= h(app_display_format($formatPreviewNow, $format)) ?></strong><small><code><?= h($format) ?></code></small></span>
-              </label>
+              <option value="<?= h($format) ?>"<?= $current_date_format_choice === $format ? ' selected' : '' ?>><?= h(app_display_format($formatPreviewNow, $format) . ' - ' . $format) ?></option>
             <?php endforeach; ?>
-            <label class="search-policy-option">
-              <input type="radio" name="date_format_choice" value="custom"<?= $current_date_format_choice === 'custom' ? ' checked' : '' ?>>
-              <span><strong><?=_e('Custom:')?></strong><small><?=_e('Enter a custom date format below.')?></small></span>
-            </label>
+            <option value="custom"<?= $current_date_format_choice === 'custom' ? ' selected' : '' ?>><?=_e('Custom:')?></option>
+          </select>
+          <div data-format-custom="date"<?= $current_date_format_choice === 'custom' ? '' : ' hidden' ?>>
+            <input type="text" name="date_format_custom" value="<?= h($current_date_format_custom) ?>" maxlength="64" class="inp inp-w100" style="margin-top:.65rem;font-family:monospace;">
+            <span class="field-note"><?=_e('Enter a custom date format below.')?></span>
           </div>
-          <input type="text" name="date_format_custom" value="<?= h($current_date_format_custom) ?>" maxlength="64" class="inp inp-w100" style="margin-top:.65rem;font-family:monospace;">
           <span class="field-note"><?=_e('Preview:')?> <strong id="date-format-preview"><?= h(app_display_format_is_valid($current_date_format, 'date') ? app_display_format($formatPreviewNow, $current_date_format) : '') ?></strong></span>
           <span class="field-note"><?=_e('Supported date tokens: d, j, m, n, F, M, Y, y, l, D.')?></span>
           <span class="field-note"><?=_e('Use spaces or - . , / : ( ) as separators.')?></span>
         </div>
 
         <div class="form-group">
-          <label><?=_e('Time Format')?></label>
-          <div class="search-policy-options">
+          <label for="time-format-choice"><?=_e('Time Format')?></label>
+          <select name="time_format_choice" id="time-format-choice" class="inp inp-w100">
             <?php foreach ($time_format_presets as $format): ?>
-              <label class="search-policy-option">
-                <input type="radio" name="time_format_choice" value="<?= h($format) ?>"<?= $current_time_format_choice === $format ? ' checked' : '' ?>>
-                <span><strong><?= h(app_display_format($formatPreviewNow, $format)) ?></strong><small><code><?= h($format) ?></code></small></span>
-              </label>
+              <option value="<?= h($format) ?>"<?= $current_time_format_choice === $format ? ' selected' : '' ?>><?= h(app_display_format($formatPreviewNow, $format) . ' - ' . $format) ?></option>
             <?php endforeach; ?>
-            <label class="search-policy-option">
-              <input type="radio" name="time_format_choice" value="custom"<?= $current_time_format_choice === 'custom' ? ' checked' : '' ?>>
-              <span><strong><?=_e('Custom:')?></strong><small><?=_e('Enter a custom time format below.')?></small></span>
-            </label>
+            <option value="custom"<?= $current_time_format_choice === 'custom' ? ' selected' : '' ?>><?=_e('Custom:')?></option>
+          </select>
+          <div data-format-custom="time"<?= $current_time_format_choice === 'custom' ? '' : ' hidden' ?>>
+            <input type="text" name="time_format_custom" value="<?= h($current_time_format_custom) ?>" maxlength="64" class="inp inp-w100" style="margin-top:.65rem;font-family:monospace;">
+            <span class="field-note"><?=_e('Enter a custom time format below.')?></span>
           </div>
-          <input type="text" name="time_format_custom" value="<?= h($current_time_format_custom) ?>" maxlength="64" class="inp inp-w100" style="margin-top:.65rem;font-family:monospace;">
           <span class="field-note"><?=_e('Preview:')?> <strong id="time-format-preview"><?= h(app_display_format_is_valid($current_time_format, 'time') ? app_display_format($formatPreviewNow, $current_time_format) : '') ?></strong></span>
           <span class="field-note"><?=_e('Supported time tokens: H, G, h, g, i, s, a, A, T, P.')?></span>
           <span class="field-note"><?=_e('Use spaces or - . , / : ( ) as separators.')?></span>
@@ -773,14 +767,17 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
   var separatorPattern = /^[ .,/():-]*$/;
 
   function bindFormatPreview(kind, tokens) {
-    var radios = document.querySelectorAll('input[name="' + kind + '_format_choice"]');
+    var choice = document.querySelector('select[name="' + kind + '_format_choice"]');
     var custom = document.querySelector('input[name="' + kind + '_format_custom"]');
+    var customWrap = document.querySelector('[data-format-custom="' + kind + '"]');
     var preview = document.getElementById(kind + '-format-preview');
-    if (!radios.length || !custom || !preview) return;
+    if (!choice || !custom || !customWrap || !preview) return;
 
     function refresh() {
-      var selected = document.querySelector('input[name="' + kind + '_format_choice"]:checked');
-      var format = selected && selected.value === 'custom' ? custom.value : (selected ? selected.value : '');
+      var isCustom = choice.value === 'custom';
+      customWrap.hidden = !isCustom;
+      custom.disabled = !isCustom;
+      var format = isCustom ? custom.value : choice.value;
       var output = '';
       var valid = format.length > 0 && format.length <= 64;
       for (var index = 0; valid && index < format.length; index++) {
@@ -792,13 +789,9 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
       preview.textContent = valid ? output : <?= json_encode(__('Invalid format.'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     }
 
-    Array.prototype.forEach.call(radios, function(radio){ radio.addEventListener('change', refresh); });
-    custom.addEventListener('focus', function(){
-      var customRadio = document.querySelector('input[name="' + kind + '_format_choice"][value="custom"]');
-      if (customRadio) customRadio.checked = true;
-      refresh();
-    });
+    choice.addEventListener('change', refresh);
     custom.addEventListener('input', refresh);
+    refresh();
   }
 
   bindFormatPreview('date', 'djmnFMYylD');

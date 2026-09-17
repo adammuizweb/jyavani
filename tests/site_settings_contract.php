@@ -82,6 +82,13 @@ $check(str_contains($settingsPage, 'name="date_format_choice"')
     && str_contains($settingsPage, "settings_set(\$pdo, 'date_format'")
     && str_contains($settingsPage, "settings_set(\$pdo, 'time_format'"),
     'Site Settings provides preset and custom validated date/time display formats');
+$check(str_contains($settingsPage, '<select name="date_format_choice"')
+    && str_contains($settingsPage, '<select name="time_format_choice"')
+    && !str_contains($settingsPage, 'type="radio" name="date_format_choice"')
+    && !str_contains($settingsPage, 'type="radio" name="time_format_choice"')
+    && str_contains($settingsPage, 'customWrap.hidden = !isCustom')
+    && str_contains($settingsPage, 'custom.disabled = !isCustom'),
+    'Date and Time Format use compact selects and reveal custom inputs only when selected');
 
 foreach ([$invalidUrl, $invalidFile, $invalidDimensions,
     'Use a square (1:1) PNG, ICO, or SVG at least 48×48 pixels. Use a stable URL for search engines, or leave empty for the default favicon.'] as $source) {

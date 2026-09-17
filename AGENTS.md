@@ -442,7 +442,7 @@ PHP helpers available anywhere after bootstrap:
 ## Content & Shortcodes
 
 - Posts/pages share `posts` table; `type` column: `article`, `page`, `theme`, `sc_preset`
-- Status: `draft`, `published`, `private`
+- Stored status: `draft`, `published`, `private`. Article/Page scheduling is represented by stored `draft` plus non-null `publish_at_utc`; dashboard UI exposes the derived `scheduled` status.
 - Hierarchical categories via `categories.parent_id`
 - Shortcodes in post content are expanded at render time:
   - `[[widget:name key=val]]` → `widget_expand_shortcodes()`
@@ -471,6 +471,7 @@ PHP helpers available anywhere after bootstrap:
 - New instant-bearing fields, including scheduler fields, must use a `_utc` suffix with `DATETIME`/`DATETIME(6)`, explicit UTC writes such as `app_now_utc_mysql()`, comparisons against `UTC_TIMESTAMP()`, and display conversion through `app_utc_mysql_to_site()`.
 - Do not use bare `CURRENT_TIMESTAMP`, `NOW()`, or legacy local formatters for a `_utc` field. Long-running workers must refresh their database session timezone before each processing cycle.
 - Plugins that create independent PDO connections must call `app_db_set_session_timezone()`; shared Core PDO connections are already configured.
+- `tools/publish-scheduled.php` publishes due Article, Page, and Theme Content rows in bounded batches. Configure it as a once-per-minute cron job; concurrent runs use conditional updates so only one worker publishes each row.
 
 ### Schema files
 
@@ -590,6 +591,8 @@ Used for bin items (`apply_filters('bin_items', ...)`), allowing plugins to exte
 - `admin_post_after_edit($post_id, $pdo, $_POST)` — after an article is updated.
 - `admin_post_after_delete($post_id, $pdo)` — after an article is moved to trash.
 - `admin_page_after_add($page_id, $pdo, $_POST)`, `admin_page_after_edit($page_id, $pdo, $_POST)`, `admin_page_after_delete($page_id, $pdo)` — same for pages.
+- `content_scheduler_published($item, $pdo)` — isolated observer after the CLI scheduler atomically publishes due Article, Page, or Theme Content. `$item` contains the content `id`, `type`, `title`, and intended `publish_at_utc`.
+- `content_scheduler_before_publish($item, $pdo)` — fail-fast action while the scheduler owns the locked content row and transaction. Listeners may update companion workflow state or throw to leave the content scheduled for retry, but must not change transaction ownership.
 
 Fired from `dashboard/admin/posts/{add,save,delete}.php` and `dashboard/admin/pages/{add,save,delete}.php`.
 

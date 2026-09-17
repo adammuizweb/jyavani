@@ -200,7 +200,16 @@ $title         = trim((string)($_POST['title'] ?? ''));
 $slug_in       = trim((string)($_POST['slug'] ?? ''));
 $content       = (string)($_POST['content'] ?? '');
 $statusIn      = (string)($_POST['status'] ?? 'draft');
-$status        = in_array($statusIn, ['draft','published','private'], true) ? $statusIn : 'draft';
+$requestedStatus = in_array($statusIn, content_schedule_statuses(), true) ? $statusIn : 'draft';
+$scheduleAtIn = trim((string)($_POST['schedule_at'] ?? ''));
+try {
+    $schedule = content_schedule_resolve($requestedStatus, $scheduleAtIn);
+} catch (InvalidArgumentException $error) {
+    $errors[] = __($error->getMessage());
+    $schedule = ['status' => 'draft', 'publish_at_utc' => null];
+}
+$status = $schedule['status'];
+$publishAtUtc = $schedule['publish_at_utc'];
 $youtube       = trim((string)($_POST['youtube'] ?? '')) ?: null;
 $thumbnail     = trim((string)($_POST['thumbnail'] ?? '')) ?: null;
 $thumbnailMediaIdInput = $_POST['thumbnail_media_id'] ?? null;
@@ -244,7 +253,7 @@ $slug = preg_replace('/[-]{2,}/', '-', (string)$slug);
 $slug = trim((string)$slug, '-');
 if ($slug === '') $slug = bin2hex(random_bytes(4));
 
-$st = $pdo->prepare("\n    SELECT id, slug, status, created_by, created_at, updated_at, meta, thumbnail, thumbnail_media_id\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
+$st = $pdo->prepare("\n    SELECT id, slug, status, publish_at_utc, created_by, created_at, updated_at, meta, thumbnail, thumbnail_media_id\n    FROM posts\n    WHERE id = :id\n      AND type = 'article'\n      AND is_deleted = 0\n    LIMIT 1\n");
 $st->execute([':id' => $id]);
 $existing = $st->fetch(PDO::FETCH_ASSOC);
 
@@ -256,11 +265,14 @@ $existingEditorStatus = $existing
 if (!is_string($existingEditorStatus) || !in_array($existingEditorStatus, ['draft', 'published', 'private'], true)) {
     $errors[] = __('Post editor status is invalid.');
 }
+$existingEditorStatus = content_schedule_editor_status((string)$existingEditorStatus, is_array($existing) ? $existing : []);
+$scheduleTransitionError = content_schedule_transition_error($existingEditorStatus, $requestedStatus);
+if ($scheduleTransitionError !== null) $errors[] = __($scheduleTransitionError);
 
 if (empty($errors) && !user_can($pdo, $uid, 'core.posts.update', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
-if (empty($errors) && ($existingEditorStatus !== 'draft' || $status !== 'draft')
+if (empty($errors) && ($existingEditorStatus !== 'draft' || $requestedStatus !== 'draft')
     && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => (int)($existing['created_by'] ?? 0)])) {
     $errors[] = __('Access denied.');
 }
@@ -340,7 +352,7 @@ $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNI
 $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in, $sidebarOverride, $metaDescription): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in, $sidebarOverride, $metaDescription): void {
     $pdo->beginTransaction();
     try {
 
@@ -351,7 +363,7 @@ try {
         $content = cms_sanitize_restricted_html($content);
     }
 
-    $lock = $pdo->prepare("SELECT id, created_by, status, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, created_by, status, publish_at_utc, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedOwnerId = (int)($lockedPost['created_by'] ?? 0);
@@ -365,7 +377,11 @@ try {
     if (!is_string($lockedEditorStatus) || !in_array($lockedEditorStatus, ['draft', 'published', 'private'], true)) {
         throw new DomainException('Post editor status is invalid.');
     }
-    if (($lockedEditorStatus !== 'draft' || $status !== 'draft')
+    $lockedEditorStatus = content_schedule_editor_status($lockedEditorStatus, $lockedPost);
+    if (content_schedule_transition_error($lockedEditorStatus, $requestedStatus) !== null) {
+        throw new DomainException('Published content cannot be scheduled directly.');
+    }
+    if (($lockedEditorStatus !== 'draft' || $requestedStatus !== 'draft')
         && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => $lockedOwnerId])) {
         throw new DomainException('Post publish permission changed.');
     }
@@ -389,7 +405,7 @@ try {
         ? media_validate_featured_selection($pdo, $thumbnailMediaIdInput, $thumbnail, $uid, true)
         : ((string)($lockedPost['thumbnail'] ?? '') === (string)$thumbnail ? (int)($lockedPost['thumbnail_media_id'] ?? 0) ?: null : null);
 
-    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            thumbnail_media_id = :thumbnail_media_id,\n            status_revision = status_revision + IF(status <> :revision_status, 1, 0),\n            status     = :status,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at,\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
+    $upd = $pdo->prepare("\n        UPDATE posts\n        SET title      = :title,\n            slug       = :slug,\n            content    = :content,\n            youtube    = :youtube,\n            thumbnail  = :thumbnail,\n            thumbnail_media_id = :thumbnail_media_id,\n            status_revision = status_revision + IF(status <> :revision_status OR NOT (publish_at_utc <=> :revision_publish_at_utc), 1, 0),\n            status     = :status,\n            publish_at_utc = :publish_at_utc,\n            meta       = :meta,\n            created_by = :created_by,\n            created_at = :created_at,\n            updated_at = :updated_at,\n            updated_by = :updated_by\n        WHERE id = :id\n          AND type = 'article'\n          AND is_deleted = 0\n        LIMIT 1\n    ");
 
     $ok = $upd->execute([
         ':title'      => $title,
@@ -400,6 +416,8 @@ try {
         ':thumbnail_media_id' => $thumbnailMediaId,
         ':status'     => $status,
         ':revision_status' => $status,
+        ':revision_publish_at_utc' => $publishAtUtc,
+        ':publish_at_utc' => $publishAtUtc,
         ':meta'       => $finalMeta,
         ':created_by' => $final_creator,
         ':created_at' => $effectiveCreatedAt,
@@ -463,6 +481,8 @@ try {
         'slug' => $slug,
         'content' => $content,
         'status' => $status,
+        'editor_status' => $requestedStatus,
+        'publish_at_utc' => $publishAtUtc,
         'youtube' => $youtube,
         'thumbnail' => $thumbnail,
         'categories' => $cats,
@@ -482,13 +502,19 @@ try {
     }
     });
 
-    do_action('admin_post_after_edit', $id, $pdo, $_POST);
+    do_action('admin_post_after_edit', $id, $pdo, array_replace($_POST, [
+        'status' => $status,
+        'editor_status' => $requestedStatus,
+        'publish_at_utc' => $publishAtUtc,
+    ]));
 
     save_success_response(__('Article updated successfully.'), $return_to, [
         'post' => [
             'id'         => $id,
             'slug'       => $slug,
             'status'     => $status,
+            'editor_status' => $requestedStatus,
+            'publish_at_utc' => $publishAtUtc,
             'created_by' => $final_creator,
             'updated_at' => $final_updated,
             'youtube'    => $youtube,

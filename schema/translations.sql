@@ -5727,3 +5727,24 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Invalid time format.', 'Ungültiges Zeitformat.', 'de'),
 ('default', 'Invalid format.', 'Format tidak valid.', 'id'),
 ('default', 'Invalid format.', 'Ungültiges Format.', 'de');
+
+-- Scheduled article and page publication
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Scheduled', 'Terjadwal', 'id'),
+('default', 'Scheduled', 'Geplant', 'de'),
+('default', 'Publish At', 'Publikasikan Pada', 'id'),
+('default', 'Publish At', 'Veröffentlichen am', 'de'),
+('default', 'Required when status is Scheduled. The time must be in the future.', 'Wajib ketika status Terjadwal. Waktu harus berada di masa depan.', 'id'),
+('default', 'Required when status is Scheduled. The time must be in the future.', 'Erforderlich, wenn der Status Geplant ist. Der Zeitpunkt muss in der Zukunft liegen.', 'de'),
+('default', 'Invalid scheduled publication time.', 'Waktu publikasi terjadwal tidak valid.', 'id'),
+('default', 'Invalid scheduled publication time.', 'Der geplante Veröffentlichungszeitpunkt ist ungültig.', 'de'),
+('default', 'Scheduled publication time must be in the future.', 'Waktu publikasi terjadwal harus berada di masa depan.', 'id'),
+('default', 'Scheduled publication time must be in the future.', 'Der geplante Veröffentlichungszeitpunkt muss in der Zukunft liegen.', 'de');
+
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Published content must be changed to Draft before it can be scheduled.', 'Konten yang sudah diterbitkan harus diubah menjadi Draf sebelum dapat dijadwalkan.', 'id'),
+('default', 'Published content must be changed to Draft before it can be scheduled.', 'Veröffentlichte Inhalte müssen zuerst in einen Entwurf geändert werden, bevor sie geplant werden können.', 'de');
+
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Scheduled publication time is ambiguous in the site timezone.', 'Waktu publikasi terjadwal ambigu dalam zona waktu situs.', 'id'),
+('default', 'Scheduled publication time is ambiguous in the site timezone.', 'Der geplante Veröffentlichungszeitpunkt ist in der Website-Zeitzone mehrdeutig.', 'de');

@@ -73,9 +73,12 @@ if (!$post) {
 }
 
 $editorStatus = apply_filters('admin_post_editor_status', (string)($post['status'] ?? 'draft'), $post, $pdo);
-if (is_string($editorStatus) && in_array($editorStatus, ['draft', 'published', 'private'], true)) {
-    $post['status'] = $editorStatus;
+if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published', 'private'], true)) {
+    http_response_code(500);
+    echo '<p>' . __('Post editor status is invalid.') . '</p>';
+    return;
 }
+$post['status'] = content_schedule_editor_status($editorStatus, $post);
 
 $postOwnerId = (int)($post['created_by'] ?? 0);
 $editorContext = authorization_editor_context($pdo, $me, $postOwnerId, 'core.posts.read', 'core.posts.update', [
@@ -312,14 +315,20 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
 
     <?php do_action('editor_mode_after_areas', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
 
-    <div class="form-row" style="margin-top:.6rem">
-      <label for="status"><?=_e('Status')?></label>
-      <?php $currentStatus = $status; ?>
-      <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <?php if ($canPublish || $currentStatus === 'published'): ?><option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option><?php endif; ?>
-        <?php if ($canPublish || $currentStatus === 'private'): ?><option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option><?php endif; ?>
-      </select>
+    <?php $currentStatus = $status; ?>
+    <div class="content-publish-row" style="margin-top:.6rem">
+      <label><?=_e('Status')?><br>
+        <select name="status" id="status" class="inp">
+          <option value="draft" <?= ($currentStatus === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
+          <?php if ($canPublish || $currentStatus === 'published'): ?><option value="published" <?= ($currentStatus === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option><?php endif; ?>
+          <?php if ($canPublish || $currentStatus === 'private'): ?><option value="private" <?= ($currentStatus === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option><?php endif; ?>
+          <?php if ($canPublish && $currentStatus !== 'published'): ?><option value="scheduled" <?= ($currentStatus === 'scheduled') ? 'selected' : '' ?>><?=_e('Scheduled')?></option><?php endif; ?>
+        </select>
+      </label>
+      <?php if ($canPublish && $currentStatus !== 'published'): ?><label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+        <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars((string)($_POST['schedule_at'] ?? content_schedule_datetime_local($post['publish_at_utc'] ?? null)), ENT_QUOTES, 'UTF-8') ?>" class="inp">
+        <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
+      </label><?php endif; ?>
     </div>
 
     <?php if ($canChangeOwner): ?>
@@ -418,6 +427,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
 <script src="/static/js/edit/youtube_preview.js"></script>
 <script src="/static/js/edit/ajax_save.js"></script>
 <script src="/static/js/edit/main-init.js"></script>
+<script src="/static/dashboard/js/content-schedule.js"></script>
 
 <script>
 (function(){

@@ -97,7 +97,7 @@ try {
         respond(false, __('Access denied.'), 403, [], $returnTo);
     }
     $in = implode(',', array_fill(0, count($ids), '?'));
-    $selectedStmt = $pdo->prepare("SELECT id, status, status_revision, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $selectedStmt = $pdo->prepare("SELECT id, status, status_revision, publish_at_utc, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $selectedStmt->execute($ids);
     $selectedPosts = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     if (count($selectedPosts) !== count($ids)) {
@@ -106,10 +106,12 @@ try {
     }
     $rawStatusesById = [];
     $statusRevisionsById = [];
+    $publishAtById = [];
     if ($action === 'change_status') {
         foreach ($selectedPosts as $selectedPost) {
             $rawStatusesById[(int)$selectedPost['id']] = (string)$selectedPost['status'];
             $statusRevisionsById[(int)$selectedPost['id']] = (int)$selectedPost['status_revision'];
+            $publishAtById[(int)$selectedPost['id']] = $selectedPost['publish_at_utc'] ?? null;
         }
         ksort($rawStatusesById, SORT_NUMERIC);
     }
@@ -123,10 +125,14 @@ try {
         if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published', 'private'], true)) {
             throw new DomainException('Post editor status is invalid.');
         }
+        $selectedPost['stored_status'] = (string)$selectedPost['status'];
         $selectedPost['status'] = $editorStatus;
+        $editorStatus = content_schedule_editor_status($editorStatus, $selectedPost);
+        $selectedPost['editor_status'] = $editorStatus;
         if ($statusUndoEligible && $editorStatus !== $rawStatusesById[(int)$selectedPost['id']]) {
             $statusUndoEligible = false;
         }
+        if (!empty($selectedPost['publish_at_utc'])) $statusUndoEligible = false;
     }
     unset($selectedPost);
     foreach ($selectedPosts as $selectedPost) {
@@ -137,7 +143,7 @@ try {
     }
     if ($action === 'change_categories') {
         foreach ($selectedPosts as $selectedPost) {
-            if ((string)($selectedPost['status'] ?? 'draft') !== 'draft'
+            if ((string)($selectedPost['editor_status'] ?? $selectedPost['status'] ?? 'draft') !== 'draft'
                 && !user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => (int)($selectedPost['created_by'] ?? 0)])) {
                 $pdo->rollBack();
                 respond(false, __('Access denied.'), 403, [], $returnTo);
@@ -201,7 +207,7 @@ try {
             $pdo->rollBack();
             respond(false, __('Invalid status.'), 400, [], $returnTo);
         }
-        if ($new_status !== 'draft' || array_filter($selectedPosts, static fn(array $post): bool => (string)($post['status'] ?? 'draft') !== 'draft')) {
+        if ($new_status !== 'draft' || array_filter($selectedPosts, static fn(array $post): bool => (string)($post['editor_status'] ?? $post['status'] ?? 'draft') !== 'draft')) {
             foreach ($selectedPosts as $selectedPost) {
                 if (!user_can($pdo, $uid, 'core.posts.publish', ['owner_id' => (int)($selectedPost['created_by'] ?? 0)])) {
                     $pdo->rollBack();
@@ -215,15 +221,15 @@ try {
 
         $changedIds = [];
         foreach ($ids as $selectedId) {
-            if ($rawStatusesById[$selectedId] !== $new_status) {
+            if ($rawStatusesById[$selectedId] !== $new_status || !empty($publishAtById[$selectedId])) {
                 $changedIds[] = $selectedId;
             }
         }
 
         $in = implode(',', array_fill(0, count($ids), '?'));
         $sql = "UPDATE posts
-                SET status = ?, status_revision = status_revision + 1, updated_at = NOW(), updated_by = ?
-                WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 AND status <> ?";
+                SET status = ?, publish_at_utc = NULL, status_revision = status_revision + 1, updated_at = NOW(), updated_by = ?
+                WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 AND (status <> ? OR publish_at_utc IS NOT NULL)";
         $params = array_merge([$new_status, $uid], $ids, [$new_status]);
 
         $stmt = $pdo->prepare($sql);
@@ -235,7 +241,7 @@ try {
 
         if ($statusUndoEligible) {
             foreach ($selectedPosts as $selectedPost) {
-                $changedPost = array_replace($selectedPost, ['status' => $new_status]);
+                $changedPost = array_replace($selectedPost, ['status' => $new_status, 'publish_at_utc' => null]);
                 if (apply_filters('admin_post_editor_status', $new_status, $changedPost, $pdo) !== $new_status) {
                     $statusUndoEligible = false;
                     break;

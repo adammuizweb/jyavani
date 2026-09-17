@@ -73,6 +73,7 @@ if (!function_exists('adiwira_slugify_theme')) {
     }
 }
 
+$errors = [];
 $id         = (int)($_POST['id'] ?? 0);
 $save_nonce = (string)($_POST['save_nonce'] ?? '');
 $title      = trim((string)($_POST['title'] ?? ''));
@@ -80,7 +81,16 @@ $slug_in    = trim((string)($_POST['slug'] ?? ''));
 $publicPath = trim((string)($_POST['public_path'] ?? ''));
 $content    = (string)($_POST['content'] ?? '');
 $statusIn   = (string)($_POST['status'] ?? 'draft');
-$status     = in_array($statusIn, ['draft','published','private'], true) ? $statusIn : 'draft';
+$requestedStatus = in_array($statusIn, content_schedule_statuses(), true) ? $statusIn : 'draft';
+$scheduleAtIn = trim((string)($_POST['schedule_at'] ?? ''));
+try {
+    $schedule = content_schedule_resolve($requestedStatus, $scheduleAtIn);
+} catch (InvalidArgumentException $error) {
+    $errors[] = __($error->getMessage());
+    $schedule = ['status' => 'draft', 'publish_at_utc' => null];
+}
+$status = $schedule['status'];
+$publishAtUtc = $schedule['publish_at_utc'];
 $return_to  = function_exists('adiwira_safe_return_to')
     ? adiwira_safe_return_to((string)($_POST['return_to'] ?? ''), ADMIN_BASE_PATH . '/?page=admin/themes/index')
     : ADMIN_BASE_PATH . '/?page=admin/themes/index';
@@ -90,8 +100,6 @@ $edit_return = ADMIN_BASE_PATH . '/?' . http_build_query([
     'id'        => $id,
     'return_to' => $return_to,
 ]);
-
-$errors = [];
 
 if ($id <= 0) {
     $errors[] = __('Invalid ID.');
@@ -131,6 +139,9 @@ if (empty($errors)) {
         $errors[] = __('Access denied.');
     }
 }
+$existingEditorStatus = content_schedule_editor_status((string)($theme['status'] ?? 'draft'), is_array($theme) ? $theme : []);
+$scheduleTransitionError = content_schedule_transition_error($existingEditorStatus, $requestedStatus);
+if ($scheduleTransitionError !== null) $errors[] = __($scheduleTransitionError);
 
 if ($publicPath !== '' && empty($errors)) {
     try {
@@ -176,6 +187,8 @@ try {
         ':content' => $content,
         ':status'  => $status,
         ':revision_status' => $status,
+        ':publish_at_utc' => $publishAtUtc,
+        ':revision_publish_at_utc' => $publishAtUtc,
         ':meta'    => $finalMeta,
         ':updated_by' => $user_id,
         ':id'      => $id,
@@ -183,11 +196,11 @@ try {
     if ($isAdmin) {
         $params[':author_id'] = !empty($_POST['created_by']) ? (int)$_POST['created_by'] : $user_id;
     }
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $isAdmin, $params, $publicPath, $id, $user_id): void {
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $isAdmin, $params, $publicPath, $id, $user_id, $requestedStatus): void {
         $pdo->beginTransaction();
         try {
             if (!authorization_lock_actor_permissions($pdo, $user_id)) throw new DomainException('Theme actor permission lock failed.');
-            $themeLock = $pdo->prepare("SELECT id, created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 FOR UPDATE");
+            $themeLock = $pdo->prepare("SELECT id, status, publish_at_utc, created_by FROM posts WHERE id = :id AND type = 'theme' AND is_deleted = 0 FOR UPDATE");
             $themeLock->execute([':id' => $id]);
             $lockedTheme = $themeLock->fetch(PDO::FETCH_ASSOC);
             if (!is_array($lockedTheme)) throw new DomainException('Theme changed.');
@@ -195,6 +208,10 @@ try {
             if (!authorization_lock_owner_contexts($pdo, [$lockedOwnerId])
                 || !user_can($pdo, $user_id, 'core.theme_content.update', ['owner_id' => $lockedOwnerId])) {
                 throw new DomainException('Theme update permission changed.');
+            }
+            $lockedEditorStatus = content_schedule_editor_status((string)($lockedTheme['status'] ?? 'draft'), $lockedTheme);
+            if (content_schedule_transition_error($lockedEditorStatus, $requestedStatus) !== null) {
+                throw new DomainException('Published theme content cannot be scheduled directly.');
             }
             $slugLock = $pdo->prepare("SELECT id FROM posts WHERE slug = :slug AND id != :id AND type IN ('article', 'page', 'theme') AND is_deleted = 0 LIMIT 1 FOR UPDATE");
             $slugLock->execute([':slug' => (string)$params[':slug'], ':id' => $id]);
@@ -204,8 +221,9 @@ try {
                 SET title = :title,
                     slug = :slug,
                     content = :content,
-                    status_revision = status_revision + IF(status <> :revision_status, 1, 0),
+                    status_revision = status_revision + IF(status <> :revision_status OR NOT (publish_at_utc <=> :revision_publish_at_utc), 1, 0),
                     status = :status,
+                    publish_at_utc = :publish_at_utc,
                     meta = :meta,
                     " . ($isAdmin ? "created_by = :author_id," : "") . "
                     updated_at = NOW(),
@@ -225,7 +243,11 @@ try {
         }
     });
 
-    do_action('admin_theme_after_edit', $id, $pdo, $_POST);
+    do_action('admin_theme_after_edit', $id, $pdo, array_replace($_POST, [
+        'status' => $status,
+        'editor_status' => $requestedStatus,
+        'publish_at_utc' => $publishAtUtc,
+    ]));
 
     $stmt2 = $pdo->prepare("SELECT id, slug, title, status, updated_at FROM posts WHERE id = :id LIMIT 1");
     $stmt2->execute([':id' => $id]);
@@ -240,6 +262,7 @@ try {
             'slug'   => (string)($new['slug'] ?? $slug),
             'title'  => (string)($new['title'] ?? $title),
             'status' => (string)($new['status'] ?? $status),
+            'editor_status' => $requestedStatus,
         ],
         'updated_at' => (string)($new['updated_at'] ?? date('Y-m-d H:i:s')),
         'new_save_nonce' => $new_nonce,

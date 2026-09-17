@@ -297,7 +297,7 @@ $check(
 );
 $check(
     str_contains($postRoutes, "core.posts.publish")
-    && str_contains($postRoutes, "!== 'draft' || \$status !== 'draft'")
+    && str_contains($postRoutes, "!== 'draft' || \$requestedStatus !== 'draft'")
     && substr_count($postRoutes, 'FOR UPDATE') >= 8,
     'published article changes and single/bulk mutations are reauthorized under row locks'
 );

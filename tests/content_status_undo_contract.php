@@ -76,9 +76,9 @@ foreach (['article' => 'article.status_changed', 'page' => 'page.status_changed'
 }
 $check(str_contains($sources['schema'], '`status_revision` bigint(20) unsigned NOT NULL DEFAULT 0')
     && str_contains($sources['migration'], 'ADD COLUMN `status_revision`')
-    && str_contains($sources['article_save'], 'status_revision = status_revision + IF(status <> :revision_status, 1, 0)')
-    && str_contains($sources['page_save'], 'status_revision = status_revision + IF(status <> :revision_status, 1, 0)')
-    && str_contains($sources['theme_save'], 'status_revision = status_revision + IF(status <> :revision_status, 1, 0)'),
+    && str_contains($sources['article_save'], 'status_revision = status_revision + IF(status <> :revision_status OR NOT (publish_at_utc <=> :revision_publish_at_utc), 1, 0)')
+    && str_contains($sources['page_save'], 'status_revision = status_revision + IF(status <> :revision_status OR NOT (publish_at_utc <=> :revision_publish_at_utc), 1, 0)')
+    && str_contains($sources['theme_save'], 'status_revision = status_revision + IF(status <> :revision_status OR NOT (publish_at_utc <=> :revision_publish_at_utc), 1, 0)'),
     'every Core editor status writer advances the persistent status revision');
 
 foreach (['Failed to undo status change.', '%d item(s) status restored.', '%d theme partial(s) status changed to "%s".'] as $key) {

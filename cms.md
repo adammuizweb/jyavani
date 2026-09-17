@@ -233,7 +233,34 @@ apply_filters('admin_page_editor_status', string $status, array $post, PDO $pdo)
 ```
 
 The result must be `draft`, `published`, or `private`. Invalid locked results fail
-the save operation. Site-owned constraints can also add validation errors before
+the save operation. Scheduling remains compatible with that contract: Core stores
+a scheduled Article, Page, or Theme Content row as `draft` with `publish_at_utc`, exposes `scheduled` only
+as a dashboard/editor status, and passes normalized mutation payloads. Locked
+Article/Page bulk rows preserve the extension-filtered source value in `status`,
+expose the database value as `stored_status`, and expose the scheduling-aware UI
+value as `editor_status`.
+
+The CLI worker locks each due row and first runs a fail-fast transactional action:
+
+```php
+do_action('content_scheduler_before_publish', array $item, PDO $pdo): void
+```
+
+Listeners may atomically update companion workflow state or throw to leave the
+item scheduled for retry. They must not commit, roll back, or start another
+transaction. After the Core publication commits, the worker runs this observer
+independently:
+
+```php
+do_action('content_scheduler_published', array $item, PDO $pdo): void
+```
+
+`$item` contains `id`, `type`, `title`, and the intended `publish_at_utc`. Listener
+failures are logged after publication and do not stop later listeners. Production
+must run `php tools/publish-scheduled.php` once per minute as documented in
+`SERVER_SETUP.md`.
+
+Site-owned constraints can also add validation errors before
 Site Settings are persisted:
 
 ```php

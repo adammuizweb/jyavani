@@ -92,7 +92,7 @@ if (!is_string($editorStatus) || !in_array($editorStatus, ['draft', 'published',
     echo '<p>' . __('Page editor status is invalid.') . '</p>';
     return;
 }
-$post['status'] = $editorStatus;
+$post['status'] = content_schedule_editor_status($editorStatus, $post);
 
 $pageOwnerId = (int)($post['created_by'] ?? 0);
 $editorContext = authorization_editor_context($pdo, $me, $pageOwnerId, 'core.pages.read', 'core.pages.update', [
@@ -282,15 +282,23 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
 
     <?php do_action('editor_mode_after_areas', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
 
-    <div class="form-row" style="margin-top:.6rem">
-      <label for="status"><?=_e('Status')?></label>
-      <select name="status" id="status" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <option value="draft" <?= ($status === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <?php if ($canPublish): ?>
-          <option value="published" <?= ($status === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
-          <option value="private" <?= ($status === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
-        <?php endif; ?>
-      </select>
+    <div class="content-publish-row" style="margin-top:.6rem">
+      <label><?=_e('Status')?><br>
+        <select name="status" id="status" class="inp">
+          <option value="draft" <?= ($status === 'draft') ? 'selected' : '' ?>><?=_e('Draft')?></option>
+          <?php if ($canPublish): ?>
+            <option value="published" <?= ($status === 'published') ? 'selected' : '' ?>><?=_e('Published')?></option>
+            <option value="private" <?= ($status === 'private') ? 'selected' : '' ?>><?=_e('Private')?></option>
+            <?php if ($status !== 'published'): ?><option value="scheduled" <?= ($status === 'scheduled') ? 'selected' : '' ?>><?=_e('Scheduled')?></option><?php endif; ?>
+          <?php endif; ?>
+        </select>
+      </label>
+      <?php if ($canPublish && $status !== 'published'): ?>
+        <label data-content-schedule hidden><?=_e('Publish At')?> (<?= htmlspecialchars(app_timezone_id(), ENT_QUOTES, 'UTF-8') ?>)<br>
+          <input type="datetime-local" name="schedule_at" value="<?= htmlspecialchars((string)($_POST['schedule_at'] ?? content_schedule_datetime_local($post['publish_at_utc'] ?? null)), ENT_QUOTES, 'UTF-8') ?>" class="inp">
+          <span class="field-note"><?=_e('Required when status is Scheduled. The time must be in the future.')?></span>
+        </label>
+      <?php endif; ?>
     </div>
 
     <?php if ($canChangeOwner): ?>
@@ -394,6 +402,7 @@ if (!in_array($chosenMode, ['quill', 'codemirror'], true)) {
 <script src="/static/js/edit/thumbnail.js"></script>
 <script src="/static/js/edit/ajax_save.js"></script>
 <script src="/static/js/edit/main-init.js"></script>
+<script src="/static/dashboard/js/content-schedule.js"></script>
 
 <script>
 (function(){

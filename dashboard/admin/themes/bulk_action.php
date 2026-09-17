@@ -79,7 +79,7 @@ $in = implode(',', array_fill(0, count($ids), '?'));
 try {
     $pdo->beginTransaction();
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Theme actor permission lock failed.');
-    $selected = $pdo->prepare("SELECT id, status, status_revision, created_by FROM posts WHERE id IN ($in) AND type = 'theme' AND is_deleted = 0 ORDER BY id FOR UPDATE");
+    $selected = $pdo->prepare("SELECT id, status, status_revision, publish_at_utc, created_by FROM posts WHERE id IN ($in) AND type = 'theme' AND is_deleted = 0 ORDER BY id FOR UPDATE");
     $selected->execute($ids);
     $themes = $selected->fetchAll(PDO::FETCH_ASSOC) ?: [];
     if (count($themes) !== count($ids) || !authorization_lock_owner_contexts($pdo, array_column($themes, 'created_by'))) {
@@ -143,15 +143,16 @@ try {
             respond_theme_bulk(false, __('Invalid status.'), 400, [], $returnTo);
         }
 
+        $statusUndoEligible = !array_filter($themes, static fn(array $theme): bool => !empty($theme['publish_at_utc']));
         $changedThemes = array_values(array_filter(
             $themes,
-            static fn(array $theme): bool => (string)$theme['status'] !== $new_status
+            static fn(array $theme): bool => (string)$theme['status'] !== $new_status || !empty($theme['publish_at_utc'])
         ));
 
         $stmt = $pdo->prepare("
             UPDATE posts
-            SET status = ?, status_revision = status_revision + 1, updated_at = NOW(), updated_by = ?
-            WHERE id IN ($in) AND type = 'theme' AND is_deleted = 0 AND status <> ?
+            SET status = ?, publish_at_utc = NULL, status_revision = status_revision + 1, updated_at = NOW(), updated_by = ?
+            WHERE id IN ($in) AND type = 'theme' AND is_deleted = 0 AND (status <> ? OR publish_at_utc IS NOT NULL)
         ");
         $stmt->execute(array_merge([$new_status, $uid], $ids, [$new_status]));
         $affected = $stmt->rowCount();
@@ -160,7 +161,7 @@ try {
         }
 
         $undoItems = [];
-        foreach ($changedThemes as $theme) {
+        foreach ($statusUndoEligible ? $changedThemes : [] as $theme) {
             $selectedId = (int)$theme['id'];
             $previousStatus = (string)$theme['status'];
             $undoItems[] = [
