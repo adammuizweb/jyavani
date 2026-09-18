@@ -104,26 +104,9 @@
     document.getElementById('__warn_clear').onclick = () => {
       dom.remove();
       try {
-        // mark programmatic to avoid handlers stomping values
-        window.ADIWIRA.editor._programmatic = true;
-
         if (window.ADIWIRA && window.ADIWIRA.quill && typeof window.ADIWIRA.quill.forceEnableQuillAfterStrip === 'function') {
           window.ADIWIRA.quill.forceEnableQuillAfterStrip();
         }
-
-        // ensure radios reflect intent and apply editor mode after short delay
-        try {
-          if (document.getElementById('editor-quill')) document.getElementById('editor-quill').checked = true;
-          if (document.getElementById('editor-codemirror')) document.getElementById('editor-codemirror').checked = false;
-
-          setTimeout(()=> {
-            if (window.ADIWIRA && window.ADIWIRA.editor && typeof window.ADIWIRA.editor.applyEditorMode === 'function') {
-              window.ADIWIRA.editor.applyEditorMode();
-            }
-            setTimeout(()=> { window.ADIWIRA.editor._programmatic = false; }, 120);
-          }, 120);
-        } catch(e){ console.warn('post-strip UI sync failed', e); }
-
       } catch(e){ console.warn('forceEnableQuillAfterStrip call failed', e); }
     };
   }

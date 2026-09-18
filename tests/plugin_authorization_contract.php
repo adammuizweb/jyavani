@@ -106,6 +106,15 @@ $ownerOnly = [
     ],
 ];
 $check(plugin_manifest_contract_errors($ownerOnly) === [], 'Site Owner-only plugin routes and navigation are valid');
+$editorDependency = $ownerOnly;
+$editorDependency['dependencies']['js'] = ['content-editor'];
+$check(plugin_manifest_contract_errors($editorDependency) === [], 'plugins may declare the reusable Core content editor dependency');
+$unknownEditorDependency = $editorDependency;
+$unknownEditorDependency['dependencies']['js'] = ['content-editor-private'];
+$check(plugin_manifest_contract_errors($unknownEditorDependency) !== [], 'unknown Core JavaScript dependencies fail manifest validation');
+$duplicateEditorDependency = $editorDependency;
+$duplicateEditorDependency['dependencies']['js'][] = 'content-editor';
+$check(plugin_manifest_contract_errors($duplicateEditorDependency) !== [], 'duplicate Core JavaScript dependencies fail manifest validation');
 
 $navIcon = $ownerOnly;
 $navIcon['name'] = 'owner-tool';

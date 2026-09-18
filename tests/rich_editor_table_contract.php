@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $table = (string)file_get_contents($root . '/public/static/vendor/quill/quill-table.js');
-$add = (string)file_get_contents($root . '/public/static/js/add/quill-init.js');
 $edit = (string)file_get_contents($root . '/public/static/js/edit/quill.js');
 $mode = (string)file_get_contents($root . '/public/static/js/edit/editor_mode.js');
 $layout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
@@ -33,6 +32,11 @@ $check(str_contains($table, "setAttribute('contenteditable', 'false')")
     && str_contains($table, "event.key === 'Escape'")
     && str_contains($table, 'data-table-remove'),
     'table editing uses a keyboard-accessible modal instead of unsafe inline HTML editing');
+$check(str_contains($table, 'var activeDialogClose = null')
+    && str_contains($table, "'jy-table-dialog-title-' + (++dialogSequence)")
+    && str_contains($table, "if (typeof activeDialogClose === 'function') activeDialogClose()")
+    && str_contains($table, 'if (activeDialogClose === close) activeDialogClose = null'),
+    'table dialogs have unique labels and one active owner across mounted editors');
 $check(str_contains($edit, "['link','image','video','table']")
     && str_contains($edit, 'JyavaniQuillTable.configure')
     && str_contains($postAdd, '/static/js/edit/quill.js')
@@ -40,6 +44,12 @@ $check(str_contains($edit, "['link','image','video','table']")
     && str_contains($postEdit, '/static/js/edit/quill.js')
     && str_contains($pageEdit, '/static/js/edit/quill.js'),
     'all Article and Page editors use the shared Quill table integration');
+$check(!is_file($root . '/public/static/js/add/quill-init.js')
+    && substr_count($postAdd . $pageAdd, '<script src="/static/js/edit/codemirror.js"') === 2
+    && substr_count($postAdd . $pageAdd, '<script src="/static/js/edit/editor_mode.js') === 2
+    && substr_count($postAdd . $pageAdd, '<script src="/static/js/editor/core-api.js') === 2
+    && substr_count($postAdd . $pageAdd, '<script src="/static/js/edit/main-init.js"') === 2,
+    'Article and Page Add use the shared dual-editor runtime without a Quill-only fallback');
 $check(!preg_match('/complexPattern[\s\S]{0,180}table/', $edit)
     && !preg_match('/complexPattern[\s\S]{0,180}table/', $mode),
     'saved tables remain editable in Rich Editor mode');

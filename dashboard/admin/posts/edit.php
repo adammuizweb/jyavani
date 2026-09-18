@@ -296,7 +296,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       do_action('editor_mode_before_options', $post ?? [], $chosenMode, $editorContext, $pdo);
     ?>
 
-    <label style="display:block;margin-top:.6rem">
+    <label class="jy-editor-mode-picker">
       <?=_e('Select Editor')?><br>
       <?php
       $editorModes = [
@@ -307,11 +307,11 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       if (!is_array($editorModes) || $editorModes === []) $editorModes = ['quill' => __('Quill (rich)'), 'codemirror' => __('CodeMirror (HTML)')];
       if (!array_key_exists($chosenMode, $editorModes)) $chosenMode = array_key_exists('quill', $editorModes) ? 'quill' : (string)array_key_first($editorModes);
       ?>
-      <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
+      <span class="jy-editor-mode-options">
         <?php foreach ($editorModes as $modeVal => $modeLabel): ?>
         <label><input type="radio" name="editor_mode" value="<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" id="editor-<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" <?= ($chosenMode === $modeVal || ($chosenMode === '' && $modeVal === 'quill')) ? 'checked' : '' ?>> <?= htmlspecialchars($modeLabel, ENT_QUOTES) ?></label>
         <?php endforeach; ?>
-      </div>
+      </span>
     </label>
 
     <div id="post-edit-content-label" class="field-label" data-required-editor-label><?=_e('Content')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
@@ -319,14 +319,14 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
     <?php do_action('content_editor_actions', $contentEditorContext, $post, $pdo); ?>
     <textarea name="content" id="content-textarea" data-editor-canonical style="display:none"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
 
-    <div id="quill-area" class="adam-quill adam-quill--auto" style="margin-top:.6rem;">
+    <div id="quill-area" class="adam-quill adam-quill--auto">
       <div id="quill-toolbar"></div>
-      <div id="quill-editor"><?= $content ? $content : '' ?></div>
+      <div id="quill-editor"></div>
     </div>
 
-    <div id="codemirror-area" style="margin-top:.6rem;display:none;">
+    <div id="codemirror-area" style="display:none;">
       <div id="cm-wrap" class="jy-editor-code-wrap">
-        <textarea id="cm-textarea" style="width:100%;min-height:300px;"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
+        <textarea id="cm-textarea"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
     </div>
 

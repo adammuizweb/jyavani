@@ -91,3 +91,57 @@ if (!function_exists('normalize_links_in_html')) {
         return $out;
     }
 }
+
+if (!function_exists('content_editor_render_mount')) {
+    /** Render a scoped editor shell; authorization and persistence remain caller-owned. */
+    function content_editor_render_mount(array $options): string {
+        $id = is_string($options['id'] ?? null) ? trim($options['id']) : '';
+        $name = is_string($options['name'] ?? null) ? trim($options['name']) : 'content';
+        $mode = is_string($options['initial_mode'] ?? null) ? $options['initial_mode'] : 'quill';
+        $direction = is_string($options['direction'] ?? null) ? $options['direction'] : 'ltr';
+        if (preg_match('/\A[a-zA-Z][a-zA-Z0-9_-]{0,63}\z/', $id) !== 1) {
+            throw new InvalidArgumentException('Editor mount ID is invalid.');
+        }
+        $modeName = is_string($options['mode_name'] ?? null) ? trim($options['mode_name']) : $id . '_editor_mode';
+        foreach ([$name, $modeName] as $fieldName) {
+            if (preg_match('/\A[a-zA-Z_][a-zA-Z0-9_.-]{0,127}(?:\[\])?\z/', $fieldName) !== 1) {
+                throw new InvalidArgumentException('Editor field name is invalid.');
+            }
+        }
+        if (!in_array($mode, ['quill', 'codemirror'], true)) {
+            throw new InvalidArgumentException('Editor initial mode is invalid.');
+        }
+        if (!in_array($direction, ['ltr', 'rtl'], true)) {
+            throw new InvalidArgumentException('Editor direction is invalid.');
+        }
+        $value = is_string($options['value'] ?? null) ? $options['value'] : '';
+        $label = is_string($options['label'] ?? null) ? trim($options['label']) : '';
+        $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $translate = static fn(string $value): string => function_exists('__') ? (string)__($value) : $value;
+        $quillHidden = $mode === 'quill' ? '' : ' hidden';
+        $codeHidden = $mode === 'codemirror' ? '' : ' hidden';
+
+        ob_start();
+        ?>
+        <div id="<?= $escape($id) ?>" class="jy-editor-mount" data-jyavani-editor-mount>
+          <?php if ($label !== ''): ?><div class="field-label" data-editor-label><?= $escape($label) ?></div><?php endif; ?>
+          <fieldset class="jy-editor-modes" data-editor-modes>
+            <legend class="sr-only"><?= $escape($translate('Select Editor')) ?></legend>
+            <label><input type="radio" name="<?= $escape($modeName) ?>" value="quill" data-editor-mode="quill"<?= $mode === 'quill' ? ' checked' : '' ?>> <?= $escape($translate('Quill (rich)')) ?></label>
+            <label><input type="radio" name="<?= $escape($modeName) ?>" value="codemirror" data-editor-mode="codemirror"<?= $mode === 'codemirror' ? ' checked' : '' ?>> <?= $escape($translate('CodeMirror (HTML)')) ?></label>
+          </fieldset>
+          <p class="field-note jy-editor-complex-hint" data-editor-complex-hint hidden><?= $escape($translate('Complex HTML detected. CodeMirror preserves the source markup.')) ?></p>
+          <div class="jy-editor-actions" data-editor-actions hidden></div>
+          <textarea name="<?= $escape($name) ?>" data-editor-canonical hidden><?= $escape($value) ?></textarea>
+          <div class="adam-quill adam-quill--auto" data-editor-area="quill"<?= $quillHidden ?>>
+            <div data-editor-toolbar></div>
+            <div data-editor-quill dir="<?= $direction ?>"></div>
+          </div>
+          <div class="jy-editor-code-wrap" data-editor-area="codemirror"<?= $codeHidden ?>>
+            <textarea data-editor-codemirror dir="ltr"><?= $escape($value) ?></textarea>
+          </div>
+        </div>
+        <?php
+        return (string)ob_get_clean();
+    }
+}

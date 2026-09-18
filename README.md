@@ -108,6 +108,46 @@ Article and Page add/edit forms expose the same Quill/CodeMirror shell and the v
 
 Core emits `jyavani:editor:ready`, `jyavani:editor:change`, and `jyavani:editor:modechange` DOM events and equivalent subscriptions through `JyavaniEditor.on()`. Server-rendered integrations may use `content_editor_before`, `content_editor_actions`, and `content_editor_after`; each receives the normalized schema-1 editor context, the resource array, and PDO. Generated content remains a draft-buffer mutation: normal Article/Page save authorization and HTML sanitization remain authoritative. Provider credentials, prompts, remote requests, usage records, and generated-content policy belong to plugins, not Core.
 
+Custom dashboard routes can declare the `content-editor` JavaScript dependency, render a scoped shell with `content_editor_render_mount()`, and call `JyavaniEditor.mount(root, options)`. The returned schema-2 handle uses the same Quill toolbar, table integration, CodeMirror configuration, complex-HTML policy, selections, and revision conflicts as Core. It additionally exposes scoped `registerButton()`, `on()`, `snapshot()`, `markSaved()`, `isComplex()`, and `destroy()` methods. Repeated mounts on the same root return the same handle.
+
+```php
+<?= content_editor_render_mount([
+    'id' => 'plugin-editor',
+    'name' => 'content',
+    'value' => $content,
+    'initial_mode' => 'quill',
+    'direction' => 'ltr',
+    'label' => __('Content'),
+]) ?>
+```
+
+```js
+const editor = JyavaniEditor.mount('#plugin-editor', {
+  context: { owner: 'plugin.example', resourceType: 'translation', operation: 'edit' },
+  mediaContext: { surface: 'admin.plugin.example', field: 'content' },
+  adapters: {
+    pickMedia(request) {
+      return request.defaults.pickMedia(request).then(media => validateForPlugin(media));
+    }
+  },
+  confirmLossy({ content }) {
+    return showPluginConfirmation(content);
+  }
+});
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  const submitted = editor.snapshot();
+  const guard = window.ADIWIRA?.unsavedGuard;
+  const guardSnapshot = guard?.capture(form);
+  await savePluginData(submitted.content);
+  editor.markSaved(submitted);
+  guard?.markSaved(guardSnapshot, { content: submitted.content }, form);
+});
+```
+
+Capture the shared form guard immediately after the editor snapshot and rebase it only after a successful save. This keeps edits made while the request is in flight dirty. Mount context and `canUpdate` values are descriptive browser metadata, never authorization. The plugin endpoint must still enforce permissions, CSRF, resource identity, locale/media policy, optimistic concurrency, and save-time sanitization. Plugins must not access mounted DOM internals or `window.ADIWIRA` engine globals.
+
 ### Mail API
 
 Feature plugins send email through Core rather than depending on an SMTP plugin:

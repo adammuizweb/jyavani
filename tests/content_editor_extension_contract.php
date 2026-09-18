@@ -30,7 +30,13 @@ foreach ($forms as $label => $source) {
         && str_contains($source, "'codemirror'")
         && str_contains($source, 'id="content-textarea" data-editor-canonical')
         && str_contains($source, 'id="quill-area"')
-        && str_contains($source, 'id="codemirror-area"'),
+        && str_contains($source, 'id="codemirror-area"')
+        && str_contains($source, 'class="jy-editor-mode-picker"')
+        && str_contains($source, 'class="jy-editor-mode-options"')
+        && str_contains($source, '/static/js/edit/codemirror.js')
+        && str_contains($source, '/static/js/edit/quill.js')
+        && str_contains($source, '/static/js/edit/editor_mode.js')
+        && str_contains($source, '/static/js/edit/main-init.js'),
         $label . ' exposes the shared dual-editor shell and canonical field');
     $check(str_contains($source, 'data-jyavani-editor-actions')
         && str_contains($source, "do_action('content_editor_before'")
@@ -80,12 +86,21 @@ $check(str_contains($mode, 'quillApi.isHtmlComplex')
 $check(str_contains($mode, "initialMode === 'quill' || initialMode === 'codemirror'")
     && substr_count(implode('', $forms), 'array_key_exists($chosenMode, $editorModes)') === 4,
     'extension-owned editor modes survive rejected form submissions');
+$clearHandlerStart = strpos($mode, "document.getElementById('__warn_clear').onclick");
+$clearHandlerEnd = strpos($mode, "\n  function applyEditorMode", $clearHandlerStart ?: 0);
+$clearHandler = substr($mode, $clearHandlerStart ?: 0, ($clearHandlerEnd ?: strlen($mode)) - ($clearHandlerStart ?: 0));
+$check(str_contains($quill, "const destructiveTags = new Set(['script', 'style', 'iframe'")
+    && str_contains($quill, 'if (!quillTags.has(tag))')
+    && str_contains($quill, "return isHtmlComplex(stripped) ? escapeXml(template.content.textContent || '') : stripped;")
+    && str_contains($quill, 'if (!quill) {')
+    && !str_contains($clearHandler, 'applyEditorMode'),
+    'confirmed complex-content conversion uses the Quill allowlist and one mode-transition owner');
 $check(str_contains($quill, "const alt = m.alt && String(m.alt).trim() !== '' ? String(m.alt) : String(m.title || '')")
     && str_contains($quill, "'<figure>' + imageHtml + '<figcaption>'")
     && str_contains($quill, 'data-caption'),
     'the shared Quill media handler preserves title fallback and visible captions');
 $check(str_contains($quill, "quill.update('api')")
-    && str_contains($quill, "['alt', 'title', 'width', 'height', 'data-caption', 'data-media-removed']")
+    && str_contains($quill, "['alt', 'title', 'width', 'height', 'data-caption', 'data-media-id', 'data-media-removed']")
     && str_contains($quill, "div.querySelectorAll('img')")
     && !str_contains($quill, "div.querySelectorAll('img[data-caption]')"),
     'Core media mutations advance editor revisions and restore supported image metadata');
@@ -94,6 +109,9 @@ $check(str_contains($api, "document.dispatchEvent(new CustomEvent('jyavani:edito
     && str_contains($api, "emit('change'")
     && str_contains($api, "emit('modechange'"),
     'the public editor API emits stable lifecycle events');
+$check(str_contains($quill, 'if (window.ADIWIRA.quill) return;')
+    && str_contains((string)file_get_contents($root . '/public/static/js/edit/codemirror.js'), 'if (window.ADIWIRA.codemirror) return;'),
+    'editor engine adapters remain stable when plugin dependencies repeat page-owned scripts');
 $check(str_contains($api, "form.addEventListener('submit', sync, true)")
     && str_contains($save, 'window.JyavaniEditor.current')
     && str_contains($save, 'canonical.value = editor.sync()'),

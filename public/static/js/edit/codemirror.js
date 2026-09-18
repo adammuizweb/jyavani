@@ -1,6 +1,7 @@
 // public/adiwira/static/js/edit/codemirror.js — init early, setValueSilent, visibility observer, safe canonical writes
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
+  if (window.ADIWIRA.codemirror) return;
   let cm = null;
   let cmSilent = false;
   let observer = null;

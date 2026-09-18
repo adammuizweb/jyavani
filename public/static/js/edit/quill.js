@@ -2,17 +2,18 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 // public/adiwira/static/js/edit/quill.js
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
+  if (window.ADIWIRA.quill) return;
   let quill = null;
   let suppress = false;
 
   const quillTags = new Set([
-    'p', 'br', 'hr', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup',
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup',
     'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'ul', 'ol', 'li', 'a', 'img', 'span', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'
   ]);
   const quillAttributes = {
-    a: new Set(['href', 'title', 'target', 'rel']),
-    img: new Set(['src', 'alt', 'title', 'width', 'height', 'data-caption', 'data-media-removed']),
+    a: new Set(['href', 'target']),
+    img: new Set(['src', 'alt', 'title', 'width', 'height', 'data-caption', 'data-media-id', 'data-media-removed']),
     ol: new Set(['data-checked']),
     ul: new Set(['data-checked']),
     li: new Set(['data-checked']),
@@ -83,6 +84,13 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         const tag = element.tagName.toLowerCase();
         if (!quillTags.has(tag)) return true;
         if ((tag === 'th' || tag === 'td') && element.children.length > 0) return true;
+        if (tag === 'table') {
+          const rows = Array.from(element.querySelectorAll('tr'));
+          if (rows.length > 12 || rows.some(function (row) {
+            const cells = Array.from(row.querySelectorAll(':scope > th, :scope > td'));
+            return cells.length > 12 || cells.some(function (cell) { return String(cell.textContent || '').trim().length > 2000; });
+          })) return true;
+        }
         return Array.from(element.attributes).some(function (attribute) {
           const name = attribute.name.toLowerCase();
           if (name.startsWith('on')) return true;
@@ -97,6 +105,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
           }
           const allowed = quillAttributes[tag];
           if (!allowed || !allowed.has(name)) return true;
+          if (tag === 'a' && name === 'target' && String(attribute.value || '').toLowerCase() !== '_blank') return true;
           if ((tag === 'th' || tag === 'td') && (name === 'colspan' || name === 'rowspan')) {
             return String(attribute.value || '1') !== '1';
           }
@@ -629,7 +638,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         var src = img.getAttribute('src');
         if (!src) return;
         attrMap[src] = {};
-        ['alt', 'title', 'width', 'height', 'data-caption', 'data-media-removed'].forEach(function (attribute) {
+        ['alt', 'title', 'width', 'height', 'data-caption', 'data-media-id', 'data-media-removed'].forEach(function (attribute) {
           if (img.hasAttribute(attribute)) attrMap[src][attribute] = img.getAttribute(attribute);
         });
       });
@@ -653,15 +662,56 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 
   function stripComplexBlocksAndReturn(html) {
     html = String(html || '');
-    html = html.replace(/<(script|style|iframe|embed|form|svg|canvas|table)[\s\S]*?<\/\1>/gi, '');
     html = html.replace(/<\?[\s\S]*?\?>/g, '');
-    html = html.replace(/<\/?(div|section)[^>]*>/gi, '');
-    html = html.replace(/\sstyle\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
-    return html;
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const destructiveTags = new Set(['script', 'style', 'iframe', 'embed', 'object', 'form', 'svg', 'canvas', 'link', 'meta']);
+
+    Array.from(template.content.querySelectorAll('*')).reverse().forEach(function (element) {
+      const tag = element.tagName.toLowerCase();
+      if (destructiveTags.has(tag)) {
+        element.remove();
+        return;
+      }
+      if (!quillTags.has(tag)) {
+        const parent = element.parentNode;
+        if (!parent) return;
+        while (element.firstChild) parent.insertBefore(element.firstChild, element);
+        element.remove();
+        return;
+      }
+      if ((tag === 'th' || tag === 'td') && element.children.length > 0) {
+        element.textContent = element.textContent || '';
+      }
+      Array.from(element.attributes).forEach(function (attribute) {
+        const name = attribute.name.toLowerCase();
+        if (name === 'class') {
+          const classes = String(attribute.value || '').split(/\s+/).filter(function (className) {
+            return className && (className.startsWith('ql-') || className === 'jy-editor-table');
+          });
+          if (classes.length) element.setAttribute('class', classes.join(' '));
+          else element.removeAttribute(attribute.name);
+          return;
+        }
+        if (name === 'style') {
+          element.removeAttribute(attribute.name);
+          return;
+        }
+        const allowed = quillAttributes[tag];
+        if (name.startsWith('on') || !allowed || !allowed.has(name)
+            || (tag === 'a' && name === 'target' && String(attribute.value || '').toLowerCase() !== '_blank')
+            || ((tag === 'th' || tag === 'td') && (name === 'colspan' || name === 'rowspan') && String(attribute.value || '1') !== '1')) {
+          element.removeAttribute(attribute.name);
+        }
+      });
+    });
+
+    const stripped = template.innerHTML;
+    return isHtmlComplex(stripped) ? escapeXml(template.content.textContent || '') : stripped;
   }
 
   function forceEnableQuillAfterStrip() {
-    if (!canonical) return;
+    if (!canonical) return false;
 
     try {
       const original = canonical.value || '';
@@ -689,15 +739,18 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         console.warn('[quill] update CM failed', e);
       }
 
-      window.ADIWIRA.quillDisabled = false;
-
       const qRadio = document.getElementById('editor-quill');
+      initQuill();
+      if (!quill) {
+        window.ADIWIRA.editor._programmatic = false;
+        return false;
+      }
+
+      window.ADIWIRA.quillDisabled = false;
       if (qRadio) {
         qRadio.removeAttribute('data-quill-disabled');
         qRadio.title = '';
       }
-
-      initQuill();
 
       try {
         if (qRadio) qRadio.checked = true;
@@ -706,29 +759,23 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         if (cmRadio) cmRadio.checked = false;
 
         if (window.ADIWIRA.editor && typeof window.ADIWIRA.editor.applyEditorMode === 'function') {
-          setTimeout(function(){
-            window.ADIWIRA.editor.applyEditorMode();
-            setTimeout(function(){
-              if (window.ADIWIRA && window.ADIWIRA.editor) {
-                window.ADIWIRA.editor._programmatic = false;
-              }
-            }, 120);
-          }, 80);
-        } else {
-          setTimeout(function(){
-            if (window.ADIWIRA && window.ADIWIRA.editor) {
-              window.ADIWIRA.editor._programmatic = false;
-            }
-          }, 120);
+          window.ADIWIRA.editor.applyEditorMode();
         }
+        setTimeout(function(){
+          if (window.ADIWIRA && window.ADIWIRA.editor) {
+            window.ADIWIRA.editor._programmatic = false;
+          }
+        }, 120);
       } catch (e) {
         console.warn('[quill] post-strip UI switch failed', e);
       }
+      return true;
     } catch (e) {
       if (window.ADIWIRA && window.ADIWIRA.editor) {
         window.ADIWIRA.editor._programmatic = false;
       }
       console.error('[quill] forceEnableQuillAfterStrip error', e);
+      return false;
     }
   }
 
@@ -737,6 +784,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     isContentComplex,
     isHtmlComplex,
     cleanExtraBreaks,
+    stripComplexHtml: stripComplexBlocksAndReturn,
+    toolbarConfig: function(){ return JSON.parse(JSON.stringify(FULL_TOOLBAR)); },
     forceEnableQuillAfterStrip,
     setHTMLIfDifferent,
     getInstance: function(){ return quill; }

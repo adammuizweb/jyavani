@@ -87,6 +87,9 @@
   JyavaniTableBlot.className = 'jy-editor-table';
   Quill.register(JyavaniTableBlot, true);
 
+  var activeDialogClose = null;
+  var dialogSequence = 0;
+
   function labels() {
     var supplied = window.jyavaniTableEditorI18n || {};
     return Object.assign({
@@ -110,13 +113,15 @@
   }
 
   function openEditor(initial, onSave, onRemove) {
+    if (typeof activeDialogClose === 'function') activeDialogClose();
     var i18n = labels();
     var value = normalized(initial || {});
     var overlay = document.createElement('div');
+    var titleId = 'jy-table-dialog-title-' + (++dialogSequence);
     overlay.className = 'jy-table-dialog';
     overlay.innerHTML =
-      '<div class="jy-table-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="jy-table-dialog-title">' +
-        '<h3 id="jy-table-dialog-title"></h3>' +
+      '<div class="jy-table-dialog__panel" role="dialog" aria-modal="true" aria-labelledby="' + titleId + '">' +
+        '<h3 id="' + titleId + '"></h3>' +
         '<div class="jy-table-dialog__options">' +
           '<label><span></span><input type="number" min="1" max="' + MAX_ROWS + '" data-table-rows></label>' +
           '<label><span></span><input type="number" min="1" max="' + MAX_COLUMNS + '" data-table-columns></label>' +
@@ -185,7 +190,11 @@
       }
     }
 
+    var closed = false;
     function close() {
+      if (closed) return;
+      closed = true;
+      if (activeDialogClose === close) activeDialogClose = null;
       document.removeEventListener('keydown', onKeydown);
       overlay.remove();
     }
@@ -210,9 +219,11 @@
     overlay.addEventListener('mousedown', function (event) { if (event.target === overlay) close(); });
     document.addEventListener('keydown', onKeydown);
     document.body.appendChild(overlay);
+    activeDialogClose = close;
     renderGrid();
     var firstCell = grid.querySelector('input');
     (firstCell || rowInput).focus();
+    return close;
   }
 
   function configure(quill) {
@@ -223,7 +234,8 @@
     });
 
     function insertTable() {
-      openEditor(null, function (value) {
+      if (typeof quill.__jyavaniTableCloseDialog === 'function') quill.__jyavaniTableCloseDialog();
+      quill.__jyavaniTableCloseDialog = openEditor(null, function (value) {
         var range = quill.getSelection(true) || { index: Math.max(0, quill.getLength() - 1) };
         quill.insertEmbed(range.index, 'table', value, 'user');
         quill.setSelection(range.index + 1, 0, 'silent');
@@ -262,7 +274,8 @@
       var blot = Quill.find(table);
       if (!blot) return;
       var index = quill.getIndex(blot);
-      openEditor(valueFromNode(table), function (value) {
+      if (typeof quill.__jyavaniTableCloseDialog === 'function') quill.__jyavaniTableCloseDialog();
+      quill.__jyavaniTableCloseDialog = openEditor(valueFromNode(table), function (value) {
         quill.deleteText(index, 1, 'silent');
         quill.insertEmbed(index, 'table', value, 'user');
         quill.setSelection(index + 1, 0, 'silent');
@@ -272,5 +285,11 @@
     });
   }
 
-  window.JyavaniQuillTable = { configure: configure };
+  function destroy(quill) {
+    if (!quill || typeof quill.__jyavaniTableCloseDialog !== 'function') return;
+    quill.__jyavaniTableCloseDialog();
+    delete quill.__jyavaniTableCloseDialog;
+  }
+
+  window.JyavaniQuillTable = { configure: configure, destroy: destroy };
 })();

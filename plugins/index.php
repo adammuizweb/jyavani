@@ -202,6 +202,32 @@ function plugin_manifest_static_copy_destinations(array $manifest, array &$error
     return $destinations;
 }
 
+function plugin_core_js_dependency_assets(): array {
+    $assets = [
+        'modal-helpers' => ['/static/js/add/modal-helpers.js'],
+        'media-selector' => ['/static/js/add/media-selector.js'],
+        'file-selector' => ['/static/js/add/file-selector.js'],
+        'content-editor' => [
+            '/static/js/add/modal-helpers.js',
+            '/static/js/add/media-selector.js',
+            '/static/js/add/file-selector.js',
+            '/static/js/edit/codemirror.js',
+            '/static/js/edit/quill.js',
+            '/static/js/editor/core-api.js',
+        ],
+    ];
+    $publicPath = defined('PUBLIC_PATH') ? PUBLIC_PATH : dirname(__DIR__) . '/public';
+    foreach ($assets as &$urls) {
+        foreach ($urls as &$url) {
+            $file = $publicPath . $url;
+            if (is_file($file)) $url .= '?v=' . filemtime($file);
+        }
+        unset($url);
+    }
+    unset($urls);
+    return $assets;
+}
+
 /** Validate and normalize plugin-owned permissions and protected admin routes. */
 function plugin_manifest_contract(array $manifest): array {
     $errors = [];
@@ -220,7 +246,8 @@ function plugin_manifest_contract(array $manifest): array {
         sort($normalized, SORT_STRING);
         return $normalized;
     };
-    if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest) && !array_key_exists('static', $manifest)) {
+    if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest)
+        && !array_key_exists('static', $manifest) && !array_key_exists('dependencies', $manifest)) {
         return ['permissions' => [], 'route_roles' => [], 'errors' => []];
     }
     $name = is_string($manifest['name'] ?? null) ? trim($manifest['name']) : '';
@@ -228,6 +255,23 @@ function plugin_manifest_contract(array $manifest): array {
         $errors[] = 'Invalid plugin name';
     }
     $staticDestinations = plugin_manifest_static_copy_destinations($manifest, $errors);
+    if (array_key_exists('dependencies', $manifest)) {
+        $dependencies = $manifest['dependencies'];
+        $jsDependencies = is_array($dependencies) ? ($dependencies['js'] ?? []) : null;
+        if (!is_array($dependencies) || !is_array($jsDependencies) || !array_is_list($jsDependencies) || count($jsDependencies) > 16) {
+            $errors[] = 'Invalid plugin Core JavaScript dependencies';
+        } else {
+            $knownDependencies = plugin_core_js_dependency_assets();
+            $seenDependencies = [];
+            foreach ($jsDependencies as $dependency) {
+                if (!is_string($dependency) || !isset($knownDependencies[$dependency]) || isset($seenDependencies[$dependency])) {
+                    $errors[] = 'Invalid plugin Core JavaScript dependency';
+                    continue;
+                }
+                $seenDependencies[$dependency] = true;
+            }
+        }
+    }
     if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest)) {
         return ['permissions' => [], 'route_roles' => [], 'errors' => array_values(array_unique($errors))];
     }
@@ -2020,21 +2064,16 @@ function plugin_nav_icon_asset_url(array $item): ?string {
 
 function plugin_assets(): array {
     $assets = ['css' => [], 'js' => []];
-    $coreDependencies = [
-        'modal-helpers' => '/static/js/add/modal-helpers.js',
-        'media-selector' => '/static/js/add/media-selector.js',
-        'file-selector' => '/static/js/add/file-selector.js',
-    ];
+    $coreDependencies = plugin_core_js_dependency_assets();
     foreach (plugins_active() as $name => $p) {
+        foreach ($p['dependencies']['js'] ?? [] as $dependency) {
+            if (!is_string($dependency) || !isset($coreDependencies[$dependency])) continue;
+            foreach ($coreDependencies[$dependency] as $url) $assets['js'][] = $url;
+        }
         $a = $p['assets'] ?? [];
         foreach (['css', 'js'] as $type) {
             foreach ($a[$type] ?? [] as $url) {
                 $assets[$type][] = $url;
-            }
-        }
-        foreach ($p['dependencies']['js'] ?? [] as $dependency) {
-            if (is_string($dependency) && isset($coreDependencies[$dependency])) {
-                $assets['js'][] = $coreDependencies[$dependency];
             }
         }
     }
