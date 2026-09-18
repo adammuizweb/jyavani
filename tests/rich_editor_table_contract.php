@@ -33,10 +33,13 @@ $check(str_contains($table, "setAttribute('contenteditable', 'false')")
     && str_contains($table, "event.key === 'Escape'")
     && str_contains($table, 'data-table-remove'),
     'table editing uses a keyboard-accessible modal instead of unsafe inline HTML editing');
-$check(str_contains($add, "['link','image','video','table']")
-    && str_contains($edit, "['link','image','video','table']")
-    && substr_count($add . $edit, 'JyavaniQuillTable.configure') === 2,
-    'add and edit Rich Editors expose and configure the table control');
+$check(str_contains($edit, "['link','image','video','table']")
+    && str_contains($edit, 'JyavaniQuillTable.configure')
+    && str_contains($postAdd, '/static/js/edit/quill.js')
+    && str_contains($pageAdd, '/static/js/edit/quill.js')
+    && str_contains($postEdit, '/static/js/edit/quill.js')
+    && str_contains($pageEdit, '/static/js/edit/quill.js'),
+    'all Article and Page editors use the shared Quill table integration');
 $check(!preg_match('/complexPattern[\s\S]{0,180}table/', $edit)
     && !preg_match('/complexPattern[\s\S]{0,180}table/', $mode),
     'saved tables remain editable in Rich Editor mode');
@@ -44,19 +47,18 @@ $check(str_contains($layout, '/static/vendor/quill/quill-table.js')
     && str_contains($layout, "filemtime(PUBLIC_PATH . '/static/vendor/quill/quill-table.js')")
     && str_contains($layout, 'window.jyavaniTableEditorI18n'),
     'dashboard cache-busts the local table module and provides translated labels');
-$check(str_contains($add, "modal_file/index.php?embedded=1")
-    && str_contains($add, "modal_img/index.php?embedded=1")
-    && str_contains($edit, "modal_file/index.php?embedded=1")
+$check(str_contains($edit, "modal_file/index.php?embedded=1")
     && str_contains($edit, "modal_img/index.php?embedded=1")
     && str_contains($table, "querySelector('.ql-video')")
     && str_contains($table, 'fileButton.innerHTML')
     && str_contains($table, 'i18n.fileLibrary'),
     'former video control uses a file icon and opens File Library while image opens Media Library');
-$check(str_contains($postAdd, "filemtime(PUBLIC_PATH . '/static/js/add/quill-init.js')")
-    && str_contains($pageAdd, "filemtime(PUBLIC_PATH . '/static/js/add/quill-init.js')")
+$check(str_contains($postAdd, "filemtime(PUBLIC_PATH . '/static/js/edit/quill.js')")
+    && str_contains($pageAdd, "filemtime(PUBLIC_PATH . '/static/js/edit/quill.js')")
     && str_contains($postEdit, "filemtime(PUBLIC_PATH . '/static/js/edit/quill.js')")
-    && str_contains($pageEdit, "filemtime(PUBLIC_PATH . '/static/js/edit/quill.js')"),
-    'all post and page editors cache-bust their Quill initializer');
+    && str_contains($pageEdit, "filemtime(PUBLIC_PATH . '/static/js/edit/quill.js')")
+    && substr_count($postAdd . $pageAdd . $postEdit . $pageEdit, "filemtime(PUBLIC_PATH . '/static/js/editor/core-api.js')") === 4,
+    'all post and page editors cache-bust their shared editor assets');
 $check(str_contains($sanitizer, "'table','thead','tbody','tfoot','tr','th','td'")
     && str_contains($sanitizer, "'th' => ['colspan','rowspan']")
     && str_contains($sanitizer, "'td' => ['colspan','rowspan']"),

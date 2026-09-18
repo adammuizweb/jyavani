@@ -210,7 +210,12 @@ function showNotif(title, msg, ms, forcedType){
     // sync editor -> canonical textarea
     const canonical = getCanonicalTextarea();
     try {
-      if (canonical) {
+      const editor = window.JyavaniEditor && window.JyavaniEditor.current
+        ? window.JyavaniEditor.current()
+        : null;
+      if (canonical && editor && typeof editor.sync === 'function') {
+        canonical.value = editor.sync();
+      } else if (canonical) {
         if (mode === 'codemirror') canonical.value = getCodeMirrorValue(formEl);
         else if (mode === 'quill') canonical.value = getQuillHTML();
       }

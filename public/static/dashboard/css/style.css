@@ -3268,6 +3268,15 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
   padding: .75rem;
   color: inherit;
 }
+.jy-editor-mode-picker{display:block;margin-top:.6rem}
+.jy-editor-mode-options{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.4rem}
+.jy-editor-actions{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.45rem 0}
+.jy-editor-actions[hidden]{display:none}
+.jy-editor-action{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:.4rem .7rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-surface-2);color:var(--adam-text);font:inherit;font-size:.86rem;font-weight:600;cursor:pointer}
+.jy-editor-action:hover{border-color:var(--adam-primary);color:var(--adam-primary)}
+.jy-editor-action:focus-visible{outline:2px solid var(--adam-primary);outline-offset:2px}
+.jy-editor-action:disabled{cursor:wait;opacity:.65}
+.jy-editor-code-wrap{overflow:hidden;border:1px solid var(--adam-border);border-radius:10px}
 .adam-quill .ql-toolbar .ql-table::before{
   content:"";
   display:block;

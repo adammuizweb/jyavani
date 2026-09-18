@@ -215,7 +215,7 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
 <section class="adam-card">
   <h2 class="edit-heading"><?=_e('Add Page')?></h2>
 
-  <form id="page-add-form" method="post" novalidate data-unsaved-guard>
+  <form id="page-add-form" method="post" novalidate data-unsaved-guard data-content-editor>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
@@ -265,12 +265,56 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       </div>
     </div>
 
-    <div id="page-add-content-label" class="field-label" data-required-editor-label><?=_e('Content (rich text)')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
-    <div id="quill-editor-box" class="adam-quill adam-quill--auto" style="margin-top:.4rem;">
+    <?php
+      $editorContent = (string)($_POST['content'] ?? '');
+      $chosenMode = (string)($_POST['editor_mode'] ?? 'quill');
+      $editorResource = ['id' => null, 'type' => 'page', 'content' => $editorContent];
+      $contentEditorContext = [
+          'schema' => 1,
+          'resource_type' => 'page',
+          'operation' => 'add',
+          'resource_id' => null,
+          'form_id' => 'page-add-form',
+          'can_update' => true,
+          'can_use_unfiltered_html' => $canUseUnfilteredHtml,
+      ];
+      do_action('content_editor_before', $contentEditorContext, $editorResource, $pdo);
+      do_action('editor_mode_before_options', $editorResource, $chosenMode, $contentEditorContext, $pdo);
+      $editorModes = apply_filters('editor_mode_options', [
+          'quill' => __('Quill (rich)'),
+          'codemirror' => __('CodeMirror (HTML)'),
+      ], $editorResource);
+      if (!is_array($editorModes) || $editorModes === []) $editorModes = ['quill' => __('Quill (rich)'), 'codemirror' => __('CodeMirror (HTML)')];
+      if (!array_key_exists($chosenMode, $editorModes)) $chosenMode = array_key_exists('quill', $editorModes) ? 'quill' : (string)array_key_first($editorModes);
+    ?>
+    <label class="jy-editor-mode-picker">
+      <?=_e('Select Editor')?><br>
+      <span class="jy-editor-mode-options">
+        <?php foreach ($editorModes as $modeVal => $modeLabel): ?>
+        <label><input type="radio" name="editor_mode" value="<?= htmlspecialchars((string)$modeVal, ENT_QUOTES, 'UTF-8') ?>" id="editor-<?= htmlspecialchars((string)$modeVal, ENT_QUOTES, 'UTF-8') ?>" <?= $chosenMode === $modeVal ? 'checked' : '' ?>> <?= htmlspecialchars((string)$modeLabel, ENT_QUOTES, 'UTF-8') ?></label>
+        <?php endforeach; ?>
+      </span>
+    </label>
+
+    <div id="page-add-content-label" class="field-label" data-required-editor-label><?=_e('Content')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
+    <div class="jy-editor-actions" data-jyavani-editor-actions hidden></div>
+    <?php do_action('content_editor_actions', $contentEditorContext, $editorResource, $pdo); ?>
+    <textarea name="content" id="content-textarea" data-editor-canonical style="display:none"><?= htmlspecialchars($editorContent, ENT_QUOTES, 'UTF-8') ?></textarea>
+
+    <div id="quill-area" class="adam-quill adam-quill--auto">
+      <div id="quill-toolbar"></div>
       <div id="quill-editor"></div>
     </div>
 
-    <input type="hidden" name="content" id="content-input" value="<?= htmlspecialchars($_POST['content'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+    <div id="codemirror-area" style="display:none;">
+      <div id="cm-wrap" class="jy-editor-code-wrap">
+        <textarea id="cm-textarea"><?= htmlspecialchars($editorContent, ENT_QUOTES, 'UTF-8') ?></textarea>
+      </div>
+    </div>
+    <?php
+      do_action('editor_mode_after_areas', $editorResource, $chosenMode, $contentEditorContext, $pdo);
+      do_action('content_editor_after', $contentEditorContext, $editorResource, $pdo);
+    ?>
 
     <div id="media-single-panel" style="margin-top:12px;border:1px solid #eee;padding:10px;border-radius:6px;display:none;background:#fff;max-width:480px">
       <div id="media-single-content"><?=_e('Click an image in Media to view details & edit.')?></div>
@@ -342,12 +386,26 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 <script>
   window.ADIWIRA = window.ADIWIRA || {};
   window.ADIWIRA_BASE = <?= json_encode($base) ?>;
+  window.ADIWIRA_FORM_ID = 'page-add-form';
+  window.JyavaniEditorContext = <?= json_encode([
+      'resourceType' => 'page',
+      'operation' => 'add',
+      'resourceId' => null,
+      'formId' => 'page-add-form',
+      'canUpdate' => true,
+      'canUseUnfilteredHtml' => $canUseUnfilteredHtml,
+      'adminBasePath' => $base,
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
 
 <script src="/static/js/add/modal-helpers.js"></script>
 <script src="/static/js/add/media-selector.js"></script>
 <script src="/static/js/add/file-selector.js"></script>
 <script>window.QUILL_PLACEHOLDER = <?= json_encode(__('Write article content here...')) ?>;</script>
-<script src="/static/js/add/quill-init.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/add/quill-init.js') ?: 0) ?>"></script>
+<script src="/static/js/edit/codemirror.js"></script>
+<script src="/static/js/edit/quill.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/quill.js') ?: 0) ?>"></script>
+<script src="/static/js/edit/editor_mode.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/editor_mode.js') ?: 0) ?>"></script>
+<script src="/static/js/editor/core-api.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/editor/core-api.js') ?: 0) ?>"></script>
+<script src="/static/js/edit/main-init.js"></script>
 <script src="/static/js/add/thumbnail-handler.js"></script>
 <script src="/static/dashboard/js/content-schedule.js"></script>

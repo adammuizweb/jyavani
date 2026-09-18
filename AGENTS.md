@@ -556,9 +556,9 @@ Common examples that should NOT be hard-coded:
 - Theme manager headings/buttons and theme-browser labels.
 - File/media manager toast prefixes and fallback messages.
 
-### Quill editor
+### Content editor API
 
-Placeholder string translatable via JS global `window.QUILL_PLACEHOLDER` (set in layout).
+Article and Page add/edit screens share the Quill/CodeMirror shell and publish the versioned `window.JyavaniEditor` extension contract from `public/static/js/editor/core-api.js`. Plugins must use `JyavaniEditor.ready()` and the returned engine-neutral handle instead of depending on `window.ADIWIRA.quill`, `window.ADIWIRA.codemirror`, `window.__adam_quill_instance`, or editor DOM IDs. The handle owns content synchronization, selection, insertion, safe mode changes, dirty snapshots, and revision conflicts for asynchronous operations. Plugin buttons register through `JyavaniEditor.registerButton()`; server-rendered companion UI can use `content_editor_before`, `content_editor_actions`, and `content_editor_after` with the schema-1 context. Core save authorization and HTML sanitization remain authoritative. Placeholder text remains translatable through `window.QUILL_PLACEHOLDER`.
 
 ## Project structure
 

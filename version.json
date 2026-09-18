@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.137",
-    "build": "2026-09-17",
-    "changelog": "Make update notifications actionable and preserve updater directory writability.",
+    "version": "2.3.138",
+    "build": "2026-09-18",
+    "changelog": "Add the public content editor extension API and shared Article and Page editor support.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.137"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.138"
 }

@@ -167,7 +167,8 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
         id="post-edit-form"
         action="<?= htmlspecialchars($base . '/admin/posts/save.php', ENT_QUOTES, 'UTF-8') ?>"
         novalidate
-        data-unsaved-guard>
+        data-unsaved-guard
+        data-content-editor>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" value="<?= (int)$post['id'] ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
@@ -281,7 +282,19 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       </div>
     </div>
 
-    <?php do_action('editor_mode_before_options', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
+    <?php
+      $contentEditorContext = [
+          'schema' => 1,
+          'resource_type' => 'article',
+          'operation' => 'edit',
+          'resource_id' => (int)$post['id'],
+          'form_id' => 'post-edit-form',
+          'can_update' => true,
+          'can_use_unfiltered_html' => $canUseUnfilteredHtml,
+      ];
+      do_action('content_editor_before', $contentEditorContext, $post, $pdo);
+      do_action('editor_mode_before_options', $post ?? [], $chosenMode, $editorContext, $pdo);
+    ?>
 
     <label style="display:block;margin-top:.6rem">
       <?=_e('Select Editor')?><br>
@@ -291,6 +304,8 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
           'codemirror' => __('CodeMirror (HTML)'),
       ];
       $editorModes = apply_filters('editor_mode_options', $editorModes, $post ?? []);
+      if (!is_array($editorModes) || $editorModes === []) $editorModes = ['quill' => __('Quill (rich)'), 'codemirror' => __('CodeMirror (HTML)')];
+      if (!array_key_exists($chosenMode, $editorModes)) $chosenMode = array_key_exists('quill', $editorModes) ? 'quill' : (string)array_key_first($editorModes);
       ?>
       <div style="margin-top:.4rem;display:flex;gap:.5rem;align-items:center">
         <?php foreach ($editorModes as $modeVal => $modeLabel): ?>
@@ -300,7 +315,9 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
     </label>
 
     <div id="post-edit-content-label" class="field-label" data-required-editor-label><?=_e('Content')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
-    <textarea name="content" id="content-textarea" style="display:none"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
+    <div class="jy-editor-actions" data-jyavani-editor-actions hidden></div>
+    <?php do_action('content_editor_actions', $contentEditorContext, $post, $pdo); ?>
+    <textarea name="content" id="content-textarea" data-editor-canonical style="display:none"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
 
     <div id="quill-area" class="adam-quill adam-quill--auto" style="margin-top:.6rem;">
       <div id="quill-toolbar"></div>
@@ -308,12 +325,13 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
     </div>
 
     <div id="codemirror-area" style="margin-top:.6rem;display:none;">
-      <div id="cm-wrap" style="border:1px solid #333;border-radius:6px;overflow:hidden">
+      <div id="cm-wrap" class="jy-editor-code-wrap">
         <textarea id="cm-textarea" style="width:100%;min-height:300px;"><?= htmlspecialchars($content, ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
     </div>
 
     <?php do_action('editor_mode_after_areas', $post ?? [], $chosenMode, $editorContext, $pdo); ?>
+    <?php do_action('content_editor_after', $contentEditorContext, $post, $pdo); ?>
 
     <?php $currentStatus = $status; ?>
     <div class="content-publish-row" style="margin-top:.6rem">
@@ -409,6 +427,15 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
 <script>
   window.ADIWIRA = window.ADIWIRA || {};
   window.ADIWIRA_FORM_ID = 'post-edit-form';
+  window.JyavaniEditorContext = <?= json_encode([
+      'resourceType' => 'article',
+      'operation' => 'edit',
+      'resourceId' => (int)$post['id'],
+      'formId' => 'post-edit-form',
+      'canUpdate' => true,
+      'canUseUnfilteredHtml' => $canUseUnfilteredHtml,
+      'adminBasePath' => $base,
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 </script>
 
 <script src="/static/js/edit/utils.js"></script>
@@ -423,6 +450,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
 <script src="/static/js/edit/codemirror.js"></script>
 <script src="/static/js/edit/quill.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/quill.js') ?: 0) ?>"></script>
 <script src="/static/js/edit/editor_mode.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/editor_mode.js') ?: 0) ?>"></script>
+<script src="/static/js/editor/core-api.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/editor/core-api.js') ?: 0) ?>"></script>
 <script src="/static/js/edit/thumbnail.js"></script>
 <script src="/static/js/edit/youtube_preview.js"></script>
 <script src="/static/js/edit/ajax_save.js"></script>

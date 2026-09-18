@@ -102,6 +102,12 @@ Applied filenames, content, and original SHA-256 ledger values are immutable. Ne
 
 Keep-data uninstall retains migration history. Complete uninstall is available only while the plugin is active and its entrypoint has loaded successfully in the current request, ensuring its existing `plugin_uninstall` hooks are registered. Disabled plugins must be activated first or removed with data retained. Recovery artifacts block the operation before ledger clearing. Core marks the plugin inactive under lock, clears history, then verifies and recovers transaction/autocommit state after every isolated cleanup hook. Listener errors leave the plugin installed and inactive with history cleared, ensuring activation or reinstall cannot silently skip schema setup. Final file deletion first moves the complete tree to a same-parent non-discoverable recovery path, so partial recursive cleanup cannot expose a broken plugin. An optional disposable-MySQL contract can be run with `JY_TEST_MYSQL_DSN`, `JY_TEST_MYSQL_USER`, and `JY_TEST_MYSQL_PASSWORD`.
 
+### Content Editor API
+
+Article and Page add/edit forms expose the same Quill/CodeMirror shell and the versioned `window.JyavaniEditor` browser API. Plugin assets can call `JyavaniEditor.ready()`, register an engine-neutral action with `registerButton()`, and use the returned handle for `getContent()`, `setContent()`, `getSelection()`, `setSelection()`, `insert()`, `getMode()`, `setMode()`, `sync()`, `isDirty()`, `focus()`, and `getRevision()`. A selection includes its editor mode and revision; asynchronous tools should pass that selection back as `range`, causing stale results to fail with `EDITOR_REVISION_CONFLICT` rather than overwrite newer edits.
+
+Core emits `jyavani:editor:ready`, `jyavani:editor:change`, and `jyavani:editor:modechange` DOM events and equivalent subscriptions through `JyavaniEditor.on()`. Server-rendered integrations may use `content_editor_before`, `content_editor_actions`, and `content_editor_after`; each receives the normalized schema-1 editor context, the resource array, and PDO. Generated content remains a draft-buffer mutation: normal Article/Page save authorization and HTML sanitization remain authoritative. Provider credentials, prompts, remote requests, usage records, and generated-content policy belong to plugins, not Core.
+
 ### Mail API
 
 Feature plugins send email through Core rather than depending on an SMTP plugin:

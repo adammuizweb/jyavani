@@ -186,6 +186,12 @@
     state.bypass = false;
   }
 
+  function markDirty(form) {
+    const target = form || state.form;
+    if (!target || !target.isConnected) return;
+    state.forcedDirty.add(target);
+  }
+
   function allowNavigation() {
     state.bypass = true;
   }
@@ -284,6 +290,7 @@
   window.ADIWIRA.unsavedGuard = {
     isDirty: isDirty,
     capture: function (form) { pruneForms(); return snapshot(form || state.form); },
+    markDirty: markDirty,
     markSaved: markSaved,
     allowNavigation: allowNavigation,
     confirmDiscard: confirmDiscard,

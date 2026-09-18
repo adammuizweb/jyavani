@@ -2,8 +2,11 @@
 // plus use 'change' (not click+preventDefault) so radio remains clickable even when content complex.
 (function(){
   window.ADIWIRA = window.ADIWIRA || {};
-const complexPattern =
-/<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta)[\s>]|on[a-z]+\s*=/i;
+  function isComplexHtml(html) {
+    const quillApi = window.ADIWIRA && window.ADIWIRA.quill;
+    if (quillApi && typeof quillApi.isHtmlComplex === 'function') return quillApi.isHtmlComplex(html);
+    return /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta|div|section|article|main)[\s>]|on[a-z]+\s*=/i.test(String(html || ''));
+  }
 
   // internal programmatic flag — modules should set/unset this to avoid races
   if (!window.ADIWIRA.editor) window.ADIWIRA.editor = {};
@@ -22,7 +25,7 @@ const complexPattern =
         const cmApi = window.ADIWIRA.codemirror;
         const cm = cmApi && cmApi.getInstance && cmApi.getInstance();
         const quillHtml = (quill && quill.root && quill.root.innerHTML) ? (quill.root.innerHTML).trim() : '';
-        const useQuill = !complexPattern.test((canonical && canonical.value || '').trim()) && quillHtml;
+        const useQuill = !isComplexHtml((canonical && canonical.value || '').trim()) && quillHtml;
         const qhtml = useQuill ? quillHtml : (canonical && canonical.value || (cm ? cm.getValue() : '') || '');
 
         // avoid overwriting canonical with empty CM value
@@ -64,7 +67,7 @@ const complexPattern =
       const chtml = (cm ? cm.getValue() : (canonical && canonical.value) || '') || '';
 
       // if it's complex, persist canonical and don't init quill
-      if (complexPattern.test(chtml)) {
+      if (isComplexHtml(chtml)) {
         if (canonical) canonical.value = chtml;
         return;
       }
@@ -153,27 +156,25 @@ const complexPattern =
     // If a programmatic operation is in progress, only adjust visibility without triggering modals
     if (window.ADIWIRA.editor._programmatic) {
       if (mode === 'codemirror') {
-        setTimeout(syncQuillToCM, 20);
+        syncQuillToCM();
       } else {
         try { if (window.ADIWIRA && window.ADIWIRA.quill && typeof window.ADIWIRA.quill.initQuill === 'function') window.ADIWIRA.quill.initQuill(); } catch(e){}
-        setTimeout(syncCMToQuill, 40);
+        syncCMToQuill();
       }
       return;
     }
 
     if (mode === 'codemirror') {
       // ensure CM refreshed when shown
-      setTimeout(()=> {
-        try {
-          window.ADIWIRA.codemirror && window.ADIWIRA.codemirror.whenCMReady && window.ADIWIRA.codemirror.whenCMReady(()=> {
-            try { const cm = window.ADIWIRA.codemirror.getInstance(); if (cm && typeof cm.refresh === 'function') cm.refresh(); } catch(e){}
-            syncQuillToCM();
-          });
-        } catch(e){}
-      }, 20);
+      try {
+        window.ADIWIRA.codemirror && window.ADIWIRA.codemirror.whenCMReady && window.ADIWIRA.codemirror.whenCMReady(()=> {
+          try { const cm = window.ADIWIRA.codemirror.getInstance(); if (cm && typeof cm.refresh === 'function') cm.refresh(); } catch(e){}
+          syncQuillToCM();
+        });
+      } catch(e){}
     } else {
       const canonical = document.getElementById('content-textarea');
-      if (canonical && complexPattern.test((canonical.value||'').trim())) {
+      if (canonical && isComplexHtml((canonical.value||'').trim())) {
         // Revert to CM — content too complex for Quill
         var cmRadio = document.getElementById('editor-codemirror');
         var qRadio = document.getElementById('editor-quill');
@@ -184,7 +185,7 @@ const complexPattern =
         return;
       }
       try { if (window.ADIWIRA && window.ADIWIRA.quill && typeof window.ADIWIRA.quill.initQuill === 'function') window.ADIWIRA.quill.initQuill(); } catch(e){}
-      setTimeout(syncCMToQuill, 40);
+      syncCMToQuill();
     }
   }
 
@@ -204,14 +205,16 @@ const complexPattern =
       allRadios[ri].style.pointerEvents = 'auto';
     }
 
-    const initialComplex = complexPattern.test((canonical && canonical.value || '').trim());
+    const initialComplex = isComplexHtml((canonical && canonical.value || '').trim());
+    const initiallySelected = document.querySelector('input[name="editor_mode"]:checked');
+    const initialMode = initiallySelected ? initiallySelected.value : 'quill';
 
     // Quill radio — complex content guard
     var editorQuillRadio = document.getElementById('editor-quill');
     if (editorQuillRadio) {
       editorQuillRadio.addEventListener('change', function(e){
         try {
-          if (editorQuillRadio.checked && complexPattern.test((canonical && canonical.value || '').trim())) {
+          if (editorQuillRadio.checked && isComplexHtml((canonical && canonical.value || '').trim())) {
             var cmRadio = document.getElementById('editor-codemirror');
             if (cmRadio) cmRadio.checked = true;
             editorQuillRadio.checked = false;
@@ -232,7 +235,7 @@ const complexPattern =
       }
     }
 
-    if (initialComplex) {
+    if (initialComplex && (initialMode === 'quill' || initialMode === 'codemirror')) {
       var cmRadio = document.getElementById('editor-codemirror');
       if (cmRadio) cmRadio.checked = true;
       if (editorQuillRadio) editorQuillRadio.checked = false;

@@ -5,8 +5,22 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   let quill = null;
   let suppress = false;
 
-  const complexPattern =
-    /<(script|style|iframe|embed|object|form|svg|canvas|php|link|meta)[\s>]|on[a-z]+\s*=/i;
+  const quillTags = new Set([
+    'p', 'br', 'hr', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup',
+    'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li', 'a', 'img', 'span', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'
+  ]);
+  const quillAttributes = {
+    a: new Set(['href', 'title', 'target', 'rel']),
+    img: new Set(['src', 'alt', 'title', 'width', 'height', 'data-caption', 'data-media-removed']),
+    ol: new Set(['data-checked']),
+    ul: new Set(['data-checked']),
+    li: new Set(['data-checked']),
+    table: new Set(['data-jyavani-table', 'contenteditable']),
+    th: new Set(['colspan', 'rowspan']),
+    td: new Set(['colspan', 'rowspan'])
+  };
+  const quillStyleProperties = new Set(['color', 'background-color']);
 
   const canonical = document.getElementById('content-textarea');
   const EDITOR_IMG_MAX_WIDTH = 560;
@@ -59,12 +73,43 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     alert(message || title || 'Terjadi sesuatu.');
   }
 
-  function isContentComplex() {
+  function isHtmlComplex(html) {
     try {
-      return complexPattern.test((canonical && canonical.value || '').trim());
+      html = String(html || '').trim();
+      if (html === '') return false;
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      return Array.from(template.content.querySelectorAll('*')).some(function (element) {
+        const tag = element.tagName.toLowerCase();
+        if (!quillTags.has(tag)) return true;
+        if ((tag === 'th' || tag === 'td') && element.children.length > 0) return true;
+        return Array.from(element.attributes).some(function (attribute) {
+          const name = attribute.name.toLowerCase();
+          if (name.startsWith('on')) return true;
+          if (name === 'class') {
+            return String(attribute.value || '').split(/\s+/).filter(Boolean).some(function (className) {
+              return !className.startsWith('ql-') && className !== 'jy-editor-table';
+            });
+          }
+          if (name === 'style') {
+            if (!element.style || element.style.length < 1) return String(attribute.value || '').trim() !== '';
+            return Array.from(element.style).some(function (property) { return !quillStyleProperties.has(property); });
+          }
+          const allowed = quillAttributes[tag];
+          if (!allowed || !allowed.has(name)) return true;
+          if ((tag === 'th' || tag === 'td') && (name === 'colspan' || name === 'rowspan')) {
+            return String(attribute.value || '1') !== '1';
+          }
+          return false;
+        });
+      });
     } catch (e) {
-      return false;
+      return true;
     }
+  }
+
+  function isContentComplex() {
+    return isHtmlComplex(canonical && canonical.value || '');
   }
 
   function normalizeHtmlForCompare(html) {
@@ -221,7 +266,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       if (imgs.length) target = imgs[imgs.length - 1];
       if (!target) return;
 
-      if (m.alt) target.setAttribute('alt', m.alt);
+      const alt = m.alt && String(m.alt).trim() !== '' ? m.alt : m.title;
+      if (alt) target.setAttribute('alt', alt);
       if (m.title) target.setAttribute('title', m.title);
       if (m.caption) target.setAttribute('data-caption', m.caption);
       applyEditorImageDisplay(target);
@@ -303,7 +349,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       normalizeEditorImages(editorEl);
 
       try {
-        quill.update('silent');
+        quill.update('api');
       } catch (e) {}
 
       if (canonical) {
@@ -353,14 +399,24 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
             const m = normalizeMedia(detail);
             if (!m || !m.url) return;
 
-            localQuill.insertEmbed(savedRange.index, 'image', m.url, 'user');
+            const alt = m.alt && String(m.alt).trim() !== '' ? String(m.alt) : String(m.title || '');
+            const imageHtml = '<img src="' + escapeXml(m.url) + '"'
+              + (alt ? ' alt="' + escapeXml(alt) + '"' : '')
+              + (m.title ? ' title="' + escapeXml(m.title) + '"' : '')
+              + (m.caption ? ' data-caption="' + escapeXml(m.caption) + '"' : '')
+              + '>';
+            const html = m.caption
+              ? '<figure>' + imageHtml + '<figcaption>' + escapeXml(m.caption) + '</figcaption></figure>'
+              : imageHtml;
+            const beforeLength = localQuill.getLength();
+            localQuill.clipboard.dangerouslyPasteHTML(savedRange.index, html, 'user');
 
             setTimeout(function(){
               applyAttributesToInsertedImage(m);
               normalizeEditorImages(document.getElementById('quill-editor'));
             }, 40);
 
-            localQuill.setSelection(savedRange.index + 1, 0);
+            localQuill.setSelection(savedRange.index + Math.max(1, localQuill.getLength() - beforeLength), 0);
           })
           .catch(function(err){
             console.warn('[quill:image handler] selector error', err);
@@ -565,16 +621,17 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     try {
       var div = document.createElement('div');
       div.innerHTML = originalHtml;
-      var originals = div.querySelectorAll('img[data-caption]');
+      var originals = div.querySelectorAll('img');
       if (!originals.length) return;
 
       var attrMap = {};
       Array.from(originals).forEach(function(img){
         var src = img.getAttribute('src');
         if (!src) return;
-        attrMap[src] = {
-          'data-caption': img.getAttribute('data-caption')
-        };
+        attrMap[src] = {};
+        ['alt', 'title', 'width', 'height', 'data-caption', 'data-media-removed'].forEach(function (attribute) {
+          if (img.hasAttribute(attribute)) attrMap[src][attribute] = img.getAttribute(attribute);
+        });
       });
 
       if (Object.keys(attrMap).length === 0) return;
@@ -678,6 +735,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   window.ADIWIRA.quill = {
     initQuill,
     isContentComplex,
+    isHtmlComplex,
     cleanExtraBreaks,
     forceEnableQuillAfterStrip,
     setHTMLIfDifferent,
