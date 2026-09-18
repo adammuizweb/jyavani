@@ -123,6 +123,11 @@ $check(str_contains($css, '.jy-editor-actions{')
     && str_contains($css, '.jy-editor-action{')
     && str_contains($css, '.jy-editor-code-wrap{'),
     'shared editor actions and CodeMirror shell are dashboard themed');
+$check(str_contains($css, '--adam-sticky-header-offset: 64px;')
+    && str_contains($css, ".adam-quill .ql-toolbar.ql-snow{")
+    && str_contains($css, 'top: var(--adam-sticky-header-offset);')
+    && substr_count($css, 'overflow: clip;') >= 2,
+    'Quill toolbars remain sticky below the dashboard header without clipped ancestors');
 $check(str_contains($readme, '### Content Editor API')
     && str_contains($readme, 'window.JyavaniEditor'),
     'the public plugin contract is documented');

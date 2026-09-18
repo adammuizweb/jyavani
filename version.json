@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.140",
+    "version": "2.3.141",
     "build": "2026-09-18",
-    "changelog": "Add reusable scoped Quill and CodeMirror editor mounts for plugin dashboard routes.",
+    "changelog": "Keep Quill toolbars visible while scrolling long dashboard editor content.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.140"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.141"
 }

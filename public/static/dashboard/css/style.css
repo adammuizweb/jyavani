@@ -107,6 +107,7 @@
   --aside-collapsed-width: 62px;
   --panel-expanded-width: 360px;
   --panel-collapsed-width: 32px;
+  --adam-sticky-header-offset: 64px;
 
   /* Transitions */
   --transition-fast: 180ms;
@@ -308,6 +309,7 @@ a:hover{ color: var(--adam-link-hover); }
   );
   border-radius: 8px;
   overflow: hidden;
+  overflow: clip;
   box-shadow: var(--adam-shadow);
   position: relative;
 
@@ -3260,6 +3262,7 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
   border: 1px solid var(--adam-border);
   border-radius: 12px;
   overflow: hidden;
+  overflow: clip;
   background: var(--adam-card);
 }
 
@@ -3267,7 +3270,12 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
 .adam-quill .ql-toolbar.ql-snow{
   border: 0;
   border-bottom: 1px solid var(--adam-border);
+  border-radius: 11px 11px 0 0;
   background: var(--adam-surface-3);
+  position: sticky;
+  top: var(--adam-sticky-header-offset);
+  z-index: 1150;
+  box-shadow: 0 5px 14px rgba(15,23,42,.08);
 }
 
 .adam-quill .ql-container.ql-snow{
