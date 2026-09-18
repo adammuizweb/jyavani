@@ -95,6 +95,15 @@ $check(str_contains($router, 'plugin_run_frontend_init();')
     'all public entry paths use the shared init-once lifecycle');
 $check(str_contains($htaccess, '^(?:sw\.js|manifest\.webmanifest)$ router.php'), 'Apache routes exact root PWA endpoints before stale physical files');
 $check(str_contains($serverSetup, 'location = /manifest.webmanifest') && str_contains($serverSetup, '$document_root/router.php'), 'nginx example routes the dynamic root manifest through Core');
+$check(str_contains($dashboardCss, '--adam-on-primary: #fff;')
+    && str_contains($dashboardCss, '--adam-on-primary: #071022;')
+    && str_contains($dashboardCss, '.btn.btn-primary:hover{')
+    && str_contains($dashboardCss, 'color: var(--adam-on-primary);'),
+    'dashboard primary buttons retain explicit high-contrast text and hover states');
+$check(str_contains($dashboardCss, '.adam-plugin-nav-icon{')
+    && str_contains($dashboardCss, '-webkit-mask:var(--adam-plugin-nav-icon)')
+    && str_contains($dashboardCss, '.adam-plugin-nav-icon--sm{'),
+    'dashboard constrains plugin-owned navigation icons and colors them through a safe mask');
 
 $check(!preg_match('/^(?:h[1-6]|a)\s*(?:,|\{)/m', $css), 'public Quill heading and link rules have no bare theme selectors');
 $check(str_contains($css, '.editor-content h1') && str_contains($css, '.editor-content a'), 'public Quill typography uses the generic editor-content scope');

@@ -153,6 +153,55 @@ function plugin_normalize_requirements(array $manifest): array {
     return ['requires' => $requires, 'errors' => array_values(array_unique($errors))];
 }
 
+function plugin_manifest_relative_path_is_valid(string $path): bool {
+    if ($path === '' || strlen($path) > 1024 || str_contains($path, "\0") || str_contains($path, '\\') || str_starts_with($path, '/')) return false;
+    $segments = explode('/', $path);
+    foreach ($segments as $segment) {
+        if ($segment === '' || $segment === '.' || $segment === '..' || strlen($segment) > 255 || preg_match('/[\x00-\x1f\x7f]/', $segment) === 1) return false;
+    }
+    return true;
+}
+
+/** Validate plugin-owned public copies and return destinations keyed case-insensitively. */
+function plugin_manifest_static_copy_destinations(array $manifest, array &$errors): array {
+    $name = is_string($manifest['name'] ?? null) ? trim($manifest['name']) : '';
+    $static = $manifest['static'] ?? [];
+    if (!is_array($static)) {
+        $errors[] = 'Invalid plugin static declaration';
+        return [];
+    }
+    $copies = $static['copy'] ?? [];
+    if (!is_array($copies) || !array_is_list($copies) || count($copies) > 256) {
+        $errors[] = 'Invalid plugin static copy declaration';
+        return [];
+    }
+    $destinations = [];
+    foreach ($copies as $copy) {
+        if (!is_array($copy)) {
+            $errors[] = 'Invalid plugin static copy entry';
+            continue;
+        }
+        $from = is_string($copy['from'] ?? null) ? $copy['from'] : '';
+        $to = is_string($copy['to'] ?? null) ? $copy['to'] : '';
+        if (!plugin_manifest_relative_path_is_valid($from)) {
+            $errors[] = 'Invalid plugin static source: ' . ($from !== '' ? $from : '(empty)');
+        }
+        if (!plugin_manifest_relative_path_is_valid($to)
+            || $name === ''
+            || !str_starts_with($to, 'static/plugins/' . $name . '/')) {
+            $errors[] = 'Invalid or unowned plugin static destination: ' . ($to !== '' ? $to : '(empty)');
+            continue;
+        }
+        $identity = strtolower($to);
+        if (isset($destinations[$identity])) {
+            $errors[] = 'Duplicate plugin static destination: ' . $to;
+            continue;
+        }
+        $destinations[$identity] = $to;
+    }
+    return $destinations;
+}
+
 /** Validate and normalize plugin-owned permissions and protected admin routes. */
 function plugin_manifest_contract(array $manifest): array {
     $errors = [];
@@ -171,12 +220,16 @@ function plugin_manifest_contract(array $manifest): array {
         sort($normalized, SORT_STRING);
         return $normalized;
     };
-    if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest)) {
+    if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest) && !array_key_exists('static', $manifest)) {
         return ['permissions' => [], 'route_roles' => [], 'errors' => []];
     }
     $name = is_string($manifest['name'] ?? null) ? trim($manifest['name']) : '';
     if ($name === '' || strlen($name) > 100 || preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) {
         $errors[] = 'Invalid plugin name';
+    }
+    $staticDestinations = plugin_manifest_static_copy_destinations($manifest, $errors);
+    if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest)) {
+        return ['permissions' => [], 'route_roles' => [], 'errors' => array_values(array_unique($errors))];
     }
 
     $declared = $manifest['permissions'] ?? [];
@@ -326,6 +379,20 @@ function plugin_manifest_contract(array $manifest): array {
             }
             if (array_key_exists('site_owner', $item) && !is_bool($item['site_owner'])) {
                 $errors[] = 'Invalid Site Owner navigation declaration';
+            }
+            if (array_key_exists('icon', $item)
+                && (!is_string($item['icon']) || preg_match('/\A[a-z0-9][a-z0-9-]{0,63}\z/', $item['icon']) !== 1)) {
+                $errors[] = 'Invalid Core icon for plugin navigation';
+            }
+            if (array_key_exists('icon_asset', $item)) {
+                $asset = is_string($item['icon_asset']) ? $item['icon_asset'] : '';
+                if (!plugin_manifest_relative_path_is_valid($asset)
+                    || preg_match('/\.(?:svg|png|webp|avif)\z/i', $asset) !== 1
+                    || $name === ''
+                    || !str_starts_with($asset, 'static/plugins/' . $name . '/')
+                    || ($staticDestinations[strtolower($asset)] ?? null) !== $asset) {
+                    $errors[] = 'Invalid or undeclared plugin navigation icon asset';
+                }
             }
         }
     }
@@ -1923,6 +1990,32 @@ function plugin_nav_items(): array {
         }
     }
     return $items;
+}
+
+/** Resolve a validated plugin-owned navigation icon to its published public URL. */
+function plugin_nav_icon_asset_url(array $item): ?string {
+    $plugin = is_string($item['plugin'] ?? null) ? $item['plugin'] : '';
+    $asset = is_string($item['icon_asset'] ?? null) ? $item['icon_asset'] : '';
+    if ($plugin === '' || preg_match('/\A[a-zA-Z0-9_-]+\z/', $plugin) !== 1
+        || !plugin_manifest_relative_path_is_valid($asset)
+        || !str_starts_with($asset, 'static/plugins/' . $plugin . '/')
+        || preg_match('/\.(?:svg|png|webp|avif)\z/i', $asset) !== 1
+        || !defined('PUBLIC_PATH')) return null;
+    $path = plugin_safe_path(PUBLIC_PATH, $asset);
+    if ($path === null || !is_file($path) || is_link($path)) return null;
+    $manifest = plugin_manifest($plugin);
+    if (!is_array($manifest)) return null;
+    $declared = false;
+    foreach ($manifest['static']['copy'] ?? [] as $copy) {
+        if (is_array($copy) && ($copy['to'] ?? null) === $asset) {
+            $declared = true;
+            break;
+        }
+    }
+    if (!$declared) return null;
+    $segments = array_map('rawurlencode', explode('/', $asset));
+    $version = is_string($manifest['version'] ?? null) ? trim($manifest['version']) : '';
+    return '/' . implode('/', $segments) . ($version !== '' ? '?v=' . rawurlencode($version) : '');
 }
 
 function plugin_assets(): array {

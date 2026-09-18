@@ -86,6 +86,11 @@ $check(!str_contains($sources['plugin'], '_pluginUpdateProcess.notice(')
 $check(str_contains($sources['style'], '.update-process-overlay')
     && str_contains($sources['style'], '@media (max-width: 480px)')
     && str_contains($sources['style'], '.update-process-overlay.is-failed'), 'shared updater styling is full-screen, responsive, and outcome-aware');
+$check(str_contains($sources['style'], '.update-process-overlay .btn {')
+    && str_contains($sources['style'], '.update-process-overlay .btn-primary')
+    && str_contains($sources['style'], '.update-process-actions { display: flex; align-items: center; justify-content: center;')
+    && !str_contains($sources['style'], '#cmsUpdateProgress .btn'),
+    'Core, plugin, and theme terminal actions share centered button geometry and primary states');
 $check(str_contains($sources['plugin'], "if (actions) actions.style.display = 'none';")
     && str_contains($sources['plugin'], "if (_confirmAction === 'update')"), 'non-update plugin operations retain the blocking overlay without update cancellation controls');
 

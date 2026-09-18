@@ -414,6 +414,44 @@ Package updates publish without optional runtime extensions or platform-specific
 
 Plugin deactivation and deletion/uninstall expose `plugin_state_change_preflight($state, $name, $operation)`. The state contains only a literal boolean `allowed` and a bounded safe `message`; malformed output and listener exceptions deny the operation. Single and bulk Plugin Manager operations call the same central plugin functions and cannot bypass this filter.
 
+## Plugin dashboard navigation icons
+
+Plugin navigation remains declarative and route-authorized. Each `admin.nav[]`
+item may set `icon` to a bounded Core Lucide name used as a fallback. A custom
+`icon_asset` must be a safe relative SVG, PNG, WebP, or AVIF destination under
+`static/plugins/{plugin-name}/` and must exactly match a destination declared by
+the same manifest in `static.copy[]`:
+
+```json
+{
+  "admin": {
+    "nav": [{
+      "label": "Example",
+      "page": "admin/tools/example",
+      "parent": "tools",
+      "icon": "zap",
+      "icon_asset": "static/plugins/example/sidebar.svg"
+    }]
+  },
+  "static": {
+    "copy": [{
+      "from": "assets/sidebar.svg",
+      "to": "static/plugins/example/sidebar.svg"
+    }]
+  }
+}
+```
+
+Core derives the public URL, appends the plugin version as a cache key, verifies
+the published file at render time, and falls back to `icon` when the asset is
+missing. It renders plugin-owned artwork as a CSS mask so dashboard state colors
+remain consistent; plugin SVG bytes are never inserted as trusted inline markup.
+Arbitrary external, data, Core-owned, cross-plugin, executable, query-bearing,
+fragment-bearing, absolute, and traversal paths are invalid. The top-level
+`plugin.json.icon` remains separate package/Plugin Manager artwork. All copied
+icons are immutable package assets covered by Store release hashes, Site Health,
+atomic update rollback, and uninstall cleanup.
+
 ## Plugin database migrations
 
 Plugin packages may contain a top-level `migrations/` directory. Core accepts only safe regular files named `{exactly four positive digits}-{slug}.sql` or `.php`, orders them numerically, and records each completed file in `plugin_migrations` with its exact plugin name, filename, SHA-256 checksum, and applying plugin version. Applied files must be the complete discovered prefix: a missing, changed, or newly backfilled historical file fails preflight. Core preserves each original ledger checksum while allowing only an otherwise identical whole-file LF/CRLF checkout conversion; mixed line endings, lone carriage returns, and content changes fail closed. Gaps are allowed but permanently consume lower sequence positions once a later file is applied. No migration path, callback, SQL, or command is accepted from `plugin.json`.

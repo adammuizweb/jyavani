@@ -107,6 +107,36 @@ $ownerOnly = [
 ];
 $check(plugin_manifest_contract_errors($ownerOnly) === [], 'Site Owner-only plugin routes and navigation are valid');
 
+$navIcon = $ownerOnly;
+$navIcon['name'] = 'owner-tool';
+$navIcon['version'] = '1.0.0';
+$navIcon['admin']['nav'][0]['icon'] = 'zap';
+$navIcon['admin']['nav'][0]['icon_asset'] = 'static/plugins/owner-tool/sidebar.svg';
+$navIcon['static']['copy'] = [['from' => 'assets/sidebar.svg', 'to' => 'static/plugins/owner-tool/sidebar.svg']];
+$check(plugin_manifest_contract_errors($navIcon) === [], 'plugin navigation accepts a declared plugin-owned icon asset and Core fallback');
+$undeclaredNavIcon = $navIcon;
+$undeclaredNavIcon['admin']['nav'][0]['icon_asset'] = 'static/plugins/owner-tool/missing.svg';
+$check(plugin_manifest_contract_errors($undeclaredNavIcon) !== [], 'plugin navigation rejects an icon asset missing from static.copy');
+$foreignNavIcon = $navIcon;
+$foreignNavIcon['admin']['nav'][0]['icon_asset'] = 'static/plugins/other/sidebar.svg';
+$check(plugin_manifest_contract_errors($foreignNavIcon) !== [], 'plugin navigation rejects another plugin namespace');
+$unsafeNavIcon = $navIcon;
+$unsafeNavIcon['admin']['nav'][0]['icon_asset'] = 'https://example.com/sidebar.svg';
+$check(plugin_manifest_contract_errors($unsafeNavIcon) !== [], 'plugin navigation rejects external icon URLs');
+$unsupportedNavIcon = $navIcon;
+$unsupportedNavIcon['admin']['nav'][0]['icon_asset'] = 'static/plugins/owner-tool/sidebar.php';
+$unsupportedNavIcon['static']['copy'][0]['to'] = 'static/plugins/owner-tool/sidebar.php';
+$check(plugin_manifest_contract_errors($unsupportedNavIcon) !== [], 'plugin navigation rejects executable icon formats');
+$badFallbackIcon = $navIcon;
+$badFallbackIcon['admin']['nav'][0]['icon'] = '../zap';
+$check(plugin_manifest_contract_errors($badFallbackIcon) !== [], 'plugin navigation fallback must be a bounded Core icon token');
+$duplicateStatic = $navIcon;
+$duplicateStatic['static']['copy'][] = ['from' => 'assets/other.svg', 'to' => 'static/plugins/owner-tool/SIDEBAR.svg'];
+$check(plugin_manifest_contract_errors($duplicateStatic) !== [], 'plugin static destinations are unique case-insensitively');
+$caseMismatchNavIcon = $navIcon;
+$caseMismatchNavIcon['admin']['nav'][0]['icon_asset'] = 'static/plugins/owner-tool/SIDEBAR.svg';
+$check(plugin_manifest_contract_errors($caseMismatchNavIcon) !== [], 'plugin navigation icon assets must exactly match static.copy destination casing');
+
 $longProvider = $valid;
 $longProvider['name'] = str_repeat('a', 101);
 $longProvider['permissions'][0]['key'] = 'plugin.' . $longProvider['name'] . '.settings.access';
@@ -163,6 +193,9 @@ $syncAt = strpos($dashboard, 'plugin_sync_permissions($pdo);');
 $initAt = strpos($dashboard, "do_action('admin_init');");
 $check($loadAt !== false && $syncAt !== false && $initAt !== false && $loadAt < $syncAt && $syncAt < $initAt, 'dashboard synchronizes permissions after plugin loading and before admin_init');
 $check(substr_count($aside, 'plugin_route_is_allowed($pdo,') === 3, 'all three plugin navigation locations use route authorization');
+$check(substr_count($aside, 'adam_plugin_nav_icon(') === 4
+    && str_contains($aside, 'plugin_nav_icon_asset_url($item)'),
+    'all three plugin navigation locations share the plugin-owned icon renderer');
 $check(!str_contains($aside, 'in_array($userRole, $pnRoles') && !str_contains($aside, 'in_array($userRole, $roles'), 'plugin navigation no longer duplicates legacy role guards');
 
 if (extension_loaded('pdo_sqlite')) {

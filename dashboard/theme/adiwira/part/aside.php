@@ -23,6 +23,20 @@ if (!function_exists('adam_icon')) {
     }
 }
 
+if (!function_exists('adam_plugin_nav_icon')) {
+    function adam_plugin_nav_icon(array $item, bool $small = false): string {
+        $assetUrl = function_exists('plugin_nav_icon_asset_url') ? plugin_nav_icon_asset_url($item) : null;
+        if (is_string($assetUrl) && $assetUrl !== '') {
+            $class = 'adam-plugin-nav-icon' . ($small ? ' adam-plugin-nav-icon--sm' : '');
+            return '<span class="' . h($class) . '" style="--adam-plugin-nav-icon:url(&quot;' . h($assetUrl) . '&quot;)" aria-hidden="true"></span>';
+        }
+        $fallback = is_string($item['icon'] ?? null) && preg_match('/\A[a-z0-9][a-z0-9-]{0,63}\z/', $item['icon']) === 1
+            ? $item['icon']
+            : 'code';
+        return adam_icon($fallback, $small ? 'adam-svg-icon--sm' : '');
+    }
+}
+
 if (!function_exists('adam_theme_icon')) {
     function adam_theme_icon($class = '') {
         $class = trim('adam-svg-icon adam-theme-icon-svg ' . $class);
@@ -215,7 +229,7 @@ if (function_exists('plugin_nav_items')) {
         $pnActive = adam_nav_active($requested, $pnPage);
         echo '<li class="adam-nav-item' . ($pnActive ? ' is-open' : '') . '" data-prefix="' . h($pnPage) . '">';
         echo '<a class="adam-nav-link' . ($pnActive ? ' adam-nav-link--active' : '') . '" href="' . h($base . '/?page=' . $pnPage) . '">';
-        echo '<span class="adam-nav-icon" aria-hidden="true">' . adam_icon($pn['icon'] ?? 'code') . '</span>';
+        echo '<span class="adam-nav-icon" aria-hidden="true">' . adam_plugin_nav_icon($pn) . '</span>';
         echo '<span class="adam-nav-text">' . h($pn['label'] ?? __('Plugin')) . '</span></a>';
         echo '</li>';
     }
@@ -370,7 +384,6 @@ if (function_exists('plugin_nav_items')) {
     $settingsItems = $pluginNavGroups['settings'] ?? [];
     foreach ($settingsItems as $n) {
         $label = $n['label'] ?? __('Plugin');
-        $icon = $n['icon'] ?? 'code';
         $page = $n['page'] ?? '';
         $route = function_exists('plugin_resolve_route') ? plugin_resolve_route((string)$page) : null;
         if (!is_array($route) || ($route['plugin'] ?? '') !== ($n['plugin'] ?? '')
@@ -378,7 +391,7 @@ if (function_exists('plugin_nav_items')) {
 
         $isActive = adam_nav_active($requested, $page);
         echo '<a class="adam-nav-sublink' . ($isActive ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=' . $page) . '">';
-        echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon($icon, 'adam-svg-icon--sm') . '</span>';
+        echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_plugin_nav_icon($n, true) . '</span>';
         echo '<span class="adam-nav-sublink-text">' . h($label) . '</span></a>';
     }
 
@@ -389,7 +402,6 @@ if (function_exists('plugin_nav_items')) {
         $toolsSublinksHtml = '';
         foreach ($toolsItems as $n) {
             $label = $n['label'] ?? __('Plugin');
-            $icon = $n['icon'] ?? 'code';
             $page = $n['page'] ?? '';
             $route = function_exists('plugin_resolve_route') ? plugin_resolve_route((string)$page) : null;
             if (!is_array($route) || ($route['plugin'] ?? '') !== ($n['plugin'] ?? '')
@@ -399,7 +411,7 @@ if (function_exists('plugin_nav_items')) {
             if ($isActive) $isToolsActive = true;
 
             $toolsSublinksHtml .= '<a class="adam-nav-sublink' . ($isActive ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=' . $page) . '">';
-            $toolsSublinksHtml .= '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon($icon, 'adam-svg-icon--sm') . '</span>';
+            $toolsSublinksHtml .= '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_plugin_nav_icon($n, true) . '</span>';
             $toolsSublinksHtml .= '<span class="adam-nav-sublink-text">' . h($label) . '</span></a>';
         }
 

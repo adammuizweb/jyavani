@@ -82,6 +82,23 @@ try {
     umask($previousUmask);
 }
 $check($result['failed'] === 0 && file_get_contents($destination) === 'fresh asset', 'declared static copies publish the complete source');
+$iconSource = 'assets/sidebar.svg';
+mkdir($pluginDir . '/assets', 0775, true);
+file_put_contents($pluginDir . '/' . $iconSource, '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M2 2h20v20H2z"/></svg>');
+$iconDestination = 'static/plugins/contract-plugin/sidebar.svg';
+$registryPluginDir = PLUGIN_PATH . '/contract-plugin';
+mkdir($registryPluginDir, 0775, true);
+file_put_contents($registryPluginDir . '/plugin.json', json_encode([
+    'name' => 'contract-plugin',
+    'version' => '1.2.3',
+    'admin' => ['pages' => [], 'nav' => [['icon' => 'code', 'icon_asset' => $iconDestination]]],
+    'static' => ['copy' => [['from' => $iconSource, 'to' => $iconDestination]]],
+], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+$iconCopy = plugin_static_copy($pluginDir, [['from' => $iconSource, 'to' => $iconDestination]]);
+$iconUrl = plugin_nav_icon_asset_url(['plugin' => 'contract-plugin', 'icon_asset' => $iconDestination]);
+$check($iconCopy['failed'] === 0 && $iconUrl === '/static/plugins/contract-plugin/sidebar.svg?v=1.2.3', 'declared navigation icons resolve only after publication with a plugin-version cache key');
+@unlink(PUBLIC_PATH . '/' . $iconDestination);
+$check(plugin_nav_icon_asset_url(['plugin' => 'contract-plugin', 'icon_asset' => $iconDestination]) === null, 'missing published navigation icons fail closed to the Core fallback');
 $staticDirectoryMode = fileperms(dirname($destination));
 $staticFileMode = fileperms($destination);
 $check(is_int($staticDirectoryMode) && ($staticDirectoryMode & 0020) !== 0

@@ -611,7 +611,7 @@ The same 64-hex `event_id` is retained across all phases. Events include resourc
 
 Providers normalize state that Core has already locked. They must not use an ambient PDO connection, control transactions, or acquire locks in a conflicting order. The facade reduces accidental transaction misuse but is not a sandbox for active PHP plugins, which are trusted code. Generic lifecycle helpers never move/delete files or own transactions. Media and File trash, restore, and permanent purge are the first Core integrations; their managed artifact paths are exposed only after the existing containment and symlink checks pass, and filesystem identities are revalidated immediately before mutation.
 
-## Plugin System (v1.0)
+## Plugin System
 
 Third-party features installed as removable plugins via `plugins/{name}/plugin.json`.
 
@@ -643,8 +643,9 @@ Third-party features installed as removable plugins via `plugins/{name}/plugin.j
 - `name` (req): unique identifier, alphanumeric + dash/underscore
 - `permissions[]`: plugin-owned `plugin.{name}.{resource}.{action}` keys with label, scope support, delegability, and optional compatibility `default_roles`
 - `admin.pages[]` (req): `route`, `file`, `title`, `hidden`, and either a declared unscoped `permission` or `site_owner`; `roles` only seeds compatibility grants for a permission
-- `admin.nav[]`: `label`, `icon`, `page`, `parent` (`"settings"` / `"tools"`), `roles`
-- `static.copy[]`: `from` (relative to plugin dir), `to` (relative to `public/`) — files copied on upload
+- `admin.nav[]`: `label`, `page`, and `parent` (`"pages"`, `"settings"`, or `"tools"`). `icon` is a bounded Core Lucide fallback name. Optional `icon_asset` is a plugin-owned published image and must exactly match one same-plugin `static.copy[].to` destination.
+- `static.copy[]`: `from` is relative to the plugin directory; `to` must stay under `static/plugins/{name}/`. Sources and destinations are validated before publication, copied atomically, and removed or restored with plugin lifecycle operations.
+- Top-level `icon` is the package/Plugin Manager artwork and is separate from `admin.nav[].icon` and `icon_asset`.
 - `assets.css` / `assets.js`: URLs loaded on admin pages
 - `requires.plugins`: object mapping required plugin slugs to semver constraints, e.g. `{"content-api": "^1.2.0"}`. Required plugins must be installed, active, compatible, and loadable before the dependent can activate.
 
@@ -657,7 +658,7 @@ Located at `dashboard/admin/plugins/upload.php`. Accessed via `?page=admin/plugi
 2. Server validates `plugin.json` exists with valid `name`
 3. Extracts to `plugins/{name}/`
 4. Runs append-only SQL/PHP files from the fixed `migrations/` directory while the plugin is inactive
-5. Copies files declared in `static.copy[]` to `public/` (e.g., xterm JS/CSS → `public/static/vendor/xterm/`)
+5. Copies files declared in `static.copy[]` only into `public/static/plugins/{name}/` (for example, xterm assets under `public/static/plugins/terminal/`)
 6. Runs the fixed `install.sh` convention with a bounded timeout/output capture; manifests cannot provide shell commands
 7. Enables the plugin only for activation actions; install-only may stage an inactive plugin before its plugin dependencies are available
 8. Redirects to Plugin Manager with success toast
@@ -689,14 +690,14 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 
 - `dashboard/index.php` — loads `plugins/index.php` after bootstrap; plugin routes checked before direct file router
 - `dashboard/theme/adiwira/part/main.php` — plugin pages resolved before DASH_PATH file lookup via `plugin_resolve_route()`
-- `dashboard/theme/adiwira/part/aside.php` — renders plugin nav items: `parent: "settings"` as sublinks under Settings, `parent: "tools"` under collapsible Tools menu
+- `dashboard/theme/adiwira/part/aside.php` — renders authorized plugin nav items for `parent: "pages"`, `"settings"`, and `"tools"`; plugins declare navigation and owned icon assets in `plugin.json` rather than editing Core aside markup
 - Plugin Manager at `dashboard/admin/plugins/index.php` (core admin page, not a plugin)
 - Bin pages use `apply_filters('bin_items', ...)` hook for plugin-extendable trash listing
 
 ### Example: Terminal Plugin
 
 `plugins/terminal/` — multi-tab WebSocket PTY terminal:
-- `plugin.json` declares `static.copy` for xterm assets, `parent: "tools"` for nav
+- `plugin.json` declares `static.copy` under `static/plugins/terminal/`, `parent: "tools"` for nav, and may pair a Core fallback `icon` with a declared plugin-owned `icon_asset`
 - `install.sh` handles npm install + systemd service
 - `uninstall.sh` removes service + files
 
