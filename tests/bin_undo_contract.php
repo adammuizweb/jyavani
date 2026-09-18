@@ -151,6 +151,9 @@ $check(str_contains($sources['index_list_script'], "event.key === 'Escape'")
     && str_contains($sources['index_list_script'], '.newnotif-confirm.is-open')
     && str_contains($sources['dashboard_style'], '.bulk-selection-count.is-pulse{ animation:none; }'),
     'shared Bin overflow controller supports viewport positioning and keyboard focus management');
+$check(str_contains($sources['dashboard_style'], "@keyframes adamFadeSlide{\n  from{ opacity:0; }\n  to{ opacity:1; }\n}")
+    && !str_contains($sources['dashboard_style'], 'from{ opacity:0; transform:translateY(8px); }'),
+    'dashboard entry animation does not create a transformed containing block for fixed overflow menus');
 foreach (['Article', 'Category', 'Theme', 'User'] as $resource) {
     $plural = $resource === 'Category' ? 'Categories' : $resource . 's';
     $check(substr_count($sources['translations'], "'" . $resource . " Selected'") >= 2

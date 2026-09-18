@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.141",
+    "version": "2.3.142",
     "build": "2026-09-18",
-    "generated": "2026-09-18T13:16:20+00:00",
+    "generated": "2026-09-18T14:36:17+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 592,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "cde7f801c466819d92c12006e1af394462d5fd0b4cc7c30793ce948b11edde68",
+        "VERSION": "85f2370fa2471402088bd520967c8d0a0e9d40ba4596fadae763a097a0684f8a",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -284,7 +284,7 @@
         "public/static/dashboard/css/aside.css": "816d27ba988047b763da4919fd07b04ba620819af910cdaf195f42ad520d5509",
         "public/static/dashboard/css/login.css": "b24a2413e2a8971ffd93e2886f6e4eb70dae38adc03718b3cb60bc545f990217",
         "public/static/dashboard/css/notif.css": "f60a9a8a27ad61b8eef4a90adce56f952e773163dccdda55fd8b067fd6a1ec46",
-        "public/static/dashboard/css/style.css": "89b897901e1ace20b1a6622f50217e8d589f241875630997e66abb25186e647b",
+        "public/static/dashboard/css/style.css": "7349ec7ac530e3b82f9381cf275ab7bca4eec892e81f0dc95255b0123d59f337",
         "public/static/dashboard/css/update.css": "34419a786c6ffb46f05f38f8f15f797ae2bfb210c91066e54ebc10bcbd6b4955",
         "public/static/dashboard/js/accordion.js": "53df12e1ef62951730703206027b5e72a8654378e77fa3dd0c3f4e89c123783f",
         "public/static/dashboard/js/alerts.js": "f02084526f9ef44859f41dbd87e6cea5d5212a1222fc82cce091c3651ee0ea6f",
@@ -599,6 +599,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "abe3f0abf46048e913b49d5ef23d7a55222d5006908193c982ae7a84feabdfa9"
+        "version.json": "d50701e98d7ec48253325b51665fee30ed3b867b25c414e3fd796d4808aaf6f7"
     }
 }

@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.141",
+    "version": "2.3.142",
     "build": "2026-09-18",
-    "changelog": "Keep Quill toolbars visible while scrolling long dashboard editor content.",
+    "changelog": "Keep dashboard overflow menus aligned while page-entry animations run.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.141"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.142"
 }
