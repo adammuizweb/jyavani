@@ -79,10 +79,12 @@ $check(str_contains($mode, 'quillApi.isHtmlComplex')
     && str_contains($quill, 'function isHtmlComplex(html)')
     && str_contains($quill, "'ul', 'ol', 'li', 'a', 'img', 'span', 'table'")
     && str_contains($quill, "quillStyleProperties = new Set(['color', 'background-color'])")
-    && str_contains($quill, "(tag === 'th' || tag === 'td') && element.children.length > 0")
+    && str_contains($quill, 'tableCellInlineTags = new Set')
+    && substr_count($quill, "element.querySelectorAll('*')") >= 2
+    && substr_count($quill, '!tableCellInlineTags.has(child.tagName.toLowerCase())') === 2
     && !str_contains($mode, 'setTimeout(syncQuillToCM')
     && !str_contains($mode, 'setTimeout(syncCMToQuill'),
-    'mode changes synchronously preserve content and reject structures Quill would normalize');
+    'mode changes preserve formatted table cells while rejecting unsupported nested block structures');
 $check(str_contains($mode, "initialMode === 'quill' || initialMode === 'codemirror'")
     && substr_count(implode('', $forms), 'array_key_exists($chosenMode, $editorModes)') === 4,
     'extension-owned editor modes survive rejected form submissions');

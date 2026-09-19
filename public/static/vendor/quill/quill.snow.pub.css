@@ -45,6 +45,18 @@
   vertical-align: top;
 }
 .jy-editor-table th { font-weight: 700; }
+.jy-editor-table th,
+.jy-editor-table td { counter-reset: jy-table-list; }
+.jy-editor-table .jy-table-break-1 { display: block; height: 0; font-size: 0; line-height: 0; }
+.jy-editor-table .jy-table-heading-1 { font-size: 2em; font-weight: 700; }
+.jy-editor-table .jy-table-heading-2 { font-size: 1.5em; font-weight: 700; }
+.jy-editor-table .jy-table-heading-3 { font-size: 1.25em; font-weight: 700; }
+.jy-editor-table .jy-table-heading-4,
+.jy-editor-table .jy-table-heading-5,
+.jy-editor-table .jy-table-heading-6 { font-size: 1em; font-weight: 700; }
+.jy-editor-table .jy-table-list-bullet::before { content: "• "; font-weight: 700; }
+.jy-editor-table .jy-table-list-ordered { counter-increment: jy-table-list; }
+.jy-editor-table .jy-table-list-ordered::before { content: counter(jy-table-list) ". "; font-weight: 700; }
 @media (max-width: 640px) {
   .jy-editor-table { display: block; overflow-x: auto; table-layout: auto; }
   .jy-editor-table tbody { min-width: 36rem; }

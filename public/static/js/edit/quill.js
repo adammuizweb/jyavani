@@ -22,6 +22,25 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     td: new Set(['colspan', 'rowspan'])
   };
   const quillStyleProperties = new Set(['color', 'background-color']);
+  const tableCellInlineTags = new Set([
+    'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup', 'code', 'a', 'span'
+  ]);
+
+  function isQuillClassAllowed(element, className) {
+    if (className.startsWith('ql-')) return true;
+    const tag = element.tagName.toLowerCase();
+    if (className === 'jy-editor-table') return tag === 'table';
+    const insideCell = !!element.closest('th,td');
+    if (!insideCell || !tableCellInlineTags.has(tag)) return false;
+    const parentTag = element.parentElement ? element.parentElement.tagName.toLowerCase() : '';
+    const exactMarker = tag === 'span' && element.classList.length === 1
+      && (parentTag === 'th' || parentTag === 'td') && element.childNodes.length === 1
+      && element.firstChild.nodeType === Node.TEXT_NODE && element.firstChild.nodeValue === '\u200b';
+    if (className === 'jy-table-break-1') return exactMarker;
+    if (/^jy-table-heading-[1-6]$/.test(className)) return tag !== 'br' && element.textContent !== '\u200b';
+    return exactMarker
+      && (className === 'jy-table-list-ordered' || className === 'jy-table-list-bullet');
+  }
 
   const canonical = document.getElementById('content-textarea');
   const EDITOR_IMG_MAX_WIDTH = 560;
@@ -39,7 +58,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   function collapseBlankLinesInDelta(delta) {
     if (!delta || !delta.ops) return delta;
     var newOps = delta.ops.map(function(op){
-      if (typeof op.insert === 'string' && op.insert.indexOf('\n\n') !== -1) {
+      if (typeof op.insert === 'string' && op.insert.indexOf('\n\n') !== -1
+          && !(op.attributes && op.attributes['table-cell'])) {
         return {insert: op.insert.replace(/\n\n+/g, '\n'), attributes: op.attributes};
       }
       return op;
@@ -83,12 +103,19 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       return Array.from(template.content.querySelectorAll('*')).some(function (element) {
         const tag = element.tagName.toLowerCase();
         if (!quillTags.has(tag)) return true;
-        if ((tag === 'th' || tag === 'td') && element.children.length > 0) return true;
+        if ((tag === 'th' || tag === 'td') && Array.from(element.querySelectorAll('*')).some(function (child) {
+          return !tableCellInlineTags.has(child.tagName.toLowerCase());
+        })) return true;
         if (tag === 'table') {
           const rows = Array.from(element.querySelectorAll('tr'));
           if (rows.length > 12 || rows.some(function (row) {
             const cells = Array.from(row.querySelectorAll(':scope > th, :scope > td'));
-            return cells.length > 12 || cells.some(function (cell) { return String(cell.textContent || '').trim().length > 2000; });
+            return cells.length > 12 || cells.some(function (cell) {
+              const structuralBreaks = Array.from(cell.querySelectorAll('br')).filter(function (br) {
+                return !(br.parentNode === cell && cell.children.length === 1 && String(cell.textContent || '') === '');
+              }).length;
+              return String(cell.textContent || '').length + structuralBreaks > 2000;
+            });
           })) return true;
         }
         return Array.from(element.attributes).some(function (attribute) {
@@ -96,7 +123,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
           if (name.startsWith('on')) return true;
           if (name === 'class') {
             return String(attribute.value || '').split(/\s+/).filter(Boolean).some(function (className) {
-              return !className.startsWith('ql-') && className !== 'jy-editor-table';
+              return !isQuillClassAllowed(element, className);
             });
           }
           if (name === 'style') {
@@ -680,14 +707,16 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         element.remove();
         return;
       }
-      if ((tag === 'th' || tag === 'td') && element.children.length > 0) {
+      if ((tag === 'th' || tag === 'td') && Array.from(element.querySelectorAll('*')).some(function (child) {
+        return !tableCellInlineTags.has(child.tagName.toLowerCase());
+      })) {
         element.textContent = element.textContent || '';
       }
       Array.from(element.attributes).forEach(function (attribute) {
         const name = attribute.name.toLowerCase();
         if (name === 'class') {
           const classes = String(attribute.value || '').split(/\s+/).filter(function (className) {
-            return className && (className.startsWith('ql-') || className === 'jy-editor-table');
+            return className && isQuillClassAllowed(element, className);
           });
           if (classes.length) element.setAttribute('class', classes.join(' '));
           else element.removeAttribute(attribute.name);

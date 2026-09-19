@@ -562,6 +562,8 @@ Article and Page add/edit screens share the Quill/CodeMirror shell and publish t
 
 Custom plugin routes declare the `content-editor` JavaScript dependency, render a scoped shell through `content_editor_render_mount()`, and explicitly call `JyavaniEditor.mount()`. Mounted schema-2 handles additionally expose scoped actions/events, `snapshot()`, `markSaved()`, `isComplex()`, and `destroy()`, plus contextual media/file adapters. Mounts own only draft-buffer behavior: plugin forms, CSRF, authorization, optimistic state, locale/media policy, persistence, and save-time sanitization remain plugin-owned. Context and `canUpdate` are descriptive browser values and never grant authority. Placeholder text remains translatable through `window.QUILL_PLACEHOLDER`.
 
+Rich Editor tables are native Quill line/container structures rather than atomic embeds. The insertion dialog sets the initial bounded row/column counts and first-row header state; cell content is edited directly with supported toolbar formats. Selection inside a table exposes contextual row/column/settings actions, Tab and Shift+Tab navigate cells, and Enter creates an in-cell line break without creating another cell. Heading and ordered/bullet list controls apply line-scoped table formats without replacing the cell blot. Resizing through Table settings preserves retained cells and confirms before removing nonempty cells. Mounted editors must continue to call `JyavaniQuillTable.destroy(quill)` during teardown; a destroyed Quill instance is terminal and is not configured again.
+
 ## Project structure
 
 - `app/` — controllers, layout, bootstrap, frontend 404 (outside web root)

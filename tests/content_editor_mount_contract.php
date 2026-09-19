@@ -86,7 +86,7 @@ $check(str_contains($api, 'options.confirmLossy')
     && str_contains($quill, 'toolbarConfig: function()')
     && str_contains($quill, 'rows.length > 12')
     && str_contains($quill, 'cells.length > 12')
-    && str_contains($quill, '.length > 2000')
+    && str_contains($quill, '.length + structuralBreaks > 2000')
     && !str_contains(substr($quill, strpos($quill, 'const quillTags'), 500), "'hr'")
     && substr_count($quill, "tag === 'a' && name === 'target'") === 2,
     'mounted mode conversion shares the Core Quill policy and toolbar');
@@ -98,8 +98,10 @@ $check(str_contains($api, 'adapters.pickMedia')
     && str_contains($api, 'mountedSetSelection({ mode: currentMode, from: end, to: end })'),
     'mounted toolbar exposes contextual media and file adapters');
 $check(str_contains($quillTable, 'destroy: destroy')
+    && str_contains($quillTable, "quill.off('selection-change', state.selectionObserver)")
+    && str_contains($quillTable, "quill.root.removeEventListener('click', state.clickHandler)")
     && str_contains($api, 'window.JyavaniQuillTable.destroy(quill)'),
-    'destroying a mount closes its table editor dialog');
+    'destroying a mount removes its table controls and event listeners');
 
 $dependencyAt = strpos($registry, "'content-editor' => [");
 $assetLoopAt = strpos($registry, "foreach (['css', 'js'] as \$type)", $dependencyAt ?: 0);

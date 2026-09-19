@@ -3316,7 +3316,7 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
   margin:.75rem 0;
   border-collapse:collapse;
   table-layout:fixed;
-  cursor:pointer;
+  cursor:text;
 }
 .adam-quill .ql-editor .jy-editor-table th,
 .adam-quill .ql-editor .jy-editor-table td{
@@ -3326,17 +3326,32 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
   vertical-align:top;
 }
 .adam-quill .ql-editor .jy-editor-table th{background:var(--adam-surface-3);font-weight:700}
+.adam-quill .ql-editor .jy-editor-table th,
+.adam-quill .ql-editor .jy-editor-table td{counter-reset:jy-table-list}
+.adam-quill .ql-editor .jy-table-break-1{display:block;height:0;font-size:0;line-height:0}
+.adam-quill .ql-editor .jy-table-heading-1{font-size:2em;font-weight:700}
+.adam-quill .ql-editor .jy-table-heading-2{font-size:1.5em;font-weight:700}
+.adam-quill .ql-editor .jy-table-heading-3{font-size:1.25em;font-weight:700}
+.adam-quill .ql-editor .jy-table-heading-4,
+.adam-quill .ql-editor .jy-table-heading-5,
+.adam-quill .ql-editor .jy-table-heading-6{font-size:1em;font-weight:700}
+.adam-quill .ql-editor .jy-table-list-bullet::before{content:"• ";font-weight:700}
+.adam-quill .ql-editor .jy-table-list-ordered{counter-increment:jy-table-list}
+.adam-quill .ql-editor .jy-table-list-ordered::before{content:counter(jy-table-list) ". ";font-weight:700}
+.adam-quill .ql-editor .jy-editor-table td:focus-within,
+.adam-quill .ql-editor .jy-editor-table th:focus-within{outline:2px solid var(--adam-primary);outline-offset:-2px}
+.jy-table-tools{position:fixed;z-index:129000;display:flex;max-width:min(760px,calc(100vw - 16px));gap:4px;padding:5px;overflow-x:auto;border:1px solid var(--adam-border);border-radius:10px;background:var(--adam-card);box-shadow:var(--adam-shadow)}
+.jy-table-tools[hidden]{display:none}
+.jy-table-tools button{flex:0 0 auto;min-height:32px;padding:.35rem .55rem;border:1px solid var(--adam-border-2);border-radius:7px;background:var(--adam-surface-2);color:var(--adam-text);font:inherit;font-size:.78rem;cursor:pointer}
+.jy-table-tools button:hover,.jy-table-tools button:focus-visible{border-color:var(--adam-primary);color:var(--adam-primary);outline:none}
 .jy-table-dialog{position:fixed;inset:0;z-index:130000;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.58)}
-.jy-table-dialog__panel{width:min(760px,100%);max-height:90vh;overflow:auto;padding:1.25rem;border:1px solid var(--adam-border);border-radius:14px;background:var(--adam-card);box-shadow:var(--adam-shadow);color:var(--adam-text)}
+.jy-table-dialog__panel{width:min(520px,100%);max-height:90vh;overflow:auto;padding:1.25rem;border:1px solid var(--adam-border);border-radius:14px;background:var(--adam-card);box-shadow:var(--adam-shadow);color:var(--adam-text)}
 .jy-table-dialog__panel h3{margin:0 0 1rem}
 .jy-table-dialog__options{display:flex;flex-wrap:wrap;gap:.8rem 1rem;align-items:end}
 .jy-table-dialog__options label{display:grid;gap:.35rem;font-size:.85rem;font-weight:600}
 .jy-table-dialog__options input[type=number]{width:86px;padding:.5rem;border:1px solid var(--adam-border-2);border-radius:8px;background:var(--adam-surface-2);color:var(--adam-text)}
 .jy-table-dialog__check{display:flex!important;grid-column:auto;align-items:center;min-height:38px}
-.jy-table-dialog__grid{display:grid;grid-template-columns:repeat(var(--table-columns),minmax(90px,1fr));gap:4px;margin:1rem 0;overflow:auto}
-.jy-table-dialog__grid input{min-width:90px;padding:.5rem;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-surface-2);color:var(--adam-text)}
-.jy-table-dialog__grid input:focus{outline:2px solid var(--adam-primary);outline-offset:1px}
-.jy-table-dialog__actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:.6rem;align-items:center}
+.jy-table-dialog__actions{display:grid;grid-template-columns:auto 1fr auto auto;gap:.6rem;align-items:center;margin-top:1rem}
 @media (max-width:640px){.jy-table-dialog{align-items:flex-end;padding:0}.jy-table-dialog__panel{max-height:92vh;border-radius:16px 16px 0 0}.jy-table-dialog__actions{grid-template-columns:1fr 1fr}.jy-table-dialog__actions span{display:none}.jy-table-dialog__actions .btn-danger{grid-column:1/-1}}
 
 .adam-quill .ql-editor.ql-blank::before{
