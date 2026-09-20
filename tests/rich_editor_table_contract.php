@@ -52,6 +52,13 @@ $check(str_contains($table, "new Parchment.Attributor.Class('table-break'")
     && str_contains($table, "addEventListener('drop', state.dropHandler)")
     && str_contains($table, 'function listMarker(quill, segment)'),
     'Enter, heading, and ordered or bullet list formatting stay within the active table cell');
+$check(str_contains($table, 'return multilineCellDelta(delta, MAX_CELL_LENGTH)')
+    && str_contains($table, ".insert('\\n', { 'table-cell': cloneMeta(meta) })")
+    && str_contains($edit, 'function isTableCellContentSupported(cell)')
+    && str_contains($edit, "tag === 'ol' || tag === 'ul'")
+    && str_contains($edit, "item.tagName.toLowerCase() === 'li'")
+    && substr_count($edit, '!isTableCellContentSupported(element)') === 2,
+    'semantic cell lists use the multiline table converter and remain eligible for Rich Editor mode');
 $check(str_contains($table, 'var editorStates = typeof WeakMap')
     && str_contains($table, 'quill.__jyavaniTableConfigured = true')
     && str_contains($table, 'quill.off(\'selection-change\', state.selectionObserver)')
@@ -59,10 +66,11 @@ $check(str_contains($table, 'var editorStates = typeof WeakMap')
     && str_contains($table, "quill.root.removeEventListener('paste', state.pasteHandler, true)")
     && str_contains($table, 'if (state.tools) state.tools.remove()'),
     'table controls and listeners are isolated and removed for each mounted editor');
-$check(str_contains($table, "operations[index].insert.endsWith('\\n')")
-    && str_contains($table, "operations[index].insert.slice(0, -1)")
-    && str_contains($edit, "element.querySelectorAll('*')"),
-    'table import keeps empty cells empty and rejects unsupported nested cell embeds before conversion');
+$check(str_contains($edit, 'function tableCellNormalizedLength(cell)')
+    && str_contains($edit, 'String(cell.textContent || \'\').length + items + Math.max(0, items - 1)')
+    && str_contains($edit, 'function tableCellPlainText(cell)')
+    && str_contains($edit, "join('\\n')"),
+    'table import bounds normalized list markers and keeps readable separators in lossy fallbacks');
 $check(str_contains($table, 'function selectionCrossesTableBoundary')
     && str_contains($table, 'var endContext = contextAt(quill, range.index + range.length)')
     && str_contains($table, 'startContext.cell !== endContext.cell')
@@ -122,6 +130,11 @@ $check(str_contains($sanitizedTable, '<table class="jy-editor-table">')
     && !str_contains($sanitizedTable, 'onclick')
     && !str_contains($sanitizedTable, '<script'),
     'restricted saves retain formatted table cells while removing executable markup');
+$sanitizedCellList = cms_sanitize_restricted_html('<table><tbody><tr><th>Programs</th><td><ol><li>One <strong>A</strong></li><li>Two</li></ol></td></tr></tbody></table>');
+$check(str_contains($sanitizedCellList, '<ol>')
+    && substr_count($sanitizedCellList, '<li>') === 2
+    && str_contains($sanitizedCellList, '<strong>A</strong>'),
+    'restricted saves retain semantic ordered lists and inline formatting inside table cells');
 $check(str_contains($dashboardCss, '.jy-table-dialog{')
     && str_contains($dashboardCss, '.jy-table-tools{')
     && str_contains($dashboardCss, '.jy-table-list-ordered::before')

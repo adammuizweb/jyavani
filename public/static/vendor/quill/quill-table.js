@@ -333,35 +333,8 @@
   }
 
   function cellDelta(delta, meta) {
-    var result = new Delta();
-    var remaining = MAX_CELL_LENGTH;
-    var operations = (delta && delta.ops || []).map(function (op) {
-      return { insert: op.insert, attributes: Object.assign({}, op.attributes || {}) };
-    });
-    for (var index = operations.length - 1; index >= 0; index--) {
-      if (typeof operations[index].insert !== 'string') continue;
-      if (operations[index].insert.endsWith('\n')) {
-        operations[index].insert = operations[index].insert.slice(0, -1);
-      }
-      break;
-    }
-    operations.forEach(function (op) {
-      if (remaining < 1) return;
-      if (typeof op.insert !== 'string') return;
-      var text = op.insert.replace(/\n/g, ' ');
-      if (!text) return;
-      text = text.slice(0, remaining);
-      remaining -= text.length;
-      var attributes = Object.assign({}, op.attributes || {});
-      delete attributes.header;
-      delete attributes.list;
-      delete attributes.blockquote;
-      delete attributes['code-block'];
-      delete attributes['table-cell'];
-      if (Object.keys(attributes).length) result.insert(text, attributes);
-      else result.insert(text);
-    });
-    return result.insert('\n', { 'table-cell': cloneMeta(meta) });
+    return multilineCellDelta(delta, MAX_CELL_LENGTH)
+      .insert('\n', { 'table-cell': cloneMeta(meta) });
   }
 
   function installClipboardMatchers(quill) {

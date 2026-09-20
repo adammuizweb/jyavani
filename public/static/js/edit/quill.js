@@ -26,6 +26,63 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup', 'code', 'a', 'span'
   ]);
 
+  function isTableCellContentSupported(cell) {
+    let hasList = false;
+    let hasInlineContent = false;
+    return Array.from(cell.childNodes).every(function (node) {
+      if (node.nodeType === 3) {
+        if (String(node.nodeValue || '').trim() === '') return true;
+        hasInlineContent = true;
+        return !hasList;
+      }
+      if (node.nodeType !== 1) return false;
+      const tag = node.tagName.toLowerCase();
+      if (tag === 'ol' || tag === 'ul') {
+        if (hasInlineContent) return false;
+        hasList = true;
+        const items = Array.from(node.children);
+        return items.length > 0 && items.every(function (item) {
+          return item.tagName.toLowerCase() === 'li'
+            && Array.from(item.querySelectorAll('*')).every(function (child) {
+              return tableCellInlineTags.has(child.tagName.toLowerCase());
+            });
+        });
+      }
+      if (hasList || !tableCellInlineTags.has(tag)) return false;
+      hasInlineContent = true;
+      return Array.from(node.querySelectorAll('*')).every(function (child) {
+        return tableCellInlineTags.has(child.tagName.toLowerCase());
+      });
+    });
+  }
+
+  function tableCellNormalizedLength(cell) {
+    const directLists = Array.from(cell.children).filter(function (child) {
+      const tag = child.tagName.toLowerCase();
+      return tag === 'ol' || tag === 'ul';
+    });
+    if (directLists.length > 0) {
+      const items = directLists.reduce(function (count, list) { return count + list.children.length; }, 0);
+      return String(cell.textContent || '').length + items + Math.max(0, items - 1)
+        + cell.querySelectorAll('br').length;
+    }
+    const structuralBreaks = Array.from(cell.querySelectorAll('br')).filter(function (br) {
+      return !(br.parentNode === cell && cell.children.length === 1 && String(cell.textContent || '') === '');
+    }).length;
+    return String(cell.textContent || '').length + structuralBreaks;
+  }
+
+  function tableCellPlainText(cell) {
+    const clone = cell.cloneNode(true);
+    Array.from(clone.querySelectorAll('br')).forEach(function (br) { br.replaceWith('\n'); });
+    Array.from(clone.querySelectorAll('li,p,div,h1,h2,h3,h4,h5,h6,blockquote,pre')).forEach(function (block) {
+      block.appendChild(document.createTextNode('\n'));
+    });
+    return String(clone.textContent || '').split(/\n+/).map(function (line) {
+      return line.trim();
+    }).filter(Boolean).join('\n');
+  }
+
   function isQuillClassAllowed(element, className) {
     if (className.startsWith('ql-')) return true;
     const tag = element.tagName.toLowerCase();
@@ -103,18 +160,13 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       return Array.from(template.content.querySelectorAll('*')).some(function (element) {
         const tag = element.tagName.toLowerCase();
         if (!quillTags.has(tag)) return true;
-        if ((tag === 'th' || tag === 'td') && Array.from(element.querySelectorAll('*')).some(function (child) {
-          return !tableCellInlineTags.has(child.tagName.toLowerCase());
-        })) return true;
+        if ((tag === 'th' || tag === 'td') && !isTableCellContentSupported(element)) return true;
         if (tag === 'table') {
           const rows = Array.from(element.querySelectorAll('tr'));
           if (rows.length > 12 || rows.some(function (row) {
             const cells = Array.from(row.querySelectorAll(':scope > th, :scope > td'));
             return cells.length > 12 || cells.some(function (cell) {
-              const structuralBreaks = Array.from(cell.querySelectorAll('br')).filter(function (br) {
-                return !(br.parentNode === cell && cell.children.length === 1 && String(cell.textContent || '') === '');
-              }).length;
-              return String(cell.textContent || '').length + structuralBreaks > 2000;
+              return tableCellNormalizedLength(cell) > 2000;
             });
           })) return true;
         }
@@ -707,10 +759,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         element.remove();
         return;
       }
-      if ((tag === 'th' || tag === 'td') && Array.from(element.querySelectorAll('*')).some(function (child) {
-        return !tableCellInlineTags.has(child.tagName.toLowerCase());
-      })) {
-        element.textContent = element.textContent || '';
+      if ((tag === 'th' || tag === 'td') && !isTableCellContentSupported(element)) {
+        element.textContent = tableCellPlainText(element);
       }
       Array.from(element.attributes).forEach(function (attribute) {
         const name = attribute.name.toLowerCase();

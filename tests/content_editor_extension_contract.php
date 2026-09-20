@@ -80,8 +80,9 @@ $check(str_contains($mode, 'quillApi.isHtmlComplex')
     && str_contains($quill, "'ul', 'ol', 'li', 'a', 'img', 'span', 'table'")
     && str_contains($quill, "quillStyleProperties = new Set(['color', 'background-color'])")
     && str_contains($quill, 'tableCellInlineTags = new Set')
-    && substr_count($quill, "element.querySelectorAll('*')") >= 2
-    && substr_count($quill, '!tableCellInlineTags.has(child.tagName.toLowerCase())') === 2
+    && str_contains($quill, 'function isTableCellContentSupported(cell)')
+    && str_contains($quill, "tag === 'ol' || tag === 'ul'")
+    && substr_count($quill, '!isTableCellContentSupported(element)') === 2
     && !str_contains($mode, 'setTimeout(syncQuillToCM')
     && !str_contains($mode, 'setTimeout(syncCMToQuill'),
     'mode changes preserve formatted table cells while rejecting unsupported nested block structures');
@@ -93,6 +94,7 @@ $clearHandlerEnd = strpos($mode, "\n  function applyEditorMode", $clearHandlerSt
 $clearHandler = substr($mode, $clearHandlerStart ?: 0, ($clearHandlerEnd ?: strlen($mode)) - ($clearHandlerStart ?: 0));
 $check(str_contains($quill, "const destructiveTags = new Set(['script', 'style', 'iframe'")
     && str_contains($quill, 'if (!quillTags.has(tag))')
+    && str_contains($quill, 'element.textContent = tableCellPlainText(element)')
     && str_contains($quill, "return isHtmlComplex(stripped) ? escapeXml(template.content.textContent || '') : stripped;")
     && str_contains($quill, 'if (!quill) {')
     && !str_contains($clearHandler, 'applyEditorMode'),

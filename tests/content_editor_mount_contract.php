@@ -86,7 +86,7 @@ $check(str_contains($api, 'options.confirmLossy')
     && str_contains($quill, 'toolbarConfig: function()')
     && str_contains($quill, 'rows.length > 12')
     && str_contains($quill, 'cells.length > 12')
-    && str_contains($quill, '.length + structuralBreaks > 2000')
+    && str_contains($quill, 'tableCellNormalizedLength(cell) > 2000')
     && !str_contains(substr($quill, strpos($quill, 'const quillTags'), 500), "'hr'")
     && substr_count($quill, "tag === 'a' && name === 'target'") === 2,
     'mounted mode conversion shares the Core Quill policy and toolbar');
