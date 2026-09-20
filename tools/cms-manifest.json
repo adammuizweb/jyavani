@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.144",
+    "version": "2.3.145",
     "build": "2026-09-20",
-    "generated": "2026-09-20T05:30:13+00:00",
+    "generated": "2026-09-20T07:05:51+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 592,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "c30ad4bae64a2170528b9537a4364b09c995010e98bbe57082f33bf99e8f74f0",
+        "VERSION": "187a1f39673a17b074e18f1cdd26ad745090a61dbb8b86b77e8e8ac8e051c0eb",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -205,7 +205,7 @@
         "dashboard/admin/themes/browse.php": "d8f669f696de4335de6b413024c98ddfaefe22847b47231a1c3094f1ce7fc5cc",
         "dashboard/admin/themes/bulk_action.php": "f87fd57374eed13e8b04ef4d0b59299c71c40b3f8557a23271959236ec5e0e92",
         "dashboard/admin/themes/catalog.php": "2baf01aa10bca8b18024fdff20b3634953853b2904f24c9aa03b89fc1ed44b23",
-        "dashboard/admin/themes/customize.php": "bce192e9c9a907d9ee990d6b36b8d6debe6fd5daab2faf11cf9065969649ca1b",
+        "dashboard/admin/themes/customize.php": "3cef378e748afa50e39228f39112e0fb16d8a3b2a3d73a708a77def4b6cf34a1",
         "dashboard/admin/themes/delete.php": "252364e3fab507c381e47ef0431d51ae9d4c001cb021e88e9814db31986df1b3",
         "dashboard/admin/themes/edit.php": "58c4e22788b86e12111742543f2b0598f1822ffb845b9c65553669dcc4467d03",
         "dashboard/admin/themes/index.php": "c054b8412ced25e3b53cae195c3adb8065529f394f3604ee089d31ade8daee6b",
@@ -599,6 +599,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "9488565b2a41d37b1341b541aa367f89f959df430999a2402c0af3befc96e9c5"
+        "version.json": "307f2a3d2d17dc604e9f6e9e928e08c229f2cf30779a31fbce0ab7740fdf598c"
     }
 }

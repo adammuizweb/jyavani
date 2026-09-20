@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.144",
+    "version": "2.3.145",
     "build": "2026-09-20",
-    "changelog": "Open semantic lists inside table cells directly in Rich Editor without flattening their structure or inline formatting.",
+    "changelog": "Allow themes to expose database-backed settings without declaring draggable Theme Zones.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.144"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.145"
 }

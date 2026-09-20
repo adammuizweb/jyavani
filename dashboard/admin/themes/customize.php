@@ -50,6 +50,7 @@ try {
 
 $tzWidgets = function_exists('theme_zone_widget_types') ? theme_zone_widget_types() : [];
 $themeLayout = function_exists('theme_zone_layout') ? theme_zone_layout($folder) : [];
+$customizerOnly = empty($themeLayout) && !empty($sections['main']['fields']);
 
 // Zone labels + daftar partial (zone selain header/footer tampil di area Main)
 $zoneZones = [];
@@ -66,7 +67,7 @@ foreach ($themeLayout as $zSlug => $zDef) {
 $zoneSlugs = array_keys($zoneZones);
 
 // Partials = semua file di main/ tema (discovery) + zone declared non-header/footer
-$discoveredPartials = function_exists('theme_zone_discover_partials') ? theme_zone_discover_partials($folder) : [];
+$discoveredPartials = !$customizerOnly && function_exists('theme_zone_discover_partials') ? theme_zone_discover_partials($folder) : [];
 foreach ($discoveredPartials as $slug => $label) {
     if (!isset($zoneZones[$slug])) $zoneZones[$slug] = $label;
 }
@@ -722,29 +723,33 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 
 <div class="tc-wrap" style="max-width:1100px;">
   <div class="tc-header" style="margin-bottom:1.25rem;">
-    <h2 class="page-heading page-heading--compact"><?= __('Customize Layout') ?> — <?= h($folder) ?></h2>
-    <p class="muted"><?= __('Drag or place gadgets into the theme layout positions. Each position maps to a real area in the active theme.') ?></p>
+    <h2 class="page-heading page-heading--compact"><?= $customizerOnly ? __('Theme Settings') : __('Customize Layout') ?> — <?= h($folder) ?></h2>
+    <?php if (!$customizerOnly): ?>
+      <p class="muted"><?= __('Drag or place gadgets into the theme layout positions. Each position maps to a real area in the active theme.') ?></p>
+    <?php endif; ?>
   </div>
 
   <?php foreach ($page_toasts as $t): ?>
     <div class="adam-alert <?= h($t['type'] ?? 'success') ?> auto-dismiss"><?= h((string)($t['message'] ?? '')) ?></div>
   <?php endforeach; ?>
 
-  <?php if (empty($themeLayout)): ?>
+  <?php if (empty($themeLayout) && !$customizerOnly): ?>
     <div class="adam-alert warning"><?= __('Active theme does not declare a layout. Theme zones are disabled.') ?></div>
   <?php endif; ?>
 
   <!-- Theme Layout Editor — kanvas halaman utuh ala Blogspot -->
-  <?php if (!empty($themeLayout)): ?>
+  <?php if (!empty($themeLayout) || $customizerOnly): ?>
     <!-- Topbar: label kanvas ⇄ Partials -->
-    <div class="tz-topbar">
-      <span class="tz-topbar-title muted"><?= __('Page Canvas') ?> — <span class="<?= h($canvasThemeClass) ?>"><?= h($canvasThemeLabel) ?></span></span>
-      <select id="tz-partial-select" aria-label="<?= __('Partials') ?>">
-        <?php foreach ($partialZones as $pz): ?>
-          <option value="<?= h($pz) ?>" <?= $activePartial === $pz ? 'selected' : '' ?>><?= h($zoneZones[$pz] ?? $pz) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
+    <?php if (!$customizerOnly): ?>
+      <div class="tz-topbar">
+        <span class="tz-topbar-title muted"><?= __('Page Canvas') ?> — <span class="<?= h($canvasThemeClass) ?>"><?= h($canvasThemeLabel) ?></span></span>
+        <select id="tz-partial-select" aria-label="<?= __('Partials') ?>">
+          <?php foreach ($partialZones as $pz): ?>
+            <option value="<?= h($pz) ?>" <?= $activePartial === $pz ? 'selected' : '' ?>><?= h($zoneZones[$pz] ?? $pz) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    <?php endif; ?>
 
     <div class="tz-canvas">
       <!-- HEADER band -->
@@ -770,11 +775,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
       <?php endif; ?>
 
       <!-- MAIN row: partial terpilih | sidebar -->
-      <div class="tz-main-row">
+      <div class="tz-main-row<?= $customizerOnly ? ' tz-main-row--settings' : '' ?>">
         <?php $mainOverrideClass = tz_override_class($activePartial, $mixedAssignments); ?>
         <section class="tz-band tz-band-main <?= h($mainOverrideClass) ?>">
           <div class="tz-band-label">
-            <?= __('Main') ?> — <span id="tz-partial-name"><?= h($zoneZones[$activePartial] ?? $activePartial) ?></span>
+            <?php if ($customizerOnly): ?>
+              <?= h((string)($sections['main']['label'] ?? __('Theme Settings'))) ?>
+            <?php else: ?>
+              <?= __('Main') ?> — <span id="tz-partial-name"><?= h($zoneZones[$activePartial] ?? $activePartial) ?></span>
+            <?php endif; ?>
             <?php if ($mainOverrideClass !== ''): ?>
               <span class="tz-override-tag <?= h($mainOverrideClass === 'tz-band--override-theme' ? 'tz-override-tag--theme' : 'tz-override-tag--post') ?>"><?= h(tz_override_label($activePartial, $mixedAssignments)) ?></span>
             <?php endif; ?>
@@ -789,7 +798,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                 <?php elseif ($pz === 'main'): ?>
                   <?php $pzSections = $pzSourceFolder === $folder ? $sections : theme_customizer_fields($pzSourceFolder); ?>
                   <?php $pzMods = $pzSourceFolder === $folder ? $mods : theme_mods_all($pdo, $pzSourceFolder); ?>
-                  <p class="muted" style="margin-top:0; margin-bottom:1rem;"><?= __('Configure the main content area and sidebar visibility.') ?></p>
+                  <?php if (!$customizerOnly): ?>
+                    <p class="muted" style="margin-top:0; margin-bottom:1rem;"><?= __('Configure the main content area and sidebar visibility.') ?></p>
+                  <?php endif; ?>
                   <?php $mainSection = $pzSections['main'] ?? []; ?>
                   <?php if (!empty($mainSection['fields'])): ?>
                     <form method="post" class="tz-draft-form" id="tc-main-form" data-unsaved-guard style="display:flex; flex-direction:column; gap:1rem; max-width:700px;">
@@ -832,7 +843,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                         <?php endforeach; ?>
                       </div>
                       <div>
-                        <button type="submit" class="btn btn-primary"><?= __('Save Main Layout') ?></button>
+                        <button type="submit" class="btn btn-primary"><?= $customizerOnly ? __('Save Changes') : __('Save Main Layout') ?></button>
                       </div>
                     </form>
                   <?php else: ?>
@@ -863,8 +874,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         </section>
 
         <!-- SIDEBAR panel (jika aktif) -->
-        <?php $sidebarOn = !function_exists('theme_mod') || theme_mod('show_sidebar', true); ?>
-        <aside class="tz-band tz-band-sidebar">
+        <?php if (!$customizerOnly): ?>
+          <?php $sidebarOn = !function_exists('theme_mod') || theme_mod('show_sidebar', true); ?>
+          <aside class="tz-band tz-band-sidebar">
           <div class="tz-band-label"><?= __('Sidebar') ?> <?= $sidebarOn ? '' : '(' . __('nonaktif') . ')' ?></div>
           <div class="tz-band-body">
             <?php if (!$sidebarOn): ?>
@@ -884,7 +896,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
             <?php endif; ?>
             <a class="btn btn-sm btn-secondary" style="margin-top:.5rem; display:inline-block; padding:.35rem .75rem; font-size:13px;" href="<?= h($base . '/?page=admin/sidebar/index') ?>"><?= __('Manage Sidebars') ?> →</a>
           </div>
-        </aside>
+          </aside>
+        <?php endif; ?>
       </div>
 
       <!-- FOOTER band -->
@@ -1549,6 +1562,7 @@ html:not(.theme-light):not(.theme-dark) .tz-override-tag--post::before {
 }
 
 .tz-main-row { display: grid; grid-template-columns: 3fr 1fr; gap: 1rem; align-items: start; }
+.tz-main-row--settings { grid-template-columns: 1fr; }
 .tz-sidebar-list { list-style: none; margin: 0 0 .5rem; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
 .tz-sidebar-list li { display: flex; align-items: center; gap: .5rem; font-size: 13px; }
 .tz-sidebar-list code { font-size: 11px; opacity: .7; background: rgba(127,127,127,.12); padding: 1px 6px; border-radius: 4px; }

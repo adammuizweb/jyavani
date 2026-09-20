@@ -175,6 +175,7 @@ add_action('admin_details', function (array $context, PDO $pdo): void {
 - Values stored per-theme in settings key `theme_mods_{folder}` (JSON).
 - Helpers (`cfg/helpers/theme_customizer.php`): `theme_mod($key, $default)`, `theme_mods_all()`, `theme_mods_save()`, `theme_customizer_fields($folder)`.
 - Admin page: `admin/themes/customize` — polished per-section cards, live logo preview, dropdowns reuse Menu Manager and Sidebar Settings. Link "Customize" under Themes (admin only).
+- Themes that declare `customizer.sections.main.fields` without a `layout` receive a settings-only panel; Core skips Theme Zone partial discovery and gadget/sidebar controls for that mode.
 - Themes consume via `theme_mod('logo')`, `theme_mod('nav_menu')`, `theme_mod('show_search', true)`, `theme_mod('footer_text')`, `theme_mod('footer_sidebar_zone')`, etc. Defaults must preserve original behavior when no mods set.
 - Legacy flat format (`customizer: {"logo": true, "nav_menu": true, "controls": [...]}`) is auto-converted to sections for backward compatibility.
 
