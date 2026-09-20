@@ -63,9 +63,9 @@ Sudah ada:
 - `cfg/helpers/theme_zones.php` — schema gadget, CRUD, render, `theme_zone_render_position()`,
   `theme_zone_render_title()`, `theme_zone_content_align()`, `theme_zone_universal_defaults()`.
 - Tabel `theme_zone_items` dengan kolom `theme_folder` (per-theme scoping, migration `010`).
-- Historical count at project close: 13 built-ins. The current operative registry has 11:
-  `tz_image`, `tz_nav_menu`, `tz_social`, `tz_pages`, `tz_richtext`, `tz_sidebar_zone`,
-  `tz_theme_toggle`, `tz_search`, `tz_html`, `tz_post_author`, and `tz_post_meta`.
+- Historical count at project close: 13 built-ins. The current operative registry is
+  authoritative in `theme_zone_default_widget_types()`; definitions may remain registered
+  for stored-layout compatibility while setting `addable: false` to leave Add Gadget.
 - Admin `dashboard/admin/themes/customize.php` — kanvas full-page ala Blogspot (Header band →
   Main row + Sidebar → Footer band), select partials, drag & drop antar-position,
   gadget config form dengan alignment icon buttons + title tag selector.

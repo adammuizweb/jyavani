@@ -39,6 +39,38 @@ try {
         ->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {}
 
+$articleAuthors = [];
+$categoriesList = [];
+$themeContentList = [];
+try {
+    $articleAuthors = $pdo->query("SELECT DISTINCT u.id, u.name, u.username, u.email FROM users u INNER JOIN posts p ON p.created_by = u.id WHERE p.type = 'article' AND p.status = 'published' AND p.is_deleted = 0 AND u.is_deleted = 0 ORDER BY u.name ASC, u.username ASC, u.email ASC")
+        ->fetchAll(PDO::FETCH_ASSOC);
+    $categoriesList = $pdo->query("SELECT id, name, slug FROM categories WHERE is_deleted = 0 ORDER BY name ASC, id ASC")
+        ->fetchAll(PDO::FETCH_ASSOC);
+    $themeContentList = $pdo->query("SELECT id, title, slug FROM posts WHERE type = 'theme' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC, id ASC LIMIT 200")
+        ->fetchAll(PDO::FETCH_ASSOC);
+
+    $selectedThemeContentIds = [];
+    $selectedStmt = $pdo->prepare("SELECT config FROM theme_zone_items WHERE theme_folder = ? AND type = 'tz_theme_content'");
+    $selectedStmt->execute([$folder]);
+    foreach ($selectedStmt->fetchAll(PDO::FETCH_COLUMN) as $storedConfig) {
+        $decoded = json_decode((string)$storedConfig, true);
+        foreach ((array)($decoded['items'] ?? []) as $itemId) {
+            $itemId = (int)$itemId;
+            if ($itemId > 0 && !in_array($itemId, $selectedThemeContentIds, true)) $selectedThemeContentIds[] = $itemId;
+            if (count($selectedThemeContentIds) >= 200) break 2;
+        }
+    }
+    $loadedThemeContentIds = array_map('intval', array_column($themeContentList, 'id'));
+    $missingThemeContentIds = array_values(array_diff($selectedThemeContentIds, $loadedThemeContentIds));
+    if ($missingThemeContentIds !== []) {
+        $placeholders = implode(',', array_fill(0, count($missingThemeContentIds), '?'));
+        $selectedContentStmt = $pdo->prepare("SELECT id, title, slug FROM posts WHERE type = 'theme' AND status = 'published' AND is_deleted = 0 AND id IN ({$placeholders})");
+        $selectedContentStmt->execute($missingThemeContentIds);
+        $themeContentList = array_merge($themeContentList, $selectedContentStmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+} catch (Throwable $e) {}
+
 // Shortcode presets untuk picker di tz_html / tz_richtext
 $scPresets = [];
 try {
@@ -49,6 +81,10 @@ try {
 } catch (Throwable $e) {}
 
 $tzWidgets = function_exists('theme_zone_widget_types') ? theme_zone_widget_types() : [];
+$tzAddableWidgets = array_filter(
+    $tzWidgets,
+    static fn($definition): bool => is_array($definition) && ($definition['addable'] ?? true) === true
+);
 $themeLayout = function_exists('theme_zone_layout') ? theme_zone_layout($folder) : [];
 $customizerOnly = empty($themeLayout) && !empty($sections['main']['fields']);
 
@@ -244,6 +280,21 @@ function tz_sanitize_config(string $type, array $config, array $tzWidgets): arra
             $out['pages'] = array_values(array_filter(array_map(fn($s) => preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)$s), (array)($config['pages'] ?? []))));
             $out['list_class'] = preg_replace('/[^a-zA-Z0-9_\- ]/', '', trim((string)($config['list_class'] ?? 'tz-pages'))) ?: 'tz-pages';
             break;
+        case 'tz_articles':
+            $out['author_id'] = max(0, (int)($config['author_id'] ?? 0));
+            $out['category_id'] = max(0, (int)($config['category_id'] ?? 0));
+            $out['limit'] = max(1, min(100, (int)($config['limit'] ?? 10)));
+            $out['list_class'] = preg_replace('/[^a-zA-Z0-9_\- ]/', '', trim((string)($config['list_class'] ?? 'tz-articles'))) ?: 'tz-articles';
+            break;
+        case 'tz_theme_content':
+            $out['items'] = [];
+            foreach ((array)($config['items'] ?? []) as $itemId) {
+                $itemId = (int)$itemId;
+                if ($itemId > 0 && !in_array($itemId, $out['items'], true)) $out['items'][] = $itemId;
+                if (count($out['items']) >= 200) break;
+            }
+            $out['list_class'] = preg_replace('/[^a-zA-Z0-9_\- ]/', '', trim((string)($config['list_class'] ?? 'tz-theme-content'))) ?: 'tz-theme-content';
+            break;
         case 'tz_richtext':
             $out['html'] = (string)($config['html'] ?? '');
             break;
@@ -305,7 +356,7 @@ function tz_widget_config_field(string $zoneSlug, string $position, int $itemId,
     return $out;
 }
 
-function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus, array $sidebarZones = [], array $pagesList = [], string $base = ''): string {
+function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, array $item, array $menus, array $sidebarZones = [], array $pagesList = [], array $articleAuthors = [], array $categoriesList = [], array $themeContentList = [], string $base = ''): string {
     $type = (string)($item['type'] ?? '');
     $config = json_decode((string)($item['config'] ?? '{}'), true) ?: [];
     $out = '';
@@ -415,6 +466,47 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
             $out .= '</div>';
             $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'list_class', __('List CSS class'), $config['list_class'] ?? 'tz-pages') . '</div>';
             break;
+        case 'tz_articles':
+            $authorOptions = ['0' => __('All authors')];
+            foreach ($articleAuthors as $author) {
+                $label = trim((string)($author['name'] ?? ''));
+                if ($label === '') $label = trim((string)($author['username'] ?? ''));
+                if ($label === '') $label = trim((string)($author['email'] ?? ''));
+                $authorOptions[(string)(int)($author['id'] ?? 0)] = $label;
+            }
+            $categoryOptions = ['0' => __('All categories')];
+            foreach ($categoriesList as $category) {
+                $categoryOptions[(string)(int)($category['id'] ?? 0)] = (string)($category['name'] ?? $category['slug'] ?? '');
+            }
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'author_id', __('Author filter'), $config['author_id'] ?? 0, 'select', $authorOptions) . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'category_id', __('Category filter'), $config['category_id'] ?? 0, 'select', $categoryOptions) . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'limit', __('Maximum items'), $config['limit'] ?? 10) . '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'list_class', __('List CSS class'), $config['list_class'] ?? 'tz-articles') . '</div>';
+            break;
+        case 'tz_theme_content':
+            $selectedItems = array_map('intval', (array)($config['items'] ?? []));
+            $availableItemIds = array_map('intval', array_column($themeContentList, 'id'));
+            $out .= '<div style="grid-column:1/-1;"><label style="display:block; font-size:12px; font-weight:600; color:var(--adam-muted, #777); margin-bottom:4px;">' . __('Theme Content to show') . '</label>';
+            if (empty($themeContentList)) {
+                $out .= '<p class="muted" style="margin:0; font-size:13px;">' . __('No published Theme Content is available.') . '</p>';
+            } else {
+                $out .= '<div style="max-height:220px; overflow-y:auto; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; padding:.5rem .75rem; display:flex; flex-direction:column; gap:.3rem;">';
+                foreach ($themeContentList as $themeContent) {
+                    $themeId = (int)($themeContent['id'] ?? 0);
+                    $out .= '<label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; font-weight:400;">';
+                    $out .= '<input type="checkbox" name="widget[' . $itemId . '][config][items][]" value="' . $themeId . '"' . (in_array($themeId, $selectedItems, true) ? ' checked' : '') . ' style="width:15px; height:15px; accent-color:var(--adam-primary);">';
+                    $out .= h((string)($themeContent['title'] ?? $themeContent['slug'] ?? '')) . ' <code style="font-size:11px; opacity:.6;">' . h((string)($themeContent['slug'] ?? '')) . '</code></label>';
+                }
+                $out .= '</div>';
+            }
+            foreach (array_diff($selectedItems, $availableItemIds) as $unavailableItemId) {
+                if ($unavailableItemId > 0) {
+                    $out .= '<input type="hidden" name="widget[' . $itemId . '][config][items][]" value="' . $unavailableItemId . '">';
+                }
+            }
+            $out .= '</div>';
+            $out .= '<div>' . tz_widget_config_field($zoneSlug, $position, $itemId, 'list_class', __('List CSS class'), $config['list_class'] ?? 'tz-theme-content') . '</div>';
+            break;
         case 'tz_richtext':
             $rtName = "widget[{$itemId}][config][html]";
             $rtEditorKey = 'rt-' . $itemId;
@@ -471,9 +563,10 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
 }
 
 // Render satu zone editor lengkap (tombol defaults + grid positions + gadget list + add form)
-function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, int $uid, array $sidebarZones = [], array $pagesList = []): string {
+function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $layoutDef, array $tzWidgets, array $menus, string $selfUrl, string $activePartial, int $uid, array $sidebarZones = [], array $pagesList = [], array $articleAuthors = [], array $categoriesList = [], array $themeContentList = []): string {
     global $base;
     $base = $base ?? (defined('ADMIN_BASE_PATH') ? ADMIN_BASE_PATH : '/adiwira');
+    $addableWidgets = array_filter($tzWidgets, static fn($definition): bool => is_array($definition) && ($definition['addable'] ?? true) === true);
     ob_start();
     $hasDefaults = !empty($layoutDef['defaults']) || in_array($zSlug, ['header', 'footer'], true);
     ?>
@@ -502,8 +595,8 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
     <?php foreach ($posRows as $rowPositions): ?>
       <?php
       $rowCount = count($rowPositions);
-      $cols = $multiRow ? $rowCount : (int)($layoutDef['columns'] ?? min(max($rowCount, 1), 4));
-      $cols = max(1, min(4, $cols));
+      $cols = $multiRow ? $rowCount : (int)($layoutDef['columns'] ?? min(max($rowCount, 1), 5));
+      $cols = max(1, min(5, $cols));
       ?>
       <div class="tz-layout-grid" data-cols="<?= $cols ?>"<?= $multiRow ? ' style="margin-bottom:1rem;"' : '' ?>>
       <?php foreach ($rowPositions as $posKey => $posDef): ?>
@@ -556,7 +649,7 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
 
                     <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
                       <div class="tz-config-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
-                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList, $base) ?>
+                        <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList, $articleAuthors, $categoriesList, $themeContentList, $base) ?>
                       </div>
                       <?php do_action('theme_zone_item_editor_actions', $it, [
                           'theme_folder' => $folder,
@@ -589,7 +682,7 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
               <input type="hidden" name="tz_partial" value="<?= h($activePartial) ?>" data-unsaved-guard-ignore>
               <select name="tz_type" required style="flex:1; min-width:140px; padding:.4rem .6rem; border:1px solid rgba(127,127,127,.35); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">
                 <option value=""><?= __('- Select gadget -') ?></option>
-                <?php foreach ($tzWidgets as $typeKey => $typeDef): ?>
+                <?php foreach ($addableWidgets as $typeKey => $typeDef): ?>
                   <option value="<?= h($typeKey) ?>"><?= h($typeDef['label'] ?? $typeKey) ?></option>
                 <?php endforeach; ?>
               </select>
@@ -626,6 +719,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 
     if ($action === 'add' && !empty($_POST['tz_type'])) {
         $type = (string)$_POST['tz_type'];
+        if (!isset($tzAddableWidgets[$type])) {
+            adiwira_redirect_with_flash($backUrl, 'error', __('Invalid gadget type.'));
+            return;
+        }
         $config = (isset($tzWidgets[$type]) && is_array($tzWidgets[$type]['default_config'] ?? null)) ? $tzWidgets[$type]['default_config'] : [];
         $title = trim((string)($_POST['tz_title'] ?? ''));
         if ($title !== '') $config['title'] = $title;
@@ -641,12 +738,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
         $orderRaw = (string)($_POST['_widget_order'] ?? '');
         $orderIds = array_filter(array_map('trim', explode(',', $orderRaw)));
         $submitted = (array)$_POST['widget'];
+        $storedItems = [];
+        $storedStmt = $pdo->prepare('SELECT id, type FROM theme_zone_items WHERE theme_folder = ? AND zone_slug = ?');
+        $storedStmt->execute([$folder, $zone]);
+        foreach ($storedStmt->fetchAll(PDO::FETCH_ASSOC) as $storedItem) {
+            $storedItems[(int)$storedItem['id']] = (string)$storedItem['type'];
+        }
         $idx = 0;
         foreach ($orderIds as $wid) {
             $wid = (int)$wid;
             if ($wid <= 0 || !isset($submitted[$wid])) continue;
             $data = $submitted[$wid];
-            $type = (string)($data['type'] ?? '');
+            $type = $storedItems[$wid] ?? '';
             if (!isset($tzWidgets[$type])) continue;
             $config = (array)($data['config'] ?? []);
             $title = trim((string)($config['title'] ?? ''));
@@ -707,8 +810,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
             foreach ($items as $d) {
                 if (!is_array($d) || empty($d['type'])) continue;
                 $type = (string)$d['type'];
+                if (!isset($tzAddableWidgets[$type])) continue;
                 $title = trim((string)($d['title'] ?? ($tzWidgets[$type]['label'] ?? $type)));
                 $config = is_array($d['config'] ?? null) ? $d['config'] : ($tzWidgets[$type]['default_config'] ?? []);
+                if (function_exists('theme_zone_prepare_default_config')) {
+                    $config = theme_zone_prepare_default_config($pdo, $type, $config);
+                }
+                if (!array_key_exists('title', $config)) $config['title'] = $title;
                 theme_zone_add_item($pdo, $zone, $type, $config, $title, $position, $folder);
             }
         }
@@ -768,7 +876,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
               <?= tz_override_notice($mixedAssignments['header']['label'] ?? '', $mixedAssignments['header']['post_id'] ?? null) ?>
             <?php else: ?>
               <?php $headerLayout = $headerSourceFolder === $folder ? $themeLayout['header'] : (theme_zone_layout($headerSourceFolder)['header'] ?? $themeLayout['header']); ?>
-              <?= tz_zone_editor_html($pdo, $headerSourceFolder, 'header', $headerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList) ?>
+              <?= tz_zone_editor_html($pdo, $headerSourceFolder, 'header', $headerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList, $articleAuthors, $categoriesList, $themeContentList) ?>
             <?php endif; ?>
           </div>
         </section>
@@ -863,7 +971,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
                   }
                   ?>
                   <?php if (!empty($pzDef) && !empty($pzDef['positions']) && is_array($pzDef['positions'])): ?>
-                    <?= tz_zone_editor_html($pdo, $pzSourceFolder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList) ?>
+                    <?= tz_zone_editor_html($pdo, $pzSourceFolder, $pz, $pzDef, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList, $articleAuthors, $categoriesList, $themeContentList) ?>
                   <?php else: ?>
                     <div class="adam-alert info"><?= __('This partial does not declare positions.') ?></div>
                   <?php endif; ?>
@@ -916,7 +1024,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
               <?= tz_override_notice($mixedAssignments['footer']['label'] ?? '', $mixedAssignments['footer']['post_id'] ?? null) ?>
             <?php else: ?>
               <?php $footerLayout = $footerSourceFolder === $folder ? $themeLayout['footer'] : (theme_zone_layout($footerSourceFolder)['footer'] ?? $themeLayout['footer']); ?>
-              <?= tz_zone_editor_html($pdo, $footerSourceFolder, 'footer', $footerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList) ?>
+              <?= tz_zone_editor_html($pdo, $footerSourceFolder, 'footer', $footerLayout, $tzWidgets, $menus, $selfUrl, $activePartial, $uid, $zones, $pagesList, $articleAuthors, $categoriesList, $themeContentList) ?>
             <?php endif; ?>
           </div>
         </section>
@@ -1357,6 +1465,7 @@ window.TZ_SHORTCODE_PRESETS = <?= json_encode($scPresets, JSON_UNESCAPED_UNICODE
   .tz-layout-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tz-layout-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tz-layout-grid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tz-layout-grid[data-cols="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 .tz-position { min-width: 0; }
 .tz-item { transition: opacity .2s ease; min-width: 0; }

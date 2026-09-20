@@ -56,8 +56,12 @@ $check(count($rows) === 1 && $filterContext === ['portfolio', 'footer', 'about',
 $htmlSchema = theme_zone_translatable_config('tz_html');
 $searchSchema = theme_zone_translatable_config('tz_search');
 $imageSchema = theme_zone_translatable_config('tz_image');
+$articleSchema = theme_zone_translatable_config('tz_articles');
+$themeContentSchema = theme_zone_translatable_config('tz_theme_content');
 $check(array_keys($htmlSchema) === ['title', 'html'] && array_keys($searchSchema) === ['placeholder']
-    && array_keys($imageSchema) === ['alt'] && !isset($searchSchema['button']) && !isset($imageSchema['link']),
+    && array_keys($imageSchema) === ['alt'] && array_keys($articleSchema) === ['title']
+    && array_keys($themeContentSchema) === ['title'] && !isset($searchSchema['button'])
+    && !isset($imageSchema['link']) && !isset($articleSchema['author_id']) && !isset($themeContentSchema['items']),
     'widget registry declares human text without exposing URL or behavior keys');
 $check(str_contains(theme_zone_localize_root_urls('<a href="/">Home</a><form action="/">'), 'href="/de/"')
     && str_contains(theme_zone_localize_root_urls('<a href="/">Home</a><form action="/">'), 'action="/de/"'),

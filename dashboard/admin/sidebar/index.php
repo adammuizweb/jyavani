@@ -81,9 +81,14 @@ $widget_types = [
 ];
 $widget_types = apply_filters('sidebar_widget_types', $widget_types);
 $delegatedConfigurableTypes = ['search', 'last_posts', 'editor_pick', 'categories'];
+$sidebarAddableWidgetTypes = array_filter(
+    $widget_types,
+    static fn($definition): bool => is_array($definition) && ($definition['addable'] ?? true) === true
+        && ($definition['sidebar_addable'] ?? true) === true
+);
 $addableWidgetTypes = $canManageRawHtml
-    ? $widget_types
-    : array_intersect_key($widget_types, array_fill_keys($delegatedConfigurableTypes, true));
+    ? $sidebarAddableWidgetTypes
+    : array_intersect_key($sidebarAddableWidgetTypes, array_fill_keys($delegatedConfigurableTypes, true));
 $presets = [];
 $pst = $pdo->prepare("SELECT slug, title FROM posts WHERE type = 'sc_preset' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC");
 $pst->execute();
@@ -149,11 +154,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $wid = (int)$wid;
             if ($wid <= 0 || !isset($submitted[$wid])) continue;
             $data = $submitted[$wid];
-            $type = (string)($data['type'] ?? '');
-            if (!$canManageRawHtml) {
-                if (!isset($currentItemsById[$wid])) continue;
-                $type = (string)($currentItemsById[$wid]['type'] ?? '');
-            }
+            if (!isset($currentItemsById[$wid])) continue;
+            $type = (string)($currentItemsById[$wid]['type'] ?? '');
             if (!isset($widget_types[$type])) continue;
             $config = (array)($data['config'] ?? []);
             $translation = is_array($data['translation'] ?? null) ? $data['translation'] : [];

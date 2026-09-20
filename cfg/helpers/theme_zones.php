@@ -275,6 +275,34 @@ if (!function_exists('theme_zone_ensure_schema')) {
                     'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
                 ],
             ],
+            'tz_articles' => [
+                'label' => __('Article List'),
+                'desc'  => __('List published articles, optionally filtered by author or category.'),
+                'sidebar_addable' => false,
+                'default_config' => array_merge($uni, [
+                    'title' => '',
+                    'author_id' => 0,
+                    'category_id' => 0,
+                    'limit' => 10,
+                    'list_class' => 'tz-articles',
+                ]),
+                'translatable_config' => [
+                    'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
+                ],
+            ],
+            'tz_theme_content' => [
+                'label' => __('Theme Content List'),
+                'desc'  => __('List selected published Theme Content items.'),
+                'sidebar_addable' => false,
+                'default_config' => array_merge($uni, [
+                    'title' => '',
+                    'items' => [],
+                    'list_class' => 'tz-theme-content',
+                ]),
+                'translatable_config' => [
+                    'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
+                ],
+            ],
             'tz_richtext' => [
                 'label' => __('Rich Text'),
                 'desc'  => __('Konten rich text (Quill) — heading, bold, link, list, dll.'),
@@ -315,11 +343,13 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 'label' => __('Post Author'),
                 'desc'  => __('Author box for single post. Reads the current post context.'),
                 'default_config' => array_merge($uni, ['show_avatar' => true]),
+                'addable' => false,
             ],
             'tz_post_meta' => [
                 'label' => __('Post Meta'),
                 'desc'  => __('Date / updated / read-time row for single post.'),
                 'default_config' => array_merge($uni, ['show_date' => true, 'show_updated' => false, 'show_read_time' => true]),
+                'addable' => false,
             ],
         ];
         return apply_filters('theme_zone_widget_types', $types);
@@ -457,6 +487,122 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 }
                 return $out . '</ul>';
 
+            case 'tz_articles':
+                $authorId = max(0, (int)($config['author_id'] ?? 0));
+                $categoryId = max(0, (int)($config['category_id'] ?? 0));
+                $limit = max(1, min(100, (int)($config['limit'] ?? 10)));
+                $collectionContext = [
+                    'scope' => 'article_list',
+                    'table_alias' => 'p',
+                    'required_translation_fields' => ['title', 'slug'],
+                    'source' => 'theme_zone',
+                    'gadget_type' => 'tz_articles',
+                ];
+                $where = ["p.type = 'article'", "p.status = 'published'", 'p.is_deleted = 0'];
+                $params = [];
+                if ($authorId > 0) {
+                    $where[] = 'p.created_by = :tz_article_author';
+                    $params[':tz_article_author'] = $authorId;
+                }
+                if ($categoryId > 0) {
+                    $where[] = 'EXISTS (SELECT 1 FROM post_categories pc WHERE pc.post_id = p.id AND pc.category_id = :tz_article_category)';
+                    $params[':tz_article_category'] = $categoryId;
+                }
+                $collectionClauses = function_exists('collection_query_clauses')
+                    ? collection_query_clauses(['where' => [], 'params' => []], $collectionContext)
+                    : ['where' => [], 'params' => []];
+                $where = array_merge($where, $collectionClauses['where']);
+                $params = array_merge($params, $collectionClauses['params']);
+                try {
+                    $stmt = $pdo->prepare('SELECT p.id, p.title, p.slug, p.type, p.created_at FROM posts p WHERE '
+                        . implode(' AND ', $where) . ' ORDER BY p.created_at DESC, p.id DESC LIMIT :tz_article_limit');
+                    foreach ($params as $key => $value) {
+                        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : ($value === null ? PDO::PARAM_NULL : PDO::PARAM_STR));
+                    }
+                    $stmt->bindValue(':tz_article_limit', $limit, PDO::PARAM_INT);
+                    $stmt->execute();
+                    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Throwable $e) {
+                    return '';
+                }
+                if (function_exists('collection_filter_rows')) {
+                    $rows = collection_filter_rows($rows, $collectionContext);
+                }
+                if (empty($rows)) return '';
+                $listClass = preg_replace('/[^a-zA-Z0-9_\- ]/', '', (string)($config['list_class'] ?? 'tz-articles')) ?: 'tz-articles';
+                $out = theme_zone_render_title((string)($config['title'] ?? ''), $config);
+                $contAlign = theme_zone_content_align($config);
+                $ulStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
+                $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '"' . $ulStyle . '>';
+                foreach ($rows as $row) {
+                    $href = function_exists('get_post_permalink') ? get_post_permalink($row) : '/' . rawurlencode((string)$row['slug']) . '/';
+                    if (function_exists('collection_url')) {
+                        $href = collection_url($href, 'article', $collectionContext + ['item' => $row]);
+                    }
+                    $out .= '<li class="tz-article-item"><a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">'
+                        . htmlspecialchars((string)($row['title'] ?? $row['slug']), ENT_QUOTES, 'UTF-8') . '</a></li>';
+                }
+                return $out . '</ul>';
+
+            case 'tz_theme_content':
+                $selected = [];
+                foreach ((array)($config['items'] ?? []) as $itemId) {
+                    $itemId = (int)$itemId;
+                    if ($itemId > 0 && !in_array($itemId, $selected, true)) $selected[] = $itemId;
+                    if (count($selected) >= 200) break;
+                }
+                if ($selected === []) return '';
+                $collectionContext = [
+                    'scope' => 'theme_content_list',
+                    'table_alias' => 'p',
+                    'required_translation_fields' => ['title', 'slug'],
+                    'source' => 'theme_zone',
+                    'gadget_type' => 'tz_theme_content',
+                ];
+                $params = [];
+                $placeholders = [];
+                foreach ($selected as $index => $itemId) {
+                    $key = ':tz_theme_' . $index;
+                    $placeholders[] = $key;
+                    $params[$key] = $itemId;
+                }
+                $where = ["p.type = 'theme'", "p.status = 'published'", 'p.is_deleted = 0', 'p.id IN (' . implode(', ', $placeholders) . ')'];
+                $collectionClauses = function_exists('collection_query_clauses')
+                    ? collection_query_clauses(['where' => [], 'params' => []], $collectionContext)
+                    : ['where' => [], 'params' => []];
+                $where = array_merge($where, $collectionClauses['where']);
+                $params = array_merge($params, $collectionClauses['params']);
+                try {
+                    $stmt = $pdo->prepare('SELECT p.id, p.title, p.slug, p.type, p.created_at FROM posts p WHERE ' . implode(' AND ', $where));
+                    foreach ($params as $key => $value) {
+                        $stmt->bindValue($key, $value, is_int($value) ? PDO::PARAM_INT : ($value === null ? PDO::PARAM_NULL : PDO::PARAM_STR));
+                    }
+                    $stmt->execute();
+                    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Throwable $e) {
+                    return '';
+                }
+                if (function_exists('collection_filter_rows')) {
+                    $rows = collection_filter_rows($rows, $collectionContext);
+                }
+                $order = array_flip($selected);
+                usort($rows, static fn(array $a, array $b): int => ($order[(int)($a['id'] ?? 0)] ?? 999) <=> ($order[(int)($b['id'] ?? 0)] ?? 999));
+                if (empty($rows)) return '';
+                $listClass = preg_replace('/[^a-zA-Z0-9_\- ]/', '', (string)($config['list_class'] ?? 'tz-theme-content')) ?: 'tz-theme-content';
+                $out = theme_zone_render_title((string)($config['title'] ?? ''), $config);
+                $contAlign = theme_zone_content_align($config);
+                $ulStyle = $contAlign !== '' ? ' style="width:100%;text-align:' . $contAlign . ';"' : '';
+                $out .= '<ul class="' . htmlspecialchars(trim($listClass), ENT_QUOTES, 'UTF-8') . '"' . $ulStyle . '>';
+                foreach ($rows as $row) {
+                    $href = function_exists('get_post_permalink') ? get_post_permalink($row) : '/' . rawurlencode((string)$row['slug']) . '/';
+                    if (function_exists('collection_url')) {
+                        $href = collection_url($href, 'theme', $collectionContext + ['item' => $row]);
+                    }
+                    $out .= '<li class="tz-theme-content-item"><a href="' . htmlspecialchars($href, ENT_QUOTES, 'UTF-8') . '">'
+                        . htmlspecialchars((string)($row['title'] ?? $row['slug']), ENT_QUOTES, 'UTF-8') . '</a></li>';
+                }
+                return $out . '</ul>';
+
             case 'tz_richtext':
                 $htmlContent = theme_zone_localize_root_urls((string)($config['html'] ?? ''));
                 $titleHtml = theme_zone_render_title((string)($config['title'] ?? ''), $config);
@@ -569,6 +715,29 @@ if (!function_exists('theme_zone_ensure_schema')) {
         if ($html !== '' || !$pdo instanceof PDO) return $html;
         return _theme_zone_built_in_widget_html($pdo, $type, $config);
     }, 10, 4);
+
+    function theme_zone_prepare_default_config(PDO $pdo, string $type, array $config): array {
+        if ($type !== 'tz_theme_content' || !isset($config['item_slugs']) || !is_array($config['item_slugs'])) {
+            return $config;
+        }
+
+        $items = [];
+        try {
+            $stmt = $pdo->prepare("SELECT id FROM posts WHERE type = 'theme' AND slug = ? AND status = 'published' AND is_deleted = 0 LIMIT 1");
+            foreach (array_slice($config['item_slugs'], 0, 200) as $slug) {
+                $slug = trim((string)$slug);
+                if ($slug === '') continue;
+                $stmt->execute([$slug]);
+                $id = (int)$stmt->fetchColumn();
+                if ($id > 0 && !in_array($id, $items, true)) $items[] = $id;
+            }
+        } catch (Throwable $e) {
+            $items = [];
+        }
+        unset($config['item_slugs']);
+        $config['items'] = $items;
+        return $config;
+    }
 
     // ─── Admin CRUD ───
 

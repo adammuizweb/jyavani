@@ -305,7 +305,7 @@ Zone-level options:
 
 | Key | Description |
 |-----|-------------|
-| `columns` | Number of columns in the admin canvas (1–4). Visual only; templates are free to use any CSS. |
+| `columns` | Number of columns in the admin canvas (1–5). Visual only; templates are free to use any CSS. |
 | `defaults` | Gadgets pre-filled when user clicks **Load Default Layout**. Format: `{ "position": { "type": "tz_html", "title": "...", "config": {...} }` or array for multiple gadgets per position. |
 
 ### Rendering zones in templates
@@ -341,9 +341,9 @@ Any PHP file inside `main/` becomes a partial selectable in Customize. Examples:
 
 Files starting with `_` are ignored. Subfolders become dotted slugs (`dir.file` → `dir.file`).
 
-### Post-aware gadgets
+### Legacy post-aware gadgets
 
-`tz_post_author` and `tz_post_meta` read `$GLOBALS['jy_current_post']`. Single/page templates must set it before rendering the zone:
+`tz_post_author` and `tz_post_meta` remain registered for stored layouts but are not offered for new additions. They read `$GLOBALS['jy_current_post']`; templates rendering legacy rows must set it before rendering the zone:
 
 ```php
 <?php $GLOBALS['jy_current_post'] = $post; ?>
@@ -363,12 +363,14 @@ If the global is not set, these gadgets render empty string.
 | `tz_search` | Search form. | `placeholder`, `button` |
 | `tz_theme_toggle` | Light/dark toggle. | — |
 | `tz_pages` | List of published pages. | `pages[]`, `list_class` |
+| `tz_articles` | Published article list with optional source filters. | `author_id`, `category_id`, `limit`, `list_class` |
+| `tz_theme_content` | Selected published Theme Content links. | `items[]`, `list_class` |
 | `tz_social` | Social icon links. | `enabled[]`, `links` |
 | `tz_sidebar_zone` | Embed a Sidebar zone. | `zone` |
-| `tz_post_author` | Author box (single context). | `show_avatar` |
-| `tz_post_meta` | Date/read time (single context). | `show_date`, `show_updated`, `show_read_time` |
+| `tz_post_author` | Legacy author box retained for stored layouts. | `show_avatar` |
+| `tz_post_meta` | Legacy date/read-time row retained for stored layouts. | `show_date`, `show_updated`, `show_read_time` |
 
-All gadgets support universal settings: `_title_tag` (`div`/`h1`–`h6`), `_align_title` (`left`/`center`/`right`), `_align_content` (`left`/`center`/`right`).
+All gadgets support universal settings: `_title_tag` (`div`/`h1`–`h6`), `_align_title` (`left`/`center`/`right`), `_align_content` (`left`/`center`/`right`). Definitions with `addable: false` remain renderable and editable for stored layouts but are omitted from Add Gadget and rejected by its mutation handler.
 
 ### Adding custom gadgets (plugin/theme)
 

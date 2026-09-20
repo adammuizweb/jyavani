@@ -566,9 +566,9 @@ Format for multiple gadgets in the same position:
 
 Gadgets are created as active rows in `theme_zone_items` scoped to the current theme (`theme_folder`).
 
-## Post-aware gadgets
+## Legacy post-aware gadgets
 
-Two built-in gadgets depend on `$GLOBALS['jy_current_post']` being set:
+Two registered legacy gadgets depend on `$GLOBALS['jy_current_post']` being set. They remain available to stored layouts but are no longer offered by Add Gadget:
 
 - `tz_post_author`
 - `tz_post_meta`
@@ -583,8 +583,7 @@ Set the global before rendering single post/page zones:
 ## Custom gadgets
 
 Register custom gadgets with filters so they appear in the admin dropdown and render on the frontend:
-Core currently registers 11 built-in gadget types; always inspect
-`theme_zone_widget_types()` rather than relying on a copied count.
+Core includes Article List (`tz_articles`) with optional author/category filters and Theme Content List (`tz_theme_content`) with stable ID-based selection. Always inspect `theme_zone_widget_types()` and each definition's `addable` flag rather than relying on a copied count.
 
 ```php
 add_filter('theme_zone_widget_types', function(array $types): array {

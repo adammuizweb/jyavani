@@ -441,7 +441,8 @@ $check(
 $check(
     str_contains($sidebarRoutes, '$canManageRawHtml')
     && str_contains($sidebarRoutes, '$delegatedConfigurableTypes')
-    && str_contains($sidebarRoutes, 'array_intersect_key($widget_types')
+    && str_contains($sidebarRoutes, '$sidebarAddableWidgetTypes')
+    && str_contains($sidebarRoutes, 'array_intersect_key($sidebarAddableWidgetTypes')
     && str_contains($sidebarRoutes, "\$config['html'] = (string)(\$existingConfig['html'] ?? '')")
     && str_contains($sidebarRoutes, "\$type = (string)(\$currentItemsById[\$wid]['type'] ?? '')")
     && str_contains($sidebarRoutes, '$preserveWidgetConfig')
