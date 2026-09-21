@@ -29,7 +29,15 @@ $offset   = ($page_num - 1) * $per_page;
 $where  = ["p.is_deleted = 0", "p.type = 'theme'"];
 $where[] = '(' . $readCondition['sql'] . ')';
 $params = $readCondition['params'];
-$listContext = ['type' => 'theme', 'status' => $filter_status, 'search' => $search];
+$listContext = [
+    'schema' => 1,
+    'type' => 'theme',
+    'actor_id' => $uid,
+    'page' => 'admin/themes/index',
+    'filter_form_id' => 'themes-list-filter',
+    'status' => $filter_status,
+    'search' => $search,
+];
 $extensionStatusExpression = apply_filters('post_list_status_expression', 'p.status', $listContext);
 if (!is_string($extensionStatusExpression) || trim($extensionStatusExpression) === '' || str_contains($extensionStatusExpression, ';')) {
     $extensionStatusExpression = 'p.status';
@@ -145,7 +153,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <div class="toolbar-top">
     <h2 class="page-heading"><?=_e('Themes / Partials')?></h2>
 
-    <form method="get" class="toolbar-filter">
+    <form method="get" class="toolbar-filter" id="themes-list-filter">
       <input type="hidden" name="page" value="admin/themes/index">
       <input type="text" name="q" placeholder="<?= _e('Search title, internal slug, or public path...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
 
@@ -196,7 +204,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <span class="bsc-label"><?=_e('Theme Selected')?></span>
         </span>
 
-        <div class="cols-toggle ml-auto">
+        <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+        <div class="cols-toggle">
           <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
           <div class="cols-dropdown">
             <label class="cols-opt"><input type="checkbox" data-col="col-slug" checked> <?=_e('Internal slug')?></label>
@@ -207,6 +216,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </div>
       </div>
   <?php endif; ?>
+
+  <?php if (!$canBulk): ?><div class="content-list-display-controls"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div><?php endif; ?>
 
   <div class="adam-table-wrapper">
     <table class="adam-table mt-8">

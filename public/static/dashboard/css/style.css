@@ -5234,6 +5234,13 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   height:16px;
   margin:0;
 }
+
+.content-list-display-controls{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  margin:.75rem 0;
+}
 .cols-dropdown{
   display:none;
   position:absolute;

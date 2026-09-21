@@ -39,6 +39,11 @@ $where = ["p.is_deleted = 0", "p.type = 'article'"];
 $where[] = '(' . $readCondition['sql'] . ')';
 $params = $readCondition['params'];
 $listContext = [
+    'schema' => 1,
+    'type' => 'article',
+    'actor_id' => $uid,
+    'page' => 'admin/posts/index',
+    'filter_form_id' => 'posts-list-filter',
     'status' => $filter_status,
     'search' => $search,
 ];
@@ -59,10 +64,7 @@ if ($filter_category !== '') {
 }
 
 if ($search !== '') {
-    $searchCondition = apply_filters('post_list_search_condition', '(p.title LIKE :search OR p.slug LIKE :search)', [
-        'status' => $filter_status,
-        'search' => $search,
-    ]);
+    $searchCondition = apply_filters('post_list_search_condition', '(p.title LIKE :search OR p.slug LIKE :search)', $listContext);
     if (!is_string($searchCondition) || trim($searchCondition) === '' || str_contains($searchCondition, ';')) {
         $searchCondition = '(p.title LIKE :search OR p.slug LIKE :search)';
     }
@@ -71,7 +73,7 @@ if ($search !== '') {
 }
 
 $where_sql = implode(' AND ', $where);
-$listJoin = apply_filters('post_list_join', '', $where_sql);
+$listJoin = apply_filters('post_list_join', '', $where_sql, $listContext);
 if (!is_string($listJoin) || str_contains($listJoin, ';')) $listJoin = '';
 
 $count_sql = "
@@ -87,7 +89,8 @@ $totalStmt->execute($params);
 $total = (int)$totalStmt->fetchColumn();
 $pages = max(1, (int)ceil($total / $per_page));
 
-$listSelect = apply_filters('post_list_select', '', $where_sql);
+$listSelect = apply_filters('post_list_select', '', $where_sql, $listContext);
+if (!is_string($listSelect) || str_contains($listSelect, ';')) $listSelect = '';
 
 $sql = "
 SELECT
@@ -258,7 +261,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <div class="toolbar-top">
     <h2 class="page-heading"><?=_e('Post')?></h2>
 
-    <form method="get" class="toolbar-filter">
+    <form method="get" class="toolbar-filter" id="posts-list-filter">
       <input type="hidden" name="page" value="admin/posts/index">
       <input type="text" name="q" placeholder="<?= _e('Search…') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
 
@@ -360,7 +363,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <span class="bsc-label"><?= _e('Post Selected') ?></span>
       </span>
 
-      <div class="cols-toggle ml-auto">
+      <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+      <div class="cols-toggle">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
         <div class="cols-dropdown">
           <label class="cols-opt"><input type="checkbox" data-col="col-status" checked> <?=_e('Status')?></label>
@@ -371,6 +375,8 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </div>
     </div>
   <?php endif; ?>
+
+    <?php if (!$canBulk): ?><div class="content-list-display-controls"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div><?php endif; ?>
 
     <div class="adam-table-wrapper">
       <table class="adam-table mt-8">

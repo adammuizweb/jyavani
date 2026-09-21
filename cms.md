@@ -308,6 +308,20 @@ Expressions may use aliases contributed by `post_list_join`; malformed values
 containing statement separators are ignored. The status expression controls the
 displayed row status and edit/bulk authorization as well as status filtering.
 
+The same lists expose a shared action inside their GET filter forms:
+
+```php
+do_action('admin_content_list_filters', array $context, PDO $pdo): void
+```
+
+Context schema 1 contains `type` (`article`, `page`, or `theme`), `actor_id`,
+`page`, `filter_form_id`, `status`, and `search`. The action renders immediately
+before the column-visibility control; form-associated controls can use
+`filter_form_id` to remain part of the list's GET filter form. Extensions own
+their rendered controls and must use bounded scalar query values, escape markup,
+and independently enforce read and mutation permissions. Submitted controls are
+retained by Core pagination and row `return_to` URLs.
+
 Published Article, Page, and Theme Content rows also expose validated
 non-destructive actions between Core Edit/View and Delete:
 

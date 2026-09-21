@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.147",
+    "version": "2.3.148",
     "build": "2026-09-21",
-    "changelog": "Add secure extensible row actions for Article, Page, and Theme Content lists.",
+    "changelog": "Add an extensible filter surface for Article, Page, and Theme Content lists.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.147"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.148"
 }

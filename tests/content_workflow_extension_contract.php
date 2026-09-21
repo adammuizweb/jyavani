@@ -64,6 +64,9 @@ $listJoinFilter = strpos($postList, "apply_filters('post_list_join'");
 $listCount = strpos($postList, 'SELECT COUNT(DISTINCT p.id)');
 $check(str_contains($postList, "apply_filters('post_list_status_expression'")
     && str_contains($postList, "apply_filters('post_list_search_condition'")
+    && str_contains($postList, "'type' => 'article'")
+    && str_contains($postList, "apply_filters('post_list_join', '', \$where_sql, \$listContext)")
+    && str_contains($postList, "apply_filters('post_list_select', '', \$where_sql, \$listContext)")
     && str_contains($postList, 'AS editor_status')
     && str_contains($postList, "['editor_status']")
     && $listJoinFilter !== false && $listCount !== false && $listJoinFilter < $listCount,
@@ -86,6 +89,14 @@ $check(str_contains($themeList, "apply_filters('post_list_status_expression'")
     && str_contains($themeList, "['display_permalink']")
     && strpos($themeList, "apply_filters('post_list_join'") < strpos($themeList, 'SELECT COUNT(DISTINCT p.id)'),
     'Theme Template list exposes localized representation hooks while preserving its canonical internal slug');
+$check(substr_count($postList . $pageList . $themeList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 6
+    && substr_count($postList . $pageList . $themeList, 'if (!$canBulk)') >= 3,
+    'Article, Page, and Theme Content toolbars expose one shared list-filter action to bulk and read-only users');
+$check(strpos($postList, "do_action('admin_content_list_filters'") < strpos($postList, 'class="cols-toggle"')
+    && strpos($pageList, "do_action('admin_content_list_filters'") < strpos($pageList, 'class="cols-toggle"')
+    && strpos($themeList, "do_action('admin_content_list_filters'") < strpos($themeList, 'class="cols-toggle"')
+    && str_contains($postList . $pageList . $themeList, "'filter_form_id' =>"),
+    'shared list-filter controls render immediately before column visibility controls and retain their GET form owner');
 $check(substr_count($dashboardLayout . $dashboardFooter, "do_action('admin_footer')") === 1,
     'dashboard renders the admin footer extension action exactly once');
 
