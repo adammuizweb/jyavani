@@ -308,6 +308,28 @@ Expressions may use aliases contributed by `post_list_join`; malformed values
 containing statement separators are ignored. The status expression controls the
 displayed row status and edit/bulk authorization as well as status filtering.
 
+Published Article, Page, and Theme Content rows also expose validated
+non-destructive actions between Core Edit/View and Delete:
+
+```php
+apply_filters(
+    'admin_content_row_actions',
+    list<array> $items,
+    array $row,
+    array $context,
+    PDO $pdo
+): list<array>
+```
+
+Each item is `['key' => string, 'label' => string, 'url' => string, 'title' =>
+string]`. Keys must be unique lowercase tokens and URLs must target a valid
+dashboard `?page=...` route below the runtime `ADMIN_BASE_PATH`; Core escapes all
+rendered values and ignores malformed items. Context schema 1 contains
+`content_type` (`article`, `page`, or `theme`), `actor_id`, normalized `status`,
+`is_public`, validated root-relative same-site `public_url`, `return_to`,
+`can_update`, and `can_delete`. Extensions must independently require their own permission and
+should not create public-URL actions when `is_public` is false.
+
 Category administration remains canonical and owner-scoped. Extensions may
 adapt display fields and row actions without replacing category identity or
 hierarchy:

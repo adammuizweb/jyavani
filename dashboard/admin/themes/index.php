@@ -250,6 +250,22 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               if ($titleHref === '') {
                   $titleHref = function_exists('get_post_permalink') ? get_post_permalink($t) : '/' . rawurlencode((string)$t['slug']) . '/';
               }
+              $extensionPublicUrl = function_exists('content_row_actions_public_url')
+                ? content_row_actions_public_url((string)$titleHref)
+                : null;
+              $contentRowActions = function_exists('content_row_actions_render')
+                ? content_row_actions_render($pdo, $t, [
+                    'schema' => 1,
+                    'content_type' => 'theme',
+                    'actor_id' => $uid,
+                    'status' => $status,
+                    'is_public' => $status === 'published' && $extensionPublicUrl !== null,
+                    'public_url' => $extensionPublicUrl ?? '',
+                    'return_to' => $currentReturnTo,
+                    'can_update' => $canUpdateTheme,
+                    'can_delete' => $canDeleteTheme,
+                  ])
+                : '';
             ?>
             <tr class="adam-row">
               <?php if ($canBulk): ?>
@@ -265,9 +281,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                     <?= htmlspecialchars((string)($t['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
                   </a>
                   <?= apply_filters('post_list_title_after', '', $t) ?>
-                  <div class="row-actions">
-                    <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= $canUpdateTheme ? svg_ico('pen', '', ['class' => 'lucide-icon']) : '' ?><?= htmlspecialchars($canUpdateTheme ? __('Edit') : __('View'), ENT_QUOTES, 'UTF-8') ?></a>
-                    <?php if ($canDeleteTheme): ?>
+                   <div class="row-actions">
+                     <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= $canUpdateTheme ? svg_ico('pen', '', ['class' => 'lucide-icon']) : '' ?><?= htmlspecialchars($canUpdateTheme ? __('Edit') : __('View'), ENT_QUOTES, 'UTF-8') ?></a>
+                     <?php if ($contentRowActions !== ''): ?><span class="muted-divider">|</span><?= $contentRowActions ?><?php endif; ?>
+                     <?php if ($canDeleteTheme): ?>
                       <span class="muted-divider">|</span>
                       <button type="button"
                               class="adam-hapus js-theme-delete"

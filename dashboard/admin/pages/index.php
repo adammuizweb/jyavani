@@ -366,17 +366,36 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                           'id'        => (int)$p['id'],
                           'return_to' => $currentReturnTo,
                       ]);
+                      $extensionPublicUrl = function_exists('content_row_actions_public_url')
+                        ? content_row_actions_public_url((string)$titleHref)
+                        : null;
                     ?>
                     <a class="adam-link--full" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
                        title="<?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>">
-                      <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
-                    </a>
-                    <?= apply_filters('post_list_title_after', '', $p) ?>
-                    <div class="row-actions">
-                       <?php if ($canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
-                       <?php if (!$canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('View')?></a><?php endif; ?>
-                      <?php if ($canUpdatePage && $canTrashPage): ?><span class="muted-divider">|</span><?php endif; ?>
-                      <?php if ($canTrashPage): ?><button type="button"
+                       <?= htmlspecialchars((string)($p['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
+                     </a>
+                     <?= apply_filters('post_list_title_after', '', $p) ?>
+                     <?php
+                       $contentRowActions = function_exists('content_row_actions_render')
+                         ? content_row_actions_render($pdo, $p, [
+                             'schema' => 1,
+                             'content_type' => 'page',
+                             'actor_id' => $uid,
+                             'status' => $status,
+                             'is_public' => $status === 'published' && $extensionPublicUrl !== null,
+                             'public_url' => $extensionPublicUrl ?? '',
+                             'return_to' => $currentReturnTo,
+                             'can_update' => $canUpdatePage,
+                             'can_delete' => $canTrashPage,
+                           ])
+                         : '';
+                     ?>
+                     <div class="row-actions">
+                        <?php if ($canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                        <?php if (!$canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('View')?></a><?php endif; ?>
+                       <?php if ($contentRowActions !== ''): ?><span class="muted-divider">|</span><?= $contentRowActions ?><?php endif; ?>
+                       <?php if ($canTrashPage): ?><span class="muted-divider">|</span><?php endif; ?>
+                       <?php if ($canTrashPage): ?><button type="button"
                               class="adam-hapus js-page-delete"
                               data-id="<?= (int)$p['id'] ?>"
                               data-title="<?= htmlspecialchars((string)($p['title'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
