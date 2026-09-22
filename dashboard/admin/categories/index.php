@@ -349,7 +349,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <?php endforeach; ?>
       </select>
 
-      <?php do_action('admin_content_list_filters', $listContext, $pdo); ?>
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
     </form>
@@ -393,13 +392,16 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
           <span class="bsc-label"><?=_e('Category Selected')?></span>
         </span>
 
-        <div class="cols-toggle ml-auto">
+        <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+        <div class="cols-toggle">
           <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
           <div class="cols-dropdown">
           </div>
         </div>
       </div>
   <?php endif; ?>
+
+  <?php if (!$canBulk): ?><div class="content-list-display-controls"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div><?php endif; ?>
 
   <div class="adam-table-wrapper">
     <table class="adam-table mt-8">

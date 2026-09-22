@@ -318,8 +318,8 @@ do_action('admin_content_list_filters', array $context, PDO $pdo): void
 Context schema 1 contains `type` (`article`, `page`, `theme`, or `category`),
 `actor_id`, `page`, `filter_form_id`, and `search`. Content contexts also expose
 `status`; Category context exposes `parent_id` and `author_id`. The action
-renders immediately before the column-visibility control on content lists and
-inside the Category GET toolbar before Apply. Form-associated controls can use
+renders immediately before the column-visibility control on content lists,
+including Categories. Form-associated controls can use
 `filter_form_id` to remain part of the list's GET filter form. Extensions own
 their rendered controls and must use bounded scalar query values, escape markup,
 and independently enforce read and mutation permissions. Submitted controls are

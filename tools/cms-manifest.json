@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.149",
+    "version": "2.3.150",
     "build": "2026-09-22",
-    "generated": "2026-09-22T02:40:00+00:00",
+    "generated": "2026-09-22T03:10:51+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 593,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "2d99560f864b9d45dc6591d69b09d1f9cec5038d9db427f7099b3ec6f064d696",
+        "VERSION": "e6c4177eaabb505d14817905ad14f3b50f34f7b3300d8702154fc08b1aa3ae94",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -122,7 +122,7 @@
         "dashboard/admin/categories/bulk_action.php": "5ac7adebb310bb0393c163717545f8087d7987dd3773a4f5590c1700b1b186d1",
         "dashboard/admin/categories/delete.php": "b1680432029fef1a28e0b2e96346df58685fbe4050d15f9eb17d4866fd1008df",
         "dashboard/admin/categories/edit.php": "65c6d9d6e9b4b4d96502925eed56a49f186d5bc114fca299c21f0b94a8992a3f",
-        "dashboard/admin/categories/index.php": "a32d2e82b15e365265c565688a172eaeef25e70345c3d3afdc50cee743f67d76",
+        "dashboard/admin/categories/index.php": "b9ddbb8390322b6955ac3ac8ad42a8a09ce07505a60b91fb3d4b23d87d6bbbb7",
         "dashboard/admin/check_updates_ajax.php": "895211361587015d4b017e96271efc8281a8339dbedf001b6b3849cfb1262d93",
         "dashboard/admin/content/undo_bulk_status.php": "789bcc386a2dbfdb69fb09a2ffb104330b2f0aa7872f8afe8ce63cea8adabbf5",
         "dashboard/admin/file/add.php": "a05561ba5565c351cf70379e3ae02346538122c317706b35c34a9213cc8c5b37",
@@ -600,6 +600,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "15a0e03f1191aeeafdb8460c00be96812355ae965717c82e550c1952ec438148"
+        "version.json": "6a0eea4aa1bfc0208de544f69e21762c3566d3144cf3c3d4935126bcc660d97b"
     }
 }

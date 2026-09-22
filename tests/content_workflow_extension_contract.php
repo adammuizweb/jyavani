@@ -103,9 +103,11 @@ $check(str_contains($categoryList, "'schema' => 1")
     && str_contains($categoryList, "'page' => 'admin/categories/index'")
     && str_contains($categoryList, "'filter_form_id' => 'categories-list-filter'")
     && str_contains($categoryList, 'id="categories-list-filter"')
-    && substr_count($categoryList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 1
+    && substr_count($categoryList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 2
+    && strpos($categoryList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") < strpos($categoryList, 'class="cols-toggle"')
+    && str_contains($categoryList, 'class="content-list-display-controls"')
     && str_contains($categoryList, "apply_filters('admin_category_list_rows', \$allCategories, \$listContext, \$pdo)"),
-    'Category list exposes one shared schema-1 filter action inside its GET filter form');
+    'Category list places schema-1 filter controls before column visibility and supports read-only users');
 $check(substr_count($dashboardLayout . $dashboardFooter, "do_action('admin_footer')") === 1,
     'dashboard renders the admin footer extension action exactly once');
 
