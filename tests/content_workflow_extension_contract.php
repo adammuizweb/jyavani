@@ -22,6 +22,7 @@ $pageEdit = (string)file_get_contents($root . '/dashboard/admin/pages/edit.php')
 $pageBulk = (string)file_get_contents($root . '/dashboard/admin/pages/bulk_action.php');
 $pageList = (string)file_get_contents($root . '/dashboard/admin/pages/index.php');
 $themeList = (string)file_get_contents($root . '/dashboard/admin/themes/index.php');
+$categoryList = (string)file_get_contents($root . '/dashboard/admin/categories/index.php');
 $dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $dashboardFooter = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/footer.php');
 $siteSettings = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
@@ -97,6 +98,14 @@ $check(strpos($postList, "do_action('admin_content_list_filters'") < strpos($pos
     && strpos($themeList, "do_action('admin_content_list_filters'") < strpos($themeList, 'class="cols-toggle"')
     && str_contains($postList . $pageList . $themeList, "'filter_form_id' =>"),
     'shared list-filter controls render immediately before column visibility controls and retain their GET form owner');
+$check(str_contains($categoryList, "'schema' => 1")
+    && str_contains($categoryList, "'type' => 'category'")
+    && str_contains($categoryList, "'page' => 'admin/categories/index'")
+    && str_contains($categoryList, "'filter_form_id' => 'categories-list-filter'")
+    && str_contains($categoryList, 'id="categories-list-filter"')
+    && substr_count($categoryList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 1
+    && str_contains($categoryList, "apply_filters('admin_category_list_rows', \$allCategories, \$listContext, \$pdo)"),
+    'Category list exposes one shared schema-1 filter action inside its GET filter form');
 $check(substr_count($dashboardLayout . $dashboardFooter, "do_action('admin_footer')") === 1,
     'dashboard renders the admin footer extension action exactly once');
 

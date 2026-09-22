@@ -253,6 +253,7 @@ $check(
 );
 $check(
     str_contains($categoryRoutes, "apply_filters('admin_category_list_rows'")
+    && str_contains($categoryRoutes, "do_action('admin_content_list_filters', \$listContext, \$pdo)")
     && str_contains($categoryRoutes, "do_action('admin_category_row_actions'")
     && str_contains($categoryRoutes, "do_action('admin_category_before_add_commit'")
     && str_contains($categoryRoutes, "do_action('admin_category_before_edit_commit'")

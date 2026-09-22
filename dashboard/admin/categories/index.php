@@ -31,6 +31,16 @@ $page_toasts = function_exists('adiwira_collect_query_toasts')
 $search        = trim((string)($_GET['q'] ?? ''));
 $filter_parent = (int)($_GET['parent'] ?? 0);
 $filter_author = (int)($_GET['author'] ?? 0);
+$listContext = [
+  'schema' => 1,
+  'type' => 'category',
+  'actor_id' => $uid,
+  'page' => 'admin/categories/index',
+  'filter_form_id' => 'categories-list-filter',
+  'search' => $search,
+  'parent_id' => $filter_parent,
+  'author_id' => $filter_author,
+];
 
 // pagination
 $page_num = max(1, (int)($_GET['p'] ?? 1));
@@ -140,12 +150,7 @@ if ($search !== '' && !empty($allCategories)) {
   }
 }
 
-$displayCategories = apply_filters('admin_category_list_rows', $allCategories, [
-  'actor_id' => $uid,
-  'search' => $search,
-  'parent_id' => $filter_parent,
-  'author_id' => $filter_author,
-], $pdo);
+$displayCategories = apply_filters('admin_category_list_rows', $allCategories, $listContext, $pdo);
 if (is_array($displayCategories)) {
   $displayById = [];
   foreach ($displayCategories as $displayCategory) {
@@ -326,7 +331,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <div class="toolbar-top">
     <h2 class="page-heading"><?= _e('Categories') ?></h2>
 
-    <form method="get" class="toolbar-filter">
+    <form method="get" class="toolbar-filter" id="categories-list-filter">
       <input type="hidden" name="page" value="admin/categories/index">
       <input type="text" name="q" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp">
       <select name="parent" class="inp">
@@ -344,6 +349,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <?php endforeach; ?>
       </select>
 
+      <?php do_action('admin_content_list_filters', $listContext, $pdo); ?>
       <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
       <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
     </form>
