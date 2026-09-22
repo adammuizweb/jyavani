@@ -61,6 +61,29 @@
   .jy-editor-table { display: block; overflow-x: auto; table-layout: auto; }
   .jy-editor-table tbody { min-width: 36rem; }
 }
+.editor-content ol {
+  counter-reset: list-0 list-1 list-2 list-3 list-4 list-5 list-6 list-7 list-8 list-9;
+}
+.editor-content ol > li {
+  list-style-type: none;
+  counter-reset: list-1 list-2 list-3 list-4 list-5 list-6 list-7 list-8 list-9;
+  counter-increment: list-0;
+}
+.editor-content ol > li::before {
+  content: counter(list-0, decimal) '. ';
+  display: inline-block;
+  white-space: nowrap;
+  width: 1.2em;
+}
+.editor-content ol > li:not(.ql-direction-rtl)::before {
+  margin-left: -1.5em;
+  margin-right: .3em;
+  text-align: right;
+}
+.editor-content ol > li.ql-direction-rtl::before {
+  margin-left: .3em;
+  margin-right: -1.5em;
+}
 ol li.ql-indent-1 {
   counter-increment: list-1;
 }

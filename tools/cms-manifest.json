@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.150",
+    "version": "2.3.151",
     "build": "2026-09-22",
-    "generated": "2026-09-22T03:10:51+00:00",
+    "generated": "2026-09-22T09:00:53+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 593,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "e6c4177eaabb505d14817905ad14f3b50f34f7b3300d8702154fc08b1aa3ae94",
+        "VERSION": "de28ae268cd24902a06de02fc8be58a785db6e2fb08cce82de35c9cb362f8acf",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -441,7 +441,7 @@
         "public/static/vendor/quill/quill-table.js": "c50d0c2869142f57fcf801ffc0829a4d11ba570d6db8e467e0eec08a8ccc4b62",
         "public/static/vendor/quill/quill.min.js": "de86018869b5e845bdc101fc1b55611a1e375e08af6cee4a681d7446103da611",
         "public/static/vendor/quill/quill.snow.css": "892e299431955e9ae388ae257f72024ee76af2d52a7a97a868f70fbe50f16144",
-        "public/static/vendor/quill/quill.snow.pub.css": "55f5b3e9b8e8fb642a1f7b49269fd34727fae4c96e4439128c0dd360444985f9",
+        "public/static/vendor/quill/quill.snow.pub.css": "eed1e626288ceb06b73e8fa92af81b069883fd6fcd6c6adafcd47dff4ce92ee9",
         "public/static/vendor/swiper/LICENSE": "312d644ce8cfd84d70562809f1190727b72aef3e19213f7ee077729b29a85242",
         "public/static/vendor/swiper/swiper-bundle.min.css": "74ca6aae5468dbc924790c3b4d219a089b90a34bad53a0f7ca3a73e73b6f5ab8",
         "public/static/vendor/swiper/swiper-bundle.min.js": "985f1224c0eeec99d367a9db35e58e44b21e7eb9ce45831b15b4c108e41fd97f",
@@ -600,6 +600,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "6a0eea4aa1bfc0208de544f69e21762c3566d3144cf3c3d4935126bcc660d97b"
+        "version.json": "f03a4eabe0edc81f1c05f51b90a11a99d0cbc312ea47f078e8a5cdd9cf6c8c44"
     }
 }

@@ -107,6 +107,13 @@ $check(str_contains($dashboardCss, '.adam-plugin-nav-icon{')
 
 $check(!preg_match('/^(?:h[1-6]|a)\s*(?:,|\{)/m', $css), 'public Quill heading and link rules have no bare theme selectors');
 $check(str_contains($css, '.editor-content h1') && str_contains($css, '.editor-content a'), 'public Quill typography uses the generic editor-content scope');
+$check(str_contains($css, '.editor-content ol {')
+    && str_contains($css, 'counter-reset: list-0 list-1 list-2 list-3 list-4 list-5 list-6 list-7 list-8 list-9;')
+    && str_contains($css, '.editor-content ol > li {')
+    && str_contains($css, 'list-style-type: none;')
+    && str_contains($css, "content: counter(list-0, decimal) '. ';")
+    && str_contains($css, "content: counter(list-1, lower-alpha) '. ';"),
+    'public Quill ordered lists preserve decimal and indented alphabetic counters');
 $page = (string)file_get_contents($root . '/public/views/themes/default/main/single/page.php');
 $post = (string)file_get_contents($root . '/public/views/themes/default/main/single/post.php');
 $check(str_contains($page, 'editor-content') && str_contains($post, 'editor-content'), 'default theme marks rendered editor content');
