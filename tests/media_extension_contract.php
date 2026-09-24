@@ -322,6 +322,22 @@ $selector = (string)file_get_contents($root . '/public/static/js/add/media-selec
 $check(substr_count($detail . $modalDetail, "do_action('media_admin_detail_before_fields'") === 2
     && substr_count($detail . $modalDetail, "do_action('media_admin_detail_after_fields'") === 2,
     'both mandatory detail surfaces expose matching form hooks');
+$check(substr_count($detail . $modalDetail, "asset_detail_action_context('media'") === 2
+    && substr_count($detail . $modalDetail, 'asset_detail_actions_render($pdo, $detailActionContext)') === 2,
+    'both Media detail surfaces expose the validated asset action contract');
+$check(substr_count($detail . $modalDetail . $fullList . $modalList,
+    "\$showAccessScope = !(\$visibility === 'public' && \$accessScope === 'public')") === 4
+    && str_contains($modalUpload, "const showAccessScope = !(visibility === 'public' && scope === 'public')")
+    && str_contains($modalUpload, "\${showAccessScope ? '<span class=\"mdlib-pill\">'"),
+    'Media list, detail, and upload-result surfaces suppress only the redundant public access-scope label');
+$check(substr_count($detail . $modalDetail, 'class="asset-scope-readonly"') === 2
+    && substr_count($detail . $modalDetail, 'class="field-help__tooltip" role="tooltip"') === 2
+    && substr_count($detail . $modalDetail, 'name="access_scope" value="public"') === 2
+    && substr_count($detail . $modalDetail, 'role="textbox" aria-readonly="true"') === 2
+    && substr_count($detail . $modalDetail, "aria-label=\"<?= htmlspecialchars(__('Access Scope')") === 2
+    && !str_contains($detail . $modalDetail, "\$visibility === 'public' ? 'disabled' : ''")
+    && substr_count($detail . $modalDetail, '<option value="public"') === 0,
+    'public Media scope is read-only with accessible guidance while private scope exposes only persistable choices');
 $check(preg_match('/asset-detail-kicker.*media_admin_detail_before_fields.*(?:asset-detail-form|field-title)/s', $detail) === 1
     && preg_match('/asset-detail-kicker.*media_admin_detail_before_fields.*asset-detail-form/s', $modalDetail) === 1,
     'both detail surfaces place extension fields below the Core Media Details header');

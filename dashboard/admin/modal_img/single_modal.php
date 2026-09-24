@@ -57,6 +57,7 @@ $visibility = $hasVisibility ? (strtolower((string)($r['visibility'] ?? 'public'
 $storageDisk = $hasVisibility ? (strtolower((string)($r['storage_disk'] ?? 'public')) ?: 'public') : 'public';
 $accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
 $isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
+$showAccessScope = !($visibility === 'public' && $accessScope === 'public');
 
 $mediaContext = media_picker_context_from_request($_GET, ['surface' => 'admin.media.modal.detail']);
 $mediaPickerId = media_picker_id_from_request($_GET);
@@ -64,6 +65,8 @@ $reviewMode = $mediaContext['selection_mode'] === 'review';
 $mediaData = media_filter_data($pdo, $r, $mediaContext, true);
 $clientUrl = (string)($mediaData['url'] ?? '');
 $url = $clientUrl;
+$detailActionContext = asset_detail_action_context('media', 'admin.media.modal.detail', $r, $clientUrl, (int)$uid);
+$detailActions = asset_detail_actions_render($pdo, $detailActionContext);
 
 if ($url !== '' && !preg_match('#^https?://#i', $url)) {
     if (substr($url, 0, 1) === '/') $url = $baseUrl . $url;
@@ -108,7 +111,9 @@ if (!function_exists('modalimg_human_filesize')) {
       <?php endif; ?>
       <?php if ($hasVisibility): ?>
         <div><strong><?=_e('Visibility:')?></strong> <?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></div>
-        <div><strong><?=_e('Scope:')?></strong> <?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></div>
+        <?php if ($showAccessScope): ?>
+          <div><strong><?=_e('Scope:')?></strong> <?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></div>
+        <?php endif; ?>
       <?php endif; ?>
       <div class="mdlib-meta-time"><?=_e('Uploaded:')?> <?= htmlspecialchars((string)($r['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
     </div>
@@ -125,7 +130,10 @@ if (!function_exists('modalimg_human_filesize')) {
       <div class="asset-detail-kicker"><?=_e('Media')?> / <?=_e('Details')?></div>
       <div class="asset-detail-title"><?= htmlspecialchars((string)($mediaData['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></div>
       <div class="asset-detail-subtitle"><?= htmlspecialchars((string)($r['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div>
-      <a class="asset-detail-open" href="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+      <div class="asset-detail-actions">
+        <a class="asset-detail-open" href="<?= htmlspecialchars($url, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+        <?= $detailActions ?>
+      </div>
 
       <?php do_action('media_admin_detail_before_fields', $r, $mediaData, $mediaContext, $pdo); ?>
 
@@ -168,13 +176,20 @@ if (!function_exists('modalimg_human_filesize')) {
 
       <?php if ($hasVisibility): ?>
       <div class="mdlib-field">
-        <label for="mdlib-field-access-scope"><?=_e('Access Scope')?></label>
-        <select id="mdlib-field-access-scope" class="mdlib-select" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
-          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
+        <?php if ($visibility === 'public'): ?>
+          <div class="field-heading">
+            <span id="mdlib-media-public-scope-label" class="asset-scope-label"><?=_e('Access Scope')?></span>
+            <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('Access Scope'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="mdlib-media-public-scope-help" aria-controls="mdlib-media-public-scope-help" aria-expanded="false">?</button><span id="mdlib-media-public-scope-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('Public media always has public access scope. For private, re-upload in Private mode.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+          </div>
+          <input type="hidden" name="access_scope" value="public">
+          <div class="asset-scope-readonly" role="textbox" aria-readonly="true" aria-labelledby="mdlib-media-public-scope-label" aria-describedby="mdlib-media-public-scope-help"><?=_e('Public')?></div>
+        <?php else: ?>
+          <label for="mdlib-field-access-scope"><?=_e('Access Scope')?></label>
+          <select id="mdlib-field-access-scope" class="mdlib-select" name="access_scope">
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both','public'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
             <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
-        </select>
-        <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public media always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
+          </select>
+        <?php endif; ?>
       </div>
 
       <div class="mdlib-field">

@@ -79,6 +79,9 @@ $visibility = strtolower((string)($row['visibility'] ?? 'public')) ?: 'public';
 $accessScope = strtolower((string)($row['access_scope'] ?? 'public')) ?: 'public';
 $isDownloadable = (int)($row['is_downloadable'] ?? 1);
 $isPrivate = ($visibility === 'private');
+$showAccessScope = !($visibility === 'public' && $accessScope === 'public');
+$detailActionContext = asset_detail_action_context('file', 'admin.file.detail', $row, $clientUrl, (int)$uid);
+$detailActions = asset_detail_actions_render($pdo, $detailActionContext);
 
 if (!function_exists('human_filesize')) {
     function human_filesize(int $bytes, int $decimals = 1): string {
@@ -118,16 +121,31 @@ if (!function_exists('human_filesize')) {
         </div>
         <div class="file-meta-badges">
           <span class="badge badge--<?= $isPrivate ? 'warn' : 'ok' ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-          <span class="badge badge--info"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+          <?php if ($showAccessScope): ?>
+            <span class="badge badge--info"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+          <?php endif; ?>
           <?php if (!$isDownloadable): ?>
             <span class="badge badge--danger"><?=_e('NO DOWNLOAD')?></span>
           <?php endif; ?>
         </div>
-        <a class="asset-detail-open" href="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+        <div class="asset-detail-actions">
+          <a class="asset-detail-open" href="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+          <?= $detailActions ?>
+        </div>
       </div>
     </div>
 
     <div class="single-file-body">
+      <div class="single-file-section">
+        <div class="file-section-title"><?=_e('File URL')?></div>
+        <div class="url-row">
+          <span class="url-prefix" id="file-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
+          <input type="text" class="url-path" id="file-url-path" readonly value="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>">
+          <button type="button" class="copy-btn" data-action="copy-url"><?=_e('Copy')?></button>
+        </div>
+        <div class="file-url-hint"><?=_e('This URL will be used when inserting.')?></div>
+      </div>
+
       <div class="single-file-section asset-detail-editor">
         <div class="file-section-title"><?=_e('Metadata')?></div>
 
@@ -144,13 +162,20 @@ if (!function_exists('human_filesize')) {
           <label for="file-field-credit"><?=_e('Credit')?></label>
           <input id="file-field-credit" type="text" name="credit" value="<?= htmlspecialchars((string)($row['credit'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
 
-          <label for="file-field-access-scope"><?=_e('Access Scope')?></label>
-          <select id="file-field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
-            <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
-            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
-          </select>
-          <?php if ($visibility === 'public'): ?><div class="file-url-hint"><?=_e('Public file always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
+          <?php if ($visibility === 'public'): ?>
+            <div class="field-heading">
+              <span id="file-public-scope-label" class="asset-scope-label"><?=_e('Access Scope')?></span>
+              <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('Access Scope'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="file-public-scope-help" aria-controls="file-public-scope-help" aria-expanded="false">?</button><span id="file-public-scope-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('Public file always has public access scope. For private, re-upload in Private mode.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+            </div>
+            <input type="hidden" name="access_scope" value="public">
+            <div class="asset-scope-readonly" role="textbox" aria-readonly="true" aria-labelledby="file-public-scope-label" aria-describedby="file-public-scope-help"><?=_e('Public')?></div>
+          <?php else: ?>
+            <label for="file-field-access-scope"><?=_e('Access Scope')?></label>
+            <select id="file-field-access-scope" name="access_scope">
+              <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both','public'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
+              <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
+            </select>
+          <?php endif; ?>
 
           <label class="file-check-label">
             <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
@@ -162,16 +187,6 @@ if (!function_exists('human_filesize')) {
             <button id="file-delete-btn" class="btn danger" type="button"><?=_e('Delete')?></button>
           </div>
         </form>
-      </div>
-
-      <div class="single-file-section">
-        <div class="file-section-title"><?=_e('File URL')?></div>
-        <div class="url-row">
-          <span class="url-prefix" id="file-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-          <input type="text" class="url-path" id="file-url-path" readonly value="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>">
-          <button type="button" class="copy-btn" data-action="copy-url"><?=_e('Copy')?></button>
-        </div>
-        <div class="file-url-hint"><?=_e('This URL will be used when inserting.')?></div>
       </div>
 
     </div>

@@ -2404,6 +2404,7 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Profile changes will be saved. Continue?', 'Perubahan profil akan disimpan. Lanjutkan?', 'id'),
 ('default', 'Profile updated successfully.', 'Profil berhasil diperbarui.', 'id'),
 ('default', 'Public', 'Publik', 'id'),
+('default', 'Public file always has public access scope. For private, re-upload in Private mode.', 'File publik selalu memiliki ruang lingkup akses publik. Untuk privat, unggah ulang dalam mode Pribadi.', 'id'),
 ('default', 'Public media always has public access scope. For private, re-upload in Private mode.', 'Media publik selalu memiliki ruang lingkup akses publik. Untuk privat, unggah ulang dalam mode Pribadi.', 'id'),
 ('default', 'Publication day (2 digits, e.g. 02)', 'Hari publikasi (2 digit, mis. 02)', 'id'),
 ('default', 'Publication month (2 digits, e.g. 06)', 'Bulan publikasi (2 digit, mis. 06)', 'id'),

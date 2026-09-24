@@ -287,6 +287,20 @@ $hasVisibility = mdlib_has_column('visibility');
     const ext = (fileObj && fileObj.ext)
       ? String(fileObj.ext).toUpperCase()
       : (String(url).split('.').pop() || '').toUpperCase();
+    const visibility = (fileObj && fileObj.visibility) || 'public';
+    const scope = (fileObj && fileObj.access_scope) || 'public';
+    const showAccessScope = !(visibility === 'public' && scope === 'public');
+    const visibilityLabel = visibility === 'private' ? <?= json_encode(__('Private')) ?> : <?= json_encode(__('Public')) ?>;
+    const scopeLabels = {
+      public: <?= json_encode(__('Public')) ?>,
+      editorial: <?= json_encode(__('Content Team')) ?>,
+      employee: <?= json_encode(__('Content Team')) ?>,
+      both: <?= json_encode(__('Content Team')) ?>,
+      admin: <?= json_encode(__('Administrator')) ?>
+    };
+    const scopeLabel = scopeLabels[scope] || scope;
+    const editLabel = <?= json_encode(__('Edit')) ?>;
+    const deleteLabel = <?= json_encode(__('Delete')) ?>;
 
     let inner = '';
     if (kind === 'video') {
@@ -304,12 +318,16 @@ $hasVisibility = mdlib_has_column('visibility');
           <div class="thumb-title" style="font-weight:700;max-width:155px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${escapeHtml(fileObj.title || fileObj.filename || '')}
           </div>
-          <div class="badge">${escapeHtml(kind)}</div>
-          <pre class="path">${escapeHtml(url)}</pre>
+           <div class="badge">${escapeHtml(kind)}</div>
+           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">
+             <span class="badge">${escapeHtml(visibilityLabel)}</span>
+             ${showAccessScope ? '<span class="badge">' + escapeHtml(scopeLabel) + '</span>' : ''}
+           </div>
+           <pre class="path">${escapeHtml(url)}</pre>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
-          <button class="edit-btn" type="button">Edit</button>
-          <button class="remove-btn" type="button" title="<?=_e('Delete from server')?>">Del</button>
+          <button class="edit-btn" type="button">${escapeHtml(editLabel)}</button>
+          <button class="remove-btn" type="button" title="<?=_e('Delete from server')?>">${escapeHtml(deleteLabel)}</button>
         </div>
       </div>
     `;

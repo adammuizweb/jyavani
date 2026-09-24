@@ -243,6 +243,7 @@ try {
               $storageDisk = strtolower(mdlib_to_utf8($r['storage_disk'] ?? 'public')) ?: 'public';
               $accessScope = strtolower(mdlib_to_utf8($r['access_scope'] ?? 'public')) ?: 'public';
               $isDownloadable = (int)($r['is_downloadable'] ?? 1);
+              $showAccessScope = !($visibility === 'public' && $accessScope === 'public');
               $clientUrl = mdlib_client_url($r);
               $displayUrl = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $abs;
           ?>
@@ -268,7 +269,9 @@ try {
               </div>
               <div class="mdlib-badges">
                 <span class="mdlib-pill mdlib-pill-<?= mdlib_e($visibility) ?>"><?= mdlib_e(strtoupper($visibility)) ?></span>
-                <span class="mdlib-pill"><?= mdlib_e(content_access_scope_label($accessScope)) ?></span>
+                <?php if ($showAccessScope): ?>
+                  <span class="mdlib-pill"><?= mdlib_e(content_access_scope_label($accessScope)) ?></span>
+                <?php endif; ?>
                 <?php if (!$isDownloadable): ?><span class="mdlib-pill">NO DOWNLOAD</span><?php endif; ?>
               </div>
               <div class="mdlib-actions">

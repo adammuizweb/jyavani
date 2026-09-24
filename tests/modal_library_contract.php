@@ -21,6 +21,7 @@ $files = [
     'file_selector' => (string)file_get_contents($root . '/public/static/js/add/file-selector.js'),
     'modal_helpers' => (string)file_get_contents($root . '/public/static/js/add/modal-helpers.js'),
     'css' => (string)file_get_contents($root . '/public/static/dashboard/css/style.css'),
+    'translations' => (string)file_get_contents($root . '/schema/translations.sql'),
 ];
 $failures = [];
 $check = static function (bool $passed, string $message) use (&$failures): void {
@@ -67,8 +68,40 @@ $fileFormEnd = strpos($files['file_single'], '</form>', $fileFormStart ?: 0);
 $fileSaveButton = strpos($files['file_single'], 'id="file-save-btn"');
 $check($fileFormStart !== false && $fileFormEnd !== false && $fileSaveButton !== false && $fileSaveButton < $fileFormEnd, 'file manager actions remain inside the metadata form');
 $check(str_contains($files['file_single'], 'id="file-url-path"'), 'file manager copy action has an addressable URL field');
-$check(str_contains($files['modal_file_single'], 'querySelector(\'select[name="access_scope"]\')')
+$check(strpos($files['file_single'], "_e('File URL')") < strpos($files['file_single'], "_e('Metadata')")
+    && str_contains($files['css'], 'grid-template-columns:minmax(0,1fr)'),
+    'file manager places File URL above Metadata in one column');
+$check(substr_count($files['media_single'] . $files['modal_media_single'] . $files['file_single'] . $files['modal_file_single'],
+    'asset_detail_actions_render($pdo, $detailActionContext)') === 4,
+    'all asset detail surfaces render the shared extension action contract');
+$check(str_contains($files['css'], '.btn{') && preg_match('/\.btn\{[^}]*text-decoration:\s*none/s', $files['css']) === 1,
+    'File Library anchor buttons do not inherit browser underlines');
+$check(str_contains($files['modal_file_single'], 'querySelector(\'[name="access_scope"]\')')
     && str_contains($files['modal_file_single'], 'querySelector(\'input[name="is_downloadable"]\')'), 'file modal insert reads current editable access values');
+$check(substr_count($files['file_single'] . $files['modal_file_single'], 'class="asset-scope-readonly"') === 2
+    && substr_count($files['file_single'] . $files['modal_file_single'], 'class="field-help__tooltip" role="tooltip"') === 2
+    && substr_count($files['file_single'] . $files['modal_file_single'], 'name="access_scope" value="public"') === 2
+    && substr_count($files['file_single'] . $files['modal_file_single'], 'role="textbox" aria-readonly="true"') === 2
+    && substr_count($files['file_single'] . $files['modal_file_single'], "aria-label=\"<?= htmlspecialchars(__('Access Scope')") === 2
+    && !str_contains($files['file_single'] . $files['modal_file_single'], "\$visibility === 'public' ? 'disabled' : ''")
+    && substr_count($files['file_single'] . $files['modal_file_single'], '<option value="public"') === 0,
+    'public File scope is read-only with accessible guidance while private scope exposes only persistable choices');
+$check(str_contains($files['modal_file_single'], 'for="mdlib-file-access-scope"')
+    && str_contains($files['modal_file_single'], 'id="mdlib-file-access-scope" class="mdlib-input" name="access_scope"'),
+    'private File modal scope select has an explicit accessible label');
+$check(substr_count($files['file_list'] . $files['file'],
+    "\$showAccessScope = !(\$visibility === 'public' && \$accessScope === 'public')") === 2
+    && str_contains($files['modal_file_single'], "\$showAccessScope = !(\$visibility === 'public' && \$accessScope === 'public')")
+    && str_contains($files['file_single'], "\$showAccessScope = !(\$visibility === 'public' && \$accessScope === 'public')")
+    && str_contains($files['file_add_modal'], "const showAccessScope = !(visibility === 'public' && scope === 'public')")
+    && str_contains($files['file_add_modal'], "\${showAccessScope ? '<span class=\"mdlib-pill\">'")
+    && str_contains($files['file_add_modal'], 'const scopeLabels = {')
+    && str_contains($files['file_add_modal'], "const modeLabel = finalVisibility === 'private' ? <?= json_encode(__('Private')) ?> : <?= json_encode(__('Public')) ?>")
+    && str_contains((string)file_get_contents($root . '/dashboard/admin/file/add.php'), 'const scopeLabels = {'),
+    'File list, detail, and upload-result surfaces suppress only the redundant public access-scope label');
+$check(str_contains($files['translations'], "('default', 'Public file always has public access scope. For private, re-upload in Private mode.', 'File publik selalu memiliki ruang lingkup akses publik. Untuk privat, unggah ulang dalam mode Pribadi.', 'id')")
+    && str_contains($files['translations'], "('default', 'Public file always has public access scope. For private, re-upload in Private mode.', 'Öffentliche Dateien haben immer einen öffentlichen Zugriffsbereich. Wenn Sie privat sind, laden Sie es erneut im privaten Modus hoch.', 'de')"),
+    'public File scope guidance has Indonesian and German translations');
 $check(str_contains($files['modal_file_single'], "__('Insert this file without saving its metadata changes?')")
     && str_contains($files['modal_file_single'], "__('Insert without saving')"), 'file modal explains that Insert does not persist dirty metadata');
 $check(str_contains($files['css'], '.asset-detail-card') && str_contains($files['css'], '.media-list-footer'), 'shared stylesheet defines detail and list pagination enhancements');

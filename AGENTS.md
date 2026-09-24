@@ -104,6 +104,12 @@ add_action('admin_details', function (array $context, PDO $pdo): void {
 });
 ```
 
+### Asset detail action contract
+
+Media and File detail pages and their modal variants expose validated non-destructive links through the `admin_asset_detail_actions` filter. The filter receives `($items, $context, $pdo)`. Context schema 1 contains `resource`, `surface`, `id`, `title`, `filename`, `visibility`, `storage_disk`, `access_scope`, `is_public`, `public_url`, and `actor_id`. `public_url` is non-null only when visibility, storage disk, and access scope are all public and the URL is a safe root-relative path.
+
+Return a list of items containing `key`, `label`, `url`, and optional `title`. Core accepts at most eight unique, bounded actions whose URL targets a valid route under the configured dashboard path. The filter does not grant access; plugins must check their own permissions before returning an action.
+
 ## Auth & Session (`cfg/session.php`)
 
 - `is_logged_in()` — checks `$_SESSION['user_id']` + fingerprint (UA hash)

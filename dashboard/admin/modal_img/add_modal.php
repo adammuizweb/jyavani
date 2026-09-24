@@ -363,6 +363,7 @@ $mediaPickerId = isset($mediaPickerId) ? $mediaPickerId : media_picker_id_from_r
 
     const visibility = (media && media.visibility) || 'public';
     const scope = (media && media.access_scope) || 'public';
+    const showAccessScope = !(visibility === 'public' && scope === 'public');
 
     const useButton = reviewMode ? '<button class="mdlib-btn mdlib-btn-use" type="button">' + <?= json_encode(__('Use')) ?> + '</button>' : '';
     box.innerHTML = `
@@ -371,7 +372,7 @@ $mediaPickerId = isset($mediaPickerId) ? $mediaPickerId : media_picker_id_from_r
         <div class="mdlib-preview-title">${escapeHtml(media && (media.title || media.filename || '') || '')}</div>
         <div class="mdlib-badges">
           <span class="mdlib-pill mdlib-pill-${escapeHtml(visibility)}">${escapeHtml(visibility.toUpperCase())}</span>
-          <span class="mdlib-pill">${escapeHtml(scope.toUpperCase())}</span>
+          ${showAccessScope ? '<span class="mdlib-pill">' + escapeHtml(scope.toUpperCase()) + '</span>' : ''}
         </div>
         <div class="mdlib-preview-actions">
           ${useButton}

@@ -102,8 +102,11 @@ $visibility = strtolower((string)($r['visibility'] ?? 'public')) ?: 'public';
 $storageDisk = strtolower((string)($r['storage_disk'] ?? 'public')) ?: 'public';
 $accessScope = strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public';
 $isDownloadable = (int)($r['is_downloadable'] ?? 1);
+$showAccessScope = !($visibility === 'public' && $accessScope === 'public');
 $clientUrl = mdlib_client_url($r);
 $displayUrl = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $url;
+$detailActionContext = asset_detail_action_context('file', 'admin.file.modal.detail', $r, $clientUrl, (int)$uid);
+$detailActions = asset_detail_actions_render($pdo, $detailActionContext);
 
 if (!$embedded):
 ?><!doctype html>
@@ -147,11 +150,16 @@ if (!$embedded):
           </div>
           <div class="mdlib-badges" style="margin-top:6px">
             <span class="mdlib-pill mdlib-pill-<?= htmlspecialchars($visibility, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-            <span class="mdlib-pill"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+            <?php if ($showAccessScope): ?>
+              <span class="mdlib-pill"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+            <?php endif; ?>
             <?php if (!$isDownloadable): ?><span class="mdlib-pill"><?=__('NO DOWNLOAD')?></span><?php endif; ?>
             <?php if ($storageDisk !== 'public'): ?><span class="mdlib-pill"><?=__('STORAGE:')?> <?= htmlspecialchars(strtoupper($storageDisk), ENT_QUOTES, 'UTF-8') ?></span><?php endif; ?>
           </div>
-          <a class="asset-detail-open" href="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $visibility === 'private' ? __('View (Protected)') : __('Open/Download') ?> <span aria-hidden="true">&nearr;</span></a>
+          <div class="asset-detail-actions">
+            <a class="asset-detail-open" href="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= $visibility === 'private' ? __('View (Protected)') : __('Open/Download') ?> <span aria-hidden="true">&nearr;</span></a>
+            <?= $detailActions ?>
+          </div>
         </div>
       </div>
 
@@ -172,13 +180,20 @@ if (!$embedded):
       </div>
 
       <div class="mdlib-row">
-        <label class="mdlib-label"><?=_e('Access Scope')?></label>
-        <select class="mdlib-input" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
-          <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
+        <?php if ($visibility === 'public'): ?>
+          <div class="field-heading">
+            <span id="mdlib-file-public-scope-label" class="asset-scope-label"><?=_e('Access Scope')?></span>
+            <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('Access Scope'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="mdlib-file-public-scope-help" aria-controls="mdlib-file-public-scope-help" aria-expanded="false">?</button><span id="mdlib-file-public-scope-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('Public file always has public access scope. For private, re-upload in Private mode.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+          </div>
+          <input type="hidden" name="access_scope" value="public">
+          <div class="asset-scope-readonly" role="textbox" aria-readonly="true" aria-labelledby="mdlib-file-public-scope-label" aria-describedby="mdlib-file-public-scope-help"><?=_e('Public')?></div>
+        <?php else: ?>
+          <label class="mdlib-label" for="mdlib-file-access-scope"><?=_e('Access Scope')?></label>
+          <select id="mdlib-file-access-scope" class="mdlib-input" name="access_scope">
+            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both','public'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
             <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
-        </select>
-        <?php if ($visibility === 'public'): ?><div class="mdlib-note"><?=_e('Public file always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
+          </select>
+        <?php endif; ?>
       </div>
 
       <div class="mdlib-row">
@@ -258,7 +273,7 @@ if (!$embedded):
       credit: (form.querySelector('input[name="credit"]')?.value || '').trim(),
       visibility: form.dataset.visibility || 'public',
       storage_disk: form.dataset.storageDisk || 'public',
-      access_scope: (form.querySelector('select[name="access_scope"]')?.value || form.dataset.accessScope || 'public'),
+      access_scope: (form.querySelector('[name="access_scope"]')?.value || form.dataset.accessScope || 'public'),
       is_downloadable: form.querySelector('input[name="is_downloadable"]')?.checked ? '1' : '0'
     };
   }

@@ -267,6 +267,18 @@ if ($csrfToken === '') {
     const size = (fileObj && (fileObj.size_label || fileObj.size)) || '';
     const visibility = (fileObj && fileObj.visibility) || 'public';
     const scope = (fileObj && fileObj.access_scope) || 'public';
+    const showAccessScope = !(visibility === 'public' && scope === 'public');
+    const visibilityLabel = visibility === 'private' ? <?= json_encode(__('Private')) ?> : <?= json_encode(__('Public')) ?>;
+    const scopeLabels = {
+      public: <?= json_encode(__('Public')) ?>,
+      editorial: <?= json_encode(__('Content Team')) ?>,
+      employee: <?= json_encode(__('Content Team')) ?>,
+      both: <?= json_encode(__('Content Team')) ?>,
+      admin: <?= json_encode(__('Administrator')) ?>
+    };
+    const scopeLabel = scopeLabels[scope] || scope;
+    const editLabel = <?= json_encode(__('Edit')) ?>;
+    const deleteLabel = <?= json_encode(__('Delete')) ?>;
 
     box.innerHTML = `
       <div class="mdlib-preview-ico">${previewCardIconHtml(fileObj)}</div>
@@ -274,12 +286,12 @@ if ($csrfToken === '') {
         <div class="mdlib-preview-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
         <div class="mdlib-preview-sub">${escapeHtml(mime)}${size ? ' • ' + escapeHtml(size) : ''}</div>
         <div class="mdlib-badges">
-          <span class="mdlib-pill mdlib-pill-${escapeHtml(visibility)}">${escapeHtml(visibility.toUpperCase())}</span>
-          <span class="mdlib-pill">${escapeHtml(scope.toUpperCase())}</span>
+          <span class="mdlib-pill mdlib-pill-${escapeHtml(visibility)}">${escapeHtml(visibilityLabel)}</span>
+          ${showAccessScope ? '<span class="mdlib-pill">' + escapeHtml(scopeLabel) + '</span>' : ''}
         </div>
         <div class="mdlib-preview-actions">
-          <button class="mdlib-btn mdlib-btn-primary" type="button" data-action="edit">Edit</button>
-          <button class="mdlib-btn mdlib-btn-danger" type="button" data-action="delete">Del</button>
+          <button class="mdlib-btn mdlib-btn-primary" type="button" data-action="edit">${escapeHtml(editLabel)}</button>
+          <button class="mdlib-btn mdlib-btn-danger" type="button" data-action="delete">${escapeHtml(deleteLabel)}</button>
         </div>
       </div>
     `;
@@ -356,7 +368,7 @@ if ($csrfToken === '') {
 
   async function uploadFile(file) {
     const finalVisibility = detectFinalVisibility(file);
-    const modeLabel = finalVisibility === 'private' ? 'PRIVATE' : 'PUBLIC';
+    const modeLabel = finalVisibility === 'private' ? <?= json_encode(__('Private')) ?> : <?= json_encode(__('Public')) ?>;
     const progress = addProgressRow(file.name, modeLabel);
     const fd = new FormData();
 

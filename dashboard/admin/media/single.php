@@ -71,6 +71,7 @@ $visibility = $hasVisibility ? (strtolower((string)($r['visibility'] ?? 'public'
 $accessScope = $hasVisibility ? (strtolower((string)($r['access_scope'] ?? 'public')) ?: 'public') : 'public';
 $isDownloadable = $hasVisibility ? (int)($r['is_downloadable'] ?? 1) : 1;
 $isPrivate = ($visibility === 'private');
+$showAccessScope = !($visibility === 'public' && $accessScope === 'public');
 $mediaContext = media_picker_context_from_request($_GET, [
     'surface' => 'admin.media.detail',
     'consumer' => 'core',
@@ -79,6 +80,8 @@ $mediaContext = media_picker_context_from_request($_GET, [
 ]);
 $mediaData = media_filter_data($pdo, $r, $mediaContext, true);
 $displayClientUrl = (string)($mediaData['url'] ?? '');
+$detailActionContext = asset_detail_action_context('media', 'admin.media.detail', $r, $displayClientUrl, (int)$uid);
+$detailActions = asset_detail_actions_render($pdo, $detailActionContext);
 ?>
 <div class="media-single-wrap asset-detail">
   <div class="media-single-card asset-detail-card">
@@ -115,7 +118,9 @@ $displayClientUrl = (string)($mediaData['url'] ?? '');
           <?php if ($hasVisibility): ?>
           <div class="media-meta-badges">
             <span class="badge badge--<?= $isPrivate ? 'warn' : 'ok' ?>"><?= htmlspecialchars(strtoupper($visibility), ENT_QUOTES, 'UTF-8') ?></span>
-            <span class="badge badge--info"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+            <?php if ($showAccessScope): ?>
+              <span class="badge badge--info"><?= htmlspecialchars(content_access_scope_label($accessScope), ENT_QUOTES, 'UTF-8') ?></span>
+            <?php endif; ?>
             <?php if (!$isDownloadable): ?>
               <span class="badge badge--danger"><?=_e('NO DOWNLOAD')?></span>
             <?php endif; ?>
@@ -128,7 +133,10 @@ $displayClientUrl = (string)($mediaData['url'] ?? '');
         <div class="asset-detail-kicker"><?=_e('Media')?> / <?=_e('Details')?></div>
         <h3 class="asset-detail-title"><?= htmlspecialchars((string)($r['title'] ?: $r['filename']), ENT_QUOTES, 'UTF-8') ?></h3>
         <div class="asset-detail-subtitle"><?= htmlspecialchars((string)$r['filename'], ENT_QUOTES, 'UTF-8') ?></div>
-        <a class="asset-detail-open" href="<?= htmlspecialchars($displayClientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+        <div class="asset-detail-actions">
+          <a class="asset-detail-open" href="<?= htmlspecialchars($displayClientUrl, ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?=_e('Open in new tab')?> <span aria-hidden="true">&nearr;</span></a>
+          <?= $detailActions ?>
+        </div>
         <div class="media-section-title"><?=_e('Metadata')?></div>
 
         <form id="media-edit-form" class="asset-detail-fields" data-media-id="<?= (int)$r['id'] ?>" data-unsaved-guard>
@@ -155,13 +163,20 @@ $displayClientUrl = (string)($mediaData['url'] ?? '');
           <label for="field-target-url"><?=_e('Target URL')?></label>
           <input id="field-target-url" type="text" name="target_url" value="<?= htmlspecialchars($linkUrlValue, ENT_QUOTES, 'UTF-8') ?>">
 
-          <label for="field-access-scope"><?=_e('Access Scope')?></label>
-          <select id="field-access-scope" name="access_scope" <?= $visibility === 'public' ? 'disabled' : '' ?>>
-            <option value="public" <?= $accessScope === 'public' ? 'selected' : '' ?>><?=_e('Public')?></option>
-            <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
-            <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
-          </select>
-          <?php if ($visibility === 'public'): ?><div class="file-url-hint"><?=_e('Public media always has public access scope. For private, re-upload in Private mode.')?></div><?php endif; ?>
+          <?php if ($visibility === 'public'): ?>
+            <div class="field-heading">
+              <span id="media-public-scope-label" class="asset-scope-label"><?=_e('Access Scope')?></span>
+              <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('Access Scope'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="media-public-scope-help" aria-controls="media-public-scope-help" aria-expanded="false">?</button><span id="media-public-scope-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('Public media always has public access scope. For private, re-upload in Private mode.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+            </div>
+            <input type="hidden" name="access_scope" value="public">
+            <div class="asset-scope-readonly" role="textbox" aria-readonly="true" aria-labelledby="media-public-scope-label" aria-describedby="media-public-scope-help"><?=_e('Public')?></div>
+          <?php else: ?>
+            <label for="field-access-scope"><?=_e('Access Scope')?></label>
+            <select id="field-access-scope" name="access_scope">
+              <option value="editorial" <?= in_array($accessScope, ['editorial','employee','both','public'], true) ? 'selected' : '' ?>><?=_e('Content Team')?></option>
+              <option value="admin" <?= $accessScope === 'admin' ? 'selected' : '' ?>><?=_e('Administrator')?></option>
+            </select>
+          <?php endif; ?>
 
           <label class="file-check-label">
             <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
