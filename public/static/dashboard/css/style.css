@@ -2387,7 +2387,7 @@ html.theme-dark .adam-modal{
   width:44px; height:44px;
   border-radius: 12px;
 }
-.mdlib-card .mdlib-actions{ padding:0; border-top:0; margin-top:10px; }
+.mdlib-card .mdlib-actions{ padding:10px 0 0; border-top:0; margin-top:auto; }
 
 .mdlib-ico{
   width:44px; height:44px;
@@ -2400,7 +2400,7 @@ html.theme-dark .adam-modal{
   color: var(--adam-text-2);
   flex: 0 0 44px;
 }
-.mdlib-meta{ flex:1; min-width:0; }
+.mdlib-meta{ flex:1; min-width:0; display:flex; flex-direction:column; align-self:stretch; }
 .mdlib-name{ font-weight: 900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .mdlib-sub{ font-size: .88rem; color: var(--adam-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .mdlib-actions{
@@ -2623,6 +2623,9 @@ html.theme-dark .mdlib-actions{ border-top: 1px solid rgba(255,255,255,0.08); }
   gap:12px;
 }
 .mdlib-pic{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
   border: 1px solid var(--adam-border);
   border-radius: 12px;
   overflow:hidden;
@@ -2636,7 +2639,7 @@ html.theme-dark .mdlib-actions{ border-top: 1px solid rgba(255,255,255,0.08); }
   overflow:hidden;
   text-overflow:ellipsis;
 }
-.mdlib-pic-sub{ font-size: .88rem; color: var(--adam-muted); }
+.mdlib-pic-sub{ font-size: .88rem; color: var(--adam-muted); overflow-wrap:anywhere; }
 .mdlib-pic-actions{
   display:flex;
   gap:8px;
@@ -2644,6 +2647,7 @@ html.theme-dark .mdlib-actions{ border-top: 1px solid rgba(255,255,255,0.08); }
   padding: 8px;
   border-radius:0 0 12px 12px;
   border-top:1px solid var(--adam-border);
+  margin-top:auto;
 }
 
 /* modal_img upload preview card */

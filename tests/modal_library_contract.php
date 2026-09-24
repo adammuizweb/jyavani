@@ -47,6 +47,13 @@ $fetchPosition = strpos($files['file_index'], 'const replaced = await fetchIntoL
 $check($viewPosition !== false && $fetchPosition !== false && $viewPosition > $fetchPosition, 'file modal marks list view only after a successful response');
 $check(str_contains($files['css'], '.mdlib-list-skeleton--image') && str_contains($files['css'], '.mdlib-list-skeleton--file'), 'shared stylesheet defines both skeleton layouts');
 $check(str_contains($files['css'], '.mdlib-pager button'), 'file pager buttons share pager styling');
+$check(preg_match('/\.mdlib-pic\{(?=[^}]*display:flex)(?=[^}]*flex-direction:column)(?=[^}]*min-width:0)[^}]*\}/s', $files['css']) === 1
+    && preg_match('/\.mdlib-pic-sub\{[^}]*overflow-wrap:anywhere/s', $files['css']) === 1
+    && preg_match('/\.mdlib-pic-actions\{[^}]*margin-top:auto/s', $files['css']) === 1,
+    'image modal cards contain long filenames and pin actions to the card footer');
+$check(preg_match('/\.mdlib-meta\{(?=[^}]*display:flex)(?=[^}]*flex-direction:column)(?=[^}]*align-self:stretch)[^}]*\}/s', $files['css']) === 1
+    && preg_match('/\.mdlib-card \.mdlib-actions\{[^}]*margin-top:auto/s', $files['css']) === 1,
+    'file modal cards pin actions below variable badge content');
 
 foreach (['media_list', 'file_list'] as $type) {
     $check(str_contains($files[$type], '$perPageOptions = [20, 50, 100, 200]'), $type . ' manager exposes supported page sizes');
