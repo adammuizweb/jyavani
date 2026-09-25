@@ -448,6 +448,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                           'can_delete' => $canTrashPost,
                         ])
                       : '';
+                    $showCoreEdit = !$canUpdatePost || !function_exists('content_core_edit_action_visible')
+                      || content_core_edit_action_visible($pdo, $p, [
+                          'schema' => 1,
+                          'content_type' => 'article',
+                          'actor_id' => $uid,
+                          'return_to' => $currentReturnTo,
+                          'can_update' => $canUpdatePost,
+                        ]);
+                    $hasPrimaryAction = !$canUpdatePost || $showCoreEdit || $contentRowActions !== '';
                   ?>
                   <a class="adam-link--full" href="<?= htmlspecialchars($titleHref, ENT_QUOTES, 'UTF-8') ?>"
                      title="<?= htmlspecialchars($p['title'], ENT_QUOTES, 'UTF-8') ?>">
@@ -455,10 +464,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   </a>
                   <?= apply_filters('post_list_title_after', '', $p) ?>
                    <div class="row-actions">
-                      <?php if ($canUpdatePost): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
-                      <?php if (!$canUpdatePost): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('View')?></a><?php endif; ?>
-                     <?php if ($contentRowActions !== ''): ?><span class="muted-divider">|</span><?= $contentRowActions ?><?php endif; ?>
-                     <?php if ($canTrashPost): ?><span class="muted-divider">|</span><?php endif; ?>
+                       <?php if ($canUpdatePost && $showCoreEdit): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                       <?php if (!$canUpdatePost): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('View')?></a><?php endif; ?>
+                      <?php if ($contentRowActions !== ''): ?><?php if (!$canUpdatePost || $showCoreEdit): ?><span class="muted-divider">|</span><?php endif; ?><?= $contentRowActions ?><?php endif; ?>
+                      <?php if ($canTrashPost && $hasPrimaryAction): ?><span class="muted-divider">|</span><?php endif; ?>
                      <?php if ($canTrashPost): ?><button type="button"
                             class="adam-hapus js-post-delete"
                             data-id="<?= (int)$p['id'] ?>"

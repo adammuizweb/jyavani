@@ -348,6 +348,18 @@ rendered values and ignores malformed items. Context schema 1 contains
 `can_update`, and `can_delete`. Extensions must independently require their own permission and
 should not create public-URL actions when `is_public` is false.
 
+The same lists and Categories expose a presentation-only filter for the Core
+Edit link:
+
+```php
+apply_filters('admin_content_core_edit_action_visible', true, array $row, array $context, PDO $pdo): bool
+```
+
+Returning strict `false` hides only the canonical Edit link for that row. It
+does not revoke access to the editor, grant access to another action, or hide a
+read-only View link. Context schema 1 contains `content_type` (`article`,
+`page`, `theme`, or `category`), `actor_id`, `return_to`, and `can_update`.
+
 Category administration remains canonical and owner-scoped. Extensions may
 adapt display fields and row actions without replacing category identity or
 hierarchy:

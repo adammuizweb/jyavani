@@ -399,13 +399,22 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                              'can_update' => $canUpdatePage,
                              'can_delete' => $canTrashPage,
                            ])
-                         : '';
-                     ?>
-                     <div class="row-actions">
-                        <?php if ($canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
-                        <?php if (!$canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('View')?></a><?php endif; ?>
-                       <?php if ($contentRowActions !== ''): ?><span class="muted-divider">|</span><?= $contentRowActions ?><?php endif; ?>
-                       <?php if ($canTrashPage): ?><span class="muted-divider">|</span><?php endif; ?>
+                          : '';
+                       $showCoreEdit = !$canUpdatePage || !function_exists('content_core_edit_action_visible')
+                         || content_core_edit_action_visible($pdo, $p, [
+                             'schema' => 1,
+                             'content_type' => 'page',
+                             'actor_id' => $uid,
+                             'return_to' => $currentReturnTo,
+                             'can_update' => $canUpdatePage,
+                           ]);
+                       $hasPrimaryAction = !$canUpdatePage || $showCoreEdit || $contentRowActions !== '';
+                      ?>
+                      <div class="row-actions">
+                         <?php if ($canUpdatePage && $showCoreEdit): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                         <?php if (!$canUpdatePage): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('View')?></a><?php endif; ?>
+                        <?php if ($contentRowActions !== ''): ?><?php if (!$canUpdatePage || $showCoreEdit): ?><span class="muted-divider">|</span><?php endif; ?><?= $contentRowActions ?><?php endif; ?>
+                        <?php if ($canTrashPage && $hasPrimaryAction): ?><span class="muted-divider">|</span><?php endif; ?>
                        <?php if ($canTrashPage): ?><button type="button"
                               class="adam-hapus js-page-delete"
                               data-id="<?= (int)$p['id'] ?>"

@@ -450,6 +450,16 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               'return_to' => $currentReturnTo,
             ]);
           ?>
+            <?php
+              $showCoreEdit = !$canUpdateCategory || !function_exists('content_core_edit_action_visible')
+                || content_core_edit_action_visible($pdo, $cat, [
+                    'schema' => 1,
+                    'content_type' => 'category',
+                    'actor_id' => $uid,
+                    'return_to' => $currentReturnTo,
+                    'can_update' => $canUpdateCategory,
+                  ]);
+            ?>
             <tr>
               <td class="td-center">
                 <?php if ($canBulk && $canSelectCategory): ?>
@@ -463,8 +473,9 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                 <div class="title-wrap">
                   <?= $indentHtml . $nameHtml ?>
                   <div class="row-actions">
-                    <?php if ($canUpdateCategory): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
+                    <?php if ($canUpdateCategory && $showCoreEdit): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen', '', ['class' => 'lucide-icon']) ?><?=_e('Edit')?></a><?php endif; ?>
                     <?php do_action('admin_category_row_actions', $cat, [
+                      'content_type' => 'category',
                       'actor_id' => $uid,
                       'return_to' => $currentReturnTo,
                       'can_update' => $canUpdateCategory,

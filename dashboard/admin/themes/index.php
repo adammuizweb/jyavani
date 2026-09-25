@@ -277,6 +277,15 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                     'can_delete' => $canDeleteTheme,
                   ])
                 : '';
+              $showCoreEdit = !$canUpdateTheme || !function_exists('content_core_edit_action_visible')
+                || content_core_edit_action_visible($pdo, $t, [
+                    'schema' => 1,
+                    'content_type' => 'theme',
+                    'actor_id' => $uid,
+                    'return_to' => $currentReturnTo,
+                    'can_update' => $canUpdateTheme,
+                  ]);
+              $hasPrimaryAction = !$canUpdateTheme || $showCoreEdit || $contentRowActions !== '';
             ?>
             <tr class="adam-row">
               <?php if ($canBulk): ?>
@@ -293,10 +302,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
                   </a>
                   <?= apply_filters('post_list_title_after', '', $t) ?>
                    <div class="row-actions">
-                     <a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= $canUpdateTheme ? svg_ico('pen', '', ['class' => 'lucide-icon']) : '' ?><?= htmlspecialchars($canUpdateTheme ? __('Edit') : __('View'), ENT_QUOTES, 'UTF-8') ?></a>
-                     <?php if ($contentRowActions !== ''): ?><span class="muted-divider">|</span><?= $contentRowActions ?><?php endif; ?>
-                     <?php if ($canDeleteTheme): ?>
-                      <span class="muted-divider">|</span>
+                      <?php if (!$canUpdateTheme || $showCoreEdit): ?><a class="adam-ubah" href="<?= htmlspecialchars($editHref, ENT_QUOTES, 'UTF-8') ?>"><?= $canUpdateTheme ? svg_ico('pen', '', ['class' => 'lucide-icon']) : '' ?><?= htmlspecialchars($canUpdateTheme ? __('Edit') : __('View'), ENT_QUOTES, 'UTF-8') ?></a><?php endif; ?>
+                      <?php if ($contentRowActions !== ''): ?><?php if (!$canUpdateTheme || $showCoreEdit): ?><span class="muted-divider">|</span><?php endif; ?><?= $contentRowActions ?><?php endif; ?>
+                      <?php if ($canDeleteTheme): ?>
+                       <?php if ($hasPrimaryAction): ?><span class="muted-divider">|</span><?php endif; ?>
                       <button type="button"
                               class="adam-hapus js-theme-delete"
                               data-id="<?= (int)$t['id'] ?>"

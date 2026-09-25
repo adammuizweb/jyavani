@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.154",
+    "version": "2.3.155",
     "build": "2026-09-25",
-    "changelog": "Add deployment policy and site-defining plugin route contracts.",
+    "changelog": "Add extensible Core Edit action visibility for content lists.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.154"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.155"
 }

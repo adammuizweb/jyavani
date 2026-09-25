@@ -65,3 +65,12 @@ if (!function_exists('content_row_actions_render')) {
         return implode('<span class="muted-divider">|</span>', $rendered);
     }
 }
+
+if (!function_exists('content_core_edit_action_visible')) {
+    /** Allow extensions to hide the canonical Edit link without granting access. */
+    function content_core_edit_action_visible(PDO $pdo, array $row, array $context): bool
+    {
+        if (!function_exists('apply_filters')) return true;
+        return apply_filters('admin_content_core_edit_action_visible', true, $row, $context, $pdo) !== false;
+    }
+}

@@ -3,11 +3,13 @@ declare(strict_types=1);
 
 define('ADMIN_BASE_PATH', '/hidden-admin');
 $GLOBALS['_content_row_actions_filter'] = static fn(array $items): array => $items;
+$GLOBALS['_content_core_edit_filter'] = static fn(bool $visible): bool => $visible;
 
 function apply_filters(string $name, mixed $value, mixed ...$args): mixed
 {
-    if ($name !== 'admin_content_row_actions') return $value;
-    return ($GLOBALS['_content_row_actions_filter'])($value, ...$args);
+    if ($name === 'admin_content_row_actions') return ($GLOBALS['_content_row_actions_filter'])($value, ...$args);
+    if ($name === 'admin_content_core_edit_action_visible') return ($GLOBALS['_content_core_edit_filter'])($value, ...$args);
+    return $value;
 }
 
 require_once dirname(__DIR__) . '/cfg/helpers/content_row_actions.php';
@@ -21,6 +23,12 @@ $check = static function (bool $passed, string $message) use (&$failures): void 
 $pdo = new PDO('sqlite::memory:');
 $row = ['id' => 7, 'title' => 'Example'];
 $context = ['schema' => 1, 'content_type' => 'article', 'actor_id' => 3, 'is_public' => true];
+
+$check(content_core_edit_action_visible($pdo, $row, $context), 'Core Edit remains visible by default');
+$GLOBALS['_content_core_edit_filter'] = static fn(bool $visible): bool => false;
+$check(!content_core_edit_action_visible($pdo, $row, $context), 'extensions may hide only the Core Edit presentation');
+$GLOBALS['_content_core_edit_filter'] = static fn(bool $visible): string => 'invalid';
+$check(content_core_edit_action_visible($pdo, $row, $context), 'malformed Edit visibility output preserves Core Edit');
 
 $GLOBALS['_content_row_actions_filter'] = static fn(array $items): array => [
     ['key' => 'example.qr', 'label' => 'QR & share', 'url' => '/hidden-admin/?page=admin/tools/example&value=%2Fpost%2F', 'title' => 'Create "QR"'],
@@ -65,19 +73,24 @@ $root = dirname(__DIR__);
 $article = (string)file_get_contents($root . '/dashboard/admin/posts/index.php');
 $page = (string)file_get_contents($root . '/dashboard/admin/pages/index.php');
 $theme = (string)file_get_contents($root . '/dashboard/admin/themes/index.php');
+$category = (string)file_get_contents($root . '/dashboard/admin/categories/index.php');
 foreach (['article' => $article, 'page' => $page, 'theme' => $theme] as $type => $source) {
     $check(str_contains($source, "'content_type' => '" . $type . "'")
         && str_contains($source, "'is_public' => \$status === 'published'")
         && str_contains($source, 'content_row_actions_render($pdo'), $type . ' list provides the schema-1 action context');
+    $check(str_contains($source, 'content_core_edit_action_visible($pdo'), $type . ' list exposes Core Edit visibility');
     $extension = strpos($source, '$contentRowActions !==');
     $delete = strpos($source, 'js-' . ($type === 'article' ? 'post' : $type) . '-delete');
     $check($extension !== false && $delete !== false && $extension < $delete, $type . ' action renders before Delete');
 }
+$check(str_contains($category, "'content_type' => 'category'")
+    && str_contains($category, 'content_core_edit_action_visible($pdo'), 'Category list exposes Core Edit visibility with category context');
 
 $config = (string)file_get_contents($root . '/cfg/config.php');
 $docs = (string)file_get_contents($root . '/cms.md');
 $check(str_contains($config, "helpers/content_row_actions.php"), 'Core loads the content row-action helper');
-$check(str_contains($docs, "'admin_content_row_actions'"), 'extension contract is documented');
+$check(str_contains($docs, "'admin_content_row_actions'")
+    && str_contains($docs, "'admin_content_core_edit_action_visible'"), 'extension contracts are documented');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " check(s) failed.\n");
