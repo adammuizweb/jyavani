@@ -5838,4 +5838,14 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'No published Theme Content is available.', 'Belum ada Konten Tema terbit.', 'id'),
 ('default', 'No published Theme Content is available.', 'Keine veröffentlichten Theme-Inhalte verfügbar.', 'de'),
 ('default', 'Invalid gadget type.', 'Jenis gadget tidak valid.', 'id'),
-('default', 'Invalid gadget type.', 'Ungültiger Gadget-Typ.', 'de');
+('default', 'Invalid gadget type.', 'Ungültiger Gadget-Typ.', 'de'),
+('default', 'Core update operation is invalid.', 'Operasi pembaruan Core tidak valid.', 'id'),
+('default', 'Core update operation is invalid.', 'Der Core-Aktualisierungsvorgang ist ungültig.', 'de'),
+('default', 'Core update operation was denied by an invalid deployment policy.', 'Operasi pembaruan Core ditolak oleh kebijakan deployment yang tidak valid.', 'id'),
+('default', 'Core update operation was denied by an invalid deployment policy.', 'Der Core-Aktualisierungsvorgang wurde durch eine ungültige Bereitstellungsrichtlinie abgelehnt.', 'de'),
+('default', 'Core update operation was denied because deployment policy evaluation failed.', 'Operasi pembaruan Core ditolak karena evaluasi kebijakan deployment gagal.', 'id'),
+('default', 'Core update operation was denied because deployment policy evaluation failed.', 'Der Core-Aktualisierungsvorgang wurde abgelehnt, weil die Auswertung der Bereitstellungsrichtlinie fehlgeschlagen ist.', 'de'),
+('default', 'Core update operation is disabled by deployment policy.', 'Operasi pembaruan Core dinonaktifkan oleh kebijakan deployment.', 'id'),
+('default', 'Core update operation is disabled by deployment policy.', 'Der Core-Aktualisierungsvorgang ist durch die Bereitstellungsrichtlinie deaktiviert.', 'de'),
+('default', 'Using verified local update package...', 'Menggunakan paket pembaruan lokal yang terverifikasi...', 'id'),
+('default', 'Using verified local update package...', 'Verifiziertes lokales Aktualisierungspaket wird verwendet...', 'de');

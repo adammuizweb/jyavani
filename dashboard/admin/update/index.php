@@ -16,6 +16,10 @@ require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
 adiwira_require_site_owner($pdo, false);
 $base = ADMIN_BASE_PATH;
 $selfUrl = $base . '/?page=admin/update/index';
+$cmsApplyPolicy = cms_update_operation_policy('apply', ['source' => 'pending']);
+$cmsUploadPolicy = cms_update_operation_policy('upload', ['source' => 'uploaded']);
+$cmsReinstallPolicy = cms_update_operation_policy('reinstall', ['source' => 'official_remote']);
+$cmsHardResetPolicy = cms_update_operation_policy('hard_reset', ['source' => 'official_remote']);
 
 // Dev instance detection
 $defaultUpdateUrl = UpdateStatusController::officialCoreUrl();
@@ -86,6 +90,13 @@ $totalCore = $localManifest['total_files'] ?? 0;
 <div class="up-dev-notice"><?=__('This appears to be a development instance. The update URL points to this same server. Build and publish updates from here, then deploy to production.')?></div>
 <?php endif; ?>
 
+<?php if (!$cmsApplyPolicy['allowed'] || !$cmsUploadPolicy['allowed'] || !$cmsReinstallPolicy['allowed']): ?>
+<div class="up-dev-notice"><?= htmlspecialchars((string)(
+    !$cmsApplyPolicy['allowed'] ? $cmsApplyPolicy['message']
+        : (!$cmsUploadPolicy['allowed'] ? $cmsUploadPolicy['message'] : $cmsReinstallPolicy['message'])
+)) ?></div>
+<?php endif; ?>
+
 <?php if (!empty($permErrors)): ?>
 <div class="up-card" style="margin-bottom:1rem;border-color:var(--adam-danger)">
     <div class="up-card-header" style="color:var(--adam-danger)"><?=_e('Permission Warning')?></div>
@@ -130,7 +141,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
     </div>
 </div>
 
-<?php if ($pendingUpdate): ?>
+<?php if ($pendingUpdate && $cmsApplyPolicy['allowed']): ?>
 <div class="up-card up-card-warning" id="pendingUpdateCard">
     <div class="up-card-header"><?=_e('Update Ready')?></div>
     <p><?=_e('Package:')?> <strong>v<?= htmlspecialchars($pendingUpdate['version'] ?? '?') ?></strong>
@@ -148,6 +159,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
 </div>
 <?php endif; ?>
 
+<?php if ($cmsUploadPolicy['allowed']): ?>
 <div class="up-card" style="margin-top:1.25rem">
     <div class="up-card-header"><?=_e('Manual Upload')?></div>
     <p class="up-hint"><?=_e('Upload a')?> <code>.zip</code> <?=_e('update package containing')?> <code>cms-manifest.json</code> <?=_e('in its root.')?></p>
@@ -162,7 +174,9 @@ $totalCore = $localManifest['total_files'] ?? 0;
         </div>
     </form>
 </div>
+<?php endif; ?>
 
+<?php if ($cmsReinstallPolicy['allowed']): ?>
 <div class="up-card" style="margin-top:1.25rem;border-color:var(--adam-danger)">
     <div class="up-card-header" style="color:var(--adam-danger)"><?=_e('Reinstall CMS')?></div>
     <p class="up-hint"><?=_e('Overwrite all core CMS files with original versions. Suitable if files are corrupted. Data (cfg/.env, themes, plugins, uploads) remain safe.')?></p>
@@ -173,6 +187,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <label class="up-label"><?=_e('Download URL')?></label>
         <input type="url" class="up-input" value="<?= htmlspecialchars($defaultUpdateUrl) ?>"
                readonly aria-readonly="true">
+        <?php if ($cmsHardResetPolicy['allowed']): ?>
         <label class="up-checkline">
             <input type="checkbox" name="hard_reset" value="1" id="chkHard">
             <?=_e('Hard reset')?> &mdash; <?=_e('reset theme, auth paths, plugins, slots, sidebar, and menus to defaults')?>
@@ -181,9 +196,11 @@ $totalCore = $localManifest['total_files'] ?? 0;
             <?=__('Theme → default, Auth paths → /dashboard/ /login/ /register/, all plugins disabled.')?>
             <?=__('Slot/sidebar/menu customizations will be lost. Content (posts, pages, media, users) is NOT affected.')?>
         </div>
+        <?php endif; ?>
         <button type="submit" class="btn btn-danger"><?=_e('Reinstall Now')?></button>
     </form>
 </div>
+<?php endif; ?>
 
 <!-- Simple reinstall confirmation modal -->
 <div class="adam-modal" id="reinstallModal">

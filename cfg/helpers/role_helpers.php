@@ -95,11 +95,15 @@ if (!function_exists('content_access_scope_allows_role')) {
 if (!function_exists('content_access_scope_allows')) {
     function content_access_scope_allows(PDO $pdo, string $scope): bool
     {
-        if (!function_exists('is_logged_in') || !is_logged_in()) {
+        if (!function_exists('current_user_status')) {
             return false;
         }
 
-        return content_access_scope_allows_role(current_user_role($pdo), $scope);
+        $status = current_user_status($pdo);
+        $user = ($status['ok'] ?? false) === true ? ($status['user'] ?? null) : null;
+        $role = is_array($user) && is_string($user['role'] ?? null) ? $user['role'] : null;
+
+        return content_access_scope_allows_role($role, $scope);
     }
 }
 

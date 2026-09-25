@@ -93,6 +93,20 @@ $check((resolve_frontend_route('', 'GET')['handler'] ?? null) === $rootHandler
 $check(resolve_frontend_route('child', 'GET') === null, 'exact root route does not capture descendants');
 
 $reset();
+$normalPhaseHandler = static function (): void {};
+$preCorePhaseHandler = static function (): void {};
+$check(register_frontend_route('phase', $normalPhaseHandler, ['match' => 'exact'])
+    && register_frontend_route('phase', $preCorePhaseHandler, ['match' => 'exact', 'phase' => 'pre_core']),
+    'the same route shape can be registered independently in both phases');
+$check((resolve_frontend_route('phase', 'GET')['handler'] ?? null) === $normalPhaseHandler
+    && (resolve_frontend_route('phase', 'GET', 'pre_core')['handler'] ?? null) === $preCorePhaseHandler,
+    'route resolution is isolated to the requested phase');
+$check(resolve_frontend_route('phase', 'GET', 'invalid') === null,
+    'route resolution rejects an unknown phase');
+$check(!register_frontend_route('invalid-phase', $preCorePhaseHandler, ['phase' => 'early']),
+    'route registration rejects an unknown phase');
+
+$reset();
 $prefixHandler = static function (): void {};
 $nestedHandler = static function (): void {};
 $exactHandler = static function (): void {};

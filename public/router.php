@@ -65,10 +65,6 @@ if ($pathTrimmed === 'robots.txt'
 // (e.g. locale prefix stripping for translated content routing).
 $pathTrimmed = router_apply_path_filter($pdo, $pathTrimmed);
 
-// Optional site-specific routes live outside the managed Core router.
-$siteRouter = BACKEND_PATH . '/site-router.php';
-if (is_file($siteRouter)) require $siteRouter;
-
 $dispatchPluginRoute = static function (array $resolvedRoute) use ($pdo): void {
     if (($resolvedRoute['method_allowed'] ?? false) !== true) {
         http_response_code(405);
@@ -92,10 +88,21 @@ $dispatchPluginRoute = static function (array $resolvedRoute) use ($pdo): void {
     exit;
 };
 
+// Optional site-specific routes retain precedence over plugin extension phases.
+$siteRouter = BACKEND_PATH . '/site-router.php';
+if (is_file($siteRouter)) require $siteRouter;
+
+// Site-defining plugins may explicitly claim a path before managed Core routes.
+// Protected worker and crawler-policy routes above always remain Core-owned.
+if (function_exists('resolve_frontend_route')) {
+    $preCorePluginRoute = resolve_frontend_route($pathTrimmed, $requestMethod, 'pre_core');
+    if ($preCorePluginRoute !== null) $dispatchPluginRoute($preCorePluginRoute);
+}
+
 // homepage
 if ($pathTrimmed === '') {
     if (function_exists('resolve_frontend_route')) {
-        $rootPluginRoute = resolve_frontend_route($pathTrimmed, $requestMethod);
+        $rootPluginRoute = resolve_frontend_route($pathTrimmed, $requestMethod, 'normal');
         if ($rootPluginRoute !== null) $dispatchPluginRoute($rootPluginRoute);
     }
     $context_for_layout = 'home';
@@ -455,7 +462,7 @@ if ($pagesListMatch !== null) {
 
 // Plugin priorities apply only within this extension phase. Managed Core routes above still win.
 if (function_exists('resolve_frontend_route')) {
-    $pluginRoute = resolve_frontend_route($pathTrimmed, $requestMethod);
+    $pluginRoute = resolve_frontend_route($pathTrimmed, $requestMethod, 'normal');
     if ($pluginRoute !== null) $dispatchPluginRoute($pluginRoute);
 }
 

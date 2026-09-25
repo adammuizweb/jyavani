@@ -786,7 +786,8 @@ function plugin_run_frontend_init(): void {
  * Register a plugin-owned frontend route.
  *
  * Existing two-argument calls remain prefix routes for every HTTP method.
- * Options: match (prefix|exact), methods (list|null), and priority (lower runs first).
+ * Options: match (prefix|exact), methods (list|null), priority (lower runs first),
+ * and phase (normal|pre_core). The pre-Core phase is opt-in for site-defining plugins.
  */
 function register_frontend_route(string $path, callable|string $handler, array $options = []): bool {
     if (($GLOBALS['_plugin_frontend_routes_sealed'] ?? false) === true
@@ -794,7 +795,7 @@ function register_frontend_route(string $path, callable|string $handler, array $
         return plugin_frontend_route_diagnostic('Frontend routes must be registered during plugin loading.');
     }
     foreach (array_keys($options) as $option) {
-        if (!in_array($option, ['match', 'methods', 'priority'], true)) {
+        if (!in_array($option, ['match', 'methods', 'priority', 'phase'], true)) {
             return plugin_frontend_route_diagnostic('Rejected a frontend route with an unknown option.');
         }
     }
@@ -813,9 +814,14 @@ function register_frontend_route(string $path, callable|string $handler, array $
     if (!$methodsValid) return plugin_frontend_route_diagnostic('Rejected a frontend route with invalid HTTP methods.');
     $priority = $options['priority'] ?? 10;
     if (!is_int($priority)) return plugin_frontend_route_diagnostic('Rejected a frontend route with an invalid priority.');
+    $phase = $options['phase'] ?? 'normal';
+    if (!is_string($phase) || !in_array($phase, ['normal', 'pre_core'], true)) {
+        return plugin_frontend_route_diagnostic('Rejected a frontend route with an invalid phase.');
+    }
 
     foreach ($GLOBALS['_plugin_frontend_route_definitions'] as $existing) {
-        if ($existing['path'] !== $path || $existing['match'] !== $match || $existing['priority'] !== $priority) continue;
+        if ($existing['path'] !== $path || $existing['match'] !== $match
+            || $existing['priority'] !== $priority || $existing['phase'] !== $phase) continue;
         $overlaps = $existing['methods'] === null || $methods === null
             || array_intersect($existing['methods'], $methods) !== [];
         if ($overlaps) {
@@ -831,6 +837,7 @@ function register_frontend_route(string $path, callable|string $handler, array $
         'match' => $match,
         'methods' => $methods,
         'priority' => $priority,
+        'phase' => $phase,
         'handler' => $handler,
         'order' => $order,
     ];
@@ -858,13 +865,14 @@ function get_frontend_route_diagnostics(): array {
 }
 
 /** @return array{handler:callable|string|null,route:array,method_allowed:bool,allowed_methods:array}|null */
-function resolve_frontend_route(string $path, string $method): ?array {
+function resolve_frontend_route(string $path, string $method, string $phase = 'normal'): ?array {
     $path = plugin_frontend_route_normalize_path($path);
-    if ($path === null) return null;
+    if ($path === null || !in_array($phase, ['normal', 'pre_core'], true)) return null;
     $method = strtoupper(trim($method));
 
     $candidates = [];
     foreach ($GLOBALS['_plugin_frontend_route_definitions'] as $definition) {
+        if (($definition['phase'] ?? 'normal') !== $phase) continue;
         $matches = $definition['match'] === 'exact'
             ? $path === $definition['path']
             : ($path === $definition['path'] || str_starts_with($path, $definition['path'] . '/'));

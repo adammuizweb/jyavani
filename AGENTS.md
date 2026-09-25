@@ -628,6 +628,14 @@ Providers normalize state that Core has already locked. They must not use an amb
 
 Third-party features installed as removable plugins via `plugins/{name}/plugin.json`.
 
+Frontend routes registered with `register_frontend_route()` use the `normal`
+phase by default, after managed Core routes. A site-defining plugin may opt into
+`phase: pre_core`; that phase runs after `router_path` filters and the optional
+site router but before managed Core routes. `/sw.js` and the active
+`/robots.txt` policy remain protected Core routes. Route conflicts are isolated
+per phase, and direct `public/index.php` entry honors only the exact normal-phase
+root route.
+
 ### State file
 
 `cfg/var/plugins-disabled.json` (via `PLUGIN_DISABLED_JSON` constant) — JSON array of disabled plugin names (instead of checking filesystem). Created automatically if missing.

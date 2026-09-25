@@ -68,6 +68,11 @@ $defaultSchema = (string)file_get_contents($root . '/schema/default.sql');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $redirectionNavIcon = (string)file_get_contents($root . '/public/static/icons/lucide/corner-up-right.svg');
+$pluginStore = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
+$updateHelpers = (string)file_get_contents($root . '/dashboard/admin/update/_update_helpers.php');
+$updateActions = (string)file_get_contents($root . '/dashboard/admin/update/_update_actions.php');
+$updateIndex = (string)file_get_contents($root . '/dashboard/admin/update/index.php');
+$updateApply = (string)file_get_contents($root . '/dashboard/admin/update/update_apply.php');
 
 $check(substr_count($router, 'collection_redirect_legacy_query_pagination();') >= 7, 'all routed collection families canonicalize legacy query pagination');
 $check(str_contains($router, "([a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)_(posts|pages|themes)"), 'locale sitemap routes accept normalized BCP-style subtags');
@@ -78,10 +83,10 @@ $check(str_contains($router, 'url_append_query_string($unresolvedRedirect'), 'un
 $check(str_contains($router, 'if (!url_path_is_file_like($rawPath))'), 'router canonicalization lets file-like webmanifest paths reach dynamic routes');
 $check(str_contains($router, "function_exists('content_route_resolve') && !url_path_is_file_like(\$pathTrimmed)"),
     'file-like paths bypass canonical content route resolution');
-$check(str_contains($router, 'resolve_frontend_route($pathTrimmed, $requestMethod)')
-    && strpos($router, '$rootPluginRoute = resolve_frontend_route') < strpos($router, "\$context_for_layout = 'home'")
-    && strpos($router, '$pluginRoute = resolve_frontend_route') < strpos($router, '// FALLBACK POST'),
-    'router resolves exact root and full-path plugin routes before their corresponding Core fallbacks');
+$check(strpos($router, "resolve_frontend_route(\$pathTrimmed, \$requestMethod, 'pre_core')") > strpos($router, 'router_apply_path_filter($pdo, $pathTrimmed)')
+    && strpos($router, "\$rootPluginRoute = resolve_frontend_route(\$pathTrimmed, \$requestMethod, 'normal')") < strpos($router, "\$context_for_layout = 'home'")
+    && strpos($router, "\$pluginRoute = resolve_frontend_route(\$pathTrimmed, \$requestMethod, 'normal')") < strpos($router, '// FALLBACK POST'),
+    'router resolves pre-Core, exact root, and normal plugin routes in their contracted phases');
 $check(str_contains($router, 'http_response_code(405)') && str_contains($router, "header('Allow: '"),
     'router returns 405 with Allow when a plugin owns the path but not the request method');
 $check(str_contains($router, "in_array(\$requestMethod, ['GET', 'HEAD'], true) ? 301 : 308")
@@ -93,8 +98,27 @@ $check(str_contains($router, 'plugin_run_frontend_init();')
     && str_contains($publicIndex, 'plugin_run_frontend_init();')
     && str_contains($frontend404, 'plugin_run_frontend_init();'),
     'all public entry paths use the shared init-once lifecycle');
+$check(str_contains($publicIndex, "resolve_frontend_route('', \$requestMethod)")
+    && str_contains($publicIndex, "header('Allow: ' . implode(', ', \$allowed))"),
+    'direct index requests honor the method-aware exact root plugin route');
+$check(str_contains($pluginStore, "apply_filters('plugin_update_package_source', null, \$name, \$update)")
+    && strpos($pluginStore, 'resolvePackageSource($name, $update') < strpos($pluginStore, "hash_file('sha256', \$tmpZip)"),
+    'plugin updates accept a local package source only before normal checksum and archive verification');
+$check(str_contains($updateHelpers, "apply_filters('core_update_operation_policy'")
+    && str_contains($updateActions, "cms_update_operation_policy('upload'")
+    && str_contains($updateActions, "cms_update_operation_policy(\$operation")
+    && str_contains($updateIndex, "cms_update_operation_policy('apply'")
+    && substr_count($updateApply, "cms_update_operation_policy('apply'") === 2,
+    'Core update upload, reinstall, UI, and apply paths enforce the generic deployment policy');
 $check(str_contains($htaccess, '^(?:sw\.js|manifest\.webmanifest)$ router.php'), 'Apache routes exact root PWA endpoints before stale physical files');
+$check(str_contains($htaccess, 'RewriteCond %{REQUEST_FILENAME}/index.php -f') && !str_contains($htaccess, 'RewriteCond %{REQUEST_FILENAME} -f [OR]'), 'Apache routes indexless physical directories through Core');
 $check(str_contains($serverSetup, 'location = /manifest.webmanifest') && str_contains($serverSetup, '$document_root/router.php'), 'nginx example routes the dynamic root manifest through Core');
+$check(
+    str_contains($serverSetup, 'location @jyavani_404')
+        && str_contains($serverSetup, 'error_page 403 = @jyavani_404;')
+        && str_contains($serverSetup, '/app/frontend_404.php'),
+    'nginx example uses the pinned Core cosmetic 404 handler'
+);
 $check(str_contains($dashboardCss, '--adam-on-primary: #fff;')
     && str_contains($dashboardCss, '--adam-on-primary: #071022;')
     && str_contains($dashboardCss, '.btn.btn-primary:hover{')

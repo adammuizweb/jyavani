@@ -23,6 +23,11 @@ if ($token === '' || !preg_match('/^[a-f0-9]{32}$/', $token)) {
 require_once __DIR__ . '/_update_helpers.php';
 require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 
+$initialPolicy = cms_update_operation_policy('apply', ['source' => 'pending']);
+if (!$initialPolicy['allowed']) {
+    adiwira_json(['ok' => false, 'error' => $initialPolicy['message']], 403);
+}
+
 if (!update_operation_begin($token, (int)$uid, 'core', '', __('Starting...'))) {
     adiwira_json(['ok' => false, 'error' => __('Unable to start update operation.')], 409);
 }
@@ -67,6 +72,13 @@ try {
 
     if (!is_array($remote)) throw new RuntimeException(__('No update data in session. Run "Check for Updates" first.'));
     $hasUploadedPackage = $packageZip !== '' && is_file($packageZip);
+    $source = $hasUploadedPackage ? 'uploaded' : 'official_remote';
+    $lockedPolicy = cms_update_operation_policy('apply', [
+        'source' => $source,
+        'current_version' => (string)($currentVersion['version'] ?? '0.0.0'),
+        'target_version' => (string)($remote['version'] ?? ''),
+    ]);
+    if (!$lockedPolicy['allowed']) throw new RuntimeException($lockedPolicy['message']);
     if (!$hasUploadedPackage && (
         !hash_equals(UpdateStatusController::officialCoreUrl(), $baseUrl)
         || !UpdateStatusController::isUpdateActionable('core', '', (string)($remote['version'] ?? ''))

@@ -4,6 +4,32 @@ require_once dirname(__DIR__, 3) . '/cfg/helpers/cms_manifest.php';
 
 // Shared helpers for CMS update page + AJAX handlers
 
+/** Resolve the deployment policy for a Core mutation operation. */
+function cms_update_operation_policy(string $operation, array $context = []): array {
+    if (!in_array($operation, ['apply', 'upload', 'reinstall', 'hard_reset'], true)) {
+        return ['allowed' => false, 'message' => __('Core update operation is invalid.')];
+    }
+    $state = ['allowed' => true, 'message' => ''];
+    if (function_exists('apply_filters')) {
+        try {
+            $filtered = apply_filters('core_update_operation_policy', $state, $operation, $context);
+            if (!is_array($filtered) || array_keys($filtered) !== ['allowed', 'message']
+                || !is_bool($filtered['allowed']) || !is_string($filtered['message'])
+                || strlen($filtered['message']) > 500 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $filtered['message']) === 1) {
+                return ['allowed' => false, 'message' => __('Core update operation was denied by an invalid deployment policy.')];
+            }
+            $state = $filtered;
+        } catch (Throwable $error) {
+            error_log('[core-update-policy] ' . $error->getMessage());
+            return ['allowed' => false, 'message' => __('Core update operation was denied because deployment policy evaluation failed.')];
+        }
+    }
+    if (!$state['allowed'] && trim($state['message']) === '') {
+        $state['message'] = __('Core update operation is disabled by deployment policy.');
+    }
+    return $state;
+}
+
 // --- Progress tracking ---
 function _cms_progress_file(string $token): string {
     return (string)(update_operation_path($token) ?? '');

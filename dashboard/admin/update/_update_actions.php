@@ -18,12 +18,17 @@ function cms_update_handle_post(PDO $pdo, array $currentVersion, string $selfUrl
         cms_update_check_remote($pdo, $currentVersion, $selfUrl);
     }
     if ($action === 'upload_update') {
+        $policy = cms_update_operation_policy('upload', ['source' => 'uploaded']);
+        if (!$policy['allowed']) adiwira_redirect_with_flash($selfUrl, 'error', $policy['message']);
         cms_update_store_upload($currentVersion, $selfUrl);
     }
     if ($action === 'clear_pending') {
         cms_update_clear_pending($selfUrl);
     }
     if ($action === 'reinstall') {
+        $operation = !empty($_POST['hard_reset']) ? 'hard_reset' : 'reinstall';
+        $policy = cms_update_operation_policy($operation, ['source' => 'official_remote']);
+        if (!$policy['allowed']) adiwira_redirect_with_flash($selfUrl, 'error', $policy['message']);
         cms_update_reinstall($pdo, $currentVersion, $selfUrl, $base);
     }
     if (in_array($action, ['apply_update', 'apply_uploaded'], true)) {

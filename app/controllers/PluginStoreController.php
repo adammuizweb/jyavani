@@ -420,7 +420,7 @@ class PluginStoreController
         if ($oldIdentity === null) return ['success' => false, 'error' => 'Installed plugin tree contains unsupported entries.'];
         if ($progressToken !== '') update_operation_checkpoint($progressToken);
 
-        $tmpZip = self::downloadPackage((string)$update['download_url'], $p, $progressToken);
+        $tmpZip = self::resolvePackageSource($name, $update, $p, $progressToken);
         if ($progressToken !== '' && update_operation_cancellation_requested($progressToken)) {
             if (is_string($tmpZip) && is_file($tmpZip)) @unlink($tmpZip);
             update_operation_checkpoint($progressToken);
@@ -866,6 +866,28 @@ class PluginStoreController
         if ($tmp === null) return null;
         $progress(35, __('Download complete. Verifying package...'), 'validate');
         return $tmp;
+    }
+
+    private static function resolvePackageSource(string $name, array $update, callable $progress, string $progressToken): ?string
+    {
+        $provided = null;
+        if (function_exists('apply_filters')) {
+            try {
+                $provided = apply_filters('plugin_update_package_source', null, $name, $update);
+            } catch (Throwable $error) {
+                error_log('[plugin-update-package-source] ' . $error->getMessage());
+                return null;
+            }
+        }
+        if ($provided !== null) {
+            if (!is_string($provided) || $provided === '' || !is_file($provided) || is_link($provided)) return null;
+            clearstatcache(true, $provided);
+            $stat = @lstat($provided);
+            if (!is_array($stat) || (($stat['mode'] ?? 0) & 0170000) !== 0100000 || ($stat['nlink'] ?? 0) !== 1) return null;
+            $progress(25, __('Using verified local update package...'), 'download');
+            return $provided;
+        }
+        return self::downloadPackage((string)$update['download_url'], $progress, $progressToken);
     }
 
     private static function downloadPackageWithStream(string $url, string $tmp, callable $progress): bool
