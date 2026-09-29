@@ -14,6 +14,8 @@ A theme that supports Customize needs three things:
 
 Legacy themes need no changes: Core continues to load Anime, Quill public CSS, global fonts, and Swiper, and string entries in `styles` and `scripts` remain global. Modern themes can opt into a smaller context-specific payload.
 
+Theme-owned files stay under `public/views/themes/{folder}/assets/`. The separate `public/static/assets/` namespace contains shared Core frontend dependencies, while `public/static/js/` contains stable Core application/editor scripts and must not be treated as default-theme source. Moving a Core public URL requires an explicit compatibility decision because plugin dependency IDs and external themes may consume it.
+
 ```json
 {
   "core_assets": {
@@ -54,6 +56,7 @@ Legacy themes need no changes: Core continues to load Anime, Quill public CSS, g
 
 - Valid Core dependency IDs are `anime`, `quill`, `fonts`, and `swiper`.
 - A missing `core_assets` key preserves the legacy set. An empty list disables all four dependencies.
+- The default system theme declares all four dependencies explicitly; changing that list requires testing every public slot that the theme can render.
 - Core uses the union required by all relevant themes. A legacy theme without `core_assets` retains the full set, so themes that opt out completely should also use `"standalone": true`.
 - `contexts` and `exclude_contexts` accept exact slot contexts or a trailing wildcard such as `single.*`.
 - Theme CSS and JavaScript URLs receive a filesystem modification version automatically.

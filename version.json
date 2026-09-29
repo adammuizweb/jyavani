@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.155",
-    "build": "2026-09-25",
-    "changelog": "Add extensible Core Edit action visibility for content lists.",
+    "version": "2.3.156",
+    "build": "2026-09-29",
+    "changelog": "Clarify public asset ownership and remove obsolete frontend files.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.155"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.156"
 }

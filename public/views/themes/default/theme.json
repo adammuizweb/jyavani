@@ -7,6 +7,12 @@
     "author": "adammuiz",
     "screenshot": "img.png",
     "color_mode": "both",
+    "core_assets": [
+        "anime",
+        "quill",
+        "fonts",
+        "swiper"
+    ],
     "styles": [
         "assets/css/style.css",
         "assets/css/blocks.css"

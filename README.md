@@ -86,6 +86,16 @@ tests/           Standalone PHP contract tests
 tools/           i18n checks, manifest generation, packaging, and permissions tools
 ```
 
+Public assets have explicit ownership boundaries:
+
+- `public/views/themes/default/assets/` belongs to the Core-managed system theme. Other themes own the assets inside their own theme folders.
+- `public/static/assets/` contains shared Core frontend dependencies, not default-theme source.
+- `public/static/js/` is the stable Core application/editor JavaScript namespace and includes extension-facing dependency URLs such as `editor/core-api.js`.
+- `public/static/dashboard/` and `public/static/components/` contain the Adiwira shell and reusable Core UI components.
+- `public/static/plugins/{name}/` is reserved for lifecycle-managed plugin publications; dated `public/static/img/YYYY/` and `public/static/files/` paths contain site-owned uploads.
+
+Do not move a tracked public asset merely to make the directory tree look more uniform. Its URL may be a theme, plugin, or extension contract. Remove an obsolete asset only after checking source, stored data, and public callers, then regenerate the Core manifest.
+
 ## Extending Jyavani
 
 ### Plugins

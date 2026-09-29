@@ -1,5 +1,5 @@
 // Script Navigasi
-/* /static/assets/js/script.js
+/* /views/themes/default/assets/js/script.js
    Combined: theme handling (system/light/dark) + navigation/mobile menu
    - Assumes there's an inline head script that sets data-theme-initialized early.
    - Safe guards if elements are missing.

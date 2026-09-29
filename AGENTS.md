@@ -149,6 +149,15 @@ Return a list of items containing `key`, `label`, `url`, and optional `title`. C
 - Widgets search: active theme → default theme → `public/views/widget/`
 - **Theme Zones**: Blogspot-style visual layout editor. Themes declare `layout` in `theme.json` with zones (`header`/`footer`) and positions (e.g. header: `logo`, `nav`, `controls`). Header/footer theme files call `theme_zone_render_position()` and fall back to hardcoded HTML when a position has no gadgets. Admin `Customize` shows the layout grid; gadgets can be added, configured, reordered, and removed per position. The authoritative built-in gadget registry is `theme_zone_default_widget_types()` in `cfg/helpers/theme_zones.php`.
 
+### Public asset ownership
+
+- Theme-specific browser files belong under `public/views/themes/{folder}/assets/`; the `default` folder is Core-owned and other theme folders are package-owned.
+- `public/static/assets/` is the shared Core frontend namespace for dependencies such as animations, public code-block handling, and bundled fonts. It is not an alternate default-theme asset directory.
+- `public/static/js/` is the stable Core application/editor namespace. Its editor and selector URLs are consumed by dashboard pages and allowlisted plugin dependency IDs, so do not move them into `static/assets/` as a cosmetic cleanup.
+- `public/static/dashboard/`, `public/static/components/`, and the standard `public/static/vendor/` trees are Core-owned. Plugins publish only under `public/static/plugins/{name}/` through `static.copy`.
+- Dated `public/static/img/YYYY/`, `public/static/files/`, and generated sitemaps are site-owned. Undated branding and fallback images under `public/static/img/` are Core-managed unless a deployment manifest explicitly owns them.
+- Before deleting a Core public asset, search source, theme/plugin manifests, tests, stored database values, and available access logs. Regenerate `tools/cms-manifest.json` after an intentional removal; the previous release ZIP remains immutable until a new release is authorized.
+
 ### Theme Customizer (v2.3.13)
 
 - Theme declares editable sections in `theme.json`:
