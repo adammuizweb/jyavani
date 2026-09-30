@@ -8,6 +8,7 @@ require_once __DIR__ . '/../app/bootstrap_core.php';
 // Load plugin system (hooks + registry + active plugin auto-loader)
 require_once __DIR__ . '/../plugins/index.php';
 plugin_load_active();
+theme_load_active_entrypoint($pdo);
 plugin_run_frontend_init();
 
 // Direct index.php requests must honor the same exact root-route contract as

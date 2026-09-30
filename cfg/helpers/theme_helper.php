@@ -202,6 +202,98 @@ function path_candidate(string $base, string $folder, string $relative): string 
     return $base . DIRECTORY_SEPARATOR . ($folder === '' ? '' : ($folder . DIRECTORY_SEPARATOR)) . $relative;
 }
 
+/** Resolve the fixed PHP entry point owned by one installed theme. */
+function theme_entrypoint_path(string $folder): ?string {
+    $folder = trim($folder);
+    if ($folder === '' || strlen($folder) > 100
+        || preg_match('/\A[a-z0-9][a-z0-9._-]*\z/i', $folder) !== 1) return null;
+
+    $themesRoot = realpath((string)VIEWS_BASE);
+    if ($themesRoot === false || !is_dir($themesRoot)) return null;
+
+    $themeRoot = realpath($themesRoot . DIRECTORY_SEPARATOR . $folder);
+    if ($themeRoot === false || !is_dir($themeRoot)
+        || ($themeRoot !== $themesRoot && !str_starts_with($themeRoot, $themesRoot . DIRECTORY_SEPARATOR))) return null;
+
+    $entrypoint = realpath($themeRoot . DIRECTORY_SEPARATOR . 'theme.php');
+    if ($entrypoint === false || !is_file($entrypoint)
+        || !str_starts_with($entrypoint, $themeRoot . DIRECTORY_SEPARATOR)) return null;
+    return $entrypoint;
+}
+
+/**
+ * Load a theme's request-local registrations without allowing failed bootstrap
+ * work to remain in Core's supported extension registries.
+ */
+function theme_load_entrypoint(string $folder, ?PDO $pdo = null): bool {
+    $state = $GLOBALS['__jy_theme_entrypoint_state'][$folder] ?? null;
+    if ($state === 'loaded' || $state === 'missing') return true;
+    if ($state === 'loading' || $state === 'failed') return false;
+
+    $entrypoint = theme_entrypoint_path($folder);
+    if ($entrypoint === null) {
+        $GLOBALS['__jy_theme_entrypoint_state'][$folder] = 'missing';
+        return true;
+    }
+
+    $themeRoot = dirname($entrypoint);
+    $registryKeys = [
+        '_hooks',
+        '_theme_sections',
+        '__jy_theme_slots',
+        '__jy_shortcode_source_providers',
+        '_plugin_frontend_routes',
+        '_plugin_frontend_route_definitions',
+        '_plugin_frontend_route_order',
+        '_plugin_frontend_route_diagnostics',
+        '__jy_mail_transports',
+    ];
+    $snapshots = [];
+    foreach ($registryKeys as $key) {
+        $snapshots[$key] = [
+            'exists' => array_key_exists($key, $GLOBALS),
+            'value' => $GLOBALS[$key] ?? null,
+        ];
+    }
+
+    $GLOBALS['__jy_theme_entrypoint_state'][$folder] = 'loading';
+    $outputLevel = ob_get_level();
+    // Keep an outer quarantine while inner buffers created by theme code unwind.
+    ob_start();
+    ob_start();
+    try {
+        (static function (string $__entrypoint, ?PDO $pdo, string $theme_folder, string $theme_root): void {
+            require $__entrypoint;
+        })($entrypoint, $pdo, $folder, $themeRoot);
+
+        while (ob_get_level() > $outputLevel + 1) ob_end_flush();
+        $unexpectedOutput = (string)ob_get_clean();
+        if ($unexpectedOutput !== '') {
+            error_log('[theme-loader] Theme "' . $folder . '" entrypoint output was discarded.');
+        }
+    } catch (Throwable $e) {
+        while (ob_get_level() > $outputLevel) ob_end_clean();
+        foreach ($snapshots as $key => $snapshot) {
+            if ($snapshot['exists']) $GLOBALS[$key] = $snapshot['value'];
+            else unset($GLOBALS[$key]);
+        }
+        $GLOBALS['__jy_theme_entrypoint_state'][$folder] = 'failed';
+        $GLOBALS['__jy_theme_entrypoint_errors'][$folder] = $e->getMessage();
+        error_log('[theme-loader] Theme "' . $folder . '" entrypoint failed: ' . $e->getMessage());
+        return false;
+    }
+
+    $GLOBALS['__jy_theme_entrypoint_state'][$folder] = 'loaded';
+    return true;
+}
+
+/** Load registrations from theme.php in the active installed theme. */
+function theme_load_active_entrypoint(?PDO $pdo = null): bool {
+    if (!defined('VIEWS_BASE') || !is_string(VIEWS_BASE) || VIEWS_BASE === '') return true;
+    $pdo ??= get_pdo_from_global();
+    return theme_load_entrypoint(get_active_theme_folder($pdo), $pdo);
+}
+
 function theme_context_matches(?string $context, string $pattern): bool {
     if ($context === null || $context === '') return true;
     $pattern = trim($pattern);

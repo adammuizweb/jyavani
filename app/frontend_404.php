@@ -13,6 +13,10 @@ if (!function_exists('plugins_all')) {
     require_once dirname(__DIR__) . '/plugins/index.php';
     plugin_load_active();
 }
+$themeEntrypointPdo = ($pdo ?? null) instanceof PDO
+    ? $pdo
+    : ((($GLOBALS['pdo'] ?? null) instanceof PDO) ? $GLOBALS['pdo'] : null);
+theme_load_active_entrypoint($themeEntrypointPdo);
 plugin_run_frontend_init();
 
 http_response_code(404);

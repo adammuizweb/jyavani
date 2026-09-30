@@ -82,22 +82,23 @@ if (!function_exists('current_user_can') || !current_user_can($pdo, 'core.dashbo
     exit;
 }
 
-// Load plugin code only after identity and dashboard authorization succeed.
+// Enforce admin UI locale separately from frontend content default locale.
+if (function_exists('set_locale') && function_exists('admin_ui_locale')) {
+    set_locale(admin_ui_locale());
+}
+
+// Load plugin and active-theme code only after dashboard authorization succeeds.
 $pluginLoader = __DIR__ . '/../plugins/index.php';
 if (is_file($pluginLoader)) {
     require_once $pluginLoader;
     plugin_load_active();
+    theme_load_active_entrypoint($pdo);
     plugin_sync_permissions($pdo);
     do_action('admin_init');
 }
 
 // dashboard context
 define('DASHBOARD_CONTEXT', true);
-
-// Enforce admin UI locale separately from frontend content default locale
-if (function_exists('set_locale') && function_exists('admin_ui_locale')) {
-    set_locale(admin_ui_locale());
-}
 
 // sinkronkan role dari DB -> session
 if (is_array($user)) {

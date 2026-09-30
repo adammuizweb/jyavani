@@ -148,6 +148,7 @@ Return a list of items containing `key`, `label`, `url`, and optional `title`. C
 - Fallback chain: assigned theme → active theme → `default` theme
 - Widgets search: active theme → default theme → `public/views/widget/`
 - **Theme Zones**: Blogspot-style visual layout editor. Themes declare `layout` in `theme.json` with zones (`header`/`footer`) and positions (e.g. header: `logo`, `nav`, `controls`). Header/footer theme files call `theme_zone_render_position()` and fall back to hardcoded HTML when a position has no gadgets. Admin `Customize` shows the layout grid; gadgets can be added, configured, reordered, and removed per position. The authoritative built-in gadget registry is `theme_zone_default_widget_types()` in `cfg/helpers/theme_zones.php`.
+- An active theme may provide a fixed `theme.php` entry point for request-local registrations such as Theme Sections, custom slots, and Theme Zone gadget filters. Core loads it once after active plugins on public requests and only after dashboard authorization on admin requests; no database migration or manifest command is involved.
 
 ### Public asset ownership
 
@@ -236,6 +237,7 @@ This guide is for theme developers who want to support the visual Customize edit
 ```
 public/views/themes/{folder}/
 ├── theme.json          # manifest + layout contract
+├── theme.php           # optional request-local registrations; must not render output
 ├── assets/
 │   ├── css/style.css
 │   └── js/script.js
@@ -388,6 +390,8 @@ If the global is not set, these gadgets render empty string.
 All gadgets support universal settings: `_title_tag` (`div`/`h1`–`h6`), `_align_title` (`left`/`center`/`right`), `_align_content` (`left`/`center`/`right`). Definitions with `addable: false` remain renderable and editable for stored layouts but are omitted from Add Gadget and rejected by its mutation handler.
 
 ### Adding custom gadgets (plugin/theme)
+
+Themes place these filters in their optional root `theme.php`; plugins place them in `plugin.php`. Core loads only the active theme's entry point, so its gadgets appear in Customize and on the frontend without a companion plugin. The entry point receives `$pdo`, `$theme_folder`, and `$theme_root`, must not emit output, and must not perform schema migration or persistent setup.
 
 Use filters so the gadget appears in the Customize "Add gadget" dropdown and renders correctly.
 

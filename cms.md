@@ -419,6 +419,44 @@ malformed XML text. Canonically equivalent URLs are emitted once and all output
 is XML-escaped. `/content_list.xml` is an exact Core-owned and content-reserved
 route; extensions and canonical content paths cannot claim it.
 
+## Active theme entry point
+
+An installed theme may provide `theme.php` at its root. Core resolves that fixed
+filename inside the active theme's validated directory and loads it once per
+request after active plugins. Public requests load it before frontend `init`;
+dashboard requests load it only after authentication, `core.dashboard.access`,
+and admin-locale setup. Theme installation itself still performs no theme-owned
+schema migration or arbitrary manifest command.
+
+The entry point is intended for request-local registration only: Theme Sections,
+custom theme slots, Theme Zone gadget filters, and related hooks. It receives
+`$pdo`, `$theme_folder`, and `$theme_root`. It must not emit output or write
+persistent setup data. Core discards accidental output. If loading throws, Core
+logs the failure, restores its supported hook/section/slot registries, and
+continues without that theme's registrations.
+
+```php
+<?php
+register_theme_section('home.hero', [
+    'label' => __('Hero'),
+    'description' => __('Homepage introduction.'),
+    'repeatable' => false,
+]);
+
+add_filter('theme_zone_widget_types', function (array $types): array {
+    $types['tz_notice'] = [
+        'label' => __('Notice'),
+        'desc' => __('Theme-owned notice block.'),
+        'default_config' => ['message' => ''],
+    ];
+    return $types;
+});
+```
+
+Only the active theme is executed. Themes remain trusted PHP packages because
+their selected templates already execute on the frontend; the dashboard does
+not load this code before authorization.
+
 ## Theme slot context hook
 
 Plugins can augment the prepared context for every available theme slot at the

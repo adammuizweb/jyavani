@@ -20,6 +20,7 @@ require_once __DIR__ . '/../app/bootstrap_theme.php';
 // Load plugin system (hooks + registry + active plugin auto-loader)
 require_once __DIR__ . '/../plugins/index.php';
 plugin_load_active();
+theme_load_active_entrypoint($pdo);
 
 // Fire frontend hooks once. Routes should be registered while plugin.php loads
 // so dashboard content-route collision checks see the same registry.
