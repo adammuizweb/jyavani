@@ -95,6 +95,7 @@ final class UpdateStatusController
     {
         $snapshot ??= self::getSnapshot();
         $core = is_array($snapshot['components']['core'] ?? null) ? $snapshot['components']['core'] : [];
+        $coreHasUpdate = self::snapshotUpdateActionable($snapshot, 'core');
         $pluginUpdates = is_array($snapshot['components']['plugins']['updates'] ?? null) ? $snapshot['components']['plugins']['updates'] : [];
         $themeUpdates = is_array($snapshot['components']['themes']['updates'] ?? null) ? $snapshot['components']['themes']['updates'] : [];
 
@@ -122,10 +123,10 @@ final class UpdateStatusController
             'state' => (string)($snapshot['state'] ?? 'unknown'),
             'stale' => ($snapshot['stale'] ?? true) === true,
             'checked_at' => (int)($snapshot['checked_at'] ?? 0),
-            'total' => (int)($snapshot['total'] ?? 0),
+            'total' => ($coreHasUpdate ? 1 : 0) + count($plugins) + count($themes),
             'cms' => [
                 'state' => (string)($core['state'] ?? 'unknown'),
-                'has_update' => ($core['has_update'] ?? false) === true,
+                'has_update' => $coreHasUpdate,
                 'current' => (string)($core['current'] ?? self::localVersion()),
                 'latest' => (string)($core['latest'] ?? self::localVersion()),
             ],
@@ -166,6 +167,24 @@ final class UpdateStatusController
         return self::snapshotUpdateActionable(self::getSnapshot(), $component, $name, $targetVersion);
     }
 
+    public static function actionableCoreUpdate(?array $snapshot = null): ?array
+    {
+        $snapshot ??= self::getSnapshot();
+        if (!self::snapshotUpdateActionable($snapshot, 'core')) return null;
+
+        $core = $snapshot['components']['core'] ?? null;
+        $remote = is_array($core['remote'] ?? null) ? $core['remote'] : null;
+        if ($remote === null || !is_string($remote['version'] ?? null)
+            || version_compare($remote['version'], (string)($core['latest'] ?? ''), '!=')) {
+            return null;
+        }
+
+        return [
+            'remote' => $remote,
+            'base_url' => (string)($core['base_url'] ?? self::DEFAULT_CORE_URL),
+        ];
+    }
+
     public static function hydrateCoreSession(?array $snapshot = null): void
     {
         if (session_status() !== PHP_SESSION_ACTIVE) return;
@@ -185,10 +204,10 @@ final class UpdateStatusController
             $_SESSION['cms_update_cache']['critical_advisory'] = $core['critical_advisory'];
         }
 
-        if (self::snapshotUpdateActionable($snapshot, 'core')
-            && is_array($core['remote'] ?? null)) {
-            $_SESSION['cms_update_remote'] = $core['remote'];
-            $_SESSION['cms_update_base_url'] = (string)($core['base_url'] ?? self::DEFAULT_CORE_URL);
+        $actionableUpdate = self::actionableCoreUpdate($snapshot);
+        if ($actionableUpdate !== null) {
+            $_SESSION['cms_update_remote'] = $actionableUpdate['remote'];
+            $_SESSION['cms_update_base_url'] = $actionableUpdate['base_url'];
         } else {
             unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url']);
         }

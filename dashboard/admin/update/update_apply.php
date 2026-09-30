@@ -53,6 +53,13 @@ $baseUrl = (string)($_SESSION['cms_update_remote_url'] ?? ($_SESSION['cms_update
 unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url'], $_SESSION['cms_update_package'], $_SESSION['cms_update_remote_url']);
 session_write_close();
 
+$hasUploadedPackage = $packageZip !== '' && is_file($packageZip);
+if (!$hasUploadedPackage) {
+    $actionableCoreUpdate = UpdateStatusController::actionableCoreUpdate();
+    $remote = $actionableCoreUpdate['remote'] ?? null;
+    $baseUrl = (string)($actionableCoreUpdate['base_url'] ?? '');
+}
+
 $cleanupPackage = static function (string $path): void {
     $uploadRoot = realpath(dirname(DASH_PATH) . '/cfg/var/uploads');
     $realPath = $path !== '' ? realpath($path) : false;
@@ -71,7 +78,6 @@ try {
     }
 
     if (!is_array($remote)) throw new RuntimeException(__('No update data in session. Run "Check for Updates" first.'));
-    $hasUploadedPackage = $packageZip !== '' && is_file($packageZip);
     $source = $hasUploadedPackage ? 'uploaded' : 'official_remote';
     $lockedPolicy = cms_update_operation_policy('apply', [
         'source' => $source,

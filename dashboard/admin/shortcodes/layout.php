@@ -1055,7 +1055,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
         <?=_e('<strong>How Preset &amp; Layout work together:</strong>')?><br>
         <?=_e('<strong>Preset</strong> = content filter (category, count, order, etc.) + layout choice.')?><br>
         <?=_e('<strong>Layout</strong> = the PHP file that controls the post&rsquo;s <em>visual appearance</em>.')?><br>
-        <?= sprintf(__('On the %sedit preset%s page, you pick which layout to use.'), '<a href="' . h($preset_list_url) . '" class="adam-link">', '</a>') ?>
+        <?= sprintf(__('On the %sedit preset%s page, you pick which layout to use.'), '<a href="' . h($preset_list_url) . '" class="adam-link--full">', '</a>') ?>
         <?=_e('The same layout can be reused by many presets — so create one layout and use it in any preset.')?>
         <?php endif; ?>
       </div>

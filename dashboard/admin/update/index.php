@@ -65,13 +65,19 @@ foreach ($permTestPaths as $rel) {
 
 cms_update_handle_post($pdo, $currentVersion, $selfUrl, $base);
 
-// --- Helper: version info from session ---
+// Use the shared detection snapshot directly; session remains authoritative for manual uploads.
 ensure_session_started(false);
 $updateSnapshot = UpdateStatusController::getSnapshot();
 UpdateStatusController::hydrateCoreSession($updateSnapshot);
-$pendingUpdate = $_SESSION['cms_update_remote'] ?? null;
 $pendingPackage = $_SESSION['cms_update_package'] ?? null;
-$pendingUrl = $_SESSION['cms_update_remote_url'] ?? $_SESSION['cms_update_base_url'] ?? '';
+$actionableCoreUpdate = UpdateStatusController::actionableCoreUpdate($updateSnapshot);
+if (is_string($pendingPackage) && $pendingPackage !== '') {
+    $pendingUpdate = $_SESSION['cms_update_remote'] ?? null;
+    $pendingUrl = $_SESSION['cms_update_remote_url'] ?? '';
+} else {
+    $pendingUpdate = $actionableCoreUpdate['remote'] ?? null;
+    $pendingUrl = $actionableCoreUpdate['base_url'] ?? '';
+}
 $coreUpdateStatus = $updateSnapshot['components']['core'] ?? [];
 $cmsLatest = ($coreUpdateStatus['state'] ?? 'unknown') === 'ok' && ($coreUpdateStatus['has_update'] ?? false) !== true
     ? '<span class="up-latest">' . __('Latest') . '</span>'
@@ -149,7 +155,7 @@ $totalCore = $localManifest['total_files'] ?? 0;
        &mdash; <?=_e('Source:')?> <?= htmlspecialchars($pendingUrl ?: __('uploaded')) ?></p>
 
     <div class="up-flex">
-        <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669" id="cmsApplyUpdateBtn"><?=_e('Apply Update')?></button>
+        <button type="button" class="btn btn-primary" style="background:#059669;border-color:#059669" id="cmsApplyUpdateBtn"><?=_e('Apply Update')?> v<?= htmlspecialchars((string)($pendingUpdate['version'] ?? '')) ?></button>
         <form method="post" style="display:inline">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
             <input type="hidden" name="action" value="clear_pending">

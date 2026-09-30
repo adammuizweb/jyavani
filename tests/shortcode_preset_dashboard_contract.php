@@ -132,6 +132,9 @@ $check(str_contains($source['index'], "'preset' => (string)(\$p['slug'] ?? '')")
     && str_contains($source['index'], "_e('Build Section')")
     && str_contains($source['layout_editor'], 'id="section-preset-select"')
     && str_contains($source['layout_editor'], 'render_shortcode_preset($pdo,'), 'published presets link to a Theme Section editor with preset composition controls');
+$check(str_contains($source['layout_editor'], 'class="adam-link--full">')
+    && !str_contains($source['layout_editor'], 'class="adam-link">edit preset'),
+    'the inline edit-preset help link follows the surrounding text baseline');
 $check(str_contains($source['edit'], 'id="article-category-fields"')
     && strpos($source['edit'], "_e('Include Child Categories')") > strpos($source['edit'], "_e('Category (leave empty for all)')")
     && str_contains($source['edit'], 'categoryFields.hidden = !articleSelected')
@@ -174,6 +177,12 @@ $check(str_contains($source['pagination_script'], 'currentPaginationUrl(link, ke
     && str_contains($source['pagination_script'], 'replacements.forEach(function (replacement)')
     && str_contains($source['slider_layout'], "mx === 0 && !pageLink('prev') && !pageLink('next')")
     && str_contains($source['slider_layout'], 'overflow-x: auto'), 'pagination preserves query and random history state, synchronizes duplicate roots, and keeps short slider batches reachable');
+$check(str_contains($source['slider_layout'], 'sliderpage-thumb--placeholder')
+    && str_contains($source['slider_layout'], '--sp-cols: var(--sliderpage-cols-tablet, 2)')
+    && str_contains($source['slider_layout'], '--sp-cols: var(--sliderpage-cols-mobile, 1)')
+    && str_contains($source['slider_layout'], 'grid-template-columns: minmax(0, 1fr)')
+    && str_contains($source['slider_layout'], 'getComputedStyle(track)'),
+    'built-in slider preview has visible placeholder media, responsive columns, and no empty arrow gutters before enhancement');
 $check(!str_contains($source['translations'], 'Random ordering cannot be paginated.'), 'translation seeds do not retain the obsolete random-pagination restriction');
 $check(str_contains($source['index'], 'class="adam-actions__trigger"')
     && str_contains($source['index'], 'class="adam-actions__menu" role="menu" hidden')

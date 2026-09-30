@@ -50,6 +50,7 @@ $check(url_path_is_file_like('/manifest.webmanifest') && url_path_is_file_like('
 
 $router = (string)file_get_contents($root . '/public/router.php');
 $css = (string)file_get_contents($root . '/public/static/vendor/quill/quill.snow.pub.css');
+$editorCss = (string)file_get_contents($root . '/public/static/vendor/quill/quill.snow.css');
 $themeStore = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.php');
 $updateStatus = (string)file_get_contents($root . '/app/controllers/UpdateStatusController.php');
 $updatesEndpoint = (string)file_get_contents($root . '/dashboard/admin/check_updates_ajax.php');
@@ -141,6 +142,11 @@ $check(str_contains($css, '.editor-content ol {')
 $page = (string)file_get_contents($root . '/public/views/themes/default/main/single/page.php');
 $post = (string)file_get_contents($root . '/public/views/themes/default/main/single/post.php');
 $check(str_contains($page, 'editor-content') && str_contains($post, 'editor-content'), 'default theme marks rendered editor content');
+$check(str_contains($editorCss, '.ql-editor .ql-align-center img')
+    && str_contains($css, '.editor-content .ql-align-center img')
+    && substr_count($editorCss . $css, 'margin-left: auto;') >= 2
+    && substr_count($editorCss . $css, 'margin-right: auto;') >= 2,
+    'center-aligned Quill image lines center block images in the editor and rendered content');
 
 $check(str_contains($themeStore, "!array_key_exists('folder', \$manifest)")
     && str_contains($themeStore, "hash_equals(\$folderName, \$manifest['folder'])"), 'theme update manifests use exact folder identity when declared and trusted requested identity when absent');

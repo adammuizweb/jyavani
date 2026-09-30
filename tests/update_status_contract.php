@@ -175,7 +175,9 @@ try {
 
     $payload = UpdateStatusController::publicPayload($snapshot);
     $serializedPayload = json_encode($payload, JSON_UNESCAPED_SLASHES);
-    $check($payload['total'] === 3 && count($payload['plugins']) === 1 && count($payload['themes']) === 1, 'public payload uses the same aggregate count');
+    $check($payload['total'] === 2 && $payload['cms']['has_update'] === false
+        && count($payload['plugins']) === 1 && count($payload['themes']) === 1,
+        'public payload advertises only Core updates that can open the direct apply flow');
     $check(is_string($serializedPayload) && !str_contains($serializedPayload, 'core.zip'), 'public payload does not expose package metadata');
     $check(($payload['critical_advisory']['id'] ?? '') === 'ADV-TEST', 'critical advisory remains available to the notification UI');
 
@@ -186,6 +188,13 @@ try {
     $check(!isset($_SESSION['cms_update_remote']) && !UpdateStatusController::isUpdateActionable('core'),
         'custom Core metadata cannot hydrate or pass the apply-time guard');
     $officialSnapshot = UpdateStatusController::checkAll($pdo, UpdateStatusController::officialCoreUrl(), $providers);
+    $actionableCoreUpdate = UpdateStatusController::actionableCoreUpdate($officialSnapshot);
+    $check(($actionableCoreUpdate['remote']['version'] ?? '') === '99.0.0'
+        && ($actionableCoreUpdate['base_url'] ?? '') === UpdateStatusController::officialCoreUrl(),
+        'a fresh detected Core update is directly available to the Update Manager');
+    $officialPayload = UpdateStatusController::publicPayload($officialSnapshot);
+    $check($officialPayload['cms']['has_update'] === true && $officialPayload['total'] === 3,
+        'an actionable official Core update is advertised by the dashboard notification');
     UpdateStatusController::hydrateCoreSession($officialSnapshot);
     $check(($_SESSION['cms_update_remote']['version'] ?? '') === '99.0.0'
         && ($_SESSION['cms_update_base_url'] ?? '') === UpdateStatusController::officialCoreUrl(), 'official shared Core result hydrates the existing apply flow without a second check');
@@ -196,6 +205,9 @@ try {
     $expired['components']['core']['checked_at'] = time() - 3601;
     $writeSnapshot = new ReflectionMethod(UpdateStatusController::class, 'writeSnapshot');
     $writeSnapshot->invoke(null, $expired);
+    $expiredPayload = UpdateStatusController::publicPayload(UpdateStatusController::getSnapshot());
+    $check($expiredPayload['cms']['has_update'] === false && $expiredPayload['total'] === 2,
+        'expired Core metadata is not advertised as an actionable dashboard update');
     unset($_SESSION['cms_update_remote'], $_SESSION['cms_update_base_url']);
     UpdateStatusController::hydrateCoreSession(UpdateStatusController::getSnapshot());
     $check(!isset($_SESSION['cms_update_remote']) && !UpdateStatusController::isUpdateActionable('core'), 'expired Core metadata cannot hydrate or pass the apply-time guard');
@@ -255,6 +267,7 @@ try {
     $pluginStore = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
     $themeStore = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.php');
     $coreActions = (string)file_get_contents($root . '/dashboard/admin/update/_update_actions.php');
+    $updateApply = (string)file_get_contents($root . '/dashboard/admin/update/update_apply.php');
     $config = (string)file_get_contents($root . '/cfg/config.php');
     $envSample = (string)file_get_contents($root . '/cfg/env-sample');
     $check(str_contains($endpoint, "if (\$method === 'POST')") && str_contains($endpoint, 'adiwira_csrf_validate(')
@@ -275,6 +288,11 @@ try {
     $check(str_contains($updatePage, 'data-cms-latest data-latest-class="up-latest"')
         && str_contains($javascript, "document.querySelectorAll('[data-cms-latest]')")
         && str_contains($javascript, "latest.getAttribute('data-latest-class') || 'dw-latest'"), 'dashboard and Update Manager receive the live Latest badge after an asynchronous check');
+    $check(str_contains($updatePage, 'UpdateStatusController::actionableCoreUpdate($updateSnapshot)')
+        && str_contains($updatePage, "['remote'] ?? null")
+        && str_contains($updatePage, "_e('Apply Update')")
+        && str_contains($updateApply, 'UpdateStatusController::actionableCoreUpdate()'),
+        'the Update Manager and apply endpoint consume a detected actionable Core snapshot without another check');
     $check(str_contains($layout, '/static/dashboard/js/update-notif.js?v=')
         && str_contains($layout, "filemtime(\$updateNotifFile)"), 'update notification script uses a file-version cache buster');
     $check(str_contains($layout, 'JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT'), 'remote update metadata is safe inside the dashboard script context');

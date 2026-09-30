@@ -23,9 +23,9 @@ if ($sectionTitle === '') {
 $showDesc  = !isset($attrs['show_desc']) ? true : ((string)$attrs['show_desc'] !== '0');
 
 // Visible columns
-$colsDesktop = max(1, (int)($attrs['show'] ?? 3));
-$colsTablet  = max(1, (int)($attrs['show_tablet'] ?? 2));
-$colsMobile  = max(1, (int)($attrs['show_mobile'] ?? 1));
+$colsDesktop = max(1, min(4, (int)($attrs['show'] ?? 3)));
+$colsTablet  = max(1, min($colsDesktop, (int)($attrs['show_tablet'] ?? 2)));
+$colsMobile  = max(1, min($colsTablet, (int)($attrs['show_mobile'] ?? 1)));
 
 // root style vars
 $rootStyle = sprintf(
@@ -61,11 +61,16 @@ $rootStyle = sprintf(
               $desc  = $esc($it['desc'] ?? '');
               $thumb = trim((string)($it['thumb'] ?? ''));
               $dateLabel = $esc($it['date_label'] ?? '');
+              $position = str_pad((string)($i + 1), 2, '0', STR_PAD_LEFT);
             ?>
             <article class="sliderpage-card">
               <?php if ($thumb !== ''): ?>
                 <div class="sliderpage-thumb">
                   <img src="<?= $esc($thumb) ?>" alt="" loading="lazy" decoding="async">
+                </div>
+              <?php else: ?>
+                <div class="sliderpage-thumb sliderpage-thumb--placeholder" aria-hidden="true">
+                  <span><?= $position ?></span>
                 </div>
               <?php endif; ?>
               <div class="sliderpage-card-body">
@@ -110,7 +115,6 @@ $rootStyle = sprintf(
     --sp-radius: var(--radius-md, 12px);
     --sp-container: min(1100px, 100% - 36px);
     --sp-gap: var(--space-6, 24px);
-    --sp-cols: var(--sliderpage-cols-desktop, 3);
 
     background: var(--sp-bg);
     padding: clamp(28px, 5vw, 64px) 0;
@@ -133,11 +137,15 @@ $rootStyle = sprintf(
   }
 
   .pcat--sliderpage .sliderpage-wrap{
+    --sp-cols: var(--sliderpage-cols-desktop, 3);
     position: relative;
     display: grid;
-    grid-template-columns: 44px 1fr 44px;
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
     gap: 12px;
+  }
+  .pcat--sliderpage.is-sliderpage-ready .sliderpage-wrap{
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
   }
 
   .pcat--sliderpage .sliderpage-arrow{
@@ -168,8 +176,17 @@ $rootStyle = sprintf(
     pointer-events: none;
   }
 
-  @container (max-width: 640px){
+  @container (max-width: 900px){
     .pcat--sliderpage .sliderpage-wrap{
+      --sp-cols: var(--sliderpage-cols-tablet, 2);
+    }
+  }
+
+  @container (max-width: 600px){
+    .pcat--sliderpage .sliderpage-wrap{
+      --sp-cols: var(--sliderpage-cols-mobile, 1);
+    }
+    .pcat--sliderpage.is-sliderpage-ready .sliderpage-wrap{
       grid-template-columns: 36px 1fr 36px;
       gap: 8px;
     }
@@ -182,6 +199,7 @@ $rootStyle = sprintf(
 
   .pcat--sliderpage .sliderpage-viewport{
     overflow-x: auto;
+    min-width: 0;
     width: 100%;
     scroll-snap-type: x mandatory;
     scrollbar-width: thin;
@@ -203,6 +221,7 @@ $rootStyle = sprintf(
   }
 
   .pcat--sliderpage .sliderpage-card{
+    min-width: 0;
     background: var(--sp-surface);
     border: 1px solid var(--sp-border);
     border-radius: var(--sp-radius);
@@ -222,6 +241,24 @@ $rootStyle = sprintf(
     aspect-ratio: 16/9;
     overflow: hidden;
     background: var(--sp-muted);
+  }
+
+  .pcat--sliderpage .sliderpage-thumb--placeholder{
+    box-sizing: border-box;
+    display: grid;
+    place-items: end start;
+    padding: clamp(14px, 4cqw, 24px);
+    background:
+      radial-gradient(circle at 78% 18%, rgba(255,255,255,.5), transparent 22%),
+      linear-gradient(145deg, color-mix(in srgb, var(--sp-accent) 82%, #fff), color-mix(in srgb, var(--sp-accent) 38%, var(--sp-text)));
+  }
+
+  .pcat--sliderpage .sliderpage-thumb--placeholder span{
+    color: rgba(255,255,255,.82);
+    font-size: clamp(28px, 9cqw, 58px);
+    font-weight: 900;
+    letter-spacing: -.06em;
+    line-height: .8;
   }
 
   .pcat--sliderpage .sliderpage-thumb img{
@@ -315,7 +352,7 @@ $rootStyle = sprintf(
     }
 
     function colsPerView(){
-      var style = getComputedStyle(root);
+      var style = getComputedStyle(track);
       var v = parseInt(style.getPropertyValue('--sp-cols'), 10);
       return (Number.isFinite(v) && v > 0) ? v : 3;
     }
