@@ -415,13 +415,16 @@ try {
 
     $forbiddenTokens = ['F' . 'FI', 'rename' . 'at2'];
     $forbiddenReferences = [];
-    $sources = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS));
-    foreach ($sources as $source) {
-        if (!$source->isFile() || !in_array(strtolower($source->getExtension()), ['php', 'md'], true)
-            || str_contains($source->getPathname(), DIRECTORY_SEPARATOR . '.git' . DIRECTORY_SEPARATOR)) continue;
-        $contents = (string)file_get_contents($source->getPathname());
+    $coreManifest = json_decode((string)file_get_contents($root . '/tools/cms-manifest.json'), true);
+    $managedPaths = is_array($coreManifest['files'] ?? null) ? array_keys($coreManifest['files']) : [];
+    foreach ($managedPaths as $managedPath) {
+        $extension = strtolower(pathinfo((string)$managedPath, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['php', 'md'], true)) continue;
+        $source = $root . '/' . $managedPath;
+        if (!is_file($source)) continue;
+        $contents = (string)file_get_contents($source);
         foreach ($forbiddenTokens as $token) {
-            if (str_contains($contents, $token)) $forbiddenReferences[] = $source->getPathname();
+            if (str_contains($contents, $token)) $forbiddenReferences[] = $source;
         }
     }
     $check($forbiddenReferences === [], 'package lifecycle source has no optional foreign-call or platform syscall references');

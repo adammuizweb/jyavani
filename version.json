@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.158",
+    "version": "2.3.159",
     "build": "2026-09-30",
-    "changelog": "Expose the default homepage as reusable Theme Sections while preserving Theme Zones and existing presentation.",
+    "changelog": "Keep Core package lifecycle contracts isolated from deployment-owned extension source.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.158"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.159"
 }
