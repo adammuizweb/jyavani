@@ -457,6 +457,39 @@ Only the active theme is executed. Themes remain trusted PHP packages because
 their selected templates already execute on the frontend; the dashboard does
 not load this code before authorization.
 
+### Canonical homepage composition
+
+First-party themes expose each substantial homepage block as a reusable Theme
+Section instead of keeping visual blocks and queries in one monolithic
+`main/homepage.php`. The canonical structure is:
+
+```text
+theme.php
+main/homepage.php
+partials/shortcodes/section/
+├── _home.php
+├── home.hero.php
+└── home.latest.php
+```
+
+- `theme.php` registers semantic `home.*` definitions. Homepage blocks are
+  normally non-repeatable.
+- `_home.php` owns request-cached queries, shared derived data, and narrowly
+  namespaced rendering helpers. It must work when a section is rendered before
+  the homepage and when no PDO connection is available.
+- Each public renderer owns one complete semantic block and can be rendered in
+  isolation by the section editor or `[[widget:theme_section name="home.hero"]]`.
+- `main/homepage.php` only composes `render_theme_section()` calls, empty-state
+  decisions, and declared Theme Zone positions in their visual order.
+- Theme Zones remain user-managed insertion points around reusable sections;
+  they are not a substitute for the sections themselves.
+
+Theme authors can edit registered files at
+`?page=admin/shortcodes/index&tab=layouts&scope=section`. Extraction must retain
+the previous design, localization, URL/media helpers, Customizer behavior,
+empty states, and Theme Zone ordering. No plugin or database migration is
+required.
+
 ## Theme slot context hook
 
 Plugins can augment the prepared context for every available theme slot at the

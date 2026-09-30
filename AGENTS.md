@@ -244,6 +244,9 @@ public/views/themes/{folder}/
 ├── header.php          # zone: header
 ├── footer.php          # zone: footer
 ├── sidebar.php         # optional sidebar
+├── partials/
+│   └── shortcodes/
+│       └── section/    # reusable Theme Section renderers
 ├── main/
 │   ├── homepage.php    # partial: main.homepage
 │   ├── search.php      # partial: main.search
@@ -415,6 +418,25 @@ add_filter('theme_zone_render_widget', function(string $html, string $type, arra
 ```
 
 If a gadget is registered with `sidebar_widget_types`/`render_sidebar_widget` filters, it will also work in sidebar zones.
+
+### Reusable Theme Sections
+
+Canonical themes must expose each substantial homepage block as a Theme Section. Register semantic `home.*` names from the root `theme.php`, keep one renderer per name in `partials/shortcodes/section/{name}.php`, and make `main/homepage.php` a thin composition layer that calls `render_theme_section()`. Theme Zones remain insertion points around those blocks; they do not replace the reusable sections.
+
+```php
+// theme.php
+register_theme_section('home.hero', [
+    'label' => __('Homepage Hero'),
+    'repeatable' => false,
+]);
+
+// main/homepage.php
+echo render_theme_section('home.hero', [], $pdo, ['slot' => 'main.homepage']);
+```
+
+Put shared queries and derived data in an underscore-prefixed helper such as `partials/shortcodes/section/_home.php`, cache them for the request, and require that helper from each renderer. The helper must support section previews and shortcode rendering independently of homepage composition. Files beginning with `_` are implementation details and are not editable sections.
+
+Registered renderers are editable at `?page=admin/shortcodes/index&tab=layouts&scope=section` and reusable in content with `[[widget:theme_section name="home.hero"]]`. Preserve the theme's empty states, localization, URL helpers, media fallback, Customizer values, and existing Theme Zone order when extracting a monolithic homepage.
 
 ### Builder integration (theme-builder / jyavani-builder / form-builder)
 
