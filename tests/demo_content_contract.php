@@ -37,7 +37,7 @@ $run = static function (array $arguments) use ($root): array {
 
 $manifest = $loadJson($manifestPath);
 $mediaSource = $loadJson($mediaPath);
-$check(($manifest['version'] ?? null) === 1, 'manifest contract is version 1');
+$check(($manifest['version'] ?? null) === 2, 'manifest contract is version 2');
 $check(($manifest['source_locale'] ?? null) === 'id', 'manifest source locale is Indonesian');
 $check(($mediaSource['version'] ?? null) === 1, 'media contract is version 1');
 
@@ -131,7 +131,39 @@ $expectedDocumentIds = array_merge(range(272, 296));
 $check(array_keys($documentIds) === $expectedDocumentIds, 'source document IDs are exactly 272 through 296');
 $check(($manifest['documents'][19]['id'] ?? null) === 291 && ($manifest['documents'][24]['id'] ?? null) === 296, 'new documentation IDs 291-296 are present in order');
 $check(count($relationshipPairs) === 35, 'all 35 article/category relationships are represented');
-$check(($manifest['preset']['id'] ?? null) === 300 && ($manifest['preset']['slug'] ?? null) === 'demo_random_posts', 'preset identity 300 is preserved');
+$presets = $manifest['presets'] ?? [];
+$check(is_array($presets) && array_is_list($presets) && count($presets) === 2, 'demo declares sidebar and homepage presets');
+$presetBySlug = [];
+foreach (is_array($presets) ? $presets : [] as $preset) {
+    if (is_array($preset) && is_string($preset['slug'] ?? null)) $presetBySlug[$preset['slug']] = $preset;
+}
+$randomPreset = $presetBySlug['demo_random_posts'] ?? [];
+$homePreset = $presetBySlug['demo_home_posts'] ?? [];
+$check(($randomPreset['id'] ?? null) === 300 && ($randomPreset['status'] ?? null) === 'published'
+    && ($randomPreset['metadata']['layout'] ?? null) === 'mini'
+    && ($randomPreset['metadata']['excerpt_len'] ?? null) === '90'
+    && !array_key_exists('author', $randomPreset['metadata'] ?? []), 'sidebar preset is published, runtime-valid, and not bound to user ID 1');
+$check(($homePreset['id'] ?? null) === 301 && ($homePreset['status'] ?? null) === 'published'
+    && ($homePreset['metadata']['category'] ?? null) === 'pengembangan'
+    && ($homePreset['metadata']['order_by'] ?? null) === 'created_at'
+    && ($homePreset['metadata']['layout'] ?? null) === 'cards'
+    && ($homePreset['theme_section']['name'] ?? null) === 'home.preset-posts', 'homepage preset is deterministic and declares its reusable Theme Section');
+
+$themeRoot = $root . '/public/views/themes/default';
+$themeRegistration = (string)file_get_contents($themeRoot . '/theme.php');
+$homepageSource = (string)file_get_contents($themeRoot . '/main/homepage.php');
+$sectionName = (string)($homePreset['theme_section']['name'] ?? '');
+$sectionPath = $themeRoot . '/partials/shortcodes/section/' . $sectionName . '.php';
+$sectionSource = is_file($sectionPath) ? (string)file_get_contents($sectionPath) : '';
+$check($sectionName !== '' && is_file($sectionPath)
+    && str_contains($themeRegistration, "'" . $sectionName . "'")
+    && str_contains($themeRegistration, "'preset' => 'demo_home_posts'")
+    && str_contains($themeRegistration, "'title' => '" . ($homePreset['theme_section']['title'] ?? '') . "'")
+    && str_contains($homepageSource, "render_theme_section('" . $sectionName . "'")
+    && str_contains($sectionSource, 'render_shortcode_preset($pdo, $preset'), 'manifest preset, default Theme Section renderer, and homepage composition share one exact identity');
+$guideSource = (string)file_get_contents($sourceRoot . '/articles/281-widget-shortcode.html');
+$check(str_contains($guideSource, 'demo_home_posts') && str_contains($guideSource, 'home.preset-posts')
+    && str_contains($guideSource, 'Build Section'), 'demo guide explains the shipped preset-to-section composition');
 
 $generatorSource = (string)file_get_contents($generatorPath);
 $sqlSource = (string)file_get_contents($sqlPath);
@@ -148,8 +180,17 @@ $check($secondStatus === 0, 'second generator run succeeds: ' . trim($secondErro
 $check($firstBytes === $secondBytes, 'normal generator output is byte-for-byte deterministic');
 $check($checkStatus === 0 && str_contains($checkOut, 'current'), '--check accepts the generated SQL: ' . trim($checkError ?: $checkOut));
 $check(str_contains($secondBytes, '-- Generated: 2026-08-19'), 'generated header has the canonical date');
+$check(str_contains($secondBytes, 'manifest.json (version 2)')
+    && str_contains($secondBytes, 'Requires Pondasi to set @jyavani_demo_owner_id')
+    && substr_count($secondBytes, '@jyavani_demo_owner_id') > 100, 'generated SQL binds demo ownership to the actual installer Site Owner');
 $check(str_contains($secondBytes, 'Tables written: categories, posts, media, post_categories, sidebar_zone_items.'), 'generated header describes actual tables');
-$check(substr_count($secondBytes, "'article'") >= 22 && str_contains($secondBytes, "(300, 'Demo Random Posts Preset'"), 'generated SQL includes article inventory and preset');
+$check(substr_count($secondBytes, "'article'") >= 22
+    && str_contains($secondBytes, "(300, 'Demo Random Posts Preset'")
+    && str_contains($secondBytes, "(301, 'Demo Homepage Posts Preset'"), 'generated SQL includes article inventory and both published presets');
+$check(!str_contains($secondBytes, 'SET FOREIGN_KEY_CHECKS=0')
+    && str_contains($secondBytes, 'INSERT INTO `categories`')
+    && str_contains($secondBytes, 'ON DUPLICATE KEY UPDATE `name` = VALUES(`name`)')
+    && !str_contains($secondBytes, 'REPLACE INTO `categories`'), 'demo import keeps foreign-key checks active and updates seeded categories without REPLACE delete semantics');
 $check(substr_count($secondBytes, '`updated_by`') === 2, 'generated post and preset inserts include updater attribution');
 
 if ($failures !== []) {

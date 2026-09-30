@@ -52,7 +52,12 @@ final class ContractPdo extends PDO
     {
         $this->preparedSql[] = $query;
         $rows = str_contains($query, "type = 'sc_preset'")
-            ? [['slug' => 'contract_preset', 'meta' => '{"category":"guides"}']]
+            ? [[
+                'id' => 7,
+                'title' => 'Contract preset',
+                'slug' => 'contract_preset',
+                'meta' => '{"category":"guides"}',
+            ]]
             : [[
                 'id' => 11,
                 'title' => 'Source title',
@@ -124,10 +129,17 @@ $preparedCount = count($pdo->preparedSql);
 $check(cms_posts_by_category($pdo, 'missing-category') === [], 'invalid categories return no rows');
 $check(count($pdo->preparedSql) === $preparedCount, 'invalid categories do not execute a post query');
 
+$directPreset = render_widget('contract_preset', [], $pdo, ['surface' => 'contract.direct_widget']);
+$check(isset($GLOBALS['_widget_shortcode_handlers']['contract_preset']), 'direct widget rendering lazily registers published presets');
+$check(str_contains($directPreset, 'Localized title'), 'a directly rendered preset uses its filtered collection');
 $expanded = widget_expand_shortcodes('[[widget:contract_preset]]', $pdo);
-$check(isset($GLOBALS['_widget_shortcode_handlers']['contract_preset']), 'widget expansion lazily registers published presets');
 $check(str_contains($expanded, 'Localized title'), 'a lazily registered preset renders its filtered collection');
 $check(str_contains($expanded, '/localized/source-title/'), 'a rendered preset filters collection URLs');
+$composed = render_shortcode_preset($pdo, 'contract_preset', ['limit' => 2], ['surface' => 'contract.theme_section']);
+$check(str_contains($composed, 'Localized title'), 'the public preset composition API renders through the collection pipeline');
+$resolverSql = implode("\n", $pdo->preparedSql);
+$check(str_contains($resolverSql, "status = 'published'") && str_contains($resolverSql, 'is_deleted = 0'), 'preset composition resolves only published non-deleted presets');
+$check(render_shortcode_preset($pdo, '../invalid') === '', 'preset composition rejects invalid public identifiers');
 $check(
     post_cat__excerpt('<p>Roles &amp; Permissions</p>', 80) === 'Roles & Permissions',
     'post category excerpts decode HTML entities before template escaping'

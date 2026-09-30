@@ -10,6 +10,8 @@ $files = [
     'bulk' => $root . '/dashboard/admin/shortcodes/bulk_action.php',
     'helper' => $root . '/cfg/helpers/shortcode_builder.php',
     'preview' => $root . '/dashboard/admin/shortcodes/preview_layout.php',
+    'widget' => $root . '/cfg/helpers/widget_helper.php',
+    'layout_editor' => $root . '/dashboard/admin/shortcodes/layout.php',
     'translations' => $root . '/schema/translations.sql',
 ];
 $source = array_map(static fn(string $file): string => (string)file_get_contents($file), $files);
@@ -70,7 +72,7 @@ $check(str_contains($widgetRuntime, 'shortcode_preset_validate_config(')
     && str_contains($widgetRuntime, "? 'persisted_preset' : 'public_runtime'")
     && str_contains($widgetRuntime, "'trust' => \$runtimeTrust")
     && str_contains($widgetRuntime, "'allow_provider_binding' => \$runtimeTrust !== 'persisted_preset'"), 'runtime provider validation uses explicit persisted or untrusted public trust context');
-$check(str_contains($source['helper'], 'shortcode_preset_merge_runtime_overrides($runtimeConfig, $vars, $pdo, $runtimeContext)')
+$check(str_contains($source['helper'], 'shortcode_preset_merge_runtime_overrides($runtimeConfig, $overrides, $pdo, $runtimeContext)')
     && str_contains($source['helper'], "'trust' => 'persisted_preset'")
     && str_contains($source['preview'], "'trust' => 'persisted_preset'"), 'persisted runtime and preview paths preserve trusted filters while protecting privileged overrides');
 $check(str_contains($source['helper'], "\$publicOverrideFields = \$provider['public_override_fields'] ?? []")
@@ -94,7 +96,8 @@ $check(str_contains($source['bulk'], '$affected = $stmt->rowCount()'), 'bulk res
 $check(str_contains($source['delete'], '$pdo->beginTransaction()') && str_contains($source['delete'], 'shortcode_preset_before_delete($pdo, $id)') && strpos($source['delete'], 'shortcode_preset_before_delete') < strpos($source['delete'], 'UPDATE posts SET is_deleted'), 'single preset pre-delete hook runs inside a transaction before source deletion');
 $check(str_contains($source['bulk'], 'shortcode_preset_before_delete($pdo, $deletedId)') && strpos($source['bulk'], 'shortcode_preset_before_delete') < strpos($source['bulk'], 'UPDATE posts SET is_deleted') && strpos($source['bulk'], 'shortcode_preset_before_delete') < strpos($source['bulk'], '$pdo->commit()'), 'bulk preset pre-delete hooks run inside the shared transaction before source deletion');
 $check(str_contains($source['helper'], "do_action('admin_shortcode_preset_before_delete'") && str_contains($source['helper'], '!$pdo->inTransaction()'), 'shared pre-delete contract enforces an active transaction and lets listener failures propagate');
-$check(str_contains($source['helper'], "apply_filters('shortcode_preset_runtime_config'") && strpos($source['helper'], "apply_filters('shortcode_preset_runtime_config'") > strpos($source['helper'], 'register_widget_shortcode_handler($slug'), 'runtime preset config filtering is deferred into the render handler');
+$check(str_contains($source['helper'], "apply_filters('shortcode_preset_runtime_config'")
+    && str_contains($source['helper'], 'return shortcode_preset_render_row($pdo, $p, $vars, $ctx, $config);'), 'runtime preset config filtering is deferred into the shared render pipeline');
 $check(str_contains($source['helper'], "apply_filters('shortcode_preset_preview_config'") && str_contains($source['helper'], "do_action('shortcode_preset_preview_configured'"), 'Core exposes preview-config filter and event contracts');
 $check(str_contains($source['helper'], "apply_filters('shortcode_preset_preview_result'") && str_contains($source['preview'], 'shortcode_preset_preview_result(null, $config'), 'preset preview exposes a source-aware render/result contract before Core post queries');
 $check(substr_count($source['preview'], 'shortcode_preset_prepare_preview_config($config, $role === \'admin\'') === 2, 'inline and stored previews validate with the actual caller role');
@@ -104,6 +107,18 @@ $check(str_contains($source['helper'], 'getPrevious') === false && str_contains(
 $check(str_contains($source['save'], 'admin_shortcode_preset_after_add') && str_contains($source['save'], 'admin_shortcode_preset_after_edit') && str_contains($source['delete'], 'admin_shortcode_preset_after_delete') && str_contains($source['bulk'], 'admin_shortcode_preset_after_delete'), 'successful CRUD and bulk delete paths fire stable admin lifecycle hooks');
 $check(str_contains($source['save'], "do_action('admin_shortcode_preset_after_add', \$newId, \$pdo, \$_POST)") && str_contains($source['save'], "do_action('admin_shortcode_preset_after_edit', \$id, \$pdo, \$_POST)"), 'add and edit lifecycle hook arguments match Core admin conventions');
 $check(!str_contains(implode("\n", $source), 'shortcode_preset_pre_save_config') && !preg_match('/(?<!admin_)shortcode_preset_after_(?:add|edit|delete)/', implode("\n", $source)), 'superseded candidate hook names are absent');
+$check(str_contains($source['helper'], 'function render_shortcode_preset(')
+    && str_contains($source['helper'], 'shortcode_preset_find_published($pdo, $preset)')
+    && str_contains($source['helper'], 'shortcode_preset_render_row($pdo, $row, $overrides, $context)'), 'Core exposes a first-class published-preset composition API');
+$check(str_contains($source['helper'], 'composition cycle detected for preset')
+    && str_contains($source['helper'], 'finally')
+    && str_contains($source['helper'], 'array_pop($renderStack)'), 'preset composition has a bounded request-local cycle guard');
+$check(str_contains($source['widget'], 'function_exists(\'load_preset_widgets\')')
+    && strpos($source['widget'], 'load_preset_widgets($pdo)') < strpos($source['widget'], '// Fallback: registered shortcode-based handler'), 'direct widget rendering lazily loads stored preset handlers before handler fallback');
+$check(str_contains($source['index'], "'preset' => (string)(\$p['slug'] ?? '')")
+    && str_contains($source['index'], "_e('Build Section')")
+    && str_contains($source['layout_editor'], 'id="section-preset-select"')
+    && str_contains($source['layout_editor'], 'render_shortcode_preset($pdo,'), 'published presets link to a Theme Section editor with preset composition controls');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

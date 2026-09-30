@@ -398,6 +398,94 @@ function shortcode_preset_config_loaded(string|array|null $stored, array $preset
   return is_array($filtered) ? $filtered : $config;
 }
 
+/** Resolve one public preset without exposing draft or deleted configuration. */
+function shortcode_preset_find_published(PDO $pdo, string|int $preset): ?array {
+  if (is_int($preset)) {
+    if ($preset < 1) return null;
+    $stmt = $pdo->prepare("SELECT id, title, slug, meta FROM posts WHERE id = :preset AND type = 'sc_preset' AND status = 'published' AND is_deleted = 0 LIMIT 1");
+    $params = [':preset' => $preset];
+  } else {
+    $slug = strtolower(trim($preset));
+    if (!shortcode_preset_slug_is_valid($slug)) return null;
+    $stmt = $pdo->prepare("SELECT id, title, slug, meta FROM posts WHERE slug = :preset AND type = 'sc_preset' AND status = 'published' AND is_deleted = 0 LIMIT 1");
+    $params = [':preset' => $slug];
+  }
+  if (!$stmt || !$stmt->execute($params)) return null;
+  $row = $stmt->fetch(PDO::FETCH_ASSOC);
+  return is_array($row) ? $row : null;
+}
+
+/** Render a trusted preset row through the same collection pipeline as its widget shortcode. */
+function shortcode_preset_render_row(
+  PDO $pdo,
+  array $preset,
+  array $overrides = [],
+  array $context = [],
+  ?array $loadedConfig = null
+): string {
+  $presetId = (int)($preset['id'] ?? 0);
+  $slug = is_string($preset['slug'] ?? null) ? strtolower(trim($preset['slug'])) : '';
+  if ($presetId < 1 || !shortcode_preset_slug_is_valid($slug)) return '';
+
+  static $renderStack = [];
+  $stackKey = spl_object_id($pdo) . ':' . $presetId;
+  if (in_array($stackKey, $renderStack, true) || count($renderStack) >= 20) {
+    error_log('[shortcode_preset] composition cycle detected for preset ' . $slug);
+    return '';
+  }
+  $renderStack[] = $stackKey;
+
+  try {
+    if (!function_exists('post_cat_shortcode_render')) {
+      $helper = __DIR__ . '/widget_shortcodes_p.php';
+      if (is_file($helper)) require_once $helper;
+    }
+    if (!function_exists('post_cat_shortcode_render')) return '';
+
+    $config = $loadedConfig ?? shortcode_preset_config_loaded(
+      (string)($preset['meta'] ?? '{}'),
+      $preset,
+      $pdo,
+      ['scope' => 'runtime']
+    );
+    $runtimeConfig = apply_filters('shortcode_preset_runtime_config', $config, $preset, $pdo, $context);
+    if (!is_array($runtimeConfig)) $runtimeConfig = $config;
+    do_action('shortcode_preset_runtime', $preset, $runtimeConfig, $pdo, $context);
+
+    $runtimeContext = array_merge($context, [
+      'preset_id' => $presetId,
+      'preset_slug' => $slug,
+      'trust' => 'persisted_preset',
+    ]);
+    return post_cat_shortcode_render(
+      $pdo,
+      shortcode_preset_merge_runtime_overrides($runtimeConfig, $overrides, $pdo, $runtimeContext),
+      $runtimeContext
+    );
+  } catch (Throwable $error) {
+    error_log('[shortcode_preset] render failed for ' . $slug . ': ' . $error->getMessage());
+    return '';
+  } finally {
+    array_pop($renderStack);
+  }
+}
+
+/** Public composition API for Theme Sections, templates, and other trusted PHP renderers. */
+function render_shortcode_preset(
+  PDO $pdo,
+  string|int $preset,
+  array $overrides = [],
+  array $context = []
+): string {
+  try {
+    $row = shortcode_preset_find_published($pdo, $preset);
+    return $row === null ? '' : shortcode_preset_render_row($pdo, $row, $overrides, $context);
+  } catch (Throwable $error) {
+    error_log('[shortcode_preset] resolution failed: ' . $error->getMessage());
+    return '';
+  }
+}
+
 function shortcode_preset_preview_config(array $config, array $context = [], ?PDO $pdo = null): array {
   $filtered = apply_filters('shortcode_preset_preview_config', $config, $context, $pdo);
   if (is_array($filtered)) $config = $filtered;
@@ -884,23 +972,7 @@ if (!function_exists('load_preset_widgets')) {
 
       if (function_exists('register_widget_shortcode_handler')) {
         register_widget_shortcode_handler($slug, function(PDO $pdo, array $vars, array $ctx = []) use ($config, $p) {
-          if (!function_exists('post_cat_shortcode_render')) {
-            $helper = __DIR__ . '/widget_shortcodes_p.php';
-            if (is_file($helper)) require_once $helper;
-          }
-          if (!function_exists('post_cat_shortcode_render')) return '';
-          $runtimeConfig = apply_filters('shortcode_preset_runtime_config', $config, $p, $pdo, $ctx);
-          if (!is_array($runtimeConfig)) $runtimeConfig = $config;
-          do_action('shortcode_preset_runtime', $p, $runtimeConfig, $pdo, $ctx);
-          $runtimeContext = array_merge($ctx, [
-            'preset_id' => (int)($p['id'] ?? 0),
-            'trust' => 'persisted_preset',
-          ]);
-          return post_cat_shortcode_render(
-            $pdo,
-            shortcode_preset_merge_runtime_overrides($runtimeConfig, $vars, $pdo, $runtimeContext),
-            $runtimeContext
-          );
+          return shortcode_preset_render_row($pdo, $p, $vars, $ctx, $config);
         }, $config, 'preset', $presetId);
       }
     }

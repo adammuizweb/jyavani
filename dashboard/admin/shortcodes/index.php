@@ -221,6 +221,12 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
               $st = strtolower(trim((string)($p['status'] ?? 'draft')));
               $stClass = in_array($st, ['published','draft','private'], true) ? $st : 'unknown';
               $editHref = $base . '/?' . http_build_query(['page' => 'admin/shortcodes/edit', 'id' => (int)$p['id'], 'return_to' => $presetReturnTo]);
+              $sectionHref = $base . '/?' . http_build_query([
+                'page' => 'admin/shortcodes/layout',
+                'scope' => 'section',
+                'preset' => (string)($p['slug'] ?? ''),
+                'return_to' => $presetReturnTo,
+              ]);
             ?>
             <tr class="adam-row sc-presets-table-row">
               <td><input type="checkbox" class="preset-row-check" name="ids[]" value="<?= (int)$p['id'] ?>" aria-label="<?= h(sprintf(__('Select %s'), (string)($p['title'] ?? ''))) ?>"></td>
@@ -231,6 +237,10 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
               <td><?= h(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$p['created_at']) : (string)$p['created_at']) ?></td>
               <td>
                 <a class="adam-ubah" href="<?= h($editHref) ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
+                <?php if ($isSiteOwner && $st === 'published'): ?>
+                  &nbsp;<span class="muted-divider">|</span>&nbsp;
+                  <a class="adam-ubah" href="<?= h($sectionHref) ?>"><?= svg_ico('panel-top', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Build Section')?></a>
+                <?php endif; ?>
                 &nbsp;<span class="muted-divider">|</span>&nbsp;
                 <button type="button" class="adam-hapus js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>"><?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?></button>
               </td>
@@ -336,7 +346,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
         </select>
         <button type="submit" id="layout-bulk-submit" class="adam-button"><?=_e('Apply')?></button>
       </div>
-      <small class="sc-bulk-hint"><?= $layoutScope === 'collection' ? __('Built-in layouts stay protected and cannot be selected.') : __('Bulk only affects checked items.') ?></small>
+      <small class="sc-bulk-hint"><?= $layoutScope === 'collection' ? __('Built-in layouts stay protected and cannot be selected.') : __('Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.') ?></small>
     </div>
   <div class="adam-table-wrapper">
     <table class="adam-table">
@@ -359,7 +369,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
             $layoutName = (string)$layout['name'];
             $fsize = (int)$layout['size'];
             $fsizeStr = $fsize > 1024 ? round($fsize / 1024, 1) . ' KB' : $fsize . ' B';
-            $canDelete = !$layout['builtin'];
+            $canDelete = !$layout['builtin'] && !($layout['protected'] ?? false);
             $typeLabel = $layoutScope === 'section'
               ? ($layout['registered'] ? __('Registered') : __('Unregistered'))
               : ($layout['builtin'] ? __('Built-in') : __('Custom'));
@@ -375,7 +385,8 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
                 <?php if ($canDelete): ?>
                   <input type="checkbox" class="layout-row-check" name="files[]" value="<?= h($f) ?>" aria-label="<?= h(sprintf(__('Select %s'), $layoutName)) ?>">
                 <?php else: ?>
-                  <input type="checkbox" disabled aria-label="<?= h(__('Built-in layouts stay protected and cannot be selected.')) ?>" title="<?= h(__('Built-in layouts stay protected and cannot be selected.')) ?>">
+                  <?php $protectedLabel = $layoutScope === 'section' ? __('Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.') : __('Built-in layouts stay protected and cannot be selected.'); ?>
+                  <input type="checkbox" disabled aria-label="<?= h($protectedLabel) ?>" title="<?= h($protectedLabel) ?>">
                 <?php endif; ?>
               </td>
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h($f) ?></a></td>
@@ -557,7 +568,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
 
   <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);display:flex;align-items:center;gap:5px;"><?= svg_ico('puzzle', '', ['style' => 'width:16px;height:16px']) ?> <?=_e('Layout — Visual Template for Post Display')?></h4>
   <p style="margin:0 0 .5rem;">
-    <?=_e('A layout is a <strong>PHP file</strong> in <code>views/partials/shortcodes/post_cat/</code> that controls <em>how</em> posts/pages are rendered. Six built-in layouts are available:')?>
+    <?=_e('A layout is a <strong>PHP file</strong> in <code>public/views/partials/shortcodes/post_cat/</code> that controls <em>how</em> posts/pages are rendered. Six built-in layouts are available:')?>
   </p>
   <ul style="margin:0 0 .5rem;padding-left:1.2rem;">
     <li><code>list</code> — <?=_e('vertical list with excerpt')?></li>

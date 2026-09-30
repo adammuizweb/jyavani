@@ -63,7 +63,7 @@ try {
             adiwira_json(['ok' => false, 'error' => __('Invalid section name.')], 400);
         }
 
-        $attrs = [
+        $previewAttrs = [
             'title' => __('Theme Section Preview'),
             'summary' => __('Shortcode attributes and page context are available to this active-theme renderer.'),
             'url' => '#preview',
@@ -73,8 +73,14 @@ try {
             'type' => 'theme',
             'title' => __('Preview Page'),
             'slug' => 'preview-page',
+            'preview' => true,
+            'surface' => 'dashboard.theme_section',
         ];
         $definition = function_exists('theme_section_definition') ? theme_section_definition($sectionName) : [];
+        $defaults = is_array($definition['defaults'] ?? null) ? $definition['defaults'] : [];
+        $attrs = array_merge($defaults, $previewAttrs);
+        $filteredAttrs = apply_filters('theme_section_attrs', $attrs, $sectionName, $definition, $context, $pdo);
+        if (is_array($filteredAttrs)) $attrs = $filteredAttrs;
         $section = $sectionName;
         $section_name = $sectionName;
 
@@ -95,6 +101,7 @@ try {
             throw new RuntimeException(__('Failed to prepare template preview.'));
         }
 
+        do_action('theme_section_before_render', $sectionName, $attrs, $context, $pdo);
         ob_start();
         (static function () use ($tmpFile, $section, $section_name, $attrs, $context, $definition, $esc, $safeUrl, $pdo): void {
             extract([
@@ -110,6 +117,8 @@ try {
             include $tmpFile;
         })();
         $html = (string)ob_get_clean();
+        $html = (string)apply_filters('theme_section_html', $html, $sectionName, $attrs, $context, $pdo, $sectionSourceFile);
+        do_action('theme_section_after_render', $sectionName, $html, $attrs, $context, $pdo);
         if (trim($html) === '') {
             $html = '<div style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('Template produced no output.') . '</div>';
         }

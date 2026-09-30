@@ -178,6 +178,21 @@ function shortcode_layout_preview_bind_source_path(string $content, string $sour
     return $output;
 }
 
+function shortcode_layout_parse_widget_attributes(string $attributeText): array
+{
+    if (function_exists('widget_parse_attrs')) return widget_parse_attrs($attributeText);
+    if (function_exists('post_cat__parse_attrs')) return post_cat__parse_attrs($attributeText);
+
+    $attrs = [];
+    preg_match_all('/([a-zA-Z_][a-zA-Z0-9_-]*)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s]+))/', $attributeText, $attributes, PREG_SET_ORDER);
+    foreach ($attributes as $attribute) {
+        $attrs[strtolower((string)$attribute[1])] = $attribute[2] !== ''
+            ? $attribute[2]
+            : ($attribute[3] !== '' ? $attribute[3] : $attribute[4]);
+    }
+    return $attrs;
+}
+
 function shortcode_layout_collection_dependencies(PDO $pdo, array $names): array
 {
     $names = array_values(array_unique(array_filter(
@@ -233,6 +248,146 @@ function shortcode_layout_collection_dependencies(PDO $pdo, array $names): array
     foreach (array_keys($dependencies) as $layout) {
         if (!in_array($layout, $names, true) || !is_array($dependencies[$layout]) || $dependencies[$layout] === []) {
             unset($dependencies[$layout]);
+        }
+    }
+    return $dependencies;
+}
+
+function shortcode_layout_theme_section_dependencies(PDO $pdo, array $names, bool $scanStoredContent = true): array
+{
+    $names = array_values(array_unique(array_filter(
+        $names,
+        static fn(mixed $name): bool => is_string($name)
+            && function_exists('theme_section_name_is_valid')
+            && theme_section_name_is_valid($name)
+    ), SORT_STRING));
+    if ($names === []) return [];
+
+    $dependencies = [];
+    $definitions = function_exists('theme_section_definitions') ? theme_section_definitions() : [];
+    foreach ($names as $name) {
+        if (array_key_exists($name, $definitions)) {
+            $dependencies[$name][] = ['kind' => 'registered', 'id' => 0, 'title' => $name];
+        }
+    }
+
+    if ($scanStoredContent) {
+        $dependencyWhere = "is_deleted = 0
+              AND type IN ('sc_preset', 'article', 'page', 'theme')
+              AND content LIKE :theme_section_marker";
+        $summaryStmt = $pdo->prepare("SELECT COUNT(*) AS match_count,
+                COALESCE(SUM(OCTET_LENGTH(content)), 0) AS match_bytes,
+                COALESCE(MAX(OCTET_LENGTH(content)), 0) AS max_bytes
+            FROM posts WHERE " . $dependencyWhere);
+        if (!$summaryStmt || !$summaryStmt->execute([':theme_section_marker' => '%theme_section%'])) {
+            throw new ShortcodeLayoutManagerException(shortcode_layout_message('Could not verify layout dependencies.'));
+        }
+        $summary = $summaryStmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($summary)
+            || (int)($summary['match_count'] ?? 0) > 5000
+            || (int)($summary['match_bytes'] ?? 0) > 16777216
+            || (int)($summary['max_bytes'] ?? 0) > 1048576) {
+            throw new ShortcodeLayoutManagerException(shortcode_layout_message('Could not verify layout dependencies.'));
+        }
+
+        $stmt = $pdo->prepare("SELECT id, title, slug, type, content, OCTET_LENGTH(content) AS content_bytes
+            FROM posts
+            WHERE " . $dependencyWhere . "
+            LIMIT 5001");
+        if (!$stmt || !$stmt->execute([':theme_section_marker' => '%theme_section%'])) {
+            throw new ShortcodeLayoutManagerException(shortcode_layout_message('Could not verify layout dependencies.'));
+        }
+        $matchedPosts = 0;
+        $matchedBytes = 0;
+        while (($post = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+            $matchedPosts++;
+            $content = is_string($post['content'] ?? null) ? $post['content'] : '';
+            $contentBytes = (int)($post['content_bytes'] ?? strlen($content));
+            $matchedBytes += max(0, $contentBytes);
+            if ($matchedPosts > 5000 || $contentBytes > 1048576 || $matchedBytes > 16777216) {
+                throw new ShortcodeLayoutManagerException(shortcode_layout_message('Could not verify layout dependencies.'));
+            }
+            if ($content === '') continue;
+            $content = function_exists('post_cat_shortcode_normalize_brackets')
+                ? post_cat_shortcode_normalize_brackets($content)
+                : (string)preg_replace_callback(
+                    '/&#(?:0*91|x0*5b|0*93|x0*5d);/i',
+                    static fn(array $match): string => preg_match('/(?:91|5b);$/i', $match[0]) === 1 ? '[' : ']',
+                    $content
+                );
+            if (!preg_match_all('/\[\[\s*widget:theme_section\s*([^\]]*)\]\]/i', $content, $matches, PREG_SET_ORDER)) continue;
+            foreach ($matches as $match) {
+                $attributeText = trim((string)($match[1] ?? ''));
+                $attrs = shortcode_layout_parse_widget_attributes($attributeText);
+                $name = is_string($attrs['name'] ?? null) ? strtolower(trim($attrs['name'])) : '';
+                if (!in_array($name, $names, true)) continue;
+                $dependencies[$name][] = [
+                    'kind' => 'content',
+                    'id' => (int)($post['id'] ?? 0),
+                    'title' => (string)($post['title'] ?? $post['slug'] ?? ''),
+                ];
+            }
+        }
+    }
+
+    $directory = shortcode_layout_directory($pdo, 'section');
+    $identity = is_string($directory) ? shortcode_layout_section_identity($directory) : null;
+    $themeRoot = is_array($identity)
+        ? realpath($identity['themes_root'] . DIRECTORY_SEPARATOR . $identity['theme_folder'])
+        : false;
+    if ($themeRoot && is_dir($themeRoot) && !is_link($themeRoot)) {
+        $fileCount = 0;
+        $totalBytes = 0;
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($themeRoot, FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($iterator as $item) {
+            if ($item->isLink() || !$item->isFile() || strtolower($item->getExtension()) !== 'php') continue;
+            $path = $item->getPathname();
+            $relative = ltrim(substr($path, strlen($themeRoot)), DIRECTORY_SEPARATOR);
+            if (str_starts_with(str_replace(DIRECTORY_SEPARATOR, '/', $relative), 'assets/')) continue;
+            $size = $item->getSize();
+            $fileCount++;
+            $totalBytes += max(0, $size);
+            if ($fileCount > 5000 || $size > 1048576 || $totalBytes > 16777216) {
+                throw new ShortcodeLayoutManagerException(shortcode_layout_message('Could not verify layout dependencies.'));
+            }
+            $source = file_get_contents($path);
+            if (!is_string($source) || $source === '') continue;
+
+            if (preg_match_all('/\brender_theme_section\s*\(\s*(?:name\s*:\s*)?([\'\"])([a-z][a-z0-9]*(?:[._-][a-z0-9]+)*)\1/i', $source, $calls, PREG_SET_ORDER)) {
+                foreach ($calls as $call) {
+                    $name = strtolower((string)($call[2] ?? ''));
+                    if (!in_array($name, $names, true) || realpath($directory . DIRECTORY_SEPARATOR . $name . '.php') === realpath($path)) continue;
+                    $dependencies[$name][] = ['kind' => 'theme_template', 'id' => 0, 'title' => $relative];
+                }
+            }
+            if (preg_match_all('/\[\[\s*widget:theme_section\s*([^\]]*)\]\]/i', $source, $shortcodes, PREG_SET_ORDER)) {
+                foreach ($shortcodes as $shortcode) {
+                    $attributeText = trim((string)($shortcode[1] ?? ''));
+                    $attrs = shortcode_layout_parse_widget_attributes($attributeText);
+                    $name = is_string($attrs['name'] ?? null) ? strtolower(trim($attrs['name'])) : '';
+                    if (in_array($name, $names, true)) {
+                        $dependencies[$name][] = ['kind' => 'theme_template', 'id' => 0, 'title' => $relative];
+                    }
+                }
+            }
+        }
+    }
+
+    $declared = apply_filters('theme_section_dependency_names', [], $names, $pdo);
+    if (is_array($declared)) {
+        foreach ($declared as $name) {
+            if (is_string($name) && in_array($name, $names, true)) {
+                $dependencies[$name][] = ['kind' => 'declared', 'id' => 0, 'title' => 'plugin'];
+            }
+        }
+    }
+    $filtered = apply_filters('theme_section_dependencies', $dependencies, $names, $pdo);
+    if (is_array($filtered)) $dependencies = $filtered;
+    foreach (array_keys($dependencies) as $name) {
+        if (!in_array($name, $names, true) || !is_array($dependencies[$name]) || $dependencies[$name] === []) {
+            unset($dependencies[$name]);
         }
     }
     return $dependencies;
@@ -411,6 +566,14 @@ function shortcode_layout_list(PDO $pdo, string $scope): array
                 'registered' => $scope === 'section' && array_key_exists($name, $definitions),
             ];
         }
+        if ($scope === 'section' && $layouts !== []) {
+            $dependencies = shortcode_layout_theme_section_dependencies($pdo, array_column($layouts, 'name'), false);
+            foreach ($layouts as &$layout) {
+                $layout['protected'] = isset($dependencies[$layout['name']]);
+                $layout['dependencies'] = $dependencies[$layout['name']] ?? [];
+            }
+            unset($layout);
+        }
         usort($layouts, static fn(array $a, array $b): int => strcmp($a['file'], $b['file']));
         return $layouts;
     });
@@ -545,6 +708,21 @@ function shortcode_layout_delete_files(PDO $pdo, string $scope, array $files): i
                     ? 'Layout "%s" is used by an active preset and cannot be removed.'
                     : 'Layout "%s" has an active content or plugin dependency and cannot be removed.',
                 $layout
+            ));
+        }
+    } else {
+        $dependencies = shortcode_layout_theme_section_dependencies(
+            $pdo,
+            array_map(static fn(string $file): string => substr($file, 0, -4), array_keys($targets))
+        );
+        if ($dependencies !== []) {
+            $section = (string)array_key_first($dependencies);
+            $kind = (string)($dependencies[$section][0]['kind'] ?? 'dependency');
+            throw new ShortcodeLayoutManagerException(shortcode_layout_message(
+                $kind === 'registered'
+                    ? 'Registered Theme Section "%s" cannot be removed.'
+                    : 'Theme Section "%s" has an active content or plugin dependency and cannot be removed.',
+                $section
             ));
         }
     }

@@ -710,10 +710,10 @@ VALUES
 -- Default categories
 INSERT IGNORE INTO `categories` (`id`, `name`, `slug`, `description`, `created_by`)
 VALUES
-  (1, 'Panduan',      'panduan',      'Artikel panduan langkah demi langkah menggunakan Jyavani CMS', 1),
-  (2, 'Keamanan',     'keamanan',     'Artikel tentang keamanan, privasi, proteksi data, dan akses kontrol', 1),
-  (3, 'Pengembangan', 'pengembangan', 'Artikel tentang theme, plugin, widget, shortcodes, dan pengembangan fitur CMS', 1),
-  (4, 'Sistem',       'sistem',       'Artikel tentang administrasi sistem, maintenance, update, dan manajemen user', 1);
+  (1, 'Panduan',      'panduan',      'Artikel panduan langkah demi langkah menggunakan Jyavani CMS', NULL),
+  (2, 'Keamanan',     'keamanan',     'Artikel tentang keamanan, privasi, proteksi data, dan akses kontrol', NULL),
+  (3, 'Pengembangan', 'pengembangan', 'Artikel tentang theme, plugin, widget, shortcodes, dan pengembangan fitur CMS', NULL),
+  (4, 'Sistem',       'sistem',       'Artikel tentang administrasi sistem, maintenance, update, dan manajemen user', NULL);
 
 -- Default "Sidebar Alt" sidebar zone
 INSERT IGNORE INTO `sidebar_zones` (`id`, `name`, `slug`, `description`, `is_primary`) VALUES (3, 'Sidebar Alt', 'altsid', '', 1);

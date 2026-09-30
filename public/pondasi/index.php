@@ -25,6 +25,7 @@ $envFile = $cfgDir . '/.env';
 $schemaDir = $projectRoot . '/schema';
 $sessionDir = $cfgDir . '/var/sessions';
 require_once $cfgDir . '/helpers/time_helpers.php';
+require_once $cfgDir . '/installer_demo.php';
 date_default_timezone_set(app_timezone_default_id());
 $normalizedProjectRoot = str_replace('\\', '/', $projectRoot);
 if (PHP_OS_FAMILY === 'Linux' && preg_match('#^/mnt/[a-z](?:/|$)#i', $normalizedProjectRoot) === 1) {
@@ -82,32 +83,6 @@ function split_sql_statements(string $sql): array {
         $statements[] = $trimmed;
     }
     return $statements;
-}
-
-function copy_demo_assets(string $sourceDir, string $targetDir): int {
-    if (!is_dir($sourceDir)) return 0;
-    $copied = 0;
-    $it = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($sourceDir, RecursiveDirectoryIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
-    );
-    foreach ($it as $fileinfo) {
-        $srcPath = $fileinfo->getPathname();
-        $relPath = substr($srcPath, strlen($sourceDir));
-        $dstPath = $targetDir . $relPath;
-        if ($fileinfo->isDir()) {
-            if (!is_dir($dstPath)) {
-                mkdir($dstPath, 0755, true);
-            }
-        } else {
-            $dir = dirname($dstPath);
-            if (!is_dir($dir)) mkdir($dir, 0755, true);
-            if (@copy($srcPath, $dstPath)) {
-                $copied++;
-            }
-        }
-    }
-    return $copied;
 }
 
 function h(string $s): string {
@@ -307,6 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             try {
+                $demoAssetOperation = null;
                 $dsn = "mysql:host={$dbFields['DB_HOST']};port={$dbFields['DB_PORT']};dbname={$dbFields['DB_NAME']};charset=utf8mb4";
                 $pdo = new PDO($dsn, $dbFields['DB_USER'], $dbFields['DB_PASS'], [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -357,6 +333,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($assignRole->rowCount() !== 1) {
                     throw new RuntimeException('Role Administrator tidak tersedia.');
                 }
+
+                $defaultCategoryRows = $pdo->query('SELECT id, slug FROM categories WHERE id IN (1, 2, 3, 4) ORDER BY id FOR UPDATE');
+                $defaultCategoryIdentity = $defaultCategoryRows ? $defaultCategoryRows->fetchAll(PDO::FETCH_KEY_PAIR) : [];
+                if ($defaultCategoryIdentity !== [1 => 'panduan', 2 => 'keamanan', 3 => 'pengembangan', 4 => 'sistem']) {
+                    throw new RuntimeException('Identitas kategori bawaan tidak valid.');
+                }
+                $bindDefaultCategories = $pdo->prepare('UPDATE categories SET created_by = :owner WHERE id IN (1, 2, 3, 4)');
+                $bindDefaultCategories->execute([':owner' => $siteOwnerId]);
 
                 $auditOwner = $pdo->prepare(
                     "INSERT INTO authorization_audit_log
@@ -410,21 +394,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $installDemo = (int)($_POST['install_demo'] ?? 0) === 1;
                 if ($installDemo) {
                     $demoSql = $schemaDir . '/demo.sql';
-                    if (is_file($demoSql)) {
-                        $dsql = file_get_contents($demoSql);
-                        if ($dsql !== false) {
-                            $dsql = str_replace("\\\\'", "''", $dsql);
-                            $dstmts = split_sql_statements($dsql);
-                            foreach ($dstmts as $dstmt) {
-                                $pdo->exec($dstmt);
-                            }
+                    if (!is_file($demoSql)) throw new RuntimeException('Seed konten demo wajib tidak ditemukan.');
+                    $dsql = file_get_contents($demoSql);
+                    if ($dsql === false || trim($dsql) === '') throw new RuntimeException('Seed konten demo tidak dapat dibaca.');
+                    $dsql = str_replace("\\\\'", "''", $dsql);
+                    $dstmts = split_sql_statements($dsql);
+                    if ($dstmts === []) throw new RuntimeException('Seed konten demo kosong.');
+
+                    $pdo->exec('SET @jyavani_demo_owner_id = ' . (int)$siteOwnerId);
+                    try {
+                        foreach ($dstmts as $dstmt) {
+                            $pdo->exec($dstmt);
+                        }
+                    } finally {
+                        try {
+                            $pdo->exec('SET @jyavani_demo_owner_id = NULL');
+                        } catch (Throwable $clearError) {
+                            error_log('Pondasi could not clear the demo owner variable: ' . $clearError->getMessage());
                         }
                     }
                     $demoAssetsDir = $schemaDir . '/demo-assets';
-                    copy_demo_assets($demoAssetsDir, $publicDir);
+                    $demoAssetOperation = pondasi_demo_assets_publish($demoAssetsDir, $publicDir);
                 }
 
                 $pdo->commit();
+                $demoAssetOperation = null;
 
                 $written = @file_put_contents($envFile, $envContent, LOCK_EX);
                 if ($written === false) {
@@ -437,6 +431,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Throwable $e) {
                 if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
                     $pdo->rollBack();
+                }
+                if (isset($demoAssetOperation) && is_array($demoAssetOperation)) {
+                    pondasi_demo_assets_rollback($demoAssetOperation);
                 }
                 $error = 'Gagal: ' . $e->getMessage();
             }
@@ -522,7 +519,7 @@ if ($step === 1) {
         . input('admin_name','Nama Lengkap Site Owner','text','','Nama yang akan ditampilkan')
         . '</div>'
         . pass('admin_pass','Password Site Owner')
-        . '<label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;margin:8px 0 0;"><input type="checkbox" name="install_demo" value="1" style="width:auto;margin:0"> Pasang konten demo (22 artikel + 3 halaman + kategori + media)</label>'
+        . '<label style="display:flex;align-items:flex-start;gap:8px;font-weight:400;cursor:pointer;margin:8px 0 0;"><input type="checkbox" name="install_demo" value="1" style="width:auto;margin:2px 0 0"><span>Pasang konten demo lengkap<small style="display:block;color:#64748b;margin-top:2px;line-height:1.45">22 artikel, 3 halaman, kategori, media, dua Preset published, contoh sidebar, serta Theme Section preset-backed yang langsung tampil di homepage tema default.</small></span></label>'
         . '<div style="display:flex;gap:8px;margin-top:8px">'
         . '<a class="btn" href="/pondasi/" style="text-decoration:none;text-align:center;background:#94a3b8;flex:1">← Kembali</a>'
         . '<button class="btn" type="submit" style="flex:1">Selesai →</button></div></form>';

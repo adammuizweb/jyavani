@@ -64,6 +64,20 @@ $check(str_contains($source['preview'], 'register_shutdown_function'), 'preview 
 $check(!str_contains($source['preview'], "\$_POST['file']"), 'preview does not accept a filesystem path from the request');
 $check(str_contains($source['preview'], 'shortcode_layout_preview_bind_source_path($content, $sectionSourceFile)')
     && str_contains($source['preview'], "shortcode_layout_resolve_file(\$sectionDirectory, \$sectionFilename, 'section')"), 'Theme Section preview binds magic paths to the validated active-theme renderer');
+$check(str_contains($source['preview'], "apply_filters('theme_section_attrs'")
+    && str_contains($source['preview'], "do_action('theme_section_before_render'")
+    && str_contains($source['preview'], "apply_filters('theme_section_html'")
+    && str_contains($source['preview'], "do_action('theme_section_after_render'")
+    && str_contains($source['preview'], "'surface' => 'dashboard.theme_section'"), 'Theme Section preview follows registered defaults and runtime render hooks with explicit preview context');
+$check(str_contains($source['editor'], 'SECTION_PRESET_SNIPPETS')
+    && str_contains($source['editor'], 'render_shortcode_preset($pdo,')
+    && str_contains($source['editor'], "_e('Post List Section')"), 'Theme Section editor composes published presets through the first-class API');
+$check(str_contains($source['index'], "_e('Build Section')")
+    && str_contains($source['index'], "'scope' => 'section'")
+    && str_contains($source['index'], "'preset' => (string)(\$p['slug'] ?? '')"), 'published preset rows expose a direct Theme Section composition action');
+$check(str_contains($source['manager'], 'shortcode_layout_theme_section_dependencies')
+    && str_contains($source['manager'], "'kind' => 'registered'")
+    && str_contains($source['manager'], 'theme_section_dependency_names'), 'Theme Section deletion protection covers registrations, stored content, and declared plugin dependencies');
 $check(str_contains($source['preset'], "fd.append('csrf_token'"), 'preset preview sends the required CSRF token');
 $check(str_contains($source['save'], 'shortcode_layout_atomic_save($pdo') && str_contains($source['manager'], "shortcode_layout_directory(\$pdo, 'collection')") && str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'collection saves use the shared canonical legacy directory');
 $check(str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'legacy collection delete path remains supported');

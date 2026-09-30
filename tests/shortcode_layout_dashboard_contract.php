@@ -45,6 +45,7 @@ final class ShortcodeLayoutDashboardContractStatement extends PDOStatement
 {
     public function __construct(private array $rows = []) {}
     public function execute(?array $params = null): bool { return true; }
+    public function fetch(int $mode = PDO::FETCH_DEFAULT, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed { return array_shift($this->rows) ?: false; }
     public function fetchAll(int $mode = PDO::FETCH_DEFAULT, mixed ...$args): array { return $this->rows; }
     public function fetchColumn(int $column = 0): mixed { return $this->rows[0][$column] ?? false; }
 }
@@ -57,6 +58,19 @@ final class ShortcodeLayoutDashboardContractPdo extends PDO
     }
     public function prepare(string $query, array $options = []): PDOStatement|false
     {
+        if (str_contains($query, 'COUNT(*) AS match_count')) {
+            $matching = array_values(array_filter($this->presetRows, static fn(array $row): bool => str_contains((string)($row['content'] ?? ''), 'theme_section')));
+            $sizes = array_map(static fn(array $row): int => strlen((string)($row['content'] ?? '')), $matching);
+            return new ShortcodeLayoutDashboardContractStatement([[
+                'match_count' => count($matching),
+                'match_bytes' => array_sum($sizes),
+                'max_bytes' => $sizes === [] ? 0 : max($sizes),
+            ]]);
+        }
+        if (str_contains($query, ':theme_section_marker')) {
+            $matching = array_values(array_filter($this->presetRows, static fn(array $row): bool => str_contains((string)($row['content'] ?? ''), 'theme_section')));
+            return new ShortcodeLayoutDashboardContractStatement($matching);
+        }
         return new ShortcodeLayoutDashboardContractStatement($this->presetRows);
     }
 }
@@ -209,6 +223,18 @@ try {
 $check(file_exists($collectionDirectory . '/dependency_layout.php') && str_contains($dependencyMessage, 'active preset'), 'active preset dependency preflight blocks deletion before filesystem changes');
 $pdo->presetRows = [];
 
+$themeMainDirectory = VIEWS_BASE . '/theme-a/main';
+mkdir($themeMainDirectory, 0775, true);
+file_put_contents($sectionDirectory . '/composed.hero.php', '<?php // composed');
+file_put_contents($themeMainDirectory . '/homepage.php', '<?php echo render_theme_section(name: \'composed.hero\', pdo: $pdo);');
+$composedLayouts = shortcode_layout_list($pdo, 'section');
+$composedProtection = array_column($composedLayouts, 'protected', 'name');
+try {
+    shortcode_layout_delete_files($pdo, 'section', ['composed.hero.php']);
+} catch (Throwable $error) {
+}
+$check(($composedProtection['composed.hero'] ?? false) === true && file_exists($sectionDirectory . '/composed.hero.php'), 'static PHP theme composition references protect unregistered Theme Sections');
+
 $pdo->presetRows = [[
     'id' => 43,
     'title' => 'Direct shortcode dependency',
@@ -314,9 +340,35 @@ file_put_contents($sectionDirectory . '/registered.hero.php', '<?php // register
 file_put_contents($sectionDirectory . '/loose.hero.php', '<?php // unregistered');
 $sectionLayouts = shortcode_layout_list($pdo, 'section');
 $sectionTypes = array_column($sectionLayouts, 'registered', 'name');
+$sectionProtection = array_column($sectionLayouts, 'protected', 'name');
 $check(($sectionTypes['registered.hero'] ?? false) === true && ($sectionTypes['loose.hero'] ?? true) === false, 'section listing behavior distinguishes registered and unregistered active-theme renderers');
+$check(($sectionProtection['registered.hero'] ?? false) === true && ($sectionProtection['loose.hero'] ?? true) === false, 'section listing marks registered renderers as protected');
+$registeredDeleteMessage = '';
+try {
+    shortcode_layout_delete_files($pdo, 'section', ['registered.hero.php']);
+} catch (Throwable $error) {
+    $registeredDeleteMessage = $error->getMessage();
+}
+$check(file_exists($sectionDirectory . '/registered.hero.php') && str_contains($registeredDeleteMessage, 'Registered Theme Section'), 'registered Theme Sections cannot be removed through backend deletion');
 $deleted = shortcode_layout_delete_files($pdo, 'section', ['loose.hero.php']);
 $check($deleted === 1 && !file_exists($sectionDirectory . '/loose.hero.php'), 'section bulk deletion operates only on a validated active-theme renderer');
+
+file_put_contents($sectionDirectory . '/referenced.hero.php', '<?php // referenced');
+$pdo->presetRows = [[
+    'id' => 44,
+    'title' => 'Theme section consumer',
+    'slug' => 'theme-section-consumer',
+    'type' => 'page',
+    'content' => 'Before &#91;&#91;widget:theme_section name="referenced.hero"&#93;&#93; after',
+]];
+$referencedLayouts = shortcode_layout_list($pdo, 'section');
+$referencedProtection = array_column($referencedLayouts, 'protected', 'name');
+try {
+    shortcode_layout_delete_files($pdo, 'section', ['referenced.hero.php']);
+} catch (Throwable $error) {
+}
+$check(($referencedProtection['referenced.hero'] ?? false) === false && file_exists($sectionDirectory . '/referenced.hero.php'), 'stored content references are checked at the backend deletion boundary without a full-content listing scan');
+$pdo->presetRows = [];
 
 $publicEntries = scandir($collectionDirectory) ?: [];
 $quarantineOperations = glob(SHORTCODE_LAYOUT_QUARANTINE_PATH . '/*', GLOB_ONLYDIR) ?: [];
@@ -355,8 +407,13 @@ $check(str_contains($source['index'], "['page' => 'admin/shortcodes/index', 'tab
 $check(substr_count($source['index'], "'return_to' => \$layoutReturnTo") >= 2 && str_contains($source['index'], 'name="return_to" value="<?= h($layoutReturnTo)'), 'add, edit, single delete, and bulk delete carry the filtered return URL');
 $check(str_contains($source['index'], "['registered', 'unregistered']") === false && str_contains($source['manager'], "['registered', 'unregistered']") && str_contains($source['manager'], "['builtin', 'custom']"), 'scope-specific filters distinguish registered sections and built-in collection layouts');
 $check(str_contains($source['manager'], 'theme_section_definitions()') && str_contains($source['manager'], "array_key_exists(\$name, \$definitions)"), 'section registration filtering uses the validated runtime registry');
+$check(str_contains($source['manager'], 'SUM(OCTET_LENGTH(content))')
+    && str_contains($source['manager'], "(int)(\$summary['match_bytes'] ?? 0) > 16777216")
+    && str_contains($source['manager'], 'LIMIT 5001')
+    && str_contains($source['manager'], "shortcode_layout_theme_section_dependencies(\$pdo, array_column(\$layouts, 'name'), false)")
+    && str_contains($source['manager'], '$totalBytes > 16777216'), 'Theme Section dependency discovery bounds stored-content and active-theme PHP scanning');
 $check(str_contains($source['index'], 'id="layout-select-all"') && str_contains($source['index'], 'class="layout-row-check"') && str_contains($source['index'], 'name="files[]"'), 'layout rows expose checkboxes and select-all behavior');
-$check(str_contains($source['index'], '<input type="checkbox" disabled aria-label="<?= h(__(\'Built-in layouts stay protected and cannot be selected.\')) ?>"'), 'built-in collection layouts expose a visible disabled checkbox without becoming bulk-selectable');
+$check(str_contains($source['index'], '<input type="checkbox" disabled aria-label="<?= h($protectedLabel) ?>"'), 'protected collection layouts and Theme Sections expose a visible disabled checkbox without becoming bulk-selectable');
 $check(str_contains($source['index'], 'class="sc-scope-switch"')
     && str_contains($source['index'], 'class="sc-toolbar sc-layouts-filter-toolbar"')
     && str_contains($source['index'], 'class="sc-layout-filter-fields"')
@@ -384,6 +441,7 @@ $check(!str_contains($source['index'], 'window.alert(') && str_contains($source[
 foreach (['Search layout file or name…', 'All layout types', 'All registration statuses', 'Built-in', 'Unregistered', 'Delete selected layouts', 'No layouts selected.', 'Layout scope', 'Select all removable', 'Layout Selected', 'Layouts Selected', 'Built-in layouts stay protected and cannot be selected.'] as $translation) {
     $check(substr_count($source['translations'], "'" . $translation . "'") >= 2, 'translation seeds include ' . $translation);
 }
+$check(substr_count($source['translations'], "'Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.'") >= 2, 'translation seeds explain Theme Section deletion protection');
 
 foreach (['post_add', 'post_save', 'page_add', 'page_save', 'theme_add', 'theme_save'] as $mutationEndpoint) {
     $mutationSource = $source[$mutationEndpoint];

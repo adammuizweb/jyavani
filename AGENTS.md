@@ -438,6 +438,8 @@ Put shared queries and derived data in an underscore-prefixed helper such as `pa
 
 Registered renderers are editable at `?page=admin/shortcodes/index&tab=layouts&scope=section` and reusable in content with `[[widget:theme_section name="home.hero"]]`. Preserve the theme's empty states, localization, URL helpers, media fallback, Customizer values, and existing Theme Zone order when extracting a monolithic homepage.
 
+Published Shortcode Presets are the supported data layer for reusable post-list sections. Keep query filters and the Collection Layout in the Preset, then call `render_shortcode_preset($pdo, 'preset-slug', $overrides, $context)` from the Theme Section renderer. The dashboard's Preset **Build Section** action and **Post List Section** starter generate this composition; do not duplicate the preset query inside the section.
+
 ### Builder integration (theme-builder / jyavani-builder / form-builder)
 
 Theme Zones expose two filter-based extension points so builder plugins can register their own gadgets. Builder plugins running inside the dashboard should call the PHP helpers directly instead of using a public HTTP API.
@@ -784,6 +786,7 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 - `.env` file is `cfg/.env`; template at `cfg/env-sample`
 - `reset_admin_cache()` must be called after enabling a plugin for nav to appear (deletes `cfg/var/theme_cache.json`)
 - **Installer:** `public/pondasi/index.php` — one-time web installer (like WordPress). Step 1: DB config → creates DB, runs `default.sql`. Step 2: admin user + site settings. After `default.sql`, imports `translations.sql` for seed data. Installer defaults are centralized in schema and helpers rather than duplicated ad hoc. Run on fresh install, then delete `pondasi/` folder. The default admin, login, and registration paths are `dashboard`, `login`, and `register`; the router serves their PHP entrypoints from outside the web root.
+- Optional demo installation is sourced from schema-2 `schema/demo-content/manifest.json` and generated into `schema/demo.sql`. Pondasi binds `@jyavani_demo_owner_id` to the actual initial Site Owner, keeps foreign-key checks active, and publishes demo assets without replacing different existing files. The canonical onboarding example connects `demo_home_posts` to the default theme's registered `home.preset-posts` renderer; keep that identity synchronized and verify it with `php tools/build-demo-content.php --check`, `php tests/demo_content_contract.php`, and `php tests/default_theme_home_sections_contract.php`.
 - **Release workflow:** `/var/www/md/update.md` defines version bump semantics, candidate build, commit, push, canonical package publication, and endpoint verification.
 - **Build tools:** `tools/build-package.php [output-path]` regenerates the manifest and builds a verified ZIP atomically; `tools/generate-manifest.php` only regenerates `tools/cms-manifest.json`.
 - **Server setup guide** at `SERVER_SETUP.md`

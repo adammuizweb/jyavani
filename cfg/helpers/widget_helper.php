@@ -133,6 +133,17 @@ if (!function_exists('render_widget')) {
             return (string)ob_get_clean();
         }
 
+        // Preset handlers are request-local and may not have been needed earlier.
+        if ($pdo instanceof PDO
+            && !isset($GLOBALS['_widget_shortcode_handlers'][$name])
+            && function_exists('load_preset_widgets')) {
+            try {
+                load_preset_widgets($pdo);
+            } catch (Throwable $e) {
+                error_log('[widget_helper] preset handler loading failed: ' . $e->getMessage());
+            }
+        }
+
         // Fallback: registered shortcode-based handler
         if (
             isset($GLOBALS['_widget_shortcode_handlers'][$name])

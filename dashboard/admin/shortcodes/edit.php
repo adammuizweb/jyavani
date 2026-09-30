@@ -342,7 +342,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     <div>
       <?=_e('<strong>How Preset &amp; Layout relate:</strong>')?><br>
       <?=_e('<strong>Preset</strong> = "what to display" (category, count, order, etc.).')?><br>
-      <?=_e('<strong>Layout</strong> = the PHP file in <code>app/views/partials/shortcodes/post_cat/</code> that controls "how it looks".')?><br>
+      <?=_e('<strong>Layout</strong> = the PHP file in <code>public/views/partials/shortcodes/post_cat/</code> that controls "how it looks".')?><br>
       <?php if ($isSiteOwner): ?>
         <?= sprintf(__('One layout can be reused by many presets. Edit the layout in the %sLayouts Manager%s → changes instantly apply to every preset using that layout.'), '<a href="' . h($base . '/?page=admin/shortcodes/index&tab=layouts') . '" class="adam-link">', '</a>') ?>
       <?php endif; ?>

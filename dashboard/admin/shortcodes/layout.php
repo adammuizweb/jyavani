@@ -75,7 +75,27 @@ $preset_list_url = $base . '/?page=admin/shortcodes/index&tab=presets';
 // --- Connected Presets (presets that use THIS layout) ---
 $connectedPresets = [];
 $allPresets = [];
-if (!$isSectionScope && !$isNew) {
+$sectionPresets = [];
+$requestedPresetSlug = is_string($_GET['preset'] ?? null) ? strtolower(trim($_GET['preset'])) : '';
+$selectedSectionPresetSlug = '';
+$requestedSectionPresetFound = false;
+if ($isSectionScope) {
+    try {
+        $stmt = $pdo->prepare("SELECT id, title, slug FROM posts WHERE type = 'sc_preset' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC, id ASC");
+        $stmt->execute();
+        $sectionPresets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($sectionPresets as $preset) {
+            $slug = (string)($preset['slug'] ?? '');
+            if ($selectedSectionPresetSlug === '') $selectedSectionPresetSlug = $slug;
+            if ($requestedPresetSlug !== '' && hash_equals($requestedPresetSlug, $slug)) {
+                $selectedSectionPresetSlug = $slug;
+                $requestedSectionPresetFound = true;
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('[shortcode-layout] Could not load section presets: ' . $e->getMessage());
+    }
+} elseif (!$isNew) {
     try {
         $stmt = $pdo->prepare("SELECT id, title, slug, meta FROM posts WHERE type = 'sc_preset' AND is_deleted = 0 ORDER BY title ASC");
         $stmt->execute();
@@ -109,6 +129,27 @@ $summary = trim((string)($attrs[\'summary\'] ?? __(\'Section summary\')));
   <?php endif; ?>
   <?php if ($summary !== \'\'): ?>
     <p><?= $esc($summary) ?></p>
+  <?php endif; ?>
+</section>';
+
+$sectionPresetSnippets = [];
+foreach ($sectionPresets as $preset) {
+    $slug = (string)($preset['slug'] ?? '');
+    if (!shortcode_preset_slug_is_valid($slug)) continue;
+    $sectionPresetSnippets[$slug] = '<?php if ($pdo instanceof PDO): ?>
+  <?= render_shortcode_preset($pdo, ' . var_export($slug, true) . ', [], $context) ?>
+<?php endif; ?>';
+}
+
+$tplSectionPostList = $selectedSectionPresetSlug === '' ? '' : '<?php
+$title = trim((string)($attrs[\'title\'] ?? __(\'Latest posts\')));
+?>
+<section class="theme-section theme-section--post-list" data-theme-section="<?= $esc($section) ?>">
+  <?php if ($title !== \'\'): ?>
+    <h2><?= $esc($title) ?></h2>
+  <?php endif; ?>
+  <?php if ($pdo instanceof PDO): ?>
+    <?= render_shortcode_preset($pdo, ' . var_export($selectedSectionPresetSlug, true) . ', [], $context) ?>
   <?php endif; ?>
 </section>';
 
@@ -509,7 +550,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
 <?php if ($isNew): ?>
     <div style="font-size:.85rem;font-weight:600;color:var(--adam-muted,#888);margin-bottom:-.5rem;"><?=_e('Choose starting template:')?></div>
     <div id="lyo-starter" class="lyo-templates">
-      <div class="lyo-tpl-card selected" data-template="0">
+      <div class="lyo-tpl-card<?= $isSectionScope && $requestedSectionPresetFound && $tplSectionPostList !== '' ? '' : ' selected' ?>" data-template="0">
         <span class="lyo-tpl-icon"><?= svg_ico('file') ?></span>
         <div class="lyo-tpl-title"><?=_e('Blank')?></div>
         <div class="lyo-tpl-desc"><?=_e('Start from a blank page')?></div>
@@ -520,6 +561,13 @@ $snippetWrapper = '<?php if ($wrap): ?>
         <div class="lyo-tpl-title"><?=_e('Semantic Section')?></div>
         <div class="lyo-tpl-desc"><?=_e('Title and summary from shortcode attributes')?></div>
       </div>
+      <?php if ($tplSectionPostList !== ''): ?>
+      <div class="lyo-tpl-card<?= $requestedSectionPresetFound ? ' selected' : '' ?>" data-template="2">
+        <span class="lyo-tpl-icon"><?= svg_ico('list') ?></span>
+        <div class="lyo-tpl-title"><?=_e('Post List Section')?></div>
+        <div class="lyo-tpl-desc"><?=_e('Wrap a published preset as a reusable Theme Section')?></div>
+      </div>
+      <?php endif; ?>
       <?php else: ?>
       <div class="lyo-tpl-card" data-template="1">
         <span class="lyo-tpl-icon"><?= svg_ico('list') ?></span>
@@ -557,6 +605,26 @@ $snippetWrapper = '<?php if ($wrap): ?>
     </div>
     <?php endif; ?>
 
+    <?php if ($isSectionScope): ?>
+    <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;flex-wrap:wrap;">
+      <span style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('list', '', ['style' => 'width:15px;height:15px']) ?> <strong><?=_e('Post list preset:')?></strong></span>
+      <?php if ($sectionPresets !== []): ?>
+      <select id="section-preset-select" style="font-size:.82rem;padding:.25rem .5rem;border:1px solid var(--adam-border-soft,#ddd);border-radius:4px;background:var(--adam-bg,#fff);color:var(--adam-text,#333);">
+        <?php foreach ($sectionPresets as $preset):
+          $presetSlug = (string)($preset['slug'] ?? '');
+        ?>
+          <option value="<?= h($presetSlug) ?>" <?= $presetSlug === $selectedSectionPresetSlug ? 'selected' : '' ?>><?= h((string)($preset['title'] ?? $presetSlug)) ?> (<?= h($presetSlug) ?>)</option>
+        <?php endforeach; ?>
+      </select>
+      <button type="button" id="insert-section-preset" class="adam-button" style="font-size:.78rem;padding:.25rem .65rem;"><?=_e('Insert Preset')?></button>
+      <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('The preset supplies the post query and Collection Layout; this Theme Section supplies the reusable page wrapper.')?></span>
+      <?php else: ?>
+      <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Create and publish a preset first.')?></span>
+      <?php endif; ?>
+      <a href="<?= h($preset_list_url) ?>" class="adam-link" style="font-size:.78rem;margin-left:auto;"><?=_e('Manage Presets')?></a>
+    </div>
+    <?php endif; ?>
+
     <?php if (!$isSectionScope && (empty($allPresets) || (isset($connectedPresets) && empty($connectedPresets)))): ?>
     <?php if (!empty($allPresets)): ?>
     <div style="display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
@@ -578,6 +646,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <div>
         <?php if ($isSectionScope): ?>
         <?=_e('<strong>Theme Sections</strong> render reusable page sections from <code>[[widget:theme_section name=&quot;page.hero&quot;]]</code>.')?><br>
+        <?=_e('For reusable post lists, render a published Preset with <code>render_shortcode_preset()</code>. The Preset keeps the query and Collection Layout configuration; the Theme Section owns the surrounding markup.')?><br>
         <?=_e('This renderer belongs to the active theme. Core automatically falls back to the default theme, then the global section directory.')?><br>
         <?=_e('Live Preview loads active-theme styles in an isolated frame. Interactive theme scripts do not run in preview.')?>
         <?php else: ?>
@@ -656,6 +725,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
             <tr><td><code>$pdo</code></td><td><code>PDO|null</code></td><td><?=_e('Current database connection')?></td></tr>
             <tr><td><code>$esc()</code></td><td><code>callable</code></td><td><?=_e('HTML escaping function: <code>$esc($text)</code> — required for all user content output')?></td></tr>
             <tr><td><code>$safe_url()</code></td><td><code>callable</code></td><td><?=_e('URL sanitizer for links from shortcode attributes')?></td></tr>
+            <tr><td><code>render_shortcode_preset()</code></td><td><code>function</code></td><td><?=_e('Render a published Preset through its saved Collection Layout')?></td></tr>
             <?php else: ?>
             <tr><td><code>$items</code></td><td><code>array</code></td><td><?=_e('Array of post/page data. Each item has: <code>title</code>, <code>url</code>, <code>thumb</code>, <code>desc</code>, <code>date_label</code>, <code>date_iso</code>, <code>kind</code>, <code>raw</code>')?></td></tr>
             <tr><td><code>$attrs</code></td><td><code>array</code></td><td><?=_e('Filter attributes: <code>source</code>, <code>type</code>, <code>category</code>, <code>limit</code>, <code>offset</code>, <code>order_by</code>, <code>excerpt_len</code>, etc.')?></td></tr>
@@ -683,8 +753,9 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
 <script src="/static/js/edit/codemirror.js"></script>
 <script>
-var DEFAULT_TEMPLATES = <?= json_encode($isSectionScope ? [$tplClean, $tplSection] : [$tplClean, $tplList, $tplCards, $tplCard2, $tplSlider]) ?>;
+var DEFAULT_TEMPLATES = <?= json_encode($isSectionScope ? [$tplClean, $tplSection, $tplSectionPostList] : [$tplClean, $tplList, $tplCards, $tplCard2, $tplSlider]) ?>;
 var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippetSectionSummary, $snippetSectionLink] : [$snippetForeach, $snippetThumb, $snippetExcerpt, $snippetDate, $snippetKicker, $snippetSlider, $snippetWrapper]) ?>;
+var SECTION_PRESET_SNIPPETS = <?= json_encode($sectionPresetSnippets, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 
 (function(){
   var form = document.getElementById('layout-form');
@@ -701,6 +772,8 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
   var hiddenName = document.getElementById('hidden-layout-name');
   var presetSelect = document.getElementById('preview-preset-select');
   var presetBtn = document.getElementById('preview-preset-btn');
+  var sectionPresetSelect = document.getElementById('section-preset-select');
+  var sectionPresetButton = document.getElementById('insert-section-preset');
   var saveFeedback = document.getElementById('layout-save-feedback');
 
   var nonceField = document.querySelector('[name="save_nonce"]');
@@ -853,7 +926,7 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
     var code = DEFAULT_TEMPLATES[idx] || '';
     setEditorValue(code);
     if (lyoName && !lyoName.value) {
-      var names = <?= json_encode($isSectionScope ? ['', ''] : ['', 'list', 'cards', 'card2', 'sliderpage']) ?>;
+      var names = <?= json_encode($isSectionScope ? ['', '', ''] : ['', 'list', 'cards', 'card2', 'sliderpage']) ?>;
       if (names[idx]) lyoName.value = names[idx];
     }
   }
@@ -892,6 +965,14 @@ var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippet
       if (snippet) insertAtCursor(snippet);
     });
   });
+
+  if (sectionPresetButton && sectionPresetSelect) {
+    sectionPresetButton.addEventListener('click', function() {
+      var slug = sectionPresetSelect.value;
+      var snippet = SECTION_PRESET_SNIPPETS[slug] || '';
+      if (snippet) insertAtCursor(snippet);
+    });
+  }
 
   if (varToggle) {
     varToggle.addEventListener('click', function() {

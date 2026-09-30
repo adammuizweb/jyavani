@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "source_locale": "id",
   "categories": [
     {"id": 1, "name": "Panduan", "slug": "panduan", "description": "Artikel panduan langkah demi langkah menggunakan Jyavani CMS", "created_at": "2026-07-25 09:07:14", "updated_at": "2026-07-25 09:07:14"},
@@ -34,14 +34,26 @@
     {"id":295,"type":"article","title":"Core Mail API: Transport, Pengaturan Pengiriman, dan Email Uji","slug":"core-mail-api-transport-pengaturan-pengiriman-dan-email-uji","content_file":"articles/295-core-mail-api.html","thumbnail":"/static/img/2026/08/core-mail-api-thumbnail.jpg","status":"published","created_at":"2026-08-23 20:50:00","updated_at":"2026-08-23 20:50:00","categories":[1,4],"relationship_at":"2026-08-23 20:50:00","meta":{"meta_tags":{"description":"Panduan Core Mail API Jyavani untuk pengaturan sender, transport native atau SMTP, fallback, logging teredaksi, keamanan, dan email uji."}}},
     {"id":296,"type":"article","title":"Site Health dan Core Integrity: Membaca Hasil Pemindaian","slug":"site-health-core-integrity-membaca-hasil-pemindaian","content_file":"articles/296-site-health-core-integrity.html","thumbnail":"/static/img/2026/07/keamanan-cms-thumb.jpg","status":"published","created_at":"2026-09-13 22:30:00","updated_at":"2026-09-16 14:45:00","categories":[2,4],"relationship_at":"2026-09-13 22:30:00","meta":{"meta_tags":{"description":"Panduan lengkap Site Health Jyavani untuk menjalankan scan, membaca status integritas, memahami baseline Core dan extension, serta menindaklanjuti temuan secara aman."}}}
   ],
-  "preset": {
-    "id": 300,
-    "title": "Demo Random Posts Preset",
-    "slug": "demo_random_posts",
-    "status": "published",
-    "created_at": "2026-07-25 09:07:48",
-    "updated_at": "2026-07-25 09:07:48",
-    "metadata": {"source":"posts","type":"article","category":"","author":"1","order_by":"RAND()","order_dir":"DESC","limit":"4","layout":"mini","kicker":"Pilihan","excerpt_len":"0","wrap":"1"},
-    "sidebar_widget": {"zone_id":3,"type":"shortcode_preset","title":"Pilihan Demo","config":{"preset_slug":"demo_random_posts"},"ordering":2,"active":1}
-  }
+  "presets": [
+    {
+      "id": 300,
+      "title": "Demo Random Posts Preset",
+      "slug": "demo_random_posts",
+      "status": "published",
+      "created_at": "2026-07-25 09:07:48",
+      "updated_at": "2026-07-25 09:07:48",
+      "metadata": {"source":"posts","type":"article","category":"","order_by":"RAND()","order_dir":"DESC","limit":"4","layout":"mini","kicker":"Pilihan","excerpt_len":"90","wrap":"1"},
+      "sidebar_widget": {"zone_id":3,"type":"shortcode_preset","title":"Pilihan Demo","config":{"preset_slug":"demo_random_posts"},"ordering":2,"active":1}
+    },
+    {
+      "id": 301,
+      "title": "Demo Homepage Posts Preset",
+      "slug": "demo_home_posts",
+      "status": "published",
+      "created_at": "2026-09-30 12:00:00",
+      "updated_at": "2026-09-30 12:00:00",
+      "metadata": {"source":"posts","type":"article","category":"pengembangan","order_by":"created_at","order_dir":"DESC","limit":"4","layout":"cards","kicker":"Preset Demo","excerpt_len":"120","wrap":"1"},
+      "theme_section": {"name":"home.preset-posts","title":"Built with a reusable Preset"}
+    }
+  ]
 }
