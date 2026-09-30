@@ -13,6 +13,12 @@ $files = [
     'widget' => $root . '/cfg/helpers/widget_helper.php',
     'layout_editor' => $root . '/dashboard/admin/shortcodes/layout.php',
     'translations' => $root . '/schema/translations.sql',
+    'dashboard_style' => $root . '/public/static/dashboard/css/style.css',
+    'action_menu_script' => $root . '/public/static/dashboard/js/action-menu.js',
+    'dashboard_layout' => $root . '/dashboard/theme/adiwira/layout.php',
+    'public_layout' => $root . '/app/layout.php',
+    'pagination_script' => $root . '/public/static/js/preset-pagination.js',
+    'slider_layout' => $root . '/public/views/partials/shortcodes/post_cat/sliderpage.php',
 ];
 $source = array_map(static fn(string $file): string => (string)file_get_contents($file), $files);
 $failures = [];
@@ -99,9 +105,16 @@ $check(str_contains($source['helper'], "do_action('admin_shortcode_preset_before
 $check(str_contains($source['helper'], "apply_filters('shortcode_preset_runtime_config'")
     && str_contains($source['helper'], 'return shortcode_preset_render_row($pdo, $p, $vars, $ctx, $config);'), 'runtime preset config filtering is deferred into the shared render pipeline');
 $check(str_contains($source['helper'], "apply_filters('shortcode_preset_preview_config'") && str_contains($source['helper'], "do_action('shortcode_preset_preview_configured'"), 'Core exposes preview-config filter and event contracts');
+$check(str_contains($source['helper'], '$excerptLength !== 0')
+    && str_contains($widgetRuntime, "if (\$maxLen === 0) return ''")
+    && str_contains($source['edit'], 'Number.isInteger(excerptValue)'), 'zero excerpt length suppresses descriptions without weakening positive length validation');
 $check(str_contains($source['helper'], "apply_filters('shortcode_preset_preview_result'") && str_contains($source['preview'], 'shortcode_preset_preview_result(null, $config'), 'preset preview exposes a source-aware render/result contract before Core post queries');
 $check(substr_count($source['preview'], 'shortcode_preset_prepare_preview_config($config, $role === \'admin\'') === 2, 'inline and stored previews validate with the actual caller role');
 $check(strpos($source['preview'], 'shortcode_preset_prepare_preview_config') < strpos($source['preview'], 'shortcode_preset_preview_result'), 'preview validation runs before source result hooks and Core querying');
+$check(str_contains($source['preview'], 'post_cat__pagination_state(')
+    && substr_count($source['preview'], '$prepareCorePreviewPage(') === 2
+    && substr_count($source['preview'], '$decoratePreviewPagination(') === 2
+    && str_contains($source['preview'], "'#preview-page-' . \$page"), 'inline and stored Core previews share runtime pagination limits and render representative page controls');
 $check(str_contains($source['preview'], 'AND created_by = :created_by') && str_contains($source['preview'], "if (\$role !== 'admin') \$params[':created_by'] = \$uid"), 'stored preview preserves non-admin preset ownership');
 $check(str_contains($source['helper'], 'getPrevious') === false && str_contains($source['helper'], 'A dependent plugin prevented preset deletion.') && str_contains($source['helper'], 'error_log('), 'pre-delete internals are logged while the public exception text is generic');
 $check(str_contains($source['save'], 'admin_shortcode_preset_after_add') && str_contains($source['save'], 'admin_shortcode_preset_after_edit') && str_contains($source['delete'], 'admin_shortcode_preset_after_delete') && str_contains($source['bulk'], 'admin_shortcode_preset_after_delete'), 'successful CRUD and bulk delete paths fire stable admin lifecycle hooks');
@@ -119,6 +132,60 @@ $check(str_contains($source['index'], "'preset' => (string)(\$p['slug'] ?? '')")
     && str_contains($source['index'], "_e('Build Section')")
     && str_contains($source['layout_editor'], 'id="section-preset-select"')
     && str_contains($source['layout_editor'], 'render_shortcode_preset($pdo,'), 'published presets link to a Theme Section editor with preset composition controls');
+$check(str_contains($source['edit'], 'id="article-category-fields"')
+    && strpos($source['edit'], "_e('Include Child Categories')") > strpos($source['edit'], "_e('Category (leave empty for all)')")
+    && str_contains($source['edit'], 'categoryFields.hidden = !articleSelected')
+    && str_contains($source['edit'], "type.value === 'article' ? cat.value : ''"), 'category and child-category controls are adjacent and active only for article presets');
+$check(str_contains($source['edit'], "__('What does Limit mean?')")
+    && str_contains($source['edit'], "__('What does Max Items mean?')")
+    && str_contains($source['edit'], "__('What does Offset mean?')")
+    && str_contains($source['edit'], "__('What does Excerpt Length mean?')")
+    && str_contains($source['edit'], 'class="field-help__tooltip" role="tooltip"'), 'preset numeric controls use the accessible Core field-help component');
+$check(str_contains($source['edit'], 'name="filter_pagination"')
+    && str_contains($source['edit'], 'name="filter_max_items"')
+    && str_contains($source['edit'], 'maxItemsValue > limitValue')
+    && str_contains($source['edit'], 'syncPaginationField()')
+    && str_contains($source['helper'], "'pagination' => '0'")
+    && !str_contains($source['edit'], 'randomSelected')
+    && !str_contains($source['helper'], 'Pagination cannot be used with random ordering.'), 'preset editor and validation expose seeded pagination for deterministic and random Core collections');
+$check(substr_count($source['edit'], "sourceOwnsCompatibilityField('max_items')") >= 2
+    && substr_count($source['edit'], "sourceOwnsCompatibilityField('pagination')") >= 3
+    && str_contains($source['helper'], 'shortcode_source_provider_compatibility_field_keys()'), 'provider presets preserve explicitly declared legacy fields that collide with new Core pagination names');
+$check(str_contains($source['translations'], "'What does Limit mean?'")
+    && str_contains($source['translations'], "'What does Max Items mean?'")
+    && str_contains($source['translations'], "'What does Offset mean?'")
+    && str_contains($source['translations'], "'What does Excerpt Length mean?'")
+    && str_contains($source['translations'], "'What does Pagination mean?'"), 'preset field guidance has Indonesian and German translation seeds');
+$check(str_contains($source['public_layout'], '/static/js/preset-pagination.js')
+    && str_contains($source['pagination_script'], "fetch(targetUrl.href")
+    && str_contains($source['pagination_script'], 'data-pcat-pagination-root')
+    && str_contains($source['pagination_script'], "history.pushState")
+    && str_contains($widgetRuntime, 'data-pcat-pagination-root='), 'published preset pagination progressively enhances server links with isolated AJAX replacement');
+$check(str_contains($source['pagination_script'], 'data-pcat-pagination-slider="core"')
+    && str_contains($source['pagination_script'], "paginationLink(slider, 'next')")
+    && str_contains($source['pagination_script'], 'pcatPaginationArrival')
+    && str_contains($widgetRuntime, 'data-pcat-pagination-mode="slider"'), 'slider arrows fetch adjacent batches and preserve backward arrival position without numbered controls');
+$check(str_contains($source['pagination_script'], 'currentPaginationUrl(link, key)')
+    && str_contains($source['pagination_script'], 'current.searchParams.set(key')
+    && str_contains($source['pagination_script'], "name.indexOf('pcat_seed_') === 0")
+    && str_contains($source['pagination_script'], 'seedStableCurrentUrl(targetUrl).href')
+    && str_contains($source['pagination_script'], "document.querySelectorAll('[data-pcat-pagination-root] .pcat-pagination a[href]')")
+    && str_contains($source['pagination_script'], 'activeRoots.forEach(function (currentRoot, index)')
+    && str_contains($source['pagination_script'], 'replacements.forEach(function (replacement)')
+    && str_contains($source['slider_layout'], "mx === 0 && !pageLink('prev') && !pageLink('next')")
+    && str_contains($source['slider_layout'], 'overflow-x: auto'), 'pagination preserves query and random history state, synchronizes duplicate roots, and keeps short slider batches reachable');
+$check(!str_contains($source['translations'], 'Random ordering cannot be paginated.'), 'translation seeds do not retain the obsolete random-pagination restriction');
+$check(str_contains($source['index'], 'class="adam-actions__trigger"')
+    && str_contains($source['index'], 'class="adam-actions__menu" role="menu" hidden')
+    && substr_count($source['index'], 'role="menuitem"') >= 3
+    && str_contains($source['index'], 'aria-controls="<?= h($actionMenuId) ?>"'), 'preset row actions use the reusable accessible Core overflow menu');
+$check(str_contains($source['dashboard_style'], '.adam-actions__menu')
+    && str_contains($source['dashboard_style'], '.adam-actions__trigger[aria-expanded="true"]')
+    && str_contains($source['dashboard_layout'], '/static/dashboard/js/action-menu.js')
+    && str_contains($source['action_menu_script'], "event.key === 'Escape'")
+    && str_contains($source['action_menu_script'], "event.key === 'ArrowDown'")
+    && str_contains($source['action_menu_script'], 'getBoundingClientRect()')
+    && str_contains($source['action_menu_script'], 'trigger.focus({ preventScroll: true })'), 'Core overflow component provides viewport positioning and keyboard focus management');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

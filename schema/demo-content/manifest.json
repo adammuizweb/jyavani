@@ -43,7 +43,8 @@
       "created_at": "2026-07-25 09:07:48",
       "updated_at": "2026-07-25 09:07:48",
       "metadata": {"source":"posts","type":"article","category":"","order_by":"RAND()","order_dir":"DESC","limit":"4","layout":"mini","kicker":"Pilihan","excerpt_len":"90","wrap":"1"},
-      "sidebar_widget": {"zone_id":3,"type":"shortcode_preset","title":"Pilihan Demo","config":{"preset_slug":"demo_random_posts"},"ordering":2,"active":1}
+      "sidebar_widget": {"zone_id":3,"type":"shortcode_preset","title":"Pilihan Demo","config":{"preset_slug":"demo_random_posts"},"ordering":2,"active":1},
+      "theme_section": {"name":"home.random-posts","title":"Discover random articles","layout_override":"grid","limit":4,"max_items":20,"pagination":1}
     },
     {
       "id": 301,

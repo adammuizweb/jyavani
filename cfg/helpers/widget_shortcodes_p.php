@@ -133,6 +133,7 @@ function post_cat__resolve_kicker(array $attrs, string $category): string {
 }
 
 function post_cat__excerpt(string $html, int $maxLen): string {
+  if ($maxLen === 0) return '';
   $noBlock = (string)preg_replace('/<script[^>]*>.*?<\/script>/si', '', $html);
   $noBlock = (string)preg_replace('/<style[^>]*>.*?<\/style>/si', '', $noBlock);
   $plain = html_entity_decode(strip_tags($noBlock), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -161,6 +162,163 @@ function post_cat__join_url(string $baseUrl, string $path, string $slug): string
   }
 
   return $baseUrl . $path . rawurlencode($slug) . '/';
+}
+
+function post_cat__pagination_key(array $ctx, array $attrs = []): string {
+  $identity = is_string($ctx['preset_slug'] ?? null) ? strtolower(trim($ctx['preset_slug'])) : '';
+  if ($identity === '' && (int)($ctx['preset_id'] ?? 0) > 0) $identity = 'preset-' . (int)$ctx['preset_id'];
+  if ($attrs !== []) {
+    $queryIdentity = [];
+    $identityKeys = array_fill_keys([
+      'source', 'type', 'category', 'author', 'created_by', 'limit', 'max_items', 'offset', 'order_by', 'order_dir',
+      'layout', 'include_children', 'date_from', 'date_to', 'date_after', 'date_before',
+    ], true);
+    foreach (array_intersect_key($attrs, $identityKeys) as $key => $value) {
+      if (!is_string($value) && !is_int($value) && !is_bool($value) && $value !== null) continue;
+      $queryIdentity[$key] = $value;
+    }
+    ksort($queryIdentity, SORT_STRING);
+    $encoded = json_encode($queryIdentity, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (is_string($encoded)) {
+      $queryHash = substr(hash('sha256', $encoded), 0, 16);
+      $identity = $identity !== '' ? $identity . '-' . $queryHash : 'query-' . $queryHash;
+    }
+  }
+  if ($identity === '' || preg_match('/\A[a-z0-9_-]+\z/', $identity) !== 1) return '';
+  if (strlen($identity) > 48) $identity = substr($identity, 0, 48) . '_' . substr(hash('sha256', $identity), 0, 8);
+  return 'pcat_page_' . $identity;
+}
+
+function post_cat__pagination_page(string $key): int {
+  if ($key === '') return 1;
+  $value = $_GET[$key] ?? null;
+  if (!is_string($value) && !is_int($value)) return 1;
+  $value = (string)$value;
+  return preg_match('/\A[1-9][0-9]{0,5}\z/', $value) === 1 ? (int)$value : 1;
+}
+
+function post_cat__pagination_seed_key(string $paginationKey): string {
+  if (!str_starts_with($paginationKey, 'pcat_page_')) return '';
+  $identity = substr($paginationKey, strlen('pcat_page_'));
+  return $identity !== '' ? 'pcat_seed_' . $identity : '';
+}
+
+function post_cat__pagination_seed(string $paginationKey): int {
+  $key = post_cat__pagination_seed_key($paginationKey);
+  if ($key === '') return 0;
+  $value = $_GET[$key] ?? null;
+  if (is_string($value) || is_int($value)) {
+    $value = (string)$value;
+    if (preg_match('/\A[1-9][0-9]{0,9}\z/', $value) === 1 && (int)$value <= 2147483647) {
+      return (int)$value;
+    }
+  }
+  static $generated = [];
+  if (!isset($generated[$key])) $generated[$key] = random_int(1, 2147483647);
+  return $generated[$key];
+}
+
+function post_cat__pagination_url(string $key, int $page, array $persistentQuery = []): string {
+  $requestUri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+  $path = parse_url($requestUri, PHP_URL_PATH);
+  $queryString = parse_url($requestUri, PHP_URL_QUERY);
+  $path = is_string($path) && $path !== '' ? $path : '/';
+  $query = [];
+  if (is_string($queryString) && $queryString !== '') parse_str($queryString, $query);
+  unset($query[$key]);
+  if ($page > 1) $query[$key] = $page;
+  foreach ($persistentQuery as $name => $value) {
+    if (!is_string($name) || preg_match('/\A[a-z0-9_-]+\z/', $name) !== 1
+        || (!is_string($value) && !is_int($value))) continue;
+    $query[$name] = (string)$value;
+  }
+  $encoded = http_build_query($query);
+  return $path . ($encoded !== '' ? '?' . $encoded : '');
+}
+
+function post_cat__pagination_html(string $key, int $currentPage, int $totalPages, ?callable $urlForPage = null): string {
+  if ($key === '' || $totalPages < 2) return '';
+  $esc = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+  $pageUrl = static fn(int $page): string => $urlForPage !== null
+    ? (string)$urlForPage($page)
+    : post_cat__pagination_url($key, $page);
+  $label = function_exists('__') ? __('Pagination') : 'Pagination';
+  $previous = function_exists('__') ? __('Previous') : 'Previous';
+  $next = function_exists('__') ? __('Next') : 'Next';
+  $status = function_exists('__') ? sprintf(__('Page %d of %d'), $currentPage, $totalPages) : sprintf('Page %d of %d', $currentPage, $totalPages);
+  $start = max(1, $currentPage - 2);
+  $end = min($totalPages, $currentPage + 2);
+  if ($start === 2) $start = 1;
+  if ($end === $totalPages - 1) $end = $totalPages;
+
+  $html = '<nav class="pcat-pagination" aria-label="' . $esc($label) . '">';
+  $html .= $currentPage > 1
+    ? '<a class="pcat-pagination__edge" rel="prev" href="' . $esc($pageUrl($currentPage - 1)) . '">' . $esc($previous) . '</a>'
+    : '<span class="pcat-pagination__edge is-disabled" aria-disabled="true">' . $esc($previous) . '</span>';
+  if ($start > 1) {
+    $html .= '<a href="' . $esc($pageUrl(1)) . '">1</a>';
+    if ($start > 2) $html .= '<span class="pcat-pagination__dots" aria-hidden="true">…</span>';
+  }
+  for ($page = $start; $page <= $end; $page++) {
+    $html .= $page === $currentPage
+      ? '<span class="is-current" aria-current="page">' . $page . '</span>'
+      : '<a href="' . $esc($pageUrl($page)) . '">' . $page . '</a>';
+  }
+  if ($end < $totalPages) {
+    if ($end < $totalPages - 1) $html .= '<span class="pcat-pagination__dots" aria-hidden="true">…</span>';
+    $html .= '<a href="' . $esc($pageUrl($totalPages)) . '">' . $totalPages . '</a>';
+  }
+  $html .= $currentPage < $totalPages
+    ? '<a class="pcat-pagination__edge" rel="next" href="' . $esc($pageUrl($currentPage + 1)) . '">' . $esc($next) . '</a>'
+    : '<span class="pcat-pagination__edge is-disabled" aria-disabled="true">' . $esc($next) . '</span>';
+  $html .= '<span class="pcat-pagination__status">' . $esc($status) . '</span></nav>';
+  $html .= '<style>
+.pcat-pagination-root{transition:opacity .15s ease}
+.pcat-pagination-root[aria-busy="true"]{opacity:.55;pointer-events:none}
+.pcat-pagination-root[data-pcat-pagination-mode="slider"].is-pcat-slider-pagination-ready>.pcat-pagination{display:none}
+.pcat-pagination{display:flex;align-items:center;justify-content:center;gap:.35rem;flex-wrap:wrap;margin:1.25rem 0 0}
+.pcat-pagination a,.pcat-pagination>span:not(.pcat-pagination__status):not(.pcat-pagination__dots){display:inline-flex;align-items:center;justify-content:center;min-width:2.25rem;min-height:2.25rem;padding:.35rem .6rem;border:1px solid var(--border,#dbe2e8);border-radius:.55rem;background:var(--bg,#fff);color:var(--text,#172033);font-size:.82rem;font-weight:700;text-decoration:none;transition:background .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,transform .16s ease}
+.pcat-pagination a:hover,.pcat-pagination a:focus-visible{border-color:var(--accent,#00a89e);background:var(--accent,#00a89e);color:#fff;background:color-mix(in srgb,var(--accent,#00a89e) 12%,var(--bg,#fff));color:var(--accent,#00a89e)}
+.pcat-pagination .is-current{border-color:var(--accent,#00a89e);background:var(--accent,#00a89e);color:#fff;font-weight:900;box-shadow:0 2px 6px rgba(15,23,42,.16)}
+.pcat-pagination a:focus-visible{outline:2px solid var(--accent,#00a89e);outline-offset:2px}
+.pcat-pagination .is-disabled{opacity:.45}
+.pcat-pagination__dots{padding:.35rem;color:var(--muted,#64748b)}
+.pcat-pagination__status{width:100%;color:var(--muted,#64748b);font-size:.75rem;text-align:center}
+@media (prefers-reduced-motion:reduce){.pcat-pagination a,.pcat-pagination>span{transition:none}}
+</style>';
+  return $html;
+}
+
+function post_cat__pagination_state(
+  PDO $pdo,
+  string $category,
+  array $collectionOptions,
+  int $limit,
+  int $offset,
+  int $maxItems,
+  string $paginationKey,
+  int $requestedPage = 1
+): array {
+  $limit = max(1, $limit);
+  $offset = max(0, $offset);
+  $maxItems = max(1, $maxItems);
+  $page = 1;
+  $pages = 1;
+  $fetchLimit = $limit;
+
+  if ($paginationKey !== '' && function_exists('cms_posts_count_by_category')) {
+    $matchingItems = min($maxItems, max(0, cms_posts_count_by_category($pdo, $category, $collectionOptions) - $offset));
+    $pages = max(1, (int)ceil($matchingItems / $limit));
+    $page = min(max(1, $requestedPage), $pages);
+    $fetchLimit = max(1, min($limit, $maxItems - (($page - 1) * $limit)));
+  }
+
+  return [
+    'page' => $page,
+    'pages' => $pages,
+    'limit' => $fetchLimit,
+    'offset' => $offset + (($page - 1) * $limit),
+  ];
 }
 
 function post_cat__empty_html(string $message, string $classPrefix = ''): string {
@@ -332,6 +490,26 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
   $limit = min(200, $limit);
 
   $offset = max(0, (int)($attrs['offset'] ?? 0));
+  $maxItems = max(1, min(10000, (int)($attrs['max_items'] ?? $limit)));
+  $isRandomOrder = strtoupper((string)($attrs['order_by'] ?? 'created_at')) === 'RAND()';
+  $paginationIdentity = array_merge($attrs, [
+    'source' => $source,
+    'type' => (($attrs['type'] ?? 'article') === 'page') ? 'page' : 'article',
+    'category' => $catRaw,
+    'layout' => $layout,
+    'limit' => $limit,
+    'max_items' => $maxItems,
+    'offset' => $offset,
+  ]);
+  $paginationKey = $source === 'posts' && (string)($attrs['pagination'] ?? '0') === '1'
+    && $maxItems > $limit
+    ? post_cat__pagination_key($ctx, $paginationIdentity)
+    : '';
+  $paginationPage = post_cat__pagination_page($paginationKey);
+  $paginationSeedKey = $isRandomOrder ? post_cat__pagination_seed_key($paginationKey) : '';
+  $paginationSeed = $paginationSeedKey !== '' ? post_cat__pagination_seed($paginationKey) : 0;
+  $paginationPages = 1;
+  $pageFetchLimit = $limit;
 
   $classPrefix = trim((string)($attrs['class_prefix'] ?? ''));
   $wrap = post_cat__bool($attrs['wrap'] ?? '1', true);
@@ -344,7 +522,7 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
   $kicker = post_cat__resolve_kicker($attrs, $catRaw);
 
   $excerptLen = (int)($attrs['excerpt'] ?? $attrs['excerpt_len'] ?? 90);
-  if ($excerptLen < 20) $excerptLen = 90;
+  if ($excerptLen !== 0 && $excerptLen < 10) $excerptLen = 90;
 
   $dateFormat = (string)($attrs['date_format'] ?? 'd M Y');
   $items = [];
@@ -390,12 +568,11 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
     }
 
       $postType = (($attrs['type'] ?? 'article') === 'page') ? 'page' : 'article';
-      $posts = cms_posts_by_category($pdo, $catRaw, [
+      $collectionOptions = [
         'type' => $postType,
         'status' => 'published',
         'include_children' => (($attrs['include_children'] ?? '1') !== '0'),
         'limit' => $limit,
-        'offset' => $offset,
         'order_by' => $attrs['order_by'] ?? 'created_at',
         'order_dir' => $attrs['order_dir'] ?? 'DESC',
         'created_by' => isset($attrs['author']) ? (int)$attrs['author'] : (isset($attrs['created_by']) ? (int)$attrs['created_by'] : null),
@@ -409,7 +586,24 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
           'layout' => $layout,
           'source' => $source,
         ],
-      ]);
+      ];
+      if ($paginationSeed > 0) $collectionOptions['random_seed'] = $paginationSeed;
+      $paginationState = post_cat__pagination_state(
+        $pdo,
+        $catRaw,
+        $collectionOptions,
+        $limit,
+        $offset,
+        $maxItems,
+        $paginationKey,
+        $paginationPage
+      );
+      $paginationPage = $paginationState['page'];
+      $paginationPages = $paginationState['pages'];
+      $pageFetchLimit = $paginationState['limit'];
+      $collectionOptions['limit'] = $paginationState['limit'];
+      $collectionOptions['offset'] = $paginationState['offset'];
+      $posts = cms_posts_by_category($pdo, $catRaw, $collectionOptions);
 
     if (!$posts) {
       return post_cat__empty_html('Belum ada konten.', $classPrefix);
@@ -500,7 +694,7 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
     'slider_enabled' => $sliderEnabled,
     'infinite' => $infinite,
     'limit_visible' => $limitVisible,
-    'fetch_limit' => $limit,
+    'fetch_limit' => $pageFetchLimit,
     'instance_id' => $instanceId,
     'esc' => function($v) {
       return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
@@ -508,7 +702,23 @@ function post_cat_shortcode_render(PDO $pdo, array $attrs, array $ctx = []): str
   ];
 
   if ($tpl) {
-    return post_cat__render_template($tpl, $vars);
+    $layoutHtml = post_cat__render_template($tpl, $vars);
+    $sliderPagination = $paginationKey !== '' && str_contains($layoutHtml, 'data-pcat-pagination-slider');
+    $paginationUrlForPage = $paginationSeedKey !== ''
+      ? static fn(int $page): string => post_cat__pagination_url($paginationKey, $page, [$paginationSeedKey => $paginationSeed])
+      : null;
+    $html = $layoutHtml . post_cat__pagination_html($paginationKey, $paginationPage, $paginationPages, $paginationUrlForPage);
+    if ($paginationKey !== '') {
+      $paginationStatus = function_exists('__')
+        ? sprintf(__('Page %d of %d'), $paginationPage, $paginationPages)
+        : sprintf('Page %d of %d', $paginationPage, $paginationPages);
+      return '<div class="pcat-pagination-root" data-pcat-pagination-root="'
+        . htmlspecialchars($paginationKey, ENT_QUOTES, 'UTF-8') . '"'
+        . ($sliderPagination ? ' data-pcat-pagination-mode="slider"' : '')
+        . ' role="region" aria-label="' . htmlspecialchars($paginationStatus, ENT_QUOTES, 'UTF-8')
+        . '" tabindex="-1">' . $html . '</div>';
+    }
+    return $html;
   }
 
   return post_cat__empty_html('Layout template not found: ' . $layout, $classPrefix);

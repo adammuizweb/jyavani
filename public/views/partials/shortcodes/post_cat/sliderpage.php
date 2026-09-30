@@ -35,9 +35,9 @@ $rootStyle = sprintf(
 ?>
 
 <?php if ($wrap): ?>
-<section class="pcat pcat--sliderpage<?= $extra ?>" data-pcat-layout="sliderpage" data-sliderpage="1" style="<?= $esc($rootStyle) ?>">
+<section class="pcat pcat--sliderpage<?= $extra ?>" data-pcat-layout="sliderpage" data-sliderpage="1" data-pcat-pagination-slider="self" style="<?= $esc($rootStyle) ?>">
 <?php else: ?>
-<div class="pcat pcat--sliderpage<?= $extra ?>" data-pcat-layout="sliderpage" data-sliderpage="1" style="<?= $esc($rootStyle) ?>">
+<div class="pcat pcat--sliderpage<?= $extra ?>" data-pcat-layout="sliderpage" data-sliderpage="1" data-pcat-pagination-slider="self" style="<?= $esc($rootStyle) ?>">
 <?php endif; ?>
 
   <div class="sliderpage-container">
@@ -147,7 +147,7 @@ $rootStyle = sprintf(
     background: var(--sp-surface);
     color: var(--sp-text);
     cursor: pointer;
-    display: grid;
+    display: none;
     place-items: center;
     border-radius: 999px;
     font-size: 32px;
@@ -156,6 +156,7 @@ $rootStyle = sprintf(
     transition: background .15s, color .15s;
     box-shadow: var(--sp-shadow);
   }
+  .pcat--sliderpage.is-sliderpage-ready .sliderpage-arrow{ display:grid; }
   .pcat--sliderpage .sliderpage-arrow:hover{
     background: var(--sp-accent);
     color: #fff;
@@ -180,10 +181,13 @@ $rootStyle = sprintf(
   }
 
   .pcat--sliderpage .sliderpage-viewport{
-    overflow: hidden;
+    overflow-x: auto;
     width: 100%;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: thin;
     touch-action: pan-y;
   }
+  .pcat--sliderpage.is-sliderpage-ready .sliderpage-viewport{ overflow:hidden; }
 
   .pcat--sliderpage .sliderpage-track{
     display: grid;
@@ -207,6 +211,7 @@ $rootStyle = sprintf(
     flex-direction: column;
     box-shadow: var(--sp-shadow);
     transition: box-shadow .2s ease;
+    scroll-snap-align: start;
   }
 
   .pcat--sliderpage .sliderpage-card:hover{
@@ -290,13 +295,24 @@ $rootStyle = sprintf(
 <script id="sliderpage-script">
 (function(){
   function initOne(root){
+    if (root.dataset.sliderpageReady === 'true') return;
     var track = root.querySelector('.sliderpage-track');
     var viewport = root.querySelector('.sliderpage-viewport');
     var prev = root.querySelector('.sliderpage-arrow--left');
     var next = root.querySelector('.sliderpage-arrow--right');
     if (!track || !viewport || !prev || !next) return;
+    root.dataset.sliderpageReady = 'true';
+    root.classList.add('is-sliderpage-ready');
 
     var index = 0;
+    var paginationRoot = root.closest('[data-pcat-pagination-root]');
+    if (paginationRoot && paginationRoot.dataset.pcatPaginationMode === 'slider') {
+      paginationRoot.classList.add('is-pcat-slider-pagination-ready');
+    }
+
+    function pageLink(relation){
+      return paginationRoot ? paginationRoot.querySelector('.pcat-pagination a[rel="' + relation + '"]') : null;
+    }
 
     function colsPerView(){
       var style = getComputedStyle(root);
@@ -323,16 +339,32 @@ $rootStyle = sprintf(
       var step = stepWidth();
       track.style.transform = step ? 'translateX(' + (-index * step) + 'px)' : 'translateX(0px)';
 
-      var hideArrows = (mx === 0);
+      var hideArrows = (mx === 0 && !pageLink('prev') && !pageLink('next'));
       prev.classList.toggle('is-hidden', hideArrows);
       next.classList.toggle('is-hidden', hideArrows);
 
-      prev.disabled = (index === 0);
-      next.disabled = (index === mx);
+      prev.disabled = (index === 0 && !pageLink('prev'));
+      next.disabled = (index === mx && !pageLink('next'));
     }
 
-    prev.addEventListener('click', function(){ index -= 1; render(); });
-    next.addEventListener('click', function(){ index += 1; render(); });
+    function move(direction){
+      var maximum = Math.max(0, track.children.length - colsPerView());
+      if (direction < 0 && index === 0) {
+        var previousPage = pageLink('prev');
+        if (previousPage) previousPage.click();
+        return;
+      }
+      if (direction > 0 && index === maximum) {
+        var nextPage = pageLink('next');
+        if (nextPage) nextPage.click();
+        return;
+      }
+      index += direction;
+      render();
+    }
+
+    prev.addEventListener('click', function(){ move(-1); });
+    next.addEventListener('click', function(){ move(1); });
 
     var sx = 0, dx = 0, isDown = false, pid = null;
 
@@ -352,8 +384,8 @@ $rootStyle = sprintf(
     viewport.addEventListener('pointerup', function(){
       if (!isDown) return;
       isDown = false;
-      if (Math.abs(dx) > 40) index += (dx < 0 ? 1 : -1);
-      render();
+      if (Math.abs(dx) > 40) move(dx < 0 ? 1 : -1);
+      else render();
     });
 
     viewport.addEventListener('pointercancel', function(){
@@ -361,18 +393,33 @@ $rootStyle = sprintf(
       render();
     });
 
-    window.addEventListener('resize', render);
+    if (paginationRoot && paginationRoot.dataset.pcatPaginationArrival === 'previous') {
+      index = Number.MAX_SAFE_INTEGER;
+    }
+    if (paginationRoot) delete paginationRoot.dataset.pcatPaginationArrival;
+    if ('ResizeObserver' in window) new ResizeObserver(render).observe(viewport);
     render();
   }
 
-  function initAll(){
-    document.querySelectorAll('[data-sliderpage]').forEach(initOne);
+  function initAll(scope){
+    scope = scope || document;
+    if (scope instanceof Element && scope.matches('[data-sliderpage]')) initOne(scope);
+    scope.querySelectorAll('[data-sliderpage]').forEach(initOne);
+  }
+
+  window.JyavaniSliderPageInit = initAll;
+  if (!window.__jyavaniSliderPagePaginationBound) {
+    window.__jyavaniSliderPagePaginationBound = true;
+    document.addEventListener('jyavani:preset-pagination-updated', function(event){
+      var scope = event.detail && event.detail.root ? event.detail.root : document;
+      if (typeof window.JyavaniSliderPageInit === 'function') window.JyavaniSliderPageInit(scope);
+    });
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAll);
+    document.addEventListener('DOMContentLoaded', function(){ initAll(document); });
   } else {
-    initAll();
+    initAll(document);
   }
 })();
 </script>

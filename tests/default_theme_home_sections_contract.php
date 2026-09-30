@@ -73,6 +73,11 @@ function cms_posts_by_category(PDO $pdo, mixed $category, array $options = []): 
     ]];
 }
 
+function cms_posts_count_by_category(PDO $pdo, mixed $category, array $options = []): int
+{
+    return 22;
+}
+
 function theme_zone_has_position(PDO $pdo, string $zone, string $position): bool
 {
     return $zone === 'main.homepage' && in_array($position, ['before', 'after'], true);
@@ -85,12 +90,16 @@ function theme_zone_render_position(PDO $pdo, string $zone, string $position): s
 
 final class DefaultThemeHomeContractStatement extends PDOStatement
 {
-    public function __construct(private array $rows = [])
+    private array $rows = [];
+
+    public function __construct(private array $rowsByPreset = [])
     {
     }
 
     public function execute(?array $params = null): bool
     {
+        $preset = $params[':preset'] ?? null;
+        $this->rows = isset($this->rowsByPreset[$preset]) ? [$this->rowsByPreset[$preset]] : [];
         return true;
     }
 
@@ -116,12 +125,20 @@ final class DefaultThemeHomeContractPdo extends PDO
     public function prepare(string $query, array $options = []): PDOStatement|false
     {
         $rows = $this->presetAvailable && str_contains($query, "type = 'sc_preset'")
-            ? [[
+            ? [
+                'demo_home_posts' => [
                 'id' => 301,
                 'title' => 'Demo Homepage Posts Preset',
                 'slug' => 'demo_home_posts',
                 'meta' => '{"source":"posts","type":"article","category":"pengembangan","order_by":"created_at","order_dir":"DESC","limit":"4","layout":"cards","kicker":"Preset Demo","excerpt_len":"120","wrap":"1"}',
-            ]]
+                ],
+                'demo_random_posts' => [
+                    'id' => 300,
+                    'title' => 'Demo Random Posts Preset',
+                    'slug' => 'demo_random_posts',
+                    'meta' => '{"source":"posts","type":"article","category":"","order_by":"RAND()","order_dir":"DESC","limit":"4","layout":"mini","kicker":"Pilihan","excerpt_len":"90","wrap":"1"}',
+                ],
+            ]
             : [];
         return new DefaultThemeHomeContractStatement($rows);
     }
@@ -156,6 +173,7 @@ $names = [
     'home.latest-carousel',
     'home.preset-posts',
     'home.categories',
+    'home.random-posts',
     'home.cta',
     'home.topic-columns',
     'home.empty-state',
@@ -177,9 +195,15 @@ foreach (['title', 'summary'] as $defaultKey) {
     $defaultText = (string)($presetDefaults[$defaultKey] ?? '');
     $check($defaultText !== '' && substr_count($translations, "'" . str_replace("'", "''", $defaultText) . "'") >= 2, 'preset section ' . $defaultKey . ' has Indonesian and German translation seeds');
 }
+$randomDefaults = $definitions['home.random-posts']['defaults'] ?? [];
+$check(($randomDefaults['preset'] ?? '') === 'demo_random_posts', 'random Card Grid section reuses the canonical random demo preset');
+foreach (['title', 'summary', 'refresh_label'] as $defaultKey) {
+    $defaultText = (string)($randomDefaults[$defaultKey] ?? '');
+    $check($defaultText !== '' && substr_count($translations, "'" . str_replace("'", "''", $defaultText) . "'") >= 2, 'random section ' . $defaultKey . ' has Indonesian and German translation seeds');
+}
 
 $homepageSource = (string)file_get_contents($homepagePath);
-$check(substr_count($homepageSource, 'render_theme_section(') === 8, 'homepage orchestrator delegates all eight semantic sections');
+$check(substr_count($homepageSource, 'render_theme_section(') === 9, 'homepage orchestrator delegates all nine semantic sections');
 $check(!str_contains($homepageSource, 'cms_posts_by_category') && !str_contains($homepageSource, 'widget_fetch_categories')
     && !str_contains($homepageSource, '<section'), 'homepage orchestrator contains no queries or visual section markup');
 $check(strpos($homepageSource, "render_theme_section('home.hero'") < strpos($homepageSource, "'main.homepage', 'before'")
@@ -198,6 +222,7 @@ $richOrder = [
     strpos($richHtml, 'hp-carousel'),
     strpos($richHtml, 'data-theme-section="home.preset-posts"'),
     strpos($richHtml, 'hp-categories'),
+    strpos($richHtml, 'data-theme-section="home.random-posts"'),
     strpos($richHtml, 'hp-cta-block'),
     strpos($richHtml, 'hp-multicol'),
     strpos($richHtml, 'data-contract-zone="after"'),
@@ -208,19 +233,49 @@ $check(!in_array(false, $richOrder, true) && $richOrder === $sortedRichOrder, 'r
 $check(str_contains($richHtml, 'new Swiper') && str_contains($richHtml, '/id/artikel/')
     && str_contains($richHtml, '/media/contract.jpg'), 'rich sections preserve carousel JS, localized URLs, and media display URLs');
 $check(str_contains($richHtml, 'data-pcat-layout="cards"') && str_contains($richHtml, 'Pengembangan Article'), 'preset-backed section visibly renders its saved Collection Layout and query result');
+$randomPageKeyMatch = [];
+$hasRandomPageKey = preg_match('/data-pcat-pagination-root="(pcat_page_demo_random_posts-[a-f0-9]{16})"/', $richHtml, $randomPageKeyMatch) === 1;
+$randomPageKey = $hasRandomPageKey ? (string)$randomPageKeyMatch[1] : '';
+$randomSeedKey = post_cat__pagination_seed_key($randomPageKey);
+$check(str_contains($richHtml, 'data-pcat-layout="grid"')
+    && str_contains($richHtml, 'action="/#random-posts"')
+    && str_contains($richHtml, 'name="random_posts" value="1"')
+    && str_contains($richHtml, 'href="/id/latest-article/"')
+    && str_contains($richHtml, 'Page 1 of 5')
+    && $hasRandomPageKey
+    && preg_match('/' . preg_quote($randomSeedKey, '/') . '=[1-9][0-9]*/', $richHtml) === 1, 'random section renders Card Grid with shuffle, card links, and five request-stable pages');
 $check(($GLOBALS['home_contract_preset_calls'][0]['preset'] ?? '') === 'demo_home_posts'
     && ($GLOBALS['home_contract_preset_calls'][0]['context']['surface'] ?? '') === 'theme_section.home.preset-posts', 'homepage section delegates query and Collection Layout ownership to the published preset API');
+$check(($GLOBALS['home_contract_preset_calls'][1]['preset'] ?? '') === 'demo_random_posts'
+    && ($GLOBALS['home_contract_preset_calls'][1]['context']['surface'] ?? '') === 'theme_section.home.random-posts', 'random homepage section delegates data ownership to the published random preset');
 $check(strpos($richHtml, 'data-contract-zone="after"') < strpos($richHtml, 'new Swiper'), 'homepage keeps the carousel initializer after the trailing Theme Zone');
 $check($GLOBALS['home_contract_category_calls'] === 1, 'category data is queried once for the request');
-$check($GLOBALS['home_contract_post_calls'] === ['panduan' => 1, '' => 1, 'keamanan' => 1, 'pengembangan' => 2, 'sistem' => 1], 'shared homepage data is queried once and the preset independently owns its Pengembangan collection query');
+$check($GLOBALS['home_contract_post_calls'] === ['panduan' => 1, '' => 2, 'keamanan' => 1, 'pengembangan' => 2, 'sistem' => 1], 'shared homepage data is cached while both preset sections independently own their collection queries');
 
 $shortcodeHtml = widget_expand_shortcodes('[[widget:theme_section name="home.guide-bento"]]', $pdo);
 $check(str_contains($shortcodeHtml, 'hp-bento') && str_contains($shortcodeHtml, 'Panduan Article'), 'registered homepage renderer is reusable through the Theme Section shortcode');
 $check($GLOBALS['home_contract_category_calls'] === 1
-    && $GLOBALS['home_contract_post_calls'] === ['panduan' => 1, '' => 1, 'keamanan' => 1, 'pengembangan' => 2, 'sistem' => 1], 'non-preset shortcode reuse consumes the request-cached homepage data');
+    && $GLOBALS['home_contract_post_calls'] === ['panduan' => 1, '' => 2, 'keamanan' => 1, 'pengembangan' => 2, 'sistem' => 1], 'non-preset shortcode reuse consumes the request-cached homepage data');
 $presetShortcodeHtml = widget_expand_shortcodes('[[widget:theme_section name="home.preset-posts"]]', $pdo);
 $check(str_contains($presetShortcodeHtml, 'data-theme-section="home.preset-posts"')
     && str_contains($presetShortcodeHtml, 'data-pcat-layout="cards"'), 'preset-backed homepage renderer is reusable through the Theme Section shortcode');
+$randomShortcodeHtml = widget_expand_shortcodes('[[widget:theme_section name="home.random-posts"]]', $pdo);
+$check(str_contains($randomShortcodeHtml, 'data-theme-section="home.random-posts"')
+    && str_contains($randomShortcodeHtml, 'data-pcat-layout="grid"'), 'random Card Grid renderer is reusable through the Theme Section shortcode');
+$_SERVER['REQUEST_URI'] = '/?view=compact&' . $randomPageKey . '=3&' . $randomSeedKey . '=123&pcat_page_other=2';
+$_GET = [
+    'view' => 'compact',
+    $randomPageKey => '3',
+    $randomSeedKey => '123',
+    'pcat_page_other' => '2',
+];
+$shuffleHtml = render_theme_section('home.random-posts', [], $pdo);
+$check(str_contains($shuffleHtml, '<input type="hidden" name="view" value="compact">')
+    && str_contains($shuffleHtml, '<input type="hidden" name="pcat_page_other" value="2">')
+    && !str_contains($shuffleHtml, '<input type="hidden" name="' . $randomPageKey . '"')
+    && !str_contains($shuffleHtml, '<input type="hidden" name="' . $randomSeedKey . '"'), 'Shuffle resets only its own page and seed while preserving unrelated query state');
+$_SERVER['REQUEST_URI'] = '/';
+$_GET = [];
 
 $pdo->presetAvailable = false;
 $missingPresetHtml = render_theme_section('home.preset-posts', [], $pdo);
@@ -248,7 +303,7 @@ $check(str_contains($refreshedHtml, 'Contract Site') && $GLOBALS['home_contract_
     'a later PDO render refreshes data previously cached without a database connection');
 
 $manifest = json_decode((string)file_get_contents($themeRoot . '/theme.json'), true);
-$check(($manifest['version'] ?? '') === '1.6.0' && ($manifest['jyavani_required'] ?? '') === '2.3.160', 'default theme declares its preset-composition version and coordinated Core requirement');
+$check(($manifest['version'] ?? '') === '1.7.0' && ($manifest['jyavani_required'] ?? '') === '2.3.161', 'default theme declares its random Card Grid section version and coordinated Core requirement');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

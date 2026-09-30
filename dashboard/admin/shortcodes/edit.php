@@ -191,14 +191,23 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
           </select>
         </label>
 
-        <label style="display:block;margin-top:.6rem"><?=_e('Category (leave empty for all)')?><br>
-          <select name="filter_category" class="inpud">
-            <option value=""><?= _e('-- All Categories --') ?></option>
-            <?php foreach ($cats as $c): ?>
-              <option value="<?= h($c['slug']) ?>" <?= ($pref_config['category'] ?? '') === $c['slug'] ? 'selected' : '' ?>><?= h($c['name']) ?> (<?= h($c['slug']) ?>)</option>
-            <?php endforeach; ?>
-          </select>
-        </label>
+        <div id="article-category-fields" <?= ($pref_config['type'] ?? 'article') === 'page' ? 'hidden' : '' ?>>
+          <label style="display:block;margin-top:.6rem"><?=_e('Category (leave empty for all)')?><br>
+            <select name="filter_category" class="inpud">
+              <option value=""><?= _e('-- All Categories --') ?></option>
+              <?php foreach ($cats as $c): ?>
+                <option value="<?= h($c['slug']) ?>" <?= ($pref_config['category'] ?? '') === $c['slug'] ? 'selected' : '' ?>><?= h($c['name']) ?> (<?= h($c['slug']) ?>)</option>
+              <?php endforeach; ?>
+            </select>
+          </label>
+
+          <label style="display:block;margin-top:.6rem"><?=_e('Include Child Categories')?><br>
+            <select name="filter_include_children" class="inpud" style="width:auto;">
+              <option value="1" <?= (string)($pref_config['include_children'] ?? '1') === '1' ? 'selected' : '' ?>><?=_e('Yes')?></option>
+              <option value="0" <?= (string)($pref_config['include_children'] ?? '1') === '0' ? 'selected' : '' ?>><?=_e('No')?></option>
+            </select>
+          </label>
+        </div>
 
         <?php if ($isAdmin): ?>
         <label style="display:block;margin-top:.6rem"><?=_e('Author (leave empty for all)')?><br>
@@ -214,21 +223,34 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
         <?php endif; ?>
 
         <div style="display:flex;gap:1rem;margin-top:.6rem;flex-wrap:wrap;">
-          <label><?=_e('Limit')?><br>
+          <label><span class="field-heading"><?=_e('Limit')?>
+            <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= h(__('What does Limit mean?')) ?>" aria-describedby="preset-limit-help" aria-controls="preset-limit-help" aria-expanded="false">?</button><span id="preset-limit-help" class="field-help__tooltip" role="tooltip"><?= h(__('Number of items rendered per page. Without pagination, this is the total number rendered.')) ?></span></span>
+          </span><br>
             <input type="number" name="filter_limit" value="<?= (int)($pref_config['limit'] ?? 5) ?>" class="inpud" style="width:100px" min="1" max="200">
           </label>
-          <label><?=_e('Offset')?><br>
+          <label id="preset-max-items-field" <?= $currentSource !== 'posts' ? 'hidden' : '' ?>><span class="field-heading"><?=_e('Max Items')?>
+            <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= h(__('What does Max Items mean?')) ?>" aria-describedby="preset-max-items-help" aria-controls="preset-max-items-help" aria-expanded="false">?</button><span id="preset-max-items-help" class="field-help__tooltip" role="tooltip"><?= h(__('Maximum total number of matching items available across all pages. Pagination is offered only when Max Items is greater than Limit.')) ?></span></span>
+          </span><br>
+            <input type="number" name="filter_max_items" value="<?= (int)($pref_config['max_items'] ?? ($pref_config['limit'] ?? 5)) ?>" class="inpud" style="width:100px" min="1" max="10000">
+          </label>
+          <label><span class="field-heading"><?=_e('Offset')?>
+            <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= h(__('What does Offset mean?')) ?>" aria-describedby="preset-offset-help" aria-controls="preset-offset-help" aria-expanded="false">?</button><span id="preset-offset-help" class="field-help__tooltip" role="tooltip"><?= h(__('Number of matching items skipped before rendering starts. Offset 10 skips the first 10 items; it does not mean two pages.')) ?></span></span>
+          </span><br>
             <input type="number" name="filter_offset" value="<?= (int)($pref_config['offset'] ?? 0) ?>" class="inpud" style="width:100px" min="0">
           </label>
-          <label><?=_e('Excerpt Length')?><br>
-            <input type="number" name="filter_excerpt" value="<?= (int)($pref_config['excerpt_len'] ?? 90) ?>" class="inpud" style="width:100px" min="10" max="1000">
+          <label><span class="field-heading"><?=_e('Excerpt Length')?>
+            <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= h(__('What does Excerpt Length mean?')) ?>" aria-describedby="preset-excerpt-help" aria-controls="preset-excerpt-help" aria-expanded="false">?</button><span id="preset-excerpt-help" class="field-help__tooltip" role="tooltip"><?= h(__('Maximum description length in characters. Use 0 to hide descriptions from layouts that support excerpts.')) ?></span></span>
+          </span><br>
+            <input type="number" name="filter_excerpt" value="<?= (int)($pref_config['excerpt_len'] ?? 90) ?>" class="inpud" style="width:100px" min="0" max="1000">
           </label>
         </div>
 
-        <label style="display:block;margin-top:.6rem"><?=_e('Include Child Categories')?><br>
-          <select name="filter_include_children" class="inpud" style="width:auto;">
-            <option value="1" <?= (string)($pref_config['include_children'] ?? '1') === '1' ? 'selected' : '' ?>><?=_e('Yes')?></option>
-            <option value="0" <?= (string)($pref_config['include_children'] ?? '1') === '0' ? 'selected' : '' ?>><?=_e('No')?></option>
+        <label id="preset-pagination-field" style="display:block;margin-top:.6rem" <?= $currentSource !== 'posts' || (int)($pref_config['max_items'] ?? ($pref_config['limit'] ?? 5)) <= (int)($pref_config['limit'] ?? 5) ? 'hidden' : '' ?>><span class="field-heading"><?=_e('Pagination')?>
+          <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= h(__('What does Pagination mean?')) ?>" aria-describedby="preset-pagination-help" aria-controls="preset-pagination-help" aria-expanded="false">?</button><span id="preset-pagination-help" class="field-help__tooltip" role="tooltip"><?= h(__('Load additional pages with AJAX for Core posts or pages. Limit controls items per page, Max Items caps the total, and Offset skips items before page 1.')) ?></span></span>
+        </span><br>
+          <select name="filter_pagination" class="inpud" style="width:auto;">
+            <option value="0" <?= (string)($pref_config['pagination'] ?? '0') === '0' ? 'selected' : '' ?>><?=_e('No')?></option>
+            <option value="1" <?= (string)($pref_config['pagination'] ?? '0') === '1' ? 'selected' : '' ?>><?=_e('Yes')?></option>
           </select>
         </label>
       </div>
@@ -363,6 +385,41 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
   var customFields = document.getElementById('order-custom-fields');
   var customOpt = document.getElementById('order-custom-opt');
   var sourceSelect = document.getElementById('filter-source');
+  var typeSelect = document.querySelector('[name="filter_type"]');
+  var categoryFields = document.getElementById('article-category-fields');
+  var paginationSelect = document.querySelector('[name="filter_pagination"]');
+  var paginationField = document.getElementById('preset-pagination-field');
+  var maxItemsField = document.getElementById('preset-max-items-field');
+  var limitInput = document.querySelector('[name="filter_limit"]');
+  var maxItemsInput = document.querySelector('[name="filter_max_items"]');
+
+  function sourceOwnsCompatibilityField(key) {
+    var source = sourceSelect ? sourceSelect.value : String(basePresetConfig.source || 'posts');
+    var definition = sourceDefinitions[source] || null;
+    return source !== 'posts' && definition && (definition.field_keys || []).indexOf(key) !== -1;
+  }
+
+  function syncCategoryFields() {
+    var articleSelected = !typeSelect || typeSelect.value === 'article';
+    if (categoryFields) categoryFields.hidden = !articleSelected;
+    ['filter_category', 'filter_include_children'].forEach(function(name) {
+      var field = document.querySelector('[name="' + name + '"]');
+      if (field) field.disabled = !articleSelected;
+    });
+  }
+
+  function syncPaginationField() {
+    if (!paginationSelect) return;
+    var coreSourceSelected = !sourceSelect || sourceSelect.value === 'posts';
+    var limitValue = limitInput ? parseInt(limitInput.value, 10) : 0;
+    var maxItemsValue = maxItemsInput ? parseInt(maxItemsInput.value, 10) : 0;
+    var hasMultiplePages = Number.isInteger(limitValue) && Number.isInteger(maxItemsValue) && maxItemsValue > limitValue;
+    var available = coreSourceSelected && hasMultiplePages;
+    if (!available && !sourceOwnsCompatibilityField('pagination')) paginationSelect.value = '0';
+    paginationSelect.disabled = !available;
+    if (paginationField) paginationField.hidden = !available;
+    if (maxItemsField) maxItemsField.hidden = !coreSourceSelected;
+  }
 
   function applySourceDefaultsToForm(defaults) {
     var fields = {
@@ -370,6 +427,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
       category: 'filter_category',
       author: 'filter_author',
       limit: 'filter_limit',
+      max_items: 'filter_max_items',
       offset: 'filter_offset',
       excerpt_len: 'filter_excerpt',
       include_children: 'filter_include_children',
@@ -377,20 +435,30 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
       date_to: 'filter_date_to',
       layout: 'filter_layout',
       class_prefix: 'filter_class_prefix',
-      wrap: 'filter_wrap'
+      wrap: 'filter_wrap',
+      pagination: 'filter_pagination'
     };
     Object.keys(fields).forEach(function(key) {
       if (!Object.prototype.hasOwnProperty.call(defaults, key)) return;
       var field = document.querySelector('[name="' + fields[key] + '"]');
       if (field) field.value = defaults[key] === null ? '' : String(defaults[key]);
     });
+    syncCategoryFields();
+    syncPaginationField();
   }
 
   if (orderSelect && customFields) {
     orderSelect.addEventListener('change', function() {
       customFields.style.display = this.value === 'custom' ? 'flex' : 'none';
+      syncPaginationField();
     });
   }
+
+  if (typeSelect) typeSelect.addEventListener('change', syncCategoryFields);
+  if (limitInput) limitInput.addEventListener('input', syncPaginationField);
+  if (maxItemsInput) maxItemsInput.addEventListener('input', syncPaginationField);
+  syncCategoryFields();
+  syncPaginationField();
 
   if (sourceSelect) {
     sourceSelect.addEventListener('change', function() {
@@ -416,6 +484,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
           form: form
         }
       }));
+      syncPaginationField();
     });
   }
 
@@ -435,7 +504,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
       if (type) config.type = type.value;
 
       var cat = document.querySelector('[name="filter_category"]');
-      if (cat) config.category = cat.value;
+      if (cat) config.category = !type || type.value === 'article' ? cat.value : '';
 
       var author = document.querySelector('[name="filter_author"]');
       if (author) config.author = author.value ? parseInt(author.value, 10) : null;
@@ -443,14 +512,22 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
       var limit = document.querySelector('[name="filter_limit"]');
       if (limit) config.limit = parseInt(limit.value, 10) || 5;
 
+      var maxItems = document.querySelector('[name="filter_max_items"]');
+      if (maxItems && !sourceOwnsCompatibilityField('max_items')) config.max_items = parseInt(maxItems.value, 10) || config.limit;
+
       var offset = document.querySelector('[name="filter_offset"]');
       if (offset) config.offset = parseInt(offset.value, 10) || 0;
 
       var excerpt = document.querySelector('[name="filter_excerpt"]');
-      if (excerpt) config.excerpt_len = parseInt(excerpt.value, 10) || 90;
+      if (excerpt) {
+        var excerptValue = parseInt(excerpt.value, 10);
+        config.excerpt_len = Number.isInteger(excerptValue) ? excerptValue : 90;
+      }
 
       var inc = document.querySelector('[name="filter_include_children"]');
-      if (inc) config.include_children = inc.value;
+      if (inc) config.include_children = !type || type.value === 'article' ? inc.value : '0';
+
+      if (paginationSelect && !sourceOwnsCompatibilityField('pagination')) config.pagination = paginationSelect.disabled ? '0' : paginationSelect.value;
 
       var order = orderSelect ? orderSelect.value : 'latest';
       if (order === 'latest') {
@@ -505,7 +582,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     if (type) config.type = type.value;
 
     var cat = document.querySelector('[name="filter_category"]');
-    if (cat) config.category = cat.value;
+    if (cat) config.category = !type || type.value === 'article' ? cat.value : '';
 
     var author = document.querySelector('[name="filter_author"]');
     if (author) config.author = author.value ? parseInt(author.value, 10) : null;
@@ -513,14 +590,22 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     var limit = document.querySelector('[name="filter_limit"]');
     if (limit) config.limit = parseInt(limit.value, 10) || 5;
 
+    var maxItems = document.querySelector('[name="filter_max_items"]');
+    if (maxItems && !sourceOwnsCompatibilityField('max_items')) config.max_items = parseInt(maxItems.value, 10) || config.limit;
+
     var offset = document.querySelector('[name="filter_offset"]');
     if (offset) config.offset = parseInt(offset.value, 10) || 0;
 
     var excerpt = document.querySelector('[name="filter_excerpt"]');
-    if (excerpt) config.excerpt_len = parseInt(excerpt.value, 10) || 90;
+    if (excerpt) {
+      var excerptValue = parseInt(excerpt.value, 10);
+      config.excerpt_len = Number.isInteger(excerptValue) ? excerptValue : 90;
+    }
 
     var inc = document.querySelector('[name="filter_include_children"]');
-    if (inc) config.include_children = inc.value;
+    if (inc) config.include_children = !type || type.value === 'article' ? inc.value : '0';
+
+    if (paginationSelect && !sourceOwnsCompatibilityField('pagination')) config.pagination = paginationSelect.disabled ? '0' : paginationSelect.value;
 
     var orderSel = document.getElementById('filter-order');
     var order = orderSel ? orderSel.value : 'latest';

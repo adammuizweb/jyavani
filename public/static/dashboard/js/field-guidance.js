@@ -6,17 +6,50 @@
     help.dataset.open = open ? 'true' : 'false';
     const trigger = help.querySelector('.field-help__trigger');
     if (trigger) trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-    const tooltip = help.querySelector('.field-help__tooltip');
-    if (!open || !trigger || !tooltip) return;
+    const tooltip = help.__fieldHelpTooltip || help.querySelector('.field-help__tooltip');
+    if (!tooltip) return;
+    help.__fieldHelpTooltip = tooltip;
+    tooltip.__fieldHelpOwner = help;
+    if (!open || !trigger) {
+      tooltip.classList.remove('field-help__tooltip--portal');
+      tooltip.style.left = '';
+      tooltip.style.top = '';
+      if (tooltip.parentElement !== help) help.appendChild(tooltip);
+      return;
+    }
+
+    tooltip.classList.add('field-help__tooltip--portal');
+    document.body.appendChild(tooltip);
+    tooltip.style.left = '0px';
+    tooltip.style.top = '0px';
     const triggerBounds = trigger.getBoundingClientRect();
     const tooltipWidth = tooltip.offsetWidth;
-    const centeredLeft = triggerBounds.left + (triggerBounds.width / 2) - (tooltipWidth / 2);
-    const centeredRight = centeredLeft + tooltipWidth;
+    const tooltipHeight = tooltip.offsetHeight;
     const edge = 12;
-    const shift = centeredLeft < edge
-      ? edge - centeredLeft
-      : (centeredRight > window.innerWidth - edge ? window.innerWidth - edge - centeredRight : 0);
-    tooltip.style.setProperty('--field-help-shift', shift + 'px');
+    const centeredLeft = triggerBounds.left + (triggerBounds.width / 2) - (tooltipWidth / 2);
+    const left = Math.max(edge, Math.min(centeredLeft, window.innerWidth - tooltipWidth - edge));
+    const above = triggerBounds.top - tooltipHeight - 8;
+    const top = above >= edge ? above : Math.min(window.innerHeight - tooltipHeight - edge, triggerBounds.bottom + 8);
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = Math.max(edge, top) + 'px';
+  }
+
+  function cancelHelpClose(help) {
+    if (!help || !help.__fieldHelpCloseTimer) return;
+    clearTimeout(help.__fieldHelpCloseTimer);
+    delete help.__fieldHelpCloseTimer;
+  }
+
+  function scheduleHelpClose(help) {
+    if (!help) return;
+    cancelHelpClose(help);
+    help.__fieldHelpCloseTimer = setTimeout(function () {
+      delete help.__fieldHelpCloseTimer;
+      const tooltip = help.__fieldHelpTooltip;
+      if (!help.contains(document.activeElement) && !help.matches(':hover') && !(tooltip && tooltip.matches(':hover'))) {
+        setHelpOpen(help, false);
+      }
+    }, 80);
   }
 
   function closeOtherHelp(current) {
@@ -44,16 +77,27 @@
   });
 
   document.addEventListener('mouseover', function (event) {
+    const portal = event.target.closest('.field-help__tooltip--portal');
+    if (portal && portal.__fieldHelpOwner) {
+      cancelHelpClose(portal.__fieldHelpOwner);
+      return;
+    }
     const help = event.target.closest('.field-help');
     if (!help || (event.relatedTarget && help.contains(event.relatedTarget))) return;
+    cancelHelpClose(help);
     closeOtherHelp(help);
     setHelpOpen(help, true);
   });
 
   document.addEventListener('mouseout', function (event) {
+    const portal = event.target.closest('.field-help__tooltip--portal');
+    if (portal && portal.__fieldHelpOwner) {
+      scheduleHelpClose(portal.__fieldHelpOwner);
+      return;
+    }
     const help = event.target.closest('.field-help');
     if (!help || (event.relatedTarget && help.contains(event.relatedTarget))) return;
-    if (!help.contains(document.activeElement)) setHelpOpen(help, false);
+    scheduleHelpClose(help);
   });
 
   document.addEventListener('click', function (event) {
@@ -99,6 +143,11 @@
       setHelpOpen(help, true);
     });
   });
+  window.addEventListener('scroll', function () {
+    document.querySelectorAll('.field-help[data-open="true"]').forEach(function (help) {
+      setHelpOpen(help, true);
+    });
+  }, true);
 
   labelRequiredEditors();
   new MutationObserver(labelRequiredEditors).observe(document.body, { childList: true, subtree: true });

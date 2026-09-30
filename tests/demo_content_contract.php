@@ -142,7 +142,12 @@ $homePreset = $presetBySlug['demo_home_posts'] ?? [];
 $check(($randomPreset['id'] ?? null) === 300 && ($randomPreset['status'] ?? null) === 'published'
     && ($randomPreset['metadata']['layout'] ?? null) === 'mini'
     && ($randomPreset['metadata']['excerpt_len'] ?? null) === '90'
-    && !array_key_exists('author', $randomPreset['metadata'] ?? []), 'sidebar preset is published, runtime-valid, and not bound to user ID 1');
+    && !array_key_exists('author', $randomPreset['metadata'] ?? [])
+    && ($randomPreset['theme_section']['name'] ?? null) === 'home.random-posts'
+    && ($randomPreset['theme_section']['layout_override'] ?? null) === 'grid'
+    && ($randomPreset['theme_section']['limit'] ?? null) === 4
+    && ($randomPreset['theme_section']['max_items'] ?? null) === 20
+    && ($randomPreset['theme_section']['pagination'] ?? null) === 1, 'random preset remains sidebar-safe and declares its five-page homepage Card Grid composition');
 $check(($homePreset['id'] ?? null) === 301 && ($homePreset['status'] ?? null) === 'published'
     && ($homePreset['metadata']['category'] ?? null) === 'pengembangan'
     && ($homePreset['metadata']['order_by'] ?? null) === 'created_at'
@@ -161,9 +166,21 @@ $check($sectionName !== '' && is_file($sectionPath)
     && str_contains($themeRegistration, "'title' => '" . ($homePreset['theme_section']['title'] ?? '') . "'")
     && str_contains($homepageSource, "render_theme_section('" . $sectionName . "'")
     && str_contains($sectionSource, 'render_shortcode_preset($pdo, $preset'), 'manifest preset, default Theme Section renderer, and homepage composition share one exact identity');
+$randomSectionName = (string)($randomPreset['theme_section']['name'] ?? '');
+$randomSectionPath = $themeRoot . '/partials/shortcodes/section/' . $randomSectionName . '.php';
+$randomSectionSource = is_file($randomSectionPath) ? (string)file_get_contents($randomSectionPath) : '';
+$check($randomSectionName !== '' && is_file($randomSectionPath)
+    && str_contains($themeRegistration, "'preset' => 'demo_random_posts'")
+    && str_contains($homepageSource, "render_theme_section('" . $randomSectionName . "'")
+    && str_contains($randomSectionSource, "'layout' => 'grid'")
+    && str_contains($randomSectionSource, "'limit' => 4")
+    && str_contains($randomSectionSource, "'max_items' => 20")
+    && str_contains($randomSectionSource, "'pagination' => '1'")
+    && str_contains($randomSectionSource, 'name="random_posts"'), 'random preset, Card Grid override, homepage composition, and shuffle navigation share one section contract');
 $guideSource = (string)file_get_contents($sourceRoot . '/articles/281-widget-shortcode.html');
 $check(str_contains($guideSource, 'demo_home_posts') && str_contains($guideSource, 'home.preset-posts')
-    && str_contains($guideSource, 'Build Section'), 'demo guide explains the shipped preset-to-section composition');
+    && str_contains($guideSource, 'home.random-posts') && str_contains($guideSource, 'Acak Lagi')
+    && str_contains($guideSource, 'Build Section'), 'demo guide explains deterministic and random preset-to-section composition');
 
 $generatorSource = (string)file_get_contents($generatorPath);
 $sqlSource = (string)file_get_contents($sqlPath);

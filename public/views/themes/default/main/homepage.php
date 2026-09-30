@@ -19,6 +19,7 @@ if ($home['has_posts']):
     echo render_theme_section('home.latest-carousel', [], $pdo instanceof PDO ? $pdo : null, ['defer_carousel_script' => true]);
     echo render_theme_section('home.preset-posts', [], $pdo instanceof PDO ? $pdo : null);
     echo render_theme_section('home.categories', [], $pdo instanceof PDO ? $pdo : null);
+    echo render_theme_section('home.random-posts', [], $pdo instanceof PDO ? $pdo : null);
     echo render_theme_section('home.cta', [], $pdo instanceof PDO ? $pdo : null);
     echo render_theme_section('home.topic-columns', [], $pdo instanceof PDO ? $pdo : null);
 

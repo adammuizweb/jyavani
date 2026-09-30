@@ -418,6 +418,88 @@ $check(str_contains($source['index'], 'class="sc-scope-switch"')
     && str_contains($source['index'], 'class="sc-toolbar sc-layouts-filter-toolbar"')
     && str_contains($source['index'], 'class="sc-layout-filter-fields"')
     && str_contains($source['index'], '@media (max-width: 620px)'), 'both layout scopes use the responsive scope switcher and filter panel');
+$check(str_contains($source['editor'], 'class="pcat__track pcat-card-grid"')
+    && str_contains($source['editor'], '.pcat-card-grid .pcat__card{')
+    && str_contains($source['editor'], '.pcat-card-grid .pcat__media{')
+    && str_contains($source['editor'], '.pcat-card-grid .pcat__body{')
+    && str_contains($source['editor'], '.pcat-card-grid .pcat__title{'), 'Card Grid starter carries scoped card styling in preview and runtime output');
+$check(str_contains($source['editor'], 'class="pcat__track pcat-list-stack"')
+    && str_contains($source['editor'], '.pcat-list-stack .pcat__card{')
+    && str_contains($source['editor'], '.pcat-list-stack .pcat__media{')
+    && str_contains($source['editor'], '.pcat-list-stack .pcat__meta{')
+    && str_contains($source['editor'], '@media (max-width:600px)'), 'List starter carries scoped editorial styling and a responsive compact layout');
+$listStarterMatch = [];
+$listStarterHtml = '';
+$listStarterError = null;
+if (preg_match('/\$tplList = <<<\'PHP\'\R(.*?)\RPHP;/s', $source['editor'], $listStarterMatch) === 1) {
+    try {
+        $listStarterHtml = (static function (string $template): string {
+            $items = [[
+                'title' => 'Starter title',
+                'url' => '/starter/',
+                'thumb' => '',
+                'desc' => 'Starter description',
+                'date_iso' => '2026-09-30T10:00:00+07:00',
+                'date_label' => '30 Sep 2026',
+            ]];
+            $wrap = true;
+            $layout = 'contract-list';
+            $class_prefix = '';
+            $kicker = 'Guides';
+            $esc = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+            ob_start();
+            eval('?>' . $template);
+            return (string)ob_get_clean();
+        })($listStarterMatch[1]);
+    } catch (Throwable $error) {
+        $listStarterError = $error;
+    }
+}
+$check($listStarterError === null
+    && str_contains($listStarterHtml, 'Starter title')
+    && str_contains($listStarterHtml, 'pcat-list-stack')
+    && str_contains($listStarterHtml, 'pcat__img--placeholder'), 'List starter template executes with the documented collection variables');
+$check(str_contains($source['editor'], 'data-pcat-pagination-slider="core"')
+    && str_contains($source['editor'], 'data-pcat-slider-track')
+    && str_contains($source['editor'], 'data-pcat-slider-prev')
+    && str_contains($source['editor'], 'data-pcat-slider-next')
+    && str_contains($source['editor'], '.pcat-slider-starter.is-pcat-slider-ready'), 'Slider starter declares responsive controls for shared cross-page navigation');
+$sliderStarterMatch = [];
+$sliderStarterHtml = '';
+$sliderStarterError = null;
+if (preg_match('/\$tplSlider = <<<\'PHP\'\R(.*?)\RPHP;/s', $source['editor'], $sliderStarterMatch) === 1) {
+    try {
+        $sliderStarterHtml = (static function (string $template): string {
+            if (!function_exists('__')) {
+                $template = str_replace(["__('Previous')", "__('Next')"], ["'Previous'", "'Next'"], $template);
+            }
+            $items = [[
+                'title' => 'Slider title',
+                'url' => '/slider/',
+                'thumb' => '',
+                'desc' => 'Slider description',
+                'date_iso' => '2026-09-30T10:00:00+07:00',
+                'date_label' => '30 Sep 2026',
+            ]];
+            $attrs = [];
+            $wrap = true;
+            $layout = 'contract-slider';
+            $class_prefix = '';
+            $kicker = 'Guides';
+            $instance_id = 'contract-slider';
+            $esc = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
+            ob_start();
+            eval('?>' . $template);
+            return (string)ob_get_clean();
+        })($sliderStarterMatch[1]);
+    } catch (Throwable $error) {
+        $sliderStarterError = $error;
+    }
+}
+$check($sliderStarterError === null
+    && str_contains($sliderStarterHtml, 'Slider title')
+    && str_contains($sliderStarterHtml, 'data-pcat-pagination-slider="core"')
+    && str_contains($sliderStarterHtml, 'data-pcat-slider-next'), 'Slider starter template executes with the documented collection variables');
 $check(str_contains($source['index'], 'id="layout-bulk-bar" data-active="false"')
     && str_contains($source['index'], 'id="layout-selection-count"')
     && str_contains($source['index'], 'updateLayoutSelection()')

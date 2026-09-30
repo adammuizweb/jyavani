@@ -85,6 +85,37 @@ $loaded = shortcode_preset_config_loaded('{"plugin_key":{"kept":true}}');
 $check(($loaded['plugin_default'] ?? '') === 'default-value' && ($loaded['plugin_key']['kept'] ?? false), 'defaults and stored unknown plugin keys survive config loading');
 $check(($loaded['loaded_hook'] ?? false) === true, 'config-loaded filter runs');
 
+$zeroExcerptPreview = shortcode_preset_prepare_preview_config(
+    array_merge(shortcode_preset_default_config(), ['excerpt_len' => '0']),
+    true,
+    ['mode' => 'stored', 'trust' => 'persisted_preset']
+);
+$shortExcerptPreview = shortcode_preset_prepare_preview_config(
+    array_merge(shortcode_preset_default_config(), ['excerpt_len' => '5']),
+    true,
+    ['mode' => 'inline']
+);
+$check($zeroExcerptPreview['errors'] === [] && ($zeroExcerptPreview['config']['excerpt_len'] ?? null) === 0
+    && post_cat__excerpt('<p>Hidden description</p>', 0) === '', 'zero excerpt length consistently suppresses descriptions');
+$check(in_array('Invalid value for excerpt_len.', $shortExcerptPreview['errors'], true),
+    'positive excerpt lengths below ten remain invalid');
+$pageCategoryConfig = shortcode_preset_validate_config(array_merge(shortcode_preset_default_config(), [
+    'type' => 'page',
+    'category' => 'guides',
+    'include_children' => '1',
+]), true);
+$check($pageCategoryConfig['errors'] === [] && $pageCategoryConfig['config']['category'] === ''
+    && $pageCategoryConfig['config']['include_children'] === '0', 'page presets discard article-only category configuration');
+$randomPagination = shortcode_preset_validate_config(array_merge(shortcode_preset_default_config(), [
+    'pagination' => '1',
+    'max_items' => 10,
+    'order_by' => 'RAND()',
+]), true);
+$check($randomPagination['errors'] === []
+    && ($randomPagination['config']['pagination'] ?? '') === '1'
+    && ($randomPagination['config']['order_by'] ?? '') === 'RAND()',
+    'Core pagination accepts random ordering through its request-stable seed contract');
+
 add_filter('shortcode_preset_sources', static function (array $sources): array {
     $sources[] = 'plugin_feed';
     $sources[] = '2legacy_feed';
@@ -157,12 +188,53 @@ $check(register_shortcode_source_provider('provider_feed', [
         ]]];
     },
 ]), 'valid source provider registers');
+$providerPagination = shortcode_preset_validate_config(array_merge(shortcode_preset_default_config(), [
+    'source' => 'provider_feed',
+    'source_owner' => 'provider-plugin',
+    'pagination' => '1',
+    'max_items' => 10,
+]), true);
+$check(in_array('Pagination is available only for Core posts and pages.', $providerPagination['errors'], true),
+    'provider sources cannot enable Core-only pagination without a total-count contract');
+$singlePagePagination = shortcode_preset_validate_config(array_merge(shortcode_preset_default_config(), [
+    'limit' => 5,
+    'max_items' => 5,
+    'pagination' => '1',
+]), true);
+$check(in_array('Pagination requires Max Items to be greater than Limit.', $singlePagePagination['errors'], true),
+    'pagination requires a total cap larger than its per-page Limit');
 $check(!register_shortcode_source_provider('posts', ['owner' => 'other-plugin', 'label' => 'Override', 'fetch' => static fn(): array => ['items' => []]]), 'Core sources are collision protected');
 $check(!register_shortcode_source_provider('provider_feed', ['owner' => 'other-plugin', 'label' => 'Collision', 'fetch' => static fn(): array => ['items' => []]]), 'first source provider wins collisions');
 $check(!register_shortcode_source_provider('Invalid.Source', ['owner' => 'other-plugin', 'label' => 'Invalid', 'fetch' => static fn(): array => ['items' => []]]), 'invalid source provider identifiers are rejected');
 $check(!register_shortcode_source_provider('owner_missing', ['label' => 'Missing owner', 'fetch' => static fn(): array => ['items' => []]]), 'source providers require a stable owner identity');
 $check(!register_shortcode_source_provider('unsafe_client_fields', ['owner' => 'other-plugin', 'label' => 'Unsafe fields', 'client_fields' => ['limit'], 'fetch' => static fn(): array => ['items' => []]]), 'provider client fields cannot claim Core config keys');
 $check(!register_shortcode_source_provider('unsafe_public_fields', ['owner' => 'other-plugin', 'label' => 'Unsafe public fields', 'client_fields' => ['safe_field'], 'public_override_fields' => ['undeclared_field'], 'fetch' => static fn(): array => ['items' => []]]), 'public override fields must be declared client fields');
+$check(register_shortcode_source_provider('legacy_collision_feed', [
+    'owner' => 'legacy-collision-plugin',
+    'label' => 'Legacy collision feed',
+    'defaults' => ['max_items' => 'provider-cap', 'pagination' => 'provider-cursor'],
+    'client_fields' => ['max_items', 'pagination'],
+    'public_override_fields' => ['pagination'],
+    'validate' => static fn(array $config): array => ['config' => $config, 'errors' => []],
+    'fetch' => static fn(): array => ['items' => []],
+]), 'providers may retain max_items and pagination fields that predate the Core names');
+$legacyCollisionValidation = shortcode_preset_validate_config([
+    'source' => 'legacy_collision_feed',
+    'source_owner' => 'legacy-collision-plugin',
+    'layout' => 'list',
+], true);
+$check($legacyCollisionValidation['errors'] === []
+    && ($legacyCollisionValidation['config']['max_items'] ?? '') === 'provider-cap'
+    && ($legacyCollisionValidation['config']['pagination'] ?? '') === 'provider-cursor', 'declared legacy provider fields bypass only their conflicting Core validation');
+$legacyProvider = shortcode_source_provider('legacy_collision_feed');
+$legacyPublicAttributes = shortcode_preset_normalize_public_provider_attributes([
+    'source' => 'legacy_collision_feed',
+    'source_owner' => 'legacy-collision-plugin',
+    'max_items' => 'attacker-cap',
+    'pagination' => 'public-cursor',
+], $legacyProvider ?? []);
+$check(($legacyPublicAttributes['max_items'] ?? '') === 'provider-cap'
+    && ($legacyPublicAttributes['pagination'] ?? '') === 'public-cursor', 'legacy provider fields require explicit public-override declarations');
 $check(register_shortcode_source_provider('2provider', ['owner' => 'legacy-plugin', 'label' => 'Numeric provider', 'fetch' => static fn(): array => ['items' => []]]), 'numeric-leading provider identifiers remain registerable');
 $check(register_shortcode_source_provider('replacement_feed', [
     'owner' => 'replacement-plugin',

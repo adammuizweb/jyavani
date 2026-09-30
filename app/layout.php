@@ -562,6 +562,9 @@ foreach ($pa_js['js'] ?? [] as $js_url) {
 if (!$theme_implements_cm && in_array($context_for_layout ?? '', ['single.post', 'single.page'], true)) {
     echo '<script src="/static/assets/js/codemirror-blocks.js"></script>' . PHP_EOL;
 }
+$presetPaginationFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/js/preset-pagination.js' : '';
+$presetPaginationVersion = is_file($presetPaginationFile) ? (string)filemtime($presetPaginationFile) : '';
+echo '<script src="/static/js/preset-pagination.js?v=' . rawurlencode($presetPaginationVersion) . '" defer></script>' . PHP_EOL;
 do_action('jy_footer');
 ?>
 </body>

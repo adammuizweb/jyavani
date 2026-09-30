@@ -104,9 +104,14 @@ function shortcode_source_owner_is_valid(string $owner): bool {
 
 function shortcode_preset_core_config_keys(): array {
   return [
-    'source', 'source_owner', 'type', 'category', 'author', 'limit', 'offset', 'order_by', 'order_dir',
-    'layout', 'include_children', 'excerpt_len', 'class_prefix', 'wrap', 'date_from', 'date_to',
+    'source', 'source_owner', 'type', 'category', 'author', 'limit', 'max_items', 'offset', 'order_by', 'order_dir',
+    'layout', 'include_children', 'excerpt_len', 'pagination', 'class_prefix', 'wrap', 'date_from', 'date_to',
   ];
+}
+
+/** Core adopted these names after providers could already expose them. */
+function shortcode_source_provider_compatibility_field_keys(): array {
+  return ['max_items', 'pagination'];
 }
 
 function shortcode_core_source_ids(): array {
@@ -128,9 +133,11 @@ function shortcode_source_provider_normalize(string $id, array $provider): ?arra
     return null;
   }
   $coreKeys = array_fill_keys(shortcode_preset_core_config_keys(), true);
+  $compatibleCoreKeys = array_fill_keys(shortcode_source_provider_compatibility_field_keys(), true);
   $normalizedClientFields = [];
   foreach ($clientFields as $key) {
-    if (!is_string($key) || preg_match('/\A[a-z][a-z0-9_]{0,63}\z/', $key) !== 1 || isset($coreKeys[$key])) return null;
+    if (!is_string($key) || preg_match('/\A[a-z][a-z0-9_]{0,63}\z/', $key) !== 1
+        || (isset($coreKeys[$key]) && !isset($compatibleCoreKeys[$key]))) return null;
     $normalizedClientFields[$key] = true;
   }
   $normalizedPublicOverrideFields = [];
@@ -287,11 +294,16 @@ function shortcode_preset_normalize_source_transition(
 
 function shortcode_source_provider_public_attribute_keys(array $provider): array {
   $allowed = array_fill_keys(shortcode_preset_core_config_keys(), true);
+  $clientFields = array_fill_keys((array)($provider['client_fields'] ?? []), true);
+  $publicFields = array_fill_keys((array)($provider['public_override_fields'] ?? []), true);
+  foreach (shortcode_source_provider_compatibility_field_keys() as $key) {
+    if (isset($clientFields[$key]) && !isset($publicFields[$key])) unset($allowed[$key]);
+  }
   foreach (['visible', 'slides_per_view', 'fetch', 'max_show', 'max', 'excerpt', 'slider', 'carousel',
             'infinite', 'kicker', 'date_format', '__widget_name'] as $key) {
     $allowed[$key] = true;
   }
-  foreach ((array)($provider['public_override_fields'] ?? []) as $key) $allowed[$key] = true;
+  foreach ($publicFields as $key => $_true) $allowed[$key] = true;
   return $allowed;
 }
 
@@ -349,12 +361,14 @@ function shortcode_preset_default_config(?PDO $pdo = null): array {
     'category' => '',
     'author' => null,
     'limit' => 5,
+    'max_items' => 5,
     'offset' => 0,
     'order_by' => 'created_at',
     'order_dir' => 'DESC',
     'layout' => 'list',
     'include_children' => '1',
     'excerpt_len' => 90,
+    'pagination' => '0',
     'class_prefix' => '',
     'wrap' => '1',
     'date_from' => null,
@@ -378,12 +392,16 @@ function shortcode_preset_apply_source_defaults(array $input, array $context = [
     && hash_equals((string)$provider['owner'], $sourceOwner);
   $providerDefaults = $providerMatches && ($context['suppress_provider_defaults'] ?? false) !== true
     && is_array($provider['defaults'] ?? null) ? $provider['defaults'] : [];
-  return array_merge(
+  $config = array_merge(
     shortcode_preset_default_config($pdo),
     $providerDefaults,
     $input,
     ['source' => $source, 'source_owner' => $sourceOwner]
   );
+  if (!array_key_exists('max_items', $input) && !array_key_exists('max_items', $providerDefaults)) {
+    $config['max_items'] = $config['limit'];
+  }
+  return $config;
 }
 
 function shortcode_preset_config_loaded(string|array|null $stored, array $preset = [], ?PDO $pdo = null, array $context = []): array {
@@ -650,6 +668,12 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
   $isCoreSource = in_array($source, shortcode_core_source_ids(), true);
   $providerMatches = $provider !== null && $sourceOwner !== ''
     && hash_equals((string)$provider['owner'], $sourceOwner);
+  $providerCompatibilityFields = $providerMatches
+    ? array_fill_keys(array_intersect(
+        (array)($provider['client_fields'] ?? []),
+        shortcode_source_provider_compatibility_field_keys()
+      ), true)
+    : [];
 
   if (!in_array($source, shortcode_preset_sources($context, $pdo), true)) {
     $errors[] = $message('Invalid preset source.');
@@ -670,7 +694,8 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
   if (!in_array($type, ['article', 'page'], true)) $errors[] = $message('Invalid post type.');
   $config['type'] = $type;
 
-  foreach ([['limit', 1, 200], ['offset', 0, 1000000], ['excerpt_len', 10, 1000]] as [$key, $min, $max]) {
+  foreach ([['limit', 1, 200], ['max_items', 1, 10000], ['offset', 0, 1000000]] as [$key, $min, $max]) {
+    if (isset($providerCompatibilityFields[$key])) continue;
     $value = $config[$key] ?? null;
     if (filter_var($value, FILTER_VALIDATE_INT) === false || (int)$value < $min || (int)$value > $max) {
       $errors[] = sprintf($message('Invalid value for %s.'), $key);
@@ -679,7 +704,15 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
     }
   }
 
-  foreach (['include_children', 'wrap'] as $key) {
+  $excerptLength = filter_var($config['excerpt_len'] ?? null, FILTER_VALIDATE_INT);
+  if ($excerptLength === false || ($excerptLength !== 0 && ($excerptLength < 10 || $excerptLength > 1000))) {
+    $errors[] = sprintf($message('Invalid value for %s.'), 'excerpt_len');
+  } else {
+    $config['excerpt_len'] = (int)$excerptLength;
+  }
+
+  foreach (['include_children', 'wrap', 'pagination'] as $key) {
+    if (isset($providerCompatibilityFields[$key])) continue;
     $value = is_string($config[$key] ?? null) || is_int($config[$key] ?? null)
       ? (string)$config[$key]
       : '';
@@ -713,6 +746,18 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
     $errors[] = $message('Invalid category slug.');
   }
   $config['category'] = $category;
+  if ($type === 'page') {
+    $config['category'] = '';
+    $config['include_children'] = '0';
+  }
+
+  if (!isset($providerCompatibilityFields['pagination']) && $config['pagination'] === '1' && !$isCoreSource) {
+    $errors[] = $message('Pagination is available only for Core posts and pages.');
+  }
+  if (!isset($providerCompatibilityFields['pagination']) && !isset($providerCompatibilityFields['max_items'])
+      && $config['pagination'] === '1' && $config['max_items'] <= $config['limit']) {
+    $errors[] = $message('Pagination requires Max Items to be greater than Limit.');
+  }
 
   $prefix = is_string($config['class_prefix'] ?? null) ? trim($config['class_prefix']) : '';
   if (strlen($prefix) > 80 || ($prefix !== '' && preg_match('/\A[a-zA-Z0-9_-]+\z/', $prefix) !== 1)) {
@@ -751,6 +796,7 @@ function shortcode_preset_validate_config(array $input, bool $isAdmin, ?PDO $pdo
       }
       $providerConfig = $providerResult['config'];
       foreach (shortcode_preset_core_config_keys() as $coreKey) {
+        if (isset($providerCompatibilityFields[$coreKey])) continue;
         if (array_key_exists($coreKey, $config)) $providerConfig[$coreKey] = $config[$coreKey];
         else unset($providerConfig[$coreKey]);
       }
@@ -793,6 +839,7 @@ class ShortcodeQuery {
     'type' => 'article',
     'status' => 'published',
     'limit' => 5,
+    'max_items' => 5,
     'offset' => 0,
     'layout' => 'list',
     'category' => null,
@@ -802,6 +849,7 @@ class ShortcodeQuery {
     'order_dir' => 'DESC',
     'include_children' => '1',
     'excerpt_len' => 90,
+    'pagination' => '0',
     'date_from' => null,
     'date_to' => null,
     'class_prefix' => '',
@@ -830,6 +878,12 @@ class ShortcodeQuery {
 
   public function limit(int $n): self {
     $this->props['limit'] = max(1, min(200, $n));
+    if ($this->props['max_items'] < $this->props['limit']) $this->props['max_items'] = $this->props['limit'];
+    return $this;
+  }
+
+  public function maxItems(int $n): self {
+    $this->props['max_items'] = max(1, min(10000, $n));
     return $this;
   }
 
@@ -872,7 +926,12 @@ class ShortcodeQuery {
   }
 
   public function excerpt(int $len): self {
-    $this->props['excerpt_len'] = max(10, min(1000, $len));
+    $this->props['excerpt_len'] = $len === 0 ? 0 : max(10, min(1000, $len));
+    return $this;
+  }
+
+  public function paginate(bool $enabled = true): self {
+    $this->props['pagination'] = $enabled ? '1' : '0';
     return $this;
   }
 

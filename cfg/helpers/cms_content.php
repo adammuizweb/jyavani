@@ -207,15 +207,9 @@ function cms_category_descendant_ids(PDO $pdo, $rootId, $includeSelf = true) {
   return $out;
 }
 
-function cms_posts_fetch(PDO $pdo, array $opt = []): array {
+function cms_posts_query_spec(PDO $pdo, array $opt = []): ?array {
   $type   = isset($opt['type']) ? (string)$opt['type'] : 'article';
   $status = isset($opt['status']) ? (string)$opt['status'] : 'published';
-
-  $limit  = isset($opt['limit']) ? (int)$opt['limit'] : 10;
-  $offset = isset($opt['offset']) ? (int)$opt['offset'] : 0;
-  if ($limit < 1) $limit = 10;
-  $limit = min(200, $limit);
-  if ($offset < 0) $offset = 0;
 
   $orderBy = isset($opt['order_by']) ? (string)$opt['order_by'] : 'created_at';
   $orderDir = isset($opt['order_dir']) ? strtoupper((string)$opt['order_dir']) : 'DESC';
@@ -223,7 +217,10 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
 
   $isRandom = strtoupper($orderBy) === 'RAND()';
   if ($isRandom) {
-    $orderSql = 'RAND()';
+    $randomSeed = filter_var($opt['random_seed'] ?? null, FILTER_VALIDATE_INT, [
+      'options' => ['min_range' => 1, 'max_range' => 2147483647],
+    ]);
+    $orderSql = $randomSeed === false ? 'RAND()' : 'RAND(' . (int)$randomSeed . ')';
     $orderDir = ''; // RAND() takes no direction
   } else {
     $allowedOrder = [
@@ -244,7 +241,7 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   $catKey = $opt['category'] ?? null;
   if ($catKey !== null && $catKey !== '') {
     $rootId = cms_category_id($pdo, $catKey);
-    if (!$rootId) return [];
+    if (!$rootId) return null;
     $includeChildren = isset($opt['include_children']) ? (bool)$opt['include_children'] : true;
     $catIds = $includeChildren
       ? cms_category_descendant_ids($pdo, (int)$rootId, true)
@@ -288,25 +285,44 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   $from = implode(' JOIN ', $tables);
 
   if ($isRandom) {
-    $orderClause = 'RAND()';
+    $orderClause = $orderSql;
   } else {
     $orderClause = "$orderSql $orderDir, p.id $orderDir";
   }
 
+  return [
+    'from' => $from,
+    'where' => implode(' AND ', $where),
+    'params' => $params,
+    'order_clause' => $orderClause,
+    'collection_context' => $collectionContext,
+  ];
+}
+
+function cms_posts_fetch(PDO $pdo, array $opt = []): array {
+  $limit  = isset($opt['limit']) ? (int)$opt['limit'] : 10;
+  $offset = isset($opt['offset']) ? (int)$opt['offset'] : 0;
+  if ($limit < 1) $limit = 10;
+  $limit = min(200, $limit);
+  if ($offset < 0) $offset = 0;
+
+  $spec = cms_posts_query_spec($pdo, $opt);
+  if ($spec === null) return [];
+
   $sql = "
     SELECT DISTINCT p.id, p.title, p.slug, p.content, p.type, p.meta, p.youtube, p.thumbnail, p.thumbnail_media_id,
            p.status, p.created_by, p.created_at, p.updated_at
-    FROM $from
-    WHERE " . implode(' AND ', $where) . "
-    ORDER BY $orderClause
+    FROM {$spec['from']}
+    WHERE {$spec['where']}
+    ORDER BY {$spec['order_clause']}
     LIMIT $limit OFFSET $offset
   ";
 
   $stmt = $pdo->prepare($sql);
-  $stmt->execute($params);
+  $stmt->execute($spec['params']);
   $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-  $rows = $collectionContext !== [] && function_exists('collection_filter_rows')
-    ? collection_filter_rows($rows, $collectionContext)
+  $rows = $spec['collection_context'] !== [] && function_exists('collection_filter_rows')
+    ? collection_filter_rows($rows, $spec['collection_context'])
     : $rows;
   if (function_exists('media_normalize_featured_posts')) {
     media_normalize_featured_posts($pdo, $rows, ['surface' => 'frontend.collection', 'consumer' => 'cms']);
@@ -314,7 +330,20 @@ function cms_posts_fetch(PDO $pdo, array $opt = []): array {
   return $rows;
 }
 
+function cms_posts_count(PDO $pdo, array $opt = []): int {
+  $spec = cms_posts_query_spec($pdo, $opt);
+  if ($spec === null) return 0;
+  $stmt = $pdo->prepare("SELECT COUNT(DISTINCT p.id) FROM {$spec['from']} WHERE {$spec['where']}");
+  $stmt->execute($spec['params']);
+  return max(0, (int)$stmt->fetchColumn());
+}
+
 function cms_posts_by_category(PDO $pdo, $categoryKey, array $opt = []) {
   $opt['category'] = $categoryKey;
   return cms_posts_fetch($pdo, $opt);
+}
+
+function cms_posts_count_by_category(PDO $pdo, $categoryKey, array $opt = []): int {
+  $opt['category'] = $categoryKey;
+  return cms_posts_count($pdo, $opt);
 }

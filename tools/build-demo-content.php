@@ -241,7 +241,7 @@ foreach ($presets as $index => $preset) {
     $limit = filter_var($metadata['limit'] ?? null, FILTER_VALIDATE_INT);
     $excerptLength = filter_var($metadata['excerpt_len'] ?? null, FILTER_VALIDATE_INT);
     if ($limit === false || $limit < 1 || $limit > 200) demo_fail($prefix . '.metadata.limit is invalid.');
-    if ($excerptLength === false || $excerptLength < 10 || $excerptLength > 1000) demo_fail($prefix . '.metadata.excerpt_len is invalid.');
+    if ($excerptLength === false || ($excerptLength !== 0 && ($excerptLength < 10 || $excerptLength > 1000))) demo_fail($prefix . '.metadata.excerpt_len is invalid.');
     if (!is_string($metadata['layout'] ?? null) || preg_match('/\A[a-z0-9_-]{1,40}\z/', $metadata['layout']) !== 1) {
         demo_fail($prefix . '.metadata.layout is invalid.');
     }

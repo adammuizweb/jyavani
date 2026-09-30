@@ -13,7 +13,7 @@
 <h2>Preset</h2>
 <p>Preset adalah post bertipe <code>sc_preset</code> yang menyimpan konfigurasi query dan Collection Layout dalam JSON. Demo memasang dua preset published agar alur reuse dapat dilihat langsung di Shortcode Builder.</p>
 <ul>
-  <li><code>demo_random_posts</code> memakai layout <code>mini</code> dan digunakan oleh sidebar. Karena urutannya acak, preset ini cocok sebagai contoh variasi konten, bukan urutan editorial.</li>
+  <li><code>demo_random_posts</code> memakai layout <code>mini</code> di sidebar dan dioverride menjadi <code>grid</code> oleh Theme Section <code>home.random-posts</code> di beranda. Section memakai Limit 4, Max Items 20, dan pagination random ber-seed agar maksimal lima halaman tetap stabil selama navigasi. Tombol Acak Lagi membuang seed lama untuk membuat urutan baru.</li>
   <li><code>demo_home_posts</code> memakai layout <code>cards</code>, memilih artikel kategori Pengembangan secara deterministik, lalu dirender oleh Theme Section <code>home.preset-posts</code> pada homepage tema default.</li>
 </ul>
 <p>Pemisahan tanggung jawabnya adalah: Preset menentukan data dan memilih Collection Layout, Collection Layout merender daftar post, sedangkan Theme Section menyediakan judul serta wrapper halaman yang reusable. Dari daftar Presets, Site Owner dapat memakai aksi <strong>Build Section</strong> untuk membuat komposisi serupa tanpa menyalin query ke file tema.</p>

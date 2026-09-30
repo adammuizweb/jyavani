@@ -55,6 +55,51 @@ try {
         return function_exists('theme_section_safe_url') ? theme_section_safe_url($value) : '';
     };
     $sliderEnabled = false;
+    $prepareCorePreviewPage = static function (
+        PDO $pdo,
+        string $category,
+        array $collectionOptions,
+        array $config,
+        int $limit,
+        int $offset
+    ): array {
+        $maxItems = max(1, min(10000, (int)($config['max_items'] ?? $limit)));
+        $paginationKey = (string)($config['pagination'] ?? '0') === '1'
+            && $maxItems > $limit
+            ? 'pcat_page_preview'
+            : '';
+        if ($paginationKey !== '' && strtoupper((string)($config['order_by'] ?? 'created_at')) === 'RAND()') {
+            $collectionOptions['random_seed'] = post_cat__pagination_seed($paginationKey);
+        }
+        $state = post_cat__pagination_state(
+            $pdo,
+            $category,
+            $collectionOptions,
+            $limit,
+            $offset,
+            $maxItems,
+            $paginationKey
+        );
+        $collectionOptions['limit'] = $state['limit'];
+        $collectionOptions['offset'] = $state['offset'];
+        return [$collectionOptions, $paginationKey, $state['pages']];
+    };
+    $decoratePreviewPagination = static function (string $html, string $paginationKey, int $pages): string {
+        $pagination = post_cat__pagination_html(
+            $paginationKey,
+            1,
+            $pages,
+            static fn(int $page): string => '#preview-page-' . $page
+        );
+        if ($pagination === '') return $html;
+        $sliderMode = str_contains($html, 'data-pcat-pagination-slider');
+        $status = sprintf(__('Page %d of %d'), 1, $pages);
+        return '<div class="pcat-pagination-root"'
+            . ' data-pcat-pagination-root="pcat_page_preview"'
+            . ($sliderMode ? ' data-pcat-pagination-mode="slider"' : '')
+            . ' role="region" aria-label="' . htmlspecialchars($status, ENT_QUOTES, 'UTF-8') . '" tabindex="-1">'
+            . $html . $pagination . '</div>';
+    };
 
     if ($isSectionScope) {
         $sectionName = is_string($_POST['section_name'] ?? null) ? strtolower(trim($_POST['section_name'])) : '';
@@ -180,7 +225,8 @@ try {
         $orderBy = (string)($config['order_by'] ?? 'created_at');
         $orderDir = (string)($config['order_dir'] ?? 'DESC');
         $includeChildren = ($config['include_children'] ?? '1') !== '0';
-        $excerptLen = max(10, (int)($config['excerpt_len'] ?? 90));
+        $excerptLen = (int)($config['excerpt_len'] ?? 90);
+        if ($excerptLen !== 0) $excerptLen = max(10, $excerptLen);
         $classPrefix = trim((string)($config['class_prefix'] ?? ''));
         $wrap = ($config['wrap'] ?? '1') === '1';
         $dateFrom = $config['date_from'] ?? null;
@@ -190,19 +236,36 @@ try {
         $sliderEnabled = strpos($layoutName, 'slider') !== false;
 
         $items = [];
+        $previewPaginationKey = '';
+        $previewPaginationPages = 1;
         if (function_exists('cms_posts_by_category')) {
-            $posts = cms_posts_by_category($pdo, $catRaw, [
+            $collectionOptions = [
                 'type' => $type,
                 'status' => 'published',
                 'include_children' => $includeChildren,
-                'limit' => $limit,
-                'offset' => $offset,
                 'order_by' => $orderBy,
                 'order_dir' => $orderDir,
                 'created_by' => $authorId,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
-            ]);
+                'collection_context' => [
+                    'scope' => 'preset_preview',
+                    'table_alias' => 'p',
+                    'required_translation_fields' => ['title', 'slug', 'content'],
+                    'category' => $catRaw,
+                    'layout' => $layoutName,
+                    'source' => 'posts',
+                ],
+            ];
+            [$collectionOptions, $previewPaginationKey, $previewPaginationPages] = $prepareCorePreviewPage(
+                $pdo,
+                $catRaw,
+                $collectionOptions,
+                $config,
+                $limit,
+                $offset
+            );
+            $posts = cms_posts_by_category($pdo, $catRaw, $collectionOptions);
 
             if ($posts) {
                 foreach ($posts as $p) {
@@ -270,6 +333,7 @@ try {
         if (trim($html) === '') {
             $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('Template produced no output.') . '</div>';
         }
+        $html = $decoratePreviewPagination($html, $previewPaginationKey, $previewPaginationPages);
 
         adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'preset_config']);
         return;
@@ -338,7 +402,8 @@ try {
         $orderBy = (string)($config['order_by'] ?? 'created_at');
         $orderDir = (string)($config['order_dir'] ?? 'DESC');
         $includeChildren = ($config['include_children'] ?? '1') !== '0';
-        $excerptLen = max(10, (int)($config['excerpt_len'] ?? 90));
+        $excerptLen = (int)($config['excerpt_len'] ?? 90);
+        if ($excerptLen !== 0) $excerptLen = max(10, $excerptLen);
         $classPrefix = trim((string)($config['class_prefix'] ?? ''));
         $wrap = ($config['wrap'] ?? '1') === '1';
         $dateFrom = $config['date_from'] ?? null;
@@ -351,19 +416,36 @@ try {
         $sliderEnabled = strpos($layoutName, 'slider') !== false;
 
         $items = [];
+        $previewPaginationKey = '';
+        $previewPaginationPages = 1;
         if (function_exists('cms_posts_by_category')) {
-            $posts = cms_posts_by_category($pdo, $catRaw, [
+            $collectionOptions = [
                 'type' => $type,
                 'status' => 'published',
                 'include_children' => $includeChildren,
-                'limit' => $limit,
-                'offset' => $offset,
                 'order_by' => $orderBy,
                 'order_dir' => $orderDir,
                 'created_by' => $authorId,
                 'date_from' => $dateFrom,
                 'date_to' => $dateTo,
-            ]);
+                'collection_context' => [
+                    'scope' => 'preset_preview',
+                    'table_alias' => 'p',
+                    'required_translation_fields' => ['title', 'slug', 'content'],
+                    'category' => $catRaw,
+                    'layout' => $layoutName,
+                    'source' => 'posts',
+                ],
+            ];
+            [$collectionOptions, $previewPaginationKey, $previewPaginationPages] = $prepareCorePreviewPage(
+                $pdo,
+                $catRaw,
+                $collectionOptions,
+                $config,
+                $limit,
+                $offset
+            );
+            $posts = cms_posts_by_category($pdo, $catRaw, $collectionOptions);
 
             if ($posts) {
                 foreach ($posts as $p) {
@@ -432,6 +514,7 @@ try {
         if (trim($html) === '') {
             $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">' . __('Template produced no output.') . '</div>';
         }
+        $html = $decoratePreviewPagination($html, $previewPaginationKey, $previewPaginationPages);
 
         adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'preset', 'preset_id' => $presetId]);
         return;

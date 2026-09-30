@@ -61,7 +61,9 @@ foreach ($forms as $path => $prefix) {
 $css = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $check(str_contains($css, '.field-required{')
     && str_contains($css, '.field-help__trigger:focus-visible{')
-    && str_contains($css, '.field-help[data-open="true"] .field-help__tooltip{'),
+    && str_contains($css, '.field-help[data-open="true"] .field-help__tooltip{')
+    && str_contains($css, '.field-help__tooltip.field-help__tooltip--portal{')
+    && str_contains($css, 'z-index:2147483647;'),
     'required indicators and slug help support dashboard theming, hover, and keyboard focus');
 
 $guidance = (string)file_get_contents($root . '/public/static/dashboard/js/field-guidance.js');
@@ -70,10 +72,13 @@ $check(str_contains($guidance, "event.key !== 'Escape'")
     && str_contains($guidance, "document.addEventListener('mouseout'")
     && str_contains($guidance, "editor.setAttribute('aria-labelledby', label.id)")
     && str_contains($guidance, "editor.setAttribute('aria-required', 'true')")
+    && str_contains($guidance, 'document.body.appendChild(tooltip)')
+    && str_contains($guidance, 'tooltip.__fieldHelpOwner = help')
+    && str_contains($guidance, 'scheduleHelpClose(portal.__fieldHelpOwner)')
     && str_contains($guidance, 'const tooltipWidth = tooltip.offsetWidth;')
-    && str_contains($guidance, "tooltip.style.setProperty('--field-help-shift', shift + 'px')")
+    && str_contains($guidance, 'window.innerWidth - tooltipWidth - edge')
     && str_contains($guidance, 'new MutationObserver(labelRequiredEditors)'),
-    'field guidance supports Escape and labels asynchronously initialized editors');
+    'field guidance supports Escape, interactive portaled tooltips, and asynchronously initialized editors');
 
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 foreach ([

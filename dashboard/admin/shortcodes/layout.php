@@ -171,53 +171,214 @@ $label = trim((string)($attrs[\'link_label\'] ?? __(\'Learn more\')));
   <a href="<?= $esc($url) ?>"><?= $esc($label) ?></a>
 <?php endif; ?>';
 
-$tplList = '<div class="pcat__list">
-<?php foreach ($items as $it): ?>
-  <?php
-    $title = $esc($it[\'title\'] ?? \'\');
-    $url = $esc($it[\'url\'] ?? \'#\');
-    $desc = $esc($it[\'desc\'] ?? \'\');
-    $date = $esc($it[\'date_label\'] ?? \'\');
-  ?>
-  <article class="pcat__item">
-    <a class="pcat__card" href="<?= $url ?>">
-      <h3 class="pcat__title"><?= $title ?></h3>
-      <?php if ($desc !== \'\'): ?>
-        <p class="pcat__desc"><?= $desc ?></p>
-      <?php endif; ?>
-      <time class="pcat__date" datetime="<?= $esc($it[\'date_iso\'] ?? \'\') ?>"><?= $date ?></time>
-    </a>
-  </article>
-<?php endforeach; ?>
-</div>';
+$tplList = <<<'PHP'
+<?php if ($wrap): ?>
+<div class="pcat pcat--<?= $esc($layout) ?><?= $class_prefix !== '' ? ' ' . $esc($class_prefix) : '' ?>">
+<?php endif; ?>
+  <div class="pcat__track pcat-list-stack">
+    <?php foreach ($items as $index => $it): ?>
+      <?php
+        $title = $esc($it['title'] ?? '');
+        $url = $esc($it['url'] ?? '#');
+        $thumb = trim((string)($it['thumb'] ?? ''));
+        $desc = $esc($it['desc'] ?? '');
+        $dateIso = $esc($it['date_iso'] ?? '');
+        $date = $esc($it['date_label'] ?? '');
+        $position = str_pad((string)($index + 1), 2, '0', STR_PAD_LEFT);
+      ?>
+      <article class="pcat__item">
+        <a class="pcat__card" href="<?= $url ?>" aria-label="<?= $title ?>">
+          <div class="pcat__media">
+            <?php if ($thumb !== ''): ?>
+              <img class="pcat__img" src="<?= $esc($thumb) ?>" alt="" loading="lazy" decoding="async">
+            <?php else: ?>
+              <div class="pcat__img pcat__img--placeholder" aria-hidden="true"><span><?= $position ?></span></div>
+            <?php endif; ?>
+          </div>
+          <div class="pcat__body">
+            <?php if ($kicker !== '' || ($dateIso !== '' && $date !== '')): ?>
+              <div class="pcat__meta">
+                <?php if ($kicker !== ''): ?>
+                  <span class="pcat__kicker"><?= $esc($kicker) ?></span>
+                <?php endif; ?>
+                <?php if ($dateIso !== '' && $date !== ''): ?>
+                  <time class="pcat__date" datetime="<?= $dateIso ?>"><?= $date ?></time>
+                <?php endif; ?>
+              </div>
+            <?php endif; ?>
+            <h3 class="pcat__title"><?= $title ?></h3>
+            <?php if ($desc !== ''): ?>
+              <p class="pcat__desc"><?= $desc ?></p>
+            <?php endif; ?>
+          </div>
+          <span class="pcat__cue" aria-hidden="true">&rarr;</span>
+        </a>
+      </article>
+    <?php endforeach; ?>
+  </div>
+<?php if ($wrap): ?>
+</div>
+<?php endif; ?>
+
+<style>
+  .pcat-list-stack{
+    border-top:1px solid var(--border,#dbe2e8);
+  }
+  .pcat-list-stack .pcat__item{
+    min-width:0;
+    border-bottom:1px solid var(--border,#dbe2e8);
+  }
+  .pcat-list-stack .pcat__card{
+    display:grid;
+    grid-template-columns:minmax(8rem,12.5rem) minmax(0,1fr) 2.5rem;
+    align-items:center;
+    gap:clamp(.9rem,2.5vw,1.5rem);
+    padding:1rem 0;
+    color:var(--text,#172033);
+    text-decoration:none;
+  }
+  .pcat-list-stack .pcat__media{
+    aspect-ratio:4/3;
+    overflow:hidden;
+    border-radius:var(--radius-lg,14px);
+    background:var(--surface-hover,#eef3f5);
+  }
+  .pcat-list-stack .pcat__img{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transition:transform .35s ease;
+  }
+  .pcat-list-stack .pcat__img--placeholder{
+    display:grid;
+    place-items:end start;
+    padding:.75rem;
+    background:linear-gradient(145deg,color-mix(in srgb,var(--accent,#00a89e) 22%,transparent),color-mix(in srgb,var(--text,#172033) 9%,transparent));
+  }
+  .pcat-list-stack .pcat__img--placeholder span{
+    color:color-mix(in srgb,var(--text,#172033) 38%,transparent);
+    font-size:clamp(1.5rem,4vw,2.5rem);
+    font-weight:800;
+    line-height:1;
+  }
+  .pcat-list-stack .pcat__body{
+    display:grid;
+    gap:.45rem;
+    min-width:0;
+  }
+  .pcat-list-stack .pcat__meta{
+    display:flex;
+    align-items:center;
+    gap:.65rem;
+    color:var(--muted,#64748b);
+    font-size:.72rem;
+  }
+  .pcat-list-stack .pcat__kicker{
+    color:var(--accent,#00a89e);
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .pcat-list-stack .pcat__date:not(:first-child)::before{
+    content:"";
+    display:inline-block;
+    width:3px;
+    height:3px;
+    margin:0 .65rem .15em 0;
+    border-radius:50%;
+    background:currentColor;
+  }
+  .pcat-list-stack .pcat__title{
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    font-size:clamp(1.05rem,2.2vw,1.4rem);
+    font-weight:800;
+    line-height:1.22;
+    text-wrap:balance;
+    transition:color .18s ease;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .pcat-list-stack .pcat__desc{
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    color:var(--muted,#64748b);
+    font-size:.9rem;
+    line-height:1.5;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .pcat-list-stack .pcat__cue{
+    display:grid;
+    place-items:center;
+    width:2.25rem;
+    height:2.25rem;
+    border:1px solid var(--border,#dbe2e8);
+    border-radius:50%;
+    color:var(--accent,#00a89e);
+    font-size:1.1rem;
+    transition:background .18s ease,color .18s ease,transform .18s ease;
+  }
+  .pcat-list-stack .pcat__card:hover .pcat__img{ transform:scale(1.04); }
+  .pcat-list-stack .pcat__card:hover .pcat__title{ color:var(--accent,#00a89e); }
+  .pcat-list-stack .pcat__card:hover .pcat__cue{
+    background:var(--accent,#00a89e);
+    color:#fff;
+    transform:translateX(3px);
+  }
+  .pcat-list-stack .pcat__card:focus-visible{
+    border-radius:.25rem;
+    outline:2px solid var(--accent,#00a89e);
+    outline-offset:3px;
+  }
+  @media (max-width:600px){
+    .pcat-list-stack .pcat__card{
+      grid-template-columns:6.5rem minmax(0,1fr);
+      gap:.85rem;
+      padding:.85rem 0;
+    }
+    .pcat-list-stack .pcat__cue{ display:none; }
+    .pcat-list-stack .pcat__desc{ -webkit-line-clamp:2; }
+  }
+</style>
+PHP;
 
 $tplCards = '<?php if ($wrap): ?>
 <div class="pcat pcat--<?= $esc($layout) ?><?= $class_prefix !== \'\' ? \' \' . $esc($class_prefix) : \'\' ?>">
 <?php endif; ?>
-  <div class="pcat__track" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;">
+  <div class="pcat__track pcat-card-grid">
     <?php foreach ($items as $it): ?>
       <?php
         $title = $esc($it[\'title\'] ?? \'\');
         $url = $esc($it[\'url\'] ?? \'#\');
         $thumb = trim((string)($it[\'thumb\'] ?? \'\'));
         $desc = $esc($it[\'desc\'] ?? \'\');
+        $dateIso = $esc($it[\'date_iso\'] ?? \'\');
         $date = $esc($it[\'date_label\'] ?? \'\');
       ?>
       <article class="pcat__item">
-        <a class="pcat__card" href="<?= $url ?>">
+        <a class="pcat__card" href="<?= $url ?>" aria-label="<?= $title ?>">
           <div class="pcat__media">
             <?php if ($thumb !== \'\'): ?>
-              <img class="pcat__img" src="<?= $esc($thumb) ?>" alt="" loading="lazy">
+              <img class="pcat__img" src="<?= $esc($thumb) ?>" alt="" loading="lazy" decoding="async">
             <?php else: ?>
-              <div class="pcat__img pcat__img--placeholder" style="background:var(--adam-surface-3,#e0e0e0);aspect-ratio:16/9;border-radius:6px;"></div>
+              <div class="pcat__img pcat__img--placeholder" aria-hidden="true"></div>
             <?php endif; ?>
           </div>
           <div class="pcat__body">
+            <?php if ($kicker !== \'\'): ?>
+              <div class="pcat__kicker"><?= $esc($kicker) ?></div>
+            <?php endif; ?>
             <h3 class="pcat__title"><?= $title ?></h3>
             <?php if ($desc !== \'\'): ?>
               <p class="pcat__desc"><?= $desc ?></p>
             <?php endif; ?>
-            <time class="pcat__date" datetime="<?= $esc($it[\'date_iso\'] ?? \'\') ?>"><?= $date ?></time>
+            <?php if ($dateIso !== \'\' && $date !== \'\'): ?>
+              <time class="pcat__date" datetime="<?= $dateIso ?>"><?= $date ?></time>
+            <?php endif; ?>
           </div>
         </a>
       </article>
@@ -225,7 +386,93 @@ $tplCards = '<?php if ($wrap): ?>
   </div>
 <?php if ($wrap): ?>
 </div>
-<?php endif; ?>';
+<?php endif; ?>
+
+<style>
+  .pcat-card-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));
+    gap:1rem;
+  }
+  .pcat-card-grid .pcat__item{ min-width:0; }
+  .pcat-card-grid .pcat__card{
+    display:grid;
+    grid-template-rows:180px 1fr;
+    height:100%;
+    overflow:hidden;
+    border:1px solid var(--border,#e6eef2);
+    border-radius:var(--radius-lg,16px);
+    background:var(--bg,#fff);
+    color:var(--text,#0b1220);
+    box-shadow:0 8px 26px rgba(2,6,23,.08);
+    text-decoration:none;
+    transition:transform .18s ease,box-shadow .18s ease;
+  }
+  .pcat-card-grid .pcat__card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 14px 38px rgba(2,6,23,.13);
+  }
+  .pcat-card-grid .pcat__media{
+    overflow:hidden;
+    background:var(--surface-hover,#f1f5f9);
+  }
+  .pcat-card-grid .pcat__img{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transition:transform .4s ease;
+  }
+  .pcat-card-grid .pcat__card:hover .pcat__img{ transform:scale(1.05); }
+  .pcat-card-grid .pcat__img--placeholder{
+    background:linear-gradient(135deg,var(--accent,#00a89e),#0f766e);
+    opacity:.2;
+  }
+  .pcat-card-grid .pcat__body{
+    display:grid;
+    align-content:start;
+    gap:.5rem;
+    padding:1rem;
+  }
+  .pcat-card-grid .pcat__kicker{
+    color:var(--accent,#00a89e);
+    font-size:.7rem;
+    font-weight:800;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+  }
+  .pcat-card-grid .pcat__title{
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    font-size:1.05rem;
+    font-weight:800;
+    line-height:1.25;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .pcat-card-grid .pcat__desc{
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    color:var(--muted,#64748b);
+    font-size:.88rem;
+    line-height:1.45;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:3;
+  }
+  .pcat-card-grid .pcat__date{
+    color:var(--muted,#64748b);
+    font-size:.78rem;
+  }
+  .pcat-card-grid .pcat__card:focus-visible{
+    outline:2px solid var(--accent,#00a89e);
+    outline-offset:2px;
+  }
+  @media (max-width:520px){
+    .pcat-card-grid{ grid-template-columns:1fr; }
+  }
+</style>';
 
 $tplCard2 = '<?php if ($wrap): ?>
 <div class="pcat pcat--<?= $esc($layout) ?><?= $class_prefix !== \'\' ? \' \' . $esc($class_prefix) : \'\' ?>">
@@ -261,45 +508,200 @@ $tplCard2 = '<?php if ($wrap): ?>
 </div>
 <?php endif; ?>';
 
-$tplSlider = '<?php if ($wrap): ?>
-<div class="pcat pcat--<?= $esc($layout) ?> pcat--slider" id="<?= $esc($instance_id) ?>" data-slider data-slider-visible="<?= (int)$limit_visible ?>">
+$tplSlider = <<<'PHP'
+<?php
+$sliderDesktop = max(1, min(4, (int)($attrs['show'] ?? 3)));
+$sliderTablet = max(1, min($sliderDesktop, (int)($attrs['show_tablet'] ?? 2)));
+$sliderMobile = max(1, min($sliderTablet, (int)($attrs['show_mobile'] ?? 1)));
+$sliderTrackId = $instance_id . '-track';
+?>
+<?php if ($wrap): ?>
+<div class="pcat pcat--<?= $esc($layout) ?><?= $class_prefix !== '' ? ' ' . $esc($class_prefix) : '' ?>">
 <?php endif; ?>
-  <div class="pcat__track" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:1rem;padding:.5rem 0;">
-    <?php foreach ($items as $i => $it): ?>
-      <?php
-        $title = $esc($it[\'title\'] ?? \'\');
-        $url = $esc($it[\'url\'] ?? \'#\');
-        $thumb = trim((string)($it[\'thumb\'] ?? \'\'));
-        $desc = $esc($it[\'desc\'] ?? \'\');
-      ?>
-      <article class="pcat__item" style="flex:0 0 calc(100% / <?= max(1,(int)$limit_visible) ?>);scroll-snap-align:start;min-width:250px;">
-        <a class="pcat__card" href="<?= $url ?>" style="display:block;text-decoration:none;color:inherit;border:1px solid var(--adam-border-soft,#ddd);border-radius:8px;overflow:hidden;">
-          <div class="pcat__media" style="aspect-ratio:16/9;overflow:hidden;">
-            <?php if ($thumb !== \'\'): ?>
-              <img class="pcat__img" src="<?= $esc($thumb) ?>" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;">
-            <?php else: ?>
-              <div class="pcat__img pcat__img--placeholder" style="width:100%;height:100%;background:linear-gradient(135deg,var(--adam-accent,#4361ee),#06b6d4);opacity:.12;"></div>
-            <?php endif; ?>
-          </div>
-          <div class="pcat__body" style="padding:.6rem .75rem .75rem;">
-            <h3 class="pcat__title" style="margin:0 0 .3rem;font-size:.95rem;"><?= $title ?></h3>
-            <?php if ($desc !== \'\'): ?>
-              <p class="pcat__desc" style="margin:0;font-size:.82rem;color:var(--adam-muted,#888);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"><?= $desc ?></p>
-            <?php endif; ?>
-          </div>
-        </a>
-      </article>
-    <?php endforeach; ?>
-  </div>
-  <?php if ($slider_enabled): ?>
-    <div class="pcat__nav" style="display:flex;justify-content:center;gap:.5rem;margin-top:.5rem;">
-      <button class="pcat__prev" data-slider-prev style="padding:.3rem .7rem;border:1px solid var(--adam-border-soft,#ddd);border-radius:4px;cursor:pointer;">‹ Prev</button>
-      <button class="pcat__next" data-slider-next style="padding:.3rem .7rem;border:1px solid var(--adam-border-soft,#ddd);border-radius:4px;cursor:pointer;">Next ›</button>
+  <section
+    class="pcat-slider-starter"
+    id="<?= $esc($instance_id) ?>"
+    data-pcat-pagination-slider="core"
+    style="--pcat-slider-cols:<?= $sliderDesktop ?>;--pcat-slider-cols-tablet:<?= $sliderTablet ?>;--pcat-slider-cols-mobile:<?= $sliderMobile ?>"
+  >
+    <div class="pcat-slider-starter__viewport" data-pcat-slider-viewport aria-roledescription="carousel">
+      <div class="pcat__track pcat-slider-starter__track" id="<?= $esc($sliderTrackId) ?>" data-pcat-slider-track>
+        <?php foreach ($items as $it): ?>
+          <?php
+            $title = $esc($it['title'] ?? '');
+            $url = $esc($it['url'] ?? '#');
+            $thumb = trim((string)($it['thumb'] ?? ''));
+            $desc = $esc($it['desc'] ?? '');
+            $dateIso = $esc($it['date_iso'] ?? '');
+            $date = $esc($it['date_label'] ?? '');
+          ?>
+          <article class="pcat__item pcat-slider-starter__item">
+            <a class="pcat__card" href="<?= $url ?>" aria-label="<?= $title ?>">
+              <div class="pcat__media">
+                <?php if ($thumb !== ''): ?>
+                  <img class="pcat__img" src="<?= $esc($thumb) ?>" alt="" loading="lazy" decoding="async">
+                <?php else: ?>
+                  <div class="pcat__img pcat__img--placeholder" aria-hidden="true"></div>
+                <?php endif; ?>
+              </div>
+              <div class="pcat__body">
+                <?php if ($kicker !== ''): ?>
+                  <div class="pcat__kicker"><?= $esc($kicker) ?></div>
+                <?php endif; ?>
+                <h3 class="pcat__title"><?= $title ?></h3>
+                <?php if ($desc !== ''): ?>
+                  <p class="pcat__desc"><?= $desc ?></p>
+                <?php endif; ?>
+                <?php if ($dateIso !== '' && $date !== ''): ?>
+                  <time class="pcat__date" datetime="<?= $dateIso ?>"><?= $date ?></time>
+                <?php endif; ?>
+              </div>
+            </a>
+          </article>
+        <?php endforeach; ?>
+      </div>
     </div>
-  <?php endif; ?>
+    <div class="pcat-slider-starter__nav">
+      <button class="pcat__prev" type="button" data-pcat-slider-prev aria-controls="<?= $esc($sliderTrackId) ?>" aria-label="<?= $esc(__('Previous')) ?>">&larr;</button>
+      <button class="pcat__next" type="button" data-pcat-slider-next aria-controls="<?= $esc($sliderTrackId) ?>" aria-label="<?= $esc(__('Next')) ?>">&rarr;</button>
+    </div>
+  </section>
 <?php if ($wrap): ?>
 </div>
-<?php endif; ?>';
+<?php endif; ?>
+
+<style>
+  .pcat-slider-starter{
+    --pcat-slider-gap:clamp(.8rem,2vw,1.25rem);
+    position:relative;
+    min-width:0;
+    container-type:inline-size;
+  }
+  .pcat-slider-starter__viewport{
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    scrollbar-width:thin;
+  }
+  .pcat-slider-starter.is-pcat-slider-ready .pcat-slider-starter__viewport{ overflow:hidden; }
+  .pcat-slider-starter__track{
+    display:grid;
+    grid-auto-flow:column;
+    grid-auto-columns:calc((100% - (var(--pcat-slider-cols) - 1) * var(--pcat-slider-gap)) / var(--pcat-slider-cols));
+    gap:var(--pcat-slider-gap);
+    transition:transform .32s ease;
+    will-change:transform;
+  }
+  .pcat-slider-starter__item{
+    min-width:0;
+    scroll-snap-align:start;
+  }
+  .pcat-slider-starter .pcat__card{
+    display:grid;
+    grid-template-rows:clamp(9rem,22vw,12rem) 1fr;
+    height:100%;
+    overflow:hidden;
+    border:1px solid var(--border,#dbe2e8);
+    border-radius:var(--radius-lg,16px);
+    background:var(--bg,#fff);
+    color:var(--text,#172033);
+    text-decoration:none;
+    box-shadow:0 8px 24px rgba(15,23,42,.08);
+  }
+  .pcat-slider-starter .pcat__media{ overflow:hidden; }
+  .pcat-slider-starter .pcat__img{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    transition:transform .35s ease;
+  }
+  .pcat-slider-starter .pcat__img--placeholder{
+    background:linear-gradient(135deg,var(--accent,#00a89e),#155e75);
+    opacity:.2;
+  }
+  .pcat-slider-starter .pcat__body{
+    display:grid;
+    align-content:start;
+    gap:.5rem;
+    padding:1rem;
+  }
+  .pcat-slider-starter .pcat__kicker{
+    color:var(--accent,#00a89e);
+    font-size:.7rem;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+  .pcat-slider-starter .pcat__title{
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    font-size:1.05rem;
+    font-weight:800;
+    line-height:1.25;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .pcat-slider-starter .pcat__desc{
+    display:-webkit-box;
+    margin:0;
+    overflow:hidden;
+    color:var(--muted,#64748b);
+    font-size:.86rem;
+    line-height:1.5;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .pcat-slider-starter .pcat__date{
+    color:var(--muted,#64748b);
+    font-size:.75rem;
+  }
+  .pcat-slider-starter .pcat__card:hover .pcat__img{ transform:scale(1.04); }
+  .pcat-slider-starter .pcat__card:focus-visible{
+    outline:2px solid var(--accent,#00a89e);
+    outline-offset:-2px;
+  }
+  .pcat-slider-starter__nav{
+    display:none;
+    justify-content:flex-end;
+    gap:.5rem;
+    margin-top:.85rem;
+  }
+  .pcat-slider-starter.is-pcat-slider-ready .pcat-slider-starter__nav,
+  .pcat-pagination-root.is-pcat-slider-pagination-ready .pcat-slider-starter__nav{ display:flex; }
+  .pcat-slider-starter.is-pcat-slider-static .pcat-slider-starter__nav{ display:none; }
+  .pcat-slider-starter__nav button{
+    display:grid;
+    place-items:center;
+    width:2.5rem;
+    height:2.5rem;
+    border:1px solid var(--border,#dbe2e8);
+    border-radius:50%;
+    background:var(--bg,#fff);
+    color:var(--text,#172033);
+    cursor:pointer;
+    font-size:1rem;
+    transition:background .18s ease,border-color .18s ease,color .18s ease;
+  }
+  .pcat-slider-starter__nav button:hover:not(:disabled),
+  .pcat-slider-starter__nav button:focus-visible{
+    border-color:var(--accent,#00a89e);
+    background:var(--accent,#00a89e);
+    color:#fff;
+  }
+  .pcat-slider-starter__nav button:disabled{ cursor:not-allowed;opacity:.35; }
+  @container (max-width:700px){
+    .pcat-slider-starter{ --pcat-slider-cols:var(--pcat-slider-cols-tablet); }
+  }
+  @container (max-width:460px){
+    .pcat-slider-starter{ --pcat-slider-cols:var(--pcat-slider-cols-mobile); }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .pcat-slider-starter__track,
+    .pcat-slider-starter .pcat__img{ transition:none; }
+  }
+</style>
+PHP;
 
 $snippetForeach = '<?php foreach ($items as $it): ?>
   <?php

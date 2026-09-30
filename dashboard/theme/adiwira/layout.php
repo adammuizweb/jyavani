@@ -178,6 +178,11 @@ foreach ($pa['css'] ?? [] as $css_url) {
   <script src="/static/components/toast/toast.js" defer></script>
   <script src="/static/components/confirm/confirm.js" defer></script>
 
+<?php
+  $actionMenuFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/action-menu.js' : '';
+  $actionMenuVer = is_file($actionMenuFile) ? filemtime($actionMenuFile) : '';
+?>
+  <script src="/static/dashboard/js/action-menu.js?v=<?= $actionMenuVer ?>" defer></script>
   <script src="/static/dashboard/js/index-list.js" defer></script>
   <script src="/static/dashboard/js/aside.js" defer></script>
   <script src="/static/dashboard/js/panel.js" defer></script>

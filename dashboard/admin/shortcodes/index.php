@@ -209,7 +209,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
           <th><?=_e('Status')?></th>
           <?php if ($isAdmin): ?><th><?=_e('Owner')?></th><?php endif; ?>
           <th><?= _e('Created') ?></th>
-          <th style="width:140px"><?= _e('Actions') ?></th>
+          <th style="width:64px"><?= _e('Actions') ?></th>
         </tr>
       </thead>
       <tbody>
@@ -227,6 +227,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
                 'preset' => (string)($p['slug'] ?? ''),
                 'return_to' => $presetReturnTo,
               ]);
+              $actionMenuId = 'preset-actions-' . (int)$p['id'];
             ?>
             <tr class="adam-row sc-presets-table-row">
               <td><input type="checkbox" class="preset-row-check" name="ids[]" value="<?= (int)$p['id'] ?>" aria-label="<?= h(sprintf(__('Select %s'), (string)($p['title'] ?? ''))) ?>"></td>
@@ -235,14 +236,19 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
               <td><span class="adam-status <?= h($stClass) ?>"><span class="adam-status-text"><?= h(__(ucfirst($st))) ?></span></span></td>
               <?php if ($isAdmin): ?><td><?= h((string)($p['owner_name'] ?? '-')) ?></td><?php endif; ?>
               <td><?= h(function_exists('format_date_ddmmyyyy_time_bracket') ? format_date_ddmmyyyy_time_bracket((string)$p['created_at']) : (string)$p['created_at']) ?></td>
-              <td>
-                <a class="adam-ubah" href="<?= h($editHref) ?>"><?= svg_ico('pen', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Edit')?></a>
-                <?php if ($isSiteOwner && $st === 'published'): ?>
-                  &nbsp;<span class="muted-divider">|</span>&nbsp;
-                  <a class="adam-ubah" href="<?= h($sectionHref) ?>"><?= svg_ico('panel-top', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Build Section')?></a>
-                <?php endif; ?>
-                &nbsp;<span class="muted-divider">|</span>&nbsp;
-                <button type="button" class="adam-hapus js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>"><?= svg_ico('trash-2', '', ['style' => 'width:12px;height:12px;vertical-align:middle;margin-right:2px']) ?><?=_e('Delete')?></button>
+              <td class="sc-actions-cell">
+                <div class="adam-actions">
+                  <button type="button" class="adam-actions__trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="<?= h($actionMenuId) ?>" aria-label="<?= h(__('Actions') . ': ' . (string)($p['title'] ?? '')) ?>">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+                  </button>
+                  <div id="<?= h($actionMenuId) ?>" class="adam-actions__menu" role="menu" hidden>
+                    <a role="menuitem" href="<?= h($editHref) ?>"><?= svg_ico('pen') ?><span><?=_e('Edit')?></span></a>
+                    <?php if ($isSiteOwner && $st === 'published'): ?>
+                      <a role="menuitem" href="<?= h($sectionHref) ?>"><?= svg_ico('panel-top') ?><span><?=_e('Build Section')?></span></a>
+                    <?php endif; ?>
+                    <button type="button" role="menuitem" class="is-danger js-preset-delete" data-id="<?= (int)$p['id'] ?>" data-title="<?= h((string)($p['title'] ?? '')) ?>"><?= svg_ico('trash-2') ?><span><?=_e('Delete')?></span></button>
+                  </div>
+                </div>
               </td>
             </tr>
           <?php endforeach; ?>
