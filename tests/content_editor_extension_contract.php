@@ -12,6 +12,7 @@ $api = (string)file_get_contents($root . '/public/static/js/editor/core-api.js')
 $save = (string)file_get_contents($root . '/public/static/js/edit/ajax_save.js');
 $mode = (string)file_get_contents($root . '/public/static/js/edit/editor_mode.js');
 $quill = (string)file_get_contents($root . '/public/static/js/edit/quill.js');
+$codemirror = (string)file_get_contents($root . '/public/static/js/edit/codemirror.js');
 $guard = (string)file_get_contents($root . '/public/static/dashboard/js/unsaved-guard.js');
 $css = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $readme = (string)file_get_contents($root . '/README.md');
@@ -114,8 +115,35 @@ $check(str_contains($api, "document.dispatchEvent(new CustomEvent('jyavani:edito
     && str_contains($api, "emit('modechange'"),
     'the public editor API emits stable lifecycle events');
 $check(str_contains($quill, 'if (window.ADIWIRA.quill) return;')
-    && str_contains((string)file_get_contents($root . '/public/static/js/edit/codemirror.js'), 'if (window.ADIWIRA.codemirror) return;'),
+    && str_contains($codemirror, 'if (window.ADIWIRA.codemirror) return;'),
     'editor engine adapters remain stable when plugin dependencies repeat page-owned scripts');
+$check(str_contains($codemirror, 'function setReferences(config)')
+    && str_contains($codemirror, 'refreshReferences: rebuildReferences')
+    && str_contains($codemirror, 'cm.markText(')
+    && str_contains($codemirror, 'marker.clear()')
+    && str_contains($codemirror, "cm.on('change', function(){")
+    && str_contains($codemirror, "clearReferenceMarks();\n        scheduleReferenceRefresh();")
+    && str_contains($codemirror, 'referenceByteLength(key) > maxBytes')
+    && str_contains($codemirror, 'function trimReferenceValue(value)')
+    && str_contains($codemirror, '\\u0000\\u0009-\\u000B\\u000D\\u0020')
+    && substr_count($codemirror, '[\\x09-\\x0D\\x20]') >= 3
+    && !str_contains($codemirror, 'widget:([a-z0-9_-]+)\\s*')
+    && !str_contains($codemirror, '.trimStart()')
+    && !str_contains($codemirror, 'theme_section')
+    && !str_contains($codemirror, 'admin/shortcodes/layout'),
+    'CodeMirror exposes bounded generic references and invalidates stale decorations immediately');
+$check(str_contains($codemirror, "'F12': function(cm)")
+    && str_contains($codemirror, 'event.ctrlKey')
+    && str_contains($codemirror, 'event.metaKey')
+    && str_contains($codemirror, "event.key !== 'Enter'")
+    && str_contains($codemirror, "window.open(url, '_blank', 'noopener')")
+    && str_contains($codemirror, 'event.preventDefault()'),
+    'editor references support intentional mouse and keyboard navigation in a new tab');
+$check(str_contains($codemirror, "'aria-label': accessibleDetails")
+    && str_contains($codemirror, "'aria-haspopup': 'dialog'")
+    && str_contains($codemirror, "'aria-controls': 'jy-editor-reference-popover'")
+    && str_contains($codemirror, "referencePopover.id = 'jy-editor-reference-popover'"),
+    'reference markers expose their complete hover-card context to assistive technology');
 $check(str_contains($api, "form.addEventListener('submit', sync, true)")
     && str_contains($save, 'window.JyavaniEditor.current')
     && str_contains($save, 'canonical.value = editor.sync()'),
@@ -127,6 +155,10 @@ $check(str_contains($css, '.jy-editor-actions{')
     && str_contains($css, '.jy-editor-action{')
     && str_contains($css, '.jy-editor-code-wrap{'),
     'shared editor actions and CodeMirror shell are dashboard themed');
+$check(str_contains($css, '.jy-editor-reference{')
+    && str_contains($css, '.jy-editor-reference-popover{')
+    && str_contains($css, '.jy-editor-reference-popover a{'),
+    'dashboard styles provide visible reference markers and an actionable hover card');
 $check(str_contains($css, '--adam-sticky-header-offset: 64px;')
     && str_contains($css, ".adam-quill .ql-toolbar.ql-snow{")
     && str_contains($css, 'top: var(--adam-sticky-header-offset);')

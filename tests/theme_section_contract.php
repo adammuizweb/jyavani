@@ -37,6 +37,7 @@ define('VIEWS_BASE', PUBLIC_PATH . '/views/themes');
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/widget_helper.php';
 require_once $root . '/cfg/helpers/theme_helper.php';
+require_once $root . '/cfg/helpers/editor_references.php';
 require_once $root . '/cfg/helpers/theme_sections.php';
 
 $failures = [];
@@ -100,6 +101,65 @@ try {
     $check(($descriptor['definition']['label'] ?? '') === 'Contract Hero', 'source descriptor exposes the registered definition');
     $check(count($descriptor['composition_order'] ?? []) >= 2, 'source descriptor exposes renderer composition order and Core fallback');
     $check(strlen((string)($descriptor['renderer']['revision'] ?? '')) === 64, 'file renderer revision is a SHA-256 content identity');
+    $editorReferences = editor_reference_configuration($pdo, [
+        'surface' => 'theme_content',
+        'content' => '[[widget:theme_section name="  ' . strtoupper($name) . '  "]] [[widget:theme_section name="../outside"]]',
+        'admin_base_path' => '/dashboard',
+        'return_to' => '/dashboard/?page=admin%2Fthemes%2Fedit&id=7',
+        'can_edit_executable' => true,
+    ]);
+    $sectionProvider = $editorReferences['providers'][0] ?? [];
+    $activeReference = $sectionProvider['entries'][$name] ?? [];
+    $encodedReferences = json_encode($editorReferences, JSON_UNESCAPED_SLASHES);
+    $check(($sectionProvider['shortcode'] ?? '') === 'theme_section'
+        && ($sectionProvider['attribute'] ?? '') === 'name'
+        && ($sectionProvider['normalize'] ?? '') === 'lowercase'
+        && ($sectionProvider['trim'] ?? false) === true
+        && ($sectionProvider['max_bytes'] ?? 0) === 120, 'Theme Section publishes a generic provider with runtime-equivalent normalization bounds');
+    $check(str_contains((string)($activeReference['url'] ?? ''), 'page=admin%2Fshortcodes%2Flayout')
+        && str_contains((string)($activeReference['url'] ?? ''), 'file=' . $name . '.php')
+        && ($activeReference['action_label'] ?? '') === 'Open editor', 'active-theme references target the exact Theme Section editor');
+    $check(is_string($encodedReferences) && !str_contains($encodedReferences, $fixtureRoot)
+        && !isset($sectionProvider['entries']['../outside']), 'editor references expose no filesystem paths and reject malformed names');
+    $check(editor_reference_configuration($pdo, [
+        'surface' => 'theme_content',
+        'content' => '[[widget:theme_section name="' . $name . '"]] ',
+        'admin_base_path' => '/dashboard',
+        'return_to' => '/dashboard/',
+        'can_edit_executable' => false,
+    ]) === [], 'executable editor references are withheld without explicit authority');
+    $check(editor_reference_admin_url('/dashboard/?page=allowed', '/dashboard') !== ''
+        && editor_reference_admin_url('/dashboard-escape/?page=denied', '/dashboard') === ''
+        && editor_reference_admin_url('/dashboard/%252e%252e/escape', '/dashboard') === ''
+        && editor_reference_admin_url('https://example.test/dashboard/', '/dashboard') === '', 'editor reference URLs remain confined to the local dashboard path');
+    $edgeNames = theme_section_editor_reference_names(
+        '[[widget:theme_section name="' . "\0" . 'edge.nul' . "\0" . '"]]'
+        . '[[widget:theme_section name="' . "\u{00A0}" . 'edge.nbsp' . "\u{00A0}" . '"]] '
+        . '[[widget:theme_section name="' . "\f" . 'edge.formfeed' . "\f" . '"]] ',
+        $pdo
+    );
+    $check(in_array('edge.nul', $edgeNames, true)
+        && !in_array('edge.nbsp', $edgeNames, true)
+        && !in_array('edge.formfeed', $edgeNames, true),
+        'reference-name normalization follows PHP trim semantics for NUL, NBSP, and form feed');
+    $longProviderKey = 'a' . str_repeat('b', 199);
+    $longProvider = editor_reference_provider_config('long-reference', [
+        'syntax' => 'widget',
+        'shortcode' => 'example',
+        'attribute' => 'name',
+        'label' => 'Example',
+        'value_pattern' => '^[a-z]+$',
+        'max_bytes' => 240,
+        'entries' => [
+            $longProviderKey => [
+                'title' => 'Long reference',
+                'source' => 'Contract',
+                'action_label' => 'Open',
+                'url' => '/dashboard/?page=example',
+            ],
+        ],
+    ], '/dashboard');
+    $check(isset($longProvider['entries'][$longProviderKey]), 'generic provider entry bounds follow the declared maximum byte length');
     file_put_contents($activeFile, '<article data-source="active-v2"><?= $esc($attrs[\'title\'] ?? \'\') ?></article>');
     $check(theme_section_source_fingerprint($name, $pdo) !== $firstFingerprint, 'source fingerprint changes when renderer content changes');
     file_put_contents($activeFile, '<article data-source="active" data-context="<?= $esc($context[\'page\'][\'slug\'] ?? \'\') ?>" data-attr-page="<?= isset($attrs[\'page\']) ? \'yes\' : \'no\' ?>"><?= $esc($attrs[\'title\'] ?? \'\') ?></article>');
@@ -113,6 +173,18 @@ try {
 
     unlink($activeFile);
     $check(str_contains(render_theme_section($name, [], $pdo), 'data-source="default"'), 'default theme renderer is the second choice');
+    $fallbackReferences = editor_reference_configuration($pdo, [
+        'surface' => 'theme_content',
+        'content' => '[[widget:theme_section name="' . $name . '"]]',
+        'admin_base_path' => '/dashboard',
+        'return_to' => '/dashboard/?page=admin%2Fthemes%2Fedit&id=7',
+        'can_edit_executable' => true,
+    ]);
+    $fallbackReference = $fallbackReferences['providers'][0]['entries'][$name] ?? [];
+    $check(($fallbackReference['source'] ?? '') === 'Default theme'
+        && ($fallbackReference['action_label'] ?? '') === 'Create active-theme override'
+        && str_contains((string)($fallbackReference['url'] ?? ''), 'name=' . $name)
+        && !str_contains((string)($fallbackReference['url'] ?? ''), 'file='), 'fallback renderers offer an explicit active-theme override instead of editing another owner');
 
     unlink($defaultFile);
     $check(str_contains(render_theme_section($name, [], $pdo), 'data-source="global"'), 'global renderer is the final file fallback');

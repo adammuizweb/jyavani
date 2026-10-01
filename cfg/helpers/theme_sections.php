@@ -217,6 +217,108 @@ function theme_section_source_fingerprint(string $name, ?PDO $pdo = null): strin
     return is_string($encoded) ? hash('sha256', $encoded) : '';
 }
 
+function theme_section_editor_reference_names(string $content, ?PDO $pdo = null): array
+{
+    $referenced = [];
+    if (preg_match_all('/\[\[\s*widget:theme_section\s*([^\]]*)\]\]/i', $content, $matches)) {
+        foreach ($matches[1] as $attributeText) {
+            $attrs = function_exists('widget_parse_attrs') ? widget_parse_attrs((string)$attributeText) : [];
+            $name = strtolower(trim((string)($attrs['name'] ?? '')));
+            if (theme_section_name_is_valid($name)) $referenced[] = $name;
+        }
+    }
+
+    $catalog = array_keys(theme_section_definitions());
+    foreach (theme_section_layout_directories($pdo) as $directory) {
+        foreach (scandir($directory) ?: [] as $file) {
+            if (!str_ends_with($file, '.php') || is_link($directory . DIRECTORY_SEPARATOR . $file)) continue;
+            $name = substr($file, 0, -4);
+            if (theme_section_name_is_valid($name)) $catalog[] = $name;
+            if (count($catalog) >= 2000) break 2;
+        }
+    }
+
+    $referenced = array_values(array_unique($referenced));
+    $catalog = array_values(array_unique($catalog));
+    sort($catalog, SORT_STRING);
+    $names = array_values(array_unique(array_merge($referenced, $catalog)));
+    return array_slice($names, 0, 1000);
+}
+
+function theme_section_editor_reference_source(?string $layout, ?PDO $pdo = null): string
+{
+    if ($layout === null) return function_exists('__') ? __('Core fallback') : 'Core fallback';
+    $active = theme_section_theme_directory($pdo);
+    $default = theme_section_theme_directory($pdo, false, DEFAULT_THEME_FOLDER);
+    $global = theme_section_global_directory();
+    if ($active && theme_section_path_is_within($layout, $active)) return function_exists('__') ? __('Active theme') : 'Active theme';
+    if ($default && theme_section_path_is_within($layout, $default)) return function_exists('__') ? __('Default theme') : 'Default theme';
+    if ($global && theme_section_path_is_within($layout, $global)) return function_exists('__') ? __('Global sections') : 'Global sections';
+    return function_exists('__') ? __('Resolved section') : 'Resolved section';
+}
+
+function theme_section_editor_reference_provider(PDO $pdo, array $context): ?array
+{
+    if (($context['surface'] ?? null) !== 'theme_content'
+        || ($context['can_edit_executable'] ?? false) !== true) return null;
+    $adminBase = (string)($context['admin_base_path'] ?? '');
+    $returnTo = (string)($context['return_to'] ?? '');
+    $content = (string)($context['content'] ?? '');
+    if ($adminBase === '' || $returnTo === '') return null;
+
+    $createBase = $adminBase . '/?' . http_build_query([
+        'page' => 'admin/shortcodes/layout',
+        'scope' => 'section',
+        'return_to' => $returnTo,
+    ]);
+    $activeDirectory = theme_section_theme_directory($pdo);
+    $entries = [];
+    foreach (theme_section_editor_reference_names($content, $pdo) as $name) {
+        $definition = theme_section_definition($name);
+        $resolved = theme_section_resolve_layout($name, $pdo);
+        $activeFile = $activeDirectory ? $activeDirectory . DIRECTORY_SEPARATOR . $name . '.php' : '';
+        $activeReal = $activeFile !== '' && !is_link($activeFile) ? realpath($activeFile) : false;
+        $editable = is_string($activeReal) && is_file($activeReal) && $resolved === $activeReal;
+        $url = $editable
+            ? $adminBase . '/?' . http_build_query([
+                'page' => 'admin/shortcodes/layout',
+                'scope' => 'section',
+                'file' => $name . '.php',
+                'return_to' => $returnTo,
+            ])
+            : ($activeReal === false ? $createBase . '&' . http_build_query(['name' => $name]) : '');
+        $entries[$name] = [
+            'title' => (string)($definition['label'] ?? theme_section_default_label($name)),
+            'source' => theme_section_editor_reference_source($resolved, $pdo),
+            'action_label' => $url === ''
+                ? ''
+                : ($editable
+                    ? (function_exists('__') ? __('Open editor') : 'Open editor')
+                    : (function_exists('__') ? __('Create active-theme override') : 'Create active-theme override')),
+            'url' => $url,
+        ];
+    }
+
+    return [
+        'syntax' => 'widget',
+        'shortcode' => 'theme_section',
+        'attribute' => 'name',
+        'label' => function_exists('__') ? __('Theme Section') : 'Theme Section',
+        'value_pattern' => '^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$',
+        'normalize' => 'lowercase',
+        'trim' => true,
+        'max_bytes' => 120,
+        'entries' => $entries,
+        'fallback' => [
+            'title' => function_exists('__') ? __('New Theme Section') : 'New Theme Section',
+            'source' => function_exists('__') ? __('Core fallback') : 'Core fallback',
+            'action_label' => function_exists('__') ? __('Create active-theme override') : 'Create active-theme override',
+            'url' => $createBase,
+        ],
+        'fallback_parameter' => 'name',
+    ];
+}
+
 function theme_section_preview_document_shell(?PDO $pdo = null, array $context = []): array
 {
     $folder = is_string($context['theme_folder'] ?? null) ? trim($context['theme_folder']) : '';
@@ -420,4 +522,8 @@ if (function_exists('register_widget_shortcode_handler')) {
         },
         ['name' => '']
     );
+}
+
+if (function_exists('register_editor_reference_provider')) {
+    register_editor_reference_provider('theme-section', 'theme_section_editor_reference_provider');
 }

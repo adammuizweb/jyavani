@@ -70,6 +70,22 @@ $pref_slug    = (string)($theme['slug'] ?? '');
 $pref_content = (string)($theme['content'] ?? '');
 $pref_status  = content_schedule_editor_status((string)($theme['status'] ?? 'draft'), $theme);
 $jsFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+$editorActor = function_exists('authorization_actor') ? authorization_actor($pdo, $user_id) : null;
+$editorReferences = [];
+if (($editorActor['is_site_owner'] ?? false) === true && function_exists('editor_reference_configuration')) {
+    $editorReturnTo = $base . '/?' . http_build_query([
+        'page' => 'admin/themes/edit',
+        'id' => $id,
+        'return_to' => $return_to,
+    ]);
+    $editorReferences = editor_reference_configuration($pdo, [
+        'surface' => 'theme_content',
+        'content' => $pref_content,
+        'admin_base_path' => $base,
+        'return_to' => $editorReturnTo,
+        'can_edit_executable' => true,
+    ]);
+}
 $saveButtonHtml = svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) . ' ' . __('Save Changes');
 $canonicalRoute = function_exists('content_route_find_canonical')
     ? content_route_find_canonical($pdo, (int)$theme['id'])
@@ -200,6 +216,9 @@ if ($isReadOnly) {
       <textarea id="cm-textarea"
                 style="width:100%;min-height:70vh;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;" aria-labelledby="theme-edit-content-label" aria-required="true"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
       <textarea id="content-textarea" name="content" style="display:none;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
+      <?php if (($editorReferences['providers'] ?? []) !== []): ?>
+        <p class="field-note jy-editor-reference-help"><?=_e('Hover over a reference for details. Ctrl/Cmd-click or press F12 to open its editor in a new tab.')?></p>
+      <?php endif; ?>
     </div>
   </form>
 </section>
@@ -209,6 +228,7 @@ if ($isReadOnly) {
 <script>
   window.ADIWIRA = window.ADIWIRA || {};
   window.ADIWIRA_FORM_ID = 'theme-edit-form';
+  window.ADIWIRA_EDITOR_REFERENCES = <?= json_encode($editorReferences, $jsFlags) ?>;
 </script>
 
 <script src="/static/js/edit/codemirror.js"></script>

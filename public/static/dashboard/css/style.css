@@ -3368,6 +3368,55 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 13px;
 }
+.jy-editor-reference{
+  border-bottom: 1px dotted color-mix(in srgb, var(--adam-primary) 78%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--adam-primary-soft) 55%, transparent);
+}
+.jy-editor-reference--actionable{ cursor: help; }
+.jy-editor-reference:focus{
+  outline: 2px solid var(--adam-primary);
+  outline-offset: 2px;
+}
+.jy-editor-reference-help{ margin: .45rem 0 0; }
+.jy-editor-reference-popover{
+  position: fixed;
+  z-index: 10050;
+  display: flex;
+  width: min(360px, calc(100vw - 16px));
+  padding: .75rem;
+  border: 1px solid var(--adam-border-2);
+  border-radius: 10px;
+  background: var(--adam-card);
+  color: var(--adam-text);
+  box-shadow: var(--adam-shadow);
+  flex-direction: column;
+  gap: .35rem;
+  font-family: inherit;
+  font-size: .84rem;
+  line-height: 1.4;
+}
+.jy-editor-reference-popover[hidden]{ display: none; }
+.jy-editor-reference-popover strong{ color: var(--adam-text); }
+.jy-editor-reference-popover__title{ font-weight: 700; }
+.jy-editor-reference-popover__source,
+.jy-editor-reference-popover small{ color: var(--adam-muted); }
+.jy-editor-reference-popover a{
+  align-self: flex-start;
+  margin-top: .2rem;
+  padding: .38rem .62rem;
+  border-radius: 7px;
+  background: var(--adam-primary-soft);
+  color: var(--adam-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+.jy-editor-reference-popover a:hover,
+.jy-editor-reference-popover a:focus-visible{
+  background: var(--adam-primary);
+  color: var(--adam-on-primary, #fff);
+  outline: none;
+}
 
 /* ============================
    QUILL (snow) — light/dark compatibility

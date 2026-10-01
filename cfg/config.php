@@ -104,6 +104,7 @@ if (PHP_SAPI !== 'cli' && !defined('UPDATE_PROCESS_CONTROL_REQUEST')) theme_life
 require_once __DIR__ . '/helpers/core_integrity.php';
 require_once __DIR__ . '/helpers/site_health.php';
 require_once __DIR__ . '/helpers/theme_source.php';
+require_once __DIR__ . '/helpers/editor_references.php';
 require_once __DIR__ . '/helpers/theme_sections.php';
 
 // 9. helpers Redirect

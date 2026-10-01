@@ -35,6 +35,33 @@ $check(str_contains($assign, "'page' => 'admin/themes/edit'")
     && str_contains($edit, 'adiwira_safe_return_to')
     && str_contains($save, 'adiwira_safe_return_to'),
     'per-slot custom-template actions use integer IDs and retain a validated return to Theme Assign');
+$check(str_contains($edit, "authorization_actor(\$pdo, \$user_id)")
+    && str_contains($edit, "(\$editorActor['is_site_owner'] ?? false) === true")
+    && str_contains($edit, 'editor_reference_configuration($pdo')
+    && str_contains($edit, "'can_edit_executable' => true"),
+    'theme editor publishes executable references only for the authenticated Site Owner');
+$check(str_contains($edit, "'page' => 'admin/themes/edit'")
+    && str_contains($edit, "'id' => \$id")
+    && str_contains($edit, "'return_to' => \$return_to")
+    && str_contains($edit, 'window.ADIWIRA_EDITOR_REFERENCES = <?= json_encode($editorReferences, $jsFlags) ?>;'),
+    'theme editor builds a script-safe canonical return path for reference navigation');
+$check(str_contains($edit, 'jy-editor-reference-help')
+    && str_contains($edit, 'Ctrl/Cmd-click or press F12'),
+    'theme editor explains discoverable hover and keyboard reference navigation');
+
+foreach ([
+    'Core fallback',
+    'Create active-theme override',
+    'Ctrl/Cmd-click or press F12 to open this reference in a new tab.',
+    'Default theme',
+    'Global sections',
+    'Hover over a reference for details. Ctrl/Cmd-click or press F12 to open its editor in a new tab.',
+    'Open editor',
+    'Resolved section',
+] as $sourceText) {
+    $check(substr_count($translations, "'" . str_replace("'", "''", $sourceText) . "'") === 2,
+        $sourceText . ' has Indonesian and German translation seeds');
+}
 
 if ($failures !== []) {
     fwrite(STDERR, implode(PHP_EOL, $failures) . PHP_EOL);

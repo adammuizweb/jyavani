@@ -6105,3 +6105,22 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Back to Customize', 'Zurück zur Anpassung', 'de'),
 ('default', 'Back to Content Translation', 'Kembali ke Content Translation', 'id'),
 ('default', 'Back to Content Translation', 'Zurück zur Inhaltsübersetzung', 'de');
+
+-- Code editor reference navigation
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Core fallback', 'Fallback Core', 'id'),
+('default', 'Core fallback', 'Core-Fallback', 'de'),
+('default', 'Create active-theme override', 'Buat override tema aktif', 'id'),
+('default', 'Create active-theme override', 'Überschreibung im aktiven Theme erstellen', 'de'),
+('default', 'Ctrl/Cmd-click or press F12 to open this reference in a new tab.', 'Ctrl/Cmd-klik atau tekan F12 untuk membuka referensi ini di tab baru.', 'id'),
+('default', 'Ctrl/Cmd-click or press F12 to open this reference in a new tab.', 'Mit Strg/Cmd-Klick oder F12 diese Referenz in einem neuen Tab öffnen.', 'de'),
+('default', 'Default theme', 'Tema bawaan', 'id'),
+('default', 'Default theme', 'Standard-Theme', 'de'),
+('default', 'Global sections', 'Bagian global', 'id'),
+('default', 'Global sections', 'Globale Abschnitte', 'de'),
+('default', 'Hover over a reference for details. Ctrl/Cmd-click or press F12 to open its editor in a new tab.', 'Arahkan kursor ke referensi untuk melihat detail. Ctrl/Cmd-klik atau tekan F12 untuk membuka editornya di tab baru.', 'id'),
+('default', 'Hover over a reference for details. Ctrl/Cmd-click or press F12 to open its editor in a new tab.', 'Für Details den Mauszeiger über eine Referenz bewegen. Mit Strg/Cmd-Klick oder F12 den Editor in einem neuen Tab öffnen.', 'de'),
+('default', 'Open editor', 'Buka editor', 'id'),
+('default', 'Open editor', 'Editor öffnen', 'de'),
+('default', 'Resolved section', 'Bagian yang diresolusikan', 'id'),
+('default', 'Resolved section', 'Aufgelöster Abschnitt', 'de');
