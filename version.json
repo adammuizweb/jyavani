@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.165",
+    "version": "2.3.166",
     "build": "2026-10-01",
-    "changelog": "Integrate theme assignment, Customize, and installed PHP source workflows with contextual extension ownership and clearer editor navigation.",
+    "changelog": "Connect CodeMirror shortcode references to authorized editors with hover context, keyboard navigation, and active-theme override guidance.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.165"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.166"
 }
