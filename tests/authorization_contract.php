@@ -121,6 +121,11 @@ foreach ([
     'dashboard/admin/themes/update_apply.php',
     'dashboard/admin/themes/update_preflight.php',
     'dashboard/admin/themes/update_progress.php',
+    'dashboard/admin/themes/source.php',
+    'dashboard/admin/themes/source_save.php',
+    'dashboard/admin/themes/source_restore.php',
+    'dashboard/admin/themes/source_export.php',
+    'dashboard/admin/themes/source_revisions.php',
 ] as $installedThemeRoute) {
     $installedThemeRoutes .= (string)file_get_contents($root . '/' . $installedThemeRoute);
 }
@@ -158,8 +163,8 @@ $check(str_contains($schema, "('core.dashboard.access','core'") && str_contains(
 $check(str_contains($migration, "enum('none','author','editor','admin')") && str_contains($schema, "enum('none','author','editor','admin')"), 'legacy role bridge has a fail-closed none value');
 $check(str_contains($installer, "'site_owner.installed'") && str_contains($installer, 'is_site_owner = 1'), 'Pondasi creates and audits the initial Site Owner');
 $check(
-    substr_count($installedThemeRoutes, "'core.themes.manage'") === 8
-    && substr_count($installedThemeRoutes, 'adiwira_require_site_owner') === 8
+    substr_count($installedThemeRoutes, "'core.themes.manage'") === 13
+    && substr_count($installedThemeRoutes, 'adiwira_require_site_owner') === 13
     && !str_contains($installedThemeRoutes, 'adiwira_require_admin')
     && !str_contains($installedThemeRoutes, "adiwira_require_role(\$pdo, ['admin']"),
     'executable installed-theme operations require permission and Site Owner authority'

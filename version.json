@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.163",
+    "version": "2.3.164",
     "build": "2026-10-01",
-    "changelog": "Make Collection Layout editing source-aware and render preset previews with active-theme styles.",
+    "changelog": "Add a native installed-theme PHP source editor with guarded revisions, update protection, and distinct extension actions.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.163"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.164"
 }

@@ -14,6 +14,7 @@ $removeTree = static function (string $path) use (&$removeTree): void {
 }
 define('BACKEND_PATH', $fixture . '/cfg');
 require_once $root . '/cfg/helpers/update_operation.php';
+require_once $root . '/cfg/helpers/theme_helper.php';
 require_once $root . '/cfg/helpers/site_health.php';
 
 $failures = [];
@@ -374,8 +375,18 @@ try {
     $check($limitedContent['status'] === 'unverified'
         && in_array('scan_limit_reached', array_column($limitedContent['findings'], 'reason'), true), 'dated image discovery consumes the shared full-scan entry budget');
 
-    $storedRun = site_health_run_and_store($fixture, $fixture . '/public', $provider, $extensionProvider);
+    $lifecycleHeldDuringStoredScan = false;
+    $lockedProvider = static function (string $url, string $version) use ($provider, &$lifecycleHeldDuringStoredScan): array {
+        $lifecycleHeldDuringStoredScan = theme_operation_holds_lock(THEME_LIFECYCLE_LOCK_KEY, LOCK_SH);
+        return $provider($url, $version);
+    };
+    $storedRun = site_health_run_and_store($fixture, $fixture . '/public', $lockedProvider, $extensionProvider);
     $check(site_health_report_valid($storedRun), 'combined Site Health report validates and writes atomically');
+    $siteHealthSource = (string)file_get_contents($root . '/cfg/helpers/site_health.php');
+    $runAndStoreSource = substr($siteHealthSource, (int)strpos($siteHealthSource, 'function site_health_run_and_store('));
+    $check($lifecycleHeldDuringStoredScan
+        && strpos($runAndStoreSource, 'site_health_write_report($report)') < strpos($runAndStoreSource, 'theme_operation_release($lifecycleLocks)'),
+        'stored Site Health scans retain a shared lifecycle lock through report publication');
     $stored = site_health_read_report();
     $check(is_array($stored) && $stored['status'] === 'unverified'
         && isset($stored['components']['extensions'], $stored['components']['content']), 'combined report reload retains every ownership component');
@@ -569,6 +580,8 @@ try {
     foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Canonical Store or signed deployment hashes and filesystem safety', 'Canonical exact HTTPS Store baseline', 'Signed local deployment baseline', 'Every extension file matches the signed local deployment baseline.', 'No trusted release baseline', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Integrity Findings', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
         $check(substr_count($translations, "'" . str_replace("'", "''", $source) . "'") >= 2, 'full Site Health translation coverage: ' . $source);
     }
+    $check(site_health_write_report($storedRun) && site_health_invalidate_report() && site_health_read_report() === null,
+        'successful mutations can safely invalidate the persisted Site Health report');
 } finally {
     unset($_ENV['SITE_HEALTH_DEPLOYMENT_MANIFEST_PATH'], $_ENV['SITE_HEALTH_DEPLOYMENT_PUBLIC_KEY'], $_ENV['SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION']);
     $removeTree($fixture);

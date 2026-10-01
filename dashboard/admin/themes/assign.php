@@ -672,10 +672,18 @@ foreach ($themes as $t) {
         $isSystem = !empty($th['is_system']);
         $storeSlug = $th['store_slug'] ?? '';
         $updateInfo = isset($themeUpdates[$folder]) ? $themeUpdates[$folder] : null;
+        $sourceDirty = theme_source_service($pdo)->dirtyState($folder);
+        $sourceDirtyCount = (int)($sourceDirty['changed_count'] ?? 0);
+        $sourceUrl = ADMIN_BASE_PATH . '/?' . http_build_query(['page' => 'admin/themes/source', 'folder' => $folder]);
       ?>
         <div class="tm-theme <?= $isActive ? 'active' : '' ?> <?= $updateInfo ? 'has-update' : '' ?>">
           <div class="tm-delrow">
             <div class="tm-pill"><?= $isActive ? __('Activated') : __('Inactive') ?></div>
+            <?php if (($sourceDirty['tracked'] ?? false) && $sourceDirtyCount > 0): ?>
+              <span class="tm-protected"><?=htmlspecialchars(sprintf(__('PHP modified (%d)'), $sourceDirtyCount), ENT_QUOTES, 'UTF-8')?></span>
+            <?php elseif (!($sourceDirty['tracked'] ?? false)): ?>
+              <span class="tm-protected"><?=_e('PHP unverified')?></span>
+            <?php endif; ?>
 
             <?php if ($isDefault || $isSystem): ?>
               <span class="tm-protected"><?=_e('System')?></span>
@@ -725,23 +733,27 @@ foreach ($themes as $t) {
           <?php endif; ?>
 
           <div class="tm-actions">
-            <?php if (!$isActive): ?>
-              <form method="post" class="js-theme-manager-activate" style="display:inline;margin:0" data-folder="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-                <input type="hidden" name="action" value="activate_theme">
-                <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
-                <button class="tm-install" type="submit" style="padding:8px 10px"><?=_e('Activate')?></button>
-              </form>
-            <?php else: ?>
-              <span class="tm-pill"><?=_e('Activated')?></span>
-            <?php endif; ?>
+            <div class="tm-action-group tm-action-group--core">
+              <span class="tm-action-owner"><?=_e('Core')?></span>
+              <?php if (!$isActive): ?>
+                <form method="post" class="tm-action-form js-theme-manager-activate" data-folder="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                  <input type="hidden" name="action" value="activate_theme">
+                  <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
+                  <button class="tm-action tm-action--activate" type="submit"><?=_e('Activate')?></button>
+                </form>
+              <?php else: ?>
+                <span class="tm-action-status"><?=_e('Activated')?></span>
+              <?php endif; ?>
 
-            <form method="post" class="js-theme-manager-apply" style="display:inline;margin:0" data-folder="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
-              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-              <input type="hidden" name="action" value="apply_theme">
-              <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
-              <button class="tm-ghost" type="submit"><?=_e('Apply to all')?></button>
-            </form>
+              <form method="post" class="tm-action-form js-theme-manager-apply" data-folder="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="action" value="apply_theme">
+                <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
+                <button class="tm-action tm-action--apply" type="submit"><?=_e('Apply to all')?></button>
+              </form>
+              <a class="tm-action tm-action--source" href="<?=htmlspecialchars($sourceUrl, ENT_QUOTES, 'UTF-8')?>"><?=_e('Inspect / Edit Source')?></a>
+            </div>
             <?php
             if (function_exists('do_action_isolated')) {
               $themeActionContext = [
@@ -1315,7 +1327,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
       return parsed.pathname + parsed.search + parsed.hash;
     }
 
-    function showPreflightModal(folderName, issues){
+    function showPreflightModal(folderName, issues, priorDecisions){
       return new Promise(function(resolve){
         var overlayEl = document.createElement('div');
         overlayEl.className = 'theme-preflight-modal';
@@ -1328,6 +1340,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         panel.appendChild(title);
 
         var selected = {};
+        var retained = Object.assign({}, priorDecisions || {});
         (issues || []).forEach(function(issue){
           var card = document.createElement('section');
           card.className = 'theme-preflight-issue' + (issue.blocking && !issue.resolved ? ' is-blocking' : '');
@@ -1406,7 +1419,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         proceed.textContent = <?= json_encode(__('Continue')) ?>;
         cancel.addEventListener('click', function(){ overlayEl.remove(); resolve(null); });
         proceed.addEventListener('click', function(){
-          var decisions = {};
+          var decisions = Object.assign({}, retained);
           var missing = false;
           (issues || []).forEach(function(issue){
             if (issue.blocking && !issue.resolved && !selected[issue.id]) missing = true;
@@ -1492,7 +1505,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         if (data && data.code === 'theme_update_preflight_required' && Array.isArray(data.issues)) {
           updateProcess.fail(data.error || <?= json_encode(__('Theme update requirements must be resolved before continuing.')) ?>);
           updateProcess.dismissTerminal();
-          showPreflightModal(folderName, data.issues).then(function(nextDecisions){
+          showPreflightModal(folderName, data.issues, decisions).then(function(nextDecisions){
             if (nextDecisions !== null) startThemeUpdate(folderName, nextDecisions);
             else setUpdateInFlight(false);
           });
@@ -1524,7 +1537,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
           });
           return;
         }
-        showPreflightModal(folderName, data.issues).then(function(decisions){
+        showPreflightModal(folderName, data.issues, {}).then(function(decisions){
           if (decisions !== null) startThemeUpdate(folderName, decisions);
           else setUpdateInFlight(false);
         });

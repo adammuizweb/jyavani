@@ -10,6 +10,12 @@ A theme that supports Customize needs three things:
 2. Template files that call `theme_zone_render_position()` with fallback HTML.
 3. Optionally, `layout.defaults` gadgets that pre-fill the layout when the user clicks **Load Default Layout**.
 
+## Installed PHP source
+
+Site Owners with `core.themes.manage` can inspect registered-theme PHP from **Theme Manager > Inspect / Edit Source**. Core edits existing PHP files only; it does not create, rename, or delete files and does not edit assets or `theme.json`. Default/system themes are read-only.
+
+Every save is syntax-checked and atomically replaces the existing file after stale hash and physical identity checks. The displaced bytes become a private revision, and restore creates another undo revision. PHP lint is not a sandbox or security review: saved PHP executes as server-side code, while unsaved PHP is never executed or previewed. Export or fork local changes before a Store update because updates replace the complete theme and never merge or reapply local PHP.
+
 ## Context-aware frontend assets
 
 Legacy themes need no changes: Core continues to load Anime, Quill public CSS, global fonts, and Swiper, and string entries in `styles` and `scripts` remain global. Modern themes can opt into a smaller context-specific payload.

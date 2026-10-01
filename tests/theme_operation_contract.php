@@ -5,9 +5,10 @@ $root = dirname(__DIR__);
 $fixture = sys_get_temp_dir() . '/jy-theme-operation-' . bin2hex(random_bytes(6));
 mkdir($fixture . '/backend/var', 0750, true);
 mkdir($fixture . '/themes/sample', 0750, true);
+mkdir($fixture . '/public', 0750, true);
 define('BACKEND_PATH', $fixture . '/backend');
 define('VIEWS_BASE', $fixture . '/themes');
-define('PUBLIC_PATH', $fixture);
+define('PUBLIC_PATH', $fixture . '/public');
 define('THEME_DEBUG', false);
 
 function __(string $message, mixed ...$values): string {
@@ -192,6 +193,7 @@ try {
     $endpoint = (string)file_get_contents($root . '/dashboard/admin/themes/update_preflight.php');
     $applyEndpoint = (string)file_get_contents($root . '/dashboard/admin/themes/update_apply.php');
     $assign = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
+    $dashboardStyle = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
     $plugins = (string)file_get_contents($root . '/plugins/index.php');
     $updateSection = substr($assign, (int)strpos($assign, '// Theme update preflight and progress'));
     $check(str_contains($endpoint, "\$_SERVER['REQUEST_METHOD'] !== 'POST'") && str_contains($endpoint, 'adiwira_csrf_validate($csrf)')
@@ -202,6 +204,13 @@ try {
         && str_contains($assign, 'applyUpdate($pdo, $folder, $token, $decisions)'), 'both update apply entry points pass bounded decisions without bypass');
     $check(str_contains($assign, "do_action_isolated('theme_manager_theme_actions', \$th, \$completePhysicalManifest, \$themeActionContext)")
         && str_contains($assign, 'theme_complete_physical_manifest_for_hook($folder)'), 'each card action area exposes the generic action with a safely read full manifest');
+    $check(str_contains($assign, 'tm-action-group tm-action-group--core')
+        && str_contains($assign, 'tm-action--activate') && str_contains($assign, 'tm-action--apply')
+        && str_contains($assign, 'tm-action--source') && str_contains($assign, "_e('Core')")
+        && str_contains($dashboardStyle, '.tm-action-group--core')
+        && str_contains($dashboardStyle, 'html.theme-dark .tm-action--source')
+        && str_contains($dashboardStyle, '@media (max-width: 420px)'),
+        'Theme Manager groups responsive high-contrast Core actions separately from extensions');
     $check(str_contains($updateSection, 'update_preflight.php') && str_contains($updateSection, 'window.crypto.getRandomValues(bytes)')
         && str_contains($updateSection, 'createUpdateProcessUI') && str_contains($updateSection, '/admin/update/process.php?token=')
         && str_contains($updateSection, 'theme_update_preflight_required')
@@ -252,7 +261,40 @@ try {
     $check(!isset(ThemeStoreClient::getCachedUpdates()['sample']), 'cached theme completion removes the installed update generation without resurrection');
 
     file_put_contents(VIEWS_BASE . '/sample/theme.json', json_encode(['folder' => 'sample', 'name' => 'Sample', 'version' => '1.0.0']));
+    file_put_contents(VIEWS_BASE . '/sample/index.php', "<?php\necho 'installed';\n");
     file_put_contents(VIEWS_BASE . '/sample/old.txt', 'old');
+    $preflightPdo = new PDO('sqlite::memory:');
+    $preflightPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $preflightPdo->exec('CREATE TABLE themes (id INTEGER PRIMARY KEY, folder_name TEXT UNIQUE, name TEXT, version TEXT, is_active INTEGER, is_system INTEGER, store_url TEXT, store_slug TEXT)');
+    $preflightPdo->exec('CREATE TABLE assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_key TEXT, theme_id INTEGER)');
+    $preflightPdo->exec("INSERT INTO themes (id,folder_name,name,version,is_active,is_system,store_url,store_slug) VALUES (1,'sample','Sample','1.0.0',0,0,'https://jyavani.com/theme-store','sample')");
+    require_once $root . '/cfg/helpers/theme_source.php';
+    theme_source_service($preflightPdo)->captureBaseline('sample', 'core_install', 0);
+    file_put_contents(VIEWS_BASE . '/sample/index.php', "<?php\necho 'locally changed';\n");
+    $now = time();
+    $publicUpdate = ['current_version' => '1.0.0', 'new_version' => '2.0.0', 'actionable' => true, 'checked_at' => $now];
+    $writeTransient->invoke(null, ['updates' => ['sample' => $publicUpdate]]);
+    file_put_contents(BACKEND_PATH . '/var/update-status.json', json_encode([
+        'schema' => 1,
+        'checked_at' => $now,
+        'expires_at' => $now + 3600,
+        'state' => 'ok',
+        'components' => [
+            'core' => ['state' => 'ok'],
+            'plugins' => ['state' => 'ok', 'updates' => []],
+            'themes' => ['state' => 'ok', 'updates' => ['sample' => $publicUpdate]],
+        ],
+    ], JSON_THROW_ON_ERROR));
+    $publicPreflight = ThemeStoreClient::preflightUpdate($preflightPdo, 'sample');
+    $publicIssue = $publicPreflight['issues'][0] ?? [];
+    $publicResolved = ThemeStoreClient::preflightUpdate($preflightPdo, 'sample', ['core.theme-source' => [
+        'choice' => 'replace', 'state_token' => (string)($publicIssue['state_token'] ?? ''),
+    ]]);
+    $check(($publicPreflight['success'] ?? false) === true && ($publicPreflight['allowed'] ?? true) === false
+        && ($publicIssue['id'] ?? '') === 'core.theme-source'
+        && ($publicResolved['allowed'] ?? false) === true && ($publicResolved['issues'][0]['resolved'] ?? false) === true,
+        'public ThemeStoreClient preflight normalizes and resolves the dotted Core source issue ID');
+
     $oldIdentity = package_tree_identity(VIEWS_BASE . '/sample');
     $stage = package_private_directory(VIEWS_BASE, 'theme-stage-sample');
     file_put_contents($stage . '/theme.json', json_encode(['folder' => 'sample', 'name' => 'Sample', 'version' => '2.0.0']));

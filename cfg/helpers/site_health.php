@@ -759,7 +759,13 @@ function site_health_run_and_store(
         @fclose($lock);
         throw new RuntimeException('Another Site Health scan is already running.');
     }
+    $lifecycleLocks = [];
     try {
+        $alreadyLifecycleLocked = function_exists('theme_operation_holds_lock') && defined('THEME_LIFECYCLE_LOCK_KEY')
+            && theme_operation_holds_lock((string)THEME_LIFECYCLE_LOCK_KEY);
+        if (!$alreadyLifecycleLocked && function_exists('theme_operation_acquire') && defined('THEME_LIFECYCLE_LOCK_KEY')) {
+            $lifecycleLocks = theme_operation_acquire([(string)THEME_LIFECYCLE_LOCK_KEY], LOCK_SH, microtime(true) + 2.0);
+        }
         if ($onlyIfStale) {
             $existing = site_health_read_report();
             if (!site_health_report_is_stale($existing, null, core_integrity_local_version($projectRoot))) return $existing;
@@ -768,6 +774,7 @@ function site_health_run_and_store(
         if (!site_health_write_report($report)) throw new RuntimeException('Site Health report could not be saved.');
         return $report;
     } finally {
+        if ($lifecycleLocks !== [] && function_exists('theme_operation_release')) theme_operation_release($lifecycleLocks);
         @flock($lock, LOCK_UN);
         @fclose($lock);
     }
@@ -931,5 +938,30 @@ function site_health_read_report(): ?array
         });
     } catch (Throwable $error) {
         return null;
+    }
+}
+
+/** Remove the persisted snapshot after a successful source mutation. */
+function site_health_invalidate_report(): bool
+{
+    try {
+        return site_health_with_report_lock(static function (string $path): bool {
+            if (!file_exists($path) && !is_link($path)) return true;
+            $stat = @lstat($path);
+            if (!is_array($stat) || is_link($path) || (($stat['mode'] & 0170000) !== 0100000)
+                || (int)($stat['nlink'] ?? 0) !== 1 || ($stat['mode'] & 0002) !== 0) return false;
+            if (!@unlink($path)) return false;
+            if (function_exists('fsync')) {
+                $directory = @fopen(dirname($path), 'r');
+                if (is_resource($directory)) {
+                    @fsync($directory);
+                    @fclose($directory);
+                }
+            }
+            clearstatcache(true, $path);
+            return !file_exists($path) && !is_link($path);
+        });
+    } catch (Throwable $error) {
+        return false;
     }
 }

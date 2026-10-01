@@ -18,6 +18,7 @@ The current release and platform requirements are the source of truth in [`VERSI
 - UI internationalization for English, Indonesian, and German, with separate dashboard and default-content locale settings.
 - Configurable IANA site timezone and localized human-readable date/time formats, while preserving existing wall-clock timestamps and date-based permalinks.
 - Plugin and theme upload, activation, dependency checks, store discovery, update checks, and integrity-aware update flows.
+- Site Owner-only installed-theme PHP inspection and existing-file editing with stale identity checks, linting, atomic replacement, private revisions, protected exports, and Store-update drift protection.
 - Site Health verifies Store plugin and theme package files against canonical exact-version HTTPS release manifests. A deployment may optionally trust otherwise local extensions through one environment-pinned signed manifest.
 - Optional PWA, offline, web-manifest, and browser-push behavior can be supplied by plugins. These are not core Jyavani CMS features.
 
@@ -176,6 +177,8 @@ Core validates structured recipients and sender identity, rejects caller-provide
 ### Themes
 
 Themes live in `public/views/themes/{folder}/` and are described by `theme.json`. Templates map to slots such as `header`, `footer`, `main.homepage`, `list.post`, and `single.post`; resolution falls back from an assigned theme to the active theme and then the default theme.
+
+The Theme Manager exposes Core's installed PHP source inspector/editor to Site Owners with `core.themes.manage`. Default/system themes remain read-only. Core supports existing PHP files only, never executes unsaved source, and requires explicit acknowledgement before editing active, assigned, or Store-managed themes. Saves preserve the exact displaced bytes as private revisions and mark the persisted Site Health report stale; Store updates require export/fork or a state-token-bound destructive replacement when local PHP differs.
 
 Themes may declare:
 

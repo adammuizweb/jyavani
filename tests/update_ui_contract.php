@@ -76,7 +76,10 @@ $check(str_contains($sources['script'], 'state.found === false')
     && str_contains($sources['script'], 'dispatchFailed: function'), 'apply errors wait for authoritative operation polling before unlocking the UI');
 $check(str_contains($sources['theme'], 'theme_update_preflight_required')
     && str_contains($sources['theme'], 'updateProcess.dismissTerminal()')
-    && str_contains($sources['theme'], 'showPreflightModal(folderName, data.issues)'), 'apply-time Theme preflight changes reopen bounded choices only after the operation terminates');
+    && str_contains($sources['theme'], 'showPreflightModal(folderName, data.issues, decisions)')
+    && str_contains($sources['theme'], 'var retained = Object.assign({}, priorDecisions || {})')
+    && str_contains($sources['theme'], 'var decisions = Object.assign({}, retained)'),
+    'apply-time Theme preflight changes reopen bounded choices after termination and retain prior issue decisions');
 $check(!str_contains($sources['theme'], 'updateProcess.notice(')
     && substr_count($sources['theme'], 'updateProcess.dispatchFailed(') >= 3, 'Theme apply transport and response failures eventually release the modal when no operation was created');
 $check(!str_contains($sources['plugin'], '_pluginUpdateProcess.notice(')
