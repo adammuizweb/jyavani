@@ -35,11 +35,14 @@ foreach (['save', 'delete', 'preview'] as $endpoint) {
 }
 
 $check(str_contains($source['save'], 'theme_section_name_is_valid($newName)'), 'new section files require a validated identifier');
-$check(str_contains($source['save'], 'shortcode_layout_atomic_save($pdo') && str_contains($source['manager'], 'theme_section_theme_directory($pdo, true)'), 'section saves target the active-theme-owned directory through the atomic manager');
+$check(str_contains($source['save'], 'shortcode_layout_atomic_save(') && str_contains($source['manager'], 'theme_section_theme_directory($pdo, true)'), 'section saves target the active-theme-owned directory through the atomic manager');
 $check(str_contains($source['manager'], 'file_exists($target) || is_link($target)'), 'new section saves reject pre-existing symbolic links');
 $check(str_contains($source['delete'], 'shortcode_layout_delete_files') && str_contains($source['manager'], 'theme_section_path_is_within($path, $directory)'), 'section deletes enforce directory containment');
 $check(str_contains($source['preview'], 'adiwira_csrf_validate($csrf)'), 'PHP template preview requires CSRF validation');
 $check(str_contains($source['preview'], 'theme_section_preview_document') && str_contains($source['editor'], 'data.document') && str_contains($source['editor'], "frame.setAttribute('sandbox', 'allow-same-origin')"), 'Theme Section preview loads its script-free theme-styled document with same-origin assets in a sandboxed frame');
+$check(str_contains($source['preview'], 'shortcode_collection_preview_document')
+    && str_contains($source['preview'], "'surface' => 'dashboard.shortcode_collection'")
+    && str_contains($source['preset'], 'showPreviewDocument(data.document'), 'Collection Layout and preset previews use the isolated theme-styled document contract');
 $check(str_contains($source['editor'], '/static/js/edit/codemirror.js') && substr_count($source['editor'], 'data-pane-toggle=') >= 2, 'Theme Section editor initializes CodeMirror and exposes independent pane controls');
 $check(str_contains($source['editor'], 'btn.innerHTML = oldMarkup;')
     && !str_contains($source['editor'], "btn.innerHTML = oldMarkup || '<?= svg_ico"),
@@ -79,8 +82,12 @@ $check(str_contains($source['manager'], 'shortcode_layout_theme_section_dependen
     && str_contains($source['manager'], "'kind' => 'registered'")
     && str_contains($source['manager'], 'theme_section_dependency_names'), 'Theme Section deletion protection covers registrations, stored content, and declared plugin dependencies');
 $check(str_contains($source['preset'], "fd.append('csrf_token'"), 'preset preview sends the required CSRF token');
-$check(str_contains($source['save'], 'shortcode_layout_atomic_save($pdo') && str_contains($source['manager'], "shortcode_layout_directory(\$pdo, 'collection')") && str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'collection saves use the shared canonical legacy directory');
+$check(str_contains($source['save'], 'shortcode_layout_atomic_save(') && str_contains($source['manager'], "shortcode_layout_directory(\$pdo, 'collection', \$source, \$themeFolder)") && str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'collection saves resolve their validated global or theme-owned directory through the atomic manager');
 $check(str_contains($source['manager'], '/views/partials/shortcodes/post_cat'), 'legacy collection delete path remains supported');
+$check(str_contains($source['preset'], 'post_cat__layout_template_descriptor')
+    && str_contains($source['preset'], "query.set('theme_folder', descriptor.theme_folder)")
+    && str_contains($source['editor'], 'name="theme_folder"')
+    && str_contains($source['save'], '$layoutThemeFolder'), 'theme-owned Collection Layout edit links preserve source identity through server-side directory resolution');
 
 require_once $files['manager'];
 $fixture = sys_get_temp_dir() . '/jyavani-section-preview-' . bin2hex(random_bytes(6));

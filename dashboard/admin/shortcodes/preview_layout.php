@@ -100,6 +100,28 @@ try {
             . ' role="region" aria-label="' . htmlspecialchars($status, ENT_QUOTES, 'UTF-8') . '" tabindex="-1">'
             . $html . $pagination . '</div>';
     };
+    $collectionPreviewResponse = static function (array $result, array $config, array $context) use ($pdo): array {
+        $html = is_string($result['html'] ?? null) ? $result['html'] : '';
+        $layout = is_string($config['layout'] ?? null) ? $config['layout'] : '';
+        $documentContext = array_merge($context, [
+            'surface' => 'dashboard.shortcode_collection',
+            'layout' => $layout,
+            'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts',
+        ]);
+        $descriptor = $layout !== '' && function_exists('post_cat__layout_template_descriptor')
+            ? post_cat__layout_template_descriptor($pdo, $layout)
+            : null;
+        if (is_array($descriptor)) {
+            $documentContext['layout_source'] = (string)($descriptor['source'] ?? 'global');
+            if (is_string($descriptor['theme_folder'] ?? null)) {
+                $documentContext['layout_theme_folder'] = $descriptor['theme_folder'];
+            }
+        }
+        if (function_exists('shortcode_collection_preview_document')) {
+            $result['document'] = shortcode_collection_preview_document($html, $pdo, $documentContext);
+        }
+        return $result;
+    };
 
     if ($isSectionScope) {
         $sectionName = is_string($_POST['section_name'] ?? null) ? strtolower(trim($_POST['section_name'])) : '';
@@ -181,7 +203,10 @@ try {
         if (!is_array($config)) {
             adiwira_json(['ok' => false, 'error' => __('Invalid preset configuration.')], 400);
         }
-        $previewContext = ['mode' => 'inline', 'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts'];
+        $previewContext = [
+            'mode' => 'inline',
+            'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts',
+        ];
         $validation = shortcode_preset_prepare_preview_config($config, $role === 'admin', $previewContext, $pdo);
         if ($validation['errors'] !== []) {
             adiwira_json(['ok' => false, 'error' => (string)$validation['errors'][0], 'errors' => $validation['errors']], 422);
@@ -189,18 +214,18 @@ try {
         $config = $validation['config'];
         $previewResult = shortcode_preset_preview_result(null, $config, $previewContext, $pdo);
         if ($previewResult !== null) {
-            adiwira_json(array_merge(['ok' => true], $previewResult));
+            adiwira_json($collectionPreviewResponse(array_merge(['ok' => true], $previewResult), $config, $previewContext));
             return;
         }
         if (($config['source'] ?? 'posts') !== 'posts') {
             $html = function_exists('post_cat_shortcode_render')
                 ? post_cat_shortcode_render($pdo, $config, ['scope' => 'preset_preview'])
                 : '';
-            adiwira_json([
+            adiwira_json($collectionPreviewResponse([
                 'ok' => true,
                 'html' => $html !== '' ? $html : '<div class="pcat__empty">' . __('No items are available for this preset source.') . '</div>',
                 'mode' => 'preset_source',
-            ]);
+            ], $config, $previewContext));
             return;
         }
 
@@ -335,14 +360,14 @@ try {
         }
         $html = $decoratePreviewPagination($html, $previewPaginationKey, $previewPaginationPages);
 
-        adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'preset_config']);
+        adiwira_json($collectionPreviewResponse(['ok' => true, 'html' => $html, 'mode' => 'preset_config'], $config, $previewContext));
         return;
     }
 
     // --- MODE B: Preview with a real preset (real posts from DB) ---
     if ($presetId > 0) {
         $ownershipSql = $role === 'admin' ? '' : ' AND created_by = :created_by';
-        $stmt = $pdo->prepare("SELECT meta, created_by FROM posts WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0" . $ownershipSql . " LIMIT 1");
+        $stmt = $pdo->prepare("SELECT meta, created_by, slug, title FROM posts WHERE id = :id AND type = 'sc_preset' AND is_deleted = 0" . $ownershipSql . " LIMIT 1");
         $params = [':id' => $presetId];
         if ($role !== 'admin') $params[':created_by'] = $uid;
         $stmt->execute($params);
@@ -357,6 +382,7 @@ try {
         $previewContext = [
             'mode' => 'stored',
             'preset_id' => $presetId,
+            'preset_slug' => is_string($row['slug'] ?? null) ? $row['slug'] : '',
             'source' => is_string($config['source'] ?? null) ? $config['source'] : 'posts',
             'trust' => 'persisted_preset',
         ];
@@ -375,19 +401,19 @@ try {
         }
         $previewResult = shortcode_preset_preview_result(null, $config, $previewContext + ['template_content' => $previewTemplateContent], $pdo);
         if ($previewResult !== null) {
-            adiwira_json(array_merge(['ok' => true, 'preset_id' => $presetId], $previewResult));
+            adiwira_json($collectionPreviewResponse(array_merge(['ok' => true, 'preset_id' => $presetId], $previewResult), $config, $previewContext));
             return;
         }
         if (($config['source'] ?? 'posts') !== 'posts') {
             $html = function_exists('post_cat_shortcode_render')
                 ? post_cat_shortcode_render($pdo, $config, array_merge($previewContext, ['scope' => 'preset_preview']))
                 : '';
-            adiwira_json([
+            adiwira_json($collectionPreviewResponse([
                 'ok' => true,
                 'html' => $html !== '' ? $html : '<div class="pcat__empty">' . __('No items are available for this preset source.') . '</div>',
                 'mode' => 'preset_source',
                 'preset_id' => $presetId,
-            ]);
+            ], $config, $previewContext));
             return;
         }
 
@@ -516,7 +542,11 @@ try {
         }
         $html = $decoratePreviewPagination($html, $previewPaginationKey, $previewPaginationPages);
 
-        adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'preset', 'preset_id' => $presetId]);
+        adiwira_json($collectionPreviewResponse(
+            ['ok' => true, 'html' => $html, 'mode' => 'preset', 'preset_id' => $presetId],
+            $config,
+            $previewContext
+        ));
         return;
     }
 
@@ -643,7 +673,21 @@ try {
         $html = '<div class="pcat__empty" style="padding:2rem;text-align:center;color:var(--adam-muted,#888);">Template tidak menghasilkan output. Pastikan ada <code>&lt;?=</code> atau <code>echo</code> di dalam loop.</div>';
     }
 
-    adiwira_json(['ok' => true, 'html' => $html, 'mode' => 'dummy']);
+    $previewLayoutName = is_string($_POST['layout_name'] ?? null) ? trim($_POST['layout_name']) : '';
+    if (!shortcode_collection_layout_name_is_valid($previewLayoutName)) $previewLayoutName = 'preview';
+    $previewLayoutSource = is_string($_POST['layout_source'] ?? null) && $_POST['layout_source'] === 'theme'
+        ? 'theme'
+        : 'global';
+    $previewThemeFolder = is_string($_POST['theme_folder'] ?? null) ? trim($_POST['theme_folder']) : '';
+    if (strlen($previewThemeFolder) > 128
+        || preg_match('/\A[a-zA-Z0-9_-][a-zA-Z0-9._-]*\z/', $previewThemeFolder) !== 1) $previewThemeFolder = '';
+    $dummyConfig = ['layout' => $previewLayoutName, 'source' => 'posts'];
+    $dummyContext = [
+        'mode' => 'dummy',
+        'layout_source' => $previewLayoutSource,
+        'layout_theme_folder' => $previewThemeFolder,
+    ];
+    adiwira_json($collectionPreviewResponse(['ok' => true, 'html' => $html, 'mode' => 'dummy'], $dummyConfig, $dummyContext));
 } catch (Throwable $e) {
     $msg = $e->getMessage();
     $line = $e->getLine();

@@ -329,13 +329,8 @@ function post_cat__empty_html(string $message, string $classPrefix = ''): string
   return '<div class="' . $cls . '">' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</div>';
 }
 
-/**
- * Cari template layout shortcode.
- * Prioritas:
- * 1) views/partials/shortcodes/post_cat/<layout>.php   (GLOBAL)
- * 2) views/themes/<folder>/partials/shortcodes/post_cat/<layout>.php  (theme override)
- */
-function post_cat__find_layout_template(PDO $pdo, string $layout): ?string {
+/** Resolve the runtime layout together with the source that owns the file. */
+function post_cat__layout_template_descriptor(PDO $pdo, string $layout): ?array {
   if (post_cat__safe_layout($layout) !== $layout) return null;
   $rel = 'partials/shortcodes/post_cat/' . $layout . '.php';
 
@@ -354,7 +349,12 @@ function post_cat__find_layout_template(PDO $pdo, string $layout): ?string {
     $withinDirectory = $directoryReal && $real
       && str_starts_with($real, rtrim($directoryReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
     if ($withinPublic && $withinDirectory && !is_link($globalPath) && is_file($real)) {
-      return $real;
+      return [
+        'name' => $layout,
+        'path' => $real,
+        'source' => 'global',
+        'theme_folder' => null,
+      ];
     }
   }
 
@@ -372,24 +372,42 @@ function post_cat__find_layout_template(PDO $pdo, string $layout): ?string {
   $baseReal = realpath((string)VIEWS_BASE) ?: null;
 
   foreach ($folders as $folder) {
-    $candidate = function_exists('path_candidate')
-      ? path_candidate((string)VIEWS_BASE, (string)$folder, $rel)
-      : rtrim((string)VIEWS_BASE, "/\\") . DIRECTORY_SEPARATOR
-          . trim((string)$folder, "/\\") . DIRECTORY_SEPARATOR
-          . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+    if (!is_string($folder) || strlen($folder) > 128
+        || preg_match('/\A[a-zA-Z0-9_-][a-zA-Z0-9._-]*\z/', $folder) !== 1) continue;
+    $themeRoot = rtrim((string)VIEWS_BASE, "/\\") . DIRECTORY_SEPARATOR . $folder;
+    $candidate = $themeRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
 
     $candidateDirectory = dirname($candidate);
-    $directoryReal = !is_link($candidateDirectory) ? realpath($candidateDirectory) : false;
+    $directoryReal = !is_link($themeRoot) && !is_link($themeRoot . '/partials')
+      && !is_link($themeRoot . '/partials/shortcodes') && !is_link($candidateDirectory)
+      ? realpath($candidateDirectory)
+      : false;
     $real = !is_link($candidate) ? realpath($candidate) : false;
     if ($real && $baseReal && $directoryReal
         && str_starts_with($directoryReal, rtrim($baseReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
         && str_starts_with($real, rtrim($directoryReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
         && is_file($real)) {
-      return $real;
+      return [
+        'name' => $layout,
+        'path' => $real,
+        'source' => 'theme',
+        'theme_folder' => $folder,
+      ];
     }
   }
 
   return null;
+}
+
+/**
+ * Cari template layout shortcode.
+ * Prioritas:
+ * 1) views/partials/shortcodes/post_cat/<layout>.php   (GLOBAL)
+ * 2) views/themes/<folder>/partials/shortcodes/post_cat/<layout>.php  (theme override)
+ */
+function post_cat__find_layout_template(PDO $pdo, string $layout): ?string {
+  $descriptor = post_cat__layout_template_descriptor($pdo, $layout);
+  return is_string($descriptor['path'] ?? null) ? $descriptor['path'] : null;
 }
 
 function post_cat__layout_names(PDO $pdo): array {
@@ -414,7 +432,7 @@ function post_cat__layout_names(PDO $pdo): array {
 
   $names = array_values(array_unique(array_filter(
     $names,
-    static fn(string $name): bool => post_cat__find_layout_template($pdo, $name) !== null
+    static fn(string $name): bool => post_cat__layout_template_descriptor($pdo, $name) !== null
   )));
   sort($names, SORT_STRING);
   return $names;

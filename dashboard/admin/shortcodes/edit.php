@@ -84,6 +84,32 @@ if ($isAdmin) {
 
 // Use the same filename contract and resolver as frontend rendering.
 $layoutOptions = function_exists('post_cat__layout_names') ? post_cat__layout_names($pdo) : [];
+$layoutDescriptors = [];
+foreach ($layoutOptions as $layoutOption) {
+    $descriptor = function_exists('post_cat__layout_template_descriptor')
+        ? post_cat__layout_template_descriptor($pdo, $layoutOption)
+        : null;
+    if (!is_array($descriptor)) continue;
+    $layoutDescriptors[$layoutOption] = [
+        'source' => (string)($descriptor['source'] ?? 'global'),
+        'theme_folder' => is_string($descriptor['theme_folder'] ?? null) ? $descriptor['theme_folder'] : '',
+    ];
+}
+$currentLayoutName = is_string($pref_config['layout'] ?? null) ? $pref_config['layout'] : 'list';
+$currentLayoutDescriptor = $layoutDescriptors[$currentLayoutName] ?? null;
+$currentLayoutEditHref = '';
+if (is_array($currentLayoutDescriptor)) {
+    $currentLayoutEditQuery = [
+        'page' => 'admin/shortcodes/layout',
+        'scope' => 'collection',
+        'source' => $currentLayoutDescriptor['source'],
+        'file' => $currentLayoutName . '.php',
+    ];
+    if ($currentLayoutDescriptor['source'] === 'theme') {
+        $currentLayoutEditQuery['theme_folder'] = $currentLayoutDescriptor['theme_folder'];
+    }
+    $currentLayoutEditHref = $base . '/?' . http_build_query($currentLayoutEditQuery);
+}
 $sourceContext = ['scope' => 'admin_editor', 'is_admin' => $isAdmin, 'user_id' => $uid];
 $registeredSourceProviders = shortcode_source_providers($sourceContext, $pdo);
 if (!$isAdmin) $pref_config = shortcode_preset_strip_provider_default_fields($pref_config, $registeredSourceProviders);
@@ -306,7 +332,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
         <?= svg_ico('chevron-right', 'chevron') ?>
       </button>
       <div class="adam-accordion-body" id="sc-layout-body">
-        <label><?=_e('Layout Template')?><br>
+        <label><?=_e('Collection Layout')?><br>
           <select name="filter_layout" class="inpud" style="width:auto;">
             <?php foreach ($layoutOptions as $lo): ?>
               <option value="<?= h($lo) ?>" <?= ($pref_config['layout'] ?? 'list') === $lo ? 'selected' : '' ?>><?= h($lo) ?></option>
@@ -331,10 +357,14 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
 </section>
 
 <div style="margin-top:1rem;display:flex;align-items:center;gap:.5rem;padding:.5rem .75rem;background:var(--adam-surface-3);border-radius:8px;font-size:.85rem;">
-  <span style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('puzzle', '', ['style' => 'width:16px;height:16px']) ?> <strong><?=_e('Layout:')?></strong></span>
-  <span id="edit-layout-name" style="color:var(--adam-accent);font-weight:600;"><?= h($pref_config['layout'] ?? 'list') ?></span>
+  <span style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('puzzle', '', ['style' => 'width:16px;height:16px']) ?> <strong><?=_e('Collection Layout')?>:</strong></span>
+  <span id="edit-layout-name" style="color:var(--adam-accent);font-weight:600;"><?= h($currentLayoutName) ?></span>
+  <span id="edit-layout-owner" style="font-size:.72rem;color:var(--adam-muted,#888);"><?php
+    if (($currentLayoutDescriptor['source'] ?? '') === 'theme') echo h(sprintf(__('Theme: %s'), $currentLayoutDescriptor['theme_folder']));
+    elseif (is_array($currentLayoutDescriptor)) echo h(__('Global'));
+  ?></span>
   <?php if ($isSiteOwner): ?>
-    <a id="edit-layout-link" href="<?= h($base . '/?page=admin/shortcodes/layout&file=' . ($pref_config['layout'] ?? 'list') . '.php') ?>" class="adam-link" style="font-size:.8rem;display:inline-flex;align-items:center;gap:4px;" target="_blank"><?= svg_ico('pen', '', ['style' => 'width:13px;height:13px']) ?> <?=_e('Edit This Layout')?></a>
+    <a id="edit-layout-link" href="<?= h($currentLayoutEditHref) ?>" class="adam-link" style="font-size:.8rem;<?= $currentLayoutEditHref === '' ? 'display:none;' : 'display:inline-flex;' ?>align-items:center;gap:4px;" target="_blank"><?= svg_ico('pen', '', ['style' => 'width:13px;height:13px']) ?> <?=_e('Edit Collection Layout')?></a>
   <?php endif; ?>
   <span style="flex:1"></span>
   <span style="font-size:.78rem;color:var(--adam-muted,#888);"><?=_e('Preset = content filter · Layout = visual style')?></span>
@@ -349,7 +379,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     </span>
   </div>
   <div id="edit-preview-error" style="display:none;padding:.4rem .7rem;font-size:.82rem;background:#fef0ef;color:#c0392b;border:1px solid #f5c6cb;border-radius:4px;margin-bottom:.5rem;"></div>
-  <div id="edit-preview-content" style="min-height:100px;border:1px solid var(--adam-border-soft,#ddd);border-radius:6px;padding:1rem;background:var(--adam-bg,#fff);font-size:.9rem;color:var(--adam-muted,#888);">
+  <div id="edit-preview-content" style="min-height:100px;border:1px solid var(--adam-border-soft,#ddd);border-radius:6px;padding:1rem;background:var(--adam-bg,#fff);font-size:.9rem;color:var(--adam-muted,#888);overflow:hidden;">
     <?=_e('Press the "Preview" button to render the layout with real database content.')?>
   </div>
   <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center;">
@@ -364,7 +394,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     <div>
       <?=_e('<strong>How Preset &amp; Layout relate:</strong>')?><br>
       <?=_e('<strong>Preset</strong> = "what to display" (category, count, order, etc.).')?><br>
-      <?=_e('<strong>Layout</strong> = the PHP file in <code>public/views/partials/shortcodes/post_cat/</code> that controls "how it looks".')?><br>
+      <?=_e('<strong>Collection Layout</strong> = the global or active-theme PHP renderer that controls "how the result list looks".')?><br>
       <?php if ($isSiteOwner): ?>
         <?= sprintf(__('One layout can be reused by many presets. Edit the layout in the %sLayouts Manager%s → changes instantly apply to every preset using that layout.'), '<a href="' . h($base . '/?page=admin/shortcodes/index&tab=layouts') . '" class="adam-link">', '</a>') ?>
       <?php endif; ?>
@@ -574,6 +604,19 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
   var layoutSelect = document.querySelector('[name="filter_layout"]');
   var layoutLink = document.getElementById('edit-layout-link');
   var layoutNameSpan = document.getElementById('edit-layout-name');
+  var layoutOwnerSpan = document.getElementById('edit-layout-owner');
+  var layoutDescriptors = <?= json_encode($layoutDescriptors, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+  function showPreviewDocument(documentHtml, title) {
+    previewContent.innerHTML = '';
+    previewContent.style.padding = '0';
+    var frame = document.createElement('iframe');
+    frame.setAttribute('sandbox', 'allow-same-origin');
+    frame.setAttribute('title', title);
+    frame.style.cssText = 'display:block;width:100%;min-height:420px;border:0;background:#fff;';
+    frame.srcdoc = documentHtml;
+    previewContent.appendChild(frame);
+  }
 
   function buildPreviewConfig() {
     var config = presetConfigCopy();
@@ -665,7 +708,11 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
-        previewContent.innerHTML = data.html;
+        if (typeof data.document === 'string') showPreviewDocument(data.document, <?= json_encode(__('Collection Layout Preview')) ?>);
+        else {
+          previewContent.style.padding = '1rem';
+          previewContent.innerHTML = data.html;
+        }
         previewError.style.display = 'none';
         previewStatus.textContent = <?=json_encode(__('Ready'))?>;
         previewMode.textContent = config.layout;
@@ -692,8 +739,28 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
   if (layoutSelect && layoutNameSpan) {
     layoutSelect.addEventListener('change', function() {
       var v = this.value;
+      var descriptor = layoutDescriptors[v] || null;
       layoutNameSpan.textContent = v;
-      if (layoutLink) layoutLink.href = '<?= $base ?>/?page=admin/shortcodes/layout&file=' + encodeURIComponent(v) + '.php';
+      if (layoutOwnerSpan) {
+        layoutOwnerSpan.textContent = descriptor
+          ? (descriptor.source === 'theme' ? <?= json_encode(__('Theme: %s')) ?>.replace('%s', descriptor.theme_folder) : <?= json_encode(__('Global')) ?>)
+          : '';
+      }
+      if (layoutLink) {
+        if (!descriptor) {
+          layoutLink.style.display = 'none';
+        } else {
+          var query = new URLSearchParams({
+            page: 'admin/shortcodes/layout',
+            scope: 'collection',
+            source: descriptor.source,
+            file: v + '.php'
+          });
+          if (descriptor.source === 'theme') query.set('theme_folder', descriptor.theme_folder);
+          layoutLink.href = '<?= $base ?>/?' + query.toString();
+          layoutLink.style.display = 'inline-flex';
+        }
+      }
     });
   }
 

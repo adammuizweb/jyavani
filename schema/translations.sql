@@ -5941,3 +5941,13 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Load additional pages with AJAX for Core posts or pages. Limit controls items per page, Max Items caps the total, and Offset skips items before page 1.', 'Lädt weitere Seiten per AJAX für Core-Beiträge oder -Seiten. Limit steuert die Elemente pro Seite, Maximale Elemente begrenzt die Gesamtzahl und Offset überspringt Elemente vor Seite 1.', 'de'),
 ('default', 'Pagination requires Max Items to be greater than Limit.', 'Paginasi memerlukan Item Maksimum yang lebih besar daripada Limit.', 'id'),
 ('default', 'Pagination requires Max Items to be greater than Limit.', 'Für die Paginierung muss Maximale Elemente größer als Limit sein.', 'de');
+
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Collection Layout', 'Tata Letak Koleksi', 'id'),
+('default', 'Collection Layout', 'Sammlungs-Layout', 'de'),
+('default', 'Edit Collection Layout', 'Edit Tata Letak Koleksi', 'id'),
+('default', 'Edit Collection Layout', 'Sammlungs-Layout bearbeiten', 'de'),
+('default', 'Collection Layout Preview', 'Pratinjau Tata Letak Koleksi', 'id'),
+('default', 'Collection Layout Preview', 'Vorschau des Sammlungs-Layouts', 'de'),
+('default', '<strong>Collection Layout</strong> = the global or active-theme PHP renderer that controls "how the result list looks".', '<strong>Tata Letak Koleksi</strong> = renderer PHP global atau tema aktif yang mengatur "tampilan daftar hasil".', 'id'),
+('default', '<strong>Collection Layout</strong> = the global or active-theme PHP renderer that controls "how the result list looks".', '<strong>Sammlungs-Layout</strong> = der globale oder aktive Theme-PHP-Renderer, der steuert, "wie die Ergebnisliste aussieht".', 'de');

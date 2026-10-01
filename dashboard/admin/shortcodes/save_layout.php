@@ -13,6 +13,11 @@ adiwira_cosmetic_404_on_direct_open();
 $layoutScope = is_string($_POST['scope'] ?? null) ? $_POST['scope'] : 'collection';
 if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'collection';
 $isSectionScope = $layoutScope === 'section';
+$layoutSource = !$isSectionScope && is_string($_POST['source'] ?? null) ? $_POST['source'] : 'global';
+if (!in_array($layoutSource, ['global', 'theme'], true)) $layoutSource = 'global';
+$layoutThemeFolder = !$isSectionScope && is_string($_POST['theme_folder'] ?? null)
+    ? trim($_POST['theme_folder'])
+    : '';
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     adiwira_json(['ok' => false, 'error' => __('Not found')], 404);
@@ -82,7 +87,15 @@ if (trim($content) === '') {
 }
 
 try {
-    $saved = shortcode_layout_atomic_save($pdo, $layoutScope, $existingFile, $newName, $content);
+    $saved = shortcode_layout_atomic_save(
+        $pdo,
+        $layoutScope,
+        $existingFile,
+        $newName,
+        $content,
+        $layoutSource,
+        $layoutThemeFolder
+    );
 
     unset($_SESSION['sc_layout_nonce']);
 

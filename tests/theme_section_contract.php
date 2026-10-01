@@ -126,6 +126,23 @@ try {
     $check(theme_section_safe_url('/safe/path') === '/safe/path', 'relative section URLs remain supported');
     $previewHtml = theme_section_preview_sanitize_html('<section>Safe<script>alert(1)</script></section>');
     $check($previewHtml === '<section>Safe</section>', 'preview documents remove renderer scripts before entering the sandbox');
+    $collectionPreviewContext = null;
+    add_filter('shortcode_collection_preview_styles', static function (array $styles, string $previewFolder, mixed $previewPdo, array $context) use (&$collectionPreviewContext): array {
+        $collectionPreviewContext = [$previewFolder, $context['layout'] ?? null];
+        $styles[] = '/collection-preview.css';
+        return $styles;
+    });
+    $collectionDocument = shortcode_collection_preview_document(
+        '<section>Collection<script>alert(1)</script></section>',
+        $pdo,
+        ['layout' => 'contract-list', 'theme_folder' => $folder]
+    );
+    $check(str_contains($collectionDocument, 'data-shortcode-collection-preview="' . $folder . '"')
+        && str_contains($collectionDocument, 'href="/collection-preview.css"')
+        && !str_contains($collectionDocument, '<script'), 'Collection Layout preview uses a script-free theme-styled document shell');
+    $check($collectionPreviewContext === [$folder, 'contract-list'], 'Collection Layout preview style hooks receive theme and layout context');
+    $dottedCollectionShell = shortcode_collection_preview_document_shell($pdo, ['theme_folder' => 'theme.contract']);
+    $check(str_contains($dottedCollectionShell['before'], 'data-shortcode-collection-preview="theme.contract"'), 'Collection Layout preview accepts the canonical dotted theme-folder identity');
 
     $slotContext = null;
     add_filter('resolve_template', static function (mixed $resolved, string $slotKey): mixed {

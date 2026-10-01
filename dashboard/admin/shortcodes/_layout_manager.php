@@ -57,7 +57,36 @@ function shortcode_layout_list_filters(array $input, string $scope): array
     ];
 }
 
-function shortcode_layout_directory(PDO $pdo, string $scope): ?string
+function shortcode_layout_collection_directory(PDO $pdo, string $source = 'global', string $themeFolder = ''): ?string
+{
+    if ($source === 'global') {
+        if (!defined('PUBLIC_PATH')) return null;
+        $publicRoot = realpath((string)PUBLIC_PATH);
+        if (!$publicRoot || !is_dir($publicRoot)) return null;
+
+        $path = rtrim((string)PUBLIC_PATH, '/\\') . '/views/partials/shortcodes/post_cat';
+        if (is_link($path)) return null;
+        $real = realpath($path);
+        return $real && is_dir($real) && shortcode_layout_path_is_within($real, $publicRoot) ? $real : null;
+    }
+
+    if ($source !== 'theme' || !defined('VIEWS_BASE') || strlen($themeFolder) > 128
+        || preg_match('/\A[a-zA-Z0-9_-][a-zA-Z0-9._-]*\z/', $themeFolder) !== 1) return null;
+    $themesRoot = shortcode_layout_installed_themes_root();
+    if (!$themesRoot) return null;
+    $path = $themesRoot . DIRECTORY_SEPARATOR . $themeFolder . '/partials/shortcodes/post_cat';
+    $real = !is_link($path) ? realpath($path) : false;
+    if (!$real || !is_dir($real) || shortcode_layout_path_chain_has_symlink($real, $themesRoot)) return null;
+    $relative = ltrim(substr($real, strlen($themesRoot)), DIRECTORY_SEPARATOR);
+    $parts = explode(DIRECTORY_SEPARATOR, $relative);
+    return count($parts) === 4
+        && $parts[0] === $themeFolder
+        && array_slice($parts, 1) === ['partials', 'shortcodes', 'post_cat']
+        ? $real
+        : null;
+}
+
+function shortcode_layout_directory(PDO $pdo, string $scope, string $source = 'global', string $themeFolder = ''): ?string
 {
     if ($scope === 'section') {
         return function_exists('theme_section_theme_directory')
@@ -65,14 +94,7 @@ function shortcode_layout_directory(PDO $pdo, string $scope): ?string
             : null;
     }
 
-    if (!defined('PUBLIC_PATH')) return null;
-    $publicRoot = realpath((string)PUBLIC_PATH);
-    if (!$publicRoot || !is_dir($publicRoot)) return null;
-
-    $path = rtrim((string)PUBLIC_PATH, '/\\') . '/views/partials/shortcodes/post_cat';
-    if (is_link($path)) return null;
-    $real = realpath($path);
-    return $real && is_dir($real) && shortcode_layout_path_is_within($real, $publicRoot) ? $real : null;
+    return shortcode_layout_collection_directory($pdo, $source, $themeFolder);
 }
 
 function shortcode_layout_path_is_within(string $path, string $directory): bool
@@ -579,16 +601,24 @@ function shortcode_layout_list(PDO $pdo, string $scope): array
     });
 }
 
-function shortcode_layout_atomic_save(PDO $pdo, string $scope, string $existingFile, string $newName, string $content): array
+function shortcode_layout_atomic_save(
+    PDO $pdo,
+    string $scope,
+    string $existingFile,
+    string $newName,
+    string $content,
+    string $source = 'global',
+    string $themeFolder = ''
+): array
 {
-    return shortcode_collection_layout_with_lock($pdo, static function () use ($pdo, $scope, $existingFile, $newName, $content): array {
+    return shortcode_collection_layout_with_lock($pdo, static function () use ($pdo, $scope, $existingFile, $newName, $content, $source, $themeFolder): array {
         shortcode_layout_recover_locked($pdo);
         if (!in_array($scope, ['collection', 'section'], true) || trim($content) === '') {
             throw new ShortcodeLayoutManagerException(shortcode_layout_message('Invalid layout content.'));
         }
         $directory = $scope === 'section' && function_exists('theme_section_theme_directory')
             ? theme_section_theme_directory($pdo, true)
-            : shortcode_layout_directory($pdo, 'collection');
+            : shortcode_layout_directory($pdo, 'collection', $source, $themeFolder);
         $directory = $directory ? realpath($directory) : false;
         if (!$directory || !is_dir($directory) || is_link($directory) || !is_writable($directory)) {
             throw new ShortcodeLayoutManagerException(shortcode_layout_message('Layout directory is unavailable.'));

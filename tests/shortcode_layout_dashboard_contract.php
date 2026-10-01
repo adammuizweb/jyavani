@@ -8,9 +8,13 @@ define('ADMIN_BASE_PATH', '/secure-admin');
 define('SHORTCODE_LAYOUT_PROJECT_PATH', $fixtureRoot);
 define('SHORTCODE_LAYOUT_QUARANTINE_PATH', $fixtureRoot . '/cfg/var/layout-quarantine');
 $collectionDirectory = PUBLIC_PATH . '/views/partials/shortcodes/post_cat';
+$themeCollectionDirectory = VIEWS_BASE . '/theme-a/partials/shortcodes/post_cat';
+$dottedThemeCollectionDirectory = VIEWS_BASE . '/theme.a/partials/shortcodes/post_cat';
 $sectionDirectory = VIEWS_BASE . '/theme-a/partials/shortcodes/section';
 $GLOBALS['layout_contract_section_directory'] = $sectionDirectory;
 mkdir($collectionDirectory, 0775, true);
+mkdir($themeCollectionDirectory, 0775, true);
+mkdir($dottedThemeCollectionDirectory, 0775, true);
 mkdir($sectionDirectory, 0775, true);
 mkdir($fixtureRoot . '/cfg/var', 0775, true);
 
@@ -19,6 +23,12 @@ if (!function_exists('theme_section_name_is_valid')) {
     {
         return strlen($name) <= 120
             && preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $name) === 1;
+    }
+}
+if (!function_exists('get_relevant_theme_folders')) {
+    function get_relevant_theme_folders(PDO $pdo, mixed $theme = null): array
+    {
+        return ['theme-a', 'theme.a'];
     }
 }
 if (!function_exists('theme_section_theme_directory')) {
@@ -206,6 +216,21 @@ file_put_contents($collectionDirectory . '/roundtrip_name.php', '<?php // round 
 $listedNames = array_column(shortcode_layout_list($pdo, 'collection'), 'name');
 $runtimePath = post_cat__find_layout_template($pdo, 'roundtrip_name');
 $check(in_array('roundtrip_name', $listedNames, true) && $runtimePath === realpath($collectionDirectory . '/roundtrip_name.php'), 'a contract-valid saved filename is listed and runtime-resolved unchanged');
+
+file_put_contents($themeCollectionDirectory . '/theme_owned.php', '<?php // theme owned');
+$themeDescriptor = post_cat__layout_template_descriptor($pdo, 'theme_owned');
+$check(($themeDescriptor['source'] ?? '') === 'theme'
+    && ($themeDescriptor['theme_folder'] ?? '') === 'theme-a'
+    && ($themeDescriptor['path'] ?? '') === realpath($themeCollectionDirectory . '/theme_owned.php'), 'runtime layout descriptors preserve theme ownership without exposing a caller-supplied path');
+$check(shortcode_layout_directory($pdo, 'collection', 'theme', 'theme-a') === realpath($themeCollectionDirectory)
+    && shortcode_layout_directory($pdo, 'collection', 'theme', '../theme-a') === null, 'theme-owned collection editor directories require a validated installed-theme identity');
+$themeSaved = shortcode_layout_atomic_save($pdo, 'collection', 'theme_owned.php', '', '<?php // updated theme owned', 'theme', 'theme-a');
+$check(($themeSaved['path'] ?? '') === realpath($themeCollectionDirectory . '/theme_owned.php')
+    && file_get_contents($themeCollectionDirectory . '/theme_owned.php') === '<?php // updated theme owned', 'theme-owned collection saves stay inside their recomputed owner directory');
+file_put_contents($dottedThemeCollectionDirectory . '/dotted_theme.php', '<?php // dotted theme');
+$dottedDescriptor = post_cat__layout_template_descriptor($pdo, 'dotted_theme');
+$check(($dottedDescriptor['theme_folder'] ?? '') === 'theme.a'
+    && shortcode_layout_directory($pdo, 'collection', 'theme', 'theme.a') === realpath($dottedThemeCollectionDirectory), 'Collection Layout resolution follows the canonical dotted installed-theme identity contract');
 
 $pdo->presetRows = [[
     'id' => 42,

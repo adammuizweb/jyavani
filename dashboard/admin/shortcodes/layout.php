@@ -17,6 +17,11 @@ $base = ADMIN_BASE_PATH;
 $layoutScope = is_string($_REQUEST['scope'] ?? null) ? $_REQUEST['scope'] : 'collection';
 if (!in_array($layoutScope, ['collection', 'section'], true)) $layoutScope = 'collection';
 $isSectionScope = $layoutScope === 'section';
+$layoutSource = !$isSectionScope && is_string($_REQUEST['source'] ?? null) ? $_REQUEST['source'] : 'global';
+if (!in_array($layoutSource, ['global', 'theme'], true)) $layoutSource = 'global';
+$layoutThemeFolder = !$isSectionScope && is_string($_REQUEST['theme_folder'] ?? null)
+    ? trim($_REQUEST['theme_folder'])
+    : '';
 $layoutsReturn = $base . '/?' . http_build_query([
     'page' => 'admin/shortcodes/index',
     'tab' => 'layouts',
@@ -28,7 +33,7 @@ $return_to = function_exists('adiwira_safe_return_to')
 
 $layoutDir = $isSectionScope
     ? (function_exists('theme_section_theme_directory') ? theme_section_theme_directory($pdo, true) : null)
-    : shortcode_layout_directory($pdo, 'collection');
+    : shortcode_layout_directory($pdo, 'collection', $layoutSource, $layoutThemeFolder);
 if (!$layoutDir || !is_dir($layoutDir)) {
     echo '<section class="adam-card"><p>' . __('Layout directory not found.') . '</p></section>';
     return;
@@ -923,6 +928,10 @@ $snippetWrapper = '<?php if ($wrap): ?>
       <input type="hidden" name="save_nonce" value="<?= htmlspecialchars($save_nonce, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="scope" value="<?= htmlspecialchars($layoutScope, ENT_QUOTES, 'UTF-8') ?>">
+      <?php if (!$isSectionScope): ?>
+        <input type="hidden" name="source" value="<?= htmlspecialchars($layoutSource, ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($layoutThemeFolder, ENT_QUOTES, 'UTF-8') ?>">
+      <?php endif; ?>
       <?php if (!$isNew): ?>
         <input type="hidden" name="file" value="<?= htmlspecialchars($fileName, ENT_QUOTES, 'UTF-8') ?>">
       <?php endif; ?>
@@ -936,10 +945,16 @@ $snippetWrapper = '<?php if ($wrap): ?>
         'page' => 'admin/shortcodes/layout',
         'scope' => $layoutScope,
     ];
+    if (!$isSectionScope) {
+        $editorQuery['source'] = $layoutSource;
+        if ($layoutSource === 'theme') $editorQuery['theme_folder'] = $layoutThemeFolder;
+    }
     if (!$isNew) $editorQuery['file'] = $fileName;
     // Plugins can add contextual controls without taking ownership of the editor.
     do_action('shortcode_layout_editor_after_header', [
         'scope' => $layoutScope,
+        'source' => $layoutSource,
+        'theme_folder' => $layoutThemeFolder,
         'is_new' => $isNew,
         'file' => $fileName,
         'name' => $pref_layout_name,
@@ -1143,7 +1158,11 @@ $snippetWrapper = '<?php if ($wrap): ?>
           </tbody>
         </table>
         <div style="margin-top:.6rem;font-size:.8rem;color:var(--adam-muted,#888);background:var(--adam-surface-3);padding:.5rem .7rem;border-radius:4px;">
-          <strong style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('file', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Layout file:')?></strong> <code><?= $isSectionScope ? 'views/themes/' . htmlspecialchars(get_active_theme_folder($pdo), ENT_QUOTES, 'UTF-8') . '/partials/shortcodes/section/' : 'views/partials/shortcodes/post_cat/' ?><span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{' . __('name') . '}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
+          <strong style="display:inline-flex;align-items:center;gap:4px;"><?= svg_ico('file', '', ['style' => 'width:14px;height:14px']) ?> <?=_e('Layout file:')?></strong> <code><?php
+            if ($isSectionScope) echo 'views/themes/' . htmlspecialchars(get_active_theme_folder($pdo), ENT_QUOTES, 'UTF-8') . '/partials/shortcodes/section/';
+            elseif ($layoutSource === 'theme') echo 'views/themes/' . htmlspecialchars($layoutThemeFolder, ENT_QUOTES, 'UTF-8') . '/partials/shortcodes/post_cat/';
+            else echo 'views/partials/shortcodes/post_cat/';
+          ?><span id="lyo-layout-path-name"><?= htmlspecialchars($isNew ? '{' . __('name') . '}' : $pref_layout_name, ENT_QUOTES, 'UTF-8') ?></span>.php</code>
         </div>
       </div>
     </div>
@@ -1269,6 +1288,9 @@ var SECTION_PRESET_SNIPPETS = <?= json_encode($sectionPresetSnippets, JSON_UNESC
     fd.append('csrf_token', <?= json_encode(csrf_token()) ?>);
     fd.append('scope', <?= json_encode($layoutScope) ?>);
     fd.append('section_name', lyoName ? lyoName.value : <?= json_encode($pref_layout_name) ?>);
+    fd.append('layout_name', lyoName ? lyoName.value : <?= json_encode($pref_layout_name) ?>);
+    fd.append('layout_source', <?= json_encode($layoutSource) ?>);
+    fd.append('theme_folder', <?= json_encode($layoutThemeFolder) ?>);
     if (currentPresetId > 0) fd.append('preset_id', String(currentPresetId));
 
     fetch('<?= $base ?>/admin/shortcodes/preview_layout.php', {
@@ -1279,12 +1301,14 @@ var SECTION_PRESET_SNIPPETS = <?= json_encode($sectionPresetSnippets, JSON_UNESC
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.ok) {
-        if (data.mode === 'section' && typeof data.document === 'string') {
+        if (typeof data.document === 'string') {
           previewContent.innerHTML = '';
           var frame = document.createElement('iframe');
           frame.className = 'lyo-section-preview-frame';
           frame.setAttribute('sandbox', 'allow-same-origin');
-          frame.setAttribute('title', <?= json_encode(__('Theme Section Preview')) ?>);
+          frame.setAttribute('title', data.mode === 'section'
+            ? <?= json_encode(__('Theme Section Preview')) ?>
+            : <?= json_encode(__('Collection Layout Preview')) ?>);
           frame.srcdoc = data.document;
           previewContent.appendChild(frame);
         } else {

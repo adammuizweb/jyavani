@@ -115,6 +115,15 @@ $check(str_contains($source['preview'], 'post_cat__pagination_state(')
     && substr_count($source['preview'], '$prepareCorePreviewPage(') === 2
     && substr_count($source['preview'], '$decoratePreviewPagination(') === 2
     && str_contains($source['preview'], "'#preview-page-' . \$page"), 'inline and stored Core previews share runtime pagination limits and render representative page controls');
+$check(str_contains($source['preview'], 'shortcode_collection_preview_document')
+    && str_contains($source['preview'], '$collectionPreviewResponse(')
+    && str_contains($source['edit'], "frame.setAttribute('sandbox', 'allow-same-origin')")
+    && str_contains($source['edit'], 'frame.srcdoc = documentHtml'), 'preset previews render all Core and provider results inside a script-free theme-styled frame');
+$check(!str_contains($source['edit'], "fd.append('preset_id'")
+    && !str_contains(substr($source['preview'], strpos($source['preview'], "'mode' => 'inline'"), 240), "'preset_id'"), 'inline preset previews do not expose an unverified stored-preset identity to extension hooks');
+$check(str_contains($source['edit'], 'post_cat__layout_template_descriptor')
+    && str_contains($source['edit'], "source: descriptor.source")
+    && str_contains($source['edit'], "query.set('theme_folder', descriptor.theme_folder)"), 'preset layout actions retain global or theme ownership when the selection changes');
 $check(str_contains($source['preview'], 'AND created_by = :created_by') && str_contains($source['preview'], "if (\$role !== 'admin') \$params[':created_by'] = \$uid"), 'stored preview preserves non-admin preset ownership');
 $check(str_contains($source['helper'], 'getPrevious') === false && str_contains($source['helper'], 'A dependent plugin prevented preset deletion.') && str_contains($source['helper'], 'error_log('), 'pre-delete internals are logged while the public exception text is generic');
 $check(str_contains($source['save'], 'admin_shortcode_preset_after_add') && str_contains($source['save'], 'admin_shortcode_preset_after_edit') && str_contains($source['delete'], 'admin_shortcode_preset_after_delete') && str_contains($source['bulk'], 'admin_shortcode_preset_after_delete'), 'successful CRUD and bulk delete paths fire stable admin lifecycle hooks');

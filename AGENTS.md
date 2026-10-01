@@ -440,6 +440,8 @@ Registered renderers are editable at `?page=admin/shortcodes/index&tab=layouts&s
 
 Published Shortcode Presets are the supported data layer for reusable post-list sections. Keep query filters and the Collection Layout in the Preset, then call `render_shortcode_preset($pdo, 'preset-slug', $overrides, $context)` from the Theme Section renderer. The dashboard's Preset **Build Section** action and **Post List Section** starter generate this composition; do not duplicate the preset query inside the section.
 
+Collection Layout discovery returns the runtime file's `global` or `theme` ownership so the Site Owner editor can recompute its directory without accepting filesystem paths from the browser. Preset and Collection Layout previews render in a script-free sandboxed document with active-theme manifest styles. Themes and plugins may append context-specific stylesheet URLs through `shortcode_collection_preview_styles($styles, $themeFolder, $pdo, $context)`; context includes `layout`, `source`, `surface`, preview mode, available preset identity, and resolved layout ownership.
+
 ### Builder integration (theme-builder / jyavani-builder / form-builder)
 
 Theme Zones expose two filter-based extension points so builder plugins can register their own gadgets. Builder plugins running inside the dashboard should call the PHP helpers directly instead of using a public HTTP API.
