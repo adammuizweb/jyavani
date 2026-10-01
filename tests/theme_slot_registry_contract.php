@@ -63,6 +63,19 @@ $migration = (string)file_get_contents($root . '/schema/migrations/016-extension
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $check(str_contains($themeHelper, '$definitions = theme_slot_definitions($pdo)') && str_contains($themeHelper, 'foreach ($definitions as $slot => $definition)'), 'bulk assignment consumes canonical definitions');
 $check(str_contains($dashboard, '$slotDefinitions = theme_slot_definitions($pdo)'), 'assignment dashboard consumes canonical definitions');
+$check(str_contains($dashboard, '$sourceService->inventory($themeFolder)')
+    && str_contains($dashboard, "\$template = (string)(\$slotDefinition['template'] ?? '')")
+    && str_contains($dashboard, "\$filesByPath[\$file['path']] = \$file['id']")
+    && str_contains($dashboard, "'file' => \$fileId")
+    && !str_contains($dashboard, "hash('sha256', \$folder . \"\\0\""),
+    'per-slot source actions consume exact canonical templates and service-issued opaque file IDs');
+$check(str_contains($dashboard, 'data-assignment-slot=')
+    && str_contains($dashboard, 'function assignmentRow(slot)')
+    && !str_contains($dashboard, 'safeSlotId(')
+    && !str_contains($dashboard, 'txt.innerHTML')
+    && str_contains($dashboard, "htmlspecialchars(__('Registered theme for') . ' ' . \$slot_label")
+    && str_contains($dashboard, "htmlspecialchars(__('Custom template for') . ' ' . \$slot_label"),
+    'assignment controls use collision-free row scope and warning text never reparses option labels as HTML');
 $check(str_contains($dashboard, '$unavailableAssignments = array_diff_key($assign_rows, $slotDefinitions)'), 'dashboard preserves and exposes unavailable assignments');
 $check(strpos($themeHelper, "if (\$definition === null) return ['type' => 'unavailable'];") < strpos($themeHelper, 'get_assignment($pdo, $slot_key)'), 'unavailable slots fail before persisted templates are resolved');
 $check(str_contains($themeHelper, "if (!theme_assignment_matches_definition(\$assign, \$definition)) return ['type' => 'unavailable'];"), 'owner-mismatched assignments cannot execute persisted templates');
@@ -82,6 +95,21 @@ foreach ($core as $definition) {
     if (!str_contains($translations, "'" . str_replace("'", "''", (string)$definition['label']) . "'")) $slotLabelsSeeded = false;
 }
 $check($slotLabelsSeeded, 'all canonical assignment labels have translation seeds');
+$assignmentStringsSeeded = true;
+foreach ([
+    'Choose the physical theme PHP or custom Theme Template that renders each frontend slot.',
+    'Inspect / Edit theme PHP',
+    'Inspect active theme PHP',
+    'Assignment source',
+    'This theme does not contain the PHP file for this slot.',
+    'Edit custom template',
+    'All assignment changes are applied.',
+    'Unsaved assignment changes',
+    'Select Apply changes to save every changed slot.',
+] as $sourceString) {
+    if (substr_count($translations, "'" . str_replace("'", "''", $sourceString) . "'") < 2) $assignmentStringsSeeded = false;
+}
+$check($assignmentStringsSeeded, 'assignment editor actions and sticky state have Indonesian and German seeds');
 $check(str_contains($pluginLoader, '$themeSlotsBeforeLoad') && str_contains($pluginLoader, '$shortcodeSourcesBeforeLoad'), 'failed plugin loading rolls back both extension registries');
 
 if ($failures !== []) {

@@ -391,12 +391,45 @@ try {
     }
     $check(str_contains($routes['source.php'], 'CodeMirror.fromTextArea') && !str_contains($routes['source.php'], '<iframe'),
         'editor uses Core CodeMirror without executable unsaved preview');
+    $sourceControls = strpos($routes['source.php'], 'class="theme-source__tools"');
+    $sourceTextarea = strpos($routes['source.php'], 'id="theme-source-code"');
+    $check($sourceControls !== false && $sourceTextarea !== false && $sourceControls < $sourceTextarea
+        && str_contains($routes['source.php'], 'class="theme-source__tabs" role="tablist"')
+        && str_contains($routes['source.php'], 'role="tabpanel"')
+        && str_contains($routes['source.php'], 'class="theme-source__tools-toggle"')
+        && str_contains($routes['source.php'], 'form="theme-source-form" type="checkbox"')
+        && str_contains($routes['source.php'], 'theme-source-action-group--core')
+        && str_contains($routes['source.php'], 'theme-source-action-owner')
+        && str_contains($routes['source.php'], 'position:sticky;')
+        && !str_contains($routes['source.php'], '--theme-source-workspace-height')
+        && str_contains($routes['source.php'], 'editor.setSize(null,height)')
+        && str_contains($routes['source.php'], 'new ResizeObserver(syncEditorHeight).observe(files)')
+        && str_contains($routes['source.php'], ".theme-source__heading{\n  margin-bottom:14px;")
+        && str_contains($routes['source.php'], 'text-decoration:none!important;'),
+        'editor keeps one spaced sticky toolbar and follows the natural source-file height with proper action links');
+    $check(str_contains($routes['source.php'], 'class="theme-source__identity"')
+        && str_contains($routes['source.php'], "svg_ico('palette')")
+        && str_contains($routes['source.php'], 'strcasecmp($themeDisplayName, $themeFolder)')
+        && str_contains($routes['source.php'], 'class="theme-source__identity-copy"')
+        && !str_contains($routes['source.php'], '<p class="adam-muted"><?=htmlspecialchars((string)$theme[\'name\']'),
+        'Source Editor presents one compact theme identity without repeating identical name and folder values');
+    $check(str_contains($routes['source.php'], "theme_slot_definitions(\$pdo, ['scope' => 'theme-source-editor'")
+        && str_contains($routes['source.php'], "'slot_keys' => \$sourceSlotKeys")
+        && str_contains($routes['source.php'], 'count($slotDefinitions) <= 256'),
+        'source action context exposes bounded exact slot identities without extension-owned file categories');
     $check(str_contains($routes['source.php'], "'utf8' => (bool)\$source['utf8']")
         && str_contains($routes['source.php'], 'ENT_SUBSTITUTE'),
         'render-time policy receives selected-file UTF-8 context and safely renders arbitrary inspected bytes');
     $check(str_contains((string)file_get_contents($root . '/dashboard/admin/themes/assign.php'), 'Inspect / Edit Source')
         && str_contains((string)file_get_contents($root . '/dashboard/admin/themes/assign.php'), 'sourceDirtyCount'),
         'Theme Manager cards expose source inspection and dirty state');
+    $assignSource = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
+    $check(str_contains($assignSource, '$sourceService->inventory($themeFolder)')
+        && str_contains($assignSource, "'page' => 'admin/themes/source'")
+        && str_contains($assignSource, "'file' => \$fileId")
+        && str_contains($assignSource, 'data-editor-url=')
+        && str_contains($assignSource, 'Inspect / Edit theme PHP'),
+        'per-slot registered-theme actions open the exact service-issued PHP source identity');
     $helperSource = (string)file_get_contents($root . '/cfg/helpers/theme_source.php');
     $check(str_contains($helperSource, "[PHP_BINARY, '-l', \$path]") && str_contains($helperSource, "do_action_isolated('theme_source_changed'")
         && str_contains($helperSource, "'theme_source_edit_policy'") && str_contains($helperSource, "'theme_source_editor_actions'\n") === false,
@@ -406,8 +439,15 @@ try {
         && strpos($stageSection, '$protectedStage = @fstat($handle);') < strpos($stageSection, '$this->writeAll($handle, $content)')
         && str_contains($helperSource, '$opened = @fstat($handle);'),
         'atomic stages and private records verify descriptor permissions before writing their first byte');
-    $check(str_contains($routes['source.php'], "do_action_isolated_output('theme_source_editor_actions'"),
-        'editor action hook isolates listener output and failures');
+    $check(str_contains($routes['source.php'], "do_action_isolated_output('theme_source_editor_actions'")
+        && str_contains($routes['source.php'], "do_action_isolated_output('theme_source_editor_context'")
+        && str_contains($routes['source.php'], 'Form controls are not allowed in source context panels.')
+        && str_contains($routes['source.php'], '<?=$editorContext?>'),
+        'editor action and contextual panel hooks isolate listener output and reserve form controls for Core');
+    $agents = (string)file_get_contents($root . '/AGENTS.md');
+    $check(str_contains($agents, 'escape every label, URL, and contextual value they emit')
+        && str_contains($agents, 'source save/revision controls remain Core-only'),
+        'extension action contract assigns output escaping and reserves source mutations for Core');
     $configSource = (string)file_get_contents($root . '/cfg/config.php');
     $check(str_contains($configSource, "helpers/theme_source.php")
         && str_contains($helperSource, "add_action('theme_install_completed'")

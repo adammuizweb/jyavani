@@ -73,9 +73,9 @@ $zones = (string)file_get_contents($root . '/cfg/helpers/theme_zones.php');
 $lang = (string)file_get_contents($root . '/cfg/helpers/lang_helpers.php');
 $check(str_contains($themeHelper, '__jy_render_theme_source_folder') && str_contains($themeHelper, '$relativePath'),
     'slot renderer derives and scopes the physical theme source owner');
-$check(str_contains($customize, "do_action('theme_zone_item_editor_actions'")
+$check(str_contains($customize, "do_action_isolated_output('theme_zone_item_editor_actions'")
     && str_contains($customize, "'widget_definition' => \$typeInfo"),
-    'Customize exposes a generic item action without owning translation UI');
+    'Customize exposes an isolated generic item action without owning translation UI');
 $check(str_contains($zones, "do_action('theme_zone_item_before_delete'")
     && str_contains($zones, 'SELECT id FROM theme_zone_items WHERE id = ? LIMIT 1 FOR UPDATE')
     && str_contains($zones, '$pdo->beginTransaction()'),

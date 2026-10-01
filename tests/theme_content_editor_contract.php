@@ -4,6 +4,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $edit = (string)file_get_contents($root . '/dashboard/admin/themes/edit.php');
 $save = (string)file_get_contents($root . '/dashboard/admin/themes/save.php');
+$assign = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $failures = [];
 $checks = 0;
@@ -27,6 +28,13 @@ $check(str_contains($save, 'SELECT id, status, publish_at_utc, created_by FROM p
     'theme save distinguishes a missing row from a legacy ownerless row');
 $check(str_contains($save, "user_can(\$pdo, \$user_id, 'core.theme_content.update', ['owner_id' => \$lockedOwnerId])"),
     'ownerless theme updates still require the scoped update permission under lock');
+$check(str_contains($assign, "'page' => 'admin/themes/edit'")
+    && str_contains($assign, "'id' => \$postId")
+    && str_contains($assign, "'return_to' => \$selfUrl")
+    && str_contains($assign, 'data-post-edit')
+    && str_contains($edit, 'adiwira_safe_return_to')
+    && str_contains($save, 'adiwira_safe_return_to'),
+    'per-slot custom-template actions use integer IDs and retain a validated return to Theme Assign');
 
 if ($failures !== []) {
     fwrite(STDERR, implode(PHP_EOL, $failures) . PHP_EOL);

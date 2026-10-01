@@ -13,6 +13,27 @@ $check(str_contains($source, $signature), 'zone editor receives the authorized u
 $editorArguments = '$activePartial, $uid, $zones, $pagesList, $articleAuthors, $categoriesList, $themeContentList)';
 $check(substr_count($source, $editorArguments) === 3, 'header, partial, and footer editors pass the authorized user ID and content picker data');
 $check(str_contains($source, "'user_id' => \$uid"), 'extension editor actions receive the explicit user ID');
+$check(str_contains($source, "do_action_isolated_output('theme_customize_actions'")
+    && str_contains($source, "'surface' => 'theme-customize'")
+    && str_contains($source, "'return_url' => \$selfUrl . '&partial='")
+    && str_contains($source, 'foreach ($customizeHook[\'errors\']'),
+    'Customize exposes an isolated theme-level action surface with bounded navigation context');
+$check(str_contains($source, "do_action_isolated_output('theme_zone_item_summary'")
+    && str_contains($source, "'surface' => 'summary'")
+    && str_contains($source, "'summary_available' => \$summaryActions !== ''")
+    && str_contains($source, "preg_match('/<\\s*\\/?\\s*(?:form|input|button|select|textarea)\\b/i'")
+    && strpos($source, '<?= $summaryActions ?>') > strpos($source, '<div class="tz-body"'),
+    'collapsed gadget cards expose inert isolated summaries without breaking the adjacent editor body');
+$summaryControlPattern = '/<\s*\/?\s*(?:form|input|button|select|textarea)\b/i';
+$check(preg_match($summaryControlPattern, '</form>') === 1
+    && preg_match($summaryControlPattern, '< input name="bad">') === 1
+    && preg_match($summaryControlPattern, '<a href="/safe">Safe</a>') === 0,
+    'persistent-summary guard rejects opening, closing, and spaced form-control tags while allowing links');
+$check(str_contains($source, "do_action_isolated_output('theme_zone_item_editor_actions'")
+    && str_contains($source, "error_log('[theme_zone_item_editor_actions] '"),
+    'expanded gadget extension actions isolate listener output and failures');
+$check(!str_contains($source, "'&theme=' . rawurlencode(\$folder)"),
+    'gadget extension return URLs contain no unsupported theme selector');
 $check(str_contains($source, "(\$definition['addable'] ?? true) === true")
     && substr_count($source, "if (!isset(\$tzAddableWidgets[\$type]))") === 2,
     'Customize hides non-addable gadgets and rejects forged additions and defaults');

@@ -580,6 +580,54 @@ $activeThemeFolder = null;
 foreach ($themes as $t) {
     if (!empty($t['is_active'])) { $activeThemeFolder = $t['folder_name']; break; }
 }
+
+$themeSlotEditorUrls = [];
+$sourceService = theme_source_service($pdo);
+foreach ($themes as $themeRow) {
+    $themeId = (int)($themeRow['id'] ?? 0);
+    $themeFolder = (string)($themeRow['folder_name'] ?? '');
+    if ($themeId <= 0 || $themeFolder === '') continue;
+    try {
+        $inventory = $sourceService->inventory($themeFolder);
+        $filesByPath = [];
+        foreach ((array)($inventory['files'] ?? []) as $file) {
+            if (!is_array($file) || !is_string($file['path'] ?? null) || !is_string($file['id'] ?? null)
+                || preg_match('/\A[a-f0-9]{64}\z/D', $file['id']) !== 1) continue;
+            $filesByPath[$file['path']] = $file['id'];
+        }
+        foreach ($slotDefinitions as $slotKey => $slotDefinition) {
+            $template = (string)($slotDefinition['template'] ?? '');
+            $fileId = $filesByPath[$template] ?? null;
+            if (!is_string($fileId)) continue;
+            $themeSlotEditorUrls[$slotKey][$themeId] = ADMIN_BASE_PATH . '/?' . http_build_query([
+                'page' => 'admin/themes/source',
+                'folder' => $themeFolder,
+                'file' => $fileId,
+            ], '', '&', PHP_QUERY_RFC3986);
+        }
+    } catch (Throwable $error) {
+        error_log('[theme-assign-source-actions] ' . $error->getMessage());
+    }
+}
+$defaultSlotEditorUrls = [];
+if (is_string($activeThemeFolder) && isset($themes_by_folder[$activeThemeFolder])) {
+    $activeThemeId = (int)$themes_by_folder[$activeThemeFolder]['id'];
+    foreach ($slotDefinitions as $slotKey => $_slotDefinition) {
+        if (isset($themeSlotEditorUrls[$slotKey][$activeThemeId])) {
+            $defaultSlotEditorUrls[$slotKey] = $themeSlotEditorUrls[$slotKey][$activeThemeId];
+        }
+    }
+}
+$themePostEditorUrls = [];
+foreach ($theme_posts as $themePost) {
+    $postId = (int)($themePost['id'] ?? 0);
+    if ($postId <= 0) continue;
+    $themePostEditorUrls[$postId] = ADMIN_BASE_PATH . '/?' . http_build_query([
+        'page' => 'admin/themes/edit',
+        'id' => $postId,
+        'return_to' => $selfUrl,
+    ], '', '&', PHP_QUERY_RFC3986);
+}
 ?>
 <link rel="stylesheet" href="/static/dashboard/css/update.css?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/css/update.css') ?: 0) ?>">
 <div class="tm-wrap">
@@ -786,14 +834,20 @@ foreach ($themes as $t) {
   <div style="height:14px"></div>
 
   <div class="tm-card">
-    <h3 class="tm-title" style="font-size:16px;margin:0"><?=_e('Per-slot assignments')?></h3>
+    <div class="tm-assignment-heading">
+      <div>
+        <h3 class="tm-title" style="font-size:16px;margin:0"><?=_e('Per-slot assignments')?></h3>
+        <p class="tm-note"><?=__('Choose the physical theme PHP or custom Theme Template that renders each frontend slot.')?></p>
+      </div>
+      <span class="tm-assignment-count"><?=count($slotDefinitions)?> <?=_e('slots')?></span>
+    </div>
 
     <form method="post" id="theme-assign-form" data-unsaved-guard style="margin-top:12px">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="save_assignments">
 
       <div class="tm-table-wrap">
-        <table class="tm-table">
+        <table class="tm-table tm-table--assignments">
           <thead>
             <tr>
               <th style="width:22%"><?=_e('Slot')?></th>
@@ -801,49 +855,61 @@ foreach ($themes as $t) {
             </tr>
           </thead>
           <tbody>
-          <?php foreach ($slotDefinitions as $slot_key => $slotDefinition):
+          <?php $slotIndex = 0; foreach ($slotDefinitions as $slot_key => $slotDefinition):
+            $slotIndex++;
             $slot_label = __((string)$slotDefinition['label']);
             $current = $assign_rows[$slot_key] ?? null;
-            $safe_slot_id = str_replace('.', '__', $slot_key);
+            $themeSelectId = 'theme-slot-theme-' . $slotIndex;
+            $postSelectId = 'theme-slot-post-' . $slotIndex;
+            $defaultEditorUrl = $defaultSlotEditorUrls[$slot_key] ?? '';
           ?>
-            <tr>
+            <tr data-assignment-slot="<?=htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8')?>" data-slot-label="<?=htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8')?>">
               <td>
+                <span class="tm-mobile-cell-label"><?=_e('Slot')?></span>
                 <strong><?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?></strong>
                 <div class="tm-note"><?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?></div>
+                <div class="tm-slot-template"><span><?=_e('PHP template')?></span><code><?=htmlspecialchars((string)$slotDefinition['template'], ENT_QUOTES, 'UTF-8')?></code></div>
               </td>
               <td>
+                <span class="tm-mobile-cell-label"><?=_e('Assignment source')?></span>
                 <div class="tm-assign-row">
-                  <div class="choice-block" id="choice-theme-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                    <label class="choice-label"><?=_e('Registered theme')?></label>
+                  <div class="choice-block choice-theme">
+                    <label class="choice-label" for="<?=htmlspecialchars($themeSelectId, ENT_QUOTES, 'UTF-8')?>"><?=_e('Registered theme')?></label>
 
-                    <div class="theme-warning-placeholder" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"></div>
+                    <div class="theme-warning-placeholder"></div>
 
-                    <select data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>"
+                    <select id="<?=htmlspecialchars($themeSelectId, ENT_QUOTES, 'UTF-8')?>"
                             class="theme-select tm-select"
-                            aria-label="<?=_e('Registered theme for')?> <?= htmlspecialchars($slot_label, ENT_QUOTES, 'UTF-8') ?>">
-                      <option value=""><?=_e('-- Site default (use active theme) --')?></option>
+                            aria-label="<?=htmlspecialchars(__('Registered theme for') . ' ' . $slot_label, ENT_QUOTES, 'UTF-8')?>">
+                      <option value="" data-editor-url="<?=htmlspecialchars($defaultEditorUrl, ENT_QUOTES, 'UTF-8')?>"><?=_e('-- Site default (use active theme) --')?></option>
                       <?php foreach ($themes as $t2): ?>
                         <option data-folder="<?= htmlspecialchars($t2['folder_name'], ENT_QUOTES, 'UTF-8') ?>"
+                                data-editor-url="<?=htmlspecialchars((string)($themeSlotEditorUrls[$slot_key][(int)$t2['id']] ?? ''), ENT_QUOTES, 'UTF-8')?>"
                                 value="<?= 'theme:'.(int)$t2['id'] ?>"
                                 <?= (!empty($current['theme_id']) && (int)$current['theme_id']===(int)$t2['id'] && empty($current['custom_post_id'])) ? 'selected' : '' ?>>
                           <?= htmlspecialchars(($t2['name'] ?? $t2['folder_name']) . ' (' . $t2['folder_name'] . ')', ENT_QUOTES, 'UTF-8') ?>
                         </option>
                       <?php endforeach; ?>
                     </select>
+                    <div class="tm-choice-action">
+                      <a class="tm-slot-edit" data-theme-edit href="#" hidden><?=_e('Inspect / Edit theme PHP')?></a>
+                      <span class="tm-slot-edit-unavailable" data-theme-edit-unavailable hidden><?=_e('This theme does not contain the PHP file for this slot.')?></span>
+                    </div>
                     <div class="tm-note"><?=_e('Select "Site default" to revert to standard behavior (using active theme).')?></div>
                   </div>
 
-                  <div class="choice-block" id="choice-post-<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
-                    <label class="choice-label"><?=_e('Or use custom template (post type=theme)')?></label>
-                    <select class="post-select tm-select" data-slot="<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>">
+                  <div class="choice-block choice-post">
+                    <label class="choice-label" for="<?=htmlspecialchars($postSelectId, ENT_QUOTES, 'UTF-8')?>"><?=_e('Or use custom template (post type=theme)')?></label>
+                    <select id="<?=htmlspecialchars($postSelectId, ENT_QUOTES, 'UTF-8')?>" class="post-select tm-select" aria-label="<?=htmlspecialchars(__('Custom template for') . ' ' . $slot_label, ENT_QUOTES, 'UTF-8')?>">
                       <option value=""><?=_e('-- none --')?></option>
                       <?php foreach ($theme_posts as $tp): ?>
-                        <option value="<?= 'post:'.(int)$tp['id'] ?>"
+                        <option value="<?= 'post:'.(int)$tp['id'] ?>" data-editor-url="<?=htmlspecialchars((string)($themePostEditorUrls[(int)$tp['id']] ?? ''), ENT_QUOTES, 'UTF-8')?>"
                           <?= (!empty($current['custom_post_id']) && (int)$current['custom_post_id']===(int)$tp['id']) ? 'selected' : '' ?>>
                           <?= htmlspecialchars($tp['title'] . ' (' . $tp['slug'] . ')', ENT_QUOTES, 'UTF-8') ?>
                         </option>
                       <?php endforeach; ?>
                     </select>
+                    <div class="tm-choice-action"><a class="tm-slot-edit" data-post-edit href="#" hidden><?=_e('Edit custom template')?></a></div>
                     <div class="tm-note">
                       <?=__('Custom templates are stored in')?> <code>posts.type='theme'</code>. <?=__('If selected, this will override the registered theme for this slot.')?>
                     </div>
@@ -852,7 +918,7 @@ foreach ($themes as $t) {
 
                 <input type="hidden"
                        name="assign[<?= htmlspecialchars($slot_key, ENT_QUOTES, 'UTF-8') ?>]"
-                       id="assign-input-<?= htmlspecialchars($safe_slot_id, ENT_QUOTES, 'UTF-8') ?>"
+                       class="assignment-input"
                        value="<?php
                          if (!empty($current['custom_post_id'])) echo 'post:'.(int)$current['custom_post_id'];
                          elseif (!empty($current['theme_id'])) echo 'theme:'.(int)$current['theme_id'];
@@ -865,12 +931,16 @@ foreach ($themes as $t) {
         </table>
       </div>
 
-      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-top:12px">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="tm-install" type="submit"><?=_e('Apply changes')?></button>
-          <a class="tm-ghost" href="<?= htmlspecialchars($selfUrl, ENT_QUOTES, 'UTF-8') ?>" style="text-decoration:none;display:inline-flex;align-items:center"><?=_e('Cancel')?></a>
+      <p class="tm-note tm-assignment-extension-note"><?=__('Extensions can register additional theme slots.')?></p>
+      <div class="tm-assignment-bar" data-assignment-bar>
+        <div class="tm-assignment-state" aria-live="polite">
+          <strong data-assignment-state-title><?=__('All assignment changes are applied.')?></strong>
+          <span data-assignment-state-copy><?=__('Choose another source in any slot to prepare a change.')?></span>
         </div>
-        <p class="tm-note" style="margin:0"><?=__('Extensions can register additional theme slots.')?></p>
+        <div class="tm-assignment-bar__actions">
+          <button class="tm-install" data-assignment-apply type="submit"><?=_e('Apply changes')?></button>
+          <a class="tm-ghost" href="<?= htmlspecialchars($selfUrl, ENT_QUOTES, 'UTF-8') ?>"><?=_e('Cancel')?></a>
+        </div>
       </div>
     </form>
   </div>
@@ -949,7 +1019,14 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
   function qsa(sel, root){ try { return Array.prototype.slice.call((root||document).querySelectorAll(sel)); } catch(e){ return []; } }
   function getById(id){ try { return document.getElementById(id); } catch(e){ return null; } }
   function on(el, ev, fn){ if (!el) return; el.addEventListener(ev, fn); }
-  function safeSlotId(slot){ return slot.replace(/\./g, '__'); }
+  function assignmentRow(slot){
+    return qsa('[data-assignment-slot]').find(function(row){
+      return row.getAttribute('data-assignment-slot') === slot;
+    }) || null;
+  }
+  function selectedOption(select){
+    return select && select.selectedIndex >= 0 ? select.options[select.selectedIndex] : null;
+  }
 
   function toast(type, message, title){
     if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
@@ -994,14 +1071,47 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     });
   }
 
+  var assignForm = qs('#theme-assign-form');
+  var assignmentBar = qs('[data-assignment-bar]');
+  var assignmentApply = qs('[data-assignment-apply]');
+  var assignmentStateTitle = qs('[data-assignment-state-title]');
+  var assignmentStateCopy = qs('[data-assignment-state-copy]');
+
+  function assignmentIsDirty(){
+    if (!assignForm) return false;
+    var fallbackDirty = qsa('.assignment-input', assignForm).some(function(input){
+      return input.value !== input.defaultValue;
+    });
+    var guard = guardApi();
+    return fallbackDirty || !!(guard && typeof guard.isDirty === 'function' && guard.isDirty(assignForm));
+  }
+
+  function updateAssignmentBar(){
+    if (!assignmentBar) return;
+    var dirty = assignmentIsDirty();
+    assignmentBar.classList.toggle('is-dirty', dirty);
+    if (assignmentApply) assignmentApply.disabled = !dirty;
+    if (assignmentStateTitle) assignmentStateTitle.textContent = dirty
+      ? <?= json_encode(__('Unsaved assignment changes')) ?>
+      : <?= json_encode(__('All assignment changes are applied.')) ?>;
+    if (assignmentStateCopy) assignmentStateCopy.textContent = dirty
+      ? <?= json_encode(__('Select Apply changes to save every changed slot.')) ?>
+      : <?= json_encode(__('Choose another source in any slot to prepare a change.')) ?>;
+  }
+
   function updateHidden(slot) {
     try {
-      var themeSel  = qs('.theme-select[data-slot="'+slot+'"]');
-      var postSel   = qs('.post-select[data-slot="'+slot+'"]');
-      var hiddenId  = 'assign-input-' + safeSlotId(slot);
-      var hidden    = getById(hiddenId);
-      var themeBlock= getById('choice-theme-' + slot);
-      var postBlock = getById('choice-post-' + slot);
+      var row = assignmentRow(slot);
+      if (!row) return;
+      var themeSel = qs('.theme-select', row);
+      var postSel = qs('.post-select', row);
+      var hidden = qs('.assignment-input', row);
+      var themeBlock = qs('.choice-theme', row);
+      var postBlock = qs('.choice-post', row);
+      var themeEdit = qs('[data-theme-edit]', row);
+      var postEdit = qs('[data-post-edit]', row);
+      var themeUnavailable = qs('[data-theme-edit-unavailable]', row);
+      var slotLabel = row.getAttribute('data-slot-label') || slot;
 
       if (!hidden) return;
 
@@ -1011,6 +1121,8 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         if (postBlock) postBlock.classList.add('choice-active');
         if (themeBlock) { themeBlock.classList.add('choice-muted'); themeBlock.classList.remove('choice-active'); }
         if (themeSel) themeSel.value = '';
+        var warningPlaceholder = qs('.theme-warning-placeholder', row);
+        if (warningPlaceholder) warningPlaceholder.replaceChildren();
       } else if (themeSel && themeSel.value) {
         val = themeSel.value;
         if (themeBlock) themeBlock.classList.add('choice-active');
@@ -1021,6 +1133,28 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
         if (postBlock)  { postBlock.classList.remove('choice-active'); postBlock.classList.remove('choice-muted'); }
       }
       hidden.value = val;
+      var themeOption = selectedOption(themeSel);
+      var postOption = selectedOption(postSel);
+      var themeEditorUrl = themeOption ? themeOption.getAttribute('data-editor-url') || '' : '';
+      var postEditorUrl = postOption ? postOption.getAttribute('data-editor-url') || '' : '';
+      var customSelected = !!(postSel && postSel.value);
+      if (themeEdit) {
+        themeEdit.hidden = customSelected || themeEditorUrl === '';
+        if (themeEditorUrl !== '') themeEdit.setAttribute('href', themeEditorUrl);
+        else themeEdit.removeAttribute('href');
+        themeEdit.textContent = themeSel && themeSel.value
+          ? <?= json_encode(__('Inspect / Edit theme PHP')) ?>
+          : <?= json_encode(__('Inspect active theme PHP')) ?>;
+        themeEdit.setAttribute('aria-label', themeEdit.textContent + ': ' + slotLabel);
+      }
+      if (themeUnavailable) themeUnavailable.hidden = customSelected || themeEditorUrl !== '';
+      if (postEdit) {
+        postEdit.hidden = !customSelected || postEditorUrl === '';
+        if (postEditorUrl !== '') postEdit.setAttribute('href', postEditorUrl);
+        else postEdit.removeAttribute('href');
+        postEdit.setAttribute('aria-label', <?= json_encode(__('Edit custom template')) ?> + ': ' + slotLabel);
+      }
+      updateAssignmentBar();
     } catch (err) {
       if (window.console && console.error) console.error('updateHidden error', err);
     }
@@ -1028,9 +1162,10 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
   qsa('.theme-select').forEach(function(sel){
     try {
-      var slot = sel.getAttribute('data-slot');
+      var row = sel.closest('[data-assignment-slot]');
+      var slot = row ? row.getAttribute('data-assignment-slot') : '';
       on(sel, 'change', function(){
-        var post = qs('.post-select[data-slot="'+slot+'"]');
+        var post = row ? qs('.post-select', row) : null;
         if (post) post.value = '';
         updateHidden(slot);
       });
@@ -1039,32 +1174,32 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
   qsa('.post-select').forEach(function(sel){
     try {
-      var slot = sel.getAttribute('data-slot');
+      var row = sel.closest('[data-assignment-slot]');
+      var slot = row ? row.getAttribute('data-assignment-slot') : '';
       on(sel, 'change', function(){
-        var theme = qs('.theme-select[data-slot="'+slot+'"]');
+        var theme = row ? qs('.theme-select', row) : null;
         if (theme) theme.value = '';
         updateHidden(slot);
       });
     } catch(e){}
   });
 
-  <?php foreach ($SLOTS as $slot_key => $_): ?>
-    try { updateHidden("<?= addslashes($slot_key) ?>"); } catch(e){}
-  <?php endforeach; ?>
+  qsa('[data-assignment-slot]').forEach(function(row){
+    try { updateHidden(row.getAttribute('data-assignment-slot') || ''); } catch(e){}
+  });
+  updateAssignmentBar();
 
   (function(){
-    var assignForm = qs('#theme-assign-form');
     if (!assignForm) return;
 
     on(assignForm, 'submit', function(e){
       e.preventDefault();
 
       try {
-        var slots = <?= json_encode(array_keys($SLOTS)) ?>;
-        slots.forEach(function(slot){
-          var themeSel = qs('.theme-select[data-slot="'+slot+'"]');
-          var postSel  = qs('.post-select[data-slot="'+slot+'"]');
-          var hidden   = getById('assign-input-' + safeSlotId(slot));
+        qsa('[data-assignment-slot]', assignForm).forEach(function(row){
+          var themeSel = qs('.theme-select', row);
+          var postSel = qs('.post-select', row);
+          var hidden = qs('.assignment-input', row);
           if (!hidden) return;
           if (postSel && postSel.value) hidden.value = postSel.value;
           else if (themeSel && themeSel.value) hidden.value = themeSel.value;
@@ -1222,9 +1357,10 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
     var active = (window.ADIWIRA && window.ADIWIRA.activeTheme) ? window.ADIWIRA.activeTheme : null;
 
     function renderThemeWarning(slot, selectedFolder, optionText) {
-      var placeholder = qs('.theme-warning-placeholder[data-slot="'+slot+'"]');
+      var row = assignmentRow(slot);
+      var placeholder = row ? qs('.theme-warning-placeholder', row) : null;
       if (!placeholder) return;
-      placeholder.innerHTML = '';
+      placeholder.replaceChildren();
       if (!selectedFolder || selectedFolder === active) return;
 
       var banner = document.createElement('div');
@@ -1233,7 +1369,14 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
       var txt = document.createElement('div');
       txt.className = 'warn-text';
-      txt.innerHTML = '<strong><?=_e('Warning:')?></strong> <?=_e('You selected theme')?> <em>'+ (optionText || selectedFolder) +'</em> <?=_e('for this slot. It will use the CSS &amp; JS from that theme and may conflict with the active theme assets')?> (' + (active || '—') + ').';
+      var strong = document.createElement('strong');
+      strong.textContent = <?= json_encode(__('Warning:')) ?>;
+      var selected = document.createElement('em');
+      selected.textContent = optionText || selectedFolder;
+      txt.appendChild(strong);
+      txt.appendChild(document.createTextNode(' ' + <?= json_encode(__('You selected theme')) ?> + ' '));
+      txt.appendChild(selected);
+      txt.appendChild(document.createTextNode(' ' + <?= json_encode(__('for this slot. It will use the CSS & JS from that theme and may conflict with the active theme assets')) ?> + ' (' + (active || '—') + ').'));
 
       var actions = document.createElement('div');
       actions.className = 'warn-actions';
@@ -1242,7 +1385,7 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
       dismiss.className = 'btn-ghost';
       dismiss.type = 'button';
       dismiss.textContent = <?= json_encode(__('Acknowledge')) ?>;
-      dismiss.onclick = function(){ placeholder.innerHTML = ''; };
+      dismiss.onclick = function(){ placeholder.replaceChildren(); };
 
       actions.appendChild(dismiss);
       banner.appendChild(txt);
@@ -1252,7 +1395,8 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
     function attachWarnings(){
       qsa('.theme-select').forEach(function(sel){
-        var slot = sel.getAttribute('data-slot');
+        var row = sel.closest('[data-assignment-slot]');
+        var slot = row ? row.getAttribute('data-assignment-slot') : '';
         sel.addEventListener('change', function(){
           var opt = sel.options[sel.selectedIndex];
           var folder = opt ? opt.getAttribute('data-folder') || '' : '';

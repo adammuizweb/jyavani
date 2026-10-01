@@ -112,6 +112,15 @@ $check(str_contains($themeAssignments, 'function confirmAssignmentDiscard()')
     && str_contains($themeAssignments, 'function submitIntentional(form)')
     && str_contains($themeAssignments, 'submitIntentional(assignForm)'),
     'Per-slot assignment save uses the shared guard and bypasses only its approved submission');
+$check(str_contains($themeAssignments, 'data-assignment-bar')
+    && str_contains($themeAssignments, 'function assignmentIsDirty()')
+    && str_contains($themeAssignments, 'guard.isDirty(assignForm)')
+    && str_contains($themeAssignments, 'input.value !== input.defaultValue')
+    && str_contains($themeAssignments, 'assignmentApply.disabled = !dirty')
+    && str_contains($themeAssignments, 'warningPlaceholder.replaceChildren()')
+    && !str_contains($themeAssignments, 'themeEdit.onclick')
+    && !str_contains($themeAssignments, 'postEdit.onclick'),
+    'sticky assignment actions reflect exact hidden-input dirty state while Edit links retain shared navigation protection and custom selection clears stale warnings');
 $check(substr_count($themeAssignments, 'submitAfterAssignmentDiscard(form)') >= 4
     && str_contains($themeAssignments, "qsa('.js-theme-manager-page-action')")
     && str_contains($themeAssignments, 'confirmAssignmentDiscard().then(function(confirmed)')

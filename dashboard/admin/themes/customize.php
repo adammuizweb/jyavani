@@ -624,6 +624,25 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
                   $active = !empty($it['active']);
                   $typeInfo = $tzWidgets[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
                   $isOpen = (string)($_GET['edit'] ?? '') === (string)$itemId;
+                  $summaryActions = '';
+                  if (function_exists('do_action_isolated_output')) {
+                      $summaryHook = do_action_isolated_output('theme_zone_item_summary', $it, [
+                          'schema' => 1,
+                          'surface' => 'summary',
+                          'theme_folder' => $folder,
+                          'zone_slug' => $zSlug,
+                          'position' => $posKey,
+                          'return_url' => $selfUrl . '&partial=' . rawurlencode($activePartial) . '&edit=' . $itemId,
+                          'widget_definition' => $typeInfo,
+                          'user_id' => $uid,
+                      ], $pdo);
+                      $summaryActions = (string)$summaryHook['output'];
+                      foreach ($summaryHook['errors'] as $hookError) error_log('[theme_zone_item_summary] ' . $hookError['message']);
+                      if (preg_match('/<\s*\/?\s*(?:form|input|button|select|textarea)\b/i', $summaryActions) === 1) {
+                          error_log('[theme_zone_item_summary] Form controls are not allowed in persistent summaries.');
+                          $summaryActions = '';
+                      }
+                  }
                   ?>
                   <div class="tz-item" data-id="<?= $itemId ?>" style="background:var(--adam-bg); border:1px solid rgba(127,127,127,.18); border-radius:8px; <?= $active ? '' : 'opacity:.55;' ?>">
                     <input type="hidden" name="widget[<?= $itemId ?>][type]" value="<?= h($type) ?>">
@@ -646,20 +665,24 @@ function tz_zone_editor_html(PDO $pdo, string $folder, string $zSlug, array $lay
                       </div>
                       <button type="button" onclick="event.stopPropagation(); tzDeleteWidget(<?= $itemId ?>, '<?= h($zSlug) ?>')" style="background:none; border:none; cursor:pointer; color:var(--adam-danger); font-size:18px; line-height:1; padding:2px 4px;" title="<?= __('Delete widget') ?>">×</button>
                     </div>
-
                     <div class="tz-body" style="border-top:1px solid rgba(127,127,127,.18); padding:1rem; display:<?= $isOpen ? 'block' : 'none' ?>;">
                       <div class="tz-config-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
                         <?= tz_widget_config_form($zSlug, $posKey, $itemId, $it, $menus, $sidebarZones, $pagesList, $articleAuthors, $categoriesList, $themeContentList, $base) ?>
                       </div>
-                      <?php do_action('theme_zone_item_editor_actions', $it, [
+                      <?php $editorHook = function_exists('do_action_isolated_output') ? do_action_isolated_output('theme_zone_item_editor_actions', $it, [
                           'theme_folder' => $folder,
                           'zone_slug' => $zSlug,
                           'position' => $posKey,
-                          'return_url' => $selfUrl . '&theme=' . rawurlencode($folder) . '&partial=' . rawurlencode($activePartial) . '&edit=' . $itemId,
+                          'return_url' => $selfUrl . '&partial=' . rawurlencode($activePartial) . '&edit=' . $itemId,
                           'widget_definition' => $typeInfo,
                           'user_id' => $uid,
-                      ], $pdo); ?>
+                          'surface' => 'editor',
+                          'summary_available' => $summaryActions !== '',
+                      ], $pdo) : ['output' => '', 'errors' => []]; ?>
+                      <?= (string)$editorHook['output'] ?>
+                      <?php foreach ($editorHook['errors'] as $hookError) error_log('[theme_zone_item_editor_actions] ' . $hookError['message']); ?>
                     </div>
+                    <?= $summaryActions ?>
                   </div>
                 <?php endforeach; ?>
               <?php endif; ?>
@@ -827,6 +850,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
 }
 
 // Zone tabs dibangun dari layout tema aktif — komputasi ada di atas (dipakai juga POST handler)
+$customizeActions = '';
+if (is_array($activeTheme) && function_exists('do_action_isolated_output')) {
+    $customizeHook = do_action_isolated_output('theme_customize_actions', $activeTheme, [
+        'schema' => 1,
+        'surface' => 'theme-customize',
+        'folder' => $folder,
+        'actor_id' => (int)$uid,
+        'active_partial' => $activePartial,
+        'customizer_only' => $customizerOnly,
+        'admin_base_path' => $base,
+        'return_url' => $selfUrl . '&partial=' . rawurlencode($activePartial),
+    ], $pdo);
+    $customizeActions = (string)$customizeHook['output'];
+    foreach ($customizeHook['errors'] as $hookError) error_log('[theme_customize_actions] ' . $hookError['message']);
+}
 ?>
 
 <div class="tc-wrap" style="max-width:1100px;">
@@ -844,6 +882,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !empty($_POST['tz_action'])
   <?php if (empty($themeLayout) && !$customizerOnly): ?>
     <div class="adam-alert warning"><?= __('Active theme does not declare a layout. Theme zones are disabled.') ?></div>
   <?php endif; ?>
+
+  <?= $customizeActions ?>
 
   <!-- Theme Layout Editor — kanvas halaman utuh ala Blogspot -->
   <?php if (!empty($themeLayout) || $customizerOnly): ?>

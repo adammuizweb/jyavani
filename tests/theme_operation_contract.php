@@ -211,6 +211,15 @@ try {
         && str_contains($dashboardStyle, 'html.theme-dark .tm-action--source')
         && str_contains($dashboardStyle, '@media (max-width: 420px)'),
         'Theme Manager groups responsive high-contrast Core actions separately from extensions');
+    $check(str_contains($assign, 'class="tm-assignment-bar"')
+        && str_contains($dashboardStyle, '.tm-assignment-bar{')
+        && str_contains($dashboardStyle, 'position:sticky;')
+        && str_contains($dashboardStyle, 'env(safe-area-inset-bottom)')
+        && str_contains($dashboardStyle, '.tm-slot-edit:focus-visible')
+        && str_contains($dashboardStyle, '@media (max-width: 700px)')
+        && str_contains($dashboardStyle, '.tm-table--assignments thead')
+        && str_contains($dashboardStyle, '.tm-mobile-cell-label'),
+        'per-slot editing uses a responsive sticky action bar, mobile cell headings, and keyboard-visible contextual actions');
     $check(str_contains($updateSection, 'update_preflight.php') && str_contains($updateSection, 'window.crypto.getRandomValues(bytes)')
         && str_contains($updateSection, 'createUpdateProcessUI') && str_contains($updateSection, '/admin/update/process.php?token=')
         && str_contains($updateSection, 'theme_update_preflight_required')
