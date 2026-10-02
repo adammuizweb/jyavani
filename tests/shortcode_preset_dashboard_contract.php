@@ -234,9 +234,12 @@ $check(str_contains($source['index'], 'class="adam-actions__trigger"')
 $check(str_contains($source['dashboard_style'], '.adam-actions__menu')
     && str_contains($source['dashboard_style'], '.adam-actions__trigger[aria-expanded="true"]')
     && str_contains($source['dashboard_layout'], '/static/dashboard/js/action-menu.js')
+    && !str_contains($source['dashboard_layout'], 'action-menu.js?v=<?= $actionMenuVer ?>" defer')
+    && str_contains($source['action_menu_script'], 'window.__ADIWIRA_ACTION_MENU_INIT__')
     && str_contains($source['action_menu_script'], "event.key === 'Escape'")
     && str_contains($source['action_menu_script'], "event.key === 'ArrowDown'")
     && str_contains($source['action_menu_script'], 'getBoundingClientRect()')
+    && str_contains($source['action_menu_script'], "if (menu.hidden) openMenu(trigger, event.detail === 0 ? 'first' : undefined);")
     && str_contains($source['action_menu_script'], 'trigger.focus({ preventScroll: true })'), 'Core overflow component provides viewport positioning and keyboard focus management');
 
 if ($failures !== []) {

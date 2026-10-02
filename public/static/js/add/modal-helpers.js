@@ -166,6 +166,7 @@
 
     var closeBtn = document.createElement('button');
     closeBtn.type = 'button';
+    closeBtn.className = 'adam-modal-close';
     closeBtn.innerText = '×';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.style.cssText = [
@@ -199,6 +200,10 @@
     }
 
     bd.__isClosed = false;
+    bd.__documentOverflow = document.documentElement.style.overflow;
+    bd.__bodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
 
     var timedOut = false;
     var timeoutMs = Number(opts.timeoutMs || 30000);
@@ -264,6 +269,9 @@
     if (bd.__esc) {
       document.removeEventListener('keydown', bd.__esc);
     }
+
+    document.documentElement.style.overflow = bd.__documentOverflow || '';
+    document.body.style.overflow = bd.__bodyOverflow || '';
 
     var content = document.getElementById('adam-modal-content');
     if (content) {

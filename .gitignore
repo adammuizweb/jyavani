@@ -42,6 +42,7 @@ public/static/files/2026
 # PHP contract tests are versioned; browser tests and local security notes are not.
 tests/playwright/
 tests/security1p.md
+/test-results/
 
 # Local-only dev tooling (AI/E2E login helper) — never shipped to users
 /tools/dev-user.php

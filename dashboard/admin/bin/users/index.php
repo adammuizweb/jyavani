@@ -173,7 +173,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
     <div class="bulk-bar">
       <label class="check-row">
-        <input type="checkbox" id="selectAllBinUsers"> <?=_e('Select all on page')?>
+        <input type="checkbox" id="selectAllBinUsers" class="adam-choice"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkActionBinUsers" name="action" class="inp">
@@ -211,28 +211,30 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         <?php else: ?>
           <?php foreach ($users as $u): ?>
             <?php
-              $img = !empty($u['img']) ? (string)$u['img'] : '/static/img/person.svg';
               $isLocked = (int)($u['is_locked'] ?? 0) === 1;
               $isSiteOwner = (int)($u['is_site_owner'] ?? 0) === 1;
               $ownerAllowsMutation = !$isSiteOwner || $actorIsSiteOwner;
               $canRestoreUser = $ownerAllowsMutation && user_can($pdo, $uid, 'core.users.restore', ['owner_id' => (int)$u['id']]);
               $canPurgeUser = $ownerAllowsMutation && user_can($pdo, $uid, 'core.users.purge', ['owner_id' => (int)$u['id']]);
               $canMutateUser = $canRestoreUser || $canPurgeUser;
-              $labelName = (string)($u['name'] ?? ($u['email'] ?? 'User'));
+              $labelName = user_avatar_display_name($u, __('User'));
             ?>
             <tr class="adam-row">
               <td style="text-align:center;">
                 <?php if ($canMutateUser): ?>
-                  <input type="checkbox" class="bulkCheckboxBinUsers" name="ids[]" value="<?= (int)$u['id'] ?>">
+                  <input type="checkbox" class="bulkCheckboxBinUsers adam-choice" name="ids[]" value="<?= (int)$u['id'] ?>">
                 <?php else: ?>
                   &mdash;
                 <?php endif; ?>
               </td>
 
               <td style="width:56px">
-                <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>"
-                     alt=""
-                     style="height:40px;width:40px;object-fit:cover;border-radius:6px">
+                <?= user_avatar_html($u['img'] ?? '', $labelName, [
+                    'image_class' => 'user-bin-avatar',
+                    'fallback_class' => 'user-bin-avatar user-avatar-initial',
+                    'image_attributes' => ['loading' => 'lazy'],
+                    'alt' => $labelName,
+                ]) ?>
               </td>
 
               <td>

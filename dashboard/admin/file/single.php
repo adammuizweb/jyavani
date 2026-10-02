@@ -69,6 +69,12 @@ $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
 $baseUrl = rtrim($proto . '://' . $host, '/');
 $clientUrl = modalfilez_client_url($row);
+$copyUrl = $clientUrl;
+if ($copyUrl !== '' && str_starts_with($copyUrl, '//')) {
+    $copyUrl = $proto . ':' . $copyUrl;
+} elseif ($copyUrl !== '' && !preg_match('#^https?://#i', $copyUrl)) {
+    $copyUrl = $baseUrl . '/' . ltrim($copyUrl, '/');
+}
 
 $csrf = csrf_token();
 $ext  = strtoupper((string)($row['ext'] ?? ''));
@@ -139,8 +145,7 @@ if (!function_exists('human_filesize')) {
       <div class="single-file-section">
         <div class="file-section-title"><?=_e('File URL')?></div>
         <div class="url-row">
-          <span class="url-prefix" id="file-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-          <input type="text" class="url-path" id="file-url-path" readonly value="<?= htmlspecialchars($clientUrl, ENT_QUOTES, 'UTF-8') ?>">
+          <input type="text" class="url-path" id="file-url" readonly value="<?= htmlspecialchars($copyUrl, ENT_QUOTES, 'UTF-8') ?>">
           <button type="button" class="copy-btn" data-action="copy-url"><?=_e('Copy')?></button>
         </div>
         <div class="file-url-hint"><?=_e('This URL will be used when inserting.')?></div>
@@ -178,7 +183,7 @@ if (!function_exists('human_filesize')) {
           <?php endif; ?>
 
           <label class="file-check-label">
-            <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+            <input type="checkbox" class="adam-choice" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
             <?=_e('Allow download')?>
           </label>
 

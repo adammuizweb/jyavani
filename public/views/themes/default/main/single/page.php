@@ -22,7 +22,7 @@ $authorName = !empty($post['author_name'])
         ? $post['author_username']
         : (!empty($post['author_email']) ? $post['author_email'] : __('Author')));
 
-$authorImg = !empty($post['author_img']) ? $post['author_img'] : null;
+$authorImg = user_avatar_image_url($post['author_img'] ?? '');
 $authorIdOrSlug = $post['author_username'] ?? (isset($post['author_id']) ? (string)$post['author_id'] : '');
 $authorUrl = $authorIdOrSlug !== '' && function_exists('get_author_permalink') ? get_author_permalink(['username' => $authorIdOrSlug]) : null;
 
@@ -92,13 +92,15 @@ $titleSafe = htmlspecialchars($post['title'] ?? '', ENT_QUOTES, 'UTF-8');
   <footer class="post-published-by">
     <div class="published-by-inner">
       <div class="publisher-avatar">
-        <?php if ($authorImg): ?>
-          <a href="<?= $authorUrl ?: '#' ?>" <?= $authorUrl ? '' : 'aria-disabled="true" tabindex="-1"' ?>>
-            <img class="avatar-img" src="<?= htmlspecialchars($authorImg, ENT_QUOTES, 'UTF-8') ?>"
-                 alt="<?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?>">
-          </a>
+        <?php $publisherAvatar = user_avatar_html($authorImg, $authorName, [
+            'image_class' => 'avatar-img',
+            'fallback_class' => 'avatar-fallback',
+            'alt' => $authorName,
+        ]); ?>
+        <?php if ($authorUrl): ?>
+          <a href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>"><?= $publisherAvatar ?></a>
         <?php else: ?>
-          <div class="avatar-fallback" aria-hidden="true"><?= strtoupper(substr($authorName, 0, 1)) ?></div>
+          <?= $publisherAvatar ?>
         <?php endif; ?>
       </div>
 

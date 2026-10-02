@@ -38,6 +38,7 @@ function cms_manifest_preserve_patterns(): array
         '#^var/#',
         '#\.DS_Store$#',
         '#Thumbs\.db$#',
+        // Legacy deployment compatibility; this is not a Core-owned public namespace.
         '#^public/pdf/#',
     ];
 }

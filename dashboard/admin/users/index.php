@@ -168,7 +168,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
     <div class="bulk-bar users-bulk-bar">
       <label class="check-row">
-        <input type="checkbox" id="selectAll"> <?=_e('Select all on this page')?>
+        <input type="checkbox" id="selectAll" class="adam-choice"> <?=_e('Select all on this page')?>
       </label>
 
       <select id="bulkAction" name="action" class="inp">
@@ -195,11 +195,11 @@ $paging_items = build_pagination_items($page, $pages, 9);
       <div class="cols-toggle ml-auto">
         <button type="button" class="cols-toggle-btn js-user-cols-toggle" title="<?= _e('Columns') ?>" aria-expanded="false"><?= svg_ico('columns-2') ?></button>
         <div class="cols-dropdown users-cols-dropdown">
-          <label class="cols-opt"><input type="checkbox" data-col="col-user-contact" checked> <?= _e('Contact') ?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-user-role" checked> <?= _e('Role') ?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-user-status" checked> <?= _e('Status') ?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-user-phone"> <?= _e('Phone') ?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-user-registered" checked> <?= _e('Registered') ?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-user-contact" checked> <?= _e('Contact') ?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-user-role" checked> <?= _e('Role') ?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-user-status" checked> <?= _e('Status') ?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-user-phone"> <?= _e('Phone') ?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-user-registered" checked> <?= _e('Registered') ?></label>
         </div>
       </div>
     </div>
@@ -223,11 +223,10 @@ $paging_items = build_pagination_items($page, $pages, 9);
             <tr><td colspan="8" class="empty-state"><?= _e('No users yet.') ?></td></tr>
           <?php else: ?>
             <?php foreach ($users as $u):
-              $img = !empty($u['img']) ? $u['img'] : '/static/img/person.svg';
               $isSelf = ((int)$u['id'] === $uid);
               $isLocked = (int)($u['is_locked'] ?? 0) === 1;
               $isSiteOwner = (int)($u['is_site_owner'] ?? 0) === 1;
-              $nameRaw = (string)($u['name'] ?? ($u['email'] ?? ''));
+              $nameRaw = user_avatar_display_name($u, __('User'));
               $name = htmlspecialchars($u['name'] ?? '-', ENT_QUOTES, 'UTF-8');
               $username = $u['username'] ?? '';
               $toggleFormId = 'toggle-lock-form-' . (int)$u['id'];
@@ -244,7 +243,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
             <tr class="adam-row">
               <td class="td-center">
                 <?php if ($canSelectUser): ?>
-                  <input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$u['id'] ?>">
+                  <input type="checkbox" class="bulkCheckbox adam-choice" name="ids[]" value="<?= (int)$u['id'] ?>">
                 <?php else: ?>
                   &mdash;
                 <?php endif; ?>
@@ -252,7 +251,12 @@ $paging_items = build_pagination_items($page, $pages, 9);
 
               <td>
                 <div class="user-identity">
-                  <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>" alt="" class="user-avatar">
+                  <?= user_avatar_html($u['img'] ?? '', $nameRaw, [
+                      'image_class' => 'user-avatar',
+                      'fallback_class' => 'user-avatar user-avatar-initial',
+                      'image_attributes' => ['loading' => 'lazy'],
+                      'alt' => $nameRaw,
+                  ]) ?>
                   <div class="user-identity-copy">
                     <?php if (!empty($username)): ?>
                       <a href="<?= htmlspecialchars('/author/' . rawurlencode($username), ENT_QUOTES, 'UTF-8') ?>"

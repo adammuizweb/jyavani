@@ -661,17 +661,19 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 $authorName = !empty($post['author_name']) ? (string)$post['author_name']
                     : (!empty($post['author_username']) ? (string)$post['author_username']
                     : (!empty($post['author_email']) ? (string)$post['author_email'] : __('Author')));
-                $authorImg = !empty($post['author_img']) ? (string)$post['author_img'] : '';
+                $authorImg = user_avatar_image_url($post['author_img'] ?? '');
                 $authorSlug = !empty($post['author_username']) ? (string)$post['author_username'] : (!empty($post['author_id']) ? (string)$post['author_id'] : '');
                 $authorUrl = $authorSlug !== '' ? '/author/' . rawurlencode($authorSlug) . '/' : '';
                 $showAvatar = !array_key_exists('show_avatar', $config) || !empty($config['show_avatar']);
                 $out = '<div class="tz-post-author">';
                 if ($showAvatar) {
-                    if ($authorImg !== '') {
-                        $avatar = '<img src="' . htmlspecialchars($authorImg, ENT_QUOTES, 'UTF-8') . '" alt="' . htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') . '" class="tz-author-avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">';
-                    } else {
-                        $avatar = '<span class="tz-author-avatar-placeholder" style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--accent,#0066ff);color:#fff;font-weight:700;">' . htmlspecialchars(strtoupper(substr($authorName, 0, 1)), ENT_QUOTES, 'UTF-8') . '</span>';
-                    }
+                    $avatar = user_avatar_html($authorImg, $authorName, [
+                        'image_class' => 'tz-author-avatar',
+                        'fallback_class' => 'tz-author-avatar-placeholder',
+                        'image_attributes' => ['style' => 'width:48px;height:48px;border-radius:50%;object-fit:cover;'],
+                        'fallback_attributes' => ['style' => 'display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--accent,#0066ff);color:#fff;font-weight:700;'],
+                        'alt' => $authorName,
+                    ]);
                     $out .= $authorUrl !== '' ? '<a href="' . htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') . '">' . $avatar . '</a>' : $avatar;
                 }
                 $out .= '<div class="tz-author-meta"><span class="tz-author-by">' . __('Written by') . '</span> ';

@@ -45,13 +45,13 @@ $mediaPickerId = isset($mediaPickerId) ? $mediaPickerId : media_picker_id_from_r
       <div class="mdlib-private-options" id="mdlib-private-options">
         <label>
           <?= _e('Private access') ?>
-          <select id="mdlib-access-scope">
+          <select id="mdlib-access-scope" class="mdlib-select">
             <option value="editorial" selected><?= _e('Content Team') ?></option>
             <option value="admin"><?= _e('Administrator') ?></option>
           </select>
         </label>
         <label class="mdlib-checkline">
-          <input type="checkbox" id="mdlib-is-downloadable" value="1" checked>
+          <input type="checkbox" id="mdlib-is-downloadable" class="adam-choice" value="1" checked>
           <?= _e('Allow direct download') ?>
         </label>
       </div>

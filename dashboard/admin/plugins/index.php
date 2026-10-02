@@ -611,6 +611,72 @@ $buildUrl = function(array $overrides = []) use ($base): string {
 
 /* Row highlight on checkbox */
 tr.row-selected { background:var(--adam-surface-4); }
+
+/* Plugin selection controls */
+#selectAllPlugins,
+.plugin-checkbox,
+#pluginKeepDataCheck {
+  appearance:none;
+  -webkit-appearance:none;
+  box-sizing:border-box;
+  display:inline-grid;
+  place-content:center;
+  width:18px;
+  height:18px;
+  margin:0;
+  border:1.5px solid color-mix(in srgb,var(--adam-primary) 48%,var(--adam-border-2));
+  border-radius:5px;
+  background:var(--adam-card);
+  color:var(--adam-on-primary);
+  vertical-align:middle;
+  cursor:pointer;
+  transition:border-color .15s ease,background .15s ease,box-shadow .15s ease;
+}
+#selectAllPlugins::before,
+.plugin-checkbox::before,
+#pluginKeepDataCheck::before {
+  content:"";
+  width:10px;
+  height:10px;
+  background:currentColor;
+  clip-path:polygon(14% 44%,0 59%,40% 100%,100% 21%,84% 5%,39% 72%);
+  transform:scale(0);
+  transition:transform .12s ease-in-out;
+}
+#selectAllPlugins:checked,
+#selectAllPlugins:indeterminate,
+.plugin-checkbox:checked,
+#pluginKeepDataCheck:checked {
+  border-color:var(--adam-primary);
+  background:var(--adam-primary);
+}
+#selectAllPlugins:checked::before,
+.plugin-checkbox:checked::before,
+#pluginKeepDataCheck:checked::before { transform:scale(1); }
+#selectAllPlugins:indeterminate::before {
+  width:9px;
+  height:2px;
+  border-radius:2px;
+  clip-path:none;
+  transform:scale(1);
+}
+#selectAllPlugins:hover,
+.plugin-checkbox:hover,
+#pluginKeepDataCheck:hover { border-color:var(--adam-primary); }
+#selectAllPlugins:focus-visible,
+.plugin-checkbox:focus-visible,
+#pluginKeepDataCheck:focus-visible {
+  outline:0;
+  box-shadow:0 0 0 3px var(--adam-focus);
+}
+@media (forced-colors:active){
+  #selectAllPlugins,
+  .plugin-checkbox,
+  #pluginKeepDataCheck {
+    appearance:auto;
+    -webkit-appearance:auto;
+  }
+}
 </style>
 
 <script src="/static/dashboard/js/update.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/dashboard/js/update.js') ?: 0) ?>"></script>

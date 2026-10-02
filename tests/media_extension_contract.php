@@ -355,9 +355,10 @@ $check(preg_match('/<div class="mdlib-uploader-left">.*<div data-media-extension
 $check(str_contains($modalIndex, 'media_picker_query($mediaContext, $mediaPickerId)') && str_contains($modalList, 'context: <?= json_encode($mediaContext')
     && str_contains($modalList, "broadcast('media:insert', detail)"), 'modal routes preserve context in the insert payload');
 $check(!str_contains($modalDetail, "parse_url((string)(\$r['url']")
-    && str_contains($modalDetail, 'parse_url($url, PHP_URL_PATH)')
+    && str_contains($modalDetail, '$copyUrl = $url;')
+    && str_contains($modalDetail, 'id="mdlib-media-url" class="mdlib-url" readonly value="<?= htmlspecialchars($copyUrl')
     && str_contains($modalDetail, 'name="url" value="<?= htmlspecialchars($url'),
-    'modal detail never republishes a protected row raw URL');
+    'modal detail exposes the complete projected URL without republishing a protected row raw URL');
 $check(str_contains($schema, '`thumbnail_media_id`') && str_contains($migration, 'ADD COLUMN `thumbnail_media_id`')
     && str_contains($migration, 'fk_posts_thumbnail_media') && str_contains($migration, 'ON DELETE SET NULL')
     && str_contains($migration, 'GROUP BY BINARY `url`') && str_contains($migration, 'HAVING COUNT(*) = 1')
@@ -446,6 +447,7 @@ $post = [
     'display_image' => '/static/img/page.jpg',
     'featured_media' => ['id' => 1, 'url' => '/static/img/page.jpg', 'alt' => 'Localized page alt', 'caption' => 'Localized page caption'],
 ];
+require_once $root . '/cfg/helpers/author_helpers.php';
 ob_start();
 include $root . '/public/views/themes/default/main/single/page.php';
 $pageHtml = (string)ob_get_clean();

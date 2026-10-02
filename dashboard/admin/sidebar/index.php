@@ -503,28 +503,32 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
           $canConfigureItem = $canManageRawHtml || in_array($type, $delegatedConfigurableTypes, true);
           $isOpen = (string)($_GET['edit'] ?? '') === (string)$itemId;
         ?>
-          <div class="sw-item" data-id="<?= $itemId ?>" style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);margin-bottom:10px;<?= $active ? '' : 'opacity:.55;' ?>">
-            <input type="hidden" name="widget[<?= $itemId ?>][type]" value="<?= h($type) ?>">
+            <div class="sw-item" data-id="<?= $itemId ?>" style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);margin-bottom:10px;<?= $active ? '' : 'opacity:.55;' ?>">
+              <input type="hidden" name="widget[<?= $itemId ?>][type]" value="<?= h($type) ?>">
 
-            <!-- Header bar -->
-            <div class="sw-header" style="display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;user-select:none;" onclick="toggleWidget(this)">
-              <span class="sw-drag" style="cursor:grab;color:var(--adam-muted);font-size:18px;line-height:1;" title="<?=_e('Drag to reorder')?>">&#x283F;</span>
-              <span class="sw-badge" style="background:var(--adam-primary-soft,var(--adam-surface-3));color:var(--adam-primary,var(--adam-text));padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;"><?= h($typeInfo['label']) ?></span>
-              <span class="sw-title" style="flex:1;font-weight:600;font-size:14px;color:var(--adam-text);"><?= h($it['title'] ?: $typeInfo['label']) ?></span>
-              <input type="hidden" name="widget[<?= $itemId ?>][active]" value="0">
-              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;white-space:nowrap;">
-                 <input type="checkbox" name="widget[<?= $itemId ?>][active]" value="1" <?= $active ? 'checked' : '' ?> <?= $canConfigureItem ? '' : 'disabled' ?> style="width:16px;height:16px;accent-color:var(--adam-primary);cursor:pointer;" onchange="this.closest('.sw-item').style.opacity=this.checked?'':'0.55'">
-                <?=_e('Active')?>
-              </label>
-              <div style="display:flex;gap:4px;">
-                <button type="button" class="sw-up" onclick="moveWidget(this,-1)" style="background:none;border:1px solid var(--adam-border-2);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px;color:var(--adam-muted);" title="<?=_e('Move up')?>">&#x25B2;</button>
-                <button type="button" class="sw-down" onclick="moveWidget(this,1)" style="background:none;border:1px solid var(--adam-border-2);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px;color:var(--adam-muted);" title="<?=_e('Move down')?>">&#x25BC;</button>
+              <!-- Header bar -->
+            <div class="sw-header" style="display:flex;align-items:center;gap:8px;padding:10px 14px;user-select:none;">
+              <button type="button" class="sw-header-main" aria-expanded="<?= $isOpen ? 'true' : 'false' ?>" aria-controls="sw-body-<?= $itemId ?>" onclick="toggleWidget(this)">
+                <span class="sw-drag" style="cursor:grab;color:var(--adam-muted);font-size:18px;line-height:1;" title="<?=_e('Drag to reorder')?>">&#x283F;</span>
+                <span class="sw-badge" style="background:var(--adam-primary-soft,var(--adam-surface-3));color:var(--adam-primary,var(--adam-text));padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap;"><?= h($typeInfo['label']) ?></span>
+                <span class="sw-title" style="font-weight:600;font-size:14px;color:var(--adam-text);"><?= h($it['title'] ?: $typeInfo['label']) ?></span>
+              </button>
+              <div class="sw-header-actions">
+                <input type="hidden" name="widget[<?= $itemId ?>][active]" value="0">
+                <label class="sw-active-control">
+                   <input type="checkbox" name="widget[<?= $itemId ?>][active]" value="1" <?= $active ? 'checked' : '' ?> <?= $canConfigureItem ? '' : 'disabled' ?> style="width:16px;height:16px;accent-color:var(--adam-primary);cursor:pointer;" onchange="this.closest('.sw-item').style.opacity=this.checked?'':'0.55'">
+                  <?=_e('Active')?>
+                </label>
+                <div class="sw-order-actions">
+                  <button type="button" class="sw-up" onclick="moveWidget(this,-1)" title="<?=_e('Move up')?>" aria-label="<?=_e('Move up')?>">&#x25B2;</button>
+                  <button type="button" class="sw-down" onclick="moveWidget(this,1)" title="<?=_e('Move down')?>" aria-label="<?=_e('Move down')?>">&#x25BC;</button>
+                </div>
+                <button type="button" class="sw-delete" onclick="deleteWidget(this, <?= $itemId ?>)" title="<?=_e('Delete widget')?>" aria-label="<?=_e('Delete widget')?>">&#x2715;</button>
               </div>
-              <button type="button" class="sw-delete" onclick="deleteWidget(this, <?= $itemId ?>)" style="background:none;border:none;cursor:pointer;color:var(--adam-danger);font-size:18px;line-height:1;padding:2px 4px;" title="<?=_e('Delete widget')?>">&#x2715;</button>
             </div>
 
             <!-- Edit fields (collapsible) -->
-            <div class="sw-body" style="border-top:1px solid var(--adam-border);padding:14px;display:<?= $isOpen ? 'block' : 'none' ?>;">
+            <div class="sw-body" id="sw-body-<?= $itemId ?>" style="border-top:1px solid var(--adam-border);padding:14px;display:<?= $isOpen ? 'block' : 'none' ?>;">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:600px;">
                 <!-- Common: title -->
                  <div style="grid-column:1/-1;">
@@ -689,10 +693,12 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
 
 <script>
 function toggleWidget(header) {
-  var body = header.nextElementSibling;
-  if (body && body.classList.contains('sw-body')) {
-    body.style.display = body.style.display === 'none' ? 'block' : 'none';
-  }
+  var item = header.closest('.sw-item');
+  var body = item ? item.querySelector('.sw-body') : null;
+  if (!body) return;
+  var expanded = body.style.display === 'none';
+  body.style.display = expanded ? 'block' : 'none';
+  header.setAttribute('aria-expanded', expanded ? 'true' : 'false');
 }
 
 function moveWidget(btn, dir) {
@@ -845,7 +851,66 @@ document.addEventListener('DOMContentLoaded', function() {
 <style>
 .sw-item { transition: opacity .2s ease; }
 .sw-header { border-radius: var(--adam-radius, 8px); }
+.sw-header-main {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:1;
+  min-width:0;
+  padding:0;
+  border:0;
+  background:none;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+.sw-header-main:focus-visible {
+  outline:2px solid var(--adam-primary);
+  outline-offset:4px;
+  border-radius:4px;
+}
+.sw-title { min-width:0;overflow-wrap:anywhere; }
+.sw-header-actions,.sw-order-actions { display:flex;align-items:center;gap:4px; }
+.sw-header-actions { flex:none;gap:8px; }
+.sw-active-control { display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;white-space:nowrap; }
+.sw-up,.sw-down {
+  min-width:28px;
+  min-height:28px;
+  padding:2px 6px;
+  border:1px solid var(--adam-border-2);
+  border-radius:4px;
+  background:none;
+  color:var(--adam-muted);
+  font-size:13px;
+  cursor:pointer;
+}
+.sw-delete {
+  min-width:28px;
+  min-height:28px;
+  padding:2px 4px;
+  border:0;
+  background:none;
+  color:var(--adam-danger);
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+}
 .sw-drag { touch-action: none; }
 .sw-delete:hover { transform: scale(1.2); }
 .sw-up:hover, .sw-down:hover { background: var(--adam-surface-2, #eee) !important; }
+@media (max-width:600px) {
+  .sw-header { flex-direction:column;align-items:stretch !important;padding:12px !important; }
+  .sw-header-main { width:100%; }
+  .sw-badge { max-width:52%;white-space:normal !important;line-height:1.25;overflow-wrap:anywhere; }
+  .sw-title { flex:1; }
+  .sw-header-actions {
+    width:100%;
+    padding-top:8px;
+    border-top:1px solid var(--adam-border);
+    justify-content:flex-end;
+  }
+  .sw-active-control { min-height:44px;margin-right:auto; }
+  .sw-up,.sw-down,.sw-delete { width:44px;height:44px;padding:0; }
+}
 </style>

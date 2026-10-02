@@ -43,7 +43,9 @@ $host    = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
 $baseUrl = rtrim($proto . '://' . $host, '/');
 
 $url = (string)($r['url'] ?? '');
-if ($url !== '' && !preg_match('#^https?://#i', $url)) {
+if ($url !== '' && str_starts_with($url, '//')) {
+    $url = $proto . ':' . $url;
+} elseif ($url !== '' && !preg_match('#^https?://#i', $url)) {
     if (isset($url[0]) && $url[0] === '/') {
         $url = $baseUrl . $url;
     } else {
@@ -105,6 +107,12 @@ $isDownloadable = (int)($r['is_downloadable'] ?? 1);
 $showAccessScope = !($visibility === 'public' && $accessScope === 'public');
 $clientUrl = mdlib_client_url($r);
 $displayUrl = ($visibility === 'private' || $storageDisk === 'private') ? $clientUrl : $url;
+$copyUrl = $displayUrl;
+if ($copyUrl !== '' && str_starts_with($copyUrl, '//')) {
+    $copyUrl = $proto . ':' . $copyUrl;
+} elseif ($copyUrl !== '' && !preg_match('#^https?://#i', $copyUrl)) {
+    $copyUrl = $baseUrl . '/' . ltrim($copyUrl, '/');
+}
 $detailActionContext = asset_detail_action_context('file', 'admin.file.modal.detail', $r, $clientUrl, (int)$uid);
 $detailActions = asset_detail_actions_render($pdo, $detailActionContext);
 
@@ -198,7 +206,7 @@ if (!$embedded):
 
       <div class="mdlib-row">
         <label class="mdlib-checkline">
-          <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+          <input type="checkbox" class="adam-choice" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
           <?=_e('Downloadable')?>
         </label>
       </div>
@@ -206,7 +214,7 @@ if (!$embedded):
       <div class="mdlib-row">
         <label class="mdlib-label"><?=_e('File URL (read-only)')?></label>
         <div class="mdlib-urlrow">
-          <input class="mdlib-input mdlib-url" id="mdlib-file-url" type="text" readonly value="<?= htmlspecialchars($displayUrl, ENT_QUOTES, 'UTF-8') ?>">
+          <input class="mdlib-input mdlib-url" id="mdlib-file-url" type="text" readonly value="<?= htmlspecialchars($copyUrl, ENT_QUOTES, 'UTF-8') ?>">
           <button type="button" class="mdlib-btn" data-mdlib-action="copy-url"><?=_e('Copy')?></button>
         </div>
         <div class="mdlib-note"><?=_e('This URL will be used when inserting.')?></div>

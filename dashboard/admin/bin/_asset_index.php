@@ -88,7 +88,7 @@ $canPurge = $purgeCondition !== null;
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
     <div class="bulk-bar">
-      <label class="check-row"><input type="checkbox" id="assetBinSelectAll"> <?=_e('Select all on page')?></label>
+      <label class="check-row"><input type="checkbox" id="assetBinSelectAll" class="adam-choice"> <?=_e('Select all on page')?></label>
       <select name="action" id="assetBinAction" class="inp">
         <option value=""><?=_e('-- Bulk action --')?></option>
         <?php if ($canRestore): ?><option value="restore"><?=_e('Restore')?></option><?php endif; ?>
@@ -117,7 +117,7 @@ $canPurge = $purgeCondition !== null;
           $title = trim((string)($asset['title'] ?? '')) ?: ((string)($asset['filename'] ?? '') ?: '#' . (int)$asset['id']);
         ?>
           <tr class="adam-row">
-            <td style="text-align:center;"><?php if ($rowCanRestore || $rowCanPurge): ?><input class="asset-bin-checkbox" type="checkbox" name="ids[]" value="<?= (int)$asset['id'] ?>"><?php else: ?>&mdash;<?php endif; ?></td>
+            <td style="text-align:center;"><?php if ($rowCanRestore || $rowCanPurge): ?><input class="asset-bin-checkbox adam-choice" type="checkbox" name="ids[]" value="<?= (int)$asset['id'] ?>"><?php else: ?>&mdash;<?php endif; ?></td>
             <td><strong><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></strong><div style="color:var(--adam-muted);font-size:.85rem;"><?= htmlspecialchars((string)($asset['filename'] ?? ''), ENT_QUOTES, 'UTF-8') ?></div></td>
             <td><?= htmlspecialchars((string)($asset['mime'] ?? '-'), ENT_QUOTES, 'UTF-8') ?><div style="color:var(--adam-muted);font-size:.85rem;"><?= number_format(((int)($asset['size'] ?? 0)) / 1024, 1) ?> KB</div></td>
             <td><?= htmlspecialchars(ucfirst((string)($asset['storage_disk'] ?? '-')), ENT_QUOTES, 'UTF-8') ?><div style="color:var(--adam-muted);font-size:.85rem;"><?= htmlspecialchars((string)($asset['storage_path'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></div></td>

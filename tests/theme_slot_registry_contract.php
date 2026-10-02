@@ -76,6 +76,11 @@ $check(str_contains($dashboard, 'data-assignment-slot=')
     && str_contains($dashboard, "htmlspecialchars(__('Registered theme for') . ' ' . \$slot_label")
     && str_contains($dashboard, "htmlspecialchars(__('Custom template for') . ' ' . \$slot_label"),
     'assignment controls use collision-free row scope and warning text never reparses option labels as HTML');
+$check(substr_count($dashboard, 'type="radio" class="adam-choice" name="install_mode"') === 2
+    && str_contains($dashboard, 'class="adam-choice adam-choice--danger" name="delete_files"')
+    && substr_count($dashboard, 'class="theme-select tm-select"') >= 1
+    && substr_count($dashboard, 'class="post-select tm-select"') >= 1,
+    'Theme Assign uses theme-aware install, deletion, and assignment controls');
 $check(str_contains($dashboard, '$unavailableAssignments = array_diff_key($assign_rows, $slotDefinitions)'), 'dashboard preserves and exposes unavailable assignments');
 $check(strpos($themeHelper, "if (\$definition === null) return ['type' => 'unavailable'];") < strpos($themeHelper, 'get_assignment($pdo, $slot_key)'), 'unavailable slots fail before persisted templates are resolved');
 $check(str_contains($themeHelper, "if (!theme_assignment_matches_definition(\$assign, \$definition)) return ['type' => 'unavailable'];"), 'owner-mismatched assignments cannot execute persisted templates');

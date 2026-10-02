@@ -18,8 +18,8 @@ $perPage = 10;
 $pages   = max(1, (int)ceil($total / $perPage));
 
 // safe author fields
-$authorName = (string)($author['name'] ?? $author['username'] ?? __('Author'));
-$authorImg  = (string)($author['img'] ?? '');
+$authorName = user_avatar_display_name($author, __('Author'));
+$authorImg  = user_avatar_image_url($author['img'] ?? '');
 $authorBio  = trim((string)($author['bio'] ?? ''));
 
 // build author link safely
@@ -35,17 +35,11 @@ $authorLink     = $authorSlug !== ''
 <div class="author-container">
 
   <header class="author-header">
-    <?php if ($authorImg !== ''): ?>
-      <img
-        class="author-photo"
-        src="<?= htmlspecialchars($authorImg, ENT_QUOTES, 'UTF-8') ?>"
-        alt="<?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?>"
-      >
-    <?php else: ?>
-      <div class="author-photo fallback">
-        <?= htmlspecialchars(strtoupper(mb_substr($authorName, 0, 1)), ENT_QUOTES, 'UTF-8') ?>
-      </div>
-    <?php endif; ?>
+    <?= user_avatar_html($authorImg, $authorName, [
+        'image_class' => 'author-photo',
+        'fallback_class' => 'author-photo fallback',
+        'alt' => $authorName,
+    ]) ?>
 
     <div class="author-head-meta">
       <h1 class="author-title"><?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?></h1>

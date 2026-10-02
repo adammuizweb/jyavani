@@ -257,7 +257,7 @@ function build_pagination_items(int $current, int $total, int $max_visible = 9):
 $paging_items = build_pagination_items($page_num, $pages, 9);
 ?>
 
-<section class="adam-card">
+<section class="adam-card posts-list-card">
   <div class="toolbar-top">
     <h2 class="page-heading"><?=_e('Post')?></h2>
 
@@ -299,7 +299,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
     <div class="bulk-bar">
       <label class="check-row">
-        <input type="checkbox" id="selectAll"> <?=_e('Select all on page')?>
+        <input type="checkbox" id="selectAll" class="adam-choice"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkAction" name="action" class="inp">
@@ -337,7 +337,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <div id="bulkCategoriesPanel" class="cat-panel" style="display:none;">
         <?php foreach ($categories as $cat): ?>
           <label class="nested-label">
-            <input type="checkbox" name="categories[]" value="<?= (int)$cat['id'] ?>">
+            <input type="checkbox" class="adam-choice" name="categories[]" value="<?= (int)$cat['id'] ?>">
             <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
           </label>
         <?php endforeach; ?>
@@ -367,10 +367,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <div class="cols-toggle">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
         <div class="cols-dropdown">
-          <label class="cols-opt"><input type="checkbox" data-col="col-status" checked> <?=_e('Status')?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-categories" checked> <?=_e('Categories')?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-created" checked> <?=_e('Created')?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-author" checked> <?=_e('Author')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-categories" checked> <?=_e('Categories')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
         </div>
       </div>
     </div>
@@ -423,7 +423,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             ?>
             <tr class="adam-row">
               <td class="td-center">
-                <?php if ($canBulk && $canSelectPost): ?><input type="checkbox" class="bulkCheckbox" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                <?php if ($canBulk && $canSelectPost): ?><input type="checkbox" class="bulkCheckbox adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
               </td>
 
               <td>

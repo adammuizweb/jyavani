@@ -57,6 +57,13 @@ $check(str_contains($sources['plugin'], '<option value="update">')
     && str_contains($sources['plugin'], 'plugin_order_names_by_dependencies(array_keys($availableUpdates), true)')
     && str_contains($sources['plugin'], "_pluginUpdateProcess.finish(outcome, message"),
     'Plugin Manager bulk update queues only actionable compatible selections through coordinated update operations');
+$check(str_contains($sources['plugin'], '#selectAllPlugins,')
+    && str_contains($sources['plugin'], '.plugin-checkbox,')
+    && str_contains($sources['plugin'], '#pluginKeepDataCheck {')
+    && str_contains($sources['plugin'], 'appearance:none;')
+    && str_contains($sources['plugin'], '#selectAllPlugins:indeterminate::before')
+    && str_contains($sources['plugin'], '@media (forced-colors:active)'),
+    'Plugin Manager checkboxes use theme-aware checked and indeterminate states');
 $check(str_contains($sources['script'], "['completed', 'failed', 'cancelled'].indexOf(outcome)")
     && str_contains($sources['script'], 'if (inert === backgroundInert) return;')
     && str_contains($sources['plugin'], '.bulk-bar{ flex-wrap:wrap; }'),
@@ -89,11 +96,20 @@ $check(!str_contains($sources['plugin'], '_pluginUpdateProcess.notice(')
 $check(str_contains($sources['style'], '.update-process-overlay')
     && str_contains($sources['style'], '@media (max-width: 480px)')
     && str_contains($sources['style'], '.update-process-overlay.is-failed'), 'shared updater styling is full-screen, responsive, and outcome-aware');
+$check(!str_contains($sources['core'], 'public/pdf/')
+    && !str_contains($sources['core'], 'PWA / static PDF files'),
+    'Update Manager preservation summary contains no deployment-specific PDF namespace');
 $check(str_contains($sources['style'], '.update-process-overlay .btn {')
     && str_contains($sources['style'], '.update-process-overlay .btn-primary')
     && str_contains($sources['style'], '.update-process-actions { display: flex; align-items: center; justify-content: center;')
     && !str_contains($sources['style'], '#cmsUpdateProgress .btn'),
     'Core, plugin, and theme terminal actions share centered button geometry and primary states');
+$check(str_contains($sources['style'], '.reset-cb input[type="checkbox"] {')
+    && str_contains($sources['style'], 'appearance: none;')
+    && str_contains($sources['style'], 'background: var(--adam-card);')
+    && str_contains($sources['style'], 'background: var(--adam-danger);')
+    && str_contains($sources['style'], '@media (forced-colors: active)'),
+    'Hard Reset checkboxes use a theme-aware custom appearance with an accessibility fallback');
 $check(str_contains($sources['plugin'], "if (actions) actions.style.display = 'none';")
     && str_contains($sources['plugin'], "if (_confirmAction === 'update')"), 'non-update plugin operations retain the blocking overlay without update cancellation controls');
 

@@ -686,11 +686,11 @@ foreach ($theme_posts as $themePost) {
 
       <div class="tm-mode" role="radiogroup" aria-label="<?= _e('Install mode') ?>">
         <label>
-          <input type="radio" name="install_mode" value="install" checked>
+          <input type="radio" class="adam-choice" name="install_mode" value="install" checked>
           <span><?=_e('Install')?></span>
         </label>
         <label>
-          <input type="radio" name="install_mode" value="install_activate">
+          <input type="radio" class="adam-choice" name="install_mode" value="install_activate">
           <span><?=_e('Install & Activate')?></span>
         </label>
       </div>
@@ -762,7 +762,7 @@ foreach ($theme_posts as $themePost) {
                 <input type="hidden" name="theme_folder" value="<?= htmlspecialchars($folder, ENT_QUOTES, 'UTF-8') ?>">
 
                 <label class="tm-delcheck" title="<?=_e('Also delete the physical theme folder (if exists)')?>">
-                  <input type="checkbox" name="delete_files" value="1">
+                  <input type="checkbox" class="adam-choice adam-choice--danger" name="delete_files" value="1">
                   <span><?=_e('Remove files')?></span>
                 </label>
 

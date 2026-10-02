@@ -20,22 +20,29 @@ $csrfToken = '';
 try { if (function_exists('csrf_token')) $csrfToken = (string)csrf_token(); } catch (Throwable $e) { $csrfToken = ''; }
 if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
+$modalTheme = in_array((string)($_COOKIE['adam_theme'] ?? ''), ['light', 'dark'], true)
+    ? (string)$_COOKIE['adam_theme']
+    : 'light';
+$modalCssPath = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/css/style.css' : '';
+$modalCssVersion = is_file($modalCssPath) ? (int)filemtime($modalCssPath) : 0;
+
 if (!$embedded):
 ?><!doctype html>
-<html lang="<?=h(get_locale())?>">
+<html lang="<?=h(get_locale())?>" class="theme-<?=h($modalTheme)?>">
 <head>
 <meta charset="utf-8">
 <title><?=_e('Media Modal')?></title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-
+<meta name="color-scheme" content="<?=h($modalTheme)?>">
+<link rel="stylesheet" href="/static/dashboard/css/style.css?v=<?=$modalCssVersion?>">
 </head>
-<body>
+<body class="ad-body">
 <?php endif; ?>
 
 <div id="mdlib-root" data-media-context="<?= htmlspecialchars(json_encode($mediaContext, JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8') ?>">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
 
-  <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;margin-bottom:8px">
+  <div class="mdlib-toprow mdlib-toprow--media">
     <div class="mdlib-tabs" id="mdlib-tabs">
       <div class="mdlib-tab mdlib-is-active" data-tab="upload"><?=_e('Upload')?></div>
       <div class="mdlib-tab" data-tab="gallery"><?=_e('Gallery')?></div>
@@ -136,7 +143,7 @@ function injectHtmlWithScriptsTo(container, html) {
 
   } catch (err) {
     console.error('injectHtmlWithScriptsTo error', err);
-    if (container) container.innerHTML = '<div style="color:#c00">' + <?=json_encode(__('Failed to load content.'))?> + '</div>';
+    if (container) container.innerHTML = '<div class="mdlib-loading mdlib-loading--error">' + <?=json_encode(__('Failed to load content.'))?> + '</div>';
   }
 }
 
@@ -156,13 +163,13 @@ function openSingleDetailInModal(id) {
     );
 
   if (modalContent) {
-    modalContent.innerHTML = '<div style="padding:18px;color:#666;font-style:italic">' + <?= json_encode(__('Loading details…')) ?> + '</div>';
+    modalContent.innerHTML = '<div class="mdlib-loading">' + <?= json_encode(__('Loading details…')) ?> + '</div>';
     fetch(url, { credentials: 'include' })
       .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
       .then(html => injectHtmlWithScriptsTo(modalContent, html))
       .catch(err => {
         console.error('Failed to load single_modal:', err);
-        modalContent.innerHTML = '<div style="color:#c00;padding:12px">' + <?= json_encode(__('Failed to load details.')) ?> + '</div>';
+        modalContent.innerHTML = '<div class="mdlib-loading mdlib-loading--error">' + <?= json_encode(__('Failed to load details.')) ?> + '</div>';
         if (typeof window.modalImgToast === 'function') {
           window.modalImgToast('error', 'Gallery', <?= json_encode(__('Failed to load media details.')) ?>);
         }
@@ -178,7 +185,7 @@ function openSingleDetailInModal(id) {
       .then(html => injectHtmlWithScriptsTo(panel, html))
       .catch(err => {
         console.error('Failed to load single_modal into gallery panel:', err);
-        panel.innerHTML = '<div style="color:#c00;padding:12px">' + <?= json_encode(__('Failed to load details.')) ?> + '</div>';
+        panel.innerHTML = '<div class="mdlib-loading mdlib-loading--error">' + <?= json_encode(__('Failed to load details.')) ?> + '</div>';
         if (typeof window.modalImgToast === 'function') {
           window.modalImgToast('error', 'Gallery', <?= json_encode(__('Failed to load media details.')) ?>);
         }

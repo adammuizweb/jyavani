@@ -28,15 +28,23 @@ try {
 }
 if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
+$modalTheme = in_array((string)($_COOKIE['adam_theme'] ?? ''), ['light', 'dark'], true)
+    ? (string)$_COOKIE['adam_theme']
+    : 'light';
+$modalCssPath = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/css/style.css' : '';
+$modalCssVersion = is_file($modalCssPath) ? (int)filemtime($modalCssPath) : 0;
+
 if (!$embedded):
 ?><!doctype html>
-<html lang="<?=h(get_locale())?>">
+<html lang="<?=h(get_locale())?>" class="theme-<?=h($modalTheme)?>">
 <head>
 <meta charset="utf-8">
 <title><?=_e('File Modal')?></title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="<?=h($modalTheme)?>">
+<link rel="stylesheet" href="/static/dashboard/css/style.css?v=<?=$modalCssVersion?>">
 </head>
-<body>
+<body class="ad-body">
 <?php endif; ?>
 
 <div
@@ -54,7 +62,9 @@ if (!$embedded):
         <div data-mdlib-tab="library" role="button" tabindex="0" class="mdlib-tab"><?=_e('Library')?></div>
       </div>
       <div id="mdlib-hint"><?=_e('Click')?> <b>Insert</b> <?=_e('to select file')?></div>
-      <button id="mdlib-close-btn" class="mdlib-btn mdlib-close-btn" title="<?=_e('Close')?>">&times;</button>
+      <?php if (!$embedded): ?>
+        <button id="mdlib-close-btn" class="mdlib-btn mdlib-close-btn" title="<?=_e('Close')?>">&times;</button>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -221,7 +231,7 @@ if (!$embedded):
       });
     } catch (err) {
       console.error('mdlib inject error', err);
-      container.innerHTML = '<div style="color:#c00"><?=__('Failed to load content.')?></div>';
+      container.innerHTML = '<div class="mdlib-loading mdlib-loading--error"><?=__('Failed to load content.')?></div>';
       uiToast('error', 'Library File', <?= json_encode(__('Failed to load modal content.')) ?>, 5000);
     }
   }
@@ -316,7 +326,7 @@ if (!$embedded):
         host.setAttribute('data-loaded', '1');
       } else {
         host.removeAttribute('data-loaded');
-        host.innerHTML = '<div class="mdlib-loading" style="color:#dc2626"><?=__('Failed to load file library.')?></div>';
+        host.innerHTML = '<div class="mdlib-loading mdlib-loading--error"><?=__('Failed to load file library.')?></div>';
       }
       uiToast('error', 'Library File', <?= json_encode(__('Failed to load file list:')) ?> + ' ' + (err.message || err), 6000);
     }
@@ -378,7 +388,7 @@ if (!$embedded):
           '<div class="mdlib-back" data-mdlib-action="back"><?=__('← Back')?></div>' +
           '<div class="mdlib-singletitle"><?=__('File Details')?></div>' +
         '</div>' +
-        '<div class="mdlib-loading" style="color:#dc2626"><?=__('Failed to load file details.')?></div>';
+        '<div class="mdlib-loading mdlib-loading--error"><?=__('Failed to load file details.')?></div>';
       uiToast('error', 'Library File', 'Gagal memuat detail file: ' + (err.message || err), 6000);
     }
   }

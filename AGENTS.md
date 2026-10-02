@@ -110,6 +110,31 @@ Media and File detail pages and their modal variants expose validated non-destru
 
 Return a list of items containing `key`, `label`, `url`, and optional `title`. Core accepts at most eight unique, bounded actions whose URL targets a valid route under the configured dashboard path. The filter does not grant access; plugins must check their own permissions before returning an action.
 
+### Dashboard home notice contract
+
+Core and plugins add structured banners below the dashboard home heading through the `dashboard_home_notices` filter. The filter receives `($items, $context, $pdo)`. Context schema 1 contains `surface` (`dashboard.home`), `user_id`, `is_site_owner`, `can_manage_layout`, `admin_base_path`, and `locale`.
+
+Append list items with a stable namespaced `id`, `message`, optional `title`, `type` (`info`, `success`, `warning`, or `error`), optional Core icon (`bell`, `circle-check`, `alert-triangle`, `circle-x`, or `shield-check`), optional `revision`, optional `dismissible` boolean, and an optional action containing `label` plus a root-relative or HTTPS `url`. Core escapes all text, validates links, keeps at most twelve unique notices, isolates listener failures, and does not allow a filter to remove Core-seeded notices. Dismissal is stored in the browser per user, notice ID, and revision; increment `revision` when changed content must be shown again. The hook grants no authority, so listeners must perform their own permission checks.
+
+```php
+add_filter('dashboard_home_notices', function (array $items, array $context, PDO $pdo): array {
+    if (!current_user_can($pdo, 'plugin.example.settings.manage')) return $items;
+    $items[] = [
+        'id' => 'example.finish-setup',
+        'revision' => '1',
+        'type' => 'warning',
+        'title' => __('Finish setup'),
+        'message' => __('Connect the service before publishing content.'),
+        'action' => [
+            'label' => __('Open settings'),
+            'url' => $context['admin_base_path'] . '/?page=plugin/example/settings',
+        ],
+        'dismissible' => true,
+    ];
+    return $items;
+}, 10);
+```
+
 ## Auth & Session (`cfg/session.php`)
 
 - `is_logged_in()` — checks `$_SESSION['user_id']` + fingerprint (UA hash)

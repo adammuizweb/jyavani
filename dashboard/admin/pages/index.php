@@ -249,7 +249,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
   <?php endif; ?>
     <?php if ($canBulk): ?><div class="bulk-bar">
       <label class="check-row">
-        <input type="checkbox" id="selectAllPages"> <?=_e('Select all on page')?>
+        <input type="checkbox" id="selectAllPages" class="adam-choice"> <?=_e('Select all on page')?>
       </label>
 
       <select id="bulkActionPages" name="action" class="inp">
@@ -301,10 +301,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       <div class="cols-toggle">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
         <div class="cols-dropdown">
-          <label class="cols-opt"><input type="checkbox" data-col="col-slug" checked> <?=_e('Slug')?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-status" checked> <?=_e('Status')?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-created" checked> <?=_e('Created')?></label>
-          <label class="cols-opt"><input type="checkbox" data-col="col-author" checked> <?=_e('Author')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Slug')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
         </div>
       </div>
     </div><?php endif; ?>
@@ -362,7 +362,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               ?>
               <tr class="adam-row">
                 <td style="text-align:center;">
-                  <?php if ($canBulk && $canSelectPage): ?><input type="checkbox" class="bulkCheckboxPage" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                  <?php if ($canBulk && $canSelectPage): ?><input type="checkbox" class="bulkCheckboxPage adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
 
                 <td>

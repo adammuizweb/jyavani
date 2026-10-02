@@ -182,7 +182,7 @@ foreach ($pa['css'] ?? [] as $css_url) {
   $actionMenuFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/action-menu.js' : '';
   $actionMenuVer = is_file($actionMenuFile) ? filemtime($actionMenuFile) : '';
 ?>
-  <script src="/static/dashboard/js/action-menu.js?v=<?= $actionMenuVer ?>" defer></script>
+  <script src="/static/dashboard/js/action-menu.js?v=<?= $actionMenuVer ?>"></script>
   <script src="/static/dashboard/js/index-list.js" defer></script>
   <script src="/static/dashboard/js/aside.js" defer></script>
   <script src="/static/dashboard/js/panel.js" defer></script>
@@ -249,6 +249,16 @@ window.i18n_upd = <?= json_encode([
     'stale_result'      => __('Update information is out of date. Checking again…'),
     'last_checked'      => __('Last checked:'),
 ]) ?>;
+window.newNotifConfirmI18n = <?= json_encode([
+    'warningBadge' => __('Confirmation required'),
+    'dangerBadge' => __('Delete confirmation'),
+    'warningTitle' => __('Confirmation'),
+    'dangerTitle' => __('Delete confirmation'),
+    'message' => __('Continue this action?'),
+    'cancel' => __('Cancel'),
+    'confirm' => __('Continue'),
+    'dangerConfirm' => __('Delete'),
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 window.adiwiraUnsavedI18n = <?= json_encode([
     'badge' => __('Confirmation required'),
     'title' => __('Unsaved changes'),

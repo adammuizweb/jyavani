@@ -56,7 +56,10 @@ if (function_exists('adiwira_flash_pull')) {
 </div>
 
 <div id="adam-modal-backdrop" style="display:none;">
-  <div id="adam-modal"></div>
+  <div id="adam-modal" role="dialog" aria-modal="true">
+    <button type="button" class="adam-modal-close" aria-label="<?=h(__('Close'))?>" title="<?=h(__('Close'))?>">&times;</button>
+    <div id="adam-modal-content"></div>
+  </div>
 </div>
 
 <?php
@@ -70,6 +73,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const tabs = document.querySelectorAll('.tab-btn');
   const modalBackdrop = document.getElementById('adam-modal-backdrop');
   const modalBox = document.getElementById('adam-modal');
+  const modalContent = document.getElementById('adam-modal-content');
+  const modalCloseButton = modalBox ? modalBox.querySelector(':scope > .adam-modal-close') : null;
   let listRequestSequence = 0;
   let listController = null;
 
@@ -215,13 +220,19 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const html = await res.text();
 
-      if (!modalBackdrop || !modalBox) {
+      if (!modalBackdrop || !modalBox || !modalContent) {
         window.open(url, '_blank');
         return;
       }
 
-      modalBox.innerHTML = html;
+      modalContent.innerHTML = html;
+      if (modalBackdrop.style.display !== 'flex') {
+        modalBackdrop.__documentOverflow = document.documentElement.style.overflow;
+        modalBackdrop.__bodyOverflow = document.body.style.overflow;
+      }
       modalBackdrop.style.display = 'flex';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
       modalBackdrop.onclick = function(e){
         if (e.target === modalBackdrop) {
           window.adamModalClose();
@@ -234,7 +245,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   window.adamModalClose = function(force){
     if (!modalBackdrop || !modalBox) return;
-    const form = modalBox.querySelector('form[data-unsaved-guard]');
+    const form = modalContent ? modalContent.querySelector('form[data-unsaved-guard]') : null;
     const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
     if (form && force !== true && guard && typeof guard.confirmDiscardForm === 'function' && guard.isDirty(form)) {
       guard.confirmDiscardForm(form).then(function(ok){
@@ -246,9 +257,25 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
     if (guard && typeof guard.unregister === 'function') guard.unregister(form);
     modalBackdrop.style.display = 'none';
-    modalBox.innerHTML = '';
+    if (modalContent) modalContent.innerHTML = '';
+    document.documentElement.style.overflow = modalBackdrop.__documentOverflow || '';
+    document.body.style.overflow = modalBackdrop.__bodyOverflow || '';
+    delete modalBackdrop.__documentOverflow;
+    delete modalBackdrop.__bodyOverflow;
     return true;
   };
+
+  if (modalCloseButton) {
+    modalCloseButton.addEventListener('click', function(){
+      window.adamModalClose();
+    });
+  }
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && modalBackdrop && modalBackdrop.style.display === 'flex') {
+      window.adamModalClose();
+    }
+  });
 
   window.mediaUi = {
     toast: uiToast,
@@ -404,20 +431,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const scope = copyBtn.closest('form') || copyBtn.closest('.media-single-wrap') || document;
-      const prefixEl = scope.querySelector('#media-url-prefix') || document.getElementById('media-url-prefix');
-      const pathEl   = scope.querySelector('#media-url-path') || document.getElementById('media-url-path');
+      const urlEl = scope.querySelector('#media-url') || document.getElementById('media-url');
+      const full = urlEl ? (urlEl.value || '').trim() : '';
 
-      const prefix = prefixEl ? (prefixEl.textContent || '').trim() : window.location.origin;
-      const path   = pathEl ? (pathEl.value || '').trim() : '';
-
-      if (!path) {
+      if (!full) {
         uiToast('warning', '<?=__('Media')?>', '<?=__('URL not found.')?>', 5000);
         return;
-      }
-
-      let full = path;
-      if (!/^https?:\/\//i.test(path)) {
-        full = prefix.replace(/\/$/, '') + path;
       }
 
       if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {

@@ -368,7 +368,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <div class="bulk-bar">
         <label class="check-row">
-          <input type="checkbox" id="selectAllCategories"> <?=_e('Select all on page')?>
+          <input type="checkbox" id="selectAllCategories" class="adam-choice"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionCategories" name="action" class="inp">
@@ -463,7 +463,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             <tr>
               <td class="td-center">
                 <?php if ($canBulk && $canSelectCategory): ?>
-                  <input type="checkbox" class="bulkCheckboxCategory" name="ids[]" value="<?= $catId ?>">
+                  <input type="checkbox" class="bulkCheckboxCategory adam-choice" name="ids[]" value="<?= $catId ?>">
                 <?php else: ?>
                   &mdash;
                 <?php endif; ?>

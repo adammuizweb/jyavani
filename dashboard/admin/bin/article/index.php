@@ -171,7 +171,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <div class="bulk-bar">
         <label class="check-row">
-          <input type="checkbox" id="selectAllBinArticle"> <?=_e('Select all on page')?>
+          <input type="checkbox" id="selectAllBinArticle" class="adam-choice"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionBinArticle" name="action" class="inp">
@@ -225,7 +225,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             ?>
             <tr class="adam-row">
               <td style="text-align:center;">
-                 <?php if ($canRestorePost || $canPurgePost): ?><input type="checkbox" class="bulkCheckboxBinArticle" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                 <?php if ($canRestorePost || $canPurgePost): ?><input type="checkbox" class="bulkCheckboxBinArticle adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
               </td>
 
               <td>

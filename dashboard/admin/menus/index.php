@@ -81,6 +81,23 @@ try {
 if (!function_exists('render_menu_items_admin')) {
     function render_menu_items_admin(array $items, int $depth, array $translations = []): string {
         if (empty($items)) return '';
+        $actionLabels = [
+            'show' => h(__('Show')),
+            'hide' => h(__('Hide')),
+            'indent' => h(__('Make sub-menu')),
+            'outdent' => h(__('Raise level')),
+            'edit' => h(__('Edit')),
+            'delete' => h(__('Delete')),
+        ];
+        $actionIcons = [
+            'handle' => svg_ico('grip-vertical'),
+            'visible' => svg_ico('eye'),
+            'hidden' => svg_ico('eye-off'),
+            'indent' => svg_ico('chevron-right'),
+            'outdent' => svg_ico('chevron-left'),
+            'edit' => svg_ico('pen'),
+            'delete' => svg_ico('trash-2'),
+        ];
         $html = '<ul class="menu-sortable"' . ($depth > 0 ? ' style="margin-left:20px;"' : '') . '>';
         foreach ($items as $item) {
             $id = (int)$item['id'];
@@ -90,18 +107,21 @@ if (!function_exists('render_menu_items_admin')) {
             $targetId = (int)($item['target_id'] ?? 0);
             $targetBlank = !empty($item['target_blank']) ? '1' : '0';
             $hidden = !empty($item['hidden']) ? '1' : '0';
+            $visibilityLabel = $hidden === '1' ? $actionLabels['show'] : $actionLabels['hide'];
             $hasChildren = !empty($item['children']);
             $localized = htmlspecialchars((string)json_encode($translations[$id] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
             $html .= '<li class="menu-item-admin' . ($hidden === '1' ? ' menu-item-hidden' : '') . '" data-id="' . $id . '" data-type="' . $type . '" data-label="' . $label . '" data-target="' . $targetId . '" data-url="' . $url . '" data-target-blank="' . $targetBlank . '" data-hidden="' . $hidden . '" data-translations="' . $localized . '">';
             $html .= '<div class="menu-item-bar">';
-            $html .= '<span class="menu-item-handle">&#9776;</span>';
+            $html .= '<span class="menu-item-handle">' . $actionIcons['handle'] . '</span>';
             $html .= '<span class="menu-item-label">' . $label . '</span>';
             $html .= '<span class="menu-item-type">' . $type . '</span>';
-            $html .= '<button type="button" class="menu-item-hide adam-ubah" title="' . __('Toggle visibility') . '">' . ($hidden === '1' ? '&#128064;' : '&#128065;') . '</button>';
-            $html .= '<button type="button" class="menu-item-indent adam-ubah" title="' . __('Make sub-menu') . '">&#8594;</button>';
-            $html .= '<button type="button" class="menu-item-outdent adam-ubah" title="' . __('Raise level') . '">&#8592;</button>';
-            $html .= '<button type="button" class="menu-item-edit adam-ubah" title="' . __('Edit') . '">&#9998;</button>';
-            $html .= '<button type="button" class="menu-item-remove adam-hapus" title="' . __('Delete') . '">&#10005;</button>';
+            $html .= '<span class="menu-item-actions">';
+            $html .= '<button type="button" class="menu-item-hide menu-item-action adam-ubah" title="' . $visibilityLabel . '" aria-label="' . $visibilityLabel . '">' . ($hidden === '1' ? $actionIcons['hidden'] : $actionIcons['visible']) . '</button>';
+            $html .= '<button type="button" class="menu-item-indent menu-item-action adam-ubah" title="' . $actionLabels['indent'] . '" aria-label="' . $actionLabels['indent'] . '">' . $actionIcons['indent'] . '</button>';
+            $html .= '<button type="button" class="menu-item-outdent menu-item-action adam-ubah" title="' . $actionLabels['outdent'] . '" aria-label="' . $actionLabels['outdent'] . '">' . $actionIcons['outdent'] . '</button>';
+            $html .= '<button type="button" class="menu-item-edit menu-item-action adam-ubah" title="' . $actionLabels['edit'] . '" aria-label="' . $actionLabels['edit'] . '">' . $actionIcons['edit'] . '</button>';
+            $html .= '<button type="button" class="menu-item-remove menu-item-action adam-hapus" title="' . $actionLabels['delete'] . '" aria-label="' . $actionLabels['delete'] . '">' . $actionIcons['delete'] . '</button>';
+            $html .= '</span>';
             $html .= '</div>';
             if ($hasChildren) {
                 $html .= render_menu_items_admin($item['children'], $depth + 1, $translations);
@@ -128,8 +148,8 @@ if (!function_exists('render_menu_items_admin')) {
   <div class="menus-grid" style="display:grid;grid-template-columns:1fr 320px;gap:20px;">
 
     <!-- LEFT: Menu Structure -->
-    <div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+    <div class="menus-structure">
+      <div class="menus-select-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
         <label style="font-weight:600;"><?=_e('Select Menu:')?></label>
         <select id="menuSelect" class="pht-select" style="min-width:200px;">
           <option value=""><?=_e('-- Select Menu --')?></option>
@@ -139,6 +159,7 @@ if (!function_exists('render_menu_items_admin')) {
               <?= !empty($m['is_default']) ? ' ' . __('(Default)') : '' ?>
             </option>
           <?php endforeach; ?>
+          <option value="__create__">+ <?=_e('Create New Menu')?></option>
         </select>
 
         <?php if ($selectedMenu && empty($selectedMenu['is_default'])): ?>
@@ -153,7 +174,7 @@ if (!function_exists('render_menu_items_admin')) {
       </div>
 
       <?php if ($selectedMenu): ?>
-        <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <div class="menus-current-row" style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span style="font-weight:600;"><?=_e('Menu:')?></span>
           <span id="menuNameDisplay"><?= htmlspecialchars((string)($selectedMenu['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
           <span style="color:var(--adam-muted);font-size:12px;">(slug: <?= htmlspecialchars((string)($selectedMenu['slug'] ?? ''), ENT_QUOTES, 'UTF-8') ?>)</span>
@@ -207,7 +228,7 @@ if (!function_exists('render_menu_items_admin')) {
             </div>
             <div>
               <label style="display:block;font-size:12px;margin-bottom:4px;">
-                 <input type="checkbox" id="editItemTargetBlank" name="edit_item_target_blank" value="1"> <?=_e('Open in new tab')?>
+                 <input type="checkbox" class="adam-choice" id="editItemTargetBlank" name="edit_item_target_blank" value="1"> <?=_e('Open in new tab')?>
               </label>
             </div>
             <div style="display:flex;gap:8px;">
@@ -218,22 +239,22 @@ if (!function_exists('render_menu_items_admin')) {
         </form>
         </div>
 
-        <div style="margin-top:12px;display:flex;gap:8px;">
+        <div class="menus-save-row" style="margin-top:12px;display:flex;gap:8px;">
           <button type="button" id="btnSaveItems" class="adam-button"><?=_e('Save All Items')?></button>
           <span id="saveItemsStatus" style="font-size:12px;color:var(--adam-muted);align-self:center;"></span>
         </div>
 
       <?php else: ?>
-        <div style="text-align:center;padding:40px;color:var(--adam-muted);">
-          <?=_e('No menus yet. Create a new menu from the right panel.')?>
+        <div class="menus-empty-state" style="text-align:center;padding:40px;color:var(--adam-muted);">
+          <?=_e('No menus yet. Choose + Create New Menu above to create one.')?>
         </div>
       <?php endif; ?>
     </div>
 
     <!-- RIGHT: Add Items + New Menu -->
-    <div>
+    <div class="menus-tools">
       <!-- Create New Menu -->
-      <div style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;margin-bottom:16px;background:var(--adam-surface-4);">
+      <div class="menu-create-card" style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;margin-bottom:16px;background:var(--adam-surface-4);" hidden>
         <h4 style="margin:0 0 12px 0;"><?=_e('Create New Menu')?></h4>
         <form method="post" action="<?= htmlspecialchars($base . '/admin/menus/save.php', ENT_QUOTES, 'UTF-8') ?>" id="menu-create-form" data-unsaved-guard>
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
@@ -242,7 +263,10 @@ if (!function_exists('render_menu_items_admin')) {
           <div style="display:flex;gap:8px;flex-direction:column;">
             <input type="text" name="name" class="pht-input" placeholder="<?=_e('Menu name (e.g. Primary)')?>" required>
             <input type="text" name="slug" class="pht-input" placeholder="<?=_e('Slug (e.g. primary)')?>" required>
-            <button type="submit" class="adam-button"><?=_e('Create Menu')?></button>
+            <div class="menu-create-actions" style="display:flex;gap:8px;">
+              <button type="submit" class="adam-button" style="flex:1;"><?=_e('Create Menu')?></button>
+              <button type="button" id="cancelCreateMenu" class="adam-cancle"><?=_e('Cancel')?></button>
+            </div>
           </div>
         </form>
       </div>
@@ -265,7 +289,7 @@ if (!function_exists('render_menu_items_admin')) {
           <div style="display:grid;gap:8px;">
             <input type="text" id="customLabel" name="custom_label" class="pht-input" placeholder="<?=_e('Label')?>">
             <input type="url" id="customUrl" name="custom_url" class="pht-input" placeholder="<?=_e('https://...')?>">
-            <label style="font-size:12px;"><input type="checkbox" id="customTargetBlank" name="custom_target_blank" value="1"> <?=_e('Open in new tab')?></label>
+            <label style="font-size:12px;"><input type="checkbox" class="adam-choice" id="customTargetBlank" name="custom_target_blank" value="1"> <?=_e('Open in new tab')?></label>
             <button type="button" class="add-item-btn adam-button" data-type="custom"><?=_e('Add to Menu')?></button>
           </div>
         </div>
@@ -374,6 +398,23 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const CSRF = <?= json_encode($csrf) ?>;
   const MENU_ID = <?= json_encode($selectedMenuId) ?>;
   const SAVE_URL = <?= json_encode($base . '/admin/menus/items_save.php') ?>;
+  const MENU_ITEM_ICONS = <?= json_encode([
+      'handle' => svg_ico('grip-vertical'),
+      'visible' => svg_ico('eye'),
+      'hidden' => svg_ico('eye-off'),
+      'indent' => svg_ico('chevron-right'),
+      'outdent' => svg_ico('chevron-left'),
+      'edit' => svg_ico('pen'),
+      'delete' => svg_ico('trash-2'),
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  const MENU_ITEM_LABELS = <?= json_encode([
+      'show' => __('Show'),
+      'hide' => __('Hide'),
+      'indent' => __('Make sub-menu'),
+      'outdent' => __('Raise level'),
+      'edit' => __('Edit'),
+      'delete' => __('Delete'),
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
   const container = document.getElementById('menuItemsContainer');
   const saveBtn = document.getElementById('btnSaveItems');
@@ -384,6 +425,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const itemEditForm = document.getElementById('menuItemEditForm');
   const addItemForm = document.getElementById('menu-add-item-form');
   const createMenuForm = document.getElementById('menu-create-form');
+  const createMenuCard = document.querySelector('.menu-create-card');
+  const menusGrid = document.querySelector('.menus-grid');
   const renameMenuForm = document.getElementById('menu-rename-form');
 
   // Temporary ID counter for new items (negative numbers avoid DB ID conflicts)
@@ -462,25 +505,36 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var hideBtn = li.querySelector('.menu-item-hide');
     if (data.hidden) {
       li.classList.add('menu-item-hidden');
-      if (hideBtn) hideBtn.innerHTML = '&#128064;';
+      if (hideBtn) {
+        hideBtn.innerHTML = MENU_ITEM_ICONS.hidden;
+        hideBtn.title = MENU_ITEM_LABELS.show;
+        hideBtn.setAttribute('aria-label', MENU_ITEM_LABELS.show);
+      }
     } else {
       li.classList.remove('menu-item-hidden');
-      if (hideBtn) hideBtn.innerHTML = '&#128065;';
+      if (hideBtn) {
+        hideBtn.innerHTML = MENU_ITEM_ICONS.visible;
+        hideBtn.title = MENU_ITEM_LABELS.hide;
+        hideBtn.setAttribute('aria-label', MENU_ITEM_LABELS.hide);
+      }
     }
     syncItemsDraft();
   }
 
   function buildListItemHTML(data){
     var isHidden = data.hidden ? true : false;
+    var visibilityLabel = isHidden ? MENU_ITEM_LABELS.show : MENU_ITEM_LABELS.hide;
     return '<div class="menu-item-bar">'
-      + '<span class="menu-item-handle">&#9776;</span>'
+      + '<span class="menu-item-handle">' + MENU_ITEM_ICONS.handle + '</span>'
       + '<span class="menu-item-label">' + escapeHtml(data.label) + '</span>'
       + '<span class="menu-item-type">' + escapeHtml(data.type) + '</span>'
-      + '<button type="button" class="menu-item-hide adam-ubah" title="<?=_e('Toggle visibility')?>">' + (isHidden ? '&#128064;' : '&#128065;') + '</button>'
-      + '<button type="button" class="menu-item-indent adam-ubah" title="<?=_e('Make sub-menu')?>">&#8594;</button>'
-      + '<button type="button" class="menu-item-outdent adam-ubah" title="<?=_e('Raise level')?>">&#8592;</button>'
-      + '<button type="button" class="menu-item-edit adam-ubah" title="<?=_e('Edit')?>">&#9998;</button>'
-      + '<button type="button" class="menu-item-remove adam-hapus" title="<?= _e('Delete') ?>">&#10005;</button>'
+      + '<span class="menu-item-actions">'
+      + '<button type="button" class="menu-item-hide menu-item-action adam-ubah" title="' + escapeHtml(visibilityLabel) + '" aria-label="' + escapeHtml(visibilityLabel) + '">' + (isHidden ? MENU_ITEM_ICONS.hidden : MENU_ITEM_ICONS.visible) + '</button>'
+      + '<button type="button" class="menu-item-indent menu-item-action adam-ubah" title="' + escapeHtml(MENU_ITEM_LABELS.indent) + '" aria-label="' + escapeHtml(MENU_ITEM_LABELS.indent) + '">' + MENU_ITEM_ICONS.indent + '</button>'
+      + '<button type="button" class="menu-item-outdent menu-item-action adam-ubah" title="' + escapeHtml(MENU_ITEM_LABELS.outdent) + '" aria-label="' + escapeHtml(MENU_ITEM_LABELS.outdent) + '">' + MENU_ITEM_ICONS.outdent + '</button>'
+      + '<button type="button" class="menu-item-edit menu-item-action adam-ubah" title="' + escapeHtml(MENU_ITEM_LABELS.edit) + '" aria-label="' + escapeHtml(MENU_ITEM_LABELS.edit) + '">' + MENU_ITEM_ICONS.edit + '</button>'
+      + '<button type="button" class="menu-item-remove menu-item-action adam-hapus" title="' + escapeHtml(MENU_ITEM_LABELS.delete) + '" aria-label="' + escapeHtml(MENU_ITEM_LABELS.delete) + '">' + MENU_ITEM_ICONS.delete + '</button>'
+      + '</span>'
       + '</div>';
   }
 
@@ -1032,10 +1086,52 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   submitActionForm(renameMenuForm, renameMenuForm, '');
 
   var menuSelect = document.getElementById('menuSelect');
+  var createMenuOption = '__create__';
+  function setCreateMenuMode(active){
+    if (!menuSelect || !createMenuCard || !menusGrid) return;
+    createMenuCard.hidden = !active;
+    menusGrid.classList.toggle('is-create-mode', active);
+    menuSelect.value = active ? createMenuOption : originalMenu;
+    if (active) {
+      window.setTimeout(function(){
+        var nameInput = createMenuForm ? createMenuForm.querySelector('input[name="name"]') : null;
+        if (nameInput) nameInput.focus();
+      }, 0);
+    }
+  }
+
+  function closeCreateMenuMode(){
+    var guard = guardApi();
+    function close(){
+      if (createMenuForm) createMenuForm.reset();
+      markFormSaved(createMenuForm);
+      setCreateMenuMode(false);
+    }
+    if (!guard || typeof guard.confirmDiscardForm !== 'function') {
+      close();
+      return;
+    }
+    guard.confirmDiscardForm(createMenuForm).then(function(confirmed){
+      if (confirmed) close();
+      else menuSelect.value = createMenuOption;
+    });
+  }
+
   if (menuSelect) {
     var originalMenu = menuSelect.value;
     menuSelect.addEventListener('change', function(){
-      if (!menuSelect.value) return;
+      if (menuSelect.value === createMenuOption) {
+        setCreateMenuMode(true);
+        return;
+      }
+      if (menusGrid && menusGrid.classList.contains('is-create-mode') && menuSelect.value === originalMenu) {
+        closeCreateMenuMode();
+        return;
+      }
+      if (!menuSelect.value) {
+        menuSelect.value = menusGrid && menusGrid.classList.contains('is-create-mode') ? createMenuOption : originalMenu;
+        return;
+      }
       var target = <?= json_encode($base . '/?page=admin/menus/index&menu_id=') ?> + menuSelect.value;
       var guard = guardApi();
       if (!guard || typeof guard.confirmDiscardForm !== 'function') {
@@ -1044,7 +1140,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       }
       guard.confirmDiscardForm().then(function(confirmed){
         if (!confirmed) {
-          menuSelect.value = originalMenu;
+          menuSelect.value = menusGrid && menusGrid.classList.contains('is-create-mode') ? createMenuOption : originalMenu;
           return;
         }
         if (typeof guard.allowNavigation === 'function') guard.allowNavigation();
@@ -1052,6 +1148,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
     });
   }
+  var cancelCreateMenu = document.getElementById('cancelCreateMenu');
+  if (cancelCreateMenu) cancelCreateMenu.addEventListener('click', closeCreateMenuMode);
 
   document.addEventListener('keydown', function(event){
     if (itemEditModal && !itemEditModal.hidden) {
@@ -1089,6 +1187,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   margin: 0;
   padding: 0;
 }
+.menus-grid,
+.menus-grid > * {
+  min-width: 0;
+}
+.menu-create-card[hidden]{ display:none !important; }
+.menus-grid.is-create-mode .menus-current-row,
+.menus-grid.is-create-mode #menu-default-form,
+.menus-grid.is-create-mode #menu-add-item-form,
+.menus-grid.is-create-mode #menuItemsContainer,
+.menus-grid.is-create-mode .menus-empty-state,
+.menus-grid.is-create-mode .menus-save-row{ display:none !important; }
 .menu-item-edit-modal {
   position:fixed;
   inset:0;
@@ -1105,6 +1214,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   box-sizing:border-box;
   width:min(520px,100%);
   max-height:min(720px,calc(100vh - 40px));
+  max-height:min(720px,calc(100dvh - 40px));
   overflow:auto;
   padding:20px;
   border:1px solid var(--adam-border-2);
@@ -1128,10 +1238,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   cursor: default;
 }
 .menu-item-handle {
+  display:inline-grid;
+  place-items:center;
+  width:24px;
+  height:32px;
   cursor: grab;
   color: var(--adam-muted);
-  font-size: 16px;
   user-select: none;
+}
+.menu-item-handle .lucide-icon {
+  width:18px;
+  height:18px;
 }
 .menu-item-handle:active {
   cursor: grabbing;
@@ -1153,9 +1270,18 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   text-transform: uppercase;
   white-space: nowrap;
 }
+.menu-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
 .menu-item-admin.menu-item-hidden > .menu-item-bar {
-  opacity: 0.5;
   background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(0,0,0,0.03) 4px, rgba(0,0,0,0.03) 8px);
+}
+.menu-item-admin.menu-item-hidden .menu-item-label,
+.menu-item-admin.menu-item-hidden .menu-item-type {
+  opacity:.55;
 }
 .menu-item-admin.menu-item-hidden .menu-item-label {
   text-decoration: line-through;
@@ -1164,18 +1290,31 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   border-color: #3b82f6;
   background: rgba(59,130,246,0.08);
 }
-.menu-item-hide,
+.menu-item-action {
+  display:inline-grid;
+  place-items:center;
+  width:32px;
+  height:32px;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:8px;
+  cursor:pointer;
+}
+.menu-item-action .lucide-icon {
+  width:18px;
+  height:18px;
+}
 .menu-item-indent,
-.menu-item-outdent,
-.menu-item-edit {
-  font-size: 12px;
-  padding: 2px 6px;
-  cursor: pointer;
+.menu-item-outdent {
+  color:var(--adam-text-3);
 }
 .menu-item-remove {
-  font-size: 12px;
-  padding: 2px 6px;
-  cursor: pointer;
+  color:var(--adam-danger);
+  background:rgba(229,57,53,.07);
+}
+.menu-item-action:focus-visible {
+  outline:2px solid var(--adam-focus);
+  outline-offset:2px;
 }
 .source-item:hover {
   background: var(--adam-surface-3);
@@ -1184,8 +1323,55 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   background: var(--adam-border-2);
 }
 @media (max-width:768px){
-  .menus-grid{ grid-template-columns:1fr !important; }
-  .menu-item-edit-modal{ align-items:flex-end;padding:12px; }
-  .menu-item-edit-dialog{ max-height:calc(100vh - 24px);padding:18px;border-radius:14px; }
+  .menus-grid{
+    display:flex !important;
+    flex-direction:column;
+    gap:16px !important;
+  }
+  .menus-structure,
+  .menus-tools{ display:contents; }
+  .menus-select-row{ order:1;margin-bottom:0 !important; }
+  .menus-current-row{ order:2;margin-bottom:0 !important; }
+  #menu-add-item-form{ order:3; }
+  .menu-create-card{ order:4;margin-bottom:0 !important; }
+  #menuItemsContainer,
+  .menus-empty-state{ order:5; }
+  .menus-save-row{ order:6;margin-top:0 !important; }
+  .menu-item-bar{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr) auto;
+    align-items:center;
+    padding:8px;
+  }
+  .menu-item-label{
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+  .menu-item-actions{
+    grid-column:1 / -1;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+    min-width:0;
+    gap:8px;
+    margin-top:4px;
+  }
+  .menu-item-action{
+    width:44px;
+    height:44px;
+    border-color:var(--adam-border);
+    background:var(--adam-surface-2);
+    border-radius:10px;
+  }
+  .menu-item-remove{
+    border-color:rgba(229,57,53,.22);
+    background:rgba(229,57,53,.09);
+  }
+  .menu-item-action .lucide-icon{
+    width:20px;
+    height:20px;
+  }
+  .menu-sortable .menu-sortable{ margin-left:12px !important; }
+  .menu-item-edit-modal{ align-items:center;padding:12px; }
+  .menu-item-edit-dialog{ max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);padding:18px;border-radius:14px; }
 }
 </style>

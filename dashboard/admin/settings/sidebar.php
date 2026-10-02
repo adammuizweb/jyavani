@@ -153,7 +153,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
           <strong style="font-size:14px;">Master Enable/Disable</strong>
         </div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:14px;">
-          <input type="checkbox" name="sidebar_enabled" value="1" <?= $current_enabled === '1' ? 'checked' : '' ?> style="width:17px;height:17px;accent-color:var(--adam-primary);">
+          <input type="checkbox" class="adam-choice" name="sidebar_enabled" value="1" <?= $current_enabled === '1' ? 'checked' : '' ?>>
           <?=_e('Enable Sidebar')?>
         </label>
         <div class="muted" style="font-size:12px;margin-top:6px;"><?=_e('Disable to hide sidebar on <strong>all</strong> pages. Highest priority, other overrides do not apply.')?></div>
@@ -166,11 +166,11 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
         </div>
         <div style="display:flex;gap:18px;">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
-            <input type="radio" name="sidebar_position" value="left" <?= $current_position === 'left' ? 'checked' : '' ?> style="accent-color:var(--adam-primary);">
+            <input type="radio" class="adam-choice" name="sidebar_position" value="left" <?= $current_position === 'left' ? 'checked' : '' ?>>
             <?=_e('Left')?>
           </label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:500;">
-            <input type="radio" name="sidebar_position" value="right" <?= $current_position === 'right' ? 'checked' : '' ?> style="accent-color:var(--adam-primary);">
+            <input type="radio" class="adam-choice" name="sidebar_position" value="right" <?= $current_position === 'right' ? 'checked' : '' ?>>
             <?=_e('Right')?>
           </label>
         </div>
@@ -211,7 +211,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
                 </select>
               </td>
               <td style="padding:7px 10px;text-align:center;">
-                <input type="checkbox" name="ctx[<?= htmlspecialchars($ctx_key, ENT_QUOTES, 'UTF-8') ?>][hide]" value="1" <?= $ov_hide ? 'checked' : '' ?> style="width:16px;height:16px;accent-color:var(--adam-danger);cursor:pointer;">
+                <input type="checkbox" class="adam-choice adam-choice--danger" name="ctx[<?= htmlspecialchars($ctx_key, ENT_QUOTES, 'UTF-8') ?>][hide]" value="1" <?= $ov_hide ? 'checked' : '' ?>>
               </td>
             </tr>
           <?php endforeach; ?>

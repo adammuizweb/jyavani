@@ -134,7 +134,7 @@ if (!function_exists('render_category_tree')) {
             $id = (int)$cat['id'];
             $checked = in_array($id, $selected) ? 'checked' : '';
             echo '<label style="display:block;margin:3px 0 3px '.(10 * $depth).'px">';
-            echo '<input type="checkbox" name="categories[]" value="'.$id.'" '.$checked.'> ';
+            echo '<input type="checkbox" class="adam-choice" name="categories[]" value="'.$id.'" '.$checked.'> ';
             echo htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8');
             echo '</label>';
             render_category_tree($categories, $selected, $id, $depth + 1);
@@ -321,7 +321,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
       ?>
       <span class="jy-editor-mode-options">
         <?php foreach ($editorModes as $modeVal => $modeLabel): ?>
-        <label><input type="radio" name="editor_mode" value="<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" id="editor-<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" <?= ($chosenMode === $modeVal || ($chosenMode === '' && $modeVal === 'quill')) ? 'checked' : '' ?>> <?= htmlspecialchars($modeLabel, ENT_QUOTES) ?></label>
+        <label><input type="radio" class="adam-choice" name="editor_mode" value="<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" id="editor-<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" <?= ($chosenMode === $modeVal || ($chosenMode === '' && $modeVal === 'quill')) ? 'checked' : '' ?>> <?= htmlspecialchars($modeLabel, ENT_QUOTES) ?></label>
         <?php endforeach; ?>
       </span>
     </label>
@@ -367,7 +367,7 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
     <?php if ($canChangeOwner): ?>
     <label style="display:block;margin-top:.6rem">
       <?=_e('Created By')?><br>
-      <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
+      <select name="created_by" class="inp" style="margin-top:.4rem">
         <?php
         if (!empty($users)) {
             foreach ($users as $u) {
@@ -385,20 +385,20 @@ $chosenMode = (string)($_POST['editor_mode'] ?? '');
         }
         ?>
       </select>
-      <div style="font-size:12px;color:#666;margin-top:6px"><?= _e('Admin only.') ?></div>
+      <div class="field-note"><?= _e('Admin only.') ?></div>
     </label>
     <?php else: ?>
-      <div style="font-size:12px;color:#666;margin-top:.6rem"><?= _e('Creator cannot be changed. Timestamp can be changed.') ?></div>
+      <div class="field-note" style="margin-top:.6rem"><?= _e('Creator cannot be changed. Timestamp can be changed.') ?></div>
     <?php endif; ?>
 
     <?php if ($canChangeDates): ?><label style="display:block;margin-top:.6rem"><?=_e('Created At')?><br>
-      <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
+      <input type="datetime-local" name="created_at" value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>" class="inp">
+      <div class="field-note"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars($post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
     </label>
 
     <label style="display:block;margin-top:.6rem"><?=_e('Updated At')?><br>
-      <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>" style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-      <div style="font-size:12px;color:#666;margin-top:4px"><?= _e('Leave empty to use current time.') ?></div>
+      <input type="datetime-local" name="updated_at" value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>" class="inp">
+      <div class="field-note"><?= _e('Leave empty to use current time.') ?></div>
     </label><?php endif; ?>
 
     <?php

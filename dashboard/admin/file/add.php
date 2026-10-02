@@ -35,7 +35,7 @@ $hasVisibility = mdlib_has_column('visibility');
   <div style="margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:4px 0">
     <div>
       <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Visibility')?></label>
-      <select id="file-visibility" style="padding:3px 6px;font-size:12px">
+      <select id="file-visibility" class="inp">
         <option value="auto"><?=_e('Auto')?></option>
         <option value="public"><?=_e('Public')?></option>
         <option value="private"><?=_e('Private')?></option>
@@ -44,19 +44,19 @@ $hasVisibility = mdlib_has_column('visibility');
     <div id="file-private-options" style="display:none">
       <div style="display:inline-block;margin-right:8px">
         <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Access Scope')?></label>
-        <select id="file-access-scope" style="padding:3px 6px;font-size:12px">
+        <select id="file-access-scope" class="inp">
           <option value="editorial"><?=_e('Content Team')?></option>
           <option value="admin"><?=_e('Administrator')?></option>
         </select>
       </div>
       <div style="display:inline-block">
         <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600">
-          <input type="checkbox" id="file-is-downloadable" value="1" checked>
+          <input type="checkbox" id="file-is-downloadable" class="adam-choice" value="1" checked>
           <?=_e('Downloadable')?>
         </label>
       </div>
     </div>
-    <div style="align-self:flex-end" class="small" style="color:#888"><?=_e('Private files stored outside public_html')?></div>
+    <div class="small asset-upload-note"><?=_e('Private files stored outside public_html')?></div>
   </div>
   <?php endif; ?>
 
@@ -308,7 +308,7 @@ $hasVisibility = mdlib_has_column('visibility');
     } else if (kind === 'audio') {
       inner = `<div style="height:92px;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;font-weight:700">AUDIO</div>`;
     } else {
-      inner = `<div style="height:92px;display:flex;align-items:center;justify-content:center;background:#f7f7f7;color:#333;font-weight:800">${escapeHtml(ext || 'FILE')}</div>`;
+      inner = `<div class="file-preview-tile">${escapeHtml(ext || 'FILE')}</div>`;
     }
 
     box.innerHTML = `

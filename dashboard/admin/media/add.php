@@ -43,7 +43,7 @@ $mediaContext = media_picker_context_from_request($_GET, [
   <div style="margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:4px 0">
     <div>
       <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Visibility')?></label>
-      <select id="media-visibility" style="padding:3px 6px;font-size:12px">
+      <select id="media-visibility" class="inp">
         <option value="auto"><?=_e('Auto')?></option>
         <option value="public"><?=_e('Public')?></option>
         <option value="private"><?=_e('Private')?></option>
@@ -52,19 +52,19 @@ $mediaContext = media_picker_context_from_request($_GET, [
     <div id="media-private-options" style="display:none">
       <div style="display:inline-block;margin-right:8px">
         <label style="font-size:11px;font-weight:600;display:block;margin-bottom:2px"><?=_e('Access Scope')?></label>
-        <select id="media-access-scope" style="padding:3px 6px;font-size:12px">
+        <select id="media-access-scope" class="inp">
           <option value="editorial"><?=_e('Content Team')?></option>
           <option value="admin"><?=_e('Administrator')?></option>
         </select>
       </div>
       <div style="display:inline-block">
         <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600">
-          <input type="checkbox" id="media-is-downloadable" value="1" checked>
+          <input type="checkbox" id="media-is-downloadable" class="adam-choice" value="1" checked>
           <?=_e('Downloadable')?>
         </label>
       </div>
     </div>
-    <div style="align-self:flex-end" class="small" style="color:#888"><?=_e('Private images stored outside public_html')?></div>
+    <div class="small asset-upload-note"><?=_e('Private images stored outside public_html')?></div>
   </div>
   <?php endif; ?>
 

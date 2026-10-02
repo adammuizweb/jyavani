@@ -19,16 +19,16 @@
         $link = function_exists('get_author_permalink')
           ? get_author_permalink($a)
           : (!empty($a['username']) ? '/author/' . rawurlencode($a['username']) . '/' : '/author/' . rawurlencode($a['id']) . '/');
-        $displayName = $a['name'] ?: $a['email'] ?: ($a['username'] ?? __('Author'));
-        $initial = strtoupper(mb_substr($displayName, 0, 1));
+        $displayName = user_avatar_display_name($a, __('Author'));
       ?>
         <article class="author-card">
           <a href="<?= $link ?>" class="author-card-link">
-            <?php if (!empty($a['img'])): ?>
-              <img class="author-avatar" src="<?= htmlspecialchars($a['img'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?>">
-            <?php else: ?>
-              <div class="author-avatar fallback"><?= $initial ?></div>
-            <?php endif; ?>
+            <?= user_avatar_html($a['img'] ?? '', $displayName, [
+                'image_class' => 'author-avatar',
+                'fallback_class' => 'author-avatar fallback',
+                'image_attributes' => ['loading' => 'lazy'],
+                'alt' => $displayName,
+            ]) ?>
 
             <div class="author-meta">
               <h3 class="author-name"><?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?></h3>

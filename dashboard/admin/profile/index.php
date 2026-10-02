@@ -80,13 +80,14 @@ $dashboard_url = $base . '/?page=admin/settings/index';
 $initialBio = (string)($user['bio'] ?? '');
 $initialPhone = (string)($user['phone'] ?? '');
 
-$postedImg = trim((string)($_POST['img_url'] ?? ''));
-$displayImg = $postedImg !== '' ? $postedImg : (string)($user['img'] ?? '');
-
-if ($displayImg === '') {
-    $initials = urlencode((string)($user['name'] ?? 'User'));
-    $displayImg = "https://ui-avatars.com/api/?name={$initials}&background=random&color=fff";
-}
+$displayName = user_avatar_display_name([
+    'name' => $_POST['name'] ?? ($user['name'] ?? ''),
+    'username' => $user['username'] ?? '',
+    'email' => $_POST['email'] ?? ($user['email'] ?? ''),
+], __('User'));
+$displayImg = user_avatar_image_url(array_key_exists('img_url', $_POST)
+    ? $_POST['img_url']
+    : ($user['img'] ?? ''));
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $token = (string)($_POST['csrf_token'] ?? '');
@@ -146,7 +147,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     } elseif ($action === 'save_profile' && empty($errors)) {
         $name   = trim((string)($_POST['name'] ?? ''));
         $email  = trim((string)($_POST['email'] ?? ''));
-        $imgUrl = trim((string)($_POST['img_url'] ?? ''));
+        $imgUrl = user_avatar_image_url($_POST['img_url'] ?? '');
         $currentPass = (string)($_POST['current_password'] ?? '');
         $pass   = trim((string)($_POST['password'] ?? ''));
         $pass2  = trim((string)($_POST['password_confirm'] ?? ''));
@@ -270,13 +271,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 }
 ?>
 
-<section class="adam-card">
+<section class="adam-card user-editor profile-editor">
   <h2 class="edit-heading"><?=_e('Edit My Profile')?></h2>
 
   <form method="post" novalidate id="profile-save-form" data-unsaved-guard<?= (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'save_profile' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="action" value="save_profile">
-    <input type="hidden" name="img_url" id="inp_img_url" value="<?= htmlspecialchars($_POST['img_url'] ?? ($user['img'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="img_url" id="inp_img_url" value="<?= htmlspecialchars($displayImg, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="profile-layout">
       <div class="profile-photo">
@@ -284,178 +285,243 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           <div id="upload-loader" class="profile-loader">
             <span><?=_e('Uploading...')?></span>
           </div>
-          <img id="preview-img"
-               src="<?= htmlspecialchars($displayImg, ENT_QUOTES, 'UTF-8') ?>"
-               alt="Profile">
+          <?= user_avatar_html($displayImg, $displayName, [
+              'image_class' => 'profile-avatar-image',
+              'fallback_class' => 'profile-avatar-initial',
+              'image_attributes' => ['id' => 'preview-img'],
+              'fallback_attributes' => ['id' => 'preview-initial'],
+              'alt' => $displayName,
+          ]) ?>
         </div>
       </div>
 
       <div class="profile-meta">
         <div class="profile-status">
           <?php if ((int)($user['is_locked'] ?? 0) === 0): ?>
-            <span class="status-badge status-unlocked"><?=_e('Unlocked')?></span> / <?=_e('Approved')?>
+            <span class="status-badge status-unlocked">
+              <?= svg_ico('circle-check') ?>
+              <span><?=_e('Unlocked / Approved')?></span>
+            </span>
           <?php else: ?>
-            <span class="status-badge status-locked"><?=_e('Locked')?></span>
+            <span class="status-badge status-locked">
+              <?= svg_ico('lock') ?>
+              <span><?=_e('Locked / Pending')?></span>
+            </span>
           <?php endif; ?>
         </div>
 
         <div class="profile-actions">
-          <label class="adam-button" style="cursor:pointer;display:none;font-size:.85rem;padding:5px 10px;">
+          <label class="profile-direct-upload" hidden>
             <?=_e('Upload')?>
-            <input type="file" id="file-uploader" accept="image/png, image/jpeg, image/webp" style="display:none;">
+            <input type="file" id="file-uploader" accept="image/png, image/jpeg, image/webp">
           </label>
 
           <button type="button"
                   id="btn-open-media-for-profile"
-                  class="adam-button"><?=_e('Gallery')?></button>
+                  class="profile-action profile-action--primary">
+            <?= svg_ico('image') ?>
+            <span><?=_e('Gallery')?></span>
+          </button>
 
           <button type="button"
                   id="thumbnail-clear"
-                  class="adam-hapus"><?=_e('Clear')?></button>
+                  class="profile-action profile-action--danger"
+                  aria-label="<?= htmlspecialchars(__('Clear'), ENT_QUOTES, 'UTF-8') ?>"
+                  title="<?= htmlspecialchars(__('Clear'), ENT_QUOTES, 'UTF-8') ?>">
+            <?= svg_ico('trash-2') ?>
+            <span class="profile-action-label--compact"><?=_e('Clear')?></span>
+          </button>
         </div>
 
         <button type="button"
                 id="btn-view-profile"
-                class="adam-ubah"><?=_e('View Profile')?></button>
+                class="profile-action profile-action--secondary">
+          <?= svg_ico('external-link') ?>
+          <span><?=_e('View Profile')?></span>
+        </button>
       </div>
 
       <div class="profile-fields">
-        <label><?=_e('Full Name')?><br>
-          <input type="text"
-                 name="name"
-                 id="profile-name-input"
-                 value="<?= htmlspecialchars($_POST['name'] ?? ($user['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                 style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-        </label>
-
-        <div style="margin-top:1rem;"></div>
-
-        <label><?=_e('Email (Login)')?><br>
-          <input type="email"
-                 name="email"
-                 value="<?= htmlspecialchars($_POST['email'] ?? ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                 style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-        </label>
-
-        <label><?=_e('Username')?><br>
-          <input type="text"
-                 id="inp_username"
-                 value="<?= htmlspecialchars($_POST['username'] ?? ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
-                 disabled
-                 style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-        </label>
-
-        <label style="margin-top:1rem;"><?=_e('Phone')?><br>
-          <input type="text"
-                 name="phone"
-                 value="<?= htmlspecialchars($_POST['phone'] ?? ($user['phone'] ?? $initialPhone), ENT_QUOTES, 'UTF-8') ?>"
-                 placeholder="+62xxxxxxxxx"
-                 style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-        </label>
-
-        <label style="margin-top:1rem;"><?=_e('Bio / About Me')?><br>
-          <textarea name="bio"
-                    rows="4"
-                    style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? ($user['bio'] ?? $initialBio), ENT_QUOTES, 'UTF-8') ?></textarea>
-        </label>
-        <?php do_action('profile_after_fields', $user, $pdo); ?>
-
-        <hr style="margin:1.5rem 0; border:0; border-top:1px solid #eee;">
-
-        <p style="font-size:0.9rem; color:#666; margin-bottom:1rem;"><strong><?=_e('Change Password')?></strong> (<?=_e('Optional')?>)</p>
-
-        <p style="font-size:.82rem;color:#666;margin:-.35rem 0 1rem;"><?= _e('Enter your current password to change your email or password.') ?></p>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;">
-          <label><?= _e('Current Password') ?><br>
-            <span class="pw-wrap">
-              <input type="password"
-                     name="current_password"
-                     autocomplete="current-password"
-                     data-unsaved-guard-ignore
-                     style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
-              <button type="button" class="pw-toggle" data-toggle="current_password" aria-label="<?= _e('Show password') ?>">
-                <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
-              </button>
-            </span>
+        <div class="profile-details-grid">
+          <label class="profile-field">
+            <span class="profile-field-label"><?=_e('Full Name')?></span>
+            <input class="adam-input user-form-control"
+                   type="text"
+                   name="name"
+                   id="profile-name-input"
+                   value="<?= htmlspecialchars($_POST['name'] ?? ($user['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
           </label>
 
-          <label><?=_e('New Password')?><br>
-            <span class="pw-wrap">
-              <input type="password"
-                     name="password"
-                     autocomplete="new-password"
-                     style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
-              <button type="button" class="pw-toggle" data-toggle="password" aria-label="<?=_e('Show password')?>">
-                <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
-              </button>
-            </span>
+          <label class="profile-field">
+            <span class="profile-field-label"><?=_e('Email (Login)')?></span>
+            <input class="adam-input user-form-control"
+                   type="email"
+                   name="email"
+                   value="<?= htmlspecialchars($_POST['email'] ?? ($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
           </label>
 
-          <label><?=_e('Confirm Password')?><br>
-            <span class="pw-wrap">
-              <input type="password"
-                     name="password_confirm"
-                     autocomplete="new-password"
-                     style="width:95%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
-              <button type="button" class="pw-toggle" data-toggle="password_confirm" aria-label="<?=_e('Show password')?>">
-                <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
-              </button>
-            </span>
+          <label class="profile-field">
+            <span class="profile-field-label"><?=_e('Username')?></span>
+            <input class="adam-input user-form-control"
+                   type="text"
+                   id="inp_username"
+                   value="<?= htmlspecialchars($_POST['username'] ?? ($user['username'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                   disabled>
+          </label>
+
+          <label class="profile-field">
+            <span class="profile-field-label"><?=_e('Phone')?></span>
+            <input class="adam-input user-form-control"
+                   type="text"
+                   name="phone"
+                   value="<?= htmlspecialchars($_POST['phone'] ?? ($user['phone'] ?? $initialPhone), ENT_QUOTES, 'UTF-8') ?>"
+                   placeholder="+62xxxxxxxxx">
+          </label>
+
+          <label class="profile-field profile-field--wide">
+            <span class="profile-field-label"><?=_e('Bio / About Me')?></span>
+            <textarea class="adam-input user-form-control"
+                      name="bio"
+                      rows="4"><?= htmlspecialchars($_POST['bio'] ?? ($user['bio'] ?? $initialBio), ENT_QUOTES, 'UTF-8') ?></textarea>
           </label>
         </div>
+        <?php do_action('profile_after_fields', $user, $pdo); ?>
 
-        <div style="margin-top:2rem;">
-          <button type="submit" class="adam-button"><?=_e('Save Changes')?></button>
-          <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle" style="margin-left:10px;"><?=_e('Back')?></a>
+        <section class="profile-password-section" aria-labelledby="profile-password-heading">
+          <div class="profile-section-heading">
+            <span class="profile-section-icon"><?= svg_ico('lock') ?></span>
+            <div>
+              <div class="profile-section-title-row">
+                <h3 id="profile-password-heading"><?=_e('Change Password')?></h3>
+                <span class="profile-optional-badge"><?=_e('Optional')?></span>
+              </div>
+              <p><?= _e('Enter your current password to change your email or password.') ?></p>
+            </div>
+          </div>
+
+          <div class="profile-password-grid">
+            <label class="profile-field">
+              <span class="profile-field-label"><?= _e('Current Password') ?></span>
+              <span class="pw-wrap">
+                <input class="adam-input user-form-control"
+                       type="password"
+                       name="current_password"
+                       autocomplete="current-password"
+                       data-unsaved-guard-ignore>
+                <button type="button" class="pw-toggle" data-toggle="current_password" aria-label="<?= _e('Show password') ?>">
+                  <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+                </button>
+              </span>
+            </label>
+
+            <label class="profile-field">
+              <span class="profile-field-label"><?=_e('New Password')?></span>
+              <span class="pw-wrap">
+                <input class="adam-input user-form-control"
+                       type="password"
+                       name="password"
+                       autocomplete="new-password">
+                <button type="button" class="pw-toggle" data-toggle="password" aria-label="<?=_e('Show password')?>">
+                  <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+                </button>
+              </span>
+            </label>
+
+            <label class="profile-field">
+              <span class="profile-field-label"><?=_e('Confirm Password')?></span>
+              <span class="pw-wrap">
+                <input class="adam-input user-form-control"
+                       type="password"
+                       name="password_confirm"
+                       autocomplete="new-password">
+                <button type="button" class="pw-toggle" data-toggle="password_confirm" aria-label="<?=_e('Show password')?>">
+                  <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+                </button>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <div class="profile-form-actions">
+          <button type="submit" class="adam-button profile-save-button">
+            <?= svg_ico('save') ?>
+            <span><?=_e('Save Changes')?></span>
+          </button>
+          <a href="<?= htmlspecialchars($dashboard_url, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle profile-back-button">
+            <?= svg_ico('arrow-left') ?>
+            <span><?=_e('Back')?></span>
+          </a>
         </div>
       </div>
 
-      <div id="upload-error" class="profile-error" style="display:none;"></div>
+      <div id="upload-error" class="profile-error"></div>
     </div>
   </form>
 </section>
 
-<section class="adam-card" style="margin-top:2rem; border-top:4px solid #e74c3c;">
-  <h3 style="color:#c0392b;"><?=_e('Danger Zone')?></h3>
+<section class="adam-card profile-danger-zone">
+  <div class="profile-danger-heading">
+    <span class="profile-danger-icon"><?= svg_ico('alert-triangle') ?></span>
+    <div>
+      <h3><?=_e('Danger Zone')?></h3>
   <?php if ($currentUserIsSiteOwner): ?>
-    <p style="margin:0;color:var(--adam-muted);line-height:1.6;"><?= _e('A Site Owner cannot delete their own account. Revoke Site Owner access from another Site Owner account first.') ?></p>
+      <p><?= _e('A Site Owner cannot delete their own account. Revoke Site Owner access from another Site Owner account first.') ?></p>
   <?php else: ?>
-    <button type="button"
-            id="btn-open-delete-account-modal"
-            style="background:#e74c3c; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer;">
-      <?=_e('Delete My Account')?>
-    </button>
+      <p><?= _e('This account will be deleted and you will be logged out. Continue?') ?></p>
+  <?php endif; ?>
+    </div>
+  </div>
+  <?php if (!$currentUserIsSiteOwner): ?>
+  <button type="button" id="btn-open-delete-account-modal" class="profile-danger-button">
+    <?= svg_ico('trash-2') ?>
+    <span><?=_e('Delete My Account')?></span>
+  </button>
   <?php endif; ?>
 </section>
 
 <?php if (!$currentUserIsSiteOwner): ?>
 <div id="deleteModal"
-     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:5000;">
-  <div style="background:#fff; padding:2rem; border-radius:8px; max-width:400px; width:90%; position:relative;">
-    <h3 style="margin-top:0; color:#c0392b;"><?=_e('Confirm Deletion')?></h3>
+     class="adam-modal profile-delete-modal"
+     role="dialog"
+     aria-modal="true"
+     aria-hidden="true"
+     aria-labelledby="profile-delete-modal-title"
+     aria-describedby="profile-delete-modal-description">
+  <div class="adam-modal__panel profile-delete-modal-panel user-editor" tabindex="-1">
+    <div class="profile-delete-modal-heading">
+      <span class="profile-danger-icon"><?= svg_ico('alert-triangle') ?></span>
+      <div>
+        <h3 id="profile-delete-modal-title"><?=_e('Confirm Deletion')?></h3>
+        <p id="profile-delete-modal-description"><?= _e('This account will be deleted and you will be logged out. Continue?') ?></p>
+      </div>
+    </div>
 
     <form method="post" id="profile-delete-form" data-unsaved-guard>
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="action" value="delete_account">
 
-      <input type="password"
-             id="del_password"
-             name="del_password"
-             autocomplete="off"
-             placeholder="<?=_e('Your Password')?>"
-             required
-             style="width:100%; padding:.5rem; border:1px solid #ddd; border-radius:6px; margin-bottom:1rem;">
+      <label class="profile-field profile-delete-password-field">
+        <span class="profile-field-label"><?=_e('Your Password')?></span>
+        <span class="pw-wrap">
+          <input class="adam-input user-form-control"
+                 type="password"
+                 id="del_password"
+                 name="del_password"
+                 autocomplete="off"
+                 required>
+          <button type="button" class="pw-toggle" data-toggle="del_password" aria-label="<?=_e('Show password')?>">
+            <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
+          </button>
+        </span>
+      </label>
 
-      <div style="text-align:right; gap:10px; display:flex; justify-content:flex-end;">
-        <button type="button"
-                id="btn-close-delete-account-modal"
-                style="background:#ccc; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">
+      <div class="profile-delete-modal-actions">
+        <button type="button" id="btn-close-delete-account-modal" class="profile-modal-button profile-modal-button--secondary">
           <?=_e('Cancel')?>
         </button>
-        <button type="submit"
-                style="background:#e74c3c; color:#fff; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">
-          <?=_e('Delete')?>
+        <button type="submit" class="profile-modal-button profile-modal-button--danger">
+          <?= svg_ico('trash-2') ?>
+          <span><?=_e('Delete')?></span>
         </button>
       </div>
     </form>
@@ -499,6 +565,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   }
 
   const previewImg = document.getElementById('preview-img');
+  const previewInitial = document.getElementById('preview-initial');
   const imgInput = document.getElementById('inp_img_url');
   const nameInput = document.getElementById('profile-name-input');
   const uploadError = document.getElementById('upload-error');
@@ -512,24 +579,38 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   const openDeleteBtn = document.getElementById('btn-open-delete-account-modal');
   const closeDeleteBtn = document.getElementById('btn-close-delete-account-modal');
   const deletePasswordInput = document.getElementById('del_password');
+  let deleteModalReturnFocus = null;
 
   function unsavedGuard(){
     return window.ADIWIRA && window.ADIWIRA.unsavedGuard;
   }
 
-  function currentDefaultAvatar(){
-    const name = (nameInput ? nameInput.value : '') || '';
-    return 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name) + '&background=random&color=fff';
+  function currentAvatarInitial(){
+    const name = String(nameInput ? nameInput.value : '').trim();
+    return Array.from(name || '?')[0].toLocaleUpperCase();
   }
 
   function setPreview(src){
     if (!previewImg) return;
-    previewImg.src = src || currentDefaultAvatar();
+    const url = String(src || '').trim();
+    if (previewInitial) previewInitial.textContent = currentAvatarInitial();
+    if (url !== '') {
+      previewImg.hidden = false;
+      if (previewInitial) previewInitial.hidden = true;
+      previewImg.src = url;
+      return;
+    }
+    previewImg.hidden = true;
+    previewImg.removeAttribute('src');
+    if (previewInitial) previewInitial.hidden = false;
   }
 
   function openDeleteModal(){
     if (!deleteModal) return;
-    deleteModal.style.display = 'flex';
+    deleteModalReturnFocus = document.activeElement;
+    deleteModal.classList.add('is-open');
+    deleteModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('profile-delete-modal-open');
     setTimeout(function(){
       try { deletePasswordInput && deletePasswordInput.focus(); } catch(e){}
     }, 0);
@@ -541,7 +622,11 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
     function close(){
       profileDeleteForm?.reset();
       if (guard && typeof guard.markSaved === 'function') guard.markSaved(null, null, profileDeleteForm);
-      deleteModal.style.display = 'none';
+      deleteModal.classList.remove('is-open');
+      deleteModal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('profile-delete-modal-open');
+      try { deleteModalReturnFocus && deleteModalReturnFocus.focus(); } catch(e){}
+      deleteModalReturnFocus = null;
     }
     if (!guard || typeof guard.confirmDiscardForm !== 'function') {
       close();
@@ -568,8 +653,9 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
   if (nameInput) {
     nameInput.addEventListener('input', function(){
+      if (previewInitial) previewInitial.textContent = currentAvatarInitial();
       if (!imgInput || String(imgInput.value || '').trim() !== '') return;
-      setPreview(currentDefaultAvatar());
+      setPreview('');
     });
   }
 
@@ -598,7 +684,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 
   clearBtn?.addEventListener('click', function(){
     if (imgInput) imgInput.value = '';
-    setPreview(currentDefaultAvatar());
+    setPreview('');
     if (uploadError) {
       uploadError.style.display = 'none';
       uploadError.innerText = '';
@@ -682,8 +768,23 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   });
 
   document.addEventListener('keydown', function(ev){
-    if (ev.key === 'Escape' && deleteModal && deleteModal.style.display === 'flex') {
+    if (!deleteModal || !deleteModal.classList.contains('is-open')) return;
+    if (ev.key === 'Escape') {
+      ev.preventDefault();
       closeDeleteModal();
+      return;
+    }
+    if (ev.key !== 'Tab') return;
+    const focusable = Array.from(deleteModal.querySelectorAll('button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (ev.shiftKey && document.activeElement === first) {
+      ev.preventDefault();
+      last.focus();
+    } else if (!ev.shiftKey && document.activeElement === last) {
+      ev.preventDefault();
+      first.focus();
     }
   });
 

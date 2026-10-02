@@ -17,6 +17,8 @@ $files = [
     'modal_file_single' => (string)file_get_contents($root . '/dashboard/admin/modal_file/single_modal.php'),
     'media_index_modal' => (string)file_get_contents($root . '/dashboard/admin/modal_img/index.php'),
     'media_add_modal' => (string)file_get_contents($root . '/dashboard/admin/modal_img/add_modal.php'),
+    'media_add' => (string)file_get_contents($root . '/dashboard/admin/media/add.php'),
+    'file_add' => (string)file_get_contents($root . '/dashboard/admin/file/add.php'),
     'media_selector' => (string)file_get_contents($root . '/public/static/js/add/media-selector.js'),
     'file_selector' => (string)file_get_contents($root . '/public/static/js/add/file-selector.js'),
     'modal_helpers' => (string)file_get_contents($root . '/public/static/js/add/modal-helpers.js'),
@@ -65,6 +67,10 @@ foreach (['media_list', 'file_list'] as $type) {
 $check(str_contains($files['media_index'], "'&per_page=' + encodeURIComponent(perPage)"), 'media manager preserves page size during AJAX refresh');
 $check(str_contains($files['manager_file_index'], "'&per_page=' + encodeURIComponent(perPage)"), 'file manager preserves page size during AJAX refresh');
 $check(str_contains($files['media_index'], 'AbortController') && str_contains($files['manager_file_index'], 'AbortController'), 'manager lists cancel stale AJAX refreshes');
+$check(!str_contains($files['manager_file_index'], "if ('<?= \$initialTab ?>' === 'list')"),
+    'File Manager keeps the server-rendered initial list stable instead of replacing an opened row menu');
+$check(!str_contains($files['manager_file_index'], "if (target === 'list') {\n        await refreshFileListPanel"),
+    'File Manager tab switching keeps the server-rendered list stable instead of replacing an opened row menu');
 $check(str_contains($files['media_list'], 'window.mediaUi.refreshListPanel({ silent: silent, q: q, page: p, perPage: perPage })'), 'media list delegates hosted refreshes to one request coordinator');
 foreach (['media_single', 'file_single', 'modal_media_single', 'modal_file_single'] as $type) {
     $check(str_contains($files[$type], 'asset-detail'), $type . ' uses the enhanced detail workspace');
@@ -74,7 +80,22 @@ $fileFormStart = strpos($files['file_single'], '<form id="file-edit-form"');
 $fileFormEnd = strpos($files['file_single'], '</form>', $fileFormStart ?: 0);
 $fileSaveButton = strpos($files['file_single'], 'id="file-save-btn"');
 $check($fileFormStart !== false && $fileFormEnd !== false && $fileSaveButton !== false && $fileSaveButton < $fileFormEnd, 'file manager actions remain inside the metadata form');
-$check(str_contains($files['file_single'], 'id="file-url-path"'), 'file manager copy action has an addressable URL field');
+$copySurfaces = $files['file_single'] . $files['media_single'] . $files['modal_file_single'] . $files['modal_media_single'];
+$check(str_contains($files['file_single'], 'id="file-url" readonly value="<?= htmlspecialchars($copyUrl')
+    && str_contains($files['media_single'], 'id="media-url" class="media-url-path" readonly value="<?= htmlspecialchars($copyUrl')
+    && str_contains($files['modal_file_single'], 'id="mdlib-file-url" type="text" readonly value="<?= htmlspecialchars($copyUrl')
+    && str_contains($files['modal_media_single'], 'id="mdlib-media-url" class="mdlib-url" readonly value="<?= htmlspecialchars($copyUrl')
+    && !str_contains($copySurfaces, 'url-prefix')
+    && !str_contains($copySurfaces, 'id="file-url-path"')
+    && !str_contains($copySurfaces, 'id="media-url-path"')
+    && !str_contains($copySurfaces, 'id="mdlib-url-path"'),
+    'all asset detail surfaces expose one complete URL field instead of split domain and path controls');
+$check(str_contains($files['manager_file_index'], "scope.querySelector('#file-url')")
+    && str_contains($files['media_index'], "scope.querySelector('#media-url')")
+    && str_contains($files['modal_file_single'], "getElementById('mdlib-file-url')")
+    && str_contains($files['modal_media_single'], "getElementById('mdlib-media-url')")
+    && !str_contains($files['manager_file_index'] . $files['media_index'] . $files['modal_media_single'], "prefix.replace(/\\/$/, '')"),
+    'asset copy handlers copy the displayed complete URL without reconstructing it in JavaScript');
 $check(strpos($files['file_single'], "_e('File URL')") < strpos($files['file_single'], "_e('Metadata')")
     && str_contains($files['css'], 'grid-template-columns:minmax(0,1fr)'),
     'file manager places File URL above Metadata in one column');
@@ -112,6 +133,55 @@ $check(str_contains($files['translations'], "('default', 'Public file always has
 $check(str_contains($files['modal_file_single'], "__('Insert this file without saving its metadata changes?')")
     && str_contains($files['modal_file_single'], "__('Insert without saving')"), 'file modal explains that Insert does not persist dirty metadata');
 $check(str_contains($files['css'], '.asset-detail-card') && str_contains($files['css'], '.media-list-footer'), 'shared stylesheet defines detail and list pagination enhancements');
+$check(!preg_match('/\.panel:hover(?:\s*,[^\{]*)?\{[^}]*\btransform\s*:/s', $files['css']),
+    'dashboard panels do not transform fixed descendant menus while hovered');
+$check(str_contains($files['file_add_modal'], 'id="mdlib-access-scope" class="mdlib-select"')
+    && str_contains($files['media_add_modal'], 'id="mdlib-access-scope" class="mdlib-select"')
+    && str_contains($files['media_add'], 'id="media-visibility" class="inp"')
+    && str_contains($files['media_add'], 'id="media-access-scope" class="inp"')
+    && str_contains($files['file_add'], 'id="file-visibility" class="inp"')
+    && str_contains($files['file_add'], 'id="file-access-scope" class="inp"'),
+    'asset manager and modal upload selectors use shared theme controls');
+$check(str_contains($files['media_list'], 'id="visibility-filter" class="inp"')
+    && str_contains($files['file_list'], 'id="visibility-filter" class="inp"')
+    && str_contains($files['media_list'], 'asset-list-badge')
+    && str_contains($files['file_list'], 'asset-list-badge')
+    && !str_contains($files['media_list'] . $files['file_list'], 'background:#fee2e2'),
+    'asset manager filters and badges avoid native or fixed light styling');
+$check(str_contains($files['file_list'], 'class="file-actions-cell"')
+    && str_contains($files['file_list'], 'class="adam-actions__trigger"')
+    && str_contains($files['file_list'], 'class="adam-actions__menu" role="menu" hidden')
+    && str_contains($files['file_list'], 'role="menuitem" class="btn-open"')
+    && str_contains($files['file_list'], "svg_ico(\$isPrivate ? 'eye' : 'download')"),
+    'File Manager groups Open and Download or View in the reusable Core overflow menu');
+$check(substr_count($files['media_index_modal'] . $files['file_index'], '/static/dashboard/css/style.css?v=') === 2
+    && substr_count($files['media_index_modal'] . $files['file_index'], 'class="theme-<?=h($modalTheme)?>"') === 2
+    && substr_count($files['media_index_modal'] . $files['file_index'], '<body class="ad-body">') === 2,
+    'standalone asset modals load dashboard theme tokens and honor the saved theme');
+$check(str_contains($files['css'], '@media (max-width:720px)')
+    && str_contains($files['css'], 'padding:max(12px, env(safe-area-inset-top))')
+    && str_contains($files['css'], 'max-height:calc(100dvh - 24px) !important;')
+    && str_contains($files['css'], '#adam-modal-box > .adam-modal-close{')
+    && str_contains($files['css'], 'width:44px !important;')
+    && str_contains($files['css'], 'border-radius:14px !important;')
+    && str_contains($files['css'], 'overscroll-behavior:contain;'),
+    'mobile asset modals retain a visible backdrop around a compact shell with an accessible close target');
+$check(str_contains($files['file_index'], '<?php if (!$embedded): ?>')
+    && substr_count($files['file_index'], 'id="mdlib-close-btn"') === 1
+    && str_contains($files['media_index_modal'], 'class="mdlib-toprow mdlib-toprow--media"')
+    && substr_count($files['manager_file_index'] . $files['media_index'], 'class="adam-modal-close"') === 2
+    && str_contains($files['modal_helpers'], "closeBtn.className = 'adam-modal-close'"),
+    'all four asset surfaces expose one consistent outer close control without duplicate modal chrome');
+$check(str_contains($files['modal_helpers'], "document.documentElement.style.overflow = 'hidden'")
+    && str_contains($files['modal_helpers'], "document.body.style.overflow = 'hidden'")
+    && str_contains($files['modal_helpers'], 'bd.__documentOverflow')
+    && str_contains($files['modal_helpers'], 'bd.__bodyOverflow'),
+    'shared asset modal shell locks and restores background scrolling');
+$check(str_contains($files['manager_file_index'], 'modalBackdrop.__documentOverflow')
+    && str_contains($files['manager_file_index'], 'modalBackdrop.__bodyOverflow')
+    && str_contains($files['media_index'], 'modalBackdrop.__documentOverflow')
+    && str_contains($files['media_index'], 'modalBackdrop.__bodyOverflow'),
+    'manager detail modals preserve the prior background scroll state');
 $check(str_contains($files['modal_helpers'], 'opts.timeoutMs || 30000')
     && str_contains($files['modal_helpers'], "dispatchEvent(new CustomEvent('adam-modal:error'")
     && str_contains($files['media_selector'], 'onError: fail')

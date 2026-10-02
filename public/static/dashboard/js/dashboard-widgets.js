@@ -8,6 +8,31 @@ var input     = document.getElementById('dw-layout-input');
 var wpanel    = document.getElementById('dw-widget-panel');
 var wlist     = document.getElementById('dw-widget-list');
 var basePath  = window.ADMIN_PATH || '';
+var notices   = document.getElementById('dw-notices');
+
+if (notices) {
+  var noticeUser = notices.dataset.userId || '0';
+  var noticeStorageKey = function(notice) {
+    return 'jyavani-dashboard-home-notice:' + basePath + ':' + noticeUser + ':'
+      + (notice.dataset.noticeId || '') + ':' + (notice.dataset.noticeRevision || '1');
+  };
+  var noticeItems = notices.querySelectorAll('.dw-notice');
+  for (var noticeIndex = 0; noticeIndex < noticeItems.length; noticeIndex++) {
+    try {
+      if (localStorage.getItem(noticeStorageKey(noticeItems[noticeIndex]))) noticeItems[noticeIndex].remove();
+    } catch (_) {}
+  }
+  if (!notices.querySelector('.dw-notice')) notices.remove();
+  else notices.addEventListener('click', function(event) {
+    var button = event.target.closest('.dw-notice-dismiss');
+    if (!button) return;
+    var notice = button.closest('.dw-notice');
+    if (!notice) return;
+    try { localStorage.setItem(noticeStorageKey(notice), '1'); } catch (_) {}
+    notice.remove();
+    if (!notices.querySelector('.dw-notice')) notices.remove();
+  });
+}
 
 if (!grid || !toggle) return;
 

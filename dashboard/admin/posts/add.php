@@ -176,7 +176,7 @@ if (!function_exists('render_category_tree')) {
             $id = (int)$cat['id'];
             $checked = in_array($id, $selected) ? 'checked' : '';
             echo '<label style="display:block;margin:3px 0 3px '.(10 * $depth).'px">';
-            echo '<input type="checkbox" name="categories[]" value="'.$id.'" '.$checked.'> ';
+            echo '<input type="checkbox" class="adam-choice" name="categories[]" value="'.$id.'" '.$checked.'> ';
             echo htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8');
             echo '</label>';
             render_category_tree($categories, $selected, $id, $depth + 1);
@@ -579,7 +579,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <?=_e('Select Editor')?><br>
       <span class="jy-editor-mode-options">
         <?php foreach ($editorModes as $modeVal => $modeLabel): ?>
-        <label><input type="radio" name="editor_mode" value="<?= htmlspecialchars((string)$modeVal, ENT_QUOTES, 'UTF-8') ?>" id="editor-<?= htmlspecialchars((string)$modeVal, ENT_QUOTES, 'UTF-8') ?>" <?= $chosenMode === $modeVal ? 'checked' : '' ?>> <?= htmlspecialchars((string)$modeLabel, ENT_QUOTES, 'UTF-8') ?></label>
+        <label><input type="radio" class="adam-choice" name="editor_mode" value="<?= htmlspecialchars((string)$modeVal, ENT_QUOTES, 'UTF-8') ?>" id="editor-<?= htmlspecialchars((string)$modeVal, ENT_QUOTES, 'UTF-8') ?>" <?= $chosenMode === $modeVal ? 'checked' : '' ?>> <?= htmlspecialchars((string)$modeLabel, ENT_QUOTES, 'UTF-8') ?></label>
         <?php endforeach; ?>
       </span>
     </label>

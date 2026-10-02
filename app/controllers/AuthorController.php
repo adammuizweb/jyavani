@@ -135,17 +135,16 @@ class AuthorController
                 <?php else: ?>
                     <div class="authors-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem">
                         <?php foreach ($authors as $a): ?>
+                            <?php $displayName = user_avatar_display_name($a, __('Author')); ?>
                             <div class="author-card" style="border:1px solid #eee;padding:1rem;border-radius:6px;">
                                 <div style="display:flex;align-items:center">
-                                    <?php if (!empty($a['img'])): ?>
-                                        <img src="<?= htmlspecialchars($a['img'], ENT_QUOTES, 'UTF-8') ?>"
-                                             alt="<?= htmlspecialchars($a['name'] ?? $a['username'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
-                                             style="width:64px;height:64px;object-fit:cover;border-radius:50%;margin-right:.8rem">
-                                    <?php else: ?>
-                                        <div style="width:64px;height:64px;border-radius:50%;background:#f0f0f0;margin-right:.8rem;display:flex;align-items:center;justify-content:center;color:#888;">
-                                            <?= htmlspecialchars(strtoupper(mb_substr($a['name'] ?? ($a['username'] ?? '?'), 0, 1)), ENT_QUOTES, 'UTF-8') ?>
-                                        </div>
-                                    <?php endif; ?>
+                                    <?= user_avatar_html($a['img'] ?? '', $displayName, [
+                                        'image_class' => 'author-photo-inline',
+                                        'fallback_class' => 'author-photo-inline',
+                                        'image_attributes' => ['style' => 'width:64px;height:64px;object-fit:cover;border-radius:50%;margin-right:.8rem'],
+                                        'fallback_attributes' => ['style' => 'width:64px;height:64px;border-radius:50%;background:#f0f0f0;margin-right:.8rem;display:flex;align-items:center;justify-content:center;color:#888'],
+                                        'alt' => $displayName,
+                                    ]) ?>
 
                                     <div>
                                         <?php
@@ -155,7 +154,7 @@ class AuthorController
                                         ?>
                                         <h3 style="margin:0;font-size:1.05rem">
                                             <a href="<?= htmlspecialchars($authorLink, ENT_QUOTES, 'UTF-8') ?>">
-                                                <?= htmlspecialchars($a['name'] ?? $a['email'] ?? $a['username'], ENT_QUOTES, 'UTF-8') ?>
+                                                <?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?>
                                             </a>
                                         </h3>
                                         <div style="color:#666;font-size:.9rem">
@@ -501,19 +500,20 @@ class AuthorController
         // 5) inline fallback
         if (trim($content_html) === '') {
             ob_start();
+            $displayName = user_avatar_display_name($user, __('Author'));
             ?>
             <div class="author-posts-container">
                 <header class="author-header-large" style="display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem">
-                    <?php if (!empty($user['img'])): ?>
-                        <img src="<?= htmlspecialchars($user['img'], ENT_QUOTES, 'UTF-8') ?>" class="author-photo-large" style="width:84px;height:84px;object-fit:cover;border-radius:50%">
-                    <?php else: ?>
-                        <div class="author-photo-fallback-large" style="width:84px;height:84px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:28px;color:#666">
-                            <?= htmlspecialchars(strtoupper(substr($user['name'] ?? ($user['username'] ?? '?'), 0, 1)), ENT_QUOTES, 'UTF-8') ?>
-                        </div>
-                    <?php endif; ?>
+                    <?= user_avatar_html($user['img'] ?? '', $displayName, [
+                        'image_class' => 'author-photo-large',
+                        'fallback_class' => 'author-photo-fallback-large',
+                        'image_attributes' => ['style' => 'width:84px;height:84px;object-fit:cover;border-radius:50%'],
+                        'fallback_attributes' => ['style' => 'width:84px;height:84px;border-radius:50%;background:#eee;display:flex;align-items:center;justify-content:center;font-size:28px;color:#666'],
+                        'alt' => $displayName,
+                    ]) ?>
 
                     <div>
-                        <h1 style="margin:0"><?= htmlspecialchars($user['name'] ?? $user['username'] ?? $user['email'], ENT_QUOTES, 'UTF-8') ?></h1>
+                        <h1 style="margin:0"><?= htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8') ?></h1>
                         <?php if (!empty($user['bio'])): ?>
                             <p style="margin:.3rem 0 .4rem;color:#444;max-width:600px;">
                                 <?= nl2br(htmlspecialchars($user['bio'], ENT_QUOTES, 'UTF-8')) ?>

@@ -257,7 +257,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <div class="bulk-bar">
         <label class="check-row">
-          <input type="checkbox" id="selectAllBinCategory"> <?=_e('Select all on page')?>
+          <input type="checkbox" id="selectAllBinCategory" class="adam-choice"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionBinCategory" name="action" class="inp">
@@ -300,7 +300,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             ?>
               <tr class="adam-row">
                 <td style="text-align:center;">
-                  <?php if ($canRestoreCategory || $canPurgeCategory): ?><input type="checkbox" class="bulkCheckboxBinCategory" name="ids[]" value="<?= (int)$c['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                  <?php if ($canRestoreCategory || $canPurgeCategory): ?><input type="checkbox" class="bulkCheckboxBinCategory adam-choice" name="ids[]" value="<?= (int)$c['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
                 <td style="font-weight:600;"><?= htmlspecialchars((string)($c['name'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>
                 <td><?= htmlspecialchars((string)($c['slug'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>

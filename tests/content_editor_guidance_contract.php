@@ -58,6 +58,36 @@ foreach ($forms as $path => $prefix) {
         $prefix . ' identifies the required Content label for the active editor');
 }
 
+$usesSharedInput = static function (string $source, string $name): bool {
+    $position = strpos($source, 'name="' . $name . '"');
+    if ($position === false) return false;
+    return preg_match('/class="[^"]*\binp\b[^"]*"/', substr($source, max(0, $position - 120), 700)) === 1;
+};
+
+foreach ([
+    'post-edit' => 'dashboard/admin/posts/edit.php',
+    'page-edit' => 'dashboard/admin/pages/edit.php',
+] as $label => $path) {
+    $source = (string)file_get_contents($root . '/' . $path);
+    $check($usesSharedInput($source, 'created_by')
+        && $usesSharedInput($source, 'created_at')
+        && $usesSharedInput($source, 'updated_at')
+        && substr_count($source, 'class="field-note"') >= 3,
+        $label . ' metadata controls and guidance use shared theme classes');
+}
+
+$pageAdd = (string)file_get_contents($root . '/dashboard/admin/pages/add.php');
+$check($usesSharedInput($pageAdd, 'created_at')
+    && $usesSharedInput($pageAdd, 'updated_at'),
+    'page-add date metadata controls use the shared theme class');
+
+foreach (['page-add' => $pageAdd, 'page-edit' => (string)file_get_contents($root . '/dashboard/admin/pages/edit.php')] as $label => $source) {
+    $check($usesSharedInput($source, 'sidebar_override')
+        && $usesSharedInput($source, 'meta_description')
+        && str_contains($source, 'class="field-note"'),
+        $label . ' sidebar and metadata fields use shared theme classes');
+}
+
 $css = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $check(str_contains($css, '.field-required{')
     && str_contains($css, '.field-help__trigger:focus-visible{')

@@ -277,7 +277,6 @@ $totalCore = $localManifest['total_files'] ?? 0;
         <li><code>public/static/img/YYYY/</code> &amp; <code>files/</code> &mdash; <?=_e('Uploaded media')?></li>
         <li><code>public/views/themes/</code> &mdash; <?=_e('Installed third-party themes')?></li>
         <li><code>plugins/</code> &mdash; installed plugins</li>
-        <li><code>public/pdf/</code> &mdash; PWA / static PDF files</li>
         <li><code>public/sitemaps/</code> &mdash; generated sitemaps</li>
     </ul>
     <p class="up-hint"><?=_e('Changed files will be automatically backed up to')?> <code>cfg/var/backup-{timestamp}/</code>.</p>

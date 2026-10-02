@@ -73,10 +73,14 @@ if ($editing) {
     }
 }
 
-$displayImg = '/static/img/jyavani.svg';
-if ($editing && !empty($user['img'])) {
-    $displayImg = $user['img'];
-}
+$displayName = user_avatar_display_name([
+    'name' => $_POST['name'] ?? ($user['name'] ?? ''),
+    'username' => $_POST['username'] ?? ($user['username'] ?? ''),
+    'email' => $_POST['email'] ?? ($user['email'] ?? ''),
+], __('User'));
+$displayImg = user_avatar_image_url(array_key_exists('img_url', $_POST)
+    ? $_POST['img_url']
+    : ($user['img'] ?? ''));
 
 $initial_bio = $user['bio'] ?? '';
 $initial_phone = $user['phone'] ?? '';
@@ -104,7 +108,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $plain_password = '';
         $password_confirm = '';
     }
-    $img_url = trim((string)($_POST['img_url'] ?? ''));
+    $img_url = user_avatar_image_url($_POST['img_url'] ?? '');
     $bio   = trim((string)($_POST['bio'] ?? ''));
     $phone = trim((string)($_POST['phone'] ?? ''));
 
@@ -333,14 +337,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 }
 ?>
 
-<section class="adam-card">
+<section class="adam-card user-editor">
   <h2 class="edit-heading"><?= $editing ? _e('Edit User') : _e('Add User') ?></h2>
 
   <form method="post" novalidate id="user-save-form" data-unsaved-guard<?= (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="id" value="<?= $editing ? (int)$user['id'] : 0 ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="img_url" id="inp_img_url" value="<?= htmlspecialchars($_POST['img_url'] ?? ($user['img'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="img_url" id="inp_img_url" value="<?= htmlspecialchars($displayImg, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="profile-layout">
       <div class="profile-photo">
@@ -349,9 +353,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                style="display:none;position:absolute;inset:0;background:rgba(255,255,255,0.8);align-items:center;justify-content:center;z-index:2;">
             <div style="width:34px;height:34px;border-radius:50%;border:4px solid rgba(0,0,0,0.12);border-top-color:#3478f6;animation:spin 1s linear infinite"></div>
           </div>
-          <img id="preview-img"
-               src="<?= htmlspecialchars($displayImg, ENT_QUOTES, 'UTF-8') ?>"
-               alt="Avatar">
+          <?= user_avatar_html($displayImg, $displayName, [
+              'image_class' => 'profile-avatar-image',
+              'fallback_class' => 'profile-avatar-initial',
+              'image_attributes' => ['id' => 'preview-img'],
+              'fallback_attributes' => ['id' => 'preview-initial'],
+              'alt' => $displayName,
+          ]) ?>
           <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
         </div>
       </div>
@@ -370,45 +378,56 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         <div class="profile-actions">
           <button type="button"
                   id="btn-open-media-for-profile"
-                  class="adam-button"><?=_e('Gallery')?></button>
+                  class="profile-action profile-action--primary">
+            <?= svg_ico('image') ?>
+            <span><?=_e('Gallery')?></span>
+          </button>
 
           <button type="button"
                   id="thumbnail-clear"
-                  class="adam-hapus"><?=_e('Clear')?></button>
+                  class="profile-action profile-action--danger"
+                  aria-label="<?= htmlspecialchars(__('Clear'), ENT_QUOTES, 'UTF-8') ?>"
+                  title="<?= htmlspecialchars(__('Clear'), ENT_QUOTES, 'UTF-8') ?>">
+            <?= svg_ico('trash-2') ?>
+            <span class="profile-action-label--compact"><?=_e('Clear')?></span>
+          </button>
         </div>
 
         <button type="button"
                 id="btn-view-profile"
-                class="adam-ubah"><?=_e('View Profile')?></button>
+                class="profile-action profile-action--secondary">
+          <?= svg_ico('external-link') ?>
+          <span><?=_e('View Profile')?></span>
+        </button>
       </div>
 
       <div class="profile-fields">
         <label><?=_e('Email')?><br>
           <?php if ($credentialsProtected): ?><input type="hidden" name="email" value="<?= htmlspecialchars((string)($user['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?>
-          <input type="email" name="<?= $credentialsProtected ? 'protected_email' : 'email' ?>" value="<?= htmlspecialchars($_POST['email'] ?? $user['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" <?= $credentialsProtected ? 'disabled' : '' ?> style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;<?= $credentialsProtected ? 'background:#f2f4f7' : '' ?>">
+          <input class="adam-input user-form-control" type="email" name="<?= $credentialsProtected ? 'protected_email' : 'email' ?>" value="<?= htmlspecialchars($_POST['email'] ?? $user['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" <?= $credentialsProtected ? 'disabled' : '' ?>>
         </label>
 
         <label><?=_e('Username')?><br>
-          <input type="text" name="username" id="inp_username" value="<?= htmlspecialchars($_POST['username'] ?? $user['username'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
-          <div style="font-size:12px;color:#666;margin-top:6px"><?=_e('Unique username (alphanumeric, underscore, dot). Length 3-32 characters.')?></div>
+          <input class="adam-input user-form-control" type="text" name="username" id="inp_username" value="<?= htmlspecialchars($_POST['username'] ?? $user['username'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+          <div class="user-field-note"><?=_e('Unique username (alphanumeric, underscore, dot). Length 3-32 characters.')?></div>
         </label>
 
         <label><?=_e('Name')?><br>
-          <input type="text" name="name" value="<?= htmlspecialchars($_POST['name'] ?? $user['name'] ?? '', ENT_QUOTES, 'UTF-8') ?>" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
+          <input class="adam-input user-form-control" type="text" name="name" id="user-name-input" value="<?= htmlspecialchars($_POST['name'] ?? $user['name'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
         </label>
 
         <label><?=_e('Phone')?><br>
-          <input type="text" name="phone" value="<?= htmlspecialchars($_POST['phone'] ?? $user['phone'] ?? $initial_phone, ENT_QUOTES, 'UTF-8') ?>" placeholder="+62xxxxxxxxx" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px">
+          <input class="adam-input user-form-control" type="text" name="phone" value="<?= htmlspecialchars($_POST['phone'] ?? $user['phone'] ?? $initial_phone, ENT_QUOTES, 'UTF-8') ?>" placeholder="+62xxxxxxxxx">
         </label>
 
         <label><?=_e('Bio')?><br>
-          <textarea name="bio" rows="4" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['bio'] ?? $user['bio'] ?? $initial_bio, ENT_QUOTES, 'UTF-8') ?></textarea>
+          <textarea class="adam-input user-form-control" name="bio" rows="4"><?= htmlspecialchars($_POST['bio'] ?? $user['bio'] ?? $initial_bio, ENT_QUOTES, 'UTF-8') ?></textarea>
         </label>
 
         <?php if (!$credentialsProtected): ?>
         <label><?=_e('Password')?> <?= $editing ? '<small style="color:#888">' . __('(leave blank to keep current)') . '</small>' : '<small style="color:red">*</small>' ?><br>
           <span class="pw-wrap">
-            <input type="password" name="password" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
+            <input class="adam-input user-form-control" type="password" name="password" autocomplete="new-password">
             <button type="button" class="pw-toggle" data-toggle="password" aria-label="<?=_e('Show password')?>">
               <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
             </button>
@@ -416,14 +435,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         </label>
         <label><?=_e('Confirm Password')?><br>
           <span class="pw-wrap">
-            <input type="password" name="password_confirm" autocomplete="new-password" style="width:100%;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;padding-right:2.2rem">
+            <input class="adam-input user-form-control" type="password" name="password_confirm" autocomplete="new-password">
             <button type="button" class="pw-toggle" data-toggle="password_confirm" aria-label="<?=_e('Show password')?>">
               <?= svg_ico('eye', '', ['class' => 'lucide-icon']) ?>
             </button>
           </span>
         </label>
         <?php else: ?>
-          <div style="padding:.7rem;border:1px solid #e4e7ec;border-radius:7px;color:#667085"><?= $targetIsSiteOwner
+          <div class="user-credentials-notice"><?= $targetIsSiteOwner
               ? _e('Site Owner email and password can only be changed from their own Profile with current-password verification.')
               : _e('Change your own email or password from Profile with current-password verification.') ?></div>
         <?php endif; ?>
@@ -435,19 +454,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
           $rolesProtected = $targetIsSiteOwner || !$actorIsSiteOwner;
           if ($rolesProtected) $displayRoleIds = $assignedRoleIds;
         ?>
-        <fieldset style="border:1px solid #ddd;border-radius:8px;padding:.85rem;margin:0;">
-          <legend style="font-weight:700;padding:0 .35rem"><?= _e('Roles') ?></legend>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.55rem;">
+        <fieldset class="user-roles-fieldset">
+          <legend><?= _e('Roles') ?></legend>
+          <div class="user-role-grid">
             <?php foreach ($availableRoles as $availableRole):
               $availableRoleId = (int)$availableRole['id'];
               $checked = in_array($availableRoleId, $displayRoleIds, true);
             ?>
-              <label style="display:flex;gap:.55rem;align-items:flex-start;padding:.65rem;border:1px solid #e4e7ec;border-radius:7px;cursor:<?= $rolesProtected ? 'default' : 'pointer' ?>;">
+              <label class="user-role-option<?= $rolesProtected ? ' is-disabled' : '' ?>">
                 <input type="checkbox" name="role_ids[]" value="<?= $availableRoleId ?>" <?= $checked ? 'checked' : '' ?> <?= $rolesProtected ? 'disabled' : '' ?>>
                 <span style="display:flex;flex-direction:column;gap:.15rem;min-width:0;">
                   <strong><?= htmlspecialchars((string)$availableRole['name'], ENT_QUOTES, 'UTF-8') ?></strong>
-                  <code style="font-size:11px;color:#667085;overflow-wrap:anywhere"><?= htmlspecialchars((string)$availableRole['slug'], ENT_QUOTES, 'UTF-8') ?></code>
-                  <?php if (!empty($availableRole['description'])): ?><small style="color:#667085"><?= htmlspecialchars((string)$availableRole['description'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?>
+                  <code><?= htmlspecialchars((string)$availableRole['slug'], ENT_QUOTES, 'UTF-8') ?></code>
+                  <?php if (!empty($availableRole['description'])): ?><small><?= htmlspecialchars((string)$availableRole['description'], ENT_QUOTES, 'UTF-8') ?></small><?php endif; ?>
                 </span>
               </label>
               <?php if ($rolesProtected && $checked): ?>
@@ -456,11 +475,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             <?php endforeach; ?>
           </div>
           <?php if ($targetIsSiteOwner): ?>
-            <div style="font-size:12px;color:#666;margin-top:7px"><?= _e('Site Owner role assignments are protected. Revoke Site Owner access before changing roles.') ?></div>
+            <div class="user-field-note"><?= _e('Site Owner role assignments are protected. Revoke Site Owner access before changing roles.') ?></div>
           <?php elseif (!$actorIsSiteOwner): ?>
-            <div style="font-size:12px;color:#666;margin-top:7px"><?= _e('Only a Site Owner can change role assignments.') ?></div>
+            <div class="user-field-note"><?= _e('Only a Site Owner can change role assignments.') ?></div>
           <?php else: ?>
-            <div style="font-size:12px;color:#666;margin-top:7px"><a href="<?= htmlspecialchars($base . '/?page=admin/users/roles/index', ENT_QUOTES, 'UTF-8') ?>"><?= _e('Manage Roles & Permissions') ?></a></div>
+            <div class="user-field-note"><a href="<?= htmlspecialchars($base . '/?page=admin/users/roles/index', ENT_QUOTES, 'UTF-8') ?>"><?= _e('Manage Roles & Permissions') ?></a></div>
           <?php endif; ?>
         </fieldset>
 
@@ -493,17 +512,33 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   const form = document.getElementById('user-save-form');
   const imgInput = document.getElementById('inp_img_url');
   const previewImg = document.getElementById('preview-img');
+  const previewInitial = document.getElementById('preview-initial');
+  const nameInput = document.getElementById('user-name-input');
   const clearBtn = document.getElementById('thumbnail-clear');
   const galleryBtn = document.getElementById('btn-open-media-for-profile');
-  const defaultAvatar = <?= json_encode('/static/img/jyavani.svg') ?>;
   const uploadError = document.getElementById('upload-error');
 
+  function currentAvatarInitial(){
+    const name = String(nameInput ? nameInput.value : '').trim();
+    return Array.from(name || '?')[0].toLocaleUpperCase();
+  }
+
   function setAvatar(url){
+    const normalizedUrl = String(url || '').trim();
+    if (previewInitial) previewInitial.textContent = currentAvatarInitial();
     if (previewImg) {
-      previewImg.src = (String(url || '').trim() !== '') ? String(url).trim() : defaultAvatar;
+      if (normalizedUrl !== '') {
+        previewImg.hidden = false;
+        if (previewInitial) previewInitial.hidden = true;
+        previewImg.src = normalizedUrl;
+      } else {
+        previewImg.hidden = true;
+        previewImg.removeAttribute('src');
+        if (previewInitial) previewInitial.hidden = false;
+      }
     }
     if (imgInput) {
-      imgInput.value = (String(url || '').trim() !== '') ? String(url).trim() : defaultAvatar;
+      imgInput.value = normalizedUrl;
     }
     if (uploadError) {
       uploadError.style.display = 'none';
@@ -512,7 +547,13 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   }
 
   // sinkronisasi awal
-  setAvatar(<?= json_encode($_POST['img_url'] ?? ($user['img'] ?? $displayImg)) ?>);
+  setAvatar(<?= json_encode($displayImg) ?>);
+
+  nameInput?.addEventListener('input', function(){
+    if (previewInitial) previewInitial.textContent = currentAvatarInitial();
+    if (!imgInput || String(imgInput.value || '').trim() !== '') return;
+    setAvatar('');
+  });
 
   /* ---------- gallery ---------- */
   galleryBtn?.addEventListener('click', function(){
@@ -536,10 +577,10 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
       });
   });
 
-  /* ---------- clear -> default avatar ---------- */
+  /* ---------- clear -> generated initial ---------- */
   clearBtn?.addEventListener('click', function(e){
     e.preventDefault();
-    setAvatar(defaultAvatar);
+    setAvatar('');
   });
 
   /* ---------- confirm save ---------- */

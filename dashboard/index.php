@@ -82,6 +82,13 @@ if (!function_exists('current_user_can') || !current_user_can($pdo, 'core.dashbo
     exit;
 }
 
+// Authenticated dashboard documents contain user-specific state and must not
+// be restored from a stale browser/proxy cache.
+if (!headers_sent()) {
+    header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+}
+
 // Enforce admin UI locale separately from frontend content default locale.
 if (function_exists('set_locale') && function_exists('admin_ui_locale')) {
     set_locale(admin_ui_locale());

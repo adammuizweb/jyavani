@@ -29,6 +29,13 @@ foreach ($pages as $label => [$file, $expected]) {
     if (!$passed) $failures[] = $label;
 }
 
+$dashboardCss = $read('public/static/dashboard/css/style.css');
+$mobileHeadingStaysInline = str_contains($dashboardCss, '.dw-heading{ flex-direction:row; gap:.75rem; align-items:center; }')
+    && str_contains($dashboardCss, '.dw-heading-actions{ flex:0 0 auto; }')
+    && str_contains($dashboardCss, '.dw-heading-actions .adam-button{ white-space:nowrap; }');
+echo ($mobileHeadingStaysInline ? 'PASS' : 'FAIL') . ' dashboard home keeps its heading actions inline on mobile' . PHP_EOL;
+if (!$mobileHeadingStaysInline) $failures[] = 'dashboard home mobile heading';
+
 $translations = $read('schema/translations.sql');
 $translated = substr_count($translations, "'Sidebar Zones'") >= 2;
 echo ($translated ? 'PASS' : 'FAIL') . ' Sidebar Zones has Indonesian and German translation seeds' . PHP_EOL;

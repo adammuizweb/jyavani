@@ -447,8 +447,8 @@ $check(str_contains($source['manager'], 'SUM(OCTET_LENGTH(content))')
     && str_contains($source['manager'], 'LIMIT 5001')
     && str_contains($source['manager'], "shortcode_layout_theme_section_dependencies(\$pdo, array_column(\$layouts, 'name'), false)")
     && str_contains($source['manager'], '$totalBytes > 16777216'), 'Theme Section dependency discovery bounds stored-content and active-theme PHP scanning');
-$check(str_contains($source['index'], 'id="layout-select-all"') && str_contains($source['index'], 'class="layout-row-check"') && str_contains($source['index'], 'name="files[]"'), 'layout rows expose checkboxes and select-all behavior');
-$check(str_contains($source['index'], '<input type="checkbox" disabled aria-label="<?= h($protectedLabel) ?>"'), 'protected collection layouts and Theme Sections expose a visible disabled checkbox without becoming bulk-selectable');
+$check(str_contains($source['index'], 'id="layout-select-all" class="adam-choice adam-choice--danger"') && str_contains($source['index'], 'class="layout-row-check adam-choice adam-choice--danger"') && str_contains($source['index'], 'name="files[]"'), 'layout rows expose checkboxes and select-all behavior');
+$check(str_contains($source['index'], '<input type="checkbox" class="adam-choice" disabled aria-label="<?= h($protectedLabel) ?>"'), 'protected collection layouts and Theme Sections expose a visible disabled checkbox without becoming bulk-selectable');
 $check(str_contains($source['index'], 'class="sc-scope-switch"')
     && str_contains($source['index'], 'class="sc-toolbar sc-layouts-filter-toolbar"')
     && str_contains($source['index'], 'class="sc-layout-filter-fields"')

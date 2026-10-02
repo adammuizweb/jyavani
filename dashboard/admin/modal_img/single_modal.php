@@ -68,10 +68,13 @@ $url = $clientUrl;
 $detailActionContext = asset_detail_action_context('media', 'admin.media.modal.detail', $r, $clientUrl, (int)$uid);
 $detailActions = asset_detail_actions_render($pdo, $detailActionContext);
 
-if ($url !== '' && !preg_match('#^https?://#i', $url)) {
+if ($url !== '' && str_starts_with($url, '//')) {
+    $url = $proto . ':' . $url;
+} elseif ($url !== '' && !preg_match('#^https?://#i', $url)) {
     if (substr($url, 0, 1) === '/') $url = $baseUrl . $url;
     else $url = $baseUrl . '/' . ltrim($url, '/');
 }
+$copyUrl = $url;
 
 $csrfToken = '';
 try {
@@ -194,7 +197,7 @@ if (!function_exists('modalimg_human_filesize')) {
 
       <div class="mdlib-field">
         <label class="mdlib-checkline">
-          <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+          <input type="checkbox" class="adam-choice" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
           <?=_e('Downloadable')?>
         </label>
       </div>
@@ -203,8 +206,7 @@ if (!function_exists('modalimg_human_filesize')) {
       <div class="mdlib-field">
         <label><?=_e('File URL (read-only)')?></label>
         <div class="mdlib-urlrow">
-          <span class="mdlib-url-prefix" id="mdlib-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-          <input type="text" id="mdlib-url-path" class="mdlib-url" readonly value="<?= htmlspecialchars((string)(parse_url($url, PHP_URL_PATH) ?: $url), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="text" id="mdlib-media-url" class="mdlib-url" readonly value="<?= htmlspecialchars($copyUrl, ENT_QUOTES, 'UTF-8') ?>">
           <button type="button" class="mdlib-btn-copy" data-action="copy-url"><?=_e('Copy')?></button>
         </div>
       </div>
@@ -468,19 +470,12 @@ if (!function_exists('modalimg_human_filesize')) {
   document.querySelector('[data-action="copy-url"]')?.addEventListener('click', function(ev){
     ev.preventDefault();
 
-    const prefixEl = document.getElementById('mdlib-url-prefix');
-    const pathEl = document.getElementById('mdlib-url-path');
-    const prefix = prefixEl ? (prefixEl.textContent || '').trim() : window.location.origin;
-    const path = pathEl ? (pathEl.value || '').trim() : '';
+    const urlEl = document.getElementById('mdlib-media-url');
+    const full = urlEl ? (urlEl.value || '').trim() : '';
 
-    if (!path) {
+    if (!full) {
       uiToast('warning', 'Gallery', <?= json_encode(__('URL not found.')) ?>, 4000);
       return;
-    }
-
-    let full = path;
-    if (!/^https?:\/\//i.test(path)) {
-      full = prefix.replace(/\/$/, '') + path;
     }
 
     if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {

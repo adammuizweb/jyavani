@@ -96,7 +96,7 @@ $authorName = !empty($post['author_name'])
         ? $post['author_username']
         : (!empty($post['author_email']) ? $post['author_email'] : __('Author')));
 
-$authorImg  = !empty($post['author_img']) ? $post['author_img'] : null;
+$authorImg  = user_avatar_image_url($post['author_img'] ?? '');
 $authorSlug = !empty($post['author_username']) ? $post['author_username'] : (!empty($post['author_id']) ? (string)$post['author_id'] : '');
 $authorUrl = $authorSlug !== '' && function_exists('get_author_permalink') ? get_author_permalink(['username' => $authorSlug]) : null;
 
@@ -240,14 +240,16 @@ $showReadTime = !function_exists('theme_mod') || theme_mod('show_read_time', tru
 <div class="adam-post-meta-row fade-up onload" data-anim-trigger="load">
   <?php if ($showAuthor): ?>
   <div class="meta-author">
-    <?php if (!empty($authorImg)): ?>
-      <a href="<?= $authorUrl ?: '#' ?>"<?= $authorUrl ? '' : ' aria-disabled="true" tabindex="-1"' ?>>
-        <img src="<?= htmlspecialchars((string)$authorImg, ENT_QUOTES, 'UTF-8') ?>"
-             alt="<?= htmlspecialchars($authorName, ENT_QUOTES, 'UTF-8') ?>"
-             class="author-avatar flip-logo onload" data-fl-duration="2400">
-      </a>
+    <?php $authorAvatar = user_avatar_html($authorImg, $authorName, [
+        'image_class' => 'author-avatar flip-logo onload',
+        'fallback_class' => 'author-avatar-placeholder',
+        'image_attributes' => ['data-fl-duration' => '2400'],
+        'alt' => $authorName,
+    ]); ?>
+    <?php if ($authorUrl): ?>
+      <a href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>"><?= $authorAvatar ?></a>
     <?php else: ?>
-      <div class="author-avatar-placeholder"><?= htmlspecialchars(strtoupper(substr($authorName, 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+      <?= $authorAvatar ?>
     <?php endif; ?>
 
     <div class="meta-text">
@@ -431,17 +433,11 @@ $imgSrcRaw = function_exists('media_post_display_url') ? media_post_display_url(
     <?php if ($authorUrl): ?>
       <a href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8') ?>" class="btn-back" style="margin-left:.75rem">
         <span class="profa">
-          <svg xmlns="http://www.w3.org/2000/svg"
-               viewBox="0 0 64 64"
-               role="img"
-               aria-labelledby="avatarTitle avatarDesc">
-            <title id="avatarTitle"><?= __('Avatar') ?></title>
-            <desc id="avatarDesc"><?= __('Simple user silhouette icon (head and shoulders)') ?></desc>
-            <g fill="var(--let-base, #1f2937)">
-              <circle cx="32" cy="18" r="10" />
-              <path d="M6 54c0-14 13-26 26-26s26 12 26 26H6z" />
-            </g>
-          </svg>
+          <?= user_avatar_html($authorImg, $authorName, [
+              'image_class' => 'post-footer-avatar',
+              'fallback_class' => 'post-footer-avatar post-footer-avatar-initial',
+              'alt' => $authorName,
+          ]) ?>
         </span>
       </a>
     <?php endif; ?>

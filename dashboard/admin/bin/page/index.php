@@ -160,7 +160,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <div class="bulk-bar">
         <label class="check-row">
-          <input type="checkbox" id="selectAllBinPage"> <?=_e('Select all on page')?>
+          <input type="checkbox" id="selectAllBinPage" class="adam-choice"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionBinPage" name="action" class="inp">
@@ -215,7 +215,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
             ?>
             <tr class="adam-row">
               <td style="text-align:center;">
-                <?php if ($canRestorePage || $canPurgePage): ?><input type="checkbox" class="bulkCheckboxBinPage" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                <?php if ($canRestorePage || $canPurgePage): ?><input type="checkbox" class="bulkCheckboxBinPage adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
               </td>
 
               <td>

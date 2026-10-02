@@ -188,6 +188,13 @@ $check(str_contains($guard, "badgeText: labels.badge || 'Confirmation required'"
     && str_contains($translations, "('default', 'Confirmation required', 'Perlu konfirmasi', 'id')")
     && str_contains($translations, "('default', 'Confirmation required', 'Bestätigung erforderlich', 'de')"),
     'the confirmation badge uses English source text with Indonesian and German seeds');
+$check(str_contains($layout, 'window.newNotifConfirmI18n =')
+    && str_contains($layout, "'warningBadge' => __('Confirmation required')")
+    && str_contains($confirm, 'window.newNotifConfirmI18n || {}')
+    && str_contains($confirm, "labels.warningBadge || 'Confirmation required'")
+    && !str_contains($confirm, 'Perlu konfirmasi')
+    && !str_contains($confirm, 'Lanjutkan aksi ini?'),
+    'shared confirmation defaults follow the active admin locale instead of hard-coded Indonesian text');
 $check(str_contains($guard, 'window.NewNotifConfirm.warning(options)')
     && str_contains($guard, "focus: 'cancel'")
     && str_contains($guard, 'event.preventDefault();')
@@ -333,7 +340,8 @@ $check(str_contains($menuManager, 'function confirmOtherDrafts(excluded)')
     && str_contains($menuManager, 'submitActionForm(createMenuForm, createMenuForm')
     && str_contains($menuManager, "submitActionForm(document.getElementById('menu-default-form'), null")
     && str_contains($menuManager, 'guard.confirmDiscardForm()')
-    && str_contains($menuManager, 'menuSelect.value = originalMenu;'),
+    && str_contains($menuManager, 'guard.confirmDiscardForm(createMenuForm)')
+    && str_contains($menuManager, "menuSelect.value = menusGrid && menusGrid.classList.contains('is-create-mode') ? createMenuOption : originalMenu;"),
     'menu create, rename, default, delete, and menu switching protect other active drafts');
 $check(str_contains($menuManager, 'function closeRenameModal()')
     && str_contains($menuManager, 'renameMenuForm.reset()')

@@ -57,7 +57,10 @@ if (function_exists('adiwira_flash_pull')) {
   </div>
 
   <div id="adam-modal-backdrop" style="display:none;">
-    <div id="adam-modal"></div>
+    <div id="adam-modal" role="dialog" aria-modal="true">
+      <button type="button" class="adam-modal-close" aria-label="<?=h(__('Close'))?>" title="<?=h(__('Close'))?>">&times;</button>
+      <div id="adam-modal-content"></div>
+    </div>
   </div>
 </div>
 
@@ -80,6 +83,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const panelList = document.getElementById('file-panel-list');
   const modalBackdrop = document.getElementById('adam-modal-backdrop');
   const modalBox = document.getElementById('adam-modal');
+  const modalContent = document.getElementById('adam-modal-content');
+  const modalCloseButton = modalBox ? modalBox.querySelector(':scope > .adam-modal-close') : null;
   let listRequestSequence = 0;
   let listController = null;
 
@@ -263,12 +268,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
       const html = await res.text();
 
-      if (!modalBackdrop || !modalBox) {
+      if (!modalBackdrop || !modalBox || !modalContent) {
         window.open(url, '_blank');
         return;
       }
 
-      injectHtmlWithScripts(modalBox, html);
+      injectHtmlWithScripts(modalContent, html);
+      if (modalBackdrop.style.display !== 'flex') {
+        modalBackdrop.__documentOverflow = document.documentElement.style.overflow;
+        modalBackdrop.__bodyOverflow = document.body.style.overflow;
+      }
       modalBackdrop.style.display = 'flex';
       document.documentElement.style.overflow = 'hidden';
       document.body.style.overflow = 'hidden';
@@ -279,7 +288,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   window.adamModalClose = function(force){
     if (!modalBackdrop || !modalBox) return;
-    const form = modalBox.querySelector('form[data-unsaved-guard]');
+    const form = modalContent ? modalContent.querySelector('form[data-unsaved-guard]') : null;
     const guard = window.ADIWIRA && window.ADIWIRA.unsavedGuard;
     if (form && force !== true && guard && typeof guard.confirmDiscardForm === 'function' && guard.isDirty(form)) {
       guard.confirmDiscardForm(form).then(function(ok){
@@ -291,11 +300,19 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     }
     if (guard && typeof guard.unregister === 'function') guard.unregister(form);
     modalBackdrop.style.display = 'none';
-    modalBox.innerHTML = '';
-    document.documentElement.style.overflow = '';
-    document.body.style.overflow = '';
+    if (modalContent) modalContent.innerHTML = '';
+    document.documentElement.style.overflow = modalBackdrop.__documentOverflow || '';
+    document.body.style.overflow = modalBackdrop.__bodyOverflow || '';
+    delete modalBackdrop.__documentOverflow;
+    delete modalBackdrop.__bodyOverflow;
     return true;
   };
+
+  if (modalCloseButton) {
+    modalCloseButton.addEventListener('click', function(){
+      window.adamModalClose();
+    });
+  }
 
   if (modalBackdrop) {
     modalBackdrop.addEventListener('click', function(e){
@@ -312,13 +329,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   });
 
   tabs.forEach(btn => {
-    btn.addEventListener('click', async function(){
+    btn.addEventListener('click', function(){
       const target = btn.dataset.target || 'add';
       activateTab(target);
-
-      if (target === 'list') {
-        await refreshFileListPanel({ silent: true, forcePage1: false });
-      }
     });
   });
 
@@ -504,20 +517,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       ev.preventDefault();
 
       const scope = copyBtn.closest('form') || copyBtn.closest('.single-file') || document;
-      const prefixEl = scope.querySelector('#file-url-prefix') || document.getElementById('file-url-prefix');
-      const pathEl = scope.querySelector('#file-url-path') || document.getElementById('file-url-path');
+      const urlEl = scope.querySelector('#file-url') || document.getElementById('file-url');
+      const full = urlEl ? (urlEl.value || '').trim() : '';
 
-      const prefix = prefixEl ? (prefixEl.textContent || '').trim() : window.location.origin;
-      const path = pathEl ? (pathEl.value || '').trim() : '';
-
-      if (!path) {
+      if (!full) {
         uiToast('warning', '<?=__('File')?>', '<?=__('URL not found.')?>', 5000);
         return;
-      }
-
-      let full = path;
-      if (!/^https?:\/\//i.test(path)) {
-        full = prefix.replace(/\/$/, '') + path;
       }
 
       const fallbackCopy = (text) => {
@@ -619,9 +624,5 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   document.addEventListener('file:updated', () => refreshFileListPanel({ silent: true, forcePage1: false }));
   document.addEventListener('file:deleted', () => refreshFileListPanel({ silent: true, forcePage1: false }));
   document.addEventListener('file:added',   () => refreshFileListPanel({ silent: true, forcePage1: true }));
-
-  if ('<?= $initialTab ?>' === 'list') {
-    refreshFileListPanel({ silent: true, forcePage1: false });
-  }
 })();
 </script>

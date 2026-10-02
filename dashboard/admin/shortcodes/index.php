@@ -187,7 +187,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <input type="hidden" name="return_to" value="<?= h($presetReturnTo) ?>">
     <div class="sc-bulk-bar sc-presets-bulk" id="preset-bulk-bar" data-active="false">
       <div class="sc-bulk-summary">
-        <label class="check-row"><input type="checkbox" id="preset-select-all"> <?=_e('Select all on page')?></label>
+        <label class="check-row"><input type="checkbox" id="preset-select-all" class="adam-choice"> <?=_e('Select all on page')?></label>
         <span id="preset-selection-count" class="bulk-selection-count" role="status" aria-live="polite" hidden>
           <span class="bsc-number">0</span>
           <span class="bsc-label"><?=_e('Presets Selected')?></span>
@@ -236,7 +236,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
               $actionMenuId = 'preset-actions-' . (int)$p['id'];
             ?>
             <tr class="adam-row sc-presets-table-row">
-              <td><input type="checkbox" class="preset-row-check" name="ids[]" value="<?= (int)$p['id'] ?>" aria-label="<?= h(sprintf(__('Select %s'), (string)($p['title'] ?? ''))) ?>"></td>
+              <td><input type="checkbox" class="preset-row-check adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>" aria-label="<?= h(sprintf(__('Select %s'), (string)($p['title'] ?? ''))) ?>"></td>
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h((string)($p['title'] ?? '-')) ?></a></td>
               <td><code><?= h((string)($p['slug'] ?? '-')) ?></code></td>
               <td><span class="adam-status <?= h($stClass) ?>"><span class="adam-status-text"><?= h(__(ucfirst($st))) ?></span></span></td>
@@ -349,7 +349,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <input type="hidden" name="return_to" value="<?= h($layoutReturnTo) ?>">
     <div class="sc-bulk-bar sc-layouts-bulk" id="layout-bulk-bar" data-active="false">
       <div class="sc-bulk-summary">
-        <label class="check-row"><input type="checkbox" id="layout-select-all"> <?=_e('Select all removable')?></label>
+        <label class="check-row"><input type="checkbox" id="layout-select-all" class="adam-choice adam-choice--danger"> <?=_e('Select all removable')?></label>
         <span id="layout-selection-count" class="bulk-selection-count" role="status" aria-live="polite" hidden>
           <span class="bsc-number">0</span>
           <span class="bsc-label"><?=_e('Layouts Selected')?></span>
@@ -410,12 +410,12 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
             <tr class="adam-row sc-layouts-table-row">
               <td>
                 <?php if ($canDelete): ?>
-                  <input type="checkbox" class="layout-row-check" name="files[]" value="<?= h($f) ?>" aria-label="<?= h(sprintf(__('Select %s'), $layoutName)) ?>">
+                  <input type="checkbox" class="layout-row-check adam-choice adam-choice--danger" name="files[]" value="<?= h($f) ?>" aria-label="<?= h(sprintf(__('Select %s'), $layoutName)) ?>">
                 <?php else: ?>
                   <?php $protectedLabel = $isThemeOwnedCollection
                     ? __('Theme-owned Collection Layouts are edited here but removed through the theme lifecycle.')
                     : ($layoutScope === 'section' ? __('Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.') : __('Built-in layouts stay protected and cannot be selected.')); ?>
-                  <input type="checkbox" disabled aria-label="<?= h($protectedLabel) ?>" title="<?= h($protectedLabel) ?>">
+                  <input type="checkbox" class="adam-choice" disabled aria-label="<?= h($protectedLabel) ?>" title="<?= h($protectedLabel) ?>">
                 <?php endif; ?>
               </td>
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h($f) ?></a></td>

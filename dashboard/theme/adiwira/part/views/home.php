@@ -33,6 +33,32 @@ $siteHealthRequired = $homeActor !== null && $homeActor['is_site_owner'] === tru
 if ($siteHealthRequired) {
     $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
 }
+$homeNoticeContext = [
+    'schema' => 1,
+    'surface' => 'dashboard.home',
+    'user_id' => max(0, (int)($homeActor['id'] ?? 0)),
+    'is_site_owner' => ($homeActor['is_site_owner'] ?? false) === true,
+    'can_manage_layout' => $canManageDashboardLayout,
+    'admin_base_path' => $base,
+    'locale' => function_exists('get_locale') ? get_locale() : 'en',
+];
+$coreHomeNotices = [];
+if ($siteHealthRequired) {
+    $coreHomeNotices[] = [
+        'id' => 'core.site-health-reminder',
+        'revision' => '2',
+        'type' => 'info',
+        'icon' => 'shield-check',
+        'title' => __('Keep an eye on Site Health'),
+        'message' => __('Review Site Health regularly to spot unexpected file changes and other security signals.'),
+        'action' => [
+            'label' => __('Open Site Health'),
+            'url' => $base . '/?page=admin/settings/health',
+        ],
+        'dismissible' => true,
+    ];
+}
+$homeNotices = dashboard_home_notices_collect($pdo, $homeNoticeContext, $coreHomeNotices);
 $widgets = apply_filters('dashboard_widgets', $widgets);
 if ($siteHealthRequired) {
     $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
@@ -108,6 +134,8 @@ if ($cur) $segments[] = ['normal' => $cur];
     </div>
   </div>
 
+  <?= dashboard_home_notices_render($homeNotices, $homeNoticeContext) ?>
+
   <div class="dw-grid" id="dw-grid">
     <?php
     $left = []; $right = [];
@@ -144,7 +172,11 @@ if ($cur) $segments[] = ['normal' => $cur];
   </div><?php endif; ?>
 </div>
 
-<script src="/static/dashboard/js/dashboard-widgets.js" defer></script>
+<?php
+$dashboardWidgetsFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/dashboard-widgets.js' : '';
+$dashboardWidgetsVersion = is_file($dashboardWidgetsFile) ? (int)filemtime($dashboardWidgetsFile) : 0;
+?>
+<script src="/static/dashboard/js/dashboard-widgets.js?v=<?=$dashboardWidgetsVersion?>" defer></script>
 <style>
 .adam-flash-wrap{ max-width:1200px; margin:0 auto 1rem; }
 </style>

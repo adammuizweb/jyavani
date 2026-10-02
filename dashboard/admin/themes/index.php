@@ -182,7 +182,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
 
       <div class="bulk-bar">
         <label class="check-row">
-          <input type="checkbox" id="selectAllThemes"> <?=_e('Select all on page')?>
+          <input type="checkbox" id="selectAllThemes" class="adam-choice"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionThemes" name="action" class="inp">
@@ -208,10 +208,10 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         <div class="cols-toggle">
           <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
           <div class="cols-dropdown">
-            <label class="cols-opt"><input type="checkbox" data-col="col-slug" checked> <?=_e('Internal slug')?></label>
-            <label class="cols-opt"><input type="checkbox" data-col="col-public-path" checked> <?=_e('Public path')?></label>
-            <label class="cols-opt"><input type="checkbox" data-col="col-status" checked> <?=_e('Status')?></label>
-            <label class="cols-opt"><input type="checkbox" data-col="col-created" checked> <?=_e('Created')?></label>
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Internal slug')?></label>
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-public-path" checked> <?=_e('Public path')?></label>
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
           </div>
         </div>
       </div>
@@ -290,7 +290,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             <tr class="adam-row">
               <?php if ($canBulk): ?>
                 <td class="td-center">
-                  <?php if ($canUpdateTheme || $canDeleteTheme): ?><input type="checkbox" class="bulkCheckboxTheme" name="ids[]" value="<?= (int)$t['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                  <?php if ($canUpdateTheme || $canDeleteTheme): ?><input type="checkbox" class="bulkCheckboxTheme adam-choice" name="ids[]" value="<?= (int)$t['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
               <?php endif; ?>
 

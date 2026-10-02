@@ -87,6 +87,7 @@ if (defined('UPDATE_PROCESS_CONTROL_REQUEST')) {
 }
 
 require_once __DIR__ . '/helpers/admin_details.php';
+require_once __DIR__ . '/helpers/dashboard_home_notices.php';
 require_once __DIR__ . '/helpers/sidebar_helper.php';
 
 // 5. Konstanta path untuk public (dibutuhkan oleh theme_helper & widget_helper)

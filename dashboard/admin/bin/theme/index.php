@@ -155,7 +155,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
 
       <div class="bulk-bar">
         <label class="check-row">
-          <input type="checkbox" id="selectAllBinTheme"> <?=_e('Select all on page')?>
+          <input type="checkbox" id="selectAllBinTheme" class="adam-choice"> <?=_e('Select all on page')?>
         </label>
 
         <select id="bulkActionBinTheme" name="action" class="inp">
@@ -208,7 +208,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
               ?>
               <tr class="adam-row">
                 <td style="text-align:center;">
-                  <?php if ($canRestoreTheme || $canPurgeTheme): ?><input type="checkbox" class="bulkCheckboxBinTheme" name="ids[]" value="<?= (int)$t['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                  <?php if ($canRestoreTheme || $canPurgeTheme): ?><input type="checkbox" class="bulkCheckboxBinTheme adam-choice" name="ids[]" value="<?= (int)$t['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
 
                 <td style="font-weight:600;"><?= htmlspecialchars((string)($t['title'] ?? '-'), ENT_QUOTES, 'UTF-8') ?></td>

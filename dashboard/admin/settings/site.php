@@ -640,11 +640,11 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
             <label><?=_e('Indexing policy')?></label>
             <div class="search-policy-options">
               <label class="search-policy-option">
-                <input type="radio" name="search_engine_indexing" value="1"<?= $current_search_engine_indexing ? ' checked' : '' ?>>
+                <input type="radio" class="adam-choice" name="search_engine_indexing" value="1"<?= $current_search_engine_indexing ? ' checked' : '' ?>>
                 <span><strong><?=_e('Allow Index')?></strong><small><?=_e('Publishes index,follow and an allow-crawling fallback.')?></small></span>
               </label>
               <label class="search-policy-option">
-                <input type="radio" name="search_engine_indexing" value="0"<?= $current_search_engine_indexing ? '' : ' checked' ?>>
+                <input type="radio" class="adam-choice" name="search_engine_indexing" value="0"<?= $current_search_engine_indexing ? '' : ' checked' ?>>
                 <span><strong><?=_e('Disallow Crawling')?></strong><small><?=_e('Publishes noindex,nofollow and a disallow-crawling fallback.')?></small></span>
               </label>
             </div>

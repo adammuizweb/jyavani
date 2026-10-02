@@ -191,6 +191,30 @@ Themes may declare:
 
 Use `theme_zone_has_position()` and `theme_zone_render_position()` with fallback markup so templates remain usable before a layout is configured. See the [Theme Authoring Guide](cms.md) and the production [`default/theme.json`](public/views/themes/default/theme.json).
 
+## Dashboard Home Notices
+
+Core and plugins can add validated, dismissible banners below the dashboard home heading with the `dashboard_home_notices` filter:
+
+```php
+add_filter('dashboard_home_notices', function (array $items, array $context, PDO $pdo): array {
+    $items[] = [
+        'id' => 'example.finish-setup',
+        'revision' => '1',
+        'type' => 'warning',
+        'title' => __('Finish setup'),
+        'message' => __('Connect the service before publishing content.'),
+        'action' => [
+            'label' => __('Open settings'),
+            'url' => $context['admin_base_path'] . '/?page=plugin/example/settings',
+        ],
+        'dismissible' => true,
+    ];
+    return $items;
+}, 10);
+```
+
+Types are `info`, `success`, `warning`, and `error`; notices may use the bounded Core icon set documented in `AGENTS.md`. Text is escaped and action URLs must be root-relative or HTTPS. Dismissal is browser-local and scoped to the current user, notice ID, and revision; increment the revision to show updated content again. Plugins remain responsible for permission checks before appending a notice.
+
 ## Development And Tests
 
 There is no Composer install or asset compilation step. Run commands from the repository root.

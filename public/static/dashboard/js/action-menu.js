@@ -1,6 +1,9 @@
 (function () {
   'use strict';
 
+  if (window.__ADIWIRA_ACTION_MENU_INIT__) return;
+  window.__ADIWIRA_ACTION_MENU_INIT__ = true;
+
   function menuItems(menu) {
     return Array.from(menu.querySelectorAll('[role="menuitem"]:not(:disabled)'));
   }
@@ -72,7 +75,8 @@
       event.stopPropagation();
       var menu = menuFor(trigger);
       if (!menu) return;
-      if (menu.hidden) openMenu(trigger, 'first');
+      // Pointer activation keeps focus on the trigger; keyboard activation moves it into the menu.
+      if (menu.hidden) openMenu(trigger, event.detail === 0 ? 'first' : undefined);
       else closeMenu(menu, false);
       return;
     }

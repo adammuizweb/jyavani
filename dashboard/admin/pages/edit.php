@@ -234,12 +234,11 @@ if ($chosenMode === '') {
                     style="<?= empty($thumbnail) ? 'display:none' : '' ?>">&times;</button>
           </div>
 
-          <div id="thumbnail-preview" style="margin-top:.6rem;">
+          <div id="thumbnail-preview" class="thumbnail-preview" style="margin-top:.6rem;">
             <?php if (!empty($thumbnail)): ?>
               <img src="<?= htmlspecialchars($thumbnail, ENT_QUOTES, 'UTF-8') ?>"
                    data-media-id="<?= $thumbnailMediaId ?: '' ?>"
-                   alt="preview"
-                   style="max-width:220px;max-height:140px;border:1px solid #eee;padding:.3rem">
+                   alt="preview">
             <?php endif; ?>
           </div>
         </label>
@@ -285,7 +284,7 @@ if ($chosenMode === '') {
       ?>
       <span class="jy-editor-mode-options">
         <?php foreach ($editorModes as $modeVal => $modeLabel): ?>
-        <label><input type="radio" name="editor_mode" value="<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" id="editor-<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" <?= ($chosenMode === $modeVal || ($chosenMode === '' && $modeVal === 'quill')) ? 'checked' : '' ?>> <?= htmlspecialchars($modeLabel, ENT_QUOTES) ?></label>
+        <label><input type="radio" class="adam-choice" name="editor_mode" value="<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" id="editor-<?= htmlspecialchars($modeVal, ENT_QUOTES) ?>" <?= ($chosenMode === $modeVal || ($chosenMode === '' && $modeVal === 'quill')) ? 'checked' : '' ?>> <?= htmlspecialchars($modeLabel, ENT_QUOTES) ?></label>
         <?php endforeach; ?>
       </span>
     </label>
@@ -334,7 +333,7 @@ if ($chosenMode === '') {
     <?php if ($canChangeOwner): ?>
       <label style="display:block;margin-top:.6rem">
         <?=_e('Created By')?><br>
-        <select name="created_by" style="margin-top:.4rem;padding:.4rem;border:1px solid #ddd;border-radius:6px">
+        <select name="created_by" class="inp" style="margin-top:.4rem">
           <?php
             if (!empty($users)) {
                 foreach ($users as $u) {
@@ -350,7 +349,7 @@ if ($chosenMode === '') {
             }
           ?>
         </select>
-        <div style="font-size:12px;color:#666;margin-top:6px"><?= _e('Requires permission to change the owner.') ?></div>
+        <div class="field-note"><?= _e('Requires permission to change the owner.') ?></div>
       </label>
     <?php endif; ?>
 
@@ -360,8 +359,8 @@ if ($chosenMode === '') {
         <input type="datetime-local"
                name="created_at"
                value="<?= htmlspecialchars($_POST['created_at'] ?? to_datetime_local($post['created_at']), ENT_QUOTES, 'UTF-8') ?>"
-               style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <div style="font-size:12px;color:#666;margin-top:4px"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars((string)$post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
+               class="inp">
+        <div class="field-note"><?=_e('Leave empty to keep the original value')?> (<?= htmlspecialchars((string)$post['created_at'], ENT_QUOTES, 'UTF-8') ?>).</div>
       </label>
 
       <label style="display:block;margin-top:.6rem">
@@ -369,8 +368,8 @@ if ($chosenMode === '') {
         <input type="datetime-local"
                name="updated_at"
                value="<?= htmlspecialchars($_POST['updated_at'] ?? to_datetime_local($post['updated_at']), ENT_QUOTES, 'UTF-8') ?>"
-               style="padding:.4rem;border:1px solid #ddd;border-radius:6px">
-        <div style="font-size:12px;color:#666;margin-top:4px"><?= _e('Leave empty to use current time.') ?></div>
+               class="inp">
+        <div class="field-note"><?= _e('Leave empty to use current time.') ?></div>
       </label>
     <?php endif; ?>
 
@@ -389,9 +388,9 @@ if ($chosenMode === '') {
         }
     }
     ?>
-    <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
-      <select name="sidebar_override" style="padding:3px 5px;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:12px">
+    <div class="section-divider">
+      <div class="section-label"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
+      <select name="sidebar_override" class="inp inp-w100">
         <option value=""><?= _e('Default (follow global hierarchy)') ?></option>
         <option value="right" <?= $current_sidebar === 'right' ? 'selected' : '' ?>><?=_e('Right')?></option>
         <option value="left" <?= $current_sidebar === 'left' ? 'selected' : '' ?>><?=_e('Left')?></option>
@@ -399,10 +398,10 @@ if ($chosenMode === '') {
       </select>
     </div>
 
-    <div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--adam-border);">
-      <div style="font-size:13px;font-weight:600;margin-bottom:.4rem"><?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Meta Description')?></div>
-      <textarea name="meta_description" rows="3" style="width:100%;padding:.4rem;border:1px solid var(--adam-border-2);border-radius:4px;background:var(--adam-card);color:var(--adam-text);font-size:13px;resize:vertical;box-sizing:border-box" maxlength="320" placeholder="<?= _e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.') ?>"><?= htmlspecialchars($current_meta_desc, ENT_QUOTES, 'UTF-8') ?></textarea>
-      <div style="font-size:11px;color:#888;margin-top:3px"><?= _e('Recommended: 150-160 characters. Falls back to excerpt when empty.') ?></div>
+    <div class="section-divider">
+      <div class="section-label"><?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Meta Description')?></div>
+      <textarea name="meta_description" rows="3" class="inp inp-w100" style="resize:vertical" maxlength="320" placeholder="<?= _e('Custom meta description for SEO & social share. Leave empty to auto-generate from content.') ?>"><?= htmlspecialchars($current_meta_desc, ENT_QUOTES, 'UTF-8') ?></textarea>
+      <div class="field-note"><?= _e('Recommended: 150-160 characters. Falls back to excerpt when empty.') ?></div>
     </div>
 
     <p style="margin-top:.8rem">

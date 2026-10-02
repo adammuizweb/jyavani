@@ -26,8 +26,6 @@ $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 
 $host  = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
 $baseUrl = rtrim($proto . '://' . $host, '/');
 
-$path = parse_url((string)$r['url'], PHP_URL_PATH) ?: (string)$r['url'];
-
 $linkUrlValue = '';
 if (array_key_exists('link_url', $r)) {
     $linkUrlValue = (string)($r['link_url'] ?? '');
@@ -80,6 +78,12 @@ $mediaContext = media_picker_context_from_request($_GET, [
 ]);
 $mediaData = media_filter_data($pdo, $r, $mediaContext, true);
 $displayClientUrl = (string)($mediaData['url'] ?? '');
+$copyUrl = $displayClientUrl;
+if ($copyUrl !== '' && str_starts_with($copyUrl, '//')) {
+    $copyUrl = $proto . ':' . $copyUrl;
+} elseif ($copyUrl !== '' && !preg_match('#^https?://#i', $copyUrl)) {
+    $copyUrl = $baseUrl . '/' . ltrim($copyUrl, '/');
+}
 $detailActionContext = asset_detail_action_context('media', 'admin.media.detail', $r, $displayClientUrl, (int)$uid);
 $detailActions = asset_detail_actions_render($pdo, $detailActionContext);
 ?>
@@ -179,7 +183,7 @@ $detailActions = asset_detail_actions_render($pdo, $detailActionContext);
           <?php endif; ?>
 
           <label class="file-check-label">
-            <input type="checkbox" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
+            <input type="checkbox" class="adam-choice" name="is_downloadable" value="1" <?= $isDownloadable ? 'checked' : '' ?>>
             <?=_e('Allow download')?>
           </label>
 
@@ -195,8 +199,7 @@ $detailActions = asset_detail_actions_render($pdo, $detailActionContext);
           <div class="media-url-section">
             <div class="media-section-title"><?=_e('File URL')?></div>
             <div class="media-url-row">
-              <span class="media-url-prefix" id="media-url-prefix"><?= htmlspecialchars($baseUrl, ENT_QUOTES, 'UTF-8') ?></span>
-              <input type="text" id="media-url-path" class="media-url-path" readonly value="<?= htmlspecialchars($path, ENT_QUOTES, 'UTF-8') ?>">
+              <input type="text" id="media-url" class="media-url-path" readonly value="<?= htmlspecialchars($copyUrl, ENT_QUOTES, 'UTF-8') ?>">
               <button type="button" class="copy-btn" data-action="copy-url"><?=_e('Copy')?></button>
             </div>
           </div>

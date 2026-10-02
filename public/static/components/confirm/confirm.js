@@ -39,12 +39,12 @@
     overlay.innerHTML = [
       '<div class="newnotif-confirm__panel" role="document">',
       '  <div class="newnotif-confirm__body">',
-      '    <div class="newnotif-confirm__badge" id="newnotif-confirm-badge">Konfirmasi</div>',
-      '    <h3 class="newnotif-confirm__title" id="newnotif-confirm-title">Konfirmasi</h3>',
-      '    <p class="newnotif-confirm__message" id="newnotif-confirm-message">Lanjutkan aksi ini?</p>',
+      '    <div class="newnotif-confirm__badge" id="newnotif-confirm-badge">Confirmation required</div>',
+      '    <h3 class="newnotif-confirm__title" id="newnotif-confirm-title">Confirmation</h3>',
+      '    <p class="newnotif-confirm__message" id="newnotif-confirm-message">Continue this action?</p>',
       '    <div class="newnotif-confirm__actions">',
-      '      <button type="button" class="newnotif-btn newnotif-btn--ghost" data-role="cancel">Batal</button>',
-      '      <button type="button" class="newnotif-btn newnotif-btn--confirm" data-role="confirm">Lanjutkan</button>',
+      '      <button type="button" class="newnotif-btn newnotif-btn--ghost" data-role="cancel">Cancel</button>',
+      '      <button type="button" class="newnotif-btn newnotif-btn--confirm" data-role="confirm">Continue</button>',
       '    </div>',
       '  </div>',
       '</div>'
@@ -119,6 +119,7 @@
 
     opts = opts || {};
     const variant = (opts.variant === 'danger') ? 'danger' : 'warning';
+    const labels = window.newNotifConfirmI18n || {};
 
     state.lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     state.prevHtmlOverflow = document.documentElement.style.overflow || '';
@@ -128,17 +129,23 @@
     state.overlay.removeAttribute('hidden');
     state.overlay.classList.add('is-open');
 
-    state.badge.textContent = String(opts.badgeText || (variant === 'danger' ? 'Aksi berbahaya' : 'Perlu konfirmasi'));
-    state.title.textContent = String(opts.title || (variant === 'danger' ? 'Konfirmasi Hapus' : 'Konfirmasi Perubahan'));
+    state.badge.textContent = String(opts.badgeText || (variant === 'danger'
+      ? (labels.dangerBadge || 'Delete confirmation')
+      : (labels.warningBadge || 'Confirmation required')));
+    state.title.textContent = String(opts.title || (variant === 'danger'
+      ? (labels.dangerTitle || 'Delete confirmation')
+      : (labels.warningTitle || 'Confirmation')));
 
     if (opts.html) {
       state.message.innerHTML = String(opts.html);
     } else {
-      state.message.textContent = String(opts.message || 'Lanjutkan aksi ini?');
+      state.message.textContent = String(opts.message || labels.message || 'Continue this action?');
     }
 
-    state.cancelBtn.textContent = String(opts.cancelText || 'Batal');
-    state.confirmBtn.textContent = String(opts.confirmText || (variant === 'danger' ? 'Hapus' : 'Lanjutkan'));
+    state.cancelBtn.textContent = String(opts.cancelText || labels.cancel || 'Cancel');
+    state.confirmBtn.textContent = String(opts.confirmText || (variant === 'danger'
+      ? (labels.dangerConfirm || 'Delete')
+      : (labels.confirm || 'Continue')));
 
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
