@@ -52,8 +52,16 @@ if ($action === 'list_attempts') {
 
     $html = '';
     if (empty($rows)) {
-        $html = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);">' . __('No login attempts data.') . '</td></tr>';
+        $html = '<tr class="auth-attempt-empty"><td colspan="6">' . __('No login attempts data.') . '</td></tr>';
     } else {
+        $labels = [
+            'email' => h(__('Email')),
+            'ip' => h(__('IP')),
+            'attempts' => h(__('Attempts')),
+            'last' => h(__('Last Attempt')),
+            'status' => h(__('Status')),
+            'actions' => h(__('Actions')),
+        ];
         foreach ($rows as $r) {
             $email = htmlspecialchars($r['email'] ?? '', ENT_QUOTES, 'UTF-8');
             $ip = htmlspecialchars($r['ip_address'] ?? '', ENT_QUOTES, 'UTF-8');
@@ -62,12 +70,12 @@ if ($action === 'list_attempts') {
             $blocked = !empty($r['blocked_until']) && strtotime($r['blocked_until']) > time();
             $id = (int)($r['id'] ?? 0);
             $html .= '<tr>';
-            $html .= '<td>' . $email . '</td>';
-            $html .= '<td>' . $ip . '</td>';
-            $html .= '<td>' . $attempts . '</td>';
-            $html .= '<td>' . $last . '</td>';
-            $html .= '<td>' . ($blocked ? '<span class="badge badge--danger">' . h(__('Blocked')) . '</span>' : '<span class="badge badge--ok">' . h(__('Active')) . '</span>') . '</td>';
-            $html .= '<td><button class="adam-hapus" onclick="deleteAttempt(' . $id . ')" title="' . h(__('Delete')) . '">' . h(__('Delete')) . '</button></td>';
+            $html .= '<td class="auth-attempt-email" data-label="' . $labels['email'] . '"><span class="auth-attempt-value">' . $email . '</span></td>';
+            $html .= '<td data-label="' . $labels['ip'] . '"><span class="auth-attempt-value">' . $ip . '</span></td>';
+            $html .= '<td data-label="' . $labels['attempts'] . '"><span class="auth-attempt-value">' . $attempts . '</span></td>';
+            $html .= '<td data-label="' . $labels['last'] . '"><span class="auth-attempt-value">' . $last . '</span></td>';
+            $html .= '<td data-label="' . $labels['status'] . '">' . ($blocked ? '<span class="badge badge--danger">' . h(__('Blocked')) . '</span>' : '<span class="badge badge--ok">' . h(__('Active')) . '</span>') . '</td>';
+            $html .= '<td class="auth-attempt-row-actions" data-label="' . $labels['actions'] . '"><button type="button" class="adam-hapus auth-attempt-delete" onclick="deleteAttempt(' . $id . ', this)" title="' . h(__('Delete')) . '">' . svg_ico('trash-2') . '<span>' . h(__('Delete')) . '</span></button></td>';
             $html .= '</tr>';
         }
     }
@@ -86,7 +94,7 @@ if ($action === 'list_attempts') {
 
     adiwira_json([
         'html' => $html,
-        'pagination' => '<div class="adam-pagination" style="margin-top:1rem;">' . $pagination . '</div>',
+        'pagination' => '<div class="adam-pagination">' . $pagination . '</div>',
         'total' => $total,
     ]);
     exit;
@@ -112,27 +120,11 @@ $registration_approval     = function_exists('settings_get') ? (settings_get($pd
 $recaptcha_enabled         = function_exists('settings_get') ? (settings_get($pdo, 'recaptcha_enabled', '0') ?? '0') : '0';
 $recaptcha_sitekey         = function_exists('settings_get') ? (settings_get($pdo, 'recaptcha_sitekey', '') ?? '') : '';
 $recaptcha_secret          = function_exists('settings_get') ? (settings_get($pdo, 'recaptcha_secret', '') ?? '') : '';
-$login_path                = function_exists('get_login_path') ? get_login_path($pdo) : 'adiwira/gerbank/melbu';
-$register_path             = function_exists('get_register_path') ? get_register_path($pdo) : 'adiwira/gerbank/daptar';
-$admin_path                = function_exists('get_admin_path') ? trim(get_admin_path($pdo), '/') : 'adiwira';
+$login_path                = function_exists('get_login_path') ? get_login_path($pdo) : 'login';
+$register_path             = function_exists('get_register_path') ? get_register_path($pdo) : 'register';
+$admin_path                = function_exists('get_admin_path') ? trim(get_admin_path($pdo), '/') : 'dashboard';
 $bruteforce_max_attempts   = function_exists('settings_get') ? (settings_get($pdo, 'bruteforce_max_attempts', '5') ?? '5') : '5';
 $bruteforce_block_minutes  = function_exists('settings_get') ? (settings_get($pdo, 'bruteforce_block_minutes', '15') ?? '15') : '15';
-
-// ---------- migrate from old login_slug to login_path/register_path ----------
-$oldLoginSlug = function_exists('settings_get') ? (settings_get($pdo, 'login_slug', '') ?? '') : '';
-if ($oldLoginSlug !== '' && $oldLoginSlug !== 'gerbank') {
-    $currentLoginPath = $login_path;
-    $currentRegisterPath = $register_path;
-    if ($currentLoginPath === 'adiwira/gerbank/melbu') {
-        settings_set($pdo, 'login_path', 'adiwira/' . $oldLoginSlug . '/melbu', 1);
-        $login_path = 'adiwira/' . $oldLoginSlug . '/melbu';
-    }
-    if ($currentRegisterPath === 'adiwira/gerbank/daptar') {
-        settings_set($pdo, 'register_path', 'adiwira/' . $oldLoginSlug . '/daptar', 1);
-        $register_path = 'adiwira/' . $oldLoginSlug . '/daptar';
-    }
-    settings_set($pdo, 'login_slug', '', 1);
-}
 
 $base = ADMIN_BASE_PATH;
 $self_url = $base . '/?page=admin/settings/auth';
@@ -437,7 +429,9 @@ function auth_path_example(string $path): string {
             <input type="number" name="bruteforce_block_minutes" id="bruteforce_block_minutes" min="1" max="1440" value="<?= htmlspecialchars($display_block_minutes, ENT_QUOTES, 'UTF-8') ?>" class="inp inp-w100">
           </div>
         </div>
-        <button type="button" class="adam-cancle auth-attempts-button" onclick="openAttemptModal()"><?= svg_ico('list') ?> <?=_e('View login attempts')?></button>
+        <div class="auth-attempts-actions">
+          <button type="button" class="adam-cancle auth-attempts-button" onclick="openAttemptModal()" aria-haspopup="dialog" aria-controls="attempt-modal"><?= svg_ico('list') ?> <?=_e('View login attempts')?></button>
+        </div>
       </div>
     </div>
 
@@ -500,13 +494,16 @@ function auth_path_example(string $path): string {
   </form>
 </section>
 
-<div id="attempt-modal" class="adam-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="attempt-modal-title">
+<div id="attempt-modal" class="adam-modal auth-attempt-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="attempt-modal-title">
   <div class="adam-modal__panel auth-attempt-modal-panel" tabindex="-1">
     <div class="auth-attempt-modal-header">
-      <h3 id="attempt-modal-title" class="adam-modal-title"><?=_e('Login Attempts')?></h3>
-      <button type="button" class="auth-attempt-modal-close" onclick="closeAttemptModal()" aria-label="<?= h(__('Close')) ?>">&times;</button>
+      <div class="auth-attempt-modal-heading">
+        <span class="auth-attempt-modal-icon" aria-hidden="true"><?= svg_ico('history') ?></span>
+        <h3 id="attempt-modal-title" class="adam-modal-title"><?=_e('Login Attempts')?></h3>
+      </div>
+      <button type="button" class="auth-attempt-modal-close" onclick="closeAttemptModal()" aria-label="<?= h(__('Close')) ?>" title="<?= h(__('Close')) ?>"><?= svg_ico('x') ?></button>
     </div>
-    <div id="attempt-table-wrap" class="adam-table-wrapper auth-attempt-table-wrap">
+    <div id="attempt-table-wrap" class="adam-table-wrapper auth-attempt-table-wrap" tabindex="0">
       <table class="adam-table">
         <thead>
           <tr>
@@ -519,7 +516,7 @@ function auth_path_example(string $path): string {
           </tr>
         </thead>
         <tbody id="attempt-tbody">
-          <tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);"><?=_e('Loading...')?></td></tr>
+          <tr class="auth-attempt-empty"><td colspan="6"><?=_e('Loading...')?></td></tr>
         </tbody>
       </table>
     </div>
@@ -565,7 +562,7 @@ function closeAttemptModal() {
 function loadAttempts(page) {
   var tbody = document.getElementById('attempt-tbody');
   var pagination = document.getElementById('attempt-pagination');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-muted);"><?=_e('Loading...')?></td></tr>';
+  tbody.innerHTML = '<tr class="auth-attempt-empty"><td colspan="6"><?=_e('Loading...')?></td></tr>';
   pagination.innerHTML = '';
 
   var url = window.location.pathname + window.location.search.replace(/[&?]action=[^&]*/g, '').replace(/[&?]p=\d+/g, '');
@@ -578,30 +575,66 @@ function loadAttempts(page) {
       pagination.innerHTML = data.pagination;
     })
     .catch(function() {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--adam-danger);">' + <?=json_encode(__('Failed to load data.'))?> + '</td></tr>';
+      tbody.innerHTML = '<tr class="auth-attempt-empty auth-attempt-empty--error"><td colspan="6">' + <?=json_encode(__('Failed to load data.'))?> + '</td></tr>';
     });
 }
 
-function deleteAttempt(id) {
-  if (!confirm(<?= json_encode(__('Delete this login attempt data?')) ?>)) return;
-
-  var form = new FormData();
-  form.append('action', 'delete_attempt');
-  form.append('id', id);
-  form.append('csrf_token', attemptCsrfToken);
-
-  fetch(window.location.href, { method: 'POST', body: form })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.ok) {
-        loadAttempts(1);
-      } else {
-        alert(<?= json_encode(__('Failed:')) ?> + ' ' + (data.error || <?= json_encode(__('Unknown error.')) ?>));
-      }
-    })
-    .catch(function() {
-      alert(<?= json_encode(__('Failed to delete data.')) ?>);
+function attemptFeedback(message) {
+  if (window.NewNotifToast && typeof window.NewNotifToast.show === 'function') {
+    window.NewNotifToast.show({
+      type: 'error',
+      title: <?= json_encode(__('Login Attempts')) ?>,
+      message: message
     });
+    return;
+  }
+  window.alert(message);
+}
+
+function deleteAttempt(id, button) {
+  var options = {
+    badgeText: <?= json_encode(__('Security')) ?>,
+    title: <?= json_encode(__('Login Attempts')) ?>,
+    message: <?= json_encode(__('Delete this login attempt data?')) ?>,
+    confirmText: <?= json_encode(__('Delete')) ?>,
+    cancelText: <?= json_encode(__('Cancel')) ?>,
+    focus: 'cancel'
+  };
+  var decision = window.NewNotifConfirm && typeof window.NewNotifConfirm.danger === 'function'
+    ? window.NewNotifConfirm.danger(options)
+    : Promise.resolve(window.confirm(options.message));
+
+  decision.then(function(confirmed) {
+    if (!confirmed) return;
+    if (button) {
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+    }
+
+    var form = new FormData();
+    form.append('action', 'delete_attempt');
+    form.append('id', id);
+    form.append('csrf_token', attemptCsrfToken);
+
+    fetch(window.location.href, { method: 'POST', body: form })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          loadAttempts(1);
+        } else {
+          attemptFeedback(<?= json_encode(__('Failed:')) ?> + ' ' + (data.error || <?= json_encode(__('Unknown error.')) ?>));
+        }
+      })
+      .catch(function() {
+        attemptFeedback(<?= json_encode(__('Failed to delete data.')) ?>);
+      })
+      .finally(function() {
+        if (button && button.isConnected) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+        }
+      });
+  });
 }
 
 (function(){

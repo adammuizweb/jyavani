@@ -137,11 +137,17 @@ if ($ajaxAction !== '' && $ajaxPage !== '') {
 
 // Direct file router: map request URI path to dashboard/plugin files
 // Handles URLs like /admin/modal_img/list_modal.php or plugin routes
-$uriPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+$uriPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$uriPath = is_string($uriPath) ? rawurldecode($uriPath) : '/';
 $adminPrefix = ADMIN_BASE_PATH . '/';
 if (strncmp($uriPath, $adminPrefix, strlen($adminPrefix)) === 0) {
     $relative = substr($uriPath, strlen($adminPrefix));
-    if (is_string($relative) && $relative !== '' && preg_match('/\.php$/', $relative)) {
+    if (is_string($relative) && $relative !== '' && preg_match('/\.php(?:\/|$)/', $relative)) {
+        if (!str_ends_with($relative, '.php')) {
+            http_response_code(404);
+            require FRONTEND_404_PATH;
+            exit;
+        }
         // Check plugin routes first (plugins override dashboard files)
         if (function_exists('plugin_resolve_route')) {
             $route = preg_replace('/\.php$/', '', $relative);
@@ -154,12 +160,17 @@ if (strncmp($uriPath, $adminPrefix, strlen($adminPrefix)) === 0) {
                 exit;
             }
         }
-        // Then check normal dashboard file
-        $targetFile = DASH_PATH . '/' . $relative;
-        if (is_file($targetFile)) {
+        // Then check normal dashboard file.
+        $targetFile = realpath(DASH_PATH . '/' . $relative);
+        $dashRoot = realpath(DASH_PATH);
+        if ($targetFile !== false && $dashRoot !== false
+            && str_starts_with($targetFile, $dashRoot . DIRECTORY_SEPARATOR) && is_file($targetFile)) {
             require $targetFile;
             exit;
         }
+        http_response_code(404);
+        require FRONTEND_404_PATH;
+        exit;
     }
 }
 

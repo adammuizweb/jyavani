@@ -49,8 +49,8 @@ It then calls `set_locale($contentDefault)` so the public frontend uses the cont
 | Prefix | Controller | Notes |
 |---|---|---|
 | (empty) | `index.php` | Homepage |
-| `{login_path}` | `melbu/index.php` | Custom login path (configurable in settings) |
-| `{register_path}` | `daptar/index.php` | Custom register path (configurable in settings) |
+| `{login_path}` | `dashboard/auth/login/index.php` | Custom login path (configurable in settings) |
+| `{register_path}` | `dashboard/auth/register/index.php` | Custom register path (configurable in settings) |
 | `{admin_path}` | `dashboard/index.php` (via router) | Custom admin path (configurable in settings; default: `dashboard`) |
 | `/private/media/` | `PrivateMediaController` | Private image serving via PHP stream |
 | `/private/file/`, `/private/pdf/` | `PrivateFileController` | Private file serving + PDF.js viewer |
@@ -64,7 +64,7 @@ It then calls `set_locale($contentDefault)` so the public frontend uses the cont
 
 All controllers are in `app/controllers/`, all are static methods.
 
-**Login/register path matching:** The router uses `auth_path_matches()` from `cfg/helpers/auth_helpers.php` which compares the normalized request URI against the configured path. Paths can be anything like `masuk`, `login`, `pintu/rahasia/masuk`. Since admin files are outside `public/`, nginx/Apache always falls through to the router, which includes the correct file from `dashboard/gerbank/*/`.
+**Login/register path matching:** The router uses `auth_path_matches()` from `cfg/helpers/auth_helpers.php` which compares the normalized request URI against the configured path. Paths can be anything like `masuk`, `login`, `pintu/rahasia/masuk`. Since admin files are outside `public/`, nginx/Apache always falls through to the router, which includes the fixed internal entrypoint under `dashboard/auth/`. Internal filenames never determine the configured public URL.
 
 ## Admin (`dashboard/` — outside web root)
 
@@ -123,8 +123,8 @@ Return a list of items containing `key`, `label`, `url`, and optional `title`. C
 
 ### Login/Register pages
 
-- **Login:** `dashboard/gerbank/melbu/index.php` (outside web root) — standalone HTML page, configurable brute-force protection, reCAPTCHA toggle, blocked IP/email detection. Guard checks `login_path` setting against request URI.
-- **Register:** `dashboard/gerbank/daptar/index.php` (outside web root) — standalone HTML page, can be disabled entirely (`registration_enabled`), optional admin approval (`is_locked`), reCAPTCHA toggle. Guard checks `register_path` setting.
+- **Login:** `dashboard/auth/login/index.php` (outside web root) — standalone HTML page, configurable brute-force protection, adaptive reCAPTCHA, and blocked IP/email detection. Guard checks `login_path` against the request URI.
+- **Register:** `dashboard/auth/register/index.php` (outside web root) — standalone HTML page, can be disabled entirely (`registration_enabled`), supports optional admin approval (`is_locked`), and uses the shared reCAPTCHA verifier. Guard checks `register_path`.
 - Both use `get_admin_path($pdo)` for redirects after login/register.
 - Login customization filters: `jy_login_title`, `jy_login_logo_url`, and `jy_login_logo_link`.
 - Login extension actions: `jy_login_head`, `jy_login_before_form`, `jy_login_form`, `jy_login_after_form`, and `jy_login_footer`. Each receives the active `PDO` instance.
@@ -135,7 +135,6 @@ Return a list of items containing `key`, `label`, `url`, and optional `title`. C
 - reCAPTCHA sitekey/secret stored in DB (fallback to `.env` if empty)
 - Brute-force: max attempts + block duration
 - `login_path`, `register_path`, `admin_path` — fully custom relative paths
-- Migration from old `login_slug` setting runs on page load if detected
 - Login attempts table with pagination and delete (modal, admin only)
 
 ## Theme system
@@ -832,7 +831,6 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 | `auth_helpers.php` | Login/register path matching, brute force |
 | `author_helpers.php` | Author metadata display |
 | `cms_content.php` | Content formatting, excerpt, read time |
-| `datetime.php` | Date/time formatting |
 | `debug_helpers.php` | Debug/dump utilities |
 | `editor_helpers.php` | Editor toolbar configuration |
 | **`hooks.php`** | Action/filter hook system (add_action, apply_filters, etc.) |
@@ -857,10 +855,12 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 ### Key auth helpers (`cfg/helpers/auth_helpers.php`)
 
 - `auth_path_matches(string $path): bool` — compares request URI against configured path
+- `auth_verify_recaptcha(string $secret, string $response, string $ip): bool` — bounded fail-closed verification shared by login and registration
+- `auth_login_user_by_email(PDO $pdo, string $email): ?array` — loads the login identity and account state
 - `get_login_path(PDO $pdo): string` — reads `login_path` with fallback to `login`
 - `get_register_path(PDO $pdo): string` — reads `register_path` with fallback to `register`
 - `get_admin_path(PDO $pdo): string` — reads `admin_path` with fallback to `dashboard`
 - `is_blocked($attempt): bool` — checks if IP/email is blocked
 - `get_login_attempt(PDO $pdo, $email, $ip): ?array`
-- `record_failed_attempt(PDO $pdo, $email, $ip): int` — hardcoded 5 attempts / 15 min (legacy default; login page uses `melbu_record_failed()` with configurable params)
+- `record_failed_attempt(PDO $pdo, $email, $ip, int $maxAttempts = 5, int $blockMinutes = 15): int` — records configurable brute-force state while retaining legacy defaults
 - `reset_login_attempts(PDO $pdo, $email, $ip): void`

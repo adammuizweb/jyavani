@@ -69,44 +69,6 @@ if ($targetFull !== false) {
 }
 
 if ($safe) {
-
-    // ===== GLOBAL DEBUG SWITCH =====
-    // Pakai: &debug=1 di URL dashboard
-    if (isset($_GET['debug']) && $_GET['debug'] == '1') {
-        ini_set('display_errors', '1');
-        ini_set('display_startup_errors', '1');
-        ini_set('html_errors', '1');
-        error_reporting(E_ALL);
-
-        // tangkap error runtime
-        set_error_handler(function($severity, $message, $file, $line){
-            echo "<pre style='background:#fff5f5;border:1px solid #fecaca;padding:12px;border-radius:10px;white-space:pre-wrap'>";
-            echo "PHP ERROR:\n{$message}\nFILE: {$file}:{$line}\n";
-            echo "</pre>";
-            return false;
-        });
-
-        // tangkap uncaught exception
-        set_exception_handler(function($e){
-            echo "<pre style='background:#fff5f5;border:1px solid #fecaca;padding:12px;border-radius:10px;white-space:pre-wrap'>";
-            echo "UNCAUGHT EXCEPTION:\n".$e->getMessage()."\n\n".$e->getTraceAsString();
-            echo "</pre>";
-        });
-
-        // tangkap fatal/parse error dari include
-        register_shutdown_function(function(){
-            $e = error_get_last();
-            if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
-                echo "<pre style='background:#fff5f5;border:1px solid #fecaca;padding:12px;border-radius:10px;white-space:pre-wrap'>";
-                echo "FATAL / PARSE ERROR:\n{$e['message']}\nFILE: {$e['file']}:{$e['line']}\n";
-                echo "</pre>";
-            }
-        });
-
-        echo "<!-- DEBUG MODE ON -->";
-    }
-    // ===== END GLOBAL DEBUG SWITCH =====
-
     try {
         include $targetFull;
     } catch (Throwable $error) {

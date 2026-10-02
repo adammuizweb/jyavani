@@ -115,8 +115,7 @@ $docRoot = rtrim($_SERVER['DOCUMENT_ROOT'] ?? __DIR__, '/');
 $absFile = $docRoot . $rawPath;
 
 // If running under PHP built-in web server, prefer to let it serve existing static files.
-// Additionally, if the request is for a directory that contains an index.php, include it
-// so directory-based admin pages like /melbu/ work under dev server.
+// Additionally, if the request is for a directory that contains an index.php, include it.
 if (php_sapi_name() === 'cli-server') {
 
     // 1) If exact file exists, let the built-in server serve it.
@@ -172,23 +171,23 @@ $segments = $pathTrimmed === '' ? [] : explode('/', $pathTrimmed);
 $prefix = $segments[0] ?? '';
 
 // CUSTOM LOGIN / REGISTER PATHS
-$loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'adiwira/gerbank/melbu';
+$loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'login';
 $registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'register';
 
 if (function_exists('auth_path_matches')) {
     if (auth_path_matches($loginPath)) {
-        require __DIR__ . '/../dashboard/gerbank/melbu/index.php';
+        require __DIR__ . '/../dashboard/auth/login/index.php';
         exit;
     }
 
     if (auth_path_matches($registerPath)) {
-        require __DIR__ . '/../dashboard/gerbank/daptar/index.php';
+        require __DIR__ . '/../dashboard/auth/register/index.php';
         exit;
     }
 }
 
 // CUSTOM ADMIN PATH
-$adminPath = function_exists('get_admin_path') ? get_admin_path($pdo) : '/adiwira';
+$adminPath = function_exists('get_admin_path') ? get_admin_path($pdo) : '/dashboard';
 $pathWithSlash = '/' . $pathTrimmed;
 if ($pathWithSlash === $adminPath || strpos($pathWithSlash, $adminPath . '/') === 0) {
     require __DIR__ . '/../dashboard/index.php';

@@ -16,8 +16,8 @@ $fixture = sys_get_temp_dir() . '/auth-route-dispatch-' . getmypid() . '-' . bin
 $paths = [
     $fixture . '/app',
     $fixture . '/cfg/var',
-    $fixture . '/dashboard/gerbank/melbu',
-    $fixture . '/dashboard/gerbank/daptar',
+    $fixture . '/dashboard/auth/login',
+    $fixture . '/dashboard/auth/register',
     $fixture . '/plugins/installed',
     $fixture . '/public',
 ];
@@ -53,8 +53,8 @@ require_once {$exportRoot} . '/plugins/index.php';
 register_frontend_route('account/sign-in', static function (PDO \$pdo): void { echo 'PLUGIN_LOGIN'; }, ['match' => 'exact']);
 register_frontend_route('account/join', static function (PDO \$pdo): void { echo 'PLUGIN_REGISTER'; }, ['match' => 'exact']);
 PHP);
-file_put_contents($fixture . '/dashboard/gerbank/melbu/index.php', "<?php echo 'CORE_LOGIN'; exit;\n");
-file_put_contents($fixture . '/dashboard/gerbank/daptar/index.php', "<?php echo 'CORE_REGISTER'; exit;\n");
+file_put_contents($fixture . '/dashboard/auth/login/index.php', "<?php echo 'CORE_LOGIN'; exit;\n");
+file_put_contents($fixture . '/dashboard/auth/register/index.php', "<?php echo 'CORE_REGISTER'; exit;\n");
 file_put_contents($fixture . '/cfg/var/plugins-disabled.json', "[]\n");
 copy($root . '/public/router.php', $fixture . '/public/router.php');
 copy($root . '/public/dev_lock.php', $fixture . '/public/dev_lock.php');
@@ -106,6 +106,10 @@ $check(get_login_path($pdo) === 'login' && get_register_path($pdo) === 'register
     && router_core_path_is_owned($pdo, 'login') && router_core_path_is_owned($pdo, 'register')
     && router_core_path_is_owned($pdo, 'dashboard'),
     'missing settings retain consistent login, register, and admin defaults');
+$check(is_file($root . '/dashboard/auth/login/index.php')
+    && is_file($root . '/dashboard/auth/register/index.php')
+    && !is_dir($root . '/dashboard/gerbank'),
+    'configured auth URLs use fixed descriptive internal entrypoints without legacy folders');
 
 $dashboardBootstrap = (string)file_get_contents($root . '/dashboard/bootstrap.php');
 $check(str_contains($dashboardBootstrap, 'get_admin_path($pdo)')

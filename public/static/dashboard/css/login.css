@@ -248,21 +248,6 @@ body.jy-login-page {
   outline: 3px solid rgba(207, 171, 87, .65);
 }
 
-.jy-login__help {
-  display: grid;
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid #eee8e9;
-  text-align: center;
-  gap: 5px;
-}
-
-.jy-login__help small {
-  color: #756d72;
-  font-size: 12px;
-}
-
-.jy-login__help a,
 .jy-login__back {
   color: #922538;
   font-size: 13px;
@@ -270,7 +255,6 @@ body.jy-login-page {
   text-decoration: none;
 }
 
-.jy-login__help a:hover,
 .jy-login__back:hover {
   text-decoration: underline;
   text-underline-offset: 3px;

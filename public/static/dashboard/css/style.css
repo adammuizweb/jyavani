@@ -8,7 +8,7 @@
    - Media/File manager + uploader + modal base
    - mdlib (unified modal) styles
    - CodeMirror theme helpers
-   - ASIDE OVERRIDES (merged from aside.css) at bottom
+   - Integrated aside overrides
    ========================================================================== */
 
 /* ============================
@@ -5002,182 +5002,6 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 }
 
 /* =========================================================
-   MUÍZ NOTIFY SYSTEM (Toast + Alert helper)
-   Prefix: muiz-
-   Append this at the VERY BOTTOM of style.css
-   ========================================================= */
-
-:root{
-  --muiz-toast-z: 2147483640; /* < modalfilez topbar(2147483647), tapi di atas dashboard */
-  --muiz-toast-gap: 10px;
-  --muiz-toast-w: 380px;
-  --muiz-toast-w-sm: 92vw;
-
-  --muiz-toast-bg: var(--adam-card);
-  --muiz-toast-text: var(--adam-text);
-  --muiz-toast-bd: var(--adam-border);
-  --muiz-toast-shadow: var(--adam-shadow);
-
-  --muiz-toast-success: var(--adam-success);
-  --muiz-toast-danger: var(--adam-danger);
-  --muiz-toast-warning: var(--adam-warning);
-  --muiz-toast-info: var(--adam-primary);
-}
-
-/* ===== Stack (container) ===== */
-.muiz-toast-stack{
-  position: fixed;
-  z-index: var(--muiz-toast-z);
-  display: flex;
-  flex-direction: column;
-  gap: var(--muiz-toast-gap);
-  pointer-events: none;
-
-  right: 16px;
-  bottom: 16px;
-  max-width: var(--muiz-toast-w);
-}
-
-/* safe-area for iOS (optional) */
-@supports (padding: max(0px)){
-  .muiz-toast-stack{
-    right: max(16px, env(safe-area-inset-right));
-    bottom: max(16px, env(safe-area-inset-bottom));
-  }
-}
-
-@media (max-width: 520px){
-  .muiz-toast-stack{ max-width: var(--muiz-toast-w-sm); }
-}
-
-/* ===== Toast card ===== */
-.muiz-toast{
-  pointer-events: auto;
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid var(--muiz-toast-bd);
-  background: var(--muiz-toast-bg);
-  color: var(--muiz-toast-text);
-  box-shadow: var(--muiz-toast-shadow);
-  overflow: hidden;
-
-  display:flex;
-  align-items:flex-start;
-  gap: 10px;
-
-  padding: 10px 12px;
-
-  opacity: 0;
-  transform: translateY(10px) scale(.985);
-  transition: opacity .22s ease, transform .22s ease;
-}
-
-.muiz-toast.is-show{
-  opacity: 1;
-  transform: none;
-}
-
-/* ===== Left indicator + icon ===== */
-.muiz-toast__rail{
-  width: 8px;
-  border-radius: 999px;
-  margin-top: 2px;
-  flex: 0 0 auto;
-  background: var(--muiz-toast-info);
-  opacity: .95;
-}
-
-.muiz-toast__ico{
-  width: 32px;
-  height: 32px;
-  border-radius: 12px;
-  flex: 0 0 32px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-
-  border: 1px solid var(--adam-border-soft);
-  background: var(--adam-surface-3);
-  color: var(--adam-text-2);
-  font-weight: 1000;
-  user-select:none;
-}
-
-/* ===== Body ===== */
-.muiz-toast__body{ flex: 1 1 auto; min-width: 0; }
-.muiz-toast__title{
-  margin: 0;
-  font-weight: 1000;
-  color: var(--adam-text-2);
-  font-size: 13px;
-  line-height: 1.25;
-}
-.muiz-toast__msg{
-  margin: 2px 0 0 0;
-  color: var(--adam-text);
-  font-size: 13px;
-  line-height: 1.35;
-  word-break: break-word;
-}
-
-/* ===== Actions ===== */
-.muiz-toast__actions{
-  display:flex;
-  gap: 8px;
-  align-items:center;
-  margin-left: auto;
-  flex: 0 0 auto;
-}
-
-.muiz-toast__btn{
-  border: 1px solid var(--adam-border-2);
-  background: transparent;
-  color: var(--adam-text-2);
-  border-radius: 10px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-weight: 900;
-  font-size: 12px;
-  line-height: 1;
-  user-select:none;
-}
-.muiz-toast__btn:hover{ background: var(--adam-hover); }
-
-.muiz-toast__close{
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--adam-muted);
-  cursor: pointer;
-  font-weight: 1000;
-  line-height: 1;
-}
-.muiz-toast__close:hover{
-  background: var(--adam-hover);
-  color: var(--adam-text);
-}
-
-/* ===== Variants ===== */
-.muiz-toast.is-success .muiz-toast__rail{ background: var(--muiz-toast-success); }
-.muiz-toast.is-error   .muiz-toast__rail{ background: var(--muiz-toast-danger); }
-.muiz-toast.is-warning .muiz-toast__rail{ background: var(--muiz-toast-warning); }
-.muiz-toast.is-info    .muiz-toast__rail{ background: var(--muiz-toast-info); }
-
-/* icon tone per variant */
-.muiz-toast.is-success .muiz-toast__ico{ color: var(--muiz-toast-success); }
-.muiz-toast.is-error   .muiz-toast__ico{ color: var(--muiz-toast-danger); }
-.muiz-toast.is-warning .muiz-toast__ico{ color: var(--muiz-toast-warning); }
-.muiz-toast.is-info    .muiz-toast__ico{ color: var(--muiz-toast-info); }
-
-/* ===== Reduced motion ===== */
-@media (prefers-reduced-motion: reduce){
-  .muiz-toast{ transition: none; }
-}
-
-/* =========================================================
    Quill image size limiter
    Berlaku untuk add + edit article
 ========================================================= */
@@ -7694,7 +7518,8 @@ html.theme-dark .profile-loader{
   font-weight:700;
 }
 .auth-secret-toggle:hover,.auth-secret-toggle:focus-visible{ background:var(--adam-primary-soft); }
-.auth-attempts-button{ display:inline-flex; align-items:center; gap:.4rem; margin-top:.2rem; }
+.auth-attempts-actions{ display:flex; justify-content:flex-end; margin-top:.85rem; }
+.auth-attempts-button{ display:inline-flex; align-items:center; gap:.4rem; }
 .auth-attempts-button .lucide-icon{ width:14px; height:14px; }
 .auth-settings-warning{
   display:flex;
@@ -7719,11 +7544,35 @@ html.theme-dark .profile-loader{
   width:min(94vw, 960px);
   max-width:960px;
   max-height:85vh;
-  padding:1.2rem;
+  padding:0;
+  border-radius:18px;
+  overflow:hidden;
   text-align:left;
 }
-.auth-attempt-modal-header{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.75rem; }
-.auth-attempt-modal-header .adam-modal-title{ margin:0; }
+.auth-attempt-modal-header{
+  display:flex;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:space-between;
+  gap:1rem;
+  padding:1rem 1.1rem;
+  border-bottom:1px solid var(--adam-border);
+  background:var(--adam-card);
+}
+.auth-attempt-modal-heading{ display:flex; min-width:0; align-items:center; gap:.65rem; }
+.auth-attempt-modal-icon{
+  display:inline-flex;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:center;
+  width:36px;
+  height:36px;
+  border-radius:10px;
+  background:rgba(15,118,110,.11);
+  color:#0f766e;
+}
+.auth-attempt-modal-icon .lucide-icon{ width:18px; height:18px; }
+.auth-attempt-modal-header .adam-modal-title{ margin:0; color:var(--adam-text); font-weight:750; }
 .auth-attempt-modal-close{
   display:inline-flex;
   align-items:center;
@@ -7735,16 +7584,82 @@ html.theme-dark .profile-loader{
   background:transparent;
   color:var(--adam-muted);
   cursor:pointer;
-  font-size:1.45rem;
-  line-height:1;
 }
+.auth-attempt-modal-close .lucide-icon{ width:18px; height:18px; }
 .auth-attempt-modal-close:hover,.auth-attempt-modal-close:focus-visible{ background:var(--adam-hover); color:var(--adam-text); }
-.auth-attempt-table-wrap{ flex:1; min-height:0; overflow:auto; }
+.auth-attempt-table-wrap{ flex:1; min-height:0; overflow:auto; padding:1rem 1.1rem .35rem; }
 .auth-attempt-table-wrap .adam-table{ width:100%; min-width:680px; }
-.auth-attempt-pagination{ flex-shrink:0; }
+.auth-attempt-table-wrap .adam-table th:last-child,
+.auth-attempt-table-wrap .adam-table td:last-child{ text-align:right; }
+.auth-attempt-table-wrap .adam-table thead th{ position:sticky; top:0; z-index:1; }
+.auth-attempt-email .auth-attempt-value{ display:block; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.auth-attempt-delete{ display:inline-flex; align-items:center; justify-content:center; gap:.35rem; min-height:32px; }
+.auth-attempt-delete .lucide-icon{ width:14px; height:14px; }
+.auth-attempt-delete:disabled{ cursor:wait; opacity:.55; }
+.auth-attempt-empty td{ padding:2.25rem 1rem; color:var(--adam-muted); text-align:center !important; }
+.auth-attempt-empty--error td{ color:var(--adam-danger); }
+.auth-attempt-pagination{ flex-shrink:0; padding:.45rem 1.1rem 1rem; }
+.auth-attempt-pagination:empty{ display:none; }
+.auth-attempt-pagination .adam-pagination{ margin:0; }
 @media (max-width:640px){
   .auth-settings-grid{ grid-template-columns:1fr; }
-  .auth-attempt-modal-panel{ width:96vw; padding:.9rem; }
+  .auth-attempts-actions{ align-items:stretch; }
+  .auth-attempts-button{ justify-content:center; width:100%; min-height:42px; }
+  .adam-modal.auth-attempt-modal{ align-items:flex-end; padding:0; }
+  .auth-attempt-modal-panel{
+    width:100%;
+    max-width:none;
+    max-height:90dvh;
+    border-width:1px 0 0;
+    border-radius:20px 20px 0 0;
+    padding:0 0 max(.25rem, env(safe-area-inset-bottom));
+  }
+  .auth-attempt-modal-header{ padding:.85rem 1rem; }
+  .auth-attempt-modal-icon{ width:34px; height:34px; }
+  .auth-attempt-table-wrap{ padding:.75rem; }
+  .auth-attempt-table-wrap .adam-table,
+  .auth-attempt-table-wrap .adam-table tbody{ display:block; width:100%; min-width:0; background:transparent; box-shadow:none; }
+  .auth-attempt-table-wrap .adam-table thead{ display:none; }
+  .auth-attempt-table-wrap .adam-table tbody{ display:grid; gap:.7rem; }
+  .auth-attempt-table-wrap .adam-table tr{
+    display:block;
+    overflow:hidden;
+    border:1px solid var(--adam-border);
+    border-radius:13px;
+    background:var(--adam-card);
+    box-shadow:0 4px 14px rgba(15,23,42,.05);
+  }
+  .auth-attempt-table-wrap .adam-table td{
+    display:grid;
+    grid-template-columns:minmax(88px, .42fr) minmax(0, 1fr);
+    align-items:center;
+    gap:.75rem;
+    width:100%;
+    box-sizing:border-box;
+    padding:.62rem .75rem;
+    border-bottom:1px solid var(--adam-border);
+    text-align:right;
+  }
+  .auth-attempt-table-wrap .adam-table td::before{
+    content:attr(data-label);
+    color:var(--adam-muted);
+    font-size:.68rem;
+    font-weight:800;
+    letter-spacing:.045em;
+    text-align:left;
+    text-transform:uppercase;
+  }
+  .auth-attempt-table-wrap .adam-table td:last-child{ border-bottom:0; }
+  .auth-attempt-table-wrap .adam-table tr:hover td{ background:transparent; }
+  .auth-attempt-table-wrap .auth-attempt-value{ min-width:0; overflow-wrap:anywhere; }
+  .auth-attempt-table-wrap .auth-attempt-email .auth-attempt-value{ max-width:none; white-space:normal; }
+  .auth-attempt-table-wrap .badge,
+  .auth-attempt-table-wrap .auth-attempt-delete{ justify-self:end; }
+  .auth-attempt-table-wrap .auth-attempt-delete{ min-height:36px; padding:.35rem .55rem; }
+  .auth-attempt-table-wrap .auth-attempt-empty{ box-shadow:none; }
+  .auth-attempt-table-wrap .auth-attempt-empty td{ display:block; padding:2rem 1rem; border:0; text-align:center; }
+  .auth-attempt-table-wrap .auth-attempt-empty td::before{ display:none; }
+  .auth-attempt-pagination{ padding:.35rem .75rem .75rem; }
 }
 
 /* ─── End Futuristic Enhancements ─── */

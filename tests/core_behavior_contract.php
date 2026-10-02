@@ -57,13 +57,13 @@ $updatesEndpoint = (string)file_get_contents($root . '/dashboard/admin/check_upd
 $updatesCaller = (string)file_get_contents($root . '/public/static/dashboard/js/update-notif.js');
 $htaccess = (string)file_get_contents($root . '/public/.htaccess');
 $serverSetup = (string)file_get_contents($root . '/SERVER_SETUP.md');
-$login = (string)file_get_contents($root . '/dashboard/gerbank/melbu/index.php');
+$login = (string)file_get_contents($root . '/dashboard/auth/login/index.php');
 $loginCss = (string)file_get_contents($root . '/public/static/dashboard/css/login.css');
 $debugHelpers = (string)file_get_contents($root . '/cfg/helpers/debug_helpers.php');
 $dashboardMain = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/main.php');
 $dashboardLayout = (string)file_get_contents($root . '/dashboard/theme/adiwira/layout.php');
 $dashboardHeader = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/header.php');
-$registration = (string)file_get_contents($root . '/dashboard/gerbank/daptar/index.php');
+$registration = (string)file_get_contents($root . '/dashboard/auth/register/index.php');
 $dashboardBootstrap = (string)file_get_contents($root . '/dashboard/bootstrap.php');
 $defaultSchema = (string)file_get_contents($root . '/schema/default.sql');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
@@ -179,6 +179,22 @@ foreach (['jy_login_title', 'jy_login_logo_url', 'jy_login_logo_link'] as $filte
 $check(str_contains($login, '/static/img/jyavani.svg') && str_contains($login, 'rel="icon"'), 'login uses the canonical Jyavani logo and favicon');
 $check(str_contains($login, '/static/dashboard/css/login.css') && str_contains($loginCss, '@media (max-width: 480px)'), 'login loads its dedicated responsive stylesheet');
 $check(str_contains($login, 'autocomplete="current-password"') && str_contains($login, 'name="csrf_token"'), 'login preserves password autocomplete and CSRF protection');
+$check(str_contains($login, 'auth_verify_recaptcha(')
+    && str_contains($registration, 'auth_verify_recaptcha(')
+    && !str_contains($login . $registration, 'melbu_'),
+    'login and registration share generic auth helpers without legacy internal naming');
+$check(!str_contains($login, 'wa.me/')
+    && !str_contains($login, 'WHATSAPP_HELP_URL')
+    && !str_contains($login, 'jy-login__help')
+    && !str_contains($loginCss, '.jy-login__help'),
+    'Core login contains no deployment-specific support contact UI');
+$check(!str_contains($login, 'CAPTCHA not configured. Contact admin.')
+    && str_contains($login, 'reCAPTCHA is enabled but its credentials are incomplete.')
+    && str_contains($registration, "\$errors[] = __('Invalid CAPTCHA.');"),
+    'incomplete CAPTCHA configuration fails closed without support instructions');
+$check(!str_contains($dashboardMain, "\$_GET['debug']")
+    && !str_contains($dashboardMain, "ini_set('display_errors', '1')"),
+    'dashboard rendering follows the environment debug policy without a query override');
 
 $downloadWithStream = new ReflectionMethod(PluginStoreController::class, 'downloadPackageWithStream');
 $serveOnce = static function (int $status, string $body) use ($downloadWithStream): array {

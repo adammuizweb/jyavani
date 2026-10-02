@@ -23,40 +23,86 @@ function is_blocked($attempt): bool {
  * get_login_attempt(PDO $pdo, string $email, string $ip): ?array
  */
 function get_login_attempt(PDO $pdo, string $email, string $ip): ?array {
-    $stmt = $pdo->prepare("SELECT * FROM login_attempts WHERE email = ? AND ip_address = ? LIMIT 1");
+    $stmt = $pdo->prepare(
+        'SELECT MIN(id) AS id, email, ip_address, SUM(attempts) AS attempts,
+                MAX(last_attempt) AS last_attempt, MAX(blocked_until) AS blocked_until
+         FROM login_attempts
+         WHERE email = ? AND ip_address = ?
+         GROUP BY email, ip_address
+         LIMIT 1'
+    );
     $stmt->execute([$email, $ip]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row ?: null;
 }
 
+function auth_verify_recaptcha(string $secret, string $response, string $ip): bool {
+    $secret = trim($secret);
+    $response = trim($response);
+    if ($secret === '' || $response === '') return false;
+
+    $payload = ['secret' => $secret, 'response' => $response];
+    $ip = trim($ip);
+    if ($ip !== '') $payload['remoteip'] = $ip;
+    $body = http_build_query($payload, '', '&', PHP_QUERY_RFC3986);
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'POST',
+            'timeout' => 8,
+            'header' => "Accept: application/json\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: " . strlen($body) . "\r\n",
+            'content' => $body,
+        ],
+    ]);
+    $raw = @file_get_contents('https://www.google.com/recaptcha/api/siteverify', false, $context);
+    $result = is_string($raw) ? json_decode($raw, true) : null;
+    return is_array($result) && ($result['success'] ?? false) === true;
+}
+
+function auth_login_user_by_email(PDO $pdo, string $email): ?array {
+    $stmt = $pdo->prepare(
+        'SELECT id, email, password, name, role, is_deleted, is_locked FROM users WHERE email = :email LIMIT 1'
+    );
+    $stmt->execute([':email' => $email]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
 /**
- * record_failed_attempt(PDO $pdo, string $email, string $ip): int
+ * record_failed_attempt(PDO $pdo, string $email, string $ip, int $maxAttempts = 5, int $blockMinutes = 15): int
  * returns new attempts count
  */
-function record_failed_attempt(PDO $pdo, string $email, string $ip): int {
-    // try to acquire current row
-    $stmt = $pdo->prepare("SELECT id, attempts FROM login_attempts WHERE email = ? AND ip_address = ? LIMIT 1");
-    $stmt->execute([$email, $ip]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+function record_failed_attempt(
+    PDO $pdo,
+    string $email,
+    string $ip,
+    int $maxAttempts = 5,
+    int $blockMinutes = 15
+): int {
+    $maxAttempts = max(1, min(100, $maxAttempts));
+    $blockMinutes = max(1, min(1440, $blockMinutes));
+    $blockedUntil = date('Y-m-d H:i:s', time() + $blockMinutes * 60);
+    $initialBlockedUntil = $maxAttempts === 1 ? $blockedUntil : null;
 
-    if ($row) {
-        $attempts = (int)$row['attempts'] + 1;
-        $blocked_until = null;
-        if ($attempts >= 5) {
-            // block for 15 minutes
-            $blocked_until = date("Y-m-d H:i:s", time() + 15 * 60);
-        }
+    $stmt = $pdo->prepare(
+        'INSERT INTO login_attempts (email, ip_address, attempts, last_attempt, blocked_until)
+         VALUES (?, ?, 1, NOW(), ?)
+         ON DUPLICATE KEY UPDATE
+             blocked_until = IF(attempts + 1 >= ?, ?, NULL),
+             attempts = attempts + 1,
+             last_attempt = NOW()'
+    );
+    $stmt->execute([$email, $ip, $initialBlockedUntil, $maxAttempts, $blockedUntil]);
 
-        $upd = $pdo->prepare("UPDATE login_attempts SET attempts = ?, last_attempt = NOW(), blocked_until = ? WHERE id = ?");
-        $upd->execute([$attempts, $blocked_until, $row['id']]);
-
-        return $attempts;
+    $attempt = get_login_attempt($pdo, $email, $ip);
+    $attempts = max(1, (int)($attempt['attempts'] ?? 1));
+    if ($attempts >= $maxAttempts && !is_blocked($attempt)) {
+        $block = $pdo->prepare(
+            'UPDATE login_attempts SET blocked_until = ? WHERE email = ? AND ip_address = ?'
+        );
+        $block->execute([$blockedUntil, $email, $ip]);
     }
 
-    // insert new
-    $ins = $pdo->prepare("INSERT INTO login_attempts (email, ip_address, attempts, last_attempt, blocked_until) VALUES (?, ?, 1, NOW(), NULL)");
-    $ins->execute([$email, $ip]);
-    return 1;
+    return $attempts;
 }
 
 /**

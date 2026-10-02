@@ -5,7 +5,7 @@ require_once dirname(__DIR__, 3) . '/app/bootstrap_core.php';
 require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 
 // ---------- config from DB settings ----------
-$registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'adiwira/gerbank/daptar';
+$registerPath = function_exists('get_register_path') ? get_register_path($pdo) : 'register';
 $registrationEnabled = function_exists('settings_get') ? (settings_get($pdo, 'registration_enabled', '0') ?? '0') === '1' : false;
 $registrationApproval = function_exists('settings_get') ? (settings_get($pdo, 'registration_approval_required', '1') ?? '1') === '1' : true;
 $recaptchaEnabled = function_exists('settings_get') ? (settings_get($pdo, 'recaptcha_enabled', '0') ?? '0') === '1' : false;
@@ -78,19 +78,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // reCAPTCHA (jika enabled)
-    if ($recaptchaEnabled && $RECAPTCHA_SECRET !== '') {
-        if ($captcha_response === '') {
+    if ($recaptchaEnabled) {
+        if ($RECAPTCHA_SITEKEY === '' || $RECAPTCHA_SECRET === '') {
+            error_log('[registration] reCAPTCHA is enabled but its credentials are incomplete.');
+            $errors[] = __('Invalid CAPTCHA.');
+        } elseif ($captcha_response === '') {
             $errors[] = __('Please fill in the CAPTCHA.');
-        } else {
-            $url = 'https://www.google.com/recaptcha/api/siteverify'
-                . '?secret=' . urlencode($RECAPTCHA_SECRET)
-                . '&response=' . urlencode($captcha_response)
-                . '&remoteip=' . urlencode($_SERVER['REMOTE_ADDR'] ?? '');
-            $raw = @file_get_contents($url);
-            $json = $raw ? json_decode($raw, true) : null;
-            if (empty($json['success'])) {
-                $errors[] = __('Invalid CAPTCHA.');
-            }
+        } elseif (!auth_verify_recaptcha($RECAPTCHA_SECRET, $captcha_response, (string)($_SERVER['REMOTE_ADDR'] ?? ''))) {
+            $errors[] = __('Invalid CAPTCHA.');
         }
     }
 

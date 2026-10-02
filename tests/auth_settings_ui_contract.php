@@ -15,6 +15,10 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 $check(str_contains($auth, 'class="adam-card settings-card auth-settings"')
     && str_contains($auth, '<h2 class="edit-heading">'),
     'Authentication Settings uses the shared settings card and heading');
+$check(!str_contains($auth, "settings_get(\$pdo, 'login_slug'")
+    && !str_contains($auth, "settings_set(\$pdo, 'login_path'")
+    && !str_contains($auth, "settings_set(\$pdo, 'register_path'"),
+    'opening Authentication Settings never migrates or rewrites configured auth paths');
 
 foreach (['registration', 'security', 'paths', 'dashboard'] as $section) {
     $check(str_contains($auth, 'settings-section--auth-' . $section)
@@ -59,12 +63,21 @@ $check(str_contains($auth, 'if ($pdo->inTransaction())')
 $check(str_contains($auth, 'role="dialog" aria-modal="true" aria-hidden="true"')
     && str_contains($auth, "event.key === 'Escape'")
     && str_contains($auth, 'attemptModalLastFocus.focus()')
-    && str_contains($auth, "firstControl.focus()"),
+    && str_contains($auth, "firstControl.focus()")
+    && str_contains($auth, 'class="adam-modal auth-attempt-modal"'),
     'login attempts uses an accessible modal with Escape and focus restoration');
 $check(str_contains($auth, "json_encode(__('Delete this login attempt data?'))")
+    && str_contains($auth, 'window.NewNotifConfirm.danger(options)')
+    && str_contains($auth, 'window.NewNotifToast.show')
     && !str_contains($auth, "alert('Gagal")
     && str_contains($auth, 'badge badge--danger'),
-    'login-attempt feedback is safely translated and uses shared status styling');
+    'login-attempt deletion uses Core confirmation and feedback components');
+$check(str_contains($auth, 'class="auth-attempts-actions"')
+    && str_contains($auth, 'data-label="')
+    && str_contains($css, '.auth-attempts-actions{ display:flex; justify-content:flex-end;')
+    && str_contains($css, '.adam-modal.auth-attempt-modal{ align-items:flex-end;')
+    && str_contains($css, 'content:attr(data-label)'),
+    'login-attempt action and modal adapt from right-aligned desktop table to mobile sheet cards');
 
 foreach ([
     'Allow visitors to create an account from the public registration page.',
@@ -75,6 +88,7 @@ foreach ([
     'Failed:',
     'Failed to delete data.',
     'Unknown error.',
+    'Login Attempts',
     'Dashboard path',
     'Login, registration, and dashboard paths cannot overlap.',
     'Path conflicts with a reserved or configured route.',

@@ -1,14 +1,14 @@
 <?php
 declare(strict_types=1);
 
-// /adiwira/gerbank/melbu/?
-// DB-backed login (email-based) — stateless CSRF, session baru dibuat hanya saat login_user()
+// DB-backed login (email-based) with stateless CSRF. The configured public
+// route is independent from this internal entrypoint.
 
 require_once dirname(__DIR__, 3) . '/app/bootstrap_core.php';
 require_once BACKEND_PATH . '/helpers/auth_helpers.php';
 
 // ---------- config from DB settings ----------
-$loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'adiwira/gerbank/melbu';
+$loginPath = function_exists('get_login_path') ? get_login_path($pdo) : 'login';
 $recaptchaEnabled = function_exists('settings_get') ? (settings_get($pdo, 'recaptcha_enabled', '0') ?? '0') === '1' : false;
 $bfMaxAttempts = (int)(function_exists('settings_get') ? (settings_get($pdo, 'bruteforce_max_attempts', '5') ?? '5') : '5');
 $bfBlockMinutes = (int)(function_exists('settings_get') ? (settings_get($pdo, 'bruteforce_block_minutes', '15') ?? '15') : '15');
@@ -20,56 +20,6 @@ if (!function_exists('auth_path_matches') || !auth_path_matches($loginPath)) {
     exit;
 }
 
-// ---------- helper ----------
-if (!function_exists('melbu_verify_recaptcha')) {
-    function melbu_verify_recaptcha(string $secret, string $response, string $ip): bool
-    {
-        $secret = trim($secret);
-        $response = trim($response);
-        $ip = trim($ip);
-
-        if ($secret === '' || $response === '') {
-            return false;
-        }
-
-        $url = 'https://www.google.com/recaptcha/api/siteverify'
-            . '?secret=' . urlencode($secret)
-            . '&response=' . urlencode($response)
-            . '&remoteip=' . urlencode($ip);
-
-        $ctx = stream_context_create([
-            'http' => [
-                'method'  => 'GET',
-                'timeout' => 8,
-                'header'  => "Accept: application/json\r\n",
-            ],
-        ]);
-
-        $raw = @file_get_contents($url, false, $ctx);
-        if ($raw === false) {
-            return false;
-        }
-
-        $json = json_decode($raw, true);
-        return !empty($json['success']);
-    }
-}
-
-if (!function_exists('melbu_fetch_user_by_email')) {
-    function melbu_fetch_user_by_email(PDO $pdo, string $email): ?array
-    {
-        $stmt = $pdo->prepare("
-            SELECT id, email, password, name, role, is_deleted, is_locked
-            FROM users
-            WHERE email = :email
-            LIMIT 1
-        ");
-        $stmt->execute([':email' => $email]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row ?: null;
-    }
-}
-
 // ---------- config: DB settings with env fallback ----------
 $RECAPTCHA_SITEKEY = (string)(settings_get($pdo, 'recaptcha_sitekey', '') ?? '');
 if ($RECAPTCHA_SITEKEY === '') {
@@ -79,29 +29,6 @@ $RECAPTCHA_SECRET = (string)(settings_get($pdo, 'recaptcha_secret', '') ?? '');
 if ($RECAPTCHA_SECRET === '') {
     $RECAPTCHA_SECRET = (string)(getenv('RECAPTCHA_SECRET') ?: '');
 }
-$WHATSAPP_HELP_URL = 'https://wa.me/6289514787832';
-
-// helper: record failed attempt with configurable block
-if (!function_exists('melbu_record_failed')) {
-    function melbu_record_failed(PDO $pdo, string $email, string $ip, int $maxAttempts, int $blockMinutes): int {
-        $stmt = $pdo->prepare("SELECT id, attempts FROM login_attempts WHERE email = ? AND ip_address = ? LIMIT 1");
-        $stmt->execute([$email, $ip]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $attempts = (int)$row['attempts'] + 1;
-            $blocked_until = $attempts >= $maxAttempts
-                ? date("Y-m-d H:i:s", time() + $blockMinutes * 60)
-                : null;
-            $upd = $pdo->prepare("UPDATE login_attempts SET attempts = ?, last_attempt = NOW(), blocked_until = ? WHERE id = ?");
-            $upd->execute([$attempts, $blocked_until, $row['id']]);
-            return $attempts;
-        }
-        $ins = $pdo->prepare("INSERT INTO login_attempts (email, ip_address, attempts, last_attempt, blocked_until) VALUES (?, ?, 1, NOW(), NULL)");
-        $ins->execute([$email, $ip]);
-        return 1;
-    }
-}
-
 // stateless csrf token untuk public form
 $csrf_value = csrf_token();
 
@@ -109,9 +36,15 @@ $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
 $errors = [];
 $info = null;
 $show_captcha = false;
-$show_help = false;
 $attempts = 0;
 $captcha_threshold = max(1, (int)ceil($bfMaxAttempts * 0.6)); // captcha muncul setelah 60% dari max
+$loginAttemptError = static function (int $attempts, int $maxAttempts, int $blockMinutes): string {
+    if ($attempts >= $maxAttempts) {
+        return __('Too many attempts. Account/IP temporarily blocked for ') . $blockMinutes . __(' minutes.');
+    }
+    return __('Incorrect email or password. Remaining attempts before block: ')
+        . max(0, $maxAttempts - $attempts) . '.';
+};
 
 // input
 $email = mb_strtolower(trim((string)($_POST['email'] ?? '')), 'UTF-8');
@@ -160,7 +93,6 @@ if ($email !== '') {
         $attempts = (int)($attempt['attempts'] ?? 0);
         if ($attempts >= $captcha_threshold) {
             $show_captcha = true;
-            $show_help = true;
         }
     }
 }
@@ -190,7 +122,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     if ($attempts >= $captcha_threshold) {
         $show_captcha = true;
-        $show_help = true;
     }
 
     // blocked?
@@ -212,16 +143,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     // captcha jika diperlukan
     if (empty($errors) && $show_captcha && $recaptchaEnabled) {
         if ($RECAPTCHA_SITEKEY === '' || $RECAPTCHA_SECRET === '') {
-            $errors[] = __('CAPTCHA not configured. Contact admin.');
-            $show_help = true;
+            error_log('[login] reCAPTCHA is enabled but its credentials are incomplete.');
+            $attempts = record_failed_attempt($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
+            $errors[] = $loginAttemptError($attempts, $bfMaxAttempts, $bfBlockMinutes);
         } elseif ($captcha_response === '') {
             $errors[] = __('Please fill in the CAPTCHA.');
         } else {
-            $verified = melbu_verify_recaptcha($RECAPTCHA_SECRET, $captcha_response, $ip);
+            $verified = auth_verify_recaptcha($RECAPTCHA_SECRET, $captcha_response, $ip);
 
             if (!$verified) {
                 if ($email !== '') {
-                    $attempts = melbu_record_failed($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
+                    $attempts = record_failed_attempt($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
                 }
                 $errors[] = __('Invalid CAPTCHA.');
             }
@@ -230,7 +162,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     // credentials
     if (empty($errors)) {
-        $user = melbu_fetch_user_by_email($pdo, $email);
+        $user = auth_login_user_by_email($pdo, $email);
 
         $userExists = is_array($user);
         $passwordOk = false;
@@ -244,25 +176,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         if (!$userExists || !$passwordOk) {
             if ($email !== '') {
-                $attempts = melbu_record_failed($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
+                $attempts = record_failed_attempt($pdo, $email, $ip, $bfMaxAttempts, $bfBlockMinutes);
             } else {
                 $attempts = 0;
             }
-
-            if ($attempts >= $bfMaxAttempts) {
-                $errors[] = __('Too many attempts. Account/IP temporarily blocked for ') . $bfBlockMinutes . __(' minutes.');
-            } else {
-                $remaining = max(0, $bfMaxAttempts - $attempts);
-                $errors[] = __('Incorrect email or password. Remaining attempts before block: ') . $remaining . '.';
-            }
+            $errors[] = $loginAttemptError($attempts, $bfMaxAttempts, $bfBlockMinutes);
         } else {
             // password benar, cek status akun
             if ((int)($user['is_deleted'] ?? 0) === 1) {
                 $errors[] = __('Account unavailable.');
-                $show_help = true;
             } elseif ((int)($user['is_locked'] ?? 0) === 1) {
                 $errors[] = __('Account not yet active or is locked.');
-                $show_help = true;
             } else {
                 if ($email !== '') {
                     reset_login_attempts($pdo, $email, $ip);
@@ -285,7 +209,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 $attempt = ($email !== '') ? get_login_attempt($pdo, $email, $ip) : $attempt;
 $attempts = (int)($attempt['attempts'] ?? $attempts);
 $show_captcha = $show_captcha || ($attempts >= $captcha_threshold);
-$show_help = $show_help || ($attempts >= $captcha_threshold);
 
 $siteTitle = (string)(settings_get($pdo, 'site_title', 'Jyavani CMS') ?? 'Jyavani CMS');
 $loginTitle = (string)apply_filters('jy_login_title', __('Sign In'), $pdo);
@@ -373,13 +296,6 @@ $loginLogoLink = (string)apply_filters('jy_login_logo_link', '/', $pdo);
     </form>
 
     <?php do_action('jy_login_after_form', $pdo); ?>
-
-    <?php if ($show_help): ?>
-      <div class="jy-login__help">
-        <small><?php _e('Need help after several attempts?'); ?></small>
-        <a href="<?php echo htmlspecialchars($WHATSAPP_HELP_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php _e('Contact Admin via WhatsApp'); ?></a>
-      </div>
-    <?php endif; ?>
 
       <a class="jy-login__back" href="<?=h($loginLogoLink)?>">
         <span aria-hidden="true">&larr;</span> <?=h(__('Back to website'))?>

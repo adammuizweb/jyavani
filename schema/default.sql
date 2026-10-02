@@ -545,6 +545,7 @@ CREATE TABLE IF NOT EXISTS `login_attempts` (
   `last_attempt` datetime NOT NULL,
   `blocked_until` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_login_attempt_email_ip` (`email`,`ip_address`),
   KEY `email` (`email`),
   KEY `ip_address` (`ip_address`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
