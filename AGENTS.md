@@ -221,6 +221,7 @@ The `themes` table has `store_url` and `store_slug` columns for update checking 
 
 - Normal public and dashboard requests acquire a shared reader on `THEME_LIFECYCLE_LOCK_KEY` (`0-theme-lifecycle`) immediately after the lock helpers load and retain it through request shutdown. This covers plugin discovery/bootstrap/routes and theme executable discovery/rendering. Lifecycle writers acquire that global key exclusively first, followed by exact affected folder keys, and release in `finally`. A request upgrading to a writer releases only its own shared reader before taking the global exclusive lock; it never upgrades `flock` in place, and the reader resumes after the writer set is released. Exclusive re-entry by the same request still fails fast. Use `theme_lifecycle_lock_keys([$folder])` with `theme_operation_acquire()` only at top-level operations. Lock filenames are SHA-256 hashes of validated exact basenames, allowing safe legacy folder names without path interpolation. The lock directory is shared-group setgid mode `02770` and files are `0660`; all cooperating deployment workers must share its trusted group.
 - `theme_update_preflight` receives `($state, $folder, $cachedUpdate, $completeInstalledManifest, $pdo)`. State schema 1 contains `issues` and caller `decisions`; Core validates the complete result and allows an update only when no blocking unresolved issue remains.
+- `theme_delete_preflight` receives `($state, $themeRow, $completePhysicalManifest, $context, $pdo)` after Core locks the exact registered theme row and before assignments or theme records change. State is exactly `['allowed' => bool, 'message' => string]`; denial is monotonic, malformed output or exceptions fail closed, and listeners must not change transaction ownership. Context schema 1 includes the operation, actor, Theme Manager source, and whether physical-file deletion was requested.
 - `theme_install_completed($folder, $completeManifest)` and `theme_update_completed($folder, $oldVersion, $newVersion, $completeManifest)` run while the operation lock is held. Listener exceptions are logged and do not reverse a successful operation.
 - `theme_manager_theme_actions($themeRow, $completePhysicalManifest, $context)` renders extension-owned actions in each installed theme card. Context includes folder/state flags, cached update metadata, user ID, admin base path, and return URL. Each extension must render one owner-labelled action group rather than loose buttons; Core uses blue, while extensions own a distinct accessible label and visual identity.
 - Theme update decisions are untrusted bounded maps. Extensions must bind choices to the issue's 64-hex `state_token`; apply always reruns preflight under lock and has no bypass.
@@ -258,20 +259,19 @@ public/views/themes/{folder}/
 ├── partials/
 │   └── shortcodes/
 │       └── section/    # reusable Theme Section renderers
-├── main/
+└── main/
 │   ├── homepage.php    # partial: main.homepage
 │   ├── search.php      # partial: main.search
 │   ├── 404.php         # partial: main.404
-│   └── ...
-├── single/
-│   ├── post.php        # partial: single.post
-│   └── page.php        # partial: single.page
-├── list/
-│   ├── post.php        # partial: list.post
-│   ├── category.php    # partial: list.category
-│   └── ...
-└── index/
-    └── category.php    # partial: index.category
+│   ├── single/
+│   │   ├── post.php    # partial: single.post
+│   │   └── page.php    # partial: single.page
+│   ├── list/
+│   │   ├── post.php    # partial: list.post
+│   │   ├── category.php # partial: list.category
+│   │   └── ...
+│   └── index/
+│       └── category.php # partial: index.category
 ```
 
 ### `theme.json` layout contract
@@ -366,9 +366,9 @@ Any PHP file inside `main/` becomes a partial selectable in Customize. Examples:
 |------|--------------|---------------------------------------------|
 | `main/homepage.php` | `main.homepage` | `before`, `after` |
 | `main/search.php` | `main.search` | `before_loop`, `after_loop` |
-| `single/post.php` | `single.post` | `before_content`, `after_content` |
-| `list/post.php` | `list.post` | `before_loop`, `after_loop` |
-| `index/category.php` | `index.category` | `before_loop`, `after_loop` |
+| `main/single/post.php` | `single.post` | `before_content`, `after_content` |
+| `main/list/post.php` | `list.post` | `before_loop`, `after_loop` |
+| `main/index/category.php` | `index.category` | `before_loop`, `after_loop` |
 
 Files starting with `_` are ignored. Subfolders become dotted slugs (`dir.file` → `dir.file`).
 
@@ -445,11 +445,11 @@ register_theme_section('home.hero', [
 echo render_theme_section('home.hero', [], $pdo, ['slot' => 'main.homepage']);
 ```
 
-Put shared queries and derived data in an underscore-prefixed helper such as `partials/shortcodes/section/_home.php`, cache them for the request, and require that helper from each renderer. The helper must support section previews and shortcode rendering independently of homepage composition. Files beginning with `_` are implementation details and are not editable sections.
+Put non-Preset theme queries and shared derived data in an underscore-prefixed helper such as `partials/shortcodes/section/_home.php`, cache them for the request, and require that helper from each renderer. Reusable post-list queries belong in Shortcode Presets instead. The helper must support section previews and shortcode rendering independently of homepage composition. Files beginning with `_` are implementation details and are not editable sections.
 
 Registered renderers are editable at `?page=admin/shortcodes/index&tab=layouts&scope=section` and reusable in content with `[[widget:theme_section name="home.hero"]]`. Preserve the theme's empty states, localization, URL helpers, media fallback, Customizer values, and existing Theme Zone order when extracting a monolithic homepage.
 
-Published Shortcode Presets are the supported data layer for reusable post-list sections. Keep query filters and the Collection Layout in the Preset, then call `render_shortcode_preset($pdo, 'preset-slug', $overrides, $context)` from the Theme Section renderer. The dashboard's Preset **Build Section** action and **Post List Section** starter generate this composition; do not duplicate the preset query inside the section.
+Published Shortcode Presets are the supported data layer for reusable post-list sections. The database record owns the persisted query and selected Collection Layout. Call `render_shortcode_preset($pdo, 'preset-slug', [], $context)` from the Theme Section renderer by default. Trusted PHP may pass bounded request-local overrides for an intentional context; overrides do not mutate or transfer ownership of the saved Preset, and independently managed variants should use separate Presets. The dashboard's Preset **Build Section** action and **Post List Section** starter generate the no-override composition; do not duplicate the preset query inside the section.
 
 Collection Layout discovery returns the runtime file's `global` or `theme` ownership so the Site Owner editor can recompute its directory without accepting filesystem paths from the browser. Preset and Collection Layout previews render in a script-free sandboxed document with active-theme manifest styles. Themes and plugins may append context-specific stylesheet URLs through `shortcode_collection_preview_styles($styles, $themeFolder, $pdo, $context)`; context includes `layout`, `source`, `surface`, preview mode, available preset identity, and resolved layout ownership.
 
@@ -501,6 +501,10 @@ PHP helpers available anywhere after bootstrap:
 ## Content & Shortcodes
 
 - Posts/pages share `posts` table; `type` column: `article`, `page`, `theme`, `sc_preset`
+- A Shortcode Preset is the reusable database record: it owns the persisted content query and selects one Collection Layout.
+- A Collection Layout is only the PHP renderer for a Preset result list. Layouts are either global Core/site files or active-theme-owned files; they are not independently selectable sidebar widgets.
+- A Theme Section is a semantic, theme-owned page partial. It may compose a published Preset through `render_shortcode_preset()` and owns the surrounding wrapper. Bounded trusted runtime overrides affect only that render call and do not change the Preset's stored query, selected Collection Layout, or ownership.
+- The sidebar `Published Preset` widget stores a published Preset slug. Runtime rendering follows `sidebar item -> Preset -> Collection Layout`; whether it is visible still depends on the active theme rendering that sidebar zone.
 - Stored status: `draft`, `published`, `private`. Article/Page scheduling is represented by stored `draft` plus non-null `publish_at_utc`; dashboard UI exposes the derived `scheduled` status only when the opt-in `content_scheduling_enabled` setting allows new schedules. Lists retain visibility of existing scheduled rows.
 - Hierarchical categories via `categories.parent_id`
 - Shortcodes in post content are expanded at render time:
@@ -621,7 +625,7 @@ Article and Page add/edit screens share the Quill/CodeMirror shell and publish t
 
 Custom plugin routes declare the `content-editor` JavaScript dependency, render a scoped shell through `content_editor_render_mount()`, and explicitly call `JyavaniEditor.mount()`. Mounted schema-2 handles additionally expose scoped actions/events, `snapshot()`, `markSaved()`, `isComplex()`, and `destroy()`, plus contextual media/file adapters. Mounts own only draft-buffer behavior: plugin forms, CSRF, authorization, optimistic state, locale/media policy, persistence, and save-time sanitization remain plugin-owned. Context and `canUpdate` are descriptive browser values and never grant authority. Placeholder text remains translatable through `window.QUILL_PLACEHOLDER`.
 
-CodeMirror pages may expose server-resolved navigation with `register_editor_reference_provider()`. Providers return bounded widget and attribute matchers plus dashboard-local destinations; Core validates and normalizes them before browser use. Decorations never modify saved source and never grant authority. Destination routes must reauthorize. Executable editor references are visible only to actors already authorized for that editor, and navigation opens a new tab so unsaved source remains in place.
+CodeMirror pages may expose server-resolved navigation with `register_editor_reference_provider()`. Providers return bounded doubled-bracket `widget` or single-bracket `shortcode` matchers, one attribute name, and dashboard-local destinations; Core validates and normalizes them before browser use. Decorations never modify saved source and never grant authority. Destination routes must reauthorize. Article, Page, and Theme Content editors publish registered references, while executable Theme Content references remain visible only to actors already authorized for that editor. Navigation opens a new tab so unsaved source remains in place.
 
 Rich Editor tables are native Quill line/container structures rather than atomic embeds. The insertion dialog sets the initial bounded row/column counts and first-row header state; cell content is edited directly with supported toolbar formats. Selection inside a table exposes contextual row/column/settings actions, Tab and Shift+Tab navigate cells, and Enter creates an in-cell line break without creating another cell. Heading and ordered/bullet list controls apply line-scoped table formats without replacing the cell blot. Resizing through Table settings preserves retained cells and confirms before removing nonempty cells. Mounted editors must continue to call `JyavaniQuillTable.destroy(quill)` during teardown; a destroyed Quill instance is terminal and is not configured again.
 
@@ -674,7 +678,7 @@ Fired from `dashboard/admin/posts/{add,save,delete}.php` and `dashboard/admin/pa
 
 The same 64-hex `event_id` is retained across all phases. Events include resource, operation, actor, source, full before/after item snapshots, structurally validated filesystem artifact descriptors, result metadata, and warnings. Listeners receive `ResourceLifecycleDatabase`, which exposes transaction-safe `SELECT`, `INSERT`, `UPDATE`, and `DELETE` operations but no transaction-control methods. Pre-mutation and pre-commit listeners run while the caller owns the transaction and throwing aborts the mutation. Committed observers are best-effort, and transactions accidentally left by an observer are rolled back before the next observer runs.
 
-Providers normalize state that Core has already locked. They must not use an ambient PDO connection, control transactions, or acquire locks in a conflicting order. The facade reduces accidental transaction misuse but is not a sandbox for active PHP plugins, which are trusted code. Generic lifecycle helpers never move/delete files or own transactions. Media and File trash, restore, and permanent purge are the first Core integrations; their managed artifact paths are exposed only after the existing containment and symlink checks pass, and filesystem identities are revalidated immediately before mutation.
+Providers normalize state that Core has already locked. They must not use an ambient PDO connection, control transactions, or acquire locks in a conflicting order. The facade reduces accidental transaction misuse but is not a sandbox for active PHP plugins, which are trusted code. Generic lifecycle helpers never move/delete files or own transactions. Core providers include Media and File mutations plus `sidebar_item` and `sidebar_zone` deletion. Sidebar item deletion uses the same lifecycle for explicit removal, save-omitted rows, and child cleanup during zone deletion; a zone event follows its child-item event in the same caller-owned transaction. Managed artifact paths for Media and File are exposed only after the existing containment and symlink checks pass, and filesystem identities are revalidated immediately before mutation.
 
 ## Plugin System
 

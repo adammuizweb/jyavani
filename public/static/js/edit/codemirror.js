@@ -28,7 +28,7 @@
   function normalizeReferenceConfig(input){
     if (!input || input.schema !== 1 || !Array.isArray(input.providers)) return null;
     const providers = input.providers.filter(function(provider){
-      if (!provider || provider.syntax !== 'widget' || typeof provider.shortcode !== 'string'
+      if (!provider || (provider.syntax !== 'widget' && provider.syntax !== 'shortcode') || typeof provider.shortcode !== 'string'
         || typeof provider.attribute !== 'string' || typeof provider.value_pattern !== 'string') return false;
       try { provider._valuePattern = new RegExp(provider.value_pattern); } catch(e) { return false; }
       return true;
@@ -132,13 +132,56 @@
     return ranges;
   }
 
+  function shortcodeReferenceRanges(value, provider){
+    const ranges = [];
+    const shortcodePattern = /\[[\x09-\x0D\x20]*([a-z0-9_-]+)[\x09-\x0D\x20]*([^\]]*)\]/gi;
+    let shortcodeMatch;
+    while ((shortcodeMatch = shortcodePattern.exec(value)) !== null) {
+      if ((shortcodeMatch.index > 0 && value[shortcodeMatch.index - 1] === '[')
+        || value[shortcodePattern.lastIndex] === ']'
+        || String(shortcodeMatch[1]).toLowerCase() !== provider.shortcode) continue;
+      const attributeText = String(shortcodeMatch[2] || '');
+      const attributeStart = shortcodeMatch.index + shortcodeMatch[0].lastIndexOf(attributeText);
+      const attributePattern = /([a-zA-Z_][a-zA-Z0-9_-]*)[\x09-\x0D\x20]*=[\x09-\x0D\x20]*(?:"([^"]*)"|'([^']*)'|([^\x09-\x0D\x20]+))/g;
+      let attributeMatch;
+      let selected = null;
+      while ((attributeMatch = attributePattern.exec(attributeText)) !== null) {
+        if (attributeMatch[1] !== provider.attribute) continue;
+        const full = attributeMatch[0];
+        const equalsAt = full.indexOf('=');
+        const afterEquals = full.slice(equalsAt + 1);
+        const leadingSpace = (afterEquals.match(/^[\x09-\x0D\x20]*/) || [''])[0].length;
+        const tokenAt = equalsAt + 1 + leadingSpace;
+        const quoteOffset = full[tokenAt] === '"' || full[tokenAt] === "'" ? 1 : 0;
+        const rawValue = attributeMatch[2] !== undefined
+          ? attributeMatch[2]
+          : (attributeMatch[3] !== undefined ? attributeMatch[3] : attributeMatch[4]);
+        selected = {
+          value: String(rawValue || ''),
+          from: attributeStart + attributeMatch.index + tokenAt + quoteOffset
+        };
+      }
+      if (selected && selected.value !== '') {
+        selected.to = selected.from + selected.value.length;
+        ranges.push(selected);
+      }
+    }
+    return ranges;
+  }
+
+  function referenceRanges(value, provider){
+    return provider.syntax === 'shortcode'
+      ? shortcodeReferenceRanges(value, provider)
+      : widgetReferenceRanges(value, provider);
+  }
+
   function rebuildReferences(){
     clearReferenceMarks();
     if (!cm || !referenceConfig || typeof cm.markText !== 'function') return;
     const value = cm.getValue();
     let sequence = 0;
     referenceConfig.providers.forEach(function(provider){
-      widgetReferenceRanges(value, provider).forEach(function(range){
+      referenceRanges(value, provider).forEach(function(range){
         const resolved = referenceDescriptor(provider, range.value);
         if (!resolved) return;
         let markFrom = range.from;

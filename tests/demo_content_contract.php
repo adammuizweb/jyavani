@@ -147,7 +147,7 @@ $check(($randomPreset['id'] ?? null) === 300 && ($randomPreset['status'] ?? null
     && ($randomPreset['theme_section']['layout_override'] ?? null) === 'grid'
     && ($randomPreset['theme_section']['limit'] ?? null) === 4
     && ($randomPreset['theme_section']['max_items'] ?? null) === 20
-    && ($randomPreset['theme_section']['pagination'] ?? null) === 1, 'random preset remains sidebar-safe and declares its five-page homepage Card Grid composition');
+    && ($randomPreset['theme_section']['pagination'] ?? null) === 1, 'random preset retains its saved sidebar layout and declares request-local five-page homepage Card Grid overrides');
 $check(($homePreset['id'] ?? null) === 301 && ($homePreset['status'] ?? null) === 'published'
     && ($homePreset['metadata']['category'] ?? null) === 'pengembangan'
     && ($homePreset['metadata']['order_by'] ?? null) === 'created_at'
@@ -176,7 +176,7 @@ $check($randomSectionName !== '' && is_file($randomSectionPath)
     && str_contains($randomSectionSource, "'limit' => 4")
     && str_contains($randomSectionSource, "'max_items' => 20")
     && str_contains($randomSectionSource, "'pagination' => '1'")
-    && str_contains($randomSectionSource, 'name="random_posts"'), 'random preset, Card Grid override, homepage composition, and shuffle navigation share one section contract');
+    && str_contains($randomSectionSource, 'name="random_posts"'), 'random preset ownership, request-local Card Grid overrides, homepage composition, and shuffle navigation share one section contract');
 $guideSource = (string)file_get_contents($sourceRoot . '/articles/281-widget-shortcode.html');
 $check(str_contains($guideSource, 'demo_home_posts') && str_contains($guideSource, 'home.preset-posts')
     && str_contains($guideSource, 'home.random-posts') && str_contains($guideSource, 'Acak Lagi')

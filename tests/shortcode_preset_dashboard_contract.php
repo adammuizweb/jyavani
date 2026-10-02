@@ -12,6 +12,11 @@ $files = [
     'preview' => $root . '/dashboard/admin/shortcodes/preview_layout.php',
     'widget' => $root . '/cfg/helpers/widget_helper.php',
     'layout_editor' => $root . '/dashboard/admin/shortcodes/layout.php',
+    'sidebar' => $root . '/dashboard/admin/sidebar/index.php',
+    'settings' => $root . '/dashboard/admin/settings/index.php',
+    'agents' => $root . '/AGENTS.md',
+    'cms_docs' => $root . '/cms.md',
+    'demo_widget_docs' => $root . '/schema/demo-content/articles/281-widget-shortcode.html',
     'translations' => $root . '/schema/translations.sql',
     'dashboard_style' => $root . '/public/static/dashboard/css/style.css',
     'action_menu_script' => $root . '/public/static/dashboard/js/action-menu.js',
@@ -141,6 +146,35 @@ $check(str_contains($source['index'], "'preset' => (string)(\$p['slug'] ?? '')")
     && str_contains($source['index'], "_e('Build Section')")
     && str_contains($source['layout_editor'], 'id="section-preset-select"')
     && str_contains($source['layout_editor'], 'render_shortcode_preset($pdo,'), 'published presets link to a Theme Section editor with preset composition controls');
+$check(str_contains($source['sidebar'], "'label' => __('Published Preset')")
+    && str_contains($source['sidebar'], "SELECT slug, title, meta FROM posts WHERE type = 'sc_preset' AND status = 'published'")
+    && str_contains($source['sidebar'], 'post_cat__layout_template_descriptor($pdo, $layout)')
+    && str_contains($source['sidebar'], "__('Collection Layout') . ': ' . \$layout"), 'sidebar preset choices expose the selected Collection Layout and its global or theme owner');
+$check(substr_count($source['sidebar'], "__('Choose a published Preset.')") >= 2
+    && str_contains($source['sidebar'], "if (\$errors !== []) \$action = '';"), 'sidebar add and save reject missing or stale preset references before mutation');
+$check(str_contains($source['sidebar'], 'the layout itself is not a separate widget.')
+    && str_contains($source['sidebar'], 'A saved widget remains invisible when the theme has no sidebar output.'), 'sidebar guidance explains preset composition and theme-controlled visibility');
+$check(str_contains($source['sidebar'], 'The primary zone is only the default when a theme renders a sidebar without naming a zone.')
+    && str_contains($source['sidebar'], 'Saved changes appear only in frontend templates that render this sidebar zone.')
+    && !str_contains($source['sidebar'], 'will appear on the front page')
+    && !str_contains($source['sidebar'], 'Results are immediately visible'), 'sidebar guidance never promises output that the active theme does not render');
+$check(str_contains($source['edit'], 'Preset Slug — use in shortcodes, PHP renderers, or Published Preset widgets')
+    && str_contains($source['save'], 'Select it in a Published Preset sidebar widget or render it by slug.')
+    && str_contains($source['settings'], 'Create reusable content-query Presets for shortcodes, Theme Sections, and sidebar widgets.'), 'Preset dashboard terminology describes reusable identity without conflating it with a sidebar item');
+$check(str_contains($source['layout_editor'], 'Small heading text from the effective Preset attributes')
+    && !str_contains($source['layout_editor'], 'from the sidebar widget'), 'Collection Layout variable help attributes effective values to the Preset render call');
+$check(str_contains($source['agents'], 'owns the persisted content query')
+    && str_contains($source['agents'], 'Bounded trusted runtime overrides affect only that render call')
+    && str_contains($source['cms_docs'], 'sidebar item -> Preset -> Collection Layout')
+    && str_contains($source['demo_widget_docs'], 'Override ini hanya berlaku pada render beranda dan tidak mengubah konfigurasi Preset tersimpan.'), 'maintainer and demo documentation distinguish persisted Preset ownership from request-local overrides');
+$check(str_contains($source['agents'], 'main/single/post.php')
+    && str_contains($source['cms_docs'], '| `single.post` | `before_content`, `after_content` | `main/single/post.php` |')
+    && !str_contains($source['agents'], '| `single/post.php` |'), 'theme documentation uses the canonical nested main tree for discovered partials');
+$check(substr_count($source['translations'], "'Published Preset'") >= 2
+    && substr_count($source['translations'], "'Choose a published Preset.'") >= 2
+    && substr_count($source['translations'], "'The active theme must render the selected sidebar zone. A saved widget remains invisible when the theme has no sidebar output.'") >= 2
+    && substr_count($source['translations'], "'Saved changes appear only in frontend templates that render this sidebar zone.'") >= 2
+    && !str_contains($source['translations'], "'Add the \"Post/Page List\" widget under Dashboard → Appearance → Widgets"), 'sidebar preset terminology has current Indonesian and German translation seeds without the obsolete widget path');
 $check(str_contains($source['layout_editor'], 'class="adam-link--full">')
     && !str_contains($source['layout_editor'], 'class="adam-link">edit preset'),
     'the inline edit-preset help link follows the surrounding text baseline');

@@ -219,9 +219,13 @@ $check(in_array('roundtrip_name', $listedNames, true) && $runtimePath === realpa
 
 file_put_contents($themeCollectionDirectory . '/theme_owned.php', '<?php // theme owned');
 $themeDescriptor = post_cat__layout_template_descriptor($pdo, 'theme_owned');
+$themeListedLayouts = shortcode_layout_list($pdo, 'collection', 'theme', 'theme-a');
+$themeListedByName = array_column($themeListedLayouts, null, 'name');
 $check(($themeDescriptor['source'] ?? '') === 'theme'
     && ($themeDescriptor['theme_folder'] ?? '') === 'theme-a'
     && ($themeDescriptor['path'] ?? '') === realpath($themeCollectionDirectory . '/theme_owned.php'), 'runtime layout descriptors preserve theme ownership without exposing a caller-supplied path');
+$check(($themeListedByName['theme_owned']['source'] ?? '') === 'theme'
+    && ($themeListedByName['theme_owned']['theme_folder'] ?? '') === 'theme-a', 'layout manager listings preserve recomputable theme ownership');
 $check(shortcode_layout_directory($pdo, 'collection', 'theme', 'theme-a') === realpath($themeCollectionDirectory)
     && shortcode_layout_directory($pdo, 'collection', 'theme', '../theme-a') === null, 'theme-owned collection editor directories require a validated installed-theme identity');
 $themeSaved = shortcode_layout_atomic_save($pdo, 'collection', 'theme_owned.php', '', '<?php // updated theme owned', 'theme', 'theme-a');
@@ -427,6 +431,12 @@ $check(str_contains($source['save'], 'adiwira_require_site_owner($pdo, true)')
     && str_contains($source['delete'], 'adiwira_require_site_owner($pdo, true)')
     && str_contains($source['bulk'], 'adiwira_require_site_owner($pdo, true)'), 'layout save and single or bulk deletion endpoints require Site Owner access');
 $check(str_contains($source['index'], '$layoutPerPage = 15') && str_contains($source['index'], '$layoutPagingItems'), 'both layout scopes paginate at 15 rows with numbered pagination');
+$check(str_contains($source['index'], "shortcode_layout_list(\$pdo, 'collection', 'theme', \$activeThemeFolder)")
+    && str_contains($source['index'], "sprintf(__('Theme: %s'), \$layoutThemeFolder)")
+    && str_contains($source['index'], "'source' => \$layoutSource")
+    && str_contains($source['index'], "'theme_folder' => \$layoutThemeFolder"), 'collection listing includes active-theme layouts and preserves owner identity in edit links');
+$check(str_contains($source['index'], '$isThemeOwnedCollection')
+    && str_contains($source['index'], 'Theme-owned Collection Layouts are edited here but removed through the theme lifecycle.'), 'theme-owned collection files remain visible and editable without bypassing theme lifecycle removal');
 $check(str_contains($source['index'], '$pageQuery = $layoutQuery') && str_contains($source['index'], "\$pageQuery['p'] = \$pageNumber"), 'layout pagination preserves validated scope, search, and filter query values');
 $check(str_contains($source['index'], "['page' => 'admin/shortcodes/index', 'tab' => 'layouts', 'scope' => \$layoutScope]") && str_contains($source['index'], "\$layoutQuery['q']") && str_contains($source['index'], "\$layoutQuery['filter']"), 'layout return URLs preserve scope, search, and filter state');
 $check(substr_count($source['index'], "'return_to' => \$layoutReturnTo") >= 2 && str_contains($source['index'], 'name="return_to" value="<?= h($layoutReturnTo)'), 'add, edit, single delete, and bulk delete carry the filtered return URL');
@@ -548,6 +558,9 @@ $check(!str_contains($source['index'], 'window.alert(') && str_contains($source[
 foreach (['Search layout file or name…', 'All layout types', 'All registration statuses', 'Built-in', 'Unregistered', 'Delete selected layouts', 'No layouts selected.', 'Layout scope', 'Select all removable', 'Layout Selected', 'Layouts Selected', 'Built-in layouts stay protected and cannot be selected.'] as $translation) {
     $check(substr_count($source['translations'], "'" . $translation . "'") >= 2, 'translation seeds include ' . $translation);
 }
+$check(substr_count($source['translations'], "'Showing global Collection Layouts and layouts supplied by the active theme: %s'") >= 2
+    && substr_count($source['translations'], "'Theme-owned Collection Layouts are edited here but removed through the theme lifecycle.'") >= 2
+    && substr_count($source['translations'], "'Built-in and theme-owned layouts stay protected and cannot be selected.'") >= 2, 'collection ownership guidance has Indonesian and German translation seeds');
 $check(substr_count($source['translations'], "'Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.'") >= 2, 'translation seeds explain Theme Section deletion protection');
 
 foreach (['post_add', 'post_save', 'page_add', 'page_save', 'theme_add', 'theme_save'] as $mutationEndpoint) {

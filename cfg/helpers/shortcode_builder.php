@@ -488,7 +488,10 @@ function shortcode_preset_render_row(
   }
 }
 
-/** Public composition API for Theme Sections, templates, and other trusted PHP renderers. */
+/**
+ * Public composition API for trusted PHP renderers. Overrides are request-local
+ * effective values; they never mutate or transfer ownership of the saved Preset.
+ */
 function render_shortcode_preset(
   PDO $pdo,
   string|int $preset,

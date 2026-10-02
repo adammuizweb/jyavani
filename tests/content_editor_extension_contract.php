@@ -35,6 +35,7 @@ foreach ($forms as $label => $source) {
         && str_contains($source, 'class="jy-editor-mode-picker"')
         && str_contains($source, 'class="jy-editor-mode-options"')
         && str_contains($source, '/static/js/edit/codemirror.js')
+        && str_contains($source, "filemtime(PUBLIC_PATH . '/static/js/edit/codemirror.js')")
         && str_contains($source, '/static/js/edit/quill.js')
         && str_contains($source, '/static/js/edit/editor_mode.js')
         && str_contains($source, '/static/js/edit/main-init.js'),
@@ -48,6 +49,11 @@ foreach ($forms as $label => $source) {
         && str_contains($source, '/static/js/editor/core-api.js')
         && str_contains($source, "filemtime(PUBLIC_PATH . '/static/js/editor/core-api.js')"),
         $label . ' publishes bounded context and cache-busts the public editor API');
+    $check(str_contains($source, 'editor_reference_configuration($pdo')
+        && str_contains($source, "'surface' => 'content'")
+        && str_contains($source, 'window.ADIWIRA_EDITOR_REFERENCES = <?= json_encode($editorReferences')
+        && str_contains($source, 'jy-editor-reference-help'),
+        $label . ' publishes authorized editor references to CodeMirror');
 }
 
 $check(str_contains($api, 'window.JyavaniEditor = {')
@@ -132,6 +138,13 @@ $check(str_contains($codemirror, 'function setReferences(config)')
     && !str_contains($codemirror, 'theme_section')
     && !str_contains($codemirror, 'admin/shortcodes/layout'),
     'CodeMirror exposes bounded generic references and invalidates stale decorations immediately');
+$check(str_contains($codemirror, "provider.syntax !== 'widget' && provider.syntax !== 'shortcode'")
+    && str_contains($codemirror, 'function shortcodeReferenceRanges(value, provider)')
+    && str_contains($codemirror, "value[shortcodeMatch.index - 1] === '['")
+    && str_contains($codemirror, "value[shortcodePattern.lastIndex] === ']'")
+    && str_contains($codemirror, "provider.syntax === 'shortcode'")
+    && str_contains($codemirror, 'referenceRanges(value, provider).forEach'),
+    'CodeMirror supports bounded single-bracket shortcodes without matching widget syntax');
 $check(str_contains($codemirror, "'F12': function(cm)")
     && str_contains($codemirror, 'event.ctrlKey')
     && str_contains($codemirror, 'event.metaKey')

@@ -231,7 +231,7 @@ if ($isReadOnly) {
   window.ADIWIRA_EDITOR_REFERENCES = <?= json_encode($editorReferences, $jsFlags) ?>;
 </script>
 
-<script src="/static/js/edit/codemirror.js"></script>
+<script src="/static/js/edit/codemirror.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/codemirror.js') ?: 0) ?>"></script>
 <script src="/static/js/edit/main-init.js"></script>
 <script src="/static/dashboard/js/content-schedule.js"></script>
 

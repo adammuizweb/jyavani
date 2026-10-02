@@ -172,7 +172,7 @@ $canAdoptProvider = $isAdmin && $isEdit && $currentSourceOwner === ''
         <label><?=_e('Preset Name')?><br>
           <input type="text" name="title" value="<?= h($pref_title) ?>" class="inpud" required>
         </label>
-        <label style="display:block;margin-top:.6rem"><?=_e('Widget Name (slug) — used in sidebar')?>: <code>widget('nama_ini')</code><br>
+        <label style="display:block;margin-top:.6rem"><?=_e('Preset Slug — use in shortcodes, PHP renderers, or Published Preset widgets')?>: <code>nama_ini</code><br>
           <input type="text" name="slug" value="<?= h($pref_slug) ?>" class="inpud" placeholder="<?=_e('Leave empty to auto-generate')?>">
         </label>
         <label style="display:block;margin-top:.6rem"><?=_e('Status')?><br>

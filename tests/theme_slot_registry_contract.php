@@ -110,7 +110,10 @@ foreach ([
     if (substr_count($translations, "'" . str_replace("'", "''", $sourceString) . "'") < 2) $assignmentStringsSeeded = false;
 }
 $check($assignmentStringsSeeded, 'assignment editor actions and sticky state have Indonesian and German seeds');
-$check(str_contains($pluginLoader, '$themeSlotsBeforeLoad') && str_contains($pluginLoader, '$shortcodeSourcesBeforeLoad'), 'failed plugin loading rolls back both extension registries');
+$check(str_contains($pluginLoader, '$themeSlotsBeforeLoad')
+    && str_contains($pluginLoader, '$shortcodeSourcesBeforeLoad')
+    && str_contains($pluginLoader, '$editorReferencesBeforeLoad'),
+    'failed plugin loading rolls back theme-slot, shortcode-source, and editor-reference registries');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

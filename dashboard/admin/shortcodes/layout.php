@@ -1147,7 +1147,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
             <tr><td><code>$items</code></td><td><code>array</code></td><td><?=_e('Array of post/page data. Each item has: <code>title</code>, <code>url</code>, <code>thumb</code>, <code>desc</code>, <code>date_label</code>, <code>date_iso</code>, <code>kind</code>, <code>raw</code>')?></td></tr>
             <tr><td><code>$attrs</code></td><td><code>array</code></td><td><?=_e('Filter attributes: <code>source</code>, <code>type</code>, <code>category</code>, <code>limit</code>, <code>offset</code>, <code>order_by</code>, <code>excerpt_len</code>, etc.')?></td></tr>
             <tr><td><code>$layout</code></td><td><code>string</code></td><td><?=_e('Layout name — same as the file name (e.g. <code>cards</code>, <code>list</code>)')?></td></tr>
-            <tr><td><code>$kicker</code></td><td><code>string</code></td><td><?=_e('Small text above the title, from the sidebar widget (e.g. <code>LATEST NEWS</code>)')?></td></tr>
+            <tr><td><code>$kicker</code></td><td><code>string</code></td><td><?=_e('Small heading text from the effective Preset attributes (e.g. <code>LATEST NEWS</code>)')?></td></tr>
             <tr><td><code>$class_prefix</code></td><td><code>string</code></td><td><?=_e('Extra CSS prefix from the preset for styling customization')?></td></tr>
             <tr><td><code>$wrap</code></td><td><code>bool</code></td><td><?=_e('Wrap with <code>&lt;div class="pcat"&gt;</code> (<code>true</code>/<code>false</code>)')?></td></tr>
             <tr><td><code>$esc()</code></td><td><code>callable</code></td><td><?=_e('HTML escaping function: <code>$esc($text)</code> — required for all user content output')?></td></tr>
@@ -1172,7 +1172,7 @@ $snippetWrapper = '<?php if ($wrap): ?>
 
 <input type="hidden" id="editor-codemirror" checked>
 
-<script src="/static/js/edit/codemirror.js"></script>
+<script src="/static/js/edit/codemirror.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/codemirror.js') ?: 0) ?>"></script>
 <script>
 var DEFAULT_TEMPLATES = <?= json_encode($isSectionScope ? [$tplClean, $tplSection, $tplSectionPostList] : [$tplClean, $tplList, $tplCards, $tplCard2, $tplSlider]) ?>;
 var SNIPPETS = <?= json_encode($isSectionScope ? [$snippetSectionTitle, $snippetSectionSummary, $snippetSectionLink] : [$snippetForeach, $snippetThumb, $snippetExcerpt, $snippetDate, $snippetKicker, $snippetSlider, $snippetWrapper]) ?>;

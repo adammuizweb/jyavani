@@ -99,6 +99,12 @@ $layoutEntries = [];
 if ($isSiteOwner) {
     try {
         $layoutEntries = shortcode_layout_list($pdo, $layoutScope);
+        if ($layoutScope === 'collection' && $activeThemeFolder !== '') {
+            $layoutEntries = array_merge(
+                $layoutEntries,
+                shortcode_layout_list($pdo, 'collection', 'theme', $activeThemeFolder)
+            );
+        }
     } catch (Throwable $error) {
         error_log('shortcode layout list failed: ' . $error->getMessage());
         $layoutManagerError = __('Layout manager is temporarily unavailable. No layout changes were made.');
@@ -303,6 +309,10 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <p style="margin:-.25rem 0 1rem;color:var(--adam-muted,#666);font-size:.88rem;">
       <?= sprintf(__('Editing renderers owned by the active theme: %s'), '<code>' . h($activeThemeFolder) . '</code>') ?>
     </p>
+  <?php else: ?>
+    <p style="margin:-.25rem 0 1rem;color:var(--adam-muted,#666);font-size:.88rem;">
+      <?= sprintf(__('Showing global Collection Layouts and layouts supplied by the active theme: %s'), '<code>' . h($activeThemeFolder) . '</code>') ?>
+    </p>
   <?php endif; ?>
   <p style="margin:-.25rem 0 1rem;color:var(--adam-muted,#666);font-size:.82rem;">
     <?=_e('Layout removal moves files one at a time under an operation lock. After interruption, Core restores the group on the next manager operation when destinations are unchanged; conflicts stay retained for recovery and are logged.')?>
@@ -352,7 +362,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
         </select>
         <button type="submit" id="layout-bulk-submit" class="adam-button"><?=_e('Apply')?></button>
       </div>
-      <small class="sc-bulk-hint"><?= $layoutScope === 'collection' ? __('Built-in layouts stay protected and cannot be selected.') : __('Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.') ?></small>
+      <small class="sc-bulk-hint"><?= $layoutScope === 'collection' ? __('Built-in and theme-owned layouts stay protected and cannot be selected.') : __('Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.') ?></small>
     </div>
   <div class="adam-table-wrapper">
     <table class="adam-table">
@@ -361,6 +371,7 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
           <th style="width:32px"><span class="sr-only"><?=_e('Select')?></span></th>
           <th><?=_e('File Name')?></th>
           <th><?= $layoutScope === 'section' ? __('Section Name') : __('Layout Name') ?></th>
+          <th><?=_e('Owner')?></th>
           <th><?=_e('Type')?></th>
           <th><?=_e('Size')?></th>
           <th style="width:140px"><?= _e('Actions') ?></th>
@@ -368,21 +379,31 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
       </thead>
       <tbody>
         <?php if (empty($layoutEntries)): ?>
-          <tr><td colspan="6" style="padding:1rem;"><?=_e('No layouts found.')?> <a href="<?= h($layoutAddHref) ?>"><?=_e('Create one now')?></a>.</td></tr>
+          <tr><td colspan="7" style="padding:1rem;"><?=_e('No layouts found.')?> <a href="<?= h($layoutAddHref) ?>"><?=_e('Create one now')?></a>.</td></tr>
         <?php else: ?>
           <?php foreach ($layoutEntries as $layout):
             $f = (string)$layout['file'];
             $layoutName = (string)$layout['name'];
             $fsize = (int)$layout['size'];
             $fsizeStr = $fsize > 1024 ? round($fsize / 1024, 1) . ' KB' : $fsize . ' B';
-            $canDelete = !$layout['builtin'] && !($layout['protected'] ?? false);
+            $layoutSource = (string)($layout['source'] ?? ($layoutScope === 'section' ? 'theme' : 'global'));
+            $layoutThemeFolder = $layoutScope === 'section'
+              ? $activeThemeFolder
+              : (string)($layout['theme_folder'] ?? '');
+            $isThemeOwnedCollection = $layoutScope === 'collection' && $layoutSource === 'theme';
+            $canDelete = !$layout['builtin'] && !($layout['protected'] ?? false) && !$isThemeOwnedCollection;
             $typeLabel = $layoutScope === 'section'
               ? ($layout['registered'] ? __('Registered') : __('Unregistered'))
               : ($layout['builtin'] ? __('Built-in') : __('Custom'));
+            $ownerLabel = $layoutSource === 'theme'
+              ? sprintf(__('Theme: %s'), $layoutThemeFolder)
+              : __('Global');
             $editHref = $base . '/?' . http_build_query([
               'page' => 'admin/shortcodes/layout',
               'scope' => $layoutScope,
               'file' => $f,
+              'source' => $layoutSource,
+              'theme_folder' => $layoutThemeFolder,
               'return_to' => $layoutReturnTo,
             ]);
           ?>
@@ -391,12 +412,15 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
                 <?php if ($canDelete): ?>
                   <input type="checkbox" class="layout-row-check" name="files[]" value="<?= h($f) ?>" aria-label="<?= h(sprintf(__('Select %s'), $layoutName)) ?>">
                 <?php else: ?>
-                  <?php $protectedLabel = $layoutScope === 'section' ? __('Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.') : __('Built-in layouts stay protected and cannot be selected.'); ?>
+                  <?php $protectedLabel = $isThemeOwnedCollection
+                    ? __('Theme-owned Collection Layouts are edited here but removed through the theme lifecycle.')
+                    : ($layoutScope === 'section' ? __('Registered or composed Theme Sections cannot be selected. Other active dependencies are checked before removal.') : __('Built-in layouts stay protected and cannot be selected.')); ?>
                   <input type="checkbox" disabled aria-label="<?= h($protectedLabel) ?>" title="<?= h($protectedLabel) ?>">
                 <?php endif; ?>
               </td>
               <td><a class="adam-link" href="<?= h($editHref) ?>"><?= h($f) ?></a></td>
               <td><code><?= h($layoutName) ?></code></td>
+              <td><?= h($ownerLabel) ?></td>
               <td><?= h($typeLabel) ?></td>
               <td><?= h($fsizeStr) ?></td>
               <td>
@@ -567,14 +591,13 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <tbody>
       <tr><td><strong><?=_e('Shortcode in content')?></strong></td><td><code>[[widget:nama_preset]]</code></td></tr>
       <tr><td><strong><?=_e('PHP in theme template')?></strong></td><td><code>&lt;?= widget('nama_preset') ?&gt;</code></td></tr>
-      <tr><td><strong><?=_e('Sidebar widget')?></strong></td><td><?=_e('Add the "Post/Page List" widget under Dashboard → Appearance → Widgets, then choose the preset from the dropdown')?></td></tr>
-      <tr><td><strong><?=_e('PHP API (ShortcodeQuery)')?></strong></td><td><code>&lt;?= ShortcodeQuery::posts()-&gt;category('news')-&gt;limit(4)-&gt;render() ?&gt;</code></td></tr>
+      <tr><td><strong><?=_e('Sidebar widget')?></strong></td><td><?=_e('Add the "Published Preset" widget under Settings → Sidebar Widgets, then choose the preset from the dropdown')?></td></tr>
     </tbody>
   </table>
 
   <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);display:flex;align-items:center;gap:5px;"><?= svg_ico('puzzle', '', ['style' => 'width:16px;height:16px']) ?> <?=_e('Layout — Visual Template for Post Display')?></h4>
   <p style="margin:0 0 .5rem;">
-    <?=_e('A layout is a <strong>PHP file</strong> in <code>public/views/partials/shortcodes/post_cat/</code> that controls <em>how</em> posts/pages are rendered. Six built-in layouts are available:')?>
+    <?=_e('A Collection Layout is a <strong>PHP renderer</strong> that controls <em>how</em> a Preset result list looks. It can be global or supplied by the active theme. Six global built-in layouts are available:')?>
   </p>
   <ul style="margin:0 0 .5rem;padding-left:1.2rem;">
     <li><code>list</code> — <?=_e('vertical list with excerpt')?></li>
@@ -585,13 +608,13 @@ $layoutPagingItems = $buildPresetPaginationItems($layoutFilters['p'], $layoutPag
     <li><code>mini</code> — <?=_e('minimal content list')?></li>
   </ul>
   <p style="margin:0;">
-    <?=_e('You can create your own custom layout via the <strong>Layouts</strong> tab.')?>
+    <?=_e('You can create a global custom layout via the <strong>Layouts</strong> tab. Theme-owned layouts are listed with their owner and remain part of that theme.')?>
     <?=_e('New files automatically appear in the layout dropdown when editing a preset.')?>
   </p>
 
   <h4 style="margin:1rem 0 .3rem;font-size:.9rem;color:var(--adam-accent);display:flex;align-items:center;gap:5px;"><?= svg_ico('link', '', ['style' => 'width:16px;height:16px']) ?> <?=_e('Sidebar Integration')?></h4>
   <p style="margin:0;">
-    <?=_e('The "Post/Page List" sidebar widget under <strong>Dashboard → Appearance → Widgets</strong> supports direct preset selection.')?>
+    <?=_e('The "Published Preset" sidebar widget under <strong>Settings → Sidebar Widgets</strong> renders a selected Preset with its saved query and Collection Layout when the active theme renders that sidebar zone.')?>
     <?=_e('All presets with status <code>published</code> will appear in the widget selection dropdown.')?>
   </p>
 <?php endif; ?>

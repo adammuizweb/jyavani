@@ -947,6 +947,7 @@ function plugin_load_active(): void {
             $mailTransportsBeforeLoad = $GLOBALS['__jy_mail_transports'] ?? null;
             $themeSlotsBeforeLoad = $GLOBALS['__jy_theme_slots'] ?? null;
             $shortcodeSourcesBeforeLoad = $GLOBALS['__jy_shortcode_source_providers'] ?? null;
+            $editorReferencesBeforeLoad = $GLOBALS['_editor_reference_providers'] ?? null;
             try {
                 require_once $mainFile;
             } catch (\Throwable $e) {
@@ -960,6 +961,8 @@ function plugin_load_active(): void {
                 else unset($GLOBALS['__jy_theme_slots']);
                 if (is_array($shortcodeSourcesBeforeLoad)) $GLOBALS['__jy_shortcode_source_providers'] = $shortcodeSourcesBeforeLoad;
                 else unset($GLOBALS['__jy_shortcode_source_providers']);
+                if (is_array($editorReferencesBeforeLoad)) $GLOBALS['_editor_reference_providers'] = $editorReferencesBeforeLoad;
+                else unset($GLOBALS['_editor_reference_providers']);
                 $error = plugin_message('Plugin "%s" entrypoint failed: %s.', $name, $e->getMessage());
                 $GLOBALS['_plugin_load_diagnostics'][$name] = $error;
                 $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;

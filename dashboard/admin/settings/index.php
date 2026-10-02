@@ -94,7 +94,7 @@ if ($isAdmin) {
         'label' => 'Shortcodes',
         'href'  => $base . '/?page=admin/shortcodes/index&tab=presets',
         'icon'  => 'braces',
-        'desc'  => __('Create and manage shortcode presets for widgets.'),
+        'desc'  => __('Create reusable content-query Presets for shortcodes, Theme Sections, and sidebar widgets.'),
         'badge' => 'Admin',
     ];
 

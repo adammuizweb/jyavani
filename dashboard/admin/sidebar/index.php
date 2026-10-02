@@ -74,8 +74,8 @@ $widget_types = [
         'default_config' => ['title' => __('Categories'), 'limit' => 30, 'only_parents' => true],
     ],
     'shortcode_preset' => [
-        'label' => 'Shortcode Preset',
-        'desc'  => __('Use existing shortcode preset.'),
+        'label' => __('Published Preset'),
+        'desc'  => __('Render a published Preset using its saved query and Collection Layout.'),
         'default_config' => ['title' => '', 'preset_slug' => ''],
     ],
 ];
@@ -90,9 +90,36 @@ $addableWidgetTypes = $canManageRawHtml
     ? $sidebarAddableWidgetTypes
     : array_intersect_key($sidebarAddableWidgetTypes, array_fill_keys($delegatedConfigurableTypes, true));
 $presets = [];
-$pst = $pdo->prepare("SELECT slug, title FROM posts WHERE type = 'sc_preset' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC");
+$pst = $pdo->prepare("SELECT slug, title, meta FROM posts WHERE type = 'sc_preset' AND status = 'published' AND is_deleted = 0 ORDER BY title ASC");
 $pst->execute();
 $presets = $pst->fetchAll(PDO::FETCH_ASSOC);
+$publishedPresetSlugs = [];
+foreach ($presets as &$preset) {
+    $slug = (string)($preset['slug'] ?? '');
+    if ($slug !== '') $publishedPresetSlugs[$slug] = true;
+    $config = function_exists('shortcode_preset_config_loaded')
+        ? shortcode_preset_config_loaded((string)($preset['meta'] ?? ''), $preset, $pdo, ['scope' => 'sidebar_manager'])
+        : json_decode((string)($preset['meta'] ?? ''), true);
+    $layout = is_array($config) ? trim((string)($config['layout'] ?? '')) : '';
+    $descriptor = $layout !== '' && function_exists('post_cat__layout_template_descriptor')
+        ? post_cat__layout_template_descriptor($pdo, $layout)
+        : null;
+    $preset['layout_name'] = $layout;
+    $preset['layout_source'] = (string)($descriptor['source'] ?? '');
+    $preset['layout_theme_folder'] = (string)($descriptor['theme_folder'] ?? '');
+}
+unset($preset);
+$presetOptionLabel = static function (array $preset): string {
+    $label = (string)($preset['title'] ?? '') . ' (' . (string)($preset['slug'] ?? '') . ')';
+    $layout = (string)($preset['layout_name'] ?? '');
+    if ($layout === '') return $label;
+    $owner = match ((string)($preset['layout_source'] ?? '')) {
+        'theme' => sprintf(__('Theme: %s'), (string)($preset['layout_theme_folder'] ?? '')),
+        'global' => __('Global'),
+        default => __('Unavailable'),
+    };
+    return $label . ' | ' . __('Collection Layout') . ': ' . $layout . ' | ' . $owner;
+};
 $cats = [];
 $cst = $pdo->query("SELECT id, name, slug FROM categories WHERE is_deleted = 0 ORDER BY name ASC");
 if ($cst) $cats = $cst->fetchAll(PDO::FETCH_ASSOC);
@@ -104,6 +131,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = __('Invalid CSRF token.');
     }
     $action = (string)($_POST['_action'] ?? 'save');
+    if ($action === 'add' && (string)($_POST['new_type'] ?? '') === 'shortcode_preset') {
+        $presetSlug = trim((string)($_POST['new_preset_slug'] ?? ''));
+        if (!isset($publishedPresetSlugs[$presetSlug])) $errors[] = __('Choose a published Preset.');
+    }
+    if ($action === 'save' && $canManageRawHtml) {
+        $submittedWidgets = (array)($_POST['widget'] ?? []);
+        foreach ($submittedWidgets as $widgetId => $submittedWidget) {
+            $existingWidget = $currentItemsById[(int)$widgetId] ?? null;
+            if (($existingWidget['type'] ?? '') !== 'shortcode_preset' || !is_array($submittedWidget)) continue;
+            $submittedConfig = is_array($submittedWidget['config'] ?? null) ? $submittedWidget['config'] : [];
+            $presetSlug = trim((string)($submittedConfig['preset_slug'] ?? ''));
+            if (!isset($publishedPresetSlugs[$presetSlug])) {
+                $errors[] = __('Choose a published Preset.');
+                break;
+            }
+        }
+    }
+    if ($errors !== []) $action = '';
 
     if ($action === 'add') {
         $type = (string)($_POST['new_type'] ?? '');
@@ -140,8 +185,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete') {
         $delId = (int)($_POST['delete_id'] ?? 0);
         if ($delId > 0) {
-            $st = $pdo->prepare("DELETE FROM sidebar_zone_items WHERE id = :id AND zone_id = :zid");
-            $st->execute([':id' => $delId, ':zid' => $selectedZoneId]);
+            try {
+                sidebar_delete_items($pdo, $selectedZoneId, [$delId], $uid, 'item_delete');
+            } catch (Throwable $error) {
+                error_log('[sidebar-manager] item deletion failed: ' . $error->getMessage());
+                $errors[] = __('Failed to delete data.');
+            }
         }
     } elseif ($action === 'save') {
         $orderRaw = (string)($_POST['_widget_order'] ?? '');
@@ -149,8 +198,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $submitted = (array)($_POST['widget'] ?? []);
         $keepIds = [];
         $idx = 0;
+        $saveDeletionEvent = null;
 
-        foreach ($orderIds as $wid) {
+        try {
+            if ($pdo->inTransaction()) throw new LogicException('Sidebar settings save owns its transaction.');
+            $pdo->beginTransaction();
+            foreach ($orderIds as $wid) {
             $wid = (int)$wid;
             if ($wid <= 0 || !isset($submitted[$wid])) continue;
             $data = $submitted[$wid];
@@ -217,20 +270,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($translationLocale !== '' && !$preserveWidgetConfig
                 && ($type !== 'html' || $canManageRawHtml)
                 && $canTranslateSidebar && function_exists('ct_save_sidebar_item_translation')) {
-                ct_save_sidebar_item_translation($pdo, $wid, $translationLocale, $translation);
+                if (!ct_save_sidebar_item_translation($pdo, $wid, $translationLocale, $translation)) {
+                    throw new RuntimeException('Sidebar item translation could not be saved.');
+                }
             }
-        }
+            }
 
-        if ($selectedZoneId > 0) {
-            if (!empty($keepIds)) {
-                $ph = implode(',', array_fill(0, count($keepIds), '?'));
-                $st = $pdo->prepare("DELETE FROM sidebar_zone_items WHERE zone_id = ? AND id NOT IN ($ph)");
-                $st->execute(array_merge([$selectedZoneId], $keepIds));
-            } else {
-                $st = $pdo->prepare("DELETE FROM sidebar_zone_items WHERE zone_id = ?");
-                $st->execute([$selectedZoneId]);
+            if ($selectedZoneId > 0) {
+                $omittedIds = array_values(array_diff(array_keys($currentItemsById), $keepIds));
+                if ($omittedIds !== []) {
+                    $saveDeletionEvent = sidebar_delete_items_in_transaction(
+                        $pdo,
+                        $selectedZoneId,
+                        $omittedIds,
+                        $uid,
+                        'save_omitted'
+                    );
+                }
             }
+            if (!$pdo->commit()) throw new RuntimeException('Unable to commit sidebar settings.');
+        } catch (Throwable $error) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            error_log('[sidebar-manager] settings save failed: ' . $error->getMessage());
+            $errors[] = __('Failed to save settings.');
         }
+        if ($saveDeletionEvent !== null && $errors === []) sidebar_lifecycle_notify_committed($pdo, $saveDeletionEvent);
     }
 
     if (!$errors) {
@@ -262,7 +326,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
 
   <div style="margin-bottom:20px;">
     <h2 class="page-heading page-heading--compact"><?=_e('Sidebar Zones')?></h2>
-    <div class="muted" style="font-size:13px;"><?=__('Create & manage multiple sidebar zones, then select the primary one to display on the front page.')?></div>
+    <div class="muted" style="font-size:13px;"><?=_e('Create and manage sidebar zones. The primary zone is only the default when a theme renders a sidebar without naming a zone.')?></div>
   </div>
 
   <?php if (!empty($translationLocales)): ?>
@@ -397,7 +461,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
         <select name="new_preset_slug" style="padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;min-width:180px;">
           <option value=""><?=_e('- Select preset -')?></option>
           <?php foreach ($presets as $p): ?>
-            <option value="<?= h($p['slug']) ?>"><?= h($p['title']) ?></option>
+            <option value="<?= h($p['slug']) ?>"><?= h($presetOptionLabel($p)) ?></option>
           <?php endforeach; ?>
         </select>
         <?php else: ?>
@@ -572,7 +636,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
                     <select name="widget[<?= $itemId ?>][config][preset_slug]" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
                       <option value=""><?=_e('- Select -')?></option>
                       <?php foreach ($presets as $p): ?>
-                        <option value="<?= h($p['slug']) ?>" <?= ($config['preset_slug'] ?? '') === $p['slug'] ? 'selected' : '' ?>><?= h($p['title']) ?> (<?= h($p['slug']) ?>)</option>
+                        <option value="<?= h($p['slug']) ?>" <?= ($config['preset_slug'] ?? '') === $p['slug'] ? 'selected' : '' ?>><?= h($presetOptionLabel($p)) ?></option>
                       <?php endforeach; ?>
                     </select>
                     <?php if (empty($presets)): ?>
@@ -610,13 +674,15 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
     <strong style="font-size:13px;"><?= svg_ico('book-open', '', ['style' => 'width:14px;height:14px;vertical-align:middle']) ?> <?=_e('How to Use Sidebar Zones')?></strong>
     <ol style="margin:6px 0 0;padding-left:20px;">
       <li><strong><?=_e('Create Zone')?></strong> — <?=_e('click')?> <strong>+ <?=_e('New Zone')?></strong> <?=_e('to create a new sidebar zone (e.g. Main, Alt, Footer).')?></li>
-      <li><strong><?=_e('Select Primary')?></strong> — <?=_e('zone marked with')?> <strong>★</strong> <?=_e('is')?> <strong><?=_e('primary')?></strong> <?=_e('and will appear on the front page. Use the')?> <strong><?=_e('Make Primary')?></strong> <?=_e('button to change it.')?></li>
+      <li><strong><?=_e('Select Primary')?></strong> — <?=_e('the primary zone is used when a theme renders a sidebar without naming a zone. Use the')?> <strong><?=_e('Make Primary')?></strong> <?=_e('button to change it.')?></li>
       <li><strong><?=_e('Add Widget')?></strong> — <?=_e('select a zone, then choose a type from the dropdown, click')?> <strong><?=_e('Add')?></strong>.</li>
+      <li><?=_e('A Published Preset widget renders the Preset query through its saved Collection Layout; the layout itself is not a separate widget.')?></li>
+      <li><?=_e('The active theme must render the selected sidebar zone. A saved widget remains invisible when the theme has no sidebar output.')?></li>
       <li><strong><?=_e('Configure')?></strong> — <?=_e('click the widget title to expand the edit form.')?></li>
       <li><strong><?=_e('Reorder')?></strong> — <?=_e('use the ▲ (up) / ▼ (down) buttons to change widget position.')?></li>
       <li><strong><?=_e('Active/Inactive')?></strong> — <?=_e('check the')?> <strong><?=_e('Active')?></strong> <?=_e('checkbox to show or hide a widget.')?></li>
       <li><?=_e('Click')?> <strong><?=_e('Save All Widgets')?></strong> <?=_e('to save configuration changes and order.')?></li>
-      <li><?=_e('Results are immediately visible on the website front page according to the selected primary zone.')?></li>
+      <li><?=_e('Saved changes appear only in frontend templates that render this sidebar zone.')?></li>
     </ol>
   </div>
 </div>

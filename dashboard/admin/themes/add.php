@@ -292,7 +292,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   window.ADIWIRA_FORM_ID = 'theme-add-form';
 </script>
 
-<script src="/static/js/edit/codemirror.js"></script>
+<script src="/static/js/edit/codemirror.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/codemirror.js') ?: 0) ?>"></script>
 <script src="/static/js/edit/main-init.js"></script>
 <script src="/static/dashboard/js/content-schedule.js"></script>
 

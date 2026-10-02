@@ -160,6 +160,31 @@ try {
         ],
     ], '/dashboard');
     $check(isset($longProvider['entries'][$longProviderKey]), 'generic provider entry bounds follow the declared maximum byte length');
+    $shortcodeProvider = editor_reference_provider_config('shortcode-reference', [
+        'syntax' => 'shortcode',
+        'shortcode' => 'form',
+        'attribute' => 'slug',
+        'label' => 'Form',
+        'value_pattern' => '^[a-z0-9_-]+$',
+        'entries' => [
+            'contact' => [
+                'title' => 'Contact form',
+                'source' => 'Contract',
+                'action_label' => 'Open',
+                'url' => '/dashboard/?page=form-editor&id=1',
+            ],
+        ],
+    ], '/dashboard');
+    $check(($shortcodeProvider['syntax'] ?? null) === 'shortcode'
+        && isset($shortcodeProvider['entries']['contact'])
+        && editor_reference_provider_config('invalid-reference', [
+            'syntax' => 'arbitrary',
+            'shortcode' => 'form',
+            'attribute' => 'slug',
+            'label' => 'Form',
+            'value_pattern' => '^[a-z]+$',
+        ], '/dashboard') === null,
+        'generic providers accept bounded single-bracket shortcodes and reject arbitrary grammars');
     file_put_contents($activeFile, '<article data-source="active-v2"><?= $esc($attrs[\'title\'] ?? \'\') ?></article>');
     $check(theme_section_source_fingerprint($name, $pdo) !== $firstFingerprint, 'source fingerprint changes when renderer content changes');
     file_put_contents($activeFile, '<article data-source="active" data-context="<?= $esc($context[\'page\'][\'slug\'] ?? \'\') ?>" data-attr-page="<?= isset($attrs[\'page\']) ? \'yes\' : \'no\' ?>"><?= $esc($attrs[\'title\'] ?? \'\') ?></article>');

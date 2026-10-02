@@ -135,10 +135,10 @@ Template (`header.php`):
 |------|-------------------|-----------------|
 | `header` | `logo`, `nav`, `controls` | `header.php` |
 | `footer` | `about`, `pages`, `social`, `copyright`, etc. | `footer.php` |
-| `single.post` | `before_content`, `after_content` | `single/post.php` |
-| `single.page` | `before_content`, `after_content` | `single/page.php` |
-| `list.post` | `before_loop`, `after_loop` | `list/post.php` |
-| `list.category` | `before_loop`, `after_loop` | `list/category.php` |
+| `single.post` | `before_content`, `after_content` | `main/single/post.php` |
+| `single.page` | `before_content`, `after_content` | `main/single/page.php` |
+| `list.post` | `before_loop`, `after_loop` | `main/list/post.php` |
+| `list.category` | `before_loop`, `after_loop` | `main/list/category.php` |
 | `main.homepage` | `before`, `after` | `main/homepage.php` |
 | `main.search` | `before_loop`, `after_loop` | `main/search.php` |
 | `main.404` | `before`, `after` | `main/404.php` |
@@ -480,9 +480,11 @@ partials/shortcodes/section/
 
 - `theme.php` registers semantic `home.*` definitions. Homepage blocks are
   normally non-repeatable.
-- `_home.php` owns request-cached queries, shared derived data, and narrowly
-  namespaced rendering helpers. It must work when a section is rendered before
-  the homepage and when no PDO connection is available.
+- `_home.php` owns request-cached non-Preset queries, shared derived data, and
+  narrowly namespaced rendering helpers. Reusable post-list queries and their
+  selected Collection Layout belong in Shortcode Presets. The helper must work
+  when a section is rendered before the homepage and when no PDO connection is
+  available.
 - Each public renderer owns one complete semantic block and can be rendered in
   isolation by the section editor or `[[widget:theme_section name="home.hero"]]`.
 - `main/homepage.php` only composes `render_theme_section()` calls, empty-state
@@ -495,6 +497,17 @@ Theme authors can edit registered files at
 the previous design, localization, URL/media helpers, Customizer behavior,
 empty states, and Theme Zone ordering. No plugin or database migration is
 required.
+
+For a reusable post list, the Preset database record owns the persisted query
+and selects one global or active-theme-owned Collection Layout. A Theme Section
+owns only its semantic wrapper by default and calls
+`render_shortcode_preset($pdo, $preset, [], $context)`. Trusted PHP may use the
+API's bounded request-local overrides for an intentional context; those values
+do not mutate or transfer ownership of the saved Preset. Use separate Presets
+when variants need independent management. A sidebar **Published Preset** item
+stores only a published Preset slug and follows
+`sidebar item -> Preset -> Collection Layout`; it is visible only when the
+active theme renders that sidebar zone.
 
 ## Theme slot context hook
 
@@ -540,6 +553,8 @@ not acquire, release, or upgrade lifecycle locks.
 
 Core uses a shared-reader/exclusive-writer contract for installed executable trees. Every normal public or dashboard request takes a shared reader on `0-theme-lifecycle` after the theme lock helper loads and holds it until shutdown, covering plugin bootstrap/routes and theme rendering. Install and update writers release their own request reader, acquire `0-theme-lifecycle` exclusively before exact folder locks, and revalidate state after acquisition. The shared lock is never upgraded in place, and same-request exclusive re-entry still fails fast. Update extensions contribute schema-1 issues through `theme_update_preflight($state, $folder, $cachedUpdate, $completeInstalledManifest, $pdo)`. An issue has a bounded ID, label/message, literal `blocking` and `resolved` flags, and optional state token, choices, safe relative links, and scalar details. Core, not listeners, computes whether the update is allowed and reruns the filter under the lock immediately before mutation.
 
+Theme Manager deletion exposes `theme_delete_preflight($state, $themeRow, $completePhysicalManifest, $context, $pdo)` after the exact registered row is locked and before assignments or theme records change. State is exactly `['allowed' => bool, 'message' => string]`. A denial cannot be reversed or replaced by later listeners; malformed output, listener exceptions, and transaction-ownership changes fail closed. The schema-1 context identifies the operation, actor, Theme Manager source, and physical-file deletion request. Extensions should use this hook to protect externally managed themes while keeping their check read-only and bounded.
+
 Locks are shared by a trusted deployment group: `theme-operation-locks` is setgid mode `02770`, lock files are `0660`, and every cooperating PHP/CLI worker must run with that group. Successful operations emit `theme_install_completed($folder, $completeManifest)` or `theme_update_completed($folder, $oldVersion, $newVersion, $completeManifest)` while still locked. Installed-theme cards emit `theme_manager_theme_actions($themeRow, $completePhysicalManifest, $context)`. The installed PHP Source Editor emits `theme_source_editor_actions($themeRow, $context, $pdo)` for owner-labelled navigation and `theme_source_editor_context($themeRow, $context, $pdo)` beneath the selected file heading; both receive selected-file identity and bounded exact slot keys. Extensions must escape every label, URL, and contextual value in their trusted HTML output and authorize their own destination routes. Context panels are limited to text and dashboard-local links; Core discards output containing form controls so save and revision controls remain Core-only. These observers use isolated dispatch, so one failing listener is logged without suppressing later listeners.
 
 Theme Customize emits isolated `theme_customize_actions($themeRow, $context, $pdo)` output above its canvas and `theme_zone_item_summary($item, $context, $pdo)` below each gadget editor. Persistent summary output is limited to escaped text and dashboard-local links; Core discards output containing form controls so it cannot corrupt the surrounding gadget save form. The existing isolated `theme_zone_item_editor_actions` hook remains available inside an expanded gadget and receives `summary_available` so extensions can avoid duplicate controls. Customize contexts identify the authorized actor, exact registered theme or gadget, surface, and a dashboard-local return URL; extensions still own destination authorization and output escaping.
@@ -549,6 +564,8 @@ Theme Assign exposes one contextual Edit action for each slot choice. Registered
 Package updates publish without optional runtime extensions or platform-specific calls. Under the global exclusive lock, Core moves the exact old tree to a unique same-parent `.package-publication-recovery-*` path, moves the complete stage into place, and verifies old and new identities. The retained old path supports exact rollback through the same guarded two-rename strategy and is deleted only after post-publication work succeeds. If a process is killed between renames, the known-good old tree may remain at that named path while the target is absent. The next operation detects the residual and fails closed without deleting it; manual inspection and restoration are required. Shared readers prevent cooperating requests from observing the ordinary two-rename gap.
 
 Plugin deactivation and deletion/uninstall expose `plugin_state_change_preflight($state, $name, $operation)`. The state contains only a literal boolean `allowed` and a bounded safe `message`; malformed output and listener exceptions deny the operation. Single and bulk Plugin Manager operations call the same central plugin functions and cannot bypass this filter.
+
+Sidebar zones participate in the generic resource lifecycle through the `sidebar_item` and `sidebar_zone` providers. Explicit item deletion, rows omitted by a zone save, and child cleanup during zone deletion all emit fail-fast `delete` snapshots while Core owns the transaction and locked rows. Zone deletion emits child-item lifecycle work before the zone event; any listener exception rolls the complete mutation back.
 
 ## Plugin dashboard navigation icons
 

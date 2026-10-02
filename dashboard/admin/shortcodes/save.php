@@ -204,4 +204,4 @@ try {
 if ($result['event'] === 'edit') {
     adiwira_redirect_with_flash($return_to, 'success', __('Preset') . ' "' . $title . '" ' . __('updated successfully.'));
 }
-adiwira_redirect_with_flash($return_to, 'success', __('Preset') . ' "' . $title . '" ' . __('created successfully. Use') . ' widget(\'' . $slug . '\') ' . __('in sidebar.'));
+adiwira_redirect_with_flash($return_to, 'success', __('Preset') . ' "' . $title . '" ' . __('created successfully. Select it in a Published Preset sidebar widget or render it by slug.'));

@@ -563,11 +563,16 @@ function shortcode_layout_recover_locked(PDO $pdo): void
     }
 }
 
-function shortcode_layout_list(PDO $pdo, string $scope): array
+function shortcode_layout_list(
+    PDO $pdo,
+    string $scope,
+    string $source = 'global',
+    string $themeFolder = ''
+): array
 {
-    return shortcode_collection_layout_with_lock($pdo, static function () use ($pdo, $scope): array {
+    return shortcode_collection_layout_with_lock($pdo, static function () use ($pdo, $scope, $source, $themeFolder): array {
         shortcode_layout_recover_locked($pdo);
-        $directory = shortcode_layout_directory($pdo, $scope);
+        $directory = shortcode_layout_directory($pdo, $scope, $source, $themeFolder);
         if (!$directory) return [];
 
         $definitions = $scope === 'section' && function_exists('theme_section_definitions')
@@ -586,6 +591,8 @@ function shortcode_layout_list(PDO $pdo, string $scope): array
                 'size' => filesize($path) ?: 0,
                 'builtin' => $scope === 'collection' && in_array($name, shortcode_layout_builtin_names(), true),
                 'registered' => $scope === 'section' && array_key_exists($name, $definitions),
+                'source' => $scope === 'collection' ? $source : 'theme',
+                'theme_folder' => $scope === 'collection' && $source === 'theme' ? $themeFolder : '',
             ];
         }
         if ($scope === 'section' && $layouts !== []) {

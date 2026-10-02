@@ -92,7 +92,7 @@ $check(str_contains($edit, "['link','image','video','table']")
     && str_contains($pageEdit, '/static/js/edit/quill.js'),
     'all Article and Page editors use the shared Quill table integration');
 $check(!is_file($root . '/public/static/js/add/quill-init.js')
-    && substr_count($postAdd . $pageAdd, '<script src="/static/js/edit/codemirror.js"') === 2
+    && substr_count($postAdd . $pageAdd, '<script src="/static/js/edit/codemirror.js') === 2
     && substr_count($postAdd . $pageAdd, '<script src="/static/js/edit/editor_mode.js') === 2
     && substr_count($postAdd . $pageAdd, '<script src="/static/js/editor/core-api.js') === 2
     && substr_count($postAdd . $pageAdd, '<script src="/static/js/edit/main-init.js"') === 2,

@@ -305,6 +305,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
             } elseif ($action === 'delete_theme') {
                 $theme_id = (int)($_POST['theme_id'] ?? 0);
+                $deleteFilesRequested = !empty($_POST['delete_files']);
                 if ($theme_id <= 0) throw new RuntimeException(__('Theme not found (invalid id).'));
 
                 $stmt = $pdo->prepare("SELECT * FROM themes WHERE id = :id LIMIT 1");
@@ -324,6 +325,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
                 $pdo->beginTransaction();
                 try {
+                    $lockSuffix = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+                    $lockedThemeStmt = $pdo->prepare('SELECT * FROM themes WHERE id = :id AND folder_name = :folder LIMIT 1' . $lockSuffix);
+                    $lockedThemeStmt->execute([':id' => $theme_id, ':folder' => (string)$th['folder_name']]);
+                    $th = $lockedThemeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                    if ($th === null) throw new RuntimeException(__('Theme not found in database.'));
+                    $deletePolicy = theme_delete_preflight(
+                        $th,
+                        theme_complete_physical_manifest_for_hook((string)$th['folder_name']),
+                        [
+                            'schema' => 1,
+                            'operation' => 'delete',
+                            'actor_id' => (int)$user_id,
+                            'source' => 'theme_manager',
+                            'delete_files' => $deleteFilesRequested,
+                        ],
+                        $pdo
+                    );
+                    if (!$deletePolicy['allowed']) throw new RuntimeException(__($deletePolicy['message']));
                     $wasActive = !empty($th['is_active']);
 
                     $defaultFolder = defined('DEFAULT_THEME_FOLDER') ? DEFAULT_THEME_FOLDER : null;
@@ -373,7 +392,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     throw $e;
                 }
 
-                $deleteFilesRequested = !empty($_POST['delete_files']);
                 $deletedFilesOk = false;
                 $deletedFilesMsg = '';
 

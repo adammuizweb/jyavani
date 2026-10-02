@@ -73,7 +73,8 @@ function editor_reference_descriptor(array $input, string $adminBasePath): ?arra
 
 function editor_reference_provider_config(string $id, mixed $input, string $adminBasePath): ?array
 {
-    if (!is_array($input) || ($input['syntax'] ?? null) !== 'widget') return null;
+    if (!is_array($input) || !in_array($input['syntax'] ?? null, ['widget', 'shortcode'], true)) return null;
+    $syntax = (string)$input['syntax'];
     $shortcode = strtolower(editor_reference_text($input['shortcode'] ?? '', 64));
     $attribute = editor_reference_text($input['attribute'] ?? '', 64);
     $label = editor_reference_text($input['label'] ?? '', 160);
@@ -108,7 +109,7 @@ function editor_reference_provider_config(string $id, mixed $input, string $admi
 
     return [
         'id' => $id,
-        'syntax' => 'widget',
+        'syntax' => $syntax,
         'shortcode' => $shortcode,
         'attribute' => $attribute,
         'label' => $label,

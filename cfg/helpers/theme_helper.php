@@ -1579,6 +1579,42 @@ function theme_lifecycle_lock_keys(array $folders = []): array {
     return array_merge([(string)THEME_LIFECYCLE_LOCK_KEY], $folders);
 }
 
+function theme_delete_preflight(
+    array $theme,
+    array $completePhysicalManifest,
+    array $context,
+    PDO $pdo
+): array {
+    $state = ['allowed' => true, 'message' => ''];
+    $hooks = $GLOBALS['_hooks']['filters']['theme_delete_preflight'] ?? [];
+    ksort($hooks);
+    foreach ($hooks as $listeners) {
+        foreach ($listeners as $listener) {
+            try {
+                $candidate = $listener($state, $theme, $completePhysicalManifest, $context, $pdo);
+                if (!is_array($candidate) || array_keys($candidate) !== ['allowed', 'message']
+                    || !is_bool($candidate['allowed']) || !is_string($candidate['message'])
+                    || strlen($candidate['message']) > 1000
+                    || preg_match('/[\x00-\x1F\x7F]/', $candidate['message']) === 1
+                    || (!$candidate['allowed'] && trim($candidate['message']) === '')
+                    || (!$state['allowed'] && ($candidate['allowed'] || $candidate['message'] !== $state['message']))) {
+                    throw new UnexpectedValueException('Theme deletion preflight returned an invalid or non-monotonic state.');
+                }
+                $state = $candidate;
+            } catch (Throwable $error) {
+                error_log('[theme_delete_preflight] ' . $error->getMessage());
+                if ($state['allowed']) {
+                    $state = ['allowed' => false, 'message' => 'Theme deletion was denied because policy validation failed.'];
+                }
+            }
+            if (!$pdo->inTransaction()) {
+                return ['allowed' => false, 'message' => 'Theme deletion was denied because policy validation failed.'];
+            }
+        }
+    }
+    return $state;
+}
+
 /** Exact registered and on-disk folder keys affected by a registration scan. */
 function theme_registration_lock_folders($pdoOrNull = null): array {
     $folders = [];

@@ -278,6 +278,18 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
           'can_update' => true,
           'can_use_unfiltered_html' => $canUseUnfilteredHtml,
       ];
+      $editorReferences = function_exists('editor_reference_configuration')
+          ? editor_reference_configuration($pdo, [
+              'surface' => 'content',
+              'resource_type' => 'page',
+              'operation' => 'add',
+              'resource_id' => null,
+              'actor_id' => $uid,
+              'content' => $editorContent,
+              'admin_base_path' => $base,
+              'can_update' => true,
+          ])
+          : [];
       do_action('content_editor_before', $contentEditorContext, $editorResource, $pdo);
       do_action('editor_mode_before_options', $editorResource, $chosenMode, $contentEditorContext, $pdo);
       $editorModes = apply_filters('editor_mode_options', [
@@ -310,6 +322,9 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       <div id="cm-wrap" class="jy-editor-code-wrap">
         <textarea id="cm-textarea"><?= htmlspecialchars($editorContent, ENT_QUOTES, 'UTF-8') ?></textarea>
       </div>
+      <?php if (($editorReferences['providers'] ?? []) !== []): ?>
+        <p class="field-note jy-editor-reference-help"><?=_e('Hover over a reference for details. Ctrl/Cmd-click or press F12 to open its editor in a new tab.')?></p>
+      <?php endif; ?>
     </div>
     <?php
       do_action('editor_mode_after_areas', $editorResource, $chosenMode, $contentEditorContext, $pdo);
@@ -387,6 +402,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
   window.ADIWIRA = window.ADIWIRA || {};
   window.ADIWIRA_BASE = <?= json_encode($base) ?>;
   window.ADIWIRA_FORM_ID = 'page-add-form';
+  window.ADIWIRA_EDITOR_REFERENCES = <?= json_encode($editorReferences, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
   window.JyavaniEditorContext = <?= json_encode([
       'resourceType' => 'page',
       'operation' => 'add',
@@ -402,7 +418,7 @@ if (!empty($errors) && function_exists('adiwira_bootstrap_toasts_script')) {
 <script src="/static/js/add/media-selector.js"></script>
 <script src="/static/js/add/file-selector.js"></script>
 <script>window.QUILL_PLACEHOLDER = <?= json_encode(__('Write article content here...')) ?>;</script>
-<script src="/static/js/edit/codemirror.js"></script>
+<script src="/static/js/edit/codemirror.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/codemirror.js') ?: 0) ?>"></script>
 <script src="/static/js/edit/quill.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/quill.js') ?: 0) ?>"></script>
 <script src="/static/js/edit/editor_mode.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/edit/editor_mode.js') ?: 0) ?>"></script>
 <script src="/static/js/editor/core-api.js?v=<?= (int)(@filemtime(PUBLIC_PATH . '/static/js/editor/core-api.js') ?: 0) ?>"></script>
