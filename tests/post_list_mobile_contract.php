@@ -20,6 +20,22 @@ $checks = [
         $dashboardCss,
         ".posts-list-card .adam-table{\n    border-radius:0;"
     ),
+    'Post List hides only secondary columns by default on mobile' => str_contains(
+        $postList,
+        "new Set(['col-categories', 'col-created', 'col-author'])"
+    ) && !str_contains($postList, "new Set(['col-status'"),
+    'Post List responsive defaults follow the mobile breakpoint' => str_contains(
+        $postList,
+        "window.matchMedia('(max-width: 640px)')"
+    ) && str_contains($postList, 'mobileColumns.matches && mobileDefaultHidden.has(col)'),
+    'Post List preserves explicit column preferences over responsive defaults' => str_contains(
+        $postList,
+        'Object.assign(defaultColState(), loadColState() || {})'
+    ) && str_contains($postList, "mobileColumns.addEventListener('change'"),
+    'Post List exposes column controls without bulk permission' => substr_count(
+        $postList,
+        'class="cols-toggle"'
+    ) === 2 && str_contains($postList, '<?php if (!$canBulk): ?>'),
 ];
 
 foreach ($checks as $label => $passed) {

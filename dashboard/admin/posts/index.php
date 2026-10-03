@@ -376,7 +376,20 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </div>
   <?php endif; ?>
 
-    <?php if (!$canBulk): ?><div class="content-list-display-controls"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div><?php endif; ?>
+    <?php if (!$canBulk): ?>
+    <div class="content-list-display-controls">
+      <?php do_action('admin_content_list_filters', $listContext, $pdo); ?>
+      <div class="cols-toggle">
+        <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+        <div class="cols-dropdown">
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-categories" checked> <?=_e('Categories')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
+        </div>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <div class="adam-table-wrapper">
       <table class="adam-table mt-8">
@@ -774,6 +787,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   /* ── Column visibility toggle ── */
   (function(){
     const STORAGE_KEY = 'posts_columns';
+    const mobileColumns = window.matchMedia('(max-width: 640px)');
+    const mobileDefaultHidden = new Set(['col-categories', 'col-created', 'col-author']);
     const toggleBtn = document.querySelector('.cols-toggle-btn');
     const dropdown = document.querySelector('.cols-dropdown');
     const checkboxes = dropdown ? dropdown.querySelectorAll('input[data-col]') : [];
@@ -781,13 +796,27 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     function loadColState(){
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : null;
+        const state = saved ? JSON.parse(saved) : null;
+        return state && typeof state === 'object' && !Array.isArray(state) ? state : null;
       } catch(e){ return null; }
     }
 
     function saveColState(state){
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
       catch(e){}
+    }
+
+    function defaultColState(){
+      const state = {};
+      checkboxes.forEach(function(cb){
+        const col = cb.getAttribute('data-col');
+        state[col] = !(mobileColumns.matches && mobileDefaultHidden.has(col));
+      });
+      return state;
+    }
+
+    function resolvedColState(){
+      return Object.assign(defaultColState(), loadColState() || {});
     }
 
     function applyColState(state){
@@ -801,9 +830,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
     }
 
-    /* restore saved state */
-    var saved = loadColState();
-    if (saved) applyColState(saved);
+    applyColState(resolvedColState());
+    if (typeof mobileColumns.addEventListener === 'function') {
+      mobileColumns.addEventListener('change', function(){
+        applyColState(resolvedColState());
+      });
+    }
 
     /* toggle dropdown */
     if (toggleBtn && dropdown) {
