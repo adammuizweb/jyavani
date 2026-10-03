@@ -349,9 +349,12 @@ apply_filters(
 ```
 
 Each item is `['key' => string, 'label' => string, 'url' => string, 'title' =>
-string]`. Keys must be unique lowercase tokens and URLs must target a valid
-dashboard `?page=...` route below the runtime `ADMIN_BASE_PATH`; Core escapes all
-rendered values and ignores malformed items. Context schema 1 contains
+string, 'icon' => optional string]`. An icon names a bounded Core Lucide icon;
+Core renders the trusted asset and ignores descriptors with malformed icon names.
+Keys must be unique lowercase tokens and URLs must target a valid dashboard
+`?page=...` route below the runtime `ADMIN_BASE_PATH`; Core escapes all rendered
+values and ignores malformed items. On narrow screens, Core presents every row
+action consistently with its icon above its centered label. Context schema 1 contains
 `content_type` (`article`, `page`, or `theme`), `actor_id`, normalized `status`,
 `is_public`, validated root-relative same-site `public_url`, `return_to`,
 `can_update`, and `can_delete`. Extensions must independently require their own permission and

@@ -42,10 +42,12 @@ if (!function_exists('content_row_actions_render')) {
             $label = trim((string)($item['label'] ?? ''));
             $url = trim((string)($item['url'] ?? ''));
             $title = trim((string)($item['title'] ?? ''));
+            $icon = trim((string)($item['icon'] ?? ''));
             if (preg_match('/\A[a-z0-9][a-z0-9._-]{0,63}\z/', $key) !== 1 || isset($keys[$key])
                 || $label === '' || strlen($label) > 80 || preg_match('/[\x00-\x1F\x7F]/', $label)
                 || $url === '' || strlen($url) > 4096 || preg_match('/[\x00-\x1F\x7F]/', $url)
-                || $title !== '' && (strlen($title) > 160 || preg_match('/[\x00-\x1F\x7F]/', $title))) {
+                || $title !== '' && (strlen($title) > 160 || preg_match('/[\x00-\x1F\x7F]/', $title))
+                || $icon !== '' && preg_match('/\A[a-z0-9][a-z0-9-]{0,63}\z/', $icon) !== 1) {
                 continue;
             }
             $parts = parse_url($url);
@@ -60,7 +62,8 @@ if (!function_exists('content_row_actions_render')) {
             $keys[$key] = true;
             $attributes = ' class="adam-ubah" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"';
             if ($title !== '') $attributes .= ' title="' . htmlspecialchars($title, ENT_QUOTES, 'UTF-8') . '"';
-            $rendered[] = '<a' . $attributes . '>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</a>';
+            $iconHtml = $icon !== '' && function_exists('svg_ico') ? svg_ico($icon) : '';
+            $rendered[] = '<a' . $attributes . '>' . $iconHtml . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</a>';
         }
         return implode('<span class="muted-divider">|</span>', $rendered);
     }

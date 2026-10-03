@@ -1259,8 +1259,29 @@ html.theme-dark .adam-table tbody tr:nth-child(even){ background: rgba(255,255,2
 .row-actions:hover{ opacity:1; }
 .row-actions .adam-ubah,
 .row-actions .adam-hapus{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.25rem;
   padding:.1rem .2rem;
   font-size:.82rem;
+  text-align:center;
+  vertical-align:middle;
+}
+.row-actions .lucide-icon{ flex:0 0 auto; margin:0; }
+@media (max-width:640px){
+  .row-actions > .adam-ubah,
+  .row-actions > .adam-hapus{
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:.15rem;
+    min-width:44px;
+    min-height:42px;
+    line-height:1.15;
+    text-align:center;
+  }
+  .row-actions > .muted-divider{ align-self:center; }
 }
 
 /* Actions */

@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.169",
-    "build": "2026-10-02",
-    "generated": "2026-10-02T15:24:04+00:00",
+    "version": "2.3.170",
+    "build": "2026-10-03",
+    "generated": "2026-10-03T09:45:26+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
-    "total_files": 605,
+    "total_files": 606,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "739a3aa35654293715566023c44a7fa5c0bdb76c12f21794b22ce99113239bfd",
+        "VERSION": "c5969612e3b243253129fadc2b272445309ad4d6b2e6a0900f5fa65aac83b72a",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -42,7 +42,7 @@
         "cfg/helpers/cms_manifest.php": "7f9cf1cd342da967b53680b4470eaa712e10fa75885235eb8dad6e04f60fb0f0",
         "cfg/helpers/collection_helpers.php": "abd978a398e4b0d0804e56261108e3ab653e3246ec29dbf77f9267c4b39ee43b",
         "cfg/helpers/content_route_helpers.php": "e1effcd232ba0e7879b5969a4cba8d67c6e69d2e366d4d749cb9e68bdcef1954",
-        "cfg/helpers/content_row_actions.php": "95b0dcbe89c872b54c277bd8d2cead7809edcc826e660bed62242f5198aef869",
+        "cfg/helpers/content_row_actions.php": "6bbf0f7a049fb8fa3f79aaf55efa8d48d8e753e107bf5e9548ecfa3eb45cc449",
         "cfg/helpers/content_scheduler.php": "ad879e38dbec2d8cf2ff053d68c712938acb48a9ceacedf8f7638dcb6fe1af9d",
         "cfg/helpers/core_integrity.php": "061fb09f2ad252b25fb5df06d6c922eefb67c820e783797aaa2216541a48e208",
         "cfg/helpers/dashboard_home_notices.php": "a24af5559e421bac58d75eacac6f86163d4bb8b88486278b143f105114610d03",
@@ -287,7 +287,7 @@
         "public/static/components/toast/toast.css": "3bd8f1bb22825f997d888bf28052cc3e4c392ceb4b0cb4c4bc03002360828804",
         "public/static/components/toast/toast.js": "c0545044a79d48ba965620e515888deb301e9561ca3bb277c3c4d112c920198b",
         "public/static/dashboard/css/login.css": "79e5cda21162b767a3c7fb542172ef1c1925cbc15eccbcb1d92ab9381c12a091",
-        "public/static/dashboard/css/style.css": "c34a8db6732c17a5eeaa908f0faf80d4162a767872fb3f2828d32b997e654ca6",
+        "public/static/dashboard/css/style.css": "354849f9c35ce1cb1e815566956e2cd55a7923343faea6ec0fddecbb6ed8afa5",
         "public/static/dashboard/css/update.css": "15d303335ad4a371a2c09ed56c11fb81113fa2aae0317650b683bfe66392daf6",
         "public/static/dashboard/js/accordion.js": "53df12e1ef62951730703206027b5e72a8654378e77fa3dd0c3f4e89c123783f",
         "public/static/dashboard/js/action-menu.js": "dd48c6f90162fc15b67b64ef5db419e6f70bef67518377f38d67ad41c58c1a2a",
@@ -364,6 +364,7 @@
         "public/static/icons/lucide/plus.svg": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17",
         "public/static/icons/lucide/power.svg": "2870da9d709ba186cc822ecb195353a557c8cecc448a6feb75f1e8a8450b5ce3",
         "public/static/icons/lucide/puzzle.svg": "6d80d0c3b214c96945ed0f1c6ee0e4c4ea3911c6cc91c75751fdba08c31eab02",
+        "public/static/icons/lucide/qr-code.svg": "505e7df5058f4e057decf06ffaf26616fc9a0bc155f1ab61c65ea8e604fd11b1",
         "public/static/icons/lucide/quote.svg": "08f9f170ff5feba7552918d59009dd68d268107fc6b00f7b5ddf77008bf3483b",
         "public/static/icons/lucide/redo-2.svg": "716498b56ddc63c64468a5176b68725805307433fcf7f006f48667fe3271dfc6",
         "public/static/icons/lucide/refresh-cw.svg": "2e10dd403c85a24f163d59fc6151aa21147fe9402e1305dfc8979208caee8944",
@@ -612,6 +613,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "707ed197e2f2c9f4e2cef875143186bcb0100371ca0204f3f59c216678ddf459"
+        "version.json": "056caa28d6d4bb3ba5e9ca9070907a2e4673609c1f8ed327ae2f495a4461a8c4"
     }
 }

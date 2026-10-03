@@ -11,6 +11,10 @@ function apply_filters(string $name, mixed $value, mixed ...$args): mixed
     if ($name === 'admin_content_core_edit_action_visible') return ($GLOBALS['_content_core_edit_filter'])($value, ...$args);
     return $value;
 }
+function svg_ico(string $name): string
+{
+    return '<svg class="lucide-icon" data-icon="' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '"></svg>';
+}
 
 require_once dirname(__DIR__) . '/cfg/helpers/content_row_actions.php';
 
@@ -31,11 +35,12 @@ $GLOBALS['_content_core_edit_filter'] = static fn(bool $visible): string => 'inv
 $check(content_core_edit_action_visible($pdo, $row, $context), 'malformed Edit visibility output preserves Core Edit');
 
 $GLOBALS['_content_row_actions_filter'] = static fn(array $items): array => [
-    ['key' => 'example.qr', 'label' => 'QR & share', 'url' => '/hidden-admin/?page=admin/tools/example&value=%2Fpost%2F', 'title' => 'Create "QR"'],
+    ['key' => 'example.qr', 'label' => 'QR & share', 'url' => '/hidden-admin/?page=admin/tools/example&value=%2Fpost%2F', 'title' => 'Create "QR"', 'icon' => 'qr-code'],
     ['key' => 'example.second', 'label' => 'Second', 'url' => '/hidden-admin/?page=admin/tools/example'],
 ];
 $html = content_row_actions_render($pdo, $row, $context);
 $check(str_contains($html, 'QR &amp; share') && str_contains($html, 'Create &quot;QR&quot;'), 'labels and titles are escaped');
+$check(str_contains($html, 'data-icon="qr-code"'), 'valid actions may request a trusted Core icon');
 $check(substr_count($html, 'class="adam-ubah"') === 2 && substr_count($html, 'muted-divider') === 1, 'valid actions render in a separated non-destructive row');
 
 $GLOBALS['_content_row_actions_filter'] = static fn(array $items): array => [
@@ -46,6 +51,7 @@ $GLOBALS['_content_row_actions_filter'] = static fn(array $items): array => [
     ['key' => 'wrong-path', 'label' => 'Wrong', 'url' => '/dashboard/?page=admin/tools/example'],
     ['key' => 'missing-page', 'label' => 'Missing', 'url' => '/hidden-admin/?value=1'],
     ['key' => 'bad label', 'label' => "Bad\nLabel", 'url' => '/hidden-admin/?page=admin/tools/example'],
+    ['key' => 'bad-icon', 'label' => 'Bad icon', 'url' => '/hidden-admin/?page=admin/tools/example', 'icon' => '../trash'],
 ];
 $html = content_row_actions_render($pdo, $row, $context);
 $check(substr_count($html, 'class="adam-ubah"') === 1 && str_contains($html, 'First'), 'duplicate and unsafe descriptors are rejected');
@@ -88,9 +94,17 @@ $check(str_contains($category, "'content_type' => 'category'")
 
 $config = (string)file_get_contents($root . '/cfg/config.php');
 $docs = (string)file_get_contents($root . '/cms.md');
+$styles = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
+$qrIcon = (string)file_get_contents($root . '/public/static/icons/lucide/qr-code.svg');
 $check(str_contains($config, "helpers/content_row_actions.php"), 'Core loads the content row-action helper');
 $check(str_contains($docs, "'admin_content_row_actions'")
-    && str_contains($docs, "'admin_content_core_edit_action_visible'"), 'extension contracts are documented');
+    && str_contains($docs, "'admin_content_core_edit_action_visible'")
+    && str_contains($docs, "'icon' => optional string"), 'extension contracts are documented');
+$check(str_contains($styles, '.row-actions > .adam-ubah')
+    && str_contains($styles, 'flex-direction:column')
+    && str_contains($styles, 'justify-content:center'), 'mobile row actions center icons above labels');
+$check(str_contains($qrIcon, '<rect width="5" height="5"')
+    && str_contains($qrIcon, 'M21 16h-3'), 'Core provides the bounded QR row-action icon');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " check(s) failed.\n");
