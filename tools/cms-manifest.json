@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.170",
+    "version": "2.3.171",
     "build": "2026-10-03",
-    "generated": "2026-10-03T09:45:26+00:00",
+    "generated": "2026-10-03T14:47:48+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 606,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "c5969612e3b243253129fadc2b272445309ad4d6b2e6a0900f5fa65aac83b72a",
+        "VERSION": "dee5b28869767a3d2c7343accdf17bd579ee0015f3c935cbe242c70092bd3cd7",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -178,7 +178,7 @@
         "dashboard/admin/posts/bulk_action.php": "e76f67003e5759642f43c5148b075e4ce79c7661b8e0c45bafcb396d12e9dd0e",
         "dashboard/admin/posts/delete.php": "6d0ddfdaf59d5c0c71959d6ace1ce802b5b6da0abfebaa142f6b7836aa0df33d",
         "dashboard/admin/posts/edit.php": "4295b7d6b65d49599b1725819014ea5e76cd80941f61a010820bc0bd7a05a774",
-        "dashboard/admin/posts/index.php": "bd1cf1502e23ec86916accf75908571e286ba6b61e0013cb600536468199512e",
+        "dashboard/admin/posts/index.php": "27f556777f1a0eb25323dc7a79d5bc0c3fa98c4ccf953c6cbddea3e1b5d8b4b9",
         "dashboard/admin/posts/save.php": "a68a6ef3b9b61941e1d148e4873f14636c9807033eaf151179853f84567c14cb",
         "dashboard/admin/profile/index.php": "2cd2b6eba0f2c2d511b07db72a02a7c3f4f35f6bda31c35c0016571b6ed3d4b5",
         "dashboard/admin/save_dashboard_layout.php": "8cb4eb5ebece0dbe085d0957d9a3fc726cecfc5705a239b574cfad218b5d9367",
@@ -287,7 +287,7 @@
         "public/static/components/toast/toast.css": "3bd8f1bb22825f997d888bf28052cc3e4c392ceb4b0cb4c4bc03002360828804",
         "public/static/components/toast/toast.js": "c0545044a79d48ba965620e515888deb301e9561ca3bb277c3c4d112c920198b",
         "public/static/dashboard/css/login.css": "79e5cda21162b767a3c7fb542172ef1c1925cbc15eccbcb1d92ab9381c12a091",
-        "public/static/dashboard/css/style.css": "354849f9c35ce1cb1e815566956e2cd55a7923343faea6ec0fddecbb6ed8afa5",
+        "public/static/dashboard/css/style.css": "2d367a99f51f3ea91bc97d57374462f0eeb981897c09c096c39fce7a22840dad",
         "public/static/dashboard/css/update.css": "15d303335ad4a371a2c09ed56c11fb81113fa2aae0317650b683bfe66392daf6",
         "public/static/dashboard/js/accordion.js": "53df12e1ef62951730703206027b5e72a8654378e77fa3dd0c3f4e89c123783f",
         "public/static/dashboard/js/action-menu.js": "dd48c6f90162fc15b67b64ef5db419e6f70bef67518377f38d67ad41c58c1a2a",
@@ -605,7 +605,7 @@
         "schema/migrations/029-content-scheduling-setting.sql": "737f343ee831f14e627665fe1f8689f8322699f288ed9a5d73f85f776f9ba38e",
         "schema/migrations/030-login-attempt-identity.sql": "646c2818d9a201304a14dcacb5aea93dd786836c48f8768586239eae58e26167",
         "schema/migrations/031-user-avatar-fallback.sql": "5fc7d48cba7c715689c7ae07168da4bd10555bb871846ac740d6067ca7dd2da3",
-        "schema/translations.sql": "a3e300b9f81682334b355016d2e7764eb869c7680782b4c0d1937fedcd1f5ad5",
+        "schema/translations.sql": "4b964ea04932812cf4a679fae8f761c5350d45e03a3cbb7437da9b1624bd52f2",
         "tools/build-demo-content.php": "e4fa652393c285c1144ad1a8cd2b8385dfcb2f050b4776055cfaadc2911af5ba",
         "tools/build-package.php": "d83b26f9e16482fc712c47ab631f692c84e2426be506131f33f12e788434d4ff",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
@@ -613,6 +613,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "056caa28d6d4bb3ba5e9ca9070907a2e4673609c1f8ed327ae2f495a4461a8c4"
+        "version.json": "0298f7fe4f407f8ef3c056ce70f5a451acfe23a4955f0a55a575c74f0fd02ba9"
     }
 }

@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.170",
+    "version": "2.3.171",
     "build": "2026-10-03",
-    "changelog": "Standardize responsive dashboard row actions with centered mobile icon labels and add validated extension action icons.",
+    "changelog": "Refine the responsive Post List with compact status summaries, unified search and bulk controls, contextual bulk options, and streamlined mobile columns.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.170"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.171"
 }
