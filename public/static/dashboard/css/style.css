@@ -6421,6 +6421,7 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
 /* ─── Post List search-first toolbar ─── */
 .posts-toolbar{
   --posts-toolbar-control-size:34px;
+  position:relative;
   display:grid;
   gap:.55rem;
   margin-bottom:.7rem;
@@ -6556,30 +6557,58 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
 }
 .posts-command-bar{
   display:grid;
+  grid-template-columns:minmax(180px,1fr) auto minmax(145px,190px) auto auto;
+  align-items:start;
   min-width:0;
-  gap:.55rem;
-}
-.posts-filter-shell{
-  position:relative;
-  display:grid;
-  grid-template-columns:minmax(260px,1fr) auto;
-  justify-content:start;
   gap:.5rem;
+}
+.posts-filter-shell,
+.posts-bulk-form,
+.posts-bulk-bar{
+  display:contents;
+}
+.posts-command-bar #bulkAction,
+.posts-bulk-apply,
+.posts-bulk-end .cols-toggle-btn{
+  box-sizing:border-box;
+  height:var(--posts-toolbar-control-size);
+  margin:0;
+}
+.posts-command-bar #bulkAction{
+  width:100%;
   min-width:0;
 }
-.posts-bulk-form{ min-width:0; }
-.posts-bulk-selection{
+.posts-bulk-apply{
   display:inline-flex;
   align-items:center;
-  gap:.15rem;
+  justify-content:center;
+  gap:.3rem;
+  padding:.35rem .65rem;
   white-space:nowrap;
 }
-.posts-bulk-selection .field-help{ margin-left:0; }
+.posts-bulk-apply .lucide-icon{ display:none; width:14px; height:14px; margin:0; }
+.posts-bulk-end{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:.4rem;
+}
+.posts-bulk-end>.ml-auto{ margin-left:0; }
+.posts-bulk-end .cols-toggle-btn{
+  width:var(--posts-toolbar-control-size);
+  padding:.3rem;
+}
+.posts-list-display-controls{
+  grid-column:3/-1;
+  gap:.4rem;
+  margin:0;
+}
 .posts-bulk-options{
   display:grid;
+  grid-column:1/-1;
   width:min(100%,640px);
   gap:.65rem;
-  margin:-.25rem 0 .75rem;
+  margin:.05rem 0 .2rem;
   padding:.7rem;
   border:1px solid var(--adam-border);
   border-radius:9px;
@@ -6789,6 +6818,10 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   border-color:var(--adam-primary);
   color:var(--adam-primary);
 }
+.posts-bulk-selection-count{
+  justify-self:start;
+  margin:0;
+}
 @media (max-width:640px){
   .posts-toolbar{ --posts-toolbar-control-size:38px; }
   .posts-toolbar{ gap:.6rem; }
@@ -6796,15 +6829,11 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   .posts-toolbar-actions{ gap:.35rem; }
   .posts-toolbar-trash{ width:var(--posts-toolbar-control-size); min-width:var(--posts-toolbar-control-size); padding:0; }
   .posts-toolbar-trash-label{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
-  .posts-command-bar{ gap:.6rem; }
-  .posts-filter-shell{ order:0; grid-template-columns:minmax(0,1fr) auto; justify-content:stretch; }
-  .posts-bulk-form{ order:1; }
-  .posts-bulk-bar .posts-bulk-selection{ order:1; }
-  .posts-bulk-bar>.cols-toggle{ order:2; margin-left:auto; }
-  .posts-bulk-bar #bulkAction{ order:3; width:145px; min-width:0; }
-  .posts-bulk-bar>.posts-bulk-apply{ order:4; }
-  .posts-bulk-bar>.bulk-selection-count{ order:5; }
-  .posts-bulk-bar>.ml-auto{ order:6; }
+  .posts-command-bar{
+    grid-template-columns:minmax(0,1fr) 38px minmax(86px,100px) auto 38px;
+    gap:.35rem;
+  }
+  .posts-bulk-apply{ padding:.35rem .5rem; font-size:.8rem; }
   .posts-bulk-options{ width:100%; box-sizing:border-box; }
   .posts-bulk-option--categories{ grid-template-columns:1fr; }
   .posts-filter-disclosure{ position:static; }
@@ -6822,6 +6851,15 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   .posts-filter-reset{ min-height:36px; }
   .posts-filter-actions{ grid-column:1; }
   .posts-filter-chips{ padding-bottom:.1rem; }
+}
+@media (max-width:360px){
+  .posts-command-bar{
+    grid-template-columns:minmax(0,1fr) 38px minmax(78px,86px) 38px 38px;
+    gap:.25rem;
+  }
+  .posts-bulk-apply{ width:38px; padding:0; }
+  .posts-bulk-apply .lucide-icon{ display:block; }
+  .posts-bulk-apply>span{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
 }
 @media (prefers-reduced-motion:reduce){
   .posts-bulk-options{ animation:none; }

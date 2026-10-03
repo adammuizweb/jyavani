@@ -377,13 +377,6 @@ $filterUrlWithout = static function (string $key) use ($base): string {
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
       <div class="bulk-bar posts-bulk-bar">
-        <div class="posts-bulk-selection">
-          <label class="check-row">
-            <input type="checkbox" id="selectAll" class="adam-choice"> <?=_e('Select all on page')?>
-          </label>
-          <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('Bulk only affects checked items.'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="posts-bulk-help" aria-controls="posts-bulk-help" aria-expanded="false">?</button><span id="posts-bulk-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('Bulk only affects checked items.'), ENT_QUOTES, 'UTF-8') ?></span></span>
-        </div>
-
         <select id="bulkAction" name="action" class="inp">
           <option value=""><?=_e('-- Bulk action --')?></option>
           <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
@@ -393,20 +386,17 @@ $filterUrlWithout = static function (string $key) use ($base): string {
           <?php if ($canChangeDates): ?><option value="change_date"><?= _e('Change Date') ?></option><?php endif; ?>
         </select>
 
-        <button type="submit" class="adam-button posts-bulk-apply"><?= _e('Apply') ?></button>
-        <span id="bulkSelectionCount" class="bulk-selection-count" hidden>
-          <span class="bsc-number">0</span>
-          <span class="bsc-label"><?= _e('Post Selected') ?></span>
-        </span>
-
-        <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
-        <div class="cols-toggle">
-          <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
-          <div class="cols-dropdown">
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-categories" checked> <?=_e('Categories')?></label>
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
+        <button type="submit" class="adam-button posts-bulk-apply"><?= svg_ico('circle-check') ?><span><?= _e('Apply') ?></span></button>
+        <div class="posts-bulk-end">
+          <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+          <div class="cols-toggle">
+            <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+            <div class="cols-dropdown">
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-categories" checked> <?=_e('Categories')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
+            </div>
           </div>
         </div>
       </div>
@@ -488,6 +478,13 @@ $filterUrlWithout = static function (string $key) use ($base): string {
     <?php endif; ?>
     </div>
 
+    <?php if ($canBulk): ?>
+      <span id="bulkSelectionCount" class="bulk-selection-count posts-bulk-selection-count" role="status" aria-live="polite" hidden>
+        <span class="bsc-number">0</span>
+        <span class="bsc-label"><?= _e('Post Selected') ?></span>
+      </span>
+    <?php endif; ?>
+
     <?php if ($activeFilterCount > 0): ?>
       <div class="posts-filter-chips" aria-label="<?= htmlspecialchars(__('Filters'), ENT_QUOTES, 'UTF-8') ?>">
         <?php if ($filter_status !== ''): ?>
@@ -508,7 +505,7 @@ $filterUrlWithout = static function (string $key) use ($base): string {
       <table class="adam-table mt-8">
         <thead>
           <tr>
-            <th class="th-narrow"></th>
+            <th class="th-narrow"><?php if ($canBulk): ?><input type="checkbox" id="selectAll" class="adam-choice" aria-label="<?= htmlspecialchars(__('Select all on page'), ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?></th>
             <th><?= _e('Title') ?></th>
             <th class="col-status"><?=_e('Status')?></th>
             <th class="col-categories"><?= _e('Categories') ?></th>
@@ -720,7 +717,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function updateSelectionCount(){
     if (!bulkSelectionCount) return;
-    const count = document.querySelectorAll('.bulkCheckbox:checked').length;
+    const checkboxes = Array.from(document.querySelectorAll('.bulkCheckbox'));
+    const count = checkboxes.filter(function(checkbox){ return checkbox.checked; }).length;
+    if (selectAll) {
+      selectAll.checked = checkboxes.length > 0 && count === checkboxes.length;
+      selectAll.indeterminate = count > 0 && count < checkboxes.length;
+    }
     const numEl = bulkSelectionCount.querySelector('.bsc-number');
     const labelEl = bulkSelectionCount.querySelector('.bsc-label');
     if (numEl) numEl.textContent = String(count);

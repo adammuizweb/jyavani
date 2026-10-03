@@ -106,21 +106,23 @@ $checks = [
         '--posts-toolbar-control-size:34px;'
     ) && substr_count($dashboardCss, 'height:var(--posts-toolbar-control-size);') >= 3
        && str_contains($dashboardCss, '.posts-toolbar{ --posts-toolbar-control-size:38px; }')
-       && str_contains($dashboardCss, 'grid-template-columns:minmax(260px,1fr) auto;'),
-    'Post List keeps bulk guidance in the shared accessible tooltip' => str_contains(
+       && str_contains($dashboardCss, 'grid-template-columns:minmax(180px,1fr) auto minmax(145px,190px) auto auto;'),
+    'Post List places its accessible select-all control in the narrow table heading' => str_contains(
         $postList,
-        'class="posts-bulk-selection"'
-    ) && str_contains($postList, 'class="field-help__trigger"')
-      && str_contains($postList, 'id="posts-bulk-help" class="field-help__tooltip" role="tooltip"')
-      && str_contains($postList, "__('Bulk only affects checked items.')")
-      && !str_contains($postList, '<small class="adam-muted" style="margin-left:.5rem;">'),
-    'Post List uses spare mobile bulk space for the Columns control' => str_contains(
+        '<th class="th-narrow"><?php if ($canBulk): ?><input type="checkbox" id="selectAll" class="adam-choice" aria-label='
+    ) && !str_contains($postList, 'class="posts-bulk-selection"')
+      && !str_contains($postList, 'id="posts-bulk-help"')
+      && str_contains($postList, 'selectAll.indeterminate = count > 0 && count < checkboxes.length;'),
+    'Post List keeps search, filter, bulk, apply, and Columns in one adaptive command row' => strpos(
         $postList,
-        'class="adam-button posts-bulk-apply"'
-    ) && str_contains($dashboardCss, '.posts-bulk-bar .posts-bulk-selection{ order:1; }')
-      && str_contains($dashboardCss, '.posts-bulk-bar>.cols-toggle{ order:2; margin-left:auto; }')
-      && str_contains($dashboardCss, '.posts-bulk-bar #bulkAction{ order:3; width:145px; min-width:0; }')
-      && str_contains($dashboardCss, '.posts-bulk-bar>.posts-bulk-apply{ order:4; }'),
+        'class="posts-search-control"'
+    ) < strpos($postList, 'class="posts-filter-disclosure')
+      && strpos($postList, 'class="posts-filter-disclosure') < strpos($postList, 'id="bulkAction"')
+      && strpos($postList, 'id="bulkAction"') < strpos($postList, 'class="adam-button posts-bulk-apply"')
+      && strpos($postList, 'class="adam-button posts-bulk-apply"') < strpos($postList, 'class="posts-bulk-end"')
+      && str_contains($dashboardCss, ".posts-filter-shell,\n.posts-bulk-form,\n.posts-bulk-bar{\n  display:contents;")
+      && str_contains($dashboardCss, 'grid-template-columns:minmax(0,1fr) 38px minmax(86px,100px) auto 38px;')
+      && str_contains($dashboardCss, '.posts-bulk-apply .lucide-icon{ display:block; }'),
     'Post List renders action-specific bulk fields in a separate contextual panel' => str_contains(
         $postList,
         'id="bulkOptionsPanel" class="posts-bulk-options" hidden'
