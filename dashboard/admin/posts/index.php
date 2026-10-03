@@ -311,6 +311,7 @@ $filterUrlWithout = static function (string $key) use ($base): string {
         </div>
       </div>
       <div class="posts-toolbar-actions">
+        <div class="posts-toolbar-extensions"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
         <?php if ($canCreate): ?>
           <a class="adam-button toolbar-add posts-toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>">
             <?= svg_ico('plus') ?><span><?=_e('New Article')?></span>
@@ -377,7 +378,7 @@ $filterUrlWithout = static function (string $key) use ($base): string {
       <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
 
       <div class="bulk-bar posts-bulk-bar">
-        <select id="bulkAction" name="action" class="inp">
+        <select id="bulkAction" name="action" class="inp posts-bulk-action">
           <option value=""><?=_e('-- Bulk action --')?></option>
           <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
           <?php if ($canUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
@@ -388,7 +389,6 @@ $filterUrlWithout = static function (string $key) use ($base): string {
 
         <button type="submit" class="adam-button posts-bulk-apply"><?= svg_ico('circle-check') ?><span><?= _e('Apply') ?></span></button>
         <div class="posts-bulk-end">
-          <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
           <div class="cols-toggle">
             <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
             <div class="cols-dropdown">
@@ -464,7 +464,6 @@ $filterUrlWithout = static function (string $key) use ($base): string {
     <?php endif; ?>
     <?php if (!$canBulk): ?>
     <div class="content-list-display-controls posts-list-display-controls">
-      <?php do_action('admin_content_list_filters', $listContext, $pdo); ?>
       <div class="cols-toggle">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
         <div class="cols-dropdown">

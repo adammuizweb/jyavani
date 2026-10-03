@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $sources = [
+    'pages' => (string)file_get_contents($root . '/dashboard/admin/pages/index.php'),
     'categories' => (string)file_get_contents($root . '/dashboard/admin/categories/index.php'),
     'themes' => (string)file_get_contents($root . '/dashboard/admin/themes/index.php'),
     'users' => (string)file_get_contents($root . '/dashboard/admin/users/index.php'),
@@ -19,13 +20,14 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 };
 
 foreach ([
+    'pages' => ['', 'bulkCheckboxPage', 'Page', 'Pages'],
     'categories' => ['Categories', 'bulkCheckboxCategory', 'Category', 'Categories'],
     'themes' => ['Themes', 'bulkCheckboxTheme', 'Theme', 'Themes'],
     'users' => ['Users', 'bulkCheckbox', 'User', 'Users'],
 ] as $key => [$idSuffix, $checkboxClass, $singular, $plural]) {
     $source = $sources[$key];
     $check(str_contains($source, 'id="bulkSelectionCount' . $idSuffix . '"')
-        && str_contains($source, 'class="bulk-selection-count" role="status" aria-live="polite"'),
+        && str_contains($source, 'role="status" aria-live="polite"'),
         $key . ' list exposes an accessible live selection counter');
     $check(str_contains($source, 'function updateSelectionCount()')
         && str_contains($source, 'selectAll.indeterminate = count > 0 && count < checkboxes.length')

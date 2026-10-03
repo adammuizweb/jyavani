@@ -105,6 +105,7 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Add new widget above.', 'Neues Widget oben hinzufügen.', 'de'),
 ('default', 'Add Page', 'Seite hinzufügen', 'de'),
 ('default', 'Add Theme / Partial', 'Thema/Teil hinzufügen', 'de'),
+('default', 'Add Theme Partial', 'Theme-Teil hinzufügen', 'de'),
 ('default', 'add to', 'hinzufügen', 'de'),
 ('default', 'Add to Menu', 'Zum Menü hinzufügen', 'de'),
 ('default', 'Add User', 'Benutzer hinzufügen', 'de'),

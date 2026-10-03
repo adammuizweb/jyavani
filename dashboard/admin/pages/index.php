@@ -203,119 +203,173 @@ if (!function_exists('build_pagination_items')) {
 }
 
 $paging_items = build_pagination_items($page_num, $pages, 9);
+$activeFilterCount = ($filter_status !== '' ? 1 : 0) + ($filter_author !== '' ? 1 : 0);
+$hasActiveQuery = $search !== '' || $activeFilterCount > 0;
+$activeAuthorLabel = '';
+foreach ($filterAuthors as $author) {
+    if ((string)$author['id'] === $filter_author) {
+        $activeAuthorLabel = (string)($author['name'] ?: ($author['username'] ?: $author['id']));
+        break;
+    }
+}
+$filterUrlWithout = static function (string $key) use ($base): string {
+    $query = $_GET;
+    unset($query[$key], $query['p']);
+    $query['page'] = 'admin/pages/index';
+    return $base . '/?' . http_build_query($query);
+};
 ?>
 
-<section class="adam-card">
-  <div class="toolbar-top">
-    <h2 class="page-heading"><?=_e('Pages')?></h2>
+<section class="adam-card posts-list-card">
+  <div class="posts-toolbar">
+    <div class="posts-toolbar-head">
+      <div class="posts-toolbar-title">
+        <h2 class="page-heading"><?=_e('Pages')?></h2>
+      </div>
+      <div class="posts-toolbar-actions">
+        <div class="posts-toolbar-extensions"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+        <?php if ($canCreate): ?>
+          <a class="adam-button toolbar-add posts-toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('plus') ?><span><?=_e('Add Page')?></span></a>
+        <?php endif; ?>
+        <?php if ($canOpenTrash): ?>
+          <a class="adam-att toolbar-trash posts-toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Trash'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?><span class="posts-toolbar-trash-label"><?=_e('Trash')?></span></a>
+        <?php endif; ?>
+      </div>
+    </div>
 
-    <form method="get" class="toolbar-filter" id="pages-list-filter">
-      <input type="hidden" name="page" value="admin/pages/index">
-      <input type="text" name="q" placeholder="<?= _e('Search…') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
+    <div class="posts-command-bar">
+      <form method="get" class="toolbar-filter posts-filter-shell" id="pages-list-filter">
+        <input type="hidden" name="page" value="admin/pages/index">
+        <div class="posts-search-control">
+          <label class="sr-only" for="pages-search"><?=_e('Search')?></label>
+          <input id="pages-search" type="search" name="q" placeholder="<?= _e('Search…') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp posts-search-input">
+          <?php if ($search !== ''): ?><a class="posts-search-clear" href="<?= htmlspecialchars($filterUrlWithout('q'), ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('x') ?></a><?php endif; ?>
+          <button type="submit" class="posts-search-submit" aria-label="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('search') ?></button>
+        </div>
 
-      <select name="status" class="inp">
-        <option value=""><?= _e('All Status') ?></option>
-        <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
-        <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
-        <option value="scheduled" <?= $filter_status === 'scheduled' ? 'selected' : '' ?>><?=_e('Scheduled')?></option>
-      </select>
+        <details class="posts-filter-disclosure<?= $activeFilterCount > 0 ? ' has-active' : '' ?>">
+          <summary class="posts-filter-trigger">
+            <?= svg_ico('list-collapse') ?><span><?=_e('Filters')?></span>
+            <?php if ($activeFilterCount > 0): ?><span class="posts-filter-count"><?= $activeFilterCount ?></span><?php endif; ?>
+            <span class="posts-filter-chevron" aria-hidden="true"><?= svg_ico('chevron-down') ?></span>
+          </summary>
+          <div class="posts-filter-panel">
+            <label class="posts-filter-field">
+              <span><?=_e('Status')?></span>
+              <select name="status" class="inp">
+                <option value=""><?= _e('All Status') ?></option>
+                <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
+                <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
+                <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
+                <option value="scheduled" <?= $filter_status === 'scheduled' ? 'selected' : '' ?>><?=_e('Scheduled')?></option>
+              </select>
+            </label>
+            <?php if ($readScope !== 'own'): ?>
+              <label class="posts-filter-field">
+                <span><?=_e('Author')?></span>
+                <select name="author" class="inp">
+                  <option value=""><?= _e('All Authors') ?></option>
+                  <?php foreach ($filterAuthors as $a): $label = $a['name'] ?: ($a['username'] ?: $a['id']); ?>
+                    <option value="<?= (int)$a['id'] ?>" <?= $filter_author === (string)$a['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </label>
+            <?php endif; ?>
+            <div class="posts-filter-actions">
+              <button type="submit" class="adam-button posts-filter-apply"><?= svg_ico('circle-check') ?><span><?=_e('Apply filters')?></span></button>
+              <?php if ($hasActiveQuery): ?><a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle posts-filter-reset"><?= svg_ico('rotate-ccw') ?><span><?=_e('Reset')?></span></a><?php endif; ?>
+            </div>
+          </div>
+        </details>
+      </form>
 
-      <?php if ($readScope !== 'own'): ?><select name="author" class="inp">
-        <option value=""><?= _e('All Authors') ?></option>
-        <?php foreach ($filterAuthors as $a):
-          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-        ?>
-          <option value="<?= (int)$a['id'] ?>" <?= ((string)$filter_author === (string)$a['id']) ? 'selected' : '' ?>>
-            <?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?>
-          </option>
-        <?php endforeach; ?>
-      </select><?php endif; ?>
+      <?php if ($canBulk): ?>
+        <form id="pagesBulkForm" class="posts-bulk-form" method="post" action="<?= htmlspecialchars($base . '/admin/pages/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+          <div class="bulk-bar posts-bulk-bar">
+            <select id="bulkActionPages" name="action" class="inp posts-bulk-action">
+              <option value=""><?=_e('-- Bulk action --')?></option>
+              <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
+              <?php if ($canUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
+              <?php if ($canChangeOwner): ?><option value="change_author"><?= _e('Change Author') ?></option><?php endif; ?>
+              <?php if ($canChangeDates): ?><option value="change_date"><?= _e('Change Date') ?></option><?php endif; ?>
+            </select>
+            <button type="submit" class="adam-button posts-bulk-apply"><?= svg_ico('circle-check') ?><span><?= _e('Apply') ?></span></button>
+            <div class="posts-bulk-end">
+              <div class="cols-toggle">
+                <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+                <div class="cols-dropdown">
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Slug')?></label>
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="bulkOptionsPanelPages" class="posts-bulk-options" hidden>
+            <label id="bulkStatusOptionPages" class="posts-bulk-option" hidden>
+              <span><?=_e('Status')?></span>
+              <select id="bulkStatusPages" name="status" class="inp">
+                <option value="draft"><?=_e('Draft')?></option>
+                <?php if ($canPublish): ?><option value="published"><?=_e('Published')?></option><option value="private"><?=_e('Private')?></option><?php endif; ?>
+              </select>
+            </label>
+            <?php if ($canChangeOwner): ?>
+              <label id="bulkAuthorOptionPages" class="posts-bulk-option" hidden>
+                <span><?=_e('Change Author')?></span>
+                <select id="bulkAuthorPages" name="author_id" class="inp">
+                  <option value=""><?= _e('-- Select Author --') ?></option>
+                  <?php foreach ($authors as $a): $label = $a['name'] ?: ($a['username'] ?: $a['id']); ?>
+                    <option value="<?= (int)$a['id'] ?>"><?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </label>
+            <?php endif; ?>
+            <?php if ($canChangeDates): ?>
+              <div id="bulkDatesPanelPages" class="posts-bulk-option posts-bulk-option--dates" hidden>
+                <span><?=_e('Change Date')?></span>
+                <div class="date-panel">
+                  <label class="date-label"><?= _e('Created at') ?><input type="datetime-local" id="bulkCreatedAtPages" name="created_at" class="inp"></label>
+                  <label class="date-label"><?= _e('Updated at') ?><input type="datetime-local" id="bulkUpdatedAtPages" name="updated_at" class="inp"></label>
+                </div>
+              </div>
+            <?php endif; ?>
+          </div>
+        </form>
+      <?php else: ?>
+        <div class="content-list-display-controls posts-list-display-controls">
+          <div class="cols-toggle">
+            <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+            <div class="cols-dropdown">
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Slug')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
+            </div>
+          </div>
+        </div>
+      <?php endif; ?>
+    </div>
 
-      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <a href="<?= htmlspecialchars($base . '/?page=admin/pages/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
-    </form>
+    <?php if ($canBulk): ?>
+      <span id="bulkSelectionCount" class="bulk-selection-count posts-bulk-selection-count" role="status" aria-live="polite" hidden><span class="bsc-number">0</span><span class="bsc-label"><?= _e('Page Selected') ?></span></span>
+    <?php endif; ?>
 
-    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Page')?></a><?php endif; ?>
-    <?php if ($canOpenTrash) : ?>
-      <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/page/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
+    <?php if ($activeFilterCount > 0): ?>
+      <div class="posts-filter-chips" aria-label="<?= htmlspecialchars(__('Filters'), ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ($filter_status !== ''): ?><a class="posts-filter-chip" href="<?= htmlspecialchars($filterUrlWithout('status'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Status'), ENT_QUOTES, 'UTF-8') ?>"><span><?=_e('Status')?>:</span><strong><?= htmlspecialchars(__(ucfirst($filter_status)), ENT_QUOTES, 'UTF-8') ?></strong><?= svg_ico('x') ?></a><?php endif; ?>
+        <?php if ($filter_author !== '' && $activeAuthorLabel !== ''): ?><a class="posts-filter-chip" href="<?= htmlspecialchars($filterUrlWithout('author'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Author'), ENT_QUOTES, 'UTF-8') ?>"><span><?=_e('Author')?>:</span><strong><?= htmlspecialchars($activeAuthorLabel, ENT_QUOTES, 'UTF-8') ?></strong><?= svg_ico('x') ?></a><?php endif; ?>
+      </div>
     <?php endif; ?>
   </div>
-
-  <?php if ($canBulk): ?><form id="pagesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/pages/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-
-  <?php endif; ?>
-    <?php if ($canBulk): ?><div class="bulk-bar">
-      <label class="check-row">
-        <input type="checkbox" id="selectAllPages" class="adam-choice"> <?=_e('Select all on page')?>
-      </label>
-
-      <select id="bulkActionPages" name="action" class="inp">
-        <option value=""><?=_e('-- Bulk action --')?></option>
-        <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
-        <?php if ($canUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
-        <?php if ($canChangeOwner): ?><option value="change_author"><?= _e('Change Author') ?></option><?php endif; ?>
-        <?php if ($canChangeDates): ?><option value="change_date"><?= _e('Change Date') ?></option><?php endif; ?>
-      </select>
-
-      <select id="bulkStatusPages" name="status" class="inp" style="display:none;">
-        <option value="draft"><?=_e('Draft')?></option>
-        <?php if ($canPublish): ?><option value="published"><?=_e('Published')?></option>
-        <option value="private"><?=_e('Private')?></option><?php endif; ?>
-      </select>
-
-      <?php if ($canChangeOwner): ?>
-      <select id="bulkAuthorPages" name="author_id" class="inp" style="display:none;">
-        <option value=""><?= _e('-- Select Author --') ?></option>
-        <?php foreach ($authors as $a):
-          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-        ?>
-          <option value="<?= (int)$a['id'] ?>"><?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?></option>
-        <?php endforeach; ?>
-      </select>
-      <?php endif; ?>
-
-      <?php if ($canChangeDates): ?>
-      <div id="bulkDatesPanelPages" class="date-panel" style="display:none;">
-        <label class="date-label">
-          <?= _e('Created at') ?>
-          <input type="datetime-local" id="bulkCreatedAtPages" name="created_at" class="inp">
-        </label>
-        <label class="date-label">
-          <?= _e('Updated at') ?>
-          <input type="datetime-local" id="bulkUpdatedAtPages" name="updated_at" class="inp">
-        </label>
-      </div>
-      <?php endif; ?>
-
-      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
-      <span id="bulkSelectionCount" class="bulk-selection-count" hidden>
-        <span class="bsc-number">0</span>
-        <span class="bsc-label"><?= _e('Page Selected') ?></span>
-      </span>
-
-      <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
-      <div class="cols-toggle">
-        <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
-        <div class="cols-dropdown">
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Slug')?></label>
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
-        </div>
-      </div>
-    </div><?php endif; ?>
-
-    <?php if (!$canBulk): ?><div class="content-list-display-controls"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div><?php endif; ?>
 
     <div class="adam-table-wrapper">
       <table class="adam-table" style="margin-top:.5rem;">
       <thead>
         <tr>
-          <th class="th-narrow"></th>
+          <th class="th-narrow"><?php if ($canBulk): ?><input type="checkbox" id="selectAllPages" class="adam-choice" aria-label="<?= htmlspecialchars(__('Select all on page'), ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?></th>
           <th><?= _e('Title') ?></th>
           <th class="col-slug"><?=_e('Slug')?></th>
           <th class="col-status"><?=_e('Status')?></th>
@@ -362,7 +416,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
               ?>
               <tr class="adam-row">
                 <td style="text-align:center;">
-                  <?php if ($canBulk && $canSelectPage): ?><input type="checkbox" class="bulkCheckboxPage adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                  <?php if ($canBulk && $canSelectPage): ?><input type="checkbox" class="bulkCheckboxPage adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>" form="pagesBulkForm"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
 
                 <td>
@@ -457,8 +511,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </tbody>
       </table>
     </div>
-  <?php if ($canBulk): ?></form><?php endif; ?>
-
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination" style="margin-top:1rem;">
       <?php foreach ($paging_items as $item):
@@ -498,7 +550,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const selectAll = document.getElementById('selectAllPages');
   const bulkForm = document.getElementById('pagesBulkForm');
   const bulkAction = document.getElementById('bulkActionPages');
+  const bulkOptionsPanel = document.getElementById('bulkOptionsPanelPages');
+  const bulkStatusOption = document.getElementById('bulkStatusOptionPages');
   const bulkStatus = document.getElementById('bulkStatusPages');
+  const bulkAuthorOption = document.getElementById('bulkAuthorOptionPages');
   const bulkAuthor = document.getElementById('bulkAuthorPages');
   const bulkDatesPanel = document.getElementById('bulkDatesPanelPages');
   const bulkCreatedAt = document.getElementById('bulkCreatedAtPages');
@@ -510,7 +565,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function updateSelectionCount(){
     if (!bulkSelectionCount) return;
-    const count = document.querySelectorAll('.bulkCheckboxPage:checked').length;
+    const checkboxes = Array.from(document.querySelectorAll('.bulkCheckboxPage'));
+    const count = checkboxes.filter(function(checkbox){ return checkbox.checked; }).length;
+    if (selectAll) {
+      selectAll.checked = checkboxes.length > 0 && count === checkboxes.length;
+      selectAll.indeterminate = count > 0 && count < checkboxes.length;
+    }
     const numEl = bulkSelectionCount.querySelector('.bsc-number');
     const labelEl = bulkSelectionCount.querySelector('.bsc-label');
     if (numEl) numEl.textContent = String(count);
@@ -545,9 +605,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function toggleBulkExtras(){
     const v = bulkAction ? bulkAction.value : '';
-    if (bulkStatus) bulkStatus.style.display = (v === 'change_status') ? 'inline-block' : 'none';
-    if (bulkAuthor) bulkAuthor.style.display = (v === 'change_author') ? 'inline-block' : 'none';
-    if (bulkDatesPanel) bulkDatesPanel.style.display = (v === 'change_date') ? 'inline-flex' : 'none';
+    const options = [bulkStatusOption, bulkAuthorOption, bulkDatesPanel];
+    options.forEach(function(option){ if (option) option.hidden = true; });
+    const activeOption = v === 'change_status' ? bulkStatusOption
+      : (v === 'change_author' ? bulkAuthorOption
+      : (v === 'change_date' ? bulkDatesPanel : null));
+    if (activeOption) activeOption.hidden = false;
+    if (bulkOptionsPanel) bulkOptionsPanel.hidden = !activeOption;
   }
 
   function checkedCount(){
@@ -675,6 +739,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   /* ── Column visibility toggle ── */
   (function(){
     const STORAGE_KEY = 'pages_columns';
+    const mobileColumns = window.matchMedia('(max-width: 640px)');
+    const mobileDefaultHidden = new Set(['col-slug', 'col-created', 'col-author']);
     const toggleBtn = document.querySelector('.cols-toggle-btn');
     const dropdown = document.querySelector('.cols-dropdown');
     const checkboxes = dropdown ? dropdown.querySelectorAll('input[data-col]') : [];
@@ -682,13 +748,27 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     function loadColState(){
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : null;
+        const state = saved ? JSON.parse(saved) : null;
+        return state && typeof state === 'object' && !Array.isArray(state) ? state : null;
       } catch(e){ return null; }
     }
 
     function saveColState(state){
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
       catch(e){}
+    }
+
+    function defaultColState(){
+      const state = {};
+      checkboxes.forEach(function(cb){
+        const col = cb.getAttribute('data-col');
+        state[col] = !(mobileColumns.matches && mobileDefaultHidden.has(col));
+      });
+      return state;
+    }
+
+    function resolvedColState(){
+      return Object.assign(defaultColState(), loadColState() || {});
     }
 
     function applyColState(state){
@@ -702,8 +782,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
     }
 
-    var saved = loadColState();
-    if (saved) applyColState(saved);
+    applyColState(resolvedColState());
+    if (typeof mobileColumns.addEventListener === 'function') {
+      mobileColumns.addEventListener('change', function(){
+        applyColState(resolvedColState());
+      });
+    }
 
     if (toggleBtn && dropdown) {
       toggleBtn.addEventListener('click', function(e){

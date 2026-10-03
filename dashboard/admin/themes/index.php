@@ -97,8 +97,9 @@ if (is_array($filteredThemes)) $themes = $filteredThemes;
 
 $base = ADMIN_BASE_PATH;
 $canCreate = user_can($pdo, $uid, 'core.theme_content.create');
-$canBulk = user_permission_scope($pdo, $uid, 'core.theme_content.update') !== null
-    || user_permission_scope($pdo, $uid, 'core.theme_content.delete') !== null;
+$canBulkUpdate = user_permission_scope($pdo, $uid, 'core.theme_content.update') !== null;
+$canBulkDelete = user_permission_scope($pdo, $uid, 'core.theme_content.delete') !== null;
+$canBulk = $canBulkUpdate || $canBulkDelete;
 $canOpenTrash = user_permission_scope($pdo, $uid, 'core.theme_content.restore') !== null
     || user_permission_scope($pdo, $uid, 'core.theme_content.purge') !== null;
 
@@ -147,83 +148,119 @@ if (!function_exists('build_pagination_items')) {
     }
 }
 $paging_items = build_pagination_items($page_num, $pages, 9);
+$activeFilterCount = $filter_status !== '' ? 1 : 0;
+$hasActiveQuery = $search !== '' || $activeFilterCount > 0;
+$filterUrlWithout = static function (string $key) use ($base): string {
+    $query = $_GET;
+    unset($query[$key], $query['p']);
+    $query['page'] = 'admin/themes/index';
+    return $base . '/?' . http_build_query($query);
+};
 ?>
 
-<section class="adam-card">
-  <div class="toolbar-top">
-    <h2 class="page-heading"><?=_e('Themes / Partials')?></h2>
+<section class="adam-card posts-list-card">
+  <div class="posts-toolbar">
+    <div class="posts-toolbar-head">
+      <div class="posts-toolbar-title"><h2 class="page-heading"><?=_e('Themes / Partials')?></h2></div>
+      <div class="posts-toolbar-actions">
+        <div class="posts-toolbar-extensions"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+        <?php if ($canCreate): ?><a class="adam-button toolbar-add posts-toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('plus') ?><span><?=_e('Add Theme Partial')?></span></a><?php endif; ?>
+        <?php if ($canOpenTrash): ?><a class="adam-att toolbar-trash posts-toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Trash'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?><span class="posts-toolbar-trash-label"><?=_e('Trash')?></span></a><?php endif; ?>
+      </div>
+    </div>
 
-    <form method="get" class="toolbar-filter" id="themes-list-filter">
-      <input type="hidden" name="page" value="admin/themes/index">
-      <input type="text" name="q" placeholder="<?= _e('Search title, internal slug, or public path...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
+    <div class="posts-command-bar">
+      <form method="get" class="toolbar-filter posts-filter-shell" id="themes-list-filter">
+        <input type="hidden" name="page" value="admin/themes/index">
+        <div class="posts-search-control">
+          <label class="sr-only" for="themes-search"><?=_e('Search')?></label>
+          <input id="themes-search" type="search" name="q" placeholder="<?= _e('Search title, internal slug, or public path...') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp posts-search-input">
+          <?php if ($search !== ''): ?><a class="posts-search-clear" href="<?= htmlspecialchars($filterUrlWithout('q'), ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('x') ?></a><?php endif; ?>
+          <button type="submit" class="posts-search-submit" aria-label="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('search') ?></button>
+        </div>
+        <details class="posts-filter-disclosure<?= $activeFilterCount > 0 ? ' has-active' : '' ?>">
+          <summary class="posts-filter-trigger"><?= svg_ico('list-collapse') ?><span><?=_e('Filters')?></span><?php if ($activeFilterCount > 0): ?><span class="posts-filter-count"><?= $activeFilterCount ?></span><?php endif; ?><span class="posts-filter-chevron" aria-hidden="true"><?= svg_ico('chevron-down') ?></span></summary>
+          <div class="posts-filter-panel posts-filter-panel--single">
+            <label class="posts-filter-field">
+              <span><?=_e('Status')?></span>
+              <select name="status" class="inp">
+                <option value=""><?= _e('-- All Status --') ?></option>
+                <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
+                <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
+                <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
+                <option value="scheduled" <?= $filter_status === 'scheduled' ? 'selected' : '' ?>><?=_e('Scheduled')?></option>
+              </select>
+            </label>
+            <div class="posts-filter-actions">
+              <button type="submit" class="adam-button posts-filter-apply"><?= svg_ico('circle-check') ?><span><?=_e('Apply filters')?></span></button>
+              <?php if ($hasActiveQuery): ?><a href="<?= htmlspecialchars($base . '/?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle posts-filter-reset"><?= svg_ico('rotate-ccw') ?><span><?=_e('Reset')?></span></a><?php endif; ?>
+            </div>
+          </div>
+        </details>
+      </form>
 
-      <select name="status" class="inp">
-        <option value=""><?= _e('-- All Status --') ?></option>
-        <option value="draft" <?= $filter_status === 'draft' ? 'selected' : '' ?>><?=_e('Draft')?></option>
-        <option value="published" <?= $filter_status === 'published' ? 'selected' : '' ?>><?=_e('Published')?></option>
-        <option value="private" <?= $filter_status === 'private' ? 'selected' : '' ?>><?=_e('Private')?></option>
-        <option value="scheduled" <?= $filter_status === 'scheduled' ? 'selected' : '' ?>><?=_e('Scheduled')?></option>
-      </select>
-
-      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <a href="<?= htmlspecialchars($base . '/?page=admin/themes/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
-    </form>
-
-    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Theme Partial')?></a><?php endif; ?>
-    <?php if ($canOpenTrash): ?>
-      <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/theme/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
-    <?php endif; ?>
-  </div>
-
-  <?php if ($canBulk): ?>
-    <form id="themesBulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/themes/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-      <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-
-      <div class="bulk-bar">
-        <label class="check-row">
-          <input type="checkbox" id="selectAllThemes" class="adam-choice"> <?=_e('Select all on page')?>
-        </label>
-
-        <select id="bulkActionThemes" name="action" class="inp">
-          <option value=""><?=_e('-- Bulk action --')?></option>
-          <option value="delete"><?= _e('Delete') ?></option>
-          <option value="change_status"><?= _e('Change Status') ?></option>
-        </select>
-
-        <select id="bulkStatusThemes" name="status" class="inp hide">
-          <option value="draft"><?=_e('Draft')?></option>
-          <option value="published"><?=_e('Published')?></option>
-          <option value="private"><?=_e('Private')?></option>
-        </select>
-
-        <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-        <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
-        <span id="bulkSelectionCountThemes" class="bulk-selection-count" role="status" aria-live="polite" hidden>
-          <span class="bsc-number">0</span>
-          <span class="bsc-label"><?=_e('Theme Selected')?></span>
-        </span>
-
-        <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
-        <div class="cols-toggle">
-          <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
-          <div class="cols-dropdown">
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Internal slug')?></label>
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-public-path" checked> <?=_e('Public path')?></label>
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
-            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+      <?php if ($canBulk): ?>
+        <form id="themesBulkForm" class="posts-bulk-form" method="post" action="<?= htmlspecialchars($base . '/admin/themes/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+          <div class="bulk-bar posts-bulk-bar">
+            <select id="bulkActionThemes" name="action" class="inp posts-bulk-action">
+              <option value=""><?=_e('-- Bulk action --')?></option>
+              <?php if ($canBulkDelete): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
+              <?php if ($canBulkUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
+            </select>
+            <button type="submit" class="adam-button posts-bulk-apply"><?= svg_ico('circle-check') ?><span><?= _e('Apply') ?></span></button>
+            <div class="posts-bulk-end">
+              <div class="cols-toggle">
+                <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+                <div class="cols-dropdown">
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Internal slug')?></label>
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-public-path" checked> <?=_e('Public path')?></label>
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+                  <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="bulkOptionsPanelThemes" class="posts-bulk-options" hidden>
+            <label id="bulkStatusOptionThemes" class="posts-bulk-option" hidden>
+              <span><?=_e('Status')?></span>
+              <select id="bulkStatusThemes" name="status" class="inp">
+                <option value="draft"><?=_e('Draft')?></option>
+                <option value="published"><?=_e('Published')?></option>
+                <option value="private"><?=_e('Private')?></option>
+              </select>
+            </label>
+          </div>
+        </form>
+      <?php else: ?>
+        <div class="content-list-display-controls posts-list-display-controls">
+          <div class="cols-toggle">
+            <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+            <div class="cols-dropdown">
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-slug" checked> <?=_e('Internal slug')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-public-path" checked> <?=_e('Public path')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+              <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+            </div>
           </div>
         </div>
-      </div>
-  <?php endif; ?>
+      <?php endif; ?>
+    </div>
 
-  <?php if (!$canBulk): ?><div class="content-list-display-controls"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div><?php endif; ?>
+    <?php if ($canBulk): ?><span id="bulkSelectionCountThemes" class="bulk-selection-count posts-bulk-selection-count" role="status" aria-live="polite" hidden><span class="bsc-number">0</span><span class="bsc-label"><?=_e('Theme Selected')?></span></span><?php endif; ?>
+    <?php if ($activeFilterCount > 0): ?>
+      <div class="posts-filter-chips" aria-label="<?= htmlspecialchars(__('Filters'), ENT_QUOTES, 'UTF-8') ?>">
+        <a class="posts-filter-chip" href="<?= htmlspecialchars($filterUrlWithout('status'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Status'), ENT_QUOTES, 'UTF-8') ?>"><span><?=_e('Status')?>:</span><strong><?= htmlspecialchars(__(ucfirst($filter_status)), ENT_QUOTES, 'UTF-8') ?></strong><?= svg_ico('x') ?></a>
+      </div>
+    <?php endif; ?>
+  </div>
 
   <div class="adam-table-wrapper">
     <table class="adam-table mt-8">
       <thead>
         <tr>
-          <?php if ($canBulk): ?><th class="th-narrow"></th><?php endif; ?>
+          <?php if ($canBulk): ?><th class="th-narrow"><input type="checkbox" id="selectAllThemes" class="adam-choice" aria-label="<?= htmlspecialchars(__('Select all on page'), ENT_QUOTES, 'UTF-8') ?>"></th><?php endif; ?>
           <th><?= _e('Name') ?></th>
           <th class="col-slug"><?=_e('Internal slug')?></th>
           <th class="col-public-path"><?=_e('Public path')?></th>
@@ -290,7 +327,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             <tr class="adam-row">
               <?php if ($canBulk): ?>
                 <td class="td-center">
-                  <?php if ($canUpdateTheme || $canDeleteTheme): ?><input type="checkbox" class="bulkCheckboxTheme adam-choice" name="ids[]" value="<?= (int)$t['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                   <?php if ($canUpdateTheme || $canDeleteTheme): ?><input type="checkbox" class="bulkCheckboxTheme adam-choice" name="ids[]" value="<?= (int)$t['id'] ?>" form="themesBulkForm"><?php else: ?>&mdash;<?php endif; ?>
                 </td>
               <?php endif; ?>
 
@@ -339,10 +376,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </table>
   </div>
 
-  <?php if ($canBulk): ?>
-    </form>
-  <?php endif; ?>
-
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination pagination-wrap">
       <?php foreach ($paging_items as $item):
@@ -364,7 +397,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
     </nav>
   <?php endif; ?>
 
-  <?php if ($canBulk): ?>
+  <?php if ($canBulkDelete): ?>
     <form id="newnotif-theme-delete-form" method="post" action="<?= htmlspecialchars($base . '/admin/themes/delete.php', ENT_QUOTES, 'UTF-8') ?>" class="hide">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
       <input type="hidden" name="id" id="newnotif-theme-delete-id">
@@ -385,6 +418,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const selectAll = document.getElementById('selectAllThemes');
   const bulkForm = document.getElementById('themesBulkForm');
   const bulkAction = document.getElementById('bulkActionThemes');
+  const bulkOptionsPanel = document.getElementById('bulkOptionsPanelThemes');
+  const bulkStatusOption = document.getElementById('bulkStatusOptionThemes');
   const bulkStatus = document.getElementById('bulkStatusThemes');
   const bulkSelectionCount = document.getElementById('bulkSelectionCountThemes');
   const deleteForm = document.getElementById('newnotif-theme-delete-form');
@@ -413,7 +448,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function toggleBulkExtras(){
     const v = bulkAction ? bulkAction.value : '';
-    if (bulkStatus) bulkStatus.style.display = (v === 'change_status') ? 'inline-block' : 'none';
+    if (bulkStatusOption) bulkStatusOption.hidden = v !== 'change_status';
+    if (bulkOptionsPanel) bulkOptionsPanel.hidden = v !== 'change_status';
   }
 
   function checkedCount(){
@@ -527,6 +563,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   /* ── Column visibility toggle ── */
   (function(){
     const STORAGE_KEY = 'themes_columns';
+    const mobileColumns = window.matchMedia('(max-width: 640px)');
+    const mobileDefaultHidden = new Set(['col-slug', 'col-public-path', 'col-created']);
     const toggleBtn = document.querySelector('.cols-toggle-btn');
     const dropdown = document.querySelector('.cols-dropdown');
     const checkboxes = dropdown ? dropdown.querySelectorAll('input[data-col]') : [];
@@ -534,13 +572,27 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     function loadColState(){
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : null;
+        const state = saved ? JSON.parse(saved) : null;
+        return state && typeof state === 'object' && !Array.isArray(state) ? state : null;
       } catch(e){ return null; }
     }
 
     function saveColState(state){
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
       catch(e){}
+    }
+
+    function defaultColState(){
+      const state = {};
+      checkboxes.forEach(function(cb){
+        const col = cb.getAttribute('data-col');
+        state[col] = !(mobileColumns.matches && mobileDefaultHidden.has(col));
+      });
+      return state;
+    }
+
+    function resolvedColState(){
+      return Object.assign(defaultColState(), loadColState() || {});
     }
 
     function applyColState(state){
@@ -554,8 +606,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
     }
 
-    var saved = loadColState();
-    if (saved) applyColState(saved);
+    applyColState(resolvedColState());
+    if (typeof mobileColumns.addEventListener === 'function') {
+      mobileColumns.addEventListener('change', function(){
+        applyColState(resolvedColState());
+      });
+    }
 
     if (toggleBtn && dropdown) {
       toggleBtn.addEventListener('click', function(e){

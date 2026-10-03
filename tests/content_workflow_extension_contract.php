@@ -90,24 +90,29 @@ $check(str_contains($themeList, "apply_filters('post_list_status_expression'")
     && str_contains($themeList, "['display_permalink']")
     && strpos($themeList, "apply_filters('post_list_join'") < strpos($themeList, 'SELECT COUNT(DISTINCT p.id)'),
     'Theme Template list exposes localized representation hooks while preserving its canonical internal slug');
-$check(substr_count($postList . $pageList . $themeList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 6
-    && substr_count($postList . $pageList . $themeList, 'if (!$canBulk)') >= 3,
-    'Article, Page, and Theme Content toolbars expose one shared list-filter action to bulk and read-only users');
-$check(strpos($postList, "do_action('admin_content_list_filters'") < strpos($postList, 'class="cols-toggle"')
-    && strpos($pageList, "do_action('admin_content_list_filters'") < strpos($pageList, 'class="cols-toggle"')
-    && strpos($themeList, "do_action('admin_content_list_filters'") < strpos($themeList, 'class="cols-toggle"')
-    && str_contains($postList . $pageList . $themeList, "'filter_form_id' =>"),
-    'shared list-filter controls render immediately before column visibility controls and retain their GET form owner');
+$check(substr_count($postList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 1
+    && substr_count($pageList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 1
+    && substr_count($themeList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 1
+    && substr_count($categoryList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 1,
+    'every Core content list exposes exactly one shared list-filter action');
+$check(strpos($postList, 'class="posts-toolbar-actions"') < strpos($postList, "do_action('admin_content_list_filters'")
+    && strpos($postList, "do_action('admin_content_list_filters'") < strpos($postList, "_e('New Article')")
+    && strpos($pageList, 'class="posts-toolbar-actions"') < strpos($pageList, "do_action('admin_content_list_filters'")
+    && strpos($pageList, "do_action('admin_content_list_filters'") < strpos($pageList, "_e('Add Page')")
+    && strpos($themeList, 'class="posts-toolbar-actions"') < strpos($themeList, "do_action('admin_content_list_filters'")
+    && strpos($themeList, "do_action('admin_content_list_filters'") < strpos($themeList, "_e('Add Theme Partial')")
+    && strpos($categoryList, 'class="posts-toolbar-actions"') < strpos($categoryList, "do_action('admin_content_list_filters'")
+    && strpos($categoryList, "do_action('admin_content_list_filters'") < strpos($categoryList, "_e('Add Category')")
+    && substr_count($postList . $pageList . $themeList . $categoryList, "'filter_form_id' =>") === 4,
+    'shared list-filter controls occupy the header action slot and retain their GET form owner');
 $check(str_contains($categoryList, "'schema' => 1")
     && str_contains($categoryList, "'type' => 'category'")
     && str_contains($categoryList, "'page' => 'admin/categories/index'")
     && str_contains($categoryList, "'filter_form_id' => 'categories-list-filter'")
     && str_contains($categoryList, 'id="categories-list-filter"')
-    && substr_count($categoryList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") === 2
-    && strpos($categoryList, "do_action('admin_content_list_filters', \$listContext, \$pdo)") < strpos($categoryList, 'class="cols-toggle"')
-    && str_contains($categoryList, 'class="content-list-display-controls"')
-    && str_contains($categoryList, "apply_filters('admin_category_list_rows', \$allCategories, \$listContext, \$pdo)"),
-    'Category list places schema-1 filter controls before column visibility and supports read-only users');
+    && str_contains($categoryList, "apply_filters('admin_category_list_rows', \$allCategories, \$listContext, \$pdo)")
+    && str_contains($categoryList, "apply_filters('admin_category_list_rows', \$filterOptionCategories, \$listContext, \$pdo)"),
+    'Category list localizes schema-1 rows and stable scoped filter choices');
 $check(substr_count($dashboardLayout . $dashboardFooter, "do_action('admin_footer')") === 1,
     'dashboard renders the admin footer extension action exactly once');
 

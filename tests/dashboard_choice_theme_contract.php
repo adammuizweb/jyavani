@@ -90,7 +90,7 @@ $checks = [
         && str_contains($shortcodes, 'class="adam-choice" disabled'),
     'Theme Manager selection and column controls use shared themed choices' => str_contains($themes, 'id="selectAllThemes" class="adam-choice"')
         && str_contains($themes, 'class="bulkCheckboxTheme adam-choice"')
-        && substr_count($themes, 'class="adam-choice" data-col=') === 4,
+        && substr_count($themes, 'class="adam-choice" data-col=') === 8,
 ];
 
 $completeChoiceSurfaces = [

@@ -6519,6 +6519,12 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   .posts-toolbar-count>span{ transition:none; }
 }
 .posts-toolbar-actions{ gap:.45rem; flex:0 0 auto; }
+.posts-toolbar-extensions{
+  display:flex;
+  align-items:center;
+  gap:.4rem;
+}
+.posts-toolbar-extensions:empty{ display:none; }
 .posts-toolbar-add,
 .posts-toolbar-trash{
   box-sizing:border-box;
@@ -6562,19 +6568,22 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   min-width:0;
   gap:.5rem;
 }
+.posts-command-bar--no-columns{
+  grid-template-columns:minmax(180px,1fr) auto minmax(145px,190px) auto;
+}
 .posts-filter-shell,
 .posts-bulk-form,
 .posts-bulk-bar{
   display:contents;
 }
-.posts-command-bar #bulkAction,
+.posts-bulk-action,
 .posts-bulk-apply,
 .posts-bulk-end .cols-toggle-btn{
   box-sizing:border-box;
   height:var(--posts-toolbar-control-size);
   margin:0;
 }
-.posts-command-bar #bulkAction{
+.posts-bulk-action{
   width:100%;
   min-width:0;
 }
@@ -6593,7 +6602,6 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   justify-content:flex-end;
   gap:.4rem;
 }
-.posts-bulk-end>.ml-auto{ margin-left:0; }
 .posts-bulk-end .cols-toggle-btn{
   width:var(--posts-toolbar-control-size);
   padding:.3rem;
@@ -6754,6 +6762,7 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   background:var(--adam-card);
   box-shadow:0 12px 30px rgba(15,23,42,.14);
 }
+.posts-filter-panel--single{ grid-template-columns:1fr; }
 .posts-filter-field{
   display:grid;
   gap:.3rem;
@@ -6833,6 +6842,9 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
     grid-template-columns:minmax(0,1fr) 38px minmax(86px,100px) auto 38px;
     gap:.35rem;
   }
+  .posts-command-bar--no-columns{
+    grid-template-columns:minmax(0,1fr) 38px minmax(86px,100px) auto;
+  }
   .posts-bulk-apply{ padding:.35rem .5rem; font-size:.8rem; }
   .posts-bulk-options{ width:100%; box-sizing:border-box; }
   .posts-bulk-option--categories{ grid-template-columns:1fr; }
@@ -6856,6 +6868,9 @@ html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-
   .posts-command-bar{
     grid-template-columns:minmax(0,1fr) 38px minmax(78px,86px) 38px 38px;
     gap:.25rem;
+  }
+  .posts-command-bar--no-columns{
+    grid-template-columns:minmax(0,1fr) 38px minmax(78px,86px) 38px;
   }
   .posts-bulk-apply{ width:38px; padding:0; }
   .posts-bulk-apply .lucide-icon{ display:block; }

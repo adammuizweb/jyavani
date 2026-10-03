@@ -42,6 +42,11 @@ $checks = [
         'class="posts-toolbar-head"'
     ) && str_contains($postList, 'class="toolbar-filter posts-filter-shell" id="posts-list-filter"')
       && strpos($postList, 'class="posts-toolbar-actions"') < strpos($postList, 'class="toolbar-filter posts-filter-shell"'),
+    'Post List places its single extension filter slot before New Article' => substr_count(
+        $postList,
+        "do_action('admin_content_list_filters', \$listContext, \$pdo)"
+    ) === 1 && strpos($postList, 'class="posts-toolbar-extensions"') < strpos($postList, "_e('New Article')")
+      && str_contains($dashboardCss, '.posts-toolbar-extensions:empty{ display:none; }'),
     'Post List heading summarizes accessible posts by editorial status' => str_contains(
         $postList,
         "\$postSummaryCounts = ['published' => 0, 'private' => 0, 'draft' => 0, 'scheduled' => 0]"

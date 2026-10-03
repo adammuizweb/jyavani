@@ -91,6 +91,20 @@ foreach ($params as $k => $v) {
 $stmt->execute();
 $allCategories = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+// Filter and bulk-parent choices stay stable while respecting the same read scope.
+$optionStmt = $pdo->prepare(
+  "SELECT c.id, c.name, c.slug, c.description, c.parent_id, c.created_at, c.updated_at, c.created_by,
+          COALESCE(NULLIF(u.name, ''), NULLIF(u.username, ''), CAST(u.id AS CHAR)) AS created_by_label
+   FROM categories c
+   LEFT JOIN users u ON u.id = c.created_by
+   WHERE c.is_deleted = 0 AND ({$readCondition['sql']})
+   ORDER BY COALESCE(c.parent_id, 0) ASC, c.name ASC"
+);
+$optionStmt->execute($readCondition['params']);
+$filterOptionCategories = $optionStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+$localizedFilterOptions = apply_filters('admin_category_list_rows', $filterOptionCategories, $listContext, $pdo);
+if (is_array($localizedFilterOptions)) $filterOptionCategories = $localizedFilterOptions;
+
 // jika search aktif, ambil semua ancestor agar tree tidak putus
 if ($search !== '' && !empty($allCategories)) {
   $existingIds = array_map(fn($r) => (int)$r['id'], $allCategories);
@@ -244,14 +258,26 @@ $offset = ($page_num - 1) * $per_page;
 $categories_list = array_slice($flatCats, $offset, $per_page);
 
 // build parent options
+$optionCatsById = [];
+$optionChildren = [];
+foreach ($filterOptionCategories as $category) {
+  $optionId = (int)($category['id'] ?? 0);
+  if ($optionId <= 0) continue;
+  $optionCatsById[$optionId] = $category;
+}
+foreach ($optionCatsById as $optionId => $category) {
+  $optionParentId = (int)($category['parent_id'] ?? 0);
+  if ($optionParentId > 0 && !isset($optionCatsById[$optionParentId])) $optionParentId = 0;
+  $optionChildren[$optionParentId][] = $optionId;
+}
 $parentOptions = [];
 $visitedOptions = [];
-$buildParentOptions = function(int $parentId = 0, int $depth = 0) use (&$children, &$catsById, &$parentOptions, &$visitedOptions, &$buildParentOptions): void {
-  if (empty($children[$parentId])) return;
-  foreach ($children[$parentId] as $cid) {
+$buildParentOptions = function(int $parentId = 0, int $depth = 0) use (&$optionChildren, &$optionCatsById, &$parentOptions, &$visitedOptions, &$buildParentOptions): void {
+  if (empty($optionChildren[$parentId])) return;
+  foreach ($optionChildren[$parentId] as $cid) {
     if (isset($visitedOptions[$cid])) continue;
     $visitedOptions[$cid] = true;
-    $label = str_repeat('— ', $depth) . (string)($catsById[$cid]['name'] ?? '');
+    $label = str_repeat('— ', $depth) . (string)($optionCatsById[$cid]['name'] ?? '');
     $parentOptions[] = ['id' => $cid, 'label' => $label];
     $buildParentOptions($cid, $depth + 1);
   }
@@ -260,7 +286,7 @@ $buildParentOptions(0, 0);
 
 // Creator filters only expose identities already visible through category scope.
 $authors = [];
-foreach ($allCategories as $category) {
+foreach ($filterOptionCategories as $category) {
   $creatorId = (int)($category['created_by'] ?? 0);
   if ($creatorId <= 0 || isset($authors[$creatorId])) continue;
   $authors[$creatorId] = [
@@ -325,89 +351,115 @@ if (!function_exists('build_pagination_items')) {
   }
 }
 $paging_items = build_pagination_items($page_num, $pages, 9);
+$activeFilterCount = ($filter_parent > 0 ? 1 : 0) + ($filter_author > 0 ? 1 : 0);
+$hasActiveQuery = $search !== '' || $activeFilterCount > 0;
+$activeParentLabel = '';
+foreach ($parentOptions as $option) {
+  if ((int)$option['id'] === $filter_parent) {
+    $activeParentLabel = (string)(preg_replace('/^(?:— )+/u', '', (string)$option['label']) ?? $option['label']);
+    break;
+  }
+}
+$activeAuthorLabel = '';
+foreach ($authors as $author) {
+  if ((int)$author['id'] === $filter_author) {
+    $activeAuthorLabel = (string)$author['label'];
+    break;
+  }
+}
+$filterUrlWithout = static function (string $key) use ($base): string {
+  $query = $_GET;
+  unset($query[$key], $query['p']);
+  $query['page'] = 'admin/categories/index';
+  return $base . '/?' . http_build_query($query);
+};
 ?>
 
-<section class="adam-card">
-  <div class="toolbar-top">
-    <h2 class="page-heading"><?= _e('Categories') ?></h2>
+<section class="adam-card posts-list-card">
+  <div class="posts-toolbar">
+    <div class="posts-toolbar-head">
+      <div class="posts-toolbar-title"><h2 class="page-heading"><?= _e('Categories') ?></h2></div>
+      <div class="posts-toolbar-actions">
+        <div class="posts-toolbar-extensions"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+        <?php if ($canCreate): ?><a class="adam-button toolbar-add posts-toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('plus') ?><span><?=_e('Add Category')?></span></a><?php endif; ?>
+        <?php if ($canOpenTrash): ?><a class="adam-att toolbar-trash posts-toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Trash'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?><span class="posts-toolbar-trash-label"><?=_e('Trash')?></span></a><?php endif; ?>
+      </div>
+    </div>
 
-    <form method="get" class="toolbar-filter" id="categories-list-filter">
-      <input type="hidden" name="page" value="admin/categories/index">
-      <input type="text" name="q" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp">
-      <select name="parent" class="inp">
-        <option value="0"><?=_e('All Parents')?></option>
-        <?php foreach ($parentOptions as $opt): ?>
-          <option value="<?=(int)$opt['id']?>" <?=$filter_parent === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option>
-        <?php endforeach; ?>
-      </select>
-      <select name="author" class="inp">
-        <option value="0"><?= _e('All Creators') ?></option>
-        <?php foreach ($authors as $a): ?>
-          <option value="<?= (int)$a['id'] ?>" <?= $filter_author === (int)$a['id'] ? 'selected' : '' ?>>
-            <?= htmlspecialchars((string)$a['label'], ENT_QUOTES, 'UTF-8') ?>
-          </option>
-        <?php endforeach; ?>
-      </select>
+    <div class="posts-command-bar posts-command-bar--no-columns">
+      <form method="get" class="toolbar-filter posts-filter-shell" id="categories-list-filter">
+        <input type="hidden" name="page" value="admin/categories/index">
+        <div class="posts-search-control">
+          <label class="sr-only" for="categories-search"><?=_e('Search')?></label>
+          <input id="categories-search" type="search" name="q" placeholder="<?=_e('Search categories…')?>" value="<?=htmlspecialchars($search, ENT_QUOTES, 'UTF-8')?>" class="inp posts-search-input">
+          <?php if ($search !== ''): ?><a class="posts-search-clear" href="<?= htmlspecialchars($filterUrlWithout('q'), ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('x') ?></a><?php endif; ?>
+          <button type="submit" class="posts-search-submit" aria-label="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('search') ?></button>
+        </div>
+        <details class="posts-filter-disclosure<?= $activeFilterCount > 0 ? ' has-active' : '' ?>">
+          <summary class="posts-filter-trigger"><?= svg_ico('list-collapse') ?><span><?=_e('Filters')?></span><?php if ($activeFilterCount > 0): ?><span class="posts-filter-count"><?= $activeFilterCount ?></span><?php endif; ?><span class="posts-filter-chevron" aria-hidden="true"><?= svg_ico('chevron-down') ?></span></summary>
+          <div class="posts-filter-panel">
+            <label class="posts-filter-field">
+              <span><?=_e('Parent')?></span>
+              <select name="parent" class="inp">
+                <option value="0"><?=_e('All Parents')?></option>
+                <?php foreach ($parentOptions as $opt): ?><option value="<?=(int)$opt['id']?>" <?=$filter_parent === (int)$opt['id'] ? 'selected' : ''?>><?=htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8')?></option><?php endforeach; ?>
+              </select>
+            </label>
+            <label class="posts-filter-field">
+              <span><?=_e('Creator')?></span>
+              <select name="author" class="inp">
+                <option value="0"><?= _e('All Creators') ?></option>
+                <?php foreach ($authors as $a): ?><option value="<?= (int)$a['id'] ?>" <?= $filter_author === (int)$a['id'] ? 'selected' : '' ?>><?= htmlspecialchars((string)$a['label'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
+              </select>
+            </label>
+            <div class="posts-filter-actions">
+              <button type="submit" class="adam-button posts-filter-apply"><?= svg_ico('circle-check') ?><span><?=_e('Apply filters')?></span></button>
+              <?php if ($hasActiveQuery): ?><a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle posts-filter-reset"><?= svg_ico('rotate-ccw') ?><span><?=_e('Reset')?></span></a><?php endif; ?>
+            </div>
+          </div>
+        </details>
+      </form>
 
-      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <a href="<?= htmlspecialchars($base . '/?page=admin/categories/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
-    </form>
+      <?php if ($canBulk): ?>
+        <form id="categoriesBulkForm" class="posts-bulk-form" method="post" action="<?= htmlspecialchars($base . '/admin/categories/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+          <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+          <div class="bulk-bar posts-bulk-bar">
+            <select id="bulkActionCategories" name="action" class="inp posts-bulk-action">
+              <option value=""><?=_e('-- Bulk action --')?></option>
+              <?php if ($canBulkTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
+              <?php if ($canBulkUpdate): ?><option value="change_parent"><?= _e('Change Parent') ?></option><?php endif; ?>
+            </select>
+            <button type="submit" class="adam-button posts-bulk-apply"><?= svg_ico('circle-check') ?><span><?= _e('Apply') ?></span></button>
+          </div>
+          <div id="bulkOptionsPanelCategories" class="posts-bulk-options" hidden>
+            <label id="bulkParentOptionCategories" class="posts-bulk-option" hidden>
+              <span><?=_e('Change Parent')?></span>
+              <select id="bulkParentCategories" name="parent_id" class="inp">
+                <option value=""><?= _e('-- Select Parent --') ?></option>
+                <option value="0"><?= _e('(No Parent)') ?></option>
+                <?php foreach ($parentOptions as $opt): ?><option value="<?= (int)$opt['id'] ?>"><?= htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
+              </select>
+            </label>
+          </div>
+        </form>
+      <?php endif; ?>
+    </div>
 
-    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add')?></a><?php endif; ?>
-    <?php if ($canOpenTrash) : ?>
-      <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/category/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
+    <?php if ($canBulk): ?><span id="bulkSelectionCountCategories" class="bulk-selection-count posts-bulk-selection-count" role="status" aria-live="polite" hidden><span class="bsc-number">0</span><span class="bsc-label"><?=_e('Category Selected')?></span></span><?php endif; ?>
+    <?php if ($activeFilterCount > 0): ?>
+      <div class="posts-filter-chips" aria-label="<?= htmlspecialchars(__('Filters'), ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ($filter_parent > 0 && $activeParentLabel !== ''): ?><a class="posts-filter-chip" href="<?= htmlspecialchars($filterUrlWithout('parent'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Parent'), ENT_QUOTES, 'UTF-8') ?>"><span><?=_e('Parent')?>:</span><strong><?= htmlspecialchars($activeParentLabel, ENT_QUOTES, 'UTF-8') ?></strong><?= svg_ico('x') ?></a><?php endif; ?>
+        <?php if ($filter_author > 0 && $activeAuthorLabel !== ''): ?><a class="posts-filter-chip" href="<?= htmlspecialchars($filterUrlWithout('author'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Creator'), ENT_QUOTES, 'UTF-8') ?>"><span><?=_e('Creator')?>:</span><strong><?= htmlspecialchars($activeAuthorLabel, ENT_QUOTES, 'UTF-8') ?></strong><?= svg_ico('x') ?></a><?php endif; ?>
+      </div>
     <?php endif; ?>
   </div>
-
-  <?php if ($canBulk): ?>
-    <form id="categoriesBulkForm"
-          method="post"
-          action="<?= htmlspecialchars($base . '/admin/categories/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-      <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-
-      <div class="bulk-bar">
-        <label class="check-row">
-          <input type="checkbox" id="selectAllCategories" class="adam-choice"> <?=_e('Select all on page')?>
-        </label>
-
-        <select id="bulkActionCategories" name="action" class="inp">
-          <option value=""><?=_e('-- Bulk action --')?></option>
-          <?php if ($canBulkTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
-          <?php if ($canBulkUpdate): ?><option value="change_parent"><?= _e('Change Parent') ?></option><?php endif; ?>
-        </select>
-
-        <select id="bulkParentCategories" name="parent_id" class="inp hide">
-          <option value=""><?= _e('-- Select Parent --') ?></option>
-          <option value="0"><?= _e('(No Parent)') ?></option>
-          <?php foreach ($parentOptions as $opt): ?>
-            <option value="<?= (int)$opt['id'] ?>"><?= htmlspecialchars($opt['label'], ENT_QUOTES, 'UTF-8') ?></option>
-          <?php endforeach; ?>
-        </select>
-
-        <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-        <small class="adam-muted"><?= _e('Bulk only affects checked items.') ?></small>
-        <span id="bulkSelectionCountCategories" class="bulk-selection-count" role="status" aria-live="polite" hidden>
-          <span class="bsc-number">0</span>
-          <span class="bsc-label"><?=_e('Category Selected')?></span>
-        </span>
-
-        <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
-        <div class="cols-toggle">
-          <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
-          <div class="cols-dropdown">
-          </div>
-        </div>
-      </div>
-  <?php endif; ?>
-
-  <?php if (!$canBulk): ?><div class="content-list-display-controls"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div><?php endif; ?>
 
   <div class="adam-table-wrapper">
     <table class="adam-table mt-8">
       <thead>
         <tr>
-          <th class="th-narrow"></th>
+          <th class="th-narrow"><?php if ($canBulk): ?><input type="checkbox" id="selectAllCategories" class="adam-choice" aria-label="<?= htmlspecialchars(__('Select all on page'), ENT_QUOTES, 'UTF-8') ?>"><?php endif; ?></th>
           <th><?= _e('Name') ?></th>
         </tr>
       </thead>
@@ -463,7 +515,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             <tr>
               <td class="td-center">
                 <?php if ($canBulk && $canSelectCategory): ?>
-                  <input type="checkbox" class="bulkCheckboxCategory adam-choice" name="ids[]" value="<?= $catId ?>">
+                  <input type="checkbox" class="bulkCheckboxCategory adam-choice" name="ids[]" value="<?= $catId ?>" form="categoriesBulkForm">
                 <?php else: ?>
                   &mdash;
                 <?php endif; ?>
@@ -501,10 +553,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </tbody>
     </table>
   </div>
-
-  <?php if ($canBulk): ?>
-    </form>
-  <?php endif; ?>
 
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination pagination-wrap">
@@ -544,6 +592,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const selectAll = document.getElementById('selectAllCategories');
   const bulkForm = document.getElementById('categoriesBulkForm');
   const bulkAction = document.getElementById('bulkActionCategories');
+  const bulkOptionsPanel = document.getElementById('bulkOptionsPanelCategories');
+  const bulkParentOption = document.getElementById('bulkParentOptionCategories');
   const bulkParent = document.getElementById('bulkParentCategories');
   const bulkSelectionCount = document.getElementById('bulkSelectionCountCategories');
   const deleteForm = document.getElementById('newnotif-category-delete-form');
@@ -652,11 +702,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   updateSelectionCount();
 
   if (bulkAction) {
-    bulkAction.addEventListener('change', function(){
-      if (bulkParent) {
-        bulkParent.style.display = (this.value === 'change_parent') ? 'inline-block' : 'none';
-      }
-    });
+    const toggleBulkExtras = function(){
+      const active = bulkAction.value === 'change_parent';
+      if (bulkParentOption) bulkParentOption.hidden = !active;
+      if (bulkOptionsPanel) bulkOptionsPanel.hidden = !active;
+    };
+    bulkAction.addEventListener('change', toggleBulkExtras);
+    toggleBulkExtras();
   }
 
   document.querySelectorAll('.js-category-delete').forEach(function(btn){
@@ -679,57 +731,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       });
     });
   });
-
-  /* ── Column visibility toggle ── */
-  (function(){
-    const STORAGE_KEY = 'categories_columns';
-    const toggleBtn = document.querySelector('.cols-toggle-btn');
-    const dropdown = document.querySelector('.cols-dropdown');
-    const checkboxes = dropdown ? dropdown.querySelectorAll('input[data-col]') : [];
-
-    function loadColState(){
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        return saved ? JSON.parse(saved) : null;
-      } catch(e){ return null; }
-    }
-    function saveColState(state){
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-      catch(e){}
-    }
-    function applyColState(state){
-      checkboxes.forEach(function(cb){
-        const col = cb.getAttribute('data-col');
-        const hidden = state && state[col] === false;
-        cb.checked = !hidden;
-        document.querySelectorAll('.' + col).forEach(function(el){
-          el.classList.toggle('col-hidden', hidden);
-        });
-      });
-    }
-    var saved = loadColState();
-    if (saved) applyColState(saved);
-    if (toggleBtn && dropdown) {
-      toggleBtn.addEventListener('click', function(e){
-        e.stopPropagation();
-        dropdown.classList.toggle('open');
-      });
-      document.addEventListener('click', function(){ dropdown.classList.remove('open'); });
-      dropdown.addEventListener('click', function(e){ e.stopPropagation(); });
-    }
-    checkboxes.forEach(function(cb){
-      cb.addEventListener('change', function(){
-        var col = this.getAttribute('data-col');
-        var hidden = !this.checked;
-        document.querySelectorAll('.' + col).forEach(function(el){
-          el.classList.toggle('col-hidden', hidden);
-        });
-        var state = loadColState() || {};
-        state[col] = this.checked;
-        saveColState(state);
-      });
-    });
-  })();
 
   if (bulkForm) {
     let bulkConfirmed = false;
