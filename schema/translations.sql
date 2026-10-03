@@ -6154,3 +6154,12 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Create reusable content-query Presets for shortcodes, Theme Sections, and sidebar widgets.', 'Erstellen Sie wiederverwendbare Inhaltsabfrage-Voreinstellungen für Shortcodes, Theme Sections und Seitenleisten-Widgets.', 'de'),
 ('default', 'Theme deletion was denied because policy validation failed.', 'Penghapusan tema ditolak karena validasi kebijakan gagal.', 'id'),
 ('default', 'Theme deletion was denied because policy validation failed.', 'Das Löschen des Themes wurde abgelehnt, weil die Richtlinienprüfung fehlgeschlagen ist.', 'de');
+
+-- Post List compact filters
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Filters', 'Filter', 'id'),
+('default', 'Filters', 'Filter', 'de'),
+('default', 'Apply filters', 'Terapkan filter', 'id'),
+('default', 'Apply filters', 'Filter anwenden', 'de'),
+('default', 'New Article', 'Artikel Baru', 'id'),
+('default', 'New Article', 'Neuer Artikel', 'de');

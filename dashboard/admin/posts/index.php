@@ -53,11 +53,6 @@ if (!is_string($extensionStatusExpression) || trim($extensionStatusExpression) =
 }
 $statusExpression = content_schedule_status_sql($extensionStatusExpression, 'p');
 
-if ($filter_status !== '') {
-    $where[] = "({$statusExpression}) = :status";
-    $params[':status'] = $filter_status;
-}
-
 if ($filter_category !== '') {
     $where[] = "c.id = :category_id";
     $params[':category_id'] = $filter_category;
@@ -72,9 +67,39 @@ if ($search !== '') {
     $params[':search'] = '%' . $search . '%';
 }
 
+$summaryWhereSql = implode(' AND ', $where);
+$summaryParams = $params;
+
+if ($filter_status !== '') {
+    $where[] = "({$statusExpression}) = :status";
+    $params[':status'] = $filter_status;
+}
+
 $where_sql = implode(' AND ', $where);
 $listJoin = apply_filters('post_list_join', '', $where_sql, $listContext);
 if (!is_string($listJoin) || str_contains($listJoin, ';')) $listJoin = '';
+
+$summarySql = "
+SELECT ({$statusExpression}) AS summary_status, COUNT(DISTINCT p.id) AS summary_total
+FROM posts p
+LEFT JOIN post_categories pc ON pc.post_id = p.id
+LEFT JOIN categories c ON c.id = pc.category_id AND c.is_deleted = 0
+$listJoin
+WHERE $summaryWhereSql
+GROUP BY summary_status
+";
+$summaryStmt = $pdo->prepare($summarySql);
+$summaryStmt->execute($summaryParams);
+$postSummaryCounts = ['published' => 0, 'private' => 0, 'draft' => 0, 'scheduled' => 0];
+$postSummaryTotal = 0;
+foreach ($summaryStmt->fetchAll(PDO::FETCH_ASSOC) as $summaryRow) {
+    $summaryStatus = strtolower(trim((string)($summaryRow['summary_status'] ?? '')));
+    $summaryCount = (int)($summaryRow['summary_total'] ?? 0);
+    $postSummaryTotal += $summaryCount;
+    if (array_key_exists($summaryStatus, $postSummaryCounts)) {
+        $postSummaryCounts[$summaryStatus] = $summaryCount;
+    }
+}
 
 $count_sql = "
 SELECT COUNT(DISTINCT p.id)
@@ -255,129 +280,200 @@ function build_pagination_items(int $current, int $total, int $max_visible = 9):
 }
 
 $paging_items = build_pagination_items($page_num, $pages, 9);
+$activeFilterCount = ($filter_status !== '' ? 1 : 0) + ($filter_category !== '' ? 1 : 0);
+$hasActiveQuery = $search !== '' || $activeFilterCount > 0;
+$activeCategoryLabel = '';
+foreach ($categories as $category) {
+    if ((string)$category['id'] === (string)$filter_category) {
+        $activeCategoryLabel = (string)$category['name'];
+        break;
+    }
+}
+$filterUrlWithout = static function (string $key) use ($base): string {
+    $query = $_GET;
+    unset($query[$key], $query['p']);
+    $query['page'] = 'admin/posts/index';
+    return $base . '/?' . http_build_query($query);
+};
 ?>
 
 <section class="adam-card posts-list-card">
-  <div class="toolbar-top">
-    <h2 class="page-heading"><?=_e('Post')?></h2>
-
-    <form method="get" class="toolbar-filter" id="posts-list-filter">
-      <input type="hidden" name="page" value="admin/posts/index">
-      <input type="text" name="q" placeholder="<?= _e('Search…') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp">
-
-      <select name="status" class="inp">
-        <option value=""><?= _e('All Status') ?></option>
-        <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>><?=_e('Draft')?></option>
-        <option value="published" <?= $filter_status==='published'?'selected':'' ?>><?=_e('Published')?></option>
-        <option value="private" <?= $filter_status==='private'?'selected':'' ?>><?=_e('Private')?></option>
-        <option value="scheduled" <?= $filter_status==='scheduled'?'selected':'' ?>><?=_e('Scheduled')?></option>
-      </select>
-
-      <select name="category" class="inp">
-        <option value=""><?= _e('All Categories') ?></option>
-        <?php foreach ($categories as $cat): ?>
-          <option value="<?= (int)$cat['id'] ?>" <?= $filter_category==$cat['id']?'selected':'' ?>>
-            <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
-          </option>
-        <?php endforeach; ?>
-      </select>
-
-      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Reset')?></a>
-    </form>
-
-    <?php if ($canCreate): ?><a class="adam-button toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>"><?=_e('+ Add Article')?></a><?php endif; ?>
-    <?php if ($canOpenTrash) : ?>
-      <a class="adam-att toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('trash-2') ?> <?=_e('Trash')?></a>
-    <?php endif; ?>
-  </div>
-
-  <?php if ($canBulk): ?>
-  <form id="bulkForm" method="post" action="<?= htmlspecialchars($base . '/admin/posts/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
-    <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
-
-    <div class="bulk-bar">
-      <label class="check-row">
-        <input type="checkbox" id="selectAll" class="adam-choice"> <?=_e('Select all on page')?>
-      </label>
-
-      <select id="bulkAction" name="action" class="inp">
-        <option value=""><?=_e('-- Bulk action --')?></option>
-        <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
-        <?php if ($canUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
-        <?php if ($canUpdate): ?><option value="change_categories"><?= _e('Manage Categories') ?></option><?php endif; ?>
-        <?php if ($canChangeOwner): ?><option value="change_author"><?= _e('Change Author') ?></option><?php endif; ?>
-        <?php if ($canChangeDates): ?><option value="change_date"><?= _e('Change Date') ?></option><?php endif; ?>
-      </select>
-
-      <select id="bulkStatus" name="status" class="inp" style="display:none;">
-        <option value="draft"><?=_e('Draft')?></option>
-        <?php if ($canPublish): ?><option value="published"><?=_e('Published')?></option>
-        <option value="private"><?=_e('Private')?></option><?php endif; ?>
-      </select>
-
-      <?php if ($canChangeOwner): ?>
-      <select id="bulkAuthor" name="author_id" class="inp" style="display:none;">
-        <option value=""><?= _e('-- Select Author --') ?></option>
-        <?php foreach ($authors as $a):
-          $label = $a['name'] ?: ($a['username'] ?: $a['id']);
-        ?>
-          <option value="<?= (int)$a['id'] ?>"><?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?></option>
-        <?php endforeach; ?>
-      </select>
-      <?php endif; ?>
-
-      <select id="bulkCatMode" name="cat_mode" class="inp" style="display:none;">
-        <option value="add"><?= _e('Add') ?></option>
-        <option value="remove"><?= _e('Delete') ?></option>
-        <option value="toggle"><?=_e('Toggle')?></option>
-      </select>
-
-      <div id="bulkCategoriesPanel" class="cat-panel" style="display:none;">
-        <?php foreach ($categories as $cat): ?>
-          <label class="nested-label">
-            <input type="checkbox" class="adam-choice" name="categories[]" value="<?= (int)$cat['id'] ?>">
-            <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
-          </label>
-        <?php endforeach; ?>
-      </div>
-
-      <?php if ($canChangeDates): ?>
-      <div id="bulkDatesPanel" class="date-panel" style="display:none;">
-        <label class="date-label">
-          <?= _e('Created at') ?>
-          <input type="datetime-local" id="bulkCreatedAt" name="created_at" class="inp">
-        </label>
-        <label class="date-label">
-          <?= _e('Updated at') ?>
-          <input type="datetime-local" id="bulkUpdatedAt" name="updated_at" class="inp">
-        </label>
-      </div>
-      <?php endif; ?>
-
-      <button type="submit" class="adam-button"><?= _e('Apply') ?></button>
-      <small class="adam-muted" style="margin-left:.5rem;"><?= _e('Bulk only affects checked items.') ?></small>
-      <span id="bulkSelectionCount" class="bulk-selection-count" hidden>
-        <span class="bsc-number">0</span>
-        <span class="bsc-label"><?= _e('Post Selected') ?></span>
-      </span>
-
-      <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
-      <div class="cols-toggle">
-        <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
-        <div class="cols-dropdown">
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-categories" checked> <?=_e('Categories')?></label>
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
-          <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
+  <div class="posts-toolbar">
+    <div class="posts-toolbar-head">
+      <div class="posts-toolbar-title">
+        <h2 class="page-heading"><?=_e('Post')?></h2>
+        <div class="posts-toolbar-counts" aria-label="<?= htmlspecialchars(__('Status'), ENT_QUOTES, 'UTF-8') ?>">
+          <?php if ($postSummaryTotal > 0): ?><span class="posts-toolbar-count posts-toolbar-count--total" tabindex="0" aria-label="<?= htmlspecialchars(__('Total') . ' ' . number_format($postSummaryTotal), ENT_QUOTES, 'UTF-8') ?>"><strong><?= number_format($postSummaryTotal) ?></strong><span><?=_e('Total')?></span></span><?php endif; ?>
+          <?php if ($postSummaryCounts['published'] > 0): ?><span class="posts-toolbar-count posts-toolbar-count--published" tabindex="0" aria-label="<?= htmlspecialchars(__('Published') . ' ' . number_format($postSummaryCounts['published']), ENT_QUOTES, 'UTF-8') ?>"><strong><?= number_format($postSummaryCounts['published']) ?></strong><span><?=_e('Published')?></span></span><?php endif; ?>
+          <?php if ($postSummaryCounts['private'] > 0): ?><span class="posts-toolbar-count posts-toolbar-count--private" tabindex="0" aria-label="<?= htmlspecialchars(__('Private') . ' ' . number_format($postSummaryCounts['private']), ENT_QUOTES, 'UTF-8') ?>"><strong><?= number_format($postSummaryCounts['private']) ?></strong><span><?=_e('Private')?></span></span><?php endif; ?>
+          <?php if ($postSummaryCounts['draft'] > 0): ?><span class="posts-toolbar-count posts-toolbar-count--draft" tabindex="0" aria-label="<?= htmlspecialchars(__('Draft') . ' ' . number_format($postSummaryCounts['draft']), ENT_QUOTES, 'UTF-8') ?>"><strong><?= number_format($postSummaryCounts['draft']) ?></strong><span><?=_e('Draft')?></span></span><?php endif; ?>
+          <?php if ($postSummaryCounts['scheduled'] > 0): ?><span class="posts-toolbar-count posts-toolbar-count--scheduled" tabindex="0" aria-label="<?= htmlspecialchars(__('Scheduled') . ' ' . number_format($postSummaryCounts['scheduled']), ENT_QUOTES, 'UTF-8') ?>"><strong><?= number_format($postSummaryCounts['scheduled']) ?></strong><span><?=_e('Scheduled')?></span></span><?php endif; ?>
         </div>
       </div>
+      <div class="posts-toolbar-actions">
+        <?php if ($canCreate): ?>
+          <a class="adam-button toolbar-add posts-toolbar-add" href="<?= htmlspecialchars($addHref, ENT_QUOTES, 'UTF-8') ?>">
+            <?= svg_ico('plus') ?><span><?=_e('New Article')?></span>
+          </a>
+        <?php endif; ?>
+        <?php if ($canOpenTrash): ?>
+          <a class="adam-att toolbar-trash posts-toolbar-trash" href="<?= htmlspecialchars($base . '/?page=admin/bin/article/index', ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Trash'), ENT_QUOTES, 'UTF-8') ?>">
+            <?= svg_ico('trash-2') ?><span class="posts-toolbar-trash-label"><?=_e('Trash')?></span>
+          </a>
+        <?php endif; ?>
+      </div>
     </div>
-  <?php endif; ?>
 
+    <div class="posts-command-bar">
+    <form method="get" class="toolbar-filter posts-filter-shell" id="posts-list-filter">
+      <input type="hidden" name="page" value="admin/posts/index">
+      <div class="posts-search-control">
+        <label class="sr-only" for="posts-search"><?=_e('Search')?></label>
+        <input id="posts-search" type="search" name="q" placeholder="<?= _e('Search…') ?>" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" class="inp posts-search-input">
+        <?php if ($search !== ''): ?>
+          <a class="posts-search-clear" href="<?= htmlspecialchars($filterUrlWithout('q'), ENT_QUOTES, 'UTF-8') ?>" aria-label="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('x') ?></a>
+        <?php endif; ?>
+        <button type="submit" class="posts-search-submit" aria-label="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Search'), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('search') ?></button>
+      </div>
+
+      <details class="posts-filter-disclosure<?= $activeFilterCount > 0 ? ' has-active' : '' ?>">
+        <summary class="posts-filter-trigger">
+          <?= svg_ico('list-collapse') ?>
+          <span><?=_e('Filters')?></span>
+          <?php if ($activeFilterCount > 0): ?><span class="posts-filter-count"><?= $activeFilterCount ?></span><?php endif; ?>
+          <span class="posts-filter-chevron" aria-hidden="true"><?= svg_ico('chevron-down') ?></span>
+        </summary>
+        <div class="posts-filter-panel">
+          <label class="posts-filter-field">
+            <span><?=_e('Status')?></span>
+            <select name="status" class="inp">
+              <option value=""><?= _e('All Status') ?></option>
+              <option value="draft" <?= $filter_status==='draft'?'selected':'' ?>><?=_e('Draft')?></option>
+              <option value="published" <?= $filter_status==='published'?'selected':'' ?>><?=_e('Published')?></option>
+              <option value="private" <?= $filter_status==='private'?'selected':'' ?>><?=_e('Private')?></option>
+              <option value="scheduled" <?= $filter_status==='scheduled'?'selected':'' ?>><?=_e('Scheduled')?></option>
+            </select>
+          </label>
+          <label class="posts-filter-field">
+            <span><?=_e('Category')?></span>
+            <select name="category" class="inp">
+              <option value=""><?= _e('All Categories') ?></option>
+              <?php foreach ($categories as $cat): ?>
+                <option value="<?= (int)$cat['id'] ?>" <?= $filter_category==$cat['id']?'selected':'' ?>><?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?></option>
+              <?php endforeach; ?>
+            </select>
+          </label>
+          <div class="posts-filter-actions">
+            <button type="submit" class="adam-button posts-filter-apply"><?= svg_ico('circle-check') ?><span><?=_e('Apply filters')?></span></button>
+            <?php if ($hasActiveQuery): ?><a href="<?= htmlspecialchars($base . '/?page=admin/posts/index', ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle posts-filter-reset"><?= svg_ico('rotate-ccw') ?><span><?=_e('Reset')?></span></a><?php endif; ?>
+          </div>
+        </div>
+      </details>
+    </form>
+
+    <?php if ($canBulk): ?>
+    <form id="bulkForm" class="posts-bulk-form" method="post" action="<?= htmlspecialchars($base . '/admin/posts/bulk_action.php', ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+      <input type="hidden" name="return_to" value="<?= htmlspecialchars($currentReturnTo, ENT_QUOTES, 'UTF-8') ?>">
+
+      <div class="bulk-bar posts-bulk-bar">
+        <div class="posts-bulk-selection">
+          <label class="check-row">
+            <input type="checkbox" id="selectAll" class="adam-choice"> <?=_e('Select all on page')?>
+          </label>
+          <span class="field-help"><button type="button" class="field-help__trigger" aria-label="<?= htmlspecialchars(__('Bulk only affects checked items.'), ENT_QUOTES, 'UTF-8') ?>" aria-describedby="posts-bulk-help" aria-controls="posts-bulk-help" aria-expanded="false">?</button><span id="posts-bulk-help" class="field-help__tooltip" role="tooltip"><?= htmlspecialchars(__('Bulk only affects checked items.'), ENT_QUOTES, 'UTF-8') ?></span></span>
+        </div>
+
+        <select id="bulkAction" name="action" class="inp">
+          <option value=""><?=_e('-- Bulk action --')?></option>
+          <?php if ($canTrash): ?><option value="delete"><?= _e('Delete') ?></option><?php endif; ?>
+          <?php if ($canUpdate): ?><option value="change_status"><?= _e('Change Status') ?></option><?php endif; ?>
+          <?php if ($canUpdate): ?><option value="change_categories"><?= _e('Manage Categories') ?></option><?php endif; ?>
+          <?php if ($canChangeOwner): ?><option value="change_author"><?= _e('Change Author') ?></option><?php endif; ?>
+          <?php if ($canChangeDates): ?><option value="change_date"><?= _e('Change Date') ?></option><?php endif; ?>
+        </select>
+
+        <button type="submit" class="adam-button posts-bulk-apply"><?= _e('Apply') ?></button>
+        <span id="bulkSelectionCount" class="bulk-selection-count" hidden>
+          <span class="bsc-number">0</span>
+          <span class="bsc-label"><?= _e('Post Selected') ?></span>
+        </span>
+
+        <div class="ml-auto"><?php do_action('admin_content_list_filters', $listContext, $pdo); ?></div>
+        <div class="cols-toggle">
+          <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
+          <div class="cols-dropdown">
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-status" checked> <?=_e('Status')?></label>
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-categories" checked> <?=_e('Categories')?></label>
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-created" checked> <?=_e('Created')?></label>
+            <label class="cols-opt"><input type="checkbox" class="adam-choice" data-col="col-author" checked> <?=_e('Author')?></label>
+          </div>
+        </div>
+      </div>
+
+      <div id="bulkOptionsPanel" class="posts-bulk-options" hidden>
+        <label id="bulkStatusOption" class="posts-bulk-option" hidden>
+          <span><?=_e('Status')?></span>
+          <select id="bulkStatus" name="status" class="inp">
+            <option value="draft"><?=_e('Draft')?></option>
+            <?php if ($canPublish): ?><option value="published"><?=_e('Published')?></option>
+            <option value="private"><?=_e('Private')?></option><?php endif; ?>
+          </select>
+        </label>
+
+        <?php if ($canChangeOwner): ?>
+        <label id="bulkAuthorOption" class="posts-bulk-option" hidden>
+          <span><?=_e('Change Author')?></span>
+          <select id="bulkAuthor" name="author_id" class="inp">
+            <option value=""><?= _e('-- Select Author --') ?></option>
+            <?php foreach ($authors as $a):
+              $label = $a['name'] ?: ($a['username'] ?: $a['id']);
+            ?>
+              <option value="<?= (int)$a['id'] ?>"><?= htmlspecialchars((string)$label, ENT_QUOTES, 'UTF-8') ?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <?php endif; ?>
+
+        <div id="bulkCategoriesOption" class="posts-bulk-option posts-bulk-option--categories" hidden>
+          <label>
+            <span><?=_e('Manage Categories')?></span>
+            <select id="bulkCatMode" name="cat_mode" class="inp">
+              <option value="add"><?= _e('Add') ?></option>
+              <option value="remove"><?= _e('Delete') ?></option>
+              <option value="toggle"><?=_e('Toggle')?></option>
+            </select>
+          </label>
+          <div id="bulkCategoriesPanel" class="cat-panel">
+            <?php foreach ($categories as $cat): ?>
+              <label class="nested-label">
+                <input type="checkbox" class="adam-choice" name="categories[]" value="<?= (int)$cat['id'] ?>">
+                <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8') ?>
+              </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <?php if ($canChangeDates): ?>
+        <div id="bulkDatesPanel" class="posts-bulk-option posts-bulk-option--dates" hidden>
+          <span><?=_e('Change Date')?></span>
+          <div class="date-panel">
+            <label class="date-label">
+              <?= _e('Created at') ?>
+              <input type="datetime-local" id="bulkCreatedAt" name="created_at" class="inp">
+            </label>
+            <label class="date-label">
+              <?= _e('Updated at') ?>
+              <input type="datetime-local" id="bulkUpdatedAt" name="updated_at" class="inp">
+            </label>
+          </div>
+        </div>
+        <?php endif; ?>
+      </div>
+    </form>
+    <?php endif; ?>
     <?php if (!$canBulk): ?>
-    <div class="content-list-display-controls">
+    <div class="content-list-display-controls posts-list-display-controls">
       <?php do_action('admin_content_list_filters', $listContext, $pdo); ?>
       <div class="cols-toggle">
         <button type="button" class="cols-toggle-btn" title="<?=_e('Columns')?>"><?= svg_ico('columns-2') ?></button>
@@ -390,6 +486,23 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
       </div>
     </div>
     <?php endif; ?>
+    </div>
+
+    <?php if ($activeFilterCount > 0): ?>
+      <div class="posts-filter-chips" aria-label="<?= htmlspecialchars(__('Filters'), ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ($filter_status !== ''): ?>
+          <a class="posts-filter-chip" href="<?= htmlspecialchars($filterUrlWithout('status'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Status'), ENT_QUOTES, 'UTF-8') ?>">
+            <span><?=_e('Status')?>:</span><strong><?= htmlspecialchars(__(ucfirst($filter_status)), ENT_QUOTES, 'UTF-8') ?></strong><?= svg_ico('x') ?>
+          </a>
+        <?php endif; ?>
+        <?php if ($filter_category !== '' && $activeCategoryLabel !== ''): ?>
+          <a class="posts-filter-chip" href="<?= htmlspecialchars($filterUrlWithout('category'), ENT_QUOTES, 'UTF-8') ?>" title="<?= htmlspecialchars(__('Reset') . ' ' . __('Category'), ENT_QUOTES, 'UTF-8') ?>">
+            <span><?=_e('Category')?>:</span><strong><?= htmlspecialchars($activeCategoryLabel, ENT_QUOTES, 'UTF-8') ?></strong><?= svg_ico('x') ?>
+          </a>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+  </div>
 
     <div class="adam-table-wrapper">
       <table class="adam-table mt-8">
@@ -436,7 +549,7 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
             ?>
             <tr class="adam-row">
               <td class="td-center">
-                <?php if ($canBulk && $canSelectPost): ?><input type="checkbox" class="bulkCheckbox adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>"><?php else: ?>&mdash;<?php endif; ?>
+                <?php if ($canBulk && $canSelectPost): ?><input type="checkbox" class="bulkCheckbox adam-choice" name="ids[]" value="<?= (int)$p['id'] ?>" form="bulkForm"><?php else: ?>&mdash;<?php endif; ?>
               </td>
 
               <td>
@@ -550,8 +663,6 @@ $paging_items = build_pagination_items($page_num, $pages, 9);
         </tbody>
       </table>
     </div>
-  <?php if ($canBulk): ?></form><?php endif; ?>
-
   <?php if ($pages > 1): ?>
     <nav class="adam-pagination pagination-wrap">
       <?php foreach ($paging_items as $item):
@@ -591,8 +702,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const selectAll = document.getElementById('selectAll');
   const bulkForm = document.getElementById('bulkForm');
   const bulkAction = document.getElementById('bulkAction');
+  const bulkOptionsPanel = document.getElementById('bulkOptionsPanel');
+  const bulkStatusOption = document.getElementById('bulkStatusOption');
   const bulkStatus = document.getElementById('bulkStatus');
+  const bulkAuthorOption = document.getElementById('bulkAuthorOption');
   const bulkAuthor = document.getElementById('bulkAuthor');
+  const bulkCategoriesOption = document.getElementById('bulkCategoriesOption');
   const bulkCatMode = document.getElementById('bulkCatMode');
   const bulkCategoriesPanel = document.getElementById('bulkCategoriesPanel');
   const bulkDatesPanel = document.getElementById('bulkDatesPanel');
@@ -640,11 +755,14 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function toggleBulkExtras(){
     const v = bulkAction ? bulkAction.value : '';
-    if (bulkStatus) bulkStatus.style.display = (v === 'change_status') ? 'inline-block' : 'none';
-    if (bulkAuthor) bulkAuthor.style.display = (v === 'change_author') ? 'inline-block' : 'none';
-    if (bulkCatMode) bulkCatMode.style.display = (v === 'change_categories') ? 'inline-block' : 'none';
-    if (bulkCategoriesPanel) bulkCategoriesPanel.style.display = (v === 'change_categories') ? 'block' : 'none';
-    if (bulkDatesPanel) bulkDatesPanel.style.display = (v === 'change_date') ? 'inline-flex' : 'none';
+    const options = [bulkStatusOption, bulkAuthorOption, bulkCategoriesOption, bulkDatesPanel];
+    options.forEach(function(option){ if (option) option.hidden = true; });
+    const activeOption = v === 'change_status' ? bulkStatusOption
+      : (v === 'change_author' ? bulkAuthorOption
+      : (v === 'change_categories' ? bulkCategoriesOption
+      : (v === 'change_date' ? bulkDatesPanel : null)));
+    if (activeOption) activeOption.hidden = false;
+    if (bulkOptionsPanel) bulkOptionsPanel.hidden = !activeOption;
   }
 
   function checkedCount(){
