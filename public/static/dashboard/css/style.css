@@ -3634,6 +3634,7 @@ html.theme-dark .adam-category:visited{ color: hsl(var(--cat-h) 85% 80%); }
 
 /* Tooltip (link/image) */
 .adam-quill .ql-snow .ql-tooltip{
+  z-index: 1151;
   background: var(--adam-card);
   border: 1px solid var(--adam-border);
   box-shadow: var(--adam-shadow);

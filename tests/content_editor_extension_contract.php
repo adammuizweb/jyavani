@@ -175,8 +175,9 @@ $check(str_contains($css, '.jy-editor-reference{')
 $check(str_contains($css, '--adam-sticky-header-offset: 64px;')
     && str_contains($css, ".adam-quill .ql-toolbar.ql-snow{")
     && str_contains($css, 'top: var(--adam-sticky-header-offset);')
-    && substr_count($css, 'overflow: clip;') >= 2,
-    'Quill toolbars remain sticky below the dashboard header without clipped ancestors');
+    && str_contains($css, ".adam-quill .ql-snow .ql-tooltip{\n  z-index: 1151;")
+    && str_contains($quill, "bounds: '#quill-area'"),
+    'Quill link tooltips stay within the editor and stack above its sticky toolbar');
 $check(str_contains($readme, '### Content Editor API')
     && str_contains($readme, 'window.JyavaniEditor'),
     'the public plugin contract is documented');

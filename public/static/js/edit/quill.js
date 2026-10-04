@@ -590,6 +590,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
 
     quill = new Quill(editorEl, {
       theme: 'snow',
+      bounds: '#quill-area',
       modules: { toolbar: toolbarOption },
       placeholder: window.QUILL_PLACEHOLDER || 'Write article content here...'
     });
