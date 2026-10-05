@@ -499,6 +499,11 @@ try {
         && str_contains($page, "svg_ico('alert-triangle')")
         && str_contains($page, "svg_ico('circle-x')"),
         'Status Guide uses a heading icon and one semantic icon for every legend status');
+    $check(str_contains($page, '.site-health__legend-row{grid-template-columns:32px minmax(0,1fr);align-items:start}')
+        && str_contains($page, '.site-health__legend-row>.site-health__legend-icon{grid-row:1/span 2}')
+        && str_contains($page, '.site-health__legend-row>.site-health__badge{justify-self:start;max-width:100%;box-sizing:border-box}')
+        && str_contains($page, '.site-health__legend-row>span:last-child{grid-column:2}'),
+        'Status Guide stacks mobile badge copy without allowing long labels to overlap descriptions');
     $check(str_contains($page, 'border-inline-start:4px solid var(--signal-color)')
         && str_contains($page, '.site-health__signal--overall{--signal-color:#7c3aed}')
         && str_contains($page, '.site-health__signal--core{--signal-color:#2563eb}')

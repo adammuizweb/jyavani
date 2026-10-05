@@ -185,7 +185,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     <input type="hidden" name="save_nonce" value="<?= htmlspecialchars($save_nonce, ENT_QUOTES, 'UTF-8') ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div class="form-toolbar" style="display:flex;gap:.5rem;margin-bottom:.8rem;">
+    <div class="form-toolbar theme-content-actions">
       <button type="submit" class="adam-button"><?= svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Save')?></button>
       <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
     </div>

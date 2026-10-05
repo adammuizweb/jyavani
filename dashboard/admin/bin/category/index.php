@@ -274,7 +274,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </span>
       </div>
 
-      <div class="adam-table-wrapper">
+      <div class="adam-table-wrapper bin-table-wrapper">
         <table class="adam-table" style="margin-top:.5rem;">
           <thead>
             <tr>

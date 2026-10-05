@@ -102,7 +102,7 @@ $canPurge = $purgeCondition !== null;
       </span>
     </div>
 
-    <div class="adam-table-wrapper">
+    <div class="adam-table-wrapper bin-table-wrapper">
       <table class="adam-table" style="margin-top:.5rem;">
         <thead><tr>
           <th style="width:40px"></th><th><?=_e('Title')?></th><th><?=_e('Type')?></th><th><?=_e('Storage')?></th><th><?=_e('Deleted')?></th><th><?=_e('Owner')?></th><th><?=_e('Actions')?></th>

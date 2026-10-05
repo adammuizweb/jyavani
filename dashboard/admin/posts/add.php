@@ -637,15 +637,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       <div class="field-note"><?=_e('Leave empty to use the current site time.')?></div>
     </label><?php endif; ?>
 
-    <div class="section-divider">
+    <?php $sidebarOverrideValue = content_sidebar_override_normalize($_POST['sidebar_override'] ?? ''); ?>
+    <?php if (content_sidebar_overrides_enabled($pdo)): ?>
+    <div class="section-divider" data-content-sidebar-override>
       <div class="section-label"><?= svg_ico('columns-2') ?> <?=_e('Sidebar Position')?></div>
-      <select name="sidebar_override" style="width:100%;padding:.4rem .5rem;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-card);color:var(--adam-text);font-size:.9rem;box-sizing:border-box">
+      <select name="sidebar_override" class="inp inp-w100">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
-        <option value="right"><?=_e('Right')?></option>
-        <option value="left"><?=_e('Left')?></option>
-        <option value="hide"><?=_e('Hide')?></option>
+        <option value="right" <?= $sidebarOverrideValue === 'right' ? 'selected' : '' ?>><?=_e('Right')?></option>
+        <option value="left" <?= $sidebarOverrideValue === 'left' ? 'selected' : '' ?>><?=_e('Left')?></option>
+        <option value="hide" <?= $sidebarOverrideValue === 'hide' ? 'selected' : '' ?>><?=_e('Hide')?></option>
       </select>
     </div>
+    <?php else: ?>
+      <input type="hidden" name="sidebar_override" value="<?= htmlspecialchars($sidebarOverrideValue, ENT_QUOTES, 'UTF-8') ?>" data-content-sidebar-override-preserved>
+    <?php endif; ?>
 
     <?php if ($enable_custom_meta): ?>
     <div class="section-divider">

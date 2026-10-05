@@ -90,7 +90,8 @@ $check(str_contains($sources['media_bin'], "\$assetResource = 'media'")
     'Media and File Bin lists share the hardened asset index');
 $check(str_contains($sources['bin_index'], 'class="toolbar-top bin-asset-toolbar"')
     && str_contains($sources['bin_index'], '<h2 class="page-heading"')
-    && str_contains($sources['bin_index'], 'id="bulkSelectionCountBinAsset"'),
+    && str_contains($sources['bin_index'], 'id="bulkSelectionCountBinAsset"')
+    && str_contains($sources['bin_index'], 'class="adam-table-wrapper bin-table-wrapper"'),
     'Media and File Bin lists use the structured heading and live selection counter');
 $check(str_contains($sources['bin_index'], 'function updateSelectionCount()')
     && str_contains($sources['bin_index'], 'selectAll.indeterminate')

@@ -47,6 +47,34 @@ $check(str_contains($sources['media'], 'class="controls"') && str_contains($sour
     'Media and File lists share the controls-to-table structure');
 $check(str_contains($sources['css'], '.media-list > .controls{ margin-bottom:.75rem; }'),
     'Media and File list controls have scoped spacing before the table');
+$check(str_contains($sources['file'], 'class="table file-list-table"')
+    && str_contains($sources['css'], '#media-table.file-list-table{')
+    && str_contains($sources['css'], '#media-table.file-list-table td:nth-child(3)')
+    && str_contains($sources['css'], '#media-table.file-list-table th:last-child{')
+    && str_contains($sources['css'], 'font-size:0;')
+    && str_contains($sources['css'], '#media-table.file-list-table .file-actions-cell{')
+    && str_contains($sources['css'], 'text-align:center;')
+    && str_contains($sources['css'], 'white-space:normal;'),
+    'File list keeps its identity and centered action control reachable without an overflowing mobile heading');
+$check(str_contains($sources['users'], 'class="adam-table-wrapper users-table-wrapper"')
+    && str_contains($sources['css'], '.users-table-wrapper .users-table{')
+    && str_contains($sources['css'], '.users-table-wrapper .col-user-contact,')
+    && str_contains($sources['css'], '.users-table-wrapper .users-actions-cell{'),
+    'Users list keeps its identity and action columns reachable on mobile');
+$check(str_contains($sources['css'], '.users-table-wrapper,')
+    && str_contains($sources['css'], '#preset-bulk-form > .adam-table-wrapper,')
+    && str_contains($sources['css'], '#layout-bulk-form > .adam-table-wrapper{')
+    && str_contains($sources['css'], 'width:calc(100% + 1.5rem);')
+    && str_contains($sources['css'], 'margin-inline:-.75rem;')
+    && str_contains($sources['css'], '.users-table-wrapper > .users-table,')
+    && str_contains($sources['css'], '#layout-bulk-form > .adam-table-wrapper > .adam-table{'),
+    'Users and primary Shortcodes tables consume mobile card padding without rounded table corners');
+$check(str_contains($sources['css'], '#file-panel-list > .media-list > #media-table.file-list-table,')
+    && str_contains($sources['css'], '#panel-list > .media-list > #media-table.table{')
+    && str_contains($sources['css'], 'width:calc(100% + 24px);')
+    && str_contains($sources['css'], 'margin-inline:-12px;')
+    && str_contains($sources['css'], 'border-radius:0;'),
+    'File and Media tables consume mobile panel padding without rounded table corners');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " active list selection contract check(s) failed.\n");

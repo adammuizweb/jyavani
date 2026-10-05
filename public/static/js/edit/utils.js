@@ -73,37 +73,12 @@
     return null;
   }
 
-  // simple hash helper for preview payload comparison (stringified small object)
-  function payloadHash(p) {
-    const keys = ['title','slug','thumbnail','youtube','status','created_at','updated_at','created_by'];
-    const small = {};
-    keys.forEach(k => { if (typeof p[k] !== 'undefined') small[k] = p[k]+''; else small[k] = ''; });
-    small._cats = (p.categories && Array.isArray(p.categories.ids)) ? p.categories.ids.join(',') : '';
-    small._html_len = p.html ? String((p.html||'').length) : '0';
-    return JSON.stringify(small);
-  }
-
-  // find iframe by id, with retry
-  async function findIframe(id = 'theme-live-preview', max=25, interval=120) {
-    return new Promise(resolve => {
-      let tries = 0;
-      const t = setInterval(()=> {
-        tries++;
-        const f = document.getElementById(id);
-        if (f) { clearInterval(t); resolve(f); }
-        else if (tries>=max) { clearInterval(t); resolve(null); }
-      }, interval);
-    });
-  }
-
   window.injectHtmlWithScriptsTo = injectHtmlWithScriptsTo;
   window.ADIWIRA.utils = {
     injectHtmlWithScriptsTo,
     debounce,
     showNotif,
     hideNotif,
-    getYouTubeId,
-    payloadHash,
-    findIframe
+    getYouTubeId
   };
 })();

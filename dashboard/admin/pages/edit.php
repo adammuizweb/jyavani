@@ -387,8 +387,10 @@ if ($chosenMode === '') {
             }
         }
     }
+    $current_sidebar = content_sidebar_override_normalize($_POST['sidebar_override'] ?? $current_sidebar);
     ?>
-    <div class="section-divider">
+    <?php if (content_sidebar_overrides_enabled($pdo)): ?>
+    <div class="section-divider" data-content-sidebar-override>
       <div class="section-label"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" class="inp inp-w100">
         <option value=""><?= _e('Default (follow global hierarchy)') ?></option>
@@ -397,6 +399,9 @@ if ($chosenMode === '') {
         <option value="hide" <?= $current_sidebar === 'hide' ? 'selected' : '' ?>><?=_e('Hide')?></option>
       </select>
     </div>
+    <?php else: ?>
+      <input type="hidden" name="sidebar_override" value="<?= htmlspecialchars($current_sidebar, ENT_QUOTES, 'UTF-8') ?>" data-content-sidebar-override-preserved>
+    <?php endif; ?>
 
     <div class="section-divider">
       <div class="section-label"><?= svg_ico('search', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Meta Description')?></div>

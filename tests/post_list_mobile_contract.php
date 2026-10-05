@@ -15,11 +15,11 @@ $checks = [
     ),
     'Post List table consumes the card gutter on mobile' => str_contains(
         $dashboardCss,
-        ".posts-list-card .adam-table-wrapper{\n    width:calc(100% + 1.5rem);\n    margin-inline:-.75rem;"
+        ".posts-list-card .adam-table-wrapper,\n  .bin-table-wrapper{\n    width:calc(100% + 1.5rem);\n    margin-inline:-.75rem;"
     ),
     'Post List mobile table removes its nested edge radius' => str_contains(
         $dashboardCss,
-        ".posts-list-card .adam-table{\n    border-radius:0;"
+        ".posts-list-card .adam-table,\n  .bin-table-wrapper .adam-table{\n    border-radius:0;"
     ),
     'Post List hides only secondary columns by default on mobile' => str_contains(
         $postList,

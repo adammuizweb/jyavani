@@ -5664,11 +5664,7 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Resize details panel', 'Ubah ukuran panel detail', 'id'),
 ('default', 'Resize details panel', 'Größe des Detailbereichs ändern', 'de'),
 ('default', 'Close details panel', 'Tutup panel detail', 'id'),
-('default', 'Close details panel', 'Detailbereich schließen', 'de'),
-('default', 'Live Theme Preview', 'Pratinjau Tema Langsung', 'id'),
-('default', 'Live Theme Preview', 'Live-Themenvorschau', 'de'),
-('default', 'Live Theme Preview (ID: %d)', 'Pratinjau Tema Langsung (ID: %d)', 'id'),
-('default', 'Live Theme Preview (ID: %d)', 'Live-Themenvorschau (ID: %d)', 'de');
+('default', 'Close details panel', 'Detailbereich schließen', 'de');
 
 -- Configurable site timezone
 INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES

@@ -63,7 +63,7 @@ $check(str_contains($category, 'WHERE c.is_deleted = 0 AND ({$readCondition[\'sq
     && str_contains($category, '$activeParentLabel')
     && str_contains($category, '$activeAuthorLabel'),
     'Category filter choices remain stable, localized, and owner-scoped');
-$check(str_contains($css, '.posts-list-card .adam-table-wrapper{')
+$check(str_contains($css, ".posts-list-card .adam-table-wrapper,\n  .bin-table-wrapper{")
     && str_contains($css, '.posts-command-bar--no-columns{')
     && str_contains($css, '.posts-filter-panel--single{ grid-template-columns:1fr; }')
     && str_contains($css, '.posts-bulk-action,'),

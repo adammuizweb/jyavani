@@ -99,7 +99,7 @@ if ($isReadOnly) {
     ?>
     <section class="adam-card">
       <div class="adam-notice adam-notice--info" role="status"><?=_e('Read-only: you can view this item, but you cannot change it.')?></div>
-      <h2><?=_e('View Theme / Partial')?></h2>
+      <h2 class="edit-heading"><?=_e('View Theme / Partial')?></h2>
       <label><?=_e('Title')?><br><input class="inpud" readonly value="<?= htmlspecialchars($pref_title, ENT_QUOTES, 'UTF-8') ?>"></label>
       <label style="display:block;margin-top:.6rem"><?=_e('Internal slug')?><br><input class="inpud" readonly value="<?= htmlspecialchars($pref_slug, ENT_QUOTES, 'UTF-8') ?>"></label>
       <label style="display:block;margin-top:.6rem"><?=_e('Content')?><br><textarea class="inpud" rows="20" readonly><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea></label>
@@ -110,7 +110,7 @@ if ($isReadOnly) {
 }
 ?>
 <section class="adam-card">
-  <h2><?=_e('Edit Theme / Partial')?></h2>
+  <h2 class="edit-heading"><?=_e('Edit Theme / Partial')?></h2>
 
   <form method="post" id="theme-edit-form" action="<?= htmlspecialchars($base . '/admin/themes/save.php', ENT_QUOTES, 'UTF-8') ?>" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -118,11 +118,11 @@ if ($isReadOnly) {
     <input type="hidden" name="id" value="<?= (int)$theme['id'] ?>">
     <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div class="form-toolbar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;">
+    <div class="form-toolbar theme-content-actions">
       <button type="submit" class="adam-button" id="btn-save"><?= svg_ico('save', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Save Changes')?></button>
       <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
 
-      <div style="margin-left:auto;font-size:.9rem;color:#555;">
+      <div class="theme-content-actions__meta">
         <?=_e('Updated:')?>
         <span id="updated-at">
           <?= htmlspecialchars(function_exists('format_datetime_indo') ? format_datetime_indo((string)($theme['updated_at'] ?? '-')) : (string)($theme['updated_at'] ?? '-'), ENT_QUOTES, 'UTF-8') ?>
@@ -211,10 +211,11 @@ if ($isReadOnly) {
 
     <?php do_action('theme_editor_before_content', $theme, $pdo); ?>
 
-    <div style="margin-top:.75rem;">
+    <div>
       <div id="theme-edit-content-label" class="field-label" data-required-editor-label><?=_e('Content (HTML / PHP fragment)')?> <span class="field-required" aria-hidden="true">*</span><span class="sr-only"> (<?=_e('Required')?>)</span></div>
-      <textarea id="cm-textarea"
-                style="width:100%;min-height:70vh;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px;" aria-labelledby="theme-edit-content-label" aria-required="true"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
+      <div class="adam-cm-wrap">
+        <textarea id="cm-textarea" style="width:100%;min-height:70vh;" aria-labelledby="theme-edit-content-label" aria-required="true"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
+      </div>
       <textarea id="content-textarea" name="content" style="display:none;"><?= htmlspecialchars($pref_content, ENT_QUOTES, 'UTF-8') ?></textarea>
       <?php if (($editorReferences['providers'] ?? []) !== []): ?>
         <p class="field-note jy-editor-reference-help"><?=_e('Hover over a reference for details. Ctrl/Cmd-click or press F12 to open its editor in a new tab.')?></p>

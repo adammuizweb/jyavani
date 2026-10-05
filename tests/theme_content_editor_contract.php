@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+$add = (string)file_get_contents($root . '/dashboard/admin/themes/add.php');
 $edit = (string)file_get_contents($root . '/dashboard/admin/themes/edit.php');
+$dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $save = (string)file_get_contents($root . '/dashboard/admin/themes/save.php');
 $assign = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
@@ -48,6 +50,22 @@ $check(str_contains($edit, "'page' => 'admin/themes/edit'")
 $check(str_contains($edit, 'jy-editor-reference-help')
     && str_contains($edit, 'Ctrl/Cmd-click or press F12'),
     'theme editor explains discoverable hover and keyboard reference navigation');
+$check(substr_count($edit, '<h2 class="edit-heading">') === 2,
+    'editable and read-only theme views use the standard editor heading');
+$check(str_contains($add, 'class="form-toolbar theme-content-actions"')
+    && str_contains($edit, 'class="form-toolbar theme-content-actions"')
+    && str_contains($edit, '<div class="theme-content-actions__meta">')
+    && str_contains($dashboardCss, '.theme-content-actions{')
+    && str_contains($dashboardCss, 'position:sticky;')
+    && str_contains($dashboardCss, 'top:calc(var(--adam-sticky-header-offset) + .5rem);')
+    && str_contains($dashboardCss, '.theme-content-actions .adam-button,')
+    && str_contains($dashboardCss, '.theme-content-actions__meta{')
+    && !str_contains($edit, 'color:#555'),
+    'theme add and edit keep save actions reachable in a themed sticky toolbar');
+$check(str_contains($edit, '<div class="adam-cm-wrap">')
+    && !str_contains($edit, 'border:1px solid #ddd')
+    && !str_contains($edit, '<div style="margin-top:.75rem;">'),
+    'theme content editor uses the shared themed CodeMirror shell without redundant spacing');
 
 foreach ([
     'Core fallback',

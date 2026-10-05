@@ -15,6 +15,11 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 $check(str_contains($auth, 'class="adam-card settings-card auth-settings"')
     && str_contains($auth, '<h2 class="edit-heading">'),
     'Authentication Settings uses the shared settings card and heading');
+$check(str_contains($auth, 'data-unsaved-guard data-unsaved-floating-save')
+    && str_contains($auth, 'class="adam-button settings-floating-save"')
+    && str_contains($css, '.settings-floating-save.is-ready{')
+    && str_contains($css, '.settings-floating-save.is-ready.is-visible{'),
+    'Authentication Settings exposes its Save action as a progressive mobile dirty-state control');
 $check(!str_contains($auth, "settings_get(\$pdo, 'login_slug'")
     && !str_contains($auth, "settings_set(\$pdo, 'login_path'")
     && !str_contains($auth, "settings_set(\$pdo, 'register_path'"),

@@ -366,15 +366,20 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
       </label>
     <?php endif; ?>
 
-    <div class="section-divider">
+    <?php $sidebarOverrideValue = content_sidebar_override_normalize($_POST['sidebar_override'] ?? ''); ?>
+    <?php if (content_sidebar_overrides_enabled($pdo)): ?>
+    <div class="section-divider" data-content-sidebar-override>
       <div class="section-label"><?= svg_ico('columns-2', '', ['style' => 'width:16px;height:16px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Sidebar Position')?></div>
       <select name="sidebar_override" class="inp inp-w100">
         <option value=""><?=_e('Default (follow global hierarchy)')?></option>
-        <option value="right" <?= (($_POST['sidebar_override'] ?? '') === 'right') ? 'selected' : '' ?><?=_e('Right')?></option>
-        <option value="left" <?= (($_POST['sidebar_override'] ?? '') === 'left') ? 'selected' : '' ?><?=_e('Left')?></option>
-        <option value="hide" <?= (($_POST['sidebar_override'] ?? '') === 'hide') ? 'selected' : '' ?><?=_e('Hide')?></option>
+        <option value="right" <?= $sidebarOverrideValue === 'right' ? 'selected' : '' ?>><?=_e('Right')?></option>
+        <option value="left" <?= $sidebarOverrideValue === 'left' ? 'selected' : '' ?>><?=_e('Left')?></option>
+        <option value="hide" <?= $sidebarOverrideValue === 'hide' ? 'selected' : '' ?>><?=_e('Hide')?></option>
       </select>
     </div>
+    <?php else: ?>
+      <input type="hidden" name="sidebar_override" value="<?= htmlspecialchars($sidebarOverrideValue, ENT_QUOTES, 'UTF-8') ?>" data-content-sidebar-override-preserved>
+    <?php endif; ?>
 
     <?php if ($enable_custom_meta): ?>
     <div class="section-divider">

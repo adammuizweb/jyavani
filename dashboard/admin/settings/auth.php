@@ -343,7 +343,7 @@ function auth_path_example(string $path): string {
     </div>
   <?php endif; ?>
 
-  <form id="auth-settings-form" method="post" novalidate data-unsaved-guard<?= ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
+  <form id="auth-settings-form" method="post" novalidate data-unsaved-guard data-unsaved-floating-save<?= ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="settings-section settings-section--auth-registration" data-open="1">
@@ -488,7 +488,7 @@ function auth_path_example(string $path): string {
     </div>
 
     <div class="btn-row auth-settings-actions">
-      <button type="submit" class="adam-button"><?= svg_ico('save') ?> <?=_e('Save')?></button>
+      <button type="submit" class="adam-button settings-floating-save"><?= svg_ico('save') ?> <?=_e('Save')?></button>
       <a class="adam-cancle" href="<?= ADMIN_BASE_PATH ?>/?page=admin/settings/index"><?=_e('Back')?></a>
     </div>
   </form>

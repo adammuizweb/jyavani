@@ -155,6 +155,17 @@ $check(str_contains($layout, "'badge' => __('Confirmation required')")
     'guard modal labels use existing translated Core strings');
 
 $guard = (string)file_get_contents($root . '/public/static/dashboard/js/unsaved-guard.js');
+$siteSettings = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
+$authSettings = (string)file_get_contents($root . '/dashboard/admin/settings/auth.php');
+$dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
+$check(str_contains($siteSettings, 'data-unsaved-floating-save')
+    && str_contains($authSettings, 'data-unsaved-floating-save')
+    && str_contains($guard, 'function syncFloatingSave(form)')
+    && str_contains($guard, "form.addEventListener('input', scheduleFloatingSave)")
+    && str_contains($guard, "form.addEventListener('change', scheduleFloatingSave)")
+    && str_contains($guard, "button.classList.toggle('is-visible', formIsDirty(form))")
+    && str_contains($dashboardCss, '.settings-floating-save.is-ready.is-visible{'),
+    'Site and Auth Settings reveal their mobile floating Save action only while dirty');
 $check(str_contains($guard, 'Array.from(form.elements || [])')
     && str_contains($guard, "new Set(['csrf_token', 'save_nonce', 'return_to', 'id', 'ajax'])")
     && str_contains($guard, 'control.disabled')

@@ -128,12 +128,12 @@ $renderDetails = static function (array $renderContext, bool $visible) use ($roo
 };
 $themeContext = admin_details_context($pdo, 'admin/themes/edit', 7);
 $check($themeContext['mode'] === 'theme_preview' && $themeContext['entity_id'] === 42,
-    'theme-preview mode is derived from the protected route and entity context');
+    'Theme Edit preserves its protected extension context after removing the obsolete preview UI');
 $themeOutput = $renderDetails($themeContext, true);
-$check(str_contains($themeOutput, 'Live Theme Preview (ID: 42)')
-    && str_contains($themeOutput, '/secure-admin/live.php?id=42')
-    && str_contains($themeOutput, 'title="Live Theme Preview"'),
-    'theme-preview branch renders translated formatted text without a type error');
+$check(str_contains($themeOutput, '<h3>Themes</h3>')
+    && !str_contains($themeOutput, '<iframe')
+    && !str_contains($themeOutput, '/live.php?id='),
+    'Theme Edit renders generic Theme guidance without the removed live-preview iframe');
 $homeContext = $context;
 $homeContext['page'] = 'home';
 $homeContext['mode'] = 'default';
@@ -177,7 +177,7 @@ $check(str_contains($docs, '### Details panel extension contract')
     && str_contains($docs, 'do not grant access'),
     'details panel extension API and authorization boundary are documented');
 
-foreach (['Details panel', 'Resize details panel', 'Close details panel', 'Live Theme Preview', 'Live Theme Preview (ID: %d)'] as $key) {
+foreach (['Details panel', 'Resize details panel', 'Close details panel'] as $key) {
     $check(substr_count($translations, "'" . $key . "'") >= 2,
         $key . ' has Indonesian and German translation seeds');
 }

@@ -309,7 +309,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
     </div>
   <?php endif; ?>
 
-  <form method="post" novalidate id="site-settings-form" data-unsaved-guard<?= ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
+  <form method="post" novalidate id="site-settings-form" data-unsaved-guard data-unsaved-floating-save<?= ($_SERVER['REQUEST_METHOD'] === 'POST' && $errors) ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
 
     <!-- General -->
@@ -718,7 +718,7 @@ $show_inline_errors  = (!empty($errors) && !function_exists('adiwira_bootstrap_t
     </div>
 
     <div class="btn-row" style="margin-top:14px;margin-bottom:0;">
-      <button type="submit" class="adam-button"><?= svg_ico('save', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Save')?></button>
+      <button type="submit" class="adam-button settings-floating-save"><?= svg_ico('save', '', ['style' => 'width:15px;height:15px;vertical-align:middle;margin-right:4px']) ?> <?=_e('Save')?></button>
       <a class="adam-cancle" href="<?= ADMIN_BASE_PATH ?>/?page=admin/settings/index"><?=_e('Back')?></a>
     </div>
   </form>

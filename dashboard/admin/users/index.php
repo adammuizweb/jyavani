@@ -204,7 +204,7 @@ $paging_items = build_pagination_items($page, $pages, 9);
       </div>
     </div>
 
-    <div class="adam-table-wrapper">
+    <div class="adam-table-wrapper users-table-wrapper">
       <table class="adam-table users-table">
         <thead>
           <tr>

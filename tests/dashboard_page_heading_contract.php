@@ -6,9 +6,11 @@ $read = static fn(string $path): string => (string)file_get_contents($root . '/'
 $pages = [
     'dashboard home' => ['dashboard/theme/adiwira/part/views/home.php', 'class="dw-heading-title page-heading"'],
     'category add' => ['dashboard/admin/categories/add.php', '<h2 class="edit-heading"'],
+    'category edit' => ['dashboard/admin/categories/edit.php', '<h2 class="edit-heading"'],
     'media manager' => ['dashboard/admin/media/index.php', '<h2 class="page-heading page-heading--spaced"'],
     'file manager' => ['dashboard/admin/file/index.php', '<h2 class="page-heading page-heading--spaced"'],
     'theme add' => ['dashboard/admin/themes/add.php', '<h2 class="edit-heading"'],
+    'theme edit' => ['dashboard/admin/themes/edit.php', '<h2 class="edit-heading"'],
     'theme customize' => ['dashboard/admin/themes/customize.php', '<h2 class="page-heading page-heading--compact"'],
     'theme assignments' => ['dashboard/admin/themes/assign.php', 'class="tm-title page-heading page-heading--compact"'],
     'theme browser' => ['dashboard/admin/themes/browse.php', 'class="pg-title page-heading page-heading--compact"'],
@@ -30,6 +32,14 @@ foreach ($pages as $label => [$file, $expected]) {
 }
 
 $dashboardCss = $read('public/static/dashboard/css/style.css');
+$categoryEdit = $read('dashboard/admin/categories/edit.php');
+$categoryEditorFields = str_contains($categoryEdit, '<select name="parent_id" class="inp w-full">')
+    && str_contains($categoryEdit, '<textarea name="description" class="inp w-full" style="min-height:100px">')
+    && str_contains($categoryEdit, '<p class="mt-16 mb-0">')
+    && !str_contains($categoryEdit, 'border:1px solid #ddd');
+echo ($categoryEditorFields ? 'PASS' : 'FAIL') . ' category edit uses themed full-width controls and standard action spacing' . PHP_EOL;
+if (!$categoryEditorFields) $failures[] = 'category edit themed fields';
+
 $mobileHeadingStaysInline = str_contains($dashboardCss, '.dw-heading{ flex-direction:row; gap:.75rem; align-items:center; }')
     && str_contains($dashboardCss, '.dw-heading-actions{ flex:0 0 auto; }')
     && str_contains($dashboardCss, '.dw-heading-actions .adam-button{ white-space:nowrap; }');

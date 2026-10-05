@@ -145,3 +145,17 @@ if (!function_exists('content_editor_render_mount')) {
         return (string)ob_get_clean();
     }
 }
+
+if (!function_exists('content_sidebar_override_normalize')) {
+    function content_sidebar_override_normalize(mixed $value): string {
+        $value = is_string($value) ? trim($value) : '';
+        return in_array($value, ['left', 'right', 'hide'], true) ? $value : '';
+    }
+}
+
+if (!function_exists('content_sidebar_overrides_enabled')) {
+    function content_sidebar_overrides_enabled(PDO $pdo): bool {
+        if (!function_exists('settings_get')) return true;
+        return (string)(settings_get($pdo, 'sidebar_enabled', '1') ?? '1') !== '0';
+    }
+}

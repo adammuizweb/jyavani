@@ -13,6 +13,7 @@ $sources = [
     'theme_bin' => $read('dashboard/admin/bin/theme/index.php'),
     'users_bin' => $read('dashboard/admin/bin/users/index.php'),
     'dashboard_style' => $read('public/static/dashboard/css/style.css'),
+    'dashboard_layout' => $read('dashboard/theme/adiwira/layout.php'),
     'index_list_script' => $read('public/static/dashboard/js/index-list.js'),
     'toast_style' => $read('public/static/components/toast/toast.css'),
     'toast_script' => $read('public/static/components/toast/toast.js'),
@@ -103,7 +104,8 @@ foreach (['article_bin', 'page_bin', 'category_bin', 'theme_bin', 'users_bin'] a
     $check(str_contains($sources[$key], 'class="toolbar-filter bin-filter-bar"')
         && str_contains($sources[$key], 'class="inp"')
         && str_contains($sources[$key], 'class="bulk-bar"')
-        && str_contains($sources[$key], 'class="check-row"'),
+        && str_contains($sources[$key], 'class="check-row"')
+        && str_contains($sources[$key], 'class="adam-table-wrapper bin-table-wrapper"'),
         $key . ' reuses the Core filter and bulk control styling');
 }
 $check(str_contains($sources['dashboard_style'], '.bin-filter-bar')
@@ -142,6 +144,20 @@ $check(str_contains($sources['dashboard_style'], '.bin-restore-action')
     && str_contains($sources['dashboard_style'], '.bin-row-actions')
     && str_contains($sources['dashboard_style'], '.bin-row-overflow .user-actions-toggle'),
     'Bin row actions use compact non-link button styling');
+$check(str_contains($sources['dashboard_style'], '.bin-table-wrapper .adam-table{')
+    && str_contains($sources['dashboard_style'], 'table-layout:fixed;')
+    && str_contains($sources['dashboard_style'], '.bin-table-wrapper .adam-table th:not(:first-child):not(:nth-child(2)):not(:last-child)')
+    && str_contains($sources['dashboard_style'], '.bin-table-wrapper .bin-row-actions')
+    && str_contains($sources['dashboard_style'], 'justify-content:flex-end;'),
+    'Bin tables keep identity and action columns visible on mobile');
+$check(str_contains($sources['dashboard_style'], ".posts-list-card .adam-table-wrapper,\n  .bin-table-wrapper{")
+    && str_contains($sources['dashboard_style'], ".posts-list-card .adam-table,\n  .bin-table-wrapper .adam-table{")
+    && str_contains($sources['dashboard_style'], 'margin-inline:-.75rem;')
+    && str_contains($sources['dashboard_style'], 'border-radius:0;'),
+    'Bin tables share the edge-to-edge mobile treatment used by post lists');
+$check(str_contains($sources['dashboard_layout'], "PUBLIC_PATH . '/static/dashboard/js/index-list.js'")
+    && str_contains($sources['dashboard_layout'], '/static/dashboard/js/index-list.js?v='),
+    'shared Bin overflow controller is cache-busted');
 $check(str_contains($sources['index_list_script'], "event.key === 'Escape'")
     && str_contains($sources['index_list_script'], "event.key === 'ArrowDown'")
     && str_contains($sources['index_list_script'], "event.key === 'Home'")

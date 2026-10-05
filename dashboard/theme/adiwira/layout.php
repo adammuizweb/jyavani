@@ -181,9 +181,11 @@ foreach ($pa['css'] ?? [] as $css_url) {
 <?php
   $actionMenuFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/action-menu.js' : '';
   $actionMenuVer = is_file($actionMenuFile) ? filemtime($actionMenuFile) : '';
+  $indexListFile = defined('PUBLIC_PATH') ? PUBLIC_PATH . '/static/dashboard/js/index-list.js' : '';
+  $indexListVer = is_file($indexListFile) ? filemtime($indexListFile) : '';
 ?>
   <script src="/static/dashboard/js/action-menu.js?v=<?= $actionMenuVer ?>"></script>
-  <script src="/static/dashboard/js/index-list.js" defer></script>
+  <script src="/static/dashboard/js/index-list.js?v=<?= $indexListVer ?>" defer></script>
   <script src="/static/dashboard/js/aside.js" defer></script>
   <script src="/static/dashboard/js/panel.js" defer></script>
   <script src="/static/dashboard/js/accordion.js" defer></script>

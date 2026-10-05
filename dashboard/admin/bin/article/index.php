@@ -188,7 +188,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
         </span>
       </div>
 
-      <div class="adam-table-wrapper">
+      <div class="adam-table-wrapper bin-table-wrapper">
         <table class="adam-table" style="margin-top:.5rem;">
           <thead>
             <tr>
@@ -300,7 +300,7 @@ $currentReturnTo = $base . '/?' . http_build_query($currentQuery);
       <?=_e('Bulk actions hidden for')?> <strong>author</strong> <?=_e('role.')?>
     </div>
 
-    <div class="adam-table-wrapper">
+    <div class="adam-table-wrapper bin-table-wrapper">
       <table class="adam-table" style="margin-top:.5rem;">
         <thead>
           <tr>

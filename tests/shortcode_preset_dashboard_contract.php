@@ -33,6 +33,12 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 };
 
 $check(str_contains($source['index'], '$presetPerPage = 15'), 'preset listing paginates at 15 rows per page');
+$check(str_contains($source['index'], "\$tab = is_string(\$_GET['tab'] ?? null) ? \$_GET['tab'] : 'presets'")
+    && str_contains($source['index'], 'id="preset-bulk-form"')
+    && str_contains($source['index'], '<div class="adam-table-wrapper">')
+    && str_contains($source['dashboard_style'], '#preset-bulk-form > .adam-table-wrapper,')
+    && str_contains($source['dashboard_style'], '#preset-bulk-form > .adam-table-wrapper > .adam-table,'),
+    'default and explicit Presets views use the scoped mobile edge-to-edge result table');
 $check(str_contains($source['index'], '$presetPagingItems') && str_contains($source['index'], "\$items[] = '...'") && str_contains($source['index'], 'adam-pagination pagination-wrap'), 'preset listing matches Posts compact numbered and ellipsis pagination');
 $check(str_contains($source['index'], '$pageQuery = $presetQuery') && str_contains($source['index'], '$pageQuery[\'p\'] = $pageNumber'), 'numbered preset pagination preserves validated filters');
 $check(str_contains($source['index'], 'shortcode_preset_list_filters($_GET, $isAdmin)'), 'preset listing uses validated query filters');
@@ -239,8 +245,12 @@ $check(str_contains($source['dashboard_style'], '.adam-actions__menu')
     && str_contains($source['action_menu_script'], "event.key === 'Escape'")
     && str_contains($source['action_menu_script'], "event.key === 'ArrowDown'")
     && str_contains($source['action_menu_script'], 'getBoundingClientRect()')
+    && str_contains($source['action_menu_script'], 'document.body.appendChild(menu)')
+    && str_contains($source['action_menu_script'], 'origin.marker.parentNode.replaceChild(menu, origin.marker)')
+    && str_contains($source['action_menu_script'], "event.target.closest('.adam-actions, .adam-actions__menu')")
+    && str_contains($source['action_menu_script'], "if (trigger && event.key === 'Escape')")
     && str_contains($source['action_menu_script'], "if (menu.hidden) openMenu(trigger, event.detail === 0 ? 'first' : undefined);")
-    && str_contains($source['action_menu_script'], 'trigger.focus({ preventScroll: true })'), 'Core overflow component provides viewport positioning and keyboard focus management');
+    && str_contains($source['action_menu_script'], 'trigger.focus({ preventScroll: true })'), 'Core overflow component escapes table clipping while preserving viewport positioning and keyboard focus management');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

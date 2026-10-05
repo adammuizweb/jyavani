@@ -276,7 +276,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 }
 ?>
 <section class="adam-card">
-  <h2><?=_e('Edit Category')?></h2>
+  <h2 class="edit-heading"><?=_e('Edit Category')?></h2>
 
   <form method="post" novalidate id="category-edit-form" data-unsaved-guard>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
@@ -307,7 +307,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </div>
 
     <label><?=_e('Parent (optional)')?><br>
-      <select name="parent_id" class="inpud">
+      <select name="parent_id" class="inp w-full">
         <option value=""><?=_e('-- None --')?></option>
         <?php
         $selectedParent = isset($_POST['parent_id']) && $_POST['parent_id'] !== ''
@@ -328,12 +328,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </label>
 
     <label><?=_e('Description')?><br>
-      <textarea name="description" style="width:100%;min-height:100px;padding:.5rem;margin-top:.4rem;border:1px solid #ddd;border-radius:6px"><?= htmlspecialchars($_POST['description'] ?? $cat['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+      <textarea name="description" class="inp w-full" style="min-height:100px"><?= htmlspecialchars($_POST['description'] ?? $cat['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
     </label>
 
     <?php do_action('category_editor_after_fields', $cat, $pdo); ?>
 
-    <p>
+    <p class="mt-16 mb-0">
       <button type="submit" class="adam-button"><?=_e('Save Changes')?></button>
       <a href="<?= htmlspecialchars($return_to, ENT_QUOTES, 'UTF-8') ?>" class="adam-cancle"><?=_e('Cancel')?></a>
     </p>

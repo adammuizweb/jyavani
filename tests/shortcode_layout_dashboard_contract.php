@@ -128,6 +128,7 @@ $files = [
     'page_save' => $root . '/dashboard/admin/pages/save.php',
     'theme_add' => $root . '/dashboard/admin/themes/add.php',
     'theme_save' => $root . '/dashboard/admin/themes/save.php',
+    'dashboard_style' => $root . '/public/static/dashboard/css/style.css',
 ];
 $source = array_map(static fn(string $file): string => (string)file_get_contents($file), $files);
 require_once $root . '/cfg/helpers/hooks.php';
@@ -153,6 +154,11 @@ $sectionFilters = shortcode_layout_list_filters([
 ], 'section');
 $check($collectionFilters === ['p' => 1, 'q' => '', 'filter' => ''], 'malformed collection filter arrays are rejected without coercion');
 $check($sectionFilters['p'] === 27 && strlen($sectionFilters['q']) === 120 && $sectionFilters['filter'] === 'registered', 'section search and registration filters are bounded and validated');
+$check(str_contains($source['index'], "\$layoutScope = is_string(\$_GET['scope'] ?? null) ? \$_GET['scope'] : 'collection'")
+    && str_contains($source['index'], 'id="layout-bulk-form"')
+    && str_contains($source['dashboard_style'], '#layout-bulk-form > .adam-table-wrapper{')
+    && str_contains($source['dashboard_style'], '#layout-bulk-form > .adam-table-wrapper > .adam-table{'),
+    'collection and Theme Section scopes share the scoped mobile edge-to-edge result table');
 $check(shortcode_layout_file_is_valid('custom_grid.php', 'collection'), 'collection layout filenames accept runtime-compatible slugs');
 $check(!shortcode_layout_file_is_valid('../custom_grid.php', 'collection') && !shortcode_layout_file_is_valid('custom.grid.php', 'collection'), 'collection layout filenames reject traversal and unsupported names');
 $check(shortcode_layout_file_is_valid('page.hero.php', 'section') && !shortcode_layout_file_is_valid('../page.hero.php', 'section'), 'section filenames use the section identifier contract and reject traversal');

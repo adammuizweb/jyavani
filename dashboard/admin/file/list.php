@@ -197,7 +197,7 @@ $paging_items = build_pagination_items($page, $total_pages, 9);
   <?php if (empty($rows)): ?>
     <div class="empty"><?= _e('No files') ?></div>
   <?php else: ?>
-    <table class="table" id="media-table">
+    <table class="table file-list-table" id="media-table">
       <thead>
         <tr>
           <th></th>

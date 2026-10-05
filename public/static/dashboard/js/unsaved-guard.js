@@ -114,9 +114,13 @@
     if (!state.forms.includes(form)) {
       state.forms.push(form);
       form.addEventListener('submit', handleNativeSubmit);
+      form.addEventListener('input', scheduleFloatingSave);
+      form.addEventListener('change', scheduleFloatingSave);
+      form.addEventListener('reset', scheduleFloatingSave);
     }
     if (form.hasAttribute('data-unsaved-guard-initial-dirty')) state.forcedDirty.add(form);
     activate(form);
+    syncFloatingSave(form);
   }
 
   function unregister(form) {
@@ -145,6 +149,19 @@
     if (state.forcedDirty.has(form)) return true;
     const baseline = form === state.form ? state.baseline : state.baselines.get(form);
     return typeof baseline === 'string' && snapshot(form) !== baseline;
+  }
+
+  function syncFloatingSave(form) {
+    if (!form || !form.hasAttribute('data-unsaved-floating-save')) return;
+    const button = form.querySelector('.settings-floating-save');
+    if (!button) return;
+    button.classList.add('is-ready');
+    button.classList.toggle('is-visible', formIsDirty(form));
+  }
+
+  function scheduleFloatingSave(event) {
+    const form = event.currentTarget;
+    window.requestAnimationFrame(function () { syncFloatingSave(form); });
   }
 
   function isDirty(form) {
@@ -184,12 +201,14 @@
     state.forcedDirty.delete(target);
     if (target === state.form) state.baseline = baseline;
     state.bypass = false;
+    syncFloatingSave(target);
   }
 
   function markDirty(form) {
     const target = form || state.form;
     if (!target || !target.isConnected) return;
     state.forcedDirty.add(target);
+    syncFloatingSave(target);
   }
 
   function allowNavigation() {

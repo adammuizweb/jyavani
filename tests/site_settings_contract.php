@@ -44,6 +44,11 @@ $check(!is_file($public . '/static/img/favicon-16x16.png')
 $check(str_contains($settingsPage, 'id="site-settings-form" data-unsaved-guard')
     && str_contains($settingsPage, "data-unsaved-guard-initial-dirty' : ''"),
     'Site Settings warns before leaving changed or server-rejected values unsaved');
+$check(str_contains($settingsPage, 'data-unsaved-guard data-unsaved-floating-save')
+    && str_contains($settingsPage, 'class="adam-button settings-floating-save"')
+    && str_contains($dashboardCss, '.settings-floating-save.is-ready{')
+    && str_contains($dashboardCss, '.settings-floating-save.is-ready.is-visible{'),
+    'Site Settings exposes its Save action as a progressive mobile dirty-state control');
 $collectionHook = strpos($settingsPage, "do_action('site_settings_after_collection_paths', \$pdo, \$_POST)");
 $postsPath = strpos($settingsPage, 'id="posts_list_path"');
 $pagesPath = strpos($settingsPage, 'id="pages_list_path"');

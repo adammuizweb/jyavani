@@ -3,6 +3,7 @@
 
   if (window.__ADIWIRA_ACTION_MENU_INIT__) return;
   window.__ADIWIRA_ACTION_MENU_INIT__ = true;
+  var menuOrigins = new WeakMap();
 
   function menuItems(menu) {
     return Array.from(menu.querySelectorAll('[role="menuitem"]:not(:disabled)'));
@@ -15,8 +16,26 @@
   }
 
   function triggerFor(menu) {
+    var origin = menuOrigins.get(menu);
+    if (origin && origin.trigger) return origin.trigger;
     var actions = menu.closest('.adam-actions');
     return actions ? actions.querySelector('.adam-actions__trigger') : null;
+  }
+
+  function portalMenu(trigger, menu) {
+    if (menuOrigins.has(menu)) return;
+    var marker = document.createComment('adam-actions-menu');
+    if (menu.parentNode) menu.parentNode.insertBefore(marker, menu);
+    menuOrigins.set(menu, { marker: marker, trigger: trigger });
+    document.body.appendChild(menu);
+  }
+
+  function restoreMenu(menu) {
+    var origin = menuOrigins.get(menu);
+    if (!origin) return;
+    if (origin.marker.parentNode) origin.marker.parentNode.replaceChild(menu, origin.marker);
+    else menu.remove();
+    menuOrigins.delete(menu);
   }
 
   function closeMenu(menu, restoreFocus) {
@@ -28,6 +47,7 @@
     menu.style.maxHeight = '';
     menu.style.overflowY = '';
     var trigger = triggerFor(menu);
+    restoreMenu(menu);
     if (trigger) {
       trigger.setAttribute('aria-expanded', 'false');
       if (restoreFocus) trigger.focus({ preventScroll: true });
@@ -61,6 +81,7 @@
     var menu = menuFor(trigger);
     if (!menu) return;
     closeMenus(menu, false);
+    portalMenu(trigger, menu);
     menu.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
     positionMenu(trigger, menu);
@@ -93,6 +114,14 @@
 
   document.addEventListener('keydown', function (event) {
     var trigger = event.target.closest('.adam-actions__trigger');
+    if (trigger && event.key === 'Escape') {
+      var triggerMenu = menuFor(trigger);
+      if (triggerMenu && !triggerMenu.hidden) {
+        event.preventDefault();
+        closeMenu(triggerMenu, true);
+      }
+      return;
+    }
     if (trigger && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
       event.preventDefault();
       openMenu(trigger, event.key === 'ArrowUp' ? 'last' : 'first');
@@ -118,7 +147,7 @@
 
   document.addEventListener('focusin', function (event) {
     if (event.target.closest('.newnotif-confirm.is-open, [role="dialog"][aria-hidden="false"]')) return;
-    if (!event.target.closest('.adam-actions')) closeMenus(null, false);
+    if (!event.target.closest('.adam-actions, .adam-actions__menu')) closeMenus(null, false);
   });
   window.addEventListener('resize', function () { closeMenus(null, false); });
   window.addEventListener('scroll', function () { closeMenus(null, false); }, true);
