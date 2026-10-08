@@ -372,15 +372,18 @@ $check(str_contains($schema, '`content_hash` char(64)') && str_contains($schema,
     && str_contains($hashMigration, 'ADD COLUMN `content_hash` char(64)')
     && str_contains($hashMigration, 'ADD INDEX `idx_media_content_hash`')
     && !str_contains($hashMigration, 'UNIQUE'), 'fresh schema and append-only migration add a non-unique SHA-256 media index');
-$hashCall = strpos($upload, "hash_file('sha256', \$tmp)");
+$preprocessCall = strpos($upload, 'media_upload_preprocess($stagePath');
+$finalHash = strpos($upload, "\$contentHash = \$finalImage['sha256']");
+$hashLock = strpos($upload, "theme_operation_acquire(['media-content-' . \$contentHash]");
 $duplicateLookup = strpos($upload, 'media_find_authorized_duplicate');
 $stageMove = strpos($upload, 'move_uploaded_file');
-$check($hashCall !== false && $duplicateLookup !== false && $stageMove !== false && $hashCall < $duplicateLookup && $duplicateLookup < $stageMove
+$check($preprocessCall !== false && $finalHash !== false && $hashLock !== false && $duplicateLookup !== false && $stageMove !== false
+    && $stageMove < $preprocessCall && $preprocessCall < $finalHash && $finalHash < $hashLock && $hashLock < $duplicateLookup
     && str_contains($upload, "'duplicate' => true") && str_contains($upload, "'content_hash' => \$contentHash")
     && str_contains($upload, "theme_operation_acquire(['media-content-' . \$contentHash]")
     && str_contains($upload, "\$duplicateVisibility !== \$visibility")
     && str_contains($upload, "\$extensionInput !== [] && \$mediaContext['selection_mode'] !== 'review'"),
-    'upload hashes and resolves authorized duplicates before moving or publishing bytes');
+    'upload preprocesses private staged bytes before final hashing and authorized duplicate lookup');
 $check(str_contains($save, '$refreshed = media_load_live($pdo, $id)')
     && str_contains($save, 'media_mutation_response(') && str_contains($save, "'update', \$refreshed, \$mediaContext")
     && str_contains($save, "'updated' => ["), 'media save returns refreshed projected media through the generic mutation response filter');
@@ -391,11 +394,11 @@ $check(str_contains($save, "\$mutationMetadata['core_fields']")
 $initialUploadAuth = strpos($upload, "user_can(\$pdo, \$uid, 'core.media.upload')");
 $stageMove = strpos($upload, 'move_uploaded_file');
 $preflight = strpos($upload, 'media_create_before_publication');
-$publish = strpos($upload, 'asset_lifecycle_rename($stage_path, $target_path)');
+$publish = strpos($upload, 'asset_lifecycle_rename($publicationStage, $target_path)');
 $check($initialUploadAuth !== false && $stageMove !== false && $initialUploadAuth < $stageMove
     && $preflight !== false && $publish !== false && $preflight < $publish
-    && str_contains($upload, '.media-upload-stage-') && str_contains($upload, '@chmod($stage_path, 0600)'),
-    'upload authorization precedes byte movement and transactional preflight precedes atomic publication');
+    && str_contains($upload, 'media_upload_private_workspace') && str_contains($upload, '@chmod($stagePath, 0600)'),
+    'upload authorization precedes private byte staging and transactional preflight precedes atomic publication');
 $check(str_contains($detail, 'media_user_can_read') && str_contains($modalDetail, 'media_user_can_read')
     && str_contains($fullList, "authorization_owner_scope_condition(\$pdo, \$uid, 'core.media.read'")
     && str_contains($modalList, "authorization_owner_scope_condition(\$pdo, (int)\$uid, 'core.media.read'"),

@@ -147,6 +147,13 @@ $check(str_contains($editorCss, '.ql-editor .ql-align-center img')
     && substr_count($editorCss . $css, 'margin-left: auto;') >= 2
     && substr_count($editorCss . $css, 'margin-right: auto;') >= 2,
     'center-aligned Quill image lines center block images in the editor and rendered content');
+$check(str_contains($dashboardCss, '.adam-quill .ql-editor img{')
+    && str_contains($dashboardCss, '.adam-quill .ql-editor figure{')
+    && str_contains($dashboardCss, '.adam-quill .ql-editor figure > img{')
+    && substr_count($dashboardCss, 'margin: 14px 0;') >= 3
+    && str_contains($dashboardCss, 'margin: 0;')
+    && !str_contains($dashboardCss, 'margin: 14px auto;'),
+    'unaligned Quill images and figures remain flush-left while figure images avoid nested margins');
 
 $check(str_contains($themeStore, "!array_key_exists('folder', \$manifest)")
     && str_contains($themeStore, "hash_equals(\$folderName, \$manifest['folder'])"), 'theme update manifests use exact folder identity when declared and trusted requested identity when absent');

@@ -5147,7 +5147,9 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
 
 /* =========================================================
    Quill image size limiter
-   Berlaku untuk add + edit article
+   Berlaku untuk add + edit article.
+   Images sit flush-left unless the author applies an alignment
+   from the toolbar, so the editor matches the rendered content.
 ========================================================= */
 .adam-quill .ql-editor img{
   display: block;
@@ -5155,13 +5157,13 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   max-height: 460px;
   width: auto;
   height: auto;
-  margin: 14px auto;
+  margin: 14px 0;
   border-radius: 8px;
 }
 
 .adam-quill .ql-editor figure{
   max-width: min(100%, 560px);
-  margin: 14px auto;
+  margin: 14px 0;
 }
 
 .adam-quill .ql-editor figure > img{
@@ -5169,7 +5171,7 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   max-height: 460px;
   width: auto;
   height: auto;
-  margin: 0 auto;
+  margin: 0;
 }
 
 .adam-quill .ql-editor figcaption{
@@ -5186,7 +5188,7 @@ html.theme-dark .adam-modal .adam-button:hover { box-shadow: 0 8px 24px rgba(0,0
   max-height: 460px;
   width: auto;
   height: auto;
-  margin: 14px auto;
+  margin: 14px 0;
 }
 
 /* =========================================================

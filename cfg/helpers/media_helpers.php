@@ -1,6 +1,325 @@
 <?php
 declare(strict_types=1);
 
+final class MediaUploadRejected extends RuntimeException
+{
+    private int $httpStatus;
+
+    public function __construct(string $message, int $status = 422, ?Throwable $previous = null)
+    {
+        $message = trim($message);
+        if ($message === '' || strlen($message) > 500
+            || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $message) === 1) {
+            throw new InvalidArgumentException('Media upload rejection messages must be non-empty, client-safe, and at most 500 bytes.');
+        }
+        if ($status < 400 || $status > 499) {
+            throw new InvalidArgumentException('Media upload rejection status must be a 4xx HTTP status.');
+        }
+        parent::__construct($message, 0, $previous);
+        $this->httpStatus = $status;
+    }
+
+    public function status(): int
+    {
+        return $this->httpStatus;
+    }
+}
+
+function media_upload_limits(int $maxBytes, int $maxPixels): array
+{
+    if ($maxBytes < 1 || $maxBytes > 20 * 1024 * 1024
+        || $maxPixels < 1 || $maxPixels > 100000000) {
+        throw new InvalidArgumentException('Media upload limits exceed the Core contract.');
+    }
+    return [$maxBytes, $maxPixels];
+}
+
+function media_upload_file_stat(string $path, bool $requirePrivate = true): array
+{
+    clearstatcache(true, $path);
+    $stat = @lstat($path);
+    if (!is_array($stat) || is_link($path) || (($stat['mode'] ?? 0) & 0170000) !== 0100000
+        || (int)($stat['nlink'] ?? 0) !== 1
+        || ($requirePrivate && (($stat['mode'] ?? 0) & 0777) !== 0600)) {
+        throw new RuntimeException('Unsafe media upload artifact.');
+    }
+    return $stat;
+}
+
+function media_upload_same_identity(array $expected, array $actual): bool
+{
+    return (($actual['mode'] ?? 0) & 0170000) === 0100000
+        && (int)($actual['nlink'] ?? 0) === 1
+        && (int)($actual['dev'] ?? -2) === (int)($expected['dev'] ?? -1)
+        && (int)($actual['ino'] ?? -2) === (int)($expected['ino'] ?? -1);
+}
+
+/** Inspect trusted bytes without using client-provided type, size, or dimensions. */
+function media_upload_inspect_image(
+    string $path,
+    int $maxBytes = 20971520,
+    int $maxPixels = 100000000
+): array {
+    [$maxBytes, $maxPixels] = media_upload_limits($maxBytes, $maxPixels);
+    $before = media_upload_file_stat($path);
+    $stream = @fopen($path, 'rb');
+    if (!is_resource($stream)) throw new RuntimeException('Unable to inspect media upload.');
+    try {
+        $opened = fstat($stream);
+        if (!is_array($opened) || !media_upload_same_identity($before, $opened)
+            || (($opened['mode'] ?? 0) & 0777) !== 0600) {
+            throw new RuntimeException('Media upload identity changed during inspection.');
+        }
+        $bytes = stream_get_contents($stream, $maxBytes + 1);
+        if (!is_string($bytes)) throw new RuntimeException('Unable to read media upload.');
+        $openedAfter = fstat($stream);
+    } finally {
+        fclose($stream);
+    }
+
+    $size = strlen($bytes);
+    if ($size > $maxBytes) {
+        throw new MediaUploadRejected('File too large. Max 20MB.', 413);
+    }
+    if ($size < 1 || !is_array($openedAfter) || (int)($openedAfter['size'] ?? -1) !== $size) {
+        throw new MediaUploadRejected('Invalid upload', 400);
+    }
+    $after = media_upload_file_stat($path);
+    if (!media_upload_same_identity($before, $after) || (int)($after['size'] ?? -1) !== $size) {
+        throw new RuntimeException('Media upload identity changed during inspection.');
+    }
+
+    $image = @getimagesizefromstring($bytes);
+    $type = is_array($image) ? (int)($image[2] ?? 0) : 0;
+    $allowed = [
+        IMAGETYPE_JPEG => ['image/jpeg', 'jpg'],
+        IMAGETYPE_PNG => ['image/png', 'png'],
+    ];
+    if (defined('IMAGETYPE_WEBP')) $allowed[IMAGETYPE_WEBP] = ['image/webp', 'webp'];
+    if (defined('IMAGETYPE_AVIF')) $allowed[IMAGETYPE_AVIF] = ['image/avif', 'avif'];
+    if (!isset($allowed[$type])) {
+        throw new MediaUploadRejected('Only avif/webp/png/jpg/jpeg allowed', 415);
+    }
+    $width = (int)($image[0] ?? 0);
+    $height = (int)($image[1] ?? 0);
+    if ($width < 1 || $height < 1 || $width > intdiv($maxPixels, $height)) {
+        throw new MediaUploadRejected('Image dimensions are too large.', 413);
+    }
+
+    return [
+        'mime' => $allowed[$type][0],
+        'ext' => $allowed[$type][1],
+        'size' => $size,
+        'width' => $width,
+        'height' => $height,
+        'sha256' => hash('sha256', $bytes),
+    ];
+}
+
+function media_upload_original_name(mixed $name): string
+{
+    if (!is_scalar($name)) return 'upload';
+    $name = basename(str_replace('\\', '/', trim((string)$name)));
+    $name = preg_replace('/[\x00-\x1F\x7F]/', '', $name) ?? '';
+    if (function_exists('mb_check_encoding') && !mb_check_encoding($name, 'UTF-8')) return 'upload';
+    if ($name === '' || $name === '.' || $name === '..') return 'upload';
+    return strlen($name) <= 255 ? $name : substr($name, -255);
+}
+
+function media_upload_descriptor(
+    string $path,
+    string $originalName,
+    int $maxBytes = 20971520,
+    int $maxPixels = 100000000
+): array {
+    return ['schema' => 1, 'original_name' => media_upload_original_name($originalName)]
+        + media_upload_inspect_image($path, $maxBytes, $maxPixels);
+}
+
+function media_upload_private_workspace(string $privateFilesRoot): string
+{
+    if (!is_dir($privateFilesRoot) && !@mkdir($privateFilesRoot, 0750, true) && !is_dir($privateFilesRoot)) {
+        throw new RuntimeException('Unable to create private media upload root.');
+    }
+    $root = realpath($privateFilesRoot);
+    if ($root === false || is_link($privateFilesRoot) || !is_dir($root)) {
+        throw new RuntimeException('Unsafe private media upload root.');
+    }
+    for ($attempt = 0; $attempt < 8; $attempt++) {
+        $workspace = $root . '/.media-upload-' . bin2hex(random_bytes(16));
+        if (@mkdir($workspace, 0700)) return $workspace;
+    }
+    throw new RuntimeException('Unable to create private media upload workspace.');
+}
+
+function media_upload_remove_workspace(?string $workspace): bool
+{
+    if (!is_string($workspace) || $workspace === ''
+        || preg_match('/\A\.media-upload-[a-f0-9]{32}\z/D', basename($workspace)) !== 1
+        || is_link($workspace) || !is_dir($workspace)) return $workspace === null || !file_exists((string)$workspace);
+    $ok = true;
+    foreach (scandir($workspace) ?: [] as $entry) {
+        if ($entry === '.' || $entry === '..') continue;
+        $path = $workspace . '/' . $entry;
+        $stat = @lstat($path);
+        if (!is_array($stat) || (($stat['mode'] ?? 0) & 0170000) === 0040000 || !@unlink($path)) $ok = false;
+    }
+    return (@rmdir($workspace) || !is_dir($workspace)) && $ok;
+}
+
+function media_upload_create_private_file(string $directory, string $prefix): array
+{
+    $directoryReal = realpath($directory);
+    if ($directoryReal === false || is_link($directory) || !is_dir($directoryReal)) {
+        throw new RuntimeException('Unsafe media upload directory.');
+    }
+    for ($attempt = 0; $attempt < 8; $attempt++) {
+        $path = $directoryReal . '/.' . $prefix . '-' . bin2hex(random_bytes(16));
+        $oldUmask = umask(0077);
+        try {
+            $stream = @fopen($path, 'x+b');
+        } finally {
+            umask($oldUmask);
+        }
+        if (!is_resource($stream)) continue;
+        if (!@chmod($path, 0600)) {
+            fclose($stream);
+            @unlink($path);
+            throw new RuntimeException('Unable to protect media upload temporary file.');
+        }
+        return [$path, $stream];
+    }
+    throw new RuntimeException('Unable to create media upload temporary file.');
+}
+
+function media_upload_copy_private(string $source, string $directory, string $prefix, int $maxBytes, int $maxPixels): array
+{
+    $sourceStat = media_upload_file_stat($source);
+    $sourceImage = media_upload_inspect_image($source, $maxBytes, $maxPixels);
+    [$destination, $output] = media_upload_create_private_file($directory, $prefix);
+    $input = @fopen($source, 'rb');
+    try {
+        if (!is_resource($input)) throw new RuntimeException('Unable to open media upload source.');
+        $opened = fstat($input);
+        if (!is_array($opened) || !media_upload_same_identity($sourceStat, $opened)) {
+            throw new RuntimeException('Media upload source identity changed.');
+        }
+        $copied = stream_copy_to_stream($input, $output, $maxBytes + 1);
+        if (!is_int($copied) || $copied !== $sourceImage['size'] || !fflush($output)
+            || (function_exists('fsync') && !fsync($output))) {
+            throw new RuntimeException('Unable to copy media upload bytes.');
+        }
+    } catch (Throwable $error) {
+        if (is_resource($input)) fclose($input);
+        fclose($output);
+        @unlink($destination);
+        throw $error;
+    }
+    fclose($input);
+    fclose($output);
+    if (media_upload_inspect_image($source, $maxBytes, $maxPixels) !== $sourceImage) {
+        @unlink($destination);
+        throw new RuntimeException('Media upload source changed during copy.');
+    }
+    try {
+        $copyImage = media_upload_inspect_image($destination, $maxBytes, $maxPixels);
+    } catch (Throwable $error) {
+        @unlink($destination);
+        throw $error;
+    }
+    if ($copyImage !== $sourceImage) {
+        @unlink($destination);
+        throw new RuntimeException('Media upload copy verification failed.');
+    }
+    return [$destination, $copyImage];
+}
+
+/**
+ * Let an extension produce replacement bytes without risking the current stage.
+ * The writer receives ($stagePath, $sameDirectoryOutputPath); false is a no-op.
+ */
+function media_upload_atomic_rewrite(
+    string $stagePath,
+    callable $writer,
+    int $maxBytes = 20971520,
+    int $maxPixels = 100000000
+): array {
+    [$maxBytes, $maxPixels] = media_upload_limits($maxBytes, $maxPixels);
+    $originalStat = media_upload_file_stat($stagePath);
+    $original = media_upload_inspect_image($stagePath, $maxBytes, $maxPixels);
+    [$backupPath] = media_upload_copy_private($stagePath, dirname($stagePath), 'media-rewrite-backup', $maxBytes, $maxPixels);
+    [$outputPath, $output] = media_upload_create_private_file(dirname($stagePath), 'media-rewrite-output');
+    fclose($output);
+    $restoreOriginal = static function () use ($stagePath, $backupPath, $original, $maxBytes, $maxPixels): bool {
+        try {
+            if (media_upload_inspect_image($backupPath, $maxBytes, $maxPixels) !== $original) return false;
+        } catch (Throwable $error) {
+            return false;
+        }
+        return @rename($backupPath, $stagePath);
+    };
+
+    try {
+        $result = $writer($stagePath, $outputPath);
+        try {
+            $currentStat = media_upload_file_stat($stagePath);
+            $current = media_upload_inspect_image($stagePath, $maxBytes, $maxPixels);
+            $inputUnchanged = media_upload_same_identity($originalStat, $currentStat) && $current === $original;
+        } catch (Throwable $error) {
+            $inputUnchanged = false;
+        }
+        if (!$inputUnchanged) {
+            if (!$restoreOriginal()) throw new RuntimeException('Media processor changed the input and Core could not restore it.');
+            throw new RuntimeException('Media processor changed its read-only input.');
+        }
+        if ($result === false) return $original;
+        try {
+            $replacement = media_upload_inspect_image($outputPath, $maxBytes, $maxPixels);
+        } catch (Throwable $error) {
+            throw new UnexpectedValueException('Media processor produced an invalid image.', 0, $error);
+        }
+        if (!@rename($outputPath, $stagePath)) {
+            throw new RuntimeException('Unable to atomically replace the media upload stage.');
+        }
+        return $replacement;
+    } catch (Throwable $error) {
+        try {
+            $current = media_upload_inspect_image($stagePath, $maxBytes, $maxPixels);
+            $unchanged = $current === $original;
+        } catch (Throwable $ignored) {
+            $unchanged = false;
+        }
+        if (!$unchanged && !$restoreOriginal()) {
+            throw new RuntimeException('Core could not preserve the media upload after processor failure.', 0, $error);
+        }
+        throw $error;
+    } finally {
+        @unlink($outputPath);
+        @unlink($backupPath);
+    }
+}
+
+function media_upload_preprocess(string $stagePath, array $descriptor, array $context, array $extensionInput): void
+{
+    $keys = ['schema', 'original_name', 'mime', 'ext', 'size', 'width', 'height', 'sha256'];
+    if (array_keys($descriptor) !== $keys || $descriptor['schema'] !== 1
+        || !is_string($descriptor['original_name']) || $descriptor['original_name'] !== media_upload_original_name($descriptor['original_name'])
+        || !in_array($descriptor['mime'], ['image/jpeg', 'image/png', 'image/webp', 'image/avif'], true)
+        || !in_array($descriptor['ext'], ['jpg', 'png', 'webp', 'avif'], true)
+        || !is_int($descriptor['size']) || $descriptor['size'] < 1 || $descriptor['size'] > 20 * 1024 * 1024
+        || !is_int($descriptor['width']) || $descriptor['width'] < 1
+        || !is_int($descriptor['height']) || $descriptor['height'] < 1
+        || !is_string($descriptor['sha256']) || preg_match('/\A[a-f0-9]{64}\z/D', $descriptor['sha256']) !== 1
+        || media_upload_inspect_image($stagePath) !== array_intersect_key($descriptor, array_flip(['mime', 'ext', 'size', 'width', 'height', 'sha256']))) {
+        throw new InvalidArgumentException('Invalid media upload preprocessing descriptor.');
+    }
+    $context = media_extension_context($context);
+    if ($extensionInput !== media_extension_input(['media_extension' => $extensionInput])) {
+        throw new InvalidArgumentException('Invalid media upload preprocessing extension input.');
+    }
+    do_action('media_upload_preprocess', $stagePath, $descriptor, $context, $extensionInput);
+}
+
 function media_extension_context(array $input = [], array $defaults = []): array
 {
     $source = array_replace($defaults, array_filter($input, static fn(mixed $item): bool => $item !== null && $item !== ''));

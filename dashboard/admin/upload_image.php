@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// /adiwira/admin/upload_image.php
-
 ob_start();
 @ini_set('display_errors', '0');
 error_reporting(E_ALL);
@@ -11,22 +9,48 @@ require_once __DIR__ . '/_guard.php';
 
 adiwira_cosmetic_404_on_direct_open();
 
-register_shutdown_function(function () {
+$uploadState = [
+    'workspace' => null,
+    'publication_stage' => null,
+    'target_path' => null,
+    'published' => false,
+    'committed' => false,
+    'content_hash_locks' => [],
+];
+$cleanupUpload = static function (bool $removePublished = false) use (&$uploadState): void {
+    if ($uploadState['content_hash_locks'] !== [] && function_exists('theme_operation_release')) {
+        try {
+            theme_operation_release($uploadState['content_hash_locks']);
+        } catch (Throwable $error) {
+            error_log('upload_image.php lock cleanup failed: ' . $error->getMessage());
+        }
+        $uploadState['content_hash_locks'] = [];
+    }
+    if (is_string($uploadState['publication_stage'])) {
+        @unlink($uploadState['publication_stage']);
+        $uploadState['publication_stage'] = null;
+    }
+    if (($removePublished || !$uploadState['committed']) && $uploadState['published']
+        && is_string($uploadState['target_path'])) {
+        @unlink($uploadState['target_path']);
+        $uploadState['published'] = false;
+    }
+    media_upload_remove_workspace($uploadState['workspace']);
+    $uploadState['workspace'] = null;
+};
+
+register_shutdown_function(static function () use (&$uploadState, $cleanupUpload): void {
+    $cleanupUpload(false);
     $sent = (bool)($GLOBALS['__ADIWIRA_JSON_SENT'] ?? false);
     if ($sent) return;
 
     $err = error_get_last();
     if (!$err) return;
-
     $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
     if (!in_array((int)$err['type'], $fatalTypes, true)) return;
 
     error_log('upload_image.php fatal: ' . ($err['message'] ?? 'unknown') . ' in ' . ($err['file'] ?? '?') . ':' . ($err['line'] ?? '?'));
-
-    while (ob_get_level() > 0) {
-        @ob_end_clean();
-    }
-
+    while (ob_get_level() > 0) @ob_end_clean();
     if (!headers_sent()) {
         http_response_code(500);
         header('Content-Type: application/json; charset=utf-8');
@@ -34,11 +58,10 @@ register_shutdown_function(function () {
         header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
         header('Pragma: no-cache');
     }
-
     echo json_encode([
         'success' => false,
-        'ok'      => false,
-        'error'   => __('Server error'),
+        'ok' => false,
+        'error' => __('Server error'),
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 });
 
@@ -52,11 +75,9 @@ $csrf = $_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 if (!adiwira_csrf_validate(is_string($csrf) ? $csrf : '')) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('CSRF invalid')], 419);
 }
-
 if (!user_can($pdo, $uid, 'core.media.upload')) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('Access denied.')], 403);
 }
-
 if (empty($_FILES['image']) || !is_array($_FILES['image'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('File not found')], 400);
 }
@@ -67,11 +88,6 @@ if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
 }
 if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
     adiwira_json(['success' => false, 'ok' => false, 'error' => __('Invalid upload')], 400);
-}
-
-$maxBytes = 20 * 1024 * 1024;
-if (($file['size'] ?? 0) > $maxBytes) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => __('File too large (max 5MB)')], 413);
 }
 
 $auto_save = !empty($_POST['auto_save']) && in_array((string)$_POST['auto_save'], ['1', 'true', 'on'], true);
@@ -88,21 +104,14 @@ if (!function_exists('mdlib_has_column')) {
         }
     }
 }
-$hasPrivateCols = isset($pdo) ? mdlib_has_column($pdo, 'visibility') : false;
-$hasContentHash = isset($pdo) ? mdlib_has_column($pdo, 'content_hash') : false;
-
 if (!function_exists('adiwira_media_private_base_dir')) {
     function adiwira_media_private_base_dir(): string
     {
         $appRoot = realpath(__DIR__ . '/../..');
-        if ($appRoot === false) {
-            $appRoot = dirname(__DIR__, 2);
-        }
-
+        if ($appRoot === false) $appRoot = dirname(__DIR__, 2);
         return rtrim(str_replace('\\', '/', $appRoot), '/') . '/private_files';
     }
 }
-
 if (!function_exists('adiwira_media_normalize_choice')) {
     function adiwira_media_normalize_choice(string $value, array $allowed, string $fallback): string
     {
@@ -111,146 +120,19 @@ if (!function_exists('adiwira_media_normalize_choice')) {
     }
 }
 
-// public
-$publicPath = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
-$static_root = rtrim($publicPath, '/\\') . '/static';
-$upload_base_dir = $static_root . '/img';
-$upload_base_url = '/static/img';
-
-// private
-$private_upload_base_dir = adiwira_media_private_base_dir();
-
-if (!is_dir($upload_base_dir) && !mkdir($upload_base_dir, 0755, true)) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to create image directory')], 500);
-}
-
-$tmp = (string)$file['tmp_name'];
-$det = [
-    'getimagesize'      => null,
-    'exif'              => null,
-    'finfo'             => null,
-    'mime_content_type' => null,
-    'signature'         => null,
-];
-
-$mime = '';
-
-$g = @getimagesize($tmp);
-if (is_array($g) && !empty($g['mime'])) {
-    $det['getimagesize'] = (string)$g['mime'];
-    $mime = (string)$g['mime'];
-}
-
-if ($mime === '' && function_exists('exif_imagetype')) {
-    $t = @exif_imagetype($tmp);
-    if ($t) {
-        $map = [
-            IMAGETYPE_JPEG => 'image/jpeg',
-            IMAGETYPE_PNG  => 'image/png',
-        ];
-        if (defined('IMAGETYPE_WEBP')) $map[IMAGETYPE_WEBP] = 'image/webp';
-        if (defined('IMAGETYPE_AVIF')) $map[IMAGETYPE_AVIF] = 'image/avif';
-        if (isset($map[$t])) {
-            $det['exif'] = $map[$t];
-            $mime = $map[$t];
-        } else {
-            $det['exif'] = 'type=' . (string)$t;
-        }
-    }
-}
-
-if ($mime === '' && class_exists('finfo')) {
-    $fi = new finfo(FILEINFO_MIME_TYPE);
-    $m = $fi->file($tmp);
-    if (is_string($m) && $m !== '') {
-        $det['finfo'] = $m;
-        $mime = $m;
-    }
-}
-
-if (($mime === '' || $mime === 'application/octet-stream') && function_exists('mime_content_type')) {
-    $m = @mime_content_type($tmp);
-    if (is_string($m) && $m !== '') {
-        $det['mime_content_type'] = $m;
-        $mime = $m;
-    }
-}
-
-if ($mime === '' || $mime === 'application/octet-stream') {
-    $head = @file_get_contents($tmp, false, null, 0, 64);
-    if (is_string($head) && preg_match('/ftyp(?:avif|avis)/i', $head)) {
-        $det['signature'] = 'image/avif';
-        $mime = 'image/avif';
-    }
-}
-
-$mime = strtolower(trim((string)$mime));
-
-$normalize = [
-    'image/pjpeg'         => 'image/jpeg',
-    'image/jpg'           => 'image/jpeg',
-    'image/x-png'         => 'image/png',
-    'image/avif-sequence' => 'image/avif',
-];
-if (isset($normalize[$mime])) {
-    $mime = $normalize[$mime];
-}
-
-$allowed = [
-    'image/avif' => 'avif',
-    'image/webp' => 'webp',
-    'image/png'  => 'png',
-    'image/jpeg' => 'jpg',
-];
-
-if (!isset($allowed[$mime])) {
-    $response = [
-        'success' => false,
-        'ok'      => false,
-        'error'   => __('Only avif/webp/png/jpg/jpeg allowed'),
-    ];
-    if (function_exists('app_debug_enabled') && app_debug_enabled()) {
-        $response['detected_mime'] = $mime;
-        $response['detectors'] = $det;
-    }
-    adiwira_json($response, 415);
-}
-
-$ext = $allowed[$mime];
-$contentHash = hash_file('sha256', $tmp);
-if (!is_string($contentHash) || preg_match('/\A[a-f0-9]{64}\z/D', $contentHash) !== 1) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to hash uploaded image.')], 500);
-}
-try {
-    $contentHashLocks = function_exists('theme_operation_acquire')
-        ? theme_operation_acquire(['media-content-' . $contentHash], LOCK_EX, microtime(true) + 10.0)
-        : [];
-} catch (Throwable $lockError) {
-    error_log('upload_image.php identity lock failed: ' . $lockError->getMessage());
-    $contentHashLocks = [];
-}
-if ($contentHashLocks === []) {
-    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Unable to lock uploaded image identity.')], 503);
-}
-
-// visibility logic
+$hasPrivateCols = mdlib_has_column($pdo, 'visibility');
+$hasContentHash = mdlib_has_column($pdo, 'content_hash');
 $visibilityInput = $hasPrivateCols
-    ? adiwira_media_normalize_choice((string)($_POST['visibility'] ?? 'auto'), ['auto','public','private'], 'auto')
+    ? adiwira_media_normalize_choice((string)($_POST['visibility'] ?? 'auto'), ['auto', 'public', 'private'], 'auto')
     : 'public';
 $accessScopeInput = $hasPrivateCols
-    ? adiwira_media_normalize_choice((string)($_POST['access_scope'] ?? 'editorial'), ['public','editorial','admin'], 'editorial')
+    ? adiwira_media_normalize_choice((string)($_POST['access_scope'] ?? 'editorial'), ['public', 'editorial', 'admin'], 'editorial')
     : 'public';
-
 $visibility = $visibilityInput === 'auto' ? 'public' : $visibilityInput;
-if (!$hasPrivateCols) {
-    $visibility = 'public';
-}
-
+if (!$hasPrivateCols) $visibility = 'public';
 $storage_disk = $visibility === 'private' ? 'private' : 'public';
 $access_scope = $visibility === 'private' ? $accessScopeInput : 'public';
-if ($access_scope === 'public' && $visibility === 'private') {
-    $access_scope = 'editorial';
-}
+if ($access_scope === 'public' && $visibility === 'private') $access_scope = 'editorial';
 if ($visibility === 'private' && !$auto_save) {
     adiwira_json([
         'success' => false,
@@ -258,18 +140,72 @@ if ($visibility === 'private' && !$auto_save) {
         'error' => __('Private files require auto-save so a protected URL can be generated.'),
     ], 400);
 }
-
-if (array_key_exists('is_downloadable', $_POST)) {
-    $is_downloadable = in_array((string)$_POST['is_downloadable'], ['1','true','on','yes'], true) ? 1 : 0;
-} else {
-    $is_downloadable = ($visibility === 'private') ? 0 : 1;
-}
+$is_downloadable = array_key_exists('is_downloadable', $_POST)
+    ? (in_array((string)$_POST['is_downloadable'], ['1', 'true', 'on', 'yes'], true) ? 1 : 0)
+    : ($visibility === 'private' ? 0 : 1);
 
 $mediaContext = media_picker_context_from_request($_POST, ['surface' => 'admin.media.upload']);
 $extensionInput = media_extension_input($_POST);
+$private_upload_base_dir = adiwira_media_private_base_dir();
+$originalFilename = media_upload_original_name($file['name'] ?? 'upload');
 
-if ($auto_save && $hasContentHash) {
-    try {
+try {
+    $uploadState['workspace'] = media_upload_private_workspace($private_upload_base_dir);
+    $stagePath = $uploadState['workspace'] . '/input';
+    if (!move_uploaded_file((string)$file['tmp_name'], $stagePath) || !@chmod($stagePath, 0600)) {
+        throw new RuntimeException('Unable to move uploaded image into private staging.');
+    }
+    $descriptor = media_upload_descriptor($stagePath, $originalFilename);
+} catch (MediaUploadRejected $error) {
+    $cleanupUpload(false);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __($error->getMessage())], $error->status());
+} catch (Throwable $error) {
+    error_log('upload_image.php private staging failed: ' . $error->getMessage());
+    $cleanupUpload(false);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to save file')], 500);
+}
+
+try {
+    media_upload_preprocess($stagePath, $descriptor, $mediaContext, $extensionInput);
+} catch (MediaUploadRejected $error) {
+    $cleanupUpload(false);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => $error->getMessage()], $error->status());
+} catch (Throwable $error) {
+    error_log('upload_image.php media_upload_preprocess failed: ' . $error->getMessage());
+    $cleanupUpload(false);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Image preprocessing failed.')], 500);
+}
+
+try {
+    $finalImage = media_upload_inspect_image($stagePath);
+} catch (Throwable $error) {
+    error_log('upload_image.php processed image validation failed: ' . $error->getMessage());
+    $cleanupUpload(false);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('The processed image is invalid.')], 422);
+}
+
+$mime = $finalImage['mime'];
+$ext = $finalImage['ext'];
+$size = $finalImage['size'];
+$width = $finalImage['width'];
+$height = $finalImage['height'];
+$contentHash = $finalImage['sha256'];
+
+try {
+    $uploadState['content_hash_locks'] = function_exists('theme_operation_acquire')
+        ? theme_operation_acquire(['media-content-' . $contentHash], LOCK_EX, microtime(true) + 10.0)
+        : [];
+} catch (Throwable $lockError) {
+    error_log('upload_image.php identity lock failed: ' . $lockError->getMessage());
+    $uploadState['content_hash_locks'] = [];
+}
+if ($uploadState['content_hash_locks'] === []) {
+    $cleanupUpload(false);
+    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Unable to lock uploaded image identity.')], 503);
+}
+
+try {
+    if ($auto_save && $hasContentHash) {
         $pdo->beginTransaction();
         if (!authorization_lock_actor_permissions($pdo, $uid)
             || !user_can($pdo, $uid, 'core.media.upload')) {
@@ -291,9 +227,8 @@ if ($auto_save && $hasContentHash) {
         }
         if ($duplicateRow !== null) {
             if (!$pdo->commit()) throw new RuntimeException('Unable to complete duplicate media lookup.');
-            theme_operation_release($contentHashLocks);
-            $contentHashLocks = [];
             $duplicateMedia = media_filter_data($pdo, $duplicateRow, $mediaContext, true);
+            $cleanupUpload(false);
             adiwira_json([
                 'success' => true,
                 'ok' => true,
@@ -305,81 +240,64 @@ if ($auto_save && $hasContentHash) {
             ], 200);
         }
         if (!$pdo->commit()) throw new RuntimeException('Unable to complete duplicate media lookup.');
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        if ($e instanceof AssetLifecycleAccessDenied) {
-            adiwira_json(['success' => false, 'ok' => false, 'error' => __('Access denied.')], 403);
-        }
-        error_log('upload_image.php duplicate lookup failed: ' . $e->getMessage());
-        adiwira_json(['success' => false, 'ok' => false, 'error' => __('Database insert failed')], 500);
     }
-}
 
-$year = date('Y');
-$month = date('m');
-$relative_storage_path = $year . '/' . $month;
+    $publicPath = defined('PUBLIC_PATH') ? (string)PUBLIC_PATH : (string)($_SERVER['DOCUMENT_ROOT'] ?? '');
+    $upload_base_dir = rtrim($publicPath, '/\\') . '/static/img';
+    $upload_base_url = '/static/img';
+    $year = date('Y');
+    $month = date('m');
+    $relative_storage_path = $year . '/' . $month;
+    if ($storage_disk === 'private') {
+        $target_dir = rtrim($private_upload_base_dir, '/\\') . '/media/' . $relative_storage_path;
+        $dirMode = 0750;
+    } else {
+        $target_dir = $upload_base_dir . '/' . $relative_storage_path;
+        $dirMode = 0775;
+    }
+    if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true) && !is_dir($target_dir)) {
+        throw new RuntimeException('Failed to create upload folder.');
+    }
+    @chmod($target_dir, $dirMode);
 
-if ($storage_disk === 'private') {
-    $target_base_dir = rtrim($private_upload_base_dir, '/\\') . '/media';
-    $target_dir = $target_base_dir . '/' . $relative_storage_path;
-    $dirMode = 0750;
-} else {
-    $target_dir = $upload_base_dir . '/' . $relative_storage_path;
-    $dirMode = 0775;
-}
+    $originalStem = pathinfo($originalFilename, PATHINFO_FILENAME);
+    $slug = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', mb_strtolower($originalStem, 'UTF-8'));
+    $slug = trim((string)$slug, '-');
+    if ($slug === '') $slug = bin2hex(random_bytes(4));
+    $filename = $slug . '-' . bin2hex(random_bytes(4)) . '.' . $ext;
+    $target_path = $target_dir . '/' . $filename;
+    if (file_exists($target_path) || is_link($target_path)) {
+        throw new RuntimeException('Media publication target already exists.');
+    }
+    $uploadState['target_path'] = $target_path;
+    [$publicationStage, $publicationImage] = media_upload_copy_private(
+        $stagePath,
+        $target_dir,
+        'media-publication-stage',
+        20 * 1024 * 1024,
+        100000000
+    );
+    $uploadState['publication_stage'] = $publicationStage;
+    if ($publicationImage !== $finalImage) throw new RuntimeException('Media publication stage verification failed.');
 
-if (!is_dir($target_dir) && !@mkdir($target_dir, $dirMode, true)) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to create upload folder')], 500);
-}
+    $storage_path = $relative_storage_path . '/' . $filename;
+    $public_url = rtrim($upload_base_url, '/') . '/' . $storage_path;
+    $client_url = $storage_disk === 'private' ? '' : $public_url;
+    $response = [
+        'success' => true,
+        'ok' => true,
+        'url' => $client_url,
+        'visibility' => $visibility,
+        'storage_disk' => $storage_disk,
+        'access_scope' => $access_scope,
+        'is_downloadable' => $is_downloadable,
+    ];
+    $title = trim((string)($_POST['title'] ?? $originalStem));
+    $alt = trim((string)($_POST['alt'] ?? ''));
+    $caption = trim((string)($_POST['caption'] ?? ''));
+    $credit = trim((string)($_POST['credit'] ?? ''));
+    $event = null;
 
-@chmod($target_dir, $dirMode);
-
-$original_name = pathinfo((string)$file['name'], PATHINFO_FILENAME);
-$slug = preg_replace('/[^\p{L}\p{N}\-]+/u', '-', mb_strtolower($original_name, 'UTF-8'));
-$slug = trim((string)$slug, '-');
-if ($slug === '') {
-    $slug = bin2hex(random_bytes(4));
-}
-
-$rand = bin2hex(random_bytes(4));
-$filename = $slug . '-' . $rand . '.' . $ext;
-$target_path = $target_dir . '/' . $filename;
-$stage_path = $target_dir . '/.media-upload-stage-' . bin2hex(random_bytes(16));
-
-if (!move_uploaded_file($file['tmp_name'], $stage_path)) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to save file')], 500);
-}
-@chmod($stage_path, 0600);
-
-$storage_path = $relative_storage_path . '/' . $filename;
-$public_url = rtrim($upload_base_url, '/') . '/' . $storage_path;
-$client_url = $storage_disk === 'private' ? '' : $public_url;
-
-$response = [
-    'success'       => true,
-    'ok'            => true,
-    'url'           => $client_url,
-    'visibility'    => $visibility,
-    'storage_disk'  => $storage_disk,
-    'access_scope'  => $access_scope,
-    'is_downloadable' => $is_downloadable,
-];
-
-$title   = trim((string)($_POST['title'] ?? $original_name));
-$alt     = trim((string)($_POST['alt'] ?? ''));
-$caption = trim((string)($_POST['caption'] ?? ''));
-$credit  = trim((string)($_POST['credit'] ?? ''));
-$size = (int)(@filesize($stage_path) ?: 0);
-$g2 = @getimagesize($stage_path);
-$width = is_array($g2) ? (int)$g2[0] : null;
-$height = is_array($g2) ? (int)$g2[1] : null;
-$event = null;
-$committed = false;
-$published = false;
-
-try {
     $pdo->beginTransaction();
     if (!authorization_lock_actor_permissions($pdo, $uid)
         || !user_can($pdo, $uid, 'core.media.upload')) {
@@ -401,19 +319,18 @@ try {
         'is_downloadable' => $is_downloadable,
     ], $mediaContext, $extensionInput);
 
-    $stageStat = lstat($stage_path);
-    if ($stageStat === false || (($stageStat['mode'] ?? 0) & 0170000) !== 0100000
+    if (media_upload_inspect_image($publicationStage) !== $finalImage
         || file_exists($target_path) || is_link($target_path)) {
         throw new RuntimeException('Staged media artifact changed before publication.');
     }
-    asset_lifecycle_rename($stage_path, $target_path);
-    $published = true;
+    asset_lifecycle_rename($publicationStage, $target_path);
+    $uploadState['publication_stage'] = null;
+    $uploadState['published'] = true;
     @chmod($target_path, $storage_disk === 'private' ? 0640 : 0644);
 
     if ($auto_save) {
         $commonCols = 'url, filename, mime, ext, size, width, height, title, alt, caption, credit, user_id, created_at';
         $commonVals = ':url, :filename, :mime, :ext, :size, :width, :height, :title, :alt, :caption, :credit, :user_id, NOW()';
-
         $extraCols = '';
         $extraVals = '';
         $extraParams = [];
@@ -426,36 +343,33 @@ try {
             $extraCols .= ', visibility, storage_disk, storage_path, access_scope, is_downloadable';
             $extraVals .= ', :visibility, :storage_disk, :storage_path, :access_scope, :is_downloadable';
             $extraParams = array_merge($extraParams, [
-                ':visibility'      => $visibility,
-                ':storage_disk'    => $storage_disk,
-                ':storage_path'    => $storage_path,
-                ':access_scope'    => $access_scope,
+                ':visibility' => $visibility,
+                ':storage_disk' => $storage_disk,
+                ':storage_path' => $storage_path,
+                ':access_scope' => $access_scope,
                 ':is_downloadable' => $is_downloadable,
             ]);
         }
-
-        $sql = "INSERT INTO media ({$commonCols}{$extraCols}) VALUES ({$commonVals}{$extraVals})";
-        $stmt = $pdo->prepare($sql);
+        $stmt = $pdo->prepare("INSERT INTO media ({$commonCols}{$extraCols}) VALUES ({$commonVals}{$extraVals})");
         $stmt->execute(array_merge([
-            ':url'      => $public_url,
+            ':url' => $public_url,
             ':filename' => $filename,
-            ':mime'     => $mime,
-            ':ext'      => $ext,
-            ':size'     => $size,
-            ':width'    => $width,
-            ':height'   => $height,
-            ':title'    => $title,
-            ':alt'      => $alt ?: null,
-            ':caption'  => $caption ?: null,
-            ':credit'   => $credit ?: null,
-            ':user_id'  => $uid,
+            ':mime' => $mime,
+            ':ext' => $ext,
+            ':size' => $size,
+            ':width' => $width,
+            ':height' => $height,
+            ':title' => $title,
+            ':alt' => $alt ?: null,
+            ':caption' => $caption ?: null,
+            ':credit' => $credit ?: null,
+            ':user_id' => $uid,
         ], $extraParams));
 
         $media_id = (int)$pdo->lastInsertId();
-
         if ($storage_disk === 'private') {
             $client_url = '/private/media/view/?id=' . $media_id;
-            $up = $pdo->prepare("UPDATE media SET url = :url WHERE id = :id LIMIT 1");
+            $up = $pdo->prepare('UPDATE media SET url = :url WHERE id = :id LIMIT 1');
             $up->execute([':url' => $client_url, ':id' => $media_id]);
             $response['url'] = $client_url;
         }
@@ -479,22 +393,17 @@ try {
     }
 
     if (!$pdo->commit()) throw new RuntimeException('Unable to commit media publication.');
-    $committed = true;
-    theme_operation_release($contentHashLocks);
-    $contentHashLocks = [];
-} catch (Throwable $e) {
-    if ($contentHashLocks !== []) theme_operation_release($contentHashLocks);
+    $uploadState['committed'] = true;
+    $cleanupUpload(false);
+} catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    if (!$committed) {
-        if ($published) @unlink($target_path);
-        else @unlink($stage_path);
-    }
-    error_log('upload_image.php publication failed: ' . $e->getMessage());
+    $cleanupUpload(false);
+    error_log('upload_image.php publication failed: ' . $error->getMessage());
     adiwira_json([
         'success' => false,
         'ok' => false,
-        'error' => $e instanceof AssetLifecycleAccessDenied ? __('Access denied.') : __('Database insert failed'),
-    ], $e instanceof AssetLifecycleAccessDenied ? 403 : 500);
+        'error' => $error instanceof AssetLifecycleAccessDenied ? __('Access denied.') : __('Database insert failed'),
+    ], $error instanceof AssetLifecycleAccessDenied ? 403 : 500);
 }
 
 if ($event !== null) asset_lifecycle_committed($pdo, $event);
@@ -502,9 +411,9 @@ if ($event !== null) asset_lifecycle_committed($pdo, $event);
 if (!$auto_save) {
     try {
         $response['cleanup_token'] = asset_lifecycle_temporary_issue('media', $uid, $storage_path);
-    } catch (Throwable $e) {
-        @unlink($target_path);
-        error_log('upload_image.php cleanup grant failed: ' . $e->getMessage());
+    } catch (Throwable $error) {
+        $cleanupUpload(true);
+        error_log('upload_image.php cleanup grant failed: ' . $error->getMessage());
         adiwira_json(['success' => false, 'ok' => false, 'error' => __('Failed to prepare temporary upload.')], 500);
     }
 }

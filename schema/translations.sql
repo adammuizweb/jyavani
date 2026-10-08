@@ -5339,6 +5339,15 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Unable to lock uploaded image identity.', 'Tidak dapat mengunci identitas gambar yang diunggah.', 'id'),
 ('default', 'Unable to lock uploaded image identity.', 'Die Identität des hochgeladenen Bildes konnte nicht gesperrt werden.', 'de');
 
+-- Media upload preprocessing
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Image preprocessing failed.', 'Prapemrosesan gambar gagal.', 'id'),
+('default', 'Image preprocessing failed.', 'Die Bildvorverarbeitung ist fehlgeschlagen.', 'de'),
+('default', 'The processed image is invalid.', 'Gambar yang diproses tidak valid.', 'id'),
+('default', 'The processed image is invalid.', 'Das verarbeitete Bild ist ungültig.', 'de'),
+('default', 'Image dimensions are too large.', 'Dimensi gambar terlalu besar.', 'id'),
+('default', 'Image dimensions are too large.', 'Die Bildabmessungen sind zu groß.', 'de');
+
 -- Site Health and Core Integrity
 INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
 ('default', 'Site Health', 'Kesehatan Situs', 'id'),
