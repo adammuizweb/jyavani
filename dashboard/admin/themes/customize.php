@@ -264,17 +264,11 @@ function tz_sanitize_config(string $type, array $config, array $tzWidgets): arra
             $out['max_width'] = max(0, min(2000, (int)($config['max_width'] ?? 0)));
             break;
         case 'tz_social':
-            $nets = function_exists('theme_zone_social_networks') ? theme_zone_social_networks() : [];
-            $enabled = array_values(array_intersect(array_keys($nets), array_map('strval', (array)($config['enabled'] ?? []))));
-            $links = [];
-            foreach ((array)($config['links'] ?? []) as $k => $v) {
-                $k = (string)$k;
-                if (!isset($nets[$k])) continue;
-                $v = trim((string)$v);
-                if ($v !== '' && preg_match('#^https?://#i', $v)) $links[$k] = $v;
-            }
-            $out['enabled'] = $enabled;
-            $out['links'] = $links;
+            $social = function_exists('theme_zone_normalize_social_config')
+                ? theme_zone_normalize_social_config($config)
+                : ['enabled' => [], 'links' => []];
+            $out['enabled'] = $social['enabled'];
+            $out['links'] = $social['links'];
             break;
         case 'tz_pages':
             $out['pages'] = array_values(array_filter(array_map(fn($s) => preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)$s), (array)($config['pages'] ?? []))));
@@ -442,7 +436,7 @@ function tz_widget_config_form(string $zoneSlug, string $position, int $itemId, 
                 $out .= '<label style="display:inline-flex; align-items:center; gap:6px; font-size:13px; min-width:110px; cursor:pointer;">';
                 $out .= '<input type="checkbox" name="' . $cbName . '" value="' . h($netSlug) . '"' . ($on ? ' checked' : '') . ' style="width:15px; height:15px; accent-color:var(--adam-primary);">';
                 $out .= h($netDef['label']) . '</label>';
-                $out .= '<input type="text" name="' . $urlName . '" value="' . h((string)($linksNow[$netSlug] ?? '')) . '" placeholder="https://" style="flex:1; min-width:0; padding:5px 9px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
+                $out .= '<input type="url" inputmode="url" maxlength="2048" autocomplete="url" aria-label="' . h(sprintf(__('%s URL'), (string)$netDef['label'])) . '" name="' . $urlName . '" value="' . h((string)($linksNow[$netSlug] ?? '')) . '" placeholder="https://" style="flex:1; min-width:0; padding:5px 9px; border:1px solid var(--adam-border-2, rgba(127,127,127,.35)); border-radius:6px; background:var(--adam-bg); color:var(--adam-text); font-size:13px;">';
                 $out .= '</div>';
             }
             $out .= '</div>';

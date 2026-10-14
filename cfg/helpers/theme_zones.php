@@ -211,6 +211,54 @@ if (!function_exists('theme_zone_ensure_schema')) {
         ];
     }
 
+    function theme_zone_social_url(mixed $value): string {
+        if (!is_string($value)) return '';
+        $url = trim($value);
+        if ($url === '' || strlen($url) > 2048) return '';
+        if ((function_exists('mb_check_encoding') && !mb_check_encoding($url, 'UTF-8'))
+            || preg_match('/[\x00-\x20\x7F\\\\]/', $url) === 1) return '';
+        if (filter_var($url, FILTER_VALIDATE_URL) === false) return '';
+
+        $parts = parse_url($url);
+        if (!is_array($parts)
+            || !in_array(strtolower((string)($parts['scheme'] ?? '')), ['http', 'https'], true)
+            || trim((string)($parts['host'] ?? '')) === ''
+            || isset($parts['user'])
+            || isset($parts['pass'])) return '';
+
+        return $url;
+    }
+
+    function theme_zone_normalize_social_config(array $config, ?array &$invalidNetworks = null): array {
+        $networks = theme_zone_social_networks();
+        $requested = [];
+        foreach ((array)($config['enabled'] ?? []) as $network) {
+            if (is_string($network)) $requested[] = $network;
+        }
+        $enabled = [];
+        foreach (array_keys($networks) as $network) {
+            if (in_array($network, $requested, true)) $enabled[] = $network;
+        }
+
+        $invalid = [];
+        $links = [];
+        $submittedLinks = is_array($config['links'] ?? null) ? $config['links'] : [];
+        foreach (array_keys($networks) as $network) {
+            if (!array_key_exists($network, $submittedLinks)) continue;
+            $raw = $submittedLinks[$network];
+            if (is_string($raw) && trim($raw) === '') continue;
+            $url = theme_zone_social_url($raw);
+            if ($url === '') {
+                $invalid[] = $network;
+                continue;
+            }
+            $links[$network] = $url;
+        }
+        $invalidNetworks = $invalid;
+
+        return ['enabled' => $enabled, 'links' => $links];
+    }
+
     // ─── Universal gadget display helpers ───
     // Key-name   = _title_tag, _align_title, _align_content
     // Stored in  $config alongside type-specific keys.
@@ -262,6 +310,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
             'tz_social' => [
                 'label' => __('Social Icons'),
                 'desc'  => __('Pilih sosial media populer yang ingin ditampilkan (icon Simple Icons CC0).'),
+                'sidebar_addable' => true,
                 'default_config' => array_merge($uni, ['enabled' => ['x', 'github', 'instagram'], 'links' => []]),
                 'translatable_config' => [
                     'title' => ['label' => __('Title'), 'control' => 'text', 'format' => 'text'],
@@ -428,16 +477,15 @@ if (!function_exists('theme_zone_ensure_schema')) {
 
             case 'tz_social':
                 $networks = theme_zone_social_networks();
-                $enabled = (array)($config['enabled'] ?? ['x', 'github', 'instagram']);
-                $links = (array)($config['links'] ?? []);
+                if (!array_key_exists('enabled', $config)) $config['enabled'] = ['x', 'github', 'instagram'];
+                $social = theme_zone_normalize_social_config($config);
                 $out = '';
-                foreach ($enabled as $net) {
-                    $net = (string)$net;
-                    if (!isset($networks[$net])) continue;
-                    $url = trim((string)($links[$net] ?? ''));
-                    $href = $url !== '' ? htmlspecialchars($url, ENT_QUOTES, 'UTF-8') : '#';
-                    $label = htmlspecialchars($networks[$net]['label'], ENT_QUOTES, 'UTF-8');
-                    $out .= '<a class="social-btn tz-social-' . $net . '" href="' . $href . '" target="_blank" rel="noopener" aria-label="' . $label . '" title="' . $label . '">'
+                foreach ($social['enabled'] as $net) {
+                    $url = (string)($social['links'][$net] ?? '');
+                    if ($url === '') continue;
+                    $href = htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                    $label = htmlspecialchars($networks[$net]['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                    $out .= '<a class="social-btn tz-social-' . $net . '" href="' . $href . '" target="_blank" rel="noopener" role="listitem" aria-label="' . $label . '" title="' . $label . '">'
                         . '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="' . $networks[$net]['path'] . '" fill="currentColor"/></svg></a>';
                 }
                 if ($out === '') return '';

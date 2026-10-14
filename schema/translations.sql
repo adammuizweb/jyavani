@@ -6169,3 +6169,12 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Apply filters', 'Filter anwenden', 'de'),
 ('default', 'New Article', 'Artikel Baru', 'id'),
 ('default', 'New Article', 'Neuer Artikel', 'de');
+
+-- Social gadget settings
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Select the social networks to show. Links left empty are hidden.', 'Pilih jejaring sosial yang ingin ditampilkan. Tautan yang dibiarkan kosong akan disembunyikan.', 'id'),
+('default', 'Select the social networks to show. Links left empty are hidden.', 'Wählen Sie die anzuzeigenden sozialen Netzwerke. Leere Links werden ausgeblendet.', 'de'),
+('default', '%s URL', 'URL %s', 'id'),
+('default', '%s URL', '%s-URL', 'de'),
+('default', 'Invalid URL for %s. Use a complete http:// or https:// address.', 'URL untuk %s tidak valid. Gunakan alamat http:// atau https:// yang lengkap.', 'id'),
+('default', 'Invalid URL for %s. Use a complete http:// or https:// address.', 'Ungültige URL für %s. Verwenden Sie eine vollständige http://- oder https://-Adresse.', 'de');

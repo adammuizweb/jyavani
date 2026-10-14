@@ -80,7 +80,7 @@ $widget_types = [
     ],
 ];
 $widget_types = apply_filters('sidebar_widget_types', $widget_types);
-$delegatedConfigurableTypes = ['search', 'last_posts', 'editor_pick', 'categories'];
+$delegatedConfigurableTypes = ['search', 'last_posts', 'editor_pick', 'categories', 'tz_social'];
 $sidebarAddableWidgetTypes = array_filter(
     $widget_types,
     static fn($definition): bool => is_array($definition) && ($definition['addable'] ?? true) === true
@@ -135,16 +135,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $presetSlug = trim((string)($_POST['new_preset_slug'] ?? ''));
         if (!isset($publishedPresetSlugs[$presetSlug])) $errors[] = __('Choose a published Preset.');
     }
-    if ($action === 'save' && $canManageRawHtml) {
+    if ($action === 'save') {
         $submittedWidgets = (array)($_POST['widget'] ?? []);
         foreach ($submittedWidgets as $widgetId => $submittedWidget) {
             $existingWidget = $currentItemsById[(int)$widgetId] ?? null;
-            if (($existingWidget['type'] ?? '') !== 'shortcode_preset' || !is_array($submittedWidget)) continue;
+            if (!$existingWidget || !is_array($submittedWidget)) continue;
             $submittedConfig = is_array($submittedWidget['config'] ?? null) ? $submittedWidget['config'] : [];
-            $presetSlug = trim((string)($submittedConfig['preset_slug'] ?? ''));
-            if (!isset($publishedPresetSlugs[$presetSlug])) {
-                $errors[] = __('Choose a published Preset.');
-                break;
+            $existingType = (string)($existingWidget['type'] ?? '');
+            if ($existingType === 'shortcode_preset' && $canManageRawHtml) {
+                $presetSlug = trim((string)($submittedConfig['preset_slug'] ?? ''));
+                if (!isset($publishedPresetSlugs[$presetSlug])) {
+                    $errors[] = __('Choose a published Preset.');
+                }
+            }
+            if ($existingType === 'tz_social' && function_exists('theme_zone_normalize_social_config')) {
+                $invalidNetworks = [];
+                theme_zone_normalize_social_config($submittedConfig, $invalidNetworks);
+                $socialNetworks = theme_zone_social_networks();
+                foreach ($invalidNetworks as $network) {
+                    $label = (string)($socialNetworks[$network]['label'] ?? $network);
+                    $errors[] = sprintf(__('Invalid URL for %s. Use a complete http:// or https:// address.'), $label);
+                }
             }
         }
     }
@@ -254,6 +265,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($type === 'shortcode_preset') {
                 $config['preset_slug'] = (string)($config['preset_slug'] ?? '');
+            }
+            if ($type === 'tz_social' && function_exists('theme_zone_normalize_social_config')) {
+                $existingConfig = is_array($currentItemsById[$wid]['config'] ?? null)
+                    ? $currentItemsById[$wid]['config']
+                    : [];
+                $social = theme_zone_normalize_social_config($config);
+                $tag = (string)($existingConfig['_title_tag'] ?? 'div');
+                $titleAlign = (string)($existingConfig['_align_title'] ?? 'left');
+                $contentAlign = (string)($existingConfig['_align_content'] ?? 'left');
+                $config = [
+                    'title' => $title,
+                    '_title_tag' => in_array($tag, ['h1','h2','h3','h4','h5','h6'], true) ? $tag : 'div',
+                    '_align_title' => in_array($titleAlign, ['left','center','right'], true) ? $titleAlign : 'left',
+                    '_align_content' => in_array($contentAlign, ['left','center','right'], true) ? $contentAlign : 'left',
+                    'enabled' => $social['enabled'],
+                    'links' => $social['links'],
+                ];
             }
 
             $st = $pdo->prepare("UPDATE sidebar_zone_items SET type = :typ, title = :title, config = :cfg, ordering = :ord, active = :act WHERE id = :id AND zone_id = :zid");
@@ -621,7 +649,7 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
                    </div>
                    <?php endif; ?>
 
-                <?php elseif ($type === 'categories'): ?>
+                 <?php elseif ($type === 'categories'): ?>
                   <div>
                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?=_e('Amount')?></label>
                     <input type="number" name="widget[<?= $itemId ?>][config][limit]" value="<?= (int)($config['limit'] ?? 30) ?>" min="1" max="200" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
@@ -632,9 +660,36 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
                       <input type="checkbox" name="widget[<?= $itemId ?>][config][only_parents]" value="1" <?= !empty($config['only_parents']) ? 'checked' : '' ?> style="width:16px;height:16px;accent-color:var(--adam-primary);cursor:pointer;">
                       <?=_e('Only parent categories')?>
                     </label>
-                  </div>
+                   </div>
 
-                <?php elseif ($type === 'shortcode_preset'): ?>
+                 <?php elseif ($type === 'tz_social'): ?>
+                   <?php
+                   $socialNetworks = function_exists('theme_zone_social_networks') ? theme_zone_social_networks() : [];
+                   $enabledNetworks = (array)($config['enabled'] ?? []);
+                   $socialLinks = is_array($config['links'] ?? null) ? $config['links'] : [];
+                   ?>
+                   <div style="grid-column:1/-1;">
+                     <p style="margin:0 0 10px;color:var(--adam-muted);font-size:12px;"><?=_e('Select the social networks to show. Links left empty are hidden.')?></p>
+                     <div style="display:grid;gap:10px;">
+                       <?php foreach ($socialNetworks as $network => $networkDefinition):
+                         $networkLabel = (string)($networkDefinition['label'] ?? $network);
+                         $urlId = 'sidebar-social-' . $itemId . '-' . $network;
+                       ?>
+                         <div style="display:grid;grid-template-columns:minmax(120px,150px) minmax(0,1fr);gap:10px;align-items:end;">
+                           <label style="display:flex;align-items:center;gap:7px;min-height:34px;cursor:pointer;font-size:13px;">
+                             <input type="checkbox" class="adam-choice" name="widget[<?= $itemId ?>][config][enabled][]" value="<?= h($network) ?>" <?= in_array($network, $enabledNetworks, true) ? 'checked' : '' ?>>
+                             <?= h($networkLabel) ?>
+                           </label>
+                           <div>
+                             <label for="<?= h($urlId) ?>" style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?= h(sprintf(__('%s URL'), $networkLabel)) ?></label>
+                             <input id="<?= h($urlId) ?>" type="url" inputmode="url" maxlength="2048" autocomplete="url" name="widget[<?= $itemId ?>][config][links][<?= h($network) ?>]" value="<?= h((string)($socialLinks[$network] ?? '')) ?>" placeholder="https://" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+                           </div>
+                         </div>
+                       <?php endforeach; ?>
+                     </div>
+                   </div>
+
+                 <?php elseif ($type === 'shortcode_preset'): ?>
                   <div style="grid-column:1/-1;">
                     <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?=_e('Select Preset')?></label>
                     <select name="widget[<?= $itemId ?>][config][preset_slug]" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">

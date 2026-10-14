@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.176",
+    "version": "2.3.177",
     "build": "2026-10-14",
-    "generated": "2026-10-14T06:44:51+00:00",
+    "generated": "2026-10-14T15:01:06+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 606,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "2607db75a568063542e5de200b9149fc6e03daa620208b611bcf49e36dcb0e37",
+        "VERSION": "d9c4a29bdf7a1ca7b01b57e587d78394e9d5e2df43bf8bb6a89d9cad2be004f2",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -74,7 +74,7 @@
         "cfg/helpers/theme_helper.php": "397b7e7595a686756f33507540b352784630ba0393ed9c86a01ca65c6be47dd2",
         "cfg/helpers/theme_sections.php": "59ba12682d80033355734a02849874cc814e1274cf6736894ae01e3c0202aacc",
         "cfg/helpers/theme_source.php": "d23784f69635481a9c5ac349201a64fe86afa3a235c540c6d9f8acec972ee558",
-        "cfg/helpers/theme_zones.php": "ba157581a2422d2048c3dfb89ee827666a267680a35f3395cf5e252b3e777936",
+        "cfg/helpers/theme_zones.php": "324409390a0ad05c3b82ee598c8f2de51c081bcc329337e892a488d158129179",
         "cfg/helpers/time_helpers.php": "8ea88f6f0fe2749cb01475e693e438a36ecb7e9d27b2020b8d2c4cc9d78aac89",
         "cfg/helpers/update_metadata_http.php": "cd89db040872e2d765a5ace7996866e010ded9c18099f58882dde52cc0d0c4cc",
         "cfg/helpers/update_operation.php": "94a51f689b284ed38588cdcbe7f2b63c60016a2fc26fd5c2c5a34e5718ec50c7",
@@ -201,7 +201,7 @@
         "dashboard/admin/shortcodes/save.php": "9707740f78bf116a43305b398f09f0a2346a67ef19f6ef4784a1cc2a3c18ec47",
         "dashboard/admin/shortcodes/save_layout.php": "ae28f8806697ed38560c3eb0391a501379745e29c83866f59a70e0f58888a654",
         "dashboard/admin/sidebar/delete.php": "1353a4e64ddd56d810fb5628dafd7bbabc33df70de966590464e1326a8f39325",
-        "dashboard/admin/sidebar/index.php": "df71c3d3d531787cddaec236228f2bafa6336d119062c09fe9f1ae0549990eb1",
+        "dashboard/admin/sidebar/index.php": "00e150218d66cbb93812076f9faec66fce9525bffad7c2b67d3d330090a18248",
         "dashboard/admin/sidebar/save.php": "70215fde162d5f70a82e63fb0f93f456e23a27f2e1925823a0a0a5ca9b4235bc",
         "dashboard/admin/site_health_scan_ajax.php": "f299b03978852f2f9c8a23bce3ef17cde877a4ecc950f89c8947d5da10d7fcd4",
         "dashboard/admin/themes/_store_card.php": "96d1631fc3fa5bcd0869d5e8872d3c8a7e49be147d76ba10a5b6749d27aa5258",
@@ -210,7 +210,7 @@
         "dashboard/admin/themes/browse.php": "d8f669f696de4335de6b413024c98ddfaefe22847b47231a1c3094f1ce7fc5cc",
         "dashboard/admin/themes/bulk_action.php": "f87fd57374eed13e8b04ef4d0b59299c71c40b3f8557a23271959236ec5e0e92",
         "dashboard/admin/themes/catalog.php": "2baf01aa10bca8b18024fdff20b3634953853b2904f24c9aa03b89fc1ed44b23",
-        "dashboard/admin/themes/customize.php": "e11ebcd28186821a66abd23e352787845faf8c64ea1d11b8d3bd420619683375",
+        "dashboard/admin/themes/customize.php": "6cca3db4ad31dadde1f62df49d25864b5ef4b67a2c44d4604ac11a55a241e2f3",
         "dashboard/admin/themes/delete.php": "252364e3fab507c381e47ef0431d51ae9d4c001cb021e88e9814db31986df1b3",
         "dashboard/admin/themes/edit.php": "733d356e001fd783fa1d561c249e005eea391ec55696d63c09d58ce6f8774cdb",
         "dashboard/admin/themes/index.php": "e94dc01fb4fb87ab444ba1a4d089429e11fb7a2eeaf1bff8c708b2841d8b542d",
@@ -605,7 +605,7 @@
         "schema/migrations/029-content-scheduling-setting.sql": "737f343ee831f14e627665fe1f8689f8322699f288ed9a5d73f85f776f9ba38e",
         "schema/migrations/030-login-attempt-identity.sql": "646c2818d9a201304a14dcacb5aea93dd786836c48f8768586239eae58e26167",
         "schema/migrations/031-user-avatar-fallback.sql": "5fc7d48cba7c715689c7ae07168da4bd10555bb871846ac740d6067ca7dd2da3",
-        "schema/translations.sql": "c721f57577374126bd0c6cf756ac0bd79b4907e54509473e446ace050a715746",
+        "schema/translations.sql": "ef45bf6d6191720337a6dbe219810080fcfc3f00986543f6d88f2c1e72a18d0f",
         "tools/build-demo-content.php": "e4fa652393c285c1144ad1a8cd2b8385dfcb2f050b4776055cfaadc2911af5ba",
         "tools/build-package.php": "d83b26f9e16482fc712c47ab631f692c84e2426be506131f33f12e788434d4ff",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
@@ -613,6 +613,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "62711f92dfa78a979f9382f40f3d1f711e80780849d36f3975e18ced4d943ca3"
+        "version.json": "3f1bc675b5392db866c88b057a94b6e2527e74ac8706008d77005c5d58d40949"
     }
 }
