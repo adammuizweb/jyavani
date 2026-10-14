@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.177",
+    "version": "2.3.178",
     "build": "2026-10-14",
-    "changelog": "Add configurable social profile links to Sidebar and Theme Zone gadgets.",
+    "changelog": "Improve social gadget presentation with grouped markup and responsive branded icons.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.177"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.178"
 }

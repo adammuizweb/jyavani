@@ -490,7 +490,8 @@ if (!function_exists('theme_zone_ensure_schema')) {
                 }
                 if ($out === '') return '';
                 $titleHtml = theme_zone_render_title((string)($config['title'] ?? ''), $config);
-                return $titleHtml . '<div class="tz-social social-icons" role="list">' . $out . '</div>';
+                return '<div class="tz-social-widget">' . $titleHtml
+                    . '<div class="tz-social social-icons" role="list">' . $out . '</div></div>';
 
             case 'tz_pages':
                 $selected = array_filter(array_map('trim', (array)($config['pages'] ?? [])));

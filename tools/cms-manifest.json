@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.177",
+    "version": "2.3.178",
     "build": "2026-10-14",
-    "generated": "2026-10-14T15:01:06+00:00",
+    "generated": "2026-10-14T15:48:06+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 606,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "d9c4a29bdf7a1ca7b01b57e587d78394e9d5e2df43bf8bb6a89d9cad2be004f2",
+        "VERSION": "f92999d1e600d29fcefa634da4aacee547dfc41567e60f575a872f73ce8c4c91",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "4977a23cc748bec0b5a8fdd6aaf627f36f6ac4a5c29ec0beb7f8a2c4cb8f0b10",
@@ -74,7 +74,7 @@
         "cfg/helpers/theme_helper.php": "397b7e7595a686756f33507540b352784630ba0393ed9c86a01ca65c6be47dd2",
         "cfg/helpers/theme_sections.php": "59ba12682d80033355734a02849874cc814e1274cf6736894ae01e3c0202aacc",
         "cfg/helpers/theme_source.php": "d23784f69635481a9c5ac349201a64fe86afa3a235c540c6d9f8acec972ee558",
-        "cfg/helpers/theme_zones.php": "324409390a0ad05c3b82ee598c8f2de51c081bcc329337e892a488d158129179",
+        "cfg/helpers/theme_zones.php": "f4bb34d2fea93b189c6b578ea42f2eb9e01cdd7825a6bae8b94093593e9c6c9c",
         "cfg/helpers/time_helpers.php": "8ea88f6f0fe2749cb01475e693e438a36ecb7e9d27b2020b8d2c4cc9d78aac89",
         "cfg/helpers/update_metadata_http.php": "cd89db040872e2d765a5ace7996866e010ded9c18099f58882dde52cc0d0c4cc",
         "cfg/helpers/update_operation.php": "94a51f689b284ed38588cdcbe7f2b63c60016a2fc26fd5c2c5a34e5718ec50c7",
@@ -454,7 +454,7 @@
         "public/views/partials/shortcodes/post_cat/sliderpage.php": "2d3815c2616045b6446b6240be826c5a1807c03fb682dc7d5d5788802a1fa011",
         "public/views/search.php": "87e70546f56c1976f2080389622db699fe4dc890cb4bcb445f07397527a87a53",
         "public/views/themes/default/assets/css/blocks.css": "70a8010254772dcb461da6ab5d3b26397162961bdd733052a56a158e9b64ea20",
-        "public/views/themes/default/assets/css/style.css": "e9ed78a9f849415fe99e453a584ec4ecf14ed22a9bb8376bdc7e3e8016f5da42",
+        "public/views/themes/default/assets/css/style.css": "6a8323a228bf9cb63fc6a42c8352e3101887ee72aca244a89ee5dfbdc9c52e44",
         "public/views/themes/default/assets/js/script.js": "cd883c984198d4ca1f3fabe03fa2cccb4f05a2d54aa49143ba1e57f287cd7841",
         "public/views/themes/default/footer.php": "5b872f75c1dc48231e873a525089859edf0fd86ad112b464f4b449522dfa8175",
         "public/views/themes/default/header.php": "33a1b808e6c3e8a267df0da2edff2d5c2643764b960070a001cd8d2594baab0a",
@@ -483,7 +483,7 @@
         "public/views/themes/default/partials/shortcodes/section/home.random-posts.php": "3f616eede11f9ab79c48cf767a7cc3fc663427aafb6df0f54bd9d7adbdcf69d1",
         "public/views/themes/default/partials/shortcodes/section/home.topic-columns.php": "86f4d2867061115bf79ef0fa4454c091c245f473035eef566c0ead1d8a256612",
         "public/views/themes/default/sidebar.php": "5c0c6afd9c3af33bdcfd24bf83c7bbf9ef6aa34cbeee2cb16ee12662138298dc",
-        "public/views/themes/default/theme.json": "a03c49df3fb9d0c8d7da6fea8ae2a35c61b908f6508af0760f993b186583d762",
+        "public/views/themes/default/theme.json": "6e8004cf1677a57a6c722489b9e9414653d3dae3adf75354264da73d1ed895dc",
         "public/views/themes/default/theme.php": "a2babb68140054c2dd24e4948aec09c461bcba47b47fbef2ccd95919296c55e3",
         "public/views/widget/author_posts.php": "dab5c9ba8325b9cb4b1540d708af5140b898271a0bd898d89ab081a7cbd0c09d",
         "public/views/widget/categories_list.php": "9cb2ec6bd6034bc157842cf6f35b69c50affb19ee0817eca900e67ae8aa406e5",
@@ -613,6 +613,6 @@
         "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "3f1bc675b5392db866c88b057a94b6e2527e74ac8706008d77005c5d58d40949"
+        "version.json": "f0079e7a791db2c1b78cf0c9a302d6b96edfd09ef5583514933113add61f8d6c"
     }
 }

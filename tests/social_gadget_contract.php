@@ -60,6 +60,8 @@ $check(str_contains($html, 'tz-social-facebook') && str_contains($html, 'tz-soci
     'renderer shows only enabled networks with configured links');
 $check(!str_contains($html, 'href="#"') && str_contains($html, 'role="listitem"'),
     'renderer emits no dead links and preserves list semantics');
+$check(str_contains($html, 'class="tz-social-widget"') && str_contains($html, 'class="tz-social social-icons"'),
+    'renderer groups the title and icon list in one theme-styleable widget');
 $check(_theme_zone_built_in_widget_html($pdo, 'tz_social', [
     'title' => 'Follow us',
     'enabled' => ['x', 'github', 'instagram'],
@@ -68,6 +70,7 @@ $check(_theme_zone_built_in_widget_html($pdo, 'tz_social', [
 
 $sidebar = (string)file_get_contents($root . '/dashboard/admin/sidebar/index.php');
 $customizer = (string)file_get_contents($root . '/dashboard/admin/themes/customize.php');
+$defaultThemeCss = (string)file_get_contents($root . '/public/views/themes/default/assets/css/style.css');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $check(str_contains($sidebar, "elseif (\$type === 'tz_social')")
     && str_contains($sidebar, '[config][enabled][]')
@@ -78,6 +81,10 @@ $check(str_contains($sidebar, "elseif (\$type === 'tz_social')")
 $check(str_contains($customizer, 'theme_zone_normalize_social_config')
     && str_contains($customizer, "'<input type=\"url\""),
     'Theme Customizer reuses the social URL policy');
+$check(str_contains($defaultThemeCss, '.sidebar-wrap .tz-social-widget')
+    && str_contains($defaultThemeCss, '.social-btn.tz-social-youtube:hover')
+    && str_contains($defaultThemeCss, '.social-btn.tz-social-instagram:hover'),
+    'Default Theme presents social gadgets as responsive branded icon cards');
 $translationKeys = [
     'Select the social networks to show. Links left empty are hidden.',
     '%s URL',

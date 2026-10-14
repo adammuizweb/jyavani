@@ -303,7 +303,7 @@ $check(str_contains($refreshedHtml, 'Contract Site') && $GLOBALS['home_contract_
     'a later PDO render refreshes data previously cached without a database connection');
 
 $manifest = json_decode((string)file_get_contents($themeRoot . '/theme.json'), true);
-$check(($manifest['version'] ?? '') === '1.7.0' && ($manifest['jyavani_required'] ?? '') === '2.3.161', 'default theme declares its random Card Grid section version and coordinated Core requirement');
+$check(($manifest['version'] ?? '') === '1.7.1' && ($manifest['jyavani_required'] ?? '') === '2.3.161', 'default theme declares its random Card Grid section version and coordinated Core requirement');
 
 if ($failures !== []) {
     fwrite(STDERR, count($failures) . " assertion(s) failed.\n");

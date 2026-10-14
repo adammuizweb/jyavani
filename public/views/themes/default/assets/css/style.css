@@ -817,6 +817,7 @@ pre code{
 
 .social-icons{
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
@@ -825,19 +826,46 @@ pre code{
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--control-bg);
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--control-bg) 78%, var(--surface));
   color: var(--text);
+  box-shadow: 0 5px 14px rgba(2,6,23,.08);
 }
 
 .social-btn:hover,
 .social-btn:focus-visible{
   background: var(--accent);
+  border-color: var(--accent);
   color: #fff;
   transform: translateY(-2px);
 }
+
+.social-btn svg{
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.social-btn.tz-social-facebook:hover,
+.social-btn.tz-social-facebook:focus-visible{ background: #1877f2; border-color: #1877f2; }
+.social-btn.tz-social-x:hover,
+.social-btn.tz-social-x:focus-visible{ background: #111827; border-color: #111827; }
+.social-btn.tz-social-instagram:hover,
+.social-btn.tz-social-instagram:focus-visible{ background: #c13584; border-color: #c13584; }
+.social-btn.tz-social-youtube:hover,
+.social-btn.tz-social-youtube:focus-visible{ background: #ff0033; border-color: #ff0033; }
+.social-btn.tz-social-github:hover,
+.social-btn.tz-social-github:focus-visible{ background: #24292f; border-color: #24292f; }
+.social-btn.tz-social-tiktok:hover,
+.social-btn.tz-social-tiktok:focus-visible{ background: #111; border-color: #111; }
+.social-btn.tz-social-telegram:hover,
+.social-btn.tz-social-telegram:focus-visible{ background: #229ed9; border-color: #229ed9; }
+.social-btn.tz-social-whatsapp:hover,
+.social-btn.tz-social-whatsapp:focus-visible{ background: #25d366; border-color: #25d366; }
 
 .footer-row-bottom{
   border-top: 1px solid var(--border);
@@ -1909,6 +1937,25 @@ html.theme-dark .adam-thumb-badge{
   max-width: 420px;
   min-width: 0;
   margin: 2rem 0;
+}
+
+.sidebar-wrap .tz-social-widget{
+  min-width: 0;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.sidebar-wrap .tz-social-widget .tz-title{
+  margin: 0 0 12px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.sidebar-wrap .tz-social-widget .tz-social{
+  justify-content: flex-start;
 }
 
 .w-box{
