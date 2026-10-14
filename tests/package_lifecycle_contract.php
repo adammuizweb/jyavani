@@ -123,7 +123,10 @@ try {
     $manifest = ['name' => 'reconcile-contract', 'version' => '1.0.0'];
     mkdir(PLUGIN_PATH . '/reconcile-contract', 0755);
     file_put_contents(PLUGIN_PATH . '/reconcile-contract/plugin.json', json_encode($manifest));
-    PluginStoreController::reconcileInstalledState('reconcile-contract');
+    $transientLock = BACKEND_PATH . '/var/plugin-update-transient.json.lock';
+    file_put_contents($transientLock, '');
+    chmod($transientLock, 0444);
+    $firstReconciliation = PluginStoreController::reconcileInstalledState('reconcile-contract');
     $readTransient = new ReflectionMethod(PluginStoreController::class, 'readTransient');
     $firstToken = (string)($readTransient->invoke(null)['reconciliations']['reconcile-contract'] ?? '');
     package_remove_tree(PLUGIN_PATH . '/reconcile-contract');
@@ -131,8 +134,9 @@ try {
     file_put_contents(PLUGIN_PATH . '/reconcile-contract/plugin.json', json_encode($manifest));
     PluginStoreController::reconcileInstalledState('reconcile-contract');
     $secondToken = (string)($readTransient->invoke(null)['reconciliations']['reconcile-contract'] ?? '');
-    $check($firstToken !== '' && $secondToken !== '' && !hash_equals($firstToken, $secondToken),
-        'same-version uninstall/reinstall advances reconciliation identity and invalidates stale candidates');
+    $check($firstReconciliation && $firstToken !== '' && $secondToken !== '' && !hash_equals($firstToken, $secondToken)
+        && (fileperms($transientLock) & 0777) === 0660,
+        'same-version reinstall reconciles across a read-only worker lock and invalidates stale candidates');
 
     if (function_exists('pcntl_fork')) {
         $visibilityTarget = $fixture . '/visibility-tree';

@@ -50,10 +50,13 @@ try {
     $initial = UpdateStatusController::getSnapshot();
     $check($initial['state'] === 'unknown' && $initial['stale'] === true && $initial['total'] === 0, 'missing snapshot is unknown and stale, never falsely current');
 
+    file_put_contents($temporary . '.lock', '');
+    chmod($temporary . '.lock', 0444);
     $snapshot = UpdateStatusController::checkAll($pdo, 'https://updates.example.test/latest/', $providers);
     $check($calls === ['core' => 1, 'plugins' => 1, 'themes' => 1], 'one coordinated check invokes every provider exactly once');
     $check($snapshot['state'] === 'ok' && $snapshot['stale'] === false && $snapshot['total'] === 3, 'successful snapshot aggregates Core, plugin, and theme updates');
-    $check(is_file($temporary) && is_file($temporary . '.lock'), 'snapshot and global coordination lock are persisted');
+    $check(is_file($temporary) && is_file($temporary . '.lock') && (fileperms($temporary . '.lock') & 0777) === 0660,
+        'snapshot and a cross-worker group-writable coordination lock are persisted');
     $check(($snapshot['components']['core']['remote']['download_url'] ?? '') === 'https://updates.example.test/core.zip', 'Core package metadata is retained for one-click handoff');
     $check(($snapshot['components']['core']['check_url'] ?? '') === 'https://updates.example.test/latest/', 'snapshot records the exact Core URL used for safe request coalescing');
 

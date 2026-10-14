@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.175",
-    "build": "2026-10-08",
-    "changelog": "Add secure extension-driven image preprocessing and align unformatted editor images to the left.",
+    "version": "2.3.176",
+    "build": "2026-10-14",
+    "changelog": "Allow update-state locks to be shared safely across deployment workers.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.175"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.176"
 }

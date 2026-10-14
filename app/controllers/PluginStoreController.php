@@ -752,11 +752,18 @@ class PluginStoreController
         if (is_link($dir) || (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir))) {
             throw new RuntimeException('Unable to create the plugin update transient directory.');
         }
-        $lock = fopen($file . '.lock', 'c+');
+        $lockPath = $file . '.lock';
+        if (is_link($lockPath)) throw new RuntimeException('Invalid plugin update transient lock.');
+        $lock = @fopen($lockPath, 'c+');
+        if ($lock === false && is_file($lockPath) && !is_link($lockPath)) {
+            // The lock carries no data, so a readable cross-worker lock is sufficient.
+            $lock = @fopen($lockPath, 'rb');
+        }
         if ($lock === false || !flock($lock, LOCK_EX)) {
             if (is_resource($lock)) fclose($lock);
             throw new RuntimeException('Unable to acquire the plugin update transient lock.');
         }
+        @chmod($lockPath, 0660);
         try {
             $current = self::readTransient();
             $next = $mutation($current);
