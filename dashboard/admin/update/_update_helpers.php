@@ -620,15 +620,32 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
         }
 
         if ($progressToken !== '') _cms_write_progress($progressToken, 0, __('Downloading update package…'), false, null, 'download', true);
+        $lastDownloadProgress = -1;
+        $lastCancellationCheck = 0.0;
+        $downloadCancelled = false;
         $tmpZip = package_download($downloadUrl, 'cms-update-', 'JyavaniCMS-Update/' . $currentVer,
-            static function (int $downloaded, int $total) use ($progressToken): bool {
+            static function (int $downloaded, int $total) use ($progressToken, &$lastDownloadProgress, &$lastCancellationCheck, &$downloadCancelled): bool {
                 if ($progressToken !== '' && $total > 0) {
-                    _cms_write_progress($progressToken, (int)floor(15 * min(1, $downloaded / $total)), __('Downloading update package…'), false, null, 'download', true);
+                    $percentage = (int)floor(15 * min(1, $downloaded / $total));
+                    if ($percentage > $lastDownloadProgress) {
+                        _cms_write_progress($progressToken, $percentage, __('Downloading update package…'), false, null, 'download', true);
+                        $lastDownloadProgress = $percentage;
+                    }
                 }
-                return $progressToken === '' || !update_operation_cancellation_requested($progressToken);
+                $now = microtime(true);
+                if ($progressToken !== '' && $now - $lastCancellationCheck >= 0.25) {
+                    $downloadCancelled = update_operation_cancellation_requested($progressToken);
+                    $lastCancellationCheck = $now;
+                }
+                return !$downloadCancelled;
             });
         _cms_update_checkpoint($progressToken);
-        if ($tmpZip === null) return _cms_update_failure($progressToken, __('Failed to download update package.'));
+        if ($tmpZip === null) {
+            $diagnostic = package_download_last_error_code();
+            $message = __('Failed to download update package.');
+            if ($diagnostic !== '' && $diagnostic !== 'cancelled') $message .= ' [download:' . $diagnostic . ']';
+            return _cms_update_failure($progressToken, $message);
+        }
 
         $expectedPackageHash = strtolower(trim((string)($remoteManifest['package_sha256'] ?? '')));
         if ($expectedPackageHash !== '' && (!preg_match('/^[a-f0-9]{64}$/', $expectedPackageHash)

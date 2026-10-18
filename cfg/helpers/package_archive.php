@@ -9,6 +9,8 @@ const PACKAGE_MAX_ENTRIES = 5000;
 const PACKAGE_MAX_ENTRY_BYTES = 64 * 1024 * 1024;
 const PACKAGE_MAX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
 const PACKAGE_MAX_COMPRESSION_RATIO = 200;
+const PACKAGE_DOWNLOAD_DEFAULT_TIMEOUT_SECONDS = 240;
+const PACKAGE_DOWNLOAD_DEFAULT_ATTEMPTS = 2;
 
 /** Validate archive structure before any entry is extracted. */
 function package_archive_validate(ZipArchive $zip, bool $caseInsensitiveTargets = true): array {
@@ -439,85 +441,211 @@ function package_guarded_finalize(string $target, string $rollbackPath, array $o
     return package_remove_tree($rollbackPath);
 }
 
-/** Bounded HTTP download streamed directly to an exclusive temporary file. */
-function package_download(string $url, string $prefix, string $userAgent, ?callable $progress = null, bool $followRedirects = true): ?string {
+function package_download_configured_int(string $name, int $default, int $minimum, int $maximum): int {
+    $configured = getenv($name);
+    $value = is_string($configured) && ctype_digit($configured) ? (int)$configured : $default;
+    return max($minimum, min($maximum, $value));
+}
+
+function package_download_last_error_code(): string {
+    return (string)($GLOBALS['__package_download_last_error_code'] ?? '');
+}
+
+function package_download_retryable(string $code): bool {
+    if (str_starts_with($code, 'http-')) {
+        return in_array((int)substr($code, 5), [408, 425, 429, 500, 502, 503, 504], true);
+    }
+    if ($code === 'stream-open' || $code === 'stream-timeout' || $code === 'stream-read') return true;
+    if (!str_starts_with($code, 'curl-')) return false;
+    return in_array((int)substr($code, 5), [5, 6, 7, 16, 18, 28, 35, 52, 55, 56, 92, 95], true);
+}
+
+/** Execute one bounded attempt and return a temporary path or safe diagnostic state. */
+function package_download_attempt(string $url, string $prefix, string $userAgent, ?callable $progress, bool $followRedirects, int $timeout): array {
     $path = tempnam(sys_get_temp_dir(), $prefix);
-    if ($path === false) return null;
+    if ($path === false) return ['path' => null, 'code' => 'temp-create', 'detail' => '', 'cancelled' => false];
     $output = @fopen($path, 'wb');
-    if (!is_resource($output)) { @unlink($path); return null; }
+    if (!is_resource($output)) {
+        @unlink($path);
+        return ['path' => null, 'code' => 'temp-open', 'detail' => '', 'cancelled' => false];
+    }
     $downloaded = 0;
     $ok = false;
     $cancelled = false;
+    $code = 'transport';
+    $detail = '';
+    $curl = null;
+    $input = null;
+    $closed = false;
     try {
         if (function_exists('curl_init')) {
             $curl = curl_init($url);
-            curl_setopt_array($curl, [
-                CURLOPT_FOLLOWLOCATION => $followRedirects,
-                CURLOPT_MAXREDIRS => $followRedirects ? 5 : 0,
-                CURLOPT_CONNECTTIMEOUT => 15,
-                CURLOPT_TIMEOUT => 120,
-                CURLOPT_USERAGENT => $userAgent,
-                CURLOPT_FAILONERROR => false,
-                CURLOPT_NOPROGRESS => false,
-                CURLOPT_PROGRESSFUNCTION => static function ($handle, float $total, float $current) use ($progress, &$cancelled): int {
-                    if ($progress !== null && $progress((int)$current, (int)$total) === false) {
-                        $cancelled = true;
-                        return 1;
-                    }
-                    return 0;
-                },
-                CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use ($output, &$downloaded): int {
-                    $length = strlen($chunk);
-                    $downloaded += $length;
-                    if ($downloaded > PACKAGE_MAX_BYTES || fwrite($output, $chunk) !== $length) return 0;
-                    return $length;
-                },
-            ]);
-            $executed = curl_exec($curl) === true;
-            $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
-            $declared = (int)curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
-            curl_close($curl);
-            unset($curl);
-            $ok = !$cancelled && $executed && $status >= 200 && $status < 300 && $downloaded > 0
-                && $downloaded <= PACKAGE_MAX_BYTES && ($declared <= 0 || $declared <= PACKAGE_MAX_BYTES);
-        } else {
-        $context = stream_context_create(['http' => [
-            'timeout' => 120, 'user_agent' => $userAgent, 'follow_location' => $followRedirects ? 1 : 0,
-            'max_redirects' => $followRedirects ? 5 : 0, 'ignore_errors' => true,
-        ]]);
-        $input = @fopen($url, 'rb', false, $context);
-        if (is_resource($input)) {
-            $status = 0;
-            $declared = 0;
-            foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
-                if (preg_match('#\AHTTP/\S+\s+(\d{3})#i', (string)$header, $match)) $status = (int)$match[1];
-                if (preg_match('/\AContent-Length:\s*(\d+)/i', (string)$header, $match)) $declared = (int)$match[1];
+            if ($curl === false) {
+                $code = 'curl-init';
+            } else {
+                $writeFailure = '';
+                $initialScheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+                curl_setopt_array($curl, [
+                    CURLOPT_FOLLOWLOCATION => $followRedirects,
+                    CURLOPT_MAXREDIRS => $followRedirects ? 5 : 0,
+                    CURLOPT_CONNECTTIMEOUT => min(15, $timeout),
+                    CURLOPT_TIMEOUT => $timeout,
+                    CURLOPT_USERAGENT => $userAgent,
+                    CURLOPT_FAILONERROR => false,
+                    CURLOPT_NOPROGRESS => false,
+                    CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                    CURLOPT_REDIR_PROTOCOLS => $initialScheme === 'https' ? CURLPROTO_HTTPS : CURLPROTO_HTTP | CURLPROTO_HTTPS,
+                    CURLOPT_PROGRESSFUNCTION => static function ($handle, float $total, float $current) use ($progress, &$cancelled): int {
+                        if ($progress !== null && $progress((int)$current, (int)$total) === false) {
+                            $cancelled = true;
+                            return 1;
+                        }
+                        return 0;
+                    },
+                    CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use ($output, &$downloaded, &$writeFailure): int {
+                        $length = strlen($chunk);
+                        $downloaded += $length;
+                        if ($downloaded > PACKAGE_MAX_BYTES) {
+                            $writeFailure = 'size-limit';
+                            return 0;
+                        }
+                        if (fwrite($output, $chunk) !== $length) {
+                            $writeFailure = 'write-failed';
+                            return 0;
+                        }
+                        return $length;
+                    },
+                ]);
+                $executed = curl_exec($curl) === true;
+                $status = (int)curl_getinfo($curl, CURLINFO_HTTP_CODE);
+                $declared = (int)curl_getinfo($curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD);
+                $ok = !$cancelled && $executed && $status >= 200 && $status < 300 && $downloaded > 0
+                    && $downloaded <= PACKAGE_MAX_BYTES && ($declared <= 0 || $declared <= PACKAGE_MAX_BYTES);
+                if (!$ok) {
+                    $curlError = curl_errno($curl);
+                    $detail = curl_error($curl);
+                    if ($cancelled) $code = 'cancelled';
+                    elseif ($writeFailure !== '') $code = $writeFailure;
+                    elseif ($curlError > 0) $code = 'curl-' . $curlError;
+                    elseif ($status < 200 || $status >= 300) $code = 'http-' . $status;
+                    elseif ($declared > PACKAGE_MAX_BYTES) $code = 'size-limit';
+                    elseif ($downloaded === 0) $code = 'empty-response';
+                }
             }
-            if ($status >= 200 && $status < 300 && $declared <= PACKAGE_MAX_BYTES) {
-                $ok = true;
-                while (!feof($input)) {
-                    $chunk = fread($input, 1024 * 1024);
-                    if ($chunk === false) { $ok = false; break; }
-                    if ($chunk === '') continue;
-                    $length = strlen($chunk);
-                    $downloaded += $length;
-                    if ($downloaded > PACKAGE_MAX_BYTES || fwrite($output, $chunk) !== $length) { $ok = false; break; }
-                    if ($progress !== null && $progress($downloaded, $declared) === false) {
-                        $cancelled = true;
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'timeout' => $timeout,
+                    'user_agent' => $userAgent,
+                    'follow_location' => $followRedirects ? 1 : 0,
+                    'max_redirects' => $followRedirects ? 5 : 0,
+                    'ignore_errors' => true,
+                ],
+                'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+            ]);
+            $input = @fopen($url, 'rb', false, $context);
+            if (!is_resource($input)) {
+                $code = 'stream-open';
+            } else {
+                $status = 0;
+                $declared = 0;
+                foreach ((array)(stream_get_meta_data($input)['wrapper_data'] ?? []) as $header) {
+                    if (preg_match('#\AHTTP/\S+\s+(\d{3})#i', (string)$header, $match)) $status = (int)$match[1];
+                    if (preg_match('/\AContent-Length:\s*(\d+)/i', (string)$header, $match)) $declared = (int)$match[1];
+                }
+                if ($status < 200 || $status >= 300) {
+                    $code = 'http-' . $status;
+                } elseif ($declared > PACKAGE_MAX_BYTES) {
+                    $code = 'size-limit';
+                } else {
+                    $ok = true;
+                    while (!feof($input)) {
+                        $chunk = fread($input, 1024 * 1024);
+                        if ($chunk === false) {
+                            $ok = false;
+                            $code = !empty(stream_get_meta_data($input)['timed_out']) ? 'stream-timeout' : 'stream-read';
+                            break;
+                        }
+                        if ($chunk === '') {
+                            if (!empty(stream_get_meta_data($input)['timed_out'])) {
+                                $ok = false;
+                                $code = 'stream-timeout';
+                                break;
+                            }
+                            continue;
+                        }
+                        $length = strlen($chunk);
+                        $downloaded += $length;
+                        if ($downloaded > PACKAGE_MAX_BYTES) {
+                            $ok = false;
+                            $code = 'size-limit';
+                            break;
+                        }
+                        if (fwrite($output, $chunk) !== $length) {
+                            $ok = false;
+                            $code = 'write-failed';
+                            break;
+                        }
+                        if ($progress !== null && $progress($downloaded, $declared) === false) {
+                            $cancelled = true;
+                            $ok = false;
+                            $code = 'cancelled';
+                            break;
+                        }
+                    }
+                    if ($ok && $downloaded === 0) {
                         $ok = false;
-                        break;
+                        $code = 'empty-response';
                     }
                 }
-                $ok = $ok && $downloaded > 0;
             }
-            fclose($input);
-        }
         }
     } finally {
         if (isset($curl) && is_object($curl)) curl_close($curl);
         if (isset($input) && is_resource($input)) fclose($input);
-        $ok = fclose($output) && $ok;
+        $closed = fclose($output);
     }
-    if (!$ok) { @unlink($path); return null; }
-    return $path;
+    if ($ok && $closed) return ['path' => $path, 'code' => '', 'detail' => '', 'cancelled' => false];
+    if (!$closed && $code === 'transport') $code = 'write-close';
+    @unlink($path);
+    return ['path' => null, 'code' => $code, 'detail' => $detail, 'cancelled' => $cancelled];
+}
+
+/** Bounded HTTP download with transient retries, streamed to an exclusive temporary file. */
+function package_download(string $url, string $prefix, string $userAgent, ?callable $progress = null, bool $followRedirects = true): ?string {
+    $GLOBALS['__package_download_last_error_code'] = '';
+    $parts = parse_url($url);
+    $scheme = is_array($parts) ? strtolower((string)($parts['scheme'] ?? '')) : '';
+    $host = is_array($parts) ? strtolower((string)($parts['host'] ?? '')) : '';
+    if (!in_array($scheme, ['http', 'https'], true) || $host === '' || isset($parts['user']) || isset($parts['pass'])) {
+        $GLOBALS['__package_download_last_error_code'] = 'invalid-url';
+        return null;
+    }
+
+    $timeout = package_download_configured_int('PACKAGE_DOWNLOAD_TIMEOUT_SECONDS', PACKAGE_DOWNLOAD_DEFAULT_TIMEOUT_SECONDS, 30, 600);
+    $attempts = package_download_configured_int('PACKAGE_DOWNLOAD_ATTEMPTS', PACKAGE_DOWNLOAD_DEFAULT_ATTEMPTS, 1, 3);
+    $deadline = microtime(true) + $timeout;
+    $result = ['path' => null, 'code' => 'transport', 'detail' => '', 'cancelled' => false];
+    for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+        $remaining = (int)ceil($deadline - microtime(true));
+        if ($remaining < 1) {
+            $result = ['path' => null, 'code' => 'timeout', 'detail' => '', 'cancelled' => false];
+            break;
+        }
+        $result = package_download_attempt($url, $prefix, $userAgent, $progress, $followRedirects, $remaining);
+        if (is_string($result['path'])) {
+            $GLOBALS['__package_download_last_error_code'] = '';
+            return $result['path'];
+        }
+        if (!empty($result['cancelled']) || !package_download_retryable((string)$result['code']) || $attempt === $attempts) break;
+        usleep(250000);
+    }
+
+    $code = preg_replace('/[^a-z0-9-]/', '', strtolower((string)$result['code'])) ?: 'transport';
+    $GLOBALS['__package_download_last_error_code'] = $code;
+    if ($code !== 'cancelled') {
+        $detail = trim(preg_replace('/[\x00-\x1F\x7F]+/', ' ', (string)$result['detail']) ?? '');
+        error_log('[package-download] ' . $code . ' for ' . $host . ($detail !== '' ? ': ' . substr($detail, 0, 240) : ''));
+    }
+    return null;
 }

@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 const UPDATE_METADATA_MAX_BYTES = 1024 * 1024;
-const UPDATE_METADATA_REQUEST_SECONDS = 4.0;
-const UPDATE_METADATA_CONNECT_SECONDS = 2.0;
+const UPDATE_METADATA_REQUEST_SECONDS = 8.0;
+const UPDATE_METADATA_CONNECT_SECONDS = 3.0;
 
 function update_metadata_fetch_json(string $url, string $userAgent, ?float $deadline = null): ?array
 {

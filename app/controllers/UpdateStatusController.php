@@ -6,7 +6,7 @@ final class UpdateStatusController
 {
     private const SCHEMA = 1;
     private const TTL = 3600;
-    private const CHECK_BUDGET_SECONDS = 12.0;
+    private const CHECK_BUDGET_SECONDS = 24.0;
     private const DEFAULT_CORE_URL = 'https://jyavani.com/download/latest/';
 
     public static function officialCoreUrl(): string

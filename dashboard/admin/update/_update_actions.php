@@ -183,20 +183,16 @@ function cms_update_reinstall(PDO $pdo, array $currentVersion, string $selfUrl, 
     $hardReset = !empty($_POST['hard_reset']);
     if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
-    $temporaryZip = sys_get_temp_dir() . '/cms-reinstall-' . bin2hex(random_bytes(8)) . '.zip';
-    $context = stream_context_create(['http' => [
-        'timeout' => 120,
-        'user_agent' => 'JyavaniCMS-Reinstall/' . ($currentVersion['version'] ?? '0.0.0'),
-    ]]);
-
-    $zipData = @file_get_contents($url, false, $context);
-    if ($zipData === false) {
-        @unlink($temporaryZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download reinstall package.'));
-    }
-    if (@file_put_contents($temporaryZip, $zipData) === false) {
-        @unlink($temporaryZip);
-        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to store update package.'));
+    $temporaryZip = package_download(
+        $url,
+        'cms-reinstall-',
+        'JyavaniCMS-Reinstall/' . ($currentVersion['version'] ?? '0.0.0')
+    );
+    if ($temporaryZip === null) {
+        $diagnostic = package_download_last_error_code();
+        $message = __('Failed to download reinstall package.');
+        if ($diagnostic !== '' && $diagnostic !== 'cancelled') $message .= ' [download:' . $diagnostic . ']';
+        adiwira_redirect_with_flash($selfUrl, 'error', $message);
     }
 
     $zip = new ZipArchive();

@@ -25,6 +25,7 @@ $theme = (string)file_get_contents($root . '/app/controllers/ThemeStoreClient.ph
 $plugin = (string)file_get_contents($root . '/app/controllers/PluginStoreController.php');
 $core = (string)file_get_contents($root . '/dashboard/admin/update/_update_helpers.php');
 $themeManager = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');
+$packageHelper = (string)file_get_contents($root . '/cfg/helpers/package_archive.php');
 $config = (string)file_get_contents($root . '/cfg/config.php');
 $bootstrap = (string)file_get_contents($root . '/app/bootstrap_core.php');
 $pluginProgress = (string)file_get_contents($root . '/dashboard/admin/plugins/update_progress.php');
@@ -57,6 +58,15 @@ $check(str_contains($core, 'function _cms_atomic_replace_file(')
     && str_contains($core, 'rename($temporaryPath, $targetPath)')
     && str_contains($core, '_cms_atomic_replace_file($manifestPath, $manifestContents)')
     && !str_contains($core, 'file_put_contents($targetPath, $contents'), 'Core publication atomically replaces managed files and the local manifest instead of truncating them in place');
+$check(str_contains($packageHelper, "package_download_configured_int('PACKAGE_DOWNLOAD_TIMEOUT_SECONDS'")
+    && str_contains($packageHelper, "package_download_configured_int('PACKAGE_DOWNLOAD_ATTEMPTS'")
+    && str_contains($packageHelper, 'CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS')
+    && str_contains($core, "' [download:' . \$diagnostic . ']'")
+    && str_contains($actions, "package_download_last_error_code()"),
+    'Core package downloads use bounded transient retries and expose safe transport diagnostics');
+$check(str_contains($actions, "package_download(\n        \$url,")
+    && !str_contains($actions, '$zipData = @file_get_contents($url'),
+    'Core reinstall shares the streamed resilient package downloader');
 $check(str_contains($pluginProgress, "(string)\$record['type'] !== 'plugin'")
     && str_contains($themeProgress, "(string)\$record['type'] !== 'theme'")
     && str_contains($pluginProgress, "(int)\$record['owner_id'] !== (int)\$uid")
@@ -88,12 +98,29 @@ try {
     }
 
     file_put_contents($fixture . '/package.bin', str_repeat('p', 2 * 1024 * 1024));
+    file_put_contents($fixture . '/router.php', <<<'PHP'
+<?php
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+if ($path !== '/retry.bin') return false;
+$counterPath = __DIR__ . '/retry-count';
+$count = is_file($counterPath) ? (int)file_get_contents($counterPath) : 0;
+file_put_contents($counterPath, (string)($count + 1));
+if ($count === 0) {
+    http_response_code(503);
+    echo 'retry';
+    exit;
+}
+$package = __DIR__ . '/package.bin';
+header('Content-Type: application/octet-stream');
+header('Content-Length: ' . filesize($package));
+readfile($package);
+PHP);
     $listener = stream_socket_server('tcp://127.0.0.1:0', $errno, $error);
     if (is_resource($listener)) {
         $address = (string)stream_socket_get_name($listener, false);
         fclose($listener);
         $port = (int)substr(strrchr($address, ':'), 1);
-        $process = proc_open([PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $fixture], [
+        $process = proc_open([PHP_BINARY, '-S', '127.0.0.1:' . $port, '-t', $fixture, $fixture . '/router.php'], [
             0 => ['file', '/dev/null', 'r'],
             1 => ['file', '/dev/null', 'a'],
             2 => ['file', '/dev/null', 'a'],
@@ -104,9 +131,16 @@ try {
             $before = glob(sys_get_temp_dir() . '/' . $prefix . '*') ?: [];
             $download = package_download('http://127.0.0.1:' . $port . '/package.bin', $prefix, 'Contract', static fn(int $downloaded, int $total): bool => false);
             $after = glob(sys_get_temp_dir() . '/' . $prefix . '*') ?: [];
+            $retryPrefix = 'jyavani-retry-' . bin2hex(random_bytes(4)) . '-';
+            $retryDownload = package_download('http://127.0.0.1:' . $port . '/retry.bin', $retryPrefix, 'Contract');
+            $retryValid = is_string($retryDownload) && hash_equals(hash_file('sha256', $fixture . '/package.bin'), hash_file('sha256', $retryDownload));
+            if (is_string($retryDownload)) unlink($retryDownload);
+            $invalidDownload = package_download('file:///tmp/not-http', 'jyavani-invalid-', 'Contract');
             proc_terminate($process);
             proc_close($process);
             $check($download === null && $after === $before, 'download callback abort closes handles and removes the temporary file');
+            $check($retryValid && (int)file_get_contents($fixture . '/retry-count') === 2, 'transient package failure retries within the bounded download budget');
+            $check($invalidDownload === null && package_download_last_error_code() === 'invalid-url', 'package downloader exposes a safe diagnostic code without attempting an unsafe URL');
         } else {
             $check(true, 'download callback test skipped because the local server could not start');
         }
