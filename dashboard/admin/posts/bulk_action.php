@@ -97,7 +97,7 @@ try {
         respond(false, __('Access denied.'), 403, [], $returnTo);
     }
     $in = implode(',', array_fill(0, count($ids), '?'));
-    $selectedStmt = $pdo->prepare("SELECT id, status, status_revision, publish_at_utc, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $selectedStmt = $pdo->prepare("SELECT id, title, status, status_revision, publish_at_utc, created_by, created_at, updated_at FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $selectedStmt->execute($ids);
     $selectedPosts = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     if (count($selectedPosts) !== count($ids)) {
@@ -135,6 +135,9 @@ try {
         if (!empty($selectedPost['publish_at_utc'])) $statusUndoEligible = false;
     }
     unset($selectedPost);
+    $selectedById = [];
+    foreach ($selectedPosts as $selectedPost) $selectedById[(int)$selectedPost['id']] = $selectedPost;
+    $operationId = audit_log_operation_id();
     foreach ($selectedPosts as $selectedPost) {
         if (!user_can($pdo, $uid, $requiredPermission, ['owner_id' => (int)($selectedPost['created_by'] ?? 0)])) {
             $pdo->rollBack();
@@ -169,6 +172,22 @@ try {
         $undoItems = [];
         foreach ($ids as $selectedId) {
             $auditId = adiwira_bin_record_audit($pdo, 'article', $selectedId, $uid, 'article.trashed', ['bulk' => true]);
+            audit_log_content_event(
+                $pdo,
+                'article',
+                'trashed',
+                $uid,
+                $selectedId,
+                (string)$selectedById[$selectedId]['title'],
+                'admin.posts.bulk',
+                ['is_deleted' => false],
+                ['is_deleted' => true],
+                [
+                    'operation_id' => $operationId,
+                    'metadata' => ['bulk' => true],
+                    'authorization_audit_id' => $auditId,
+                ]
+            );
             $undoItems[] = [
                 'id' => $selectedId,
                 'audit_id' => $auditId,
@@ -249,6 +268,7 @@ try {
             }
         }
         $undoItems = [];
+        $authorizationAuditIds = [];
         if ($statusUndoEligible) {
             foreach ($changedIds as $selectedId) {
                 $previousStatus = $rawStatusesById[$selectedId];
@@ -257,6 +277,7 @@ try {
                     'from' => $previousStatus,
                     'to' => $new_status,
                 ]);
+                $authorizationAuditIds[$selectedId] = $auditId;
                 $undoItems[] = [
                     'id' => $selectedId,
                     'audit_id' => $auditId,
@@ -265,6 +286,27 @@ try {
                     'status_revision' => $statusRevisionsById[$selectedId] + 1,
                 ];
             }
+        }
+        foreach ($changedIds as $selectedId) {
+            audit_log_content_event(
+                $pdo,
+                'article',
+                'status_changed',
+                $uid,
+                $selectedId,
+                (string)$selectedById[$selectedId]['title'],
+                'admin.posts.bulk',
+                [
+                    'status' => $rawStatusesById[$selectedId],
+                    'publish_at_utc' => $publishAtById[$selectedId],
+                ],
+                ['status' => $new_status, 'publish_at_utc' => null],
+                [
+                    'operation_id' => $operationId,
+                    'metadata' => ['bulk' => true],
+                    'authorization_audit_id' => $authorizationAuditIds[$selectedId] ?? null,
+                ]
+            );
         }
 
         $pdo->commit();
@@ -338,15 +380,63 @@ try {
 
         $selectExistingSql = "SELECT post_id, category_id
                               FROM post_categories
-                              WHERE post_id IN ($placePost) AND category_id IN ($placeCat)";
+                              WHERE post_id IN ($placePost)";
         $selectStmt = $pdo->prepare($selectExistingSql);
-        $selectStmt->execute(array_merge($post_ids, $cat_ids));
+        $selectStmt->execute($post_ids);
         $existingRows = $selectStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $existingSet = [];
         foreach ($existingRows as $r) {
             $existingSet[(int)$r['post_id']][] = (int)$r['category_id'];
         }
+
+        $categoryAfterByPost = [];
+        $changedPostIds = [];
+        foreach ($post_ids as $postId) {
+            $before = array_values(array_unique(array_map('intval', $existingSet[$postId] ?? [])));
+            sort($before, SORT_NUMERIC);
+            $after = $before;
+            if ($mode === 'add') {
+                $after = array_values(array_unique(array_merge($before, $cat_ids)));
+            } elseif ($mode === 'remove') {
+                $after = array_values(array_diff($before, $cat_ids));
+            } else {
+                foreach ($cat_ids as $categoryId) {
+                    $index = array_search($categoryId, $after, true);
+                    if ($index === false) $after[] = $categoryId;
+                    else unset($after[$index]);
+                }
+                $after = array_values($after);
+            }
+            sort($after, SORT_NUMERIC);
+            $categoryAfterByPost[$postId] = $after;
+            if ($before !== $after) $changedPostIds[] = $postId;
+        }
+
+        $touchChangedPosts = static function () use ($pdo, $changedPostIds, $uid): void {
+            if ($changedPostIds === []) return;
+            $placeholders = implode(',', array_fill(0, count($changedPostIds), '?'));
+            $pdo->prepare("UPDATE posts SET updated_at = NOW(), updated_by = ? WHERE id IN ($placeholders) AND type = 'article' AND is_deleted = 0")
+                ->execute(array_merge([$uid], $changedPostIds));
+        };
+        $recordCategoryAudits = static function (string $categoryMode) use ($pdo, $changedPostIds, $existingSet, $categoryAfterByPost, $selectedById, $uid, $operationId): void {
+            foreach ($changedPostIds as $postId) {
+                $before = array_values(array_unique(array_map('intval', $existingSet[$postId] ?? [])));
+                sort($before, SORT_NUMERIC);
+                audit_log_content_event(
+                    $pdo,
+                    'article',
+                    'categories_changed',
+                    $uid,
+                    $postId,
+                    (string)$selectedById[$postId]['title'],
+                    'admin.posts.bulk',
+                    ['category_ids' => audit_log_id_set($before)],
+                    ['category_ids' => audit_log_id_set($categoryAfterByPost[$postId])],
+                    ['operation_id' => $operationId, 'metadata' => ['bulk' => true, 'mode' => $categoryMode]]
+                );
+            }
+        };
 
         $assigned_by = $uid;
 
@@ -371,22 +461,22 @@ try {
                 $pdo->prepare($sql)->execute($values);
             }
 
-            $pdo->prepare("UPDATE posts SET updated_at = NOW(), updated_by = ? WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
-                ->execute(array_merge([$uid], $post_ids));
+            $touchChangedPosts();
 
+            $recordCategoryAudits('add');
             $pdo->commit();
-            respond(true, __('Category added to') . ' ' . count($post_ids) . ' ' . __('articles.'), 200, ['count' => count($post_ids)], $returnTo);
+            respond(true, __('Category added to') . ' ' . count($changedPostIds) . ' ' . __('articles.'), 200, ['count' => count($changedPostIds)], $returnTo);
         }
 
         if ($mode === 'remove') {
             $sql = "DELETE FROM post_categories WHERE post_id IN ($placePost) AND category_id IN ($placeCat)";
             $pdo->prepare($sql)->execute(array_merge($post_ids, $cat_ids));
 
-            $pdo->prepare("UPDATE posts SET updated_at = NOW(), updated_by = ? WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
-                ->execute(array_merge([$uid], $post_ids));
+            $touchChangedPosts();
 
+            $recordCategoryAudits('remove');
             $pdo->commit();
-            respond(true, __('Selected category removed from') . ' ' . count($post_ids) . ' ' . __('articles.'), 200, ['count' => count($post_ids)], $returnTo);
+            respond(true, __('Selected category removed from') . ' ' . count($changedPostIds) . ' ' . __('articles.'), 200, ['count' => count($changedPostIds)], $returnTo);
         }
 
         if ($mode === 'toggle') {
@@ -412,11 +502,11 @@ try {
                     ->execute($toInsert);
             }
 
-            $pdo->prepare("UPDATE posts SET updated_at = NOW(), updated_by = ? WHERE id IN ($placePost) AND type = 'article' AND is_deleted = 0")
-                ->execute(array_merge([$uid], $post_ids));
+            $touchChangedPosts();
 
+            $recordCategoryAudits('toggle');
             $pdo->commit();
-            respond(true, 'Operasi toggle kategori selesai untuk ' . count($post_ids) . ' artikel.', 200, ['count' => count($post_ids)], $returnTo);
+            respond(true, 'Operasi toggle kategori selesai untuk ' . count($changedPostIds) . ' artikel.', 200, ['count' => count($changedPostIds)], $returnTo);
         }
 
         $pdo->rollBack();
@@ -448,8 +538,18 @@ try {
         $hookInput = array_replace($_POST, ['author_id' => $author_id]);
         do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
 
-        $in = implode(',', array_fill(0, count($ids), '?'));
-        $params = array_merge([$author_id, $uid], $ids);
+        $ownerChangedIds = [];
+        foreach ($selectedById as $selectedId => $selectedPost) {
+            if ($selectedPost['created_by'] === null || (int)$selectedPost['created_by'] !== $author_id) {
+                $ownerChangedIds[] = $selectedId;
+            }
+        }
+        if ($ownerChangedIds === []) {
+            $pdo->commit();
+            respond(true, __('Author changed for') . ' 0 ' . __('articles.'), 200, ['count' => 0], $returnTo);
+        }
+        $in = implode(',', array_fill(0, count($ownerChangedIds), '?'));
+        $params = array_merge([$author_id, $uid], $ownerChangedIds);
 
         $stmt = $pdo->prepare("
             UPDATE posts
@@ -458,6 +558,24 @@ try {
         ");
         $stmt->execute($params);
         $affected = $stmt->rowCount();
+        if ($affected !== count($ownerChangedIds)) throw new RuntimeException('Article owner mutation was incomplete.');
+
+        foreach ($ownerChangedIds as $selectedId) {
+            $selectedPost = $selectedById[$selectedId];
+            $previousOwner = $selectedPost['created_by'] === null ? null : (int)$selectedPost['created_by'];
+            audit_log_content_event(
+                $pdo,
+                'article',
+                'owner_changed',
+                $uid,
+                $selectedId,
+                (string)$selectedPost['title'],
+                'admin.posts.bulk',
+                ['owner_id' => $previousOwner],
+                ['owner_id' => $author_id],
+                ['operation_id' => $operationId, 'metadata' => ['bulk' => true]]
+            );
+        }
 
         $pdo->commit();
         respond(true, __('Author changed for') . " {$affected} " . __('articles.'), 200, ['count' => $affected], $returnTo);
@@ -513,9 +631,20 @@ try {
         ]);
         do_action('admin_posts_bulk_before_mutation', $action, $selectedPosts, $pdo, $hookInput);
 
-        $in = implode(',', array_fill(0, count($ids), '?'));
+        $dateChangedIds = [];
+        foreach ($selectedById as $selectedId => $selectedPost) {
+            if (($normalizedCreatedAt !== '' && (string)$selectedPost['created_at'] !== $normalizedCreatedAt)
+                || ($normalizedUpdatedAt !== '' && (string)$selectedPost['updated_at'] !== $normalizedUpdatedAt)) {
+                $dateChangedIds[] = $selectedId;
+            }
+        }
+        if ($dateChangedIds === []) {
+            $pdo->commit();
+            respond(true, __('Date changed for') . ' 0 ' . __('articles.'), 200, ['count' => 0], $returnTo);
+        }
+        $in = implode(',', array_fill(0, count($dateChangedIds), '?'));
         $set = implode(', ', $fields);
-        $params = array_merge($params, $ids);
+        $params = array_merge($params, $dateChangedIds);
 
         $stmt = $pdo->prepare("
             UPDATE posts
@@ -524,6 +653,33 @@ try {
         ");
         $stmt->execute($params);
         $affected = $stmt->rowCount();
+
+        foreach ($dateChangedIds as $selectedId) {
+            $selectedPost = $selectedById[$selectedId];
+            $before = [];
+            $after = [];
+            if ($normalizedCreatedAt !== '') {
+                $before['created_at'] = (string)$selectedPost['created_at'];
+                $after['created_at'] = $normalizedCreatedAt;
+            }
+            if ($normalizedUpdatedAt !== '') {
+                $before['updated_at'] = (string)$selectedPost['updated_at'];
+                $after['updated_at'] = $normalizedUpdatedAt;
+            }
+            if ($before === $after) continue;
+            audit_log_content_event(
+                $pdo,
+                'article',
+                'dates_changed',
+                $uid,
+                $selectedId,
+                (string)$selectedPost['title'],
+                'admin.posts.bulk',
+                $before,
+                $after,
+                ['operation_id' => $operationId, 'metadata' => ['bulk' => true]]
+            );
+        }
 
         $pdo->commit();
         respond(true, __('Date changed for') . " {$affected} " . __('articles.'), 200, ['count' => $affected], $returnTo);

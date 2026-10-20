@@ -47,7 +47,7 @@ $performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $
     try {
         if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException(__('Access denied.'));
         $in = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $pdo->prepare("SELECT id, status, status_revision, created_by, is_deleted FROM posts WHERE id IN ($in) AND type = ? ORDER BY id FOR UPDATE");
+        $stmt = $pdo->prepare("SELECT id, title, status, status_revision, created_by, is_deleted FROM posts WHERE id IN ($in) AND type = ? ORDER BY id FOR UPDATE");
         $stmt->execute(array_merge($ids, [$resource]));
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         if (count($rows) !== count($ids)) throw new UnexpectedValueException(__('This action can no longer be undone.'));
@@ -117,13 +117,34 @@ $performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $
             }
         }
 
+        $rowsById = [];
+        foreach ($rows as $row) $rowsById[(int)$row['id']] = $row;
+        $operationId = audit_log_operation_id();
         foreach ($ids as $id) {
-            adiwira_bin_record_audit($pdo, $resource, $id, $uid, $resource . '.status_change_undone', [
+            $undoAuditId = adiwira_bin_record_audit($pdo, $resource, $id, $uid, $resource . '.status_change_undone', [
                 'from' => $items[$id]['changed_status'],
                 'to' => $items[$id]['previous_status'],
                 'bulk' => true,
                 'undo' => true,
             ]);
+            if ($resource === 'article' || $resource === 'page') {
+                audit_log_content_event(
+                    $pdo,
+                    $resource,
+                    'status_change_undone',
+                    $uid,
+                    $id,
+                    (string)$rowsById[$id]['title'],
+                    'admin.content.undo',
+                    ['status' => $items[$id]['changed_status']],
+                    ['status' => $items[$id]['previous_status']],
+                    [
+                        'operation_id' => $operationId,
+                        'metadata' => ['bulk' => true, 'undo' => true],
+                        'authorization_audit_id' => $undoAuditId,
+                    ]
+                );
+            }
         }
         $pdo->commit();
     } catch (Throwable $error) {

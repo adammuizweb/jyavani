@@ -56,7 +56,7 @@ try {
         $pdo->rollBack();
         adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
     }
-    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT title, created_by, status FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPage = $lock->fetch(PDO::FETCH_ASSOC);
     if (!authorization_lock_owner_contexts($pdo, [(int)($lockedPage['created_by'] ?? 0)])) {
@@ -86,6 +86,18 @@ try {
 
     $categoryMap = adiwira_bin_post_category_map($pdo, [$id]);
     $auditId = adiwira_bin_record_audit($pdo, 'page', $id, $uid, 'page.trashed');
+    audit_log_content_event(
+        $pdo,
+        'page',
+        'trashed',
+        $uid,
+        $id,
+        (string)$lockedPage['title'],
+        'admin.pages.delete',
+        ['is_deleted' => false],
+        ['is_deleted' => true],
+        ['authorization_audit_id' => $auditId]
+    );
     $pdo->commit();
 
 } catch (Throwable $e) {

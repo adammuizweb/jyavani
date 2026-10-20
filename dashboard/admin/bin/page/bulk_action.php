@@ -24,6 +24,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') respond_page_bin_bulk(false, 
 if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ''))) respond_page_bin_bulk(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])), static fn(int $id): bool => $id > 0)));
 if ($ids === []) respond_page_bin_bulk(false, __('No pages selected.'), 400, [], $returnTo);
+sort($ids, SORT_NUMERIC);
+if (count($ids) > 100) respond_page_bin_bulk(false, __('You can select up to 100 items at a time.'), 400, [], $returnTo);
 $action = (string)($_POST['action'] ?? '');
 $permission = match ($action) {
     'restore' => 'core.pages.restore',
@@ -40,7 +42,7 @@ try {
         try {
             if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
             $in = implode(',', array_fill(0, count($ids), '?'));
-            $selectedStmt = $pdo->prepare("SELECT id, slug, status, created_by FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 1 FOR UPDATE");
+            $selectedStmt = $pdo->prepare("SELECT id, title, slug, status, created_by FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 1 FOR UPDATE");
             $selectedStmt->execute($ids);
             $pages = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
             if (count($pages) !== count($ids)) throw new DomainException('Page selection changed.');
@@ -67,6 +69,22 @@ try {
                 $stmt->execute($ids);
             }
             $count = $stmt->rowCount();
+            if ($count !== count($ids)) throw new RuntimeException('Bulk page Bin mutation did not affect the complete selection.');
+            $operationId = audit_log_operation_id();
+            foreach ($pages as $page) {
+                audit_log_content_event(
+                    $pdo,
+                    'page',
+                    $action === 'restore' ? 'restored' : 'purged',
+                    $uid,
+                    (int)$page['id'],
+                    (string)$page['title'],
+                    'admin.bin.page.bulk',
+                    $action === 'restore' ? ['is_deleted' => true] : ['exists' => true],
+                    $action === 'restore' ? ['is_deleted' => false] : ['exists' => false],
+                    ['operation_id' => $operationId, 'metadata' => ['bulk' => true]]
+                );
+            }
             $pdo->commit();
             return $count;
         } catch (Throwable $error) {

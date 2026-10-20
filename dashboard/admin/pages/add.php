@@ -186,6 +186,30 @@ if (function_exists('normalize_links_in_html') && class_exists('DOMDocument')) {
                     'publish_at_utc' => $publishAtUtc,
                     'created_by' => $uid,
                 ]);
+                audit_log_content_event(
+                    $pdo,
+                    'page',
+                    'created',
+                    $uid,
+                    $pageId,
+                    $title,
+                    'admin.pages.add',
+                    [],
+                    [
+                        'title' => $title,
+                        'slug' => $slug,
+                        'content' => $content,
+                        'meta' => $metaVal,
+                        'thumbnail' => $thumbnail,
+                        'status' => $status,
+                        'publish_at_utc' => $publishAtUtc,
+                        'owner_id' => $uid,
+                        'created_at' => $final_created,
+                        'updated_at' => $final_updated,
+                        'thumbnail_media_id' => $thumbnailMediaId,
+                    ],
+                    ['redacted_fields' => ['content', 'meta', 'thumbnail']]
+                );
                 $pdo->commit();
                 return $pageId;
                 } catch (Throwable $error) {

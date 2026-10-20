@@ -4,6 +4,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/time_helpers.php';
+require_once $root . '/cfg/helpers/audit_log.php';
 if (!function_exists('settings_get')) {
     function settings_get(PDO $pdo, string $key, mixed $default = null): mixed
     {
@@ -140,6 +141,14 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         status_revision INTEGER NOT NULL DEFAULT 0, publish_at_utc TEXT,
         updated_at TEXT, updated_by INTEGER, is_deleted INTEGER NOT NULL DEFAULT 0
     )');
+    $sqlite->exec('CREATE TABLE audit_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, request_id TEXT NOT NULL,
+        operation_id TEXT NOT NULL, provider TEXT NOT NULL, event_key TEXT NOT NULL, actor_user_id INTEGER,
+        actor_label TEXT NOT NULL, actor_email TEXT, resource_type TEXT NOT NULL, resource_id TEXT NOT NULL,
+        resource_label TEXT, source TEXT NOT NULL, route TEXT, request_method TEXT, request_path TEXT,
+        ip_address BLOB, user_agent_hash TEXT, changes TEXT, metadata TEXT, authorization_audit_id INTEGER UNIQUE,
+        occurred_at_utc TEXT NOT NULL
+    )');
     $sqlite->exec("INSERT INTO posts (type,title,status,publish_at_utc) VALUES
         ('article','First','draft','2026-09-17 11:00:00'),
         ('page','Second','draft','2026-09-17 11:30:00')");
@@ -155,7 +164,8 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         && ($partial[0]['title'] ?? '') === 'Second'
         && count(content_scheduler_last_errors()) === 1
         && $sqlite->query("SELECT status FROM posts WHERE title = 'First'")->fetchColumn() === 'draft'
-        && $sqlite->query("SELECT status FROM posts WHERE title = 'Second'")->fetchColumn() === 'published',
+        && $sqlite->query("SELECT status FROM posts WHERE title = 'Second'")->fetchColumn() === 'published'
+        && (int)$sqlite->query('SELECT COUNT(*) FROM audit_events')->fetchColumn() === 1,
         'a failing pre-publication hook leaves only that item scheduled and does not starve later due content');
     $sqlite->exec("INSERT INTO posts (type,title,status,publish_at_utc) VALUES
         ('page','Third','draft','2026-09-17 11:45:00')");
@@ -168,8 +178,9 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         && array_column($states, 'status') === ['published', 'published', 'published']
         && array_map('intval', array_column($states, 'status_revision')) === [1, 1, 1]
         && array_column($states, 'publish_at_utc') === [null, null, null]
+        && (int)$sqlite->query("SELECT COUNT(*) FROM audit_events WHERE actor_user_id IS NULL AND actor_label = 'System' AND source = 'core.scheduler'")->fetchColumn() === 3
         && !$sqlite->inTransaction(),
-        'a transaction-leaking observer cannot roll back or block later publications in the batch');
+        'scheduled publication is audited atomically and a transaction-leaking observer cannot roll it back or block later publications');
 }
 unset($GLOBALS['__TEST_CONTENT_SCHEDULING_ENABLED']);
 

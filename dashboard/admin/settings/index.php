@@ -61,6 +61,16 @@ if ($canManageSettings && $isSiteOwner) {
     ];
 }
 
+if ($isSiteOwner && user_can($pdo, $uid, 'core.audit.read')) {
+    $items[] = [
+        'label' => __('Audit Log'),
+        'href'  => $base . '/?page=admin/settings/audit',
+        'icon'  => 'history',
+        'desc'  => __('Review successful content mutations and the users who performed them.'),
+        'badge' => __('Site Owner'),
+    ];
+}
+
 if ($canManageSidebar) {
     $items[] = [
         'label' => 'Sidebar',

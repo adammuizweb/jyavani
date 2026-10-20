@@ -99,7 +99,7 @@ $performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $
     } else {
         $in = implode(',', array_fill(0, count($ids), '?'));
         $type = (string)$config['type'];
-        $selectedStmt = $pdo->prepare("SELECT id, slug, status, created_by, is_deleted FROM posts WHERE id IN ($in) AND type = ? ORDER BY id FOR UPDATE");
+        $selectedStmt = $pdo->prepare("SELECT id, title, slug, status, created_by, is_deleted FROM posts WHERE id IN ($in) AND type = ? ORDER BY id FOR UPDATE");
         $selectedStmt->execute(array_merge($ids, [$type]));
         $selected = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
         if (count($selected) !== count($ids)) throw new DomainException(__('This action can no longer be undone.'));
@@ -140,8 +140,29 @@ $performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $
         $restore = $pdo->prepare("UPDATE posts SET is_deleted = 0, deleted_at = NULL, updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = ? AND is_deleted = 1");
         $restore->execute(array_merge([$uid], $ids, [$type]));
         if ($restore->rowCount() !== count($ids)) throw new RuntimeException('Post Undo selection changed.');
+        $selectedById = [];
+        foreach ($selected as $row) $selectedById[(int)$row['id']] = $row;
+        $operationId = audit_log_operation_id();
         foreach ($ids as $id) {
-            adiwira_bin_record_audit($pdo, $resource, $id, $uid, $resource . '.trash_undone', ['undo' => true]);
+            $undoAuditId = adiwira_bin_record_audit($pdo, $resource, $id, $uid, $resource . '.trash_undone', ['undo' => true]);
+            if ($resource === 'article' || $resource === 'page') {
+                audit_log_content_event(
+                    $pdo,
+                    $resource,
+                    'trash_undone',
+                    $uid,
+                    $id,
+                    (string)$selectedById[$id]['title'],
+                    'admin.bin.undo',
+                    ['is_deleted' => true],
+                    ['is_deleted' => false],
+                    [
+                        'operation_id' => $operationId,
+                        'metadata' => ['bulk' => count($ids) > 1, 'undo' => true],
+                        'authorization_audit_id' => $undoAuditId,
+                    ]
+                );
+            }
         }
     }
 

@@ -124,6 +124,41 @@ CREATE TABLE IF NOT EXISTS `authorization_audit_log` (
   CONSTRAINT `fk_authz_audit_subject` FOREIGN KEY (`subject_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `audit_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `event_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `request_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `operation_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `provider` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `event_key` varchar(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `actor_user_id` int(10) unsigned DEFAULT NULL,
+  `actor_label` varchar(191) NOT NULL,
+  `actor_email` varchar(255) DEFAULT NULL,
+  `resource_type` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `resource_id` varchar(191) NOT NULL,
+  `resource_label` varchar(255) DEFAULT NULL,
+  `source` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `route` varchar(191) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `request_method` varchar(10) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `request_path` varchar(1024) DEFAULT NULL,
+  `ip_address` varbinary(16) DEFAULT NULL,
+  `user_agent_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `changes` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (`changes` IS NULL OR json_valid(`changes`)),
+  `metadata` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (`metadata` IS NULL OR json_valid(`metadata`)),
+  `authorization_audit_id` bigint(20) unsigned DEFAULT NULL,
+  `occurred_at_utc` datetime(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_audit_events_event` (`event_id`),
+  UNIQUE KEY `uq_audit_events_authorization` (`authorization_audit_id`),
+  KEY `idx_audit_events_occurred` (`occurred_at_utc`,`id`),
+  KEY `idx_audit_events_actor` (`actor_user_id`,`occurred_at_utc`,`id`),
+  KEY `idx_audit_events_provider_event` (`provider`,`event_key`,`id`),
+  KEY `idx_audit_events_resource` (`resource_type`,`resource_id`(150),`id`),
+  KEY `idx_audit_events_operation` (`operation_id`,`id`),
+  CONSTRAINT `fk_audit_events_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_audit_events_authorization` FOREIGN KEY (`authorization_audit_id`) REFERENCES `authorization_audit_log` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `roles` (`slug`,`name`,`description`,`authority_rank`,`is_system`) VALUES
   ('author','Author','Creates and manages owned content.',10,1),
   ('editor','Editor','Manages editorial resources and owned content.',50,1),
@@ -200,6 +235,7 @@ INSERT INTO `permissions` (`permission_key`,`provider`,`resource`,`action`,`labe
   ('core.users.assign_roles','core','users','assign_roles','Assign roles to users',1),
   ('core.roles.manage','core','roles','manage','Manage roles and permissions',0),
   ('core.settings.manage','core','settings','manage','Manage site settings',0),
+  ('core.audit.read','core','audit','read','View audit log',0),
   ('core.plugins.manage','core','plugins','manage','Manage plugins',0),
   ('core.updates.manage','core','updates','manage','Manage Core updates',0),
   ('core.profile.manage','core','profile','manage','Manage own profile',0),
@@ -212,6 +248,10 @@ ON DUPLICATE KEY UPDATE
   `label`=VALUES(`label`),
   `supports_scope`=VALUES(`supports_scope`),
   `is_active`=1;
+
+UPDATE `permissions`
+SET `is_delegable` = 0
+WHERE `permission_key` = 'core.audit.read';
 
 INSERT INTO `role_permissions` (`role_id`,`permission_key`,`scope`)
 SELECT r.id, grants.permission_key, grants.scope

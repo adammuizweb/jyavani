@@ -251,7 +251,7 @@ try {
     try {
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
     if (!user_can($pdo, $uid, 'core.pages.unfiltered_html')) $content = cms_sanitize_restricted_html($content);
-    $lock = $pdo->prepare("SELECT id, created_by, status, publish_at_utc, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, title, slug, content, meta, created_by, status, publish_at_utc, created_at, updated_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPage = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedEditorStatus = is_array($lockedPage)
@@ -349,6 +349,42 @@ try {
         'created_by' => $final_creator,
         'updated_by' => $uid,
     ]);
+    audit_log_content_event(
+        $pdo,
+        'page',
+        'updated',
+        $uid,
+        $id,
+        $title,
+        'admin.pages.edit',
+        [
+            'title' => (string)$lockedPage['title'],
+            'slug' => (string)$lockedPage['slug'],
+            'content' => (string)$lockedPage['content'],
+            'meta' => $lockedPage['meta'],
+            'status' => (string)$lockedPage['status'],
+            'publish_at_utc' => $lockedPage['publish_at_utc'],
+            'owner_id' => $lockedOwnerId,
+            'created_at' => (string)$lockedPage['created_at'],
+            'updated_at' => (string)$lockedPage['updated_at'],
+            'thumbnail' => $lockedPage['thumbnail'],
+            'thumbnail_media_id' => isset($lockedPage['thumbnail_media_id']) ? (int)$lockedPage['thumbnail_media_id'] : null,
+        ],
+        [
+            'title' => $title,
+            'slug' => $slug,
+            'content' => $content,
+            'meta' => $finalMeta,
+            'status' => $status,
+            'publish_at_utc' => $publishAtUtc,
+            'owner_id' => $final_creator,
+            'created_at' => $effectiveCreatedAt,
+            'updated_at' => $final_updated,
+            'thumbnail' => $thumbnail,
+            'thumbnail_media_id' => $thumbnailMediaId,
+        ],
+        ['redacted_fields' => ['content', 'meta', 'thumbnail']]
+    );
     $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();

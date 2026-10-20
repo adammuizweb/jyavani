@@ -229,6 +229,20 @@ if (!function_exists('content_scheduler_publish_due')) {
                     ':publish_at_utc' => (string)$item['publish_at_utc'],
                 ]);
                 if ($publish->rowCount() !== 1) throw new RuntimeException('Scheduled content changed before publication.');
+                if (in_array((string)$item['type'], ['article', 'page'], true)) {
+                    audit_log_content_event(
+                        $pdo,
+                        (string)$item['type'],
+                        'status_changed',
+                        null,
+                        (int)$item['id'],
+                        (string)$item['title'],
+                        'core.scheduler',
+                        ['status' => 'draft', 'publish_at_utc' => (string)$item['publish_at_utc']],
+                        ['status' => 'published', 'publish_at_utc' => null],
+                        ['metadata' => ['scheduled_publication' => true]]
+                    );
+                }
                 $pdo->commit();
             } catch (Throwable $error) {
                 if ($pdo->inTransaction()) $pdo->rollBack();

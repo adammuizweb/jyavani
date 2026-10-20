@@ -233,6 +233,59 @@ state or throw; thrown errors propagate so Core rolls back the whole transaction
 Listeners must not commit, roll back, or start another transaction, and must
 preserve Core's global-first lock order.
 
+## Mutation audit events
+
+Core records successful Article and Page mutations in the append-only
+`audit_events` stream. Plugins can join the same stream with
+`audit_log_record()` when they make a user-visible persistent change. The API
+requires a caller-owned transaction, never changes transaction ownership, and
+throws when validation or persistence fails so the resource mutation and its
+audit evidence commit or roll back together.
+
+Scheduled Article and Page publication is recorded by Core with the `System`
+actor and `core.scheduler` source in the same transaction as publication.
+
+```php
+$pdo->beginTransaction();
+try {
+    // Lock, authorize, and mutate the plugin-owned resource first.
+    $operationId = audit_log_operation_id();
+    audit_log_record($pdo, [
+        'provider' => 'quiz',
+        'event_key' => 'attempt.score_changed',
+        'actor_user_id' => $userId,
+        'resource_type' => 'quiz_attempt',
+        'resource_id' => (string)$attemptId,
+        'resource_label' => $attemptLabel,
+        'source' => 'plugin.quiz',
+        'operation_id' => $operationId,
+        'changes' => audit_log_changes(
+            ['score' => $oldScore],
+            ['score' => $newScore]
+        ),
+        'metadata' => [],
+    ]);
+    $pdo->commit();
+} catch (Throwable $error) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    throw $error;
+}
+```
+
+Use one operation ID for every resource changed by one bounded bulk request.
+Provider, event, resource, and source names use lowercase letters, numbers,
+dots, underscores, and hyphens. Do not pass `$_POST`, cookies, headers, session
+data, credentials, or full editor bodies. Audit JSON is recursively bounded;
+credential-like keys are redacted, and `audit_log_changes()` accepts an array
+of additional fields to redact. Core records only the validated dashboard route
+and URL path, never the query string, trusts only the direct peer address, and
+stores only a SHA-256 user-agent hash.
+
+This is a mutation audit contract, not page-view analytics. Opening a plugin
+screen is not a semantic mutation. A plugin must emit events such as
+`attempt.deleted` or `attempt.score_changed` only after the corresponding
+authorized database change succeeds.
+
 Plugins that store an aggregate `posts.status` may expose the content source
 status to the editor and its locked permission check through:
 

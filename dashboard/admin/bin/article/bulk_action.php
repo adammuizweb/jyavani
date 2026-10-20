@@ -24,6 +24,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') respond_article_bin_bulk(fals
 if (!adiwira_csrf_validate((string)($_POST['csrf_token'] ?? ''))) respond_article_bin_bulk(false, __('Invalid CSRF token.'), 419, [], $returnTo);
 $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])), static fn(int $id): bool => $id > 0)));
 if ($ids === []) respond_article_bin_bulk(false, __('No articles selected.'), 400, [], $returnTo);
+sort($ids, SORT_NUMERIC);
+if (count($ids) > 100) respond_article_bin_bulk(false, __('You can select up to 100 items at a time.'), 400, [], $returnTo);
 $action = (string)($_POST['action'] ?? '');
 $permission = match ($action) {
     'restore' => 'core.posts.restore',
@@ -40,7 +42,7 @@ try {
         try {
             if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Article actor permission lock failed.');
             $in = implode(',', array_fill(0, count($ids), '?'));
-            $selectedStmt = $pdo->prepare("SELECT id, slug, status, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 1 FOR UPDATE");
+            $selectedStmt = $pdo->prepare("SELECT id, title, slug, status, created_by FROM posts WHERE id IN ($in) AND type = 'article' AND is_deleted = 1 FOR UPDATE");
             $selectedStmt->execute($ids);
             $posts = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
             if (count($posts) !== count($ids)) throw new DomainException('Article selection changed.');
@@ -67,6 +69,22 @@ try {
                 $stmt->execute($ids);
             }
             $count = $stmt->rowCount();
+            if ($count !== count($ids)) throw new RuntimeException('Bulk article Bin mutation did not affect the complete selection.');
+            $operationId = audit_log_operation_id();
+            foreach ($posts as $post) {
+                audit_log_content_event(
+                    $pdo,
+                    'article',
+                    $action === 'restore' ? 'restored' : 'purged',
+                    $uid,
+                    (int)$post['id'],
+                    (string)$post['title'],
+                    'admin.bin.article.bulk',
+                    $action === 'restore' ? ['is_deleted' => true] : ['exists' => true],
+                    $action === 'restore' ? ['is_deleted' => false] : ['exists' => false],
+                    ['operation_id' => $operationId, 'metadata' => ['bulk' => true]]
+                );
+            }
             $pdo->commit();
             return $count;
         } catch (Throwable $error) {

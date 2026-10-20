@@ -18,7 +18,7 @@ try {
     $pdo->beginTransaction();
     try {
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
-    $lock = $pdo->prepare("SELECT created_by, status, slug FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT title, created_by, status, slug FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $page = $lock->fetch(PDO::FETCH_ASSOC);
     $ownerId = (int)($page['created_by'] ?? 0);
@@ -32,6 +32,9 @@ try {
     if ($collision->fetchColumn()) throw new InvalidArgumentException('Slug already used by active content.');
     $stmt = $pdo->prepare("UPDATE posts SET is_deleted = 0, deleted_at = NULL, updated_at = NOW(), updated_by = :updated_by WHERE id = :id AND type = 'page' AND is_deleted = 1 LIMIT 1");
     $stmt->execute([':id' => $id, ':updated_by' => $uid]);
+    if ($stmt->rowCount() !== 1) throw new RuntimeException('Page restore did not affect exactly one row.');
+    audit_log_content_event($pdo, 'page', 'restored', $uid, $id, (string)$page['title'], 'admin.bin.page',
+        ['is_deleted' => true], ['is_deleted' => false]);
     $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();

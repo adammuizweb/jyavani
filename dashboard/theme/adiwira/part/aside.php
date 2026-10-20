@@ -309,6 +309,12 @@ if ($navActor !== null && $navActor['is_site_owner'] === true
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('server','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Site Health') . '</span></a>';
 }
 
+if ($navActor !== null && $navActor['is_site_owner'] === true
+    && function_exists('current_user_can') && current_user_can($pdo, 'core.audit.read')) {
+    echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/settings/audit') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/settings/audit') . '">';
+    echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('history','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Audit Log') . '</span></a>';
+}
+
 if ($userRole === 'admin') {
     echo '<a class="adam-nav-sublink' . (adam_nav_active($requested,'admin/shortcodes') ? ' adam-nav-sublink--active' : '') . '" href="' . h($base . '/?page=admin/shortcodes/index&tab=presets') . '">';
     echo '<span class="adam-nav-sublink-icon" aria-hidden="true">' . adam_icon('braces','adam-svg-icon--sm') . '</span><span class="adam-nav-sublink-text">' . __('Shortcodes') . '</span></a>';

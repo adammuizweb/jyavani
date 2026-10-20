@@ -408,6 +408,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     'meta_description' => $metaDescription,
                 ]);
                 do_action('admin_post_before_add_commit', $postId, $pdo, $hookInput);
+                audit_log_content_event(
+                    $pdo,
+                    'article',
+                    'created',
+                    $uid,
+                    $postId,
+                    $title,
+                    'admin.posts.add',
+                    [],
+                    [
+                        'title' => $title,
+                        'slug' => $slug,
+                        'content' => $content,
+                        'meta' => $metaVal,
+                        'youtube' => $youtube,
+                        'thumbnail' => $thumbnail,
+                        'status' => $status,
+                        'publish_at_utc' => $publishAtUtc,
+                        'owner_id' => $uid,
+                        'created_at' => $final_created,
+                        'updated_at' => $final_updated,
+                        'thumbnail_media_id' => $thumbnailMediaId,
+                        'category_ids' => audit_log_id_set($category_ids),
+                    ],
+                    ['redacted_fields' => ['content', 'meta', 'thumbnail']]
+                );
                 $pdo->commit();
                 return $postId;
                 } catch (Throwable $error) {

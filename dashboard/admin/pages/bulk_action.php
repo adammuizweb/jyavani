@@ -58,7 +58,7 @@ try {
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
 
     $in = implode(',', array_fill(0, count($ids), '?'));
-    $selectedStmt = $pdo->prepare("SELECT id, status, status_revision, publish_at_utc, created_by FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 0 FOR UPDATE");
+    $selectedStmt = $pdo->prepare("SELECT id, title, status, status_revision, publish_at_utc, created_by, created_at, updated_at FROM posts WHERE id IN ($in) AND type = 'page' AND is_deleted = 0 FOR UPDATE");
     $selectedStmt->execute($ids);
     $selectedPages = $selectedStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     if (count($selectedPages) !== count($ids)) throw new DomainException('Page selection changed.');
@@ -90,6 +90,9 @@ try {
         if (!empty($selectedPage['publish_at_utc'])) $statusUndoEligible = false;
     }
     unset($selectedPage);
+    $selectedById = [];
+    foreach ($selectedPages as $selectedPage) $selectedById[(int)$selectedPage['id']] = $selectedPage;
+    $operationId = audit_log_operation_id();
     foreach ($selectedPages as $page) {
         if (!user_can($pdo, $uid, $requiredPermission, ['owner_id' => (int)$page['created_by']])) {
             throw new DomainException('Page permission changed.');
@@ -105,6 +108,22 @@ try {
         $undoItems = [];
         foreach ($ids as $selectedId) {
             $auditId = adiwira_bin_record_audit($pdo, 'page', $selectedId, $uid, 'page.trashed', ['bulk' => true]);
+            audit_log_content_event(
+                $pdo,
+                'page',
+                'trashed',
+                $uid,
+                $selectedId,
+                (string)$selectedById[$selectedId]['title'],
+                'admin.pages.bulk',
+                ['is_deleted' => false],
+                ['is_deleted' => true],
+                [
+                    'operation_id' => $operationId,
+                    'metadata' => ['bulk' => true],
+                    'authorization_audit_id' => $auditId,
+                ]
+            );
             $undoItems[] = [
                 'id' => $selectedId,
                 'audit_id' => $auditId,
@@ -168,6 +187,7 @@ try {
             }
         }
         $undoItems = [];
+        $authorizationAuditIds = [];
         if ($statusUndoEligible) {
             foreach ($changedIds as $selectedId) {
                 $previousStatus = $rawStatusesById[$selectedId];
@@ -176,6 +196,7 @@ try {
                     'from' => $previousStatus,
                     'to' => $newStatus,
                 ]);
+                $authorizationAuditIds[$selectedId] = $auditId;
                 $undoItems[] = [
                     'id' => $selectedId,
                     'audit_id' => $auditId,
@@ -184,6 +205,27 @@ try {
                     'status_revision' => $statusRevisionsById[$selectedId] + 1,
                 ];
             }
+        }
+        foreach ($changedIds as $selectedId) {
+            audit_log_content_event(
+                $pdo,
+                'page',
+                'status_changed',
+                $uid,
+                $selectedId,
+                (string)$selectedById[$selectedId]['title'],
+                'admin.pages.bulk',
+                [
+                    'status' => $rawStatusesById[$selectedId],
+                    'publish_at_utc' => $publishAtById[$selectedId],
+                ],
+                ['status' => $newStatus, 'publish_at_utc' => null],
+                [
+                    'operation_id' => $operationId,
+                    'metadata' => ['bulk' => true],
+                    'authorization_audit_id' => $authorizationAuditIds[$selectedId] ?? null,
+                ]
+            );
         }
         $pdo->commit();
         $extra = ['count' => $affected];
@@ -220,9 +262,37 @@ try {
             throw new DomainException('Page owner target permission changed.');
         }
         do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, ['author_id' => $authorId]);
-        $stmt = $pdo->prepare("UPDATE posts SET created_by = ?, updated_at = NOW(), updated_by = ? WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
-        $stmt->execute(array_merge([$authorId, $uid], $ids));
+        $ownerChangedIds = [];
+        foreach ($selectedById as $selectedId => $selectedPage) {
+            if ($selectedPage['created_by'] === null || (int)$selectedPage['created_by'] !== $authorId) {
+                $ownerChangedIds[] = $selectedId;
+            }
+        }
+        if ($ownerChangedIds === []) {
+            $pdo->commit();
+            respond_pages_bulk(true, __('Author changed for') . ' 0 ' . __('pages.'), 200, ['count' => 0], $returnTo);
+        }
+        $ownerIn = implode(',', array_fill(0, count($ownerChangedIds), '?'));
+        $stmt = $pdo->prepare("UPDATE posts SET created_by = ?, updated_at = NOW(), updated_by = ? WHERE id IN ($ownerIn) AND type = 'page' AND is_deleted = 0");
+        $stmt->execute(array_merge([$authorId, $uid], $ownerChangedIds));
         $affected = $stmt->rowCount();
+        if ($affected !== count($ownerChangedIds)) throw new RuntimeException('Page owner mutation was incomplete.');
+        foreach ($ownerChangedIds as $selectedId) {
+            $selectedPage = $selectedById[$selectedId];
+            $previousOwner = $selectedPage['created_by'] === null ? null : (int)$selectedPage['created_by'];
+            audit_log_content_event(
+                $pdo,
+                'page',
+                'owner_changed',
+                $uid,
+                $selectedId,
+                (string)$selectedPage['title'],
+                'admin.pages.bulk',
+                ['owner_id' => $previousOwner],
+                ['owner_id' => $authorId],
+                ['operation_id' => $operationId, 'metadata' => ['bulk' => true]]
+            );
+        }
         $pdo->commit();
         respond_pages_bulk(true, __('Author changed for') . " {$affected} " . __('pages.'), 200, ['count' => $affected], $returnTo);
     }
@@ -232,6 +302,7 @@ try {
     if ($createdAt === '' && $updatedAt === '') throw new InvalidArgumentException('Please enter at least one date.');
     $fields = [];
     $values = [];
+    $dateChanges = [];
     foreach (['created_at' => $createdAt, 'updated_at' => $updatedAt] as $field => $value) {
         if ($value === '') continue;
         $date = app_parse_site_datetime_local($value);
@@ -239,17 +310,56 @@ try {
             throw new InvalidArgumentException('Invalid date format.');
         }
         $fields[] = "$field = ?";
-        $values[] = $date->format('Y-m-d H:i:s');
+        $normalized = $date->format('Y-m-d H:i:s');
+        $values[] = $normalized;
+        $dateChanges[$field] = $normalized;
     }
+    if ($createdAt !== '' && $updatedAt === '') $fields[] = 'updated_at = updated_at';
     do_action('admin_pages_bulk_before_mutation', $action, $selectedPages, $pdo, [
         'created_at' => $fields !== [] && str_starts_with($fields[0], 'created_at') ? $values[0] : null,
         'updated_at' => $updatedAt !== '' ? $values[count($values) - 1] : null,
     ]);
+    $dateChangedIds = [];
+    foreach ($selectedById as $selectedId => $selectedPage) {
+        foreach ($dateChanges as $field => $normalized) {
+            if ((string)$selectedPage[$field] !== $normalized) {
+                $dateChangedIds[] = $selectedId;
+                break;
+            }
+        }
+    }
+    if ($dateChangedIds === []) {
+        $pdo->commit();
+        respond_pages_bulk(true, __('Date changed for') . ' 0 ' . __('pages.'), 200, ['count' => 0], $returnTo);
+    }
     $fields[] = 'updated_by = ?';
     $values[] = $uid;
-    $stmt = $pdo->prepare('UPDATE posts SET ' . implode(', ', $fields) . " WHERE id IN ($in) AND type = 'page' AND is_deleted = 0");
-    $stmt->execute(array_merge($values, $ids));
+    $dateIn = implode(',', array_fill(0, count($dateChangedIds), '?'));
+    $stmt = $pdo->prepare('UPDATE posts SET ' . implode(', ', $fields) . " WHERE id IN ($dateIn) AND type = 'page' AND is_deleted = 0");
+    $stmt->execute(array_merge($values, $dateChangedIds));
     $affected = $stmt->rowCount();
+    foreach ($dateChangedIds as $selectedId) {
+        $selectedPage = $selectedById[$selectedId];
+        $before = [];
+        $after = [];
+        foreach ($dateChanges as $field => $normalized) {
+            $before[$field] = (string)$selectedPage[$field];
+            $after[$field] = $normalized;
+        }
+        if ($before === $after) continue;
+        audit_log_content_event(
+            $pdo,
+            'page',
+            'dates_changed',
+            $uid,
+            $selectedId,
+            (string)$selectedPage['title'],
+            'admin.pages.bulk',
+            $before,
+            $after,
+            ['operation_id' => $operationId, 'metadata' => ['bulk' => true]]
+        );
+    }
     $pdo->commit();
     respond_pages_bulk(true, __('Date changed for') . " {$affected} " . __('pages.'), 200, ['count' => $affected], $returnTo);
 } catch (InvalidArgumentException $e) {

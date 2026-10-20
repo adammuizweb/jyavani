@@ -16,14 +16,18 @@ if ($id <= 0) adiwira_redirect_with_flash($returnTo, 'error', __('Invalid ID.'))
 try {
     $pdo->beginTransaction();
     if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException('Page actor permission lock failed.');
-    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT title, created_by FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $page = $lock->fetch(PDO::FETCH_ASSOC);
     $ownerId = (int)($page['created_by'] ?? 0);
     if (!$page || !authorization_lock_owner_contexts($pdo, [$ownerId])) throw new DomainException('Page owner context lock failed.');
     if (!user_can($pdo, $uid, 'core.pages.purge', ['owner_id' => $ownerId])) throw new DomainException('Page purge permission changed.');
     $pdo->prepare('DELETE FROM post_categories WHERE post_id = :id')->execute([':id' => $id]);
-    $pdo->prepare("DELETE FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 LIMIT 1")->execute([':id' => $id]);
+    $delete = $pdo->prepare("DELETE FROM posts WHERE id = :id AND type = 'page' AND is_deleted = 1 LIMIT 1");
+    $delete->execute([':id' => $id]);
+    if ($delete->rowCount() !== 1) throw new RuntimeException('Page purge did not affect exactly one row.');
+    audit_log_content_event($pdo, 'page', 'purged', $uid, $id, (string)$page['title'], 'admin.bin.page',
+        ['exists' => true], ['exists' => false]);
     $pdo->commit();
     adiwira_redirect_with_flash($returnTo, 'success', __('Page permanently deleted.'));
 } catch (DomainException $e) {

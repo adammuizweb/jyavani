@@ -57,7 +57,7 @@ try {
         adiwira_redirect_with_flash($returnTo, 'error', __('Access denied.'));
     }
 
-    $lock = $pdo->prepare("SELECT created_by FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 1 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT title, created_by FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 1 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
     if (!authorization_lock_owner_contexts($pdo, [(int)($lockedPost['created_by'] ?? 0)])) {
@@ -72,13 +72,17 @@ try {
     $pdo->prepare("DELETE FROM post_categories WHERE post_id = :id")
         ->execute([':id' => $id]);
 
-    $pdo->prepare("
+    $delete = $pdo->prepare("
         DELETE FROM posts
         WHERE id = :id
           AND type = 'article'
           AND is_deleted = 1
         LIMIT 1
-    ")->execute([':id' => $id]);
+    ");
+    $delete->execute([':id' => $id]);
+    if ($delete->rowCount() !== 1) throw new RuntimeException('Article purge did not affect exactly one row.');
+    audit_log_content_event($pdo, 'article', 'purged', $uid, $id, (string)$lockedPost['title'], 'admin.bin.article',
+        ['exists' => true], ['exists' => false]);
 
     $pdo->commit();
 

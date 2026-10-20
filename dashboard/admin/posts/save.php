@@ -363,7 +363,7 @@ try {
         $content = cms_sanitize_restricted_html($content);
     }
 
-    $lock = $pdo->prepare("SELECT id, created_by, status, publish_at_utc, created_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, title, slug, content, meta, youtube, created_by, status, publish_at_utc, created_at, updated_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedOwnerId = (int)($lockedPost['created_by'] ?? 0);
@@ -438,6 +438,8 @@ try {
     );
     $currentCategoryStmt->execute([':post_id' => $id]);
     $currentCategoryRows = $currentCategoryStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $previousCategoryIds = array_values(array_map('intval', array_column($currentCategoryRows, 'id')));
+    sort($previousCategoryIds, SORT_NUMERIC);
     if (!authorization_lock_owner_contexts($pdo, array_column($currentCategoryRows, 'created_by'))) {
         throw new DomainException('Category owner context lock failed.');
     }
@@ -495,6 +497,48 @@ try {
         'meta_description' => $metaDescription,
     ]);
     do_action('admin_post_before_edit_commit', $id, $pdo, $hookInput);
+    $finalCategoryIds = $cats;
+    sort($finalCategoryIds, SORT_NUMERIC);
+    audit_log_content_event(
+        $pdo,
+        'article',
+        'updated',
+        $uid,
+        $id,
+        $title,
+        'admin.posts.edit',
+        [
+            'title' => (string)$lockedPost['title'],
+            'slug' => (string)$lockedPost['slug'],
+            'content' => (string)$lockedPost['content'],
+            'meta' => $lockedPost['meta'],
+            'youtube' => $lockedPost['youtube'],
+            'status' => (string)$lockedPost['status'],
+            'publish_at_utc' => $lockedPost['publish_at_utc'],
+            'owner_id' => $lockedOwnerId,
+            'created_at' => (string)$lockedPost['created_at'],
+            'updated_at' => (string)$lockedPost['updated_at'],
+            'thumbnail_media_id' => isset($lockedPost['thumbnail_media_id']) ? (int)$lockedPost['thumbnail_media_id'] : null,
+            'thumbnail' => $lockedPost['thumbnail'],
+            'category_ids' => audit_log_id_set($previousCategoryIds),
+        ],
+        [
+            'title' => $title,
+            'slug' => $slug,
+            'content' => $content,
+            'meta' => $finalMeta,
+            'youtube' => $youtube,
+            'status' => $status,
+            'publish_at_utc' => $publishAtUtc,
+            'owner_id' => $final_creator,
+            'created_at' => $effectiveCreatedAt,
+            'updated_at' => $final_updated,
+            'thumbnail_media_id' => $thumbnailMediaId,
+            'thumbnail' => $thumbnail,
+            'category_ids' => audit_log_id_set($finalCategoryIds),
+        ],
+        ['redacted_fields' => ['content', 'meta', 'thumbnail']]
+    );
     $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
