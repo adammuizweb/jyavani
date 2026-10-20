@@ -272,81 +272,172 @@ $prettyJson = static function (?string $value): string {
     }
 };
 $tabUrl = static fn(string $target): string => $base . '/?page=admin/settings/audit&tab=' . rawurlencode($target);
+$filterUrlWithout = static function (string $key) use ($base, $tab): string {
+    $query = $_GET;
+    unset($query[$key], $query['p']);
+    $query['page'] = 'admin/settings/audit';
+    $query['tab'] = $tab;
+    return $base . '/?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+};
+$activeFilterChips = [];
+$searchActive = ($filters['q'] ?? '') !== '';
+if ($tab === 'mutations') {
+    foreach (['provider' => __('Provider'), 'event' => __('Event'), 'resource' => __('Resource')] as $key => $label) {
+        if (($filters[$key] ?? '') !== '') $activeFilterChips[$key] = [$label, (string)$filters[$key]];
+    }
+    if (($filters['actor'] ?? 0) > 0) {
+        $actorLabel = '#' . (int)$filters['actor'];
+        foreach ($actors as $actor) {
+            if ((int)$actor['actor_user_id'] === (int)$filters['actor']) {
+                $actorLabel = (string)$actor['actor_label'];
+                break;
+            }
+        }
+        $activeFilterChips['actor'] = [__('Actor'), $actorLabel];
+    }
+    foreach (['from' => __('From date'), 'to' => __('To date')] as $key => $label) {
+        if (($filters[$key] ?? '') !== '') $activeFilterChips[$key] = [$label, (string)$filters[$key]];
+    }
+} elseif ($tab === 'access') {
+    if (($filters['surface'] ?? '') !== '') {
+        $surfaceLabel = $filters['surface'] === 'dashboard' ? __('Dashboard') : __('Public website');
+        $activeFilterChips['surface'] = [__('Surface'), $surfaceLabel];
+    }
+    if (($filters['actor'] ?? 0) > 0) {
+        $actorLabel = '#' . (int)$filters['actor'];
+        foreach ($actors as $actor) {
+            if ((int)$actor['actor_user_id'] === (int)$filters['actor']) {
+                $actorLabel = (string)$actor['actor_label'];
+                break;
+            }
+        }
+        $activeFilterChips['actor'] = [__('Actor'), $actorLabel];
+    }
+    $defaultAccessTo = $accessToday->format('Y-m-d');
+    if (isset($_GET['from']) && $filters['from'] !== $defaultAccessFrom) {
+        $activeFilterChips['from'] = [__('From date'), (string)$filters['from']];
+    }
+    if (isset($_GET['to']) && $filters['to'] !== $defaultAccessTo) {
+        $activeFilterChips['to'] = [__('To date'), (string)$filters['to']];
+    }
+}
+$activeFilterCount = count($activeFilterChips);
+$hasActiveQuery = $searchActive || $activeFilterCount > 0;
 ?>
 
 <style>
 .audit-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;margin-bottom:1rem}.audit-head h1{margin:0}.audit-head p{margin:.35rem 0 0;color:var(--text-muted,#64748b);max-width:76ch}.audit-tabs{display:flex;gap:.45rem;flex-wrap:wrap;margin-bottom:1rem}.audit-tab{padding:.55rem .8rem;border:1px solid var(--border,#dbe3ee);border-radius:.55rem;text-decoration:none;color:inherit}.audit-tab.is-active{background:var(--accent,#2563eb);border-color:var(--accent,#2563eb);color:#fff}.audit-filters{display:grid;grid-template-columns:minmax(220px,2fr) repeat(4,minmax(130px,1fr));gap:.7rem;align-items:end}.audit-filters label{display:grid;gap:.3rem;font-size:.84rem;font-weight:650}.audit-filters__dates{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}.audit-actions{display:flex;gap:.5rem;align-items:center}.audit-table-wrap{overflow-x:auto;margin-top:1rem}.audit-table{width:100%;border-collapse:collapse;min-width:940px}.audit-table th,.audit-table td{text-align:left;padding:.72rem;border-bottom:1px solid var(--border,#e2e8f0);vertical-align:top}.audit-table th{font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted,#64748b)}.audit-code{font:600 .78rem ui-monospace,SFMono-Regular,Menlo,monospace}.audit-actor small,.audit-resource small{display:block;color:var(--text-muted,#64748b);margin-top:.18rem}.audit-details summary{cursor:pointer;color:var(--accent,#2563eb);font-weight:650}.audit-details pre{max-width:560px;max-height:320px;overflow:auto;white-space:pre-wrap;background:var(--surface-soft,#f8fafc);padding:.75rem;border-radius:.55rem;font-size:.75rem}.audit-empty{padding:3rem 1rem;text-align:center;color:var(--text-muted,#64748b)}.audit-pagination{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:1rem}.audit-pagination__links{display:flex;gap:.45rem}.audit-settings{display:grid;gap:1rem;max-width:760px}.audit-setting{display:flex;gap:.8rem;padding:1rem;border:1px solid var(--border,#dbe3ee);border-radius:.7rem;align-items:flex-start}.audit-setting input[type=checkbox]{margin-top:.2rem}.audit-setting strong,.audit-setting small{display:block}.audit-setting small{margin-top:.25rem;color:var(--text-muted,#64748b);line-height:1.45}.audit-settings__retention{display:grid;gap:.35rem;max-width:280px}.audit-note{padding:.9rem 1rem;background:var(--surface-soft,#f8fafc);border-radius:.65rem;color:var(--text-muted,#64748b)}.audit-error{padding:.75rem 1rem;margin-bottom:1rem;border-radius:.55rem;background:#fee2e2;color:#991b1b}@media(max-width:1100px){.audit-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.audit-filters__search{grid-column:1/-1}}@media(max-width:640px){.audit-head{display:block}.audit-filters,.audit-filters__dates{grid-template-columns:1fr}.audit-filters__search{grid-column:auto}.audit-actions{flex-wrap:wrap}.audit-pagination{align-items:flex-start;flex-direction:column}}
+.audit-page{max-width:1180px;margin:18px auto;color:var(--adam-text)}
+.audit-page__topline{display:flex;align-items:center;margin-bottom:10px}.audit-page__back{display:inline-flex;align-items:center;gap:6px;color:var(--adam-muted);font-size:.83rem;font-weight:700;text-decoration:none}.audit-page__back:hover{color:var(--adam-primary)}.audit-page__back svg{width:15px;height:15px}
+.audit-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.25rem 1.35rem;border-color:color-mix(in srgb,var(--adam-primary) 16%,var(--adam-border));background:linear-gradient(135deg,var(--adam-card),color-mix(in srgb,var(--adam-primary) 5%,var(--adam-card)))}
+.audit-hero__identity{display:flex;align-items:flex-start;gap:.9rem;min-width:0}.audit-hero__icon{display:grid;width:44px;height:44px;flex:0 0 44px;place-items:center;border-radius:13px;background:var(--adam-primary-soft);color:var(--adam-primary)}.audit-hero__icon svg{width:22px;height:22px}.audit-hero h1{margin:0;font-size:1.45rem;letter-spacing:-.02em}.audit-hero p{max-width:78ch;margin:.35rem 0 0;color:var(--adam-muted);font-size:.88rem;line-height:1.55}.audit-hero .badge{flex:0 0 auto;font-weight:750}
+.audit-page__tabs{margin:12px 0}.audit-page__tabs .tab{display:inline-flex;min-width:0;align-items:center;gap:.35rem;text-decoration:none}.audit-page__tabs .tab svg{width:14px;height:14px}
+.audit-panel{padding:1rem}.audit-alert{margin:0 0 1rem;padding:.75rem .9rem;border:1px solid color-mix(in srgb,var(--adam-danger) 35%,var(--adam-border));border-radius:9px;background:color-mix(in srgb,var(--adam-danger) 10%,var(--adam-card));color:var(--adam-danger)}.audit-alert ul{margin:0;padding-left:1.1rem}
+.audit-filter-shell{position:relative}.audit-filter-bar{--posts-toolbar-control-size:38px;display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:.5rem;align-items:start}.audit-filter-bar .posts-search-control{height:38px}.audit-filter-bar .posts-search-input.inp{height:36px}.audit-filter-bar .posts-filter-trigger{height:38px}.audit-filter-bar .posts-filter-disclosure{position:static}.audit-filter-bar .posts-filter-panel{right:0;left:0;width:auto;grid-template-columns:repeat(3,minmax(0,1fr))}.audit-filter-bar .posts-filter-actions{margin-top:.1rem}.audit-filter-bar .posts-filter-chip{overflow-wrap:anywhere}.audit-filter-chips{margin-top:.65rem;padding-bottom:.15rem}.audit-filter-reset-all{display:inline-flex;flex:0 0 auto;align-items:center;gap:.28rem;color:var(--adam-primary);font-size:.76rem;font-weight:800;text-decoration:none}.audit-filter-reset-all svg{width:13px;height:13px}
+.audit-table-wrap{margin-top:1rem;border:1px solid var(--adam-border);border-radius:12px}.audit-table{min-width:980px;box-shadow:none}.audit-table th{font-size:.72rem;letter-spacing:.035em;text-transform:uppercase}.audit-table td{vertical-align:top}.audit-table tr:last-child td{border-bottom:0}.audit-primary{font-weight:750;color:var(--adam-text-2)}.audit-secondary{display:block;margin-top:.2rem;color:var(--adam-muted);font-size:.76rem;line-height:1.4}.audit-code{font:650 .76rem ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}.audit-event{display:inline-block;padding:.18rem .45rem;border:1px solid color-mix(in srgb,var(--adam-primary) 22%,var(--adam-border));border-radius:7px;background:color-mix(in srgb,var(--adam-primary) 6%,var(--adam-card));color:var(--adam-text-2)}.audit-details summary{display:inline-flex;align-items:center;gap:.3rem;color:var(--adam-primary);font-size:.8rem;font-weight:800;cursor:pointer;list-style:none}.audit-details summary::-webkit-details-marker{display:none}.audit-details summary svg{width:14px;height:14px}.audit-details[open] summary{margin-bottom:.65rem}.audit-details p{margin:.45rem 0;color:var(--adam-text-3);font-size:.8rem}.audit-details pre{width:min(520px,60vw);max-height:320px;box-sizing:border-box;overflow:auto;padding:.75rem;border:1px solid var(--adam-border);border-radius:8px;background:var(--adam-surface-3);color:var(--adam-text-2);font-size:.74rem;white-space:pre-wrap;overflow-wrap:anywhere}.audit-empty{padding:3.5rem 1rem!important;text-align:center}.audit-empty__icon{display:grid;width:42px;height:42px;margin:0 auto .7rem;place-items:center;border-radius:12px;background:var(--adam-surface-3);color:var(--adam-muted)}.audit-empty__icon svg{width:20px;height:20px}.audit-empty strong{display:block;color:var(--adam-text-2)}.audit-empty p{margin:.3rem auto .8rem;color:var(--adam-muted);font-size:.84rem}.audit-empty .adam-cancle{display:inline-flex;align-items:center;gap:.3rem;text-decoration:none}
+.audit-pager{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:.9rem;color:var(--adam-muted);font-size:.8rem}.audit-pager .adam-pagination{display:flex;align-items:center;gap:.2rem;margin:0}.audit-pager .adam-pagination a,.audit-pager .adam-pagination strong{margin:0}.audit-pager .adam-pagination a{border:1px solid var(--adam-border);background:var(--adam-card)}
+.audit-settings-panel{padding:1rem}.audit-settings{display:grid;max-width:none;gap:.85rem}.audit-settings-group{overflow:hidden;border:1px solid var(--adam-border);border-radius:12px;background:var(--adam-card)}.audit-settings-group__head{display:flex;align-items:flex-start;gap:.7rem;padding:.8rem .9rem;border-bottom:1px solid var(--adam-border);background:var(--adam-surface-3)}.audit-settings-group__icon{display:grid;width:32px;height:32px;flex:0 0 32px;place-items:center;border-radius:9px;background:var(--adam-primary-soft);color:var(--adam-primary)}.audit-settings-group__icon svg{width:16px;height:16px}.audit-settings-group h2{margin:0;color:var(--adam-text-2);font-size:.92rem}.audit-settings-group__head p{margin:.18rem 0 0;color:var(--adam-muted);font-size:.78rem;line-height:1.45}.audit-settings-group__body{padding:.9rem}.audit-toggle-stack{display:grid;gap:.7rem}.audit-toggle-card{--sec-clr:var(--adam-primary);--sec-clr-soft:var(--adam-primary-soft);--sec-clr-border:color-mix(in srgb,var(--adam-primary) 24%,var(--adam-border))}.audit-retention-grid{display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:1rem;align-items:start}.audit-retention-grid .form-group{margin:0}.audit-retention-grid .inp{width:100%}.audit-retention-note{display:flex;align-items:flex-start;gap:.55rem;padding:.75rem;border:1px solid color-mix(in srgb,var(--adam-primary) 17%,var(--adam-border));border-radius:9px;background:color-mix(in srgb,var(--adam-primary) 4%,var(--adam-card));color:var(--adam-text-3);font-size:.8rem;line-height:1.55}.audit-retention-note svg{width:16px;height:16px;flex:0 0 auto;margin-top:.1rem;color:var(--adam-primary)}.audit-settings-guide{margin:.75rem 0 0}.audit-settings-guide code{display:block;max-width:100%;overflow-x:auto;padding:.55rem .65rem;border:1px solid var(--adam-border-2);border-radius:7px;background:var(--adam-surface-2);color:var(--adam-text-2);white-space:nowrap}.audit-settings-actions{display:flex;justify-content:flex-end}.audit-settings-actions .adam-button{display:inline-flex;align-items:center;gap:.35rem}
+@media(max-width:700px){.audit-hero{align-items:flex-start}.audit-hero .badge{display:none}.audit-retention-grid{grid-template-columns:1fr}.audit-filter-bar .posts-filter-trigger{min-width:38px;justify-content:center;padding:.5rem}.audit-filter-bar .posts-filter-trigger>span:not(.posts-filter-count):not(.posts-filter-chevron){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}.audit-filter-bar .posts-filter-chevron{display:none}.audit-filter-bar .posts-filter-panel{grid-template-columns:1fr}.audit-filter-bar .posts-filter-actions{grid-column:1}.audit-pager{align-items:flex-start;flex-direction:column}.audit-pager .adam-pagination{width:100%;justify-content:space-between}.audit-pager .adam-pagination strong{flex:1;text-align:center}}
+@media(max-width:640px){.audit-page{margin:10px auto}.audit-hero{padding:1rem}.audit-hero__icon{width:38px;height:38px;flex-basis:38px}.audit-hero h1{font-size:1.25rem}.audit-panel,.audit-settings-panel{padding:.75rem}.audit-page__tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem}.audit-page__tabs .tab{justify-content:center;padding:.7rem .35rem;line-height:1.2;text-align:center;white-space:normal;overflow-wrap:anywhere}.audit-table-wrap{overflow:visible;border:0}.audit-table-wrap .adam-table,.audit-table-wrap .adam-table tbody{display:block;width:100%;min-width:0;background:transparent;box-shadow:none}.audit-table-wrap .adam-table thead{display:none}.audit-table-wrap .adam-table tbody{display:grid;gap:.7rem}.audit-table-wrap .adam-table tr{display:block;overflow:hidden;border:1px solid var(--adam-border);border-radius:13px;background:var(--adam-card);box-shadow:0 4px 14px rgba(15,23,42,.05)}.audit-table-wrap .adam-table td{display:grid;grid-template-columns:minmax(78px,.32fr) minmax(0,1fr);align-items:start;gap:.35rem .75rem;width:100%;box-sizing:border-box;padding:.65rem .75rem;border-bottom:1px solid var(--adam-border);text-align:left}.audit-table-wrap .adam-table td::before{content:attr(data-label);grid-column:1;grid-row:1;color:var(--adam-muted);font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}.audit-table-wrap .adam-table td>*{grid-column:2}.audit-table-wrap .adam-table td:last-child{border-bottom:0}.audit-table-wrap .adam-table tr:hover td{background:transparent}.audit-table-wrap .audit-details pre{width:100%;max-width:100%}.audit-table-wrap .audit-empty{display:block;padding:2.5rem 1rem!important;border:0}.audit-table-wrap .audit-empty::before{display:none}.audit-settings-actions .adam-button{width:100%;justify-content:center;min-height:42px}}
+@media(max-width:420px){.audit-hero__identity{gap:.65rem}.audit-hero__icon{display:none}.audit-page__tabs .tab svg{display:none}.audit-filter-bar{grid-template-columns:minmax(0,1fr) 38px}.audit-table-wrap .adam-table td{grid-template-columns:70px minmax(0,1fr);gap:.55rem}.audit-settings-group__head{padding:.75rem}.audit-settings-group__body{padding:.75rem}}
 </style>
 
-<section class="adam-card">
-  <div class="audit-head">
-    <div>
-      <h1><?= svg_ico('history') ?> <?= _e('Audit Log') ?></h1>
-      <p><?php if ($tab === 'mutations'): ?><?= _e('Review successful content mutations recorded atomically with their database changes. Known credential fields and full editor content are redacted before storage.') ?><?php elseif ($tab === 'access'): ?><?= _e('Review successful dashboard navigation and public page views without query strings or form data.') ?><?php else: ?><?= _e('Control access logging and retention. These settings are available only to the Site Owner.') ?><?php endif; ?></p>
+<section class="audit-page">
+  <div class="audit-page__topline"><a class="audit-page__back" href="<?= e($base . '/?page=admin/settings/index') ?>"><?= svg_ico('arrow-left') ?> <?= _e('Settings') ?></a></div>
+  <header class="adam-card audit-hero">
+    <div class="audit-hero__identity">
+      <span class="audit-hero__icon" aria-hidden="true"><?= svg_ico('history') ?></span>
+      <div>
+        <h1><?= _e('Audit Log') ?></h1>
+        <p><?php if ($tab === 'mutations'): ?><?= _e('Review successful content mutations recorded atomically with their database changes. Known credential fields and full editor content are redacted before storage.') ?><?php elseif ($tab === 'access'): ?><?= _e('Review successful dashboard navigation and public page views without query strings or form data.') ?><?php else: ?><?= _e('Control access logging and retention. These settings are available only to the Site Owner.') ?><?php endif; ?></p>
+      </div>
     </div>
-    <span class="adam-badge"><?= _e('Site Owner') ?></span>
-  </div>
+    <span class="badge"><?= _e('Site Owner') ?></span>
+  </header>
 
-  <nav class="audit-tabs" aria-label="<?= e(__('Audit Log')) ?>">
-    <a class="audit-tab<?= $tab === 'mutations' ? ' is-active' : '' ?>" href="<?= e($tabUrl('mutations')) ?>"><?= _e('Mutations') ?></a>
-    <a class="audit-tab<?= $tab === 'access' ? ' is-active' : '' ?>" href="<?= e($tabUrl('access')) ?>"><?= _e('Access') ?></a>
-    <a class="audit-tab<?= $tab === 'settings' ? ' is-active' : '' ?>" href="<?= e($tabUrl('settings')) ?>"><?= _e('Logging settings') ?></a>
+  <nav class="tabs audit-page__tabs" aria-label="<?= e(__('Audit Log')) ?>">
+    <a class="tab<?= $tab === 'mutations' ? ' active' : '' ?>" href="<?= e($tabUrl('mutations')) ?>"<?= $tab === 'mutations' ? ' aria-current="page"' : '' ?>><?= svg_ico('file-text') ?> <?= _e('Mutations') ?></a>
+    <a class="tab<?= $tab === 'access' ? ' active' : '' ?>" href="<?= e($tabUrl('access')) ?>"<?= $tab === 'access' ? ' aria-current="page"' : '' ?>><?= svg_ico('monitor') ?> <?= _e('Access') ?></a>
+    <a class="tab<?= $tab === 'settings' ? ' active' : '' ?>" href="<?= e($tabUrl('settings')) ?>"<?= $tab === 'settings' ? ' aria-current="page"' : '' ?>><?= svg_ico('settings') ?> <?= _e('Logging settings') ?></a>
   </nav>
 
-  <?php foreach ($errors as $error): ?><div class="audit-error" role="alert"><?= e($error) ?></div><?php endforeach; ?>
+  <?php foreach ($errors as $error): ?><div class="adam-error audit-alert" role="alert"><ul><li><?= e($error) ?></li></ul></div><?php endforeach; ?>
 
-  <?php if ($tab === 'mutations'): ?>
-  <form method="get" class="audit-filters">
-    <input type="hidden" name="page" value="admin/settings/audit"><input type="hidden" name="tab" value="mutations">
-    <label class="audit-filters__search"><?= _e('Search audit events') ?><input class="inp" type="search" name="q" maxlength="100" value="<?= e($filters['q']) ?>" placeholder="<?= e(__('Event, actor, resource, or route…')) ?>"></label>
-    <label><?= _e('Provider') ?><select class="inp" name="provider"><option value=""><?= _e('All providers') ?></option><?php foreach ($providers as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['provider'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
-    <label><?= _e('Event') ?><select class="inp" name="event"><option value=""><?= _e('All events') ?></option><?php foreach ($eventKeys as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['event'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
-    <label><?= _e('Resource') ?><select class="inp" name="resource"><option value=""><?= _e('All resources') ?></option><?php foreach ($resourceTypes as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['resource'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
-    <label><?= _e('Actor') ?><select class="inp" name="actor"><option value="0"><?= _e('All actors') ?></option><?php foreach ($actors as $actor): ?><option value="<?= (int)$actor['actor_user_id'] ?>" <?= $filters['actor'] === (int)$actor['actor_user_id'] ? 'selected' : '' ?>><?= e($actor['actor_label']) ?> (<?= (int)$actor['total'] ?>)</option><?php endforeach; ?></select></label>
-    <div class="audit-filters__dates"><label><?= _e('From date') ?><input class="inp" type="date" name="from" value="<?= e($filters['from']) ?>"></label><label><?= _e('To date') ?><input class="inp" type="date" name="to" value="<?= e($filters['to']) ?>"></label></div>
-    <div class="audit-actions"><button class="adam-button" type="submit"><?= svg_ico('search') ?> <?= _e('Filter') ?></button><a class="adam-cancle" href="<?= e($tabUrl('mutations')) ?>"><?= _e('Reset') ?></a></div>
-  </form>
-  <?php elseif ($tab === 'access'): ?>
-  <form method="get" class="audit-filters">
-    <input type="hidden" name="page" value="admin/settings/audit"><input type="hidden" name="tab" value="access">
-    <label class="audit-filters__search"><?= _e('Search access events') ?><input class="inp" type="search" name="q" maxlength="100" value="<?= e($filters['q']) ?>" placeholder="<?= e(__('Actor, page, route, or path…')) ?>"></label>
-    <label><?= _e('Surface') ?><select class="inp" name="surface"><option value=""><?= _e('All surfaces') ?></option><option value="dashboard" <?= $filters['surface'] === 'dashboard' ? 'selected' : '' ?>><?= _e('Dashboard') ?></option><option value="frontend" <?= $filters['surface'] === 'frontend' ? 'selected' : '' ?>><?= _e('Public website') ?></option></select></label>
-    <label><?= _e('Actor') ?><select class="inp" name="actor"><option value="0"><?= _e('All actors') ?></option><?php foreach ($actors as $actor): ?><option value="<?= (int)$actor['actor_user_id'] ?>" <?= $filters['actor'] === (int)$actor['actor_user_id'] ? 'selected' : '' ?>><?= e($actor['actor_label']) ?> (<?= (int)$actor['total'] ?>)</option><?php endforeach; ?></select></label>
-    <div class="audit-filters__dates"><label><?= _e('From date') ?><input class="inp" type="date" name="from" value="<?= e($filters['from']) ?>"></label><label><?= _e('To date') ?><input class="inp" type="date" name="to" value="<?= e($filters['to']) ?>"></label></div>
-    <div class="audit-actions"><button class="adam-button" type="submit"><?= svg_ico('search') ?> <?= _e('Filter') ?></button><a class="adam-cancle" href="<?= e($tabUrl('access')) ?>"><?= _e('Reset') ?></a></div>
-  </form>
+  <?php if ($tab !== 'settings'): ?>
+  <div class="adam-card audit-panel">
+    <form method="get" class="audit-filter-shell">
+      <input type="hidden" name="page" value="admin/settings/audit"><input type="hidden" name="tab" value="<?= e($tab) ?>">
+      <div class="audit-filter-bar">
+        <div class="posts-search-control">
+          <label class="sr-only" for="audit-search"><?= e($tab === 'access' ? __('Search access events') : __('Search audit events')) ?></label>
+          <input id="audit-search" class="inp posts-search-input" type="search" name="q" maxlength="100" value="<?= e($filters['q']) ?>" placeholder="<?= e($tab === 'access' ? __('Actor, page, route, or path…') : __('Event, actor, resource, or route…')) ?>">
+          <?php if ($searchActive): ?><a class="posts-search-clear" href="<?= e($filterUrlWithout('q')) ?>" aria-label="<?= e(__('Reset') . ' ' . __('Search')) ?>" title="<?= e(__('Reset') . ' ' . __('Search')) ?>"><?= svg_ico('x') ?></a><?php endif; ?>
+          <button type="submit" class="posts-search-submit" aria-label="<?= e(__('Search')) ?>" title="<?= e(__('Search')) ?>"><?= svg_ico('search') ?></button>
+        </div>
+        <details class="posts-filter-disclosure<?= $activeFilterCount > 0 ? ' has-active' : '' ?>">
+          <summary class="posts-filter-trigger"><?= svg_ico('list-collapse') ?><span><?= _e('Filters') ?></span><?php if ($activeFilterCount > 0): ?><span class="posts-filter-count"><?= $activeFilterCount ?></span><?php endif; ?><span class="posts-filter-chevron" aria-hidden="true"><?= svg_ico('chevron-down') ?></span></summary>
+          <div class="posts-filter-panel">
+            <?php if ($tab === 'mutations'): ?>
+              <label class="posts-filter-field"><span><?= _e('Provider') ?></span><select class="inp" name="provider"><option value=""><?= _e('All providers') ?></option><?php foreach ($providers as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['provider'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
+              <label class="posts-filter-field"><span><?= _e('Event') ?></span><select class="inp" name="event"><option value=""><?= _e('All events') ?></option><?php foreach ($eventKeys as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['event'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
+              <label class="posts-filter-field"><span><?= _e('Resource') ?></span><select class="inp" name="resource"><option value=""><?= _e('All resources') ?></option><?php foreach ($resourceTypes as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['resource'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
+            <?php else: ?>
+              <label class="posts-filter-field"><span><?= _e('Surface') ?></span><select class="inp" name="surface"><option value=""><?= _e('All surfaces') ?></option><option value="dashboard" <?= $filters['surface'] === 'dashboard' ? 'selected' : '' ?>><?= _e('Dashboard') ?></option><option value="frontend" <?= $filters['surface'] === 'frontend' ? 'selected' : '' ?>><?= _e('Public website') ?></option></select></label>
+            <?php endif; ?>
+            <label class="posts-filter-field"><span><?= _e('Actor') ?></span><select class="inp" name="actor"><option value="0"><?= _e('All actors') ?></option><?php foreach ($actors as $actor): ?><option value="<?= (int)$actor['actor_user_id'] ?>" <?= $filters['actor'] === (int)$actor['actor_user_id'] ? 'selected' : '' ?>><?= e($actor['actor_label']) ?> (<?= (int)$actor['total'] ?>)</option><?php endforeach; ?></select></label>
+            <label class="posts-filter-field"><span><?= _e('From date') ?></span><input class="inp" type="date" name="from" value="<?= e($filters['from']) ?>"></label>
+            <label class="posts-filter-field"><span><?= _e('To date') ?></span><input class="inp" type="date" name="to" value="<?= e($filters['to']) ?>"></label>
+            <div class="posts-filter-actions"><button type="submit" class="adam-button posts-filter-apply"><?= svg_ico('circle-check') ?><span><?= _e('Apply filters') ?></span></button><?php if ($hasActiveQuery): ?><a class="adam-cancle posts-filter-reset" href="<?= e($tabUrl($tab)) ?>"><?= svg_ico('rotate-ccw') ?><span><?= _e('Reset') ?></span></a><?php endif; ?></div>
+          </div>
+        </details>
+      </div>
+    </form>
+    <?php if ($activeFilterChips !== []): ?><div class="posts-filter-chips audit-filter-chips" aria-label="<?= e(__('Filters')) ?>"><?php foreach ($activeFilterChips as $key => [$label, $value]): ?><a class="posts-filter-chip" href="<?= e($filterUrlWithout($key)) ?>" title="<?= e(__('Reset') . ' ' . $label) ?>"><span><?= e($label) ?>:</span><strong><?= e($value) ?></strong><?= svg_ico('x') ?></a><?php endforeach; ?><a class="audit-filter-reset-all" href="<?= e($tabUrl($tab)) ?>"><?= svg_ico('rotate-ccw') ?> <?= _e('Reset') ?></a></div><?php endif; ?>
   <?php else: ?>
-  <form method="post" class="audit-settings" id="audit-settings-form" data-unsaved-guard<?= $errors !== [] ? ' data-unsaved-guard-initial-dirty' : '' ?>>
+  <div class="adam-card audit-settings-panel">
+  <form method="post" class="audit-settings" id="audit-settings-form" data-unsaved-guard data-unsaved-floating-save<?= $errors !== [] ? ' data-unsaved-guard-initial-dirty' : '' ?>>
     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="audit_action" value="save_access_logging">
-    <label class="audit-setting"><input type="checkbox" name="dashboard_enabled" value="1" <?= $accessSettings['dashboard_enabled'] ? 'checked' : '' ?>><span><strong><?= _e('Record dashboard navigation') ?></strong><small><?= _e('Records successful authenticated dashboard document views. AJAX, polling, assets, and failed routes are excluded.') ?></small></span></label>
-    <label class="audit-setting"><input type="checkbox" name="public_enabled" value="1" <?= $accessSettings['public_enabled'] ? 'checked' : '' ?>><span><strong><?= _e('Record public page views') ?></strong><small><?= _e('Records successful public HTML page views, including anonymous visitors.') ?></small></span></label>
-    <label class="audit-settings__retention"><strong><?= _e('Access log retention') ?></strong><select class="inp" name="retention_days"><?php foreach (ACCESS_LOG_RETENTION_DAYS as $days): ?><option value="<?= $days ?>" <?= $accessSettings['retention_days'] === $days ? 'selected' : '' ?>><?= sprintf(__('%d days'), $days) ?></option><?php endforeach; ?></select></label>
-    <p class="audit-note"><?= _e('Older access events are pruned asynchronously. Mutation audit events are not affected.') ?><br><?= _e('Query strings and form data are never stored. IP addresses use the direct peer and user agents are hashed.') ?><br><code>php tools/prune-access-log.php</code></p>
-    <div><button class="adam-button" type="submit"><?= svg_ico('save') ?> <?= _e('Save logging settings') ?></button></div>
+    <section class="audit-settings-group">
+      <header class="audit-settings-group__head"><span class="audit-settings-group__icon" aria-hidden="true"><?= svg_ico('monitor') ?></span><div><h2><?= _e('Logging settings') ?></h2><p><?= _e('Choose which successful page views are written to the separate access stream.') ?></p></div></header>
+      <div class="audit-settings-group__body audit-toggle-stack">
+        <div class="metatags-card audit-toggle-card"><div class="metatags-row"><div class="metatags-info"><label class="metatags-label" for="audit-dashboard-enabled"><?= _e('Record dashboard navigation') ?></label><p class="metatags-desc"><?= _e('Records successful authenticated dashboard document views. AJAX, polling, assets, and failed routes are excluded.') ?></p></div><label class="metatags-toggle"><input type="checkbox" name="dashboard_enabled" id="audit-dashboard-enabled" value="1" <?= $accessSettings['dashboard_enabled'] ? 'checked' : '' ?>><span class="slider"></span></label></div></div>
+        <div class="metatags-card audit-toggle-card"><div class="metatags-row"><div class="metatags-info"><label class="metatags-label" for="audit-public-enabled"><?= _e('Record public page views') ?></label><p class="metatags-desc"><?= _e('Records successful public HTML page views, including anonymous visitors.') ?></p></div><label class="metatags-toggle"><input type="checkbox" name="public_enabled" id="audit-public-enabled" value="1" <?= $accessSettings['public_enabled'] ? 'checked' : '' ?>><span class="slider"></span></label></div></div>
+      </div>
+    </section>
+    <section class="audit-settings-group">
+      <header class="audit-settings-group__head"><span class="audit-settings-group__icon" aria-hidden="true"><?= svg_ico('timer') ?></span><div><h2><?= _e('Access log retention') ?></h2><p><?= _e('Older access events are pruned asynchronously. Mutation audit events are not affected.') ?></p></div></header>
+      <div class="audit-settings-group__body">
+        <div class="audit-retention-grid"><div class="form-group"><label for="audit-retention-days"><?= _e('Access log retention') ?></label><select class="inp" id="audit-retention-days" name="retention_days"><?php foreach (ACCESS_LOG_RETENTION_DAYS as $days): ?><option value="<?= $days ?>" <?= $accessSettings['retention_days'] === $days ? 'selected' : '' ?>><?= sprintf(__('%d days'), $days) ?></option><?php endforeach; ?></select></div><div class="audit-retention-note"><?= svg_ico('shield-check') ?><span><?= _e('Query strings and form data are never stored. IP addresses use the direct peer and user agents are hashed.') ?></span></div></div>
+        <details class="settings-details audit-settings-guide"><summary><?= _e('Retention worker') ?></summary><div class="inner"><p><?= _e('Older access events are pruned asynchronously. Mutation audit events are not affected.') ?></p><code>php tools/prune-access-log.php</code></div></details>
+      </div>
+    </section>
+    <div class="audit-settings-actions"><button class="adam-button settings-floating-save" type="submit"><?= svg_ico('save') ?> <?= _e('Save logging settings') ?></button></div>
   </form>
+  </div>
   <?php endif; ?>
 
   <?php if ($tab !== 'settings'): ?>
-  <div class="audit-table-wrap"><table class="audit-table"><thead><tr><th><?= _e('Time') ?></th><th><?= _e('Actor') ?></th><th><?= _e('Event') ?></th><th><?= e($tab === 'access' ? __('Page') : __('Resource')) ?></th><th><?= _e('Route') ?></th><th><?= _e('Details') ?></th></tr></thead><tbody>
+  <div class="adam-table-wrapper audit-table-wrap"><table class="adam-table audit-table"><thead><tr><th><?= _e('Time') ?></th><th><?= _e('Actor') ?></th><th><?= _e('Event') ?></th><th><?= e($tab === 'access' ? __('Page') : __('Resource')) ?></th><th><?= _e('Route') ?></th><th><?= _e('Details') ?></th></tr></thead><tbody>
   <?php foreach ($events as $event): $ip = is_string($event['ip_address'] ?? null) ? @inet_ntop($event['ip_address']) : false; ?>
     <tr>
-      <td><?= e($displayTimestamp($event['occurred_at_utc'] ?? null)) ?><br><small class="audit-code">#<?= (int)$event['id'] ?></small></td>
-      <td class="audit-actor"><strong><?= e($event['actor_label']) ?></strong><?php if (!empty($event['actor_email'])): ?><small><?= e($event['actor_email']) ?></small><?php endif; ?></td>
+      <td data-label="<?= e(__('Time')) ?>"><span class="audit-primary"><?= e($displayTimestamp($event['occurred_at_utc'] ?? null)) ?></span><span class="audit-secondary audit-code">#<?= (int)$event['id'] ?></span></td>
+      <td data-label="<?= e(__('Actor')) ?>"><span class="audit-primary"><?= e($event['actor_label']) ?></span><?php if (!empty($event['actor_email'])): ?><span class="audit-secondary"><?= e($event['actor_email']) ?></span><?php endif; ?></td>
       <?php if ($tab === 'mutations'): $changes = $prettyJson($event['changes'] ?? null); $metadata = $prettyJson($event['metadata'] ?? null); ?>
-      <td><span class="audit-code"><?= e($event['event_key']) ?></span><br><small><?= e($event['provider']) ?> · <?= e($event['source']) ?></small></td>
-      <td class="audit-resource"><strong><?= e($event['resource_label'] ?: $event['resource_type'] . ' #' . $event['resource_id']) ?></strong><small><?= e($event['resource_type'] . ' #' . $event['resource_id']) ?></small></td>
-      <td><span class="audit-code"><?= e($event['route'] ?: $event['source']) ?></span><br><small><?= e(trim((string)($event['request_method'] ?? '') . ' ' . (string)($event['request_path'] ?? ''))) ?></small></td>
-      <td><details class="audit-details"><summary><?= _e('View details') ?></summary><p><strong><?= _e('Operation ID') ?>:</strong> <span class="audit-code"><?= e($event['operation_id']) ?></span></p><?php if ($ip): ?><p><strong><?= _e('IP address') ?>:</strong> <?= e($ip) ?></p><?php endif; ?><?php if ($changes !== ''): ?><strong><?= _e('Changes') ?></strong><pre><?= e($changes) ?></pre><?php endif; ?><?php if ($metadata !== ''): ?><strong><?= _e('Metadata') ?></strong><pre><?= e($metadata) ?></pre><?php endif; ?></details></td>
+      <td data-label="<?= e(__('Event')) ?>"><span class="audit-event audit-code"><?= e($event['event_key']) ?></span><span class="audit-secondary"><?= e($event['provider']) ?> · <?= e($event['source']) ?></span></td>
+      <td data-label="<?= e(__('Resource')) ?>"><span class="audit-primary"><?= e($event['resource_label'] ?: $event['resource_type'] . ' #' . $event['resource_id']) ?></span><span class="audit-secondary"><?= e($event['resource_type'] . ' #' . $event['resource_id']) ?></span></td>
+      <td data-label="<?= e(__('Route')) ?>"><span class="audit-code"><?= e($event['route'] ?: $event['source']) ?></span><span class="audit-secondary"><?= e(trim((string)($event['request_method'] ?? '') . ' ' . (string)($event['request_path'] ?? ''))) ?></span></td>
+      <td data-label="<?= e(__('Details')) ?>"><details class="audit-details"><summary><?= svg_ico('info') ?> <?= _e('View details') ?></summary><p><strong><?= _e('Operation ID') ?>:</strong> <span class="audit-code"><?= e($event['operation_id']) ?></span></p><?php if ($ip): ?><p><strong><?= _e('IP address') ?>:</strong> <?= e($ip) ?></p><?php endif; ?><?php if ($changes !== ''): ?><strong><?= _e('Changes') ?></strong><pre><?= e($changes) ?></pre><?php endif; ?><?php if ($metadata !== ''): ?><strong><?= _e('Metadata') ?></strong><pre><?= e($metadata) ?></pre><?php endif; ?></details></td>
       <?php else: ?>
-      <td><span class="audit-code"><?= e($event['event_key']) ?></span><br><small><?= e($event['surface']) ?> · HTTP <?= (int)$event['response_status'] ?></small></td>
-      <td class="audit-resource"><strong><?= e($event['page_title'] ?: $event['route']) ?></strong><?php if (!empty($event['resource_type'])): ?><small><?= e($event['resource_type'] . ' #' . (string)$event['resource_id']) ?></small><?php endif; ?></td>
-      <td><span class="audit-code"><?= e($event['route']) ?></span><br><small><?= e($event['request_path']) ?></small></td>
-      <td><details class="audit-details"><summary><?= _e('View details') ?></summary><p><strong><?= _e('Request ID') ?>:</strong> <span class="audit-code"><?= e($event['request_id']) ?></span></p><?php if ($ip): ?><p><strong><?= _e('IP address') ?>:</strong> <?= e($ip) ?></p><?php endif; ?><?php if (!empty($event['user_agent_hash'])): ?><p><strong><?= _e('User-agent hash') ?>:</strong> <span class="audit-code"><?= e($event['user_agent_hash']) ?></span></p><?php endif; ?></details></td>
+      <td data-label="<?= e(__('Event')) ?>"><span class="audit-event audit-code"><?= e($event['event_key']) ?></span><span class="audit-secondary"><?= e($event['surface']) ?> · HTTP <?= (int)$event['response_status'] ?></span></td>
+      <td data-label="<?= e(__('Page')) ?>"><span class="audit-primary"><?= e($event['page_title'] ?: $event['route']) ?></span><?php if (!empty($event['resource_type'])): ?><span class="audit-secondary"><?= e($event['resource_type'] . ' #' . (string)$event['resource_id']) ?></span><?php endif; ?></td>
+      <td data-label="<?= e(__('Route')) ?>"><span class="audit-code"><?= e($event['route']) ?></span><span class="audit-secondary audit-code"><?= e($event['request_path']) ?></span></td>
+      <td data-label="<?= e(__('Details')) ?>"><details class="audit-details"><summary><?= svg_ico('info') ?> <?= _e('View details') ?></summary><p><strong><?= _e('Request ID') ?>:</strong> <span class="audit-code"><?= e($event['request_id']) ?></span></p><?php if ($ip): ?><p><strong><?= _e('IP address') ?>:</strong> <?= e($ip) ?></p><?php endif; ?><?php if (!empty($event['user_agent_hash'])): ?><p><strong><?= _e('User-agent hash') ?>:</strong> <span class="audit-code"><?= e($event['user_agent_hash']) ?></span></p><?php endif; ?></details></td>
       <?php endif; ?>
     </tr>
   <?php endforeach; ?>
-  <?php if ($events === []): ?><tr><td colspan="6" class="audit-empty"><?= e($tab === 'access' ? __('No access events match these filters.') : __('No audit events match these filters.')) ?></td></tr><?php endif; ?>
+  <?php if ($events === []): ?><tr><td colspan="6" class="audit-empty"><span class="audit-empty__icon" aria-hidden="true"><?= svg_ico('history') ?></span><strong><?= e($hasActiveQuery ? ($tab === 'access' ? __('No access events match these filters.') : __('No audit events match these filters.')) : ($tab === 'access' ? __('No access events have been recorded yet.') : __('No mutation events have been recorded yet.'))) ?></strong><?php if ($hasActiveQuery): ?><p><?= _e('Adjust or clear the active filters to see more results.') ?></p><a class="adam-cancle" href="<?= e($tabUrl($tab)) ?>"><?= svg_ico('rotate-ccw') ?> <?= _e('Reset') ?></a><?php endif; ?></td></tr><?php endif; ?>
   </tbody></table></div>
-  <div class="audit-pagination"><span><?= sprintf(__('Showing %d-%d of %d results'), $total > 0 ? $offset + 1 : 0, min($offset + $perPage, $total), $total) ?></span><div class="audit-pagination__links"><?php if ($page > 1): ?><a class="adam-cancle" rel="prev" href="<?= e($pageUrl($page - 1)) ?>"><?= _e('Previous') ?></a><?php endif; ?><span class="adam-button"><?= sprintf(__('Page %d of %d'), $page, $totalPages) ?></span><?php if ($page < $totalPages): ?><a class="adam-cancle" rel="next" href="<?= e($pageUrl($page + 1)) ?>"><?= _e('Next') ?></a><?php endif; ?></div></div>
+  <?php if ($total > 0): ?><div class="audit-pager"><span><?= sprintf(__('Showing %d-%d of %d results'), $offset + 1, min($offset + $perPage, $total), $total) ?></span><nav class="adam-pagination" aria-label="<?= e(__('Pagination')) ?>"><?php if ($page > 1): ?><a rel="prev" href="<?= e($pageUrl($page - 1)) ?>"><?= _e('Previous') ?></a><?php endif; ?><strong aria-current="page"><?= sprintf(__('Page %d of %d'), $page, $totalPages) ?></strong><?php if ($page < $totalPages): ?><a rel="next" href="<?= e($pageUrl($page + 1)) ?>"><?= _e('Next') ?></a><?php endif; ?></nav></div><?php endif; ?>
+  </div>
   <?php endif; ?>
 </section>

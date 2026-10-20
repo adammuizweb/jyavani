@@ -6264,3 +6264,18 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Failed to save audit settings.', 'Audit-Einstellungen konnten nicht gespeichert werden.', 'de'),
 ('default', 'Select a valid access log retention period.', 'Pilih periode retensi log akses yang valid.', 'id'),
 ('default', 'Select a valid access log retention period.', 'Wählen Sie einen gültigen Aufbewahrungszeitraum für das Zugriffsprotokoll.', 'de');
+
+-- Audit Log interface
+INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALUES
+('default', 'Review mutation history, access activity, and logging controls.', 'Tinjau riwayat mutasi, aktivitas akses, dan kontrol pencatatan.', 'id'),
+('default', 'Review mutation history, access activity, and logging controls.', 'Überprüfen Sie den Änderungsverlauf, Zugriffsaktivitäten und Protokollierungseinstellungen.', 'de'),
+('default', 'No mutation events have been recorded yet.', 'Belum ada peristiwa mutasi yang dicatat.', 'id'),
+('default', 'No mutation events have been recorded yet.', 'Es wurden noch keine Mutationsereignisse aufgezeichnet.', 'de'),
+('default', 'No access events have been recorded yet.', 'Belum ada peristiwa akses yang dicatat.', 'id'),
+('default', 'No access events have been recorded yet.', 'Es wurden noch keine Zugriffsereignisse aufgezeichnet.', 'de'),
+('default', 'Adjust or clear the active filters to see more results.', 'Sesuaikan atau hapus filter aktif untuk melihat hasil lainnya.', 'id'),
+('default', 'Adjust or clear the active filters to see more results.', 'Passen Sie die aktiven Filter an oder löschen Sie sie, um weitere Ergebnisse anzuzeigen.', 'de'),
+('default', 'Choose which successful page views are written to the separate access stream.', 'Pilih tampilan halaman berhasil yang dicatat ke aliran akses terpisah.', 'id'),
+('default', 'Choose which successful page views are written to the separate access stream.', 'Wählen Sie aus, welche erfolgreichen Seitenaufrufe in den separaten Zugriffsstrom geschrieben werden.', 'de'),
+('default', 'Retention worker', 'Worker retensi', 'id'),
+('default', 'Retention worker', 'Aufbewahrungs-Worker', 'de');

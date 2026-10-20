@@ -66,7 +66,7 @@ if ($isSiteOwner && user_can($pdo, $uid, 'core.audit.read')) {
         'label' => __('Audit Log'),
         'href'  => $base . '/?page=admin/settings/audit',
         'icon'  => 'history',
-        'desc'  => __('Review successful content mutations and the users who performed them.'),
+        'desc'  => __('Review mutation history, access activity, and logging controls.'),
         'badge' => __('Site Owner'),
     ];
 }

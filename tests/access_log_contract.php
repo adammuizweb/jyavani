@@ -157,6 +157,14 @@ $check(str_contains($viewer, "user_can(\$pdo, \$uid, 'core.audit.manage')")
     && str_contains($viewer, "'audit.settings_changed'")
     && str_contains($viewer, "['mutations', 'access', 'settings']"),
     'Site Owner Audit Log provides guarded tabs and atomically audited settings controls');
+$check(str_contains($viewer, 'class="tabs audit-page__tabs"')
+    && str_contains($viewer, 'aria-current="page"')
+    && str_contains($viewer, 'posts-filter-disclosure')
+    && str_contains($viewer, '--posts-toolbar-control-size:38px')
+    && str_contains($viewer, 'class="adam-table audit-table"')
+    && str_contains($viewer, 'class="metatags-toggle"')
+    && str_contains($viewer, 'data-unsaved-floating-save'),
+    'Audit Log reuses responsive Adiwira tabs, filters, tables, toggles, and save behavior');
 $check(str_contains($dashboardMain, "['__JY_DASHBOARD_DOCUMENT']['rendered'] = true")
     && str_contains($dashboardIndex, "'dashboard.page_viewed'")
     && strpos($dashboardIndex, "require_once DASH_PATH . '/theme/adiwira/layout.php';") < strpos($dashboardIndex, "'dashboard.page_viewed'"),
