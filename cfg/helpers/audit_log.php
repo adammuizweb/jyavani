@@ -38,6 +38,20 @@ function audit_log_text(mixed $value, int $maxBytes, string $field, bool $nullab
     return $value === '' ? null : $value;
 }
 
+function audit_log_projection_text(mixed $value, int $maxBytes, string $field, bool $nullable = false): ?string
+{
+    if ($value === null && $nullable) return null;
+    if (!is_string($value)) throw new InvalidArgumentException('Invalid audit ' . $field . '.');
+    $value = trim($value);
+    if (($value === '' && !$nullable) || preg_match('//u', $value) !== 1
+        || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $value) === 1) {
+        throw new InvalidArgumentException('Invalid audit ' . $field . '.');
+    }
+    if ($value === '') return null;
+    if (strlen($value) <= $maxBytes) return $value;
+    return mb_strcut($value, 0, max(1, $maxBytes - 3), 'UTF-8') . '...';
+}
+
 function audit_log_sensitive_key(string $key): bool
 {
     $key = (string)preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1_$2', $key);
@@ -181,8 +195,8 @@ function audit_log_actor_snapshot(PDO $pdo, ?int $actorUserId): array
     if ($label === '') $label = trim((string)($row['username'] ?? ''));
     if ($label === '') $label = 'User #' . $actorUserId;
     return $cache[$cacheKey] = [
-        'label' => audit_log_text($label, 191, 'actor label'),
-        'email' => audit_log_text((string)($row['email'] ?? ''), 255, 'actor email', true),
+        'label' => audit_log_projection_text($label, 191, 'actor label'),
+        'email' => audit_log_projection_text((string)($row['email'] ?? ''), 255, 'actor email', true),
     ];
 }
 
@@ -230,7 +244,7 @@ function audit_log_record(PDO $pdo, array $entry): int
         ':actor_email' => $actor['email'],
         ':resource_type' => audit_log_name((string)($entry['resource_type'] ?? ''), 100, 'resource type'),
         ':resource_id' => audit_log_text($entry['resource_id'] ?? null, 191, 'resource ID'),
-        ':resource_label' => audit_log_text($entry['resource_label'] ?? null, 255, 'resource label', true),
+        ':resource_label' => audit_log_projection_text($entry['resource_label'] ?? null, 255, 'resource label', true),
         ':source' => audit_log_name((string)($entry['source'] ?? ''), 100, 'source'),
         ':route' => $context['route'],
         ':request_method' => $context['request_method'],

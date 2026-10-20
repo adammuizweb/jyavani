@@ -20,6 +20,11 @@ $page = trim((string)($_GET['page'] ?? 'home'), " \t\n\r\0\x0B/");
 
 // validasi format: hanya huruf kecil, angka, dash, underscore, dan slash untuk subfolder
 if ($page === '') $page = 'home';
+$GLOBALS['__JY_DASHBOARD_DOCUMENT'] = [
+    'rendered' => false,
+    'route' => $page,
+    'label' => $page,
+];
 if (!preg_match('#^[a-z0-9_\-\/]+$#', $page)) {
     if (!headers_sent()) http_response_code(400);
     echo '<h2>' . __('Invalid page') . '</h2>';
@@ -32,6 +37,7 @@ if ($page === 'home') {
     $themeHome = __DIR__ . '/views/home.php';
     if (is_file($themeHome) && is_readable($themeHome)) {
         include $themeHome;
+        $GLOBALS['__JY_DASHBOARD_DOCUMENT']['rendered'] = true;
         echo '</main>';
         return;
     }
@@ -50,6 +56,8 @@ if (function_exists('plugin_resolve_route')) {
             }
         }
         require $pluginPage['file'];
+        $GLOBALS['__JY_DASHBOARD_DOCUMENT']['label'] = trim((string)($pluginPage['title'] ?? '')) ?: $page;
+        $GLOBALS['__JY_DASHBOARD_DOCUMENT']['rendered'] = true;
         echo '</main>';
         return;
     }
@@ -71,6 +79,7 @@ if ($targetFull !== false) {
 if ($safe) {
     try {
         include $targetFull;
+        $GLOBALS['__JY_DASHBOARD_DOCUMENT']['rendered'] = true;
     } catch (Throwable $error) {
         if (!headers_sent()) http_response_code(500);
         error_log(sprintf(
@@ -98,6 +107,7 @@ if ($safe) {
         echo '<h2>' . __('Hello, welcome!') . '</h2>';
         echo '<p>' . __('Welcome to the Jyavani CMS dashboard.') . '</p>';
         echo '</section>';
+        $GLOBALS['__JY_DASHBOARD_DOCUMENT']['rendered'] = true;
     } else {
         if (!headers_sent()) http_response_code(404);
         echo '<h2>' . __('Page not found') . '</h2>';

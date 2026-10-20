@@ -190,3 +190,20 @@ if (!empty($_SESSION['flash_success'])) {
 
 // render
 require_once DASH_PATH . '/theme/adiwira/layout.php';
+
+$document = $GLOBALS['__JY_DASHBOARD_DOCUMENT'] ?? null;
+if (is_array($document) && ($document['rendered'] ?? false) === true && function_exists('access_log_try_record_document')) {
+    $responseStatus = http_response_code();
+    if (!is_int($responseStatus) || $responseStatus < 100) $responseStatus = 200;
+    access_log_try_record_document($pdo, [
+        'surface' => 'dashboard',
+        'event_key' => 'dashboard.page_viewed',
+        'actor_user_id' => (int)$user['id'],
+        'route' => (string)$document['route'],
+        'page_title' => (string)$document['label'],
+        'resource_type' => 'dashboard_route',
+        'resource_id' => (string)$document['route'],
+        'resource_label' => (string)$document['label'],
+        'response_status' => $responseStatus,
+    ]);
+}

@@ -286,6 +286,26 @@ screen is not a semantic mutation. A plugin must emit events such as
 `attempt.deleted` or `attempt.score_changed` only after the corresponding
 authorized database change succeeds.
 
+## Access logging
+
+Access logging is a separate, higher-volume stream in `access_events`. The Site
+Owner controls dashboard navigation logging, public HTML page-view logging, and
+30/90/180/365-day retention from **Settings > Audit Log > Logging settings**.
+Both recorders default to off on fresh and upgraded sites.
+
+Core records only successful top-level `GET` document renders. Dashboard events
+run after authorization and complete route rendering; public events run after
+the main HTML content renders. AJAX, polling, iframe, prefetch, asset, redirect,
+error, sitemap, API, and file-stream requests are excluded. Query strings and
+form data are never stored. Core uses only the direct peer IP address and stores
+a SHA-256 user-agent hash. Recorder failures are logged server-side and never
+replace or break an otherwise successful page response.
+
+Access retention does not delete mutation audit events. Expired access rows are
+pruned in bounded batches after settings changes and periodically as new access
+events arrive, even when both recorders are disabled. Deployments may also run
+`php tools/prune-access-log.php` from a daily cron job for deterministic cleanup.
+
 Plugins that store an aggregate `posts.status` may expose the content source
 status to the editor and its locked permission check through:
 

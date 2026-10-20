@@ -159,6 +159,33 @@ CREATE TABLE IF NOT EXISTS `audit_events` (
   CONSTRAINT `fk_audit_events_authorization` FOREIGN KEY (`authorization_audit_id`) REFERENCES `authorization_audit_log` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `access_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `event_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `request_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `surface` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `event_key` varchar(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `actor_user_id` int(10) unsigned DEFAULT NULL,
+  `actor_label` varchar(191) NOT NULL,
+  `actor_email` varchar(255) DEFAULT NULL,
+  `route` varchar(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `request_path` varchar(1024) NOT NULL,
+  `page_title` varchar(255) DEFAULT NULL,
+  `resource_type` varchar(100) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `resource_id` varchar(191) DEFAULT NULL,
+  `resource_label` varchar(255) DEFAULT NULL,
+  `response_status` smallint(5) unsigned NOT NULL,
+  `ip_address` varbinary(16) DEFAULT NULL,
+  `user_agent_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `occurred_at_utc` datetime(6) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_access_events_event` (`event_id`),
+  KEY `idx_access_events_occurred` (`occurred_at_utc`,`id`),
+  KEY `idx_access_events_actor` (`actor_user_id`,`occurred_at_utc`,`id`),
+  KEY `idx_access_events_surface_route` (`surface`,`route`,`id`),
+  CONSTRAINT `fk_access_events_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `roles` (`slug`,`name`,`description`,`authority_rank`,`is_system`) VALUES
   ('author','Author','Creates and manages owned content.',10,1),
   ('editor','Editor','Manages editorial resources and owned content.',50,1),
@@ -236,6 +263,7 @@ INSERT INTO `permissions` (`permission_key`,`provider`,`resource`,`action`,`labe
   ('core.roles.manage','core','roles','manage','Manage roles and permissions',0),
   ('core.settings.manage','core','settings','manage','Manage site settings',0),
   ('core.audit.read','core','audit','read','View audit log',0),
+  ('core.audit.manage','core','audit','manage','Manage audit logging',0),
   ('core.plugins.manage','core','plugins','manage','Manage plugins',0),
   ('core.updates.manage','core','updates','manage','Manage Core updates',0),
   ('core.profile.manage','core','profile','manage','Manage own profile',0),
@@ -251,7 +279,7 @@ ON DUPLICATE KEY UPDATE
 
 UPDATE `permissions`
 SET `is_delegable` = 0
-WHERE `permission_key` = 'core.audit.read';
+WHERE `permission_key` IN ('core.audit.read','core.audit.manage');
 
 INSERT INTO `role_permissions` (`role_id`,`permission_key`,`scope`)
 SELECT r.id, grants.permission_key, grants.scope
@@ -720,7 +748,11 @@ INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
   ('site_timezone',    'Asia/Jakarta', 1),
   ('date_format',      'F j, Y', 1),
   ('time_format',      'H:i', 1),
-  ('content_scheduling_enabled', '0', 1)
+  ('content_scheduling_enabled', '0', 1),
+  ('audit_dashboard_navigation_enabled', '0', 1),
+  ('audit_public_page_views_enabled', '0', 1),
+  ('audit_access_retention_days', '90', 1),
+  ('audit_access_last_pruned_utc', '1970-01-01 00:00:00', 1)
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
 
 -- Default theme

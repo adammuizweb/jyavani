@@ -224,6 +224,20 @@ Worker memproses maksimum 100 item per eksekusi secara default. Gunakan `--limit
 
 Setelah task server terverifikasi, aktifkan **Scheduled publishing** di bagian paling bawah **Site Settings → Timezone**. Setting ini sengaja nonaktif secara default dan hanya mengontrol ketersediaan status Scheduled di editor; worker tetap menyelesaikan item yang sudah terjadwal agar antrean lama tidak terjebak.
 
+### Access Log Retention
+
+Jika Access Log diaktifkan, jalankan worker berikut setiap hari agar backlog besar
+tetap dipangkas sesuai retention yang dipilih Site Owner:
+
+```cron
+15 2 * * * cd /path/to/project && /usr/bin/php tools/prune-access-log.php >> /var/log/[project]-access-log.log 2>&1
+```
+
+Request dokumen juga menjalankan pruning opportunistic dalam batch kecil, termasuk
+saat kedua recorder dinonaktifkan. Worker CLI tetap direkomendasikan agar cleanup
+tidak bergantung pada traffic. Worker memproses maksimum 500.000 row per eksekusi;
+jika backlog masih ada, checkpoint tetap due sehingga cron berikutnya melanjutkan.
+
 ## 5. Environment (.env)
 
 ```bash
