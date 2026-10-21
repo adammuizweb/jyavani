@@ -8,6 +8,18 @@ Jyavani is a lightweight, extensible content management system written in native
 
 The current release and platform requirements are the source of truth in [`VERSION`](VERSION) and [`version.json`](version.json).
 
+## Philosophy
+
+Jyavani begins with a practical observation: PHP and MySQL are available across an unusually broad range of hosting services, including modest shared environments. They provide a mature and widely understood foundation on which a complete website can be operated without first requiring a dedicated application server, a separate database service, or a complex deployment toolchain.
+
+Other runtimes, including Node.js, Go, Python, Rust, and Java, offer excellent capabilities and may be the right foundation for many systems. Their availability and operational requirements, however, are not equally consistent across basic hosting plans. Connecting an application to an additional external database service can also turn an otherwise simple installation into a configuration task that is difficult for someone without an infrastructure background.
+
+Jyavani therefore treats broad availability and operational simplicity as deliberate design constraints. It uses native PHP and PDO, keeps MySQL or MariaDB as its primary data store, and requires no Composer runtime or frontend build pipeline. The intention is to place complexity inside the system where it can be designed, reviewed, and maintained, rather than passing that complexity to every person who wants to use it.
+
+That accessibility defines the starting point, not the limit. Jyavani is designed to adapt to the person operating it: a first-time user can begin with a conventional installation, while an experienced developer or organization can extend its themes, plugins, permissions, deployment controls, and infrastructure according to deeper requirements.
+
+Jyavani is a continuing work, guided by a commitment to do each part carefully and conscientiously, including the parts few people will ever see. Its course is to keep doing that work with integrity and to trust that, in time, it will find the people and purposes it can genuinely serve.
+
 ## Highlights
 
 - Articles, pages, reusable theme templates, drafts, scheduled publication, published and private content, hierarchical categories, archives, search, authors, and XML sitemaps.
