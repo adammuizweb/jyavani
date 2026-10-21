@@ -233,14 +233,16 @@ state or throw; thrown errors propagate so Core rolls back the whole transaction
 Listeners must not commit, roll back, or start another transaction, and must
 preserve Core's global-first lock order.
 
-## Mutation audit events
+## Action audit events
 
-Core records successful Article and Page mutations in the append-only
+Core records successful Article and Page dashboard actions in the append-only
 `audit_events` stream. Plugins can join the same stream with
 `audit_log_record()` when they make a user-visible persistent change. The API
 requires a caller-owned transaction, never changes transaction ownership, and
 throws when validation or persistence fails so the resource mutation and its
-audit evidence commit or roll back together.
+audit evidence commit or roll back together. The Site Owner can disable
+dashboard-user action recording from **Settings > Audit Log > Logging settings**;
+in that state an otherwise valid actor-bearing call returns `0` without writing.
 
 Scheduled Article and Page publication is recorded by Core with the `System`
 actor and `core.scheduler` source in the same transaction as publication.
@@ -281,7 +283,7 @@ of additional fields to redact. Core records only the validated dashboard route
 and URL path, never the query string, trusts only the direct peer address, and
 stores only a SHA-256 user-agent hash.
 
-This is a mutation audit contract, not page-view analytics. Opening a plugin
+This is an action audit contract, not page-view analytics. Opening a plugin
 screen is not a semantic mutation. A plugin must emit events such as
 `attempt.deleted` or `attempt.score_changed` only after the corresponding
 authorized database change succeeds.
@@ -289,21 +291,23 @@ authorized database change succeeds.
 ## Access logging
 
 Access logging is a separate, higher-volume stream in `access_events`. The Site
-Owner controls dashboard navigation logging, public HTML page-view logging, and
-30/90/180/365-day retention from **Settings > Audit Log > Logging settings**.
-Both recorders default to off on fresh and upgraded sites.
+Owner controls dashboard navigation logging and 30/90/180/365-day retention
+from **Settings > Audit Log > Logging settings**. Dashboard action recording
+defaults to on to preserve the existing audit contract; navigation recording
+defaults to off.
 
-Core records only successful top-level `GET` document renders. Dashboard events
-run after authorization and complete route rendering; public events run after
-the main HTML content renders. AJAX, polling, iframe, prefetch, asset, redirect,
-error, sitemap, API, and file-stream requests are excluded. Query strings and
-form data are never stored. Core uses only the direct peer IP address and stores
-a SHA-256 user-agent hash. Recorder failures are logged server-side and never
-replace or break an otherwise successful page response.
+Core records only successful authenticated top-level dashboard `GET` document
+renders after authorization and complete route rendering. AJAX, polling, iframe,
+prefetch, asset, redirect, error, API, and file-stream requests are excluded.
+Query strings and form data are never stored. Core uses only the direct peer IP
+address and stores a SHA-256 user-agent hash. Recorder failures are logged
+server-side and never replace or break an otherwise successful page response.
+Core does not record public page views; public analytics belong to a dedicated
+analytics extension.
 
-Access retention does not delete mutation audit events. Expired access rows are
+Access retention does not delete action audit events. Expired access rows are
 pruned in bounded batches after settings changes and periodically as new access
-events arrive, even when both recorders are disabled. Deployments may also run
+events arrive, even when navigation recording is disabled. Deployments may also run
 `php tools/prune-access-log.php` from a daily cron job for deterministic cleanup.
 
 Plugins that store an aggregate `posts.status` may expose the content source

@@ -749,8 +749,8 @@ INSERT INTO `settings` (`key`, `value`, `autoload`) VALUES
   ('date_format',      'F j, Y', 1),
   ('time_format',      'H:i', 1),
   ('content_scheduling_enabled', '0', 1),
+  ('audit_dashboard_actions_enabled', '1', 1),
   ('audit_dashboard_navigation_enabled', '0', 1),
-  ('audit_public_page_views_enabled', '0', 1),
   ('audit_access_retention_days', '90', 1),
   ('audit_access_last_pruned_utc', '1970-01-01 00:00:00', 1)
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);

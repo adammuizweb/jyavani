@@ -200,6 +200,12 @@ function audit_log_actor_snapshot(PDO $pdo, ?int $actorUserId): array
     ];
 }
 
+function audit_log_dashboard_actions_enabled(PDO $pdo): bool
+{
+    if (!function_exists('settings_get')) return true;
+    return settings_get($pdo, 'audit_dashboard_actions_enabled', '1') === '1';
+}
+
 function audit_log_record(PDO $pdo, array $entry): int
 {
     if (!$pdo->inTransaction()) throw new RuntimeException('Audit writes require the caller transaction.');
@@ -210,7 +216,7 @@ function audit_log_record(PDO $pdo, array $entry): int
     if (array_diff(array_keys($entry), $allowed) !== []) throw new InvalidArgumentException('Unknown audit entry field.');
 
     $actorId = $entry['actor_user_id'] ?? null;
-    if ($actorId !== null && !is_int($actorId)) throw new InvalidArgumentException('Invalid audit actor.');
+    if ($actorId !== null && (!is_int($actorId) || $actorId <= 0)) throw new InvalidArgumentException('Invalid audit actor.');
     $actor = audit_log_actor_snapshot($pdo, $actorId);
     $context = audit_log_request_context();
     $eventId = audit_log_id();
@@ -223,17 +229,7 @@ function audit_log_record(PDO $pdo, array $entry): int
         throw new InvalidArgumentException('Invalid authorization audit link.');
     }
 
-    $stmt = $pdo->prepare(
-        'INSERT INTO audit_events
-            (event_id, request_id, operation_id, provider, event_key, actor_user_id, actor_label, actor_email,
-             resource_type, resource_id, resource_label, source, route, request_method, request_path,
-             ip_address, user_agent_hash, changes, metadata, authorization_audit_id, occurred_at_utc)
-         VALUES
-            (:event_id, :request_id, :operation_id, :provider, :event_key, :actor_user_id, :actor_label, :actor_email,
-             :resource_type, :resource_id, :resource_label, :source, :route, :request_method, :request_path,
-             :ip_address, :user_agent_hash, :changes, :metadata, :authorization_audit_id, :occurred_at_utc)'
-    );
-    $stmt->execute([
+    $values = [
         ':event_id' => $eventId,
         ':request_id' => $context['request_id'],
         ':operation_id' => $operationId,
@@ -255,7 +251,20 @@ function audit_log_record(PDO $pdo, array $entry): int
         ':metadata' => audit_log_json(is_array($entry['metadata'] ?? null) ? $entry['metadata'] : [], 'metadata'),
         ':authorization_audit_id' => $authorizationAuditId,
         ':occurred_at_utc' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u'),
-    ]);
+    ];
+    if ($actorId !== null && !audit_log_dashboard_actions_enabled($pdo)) return 0;
+
+    $stmt = $pdo->prepare(
+        'INSERT INTO audit_events
+            (event_id, request_id, operation_id, provider, event_key, actor_user_id, actor_label, actor_email,
+             resource_type, resource_id, resource_label, source, route, request_method, request_path,
+             ip_address, user_agent_hash, changes, metadata, authorization_audit_id, occurred_at_utc)
+         VALUES
+            (:event_id, :request_id, :operation_id, :provider, :event_key, :actor_user_id, :actor_label, :actor_email,
+             :resource_type, :resource_id, :resource_label, :source, :route, :request_method, :request_path,
+             :ip_address, :user_agent_hash, :changes, :metadata, :authorization_audit_id, :occurred_at_utc)'
+    );
+    $stmt->execute($values);
     if (!$pdo->inTransaction()) throw new RuntimeException('Audit write changed transaction ownership.');
     $id = (int)$pdo->lastInsertId();
     if ($id <= 0) throw new RuntimeException('Audit event ID is unavailable.');

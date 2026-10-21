@@ -17,32 +17,9 @@ function access_log_settings(PDO $pdo): array
     $retention = (int)settings_get($pdo, 'audit_access_retention_days', '90');
     if (!in_array($retention, ACCESS_LOG_RETENTION_DAYS, true)) $retention = 90;
     return [
+        'actions_enabled' => audit_log_dashboard_actions_enabled($pdo),
         'dashboard_enabled' => settings_get($pdo, 'audit_dashboard_navigation_enabled', '0') === '1',
-        'public_enabled' => settings_get($pdo, 'audit_public_page_views_enabled', '0') === '1',
         'retention_days' => $retention,
-    ];
-}
-
-function access_log_public_projection(string $route, ?array $post = null): array
-{
-    $route = access_log_route($route);
-    $label = ucwords(str_replace(['.', '_', '-'], ' ', $route));
-    $projection = [
-        'page_title' => $label,
-        'resource_type' => 'frontend_route',
-        'resource_id' => $route,
-        'resource_label' => $label,
-    ];
-    if (!is_array($post) || (int)($post['id'] ?? 0) <= 0) return $projection;
-
-    $candidateType = strtolower(trim((string)($post['type'] ?? 'content')));
-    if (preg_match('/\A[a-z0-9][a-z0-9._-]*\z/D', $candidateType) !== 1) $candidateType = 'content';
-    $resourceLabel = trim((string)($post['title'] ?? '')) ?: $label;
-    return [
-        'page_title' => $resourceLabel,
-        'resource_type' => $candidateType,
-        'resource_id' => (string)(int)$post['id'],
-        'resource_label' => $resourceLabel,
     ];
 }
 
@@ -130,7 +107,7 @@ function access_log_record(PDO $pdo, array $entry, ?array $server = null): int
     if (array_diff(array_keys($entry), $allowed) !== []) throw new InvalidArgumentException('Unknown access event field.');
 
     $surface = (string)($entry['surface'] ?? '');
-    if (!in_array($surface, ['dashboard', 'frontend'], true)) throw new InvalidArgumentException('Invalid access event surface.');
+    if ($surface !== 'dashboard') throw new InvalidArgumentException('Invalid access event surface.');
     $actorId = $entry['actor_user_id'] ?? null;
     if ($actorId !== null && (!is_int($actorId) || $actorId <= 0)) throw new InvalidArgumentException('Invalid access event actor.');
     $actor = $actorId === null ? ['label' => 'Anonymous', 'email' => null] : audit_log_actor_snapshot($pdo, $actorId);
@@ -183,22 +160,20 @@ function access_log_record(PDO $pdo, array $entry, ?array $server = null): int
 
 function access_log_try_record_document(PDO $pdo, array $entry, ?array $server = null): bool
 {
-    static $recorded = [];
+    static $recorded = false;
     $surface = (string)($entry['surface'] ?? '');
-    if (isset($recorded[$surface])) return false;
+    if ($surface !== 'dashboard' || $recorded) return false;
     $settings = access_log_settings($pdo);
     try {
         access_log_maybe_prune($pdo, $settings['retention_days']);
     } catch (Throwable $error) {
         error_log('[access-log] Retention failed: ' . $error->getMessage());
     }
-    if (($surface === 'dashboard' && !$settings['dashboard_enabled'])
-        || ($surface === 'frontend' && !$settings['public_enabled'])
-        || !access_log_is_document_request($server)) return false;
+    if (!$settings['dashboard_enabled'] || !access_log_is_document_request($server)) return false;
 
     try {
         $id = access_log_record($pdo, $entry, $server);
-        $recorded[$surface] = true;
+        $recorded = true;
         return true;
     } catch (Throwable $error) {
         error_log('[access-log] Record failed: ' . $error->getMessage());

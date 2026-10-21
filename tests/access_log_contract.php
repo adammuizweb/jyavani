@@ -31,12 +31,6 @@ $documentServer = [
     'HTTP_ACCEPT' => 'text/html,application/xhtml+xml',
 ];
 $check(access_log_is_document_request($documentServer), 'ordinary GET document navigation is eligible for access logging');
-$searchProjection = access_log_public_projection('main.search');
-$check(!str_contains(json_encode($searchProjection, JSON_THROW_ON_ERROR), 'private-search-term')
-    && ($searchProjection['page_title'] ?? null) === 'Main Search',
-    'public collection projections use route labels rather than query-derived document titles');
-$check(access_log_public_projection('plugin.example~report')['resource_id'] === 'plugin.example~report',
-    'plugin-compatible public route identities remain loggable');
 foreach ([
     array_replace($documentServer, ['REQUEST_METHOD' => 'POST']),
     array_replace($documentServer, ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']),
@@ -58,8 +52,8 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $actorInsert->execute([':name' => $longActor]);
     $pdo->exec('CREATE TABLE settings (`key` TEXT PRIMARY KEY, `value` TEXT, autoload INTEGER NOT NULL DEFAULT 1)');
     $pdo->exec("INSERT INTO settings (`key`,`value`,`autoload`) VALUES
-        ('audit_dashboard_navigation_enabled','1',1),
-        ('audit_public_page_views_enabled','0',1),
+        ('audit_dashboard_actions_enabled','1',1),
+        ('audit_dashboard_navigation_enabled','0',1),
         ('audit_access_retention_days','90',1),
         ('audit_access_last_pruned_utc','1970-01-01 00:00:00',1)");
     $pdo->exec('CREATE TABLE access_events (
@@ -112,14 +106,16 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         'resource_label' => 'Public Article',
         'response_status' => 200,
     ];
-    $check(!access_log_try_record_document($pdo, $frontendEntry, $documentServer),
-        'disabled public page-view logging performs no write');
-    $pdo->exec("UPDATE settings SET value = '1' WHERE `key` = 'audit_public_page_views_enabled'");
+    $check($throws(static fn() => access_log_record($pdo, $frontendEntry, $documentServer))
+        && !access_log_try_record_document($pdo, $frontendEntry, $documentServer),
+        'public page views are rejected by the dashboard-only access stream');
+
+    $check(!access_log_try_record_document($pdo, $entry, $documentServer),
+        'disabled dashboard navigation logging performs no write');
+    $pdo->exec("UPDATE settings SET value = '1' WHERE `key` = 'audit_dashboard_navigation_enabled'");
     unset($GLOBALS['__jy_settings_autoload_cache']);
-    $check(access_log_try_record_document($pdo, $frontendEntry, $documentServer),
-        'enabled public page-view logging records a successful document once');
-    $anonymous = $pdo->query("SELECT actor_label FROM access_events WHERE surface = 'frontend' LIMIT 1")->fetchColumn();
-    $check($anonymous === 'Anonymous', 'public visitors without an authenticated session retain an anonymous actor snapshot');
+    $check(access_log_try_record_document($pdo, $entry, $documentServer),
+        'enabled dashboard navigation logging records a successful document once');
 
     $pdo->exec("UPDATE access_events SET occurred_at_utc = '2000-01-01 00:00:00.000000' WHERE id = 1");
     $check(access_log_prune($pdo, 90, 100) === 1
@@ -129,6 +125,7 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $migration = (string)file_get_contents($root . '/schema/migrations/033-access-events.sql');
+$controlMigration = (string)file_get_contents($root . '/schema/migrations/034-dashboard-audit-controls.sql');
 $config = (string)file_get_contents($root . '/cfg/config.php');
 $viewer = (string)file_get_contents($root . '/dashboard/admin/settings/audit.php');
 $dashboardIndex = (string)file_get_contents($root . '/dashboard/index.php');
@@ -140,10 +137,11 @@ $docs = (string)file_get_contents($root . '/cms.md');
 $check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `access_events`')
     && str_contains($migration, 'CREATE TABLE IF NOT EXISTS `access_events`')
     && str_contains($migration, "'audit_dashboard_navigation_enabled','0',1")
-    && str_contains($migration, "'audit_public_page_views_enabled','0',1")
     && str_contains($migration, "'audit_access_retention_days','90',1")
-    && str_contains($migration, "'audit_access_last_pruned_utc','1970-01-01 00:00:00',1"),
-    'fresh and upgraded sites receive a separate access stream with opt-in defaults and retention');
+    && str_contains($migration, "'audit_access_last_pruned_utc','1970-01-01 00:00:00',1")
+    && str_contains($controlMigration, "WHERE `key` = 'audit_public_page_views_enabled'")
+    && !str_contains($schema, 'audit_public_page_views_enabled'),
+    'fresh and upgraded sites receive a dashboard-only access stream with opt-in navigation and retention');
 $check(str_contains($schema, "'core.audit.manage'") && str_contains($migration, "'core.audit.manage'")
     && str_contains($migration, "'Manage audit logging',0,0,1"),
     'audit logging management uses an active nondelegable Core permission');
@@ -155,7 +153,12 @@ $check(str_contains($viewer, "user_can(\$pdo, \$uid, 'core.audit.manage')")
     && str_contains($viewer, 'authorization_lock_actor_permissions($pdo, $uid)')
     && str_contains($viewer, 'adiwira_csrf_validate(')
     && str_contains($viewer, "'audit.settings_changed'")
-    && str_contains($viewer, "['mutations', 'access', 'settings']"),
+    && str_contains($viewer, "['mutations', 'access', 'settings']")
+    && str_contains($viewer, "'audit_dashboard_actions_enabled'")
+    && str_contains($viewer, "'audit_dashboard_navigation_enabled'")
+    && str_contains($viewer, "surface = :access_surface")
+    && !str_contains($viewer, 'public_enabled')
+    && !str_contains($viewer, 'Public website'),
     'Site Owner Audit Log provides guarded tabs and atomically audited settings controls');
 $check(str_contains($viewer, 'class="tabs audit-page__tabs"')
     && str_contains($viewer, 'aria-current="page"')
@@ -169,12 +172,10 @@ $check(str_contains($dashboardMain, "['__JY_DASHBOARD_DOCUMENT']['rendered'] = t
     && str_contains($dashboardIndex, "'dashboard.page_viewed'")
     && strpos($dashboardIndex, "require_once DASH_PATH . '/theme/adiwira/layout.php';") < strpos($dashboardIndex, "'dashboard.page_viewed'"),
     'dashboard navigation is recorded only after an authorized route and complete layout return');
-$check(str_contains($publicLayout, '$publicMainRendered = true;')
-    && str_contains($publicLayout, "'frontend.page_viewed'")
-    && str_contains($publicLayout, 'access_log_public_projection(')
-    && str_contains($publicLayout, "'[access-log] Public projection failed:")
-    && str_contains($publicLayout, "(\$context_for_layout ?? '') !== '404'"),
-    'public page views are recorded only after successful main HTML rendering and exclude 404 pages');
+$check(!str_contains($publicLayout, 'access_log_try_record_document')
+    && !str_contains($publicLayout, 'frontend.page_viewed')
+    && !str_contains($publicLayout, 'access_log_public_projection'),
+    'public layout contains no page-view recorder');
 $pruneTool = (string)file_get_contents($root . '/tools/prune-access-log.php');
 $check(str_contains($pruneTool, "PHP_SAPI !== 'cli'")
     && str_contains($pruneTool, 'access_log_prune(')
@@ -185,10 +186,12 @@ $check(str_contains($pruneTool, "PHP_SAPI !== 'cli'")
     && str_contains($viewer, '$totalPages = min(200,')
     && str_contains((string)file_get_contents($root . '/SERVER_SETUP.md'), 'tools/prune-access-log.php'),
     'access retention has an independent CLI worker and the high-volume viewer defaults to bounded windows');
-$check(substr_count($translations, "'Record dashboard navigation'") >= 2
-    && substr_count($translations, "'Record public page views'") >= 2
-    && str_contains($docs, '## Access logging'),
-    'access logging controls are translated and documented');
+$check(substr_count($translations, "'Record dashboard actions'") >= 2
+    && substr_count($translations, "'Record dashboard navigation'") >= 2
+    && !str_contains($translations, "'Record public page views'")
+    && str_contains($docs, '## Access logging')
+    && str_contains($docs, 'Core does not record public page views'),
+    'dashboard action and navigation controls are translated and documented without public analytics');
 
 if ($failures !== []) exit(1);
 echo "Access log contract passed.\n";

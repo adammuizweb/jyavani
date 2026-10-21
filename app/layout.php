@@ -451,7 +451,6 @@ if ($enable_sidebar && $sidebar_html !== '') {
     }
 }
 
-$publicMainRendered = false;
 // Main/content
 if (!empty($content_html)) {
 
@@ -477,14 +476,11 @@ if (!empty($content_html)) {
     }
 
     echo apply_filters('post_content', (string)$content_html, $post ?? []);
-    $publicMainRendered = true;
-
 } else {
     try {
         // Filterable so plugins (e.g. page builders) can replace slot output
         // for specific contexts such as the homepage.
         echo apply_filters('layout_slot_html', render_slot($pdo, $main_slot, $base_context), $main_slot, $base_context);
-        $publicMainRendered = true;
     } catch (Throwable $e) {
         if (defined('THEME_DEBUG') && THEME_DEBUG) {
             error_log('[LAYOUT] render_slot(main) error: ' . $e->getMessage());
@@ -572,31 +568,3 @@ do_action('jy_footer');
 ?>
 </body>
 </html>
-<?php
-if ($publicMainRendered && ($context_for_layout ?? '') !== '404'
-    && $pdo instanceof PDO && function_exists('access_log_try_record_document')) {
-    $responseStatus = http_response_code();
-    if (!is_int($responseStatus) || $responseStatus < 100) $responseStatus = 200;
-    $actorId = null;
-    if (session_status() === PHP_SESSION_ACTIVE && function_exists('is_logged_in') && is_logged_in()) {
-        $sessionActor = (int)($_SESSION['user_id'] ?? 0);
-        if ($sessionActor > 0) $actorId = $sessionActor;
-    }
-    try {
-        $accessProjection = access_log_public_projection($main_slot, isset($post) && is_array($post) ? $post : null);
-        access_log_try_record_document($pdo, [
-            'surface' => 'frontend',
-            'event_key' => 'frontend.page_viewed',
-            'actor_user_id' => $actorId,
-            'route' => $main_slot,
-            'page_title' => $accessProjection['page_title'],
-            'resource_type' => $accessProjection['resource_type'],
-            'resource_id' => $accessProjection['resource_id'],
-            'resource_label' => $accessProjection['resource_label'],
-            'response_status' => $responseStatus,
-        ]);
-    } catch (Throwable $error) {
-        error_log('[access-log] Public projection failed: ' . $error->getMessage());
-    }
-}
-?>

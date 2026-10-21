@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+$settingsHelper = $root . '/cfg/helpers/settings_helpers.php';
+require_once $settingsHelper;
 require_once $root . '/cfg/helpers/audit_log.php';
 
 $failures = [];
@@ -66,6 +68,8 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 } else {
     $pdo = new PDO('sqlite::memory:');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec('CREATE TABLE settings (`key` TEXT PRIMARY KEY, `value` TEXT, autoload INTEGER NOT NULL DEFAULT 1)');
+    $pdo->exec("INSERT INTO settings (`key`,`value`,`autoload`) VALUES ('audit_dashboard_actions_enabled','1',1)");
     $pdo->exec('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, username TEXT, email TEXT)');
     $pdo->exec("INSERT INTO users (id, name, username, email) VALUES (7, 'Audit User', 'audit-user', 'audit@example.test')");
     $pdo->exec('CREATE TABLE audit_events (
@@ -125,6 +129,29 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $check(($row['route'] ?? null) === 'admin/posts/index' && ($metadata['csrf_token'] ?? null) === '[redacted]',
         'stored audit context captures the route and redacts sensitive metadata');
 
+    $pdo->exec("UPDATE settings SET value = '0' WHERE `key` = 'audit_dashboard_actions_enabled'");
+    unset($GLOBALS['__jy_settings_autoload_cache']);
+    $pdo->beginTransaction();
+    $disabledAuditId = audit_log_record($pdo, array_replace($entry, ['operation_id' => audit_log_operation_id()]));
+    $check($disabledAuditId === 0 && $pdo->inTransaction(),
+        'disabled dashboard action logging skips actor-bearing events without changing transaction ownership');
+    $pdo->commit();
+    $check((int)$pdo->query('SELECT COUNT(*) FROM audit_events')->fetchColumn() === 1,
+        'disabled dashboard action logging leaves the action stream unchanged');
+
+    $pdo->beginTransaction();
+    $systemAuditId = audit_log_record($pdo, array_replace($entry, [
+        'actor_user_id' => null,
+        'event_key' => 'article.scheduled',
+        'source' => 'core.scheduler',
+        'operation_id' => audit_log_operation_id(),
+    ]));
+    $check($systemAuditId > 0 && $pdo->inTransaction(),
+        'dashboard action control does not suppress system audit events');
+    $pdo->rollBack();
+    $pdo->exec("UPDATE settings SET value = '1' WHERE `key` = 'audit_dashboard_actions_enabled'");
+    unset($GLOBALS['__jy_settings_autoload_cache']);
+
     $pdo->beginTransaction();
     audit_log_record($pdo, array_replace($entry, [
         'provider' => 'quiz',
@@ -141,6 +168,7 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $migration = (string)file_get_contents($root . '/schema/migrations/032-audit-events.sql');
+$controlMigration = (string)file_get_contents($root . '/schema/migrations/034-dashboard-audit-controls.sql');
 $config = (string)file_get_contents($root . '/cfg/config.php');
 $viewer = (string)file_get_contents($root . '/dashboard/admin/settings/audit.php');
 $aside = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/aside.php');
@@ -150,6 +178,11 @@ $docs = (string)file_get_contents($root . '/cms.md');
 $check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `audit_events`')
     && str_contains($migration, 'CREATE TABLE IF NOT EXISTS `audit_events`'),
     'fresh and upgraded databases receive the generic audit event schema');
+$check(str_contains($schema, "'audit_dashboard_actions_enabled', '1', 1")
+    && str_contains($controlMigration, "'audit_dashboard_actions_enabled','1',1")
+    && str_contains($controlMigration, "WHERE `key` = 'audit_public_page_views_enabled'")
+    && !str_contains($schema, 'audit_public_page_views_enabled'),
+    'fresh and upgraded sites receive the dashboard action control and retire the public page-view setting');
 $check(str_contains($schema, "'core.audit.read'") && str_contains($migration, "'core.audit.read'")
     && str_contains($migration, "`is_delegable`=VALUES(`is_delegable`)"),
     'audit viewing permission is nondelegable and available to fresh and upgraded sites');
@@ -226,7 +259,7 @@ $pageBinBulk = (string)file_get_contents($root . '/dashboard/admin/bin/page/bulk
 $check(str_contains($articleBinBulk, 'count($ids) > 100') && str_contains($pageBinBulk, 'count($ids) > 100')
     && str_contains($articleBinBulk, '$count !== count($ids)') && str_contains($pageBinBulk, '$count !== count($ids)'),
     'Article and Page Bin bulk audit is bounded and verifies the complete mutation before commit');
-$check(str_contains($docs, '## Mutation audit events')
+$check(str_contains($docs, '## Action audit events')
     && str_contains($docs, "'provider' => 'quiz'")
     && str_contains($docs, 'not page-view analytics'),
     'plugin documentation defines transactional semantic audit events without implying page-view coverage');

@@ -14,7 +14,7 @@ if (!in_array($tab, ['mutations', 'access', 'settings'], true)) $tab = 'mutation
 $errors = [];
 $accessSettings = access_log_settings($pdo);
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['audit_action'] ?? '') === 'save_access_logging') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['audit_action'] ?? '') === 'save_audit_logging') {
     $tab = 'settings';
     if (!user_can($pdo, $uid, 'core.audit.manage')) adiwira_admin_404();
     if (!adiwira_csrf_validate(is_string($_POST['csrf_token'] ?? null) ? $_POST['csrf_token'] : '')) {
@@ -26,19 +26,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['audit_action'] ?? 
         $retention = $accessSettings['retention_days'];
     }
     $requested = [
+        'actions_enabled' => isset($_POST['actions_enabled']),
         'dashboard_enabled' => isset($_POST['dashboard_enabled']),
-        'public_enabled' => isset($_POST['public_enabled']),
         'retention_days' => $retention,
     ];
     if ($errors === []) {
         $before = [
+            'dashboard_actions' => $accessSettings['actions_enabled'],
             'dashboard_navigation' => $accessSettings['dashboard_enabled'],
-            'public_page_views' => $accessSettings['public_enabled'],
             'retention_days' => $accessSettings['retention_days'],
         ];
         $after = [
+            'dashboard_actions' => $requested['actions_enabled'],
             'dashboard_navigation' => $requested['dashboard_enabled'],
-            'public_page_views' => $requested['public_enabled'],
             'retention_days' => $requested['retention_days'],
         ];
         if ($before !== $after) {
@@ -54,8 +54,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['audit_action'] ?? 
                     throw new DomainException('Audit settings authority changed.');
                 }
                 foreach ([
+                    'audit_dashboard_actions_enabled' => $requested['actions_enabled'] ? '1' : '0',
                     'audit_dashboard_navigation_enabled' => $requested['dashboard_enabled'] ? '1' : '0',
-                    'audit_public_page_views_enabled' => $requested['public_enabled'] ? '1' : '0',
                     'audit_access_retention_days' => (string)$requested['retention_days'],
                 ] as $key => $value) {
                     if (!settings_set($pdo, $key, $value, 1)) throw new RuntimeException('Failed to persist audit setting.');
@@ -65,8 +65,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['audit_action'] ?? 
                     'event_key' => 'audit.settings_changed',
                     'actor_user_id' => $uid,
                     'resource_type' => 'audit_settings',
-                    'resource_id' => 'access_logging',
-                    'resource_label' => 'Access logging',
+                    'resource_id' => 'dashboard_logging',
+                    'resource_label' => 'Dashboard logging',
                     'source' => 'admin.settings.audit',
                     'changes' => audit_log_changes($before, $after),
                     'metadata' => [],
@@ -91,7 +91,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['audit_action'] ?? 
             }
             $target = $base . '/?page=admin/settings/audit&tab=settings';
             if (function_exists('adiwira_redirect_with_flash')) {
-                adiwira_redirect_with_flash($target, 'success', __('Access logging settings saved successfully.'));
+                adiwira_redirect_with_flash($target, 'success', __('Audit logging settings saved successfully.'));
                 exit;
             }
             header('Location: ' . $target, true, 302);
@@ -206,22 +206,16 @@ if ($tab === 'mutations') {
     }
     $filters = [
         'q' => is_scalar($_GET['q'] ?? null) ? trim((string)$_GET['q']) : '',
-        'surface' => is_scalar($_GET['surface'] ?? null) ? trim((string)$_GET['surface']) : '',
         'actor' => max(0, (int)($_GET['actor'] ?? 0)),
         'from' => $accessFromDate->format('Y-m-d'),
         'to' => $accessToDate->format('Y-m-d'),
     ];
     if (strlen($filters['q']) > 100) $filters['q'] = mb_strcut($filters['q'], 0, 100, 'UTF-8');
-    if (!in_array($filters['surface'], ['', 'dashboard', 'frontend'], true)) $filters['surface'] = '';
-    $where = [];
-    $params = [];
+    $where = ['surface = :access_surface'];
+    $params = [':access_surface' => 'dashboard'];
     if ($filters['q'] !== '') {
         $where[] = "LOCATE(:search, CONCAT_WS(' ', event_key, actor_label, COALESCE(actor_email, ''), route, request_path, COALESCE(page_title, ''), COALESCE(resource_label, ''))) > 0";
         $params[':search'] = $filters['q'];
-    }
-    if ($filters['surface'] !== '') {
-        $where[] = 'surface = :surface';
-        $params[':surface'] = $filters['surface'];
     }
     if ($filters['actor'] > 0) {
         $where[] = 'actor_user_id = :actor';
@@ -241,10 +235,10 @@ if ($tab === 'mutations') {
     $actorCutoff = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->modify('-30 days')->format('Y-m-d H:i:s.u');
     $actorStmt = $pdo->prepare(
         'SELECT actor_user_id, MAX(actor_label) AS actor_label, COUNT(*) AS total
-         FROM access_events WHERE actor_user_id IS NOT NULL AND occurred_at_utc >= :cutoff
+         FROM access_events WHERE surface = :surface AND actor_user_id IS NOT NULL AND occurred_at_utc >= :cutoff
          GROUP BY actor_user_id ORDER BY actor_label ASC LIMIT 200'
     );
-    $actorStmt->execute([':cutoff' => $actorCutoff]);
+    $actorStmt->execute([':surface' => 'dashboard', ':cutoff' => $actorCutoff]);
     $actors = $actorStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 }
 
@@ -299,10 +293,6 @@ if ($tab === 'mutations') {
         if (($filters[$key] ?? '') !== '') $activeFilterChips[$key] = [$label, (string)$filters[$key]];
     }
 } elseif ($tab === 'access') {
-    if (($filters['surface'] ?? '') !== '') {
-        $surfaceLabel = $filters['surface'] === 'dashboard' ? __('Dashboard') : __('Public website');
-        $activeFilterChips['surface'] = [__('Surface'), $surfaceLabel];
-    }
     if (($filters['actor'] ?? 0) > 0) {
         $actorLabel = '#' . (int)$filters['actor'];
         foreach ($actors as $actor) {
@@ -349,14 +339,14 @@ $hasActiveQuery = $searchActive || $activeFilterCount > 0;
       <span class="audit-hero__icon" aria-hidden="true"><?= svg_ico('history') ?></span>
       <div>
         <h1><?= _e('Audit Log') ?></h1>
-        <p><?php if ($tab === 'mutations'): ?><?= _e('Review successful content mutations recorded atomically with their database changes. Known credential fields and full editor content are redacted before storage.') ?><?php elseif ($tab === 'access'): ?><?= _e('Review successful dashboard navigation and public page views without query strings or form data.') ?><?php else: ?><?= _e('Control access logging and retention. These settings are available only to the Site Owner.') ?><?php endif; ?></p>
+        <p><?php if ($tab === 'mutations'): ?><?= _e('Review successful dashboard actions recorded atomically with their database changes. Known credential fields and full editor content are redacted before storage.') ?><?php elseif ($tab === 'access'): ?><?= _e('Review successful dashboard navigation without query strings or form data.') ?><?php else: ?><?= _e('Control dashboard action and navigation logging. These settings are available only to the Site Owner.') ?><?php endif; ?></p>
       </div>
     </div>
     <span class="badge"><?= _e('Site Owner') ?></span>
   </header>
 
   <nav class="tabs audit-page__tabs" aria-label="<?= e(__('Audit Log')) ?>">
-    <a class="tab<?= $tab === 'mutations' ? ' active' : '' ?>" href="<?= e($tabUrl('mutations')) ?>"<?= $tab === 'mutations' ? ' aria-current="page"' : '' ?>><?= svg_ico('file-text') ?> <?= _e('Mutations') ?></a>
+    <a class="tab<?= $tab === 'mutations' ? ' active' : '' ?>" href="<?= e($tabUrl('mutations')) ?>"<?= $tab === 'mutations' ? ' aria-current="page"' : '' ?>><?= svg_ico('file-text') ?> <?= _e('Actions') ?></a>
     <a class="tab<?= $tab === 'access' ? ' active' : '' ?>" href="<?= e($tabUrl('access')) ?>"<?= $tab === 'access' ? ' aria-current="page"' : '' ?>><?= svg_ico('monitor') ?> <?= _e('Access') ?></a>
     <a class="tab<?= $tab === 'settings' ? ' active' : '' ?>" href="<?= e($tabUrl('settings')) ?>"<?= $tab === 'settings' ? ' aria-current="page"' : '' ?>><?= svg_ico('settings') ?> <?= _e('Logging settings') ?></a>
   </nav>
@@ -381,8 +371,6 @@ $hasActiveQuery = $searchActive || $activeFilterCount > 0;
               <label class="posts-filter-field"><span><?= _e('Provider') ?></span><select class="inp" name="provider"><option value=""><?= _e('All providers') ?></option><?php foreach ($providers as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['provider'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
               <label class="posts-filter-field"><span><?= _e('Event') ?></span><select class="inp" name="event"><option value=""><?= _e('All events') ?></option><?php foreach ($eventKeys as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['event'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
               <label class="posts-filter-field"><span><?= _e('Resource') ?></span><select class="inp" name="resource"><option value=""><?= _e('All resources') ?></option><?php foreach ($resourceTypes as $option): ?><option value="<?= e($option['value']) ?>" <?= $filters['resource'] === $option['value'] ? 'selected' : '' ?>><?= e($option['value']) ?> (<?= (int)$option['total'] ?>)</option><?php endforeach; ?></select></label>
-            <?php else: ?>
-              <label class="posts-filter-field"><span><?= _e('Surface') ?></span><select class="inp" name="surface"><option value=""><?= _e('All surfaces') ?></option><option value="dashboard" <?= $filters['surface'] === 'dashboard' ? 'selected' : '' ?>><?= _e('Dashboard') ?></option><option value="frontend" <?= $filters['surface'] === 'frontend' ? 'selected' : '' ?>><?= _e('Public website') ?></option></select></label>
             <?php endif; ?>
             <label class="posts-filter-field"><span><?= _e('Actor') ?></span><select class="inp" name="actor"><option value="0"><?= _e('All actors') ?></option><?php foreach ($actors as $actor): ?><option value="<?= (int)$actor['actor_user_id'] ?>" <?= $filters['actor'] === (int)$actor['actor_user_id'] ? 'selected' : '' ?>><?= e($actor['actor_label']) ?> (<?= (int)$actor['total'] ?>)</option><?php endforeach; ?></select></label>
             <label class="posts-filter-field"><span><?= _e('From date') ?></span><input class="inp" type="date" name="from" value="<?= e($filters['from']) ?>"></label>
@@ -396,19 +384,19 @@ $hasActiveQuery = $searchActive || $activeFilterCount > 0;
   <?php else: ?>
   <div class="adam-card audit-settings-panel">
   <form method="post" class="audit-settings" id="audit-settings-form" data-unsaved-guard data-unsaved-floating-save<?= $errors !== [] ? ' data-unsaved-guard-initial-dirty' : '' ?>>
-    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="audit_action" value="save_access_logging">
+    <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="audit_action" value="save_audit_logging">
     <section class="audit-settings-group">
-      <header class="audit-settings-group__head"><span class="audit-settings-group__icon" aria-hidden="true"><?= svg_ico('monitor') ?></span><div><h2><?= _e('Logging settings') ?></h2><p><?= _e('Choose which successful page views are written to the separate access stream.') ?></p></div></header>
+      <header class="audit-settings-group__head"><span class="audit-settings-group__icon" aria-hidden="true"><?= svg_ico('monitor') ?></span><div><h2><?= _e('Logging settings') ?></h2><p><?= _e('Choose which successful dashboard activity is recorded.') ?></p></div></header>
       <div class="audit-settings-group__body audit-toggle-stack">
+        <div class="metatags-card audit-toggle-card"><div class="metatags-row"><div class="metatags-info"><label class="metatags-label" for="audit-actions-enabled"><?= _e('Record dashboard actions') ?></label><p class="metatags-desc"><?= _e('Records successful dashboard actions such as create, update, delete, restore, and bulk operations.') ?></p></div><label class="metatags-toggle"><input type="checkbox" name="actions_enabled" id="audit-actions-enabled" value="1" <?= $accessSettings['actions_enabled'] ? 'checked' : '' ?>><span class="slider"></span></label></div></div>
         <div class="metatags-card audit-toggle-card"><div class="metatags-row"><div class="metatags-info"><label class="metatags-label" for="audit-dashboard-enabled"><?= _e('Record dashboard navigation') ?></label><p class="metatags-desc"><?= _e('Records successful authenticated dashboard document views. AJAX, polling, assets, and failed routes are excluded.') ?></p></div><label class="metatags-toggle"><input type="checkbox" name="dashboard_enabled" id="audit-dashboard-enabled" value="1" <?= $accessSettings['dashboard_enabled'] ? 'checked' : '' ?>><span class="slider"></span></label></div></div>
-        <div class="metatags-card audit-toggle-card"><div class="metatags-row"><div class="metatags-info"><label class="metatags-label" for="audit-public-enabled"><?= _e('Record public page views') ?></label><p class="metatags-desc"><?= _e('Records successful public HTML page views, including anonymous visitors.') ?></p></div><label class="metatags-toggle"><input type="checkbox" name="public_enabled" id="audit-public-enabled" value="1" <?= $accessSettings['public_enabled'] ? 'checked' : '' ?>><span class="slider"></span></label></div></div>
       </div>
     </section>
     <section class="audit-settings-group">
-      <header class="audit-settings-group__head"><span class="audit-settings-group__icon" aria-hidden="true"><?= svg_ico('timer') ?></span><div><h2><?= _e('Access log retention') ?></h2><p><?= _e('Older access events are pruned asynchronously. Mutation audit events are not affected.') ?></p></div></header>
+      <header class="audit-settings-group__head"><span class="audit-settings-group__icon" aria-hidden="true"><?= svg_ico('timer') ?></span><div><h2><?= _e('Access log retention') ?></h2><p><?= _e('Older access events are pruned asynchronously. Action audit events are not affected.') ?></p></div></header>
       <div class="audit-settings-group__body">
         <div class="audit-retention-grid"><div class="form-group"><label for="audit-retention-days"><?= _e('Access log retention') ?></label><select class="inp" id="audit-retention-days" name="retention_days"><?php foreach (ACCESS_LOG_RETENTION_DAYS as $days): ?><option value="<?= $days ?>" <?= $accessSettings['retention_days'] === $days ? 'selected' : '' ?>><?= sprintf(__('%d days'), $days) ?></option><?php endforeach; ?></select></div><div class="audit-retention-note"><?= svg_ico('shield-check') ?><span><?= _e('Query strings and form data are never stored. IP addresses use the direct peer and user agents are hashed.') ?></span></div></div>
-        <details class="settings-details audit-settings-guide"><summary><?= _e('Retention worker') ?></summary><div class="inner"><p><?= _e('Older access events are pruned asynchronously. Mutation audit events are not affected.') ?></p><code>php tools/prune-access-log.php</code></div></details>
+        <details class="settings-details audit-settings-guide"><summary><?= _e('Retention worker') ?></summary><div class="inner"><p><?= _e('Older access events are pruned asynchronously. Action audit events are not affected.') ?></p><code>php tools/prune-access-log.php</code></div></details>
       </div>
     </section>
     <div class="audit-settings-actions"><button class="adam-button settings-floating-save" type="submit"><?= svg_ico('save') ?> <?= _e('Save logging settings') ?></button></div>
@@ -428,14 +416,14 @@ $hasActiveQuery = $searchActive || $activeFilterCount > 0;
       <td data-label="<?= e(__('Route')) ?>"><span class="audit-code"><?= e($event['route'] ?: $event['source']) ?></span><span class="audit-secondary"><?= e(trim((string)($event['request_method'] ?? '') . ' ' . (string)($event['request_path'] ?? ''))) ?></span></td>
       <td data-label="<?= e(__('Details')) ?>"><details class="audit-details"><summary><?= svg_ico('info') ?> <?= _e('View details') ?></summary><p><strong><?= _e('Operation ID') ?>:</strong> <span class="audit-code"><?= e($event['operation_id']) ?></span></p><?php if ($ip): ?><p><strong><?= _e('IP address') ?>:</strong> <?= e($ip) ?></p><?php endif; ?><?php if ($changes !== ''): ?><strong><?= _e('Changes') ?></strong><pre><?= e($changes) ?></pre><?php endif; ?><?php if ($metadata !== ''): ?><strong><?= _e('Metadata') ?></strong><pre><?= e($metadata) ?></pre><?php endif; ?></details></td>
       <?php else: ?>
-      <td data-label="<?= e(__('Event')) ?>"><span class="audit-event audit-code"><?= e($event['event_key']) ?></span><span class="audit-secondary"><?= e($event['surface']) ?> · HTTP <?= (int)$event['response_status'] ?></span></td>
+      <td data-label="<?= e(__('Event')) ?>"><span class="audit-event audit-code"><?= e($event['event_key']) ?></span><span class="audit-secondary">HTTP <?= (int)$event['response_status'] ?></span></td>
       <td data-label="<?= e(__('Page')) ?>"><span class="audit-primary"><?= e($event['page_title'] ?: $event['route']) ?></span><?php if (!empty($event['resource_type'])): ?><span class="audit-secondary"><?= e($event['resource_type'] . ' #' . (string)$event['resource_id']) ?></span><?php endif; ?></td>
       <td data-label="<?= e(__('Route')) ?>"><span class="audit-code"><?= e($event['route']) ?></span><span class="audit-secondary audit-code"><?= e($event['request_path']) ?></span></td>
       <td data-label="<?= e(__('Details')) ?>"><details class="audit-details"><summary><?= svg_ico('info') ?> <?= _e('View details') ?></summary><p><strong><?= _e('Request ID') ?>:</strong> <span class="audit-code"><?= e($event['request_id']) ?></span></p><?php if ($ip): ?><p><strong><?= _e('IP address') ?>:</strong> <?= e($ip) ?></p><?php endif; ?><?php if (!empty($event['user_agent_hash'])): ?><p><strong><?= _e('User-agent hash') ?>:</strong> <span class="audit-code"><?= e($event['user_agent_hash']) ?></span></p><?php endif; ?></details></td>
       <?php endif; ?>
     </tr>
   <?php endforeach; ?>
-  <?php if ($events === []): ?><tr><td colspan="6" class="audit-empty"><span class="audit-empty__icon" aria-hidden="true"><?= svg_ico('history') ?></span><strong><?= e($hasActiveQuery ? ($tab === 'access' ? __('No access events match these filters.') : __('No audit events match these filters.')) : ($tab === 'access' ? __('No access events have been recorded yet.') : __('No mutation events have been recorded yet.'))) ?></strong><?php if ($hasActiveQuery): ?><p><?= _e('Adjust or clear the active filters to see more results.') ?></p><a class="adam-cancle" href="<?= e($tabUrl($tab)) ?>"><?= svg_ico('rotate-ccw') ?> <?= _e('Reset') ?></a><?php endif; ?></td></tr><?php endif; ?>
+  <?php if ($events === []): ?><tr><td colspan="6" class="audit-empty"><span class="audit-empty__icon" aria-hidden="true"><?= svg_ico('history') ?></span><strong><?= e($hasActiveQuery ? ($tab === 'access' ? __('No access events match these filters.') : __('No action events match these filters.')) : ($tab === 'access' ? __('No access events have been recorded yet.') : __('No action events have been recorded yet.'))) ?></strong><?php if ($hasActiveQuery): ?><p><?= _e('Adjust or clear the active filters to see more results.') ?></p><a class="adam-cancle" href="<?= e($tabUrl($tab)) ?>"><?= svg_ico('rotate-ccw') ?> <?= _e('Reset') ?></a><?php endif; ?></td></tr><?php endif; ?>
   </tbody></table></div>
   <?php if ($total > 0): ?><div class="audit-pager"><span><?= sprintf(__('Showing %d-%d of %d results'), $offset + 1, min($offset + $perPage, $total), $total) ?></span><nav class="adam-pagination" aria-label="<?= e(__('Pagination')) ?>"><?php if ($page > 1): ?><a rel="prev" href="<?= e($pageUrl($page - 1)) ?>"><?= _e('Previous') ?></a><?php endif; ?><strong aria-current="page"><?= sprintf(__('Page %d of %d'), $page, $totalPages) ?></strong><?php if ($page < $totalPages): ?><a rel="next" href="<?= e($pageUrl($page + 1)) ?>"><?= _e('Next') ?></a><?php endif; ?></nav></div><?php endif; ?>
   </div>
