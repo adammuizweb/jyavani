@@ -281,7 +281,11 @@ data, credentials, or full editor bodies. Audit JSON is recursively bounded;
 credential-like keys are redacted, and `audit_log_changes()` accepts an array
 of additional fields to redact. Core records only the validated dashboard route
 and URL path, never the query string, trusts only the direct peer address, and
-stores only a SHA-256 user-agent hash.
+stores only a SHA-256 user-agent hash. Authenticated browser events also carry
+a session correlation ID derived from a private random application-session key.
+The correlation ID is not the PHP session ID or cookie and cannot authenticate
+a request. It remains stable when PHP rotates its transport session ID; System
+and CLI events have no session correlation ID.
 
 This is an action audit contract, not page-view analytics. Opening a plugin
 screen is not a semantic mutation. A plugin must emit events such as
@@ -300,8 +304,12 @@ Core records only successful authenticated top-level dashboard `GET` document
 renders after authorization and complete route rendering. AJAX, polling, iframe,
 prefetch, asset, redirect, error, API, and file-stream requests are excluded.
 Query strings and form data are never stored. Core uses only the direct peer IP
-address and stores a SHA-256 user-agent hash. Recorder failures are logged
-server-side and never replace or break an otherwise successful page response.
+address and stores a bounded readable user-agent value for Site Owner review,
+alongside a SHA-256 hash retained for internal correlation. Recorder failures
+are logged server-side and never replace or break an otherwise successful page
+response. Authenticated access events use the same privacy-safe session
+correlation ID as action events, allowing activity by one account to be grouped
+by login session without exposing the session credential.
 Core does not record public page views; public analytics belong to a dedicated
 analytics extension.
 

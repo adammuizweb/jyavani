@@ -143,7 +143,7 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     )');
     $sqlite->exec('CREATE TABLE audit_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, request_id TEXT NOT NULL,
-        operation_id TEXT NOT NULL, provider TEXT NOT NULL, event_key TEXT NOT NULL, actor_user_id INTEGER,
+        session_correlation_id TEXT, operation_id TEXT NOT NULL, provider TEXT NOT NULL, event_key TEXT NOT NULL, actor_user_id INTEGER,
         actor_label TEXT NOT NULL, actor_email TEXT, resource_type TEXT NOT NULL, resource_id TEXT NOT NULL,
         resource_label TEXT, source TEXT NOT NULL, route TEXT, request_method TEXT, request_path TEXT,
         ip_address BLOB, user_agent_hash TEXT, changes TEXT, metadata TEXT, authorization_audit_id INTEGER UNIQUE,
@@ -178,7 +178,7 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         && array_column($states, 'status') === ['published', 'published', 'published']
         && array_map('intval', array_column($states, 'status_revision')) === [1, 1, 1]
         && array_column($states, 'publish_at_utc') === [null, null, null]
-        && (int)$sqlite->query("SELECT COUNT(*) FROM audit_events WHERE actor_user_id IS NULL AND actor_label = 'System' AND source = 'core.scheduler'")->fetchColumn() === 3
+        && (int)$sqlite->query("SELECT COUNT(*) FROM audit_events WHERE actor_user_id IS NULL AND actor_label = 'System' AND source = 'core.scheduler' AND session_correlation_id IS NULL")->fetchColumn() === 3
         && !$sqlite->inTransaction(),
         'scheduled publication is audited atomically and a transaction-leaking observer cannot roll it back or block later publications');
 }

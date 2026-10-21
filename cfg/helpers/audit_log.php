@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 const AUDIT_LOG_JSON_MAX_BYTES = 32768;
 const AUDIT_LOG_VALUE_MAX_BYTES = 1024;
+const AUDIT_LOG_USER_AGENT_MAX_BYTES = 1024;
 const AUDIT_LOG_MAX_DEPTH = 6;
 const AUDIT_LOG_MAX_ITEMS = 100;
 
@@ -169,14 +170,30 @@ function audit_log_request_context(?array $server = null, ?array $query = null):
         if (is_string($packed) && (strlen($packed) === 4 || strlen($packed) === 16)) $ip = $packed;
     }
 
-    $userAgent = is_string($server['HTTP_USER_AGENT'] ?? null) ? $server['HTTP_USER_AGENT'] : '';
+    $userAgentRaw = is_string($server['HTTP_USER_AGENT'] ?? null) ? $server['HTTP_USER_AGENT'] : '';
+    $userAgent = null;
+    if ($userAgentRaw !== '' && preg_match('//u', $userAgentRaw) === 1
+        && preg_match('/[\x00-\x1F\x7F]/', $userAgentRaw) !== 1) {
+        $userAgent = trim($userAgentRaw);
+        if ($userAgent === '') {
+            $userAgent = null;
+        } elseif (strlen($userAgent) > AUDIT_LOG_USER_AGENT_MAX_BYTES) {
+            $userAgent = mb_strcut($userAgent, 0, AUDIT_LOG_USER_AGENT_MAX_BYTES - 3, 'UTF-8') . '...';
+        }
+    }
+    $sessionCorrelationId = function_exists('session_correlation_id') ? session_correlation_id(false) : null;
+    if (!is_string($sessionCorrelationId) || preg_match('/\A[a-f0-9]{64}\z/D', $sessionCorrelationId) !== 1) {
+        $sessionCorrelationId = null;
+    }
     return [
         'request_id' => $requestId,
+        'session_correlation_id' => $sessionCorrelationId,
         'request_method' => $method,
         'request_path' => $path,
         'route' => $route,
         'ip_address' => $ip,
-        'user_agent_hash' => $userAgent === '' ? null : hash('sha256', $userAgent),
+        'user_agent' => $userAgent,
+        'user_agent_hash' => $userAgentRaw === '' ? null : hash('sha256', $userAgentRaw),
     ];
 }
 
@@ -232,6 +249,7 @@ function audit_log_record(PDO $pdo, array $entry): int
     $values = [
         ':event_id' => $eventId,
         ':request_id' => $context['request_id'],
+        ':session_correlation_id' => $actorId === null ? null : $context['session_correlation_id'],
         ':operation_id' => $operationId,
         ':provider' => audit_log_name((string)($entry['provider'] ?? ''), 100, 'provider'),
         ':event_key' => audit_log_name((string)($entry['event_key'] ?? ''), 191, 'event key'),
@@ -256,11 +274,11 @@ function audit_log_record(PDO $pdo, array $entry): int
 
     $stmt = $pdo->prepare(
         'INSERT INTO audit_events
-            (event_id, request_id, operation_id, provider, event_key, actor_user_id, actor_label, actor_email,
+            (event_id, request_id, session_correlation_id, operation_id, provider, event_key, actor_user_id, actor_label, actor_email,
              resource_type, resource_id, resource_label, source, route, request_method, request_path,
              ip_address, user_agent_hash, changes, metadata, authorization_audit_id, occurred_at_utc)
          VALUES
-            (:event_id, :request_id, :operation_id, :provider, :event_key, :actor_user_id, :actor_label, :actor_email,
+            (:event_id, :request_id, :session_correlation_id, :operation_id, :provider, :event_key, :actor_user_id, :actor_label, :actor_email,
              :resource_type, :resource_id, :resource_label, :source, :route, :request_method, :request_path,
              :ip_address, :user_agent_hash, :changes, :metadata, :authorization_audit_id, :occurred_at_utc)'
     );

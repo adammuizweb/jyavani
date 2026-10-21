@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS `audit_events` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `event_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `request_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `session_correlation_id` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `operation_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `provider` varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `event_key` varchar(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -155,6 +156,7 @@ CREATE TABLE IF NOT EXISTS `audit_events` (
   KEY `idx_audit_events_provider_event` (`provider`,`event_key`,`id`),
   KEY `idx_audit_events_resource` (`resource_type`,`resource_id`(150),`id`),
   KEY `idx_audit_events_operation` (`operation_id`,`id`),
+  KEY `idx_audit_events_session` (`session_correlation_id`,`id`),
   CONSTRAINT `fk_audit_events_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_audit_events_authorization` FOREIGN KEY (`authorization_audit_id`) REFERENCES `authorization_audit_log` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -163,6 +165,7 @@ CREATE TABLE IF NOT EXISTS `access_events` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `event_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `request_id` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `session_correlation_id` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
   `surface` varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `event_key` varchar(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   `actor_user_id` int(10) unsigned DEFAULT NULL,
@@ -177,12 +180,14 @@ CREATE TABLE IF NOT EXISTS `access_events` (
   `response_status` smallint(5) unsigned NOT NULL,
   `ip_address` varbinary(16) DEFAULT NULL,
   `user_agent_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `user_agent` varchar(1024) DEFAULT NULL,
   `occurred_at_utc` datetime(6) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_access_events_event` (`event_id`),
   KEY `idx_access_events_occurred` (`occurred_at_utc`,`id`),
   KEY `idx_access_events_actor` (`actor_user_id`,`occurred_at_utc`,`id`),
   KEY `idx_access_events_surface_route` (`surface`,`route`,`id`),
+  KEY `idx_access_events_session` (`session_correlation_id`,`id`),
   CONSTRAINT `fk_access_events_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

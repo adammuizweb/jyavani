@@ -126,17 +126,18 @@ function access_log_record(PDO $pdo, array $entry, ?array $server = null): int
     $eventId = audit_log_id();
     $stmt = $pdo->prepare(
         'INSERT INTO access_events
-            (event_id, request_id, surface, event_key, actor_user_id, actor_label, actor_email,
+            (event_id, request_id, session_correlation_id, surface, event_key, actor_user_id, actor_label, actor_email,
              route, request_path, page_title, resource_type, resource_id, resource_label,
-             response_status, ip_address, user_agent_hash, occurred_at_utc)
+             response_status, ip_address, user_agent_hash, user_agent, occurred_at_utc)
          VALUES
-            (:event_id, :request_id, :surface, :event_key, :actor_user_id, :actor_label, :actor_email,
+            (:event_id, :request_id, :session_correlation_id, :surface, :event_key, :actor_user_id, :actor_label, :actor_email,
              :route, :request_path, :page_title, :resource_type, :resource_id, :resource_label,
-             :response_status, :ip_address, :user_agent_hash, :occurred_at_utc)'
+             :response_status, :ip_address, :user_agent_hash, :user_agent, :occurred_at_utc)'
     );
     $stmt->execute([
         ':event_id' => $eventId,
         ':request_id' => $context['request_id'],
+        ':session_correlation_id' => $actorId === null ? null : $context['session_correlation_id'],
         ':surface' => $surface,
         ':event_key' => audit_log_name((string)($entry['event_key'] ?? ''), 191, 'access event key'),
         ':actor_user_id' => $actorId,
@@ -151,6 +152,7 @@ function access_log_record(PDO $pdo, array $entry, ?array $server = null): int
         ':response_status' => $status,
         ':ip_address' => $context['ip_address'],
         ':user_agent_hash' => $context['user_agent_hash'],
+        ':user_agent' => $context['user_agent'],
         ':occurred_at_utc' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u'),
     ]);
     $id = (int)$pdo->lastInsertId();

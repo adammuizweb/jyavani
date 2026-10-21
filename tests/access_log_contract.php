@@ -2,6 +2,10 @@
 declare(strict_types=1);
 
 $root = dirname(__DIR__);
+function session_correlation_id(bool $createIfMissing = false): ?string
+{
+    return str_repeat('b', 64);
+}
 require_once $root . '/cfg/helpers/audit_log.php';
 require_once $root . '/cfg/helpers/settings_helpers.php';
 require_once $root . '/cfg/helpers/access_log.php';
@@ -58,10 +62,10 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         ('audit_access_last_pruned_utc','1970-01-01 00:00:00',1)");
     $pdo->exec('CREATE TABLE access_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, request_id TEXT NOT NULL,
-        surface TEXT NOT NULL, event_key TEXT NOT NULL, actor_user_id INTEGER, actor_label TEXT NOT NULL,
+        session_correlation_id TEXT, surface TEXT NOT NULL, event_key TEXT NOT NULL, actor_user_id INTEGER, actor_label TEXT NOT NULL,
         actor_email TEXT, route TEXT NOT NULL, request_path TEXT NOT NULL, page_title TEXT,
         resource_type TEXT, resource_id TEXT, resource_label TEXT, response_status INTEGER NOT NULL,
-        ip_address BLOB, user_agent_hash TEXT, occurred_at_utc TEXT NOT NULL
+        ip_address BLOB, user_agent_hash TEXT, user_agent TEXT, occurred_at_utc TEXT NOT NULL
     )');
     unset($GLOBALS['__jy_settings_autoload_cache']);
 
@@ -82,6 +86,8 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         && ($row['request_path'] ?? null) === '/adiwira/'
         && !str_contains((string)($row['request_path'] ?? ''), 'csrf_token')
         && ($row['ip_address'] ?? null) === inet_pton('192.0.2.30')
+        && ($row['session_correlation_id'] ?? null) === str_repeat('b', 64)
+        && ($row['user_agent'] ?? null) === 'Access Contract'
         && ($row['user_agent_hash'] ?? null) === hash('sha256', 'Access Contract'),
         'access events keep actor snapshots while omitting query strings and untrusted proxy addresses');
     $longActorEntry = array_replace($entry, ['actor_user_id' => 8, 'route' => 'admin/users/index']);
@@ -126,6 +132,8 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $migration = (string)file_get_contents($root . '/schema/migrations/033-access-events.sql');
 $controlMigration = (string)file_get_contents($root . '/schema/migrations/034-dashboard-audit-controls.sql');
+$userAgentMigration = (string)file_get_contents($root . '/schema/migrations/035-access-event-user-agent.sql');
+$sessionMigration = (string)file_get_contents($root . '/schema/migrations/036-audit-session-correlation.sql');
 $config = (string)file_get_contents($root . '/cfg/config.php');
 $viewer = (string)file_get_contents($root . '/dashboard/admin/settings/audit.php');
 $dashboardIndex = (string)file_get_contents($root . '/dashboard/index.php');
@@ -140,8 +148,13 @@ $check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `access_events`')
     && str_contains($migration, "'audit_access_retention_days','90',1")
     && str_contains($migration, "'audit_access_last_pruned_utc','1970-01-01 00:00:00',1")
     && str_contains($controlMigration, "WHERE `key` = 'audit_public_page_views_enabled'")
+    && str_contains($schema, '`user_agent` varchar(1024) DEFAULT NULL')
+    && str_contains($userAgentMigration, 'ADD COLUMN `user_agent` varchar(1024) DEFAULT NULL')
+    && substr_count($schema, '`session_correlation_id` char(64)') === 2
+    && str_contains($sessionMigration, '`idx_audit_events_session`')
+    && str_contains($sessionMigration, '`idx_access_events_session`')
     && !str_contains($schema, 'audit_public_page_views_enabled'),
-    'fresh and upgraded sites receive a dashboard-only access stream with opt-in navigation and retention');
+    'fresh and upgraded sites receive a dashboard-only access stream with readable bounded user agents, opt-in navigation, and retention');
 $check(str_contains($schema, "'core.audit.manage'") && str_contains($migration, "'core.audit.manage'")
     && str_contains($migration, "'Manage audit logging',0,0,1"),
     'audit logging management uses an active nondelegable Core permission');
@@ -157,6 +170,13 @@ $check(str_contains($viewer, "user_can(\$pdo, \$uid, 'core.audit.manage')")
     && str_contains($viewer, "'audit_dashboard_actions_enabled'")
     && str_contains($viewer, "'audit_dashboard_navigation_enabled'")
     && str_contains($viewer, "surface = :access_surface")
+    && str_contains($viewer, "COALESCE(user_agent, '')")
+    && str_contains($viewer, "svg_ico('eye')")
+    && substr_count($viewer, "_e('View')") === 2
+    && !str_contains($viewer, "_e('View details')")
+    && !str_contains($viewer, '<details class="audit-details">')
+    && str_contains($viewer, "_e('User agent')")
+    && !str_contains($viewer, "__('User-agent hash')")
     && !str_contains($viewer, 'public_enabled')
     && !str_contains($viewer, 'Public website'),
     'Site Owner Audit Log provides guarded tabs and atomically audited settings controls');
@@ -165,6 +185,30 @@ $check(str_contains($viewer, 'class="tabs audit-page__tabs"')
     && str_contains($viewer, 'posts-filter-disclosure')
     && str_contains($viewer, '--posts-toolbar-control-size:38px')
     && str_contains($viewer, 'class="adam-table audit-table"')
+    && str_contains($viewer, "if (\$tab === 'mutations')")
+    && str_contains($viewer, 'colspan="<?= $tab === \'access\' ? 5 : 6 ?>"')
+    && str_contains($viewer, "'audit_columns_' . \$tab")
+    && str_contains($viewer, 'data-audit-column="audit-col-actor"')
+    && str_contains($viewer, 'data-audit-column="audit-col-resource"')
+    && str_contains($viewer, 'data-audit-column="audit-col-route"')
+    && str_contains($viewer, '.audit-table th.col-hidden,.audit-table td.col-hidden{display:none!important}')
+    && str_contains($viewer, "localStorage.setItem(storageKey, JSON.stringify(state))")
+    && str_contains($viewer, "toggle.setAttribute('aria-expanded', open ? 'true' : 'false')")
+    && str_contains($viewer, 'if (willOpen && filterDisclosure) filterDisclosure.open = false;')
+    && str_contains($viewer, 'class="audit-session"')
+    && substr_count($viewer, "_e('Session correlation ID')") === 2
+    && str_contains($viewer, 'class="audit-empty__content"')
+    && str_contains($viewer, '.audit-empty__content{display:grid;')
+    && str_contains($viewer, 'class="adam-modal audit-detail-modal" role="dialog" aria-modal="true" aria-hidden="true"')
+    && str_contains($viewer, 'data-audit-detail-template=')
+    && str_contains($viewer, 'template.content.cloneNode(true)')
+    && str_contains($viewer, 'body.replaceChildren(template.content.cloneNode(true))')
+    && str_contains($viewer, "event.key === 'Escape'")
+    && str_contains($viewer, 'event.target === modal')
+    && str_contains($viewer, "document.documentElement.style.overflow = 'hidden'")
+    && str_contains($viewer, "document.body.style.overflow = 'hidden'")
+    && str_contains($viewer, 'lastFocus.focus()')
+    && str_contains($viewer, 'event.key !== \'Tab\'')
     && str_contains($viewer, 'class="metatags-toggle"')
     && str_contains($viewer, 'data-unsaved-floating-save'),
     'Audit Log reuses responsive Adiwira tabs, filters, tables, toggles, and save behavior');
@@ -188,6 +232,7 @@ $check(str_contains($pruneTool, "PHP_SAPI !== 'cli'")
     'access retention has an independent CLI worker and the high-volume viewer defaults to bounded windows');
 $check(substr_count($translations, "'Record dashboard actions'") >= 2
     && substr_count($translations, "'Record dashboard navigation'") >= 2
+    && substr_count($translations, "'User agent'") >= 2
     && !str_contains($translations, "'Record public page views'")
     && str_contains($docs, '## Access logging')
     && str_contains($docs, 'Core does not record public page views'),

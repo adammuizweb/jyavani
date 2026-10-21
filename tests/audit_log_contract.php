@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 $settingsHelper = $root . '/cfg/helpers/settings_helpers.php';
+function session_correlation_id(bool $createIfMissing = false): ?string
+{
+    return str_repeat('a', 64);
+}
 require_once $settingsHelper;
 require_once $root . '/cfg/helpers/audit_log.php';
 
@@ -60,8 +64,18 @@ $check(($context['request_method'] ?? null) === 'POST'
     && ($context['route'] ?? null) === 'admin/quiz/attempts',
     'request context retains method, path, and validated dashboard route without the query string');
 $check(($context['ip_address'] ?? null) === inet_pton('192.0.2.10')
-    && ($context['user_agent_hash'] ?? null) === hash('sha256', 'Contract Browser'),
-    'request context uses only the direct peer address and hashes the user agent');
+    && ($context['user_agent'] ?? null) === 'Contract Browser'
+    && ($context['user_agent_hash'] ?? null) === hash('sha256', 'Contract Browser')
+    && ($context['session_correlation_id'] ?? null) === str_repeat('a', 64),
+    'request context uses only the direct peer address and retains bounded user-agent and session correlation values');
+$longUserAgent = str_repeat('A', AUDIT_LOG_USER_AGENT_MAX_BYTES + 100);
+$longUserAgentContext = audit_log_request_context(['HTTP_USER_AGENT' => $longUserAgent], []);
+$unsafeUserAgentContext = audit_log_request_context(['HTTP_USER_AGENT' => "Unsafe\nAgent"], []);
+$check(strlen((string)($longUserAgentContext['user_agent'] ?? '')) === AUDIT_LOG_USER_AGENT_MAX_BYTES
+    && str_ends_with((string)$longUserAgentContext['user_agent'], '...')
+    && ($longUserAgentContext['user_agent_hash'] ?? null) === hash('sha256', $longUserAgent)
+    && ($unsafeUserAgentContext['user_agent'] ?? null) === null,
+    'readable user agents are bounded and control-character values are not projected');
 
 if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     echo "SKIP audit runtime contract requires PDO SQLite\n";
@@ -76,6 +90,7 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         event_id TEXT NOT NULL UNIQUE,
         request_id TEXT NOT NULL,
+        session_correlation_id TEXT,
         operation_id TEXT NOT NULL,
         provider TEXT NOT NULL,
         event_key TEXT NOT NULL,
@@ -126,8 +141,10 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
     $metadata = json_decode((string)($row['metadata'] ?? ''), true);
     $check(($row['actor_label'] ?? null) === 'Audit User' && ($row['actor_email'] ?? null) === 'audit@example.test',
         'audit event keeps a durable actor identity snapshot');
-    $check(($row['route'] ?? null) === 'admin/posts/index' && ($metadata['csrf_token'] ?? null) === '[redacted]',
-        'stored audit context captures the route and redacts sensitive metadata');
+    $check(($row['route'] ?? null) === 'admin/posts/index'
+        && ($row['session_correlation_id'] ?? null) === str_repeat('a', 64)
+        && ($metadata['csrf_token'] ?? null) === '[redacted]',
+        'stored audit context captures the route and privacy-safe session correlation while redacting sensitive metadata');
 
     $pdo->exec("UPDATE settings SET value = '0' WHERE `key` = 'audit_dashboard_actions_enabled'");
     unset($GLOBALS['__jy_settings_autoload_cache']);
@@ -146,8 +163,9 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         'source' => 'core.scheduler',
         'operation_id' => audit_log_operation_id(),
     ]));
-    $check($systemAuditId > 0 && $pdo->inTransaction(),
-        'dashboard action control does not suppress system audit events');
+    $systemSession = $pdo->query('SELECT session_correlation_id FROM audit_events WHERE id = ' . $systemAuditId)->fetchColumn();
+    $check($systemAuditId > 0 && $pdo->inTransaction() && $systemSession === null,
+        'dashboard action control does not suppress system events or attribute them to a human session');
     $pdo->rollBack();
     $pdo->exec("UPDATE settings SET value = '1' WHERE `key` = 'audit_dashboard_actions_enabled'");
     unset($GLOBALS['__jy_settings_autoload_cache']);
@@ -169,6 +187,7 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $migration = (string)file_get_contents($root . '/schema/migrations/032-audit-events.sql');
 $controlMigration = (string)file_get_contents($root . '/schema/migrations/034-dashboard-audit-controls.sql');
+$sessionMigration = (string)file_get_contents($root . '/schema/migrations/036-audit-session-correlation.sql');
 $config = (string)file_get_contents($root . '/cfg/config.php');
 $viewer = (string)file_get_contents($root . '/dashboard/admin/settings/audit.php');
 $aside = (string)file_get_contents($root . '/dashboard/theme/adiwira/part/aside.php');
@@ -176,8 +195,13 @@ $settings = (string)file_get_contents($root . '/dashboard/admin/settings/index.p
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $docs = (string)file_get_contents($root . '/cms.md');
 $check(str_contains($schema, 'CREATE TABLE IF NOT EXISTS `audit_events`')
-    && str_contains($migration, 'CREATE TABLE IF NOT EXISTS `audit_events`'),
-    'fresh and upgraded databases receive the generic audit event schema');
+    && str_contains($migration, 'CREATE TABLE IF NOT EXISTS `audit_events`')
+    && substr_count($schema, '`session_correlation_id` char(64)') === 2
+    && str_contains($sessionMigration, 'ALTER TABLE `audit_events`')
+    && str_contains($sessionMigration, 'ALTER TABLE `access_events`')
+    && str_contains($sessionMigration, '`idx_audit_events_session`')
+    && str_contains($sessionMigration, '`idx_access_events_session`'),
+    'fresh and upgraded databases receive generic audit schemas with indexed session correlation');
 $check(str_contains($schema, "'audit_dashboard_actions_enabled', '1', 1")
     && str_contains($controlMigration, "'audit_dashboard_actions_enabled','1',1")
     && str_contains($controlMigration, "WHERE `key` = 'audit_public_page_views_enabled'")
@@ -194,11 +218,14 @@ $check(str_contains($viewer, "adiwira_require_permission(\$pdo, 'core.audit.read
     'audit viewer is read-only and restricted by permission plus Site Owner identity');
 $check(str_contains($viewer, "parse_url") === false
     && str_contains($viewer, 'ORDER BY id DESC LIMIT ')
-    && str_contains($viewer, 'app_site_datetime_to_utc_mysql'),
-    'audit viewer provides bounded newest-first filtering with site-local date boundaries');
+    && str_contains($viewer, 'app_site_datetime_to_utc_mysql')
+    && str_contains($viewer, 'class="audit-session"')
+    && substr_count($viewer, "_e('Session correlation ID')") === 2,
+    'audit viewer provides bounded newest-first filtering, session contrast, and site-local date boundaries');
 $check(str_contains($aside, "current_user_can(\$pdo, 'core.audit.read')")
     && str_contains($settings, "user_can(\$pdo, \$uid, 'core.audit.read')")
-    && substr_count($translations, "'Audit Log'") >= 2,
+    && substr_count($translations, "'Audit Log'") >= 2
+    && substr_count($translations, "'Session correlation ID'") >= 2,
     'Site Owners with audit permission receive translated navigation and settings entry points');
 
 $mutationFiles = [

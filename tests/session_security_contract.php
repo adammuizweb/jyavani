@@ -27,11 +27,30 @@ try {
     $sid = (string)($_COOKIE[session_name()] ?? '');
     $file = rtrim($argv[1], '/\\') . '/sess_' . $sid;
     $body = $sid !== '' && is_file($file) ? (string)file_get_contents($file) : '';
+    $resumed = ensure_session_started(false);
+    $correlationBeforeRotation = session_correlation_id(false);
+    $transportBeforeRotation = session_id();
+    $transportRotated = session_regenerate_id(true);
+    $transportAfterRotation = session_id();
+    $correlationAfterRotation = session_correlation_id(false);
+    session_write_close();
+    $correlationAfterClose = session_correlation_id(false);
+    $_COOKIE[session_name()] = $transportAfterRotation;
+    login_user(42, 'contract@example.test');
+    ensure_session_started(false);
+    $correlationAfterNewLogin = session_correlation_id(false);
     echo json_encode([
         'ok' => true,
         'secure' => (bool)($cookie_options['secure'] ?? false),
-        'persisted' => $body !== '' && str_contains($body, 'user_id'),
+        'persisted' => $body !== '' && str_contains($body, 'user_id') && str_contains($body, '_session_correlation_key'),
         'automatic_secure' => (bool)(session_get_cookie_params()['secure'] ?? false),
+        'correlation_valid' => is_string($correlationBeforeRotation) && preg_match('/\A[a-f0-9]{64}\z/D', $correlationBeforeRotation) === 1,
+        'correlation_stable' => $resumed && $transportRotated && $transportBeforeRotation !== $transportAfterRotation
+            && $correlationBeforeRotation === $correlationAfterRotation
+            && $correlationBeforeRotation === $correlationAfterClose,
+        'correlation_rotates_on_login' => is_string($correlationAfterNewLogin)
+            && $correlationAfterNewLogin !== $correlationBeforeRotation,
+        'correlation_is_not_transport' => $correlationBeforeRotation !== $transportBeforeRotation,
     ]);
 } catch (Throwable $error) {
     echo json_encode(['ok' => false, 'secure' => (bool)($cookie_options['secure'] ?? false), 'persisted' => false]);
@@ -61,6 +80,12 @@ try {
     $check($https['ok'] === true && $https['secure'] === true && $https['persisted'] === true, 'HTTPS always persists login with a Secure cookie');
     $check($automatic['ok'] === true && $automatic['automatic_secure'] === true, 'legacy automatic session cookies inherit the hardened attributes');
     $check($failClosed['ok'] === false && $failClosed['persisted'] === false, 'unavailable session storage fails login closed');
+    $check($https['correlation_valid'] === true && $https['correlation_is_not_transport'] === true,
+        'authenticated sessions expose only a privacy-safe correlation hash distinct from the transport session ID');
+    $check($https['correlation_stable'] === true,
+        'session correlation remains readable after lock release and stable when the PHP transport session ID rotates');
+    $check($https['correlation_rotates_on_login'] === true,
+        'a new credential login receives a distinct session correlation identity');
 } finally {
     if (is_dir($fixture)) {
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($fixture, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);

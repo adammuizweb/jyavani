@@ -83,6 +83,23 @@ if (!function_exists('session_fingerprint')) {
         return hash('sha256', session_ua_prefix());
     }
 }
+if (!function_exists('session_correlation_id')) {
+    function session_correlation_id(bool $createIfMissing = false): ?string {
+        $key = $_SESSION['_session_correlation_key'] ?? null;
+        if (is_string($key) && preg_match('/\A[a-f0-9]{64}\z/D', $key) === 1) {
+            return hash('sha256', $key);
+        }
+        if (!$createIfMissing || session_status() !== PHP_SESSION_ACTIVE) return null;
+        try {
+            $key = bin2hex(random_bytes(32));
+        } catch (Throwable $error) {
+            error_log('[session] Unable to create session correlation key: ' . $error->getMessage());
+            return null;
+        }
+        $_SESSION['_session_correlation_key'] = $key;
+        return hash('sha256', $key);
+    }
+}
 
 // --- Session save path & permissions
 $raw_session_save_path = getenv('SESSION_SAVE_PATH');
@@ -129,7 +146,10 @@ if (!function_exists('ensure_session_started')) {
      */
     function ensure_session_started(bool $createIfMissing = false): bool {
         global $session_storage_ready;
-        if (session_status() === PHP_SESSION_ACTIVE) return true;
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            if (!empty($_SESSION['user_id'])) session_correlation_id(true);
+            return true;
+        }
         if (!$session_storage_ready) {
             error_log('[session] Session storage is unavailable.');
             return false;
@@ -143,6 +163,7 @@ if (!function_exists('ensure_session_started')) {
             $started = @session_start();
             $active = $started && session_status() === PHP_SESSION_ACTIVE && session_id() !== '';
             if (!$active) error_log('[session] Unable to resume the session.');
+            if ($active && !empty($_SESSION['user_id'])) session_correlation_id(true);
             sess_dbg('ensure_session_started: resume result=' . ($active ? 'ok' : 'failed'));
             return $active;
         }
@@ -497,6 +518,12 @@ if (!function_exists('login_user')) {
         $_SESSION['_fingerprint'] = session_fingerprint();
         $_SESSION['_ua_prefix'] = session_ua_prefix();
         $_SESSION['_session_created'] = time();
+        unset($_SESSION['_session_correlation_key']);
+        if (session_correlation_id(true) === null) {
+            $_SESSION = [];
+            @session_write_close();
+            throw new RuntimeException('Unable to initialize the login session identity.');
+        }
 
         $authenticatedSessionId = session_id();
         sess_dbg('login_user: session regenerated');
