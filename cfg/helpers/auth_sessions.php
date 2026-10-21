@@ -298,6 +298,42 @@ function auth_sessions_for_user(PDO $pdo, int $userId, ?string $currentSessionKe
     return $rows;
 }
 
+function auth_sessions_recent(PDO $pdo, ?string $currentSessionKeyHash = null, int $limit = 30): array
+{
+    $limit = max(1, min(100, $limit));
+    $stmt = $pdo->query(
+        'SELECT s.session_key_hash, s.user_id, s.created_at_utc,
+                s.expires_at_utc, s.revoked_at_utc, s.user_agent,
+                u.name AS user_name, u.username AS user_username
+         FROM user_sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE u.is_deleted = 0
+         ORDER BY s.id DESC
+         LIMIT ' . $limit
+    );
+    $now = auth_sessions_now();
+    $rows = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $expires = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s.u', (string)$row['expires_at_utc'], new DateTimeZone('UTC'))
+            ?: DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', (string)$row['expires_at_utc'], new DateTimeZone('UTC'));
+        $active = $row['revoked_at_utc'] === null && $expires instanceof DateTimeImmutable && $expires > $now;
+        $current = $currentSessionKeyHash !== null
+            && hash_equals((string)$row['session_key_hash'], $currentSessionKeyHash);
+        $userLabel = trim((string)($row['user_name'] ?? ''));
+        if ($userLabel === '') $userLabel = trim((string)($row['user_username'] ?? ''));
+        if ($userLabel === '') $userLabel = 'User #' . (int)$row['user_id'];
+        $rows[] = [
+            'user_id' => (int)$row['user_id'],
+            'user_label' => $userLabel,
+            'device_label' => auth_sessions_device_label($row['user_agent'] ?? null),
+            'created_at_utc' => (string)$row['created_at_utc'],
+            'active' => $active,
+            'current' => $current,
+        ];
+    }
+    return $rows;
+}
+
 function auth_sessions_active_for_user(PDO $pdo, int $userId, ?string $currentSessionKeyHash = null, int $limit = 100): array
 {
     if ($userId <= 0) return [];

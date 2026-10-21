@@ -61,6 +61,7 @@ toggle.addEventListener('click', function(){
     toggle.textContent = 'Save Arrangement';
     toggle.dataset.active = '1';
     updateEmptyColumnHints();
+    updateWidgetPanel();
   } else {
     saveLayout();
     return;
@@ -346,7 +347,7 @@ function updateWidgetPanel() {
         xhr.open('POST', basePath + '/admin/save_dashboard_layout.php', true);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.setRequestHeader('Accept', 'application/json');
-        xhr.onload = function() { if (xhr.status === 200) location.reload(); };
+        xhr.onload = function() { if (xhr.status === 200 || xhr.status === 409) location.reload(); };
         xhr.send(fd);
       }
     });
@@ -370,6 +371,8 @@ function saveLayout() {
         var d = JSON.parse(xhr.responseText);
         if (d && d.ok) location.reload();
       } catch(_) {}
+    } else if (xhr.status === 409) {
+      location.reload();
     }
   };
   xhr.send(fd);

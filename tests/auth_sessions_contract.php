@@ -18,6 +18,7 @@ $pdo->exec('PRAGMA foreign_keys = ON');
 $pdo->exec('CREATE TABLE users (
     id INTEGER PRIMARY KEY,
     name TEXT,
+    username TEXT,
     email TEXT,
     is_deleted INTEGER NOT NULL DEFAULT 0,
     is_locked INTEGER NOT NULL DEFAULT 0
@@ -38,9 +39,9 @@ $pdo->exec('CREATE TABLE user_sessions (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (revoked_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 )');
-$pdo->exec("INSERT INTO users (id, name, email) VALUES
-    (1, 'Contract User', 'contract@example.test'),
-    (2, 'Other User', 'other@example.test')");
+$pdo->exec("INSERT INTO users (id, name, username, email) VALUES
+    (1, 'Contract User', 'contract-user', 'contract@example.test'),
+    (2, 'Other User', 'other-user', 'other@example.test')");
 
 $_SERVER['REMOTE_ADDR'] = '203.0.113.7';
 $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36';
@@ -57,6 +58,16 @@ $check(count($listed) === 1 && $listed[0]['active'] === true && $listed[0]['curr
 $check($listed[0]['ip_address'] === '203.0.113.7'
     && auth_sessions_device_label($listed[0]['user_agent']) === 'Chrome / Linux',
     'session listing exposes bounded display metadata without a transport ID');
+$recent = auth_sessions_recent($pdo, $hash1, 5);
+$check(count($recent) === 1
+    && $recent[0]['user_id'] === 1
+    && $recent[0]['user_label'] === 'Contract User'
+    && $recent[0]['current'] === true
+    && !array_key_exists('email', $recent[0])
+    && !array_key_exists('ip_address', $recent[0])
+    && !array_key_exists('session_key_hash', $recent[0])
+    && !array_key_exists('user_agent', $recent[0]),
+    'cross-user recent login projection identifies users without exposing private session metadata');
 
 $hash2 = hash('sha256', 'contract-session-two');
 auth_sessions_establish($pdo, 1, $hash2, 3600);

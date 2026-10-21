@@ -6341,4 +6341,8 @@ INSERT IGNORE INTO `ui_translations` (`scope`, `source`, `value`, `locale`) VALU
 ('default', 'Manage sessions', 'Kelola sesi', 'id'),
 ('default', 'Manage sessions', 'Sitzungen verwalten', 'de'),
 ('default', 'Sessions', 'Sesi', 'id'),
-('default', 'Sessions', 'Sitzungen', 'de');
+('default', 'Sessions', 'Sitzungen', 'de'),
+('default', 'Recent Activity', 'Aktivitas Terbaru', 'id'),
+('default', 'Recent Activity', 'Letzte Aktivitäten', 'de'),
+('default', 'Data is temporarily unavailable.', 'Data sementara tidak tersedia.', 'id'),
+('default', 'Data is temporarily unavailable.', 'Daten sind vorübergehend nicht verfügbar.', 'de');

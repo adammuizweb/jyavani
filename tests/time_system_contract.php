@@ -61,11 +61,13 @@ $beforeDst = app_utc_mysql_to_site('2026-03-08 06:30:00');
 $afterDst = app_utc_mysql_to_site('2026-03-08 07:30:00');
 $firstFold = app_utc_mysql_to_site('2026-11-01 05:30:00');
 $secondFold = app_utc_mysql_to_site('2026-11-01 06:30:00');
+$microsecondInstant = app_utc_mysql_to_site('2026-03-08 06:30:00.123456');
 $check($beforeDst?->format('Y-m-d H:i P') === '2026-03-08 01:30 -05:00'
     && $afterDst?->format('Y-m-d H:i P') === '2026-03-08 03:30 -04:00'
     && $firstFold?->format('Y-m-d H:i P') === '2026-11-01 01:30 -04:00'
-    && $secondFold?->format('Y-m-d H:i P') === '2026-11-01 01:30 -05:00',
-    'UTC instants convert correctly across daylight-saving gaps and folds');
+    && $secondFold?->format('Y-m-d H:i P') === '2026-11-01 01:30 -05:00'
+    && $microsecondInstant?->format('Y-m-d H:i:s.u P') === '2026-03-08 01:30:00.123456 -05:00',
+    'UTC instants, including DATETIME(6), convert correctly across daylight-saving gaps and folds');
 $check(app_now_utc()->getTimezone()->getName() === 'UTC'
     && preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', app_now_utc_mysql()) === 1,
     'UTC clock helpers provide explicit scheduler-safe instants');

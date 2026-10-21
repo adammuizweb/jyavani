@@ -5,34 +5,16 @@ if (!defined('ADAM_THEME')) {
 }
 /** @var PDO $pdo */
 require_once __DIR__ . '/widgets.php';
+require_once dirname(__DIR__, 5) . '/cfg/helpers/dashboard_layout.php';
 
 $base = ADMIN_BASE_PATH;
 
-$statsScope = function_exists('current_user_permission_scope')
-    ? current_user_permission_scope($pdo, 'core.dashboard.stats.read')
-    : null;
+$homeActor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
 $canManageDashboardLayout = function_exists('current_user_can')
     && current_user_can($pdo, 'core.dashboard.layout.manage');
-$widgets = [
-    'cms_info'      => ['title' => __('CMS Info'),      'render' => 'dash_widget_cms_info'],
-];
-if ($statsScope !== null) {
-    $widgets['quick_stats'] = ['title' => __('Quick Stats'), 'render' => 'dash_widget_quick_stats'];
-    $widgets['recent_posts'] = ['title' => __('Recent Posts'), 'render' => 'dash_widget_recent_posts'];
-}
-if ($statsScope === 'any') {
-    $widgets['system_info'] = ['title' => __('System Info'), 'render' => 'dash_widget_system_info'];
-}
-$homeActor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
-if ($homeActor !== null && $homeActor['is_site_owner'] === true
-    && function_exists('current_user_can') && current_user_can($pdo, 'core.updates.manage')) {
-    $widgets['update_status'] = ['title' => __('Update Status'), 'render' => 'dash_widget_update_status'];
-}
+$widgets = dashboard_widgets_registry($pdo, $homeActor);
 $siteHealthRequired = $homeActor !== null && $homeActor['is_site_owner'] === true
     && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage');
-if ($siteHealthRequired) {
-    $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
-}
 $homeNoticeContext = [
     'schema' => 1,
     'surface' => 'dashboard.home',
@@ -59,32 +41,39 @@ if ($siteHealthRequired) {
     ];
 }
 $homeNotices = dashboard_home_notices_collect($pdo, $homeNoticeContext, $coreHomeNotices);
-$widgets = apply_filters('dashboard_widgets', $widgets);
-if ($siteHealthRequired) {
-    $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
-}
-
 $layoutJson = settings_get($pdo, 'dashboard_widget_layout', '');
-$order = $layoutJson ? json_decode($layoutJson, true) : null;
+$layoutJson = is_string($layoutJson) ? $layoutJson : '';
+$order = $layoutJson === '' ? null : json_decode($layoutJson, true);
 
-if (!$order || !is_array($order)) {
-    $order = ['cms_info:l', 'quick_stats:r', 'system_info:l', 'update_status:r', 'recent_posts:l', 'site_health:r'];
+if ($layoutJson === '' || !is_array($order)) {
+    $order = dashboard_widgets_default_layout();
 }
-// backward compat: old format [{"w":"cms_info","col":1},...] → new format ["cms_info:l",...]
-if ($order && isset($order[0]['w'])) {
-    $map = [1 => 'l', 2 => 'r'];
-    $order = array_map(fn($o) => ($o['w'] ?? '?') . ':' . ($map[$o['col'] ?? 1] ?? 'l'), $order);
+// Backward compatibility for the original object-based layout format.
+$order = dashboard_layout_normalize_legacy($order);
+$normalizedOrder = [];
+$normalizedKeys = [];
+foreach (array_slice($order, 0, 100) as $item) {
+    $itemKey = dashboard_layout_item_key($item);
+    if ($itemKey === null || isset($normalizedKeys[$itemKey])) continue;
+    $normalizedKeys[$itemKey] = true;
+    $normalizedOrder[] = $item;
 }
-if ($layoutJson !== '' && (int)settings_get($pdo, 'dashboard_widget_layout_version', '0') < 2) {
-    $layoutKeys = array_map(static fn($item): string => explode(':', (string)$item, 2)[0], $order);
-    if (isset($widgets['site_health']) && !in_array('site_health', $layoutKeys, true)) $order[] = 'site_health:r';
-    if (settings_set($pdo, 'dashboard_widget_layout', json_encode($order), 1)) {
-        settings_set($pdo, 'dashboard_widget_layout_version', '2', 1);
-    }
-}
+$order = $normalizedOrder;
 $layoutKeys = array_map(static fn($item): string => explode(':', (string)$item, 2)[0], $order);
 foreach ($widgets as $requiredKey => $definition) {
-    if (!empty($definition['required']) && !in_array($requiredKey, $layoutKeys, true)) $order[] = $requiredKey . ':r';
+    if (empty($definition['required']) || in_array($requiredKey, $layoutKeys, true)) continue;
+    if (count($order) >= 100) {
+        for ($index = count($order) - 1; $index >= 0; $index--) {
+            $candidateKey = explode(':', (string)$order[$index], 2)[0];
+            if (!empty($widgets[$candidateKey]['required'])) continue;
+            array_splice($order, $index, 1);
+            break;
+        }
+    }
+    if (count($order) < 100) {
+        $order[] = $requiredKey . ':r';
+        $layoutKeys[] = $requiredKey;
+    }
 }
 
 function dash_parse_item(string $item): array
@@ -103,11 +92,12 @@ function dash_render_widget(string $key, array $widgets, PDO $pdo): string
     if (!$html) return '';
     $fw = !empty($widgets[$key]['full_width']) ? ' data-full-width="1"' : '';
     $required = !empty($widgets[$key]['required']);
+    $protected = !empty($widgets[$key]['protected']);
     $h = h($key);
-    return '<div class="dw-widget" data-widget="' . $h . '"' . $fw . ($required ? ' data-required="1"' : '') . '>'
-         . '<div class="dw-drag-handle" draggable="true" title="' . __('Drag to reorder') . '">'
+    return '<div class="dw-widget" data-widget="' . $h . '"' . $fw . ($required ? ' data-required="1"' : '') . ($protected ? ' data-protected="1"' : '') . '>'
+         . '<div class="dw-drag-handle" draggable="' . ($protected ? 'false' : 'true') . '" title="' . h(__('Drag to reorder')) . '">'
          . svg_ico('grip-vertical')
-         . ($required ? '' : '<button type="button" class="dw-hide-btn" title="' . __('Hide widget') . '">' . svg_ico('eye-off') . '</button>')
+         . ($required || $protected ? '' : '<button type="button" class="dw-hide-btn" title="' . h(__('Hide widget')) . '" aria-label="' . h(__('Hide widget')) . '">' . svg_ico('eye-off') . '</button>')
          . '</div><div class="dw-widget-body">' . $html . '</div></div>';
 }
 
@@ -165,10 +155,12 @@ if ($cur) $segments[] = ['normal' => $cur];
   <?php if ($canManageDashboardLayout): ?><form id="dw-layout-form" method="post" action="<?=h($base)?>/admin/save_dashboard_layout.php" style="display:none">
     <input type="hidden" name="csrf_token" value="<?=h(csrf_token())?>">
     <input type="hidden" name="layout" id="dw-layout-input" value="">
+    <input type="hidden" name="layout_revision" value="<?=h(hash('sha256', $layoutJson))?>">
   </form>
   <div id="dw-widget-panel" style="display:none">
     <h3><?=_e('Widget Manager')?></h3>
-    <div id="dw-widget-list" data-keys='<?=h(json_encode(array_keys($widgets)))?>'></div>
+    <?php $managerWidgetKeys = array_keys(array_filter($widgets, static fn(array $definition): bool => empty($definition['protected']))); ?>
+    <div id="dw-widget-list" data-keys='<?=h(json_encode($managerWidgetKeys))?>'></div>
   </div><?php endif; ?>
 </div>
 

@@ -537,18 +537,19 @@ try {
             && str_contains($page, 'html.theme-dark .site-health__count--' . $colorStatus)
             && str_contains($page, 'site-health__count--<?=h($countStatus)?>'), 'light and dark themes keep an explicit count-card color for ' . $colorStatus);
     }
-    $check(str_contains($dashboardHome, "\$widgets['site_health']")
-        && str_contains($dashboardHome, "'render' => 'dash_widget_site_health'")
-        && str_contains($dashboardHome, "'site_health:r'")
-        && str_contains($dashboardHome, "current_user_can(\$pdo, 'core.settings.manage')"), 'Site Health registers as a Site Owner settings widget in the Core dashboard layout');
+    $check(str_contains($dashboardWidgets, "\$widgets['site_health']")
+        && str_contains($dashboardWidgets, "'render' => 'dash_widget_site_health'")
+        && str_contains($dashboardWidgets, "'site_health:r'")
+        && str_contains($dashboardWidgets, "current_user_can(\$pdo, 'core.settings.manage')"), 'Site Health registers as a Site Owner settings widget in the Core dashboard layout');
     $saveDashboardLayout = (string)file_get_contents($root . '/dashboard/admin/save_dashboard_layout.php');
-    $check(str_contains($dashboardHome, "dashboard_widget_layout_version")
-        && str_contains($dashboardHome, "\$order[] = 'site_health:r'")
-        && str_contains($dashboardHome, "'required' => true")
-        && strrpos($dashboardHome, "\$widgets['site_health']") > strpos($dashboardHome, "apply_filters('dashboard_widgets'")
+    $check(!str_contains($dashboardHome, "settings_set(\$pdo, 'dashboard_widget_layout'")
+        && str_contains($dashboardHome, "\$order[] = \$requiredKey . ':r'")
+        && str_contains($dashboardHome, 'count($order) < 100')
+        && str_contains($dashboardWidgets, "'required' => true")
+        && strrpos($dashboardWidgets, "\$widgets['site_health']") > strpos($dashboardWidgets, "apply_filters('dashboard_widgets'")
         && str_contains($dashboardHome, 'data-required="1"')
         && str_contains($saveDashboardLayout, "if (!in_array('site_health', \$layoutKeys, true)) \$decoded[] = 'site_health:r'")
-        && str_contains($saveDashboardLayout, "'dashboard_widget_layout_version', '2'"), 'Site Health is migrated into saved layouts and cannot be hidden from an authorized Site Owner dashboard');
+        && str_contains($saveDashboardLayout, "'dashboard_widget_layout_version', '2'"), 'Site Health remains required at render time and in saved layouts for an authorized Site Owner dashboard');
     $check(str_contains($dashboardWidgets, 'function dash_widget_site_health')
         && str_contains($dashboardWidgets, 'site_health_read_report()')
         && str_contains($dashboardWidgets, "ADMIN_BASE_PATH . '/?page=admin/settings/health'")

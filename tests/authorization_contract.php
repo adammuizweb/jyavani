@@ -465,10 +465,11 @@ $check(
     'menu custom links reject active URL schemes on write and render'
 );
 $check(
-    str_contains($dashboardHome, "core.dashboard.stats.read")
+    str_contains($dashboardHome, 'dashboard_widgets_registry($pdo, $homeActor)')
     && str_contains($dashboardWidgets, "core.dashboard.stats.read")
-    && str_contains($dashboardHome, "\$widgets['site_health']")
-    && str_contains($dashboardHome, "current_user_can(\$pdo, 'core.settings.manage')")
+    && str_contains($dashboardWidgets, "core.sessions.manage")
+    && str_contains($dashboardWidgets, "core.audit.read")
+    && str_contains($dashboardWidgets, "\$widgets['site_health']")
     && str_contains($dashboardWidgets, "current_user_can(\$pdo, 'core.settings.manage')")
     && str_contains($dashboardLayoutSave, "core.dashboard.layout.manage")
     && str_contains($dashboardHeader, '$canCheckUpdates')

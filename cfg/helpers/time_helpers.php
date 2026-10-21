@@ -112,7 +112,8 @@ if (!function_exists('app_parse_wall_mysql')) {
 if (!function_exists('app_parse_utc_mysql')) {
     function app_parse_utc_mysql(?string $value): ?DateTimeImmutable
     {
-        return app_parse_exact_datetime($value, 'Y-m-d H:i:s', app_utc_timezone());
+        return app_parse_exact_datetime($value, 'Y-m-d H:i:s.u', app_utc_timezone())
+            ?? app_parse_exact_datetime($value, 'Y-m-d H:i:s', app_utc_timezone());
     }
 }
 

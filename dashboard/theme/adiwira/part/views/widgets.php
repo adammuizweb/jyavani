@@ -201,6 +201,138 @@ function dash_widget_site_health(PDO $pdo): string
 </div>';
 }
 
+function dash_widget_recent_login(PDO $pdo): string
+{
+    $uid = (int)($_SESSION['user_id'] ?? 0);
+    if ($uid <= 0 || !function_exists('user_can')
+        || !user_can($pdo, $uid, 'core.sessions.manage', ['owner_id' => $uid])) return '';
+
+    $actor = function_exists('authorization_actor') ? authorization_actor($pdo, $uid) : null;
+    $canViewAll = $actor !== null && $actor['is_site_owner'] === true
+        && user_can($pdo, $uid, 'core.sessions.manage');
+    $actorLabel = trim((string)($actor['name'] ?? ''));
+    if ($actorLabel === '') $actorLabel = trim((string)($actor['username'] ?? ''));
+    if ($actorLabel === '') $actorLabel = __('User') . ' #' . $uid;
+    $currentHash = function_exists('session_correlation_id') ? session_correlation_id(false) : null;
+    $loadFailed = false;
+    try {
+        $sessions = $canViewAll
+            ? auth_sessions_recent($pdo, is_string($currentHash) ? $currentHash : null, 5)
+            : auth_sessions_for_user($pdo, $uid, is_string($currentHash) ? $currentHash : null, 5);
+    } catch (Throwable $error) {
+        error_log('[dashboard-widget] recent login unavailable: ' . $error->getMessage());
+        $sessions = [];
+        $loadFailed = true;
+    }
+
+    $displayUtc = static function (?string $value): string {
+        $date = function_exists('app_utc_mysql_to_site') ? app_utc_mysql_to_site($value) : null;
+        return $date ? app_display_datetime($date) : '-';
+    };
+    $items = $loadFailed ? '<div class="dw-feed-empty">' . h(__('Data is temporarily unavailable.')) . '</div>' : '';
+    if (!$loadFailed) {
+        foreach ($sessions as $session) {
+            $isCurrent = ($session['current'] ?? false) === true;
+            $isActive = ($session['active'] ?? false) === true;
+            $status = $isCurrent ? __('Current session') : ($isActive ? __('Active') : __('Ended'));
+            $statusClass = $isCurrent ? 'current' : ($isActive ? 'active' : 'ended');
+            $sessionUserId = max(0, (int)($session['user_id'] ?? $uid));
+            $userLabel = trim((string)($session['user_label'] ?? '')) ?: $actorLabel;
+            $userMarkup = h($userLabel);
+            if ($canViewAll && $sessionUserId > 0) {
+                $userUrl = ADMIN_BASE_PATH . '/?page=admin/sessions/index&user_id=' . $sessionUserId;
+                $userMarkup = '<a class="dw-feed-user" href="' . h($userUrl) . '">' . $userMarkup . '</a>';
+            }
+            $deviceLabel = trim((string)($session['device_label'] ?? ''));
+            if ($deviceLabel === '') $deviceLabel = auth_sessions_device_label($session['user_agent'] ?? null);
+            $items .= '<div class="dw-feed-item">'
+                . '<span class="dw-feed-item-icon">' . svg_ico('user') . '</span>'
+                . '<div class="dw-feed-content"><div class="dw-feed-primary">'
+                . '<strong>' . $userMarkup . '</strong>'
+                . '<span class="dw-feed-status dw-feed-status--' . $statusClass . '">' . h($status) . '</span>'
+                . '</div><span class="dw-feed-meta">' . h($deviceLabel) . ' · '
+                . h(__('Signed in')) . ': '
+                . h($displayUtc(is_string($session['created_at_utc'] ?? null) ? $session['created_at_utc'] : null))
+                . '</span></div></div>';
+        }
+    }
+    if ($items === '') $items = '<div class="dw-feed-empty">' . h(__('No login history yet.')) . '</div>';
+
+    $url = ADMIN_BASE_PATH . '/?page=admin/sessions/index';
+    return '
+<div class="dw-card dw-feed-card dw-login-card">
+  <div class="dw-card-head">
+    <span class="dw-card-icon">' . svg_ico('monitor') . '</span>
+    <span class="dw-card-title">' . h(__('Recent Login')) . '</span>
+  </div>
+  <div class="dw-card-body">
+    <div class="dw-feed">' . $items . '</div>
+    <a class="dw-feed-action" href="' . h($url) . '"><span>' . h(__('Manage sessions')) . '</span>' . svg_ico('chevron-right') . '</a>
+  </div>
+</div>';
+}
+
+function dash_widget_recent_activity(PDO $pdo): string
+{
+    $uid = (int)($_SESSION['user_id'] ?? 0);
+    $actor = $uid > 0 && function_exists('authorization_actor') ? authorization_actor($pdo, $uid) : null;
+    if ($actor === null || $actor['is_site_owner'] !== true || !function_exists('user_can')
+        || !user_can($pdo, $uid, 'core.audit.read')) return '';
+
+    $loadFailed = false;
+    try {
+        $stmt = $pdo->query(
+            'SELECT actor_label, event_key, resource_type, resource_id, resource_label, occurred_at_utc
+             FROM audit_events
+             ORDER BY id DESC
+             LIMIT 5'
+        );
+        $events = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $error) {
+        error_log('[dashboard-widget] recent activity unavailable: ' . $error->getMessage());
+        $events = [];
+        $loadFailed = true;
+    }
+
+    $displayUtc = static function (?string $value): string {
+        $date = function_exists('app_utc_mysql_to_site') ? app_utc_mysql_to_site($value) : null;
+        return $date ? app_display_datetime($date) : '-';
+    };
+    $items = $loadFailed ? '<div class="dw-feed-empty">' . h(__('Data is temporarily unavailable.')) . '</div>' : '';
+    if (!$loadFailed) {
+        foreach ($events as $event) {
+            $resourceLabel = trim((string)($event['resource_label'] ?? ''));
+            if ($resourceLabel === '') {
+                $resourceLabel = trim((string)($event['resource_type'] ?? ''));
+                $resourceId = trim((string)($event['resource_id'] ?? ''));
+                if ($resourceId !== '') $resourceLabel .= ' #' . $resourceId;
+            }
+            $items .= '<div class="dw-feed-item">'
+                . '<span class="dw-feed-item-icon">' . svg_ico('history') . '</span>'
+                . '<div class="dw-feed-content"><div class="dw-feed-primary">'
+                . '<strong>' . h($resourceLabel !== '' ? $resourceLabel : (string)$event['event_key']) . '</strong>'
+                . '<span class="dw-feed-event">' . h((string)$event['event_key']) . '</span>'
+                . '</div><span class="dw-feed-meta">' . h((string)$event['actor_label']) . ' · '
+                . h($displayUtc(is_string($event['occurred_at_utc'] ?? null) ? $event['occurred_at_utc'] : null))
+                . '</span></div></div>';
+        }
+    }
+    if ($items === '') $items = '<div class="dw-feed-empty">' . h(__('No action events have been recorded yet.')) . '</div>';
+
+    $url = ADMIN_BASE_PATH . '/?page=admin/settings/audit&tab=mutations';
+    return '
+<div class="dw-card dw-feed-card dw-activity-card">
+  <div class="dw-card-head">
+    <span class="dw-card-icon">' . svg_ico('history') . '</span>
+    <span class="dw-card-title">' . h(__('Recent Activity')) . '</span>
+  </div>
+  <div class="dw-card-body">
+    <div class="dw-feed">' . $items . '</div>
+    <a class="dw-feed-action" href="' . h($url) . '"><span>' . h(__('Audit Log')) . '</span>' . svg_ico('chevron-right') . '</a>
+  </div>
+</div>';
+}
+
 function dash_widget_quick_stats(PDO $pdo): string
 {
     $uid = (int)($_SESSION['user_id'] ?? 0);
@@ -366,6 +498,67 @@ function dash_widget_system_info(): string
     </table>
   </div>
 </div>';
+}
+
+function dashboard_widgets_registry(PDO $pdo, ?array $actor = null): array
+{
+    $actor ??= function_exists('authorization_actor') ? authorization_actor($pdo) : null;
+    $actorId = max(0, (int)($actor['id'] ?? 0));
+    $statsScope = function_exists('current_user_permission_scope')
+        ? current_user_permission_scope($pdo, 'core.dashboard.stats.read')
+        : null;
+    $widgets = [
+        'cms_info' => ['title' => __('CMS Info'), 'render' => 'dash_widget_cms_info'],
+    ];
+    if ($statsScope !== null) {
+        $widgets['quick_stats'] = ['title' => __('Quick Stats'), 'render' => 'dash_widget_quick_stats'];
+        $widgets['recent_posts'] = ['title' => __('Recent Posts'), 'render' => 'dash_widget_recent_posts'];
+    }
+    if ($statsScope === 'any') {
+        $widgets['system_info'] = ['title' => __('System Info'), 'render' => 'dash_widget_system_info'];
+    }
+    if (function_exists('user_can')
+        && user_can($pdo, $actorId, 'core.sessions.manage', ['owner_id' => $actorId])) {
+        $widgets['recent_login'] = [
+            'title' => __('Recent Login'),
+            'render' => 'dash_widget_recent_login',
+            'protected' => $actor === null || $actor['is_site_owner'] !== true,
+        ];
+    }
+    if ($actor !== null && $actor['is_site_owner'] === true
+        && function_exists('current_user_can') && current_user_can($pdo, 'core.audit.read')) {
+        $widgets['recent_activity'] = ['title' => __('Recent Activity'), 'render' => 'dash_widget_recent_activity'];
+    }
+    if ($actor !== null && $actor['is_site_owner'] === true
+        && function_exists('current_user_can') && current_user_can($pdo, 'core.updates.manage')) {
+        $widgets['update_status'] = ['title' => __('Update Status'), 'render' => 'dash_widget_update_status'];
+    }
+    $siteHealthRequired = $actor !== null && $actor['is_site_owner'] === true
+        && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage');
+    if ($siteHealthRequired) {
+        $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
+    }
+    if (function_exists('apply_filters')) $widgets = apply_filters('dashboard_widgets', $widgets);
+    if (!is_array($widgets)) $widgets = [];
+    if ($siteHealthRequired) {
+        $widgets['site_health'] = ['title' => __('Site Health'), 'render' => 'dash_widget_site_health', 'required' => true];
+    }
+    return $widgets;
+}
+
+/** @return list<string> */
+function dashboard_widgets_default_layout(): array
+{
+    return [
+        'cms_info:l',
+        'quick_stats:r',
+        'recent_activity:l',
+        'recent_login:r',
+        'recent_posts:l',
+        'site_health:r',
+        'system_info:l',
+        'update_status:r',
+    ];
 }
 
 endif;
