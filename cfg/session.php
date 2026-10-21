@@ -147,7 +147,6 @@ if (!function_exists('ensure_session_started')) {
     function ensure_session_started(bool $createIfMissing = false): bool {
         global $session_storage_ready;
         if (session_status() === PHP_SESSION_ACTIVE) {
-            if (!empty($_SESSION['user_id'])) session_correlation_id(true);
             return true;
         }
         if (!$session_storage_ready) {
@@ -163,7 +162,6 @@ if (!function_exists('ensure_session_started')) {
             $started = @session_start();
             $active = $started && session_status() === PHP_SESSION_ACTIVE && session_id() !== '';
             if (!$active) error_log('[session] Unable to resume the session.');
-            if ($active && !empty($_SESSION['user_id'])) session_correlation_id(true);
             sess_dbg('ensure_session_started: resume result=' . ($active ? 'ok' : 'failed'));
             return $active;
         }
@@ -178,6 +176,52 @@ if (!function_exists('ensure_session_started')) {
 
         sess_dbg("ensure_session_started: no session started (cookie absent)");
         return false;
+    }
+}
+
+if (!function_exists('session_destroy_local')) {
+    function session_destroy_local(): void {
+        $_SESSION = [];
+        global $cookie_options;
+        $paths = array_values(array_unique([$cookie_options['path'] ?? '/', '/']));
+        $domain = $cookie_options['domain'] ?? null;
+        if ($domain === '') $domain = null;
+
+        foreach ($paths as $path) {
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => $path,
+                'domain' => null,
+                'secure' => $cookie_options['secure'] ?? false,
+                'httponly' => $cookie_options['httponly'] ?? true,
+                'samesite' => $cookie_options['samesite'] ?? 'Lax',
+            ]);
+            if ($domain) {
+                $dot = str_starts_with($domain, '.') ? $domain : '.' . $domain;
+                setcookie(session_name(), '', [
+                    'expires' => time() - 42000,
+                    'path' => $path,
+                    'domain' => $dot,
+                    'secure' => $cookie_options['secure'] ?? false,
+                    'httponly' => $cookie_options['httponly'] ?? true,
+                    'samesite' => $cookie_options['samesite'] ?? 'Lax',
+                ]);
+            }
+        }
+
+        unset($_COOKIE[session_name()]);
+        @session_unset();
+        @session_destroy();
+    }
+}
+
+if (!function_exists('session_destroy_persisted')) {
+    function session_destroy_persisted(string $sessionId): void {
+        if ($sessionId !== '' && session_status() !== PHP_SESSION_ACTIVE) {
+            session_id($sessionId);
+            @session_start();
+        }
+        session_destroy_local();
     }
 }
 
@@ -216,6 +260,30 @@ if (!$is_static_asset && $path_allowed && $cookieSent) {
     sess_dbg("auto-resume: cookie_present=1 started=" . ($res ? '1' : '0'));
 } else {
     sess_dbg("auto-resume skipped: cookie_present=" . ($cookieSent ? '1' : '0') . " static={$is_static_asset} path_allowed=" . ($path_allowed ? '1' : '0'));
+}
+
+// A resumed authenticated session is trusted only when its persistent registry
+// row is active. Validate before rotating IDs or extending cookies.
+$auth_session_request_status = 'guest';
+if ($session_started_here && session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['user_id'])) {
+    $correlationId = session_correlation_id(false);
+    $registryPdo = $GLOBALS['pdo'] ?? null;
+    if (function_exists('auth_sessions_validate') && $registryPdo instanceof PDO && is_string($correlationId)) {
+        $registry = auth_sessions_validate($registryPdo, (int)$_SESSION['user_id'], $correlationId, $SESSION_LIFETIME);
+        $auth_session_request_status = (string)($registry['reason'] ?? 'unavailable');
+        if (($registry['ok'] ?? false) !== true) {
+            $session_started_here = false;
+            session_destroy_local();
+        }
+    } elseif (function_exists('auth_sessions_validate')) {
+        $auth_session_request_status = is_string($correlationId) ? 'unavailable' : 'invalid';
+        $session_started_here = false;
+        error_log('[session] Authenticated session registry is unavailable.');
+        session_destroy_local();
+    } else {
+        // Standalone compatibility for tooling that loads session.php directly.
+        $auth_session_request_status = 'active';
+    }
 }
 
 // --- Periodic housekeeping (when resumed)
@@ -267,37 +335,20 @@ if (!headers_sent() && session_status() === PHP_SESSION_ACTIVE && $session_start
 
 // --- Logout helper
 if (!function_exists('logout_user')) {
-    function logout_user(): void {
-        $_SESSION = [];
-        global $cookie_options;
-        $paths = [$cookie_options['path'] ?? '/', '/'];
-        $domain = $cookie_options['domain'] ?? null;
-        if ($domain === '') $domain = null;
-
-        foreach ($paths as $p) {
-            setcookie(session_name(), '', [
-                'expires' => time() - 42000,
-                'path' => $p,
-                'domain' => null,
-                'secure' => $cookie_options['secure'] ?? false,
-                'httponly' => $cookie_options['httponly'] ?? true,
-                'samesite' => $cookie_options['samesite'] ?? 'Lax'
-            ]);
-            if ($domain) {
-                $dot = (strpos($domain, '.') === 0) ? $domain : '.' . $domain;
-                setcookie(session_name(), '', [
-                    'expires' => time() - 42000,
-                    'path' => $p,
-                    'domain' => $dot,
-                    'secure' => $cookie_options['secure'] ?? false,
-                    'httponly' => $cookie_options['httponly'] ?? true,
-                    'samesite' => $cookie_options['samesite'] ?? 'Lax'
-                ]);
+    function logout_user(bool $revokeRegistry = true, string $reason = 'logout'): void {
+        $correlationId = session_correlation_id(false);
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        $registryPdo = $GLOBALS['pdo'] ?? null;
+        if ($revokeRegistry && $userId > 0 && is_string($correlationId)
+            && $registryPdo instanceof PDO && function_exists('auth_sessions_revoke')) {
+            try {
+                auth_sessions_revoke($registryPdo, $correlationId, $userId, $reason, $userId, false);
+            } catch (Throwable $error) {
+                error_log('[session] Unable to revoke session during logout: ' . $error->getMessage());
             }
         }
-
-        @session_unset();
-        @session_destroy();
+        session_destroy_local();
+        $GLOBALS['auth_session_request_status'] = 'guest';
         if (getenv('SESSION_DEBUG') === '1') {
             @file_put_contents(__DIR__ . '/session_debug.log', date('c') . " logout_user executed\n", FILE_APPEND);
         }
@@ -311,19 +362,25 @@ if (!function_exists('is_logged_in')) {
         if (session_status() !== PHP_SESSION_ACTIVE) return false;
         if (empty($_SESSION['user_id'])) return false;
         if (!isset($_SESSION['_fingerprint'])) return false;
+        if (function_exists('auth_sessions_validate')) {
+            global $auth_session_request_status;
+            if (($auth_session_request_status ?? 'unavailable') !== 'active') return false;
+        }
 
         global $SESSION_IDLE_TIMEOUT;
         $now = time();
         $lastActivity = (int)($_SESSION['last_activity'] ?? 0);
         if ($SESSION_IDLE_TIMEOUT > 0 && ($lastActivity <= 0 || $now - $lastActivity > $SESSION_IDLE_TIMEOUT)) {
-            logout_user();
+            logout_user(true, 'idle_timeout');
             return false;
         }
-        $_SESSION['last_activity'] = $now;
 
         $current_fp = session_fingerprint();
         $stored_fp = $_SESSION['_fingerprint'] ?? null;
-        if ($stored_fp && hash_equals((string)$stored_fp, (string)$current_fp)) return true;
+        if ($stored_fp && hash_equals((string)$stored_fp, (string)$current_fp)) {
+            $_SESSION['last_activity'] = $now;
+            return true;
+        }
 
         $stored_prefix = $_SESSION['_ua_prefix'] ?? '';
         $current_prefix = session_ua_prefix();
@@ -332,10 +389,12 @@ if (!function_exists('is_logged_in')) {
             sess_dbg("fingerprint mismatch tolerated (UA prefix match)");
             $_SESSION['_fingerprint'] = $current_fp;
             $_SESSION['_ua_prefix'] = $current_prefix;
+            $_SESSION['last_activity'] = $now;
             return true;
         }
 
         sess_dbg("fingerprint mismatch in is_logged_in()");
+        logout_user(true, 'fingerprint_mismatch');
         return false;
     }
 }
@@ -497,13 +556,15 @@ if (!function_exists('session_csrf_check')) {
 
 // --- login_user: create session & send cookie
 if (!function_exists('login_user')) {
-    function login_user(int $user_id, ?string $email = null): void {
+    function login_user(int $user_id, ?string $email = null, ?PDO $database = null): void {
         if (headers_sent()) {
             throw new RuntimeException('Unable to start login after response output.');
         }
         if (!ensure_session_started(true) || session_status() !== PHP_SESSION_ACTIVE) {
             throw new RuntimeException('Unable to create a persistent login session.');
         }
+
+        $previousCorrelationId = session_correlation_id(false);
 
         if (!session_regenerate_id(true) || session_id() === '') {
             $_SESSION = [];
@@ -519,7 +580,8 @@ if (!function_exists('login_user')) {
         $_SESSION['_ua_prefix'] = session_ua_prefix();
         $_SESSION['_session_created'] = time();
         unset($_SESSION['_session_correlation_key']);
-        if (session_correlation_id(true) === null) {
+        $sessionCorrelationId = session_correlation_id(true);
+        if ($sessionCorrelationId === null) {
             $_SESSION = [];
             @session_write_close();
             throw new RuntimeException('Unable to initialize the login session identity.');
@@ -527,6 +589,32 @@ if (!function_exists('login_user')) {
 
         $authenticatedSessionId = session_id();
         sess_dbg('login_user: session regenerated');
+
+        $registryPdo = $database ?? ($GLOBALS['pdo'] ?? null);
+        $registryEnabled = function_exists('auth_sessions_establish');
+        $ownsRegistryTransaction = false;
+        if ($registryEnabled) {
+            if (!$registryPdo instanceof PDO) {
+                session_destroy_local();
+                throw new RuntimeException('Authenticated session registry is unavailable.');
+            }
+            if ($registryPdo->inTransaction()) {
+                session_destroy_local();
+                throw new RuntimeException('Login cannot start inside an existing database transaction.');
+            }
+            try {
+                $registryPdo->beginTransaction();
+                $ownsRegistryTransaction = true;
+                if (is_string($previousCorrelationId) && auth_sessions_hash_is_valid($previousCorrelationId)) {
+                    auth_sessions_revoke($registryPdo, $previousCorrelationId, $user_id, 'reauthenticated', $user_id, false);
+                }
+                auth_sessions_establish($registryPdo, $user_id, $sessionCorrelationId, $GLOBALS['SESSION_LIFETIME']);
+            } catch (Throwable $error) {
+                if ($ownsRegistryTransaction && $registryPdo->inTransaction()) $registryPdo->rollBack();
+                session_destroy_local();
+                throw new RuntimeException('Unable to register the login session.', 0, $error);
+            }
+        }
 
         global $cookie_options;
         $params = session_get_cookie_params();
@@ -546,13 +634,45 @@ if (!function_exists('login_user')) {
         if ($expires > 0) $cookieOptions['expires'] = $expires;
 
         if (!session_write_close()) {
+            if ($ownsRegistryTransaction && $registryPdo instanceof PDO && $registryPdo->inTransaction()) {
+                $registryPdo->rollBack();
+            }
+            session_destroy_persisted($authenticatedSessionId);
             throw new RuntimeException('Unable to persist the login session.');
         }
 
+        if ($ownsRegistryTransaction && $registryPdo instanceof PDO) {
+            try {
+                if (!$registryPdo->commit()) {
+                    throw new RuntimeException('Registry commit returned false.');
+                }
+            } catch (Throwable $error) {
+                if ($registryPdo->inTransaction()) $registryPdo->rollBack();
+                session_destroy_persisted($authenticatedSessionId);
+                throw new RuntimeException('Unable to commit the login session.', 0, $error);
+            }
+        }
+
         if (!setcookie(session_name(), $authenticatedSessionId, $cookieOptions)) {
+            if ($registryEnabled && $registryPdo instanceof PDO) {
+                try {
+                    auth_sessions_revoke($registryPdo, $sessionCorrelationId, $user_id, 'cookie_failed', $user_id, false);
+                } catch (Throwable $error) {
+                    error_log('[session] Unable to revoke an unsent login session: ' . $error->getMessage());
+                }
+            }
+            session_destroy_persisted($authenticatedSessionId);
             throw new RuntimeException('Unable to send the login session cookie.');
         }
         $_COOKIE[session_name()] = $authenticatedSessionId;
+        $GLOBALS['auth_session_request_status'] = 'active';
+        if ($registryEnabled && $registryPdo instanceof PDO) {
+            try {
+                auth_sessions_prune($registryPdo);
+            } catch (Throwable $error) {
+                error_log('[session] Unable to prune old login sessions: ' . $error->getMessage());
+            }
+        }
         sess_dbg('login_user: authenticated cookie sent');
     }
 }

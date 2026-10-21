@@ -604,6 +604,15 @@ if (!function_exists('authorization_change_user_status')) {
             }
             $update->execute([':id' => $targetUserId]);
 
+            if ($deactivates && function_exists('auth_sessions_revoke_user')) {
+                auth_sessions_revoke_user(
+                    $pdo,
+                    $targetUserId,
+                    $actorUserId,
+                    $action === 'delete' ? 'account_deleted' : 'account_locked'
+                );
+            }
+
             $event = $auditEvent ?? match ($action) {
                 'delete' => 'user.deleted',
                 'lock' => 'user.locked',

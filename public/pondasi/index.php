@@ -309,6 +309,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          WHERE id = ?"
                     );
                     $st->execute([$adminEmail, $adminUser, $hash, $adminName, $siteOwnerId]);
+                    $revokeSessions = $pdo->prepare(
+                        "UPDATE user_sessions
+                         SET revoked_at_utc = :revoked_at_utc,
+                             revoked_by_user_id = :user_id,
+                             revoke_reason = 'installer_reset'
+                         WHERE user_id = :user_id AND revoked_at_utc IS NULL"
+                    );
+                    $revokeSessions->execute([
+                        ':revoked_at_utc' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s.u'),
+                        ':user_id' => $siteOwnerId,
+                    ]);
                 } else {
                     $st = $pdo->prepare(
                         "INSERT INTO users

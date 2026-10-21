@@ -235,10 +235,12 @@ $paging_items = build_pagination_items($page, $pages, 9);
                   && user_can($pdo, $uid, 'core.users.update', ['owner_id' => (int)$u['id']]);
               $canLockUser = $canMutateUser && user_can($pdo, $uid, 'core.users.lock', ['owner_id' => (int)$u['id']]);
               $canDeleteUser = $canMutateUser && user_can($pdo, $uid, 'core.users.delete', ['owner_id' => (int)$u['id']]);
+              $canManageSessions = $canMutateUser
+                  && user_can($pdo, $uid, 'core.sessions.manage', ['owner_id' => (int)$u['id']]);
               $canSelectUser = !$isSelf && !$isSiteOwner && ($canManageSiteOwners || $canLockUser || $canDeleteUser);
               $roleNames = array_values(array_filter(array_map('trim', explode(',', (string)($u['role_names'] ?? '')))));
               $canChangeSiteOwner = $canManageSiteOwners && !$isSelf && !$isLocked;
-              $hasUserActions = $canEditUser || $canChangeSiteOwner || (!$isSelf && ($canLockUser || $canDeleteUser));
+              $hasUserActions = $canEditUser || $canManageSessions || $canChangeSiteOwner || (!$isSelf && ($canLockUser || $canDeleteUser));
             ?>
             <tr class="adam-row">
               <td class="td-center">
@@ -312,6 +314,10 @@ $paging_items = build_pagination_items($page, $pages, 9);
                     <div class="user-actions-menu" role="menu" hidden>
                       <?php if ($canEditUser): ?>
                         <a role="menuitem" href="<?= htmlspecialchars($base . '/?page=admin/users/save&id=' . (int)$u['id'] . '&return_to=' . urlencode($returnTo), ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('pen') ?> <?= _e('Edit') ?></a>
+                      <?php endif; ?>
+
+                      <?php if ($canManageSessions): ?>
+                        <a role="menuitem" href="<?= htmlspecialchars($base . '/?page=admin/sessions/index&user_id=' . (int)$u['id'], ENT_QUOTES, 'UTF-8') ?>"><?= svg_ico('monitor') ?> <?= _e('Sessions') ?></a>
                       <?php endif; ?>
 
                       <?php if ($canChangeSiteOwner): ?>

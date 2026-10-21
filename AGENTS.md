@@ -141,6 +141,10 @@ add_filter('dashboard_home_notices', function (array $items, array $context, PDO
 - `ensure_session_started(false)` — resume only, no auto-create
 - `login_user($id, $email)` — creates session, regenerates ID, sets cookie
 - `logout_user()` — clears + destroys session on multiple paths
+- Authenticated sessions are registered in `user_sessions` by the privacy-safe correlation hash; PHP transport session IDs are never persisted.
+- Registry validation runs before cookie refresh or session-ID rotation. Missing, revoked, expired, or unavailable registry state fails closed and clears the local session.
+- `core.sessions.manage` is scoped; users manage their own sessions, while authorized administrators can manage permitted targets. Only a Site Owner can manage another Site Owner's sessions.
+- Session management UI is at `dashboard/admin/sessions/index.php`; password changes, account locks, and account deletion revoke affected sessions transactionally.
 - `users.role` retains the compatibility hierarchy `author` < `editor` < `admin`; current authorization is determined by database-backed role assignments, permission grants/scopes, and the separate Site Owner identity.
 - Session cookie config is in `.env`: `SESSION_NAME`, `SESSION_COOKIE_DOMAIN`, `FORCE_HTTPS`, `SESSION_ALLOW_INSECURE_COOKIES`
 - With `FORCE_HTTPS=1` + nginx `fastcgi_param HTTPS on` (see `SERVER_SETUP.md`)

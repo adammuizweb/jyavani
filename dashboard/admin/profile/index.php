@@ -97,7 +97,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     $action = (string)($_POST['action'] ?? '');
 
-    if ($action === 'delete_account' && empty($errors)) {
+    if ($action === 'revoke_other_sessions' && empty($errors)) {
+        if (!user_can($pdo, $uid, 'core.sessions.manage', ['owner_id' => $uid])) {
+            $errors[] = __('Access denied.');
+        } else {
+            try {
+                $pdo->beginTransaction();
+                if (!authorization_lock_actor_permissions($pdo, $uid)
+                    || !user_can($pdo, $uid, 'core.profile.manage')
+                    || !user_can($pdo, $uid, 'core.sessions.manage', ['owner_id' => $uid])) {
+                    throw new RuntimeException('Profile session permission changed.');
+                }
+                $currentHash = session_correlation_id(false);
+                $count = auth_sessions_revoke_user($pdo, $uid, $uid, 'manual', $currentHash);
+                $pdo->commit();
+                profile_redirect_with_flash(
+                    'success',
+                    $count > 0 ? sprintf(__('%d session(s) revoked.'), $count) : __('No active sessions were changed.'),
+                    $self_url
+                );
+            } catch (Throwable $error) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('[profile] session revoke failed: ' . $error->getMessage());
+                $errors[] = __('Failed to revoke login session.');
+            }
+        }
+    } elseif ($action === 'delete_account' && empty($errors)) {
         $password_confirm = (string)($_POST['del_password'] ?? '');
         $blockedUntil = (int)($_SESSION['profile_reauth_blocked_until'] ?? 0);
 
@@ -123,7 +148,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $uid,
                 'delete',
                 $uid,
-                'user.self_deleted'
+                'user.self_deleted',
+                'core.profile.manage'
             );
             if ($deleteResult === 'last_site_owner') {
                 $errors[] = __('The final active Site Owner cannot be deleted.');
@@ -250,8 +276,35 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
             $sql .= " WHERE id = :id LIMIT 1";
 
-            $stmtUpd = $pdo->prepare($sql);
-            if ($stmtUpd->execute($params)) {
+            try {
+                $pdo->beginTransaction();
+                if (!authorization_lock_actor_permissions($pdo, $uid)
+                    || !user_can($pdo, $uid, 'core.profile.manage')) {
+                    throw new RuntimeException('Profile permission changed before save.');
+                }
+                if ($sensitiveChange) {
+                    $lockedUser = $pdo->prepare('SELECT password FROM users WHERE id = :id AND is_deleted = 0 FOR UPDATE');
+                    $lockedUser->execute([':id' => $uid]);
+                    $lockedPassword = $lockedUser->fetchColumn();
+                    if (!is_string($lockedPassword) || !password_verify($currentPass, $lockedPassword)) {
+                        throw new RuntimeException('Profile credentials changed before save.');
+                    }
+                }
+                $stmtUpd = $pdo->prepare($sql);
+                if (!$stmtUpd->execute($params)) {
+                    throw new RuntimeException('Profile update failed.');
+                }
+                if ($pass !== '' && function_exists('auth_sessions_revoke_user')) {
+                    auth_sessions_revoke_user(
+                        $pdo,
+                        $uid,
+                        $uid,
+                        'password_changed',
+                        session_correlation_id(false)
+                    );
+                }
+                $pdo->commit();
+
                 $_SESSION['user_name'] = $name;
                 $_SESSION['user_email'] = $email;
 
@@ -260,14 +313,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $user['img']   = $imgUrl;
                 $user['bio']   = $bioDb ?? '';
                 $user['phone'] = $phoneDb ?? '';
-                do_action('profile_after_save', (int)$user['id'], $pdo, $_POST);
+                try {
+                    do_action('profile_after_save', (int)$user['id'], $pdo, $_POST);
+                } catch (Throwable $hookError) {
+                    error_log('[profile_after_save] ' . $hookError->getMessage());
+                }
 
                 profile_redirect_with_flash('success', __('Profile updated successfully.'), $self_url);
-            } else {
+            } catch (Throwable $error) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('[profile] ' . $error->getMessage());
                 $errors[] = __('Failed to save to database.');
             }
         }
     }
+}
+
+$canManageOwnSessions = user_can($pdo, $uid, 'core.sessions.manage', ['owner_id' => $uid]);
+$profileActiveSessionCount = 0;
+try {
+    if ($canManageOwnSessions) $profileActiveSessionCount = auth_sessions_active_count($pdo, $uid);
+} catch (Throwable $error) {
+    error_log('[profile] session list failed: ' . $error->getMessage());
 }
 ?>
 
@@ -458,6 +525,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     </div>
   </form>
 </section>
+
+<?php if ($canManageOwnSessions): ?>
+<section class="adam-card profile-sessions-card">
+  <div class="profile-sessions-heading">
+    <span class="profile-section-icon"><?= svg_ico('monitor') ?></span>
+    <div>
+      <h3><?= _e('Login Sessions') ?></h3>
+      <p><?= sprintf(__('%d active session(s). Review recent login activity and revoke access you no longer recognize.'), $profileActiveSessionCount) ?></p>
+    </div>
+  </div>
+  <div class="profile-sessions-actions">
+    <a class="adam-button" href="<?= htmlspecialchars($base . '/?page=admin/sessions/index', ENT_QUOTES, 'UTF-8') ?>"><?= _e('Manage sessions') ?></a>
+    <?php if ($profileActiveSessionCount > 1): ?>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">
+        <input type="hidden" name="action" value="revoke_other_sessions">
+        <button type="submit" class="auth-session-button auth-session-button--danger"><?= _e('Revoke other sessions') ?></button>
+      </form>
+    <?php endif; ?>
+  </div>
+</section>
+<?php endif; ?>
 
 <section class="adam-card profile-danger-zone">
   <div class="profile-danger-heading">

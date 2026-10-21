@@ -191,6 +191,28 @@ CREATE TABLE IF NOT EXISTS `access_events` (
   CONSTRAINT `fk_access_events_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `session_key_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `user_id` int(10) unsigned NOT NULL,
+  `created_at_utc` datetime(6) NOT NULL,
+  `last_seen_at_utc` datetime(6) NOT NULL,
+  `expires_at_utc` datetime(6) NOT NULL,
+  `revoked_at_utc` datetime(6) DEFAULT NULL,
+  `revoked_by_user_id` int(10) unsigned DEFAULT NULL,
+  `revoke_reason` varchar(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `ip_address` varbinary(16) DEFAULT NULL,
+  `user_agent_hash` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,
+  `user_agent` varchar(1024) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_user_sessions_key` (`session_key_hash`),
+  KEY `idx_user_sessions_user_active` (`user_id`,`revoked_at_utc`,`expires_at_utc`),
+  KEY `idx_user_sessions_retention` (`revoked_at_utc`,`expires_at_utc`,`id`),
+  KEY `idx_user_sessions_revoker` (`revoked_by_user_id`),
+  CONSTRAINT `fk_user_sessions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_user_sessions_revoker` FOREIGN KEY (`revoked_by_user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO `roles` (`slug`,`name`,`description`,`authority_rank`,`is_system`) VALUES
   ('author','Author','Creates and manages owned content.',10,1),
   ('editor','Editor','Manages editorial resources and owned content.',50,1),
@@ -272,6 +294,7 @@ INSERT INTO `permissions` (`permission_key`,`provider`,`resource`,`action`,`labe
   ('core.plugins.manage','core','plugins','manage','Manage plugins',0),
   ('core.updates.manage','core','updates','manage','Manage Core updates',0),
   ('core.profile.manage','core','profile','manage','Manage own profile',0),
+  ('core.sessions.manage','core','sessions','manage','Manage login sessions',1),
   ('core.content.preview','core','content','preview','Preview unpublished content',1),
   ('core.private_assets.read','core','private_assets','read','Read private assets',1)
 ON DUPLICATE KEY UPDATE
@@ -332,6 +355,7 @@ JOIN (
   SELECT 'core.shortcodes.update', 'own' UNION ALL
   SELECT 'core.shortcodes.delete', 'own' UNION ALL
   SELECT 'core.profile.manage', 'global' UNION ALL
+  SELECT 'core.sessions.manage', 'own' UNION ALL
   SELECT 'core.content.preview', 'any' UNION ALL
   SELECT 'core.private_assets.read', 'any'
 ) grants ON r.slug = 'author'

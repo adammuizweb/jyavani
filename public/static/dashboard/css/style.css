@@ -8298,6 +8298,60 @@ body.profile-delete-modal-open{ overflow:hidden; }
   .profile-delete-modal-actions > *{ flex:1; }
 }
 
+/* ─── Login sessions ─── */
+.profile-sessions-card,
+.auth-sessions-page{ margin-top:1.25rem; }
+.profile-sessions-card,
+.profile-sessions-heading,
+.profile-sessions-actions,
+.auth-sessions-heading,
+.auth-session-item,
+.auth-session-title{
+  display:flex;
+  align-items:center;
+}
+.profile-sessions-card,
+.auth-sessions-heading{ justify-content:space-between; gap:1rem; }
+.profile-sessions-heading{ gap:.75rem; min-width:0; }
+.profile-sessions-heading h3,
+.auth-sessions-heading h2{ margin:0; color:var(--adam-text); }
+.profile-sessions-heading p,
+.auth-sessions-heading p,
+.auth-session-copy p{ margin:.25rem 0 0; color:var(--adam-muted); font-size:.82rem; line-height:1.5; }
+.profile-sessions-actions{ gap:.55rem; flex-wrap:wrap; justify-content:flex-end; }
+.profile-sessions-actions form{ margin:0; }
+.auth-sessions-heading{ align-items:flex-start; margin-bottom:1rem; }
+.auth-sessions-heading form{ flex:0 0 auto; margin:0; }
+.auth-sessions-eyebrow{ margin:0 0 .2rem!important; color:var(--adam-primary)!important; font-size:.68rem!important; font-weight:900; letter-spacing:.08em; text-transform:uppercase; }
+.auth-session-list{ display:grid; gap:.7rem; }
+.auth-session-item{ gap:.8rem; padding:.85rem; border:1px solid var(--adam-border); border-radius:12px; background:var(--adam-surface-2); }
+.auth-session-item.is-current{ border-color:color-mix(in srgb,var(--adam-primary) 35%,var(--adam-border)); background:var(--adam-primary-soft); }
+.auth-session-icon{ display:grid; place-items:center; flex:0 0 auto; width:38px; height:38px; border-radius:11px; background:var(--adam-card); color:var(--adam-primary); }
+.auth-session-icon .lucide-icon{ width:19px; height:19px; margin:0; }
+.auth-session-copy{ flex:1; min-width:0; }
+.auth-session-title{ gap:.5rem; flex-wrap:wrap; }
+.auth-session-title span,
+.auth-session-status{ display:inline-flex; padding:.18rem .48rem; border-radius:999px; font-size:.68rem; font-weight:800; }
+.auth-session-title span,
+.auth-session-status.is-active{ background:color-mix(in srgb,var(--adam-success) 12%,var(--adam-card)); color:var(--adam-success); }
+.auth-session-status.is-ended{ background:var(--adam-surface-3); color:var(--adam-muted); }
+.auth-session-copy small,
+.auth-sessions-table small{ color:var(--adam-muted); overflow-wrap:anywhere; }
+.auth-session-button{ min-height:36px; padding:.42rem .7rem; border:1px solid var(--adam-border-2); border-radius:8px; background:var(--adam-card); color:var(--adam-text-2); font:inherit; font-size:.76rem; font-weight:800; cursor:pointer; }
+.auth-session-button:hover{ background:var(--adam-surface-3); }
+.auth-session-button--danger{ border-color:color-mix(in srgb,var(--adam-danger) 42%,var(--adam-border)); color:var(--adam-danger); }
+.auth-session-empty{ padding:1.2rem; border:1px dashed var(--adam-border-2); border-radius:12px; color:var(--adam-muted); text-align:center; }
+.auth-sessions-table td{ vertical-align:middle; }
+
+@media (max-width:680px){
+  .profile-sessions-card,
+  .auth-sessions-heading{ align-items:stretch; flex-direction:column; }
+  .profile-sessions-actions{ justify-content:flex-start; }
+  .auth-session-item{ align-items:flex-start; flex-wrap:wrap; }
+  .auth-session-item form{ flex:1 0 100%; }
+  .auth-session-item .auth-session-button{ width:100%; }
+}
+
 /* ─── Thumbnail row (wrap + compact buttons) ─── */
 .thumb-row{
   display:flex;

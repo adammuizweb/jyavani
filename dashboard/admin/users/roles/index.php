@@ -66,6 +66,7 @@ $enforcedCorePermissions = [
     'core.sidebar.manage',
     'core.settings.manage',
     'core.profile.manage',
+    'core.sessions.manage',
 ];
 $permissionsByKey = [];
 foreach ($permissions as &$permission) {

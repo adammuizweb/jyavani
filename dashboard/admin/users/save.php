@@ -266,6 +266,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 if (!$stmtUpd->execute($params)) {
                     throw new RuntimeException('User update failed.');
                 }
+                if ($plain_password !== '' && function_exists('auth_sessions_revoke_user')) {
+                    auth_sessions_revoke_user($pdo, $id, $uid, 'password_reset');
+                }
             } else {
                 $stmtIns = $pdo->prepare("
                     INSERT INTO users

@@ -276,6 +276,7 @@ echo nav_item($base, $requested, 'admin/themes', adam_icon('palette'), __('Theme
         adam_nav_active($requested, 'admin/settings') ||
         adam_nav_active($requested, 'admin/settings/auth') ||
         adam_nav_active($requested, 'admin/profile') ||
+        adam_nav_active($requested, 'admin/sessions') ||
         adam_nav_active($requested, 'admin/users') ||
         adam_nav_active($requested, 'admin/bin') ||
         adam_nav_active($requested, 'admin/menus') ||

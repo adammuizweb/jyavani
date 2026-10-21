@@ -133,6 +133,9 @@ try {
 
         $undoItems = [];
         foreach ($ids as $selectedId) {
+            if (function_exists('auth_sessions_revoke_user')) {
+                auth_sessions_revoke_user($pdo, $selectedId, $uid, 'account_deleted');
+            }
             if (!authorization_audit($pdo, 'user.deleted', $uid, $selectedId, 'user', (string)$selectedId, ['bulk' => true])) {
                 throw new RuntimeException('Failed to audit bulk deletion for user ID ' . $selectedId);
             }
@@ -229,6 +232,12 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($ids);
         $cnt = $stmt->rowCount();
+
+        if (function_exists('auth_sessions_revoke_user')) {
+            foreach ($ids as $selectedId) {
+                auth_sessions_revoke_user($pdo, $selectedId, $uid, 'account_locked');
+            }
+        }
 
         $pdo->commit();
         adiwira_users_bulk_respond(true, sprintf(__('%d user(s) locked.'), $cnt), 200, ['count' => $cnt], $returnTo);
