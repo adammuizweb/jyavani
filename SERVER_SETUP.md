@@ -10,6 +10,25 @@
 - nginx, Apache/LiteSpeed, atau web server kompatibel lainnya
 - HTTPS untuk production, baik melalui TLS langsung maupun reverse proxy tepercaya
 
+### PHP Runtime Security
+
+PHP 8.1 adalah batas kompatibilitas aplikasi, bukan jaminan bahwa branch tersebut
+masih menerima perbaikan keamanan upstream. Untuk production, gunakan branch PHP
+yang masih didukung dan pasang security update dari vendor OS, hosting, atau
+runtime secara rutin.
+
+Site Health membandingkan versi PHP web runtime dengan patch floor upstream untuk
+`CVE-2026-109618` dan `CVE-2026-109619`: PHP `8.2.35`, `8.3.36`, `8.4.27`, atau
+`8.5.12` sesuai branch. Branch yang telah melewati masa dukungan ditandai
+unsupported. Pemeriksaan ini memakai `PHP_VERSION`, sehingga tidak dapat
+mendeteksi security backport vendor yang mempertahankan nomor versi lama;
+konfirmasikan package/build yang terpasang dengan vendor sebelum menyimpulkan
+status patch.
+
+Lolos dari patch floor hanya menilai dua advisory tersebut. Hasil itu bukan audit
+keamanan host, tidak membuktikan runtime bebas dari kerentanan lain, dan tidak
+membuktikan ada atau tidaknya kompromi.
+
 ## 1. User & Groups
 
 Gunakan satu trusted deployment group yang dipakai user CLI (`[user]`) dan PHP-FPM. Contoh berikut memakai grup `www-data`:

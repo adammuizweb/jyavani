@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.183",
-    "build": "2026-10-21",
-    "changelog": "Add permission-aware Recent Login and Recent Activity dashboard widgets with safer layout preservation.",
+    "version": "2.3.184",
+    "build": "2026-10-22",
+    "changelog": "Add branch-aware PHP runtime security assessment to Site Health.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.183"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.184"
 }

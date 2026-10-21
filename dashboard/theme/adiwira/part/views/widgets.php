@@ -122,10 +122,16 @@ function dash_widget_site_health(PDO $pdo): string
         'contaminated' => __('Contaminated'),
         'infected' => __('Infected'),
         'scanned' => __('Scanned'),
+        'meets_floor' => __('Meets advisory floor'),
+        'update_required' => __('Update required'),
+        'unsupported' => __('Unsupported'),
+        'unknown' => __('Unknown'),
     ];
     $report = function_exists('site_health_read_report') ? site_health_read_report() : null;
     $status = is_array($report) ? (string)($report['status'] ?? 'unverified') : 'unverified';
     if (!isset($labels[$status]) || $status === 'scanned') $status = 'unverified';
+    $presentationStatus = function_exists('site_health_presentation_status') ? site_health_presentation_status($report) : $status;
+    if (!isset($labels[$presentationStatus]) || $presentationStatus === 'scanned') $presentationStatus = $status;
     $completedAt = is_array($report) ? (int)($report['completed_at'] ?? 0) : 0;
     $scanTime = $completedAt > 0
         ? format_date_ddmmyyyy_time_bracket(date('Y-m-d H:i:s', $completedAt))
@@ -163,6 +169,7 @@ function dash_widget_site_health(PDO $pdo): string
         ['unverified', 'modified', 'contaminated', 'infected']
     ));
     $componentRows = [
+        [__('PHP runtime'), 'runtime', 'unknown'],
         [__('Core files'), 'core', 'unverified'],
         [__('Plugins and themes'), 'extensions', 'unverified'],
         [__('Media and files'), 'content', 'unverified'],
@@ -178,11 +185,11 @@ function dash_widget_site_health(PDO $pdo): string
     $actionLabel = $completedAt > 0 ? __('View Site Health') : __('Run full scan');
 
     return '
-<div class="dw-card dw-health-card dw-health-card--' . h($status) . '">
+<div class="dw-card dw-health-card dw-health-card--' . h($presentationStatus) . '">
   <div class="dw-card-head">
     <span class="dw-card-icon">' . svg_ico('shield-check') . '</span>
     <span class="dw-card-title">' . __('Site Health') . '</span>
-    <span class="dw-health-badge dw-health-text--' . h($status) . '">' . h($labels[$status]) . '</span>
+    <span class="dw-health-badge dw-health-text--' . h($presentationStatus) . '">' . h($labels[$presentationStatus]) . '</span>
   </div>
   <div class="dw-card-body">
     <div class="dw-health-overview">

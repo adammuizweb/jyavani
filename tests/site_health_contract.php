@@ -26,6 +26,27 @@ $check = static function (bool $condition, string $message) use (&$failures, &$c
 };
 
 try {
+    $runtimeBelowFloor = site_health_runtime_assessment('8.4.26', 'fpm-fcgi', '2026-10-21');
+    $runtimeAtFloor = site_health_runtime_assessment('8.4.27', 'fpm-fcgi', '2026-10-21');
+    $runtimeLastSupportedDay = site_health_runtime_assessment('8.2.35', 'fpm-fcgi', '2026-12-31');
+    $runtimeAfterSupport = site_health_runtime_assessment('8.2.35', 'fpm-fcgi', '2027-01-01');
+    $check($runtimeBelowFloor['status'] === 'update_required'
+        && $runtimeBelowFloor['upstream_fixed_version'] === '8.4.27'
+        && $runtimeBelowFloor['advisories'] === ['CVE-2026-109618', 'CVE-2026-109619'],
+        'PHP runtime assessment identifies a version below its branch-specific upstream advisory floor');
+    $check($runtimeAtFloor['status'] === 'meets_floor' && $runtimeAtFloor['reason'] === 'meets_advisory_floor',
+        'PHP runtime assessment accepts the exact upstream advisory floor without claiming general security');
+    $check($runtimeLastSupportedDay['status'] === 'meets_floor' && $runtimeAfterSupport['status'] === 'unsupported',
+        'PHP runtime assessment treats the documented support end date as inclusive and fails closed afterward');
+    $check(site_health_runtime_assessment('8.1.99', 'fpm-fcgi', '2026-10-21')['status'] === 'unsupported'
+        && site_health_runtime_assessment('8.6.0', 'fpm-fcgi', '2026-10-21')['status'] === 'unknown'
+        && site_health_runtime_assessment('8.4.27-RC1', 'fpm-fcgi', '2026-10-21')['status'] === 'unknown',
+        'unsupported, future, and non-release PHP versions are assessed conservatively');
+    $check(site_health_presentation_status(['status' => 'clean', 'components' => ['runtime' => $runtimeBelowFloor]]) === 'update_required'
+        && site_health_presentation_status(['status' => 'modified', 'components' => ['runtime' => $runtimeBelowFloor]]) === 'modified'
+        && site_health_presentation_status(['status' => 'clean', 'components' => ['runtime' => $runtimeAtFloor]]) === 'clean',
+        'primary Site Health presentation surfaces runtime action without conflating it with stronger file-integrity findings');
+
     file_put_contents($fixture . '/version.json', json_encode(['version' => '9.8.7'], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/app/core.php', "<?php\nreturn true;\n");
     file_put_contents($fixture . '/public/index.php', "<?php\n");
@@ -162,6 +183,8 @@ try {
         return null;
     };
     $report = site_health_run($fixture, $fixture . '/public', $provider, $extensionProvider);
+    $check($report['components']['runtime'] === site_health_runtime_assessment(PHP_VERSION, PHP_SAPI, gmdate('Y-m-d', $report['started_at'])),
+        'full scan records the exact web runtime as an independent assessment component');
     $check($report['components']['core']['status'] === 'clean', 'full scan retains independent clean Core integrity');
     $check($report['components']['extensions']['status'] === 'unverified'
         && $report['components']['extensions']['summary']['total'] === 9, 'plugins and themes retain an unverified component boundary when local or unresolved extensions exist');
@@ -398,12 +421,19 @@ try {
     $freshAutomaticRun = site_health_run_and_store_if_stale($fixture, $fixture . '/public', $automaticProvider, $extensionProvider);
     $check($automaticCoreRuns === 0 && $freshAutomaticRun['completed_at'] === $storedRun['completed_at'], 'automatic Site Health skips a fresh validated report');
     $check(site_health_report_is_stale($storedRun, time(), '9.8.8'), 'a report for a different Core version is immediately stale');
+    $foreignRuntime = $storedRun;
+    $foreignRuntime['components']['runtime'] = site_health_runtime_assessment('8.5.12', 'contract-sapi', gmdate('Y-m-d', $storedRun['started_at']));
+    $check(site_health_report_valid($foreignRuntime) && site_health_report_is_stale($foreignRuntime, time(), '9.8.7'),
+        'a valid report captured under a different PHP runtime is immediately stale');
     $expiredReport = $storedRun;
     $expiredReport['started_at'] -= SITE_HEALTH_AUTO_SCAN_TTL_SECONDS + 1;
     $expiredReport['completed_at'] -= SITE_HEALTH_AUTO_SCAN_TTL_SECONDS + 1;
     $check(site_health_write_report($expiredReport), 'an expired automatic-scan fixture remains a valid report');
     $expiredAutomaticRun = site_health_run_and_store_if_stale($fixture, $fixture . '/public', $automaticProvider, $extensionProvider);
     $check($automaticCoreRuns === 1 && $expiredAutomaticRun['completed_at'] > $expiredReport['completed_at'], 'automatic Site Health replaces an expired report');
+    $fabricated = $report;
+    $fabricated['components']['runtime']['status'] = $fabricated['components']['runtime']['status'] === 'meets_floor' ? 'update_required' : 'meets_floor';
+    $check(!site_health_report_valid($fabricated), 'persisted runtime status must agree with its version, support window, and advisory floor');
     $fabricated = $report;
     $fabricated['components']['extensions']['summary']['unverified'] = 0;
     $fabricated['components']['extensions']['summary']['clean'] = 2;
@@ -466,6 +496,9 @@ try {
         && !str_contains($page, 'name="action"'), 'full scan form cannot trigger the layout-bypassing dashboard action dispatcher');
     $check(str_contains($page, "'Plugin and Theme Inventory'")
         && str_contains($page, "'Media and File Safety'")
+        && str_contains($page, "'PHP Runtime Security'")
+        && str_contains($siteHealthSource, "const SITE_HEALTH_PHP_ADVISORIES = ['CVE-2026-109618', 'CVE-2026-109619']")
+        && str_contains($page, "foreach ((\$runtime['advisories'] ?? []) as \$index => \$advisory)")
         && !str_contains($page, "_e('Not scanned')"), 'dashboard presents real extension and content results instead of placeholder coverage');
     $check(str_contains($page, 'site-health__status-chart')
         && str_contains($page, "distributionCounts['unverified'] += max")
@@ -484,7 +517,9 @@ try {
     $check(str_contains($page, 'site-health__signals')
         && str_contains($page, 'site-health__hero-meta')
         && !str_contains($page, 'site-health__hero-state')
-        && str_contains($page, 'site-health__panel--accent'), 'Site Health uses a status-aware visual hierarchy for its overview and component panels');
+        && str_contains($page, 'site_health_presentation_status($report)')
+        && str_contains($page, 'site-health__status-color--<?=h($coreStatus)?> site-health__section-gap')
+        && str_contains($page, 'site-health__panel--accent'), 'Site Health uses a status-aware visual hierarchy while separating runtime attention from file integrity');
     $check(str_contains($page, '.site-health__disclaimer b{display:flex;align-items:center;justify-content:center;width:9ch;min-height:100%')
         && str_contains($page, 'font-size:1.28rem;line-height:1.15;text-align:center')
         && str_contains($page, '.site-health__disclaimer-copy{display:grid;gap:6px;max-width:82ch}')
@@ -506,26 +541,28 @@ try {
         'Status Guide stacks mobile badge copy without allowing long labels to overlap descriptions');
     $check(str_contains($page, 'border-inline-start:4px solid var(--signal-color)')
         && str_contains($page, '.site-health__signal--overall{--signal-color:#7c3aed}')
+        && str_contains($page, '.site-health__signal--runtime{--signal-color:#0f766e}')
         && str_contains($page, '.site-health__signal--core{--signal-color:#2563eb}')
         && str_contains($page, '.site-health__signal--extensions{--signal-color:#ea580c}')
         && str_contains($page, '.site-health__signal--content{--signal-color:#0891b2}')
-        && str_contains($page, '.site-health__status-color--unverified{--health-color:#6366f1}')
+        && str_contains($page, '.site-health__status-color--unverified,.site-health__status-color--unknown{--health-color:#6366f1}')
         && str_contains($page, '.site-health__status-color--scanned{--health-color:#0284c7}')
         && str_contains($page, '.site-health__signal-copy strong{display:block;margin-top:2px;color:var(--health-color)')
         && str_contains($page, '0 5px 14px rgba(15,23,42,.05)')
         && !str_contains($page, '0 14px 30px color-mix(in srgb,var(--signal-color)'),
         'overview signals use restrained distinct identities without an external colored glow');
-    $check(substr_count($page, 'class="site-health__signal-action"') === 3
-        && substr_count($page, "svg_ico('chevron-right')") === 3
+    $check(substr_count($page, 'class="site-health__signal-action"') === 4
+        && substr_count($page, "svg_ico('chevron-right')") === 4
         && str_contains($page, '.site-health__signal[href]{cursor:pointer}')
         && str_contains($page, '.site-health__signal[href]:focus-visible')
         && str_contains($page, '.site-health__signal[href]:hover .site-health__signal-action')
         && str_contains($page, '.site-health__signal,.site-health__signal-action{transition:none}'),
         'linked overview signals expose chevron, pointer, hover, and keyboard-focus affordances');
-    $check(substr_count($page, 'href="#core-integrity"') === 1
+    $check(substr_count($page, 'href="#runtime-security"') === 1
+        && substr_count($page, 'href="#core-integrity"') === 1
         && substr_count($page, 'href="#extension-inventory"') === 1
         && substr_count($page, 'href="#content-safety"') === 1,
-        'exactly three overview signals navigate to their component details');
+        'exactly four overview signals navigate to their component details');
     $check(substr_count($page, 'site-health__disclosure" id=') === 3
         && substr_count($page, '<summary class="site-health__panel-head">') === 3
         && str_contains($chevronAsset, 'lucide-chevron-down')
@@ -558,6 +595,8 @@ try {
         && !str_contains($dashboardWidgets, 'core_integrity_run('), 'dashboard Site Health widget reads only the persisted report and links to the manual scan page');
     $check(str_contains($dashboardWidgets, '$cleanPercentage')
         && str_contains($dashboardWidgets, '$findingCount')
+        && str_contains($dashboardWidgets, "[__('PHP runtime'), 'runtime', 'unknown']")
+        && str_contains($dashboardWidgets, 'site_health_presentation_status($report)')
         && str_contains($dashboardWidgets, "__('Integrity Findings')")
         && str_contains($dashboardWidgets, '$completedAt > 0 ? __(\'View Site Health\') : __(\'Run full scan\')')
         && str_contains($dashboardWidgets, '$scoreTotal > 0 ? min(100, max(0, ($distributionCount / $scoreTotal) * 100)) : 0.0')
@@ -565,15 +604,20 @@ try {
         && str_contains($dashboardWidgets, 'dw-health-chart-legend')
         && str_contains($dashboardStyles, '.dw-health-chart-track,.dw-health-chart-segment')
         && str_contains($dashboardStyles, '.dw-health-chart-dot--clean')
+        && str_contains($dashboardStyles, '@media(max-width:900px){.dw-health-components{grid-template-columns:repeat(2,minmax(0,1fr))}')
+        && str_contains($dashboardStyles, '.dw-health-component span,.dw-health-component strong{white-space:normal}')
         && !str_contains($dashboardStyles, '.dw-health-progress')
         && !str_contains($dashboardWidgets, 'fetch('), 'dashboard widget presents a complete persisted Core percentage ring without running a scan during rendering');
     $check(str_contains($automaticEndpoint, "adiwira_require_permission(\$pdo, 'core.settings.manage', true)")
         && str_contains($automaticEndpoint, 'adiwira_require_site_owner($pdo, true)')
         && str_contains($automaticEndpoint, "REQUEST_METHOD'] ?? '') !== 'POST'")
         && strpos($automaticEndpoint, 'adiwira_csrf_validate(') < strpos($automaticEndpoint, 'session_write_close()')
-        && strpos($automaticEndpoint, 'session_write_close()') < strpos($automaticEndpoint, 'site_health_run_and_store_if_stale('),
-        'automatic Site Health endpoint is POST and CSRF protected, privileged, and releases the session before scanning');
+        && strpos($automaticEndpoint, 'session_write_close()') < strpos($automaticEndpoint, "observe_only'] ?? '') === '1'")
+        && strpos($automaticEndpoint, "observe_only'] ?? '') === '1'") < strpos($automaticEndpoint, 'site_health_run_and_store_if_stale(')
+        && str_contains($automaticEndpoint, "\$busy ? 409 : 503"),
+        'automatic Site Health endpoint is protected, releases the session, and separates lightweight observation from scans');
     $check(str_contains($dashboardLayout, 'site_health_report_is_stale(site_health_read_report(), null, core_integrity_local_version(dirname(DASH_PATH)))')
+        && str_contains($dashboardLayout, "'reloadOnSuccess' => in_array(\$dashboardPage, ['home', 'admin/settings/health'], true)")
         && str_contains($dashboardLayout, 'window.jyavaniSiteHealthAuto')
         && str_contains($dashboardLayout, '/static/dashboard/js/site-health-auto.js')
         && str_contains($automaticScript, "config.stale !== true")
@@ -581,9 +625,37 @@ try {
         && str_contains($automaticScript, "'/admin/site_health_scan_ajax.php'")
         && str_contains($automaticScript, "method: 'POST'")
         && str_contains($automaticScript, 'keepalive: true')
+        && str_contains($automaticScript, 'config.reloadOnSuccess === true')
+        && str_contains($automaticScript, 'window.location.reload()')
+        && str_contains($automaticScript, "body.set('observe_only', '1')")
+        && str_contains($automaticScript, 'result.data.stale === false')
+        && str_contains($automaticScript, 'result.response.status === 409')
+        && str_contains($automaticScript, 'attempt < 8')
+        && str_contains($automaticScript, 'window.setTimeout(requestScan, 5000)')
         && str_contains($automaticScript, 'Date.now() - lastAttempt < 300000'),
-        'stale Site Health reports trigger one throttled asynchronous scan independently of widget visibility');
-    foreach (['Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety', 'Canonical Store or signed deployment hashes and filesystem safety', 'Canonical exact HTTPS Store baseline', 'Signed local deployment baseline', 'Every extension file matches the signed local deployment baseline.', 'No trusted release baseline', 'Executable and MIME safety rules', 'Core file status', 'Search results…', 'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.', 'Integrity center', 'Integrity Findings', 'Observed state', 'Overall health', 'View Site Health'] as $source) {
+        'stale Site Health reports trigger one throttled asynchronous scan and refresh only Site Health presentation surfaces');
+    $translatedSources = [
+        'Run full scan', 'Scanned', 'Plugin and Theme Inventory', 'Media and File Safety',
+        'Canonical Store or signed deployment hashes and filesystem safety', 'Canonical exact HTTPS Store baseline',
+        'Signed local deployment baseline', 'Every extension file matches the signed local deployment baseline.',
+        'No trusted release baseline', 'Executable and MIME safety rules', 'Core file status', 'Search results…',
+        'Filter by status', 'All statuses', 'Showing %d-%d of %d results', 'No results match these filters.',
+        'Integrity center', 'Integrity Findings', 'Observed state', 'Integrity state', 'View Site Health',
+        'PHP Runtime Security', 'Meets advisory floor', 'Update required', 'Unsupported', 'Unknown', 'Not available', 'PHP runtime',
+        'Upstream support and advisory version comparison', 'The PHP runtime requires manual review.',
+        'PHP version', 'Server API', 'Upstream fixed version', 'Branch support ends', 'Advisories assessed',
+        'Run a full scan to assess the PHP runtime.', 'Upstream support and advisory patch floors',
+        'Review PHP runtime support, verify Core release integrity, and inspect security signals by ownership boundary.',
+        'The reported PHP version meets the upstream fixed release for the listed advisories.',
+        'The reported PHP version is below the upstream fixed release for the listed advisories.',
+        'This PHP branch is outside the listed upstream support window. Move to a supported branch and confirm vendor guidance.',
+        "This PHP branch is outside this assessment's known upstream release table. Confirm its status with the runtime vendor.",
+        'This PHP version could not be compared reliably. Confirm its status with the runtime vendor.',
+        'PHP version comparison uses upstream release numbers and cannot detect vendor backports. Confirm the installed build with your hosting or operating-system vendor.',
+        'Version-only assessment cannot detect vendor backports that retain an older PHP version number. Confirm the installed package or build with your vendor.',
+        'Meeting this floor addresses only the listed advisories. It is not proof that PHP or the host is free from other vulnerabilities or compromise.',
+    ];
+    foreach ($translatedSources as $source) {
         $check(substr_count($translations, "'" . str_replace("'", "''", $source) . "'") >= 2, 'full Site Health translation coverage: ' . $source);
     }
     $check(site_health_write_report($storedRun) && site_health_invalidate_report() && site_health_read_report() === null,

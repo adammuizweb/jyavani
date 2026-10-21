@@ -205,6 +205,7 @@ foreach ($pa['css'] ?? [] as $css_url) {
       $siteHealthAuto = [
           'stale' => site_health_report_is_stale(site_health_read_report(), null, core_integrity_local_version(dirname(DASH_PATH))),
           'csrf' => csrf_token(),
+          'reloadOnSuccess' => in_array($dashboardPage, ['home', 'admin/settings/health'], true),
       ];
   }
   ?>

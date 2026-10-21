@@ -6370,6 +6370,7 @@ html.theme-dark .dw-notice--error{ --dw-notice-ink:#fca5a5; }
 .dw-health-card--modified{--dw-health:#d97706}
 .dw-health-card--contaminated{--dw-health:#ea580c}
 .dw-health-card--infected{--dw-health:#dc2626}
+.dw-health-card--meets_floor{--dw-health:#16a34a}.dw-health-card--update_required{--dw-health:#ea580c}.dw-health-card--unsupported{--dw-health:#dc2626}.dw-health-card--unknown{--dw-health:#64748b}
 .dw-health-card .dw-card-head{
   border-top:3px solid var(--dw-health);
 }
@@ -6404,7 +6405,7 @@ html.theme-dark .dw-notice--error{ --dw-notice-ink:#fca5a5; }
 .dw-health-chart-dot{width:7px;height:7px;border-radius:50%;background:#94a3b8}.dw-health-chart-dot--clean{background:#16a34a}.dw-health-chart-dot--modified{background:#f59e0b}.dw-health-chart-dot--contaminated{background:#f97316}.dw-health-chart-dot--infected{background:#dc2626}
 .dw-health-meta{display:flex;align-items:center;justify-content:space-between;gap:.65rem;margin-top:.55rem;color:var(--adam-muted);font-size:.68rem}
 .dw-health-meta strong{color:var(--dw-health);font-variant-numeric:tabular-nums}
-.dw-health-components{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;margin-top:.65rem}
+.dw-health-components{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.4rem;margin-top:.65rem}
 .dw-health-component{min-width:0;padding:.55rem .5rem;border-radius:9px;background:var(--adam-surface-3);text-align:center}
 .dw-health-component span,.dw-health-component strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dw-health-component span{color:var(--adam-muted);font-size:.62rem}
@@ -6414,10 +6415,13 @@ html.theme-dark .dw-notice--error{ --dw-notice-ink:#fca5a5; }
 .dw-health-text--modified{color:#b45309}
 .dw-health-text--contaminated{color:#c2410c}
 .dw-health-text--infected{color:#b91c1c}
+.dw-health-text--meets_floor{color:#15803d}.dw-health-text--update_required{color:#c2410c}.dw-health-text--unsupported{color:#b91c1c}.dw-health-text--unknown{color:#64748b}
 html.theme-dark .dw-health-text--clean{color:#4ade80}html.theme-dark .dw-health-text--unverified,html.theme-dark .dw-health-text--scanned{color:#cbd5e1}html.theme-dark .dw-health-text--modified{color:#fbbf24}html.theme-dark .dw-health-text--contaminated{color:#fb923c}html.theme-dark .dw-health-text--infected{color:#f87171}
+html.theme-dark .dw-health-text--meets_floor{color:#4ade80}html.theme-dark .dw-health-text--update_required{color:#fb923c}html.theme-dark .dw-health-text--unsupported{color:#f87171}html.theme-dark .dw-health-text--unknown{color:#cbd5e1}
 .dw-health-action{display:flex;align-items:center;justify-content:space-between;margin-top:.7rem;padding:.6rem .7rem;border-radius:9px;background:var(--adam-surface-2);color:var(--adam-link);font-size:.76rem;font-weight:750;text-decoration:none;transition:background .15s,color .15s}
 .dw-health-action:hover{background:color-mix(in srgb,var(--dw-health) 9%,var(--adam-surface-2));color:var(--dw-health)}
 .dw-health-action svg{width:15px;height:15px}
+@media(max-width:900px){.dw-health-components{grid-template-columns:repeat(2,minmax(0,1fr))}.dw-health-component span,.dw-health-component strong{white-space:normal}}
 @media(max-width:420px){.dw-health-overview{grid-template-columns:1fr}.dw-health-chart{width:144px}.dw-health-meta{align-items:flex-start;flex-direction:column;gap:.2rem}}
 .dw-stats{
   display:grid;

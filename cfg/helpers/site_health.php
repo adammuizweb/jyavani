@@ -5,7 +5,7 @@ require_once __DIR__ . '/core_integrity.php';
 require_once __DIR__ . '/extension_release_manifest.php';
 require_once __DIR__ . '/deployment_extension_manifest.php';
 
-const SITE_HEALTH_SCHEMA = 2;
+const SITE_HEALTH_SCHEMA = 3;
 const SITE_HEALTH_MAX_ENTRIES = 200000;
 const SITE_HEALTH_MAX_FINDINGS = 500;
 const SITE_HEALTH_MAX_EXTENSION_ITEMS = 2000;
@@ -14,6 +14,13 @@ const SITE_HEALTH_AUTO_SCAN_TTL_SECONDS = 3600;
 const SITE_HEALTH_EXTENSION_MAX_FILE_BYTES = 64 * 1024 * 1024;
 const SITE_HEALTH_EXTENSION_MAX_TOTAL_BYTES = 512 * 1024 * 1024;
 const SITE_HEALTH_STORE_METADATA_MAX_BYTES = 64 * 1024;
+const SITE_HEALTH_PHP_ADVISORIES = ['CVE-2026-109618', 'CVE-2026-109619'];
+const SITE_HEALTH_PHP_BRANCHES = [
+    '8.2' => ['fixed' => '8.2.35', 'support_ends' => '2026-12-31'],
+    '8.3' => ['fixed' => '8.3.36', 'support_ends' => '2027-12-31'],
+    '8.4' => ['fixed' => '8.4.27', 'support_ends' => '2028-12-31'],
+    '8.5' => ['fixed' => '8.5.12', 'support_ends' => '2029-12-31'],
+];
 
 function site_health_add_finding(array &$result, string $path, string $status, string $reason): void
 {
@@ -678,11 +685,66 @@ function site_health_scan_content(string $projectRoot, string $publicRoot, float
 
 function site_health_aggregate_status(array $components): string
 {
+    // Runtime support is presented separately; this aggregate describes file integrity only.
     $statuses = array_map(static fn(array $component): string => (string)($component['status'] ?? 'unverified'), $components);
     foreach (['infected', 'contaminated', 'modified', 'unverified'] as $status) {
         if (in_array($status, $statuses, true)) return $status;
     }
     return 'clean';
+}
+
+function site_health_runtime_assessment(?string $version = null, ?string $sapi = null, ?string $onDate = null): array
+{
+    $version = substr(trim($version ?? PHP_VERSION), 0, 64);
+    $sapi = substr(trim($sapi ?? PHP_SAPI), 0, 64);
+    $onDate = is_string($onDate) && preg_match('/\A\d{4}-\d{2}-\d{2}\z/D', $onDate) === 1 ? $onDate : gmdate('Y-m-d');
+    $result = [
+        'status' => 'unknown',
+        'php_version' => $version,
+        'sapi' => $sapi,
+        'branch' => '',
+        'upstream_fixed_version' => null,
+        'support_ends' => null,
+        'reason' => 'unrecognized_version',
+        'advisories' => SITE_HEALTH_PHP_ADVISORIES,
+    ];
+    if (preg_match('/\A(\d+)\.(\d+)\.(\d+)\z/D', $version, $matches) !== 1) return $result;
+
+    $branch = (int)$matches[1] . '.' . (int)$matches[2];
+    $result['branch'] = $branch;
+    if (!isset(SITE_HEALTH_PHP_BRANCHES[$branch])) {
+        $result['reason'] = version_compare($branch, '8.2', '<') ? 'unsupported_branch' : 'advisory_scope_unknown';
+        $result['status'] = $result['reason'] === 'unsupported_branch' ? 'unsupported' : 'unknown';
+        return $result;
+    }
+
+    $policy = SITE_HEALTH_PHP_BRANCHES[$branch];
+    $result['upstream_fixed_version'] = $policy['fixed'];
+    $result['support_ends'] = $policy['support_ends'];
+    if ($onDate > $policy['support_ends']) {
+        $result['status'] = 'unsupported';
+        $result['reason'] = 'unsupported_branch';
+    } elseif (version_compare($version, $policy['fixed'], '<')) {
+        $result['status'] = 'update_required';
+        $result['reason'] = 'below_advisory_floor';
+    } else {
+        $result['status'] = 'meets_floor';
+        $result['reason'] = 'meets_advisory_floor';
+    }
+    return $result;
+}
+
+function site_health_presentation_status(?array $report): string
+{
+    $integrityStatus = is_array($report) ? (string)($report['status'] ?? 'unverified') : 'unverified';
+    if (!in_array($integrityStatus, ['clean', 'unverified', 'modified', 'contaminated', 'infected'], true)) $integrityStatus = 'unverified';
+    $runtimeStatus = is_array($report['components']['runtime'] ?? null)
+        ? (string)($report['components']['runtime']['status'] ?? 'unknown')
+        : 'unknown';
+    if (in_array($runtimeStatus, ['update_required', 'unsupported'], true)
+        && in_array($integrityStatus, ['clean', 'unverified'], true)) return $runtimeStatus;
+    if ($runtimeStatus === 'unknown' && $integrityStatus === 'clean') return 'unknown';
+    return $integrityStatus;
 }
 
 function site_health_run(
@@ -704,6 +766,7 @@ function site_health_run(
         }
         $remainingEntries = SITE_HEALTH_MAX_ENTRIES;
         $components = [
+            'runtime' => site_health_runtime_assessment(PHP_VERSION, PHP_SAPI, gmdate('Y-m-d', $startedAt)),
             'core' => core_integrity_run($projectRoot, $publicRoot, $coreProvider),
             'extensions' => site_health_scan_extensions($projectRoot, $publicRoot, $deadline, $remainingEntries, $extensionManifestProvider),
             'content' => site_health_scan_content($projectRoot, $publicRoot, $deadline, $remainingEntries),
@@ -732,6 +795,7 @@ function site_health_report_is_stale(?array $report, ?int $now = null, ?string $
     $baselineVersion = (string)($report['components']['core']['baseline']['version'] ?? '');
     if ($expectedCoreVersion !== null && !hash_equals($expectedCoreVersion, $baselineVersion)) return true;
     $now ??= time();
+    if ($report['components']['runtime'] !== site_health_runtime_assessment(PHP_VERSION, PHP_SAPI, gmdate('Y-m-d', $now))) return true;
     $completedAt = (int)$report['completed_at'];
     return $completedAt > $now + 300 || $completedAt <= $now - SITE_HEALTH_AUTO_SCAN_TTL_SECONDS;
 }
@@ -798,7 +862,13 @@ function site_health_report_valid(array $report): bool
         || !is_int($report['duration_ms'] ?? null) || $report['duration_ms'] < 0
         || $report['started_at'] < 0 || $report['completed_at'] < $report['started_at']
         || !is_array($report['components'] ?? null)) return false;
-    foreach (['core', 'extensions', 'content'] as $component) if (!is_array($report['components'][$component] ?? null)) return false;
+    foreach (['runtime', 'core', 'extensions', 'content'] as $component) if (!is_array($report['components'][$component] ?? null)) return false;
+    $runtime = $report['components']['runtime'];
+    if ($runtime !== site_health_runtime_assessment(
+        is_string($runtime['php_version'] ?? null) ? $runtime['php_version'] : '',
+        is_string($runtime['sapi'] ?? null) ? $runtime['sapi'] : '',
+        gmdate('Y-m-d', $report['started_at'])
+    )) return false;
     if (!core_integrity_report_valid($report['components']['core'])) return false;
     $extensions = $report['components']['extensions'];
     $content = $report['components']['content'];
