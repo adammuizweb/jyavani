@@ -76,6 +76,24 @@ if (!function_exists('widget_active_theme_folder')) {
 }
 
 if (!function_exists('widget_find_view')) {
+    function widget_safe_view_path(string $base, string $relative): ?string
+    {
+        $baseReal = realpath($base);
+        $candidate = rtrim($base, '/\\') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        $resolved = realpath($candidate);
+        $prefix = $baseReal !== false ? rtrim($baseReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR : '';
+        if ($prefix === '' || $resolved === false || !str_starts_with($resolved, $prefix)
+            || !is_file($resolved) || !is_readable($resolved)) return null;
+
+        $cursor = rtrim($base, '/\\');
+        foreach (explode('/', str_replace('\\', '/', $relative)) as $part) {
+            if ($part === '') continue;
+            $cursor .= DIRECTORY_SEPARATOR . $part;
+            if (is_link($cursor)) return null;
+        }
+        return $resolved;
+    }
+
     function widget_find_view(string $name, ?PDO $pdo = null): ?string
     {
         $name = preg_replace('/[^a-z0-9_\-]/i', '', $name);
@@ -90,16 +108,14 @@ if (!function_exists('widget_find_view')) {
         $active = widget_active_theme_folder($pdo);
 
         $candidates = [
-            $themesBase . '/' . $active . '/widget/' . $name . '.php',
-            $themesBase . '/' . DEFAULT_THEME_FOLDER . '/widget/' . $name . '.php',
-            PUBLIC_PATH . '/views/widget/' . $name . '.php',
+            [$themesBase, $active . '/widget/' . $name . '.php'],
+            [$themesBase, DEFAULT_THEME_FOLDER . '/widget/' . $name . '.php'],
+            [PUBLIC_PATH . '/views', 'widget/' . $name . '.php'],
         ];
 
-        foreach ($candidates as $p) {
-            $real = realpath($p);
-            if ($real && is_file($real)) {
-                return $real;
-            }
+        foreach ($candidates as [$base, $relative]) {
+            $safe = widget_safe_view_path($base, $relative);
+            if ($safe !== null) return $safe;
         }
 
         return null;

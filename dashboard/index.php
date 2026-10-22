@@ -10,6 +10,31 @@ if (is_file($guardFile)) {
     require_once $guardFile;
 }
 
+if (!function_exists('jy_dashboard_safe_file')) {
+    function jy_dashboard_safe_file(string $root, string $relative): ?string
+    {
+        if ($relative === '' || str_contains($relative, "\0") || str_contains($relative, '\\')
+            || str_starts_with($relative, '/')) return null;
+        $parts = explode('/', $relative);
+        foreach ($parts as $part) {
+            if ($part === '' || $part === '.' || $part === '..') return null;
+        }
+        $rootReal = realpath($root);
+        $candidate = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        $resolved = realpath($candidate);
+        $prefix = $rootReal !== false ? rtrim($rootReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR : '';
+        if ($prefix === '' || $resolved === false || !str_starts_with($resolved, $prefix)
+            || !is_file($resolved) || !is_readable($resolved)) return null;
+
+        $cursor = rtrim($root, '/\\');
+        foreach ($parts as $part) {
+            $cursor .= DIRECTORY_SEPARATOR . $part;
+            if (is_link($cursor)) return null;
+        }
+        return $resolved;
+    }
+}
+
 // Path guard: 404 if request URI doesn't match configured admin path
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $requestPath = '/' . trim($requestPath, '/');
@@ -134,9 +159,8 @@ if ($ajaxAction !== '' && $ajaxPage !== '') {
         }
     }
     // Then check normal dashboard file
-    $ajaxFile = realpath(DASH_PATH . '/' . $ajaxPage . '.php');
-    $dashRoot = realpath(DASH_PATH);
-    if ($ajaxFile !== false && $dashRoot !== false && str_starts_with($ajaxFile, $dashRoot . DIRECTORY_SEPARATOR) && is_file($ajaxFile)) {
+    $ajaxFile = jy_dashboard_safe_file(DASH_PATH, $ajaxPage . '.php');
+    if ($ajaxFile !== null) {
         require $ajaxFile;
     }
     exit;
@@ -168,10 +192,8 @@ if (strncmp($uriPath, $adminPrefix, strlen($adminPrefix)) === 0) {
             }
         }
         // Then check normal dashboard file.
-        $targetFile = realpath(DASH_PATH . '/' . $relative);
-        $dashRoot = realpath(DASH_PATH);
-        if ($targetFile !== false && $dashRoot !== false
-            && str_starts_with($targetFile, $dashRoot . DIRECTORY_SEPARATOR) && is_file($targetFile)) {
+        $targetFile = jy_dashboard_safe_file(DASH_PATH, $relative);
+        if ($targetFile !== null) {
             require $targetFile;
             exit;
         }

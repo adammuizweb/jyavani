@@ -97,6 +97,10 @@ try {
 $sessionSource = (string)file_get_contents($root . '/cfg/session.php');
 $installer = (string)file_get_contents($root . '/public/pondasi/index.php');
 $check(str_contains($sessionSource, "'0;0660;' . \$session_save_path"), 'file session handler creates group-writable files immediately');
+$check(!str_contains($sessionSource, 'new session created id='), 'debug session logging never exposes the transport session ID');
+$check(str_contains($sessionSource, 'JyavaniSessionIntegrityHandler')
+    && str_contains($sessionSource, 'Rejected session data with an invalid integrity tag.'),
+    'tampered session bytes are rejected before PHP deserialization when integrity protection is enabled');
 $check(str_contains($installer, 'verify_session_storage($sessionDir)'), 'Pondasi verifies the real PHP session handler before completion');
 $check(str_contains($installer, "SESSION_COOKIE_DOMAIN=\\n"), 'Pondasi generates host-only cookies by default');
 $check(str_contains($installer, "preg_match('#^/mnt/[a-z](?:/|$)#i'") && str_contains($installer, "'/jyavani-sessions-'"), 'Pondasi keeps WSL /mnt session data on the native Linux filesystem');

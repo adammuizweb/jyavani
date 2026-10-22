@@ -102,6 +102,8 @@ PHP);
     if (is_link($linkedRoot)) {
         $check(theme_entrypoint_path($linkedFolder) === null, 'theme entrypoint cannot escape the installed themes root through a symlink');
         $check(!isset($GLOBALS['outside_theme_entrypoint_loaded']), 'rejected external entrypoint is not executed');
+        $activeFolder = $linkedFolder;
+        $check(get_active_theme_folder() === DEFAULT_THEME_FOLDER, 'active theme selection rejects a symlinked theme directory');
     }
 
     $router = (string)file_get_contents($root . '/public/router.php');

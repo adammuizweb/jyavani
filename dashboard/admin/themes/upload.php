@@ -62,6 +62,10 @@ if (empty($_FILES['theme_zip']) || (int)($_FILES['theme_zip']['error'] ?? UPLOAD
 
 $file = $_FILES['theme_zip'];
 
+if (!isset($file['tmp_name']) || !is_string($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+    theme_upload_respond(false, __('Invalid uploaded file.'), 400, [], $returnTo);
+}
+
 $maxBytes = 50 * 1024 * 1024;
 if ((int)($file['size'] ?? 0) > $maxBytes) {
     theme_upload_respond(false, __('File terlalu besar. Maksimal 50MB.'), 400, [], $returnTo);

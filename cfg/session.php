@@ -17,6 +17,7 @@ $FORCE_HTTPS = (bool)(getenv('FORCE_HTTPS') && in_array(strtolower(getenv('FORCE
 $SESSION_DEBUG = (getenv('SESSION_DEBUG') === '1');
 $ALLOW_INSECURE = (getenv('SESSION_ALLOW_INSECURE_COOKIES') === '1');
 $SESSION_PHP_COOKIE_DISABLED = (getenv('SESSION_PHP_COOKIE_DISABLED') === '1');
+$SESSION_INTEGRITY_SECRET = trim((string)(getenv('SESSION_INTEGRITY_SECRET') ?: ''));
 
 $SESSION_SECRET = getenv('SESSION_SECRET') ?: '';
 
@@ -108,6 +109,37 @@ $session_save_path = $raw_session_save_path && trim($raw_session_save_path) !== 
     : __DIR__ . '/var/sessions';
 $session_save_path = rtrim($session_save_path, DIRECTORY_SEPARATOR);
 $session_storage_ready = false;
+$session_integrity_ready = $SESSION_INTEGRITY_SECRET === '' || strlen($SESSION_INTEGRITY_SECRET) >= 32;
+
+if ($SESSION_INTEGRITY_SECRET !== '' && !class_exists('JyavaniSessionIntegrityHandler')) {
+    /** Keep tampered session bytes away from PHP's native unserializer. */
+    final class JyavaniSessionIntegrityHandler extends SessionHandler {
+        public function __construct(private readonly string $secret) {}
+
+        public function read(string $id): string {
+            $stored = parent::read($id);
+            if ($stored === '') return '';
+            $separator = strpos($stored, "\n");
+            if ($separator === false) {
+                error_log('[session] Rejected unsigned session data.');
+                return '';
+            }
+            $mac = substr($stored, 0, $separator);
+            $payload = substr($stored, $separator + 1);
+            $expected = hash_hmac('sha256', $payload, $this->secret);
+            if (!preg_match('/\A[a-f0-9]{64}\z/D', $mac) || !hash_equals($expected, $mac)) {
+                error_log('[session] Rejected session data with an invalid integrity tag.');
+                return '';
+            }
+            return $payload;
+        }
+
+        public function write(string $id, string $data): bool {
+            $mac = hash_hmac('sha256', $data, $this->secret);
+            return parent::write($id, $mac . "\n" . $data);
+        }
+    }
+}
 
 if (!is_dir($session_save_path)) {
     if (!@mkdir($session_save_path, 0700, true)) {
@@ -124,11 +156,21 @@ if (is_dir($session_save_path)) {
         sess_dbg("attempted chown session dir to: {$save_user}");
     }
     ini_set('session.save_handler', 'files');
+    if ($SESSION_INTEGRITY_SECRET !== '' && $session_integrity_ready) {
+        $sessionHandler = new JyavaniSessionIntegrityHandler($SESSION_INTEGRITY_SECRET);
+        if (!session_set_save_handler($sessionHandler, true)) {
+            $session_integrity_ready = false;
+            error_log('[session] Unable to register session integrity handler.');
+        }
+    } elseif ($SESSION_INTEGRITY_SECRET !== '') {
+        error_log('[session] SESSION_INTEGRITY_SECRET must contain at least 32 characters.');
+    }
     // Create session files group-writable immediately instead of repairing
     // their mode only on a later request.
     $configuredSavePath = '0;0660;' . $session_save_path;
     $savePathConfigured = session_save_path($configuredSavePath) !== false;
-    $session_storage_ready = $savePathConfigured && is_readable($session_save_path) && is_writable($session_save_path);
+    $session_storage_ready = $savePathConfigured && is_readable($session_save_path) && is_writable($session_save_path)
+        && $session_integrity_ready;
     sess_dbg("session.save_path set to: {$session_save_path} owner=" . @fileowner($session_save_path) . " perms=" . substr(sprintf('%o', @fileperms($session_save_path)), -4));
 
     // Fix permissions of any existing session files (survives chown -R)
@@ -292,7 +334,7 @@ if ($session_started_here && session_status() === PHP_SESSION_ACTIVE) {
         $_SESSION['_session_created'] = time();
         $_SESSION['_fingerprint'] = session_fingerprint();
         $_SESSION['_ua_prefix'] = session_ua_prefix();
-        sess_dbg("new session created id=" . session_id());
+        sess_dbg('new session created');
     } else {
         $regenerate_interval = 3600;
         if (time() - ($_SESSION['_session_created'] ?? 0) > $regenerate_interval) {

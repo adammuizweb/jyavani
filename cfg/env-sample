@@ -72,6 +72,11 @@ SESSION_ALLOW_INSECURE_COOKIES=1
 # Strong random secret for stateless CSRF; generate sendiri
 SESSION_SECRET=
 
+# Optional HMAC protection for native session files. Generate a separate random
+# secret of at least 32 characters before enabling on an existing installation.
+# Enabling it invalidates legacy unsigned session files and requires re-login.
+SESSION_INTEGRITY_SECRET=
+
 # Token secret for private file signed URLs (optional — falls back to SESSION_SECRET)
 PRIVATE_FILE_TOKEN_SECRET=
 

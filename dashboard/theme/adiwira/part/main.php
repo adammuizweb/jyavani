@@ -65,14 +65,24 @@ if (function_exists('plugin_resolve_route')) {
 
 // bentuk path file target di dalam DASH_PATH
 $targetRelative = $page . '.php';
-$targetFull = realpath(DASH_PATH . '/' . $targetRelative);
+$targetPath = DASH_PATH . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $targetRelative);
+$targetFull = realpath($targetPath);
 
 // pastikan file ada dan berada di bawah DASH_PATH (mencegah traversal)
 $safe = false;
 if ($targetFull !== false) {
     $dashReal = realpath(DASH_PATH);
-    if ($dashReal !== false && strpos($targetFull, $dashReal) === 0 && is_file($targetFull) && is_readable($targetFull)) {
+    $dashPrefix = $dashReal !== false ? rtrim($dashReal, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR : '';
+    if ($dashPrefix !== '' && str_starts_with($targetFull, $dashPrefix) && is_file($targetFull) && is_readable($targetFull)) {
         $safe = true;
+        $cursor = rtrim(DASH_PATH, '/\\');
+        foreach (explode('/', $targetRelative) as $segment) {
+            $cursor .= DIRECTORY_SEPARATOR . $segment;
+            if (is_link($cursor)) {
+                $safe = false;
+                break;
+            }
+        }
     }
 }
 

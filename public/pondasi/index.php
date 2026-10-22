@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 error_reporting(E_ALL);
-ini_set('display_errors', '1');
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -155,6 +156,11 @@ function pass(string $name, string $label): string {
     return '<label>' . h($label) . '<input type="password" name="' . h($name) . '" required minlength="6"></label>';
 }
 
+function installer_mysql_identifier(string $value): ?string {
+    if (preg_match('/\A[a-zA-Z0-9_$-]{1,64}\z/', $value) !== 1) return null;
+    return '`' . str_replace('`', '``', $value) . '`';
+}
+
 // ---------- process ----------
 $step = (int)($_POST['_step'] ?? 1);
 $error = '';
@@ -168,16 +174,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $dbUser = trim($_POST['DB_USER'] ?? '');
         $dbPass = $_POST['DB_PASS'] ?? '';
 
+        $quotedDbName = installer_mysql_identifier($dbName);
         if ($dbName === '' || $dbUser === '') {
             $error = 'Nama database dan username wajib diisi.';
+        } elseif (preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9._:-]{0,254}\z/', $dbHost) !== 1) {
+            $error = 'Host database mengandung karakter yang tidak didukung.';
+        } elseif (ctype_digit($dbPort) === false || (int)$dbPort < 1 || (int)$dbPort > 65535) {
+            $error = 'Port database harus berupa angka antara 1 dan 65535.';
+        } elseif ($quotedDbName === null) {
+            $error = 'Nama database hanya boleh berisi huruf, angka, dolar, garis bawah, atau tanda hubung.';
         } else {
             try {
                 $pdo = new PDO("mysql:host={$dbHost};port={$dbPort};charset=utf8mb4", $dbUser, $dbPass, [
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
                 ]);
-                $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$dbName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                $pdo->exec("USE `{$dbName}`");
+                $pdo->exec("CREATE DATABASE IF NOT EXISTS {$quotedDbName} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo->exec("USE {$quotedDbName}");
                 app_db_set_session_timezone($pdo, app_timezone_default_id());
 
                 // Ensure backslash is escape char (remove NO_BACKSLASH_ESCAPES if set)

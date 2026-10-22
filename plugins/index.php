@@ -938,7 +938,15 @@ function plugin_load_active(): void {
             continue;
         }
         $mainFile = PLUGIN_PATH . '/' . $name . '/plugin.php';
-        if (is_file($mainFile)) {
+        $safeMainFile = is_file($mainFile) ? plugin_installed_safe_path($name, 'plugin.php') : null;
+        if (is_file($mainFile) && $safeMainFile === null) {
+            $error = plugin_message('Plugin "%s" was not loaded because its entrypoint is not a safe regular file.', $name);
+            $GLOBALS['_plugin_load_diagnostics'][$name] = $error;
+            $GLOBALS['_plugin_requirement_diagnostics'][$name] = $error;
+            error_log("[plugin-loader] {$error}");
+            continue;
+        }
+        if ($safeMainFile !== null) {
             $hooksBeforeLoad = $GLOBALS['_hooks'] ?? null;
             $routesBeforeLoad = $GLOBALS['_plugin_frontend_routes'];
             $routeDefinitionsBeforeLoad = $GLOBALS['_plugin_frontend_route_definitions'];
@@ -949,7 +957,7 @@ function plugin_load_active(): void {
             $shortcodeSourcesBeforeLoad = $GLOBALS['__jy_shortcode_source_providers'] ?? null;
             $editorReferencesBeforeLoad = $GLOBALS['_editor_reference_providers'] ?? null;
             try {
-                require_once $mainFile;
+                require_once $safeMainFile;
             } catch (\Throwable $e) {
                 if (is_array($hooksBeforeLoad)) $GLOBALS['_hooks'] = $hooksBeforeLoad;
                 $GLOBALS['_plugin_frontend_routes'] = $routesBeforeLoad;
@@ -984,8 +992,8 @@ function plugin_load_active(): void {
 
 function plugin_manifest(string $name): ?array {
     if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return null;
-    $file = PLUGIN_PATH . '/' . $name . '/plugin.json';
-    if (!is_file($file)) return null;
+    $file = plugin_installed_safe_path($name, 'plugin.json');
+    if ($file === null) return null;
     $data = json_decode(file_get_contents($file), true);
     return is_array($data) && ($data['name'] ?? null) === $name && plugin_manifest_contract_errors($data) === [] ? $data : null;
 }
@@ -1029,6 +1037,24 @@ function plugin_safe_path(string $root, string $relative): ?string {
     $parent = realpath($parentPath);
     if ($parent === false || ($parent !== $base && !str_starts_with($parent, $base . DIRECTORY_SEPARATOR))) return null;
     return $base . '/' . $relative;
+}
+
+/** Resolve an installed plugin path without following an untrusted link. */
+function plugin_installed_safe_path(string $name, string $relative): ?string {
+    if (preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) return null;
+    $pluginRoot = realpath(PLUGIN_PATH);
+    $pluginPath = PLUGIN_PATH . DIRECTORY_SEPARATOR . $name;
+    if ($pluginRoot === false || is_link($pluginPath) || !is_dir($pluginPath)) return null;
+
+    $pluginDir = realpath($pluginPath);
+    $rootPrefix = rtrim($pluginRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    if ($pluginDir === false || !str_starts_with($pluginDir, $rootPrefix)) return null;
+
+    $path = plugin_safe_path($pluginDir, $relative);
+    $dirPrefix = rtrim($pluginDir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    $resolved = $path !== null ? realpath($path) : false;
+    return $resolved !== false && !is_link($path) && is_file($path)
+        && str_starts_with($resolved, $dirPrefix) ? $resolved : null;
 }
 
 /** Build and validate a fresh plugin package in a private same-parent staging directory. */
@@ -1495,8 +1521,10 @@ function plugins_all(): array {
     $plugins = [];
     try {
         foreach (glob(PLUGIN_PATH . '/*/plugin.json') as $file) {
-            $data = json_decode((string)file_get_contents($file), true);
             $folder = basename(dirname($file));
+            $safeFile = plugin_installed_safe_path($folder, 'plugin.json');
+            if ($safeFile === null) continue;
+            $data = json_decode((string)file_get_contents($safeFile), true);
             if (is_array($data) && ($data['name'] ?? null) === $folder && preg_match('/\A[a-zA-Z0-9_-]+\z/', $folder) === 1) {
                 $plugins[$data['name']] = $data;
             }

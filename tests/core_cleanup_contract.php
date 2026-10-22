@@ -41,12 +41,16 @@ $check(str_contains($router, "dashboard/auth/login/index.php")
     && str_contains($router, "dashboard/auth/register/index.php")
     && !str_contains($router, 'dashboard/gerbank/'),
     'router dispatches configurable public auth paths to fixed descriptive entrypoints');
-$check(str_contains($dashboard, 'realpath(DASH_PATH')
+$check(str_contains($dashboard, 'function jy_dashboard_safe_file')
     && str_contains($dashboard, 'rawurldecode($uriPath)')
     && str_contains($dashboard, "preg_match('/\\.php(?:\\/|$)/', \$relative)")
     && str_contains($dashboard, "str_ends_with(\$relative, '.php')")
     && str_contains($dashboard, 'require FRONTEND_404_PATH;'),
     'missing and path-info dashboard PHP routes fail closed instead of rendering dashboard home');
+$check(str_contains($dashboard, 'function jy_dashboard_safe_file')
+    && str_contains($dashboard, 'is_link($cursor)')
+    && str_contains($dashboard, 'jy_dashboard_safe_file(DASH_PATH'),
+    'dashboard direct and AJAX file routes reject traversal and symlinked paths');
 $check(str_contains($authHelpers, 'ON DUPLICATE KEY UPDATE')
     && str_contains($authHelpers, 'SUM(attempts) AS attempts')
     && str_contains($authHelpers, 'if ($attempts >= $maxAttempts && !is_blocked($attempt))')

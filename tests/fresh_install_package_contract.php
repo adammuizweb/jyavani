@@ -80,6 +80,11 @@ $check(
         && str_contains($builder, 'getExternalAttributesIndex'),
     'package builder normalizes and verifies distribution file permissions'
 );
+$check(str_contains($installer, "ini_set('display_errors', '0')")
+    && str_contains($installer, "ini_set('log_errors', '1')")
+    && str_contains($installer, 'function installer_mysql_identifier')
+    && str_contains($installer, 'installer_mysql_identifier($dbName)'),
+    'installer hides runtime diagnostics and validates database connection identifiers before SQL');
 
 $preservePatterns = _get_preserve_patterns();
 $check(!_cms_is_preserved('public/static/img/jyavani.svg', $preservePatterns), 'Core branding remains updateable');

@@ -163,6 +163,8 @@ $check(str_contains($updatesCaller, 'data.plugins.forEach'), 'update notificatio
 $check(str_contains($debugHelpers, 'if (!headers_sent())') && strpos($debugHelpers, 'http_response_code(500)') > strpos($debugHelpers, 'if (!headers_sent())'), 'fatal output never changes response headers after dashboard output starts');
 $check(str_contains($dashboardMain, 'catch (Throwable $error)')
     && str_contains($dashboardMain, 'class="adam-main-error"') && str_contains($dashboardCss, '.adam-main-error'), 'dashboard page failures render a contained diagnostic inside main');
+$check(str_contains($dashboardMain, 'str_starts_with($targetFull, $dashPrefix)')
+    && str_contains($dashboardMain, 'is_link($cursor)'), 'dashboard fallback includes require a separator-bounded, non-symlink path');
 $check(str_contains($dashboardLayout, 'Dashboard — Jyavani CMS') && !str_contains($dashboardLayout, 'CMS Adiwira'), 'dashboard document title identifies the Jyavani CMS product');
 $check(str_contains($dashboardHeader, 'Adiwira') && str_contains($dashboardHeader, "_e('Dashboard')"), 'dashboard header retains Adiwira as the interface name');
 $check(str_contains($dashboardMain, 'Welcome to the Jyavani CMS dashboard.') && !str_contains($dashboardMain, '<strong>adam</strong>'), 'dashboard fallback avoids exposing its implementation folder as product identity');

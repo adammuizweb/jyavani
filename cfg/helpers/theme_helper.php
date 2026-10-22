@@ -1462,8 +1462,15 @@ function get_active_theme_folder($pdoOrNull = null): string {
     // Allow plugins to override the active theme folder (e.g., live theme preview).
     $folder = apply_filters('active_theme_folder', $folder, $pdo);
 
+    if (preg_match('/\A[a-z0-9][a-z0-9._-]*\z/i', $folder) !== 1) {
+        return DEFAULT_THEME_FOLDER;
+    }
+    $themesRoot = realpath((string)VIEWS_BASE);
     $maybe = path_candidate(VIEWS_BASE, $folder, '');
-    if (realpath($maybe) && is_dir(realpath($maybe))) {
+    $resolved = realpath($maybe);
+    $themesPrefix = $themesRoot !== false ? rtrim($themesRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR : '';
+    if ($themesPrefix !== '' && $resolved !== false && is_dir($resolved)
+        && str_starts_with($resolved, $themesPrefix)) {
         return $folder;
     }
     return DEFAULT_THEME_FOLDER;

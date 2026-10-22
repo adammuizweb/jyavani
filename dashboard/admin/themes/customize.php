@@ -1016,7 +1016,7 @@ if (is_array($activeTheme) && function_exists('do_action_isolated_output')) {
         </section>
 
         <!-- SIDEBAR panel (jika aktif) -->
-        <?php if (!$customizerOnly): ?>
+<?php if (!$customizerOnly): ?>
           <?php $sidebarOn = !function_exists('theme_mod') || theme_mod('show_sidebar', true); ?>
           <aside class="tz-band tz-band-sidebar">
           <div class="tz-band-label"><?= __('Sidebar') ?> <?= $sidebarOn ? '' : '(' . __('nonaktif') . ')' ?></div>

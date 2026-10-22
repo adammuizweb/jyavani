@@ -89,6 +89,33 @@ remove_filter('plugin_state_change_preflight', $throwingState);
 $check(plugin_disable('dependency-child') && plugin_disable('dependency-base'), 'dependencies can be deactivated after their dependents');
 $check(!plugin_enable('dependency-child') && str_contains(plugin_last_error(), 'inactive'), 'activation rejects an inactive dependency');
 $check(plugin_enable('dependency-base') && plugin_enable('dependency-child'), 'activation succeeds after compatible dependencies are active');
+
+$symlinkTarget = $fixture . '/outside-plugin';
+mkdir($symlinkTarget, 0775, true);
+file_put_contents($symlinkTarget . '/plugin.json', json_encode([
+    'name' => 'symlinked-plugin',
+    'version' => '1.0.0',
+]));
+$symlinkPath = PLUGIN_PATH . '/symlinked-plugin';
+if (function_exists('symlink') && @symlink($symlinkTarget, $symlinkPath)) {
+    plugin_reset_runtime_cache();
+    $check(!isset(plugins_all()['symlinked-plugin']), 'plugin discovery ignores symlinked plugin directories');
+    $check(plugin_manifest('symlinked-plugin') === null, 'plugin manifest rejects symlinked plugin directories');
+
+    $writePlugin('symlinked-entrypoint', '1.0.0', [], true);
+    @unlink(PLUGIN_PATH . '/symlinked-entrypoint/plugin.php');
+    @symlink($symlinkTarget . '/plugin.php', PLUGIN_PATH . '/symlinked-entrypoint/plugin.php');
+    file_put_contents($symlinkTarget . '/plugin.php', '<?php $GLOBALS["symlinked_entrypoint_loaded"] = true;');
+    plugin_reset_runtime_cache();
+    plugin_load_active();
+    $diagnostics = plugin_load_diagnostics();
+    $check(!($GLOBALS['symlinked_entrypoint_loaded'] ?? false)
+        && str_contains((string)($diagnostics['symlinked-entrypoint'] ?? ''), 'safe regular file'),
+        'plugin loading rejects symlinked plugin entrypoints');
+} else {
+    echo "SKIP symlink plugin contract (symlink unavailable)\n";
+}
+
 $writePlugin('self-modifying-activation', '1.0.0');
 mkdir(PLUGIN_PATH . '/self-modifying-activation/migrations', 0775, true);
 file_put_contents(PLUGIN_PATH . '/self-modifying-activation/migrations/0001-change.php', <<<'PHP'

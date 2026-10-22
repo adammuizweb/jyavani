@@ -71,6 +71,13 @@ sudo chmod g+s /path/to/project/private_files/media
 sudo find /path/to/project/cfg/var/sessions -type f -exec chmod 660 {} \;
 ```
 
+For production, configure a separate `SESSION_INTEGRITY_SECRET` in `.env` with at
+least 32 random characters. This signs the native session bytes before PHP reads
+them, so a modified session file is rejected before deserialization. Existing
+unsigned sessions are intentionally invalidated when this is first enabled; users
+must log in again. Keep the secret outside Git and rotate it only during a planned
+session invalidation window.
+
 ## Outgoing Email
 
 Core menyediakan Mail API dengan transport bawaan `native`. Transport ini menyerahkan pesan ke konfigurasi `mail()` milik PHP/hosting; Core tidak menjalankan mail server sendiri.

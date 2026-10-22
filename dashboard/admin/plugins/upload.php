@@ -69,6 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['plugin_zip'])) {
         adiwira_redirect_with_flash($selfUrl, 'error', $msg);
     }
 
+    if (!isset($file['tmp_name']) || !is_string($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid uploaded file.'));
+    }
+
     if ($file['size'] > $maxSize) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('File is too large. Maximum 50MB.'));
     }
