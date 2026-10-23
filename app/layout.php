@@ -32,18 +32,9 @@ $db_default_title = apply_filters('site_title', (string)$db_default_title, $pdo)
 $page_title = $page_title ?? $db_default_title;
 $page_title = apply_filters('document_title', (string)$page_title, $pdo);
 // derive site url for context (used by template context)
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-
-// Host: biasanya selalu ada dari HTTP_HOST; DB dipakai sebagai fallback/kanonikal default
-$db_default_host = ($pdo instanceof PDO && function_exists('settings_get'))
-    ? (settings_get($pdo, 'site_host', 'jyavani.com') ?? 'jyavani.com')
-    : 'jyavani.com';
-
-$host = $_SERVER['HTTP_HOST'] ?? $db_default_host;
-
-// Optional: sanitasi host biar aman
-$host = preg_replace('/[^a-z0-9\.\-:]/i', '', (string)$host);
-$site_base_url = $scheme . '://' . $host;
+$site_base_url = function_exists('app_site_origin')
+    ? app_site_origin($pdo)
+    : 'http://localhost';
 
 $requestedRobotsMeta = trim((string)($GLOBALS['robots_meta'] ?? 'index,follow'));
 if (preg_match('/^[a-z0-9,\- ]{1,128}$/i', $requestedRobotsMeta) !== 1) {

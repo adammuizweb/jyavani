@@ -208,9 +208,7 @@ class SitemapController
 
     private static function domain(): string
     {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        return rtrim($scheme . '://' . $host, '/');
+        return rtrim(function_exists('app_site_origin') ? app_site_origin() : 'http://localhost', '/');
     }
 
     private static function countByType(PDO $pdo, string $type): int

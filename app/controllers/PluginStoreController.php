@@ -1129,9 +1129,8 @@ class PluginStoreController
 
     private static function storeDownloadUrl(string $name): string
     {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?: 'jyavani.com';
-        return $scheme . '://' . $host . '/plugin-store/download/' . rawurlencode($name) . '/';
+        $siteOrigin = function_exists('app_site_origin') ? app_site_origin() : 'http://localhost';
+        return $siteOrigin . '/plugin-store/download/' . rawurlencode($name) . '/';
     }
 
     private static function packageRequirements(string $relativeZip, string $name): array
@@ -1160,8 +1159,7 @@ class PluginStoreController
     {
         if ($file === '') return '';
         $file = basename($file);
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?: 'jyavani.com';
-        return $scheme . '://' . $host . '/plugin-store/static/' . rawurlencode($name) . '/' . rawurlencode($file);
+        $siteOrigin = function_exists('app_site_origin') ? app_site_origin() : 'http://localhost';
+        return $siteOrigin . '/plugin-store/static/' . rawurlencode($name) . '/' . rawurlencode($file);
     }
 }

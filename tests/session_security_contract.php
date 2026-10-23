@@ -103,6 +103,8 @@ $check(str_contains($sessionSource, 'JyavaniSessionIntegrityHandler')
     'tampered session bytes are rejected before PHP deserialization when integrity protection is enabled');
 $check(str_contains($installer, 'verify_session_storage($sessionDir)'), 'Pondasi verifies the real PHP session handler before completion');
 $check(str_contains($installer, "SESSION_COOKIE_DOMAIN=\\n"), 'Pondasi generates host-only cookies by default');
+$check(str_contains($installer, "SESSION_IDLE_TIMEOUT=1800\\n")
+    && str_contains($installer, 'SESSION_INTEGRITY_SECRET='), 'Pondasi enables bounded idle expiry and session-file integrity by default');
 $check(str_contains($installer, "preg_match('#^/mnt/[a-z](?:/|$)#i'") && str_contains($installer, "'/jyavani-sessions-'"), 'Pondasi keeps WSL /mnt session data on the native Linux filesystem');
 
 if ($failures !== []) exit(1);

@@ -50,10 +50,7 @@ if ($pathTrimmed === 'robots.txt'
         header('Allow: GET, HEAD');
         exit;
     }
-    $robotsScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $robotsHost = preg_replace('/[^a-z0-9.\-:]/i', '', (string)($_SERVER['HTTP_HOST'] ?? 'localhost'));
-    if ($robotsHost === '') $robotsHost = 'localhost';
-    $robotsBody = site_robots_txt_content($pdo, $robotsScheme . '://' . $robotsHost);
+    $robotsBody = site_robots_txt_content($pdo, app_site_origin($pdo));
     header('Content-Type: text/plain; charset=utf-8');
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: public, max-age=300');
@@ -152,11 +149,9 @@ if (preg_match('#^/static/(?:img|files)(?:/|$)#', $rawPath) === 1) {
 if (substr($rawPath, -1) !== '/') {
     // Skip file-like paths, including the longer .webmanifest extension.
     if (!url_path_is_file_like($rawPath)) {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
         // Canonicalize the *requested* path (rawPath), not the plugin-rewritten
         // pathTrimmed — otherwise rewrites (e.g. locale prefixes) leak into the redirect
-        $canonical = $scheme . '://' . $host . rtrim($rawPath, '/') . '/';
+        $canonical = app_site_origin($pdo) . rtrim($rawPath, '/') . '/';
         $qs = $_SERVER['QUERY_STRING'] ?? '';
         if ($qs !== '') $canonical .= '?' . $qs;
         $redirectStatus = in_array($requestMethod, ['GET', 'HEAD'], true) ? 301 : 308;

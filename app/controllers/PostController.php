@@ -678,9 +678,8 @@ class PostController
         }
 
         // canonical
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        $canonical_url = $scheme . '://' . $host . (function_exists('get_post_permalink') ? get_post_permalink($postData) : '/' . rawurlencode((string)($postData['slug'] ?? '')) . '/');
+        $siteOrigin = function_exists('app_site_origin') ? app_site_origin() : 'http://localhost';
+        $canonical_url = $siteOrigin . (function_exists('get_post_permalink') ? get_post_permalink($postData) : '/' . rawurlencode((string)($postData['slug'] ?? '')) . '/');
 
         // expose to layout
         $page_title = $vars['page_title'] ?? 'Article';

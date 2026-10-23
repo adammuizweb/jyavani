@@ -37,3 +37,48 @@ function url_path_is_file_like(string $path): bool {
     if (!is_string($path)) return false;
     return preg_match('#(?:^|/)[^/]+\.(?:[a-z0-9]{1,10}|webmanifest)$#i', $path) === 1;
 }
+
+/** Return the configured site origin instead of trusting an arbitrary Host header. */
+function app_site_origin(?PDO $pdo = null): string {
+    $pdo ??= ($GLOBALS['pdo'] ?? null);
+    $configured = '';
+    if ($pdo instanceof PDO && function_exists('settings_get')) {
+        $configured = trim((string)settings_get($pdo, 'site_url', ''));
+    }
+
+    $candidate = $configured;
+    if ($candidate === '' && $pdo instanceof PDO && function_exists('settings_get')) {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $configuredHost = trim((string)settings_get($pdo, 'site_host', ''));
+        $candidate = $configuredHost !== '' ? $scheme . '://' . $configuredHost : '';
+    }
+    if ($candidate === '') {
+        $candidate = 'http://localhost';
+    }
+
+    try {
+        $parts = parse_url($candidate);
+    } catch (ValueError) {
+        $parts = false;
+    }
+    if (!is_array($parts) || !in_array(strtolower((string)($parts['scheme'] ?? '')), ['http', 'https'], true)
+        || !is_string($parts['host'] ?? null) || isset($parts['user']) || isset($parts['pass'])
+        || isset($parts['query']) || isset($parts['fragment'])) {
+        return 'http://localhost';
+    }
+
+    $scheme = strtolower((string)$parts['scheme']);
+    $host = strtolower(trim($parts['host']));
+    $validHost = filter_var($host, FILTER_VALIDATE_IP) !== false
+        || $host === 'localhost'
+        || preg_match('/\A(?=.{1,253}\z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/i', $host) === 1;
+    if (!$validHost) return 'http://localhost';
+
+    $authority = filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false ? '[' . $host . ']' : $host;
+    if (isset($parts['port'])) {
+        $port = (int)$parts['port'];
+        if ($port < 1 || $port > 65535) return 'http://localhost';
+        $authority .= ':' . $port;
+    }
+    return $scheme . '://' . $authority;
+}

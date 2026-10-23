@@ -403,7 +403,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "\n# reCAPTCHA (v2 checkbox)\nRECAPTCHA_SITEKEY=\nRECAPTCHA_SECRET=\n"
                     . "\n# Web Debug 1 for activate\nAPP_DEBUG=0\n"
                     . "\n# Session / Cookie (WSL /mnt projects use native Linux storage automatically)\nSESSION_SAVE_PATH={$sessionDir}\n"
-                    . "SESSION_LIFETIME=604800\nSESSION_IDLE_TIMEOUT=0\n"
+                    . "SESSION_LIFETIME=604800\nSESSION_IDLE_TIMEOUT=1800\n"
                     . "SESSION_COOKIE_SAMESITE=Lax\n"
                     . "\n# Session cookie name\nSESSION_NAME={$sessionName}\n"
                     . "\n# Cookie domain (host-only is safest and supports local aliases)\nSESSION_COOKIE_DOMAIN=\n"
@@ -412,6 +412,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . "\n# Security / Debug\nSESSION_DEBUG=0\nFORCE_HTTPS=" . ($isHttps ? '1' : '0') . "\n"
                     . "\n# Allow insecure cookies even if FORCE_HTTPS=1 (dev only)\nSESSION_ALLOW_INSECURE_COOKIES=" . ($isHttps ? '0' : '1') . "\n"
                     . "\n# Strong random secret for stateless CSRF\nSESSION_SECRET=" . random_secret() . "\n"
+                    . "\n# HMAC protection for native session files\nSESSION_INTEGRITY_SECRET=" . random_secret() . "\n"
                     . "\n# Token secret for private file signed URLs\nPRIVATE_FILE_TOKEN_SECRET=" . random_secret() . "\n";
 
                 // Optional demo content

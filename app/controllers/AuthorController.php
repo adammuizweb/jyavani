@@ -586,14 +586,13 @@ $postUrl = function_exists('get_post_permalink') ? get_post_permalink($p) : '/' 
         $authorPath = function_exists('get_author_permalink')
             ? get_author_permalink($user, $pageNum, $q)
             : '/author/' . rawurlencode((string)($user['username'] ?? $user['id'])) . '/';
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
-        $canonical_url = $scheme . '://' . $host . $authorPath;
+        $siteOrigin = function_exists('app_site_origin') ? app_site_origin() : 'http://localhost';
+        $canonical_url = $siteOrigin . $authorPath;
         if ($pageNum > 1) {
-            $GLOBALS['rel_prev'] = $scheme . '://' . $host . get_author_permalink($user, $pageNum - 1, $q);
+            $GLOBALS['rel_prev'] = $siteOrigin . get_author_permalink($user, $pageNum - 1, $q);
         }
         if ($pageNum < $pages) {
-            $GLOBALS['rel_next'] = $scheme . '://' . $host . get_author_permalink($user, $pageNum + 1, $q);
+            $GLOBALS['rel_next'] = $siteOrigin . get_author_permalink($user, $pageNum + 1, $q);
         }
 
         $context_for_layout = 'posts'; // layout context for author posts

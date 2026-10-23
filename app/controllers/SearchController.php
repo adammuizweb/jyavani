@@ -141,13 +141,12 @@ class SearchController
         ];
 
         // canonical (layout.php membaca $canonical_url)
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $siteOrigin = function_exists('app_site_origin') ? app_site_origin() : 'http://localhost';
         $canonicalPath = $baseUrl;
         if ($page > 1) $canonicalPath .= (str_contains($canonicalPath, '?') ? '&' : '?') . 'p=' . $page;
         $canonical_url = preg_match('#^https?://#i', $canonicalPath)
             ? $canonicalPath
-            : $scheme . '://' . $host . '/' . ltrim($canonicalPath, '/');
+            : $siteOrigin . '/' . ltrim($canonicalPath, '/');
 
         $page_title = __('Search') . ': ' . $q;
 

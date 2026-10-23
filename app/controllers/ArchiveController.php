@@ -151,9 +151,8 @@ class ArchiveController
         }
 
         // build absolute base URL for pagination and canonical
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-        $baseUrl = $scheme . '://' . $host . $basePath;
+        $siteOrigin = function_exists('app_site_origin') ? app_site_origin() : 'http://localhost';
+        $baseUrl = $siteOrigin . $basePath;
 
         // canonical: always point to basePath (page 1)
         $canonical_url = $baseUrl;
@@ -165,12 +164,12 @@ class ArchiveController
         if ($page > 1) {
             $prevPage = $page - 1;
             // previous page: base (page1) or with ?page=N
-            $rel_prev = $scheme . '://' . $host . collection_paginated_url($basePath, $prevPage);
+            $rel_prev = $siteOrigin . collection_paginated_url($basePath, $prevPage);
         }
 
         if ($page < $totalPages) {
             $nextPage = $page + 1;
-            $rel_next = $scheme . '://' . $host . collection_paginated_url($basePath, $nextPage);
+            $rel_next = $siteOrigin . collection_paginated_url($basePath, $nextPage);
         }
 
         // prepare vars for templates/slots
