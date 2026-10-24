@@ -12,6 +12,7 @@ $site = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $assetBin = (string)file_get_contents($root . '/dashboard/admin/bin/_asset_index.php');
 $shortcodes = (string)file_get_contents($root . '/dashboard/admin/shortcodes/index.php');
 $themes = (string)file_get_contents($root . '/dashboard/admin/themes/index.php');
+$translations = (string)file_get_contents($root . '/schema/translations.sql');
 $failures = [];
 
 $checks = [
@@ -65,6 +66,23 @@ $checks = [
         && str_contains($menus, '.menus-grid.is-create-mode #menu-add-item-form,')
         && str_contains($menus, '.menus-grid.is-create-mode #menuItemsContainer,'),
     'Menu Manager inline icon and translation data cannot terminate its script element' => substr_count($menus, 'JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT') >= 3,
+    'Menu Manager explains and visually prioritizes adding existing content' => str_contains($menus, "_e('Add items to this menu')")
+        && str_contains($menus, "_e('Choose a content type, then select an item below. It will be added to the end of this menu.')")
+        && str_contains($menus, 'class="menu-add-intro-icon"')
+        && str_contains($menus, 'class="add-item-tab-count"')
+        && str_contains($menus, '.menu-add-card {')
+        && str_contains($menus, '.add-item-tab.is-active {'),
+    'Menu Manager content types use an accessible keyboard tab pattern' => str_contains($menus, 'class="add-item-tabs" role="tablist"')
+        && substr_count($menus, 'role="tab"') === 5
+        && substr_count($menus, 'role="tabpanel"') === 5
+        && str_contains($menus, "event.key === 'ArrowRight'")
+        && str_contains($menus, "event.key === 'Home'")
+        && str_contains($menus, "tab.setAttribute('aria-selected', active ? 'true' : 'false');"),
+    'Menu Manager source entries expose one-click add actions as buttons' => substr_count($menus, '<button type="button" class="source-item"') === 4
+        && str_contains($menus, 'class="source-item-action" aria-hidden="true"')
+        && str_contains($menus, '.source-item:focus-visible {'),
+    'Menu Manager Add Item guidance has Indonesian and German seeds' => substr_count($translations, "'Add items to this menu'") === 2
+        && substr_count($translations, "'Choose a content type, then select an item below. It will be added to the end of this menu.'") === 2,
     'Sidebar Settings checkbox and radio controls use shared themed choices' => substr_count($sidebar, 'class="adam-choice"') === 3
         && str_contains($sidebar, 'class="adam-choice adam-choice--danger"')
         && !str_contains($sidebar, 'accent-color:var(--adam-primary)')

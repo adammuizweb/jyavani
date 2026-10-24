@@ -145,7 +145,7 @@ if (!function_exists('render_menu_items_admin')) {
 
   <hr style="margin:16px 0;border:none;border-top:1px solid var(--adam-border-softer);">
 
-  <div class="menus-grid" style="display:grid;grid-template-columns:1fr 320px;gap:20px;">
+  <div class="menus-grid" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,360px);gap:20px;">
 
     <!-- LEFT: Menu Structure -->
     <div class="menus-structure">
@@ -273,19 +273,44 @@ if (!function_exists('render_menu_items_admin')) {
 
       <?php if ($selectedMenu): ?>
       <!-- Add Items -->
-      <form id="menu-add-item-form" data-unsaved-guard style="border:1px solid var(--adam-border-2);border-radius:12px;padding:16px;background:var(--adam-surface-4);">
-        <h4 style="margin:0 0 12px 0;"><?=_e('Add Item')?></h4>
+      <form id="menu-add-item-form" class="menu-add-card" data-unsaved-guard>
+        <div class="menu-add-intro">
+          <span class="menu-add-intro-icon" aria-hidden="true"><?= svg_ico('plus') ?></span>
+          <div>
+            <h3><?=_e('Add items to this menu')?></h3>
+            <p><?=_e('Choose a content type, then select an item below. It will be added to the end of this menu.')?></p>
+          </div>
+        </div>
 
-        <div style="display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;">
-          <button type="button" class="add-item-tab adam-button" data-tab="custom" style="padding:4px 10px;font-size:12px;"><?=_e('Custom Link')?></button>
-          <button type="button" class="add-item-tab adam-button" data-tab="article" style="padding:4px 10px;font-size:12px;"><?=_e('Articles')?></button>
-          <button type="button" class="add-item-tab adam-button" data-tab="page" style="padding:4px 10px;font-size:12px;"><?= _e('Page') ?></button>
-          <button type="button" class="add-item-tab adam-button" data-tab="theme" style="padding:4px 10px;font-size:12px;"><?=_e('Theme pages')?></button>
-          <button type="button" class="add-item-tab adam-button" data-tab="category" style="padding:4px 10px;font-size:12px;"><?= _e('Categories') ?></button>
+        <div class="add-item-tabs" role="tablist" aria-label="<?=h(__('Add Item'))?>">
+          <button type="button" id="add-item-tab-custom" class="add-item-tab is-active" data-tab="custom" role="tab" aria-selected="true" aria-controls="panel-custom">
+            <span class="add-item-tab-icon" aria-hidden="true"><?=svg_ico('link')?></span>
+            <span class="add-item-tab-label"><?=_e('Custom Link')?></span>
+          </button>
+          <button type="button" id="add-item-tab-article" class="add-item-tab" data-tab="article" role="tab" aria-selected="false" aria-controls="panel-article" tabindex="-1">
+            <span class="add-item-tab-icon" aria-hidden="true"><?=svg_ico('newspaper')?></span>
+            <span class="add-item-tab-label"><?=_e('Articles')?></span>
+            <span class="add-item-tab-count"><?=count($articles)?></span>
+          </button>
+          <button type="button" id="add-item-tab-page" class="add-item-tab" data-tab="page" role="tab" aria-selected="false" aria-controls="panel-page" tabindex="-1">
+            <span class="add-item-tab-icon" aria-hidden="true"><?=svg_ico('file-text')?></span>
+            <span class="add-item-tab-label"><?=_e('Page')?></span>
+            <span class="add-item-tab-count"><?=count($pages)?></span>
+          </button>
+          <button type="button" id="add-item-tab-theme" class="add-item-tab" data-tab="theme" role="tab" aria-selected="false" aria-controls="panel-theme" tabindex="-1">
+            <span class="add-item-tab-icon" aria-hidden="true"><?=svg_ico('palette')?></span>
+            <span class="add-item-tab-label"><?=_e('Theme pages')?></span>
+            <span class="add-item-tab-count"><?=count($themePages)?></span>
+          </button>
+          <button type="button" id="add-item-tab-category" class="add-item-tab" data-tab="category" role="tab" aria-selected="false" aria-controls="panel-category" tabindex="-1">
+            <span class="add-item-tab-icon" aria-hidden="true"><?=svg_ico('folder')?></span>
+            <span class="add-item-tab-label"><?=_e('Categories')?></span>
+            <span class="add-item-tab-count"><?=count($categories)?></span>
+          </button>
         </div>
 
         <!-- Custom Link -->
-        <div class="add-item-panel" id="panel-custom">
+        <div class="add-item-panel" id="panel-custom" role="tabpanel" aria-labelledby="add-item-tab-custom">
           <div style="display:grid;gap:8px;">
             <input type="text" id="customLabel" name="custom_label" class="pht-input" placeholder="<?=_e('Label')?>">
             <input type="url" id="customUrl" name="custom_url" class="pht-input" placeholder="<?=_e('https://...')?>">
@@ -295,64 +320,76 @@ if (!function_exists('render_menu_items_admin')) {
         </div>
 
         <!-- Articles -->
-        <div class="add-item-panel" id="panel-article" style="display:none;">
+        <div class="add-item-panel" id="panel-article" role="tabpanel" aria-labelledby="add-item-tab-article" hidden>
           <input type="text" id="articleSearch" class="pht-input" placeholder="<?=_e('Search articles...')?>" style="margin-bottom:8px;">
           <div class="source-list" id="articleList" style="max-height:200px;overflow-y:auto;">
             <?php if (empty($articles)): ?>
               <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No articles.')?></div>
             <?php else: ?>
               <?php foreach ($articles as $a): ?>
-                <div class="source-item" data-id="<?= (int)$a['id'] ?>" data-type="article" data-label="<?= htmlspecialchars((string)($a['title'] ?: $a['slug']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
-                  <?= htmlspecialchars((string)($a['title'] ?: $a['slug']), ENT_QUOTES, 'UTF-8') ?>
-                </div>
+                <?php $articleLabel = (string)($a['title'] ?: $a['slug']); ?>
+                <button type="button" class="source-item" data-id="<?= (int)$a['id'] ?>" data-type="article" data-label="<?=h($articleLabel)?>">
+                  <span class="source-item-label"><?=h($articleLabel)?></span>
+                  <span class="source-item-action" aria-hidden="true"><?=svg_ico('plus')?></span>
+                  <span class="sr-only"> - <?=_e('Add to Menu')?></span>
+                </button>
               <?php endforeach; ?>
             <?php endif; ?>
           </div>
         </div>
 
         <!-- Pages -->
-        <div class="add-item-panel" id="panel-page" style="display:none;">
+        <div class="add-item-panel" id="panel-page" role="tabpanel" aria-labelledby="add-item-tab-page" hidden>
           <input type="text" id="pageSearch" class="pht-input" placeholder="<?=_e('Search pages...')?>" style="margin-bottom:8px;">
           <div class="source-list" id="pageList" style="max-height:200px;overflow-y:auto;">
             <?php if (empty($pages)): ?>
               <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No pages.')?></div>
             <?php else: ?>
               <?php foreach ($pages as $p): ?>
-                <div class="source-item" data-id="<?= (int)$p['id'] ?>" data-type="page" data-label="<?= htmlspecialchars((string)($p['title'] ?: $p['slug']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
-                  <?= htmlspecialchars((string)($p['title'] ?: $p['slug']), ENT_QUOTES, 'UTF-8') ?>
-                </div>
+                <?php $pageLabel = (string)($p['title'] ?: $p['slug']); ?>
+                <button type="button" class="source-item" data-id="<?= (int)$p['id'] ?>" data-type="page" data-label="<?=h($pageLabel)?>">
+                  <span class="source-item-label"><?=h($pageLabel)?></span>
+                  <span class="source-item-action" aria-hidden="true"><?=svg_ico('plus')?></span>
+                  <span class="sr-only"> - <?=_e('Add to Menu')?></span>
+                </button>
               <?php endforeach; ?>
             <?php endif; ?>
           </div>
         </div>
 
         <!-- Public Theme pages -->
-        <div class="add-item-panel" id="panel-theme" style="display:none;">
+        <div class="add-item-panel" id="panel-theme" role="tabpanel" aria-labelledby="add-item-tab-theme" hidden>
           <input type="text" id="themeSearch" class="pht-input" placeholder="<?=_e('Search Theme pages...')?>" style="margin-bottom:8px;">
           <div class="source-list" id="themeList" style="max-height:200px;overflow-y:auto;">
             <?php if (empty($themePages)): ?>
               <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No public Theme pages.')?></div>
             <?php else: ?>
               <?php foreach ($themePages as $themePage): ?>
-                <div class="source-item" data-id="<?= (int)$themePage['id'] ?>" data-type="theme" data-label="<?= htmlspecialchars((string)($themePage['title'] ?: $themePage['public_path']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
-                  <?= htmlspecialchars((string)($themePage['title'] ?: $themePage['public_path']), ENT_QUOTES, 'UTF-8') ?>
-                </div>
+                <?php $themePageLabel = (string)($themePage['title'] ?: $themePage['public_path']); ?>
+                <button type="button" class="source-item" data-id="<?= (int)$themePage['id'] ?>" data-type="theme" data-label="<?=h($themePageLabel)?>">
+                  <span class="source-item-label"><?=h($themePageLabel)?></span>
+                  <span class="source-item-action" aria-hidden="true"><?=svg_ico('plus')?></span>
+                  <span class="sr-only"> - <?=_e('Add to Menu')?></span>
+                </button>
               <?php endforeach; ?>
             <?php endif; ?>
           </div>
         </div>
 
         <!-- Categories -->
-        <div class="add-item-panel" id="panel-category" style="display:none;">
+        <div class="add-item-panel" id="panel-category" role="tabpanel" aria-labelledby="add-item-tab-category" hidden>
           <input type="text" id="categorySearch" class="pht-input" placeholder="<?=_e('Search categories...')?>" style="margin-bottom:8px;">
           <div class="source-list" id="categoryList" style="max-height:200px;overflow-y:auto;">
             <?php if (empty($categories)): ?>
               <div style="font-size:12px;color:var(--adam-muted);"><?=_e('No categories.')?></div>
             <?php else: ?>
               <?php foreach ($categories as $c): ?>
-                <div class="source-item" data-id="<?= (int)$c['id'] ?>" data-type="category" data-label="<?= htmlspecialchars((string)($c['name'] ?: $c['slug']), ENT_QUOTES, 'UTF-8') ?>" style="padding:6px 8px;cursor:pointer;border-radius:6px;font-size:13px;">
-                  <?= htmlspecialchars((string)($c['name'] ?: $c['slug']), ENT_QUOTES, 'UTF-8') ?>
-                </div>
+                <?php $categoryLabel = (string)($c['name'] ?: $c['slug']); ?>
+                <button type="button" class="source-item" data-id="<?= (int)$c['id'] ?>" data-type="category" data-label="<?=h($categoryLabel)?>">
+                  <span class="source-item-label"><?=h($categoryLabel)?></span>
+                  <span class="source-item-action" aria-hidden="true"><?=svg_ico('plus')?></span>
+                  <span class="sr-only"> - <?=_e('Add to Menu')?></span>
+                </button>
               <?php endforeach; ?>
             <?php endif; ?>
           </div>
@@ -557,12 +594,34 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   // =============== Tab switching ===============
 
-  document.querySelectorAll('.add-item-tab').forEach(function(btn){
+  var addItemTabs = Array.from(document.querySelectorAll('.add-item-tab'));
+
+  function activateAddItemTab(activeTab, moveFocus){
+    addItemTabs.forEach(function(tab){
+      var active = tab === activeTab;
+      tab.classList.toggle('is-active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+      var panel = document.getElementById('panel-' + tab.getAttribute('data-tab'));
+      if (panel) panel.hidden = !active;
+    });
+    if (moveFocus) activeTab.focus();
+  }
+
+  addItemTabs.forEach(function(btn){
     btn.addEventListener('click', function(){
-      const tab = this.getAttribute('data-tab');
-      document.querySelectorAll('.add-item-panel').forEach(function(p){ p.style.display = 'none'; });
-      var panel = document.getElementById('panel-' + tab);
-      if (panel) panel.style.display = '';
+      activateAddItemTab(this, false);
+    });
+    btn.addEventListener('keydown', function(event){
+      var current = addItemTabs.indexOf(this);
+      var next = current;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (current + 1) % addItemTabs.length;
+      else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (current - 1 + addItemTabs.length) % addItemTabs.length;
+      else if (event.key === 'Home') next = 0;
+      else if (event.key === 'End') next = addItemTabs.length - 1;
+      else return;
+      event.preventDefault();
+      activateAddItemTab(addItemTabs[next], true);
     });
   });
 
@@ -1358,6 +1417,143 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 .menus-grid.is-create-mode #menuItemsContainer,
 .menus-grid.is-create-mode .menus-empty-state,
 .menus-grid.is-create-mode .menus-save-row{ display:none !important; }
+.menu-add-card {
+  overflow:hidden;
+  border:1px solid var(--adam-border-2);
+  border-radius:14px;
+  background:var(--adam-surface-4);
+  box-shadow:0 8px 24px rgba(15,23,42,.07);
+}
+.menu-add-intro {
+  display:flex;
+  gap:12px;
+  padding:16px;
+  border-bottom:1px solid var(--adam-border-softer);
+  background:linear-gradient(135deg,var(--adam-card),var(--adam-surface-3));
+}
+.menu-add-intro-icon {
+  display:grid;
+  place-items:center;
+  flex:0 0 38px;
+  width:38px;
+  height:38px;
+  border-radius:11px;
+  background:var(--adam-primary);
+  color:#fff;
+  box-shadow:0 7px 16px var(--adam-focus);
+}
+.menu-add-intro-icon .lucide-icon { width:20px;height:20px; }
+.menu-add-intro h3 {
+  margin:0;
+  font-size:15px;
+  line-height:1.3;
+}
+.menu-add-intro p {
+  margin:4px 0 0;
+  color:var(--adam-text-3);
+  font-size:12px;
+  line-height:1.45;
+}
+.add-item-tabs {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+  padding:12px;
+  border-bottom:1px solid var(--adam-border-softer);
+  background:var(--adam-card);
+}
+.add-item-tab {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:7px;
+  min-height:42px;
+  padding:7px 9px;
+  border:1px solid var(--adam-border);
+  border-radius:9px;
+  background:var(--adam-surface-2);
+  color:var(--adam-text-2);
+  font:inherit;
+  font-size:12px;
+  text-align:left;
+  cursor:pointer;
+}
+.add-item-tab:first-child { grid-column:1 / -1; }
+.add-item-tab:hover {
+  border-color:var(--adam-border-2);
+  background:var(--adam-surface-3);
+}
+.add-item-tab.is-active {
+  border-color:var(--adam-primary);
+  background:var(--adam-focus);
+  color:var(--adam-primary);
+  box-shadow:inset 0 0 0 1px var(--adam-primary);
+}
+.add-item-tab:focus-visible {
+  outline:2px solid var(--adam-focus);
+  outline-offset:2px;
+}
+.add-item-tab-icon { display:grid;place-items:center; }
+.add-item-tab-icon .lucide-icon { width:16px;height:16px; }
+.add-item-tab-label { min-width:0;font-weight:650;line-height:1.25; }
+.add-item-tab-count {
+  min-width:21px;
+  padding:2px 5px;
+  border-radius:999px;
+  background:var(--adam-surface-4);
+  color:var(--adam-text-3);
+  font-size:10px;
+  line-height:1.4;
+  text-align:center;
+}
+.add-item-tab.is-active .add-item-tab-count {
+  background:var(--adam-card);
+  color:var(--adam-primary);
+}
+.add-item-panel { padding:14px; }
+.add-item-panel[hidden] { display:none !important; }
+.source-list {
+  display:grid;
+  gap:6px;
+  scrollbar-gutter:stable;
+}
+.source-item {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  padding:8px 9px;
+  border:1px solid var(--adam-border);
+  border-radius:8px;
+  background:var(--adam-card);
+  color:var(--adam-text);
+  font:inherit;
+  font-size:13px;
+  text-align:left;
+  cursor:pointer;
+}
+.source-item-label {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.source-item-action {
+  display:grid;
+  place-items:center;
+  width:24px;
+  height:24px;
+  border-radius:7px;
+  background:var(--adam-focus);
+  color:var(--adam-primary);
+}
+.source-item-action .lucide-icon { width:14px;height:14px; }
+.source-item:focus-visible {
+  outline:2px solid var(--adam-focus);
+  outline-offset:1px;
+  border-color:var(--adam-primary);
+}
 .menu-item-edit-modal {
   position:fixed;
   inset:0;
@@ -1552,10 +1748,11 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   outline-offset:2px;
 }
 .source-item:hover {
-  background: var(--adam-surface-3);
+  border-color:var(--adam-primary);
+  background:var(--adam-surface-3);
 }
 .source-item:active {
-  background: var(--adam-border-2);
+  background:var(--adam-border-2);
 }
 @media (max-width:768px){
   .menus-grid{
