@@ -5,9 +5,6 @@ $root = dirname(__DIR__);
 $menuManager = (string)file_get_contents($root . '/dashboard/admin/menus/index.php');
 $translations = (string)file_get_contents($root . '/schema/translations.sql');
 $failures = [];
-$dragStartAt = strpos($menuManager, "container.addEventListener('dragstart'");
-$dragOverAt = strpos($menuManager, "container.addEventListener('dragover'");
-$spacingAt = strpos($menuManager, "container.classList.add('menu-drag-active')");
 
 $check = static function (bool $condition, string $message) use (&$failures): void {
     if (!$condition) $failures[] = $message;
@@ -18,17 +15,21 @@ $check(str_contains($menuManager, 'className = \'menu-drop-preview\'')
     && str_contains($menuManager, 'destinationList.insertBefore(dragSrcLi, dropDestination.beforeNode)'),
     'Menu drag and drop keeps the visible indicator and final structural destination synchronized');
 
-$check(str_contains($menuManager, "container.classList.add('menu-drag-active')")
-    && str_contains($menuManager, '#menuItemsContainer.menu-drag-active .menu-item-admin {')
-    && str_contains($menuManager, 'margin-top:30px;')
+$check(!str_contains($menuManager, 'menu-drag-active')
     && str_contains($menuManager, 'position:absolute;')
     && str_contains($menuManager, 'pointer-events:none;'),
-    'Dragging creates stable gaps once while the drop indicator floats without changing document flow');
+    'Dragging leaves the menu layout in place while the drop indicator floats outside document flow');
 
-$check($dragStartAt !== false && $dragOverAt !== false && $spacingAt !== false
-    && $dragStartAt < $dragOverAt
-    && $spacingAt > $dragOverAt,
-    'Native dragstart changes only drag state; layout spacing starts after the browser emits dragover');
+$check(str_contains($menuManager, 'dragGrabOffsetX = Math.max(0, Math.min(barRect.width, e.clientX - barRect.left));')
+    && str_contains($menuManager, 'var projectedItemLeft = clientX - dragGrabOffsetX;')
+    && str_contains($menuManager, 'var horizontalOffset = projectedItemLeft - barRect.left;'),
+    'Horizontal intent compares the dragged item alignment with the target regardless of its original level');
+
+$check(str_contains($menuManager, 'var GAP_CHILD_ENTER_OFFSET = 24;')
+    && str_contains($menuManager, 'var GAP_CHILD_EXIT_OFFSET = 12;')
+    && str_contains($menuManager, 'function wantsGapChild(li, barRect, clientX)')
+    && str_contains($menuManager, 'if (wantsGapChild(li, rect, e.clientX))'),
+    'The lower drop zone accepts a deliberate rightward child gesture with hysteresis against flicker');
 
 $check(str_contains($menuManager, 'function closestDirectItem(ul, clientY)')
     && str_contains($menuManager, 'Math.abs(clientY - (rect.top + rect.height / 2))')

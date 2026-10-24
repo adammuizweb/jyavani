@@ -858,6 +858,11 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   var dropPreview = null;
   var dropParentTarget = null;
   var dropDestination = null;
+  var dragGrabOffsetX = 0;
+  var gapChildIntent = false;
+  var gapChildIntentTarget = null;
+  var GAP_CHILD_ENTER_OFFSET = 24;
+  var GAP_CHILD_EXIT_OFFSET = 12;
 
   function directItemLabel(li){
     var label = li ? li.querySelector(':scope > .menu-item-bar > .menu-item-label') : null;
@@ -950,6 +955,23 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     return closest;
   }
 
+  function wantsGapChild(li, barRect, clientX){
+    if (gapChildIntentTarget !== li) {
+      gapChildIntentTarget = li;
+      gapChildIntent = false;
+    }
+
+    // Keep the original grab point stable when comparing items from different levels.
+    var projectedItemLeft = clientX - dragGrabOffsetX;
+    var horizontalOffset = projectedItemLeft - barRect.left;
+    if (gapChildIntent) {
+      if (horizontalOffset <= GAP_CHILD_EXIT_OFFSET) gapChildIntent = false;
+    } else if (horizontalOffset >= GAP_CHILD_ENTER_OFFSET) {
+      gapChildIntent = true;
+    }
+    return gapChildIntent;
+  }
+
   function showDropPreview(ul, beforeNode, parentTarget, positionLabel, anchorBar, placement){
     if ((!ul && !parentTarget) || (ul && dragSrcLi && dragSrcLi.contains(ul))) {
       clearDropPreview();
@@ -982,6 +1004,11 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var li = e.target.closest('.menu-item-admin');
     if (!li) return;
     dragSrcLi = li;
+    var bar = li.querySelector(':scope > .menu-item-bar');
+    var barRect = bar ? bar.getBoundingClientRect() : li.getBoundingClientRect();
+    dragGrabOffsetX = Math.max(0, Math.min(barRect.width, e.clientX - barRect.left));
+    gapChildIntent = false;
+    gapChildIntentTarget = null;
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', li.getAttribute('data-id') || 'menu-item');
     li.classList.add('is-dragging');
@@ -991,8 +1018,10 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var li = e.target.closest('.menu-item-admin');
     if (li) li.classList.remove('is-dragging');
     clearDropPreview();
-    container.classList.remove('menu-drag-active');
     dragSrcLi = null;
+    dragGrabOffsetX = 0;
+    gapChildIntent = false;
+    gapChildIntentTarget = null;
     syncItemsDraft();
   });
 
@@ -1000,7 +1029,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (!dragSrcLi) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    container.classList.add('menu-drag-active');
 
     var li = e.target.closest('.menu-item-admin');
     if (!li) {
@@ -1027,7 +1055,11 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (offsetY < edge) {
       showDropPreview(li.parentNode, li, null, formatDropLabel(MENU_DROP_LABELS.before, directItemLabel(li), 0), bar, 'before');
     } else if (offsetY > rect.height - edge) {
-      showDropPreview(li.parentNode, li.nextElementSibling, null, formatDropLabel(MENU_DROP_LABELS.after, directItemLabel(li), 0), bar, 'after');
+      if (wantsGapChild(li, rect, e.clientX)) {
+        showDropPreview(childList(li, false), null, li, formatDropLabel(MENU_DROP_LABELS.inside, directItemLabel(li), 0), bar, 'after');
+      } else {
+        showDropPreview(li.parentNode, li.nextElementSibling, null, formatDropLabel(MENU_DROP_LABELS.after, directItemLabel(li), 0), bar, 'after');
+      }
     } else {
       showDropPreview(childList(li, false), null, li, formatDropLabel(MENU_DROP_LABELS.inside, directItemLabel(li), 0), bar, 'after');
     }
@@ -1046,7 +1078,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     else destinationList.appendChild(dragSrcLi);
     cleanupEmptyNestedList(oldList);
     clearDropPreview();
-    container.classList.remove('menu-drag-active');
     syncItemsDraft();
   });
 
@@ -1357,10 +1388,6 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 }
 #menuItemsContainer {
   position:relative;
-}
-#menuItemsContainer.menu-drag-active .menu-item-admin {
-  margin-top:30px;
-  margin-bottom:30px;
 }
 .menu-item-bar {
   display: flex;
