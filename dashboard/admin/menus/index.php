@@ -474,6 +474,15 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       'grandchild' => __('Grandchild of "%s" - level 3'),
       'descendant' => __('Descendant of "%s" - level %d'),
   ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  const MENU_CONFIRM_LABELS = <?= json_encode([
+      'removeItemTitle' => __('Remove menu item?'),
+      'removeItemMessage' => __('Remove "%s" from this menu? Child items nested under it will also be removed.'),
+      'remove' => __('Remove'),
+      'deleteMenuTitle' => __('Delete menu'),
+      'deleteMenuMessage' => __('Delete menu "%s"? All items in this menu will be deleted.'),
+      'delete' => __('Delete'),
+      'cancel' => __('Cancel'),
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
   const container = document.getElementById('menuItemsContainer');
   const saveBtn = document.getElementById('btnSaveItems');
@@ -500,6 +509,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       return;
     }
     alert(message);
+  }
+
+  function askDanger(options){
+    if (window.NewNotifConfirm && typeof window.NewNotifConfirm.danger === 'function') {
+      return window.NewNotifConfirm.danger(options);
+    }
+    return Promise.resolve(window.confirm(options.message || MENU_CONFIRM_LABELS.deleteMenuTitle));
+  }
+
+  function formatMenuConfirmLabel(template, label){
+    return String(template).replace('%s', label);
   }
 
   function guardApi(){
@@ -789,13 +809,22 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     if (!btn) return;
 
     var li = btn.closest('.menu-item-admin');
-    if (li && confirm('<?=__('Remove this item from menu?')?>')) {
+    if (!li) return;
+    var label = directItemLabel(li);
+    askDanger({
+      title: MENU_CONFIRM_LABELS.removeItemTitle,
+      message: formatMenuConfirmLabel(MENU_CONFIRM_LABELS.removeItemMessage, label),
+      confirmText: MENU_CONFIRM_LABELS.remove,
+      cancelText: MENU_CONFIRM_LABELS.cancel,
+      focus: 'cancel'
+    }).then(function(confirmed){
+      if (!confirmed || !li.isConnected) return;
       li.remove();
       if (!container.querySelector('ul.menu-sortable') || !container.querySelector('ul.menu-sortable').querySelector('li')) {
         showEmptyState();
       }
       syncItemsDraft();
-    }
+    });
   });
 
   // =============== Edit item ===============
@@ -1349,12 +1378,15 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   var cancelRename = document.getElementById('cancelRenameMenu');
   if (cancelRename) cancelRename.addEventListener('click', closeRenameModal);
 
-  function submitActionForm(form, ownDraft, confirmMessage){
+  function submitActionForm(form, ownDraft, confirmation){
     if (!form) return;
     form.addEventListener('submit', function(event){
       event.preventDefault();
-      if (confirmMessage && !window.confirm(confirmMessage)) return;
-      confirmOtherDrafts(ownDraft).then(function(confirmed){
+      var decision = confirmation ? askDanger(confirmation) : Promise.resolve(true);
+      decision.then(function(actionConfirmed){
+        if (!actionConfirmed) return;
+        return confirmOtherDrafts(ownDraft);
+      }).then(function(confirmed){
         if (!confirmed) return;
         var guard = guardApi();
         if (guard && typeof guard.allowNavigation === 'function') guard.allowNavigation();
@@ -1363,10 +1395,16 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     });
   }
 
-  submitActionForm(document.getElementById('menu-default-form'), null, '');
-  submitActionForm(document.getElementById('menu-delete-form'), null, <?= json_encode(__('Delete menu') . ' "' . (string)($selectedMenu['name'] ?? '') . '"? ' . __('All items will be deleted.'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
-  submitActionForm(createMenuForm, createMenuForm, '');
-  submitActionForm(renameMenuForm, renameMenuForm, '');
+  submitActionForm(document.getElementById('menu-default-form'), null, null);
+  submitActionForm(document.getElementById('menu-delete-form'), null, {
+    title: MENU_CONFIRM_LABELS.deleteMenuTitle,
+    message: formatMenuConfirmLabel(MENU_CONFIRM_LABELS.deleteMenuMessage, <?= json_encode((string)($selectedMenu['name'] ?? ''), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>),
+    confirmText: MENU_CONFIRM_LABELS.delete,
+    cancelText: MENU_CONFIRM_LABELS.cancel,
+    focus: 'cancel'
+  });
+  submitActionForm(createMenuForm, createMenuForm, null);
+  submitActionForm(renameMenuForm, renameMenuForm, null);
 
   var menuSelect = document.getElementById('menuSelect');
   var createMenuOption = '__create__';
