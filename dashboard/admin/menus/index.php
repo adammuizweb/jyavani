@@ -415,6 +415,17 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       'edit' => __('Edit'),
       'delete' => __('Delete'),
   ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+  const MENU_DROP_LABELS = <?= json_encode([
+      'place' => __('Place here'),
+      'before' => __('Before "%s"'),
+      'after' => __('After "%s"'),
+      'inside' => __('Inside "%s"'),
+      'end' => __('At the end of this level'),
+      'parent' => __('Parent / top level - level 1'),
+      'child' => __('Child of "%s" - level 2'),
+      'grandchild' => __('Grandchild of "%s" - level 3'),
+      'descendant' => __('Descendant of "%s" - level %d'),
+  ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
 
   const container = document.getElementById('menuItemsContainer');
   const saveBtn = document.getElementById('btnSaveItems');
@@ -844,81 +855,199 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   // =============== Drag and Drop ===============
 
   var dragSrcLi = null;
+  var dropPreview = null;
+  var dropParentTarget = null;
+  var dropDestination = null;
+
+  function directItemLabel(li){
+    var label = li ? li.querySelector(':scope > .menu-item-bar > .menu-item-label') : null;
+    return label ? label.textContent.trim() : '';
+  }
+
+  function menuListDepth(ul){
+    var depth = 0;
+    var node = ul ? ul.parentElement : null;
+    while (node && node !== container) {
+      if (node.classList && node.classList.contains('menu-item-admin')) depth++;
+      node = node.parentElement;
+    }
+    return depth;
+  }
+
+  function formatDropLabel(template, parentLabel, level){
+    return String(template).replace('%s', parentLabel).replace('%d', String(level));
+  }
+
+  function destinationLabel(ul, parentTarget){
+    var depth = ul ? menuListDepth(ul) : menuListDepth(parentTarget ? parentTarget.parentNode : null) + 1;
+    if (depth === 0) return MENU_DROP_LABELS.parent;
+
+    var parentLi = ul && ul.parentElement && ul.parentElement.classList.contains('menu-item-admin')
+      ? ul.parentElement
+      : parentTarget;
+    var parentLabel = directItemLabel(parentLi);
+    if (depth === 1) return formatDropLabel(MENU_DROP_LABELS.child, parentLabel, 2);
+    if (depth === 2) return formatDropLabel(MENU_DROP_LABELS.grandchild, parentLabel, 3);
+    return formatDropLabel(MENU_DROP_LABELS.descendant, parentLabel, depth + 1);
+  }
+
+  function ensureDropPreview(){
+    if (dropPreview) return dropPreview;
+    dropPreview = document.createElement('div');
+    dropPreview.className = 'menu-drop-preview';
+    dropPreview.setAttribute('role', 'status');
+    dropPreview.innerHTML = '<div class="menu-drop-preview-bar">'
+      + '<span class="menu-drop-preview-copy">'
+      + '<strong class="menu-drop-preview-position"></strong>'
+      + '<span class="menu-drop-preview-level"></span></span>'
+      + '</div>';
+    container.appendChild(dropPreview);
+    return dropPreview;
+  }
+
+  function cleanupEmptyNestedList(ul){
+    if (!ul || !ul.parentElement || !ul.parentElement.classList.contains('menu-item-admin')) return;
+    if (!ul.querySelector(':scope > li.menu-item-admin')) ul.remove();
+  }
+
+  function clearDropParentTarget(){
+    if (dropParentTarget) dropParentTarget.classList.remove('drop-parent-target');
+    dropParentTarget = null;
+  }
+
+  function clearDropPreview(){
+    clearDropParentTarget();
+    dropDestination = null;
+    if (dropPreview) dropPreview.remove();
+    dropPreview = null;
+  }
+
+  function childList(li, create){
+    var ul = li.querySelector(':scope > ul.menu-sortable');
+    if (ul || !create) return ul;
+    ul = document.createElement('ul');
+    ul.className = 'menu-sortable';
+    ul.style.marginLeft = '20px';
+    li.appendChild(ul);
+    return ul;
+  }
+
+  function closestDirectItem(ul, clientY){
+    if (!ul) return null;
+    var closest = null;
+    var closestDistance = Infinity;
+    ul.querySelectorAll(':scope > li.menu-item-admin').forEach(function(li){
+      if (li === dragSrcLi || dragSrcLi.contains(li)) return;
+      var bar = li.querySelector(':scope > .menu-item-bar');
+      if (!bar) return;
+      var rect = bar.getBoundingClientRect();
+      var distance = Math.abs(clientY - (rect.top + rect.height / 2));
+      if (distance < closestDistance) {
+        closest = li;
+        closestDistance = distance;
+      }
+    });
+    return closest;
+  }
+
+  function showDropPreview(ul, beforeNode, parentTarget, positionLabel, anchorBar, placement){
+    if ((!ul && !parentTarget) || (ul && dragSrcLi && dragSrcLi.contains(ul))) {
+      clearDropPreview();
+      return;
+    }
+
+    var preview = ensureDropPreview();
+    var containerRect = container.getBoundingClientRect();
+    var anchorRect = anchorBar ? anchorBar.getBoundingClientRect() : containerRect;
+    var top = placement === 'before' ? anchorRect.top : anchorRect.bottom;
+    var destinationLeft = ul
+      ? ul.getBoundingClientRect().left
+      : anchorRect.left + 20;
+
+    preview.style.top = (top - containerRect.top + container.scrollTop) + 'px';
+    preview.style.left = Math.max(8, destinationLeft - containerRect.left + container.scrollLeft) + 'px';
+    preview.style.right = '8px';
+    preview.querySelector('.menu-drop-preview-position').textContent = positionLabel || MENU_DROP_LABELS.end;
+    preview.querySelector('.menu-drop-preview-level').textContent = destinationLabel(ul, parentTarget);
+    dropDestination = { list: ul, beforeNode: beforeNode, parentTarget: parentTarget };
+
+    clearDropParentTarget();
+    if (parentTarget) {
+      dropParentTarget = parentTarget;
+      dropParentTarget.classList.add('drop-parent-target');
+    }
+  }
 
   container.addEventListener('dragstart', function(e){
     var li = e.target.closest('.menu-item-admin');
     if (!li) return;
     dragSrcLi = li;
     e.dataTransfer.effectAllowed = 'move';
-    li.style.opacity = '0.4';
+    e.dataTransfer.setData('text/plain', li.getAttribute('data-id') || 'menu-item');
+    li.classList.add('is-dragging');
   });
 
   container.addEventListener('dragend', function(e){
     var li = e.target.closest('.menu-item-admin');
-    if (li) li.style.opacity = '';
+    if (li) li.classList.remove('is-dragging');
+    clearDropPreview();
+    container.classList.remove('menu-drag-active');
     dragSrcLi = null;
-    document.querySelectorAll('.menu-item-admin').forEach(function(el){
-      el.classList.remove('drag-over');
-    });
     syncItemsDraft();
   });
 
   container.addEventListener('dragover', function(e){
+    if (!dragSrcLi) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    container.classList.add('menu-drag-active');
 
     var li = e.target.closest('.menu-item-admin');
-    if (!li || li === dragSrcLi) return;
-    document.querySelectorAll('.menu-item-admin').forEach(function(el){
-      el.classList.remove('drag-over');
-    });
-    li.classList.add('drag-over');
-  });
+    if (!li) {
+      var hoveredList = e.target.closest('ul.menu-sortable');
+      var rootList = container.querySelector(':scope > ul.menu-sortable');
+      hoveredList = hoveredList || rootList;
+      li = closestDirectItem(hoveredList, e.clientY);
+      if (!li) {
+        showDropPreview(hoveredList, null, null, MENU_DROP_LABELS.end, null, 'after');
+        return;
+      }
+    }
+    if (li === dragSrcLi || dragSrcLi.contains(li)) {
+      clearDropPreview();
+      return;
+    }
 
-  container.addEventListener('dragleave', function(e){
-    var li = e.target.closest('.menu-item-admin');
-    if (li) li.classList.remove('drag-over');
+    var bar = li.querySelector(':scope > .menu-item-bar');
+    if (!bar) return;
+    var rect = bar.getBoundingClientRect();
+    var offsetY = e.clientY - rect.top;
+    var edge = rect.height * 0.3;
+
+    if (offsetY < edge) {
+      showDropPreview(li.parentNode, li, null, formatDropLabel(MENU_DROP_LABELS.before, directItemLabel(li), 0), bar, 'before');
+    } else if (offsetY > rect.height - edge) {
+      showDropPreview(li.parentNode, li.nextElementSibling, null, formatDropLabel(MENU_DROP_LABELS.after, directItemLabel(li), 0), bar, 'after');
+    } else {
+      showDropPreview(childList(li, false), null, li, formatDropLabel(MENU_DROP_LABELS.inside, directItemLabel(li), 0), bar, 'after');
+    }
   });
 
   container.addEventListener('drop', function(e){
     e.preventDefault();
-    if (!dragSrcLi) return;
+    if (!dragSrcLi || !dropDestination) return;
 
-    var targetLi = e.target.closest('.menu-item-admin');
-    if (!targetLi || targetLi === dragSrcLi) return;
-
-    // Determine drop position based on mouse Y within target
-    var rect = targetLi.getBoundingClientRect();
-    var offsetY = e.clientY - rect.top;
-    var parentUl = targetLi.parentNode;
-
-    var dropPosition = offsetY < rect.height * 0.25 ? 'before' :
-                       offsetY > rect.height * 0.75 ? 'after' : 'inside';
-
-    if (dropPosition === 'inside') {
-      // Drop as child
-      var childUl = targetLi.querySelector(':scope > ul.menu-sortable');
-      if (!childUl) {
-        childUl = document.createElement('ul');
-        childUl.className = 'menu-sortable';
-        childUl.style.marginLeft = '20px';
-        targetLi.appendChild(childUl);
-      }
-      childUl.appendChild(dragSrcLi);
-    } else if (dropPosition === 'before') {
-      parentUl.insertBefore(dragSrcLi, targetLi);
-    } else {
-      var nextSibling = targetLi.nextElementSibling;
-      if (nextSibling) {
-        parentUl.insertBefore(dragSrcLi, nextSibling);
-      } else {
-        parentUl.appendChild(dragSrcLi);
-      }
-    }
-
-    document.querySelectorAll('.menu-item-admin').forEach(function(el){
-      el.classList.remove('drag-over');
-    });
+    var oldList = dragSrcLi.parentNode;
+    var destinationList = dropDestination.parentTarget
+      ? childList(dropDestination.parentTarget, true)
+      : dropDestination.list;
+    if (!destinationList) return;
+    if (dropDestination.beforeNode) destinationList.insertBefore(dragSrcLi, dropDestination.beforeNode);
+    else destinationList.appendChild(dragSrcLi);
+    cleanupEmptyNestedList(oldList);
+    clearDropPreview();
+    container.classList.remove('menu-drag-active');
+    syncItemsDraft();
   });
 
   // Make all items draggable
@@ -1226,6 +1355,13 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   margin: 4px 0;
   padding: 0;
 }
+#menuItemsContainer {
+  position:relative;
+}
+#menuItemsContainer.menu-drag-active .menu-item-admin {
+  margin-top:30px;
+  margin-bottom:30px;
+}
 .menu-item-bar {
   display: flex;
   align-items: center;
@@ -1286,9 +1422,81 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 .menu-item-admin.menu-item-hidden .menu-item-label {
   text-decoration: line-through;
 }
-.menu-item-admin.drag-over > .menu-item-bar {
-  border-color: #3b82f6;
-  background: rgba(59,130,246,0.08);
+.menu-item-admin.is-dragging {
+  opacity:.32;
+}
+.menu-item-admin.drop-parent-target > .menu-item-bar {
+  border-color:var(--adam-primary);
+  box-shadow:0 0 0 2px var(--adam-focus);
+}
+.menu-drop-preview {
+  position:absolute;
+  z-index:20;
+  box-sizing:border-box;
+  height:0;
+  margin:0;
+  padding:0;
+  pointer-events:none;
+}
+.menu-drop-preview::before {
+  content:"";
+  position:absolute;
+  z-index:1;
+  top:-1px;
+  left:0;
+  right:0;
+  height:3px;
+  border-radius:999px;
+  background:var(--adam-primary);
+  box-shadow:0 0 0 3px var(--adam-focus);
+}
+.menu-drop-preview::after {
+  content:"";
+  position:absolute;
+  z-index:2;
+  top:-5px;
+  left:0;
+  width:11px;
+  height:11px;
+  border:2px solid var(--adam-card);
+  border-radius:50%;
+  background:var(--adam-primary);
+}
+.menu-drop-preview-bar {
+  position:absolute;
+  z-index:3;
+  top:0;
+  left:18px;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  width:calc(100% - 26px);
+  max-width:560px;
+  min-height:38px;
+  padding:5px 10px;
+  border:1px solid var(--adam-primary);
+  border-radius:8px;
+  background:var(--adam-card);
+  color:var(--adam-text);
+  box-shadow:0 2px 8px rgba(15,23,42,.14);
+  transform:translateY(-50%);
+}
+.menu-drop-preview-copy {
+  display:grid;
+  gap:1px;
+  min-width:0;
+}
+.menu-drop-preview-position {
+  overflow-wrap:anywhere;
+  font-size:12px;
+  line-height:1.25;
+  color:var(--adam-primary);
+}
+.menu-drop-preview-level {
+  overflow-wrap:anywhere;
+  font-size:11px;
+  line-height:1.25;
+  color:var(--adam-text-3);
 }
 .menu-item-action {
   display:inline-grid;
