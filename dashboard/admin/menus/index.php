@@ -223,8 +223,12 @@ if (!function_exists('render_menu_items_admin')) {
                <input id="editItemLabel" name="edit_item_label" class="pht-input" placeholder="<?=_e('Label menu')?>">
             </div>
             <div>
-              <label style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('URL (custom link only)')?></label>
+              <label id="editItemUrlLabel" for="editItemUrl" style="display:block;font-size:12px;margin-bottom:4px;"><?=_e('URL (custom link only)')?></label>
                <input id="editItemUrl" name="edit_item_url" class="pht-input" placeholder="<?=_e('https://...')?>">
+               <div id="editItemUrlHelp" class="menu-managed-url-note" hidden>
+                 <span aria-hidden="true"><?=svg_ico('lock')?></span>
+                 <span><?=_e('This URL follows the selected content and cannot be changed here.')?></span>
+               </div>
             </div>
             <div>
               <label style="display:block;font-size:12px;margin-bottom:4px;">
@@ -435,6 +439,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   const CSRF = <?= json_encode($csrf) ?>;
   const MENU_ID = <?= json_encode($selectedMenuId) ?>;
   const SAVE_URL = <?= json_encode($base . '/admin/menus/items_save.php') ?>;
+  const ITEM_URL = <?= json_encode($base . '/admin/menus/item_url.php') ?>;
   const MENU_ITEM_ICONS = <?= json_encode([
       'handle' => svg_ico('grip-vertical'),
       'visible' => svg_ico('eye'),
@@ -451,6 +456,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       'outdent' => __('Raise level'),
       'edit' => __('Edit'),
       'delete' => __('Delete'),
+      'customUrlLabel' => __('URL (custom link only)'),
+      'managedUrlLabel' => __('URL (managed automatically)'),
+      'customUrlPlaceholder' => __('https://...'),
+      'managedUrlPlaceholder' => __('Generated from the selected content'),
+      'resolvingUrl' => __('Resolving current URL...'),
+      'unavailableUrl' => __('Current URL is unavailable'),
   ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
   const MENU_DROP_LABELS = <?= json_encode([
       'place' => __('Place here'),
@@ -479,6 +490,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   // Temporary ID counter for new items (negative numbers avoid DB ID conflicts)
   var tempIdCounter = 0;
+  var managedUrlRequest = 0;
 
   // =============== Helpers ===============
 
@@ -529,6 +541,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       label: li.getAttribute('data-label') || '',
       targetId: parseInt(li.getAttribute('data-target') || '0'),
       url: li.getAttribute('data-url') || '',
+      resolvedUrl: li.getAttribute('data-resolved-url') || '',
       targetBlank: li.getAttribute('data-target-blank') === '1',
       hidden: parseInt(li.getAttribute('data-hidden') || '0')
       ,translations: JSON.parse(li.getAttribute('data-translations') || '{}')
@@ -540,7 +553,9 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-type', data.type || 'custom');
     li.setAttribute('data-label', data.label || '');
     li.setAttribute('data-target', String(data.targetId || 0));
-    li.setAttribute('data-url', data.url || '');
+    li.setAttribute('data-url', data.type === 'custom' ? (data.url || '') : '');
+    if (data.type === 'custom') li.removeAttribute('data-resolved-url');
+    else if (data.resolvedUrl) li.setAttribute('data-resolved-url', data.resolvedUrl);
     li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
     li.setAttribute('data-hidden', data.hidden ? '1' : '0');
     li.setAttribute('data-translations', JSON.stringify(data.translations || {}));
@@ -584,6 +599,51 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
       + '<button type="button" class="menu-item-remove menu-item-action adam-hapus" title="' + escapeHtml(MENU_ITEM_LABELS.delete) + '" aria-label="' + escapeHtml(MENU_ITEM_LABELS.delete) + '">' + MENU_ITEM_ICONS.delete + '</button>'
       + '</span>'
       + '</div>';
+  }
+
+  function configureItemUrlField(data, localized){
+    var input = document.getElementById('editItemUrl');
+    var label = document.getElementById('editItemUrlLabel');
+    var help = document.getElementById('editItemUrlHelp');
+    var isCustom = data.type === 'custom';
+    input.readOnly = !isCustom;
+    input.classList.toggle('is-managed', !isCustom);
+    input.value = isCustom ? (localized.url || '') : (data.resolvedUrl || '');
+    input.placeholder = isCustom
+      ? MENU_ITEM_LABELS.customUrlPlaceholder
+      : (data.resolvedUrl ? MENU_ITEM_LABELS.managedUrlPlaceholder : MENU_ITEM_LABELS.resolvingUrl);
+    label.textContent = isCustom ? MENU_ITEM_LABELS.customUrlLabel : MENU_ITEM_LABELS.managedUrlLabel;
+    help.hidden = isCustom;
+    if (isCustom) {
+      input.name = 'edit_item_url';
+      input.removeAttribute('aria-describedby');
+    } else {
+      input.removeAttribute('name');
+      input.setAttribute('aria-describedby', 'editItemUrlHelp');
+    }
+  }
+
+  function loadManagedItemUrl(li, data){
+    var requestId = ++managedUrlRequest;
+    if (data.type === 'custom' || data.resolvedUrl || data.targetId <= 0) return;
+    var query = '?type=' + encodeURIComponent(data.type) + '&target_id=' + encodeURIComponent(String(data.targetId));
+    fetch(ITEM_URL + query, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(response){
+        return response.json().then(function(payload){
+          if (!response.ok || !payload || !payload.ok || typeof payload.url !== 'string') throw new Error('unavailable');
+          return payload.url;
+        });
+      })
+      .then(function(url){
+        if (requestId !== managedUrlRequest || itemEditForm._targetLi !== li) return;
+        li.setAttribute('data-resolved-url', url);
+        document.getElementById('editItemUrl').value = url;
+        document.getElementById('editItemUrl').placeholder = MENU_ITEM_LABELS.managedUrlPlaceholder;
+      })
+      .catch(function(){
+        if (requestId !== managedUrlRequest || itemEditForm._targetLi !== li) return;
+        document.getElementById('editItemUrl').placeholder = MENU_ITEM_LABELS.unavailableUrl;
+      });
   }
 
   function showEmptyState(){
@@ -697,7 +757,8 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     li.setAttribute('data-type', data.type || 'custom');
     li.setAttribute('data-label', data.label || '');
     li.setAttribute('data-target', String(data.targetId || 0));
-    li.setAttribute('data-url', data.url || '');
+    li.setAttribute('data-url', data.type === 'custom' ? (data.url || '') : '');
+    li.setAttribute('data-resolved-url', data.resolvedUrl || '');
     li.setAttribute('data-target-blank', data.targetBlank ? '1' : '0');
     li.setAttribute('data-hidden', data.hidden ? '1' : '0');
     li.setAttribute('data-translations', '{}');
@@ -743,7 +804,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var data = getItemData(li);
     document.getElementById('editItemId').value = data.id || '';
     document.getElementById('editItemLabel').value = data.label;
-    document.getElementById('editItemUrl').value = data.url;
+    configureItemUrlField(data, data);
     document.getElementById('editItemTargetBlank').checked = data.targetBlank;
 
     itemEditModal.hidden = false;
@@ -751,6 +812,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     itemEditModal._previousBodyOverflow = document.body.style.overflow || '';
     document.body.style.overflow = 'hidden';
     itemEditForm._targetLi = li;
+    loadManagedItemUrl(li, data);
     itemEditForm._returnFocus = trigger || null;
     itemEditForm._originalData = JSON.parse(JSON.stringify(data));
     itemEditForm._editingLocale = '';
@@ -762,6 +824,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
   function closeItemEditor(revert){
     if (!itemEditForm) return;
+    managedUrlRequest++;
     if (revert && itemEditForm._targetLi && itemEditForm._originalData) {
       var currentData = getItemData(itemEditForm._targetLi);
       currentData.label = itemEditForm._originalData.label;
@@ -815,7 +878,7 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
     var nextLocale = this.value;
     var localized = nextLocale ? (data.translations[nextLocale] || {}) : data;
     document.getElementById('editItemLabel').value = localized.label || '';
-    document.getElementById('editItemUrl').value = localized.url || '';
+    configureItemUrlField(data, localized);
     document.getElementById('editItemTargetBlank').checked = data.targetBlank;
     form._editingLocale = nextLocale;
     setItemData(li, data);
@@ -828,11 +891,12 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
 
     var data = getItemData(li);
     var locale = form._editingLocale || '';
+    var customUrl = data.type === 'custom' ? document.getElementById('editItemUrl').value.trim() : '';
     if (locale) {
-      data.translations[locale] = {label: document.getElementById('editItemLabel').value.trim(), url: document.getElementById('editItemUrl').value.trim()};
+      data.translations[locale] = {label: document.getElementById('editItemLabel').value.trim(), url: customUrl};
     } else {
       data.label = document.getElementById('editItemLabel').value.trim() || data.label;
-      data.url = document.getElementById('editItemUrl').value.trim();
+      data.url = customUrl;
     }
     data.targetBlank = document.getElementById('editItemTargetBlank').checked;
 
@@ -1577,6 +1641,28 @@ if (!empty($page_toasts) && function_exists('adiwira_bootstrap_toasts_script')) 
   border-radius:14px;
   background:var(--adam-card);
   box-shadow:0 24px 60px rgba(15,23,42,.28);
+}
+.menu-managed-url-note {
+  display:flex;
+  align-items:flex-start;
+  gap:6px;
+  margin-top:6px;
+  color:var(--adam-text-3);
+  font-size:11px;
+  line-height:1.4;
+}
+.menu-managed-url-note[hidden] { display:none !important; }
+.menu-managed-url-note .lucide-icon {
+  flex:0 0 auto;
+  width:14px;
+  height:14px;
+  margin-top:1px;
+}
+#editItemUrl.is-managed {
+  border-style:dashed;
+  background:var(--adam-surface-3);
+  color:var(--adam-text-3);
+  cursor:not-allowed;
 }
 .menu-item-admin {
   margin: 4px 0;

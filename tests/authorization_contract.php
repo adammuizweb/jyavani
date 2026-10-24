@@ -87,6 +87,7 @@ foreach ([
     'dashboard/admin/menus/index.php',
     'dashboard/admin/menus/save.php',
     'dashboard/admin/menus/items_save.php',
+    'dashboard/admin/menus/item_url.php',
     'dashboard/admin/menus/delete.php',
 ] as $menuRoute) {
     $menuRoutes .= (string)file_get_contents($root . '/' . $menuRoute);

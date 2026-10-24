@@ -48,13 +48,14 @@ if (!is_array($items)) {
 foreach ($items as $item) {
     if (!is_array($item)) continue;
     $urls = [];
-    if ((string)($item['type'] ?? '') === 'custom') {
+    $type = (string)($item['type'] ?? 'custom');
+    if ($type === 'custom') {
         $urls[] = (string)($item['url'] ?? '');
-    }
-    foreach ($canTranslateMenus ? (array)($item['translations'] ?? []) : [] as $translation) {
-        if (!is_array($translation)) continue;
-        $translatedUrl = trim((string)($translation['url'] ?? ''));
-        if ($translatedUrl !== '') $urls[] = $translatedUrl;
+        foreach ($canTranslateMenus ? (array)($item['translations'] ?? []) : [] as $translation) {
+            if (!is_array($translation)) continue;
+            $translatedUrl = trim((string)($translation['url'] ?? ''));
+            if ($translatedUrl !== '') $urls[] = $translatedUrl;
+        }
     }
     foreach ($urls as $url) {
         if (function_exists('menu_url_is_safe') && menu_url_is_safe($url)) continue;
@@ -80,11 +81,17 @@ try {
         $sortOrder = (int)($item['sort_order'] ?? 0);
         $type = (string)($item['type'] ?? 'custom');
         $label = (string)($item['label'] ?? '');
-        $url = (string)($item['url'] ?? '');
+        $url = $type === 'custom' ? (string)($item['url'] ?? '') : '';
         $targetId = (int)($item['target_id'] ?? 0);
         $targetBlank = !empty($item['target_blank']) ? 1 : 0;
         $hidden = !empty($item['hidden']) ? 1 : 0;
         $translations = $canTranslateMenus && is_array($item['translations'] ?? null) ? $item['translations'] : [];
+        if ($type !== 'custom') {
+            foreach ($translations as &$translation) {
+                if (is_array($translation)) $translation['url'] = '';
+            }
+            unset($translation);
+        }
 
         if ($label === '') continue;
 
