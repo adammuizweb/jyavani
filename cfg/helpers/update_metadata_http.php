@@ -21,13 +21,24 @@ function update_metadata_fetch_json(string $url, string $userAgent, ?float $dead
     $transportFailed = false;
 
     if (function_exists('curl_init')) {
-        $curl = curl_init($url);
+        static $curl = false;
+        static $curlOrigin = '';
+        $scheme = strtolower((string)parse_url($url, PHP_URL_SCHEME));
+        $port = (int)(parse_url($url, PHP_URL_PORT) ?? ($scheme === 'https' ? 443 : 80));
+        $origin = $scheme . '://' . $host . ':' . $port;
+        if ($curl === false || !hash_equals($curlOrigin, $origin)) {
+            if ($curl !== false) curl_close($curl);
+            $curl = curl_init();
+            $curlOrigin = $curl === false ? '' : $origin;
+        }
         if ($curl === false) return null;
+        curl_reset($curl);
         $timeoutMs = max(1, (int)floor($remaining * 1000));
-        $redirectProtocols = strtolower((string)parse_url($url, PHP_URL_SCHEME)) === 'https'
+        $redirectProtocols = $scheme === 'https'
             ? CURLPROTO_HTTPS
             : CURLPROTO_HTTP | CURLPROTO_HTTPS;
         curl_setopt_array($curl, [
+            CURLOPT_URL => $url,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
             CURLOPT_CONNECTTIMEOUT_MS => min($timeoutMs, (int)(UPDATE_METADATA_CONNECT_SECONDS * 1000)),
@@ -46,7 +57,6 @@ function update_metadata_fetch_json(string $url, string $userAgent, ?float $dead
         $status = (int)curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
         $error = curl_error($curl);
         $transportFailed = !$ok;
-        curl_close($curl);
         if (!$ok || $status < 200 || $status >= 300) {
             error_log('[update-metadata] Request failed for ' . $host . ': HTTP ' . $status . ($error !== '' ? ' (' . $error . ')' : ''));
             return null;

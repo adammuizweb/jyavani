@@ -69,7 +69,7 @@ final class UpdateStatusController
             $startedAt = microtime(true);
             $deadline = $startedAt + self::CHECK_BUDGET_SECONDS;
             $coreDeadline = min($deadline, $startedAt + 4.0);
-            $pluginDeadline = min($deadline, $startedAt + 8.0);
+            $pluginDeadline = min($deadline, $startedAt + 16.0);
 
             $core = self::checkCore($coreUrl, $previous['components']['core'] ?? [], $providers['core'] ?? null, $now, $coreDeadline);
             $plugins = self::checkPlugins($pdo, $previous['components']['plugins'] ?? [], $providers['plugins'] ?? null, $now, $pluginDeadline);

@@ -86,6 +86,40 @@ try {
     $expiredDeadlineResult = update_metadata_fetch_json('https://192.0.2.1/version.json', 'JyavaniCMS-Test', $expiredDeadlineStart - 1);
     $check($expiredDeadlineResult === null && microtime(true) - $expiredDeadlineStart < 0.25, 'an exhausted update deadline prevents another network request');
 
+    if (function_exists('pcntl_fork') && function_exists('curl_init')) {
+        $reuseServer = stream_socket_server('tcp://127.0.0.1:0', $reuseError, $reuseMessage);
+        $reusePid = is_resource($reuseServer) ? pcntl_fork() : -1;
+        if ($reusePid === 0) {
+            $client = stream_socket_accept($reuseServer, 2);
+            if (is_resource($client)) {
+                stream_set_timeout($client, 2);
+                for ($request = 1; $request <= 2; $request++) {
+                    while (($line = fgets($client)) !== false && $line !== "\r\n" && $line !== "\n") {}
+                    if ($line === false) break;
+                    $json = json_encode(['request' => $request], JSON_THROW_ON_ERROR);
+                    fwrite($client, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: " . strlen($json)
+                        . "\r\nConnection: keep-alive\r\n\r\n" . $json);
+                }
+                fclose($client);
+            }
+            fclose($reuseServer);
+            exit(0);
+        }
+        if ($reusePid > 0) {
+            $reuseAddress = (string)stream_socket_get_name($reuseServer, false);
+            fclose($reuseServer);
+            $reuseUrl = 'http://' . $reuseAddress . '/version.json';
+            $reuseFirst = update_metadata_fetch_json($reuseUrl, 'JyavaniCMS-Test', microtime(true) + 1.0);
+            $reuseSecond = update_metadata_fetch_json($reuseUrl, 'JyavaniCMS-Test', microtime(true) + 1.0);
+            pcntl_waitpid($reusePid, $reuseStatus);
+            $check(($reuseFirst['request'] ?? 0) === 1 && ($reuseSecond['request'] ?? 0) === 2,
+                'metadata requests reuse an origin connection within one coordinated check');
+        } else {
+            if (is_resource($reuseServer)) fclose($reuseServer);
+            $check(false, 'metadata requests reuse an origin connection within one coordinated check');
+        }
+    }
+
     if (function_exists('pcntl_fork')) {
         $server = stream_socket_server('tcp://127.0.0.1:0', $serverError, $serverMessage);
         $pid = is_resource($server) ? pcntl_fork() : -1;
@@ -304,6 +338,7 @@ try {
         && str_contains($coreActions, 'UpdateStatusController::checkAll($pdo);'), 'all dedicated Check buttons invoke the same coordinator');
     $metadataClient = (string)file_get_contents($root . '/cfg/helpers/update_metadata_http.php');
     $check(str_contains($statusController, 'CHECK_BUDGET_SECONDS')
+        && str_contains($statusController, '$startedAt + 16.0')
         && str_contains($statusController, 'LOCK_EX | LOCK_NB')
         && str_contains($pluginStore, 'update_metadata_fetch_json(')
         && str_contains($themeStore, 'update_metadata_fetch_json(')
