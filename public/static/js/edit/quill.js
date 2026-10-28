@@ -22,6 +22,10 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     td: new Set(['colspan', 'rowspan'])
   };
   const quillStyleProperties = new Set(['color', 'background-color']);
+  const tableLimits = window.JyavaniQuillTable && window.JyavaniQuillTable.limits || {};
+  const TABLE_MAX_ROWS = Number.isInteger(tableLimits.rows) && tableLimits.rows > 0 ? tableLimits.rows : 100;
+  const TABLE_MAX_COLUMNS = Number.isInteger(tableLimits.columns) && tableLimits.columns > 0 ? tableLimits.columns : 12;
+  const TABLE_MAX_CELL_LENGTH = Number.isInteger(tableLimits.cellLength) && tableLimits.cellLength > 0 ? tableLimits.cellLength : 2000;
   const tableCellInlineTags = new Set([
     'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup', 'code', 'a', 'span'
   ]);
@@ -167,10 +171,10 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         if ((tag === 'th' || tag === 'td') && !isTableCellContentSupported(element)) return true;
         if (tag === 'table') {
           const rows = Array.from(element.querySelectorAll('tr'));
-          if (rows.length > 12 || rows.some(function (row) {
+          if (rows.length > TABLE_MAX_ROWS || rows.some(function (row) {
             const cells = Array.from(row.querySelectorAll(':scope > th, :scope > td'));
-            return cells.length > 12 || cells.some(function (cell) {
-              return tableCellNormalizedLength(cell) > 2000;
+            return cells.length > TABLE_MAX_COLUMNS || cells.some(function (cell) {
+              return tableCellNormalizedLength(cell) > TABLE_MAX_CELL_LENGTH;
             });
           })) return true;
         }

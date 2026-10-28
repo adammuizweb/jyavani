@@ -9,7 +9,7 @@
   var Container = Quill.import('blots/container');
   var Parchment = Quill.import('parchment');
   var Delta = Quill.import('delta');
-  var MAX_ROWS = 12;
+  var MAX_ROWS = 100;
   var MAX_COLUMNS = 12;
   var MAX_CELL_LENGTH = 2000;
   var identitySequence = 0;

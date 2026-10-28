@@ -32,9 +32,15 @@ $check(str_contains($table, "JyavaniTableContainerBlot.blotName = 'table'")
     && str_contains($table, "quill.clipboard.addMatcher('TD'")
     && str_contains($table, "quill.clipboard.addMatcher('TABLE'")
     && str_contains($table, "toolbar.addHandler('table'")
-    && str_contains($table, 'MAX_ROWS = 12')
+    && str_contains($table, 'MAX_ROWS = 100')
     && str_contains($table, 'MAX_COLUMNS = 12'),
     'local Quill table hierarchy supports bounded editable insertion and formatted pasted tables');
+$check(str_contains($edit, 'const tableLimits = window.JyavaniQuillTable')
+    && str_contains($edit, 'rows.length > TABLE_MAX_ROWS')
+    && str_contains($edit, 'cells.length > TABLE_MAX_COLUMNS')
+    && str_contains($edit, 'tableCellNormalizedLength(cell) > TABLE_MAX_CELL_LENGTH')
+    && !str_contains($edit, 'rows.length > 12'),
+    'Rich Editor eligibility shares the table module limits after row insertion and reload');
 $check(!str_contains($table, "setAttribute('contenteditable', 'false')")
     && str_contains($table, 'aria-modal="true"')
     && str_contains($table, "['row-above', i18n.rowAbove]")

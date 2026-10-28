@@ -1,15 +1,15 @@
 {
     "name": "Jyavani",
-    "version": "2.3.189",
+    "version": "2.3.190",
     "build": "2026-10-28",
-    "generated": "2026-10-28T09:52:50+00:00",
+    "generated": "2026-10-28T11:39:28+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "total_files": 620,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "aefaa19646723619b679bb77af8ab4336a6e35b916eea21d670fd4ed7354af34",
+        "VERSION": "62ab2b404ba933af10c6cb87e9558a59b4f066af3b44e75149eac7a999a5fab1",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "de929fe2b4b9e0f4e169503e769e27fae2a95d06a4be734e2abc24b14d3b0924",
@@ -415,7 +415,7 @@
         "public/static/js/edit/codemirror.js": "3e92fdd2938792831cd45f0041e89fab33b9f24f73f2d63733ff8cb8b302f892",
         "public/static/js/edit/editor_mode.js": "534221dedd34d4d3530b88498ee1d25ce2619b54458dda7fed507c4b22185f0b",
         "public/static/js/edit/main-init.js": "1cd155fdd75d415cf255c73dd26e10741dcb1797000cf74e6308faffe8b07b23",
-        "public/static/js/edit/quill.js": "3c72da71d95a2b0efdf7f8e9e9045f3b89a595dddd14dcff076931790f27ae97",
+        "public/static/js/edit/quill.js": "b7de725a039fede5d51fa6c2af5ecaf8b06cce67aa85a1b87d1dcc5b7ec7dbff",
         "public/static/js/edit/thumbnail.js": "b12b0c5fea8e0f0441ee09f5ac9d142900b84f2ac8f6d008d73fc56b8d3185a5",
         "public/static/js/edit/utils.js": "d22c24fdde6ae27bd03d79ff99f2c9553c968c593b41a3ced9b5322bcc7f45cc",
         "public/static/js/edit/youtube_preview.js": "f85b27bf25be279bd55e7539acbf777244e3a35430e7b2276ac9b5080699632a",
@@ -445,7 +445,7 @@
         "public/static/vendor/pdfjs/pdf.min.js": "5b5799e6f8c680663207ac5b42ee14eed2a406fa7af48f50c154f0c0b1566946",
         "public/static/vendor/pdfjs/pdf.worker.min.js": "feabdf309770ed24bba31a5467836cdc8cf639c705af27d52b585b041bb8527b",
         "public/static/vendor/quill/LICENSE": "9f01cb9f46c144e966b5c77c5aca6451ffb5df5eaa90355958975640a5262079",
-        "public/static/vendor/quill/quill-table.js": "c50d0c2869142f57fcf801ffc0829a4d11ba570d6db8e467e0eec08a8ccc4b62",
+        "public/static/vendor/quill/quill-table.js": "04feaff0002e417d77f66920434906461b73f639ed8e2dfec339ab97694f6c1d",
         "public/static/vendor/quill/quill.min.js": "de86018869b5e845bdc101fc1b55611a1e375e08af6cee4a681d7446103da611",
         "public/static/vendor/quill/quill.snow.css": "e9825debccd8591ce4bc438846b94fd1bd90ebd710b9e0090ff057e323ce261f",
         "public/static/vendor/quill/quill.snow.pub.css": "49a769805aeb7498444ef05df66e68653699c5728b914ad50e538af9b76bc2e4",
@@ -627,6 +627,6 @@
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/prune-access-log.php": "d4504706837cad2c5001d887c49d3bc07e4b941c416a3beb0ba1caad789d2e1f",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "2e1feefcac2bbab95b85f5cc9018424167b9d4b99f2f3cb7fecd2b9b6c512540"
+        "version.json": "7a00f5da109177e5ae6a87d8ed81c9cccd2348b1d2846df7dada014437683def"
     }
 }
