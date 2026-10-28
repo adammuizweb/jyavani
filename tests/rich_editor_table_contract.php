@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 require_once $root . '/cfg/helpers/cms_content.php';
+require_once $root . '/cfg/helpers/editor_helpers.php';
 $table = (string)file_get_contents($root . '/public/static/vendor/quill/quill-table.js');
 $edit = (string)file_get_contents($root . '/public/static/js/edit/quill.js');
 $mode = (string)file_get_contents($root . '/public/static/js/edit/editor_mode.js');
@@ -11,6 +12,8 @@ $postAdd = (string)file_get_contents($root . '/dashboard/admin/posts/add.php');
 $pageAdd = (string)file_get_contents($root . '/dashboard/admin/pages/add.php');
 $postEdit = (string)file_get_contents($root . '/dashboard/admin/posts/edit.php');
 $pageEdit = (string)file_get_contents($root . '/dashboard/admin/pages/edit.php');
+$postSave = (string)file_get_contents($root . '/dashboard/admin/posts/save.php');
+$pageSave = (string)file_get_contents($root . '/dashboard/admin/pages/save.php');
 $sanitizer = (string)file_get_contents($root . '/cfg/helpers/cms_content.php');
 $dashboardCss = (string)file_get_contents($root . '/public/static/dashboard/css/style.css');
 $publicCss = (string)file_get_contents($root . '/public/static/vendor/quill/quill.snow.pub.css');
@@ -135,6 +138,33 @@ $check(str_contains($sanitizedCellList, '<ol>')
     && substr_count($sanitizedCellList, '<li>') === 2
     && str_contains($sanitizedCellList, '<strong>A</strong>'),
     'restricted saves retain semantic ordered lists and inline formatting inside table cells');
+$legacyTable = '<?xml encoding="utf-8" ?><?xml encoding="utf-8" ?><table class="jy-editor-table"><tbody><tr><td><a href="https://example.com" target="_blank" rel="noopener noreferrer">Preview</a></td></tr></tbody></table>';
+$sanitizedLegacyTable = cms_sanitize_restricted_html($legacyTable);
+$check(!str_contains($sanitizedLegacyTable, '<?xml')
+    && $sanitizedLegacyTable === cms_sanitize_restricted_html($sanitizedLegacyTable)
+    && str_contains($sanitizedLegacyTable, 'rel="noopener noreferrer"'),
+    'restricted sanitization removes legacy XML preambles and remains idempotent');
+$normalizedLegacyTable = normalize_links_in_html($legacyTable);
+$check(!str_contains($normalizedLegacyTable, '<?xml')
+    && !str_contains(normalize_links_in_html($normalizedLegacyTable), '<?xml'),
+    'link normalization removes every generated or legacy XML preamble');
+$cycledLegacyTable = $legacyTable;
+for ($cycle = 0; $cycle < 5; $cycle++) {
+    $cycledLegacyTable = cms_sanitize_restricted_html($cycledLegacyTable);
+    $cycledLegacyTable = normalize_links_in_html($cycledLegacyTable);
+    $cycledLegacyTable = cms_sanitize_restricted_html($cycledLegacyTable);
+}
+$check(!str_contains($cycledLegacyTable, '<?xml'),
+    'repeated restricted load and save normalization remains XML-free');
+$check(substr_count($postAdd . $pageAdd . $postEdit . $pageEdit . $postSave . $pageSave, 'cms_strip_html_xml_preamble(') >= 6,
+    'Article and Page editor load and submit paths clean legacy XML preambles for every HTML permission level');
+$check(str_contains($edit, "a: new Set(['href', 'target', 'rel'])")
+    && str_contains($edit, "rel.includes('noopener')")
+    && str_contains($edit, 'function normalizeEditorLinks(root)')
+    && substr_count($edit, 'normalizeEditorLinks(quill.root)') >= 4,
+    'canonical safe link rel attributes remain eligible and are restored by Rich Editor');
+$check(str_contains($edit, 'return !isQuillClassAllowed(element, className);'),
+    'Rich Editor still rejects arbitrary classes that Quill cannot preserve safely');
 $check(str_contains($dashboardCss, '.jy-table-dialog{')
     && str_contains($dashboardCss, '.jy-table-tools{')
     && str_contains($dashboardCss, '.jy-table-list-ordered::before')

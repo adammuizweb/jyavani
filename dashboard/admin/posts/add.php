@@ -215,7 +215,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
     $title   = trim((string)($_POST['title'] ?? ''));
     $slug    = trim((string)($_POST['slug'] ?? ''));
-    $content = (string)($_POST['content'] ?? '');
+    $content = cms_strip_html_xml_preamble((string)($_POST['content'] ?? ''));
 
     $requestedStatus = in_array($_POST['status'] ?? '', content_schedule_statuses(), true)
         ? (string)$_POST['status']

@@ -12,6 +12,9 @@
 if (!function_exists('normalize_links_in_html')) {
     function normalize_links_in_html(string $html): string {
         if (trim($html) === '') return $html;
+        if (function_exists('cms_strip_html_xml_preamble')) {
+            $html = cms_strip_html_xml_preamble($html);
+        }
 
         // supress warnings
         libxml_use_internal_errors(true);
@@ -25,6 +28,11 @@ if (!function_exists('normalize_links_in_html')) {
         if (!$loaded) {
             // fallback: kembalikan original jika parsing gagal
             return $html;
+        }
+
+        $xpath = new DOMXPath($doc);
+        foreach ($xpath->query('//processing-instruction()') as $instruction) {
+            $instruction->parentNode?->removeChild($instruction);
         }
 
         foreach ($doc->getElementsByTagName('a') as $a) {
@@ -84,7 +92,9 @@ if (!function_exists('normalize_links_in_html')) {
         $out = $doc->saveHTML();
 
         // bersihkan xml prolog yang kita tambahkan
-        $out = preg_replace('/^<\\?xml.*?\\?>/i', '', $out);
+        $out = function_exists('cms_strip_html_xml_preamble')
+            ? cms_strip_html_xml_preamble((string)$out)
+            : preg_replace('/\A(?:\s*<\\?xml\b[\s\S]*?\\?>)+\s*/i', '', (string)$out);
         // optional: hapus doctype jika ada
         $out = preg_replace('/^<!DOCTYPE.+?>/i', '', $out);
 

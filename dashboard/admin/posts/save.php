@@ -96,6 +96,9 @@ if (!function_exists('sanitize_author_html')) {
         $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
 
         $xpath = new DOMXPath($doc);
+        foreach ($xpath->query('//processing-instruction()') as $instruction) {
+            $instruction->parentNode?->removeChild($instruction);
+        }
         foreach ($xpath->query('//comment()') as $c) {
             $c->parentNode?->removeChild($c);
         }
@@ -178,7 +181,7 @@ if (!function_exists('sanitize_author_html')) {
 
         $walker($doc);
 
-        $out = $doc->saveHTML() ?: '';
+        $out = cms_strip_html_xml_preamble($doc->saveHTML() ?: '');
         libxml_clear_errors();
         libxml_use_internal_errors($prev);
         return trim($out);
@@ -198,7 +201,7 @@ $now = app_now_wall_mysql();
 $id            = (int)($_POST['id'] ?? 0);
 $title         = trim((string)($_POST['title'] ?? ''));
 $slug_in       = trim((string)($_POST['slug'] ?? ''));
-$content       = (string)($_POST['content'] ?? '');
+$content       = cms_strip_html_xml_preamble((string)($_POST['content'] ?? ''));
 $statusIn      = (string)($_POST['status'] ?? 'draft');
 $requestedStatus = in_array($statusIn, content_schedule_statuses(), true) ? $statusIn : 'draft';
 $scheduleAtIn = trim((string)($_POST['schedule_at'] ?? ''));

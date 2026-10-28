@@ -4,9 +4,16 @@ declare(strict_types=1);
 if (defined('CMS_CONTENT_INCLUDED')) return;
 define('CMS_CONTENT_INCLUDED', true);
 
+if (!function_exists('cms_strip_html_xml_preamble')) {
+  function cms_strip_html_xml_preamble(string $html): string {
+    $clean = preg_replace('/\A(?:\s*<\?xml\b[\s\S]*?\?>)+\s*/i', '', $html);
+    return is_string($clean) ? $clean : $html;
+  }
+}
+
 if (!function_exists('cms_sanitize_restricted_html')) {
   function cms_sanitize_restricted_html(string $html): string {
-    $html = trim($html);
+    $html = trim(cms_strip_html_xml_preamble($html));
     if ($html === '') return '';
 
     $allowedTags = array_fill_keys([
@@ -27,6 +34,9 @@ if (!function_exists('cms_sanitize_restricted_html')) {
     $document = new DOMDocument('1.0', 'UTF-8');
     $document->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
     $xpath = new DOMXPath($document);
+    foreach ($xpath->query('//processing-instruction()') as $instruction) {
+      $instruction->parentNode?->removeChild($instruction);
+    }
     foreach ($xpath->query('//comment()') as $comment) {
       $comment->parentNode?->removeChild($comment);
     }
@@ -80,7 +90,7 @@ if (!function_exists('cms_sanitize_restricted_html')) {
     };
 
     $walk($document);
-    $result = trim((string)$document->saveHTML());
+    $result = trim(cms_strip_html_xml_preamble((string)$document->saveHTML()));
     libxml_clear_errors();
     libxml_use_internal_errors($previous);
     return $result;

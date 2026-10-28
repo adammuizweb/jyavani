@@ -530,6 +530,7 @@
       try {
         var cleaned = typeof policy.cleanExtraBreaks === 'function' ? policy.cleanExtraBreaks(value) : String(value || '');
         quill.setContents(quill.clipboard.convert(cleaned), 'silent');
+        if (typeof policy.normalizeEditorLinks === 'function') policy.normalizeEditorLinks(quill.root);
         restoreMountedImageAttributes(cleaned);
       } finally {
         suppress = false;
@@ -553,6 +554,9 @@
 
     function mountedContent() {
       mountAssertActive();
+      if (currentMode === 'quill' && typeof policy.normalizeEditorLinks === 'function') {
+        policy.normalizeEditorLinks(quill.root);
+      }
       var value = currentMode === 'codemirror'
         ? codeMirror.getValue()
         : (typeof policy.cleanExtraBreaks === 'function' ? policy.cleanExtraBreaks(quill.root.innerHTML || '') : String(quill.root.innerHTML || ''));

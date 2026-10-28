@@ -148,7 +148,7 @@ $val = function($key, $default = '') {
 
 $title      = $val('title', $post['title'] ?? '');
 $slug       = $val('slug', $post['slug'] ?? '');
-$content    = $val('content', $post['content'] ?? '');
+$content    = cms_strip_html_xml_preamble((string)$val('content', $post['content'] ?? ''));
 if (!$canUseUnfilteredHtml && function_exists('cms_sanitize_restricted_html')) {
     $content = cms_sanitize_restricted_html((string)$content);
 }

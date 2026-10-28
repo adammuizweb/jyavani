@@ -139,7 +139,7 @@ $val = function($key, $default = '') {
 
 $title      = (string)$val('title', $post['title'] ?? '');
 $slug       = (string)$val('slug', $post['slug'] ?? '');
-$content    = (string)$val('content', $post['content'] ?? '');
+$content    = cms_strip_html_xml_preamble((string)$val('content', $post['content'] ?? ''));
 $content = $canUseUnfilteredHtml ? $content : cms_sanitize_restricted_html($content);
 $status     = (string)$val('status', $post['status'] ?? 'draft');
 $thumbnail  = (string)$val('thumbnail', $post['thumbnail'] ?? '');
