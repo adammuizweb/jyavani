@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.190",
-    "build": "2026-10-28",
-    "changelog": "Allow Rich Editor tables to grow beyond 12 rows while keeping editor limits consistent.",
+    "version": "2.3.191",
+    "build": "2026-10-29",
+    "changelog": "Dispatch declared plugin downloads before dashboard rendering and contain plugin page failures in the main panel.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.190"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.191"
 }

@@ -143,7 +143,24 @@ if (is_array($user)) {
     }
 }
 
-// AJAX handler: page actions that return JSON (must run before layout)
+// Explicit non-HTML plugin responses must run before any dashboard markup.
+$responsePage = trim((string)($_GET['page'] ?? ''), " \t\n\r\0\x0B/");
+if ($responsePage !== '' && function_exists('plugin_resolve_route')) {
+    $responseRoute = plugin_resolve_route($responsePage);
+    $responseMode = is_array($responseRoute) && function_exists('plugin_route_response_mode')
+        ? plugin_route_response_mode($responseRoute)
+        : 'html';
+    if (is_array($responseRoute) && $responseMode !== 'html'
+        && isset($responseRoute['file']) && is_file($responseRoute['file'])) {
+        if (function_exists('plugin_guard_route')) {
+            plugin_guard_route($pdo, $responseRoute, $responseMode === 'json');
+        }
+        require $responseRoute['file'];
+        exit;
+    }
+}
+
+// Compatibility handler: page actions that return JSON or files before layout.
 $ajaxAction = (string)($_GET['action'] ?? $_POST['action'] ?? '');
 $ajaxPage = (string)($_GET['page'] ?? '');
 if ($ajaxAction !== '' && $ajaxPage !== '') {

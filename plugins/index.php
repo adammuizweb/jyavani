@@ -373,6 +373,10 @@ function plugin_manifest_contract(array $manifest): array {
         if (array_key_exists('site_owner', $page) && !is_bool($page['site_owner'])) {
             $errors[] = 'Invalid Site Owner declaration for route: ' . $route;
         }
+        $response = $page['response'] ?? 'html';
+        if (!is_string($response) || !in_array($response, ['html', 'json', 'download'], true)) {
+            $errors[] = 'Invalid plugin response mode for route: ' . $route;
+        }
         $permission = is_string($page['permission'] ?? null) ? trim($page['permission']) : '';
         if ($permission === '') continue;
         if (($page['site_owner'] ?? false) === true) {
@@ -2056,11 +2060,17 @@ function plugin_admin_routes(): array {
                 'hidden' => $r['hidden'] ?? false,
                 'permission' => is_string($r['permission'] ?? null) ? trim($r['permission']) : '',
                 'site_owner' => ($r['site_owner'] ?? false) === true,
+                'response' => is_string($r['response'] ?? null) ? $r['response'] : 'html',
                 'plugin' => $name,
             ];
         }
     }
     return $routes;
+}
+
+function plugin_route_response_mode(array $route): string {
+    $mode = $route['response'] ?? 'html';
+    return is_string($mode) && in_array($mode, ['html', 'json', 'download'], true) ? $mode : 'html';
 }
 
 function plugin_nav_items(): array {

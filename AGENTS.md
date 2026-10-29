@@ -747,7 +747,7 @@ root route.
 
 - `name` (req): unique identifier, alphanumeric + dash/underscore
 - `permissions[]`: plugin-owned `plugin.{name}.{resource}.{action}` keys with label, scope support, delegability, and optional compatibility `default_roles`
-- `admin.pages[]` (req): `route`, `file`, `title`, `hidden`, and either a declared unscoped `permission` or `site_owner`; `roles` only seeds compatibility grants for a permission
+- `admin.pages[]` (req): `route`, `file`, `title`, `hidden`, and either a declared unscoped `permission` or `site_owner`; `roles` only seeds compatibility grants for a permission. Optional `response` is `html` (default), `json`, or `download`; non-HTML routes dispatch before dashboard layout output.
 - `admin.nav[]`: `label`, `page`, and `parent` (`"pages"`, `"settings"`, or `"tools"`). `icon` is a bounded Core Lucide fallback name. Optional `icon_asset` is a plugin-owned published image and must exactly match one same-plugin `static.copy[].to` destination.
 - `static.copy[]`: `from` is relative to the plugin directory; `to` must stay under `static/plugins/{name}/`. Sources and destinations are validated before publication, copied atomically, and removed or restored with plugin lifecycle operations.
 - Top-level `icon` is the package/Plugin Manager artwork and is separate from `admin.nav[].icon` and `icon_asset`.

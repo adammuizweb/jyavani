@@ -80,6 +80,16 @@ $traversal = $valid;
 $traversal['admin']['pages'][0]['file'] = '../dashboard/index.php';
 $check(plugin_manifest_contract_errors($traversal) !== [], 'plugin route file traversal is rejected');
 
+$downloadRoute = $valid;
+$downloadRoute['admin']['pages'][0]['response'] = 'download';
+$check(plugin_manifest_contract_errors($downloadRoute) === [], 'plugin routes may declare a pre-layout download response');
+$jsonRoute = $valid;
+$jsonRoute['admin']['pages'][0]['response'] = 'json';
+$check(plugin_manifest_contract_errors($jsonRoute) === [], 'plugin routes may declare a pre-layout JSON response');
+$invalidResponse = $valid;
+$invalidResponse['admin']['pages'][0]['response'] = 'binary-ish';
+$check(plugin_manifest_contract_errors($invalidResponse) !== [], 'unknown plugin response modes fail manifest validation');
+
 $inconsistent = $valid;
 $inconsistent['admin']['pages'][] = [
     'route' => 'admin/tools/example/save',
@@ -190,6 +200,7 @@ $check(isset($collisionResolution['diagnostics']['collision-dependent']), 'route
 
 $registry = (string)file_get_contents(dirname(__DIR__) . '/plugins/index.php');
 $dashboard = (string)file_get_contents(dirname(__DIR__) . '/dashboard/index.php');
+$dashboardMain = (string)file_get_contents(dirname(__DIR__) . '/dashboard/theme/adiwira/part/main.php');
 $aside = (string)file_get_contents(dirname(__DIR__) . '/dashboard/theme/adiwira/part/aside.php');
 $check(str_contains($registry, 'adiwira_require_site_owner($pdo, $asJson)'), 'plugin router enforces Site Owner metadata');
 $check(str_contains($registry, 'adiwira_require_permission($pdo, $permission, $asJson)'), 'plugin router enforces dynamic permission metadata');
@@ -197,6 +208,16 @@ $check(substr_count($registry, "apply_filters('plugin_page_roles'") >= 2, 'permi
 $check(str_contains($registry, "['_plugin_ready_permissions']"), 'permission routes fail closed until synchronization succeeds');
 $check(str_contains($registry, 'plugin_route_collision_errors($manifest, plugins_all())'), 'install and update preflight checks installed route ownership');
 $check(str_contains($registry, "\$GLOBALS['_plugin_current_route'] = \$route") && str_contains($registry, "'route' => \$route"), 'plugin guards expose authoritative resolved route metadata');
+$responseDispatchAt = strpos($dashboard, '// Explicit non-HTML plugin responses must run before any dashboard markup.');
+$layoutAt = strpos($dashboard, "require_once DASH_PATH . '/theme/adiwira/layout.php';");
+$check($responseDispatchAt !== false && $layoutAt !== false && $responseDispatchAt < $layoutAt
+    && str_contains($dashboard, "plugin_guard_route(\$pdo, \$responseRoute, \$responseMode === 'json')"),
+    'declared plugin downloads and JSON routes dispatch with the correct guard before dashboard layout');
+$check(str_contains($dashboardMain, "plugin_route_response_mode(\$pluginPage) !== 'html'")
+    && str_contains($dashboardMain, 'catch (Throwable $error)')
+    && str_contains($dashboardMain, "'[PLUGIN DASHBOARD PAGE] %s in %s:%d'")
+    && str_contains($dashboardMain, 'class="adam-main-error"'),
+    'layout dispatch rejects non-HTML plugin routes and contains plugin failures in the main panel');
 $loadAt = strpos($dashboard, 'plugin_load_active();');
 $syncAt = strpos($dashboard, 'plugin_sync_permissions($pdo);');
 $initAt = strpos($dashboard, "do_action('admin_init');");

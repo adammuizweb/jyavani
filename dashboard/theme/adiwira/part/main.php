@@ -49,15 +49,38 @@ if ($page === 'home') {
 if (function_exists('plugin_resolve_route')) {
     $pluginPage = plugin_resolve_route($page);
     if ($pluginPage && isset($pluginPage['file']) && is_file($pluginPage['file'])) {
-        if (function_exists('plugin_guard_route')) {
-            $pdo = $GLOBALS['pdo'] ?? null;
-            if ($pdo instanceof PDO) {
-                plugin_guard_route($pdo, $pluginPage, false);
+        try {
+            if (function_exists('plugin_route_response_mode') && plugin_route_response_mode($pluginPage) !== 'html') {
+                throw new RuntimeException('A non-HTML plugin route reached the dashboard layout.');
             }
+            if (function_exists('plugin_guard_route')) {
+                $pdo = $GLOBALS['pdo'] ?? null;
+                if ($pdo instanceof PDO) {
+                    plugin_guard_route($pdo, $pluginPage, false);
+                }
+            }
+            require $pluginPage['file'];
+            $GLOBALS['__JY_DASHBOARD_DOCUMENT']['label'] = trim((string)($pluginPage['title'] ?? '')) ?: $page;
+            $GLOBALS['__JY_DASHBOARD_DOCUMENT']['rendered'] = true;
+        } catch (Throwable $error) {
+            if (!headers_sent()) http_response_code(500);
+            error_log(sprintf(
+                '[PLUGIN DASHBOARD PAGE] %s in %s:%d',
+                $error->getMessage(),
+                $error->getFile(),
+                $error->getLine()
+            ));
+            echo '<section class="adam-main-error" role="alert">';
+            echo '<h2>' . __('Error') . '</h2>';
+            if (function_exists('app_debug_enabled') && app_debug_enabled()) {
+                echo '<pre>FATAL: ' . htmlspecialchars($error->getMessage(), ENT_QUOTES, 'UTF-8') . "\n";
+                echo 'File: ' . htmlspecialchars($error->getFile(), ENT_QUOTES, 'UTF-8') . ' : line ' . $error->getLine() . "\n\n";
+                echo htmlspecialchars($error->getTraceAsString(), ENT_QUOTES, 'UTF-8') . '</pre>';
+            } else {
+                echo '<p>' . __('Internal error (see logs).') . '</p>';
+            }
+            echo '</section>';
         }
-        require $pluginPage['file'];
-        $GLOBALS['__JY_DASHBOARD_DOCUMENT']['label'] = trim((string)($pluginPage['title'] ?? '')) ?: $page;
-        $GLOBALS['__JY_DASHBOARD_DOCUMENT']['rendered'] = true;
         echo '</main>';
         return;
     }
