@@ -90,6 +90,7 @@ if ($requiredPermission === '' || user_permission_scope($pdo, $uid, $requiredPer
     respond(false, __('Access denied.'), 403, [], $returnTo);
 }
 
+$publicationEvents = [];
 try {
     $pdo->beginTransaction();
     if (!authorization_lock_actor_permissions($pdo, $uid)) {
@@ -307,9 +308,22 @@ try {
                     'authorization_audit_id' => $authorizationAuditIds[$selectedId] ?? null,
                 ]
             );
+            if ($new_status === 'published' && $rawStatusesById[$selectedId] !== 'published') {
+                $publicationEvents[] = content_status_published_create(
+                    $pdo,
+                    $selectedId,
+                    $uid,
+                    'admin.posts.bulk',
+                    $rawStatusesById[$selectedId],
+                    $statusRevisionsById[$selectedId] + 1
+                );
+            }
         }
 
         $pdo->commit();
+        foreach ($publicationEvents as $publicationEvent) {
+            content_status_published_notify_safely($pdo, $publicationEvent);
+        }
         $extra = ['count' => $affected];
         if ($undoItems !== []) {
             try {

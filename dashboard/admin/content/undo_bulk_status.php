@@ -42,7 +42,8 @@ if ($items === []) {
 }
 $ids = array_keys($items);
 
-$performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $ids): void {
+$publicationEvents = [];
+$performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $ids, &$publicationEvents): void {
     $pdo->beginTransaction();
     try {
         if (!authorization_lock_actor_permissions($pdo, $uid)) throw new DomainException(__('Access denied.'));
@@ -145,6 +146,18 @@ $performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $
                     ]
                 );
             }
+            if ($resource === 'article'
+                && $items[$id]['changed_status'] !== 'published'
+                && $items[$id]['previous_status'] === 'published') {
+                $publicationEvents[] = content_status_published_create(
+                    $pdo,
+                    $id,
+                    $uid,
+                    'admin.content.undo',
+                    $items[$id]['changed_status'],
+                    (int)$rowsById[$id]['status_revision'] + 1
+                );
+            }
         }
         $pdo->commit();
     } catch (Throwable $error) {
@@ -155,6 +168,9 @@ $performUndo = static function () use ($pdo, $uid, $resource, $config, $items, $
 
 try {
     $performUndo();
+    foreach ($publicationEvents as $publicationEvent) {
+        content_status_published_notify_safely($pdo, $publicationEvent);
+    }
     try {
         adiwira_undo_consume($undoToken);
         adiwira_flash_push('success', sprintf(__('%d item(s) status restored.'), count($ids)));

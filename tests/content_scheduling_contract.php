@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__);
 require_once $root . '/cfg/helpers/hooks.php';
+require_once $root . '/cfg/helpers/resource_lifecycle.php';
 require_once $root . '/cfg/helpers/time_helpers.php';
 require_once $root . '/cfg/helpers/audit_log.php';
 if (!function_exists('settings_get')) {
@@ -13,6 +14,7 @@ if (!function_exists('settings_get')) {
             : $default;
     }
 }
+require_once $root . '/cfg/helpers/content_publication.php';
 require_once $root . '/cfg/helpers/content_scheduler.php';
 
 $failures = [];
@@ -169,6 +171,11 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         'a failing pre-publication hook leaves only that item scheduled and does not starve later due content');
     $sqlite->exec("INSERT INTO posts (type,title,status,publish_at_utc) VALUES
         ('page','Third','draft','2026-09-17 11:45:00')");
+    $publicationEvents = [];
+    add_action('content_status_published', static function (array $event, PDO $database) use (&$publicationEvents): void {
+        $event['observer_in_transaction'] = $database->inTransaction();
+        $publicationEvents[] = $event;
+    });
     add_action('content_scheduler_published', static function (array $item, PDO $database): void {
         $database->beginTransaction();
     });
@@ -179,8 +186,15 @@ if (in_array('sqlite', PDO::getAvailableDrivers(), true)) {
         && array_map('intval', array_column($states, 'status_revision')) === [1, 1, 1]
         && array_column($states, 'publish_at_utc') === [null, null, null]
         && (int)$sqlite->query("SELECT COUNT(*) FROM audit_events WHERE actor_user_id IS NULL AND actor_label = 'System' AND source = 'core.scheduler' AND session_correlation_id IS NULL")->fetchColumn() === 3
+        && count($publicationEvents) === 1
+        && ($publicationEvents[0]['content_id'] ?? null) === 1
+        && ($publicationEvents[0]['previous_status'] ?? null) === 'draft'
+        && array_key_exists('actor_id', $publicationEvents[0])
+        && $publicationEvents[0]['actor_id'] === null
+        && ($publicationEvents[0]['status_revision'] ?? null) === 1
+        && ($publicationEvents[0]['observer_in_transaction'] ?? true) === false
         && !$sqlite->inTransaction(),
-        'scheduled publication is audited atomically and a transaction-leaking observer cannot roll it back or block later publications');
+        'scheduled Article publication emits the committed edge and a transaction-leaking legacy observer cannot roll it back or block later publications');
 }
 unset($GLOBALS['__TEST_CONTENT_SCHEDULING_ENABLED']);
 

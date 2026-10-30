@@ -199,6 +199,7 @@ if (!function_exists('content_scheduler_publish_due')) {
         foreach ($dueIds as $dueId) {
             if (count($published) >= $limit) break;
             $pdo->beginTransaction();
+            $publicationEvent = null;
             try {
                 $lock->execute([':id' => $dueId]);
                 $item = $lock->fetch(PDO::FETCH_ASSOC);
@@ -243,6 +244,16 @@ if (!function_exists('content_scheduler_publish_due')) {
                         ['metadata' => ['scheduled_publication' => true]]
                     );
                 }
+                if ((string)$item['type'] === 'article') {
+                    $publicationEvent = content_status_published_create(
+                        $pdo,
+                        (int)$item['id'],
+                        null,
+                        'core.scheduler',
+                        'draft',
+                        (int)($item['status_revision'] ?? 0) + 1
+                    );
+                }
                 $pdo->commit();
             } catch (Throwable $error) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
@@ -255,6 +266,9 @@ if (!function_exists('content_scheduler_publish_due')) {
                 continue;
             }
             $published[] = $item;
+            if (is_array($publicationEvent)) {
+                content_status_published_notify_safely($pdo, $publicationEvent);
+            }
             foreach (content_scheduler_notify_published($item, $pdo) as $error) {
                 error_log('[content-scheduler] Observer failed: ' . (string)($error['message'] ?? 'Unknown listener error.'));
             }

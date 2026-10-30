@@ -322,8 +322,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             (title, slug, content, type, meta, youtube, thumbnail, thumbnail_media_id, status, publish_at_utc, created_by, updated_by, created_at, updated_at)
             VALUES
             (:title, :slug, :content, 'article', :meta, :youtube, :thumbnail, :thumbnail_media_id, :status, :publish_at_utc, :created_by, :updated_by, :created_at, :updated_at)";
+        $publicationEvent = null;
         try {
-            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription): int {
+            $post_id = shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $insertSql, $title, $slug, $content, $metaVal, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $uid, $final_created, $final_updated, $category_ids, $requiresDatePermission, $sidebarOverride, $metaDescription, &$publicationEvent): int {
                 $pdo->beginTransaction();
                 try {
                 if (!authorization_lock_actor_permissions($pdo, $uid)) {
@@ -434,6 +435,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     ],
                     ['redacted_fields' => ['content', 'meta', 'thumbnail']]
                 );
+                if ($status === 'published') {
+                    $publicationEvent = content_status_published_create(
+                        $pdo,
+                        $postId,
+                        $uid,
+                        'admin.posts.add',
+                        null,
+                        0
+                    );
+                }
                 $pdo->commit();
                 return $postId;
                 } catch (Throwable $error) {
@@ -447,6 +458,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
 
         if ($post_id > 0) {
+            if (is_array($publicationEvent)) {
+                content_status_published_notify_safely($pdo, $publicationEvent);
+            }
             do_action('admin_post_after_add', $post_id, $pdo, array_replace($_POST, [
                 'status' => $status,
                 'editor_status' => $requestedStatus,

@@ -355,7 +355,8 @@ $finalMeta = !empty($currentMeta) ? json_encode($currentMeta, JSON_UNESCAPED_UNI
 $requiresDatePermission = $created_at_in !== '' || $updated_at_in !== '';
 
 try {
-    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in, $sidebarOverride, $metaDescription): void {
+    $publicationEvent = null;
+    shortcode_collection_layout_content_mutation($pdo, static function () use ($pdo, $title, $slug, $content, $youtube, $thumbnail, $thumbnailMediaIdInput, $status, $publishAtUtc, $requestedStatus, $finalMeta, $final_creator, $final_created, $final_updated, $id, $categories, $uid, $requiresDatePermission, $created_at_in, $sidebarOverride, $metaDescription, &$publicationEvent): void {
     $pdo->beginTransaction();
     try {
 
@@ -366,7 +367,7 @@ try {
         $content = cms_sanitize_restricted_html($content);
     }
 
-    $lock = $pdo->prepare("SELECT id, title, slug, content, meta, youtube, created_by, status, publish_at_utc, created_at, updated_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
+    $lock = $pdo->prepare("SELECT id, title, slug, content, meta, youtube, created_by, status, status_revision, publish_at_utc, created_at, updated_at, thumbnail, thumbnail_media_id FROM posts WHERE id = :id AND type = 'article' AND is_deleted = 0 FOR UPDATE");
     $lock->execute([':id' => $id]);
     $lockedPost = $lock->fetch(PDO::FETCH_ASSOC);
     $lockedOwnerId = (int)($lockedPost['created_by'] ?? 0);
@@ -542,6 +543,16 @@ try {
         ],
         ['redacted_fields' => ['content', 'meta', 'thumbnail']]
     );
+    if ((string)$lockedPost['status'] !== 'published' && $status === 'published') {
+        $publicationEvent = content_status_published_create(
+            $pdo,
+            $id,
+            $uid,
+            'admin.posts.edit',
+            (string)$lockedPost['status'],
+            (int)$lockedPost['status_revision'] + 1
+        );
+    }
     $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -549,6 +560,9 @@ try {
     }
     });
 
+    if (is_array($publicationEvent)) {
+        content_status_published_notify_safely($pdo, $publicationEvent);
+    }
     do_action('admin_post_after_edit', $id, $pdo, array_replace($_POST, [
         'status' => $status,
         'editor_status' => $requestedStatus,

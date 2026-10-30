@@ -28,6 +28,7 @@ $dashboardFooter = (string)file_get_contents($root . '/dashboard/theme/adiwira/p
 $siteSettings = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $sitemap = (string)file_get_contents($root . '/app/controllers/SitemapController.php');
 $docs = (string)file_get_contents($root . '/cms.md');
+$publication = (string)file_get_contents($root . '/cfg/helpers/content_publication.php');
 
 $addHook = strpos($add, "do_action('admin_post_before_add_commit'");
 $addCommit = strpos($add, '$pdo->commit();', $addHook === false ? 0 : $addHook);
@@ -177,7 +178,9 @@ $check(str_contains($docs, 'admin_post_before_add_commit')
     && str_contains($docs, 'admin_page_before_add_commit')
     && str_contains($docs, 'admin_page_editor_status')
     && str_contains($docs, 'post_list_rows')
-    && str_contains($docs, 'sitemap_query_clauses'),
+    && str_contains($docs, 'sitemap_query_clauses')
+    && str_contains($docs, 'content_status_published')
+    && str_contains($publication, 'Content publication observers cannot leave an active transaction.'),
     'content workflow and sitemap extension contracts are documented');
 
 if ($failures !== []) {

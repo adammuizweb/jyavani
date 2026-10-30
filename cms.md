@@ -233,6 +233,28 @@ state or throw; thrown errors propagate so Core rolls back the whole transaction
 Listeners must not commit, roll back, or start another transaction, and must
 preserve Core's global-first lock order.
 
+After a stored Article status crosses from `draft` or `private` to `published`,
+or a new Article is created as `published`, Core emits one post-commit event:
+
+```php
+do_action('content_status_published', array $event, PDO $pdo): void
+```
+
+The exact schema-1 event contains `event_id`, `occurred_at`, `content_type`
+(`article`), `content_id`, nullable `actor_id`, `source`, nullable
+`previous_status`, and the resulting `status_revision`. Direct creation uses a
+null previous status; scheduler publication uses a null actor. Core emits the
+same contract for editor, bulk, status Undo, and scheduled publication paths.
+Saving an already-published Article and restoring a published Article from trash
+do not represent a status edge and do not emit it.
+
+Observers run independently only after the Core transaction commits. Exceptions
+are logged, later observers still run, and Core rolls back a transaction left
+open by an observer before invoking the next one. Delivery is best-effort within
+the publishing process; extensions that require durable external delivery must
+claim the event in their own ledger or outbox. An observer failure never changes
+the successful publication result.
+
 ## Action audit events
 
 Core records successful Article and Page dashboard actions in the append-only
@@ -359,6 +381,10 @@ do_action('content_scheduler_published', array $item, PDO $pdo): void
 failures are logged after publication and do not stop later listeners. Production
 must run `php tools/publish-scheduled.php` once per minute as documented in
 `SERVER_SETUP.md`.
+
+For scheduled Articles, Core dispatches `content_status_published` first. The
+legacy scheduler observer remains available for Article, Page, and Theme Content
+integrations that need the complete scheduled item.
 
 Site-owned constraints can also add validation errors before
 Site Settings are persisted:
