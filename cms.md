@@ -212,6 +212,27 @@ post; it must not replace page-level metadata for the request. This keeps direct
 theme pages, assigned partials, preview tools, localization, and future extensions
 independent from one another.
 
+## Frontend entity view hook
+
+Core emits one synchronous action after a public entity and its canonical route
+have resolved, but before template rendering:
+
+```php
+do_action('frontend_entity_viewed', array $entity, array $context, PDO $pdo): void
+```
+
+The entity contains `kind` (`post` or `category`), `type` (`article`, `page`,
+`theme`, or `category`), and a positive integer `id`. Schema-1 context contains
+`route`, `status` (`published`), `is_public` (`true`), nullable root-relative
+`canonical_url`, positive `page` (`1` for singles), and `request_method`.
+Current routes are `single.post`, `single.page`, `single.theme`, and
+`list.category`, the canonical Core slot for a resolved category collection.
+
+The action is not emitted for redirects, 404s, previews, unpublished or deleted
+content, collection index rows, or Article/Page list items. It is fail-fast like
+`do_action()`; listeners must not render output and should keep request work
+bounded.
+
 ## Content workflow hooks
 
 Plugins that maintain article- or page-owned companion rows can join Core's

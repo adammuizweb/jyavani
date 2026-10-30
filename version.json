@@ -1,12 +1,12 @@
 {
     "name": "Jyavani",
-    "version": "2.3.192",
+    "version": "2.3.193",
     "build": "2026-10-30",
-    "changelog": "Publish isolated post-commit Article status events across direct, bulk, Undo, and scheduled workflows.",
+    "changelog": "Add a generic frontend entity-view lifecycle with locale-aware canonical route context.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.192"
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.193"
 }

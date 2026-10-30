@@ -31,7 +31,9 @@ $check(str_contains($source['permalink'], 'content_route_canonical_url'), 'post 
 $check(str_contains($source['router'], 'content_route_resolve($pdo, $pathTrimmed'), 'router resolves explicit nested content routes');
 $check(strpos($source['router'], 'content_route_resolve($pdo, $pathTrimmed') < strpos($source['router'], 'PostController::dispatchBySlug'), 'content routes resolve before legacy direct slugs');
 $check(str_contains($source['router'], "header('Location: ' . \$target, true, 301)"), 'historical routes permanently redirect to their canonical path');
-$check(str_contains($source['post_controller'], 'content_route_find_canonical') && str_contains($source['post_controller'], 'get_post_permalink($row)'), 'legacy internal slugs redirect through locale-aware canonical permalinks');
+$check(str_contains($source['post_controller'], 'get_post_permalink($row)')
+    && str_contains($source['post_controller'], '$comparedPath = $requestPath ?? $slug;'),
+    'legacy internal slugs redirect through locale-aware canonical permalinks');
 
 $check(str_contains($source['theme_add'], 'name="public_path"'), 'Theme add form exposes an optional public path');
 $check(str_contains($source['theme_edit'], 'name="public_path"'), 'Theme edit form exposes the canonical public path');

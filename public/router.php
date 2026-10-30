@@ -477,22 +477,27 @@ if (function_exists('permalink_resolve')) {
                 ? get_page_permalink($resolved)
                 : get_post_permalink($resolved))
             : null;
-        if (is_string($routeUrl) && trim($routeUrl, '/') !== trim($pathTrimmed, '/')) {
+        if (is_string($routeUrl) && trim($routeUrl, '/') !== trim($rawPath, '/')) {
             header('Location: ' . $routeUrl, true, 301);
             exit;
         }
+        $renderCanonicalUrl = is_string($routeUrl) && $routeUrl !== ''
+            ? $routeUrl
+            : (($resolved['type'] ?? '') === 'page' && function_exists('get_page_permalink')
+                ? get_page_permalink($resolved)
+                : get_post_permalink($resolved));
         $type = $resolved['type'] ?? 'article';
         switch ($type) {
             case 'theme':
                 require_once __DIR__ . '/../app/controllers/ThemeController.php';
-                ThemeController::renderTheme($resolved);
+                ThemeController::renderTheme($resolved, $renderCanonicalUrl);
                 break;
             case 'page':
                 require_once __DIR__ . '/../app/controllers/PageController.php';
-                PageController::renderPage($pdo, (string)($resolved['slug'] ?? ''));
+                PageController::renderPage($pdo, (string)($resolved['slug'] ?? ''), $renderCanonicalUrl);
                 break;
             default:
-                PostController::renderArticle($resolved, $pdo);
+                PostController::renderArticle($resolved, $pdo, $renderCanonicalUrl);
                 break;
         }
         exit;
@@ -554,8 +559,12 @@ if (function_exists('content_route_resolve') && !url_path_is_file_like($pathTrim
         $routed = null;
     }
     if (is_array($routed)) {
+        $routedCanonicalUrl = content_route_public_path(
+            (string)($routed['canonical_path'] ?? $routed['route_path'] ?? ''),
+            (string)($routed['route_locale'] ?? '')
+        );
         if (empty($routed['route_is_canonical']) && !empty($routed['canonical_path'])) {
-            $target = content_route_public_path((string)$routed['canonical_path'], (string)($routed['route_locale'] ?? ''));
+            $target = $routedCanonicalUrl;
             $query = (string)($_SERVER['QUERY_STRING'] ?? '');
             if ($query !== '') $target .= '?' . $query;
             header('Location: ' . $target, true, 301);
@@ -564,14 +573,14 @@ if (function_exists('content_route_resolve') && !url_path_is_file_like($pathTrim
         switch ((string)($routed['type'] ?? '')) {
             case 'theme':
                 require_once __DIR__ . '/../app/controllers/ThemeController.php';
-                ThemeController::renderTheme($routed);
+                ThemeController::renderTheme($routed, $routedCanonicalUrl);
                 break;
             case 'page':
                 require_once __DIR__ . '/../app/controllers/PageController.php';
-                PageController::renderPage($pdo, (string)$routed['slug']);
+                PageController::renderPage($pdo, (string)$routed['slug'], $routedCanonicalUrl);
                 break;
             case 'article':
-                PostController::renderArticle($routed, $pdo);
+                PostController::renderArticle($routed, $pdo, $routedCanonicalUrl);
                 break;
         }
         exit;
@@ -593,4 +602,4 @@ if (is_string($unresolvedRedirect) && $unresolvedRedirect !== '') {
 }
 
 // Fallback to direct slug lookup (backward compat)
-PostController::dispatchBySlug($pathTrimmed, $pdo, $isLoggedIn);
+PostController::dispatchBySlug($pathTrimmed, $pdo, $isLoggedIn, $rawPath);

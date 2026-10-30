@@ -306,10 +306,10 @@ class CategoryController
         }
 
         $categoryIdentity = $category;
+        $page = max(1, (int)$page);
         $category = collection_filter_item($category, 'category', $routeContext + ['scope' => 'category', 'category_id' => (int)$categoryIdentity['id']]);
         $categoryBreadcrumbs = collection_category_breadcrumbs($pdo, $categoryIdentity, $routeContext);
 
-        $page       = max(1, (int)$page);
         $offset     = ($page - 1) * 10;
         $isLoggedIn = !empty($_SESSION['user_id'] ?? null);
 
@@ -419,6 +419,9 @@ class CategoryController
         if (class_exists('PostController')) PostController::attach_display_images($posts, $pdo);
 
         $catBaseUrl = get_category_permalink($pdo, $categoryIdentity);
+        $canonicalPath = get_category_permalink($pdo, $categoryIdentity, $page, $q);
+        frontend_entity_viewed_notify($pdo, $categoryIdentity, 'category', 'category', 'list.category', $canonicalPath, $page);
+
         $paginationHtml = '';
         if ($totalPages > 1) {
             $prevUrl = get_category_permalink($pdo, $categoryIdentity, $page - 1, $q);

@@ -201,7 +201,7 @@ class PostController
     // Dispatchers
     // ---------------------
 
-    public static function dispatchBySlug(string $slug, PDO $pdo, bool $isLoggedIn)
+    public static function dispatchBySlug(string $slug, PDO $pdo, bool $isLoggedIn, ?string $requestPath = null)
     {
         try {
             if ($isLoggedIn) {
@@ -229,15 +229,11 @@ class PostController
             exit;
         }
 
-        $canonicalRoute = function_exists('content_route_find_canonical')
-            ? content_route_find_canonical($pdo, (int)($row['id'] ?? 0))
-            : null;
-        $routeUrl = $canonicalRoute
-            ? (($row['type'] ?? '') === 'page' && function_exists('get_page_permalink')
-                ? get_page_permalink($row)
-                : get_post_permalink($row))
-            : null;
-        if (is_string($routeUrl) && trim($routeUrl, '/') !== trim($slug, '/')) {
+        $routeUrl = ($row['type'] ?? '') === 'page' && function_exists('get_page_permalink')
+            ? get_page_permalink($row)
+            : get_post_permalink($row);
+        $comparedPath = $requestPath ?? $slug;
+        if (trim($routeUrl, '/') !== trim($comparedPath, '/')) {
             header('Location: ' . $routeUrl, true, 301);
             exit;
         }
@@ -247,16 +243,16 @@ class PostController
         switch ($type) {
             case 'theme':
                 require_once __DIR__ . '/ThemeController.php';
-                ThemeController::renderTheme($row);
+                ThemeController::renderTheme($row, $routeUrl);
                 break;
 
             case 'page':
                 require_once __DIR__ . '/PageController.php';
-                PageController::renderPage($pdo, (string)($row['slug'] ?? ''));
+                PageController::renderPage($pdo, (string)($row['slug'] ?? ''), $routeUrl);
                 break;
 
             default:
-                self::renderArticle($row, $pdo);
+                self::renderArticle($row, $pdo, $routeUrl);
                 break;
         }
 
@@ -567,8 +563,13 @@ class PostController
     // Single article renderer
     // ---------------------
 
-    public static function renderArticle(array $row, PDO $pdo)
+    public static function renderArticle(array $row, PDO $pdo, ?string $canonicalPath = null)
     {
+        $canonicalPath ??= function_exists('get_post_permalink')
+            ? get_post_permalink($row)
+            : '/' . rawurlencode((string)($row['slug'] ?? '')) . '/';
+        frontend_entity_viewed_notify($pdo, $row, 'post', 'article', 'single.post', $canonicalPath);
+
         // Allow plugins (e.g. content translation) to swap post data before rendering
         $row = apply_filters('post_data', $row, $pdo);
 

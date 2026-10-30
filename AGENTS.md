@@ -683,6 +683,9 @@ WordPress-style hook system:
 
 Used for bin items (`apply_filters('bin_items', ...)`), allowing plugins to extend admin bin pages.
 
+**Frontend entity view hook:**
+- `frontend_entity_viewed($entity, $context, $pdo)` fires once after canonical and public-visibility checks and before rendering a published Article, Page, direct Theme Content route, or resolved Category collection. Entity fields are `kind`, `type`, and positive integer `id`; schema-1 context contains `route`, `status`, `is_public`, nullable root-relative `canonical_url`, positive `page`, and `request_method`. It does not fire for redirects, 404s, previews, unpublished/deleted resources, category-index rows, or list items.
+
 **Admin lifecycle hooks** (for plugins like Content Translation):
 - `admin_post_after_add($post_id, $pdo, $_POST)` — after a new article is saved.
 - `admin_post_after_edit($post_id, $pdo, $_POST)` — after an article is updated.

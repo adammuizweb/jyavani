@@ -11,7 +11,7 @@ class PageController
         try {
             $stmt = $pdo->prepare("
                 SELECT id, title, slug, content, type, meta, thumbnail, thumbnail_media_id, youtube,
-                       created_at, updated_at, created_by, status
+                       created_at, updated_at, created_by, status, is_deleted
                 FROM posts
                 WHERE slug = :slug 
                   AND type = 'page'
@@ -278,7 +278,7 @@ $pdo = $layout_pdo;
      * 4) local /views/pages/single.php
      * 5) controller inline fallback
      */
-    public static function renderPage(PDO $pdo, string $slug)
+    public static function renderPage(PDO $pdo, string $slug, ?string $canonicalPath = null)
     {
         $slug = trim($slug);
         if ($slug === '') {
@@ -295,11 +295,17 @@ $pdo = $layout_pdo;
             exit;
         }
 
+        $canonicalPath ??= function_exists('get_page_permalink')
+            ? get_page_permalink($pageData)
+            : '/' . rawurlencode((string)($pageData['slug'] ?? '')) . '/';
+        frontend_entity_viewed_notify($pdo, $pageData, 'post', 'page', 'single.page', $canonicalPath);
+
         // Allow plugins (e.g. content translation) to swap page data before rendering
         $pageData = apply_filters('post_data', $pageData, $pdo);
         $single = [$pageData];
         media_normalize_featured_posts($pdo, $single, ['surface' => 'frontend.single', 'consumer' => 'page']);
         $pageData = $single[0];
+        $pageData['content'] = apply_filters('post_content', (string)($pageData['content'] ?? ''), $pageData);
 
         // Perkaya data (author, dll)
         self::augmentAuthor($pageData, $pdo);

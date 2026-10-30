@@ -14,8 +14,16 @@ class ThemeController
      *
      * Source of truth: database only.
      */
-    public static function renderTheme(array $themeData)
+    public static function renderTheme(array $themeData, ?string $canonicalPath = null)
     {
+        $pdo = $GLOBALS['pdo'] ?? null;
+        if ($pdo instanceof PDO) {
+            $canonicalPath ??= function_exists('get_post_permalink')
+                ? get_post_permalink($themeData)
+                : '/' . rawurlencode((string)($themeData['slug'] ?? '')) . '/';
+            frontend_entity_viewed_notify($pdo, $themeData, 'post', 'theme', 'single.theme', $canonicalPath);
+        }
+
         // (Opsional tapi aman) pastikan helper tersedia jika kamu pakai render_custom_post_template + shortcode
         $root = realpath(__DIR__ . '/..');
         if ($root) {

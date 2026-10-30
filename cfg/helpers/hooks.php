@@ -37,6 +37,46 @@ function do_action(string $name, mixed ...$args): void {
     }
 }
 
+function frontend_entity_viewed_notify(
+    PDO $pdo,
+    array $resource,
+    string $kind,
+    string $type,
+    string $route,
+    ?string $canonicalUrl,
+    int $page = 1
+): void {
+    $id = (int)($resource['id'] ?? 0);
+    $validEntity = ($kind === 'post' && in_array($type, ['article', 'page', 'theme'], true)
+            && ($resource['type'] ?? null) === $type && ($resource['status'] ?? null) === 'published')
+        || ($kind === 'category' && $type === 'category');
+    if (!$validEntity || $id <= 0 || (int)($resource['is_deleted'] ?? 0) !== 0 || $page <= 0) return;
+
+    if ($canonicalUrl !== null) {
+        $canonicalUrl = trim($canonicalUrl);
+        if ($canonicalUrl === '' || strlen($canonicalUrl) > 2048 || !str_starts_with($canonicalUrl, '/')
+            || str_starts_with($canonicalUrl, '//') || str_contains($canonicalUrl, '\\')
+            || preg_match('/[\x00-\x1F\x7F]/', $canonicalUrl) === 1) {
+            $canonicalUrl = null;
+        }
+    }
+
+    $requestMethod = strtoupper(trim((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')));
+    if (preg_match('/\A[A-Z]{1,10}\z/D', $requestMethod) !== 1) $requestMethod = 'GET';
+
+    $entity = ['kind' => $kind, 'type' => $type, 'id' => $id];
+    $context = [
+        'schema' => 1,
+        'route' => $route,
+        'status' => 'published',
+        'is_public' => true,
+        'canonical_url' => $canonicalUrl,
+        'page' => $page,
+        'request_method' => $requestMethod,
+    ];
+    do_action('frontend_entity_viewed', $entity, $context, $pdo);
+}
+
 /** Run all action listeners independently and return structured listener errors. */
 function do_action_isolated(string $name, mixed ...$args): array {
     $errors = [];
