@@ -458,6 +458,20 @@ add_filter('theme_zone_render_widget', function(string $html, string $type, arra
 
 If a gadget is registered with `sidebar_widget_types`/`render_sidebar_widget` filters, it will also work in sidebar zones.
 
+Sidebar widgets may expose bounded per-instance controls in Sidebar Settings by
+adding `config_fields` to their `sidebar_widget_types` definition. Core accepts
+at most twelve `number` or `select` fields, validates submitted values, and
+preserves extension-owned config keys that are not browser-editable. Labels and
+option text must already be localized by the registering extension.
+
+```php
+'default_config' => ['period' => '30', 'limit' => 5],
+'config_fields' => [
+    'period' => ['label' => __('Period'), 'control' => 'select', 'options' => ['1' => __('Today'), '30' => __('30 days')]],
+    'limit' => ['label' => __('Item limit'), 'control' => 'number', 'min' => 1, 'max' => 20],
+],
+```
+
 ### Reusable Theme Sections
 
 Canonical themes must expose each substantial homepage block as a Theme Section. Register semantic `home.*` names from the root `theme.php`, keep one renderer per name in `partials/shortcodes/section/{name}.php`, and make `main/homepage.php` a thin composition layer that calls `render_theme_section()`. Theme Zones remain insertion points around those blocks; they do not replace the reusable sections.

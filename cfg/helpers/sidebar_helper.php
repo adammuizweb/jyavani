@@ -90,6 +90,71 @@ if (!function_exists('sidebar_zone_has_items')) {
     }
 }
 
+if (!function_exists('sidebar_widget_config_fields')) {
+    function sidebar_widget_config_fields(array $definition): array {
+        $rawFields = $definition['config_fields'] ?? null;
+        if (!is_array($rawFields)) return [];
+
+        $fields = [];
+        foreach ($rawFields as $key => $field) {
+            if (count($fields) >= 12 || !is_string($key)
+                || preg_match('/\A[a-z][a-z0-9_]{0,47}\z/D', $key) !== 1 || !is_array($field)) continue;
+            $label = trim((string)($field['label'] ?? ''));
+            $control = (string)($field['control'] ?? '');
+            if ($label === '' || strlen($label) > 120 || preg_match('/[\x00-\x1F\x7F]/', $label)
+                || !in_array($control, ['number', 'select'], true)) continue;
+
+            if ($control === 'number') {
+                $min = filter_var($field['min'] ?? null, FILTER_VALIDATE_INT);
+                $max = filter_var($field['max'] ?? null, FILTER_VALIDATE_INT);
+                if ($min === false || $max === false || $min < -1000000 || $max > 1000000 || $min > $max) continue;
+                $fields[$key] = ['label' => $label, 'control' => 'number', 'min' => $min, 'max' => $max];
+                continue;
+            }
+
+            $rawOptions = $field['options'] ?? null;
+            if (!is_array($rawOptions)) continue;
+            $options = [];
+            foreach ($rawOptions as $value => $optionLabel) {
+                if (count($options) >= 32 || (!is_string($value) && !is_int($value)) || !is_string($optionLabel)) continue;
+                $value = (string)$value;
+                $optionLabel = trim($optionLabel);
+                if ($value === '' || strlen($value) > 64 || preg_match('/[\x00-\x1F\x7F]/', $value)
+                    || $optionLabel === '' || strlen($optionLabel) > 120 || preg_match('/[\x00-\x1F\x7F]/', $optionLabel)) continue;
+                $options[$value] = $optionLabel;
+            }
+            if ($options !== []) $fields[$key] = ['label' => $label, 'control' => 'select', 'options' => $options];
+        }
+        return $fields;
+    }
+}
+
+if (!function_exists('sidebar_widget_normalize_config')) {
+    function sidebar_widget_normalize_config(array $definition, array $submitted, array $existing = []): array {
+        $fields = sidebar_widget_config_fields($definition);
+        $defaults = is_array($definition['default_config'] ?? null) ? $definition['default_config'] : [];
+        $normalized = [];
+        foreach ($fields as $key => $field) {
+            $fallback = $existing[$key] ?? $defaults[$key] ?? null;
+            $value = $submitted[$key] ?? $fallback;
+            if ($field['control'] === 'number') {
+                $number = filter_var($value, FILTER_VALIDATE_INT);
+                if ($number === false) $number = filter_var($fallback, FILTER_VALIDATE_INT);
+                if ($number === false) $number = $field['min'];
+                $normalized[$key] = max($field['min'], min($field['max'], $number));
+                continue;
+            }
+            $value = (string)$value;
+            if (!array_key_exists($value, $field['options'])) {
+                $value = (string)$fallback;
+                if (!array_key_exists($value, $field['options'])) $value = (string)array_key_first($field['options']);
+            }
+            $normalized[$key] = $value;
+        }
+        return $normalized;
+    }
+}
+
 function sidebar_lifecycle_capture_items(
     ResourceLifecycleDatabase $database,
     string $operation,

@@ -81,6 +81,15 @@ $widget_types = [
 ];
 $widget_types = apply_filters('sidebar_widget_types', $widget_types);
 $delegatedConfigurableTypes = ['search', 'last_posts', 'editor_pick', 'categories', 'tz_social'];
+$sidebarWidgetConfigFields = [];
+foreach ($widget_types as $widgetType => $widgetDefinition) {
+    if (!is_string($widgetType) || !is_array($widgetDefinition)) continue;
+    $fields = sidebar_widget_config_fields($widgetDefinition);
+    if ($fields === []) continue;
+    $sidebarWidgetConfigFields[$widgetType] = $fields;
+    $delegatedConfigurableTypes[] = $widgetType;
+}
+$delegatedConfigurableTypes = array_values(array_unique($delegatedConfigurableTypes));
 $sidebarAddableWidgetTypes = array_filter(
     $widget_types,
     static fn($definition): bool => is_array($definition) && ($definition['addable'] ?? true) === true
@@ -282,6 +291,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'enabled' => $social['enabled'],
                     'links' => $social['links'],
                 ];
+            }
+            if (isset($sidebarWidgetConfigFields[$type])) {
+                $existingConfig = is_array($currentItemsById[$wid]['config'] ?? null)
+                    ? $currentItemsById[$wid]['config']
+                    : [];
+                $config = array_replace(
+                    $existingConfig,
+                    ['title' => $title],
+                    sidebar_widget_normalize_config($widget_types[$type], $config, $existingConfig)
+                );
             }
 
             $st = $pdo->prepare("UPDATE sidebar_zone_items SET type = :typ, title = :title, config = :cfg, ordering = :ord, active = :act WHERE id = :id AND zone_id = :zid");
@@ -527,8 +546,9 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
            $config = is_array($it['config']) ? $it['config'] : [];
            $itemTranslation = $canTranslateSidebar && $translationLocale !== '' && function_exists('ct_sidebar_item_translation') ? ct_sidebar_item_translation($pdo, $itemId, $translationLocale) : null;
            $translationConfig = is_array($itemTranslation['config'] ?? null) ? $itemTranslation['config'] : [];
-          $typeInfo = $widget_types[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
-          $canConfigureItem = $canManageRawHtml || in_array($type, $delegatedConfigurableTypes, true);
+           $typeInfo = $widget_types[$type] ?? ['label' => ucfirst($type), 'desc' => ''];
+           $extensionConfigFields = $sidebarWidgetConfigFields[$type] ?? [];
+           $canConfigureItem = $canManageRawHtml || in_array($type, $delegatedConfigurableTypes, true);
           $isOpen = (string)($_GET['edit'] ?? '') === (string)$itemId;
         ?>
             <div class="sw-item" data-id="<?= $itemId ?>" style="background:var(--adam-card);border:1px solid var(--adam-border);border-radius:var(--adam-radius);margin-bottom:10px;<?= $active ? '' : 'opacity:.55;' ?>">
@@ -701,7 +721,26 @@ $zone_to_delete = (int)($_GET['delete_zone'] ?? 0);
                     <?php if (empty($presets)): ?>
                       <div style="margin-top:6px;font-size:12px;color:var(--adam-muted);"><?=__('No preset yet.')?> <a href="<?= h($base . '/?page=admin/shortcodes/edit') ?>"><?=__('Create preset')?></a> <?=__('first.')?></div>
                     <?php endif; ?>
-                  </div>
+                   </div>
+
+                 <?php elseif ($extensionConfigFields !== []): ?>
+                   <?php foreach ($extensionConfigFields as $fieldKey => $field):
+                     $defaultConfig = is_array($typeInfo['default_config'] ?? null) ? $typeInfo['default_config'] : [];
+                     $fieldValue = $config[$fieldKey] ?? $defaultConfig[$fieldKey] ?? '';
+                   ?>
+                     <div>
+                       <label style="display:block;font-size:12px;font-weight:600;color:var(--adam-muted);margin-bottom:3px;"><?= h($field['label']) ?></label>
+                       <?php if ($field['control'] === 'number'): ?>
+                         <input type="number" name="widget[<?= $itemId ?>][config][<?= h($fieldKey) ?>]" value="<?= (int)$fieldValue ?>" min="<?= (int)$field['min'] ?>" max="<?= (int)$field['max'] ?>" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+                       <?php else: ?>
+                         <select name="widget[<?= $itemId ?>][config][<?= h($fieldKey) ?>]" style="width:100%;padding:6px 10px;border:1px solid var(--adam-border-2);border-radius:6px;background:var(--adam-bg);color:var(--adam-text);font-size:13px;">
+                           <?php foreach ($field['options'] as $optionValue => $optionLabel): ?>
+                             <option value="<?= h((string)$optionValue) ?>" <?= (string)$fieldValue === (string)$optionValue ? 'selected' : '' ?>><?= h($optionLabel) ?></option>
+                           <?php endforeach; ?>
+                         </select>
+                       <?php endif; ?>
+                     </div>
+                   <?php endforeach; ?>
 
                 <?php endif; ?>
               </div>
