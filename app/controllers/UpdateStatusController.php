@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
+require_once dirname(__DIR__, 2) . '/cfg/helpers/product_descriptor.php';
 
 final class UpdateStatusController
 {
@@ -12,6 +13,40 @@ final class UpdateStatusController
     public static function officialCoreUrl(): string
     {
         return self::DEFAULT_CORE_URL;
+    }
+
+    public static function officialCorePackageUrl(string $version): string
+    {
+        $version = jyavani_descriptor_version($version, 'Core version');
+        return self::DEFAULT_CORE_URL . '?version=' . rawurlencode($version);
+    }
+
+    public static function officialCoreMetadataUrl(string $version): string
+    {
+        return self::officialCorePackageUrl($version) . '&format=json';
+    }
+
+    public static function validateOfficialCoreMetadata(array $remote, ?string $expectedVersion = null): array
+    {
+        $version = jyavani_descriptor_version($remote['version'] ?? null, 'Core version');
+        if ($expectedVersion !== null && !hash_equals(jyavani_descriptor_version($expectedVersion, 'Expected Core version'), $version)) {
+            throw new RuntimeException('Official Core metadata returned a different version.');
+        }
+        $packageUrl = self::officialCorePackageUrl($version);
+        if (array_key_exists('download_url', $remote)
+            && (!is_string($remote['download_url']) || !hash_equals($packageUrl, $remote['download_url']))) {
+            throw new RuntimeException('Official Core metadata contains an invalid package URL.');
+        }
+        $remote['version'] = $version;
+        $remote['download_url'] = $packageUrl;
+        if (array_key_exists('package_sha256', $remote)) {
+            if (!is_string($remote['package_sha256'])
+                || preg_match('/\A[a-fA-F0-9]{64}\z/D', $remote['package_sha256']) !== 1) {
+                throw new RuntimeException('Official Core metadata contains an invalid package checksum.');
+            }
+            $remote['package_sha256'] = strtolower($remote['package_sha256']);
+        }
+        return $remote;
     }
 
     public static function getSnapshot(): array
@@ -302,14 +337,29 @@ final class UpdateStatusController
             ]);
         }
 
-        $latest = trim((string)$remote['version']);
+        $official = hash_equals(self::DEFAULT_CORE_URL, $url);
+        try {
+            $remote = $official
+                ? self::validateOfficialCoreMetadata($remote)
+                : array_replace($remote, ['version' => jyavani_descriptor_version($remote['version'], 'Core version')]);
+        } catch (Throwable $error) {
+            return array_replace($previous, [
+                'state' => 'error',
+                'checked_at' => $now,
+                'current' => $localVersion,
+                'check_url' => $url,
+                'actionable' => false,
+                'error' => 'core_metadata_invalid',
+            ]);
+        }
+        $latest = $remote['version'];
         $component = [
             'state' => 'ok',
             'checked_at' => $now,
             'current' => $localVersion,
             'latest' => $latest,
             'has_update' => version_compare($latest, $localVersion, '>'),
-            'actionable' => true,
+            'actionable' => $official,
             'remote' => $remote,
             'check_url' => $url,
             'base_url' => str_ends_with(strtolower((string)parse_url($url, PHP_URL_PATH)), '.json') ? dirname($url) : $url,

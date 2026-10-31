@@ -43,7 +43,7 @@ if (!function_exists('theme_zone_ensure_schema')) {
         if (is_string($folder) && $folder !== '') return $folder;
         // When rendering an assigned theme file, use that theme's folder so gadgets
         // are loaded from the correct theme instead of the active theme.
-        $renderFolder = (string)($GLOBALS['__jy_render_theme_folder'] ?? '');
+        $renderFolder = (string)($GLOBALS['__jy_render_theme_source_folder'] ?? ($GLOBALS['__jy_render_theme_folder'] ?? ''));
         if ($renderFolder !== '') return $renderFolder;
         if (function_exists('get_active_theme_folder')) {
             $active = (string)get_active_theme_folder($pdo);

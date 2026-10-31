@@ -19,6 +19,10 @@ $addPackageFile = static function (ZipArchive $zip, string $source, string $entr
     return $zip->addFile($source, $entry)
         && $zip->setExternalAttributesName($entry, ZipArchive::OPSYS_UNIX, $PACKAGE_FILE_MODE << 16);
 };
+$addPackageBytes = static function (ZipArchive $zip, string $contents, string $entry) use ($PACKAGE_FILE_MODE): bool {
+    return $zip->addFromString($entry, $contents)
+        && $zip->setExternalAttributesName($entry, ZipArchive::OPSYS_UNIX, $PACKAGE_FILE_MODE << 16);
+};
 
 // Generate manifest first
 echo "Generating manifest...\n";
@@ -36,7 +40,9 @@ if (!is_file($manifestFile)) {
 }
 
 try {
-    $manifest = cms_manifest_decode((string)file_get_contents($manifestFile), 'generated CMS manifest');
+    $manifestBytes = cms_manifest_read_bounded_regular_file($manifestFile, 4 * 1024 * 1024);
+    if (!is_string($manifestBytes)) throw new RuntimeException('Generated manifest cannot be read safely.');
+    $manifest = cms_manifest_decode($manifestBytes, 'generated CMS manifest');
     $versionData = jyavani_product_metadata_validate(
         json_decode((string)file_get_contents($ROOT . '/version.json'), true, 32, JSON_THROW_ON_ERROR),
         (string)file_get_contents($ROOT . '/VERSION')
@@ -64,7 +70,7 @@ if ($zip->open($TEMP_OUTPUT, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== tru
 }
 
 // The manifest itself is package metadata and is not hashed into itself.
-if (!$addPackageFile($zip, $manifestFile, 'cms-manifest.json')) {
+if (!$addPackageBytes($zip, $manifestBytes, 'cms-manifest.json')) {
     $zip->close();
     @unlink($TEMP_OUTPUT);
     echo "ERROR: Cannot add cms-manifest.json with normalized permissions.\n";
@@ -114,6 +120,13 @@ foreach ($files as $relative => $expectedHash) {
         echo "ERROR: Package verification failed: {$relative}\n";
         exit(1);
     }
+}
+$embeddedManifestBytes = $verify->getFromName('cms-manifest.json');
+if (!is_string($embeddedManifestBytes) || !hash_equals($manifestBytes, $embeddedManifestBytes)) {
+    $verify->close();
+    @unlink($TEMP_OUTPUT);
+    echo "ERROR: Embedded manifest changed after validation.\n";
+    exit(1);
 }
 $expectedEntries = count($files) - count(array_intersect(array_keys($files), $excludeFromPackage)) + 1;
 if ($verify->numFiles !== $expectedEntries) {

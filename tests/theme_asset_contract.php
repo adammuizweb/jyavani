@@ -57,8 +57,10 @@ $check(
     'asset detection respects the current context'
 );
 
-$fixtureFolder = '.asset-contract-' . getmypid();
+$fixtureFolder = 'asset-contract-' . getmypid();
 $fixtureRoot = VIEWS_BASE . '/' . $fixtureFolder;
+$incompatibleFolder = 'asset-incompatible-' . getmypid();
+$incompatibleRoot = VIEWS_BASE . '/' . $incompatibleFolder;
 $removeFixture = static function (string $path) use (&$removeFixture): void {
     if (!is_dir($path)) return;
     foreach (scandir($path) ?: [] as $entry) {
@@ -98,6 +100,19 @@ try {
             ],
         ]],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    mkdir($incompatibleRoot . '/assets/css', 0775, true);
+    file_put_contents($incompatibleRoot . '/assets/css/style.css', 'body{color:red}');
+    file_put_contents($incompatibleRoot . '/theme.json', json_encode([
+        'name' => 'Incompatible Asset Fixture',
+        'version' => '1.0.0',
+        'standalone' => true,
+        'technology' => [
+            'schema' => 1,
+            'distribution_id' => 'org.example.foreign',
+            'implementation_id' => 'org.example.foreign.themes',
+            'api' => '>=1.0.0',
+        ],
+    ], JSON_THROW_ON_ERROR));
 
     $homepageAssets = collect_theme_asset_urls(null, [$fixtureFolder], 'main.homepage');
     $singleAssets = collect_theme_asset_urls(null, [$fixtureFolder], 'single.post');
@@ -111,8 +126,27 @@ try {
     $check(count($preloads) === 1 && ($preloads[0]['fetchpriority'] ?? '') === 'high', 'context preload is collected');
     $check(substr_count((string)($preloads[0]['imagesrcset'] ?? ''), '.webp') === 2, 'responsive preload source set is resolved');
     $check(collect_theme_preloads(null, [$fixtureFolder], 'single.post') === [], 'preload is omitted outside its context');
+
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->exec('CREATE TABLE themes (id INTEGER PRIMARY KEY, folder_name TEXT, is_active INTEGER)');
+    $pdo->exec('CREATE TABLE assignments (theme_id INTEGER, slot_key TEXT)');
+    $insertTheme = $pdo->prepare('INSERT INTO themes (id, folder_name, is_active) VALUES (?, ?, ?)');
+    $insertTheme->execute([700001, $fixtureFolder, 1]);
+    $insertTheme->execute([700002, $incompatibleFolder, 0]);
+    $insertAssignment = $pdo->prepare('INSERT INTO assignments (theme_id, slot_key) VALUES (?, ?)');
+    $insertAssignment->execute([700001, 'header']);
+    $insertAssignment->execute([700002, 'footer']);
+    $relevant = get_relevant_theme_folders($pdo);
+    $check(in_array('default', $relevant, true) && in_array($fixtureFolder, $relevant, true)
+        && !in_array($incompatibleFolder, $relevant, true),
+        'relevant theme folders keep compatible legacy themes and exclude incompatible assignments');
+    $pdo->exec('UPDATE themes SET is_active = CASE WHEN id = 700002 THEN 1 ELSE 0 END');
+    $activeIncompatible = get_relevant_theme_folders($pdo);
+    $check(in_array('default', $activeIncompatible, true) && !in_array($incompatibleFolder, $activeIncompatible, true),
+        'an incompatible standalone active theme neither contributes assets nor suppresses the default theme');
 } finally {
     $removeFixture($fixtureRoot);
+    $removeFixture($incompatibleRoot);
 }
 
 if ($failures !== []) {

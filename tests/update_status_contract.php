@@ -22,7 +22,9 @@ $providers = [
         $calls['core']++;
         return [
             'version' => '99.0.0',
-            'download_url' => 'https://updates.example.test/core.zip',
+            'download_url' => $url === UpdateStatusController::officialCoreUrl()
+                ? UpdateStatusController::officialCorePackageUrl('99.0.0')
+                : 'https://updates.example.test/core.zip',
             'critical_advisory' => [
                 'severity' => 'critical',
                 'id' => 'ADV-TEST',
@@ -49,12 +51,30 @@ $providers = [
 try {
     $initial = UpdateStatusController::getSnapshot();
     $check($initial['state'] === 'unknown' && $initial['stale'] === true && $initial['total'] === 0, 'missing snapshot is unknown and stale, never falsely current');
+    $canonical = UpdateStatusController::validateOfficialCoreMetadata(['version' => '9.8.7']);
+    $check(($canonical['download_url'] ?? '') === UpdateStatusController::officialCorePackageUrl('9.8.7'),
+        'official Core metadata derives its exact-version package URL when transport metadata is absent');
+    foreach ([
+        ['version' => '9.8.7', 'download_url' => 'http://jyavani.com/download/latest/?version=9.8.7'],
+        ['version' => '9.8.7', 'download_url' => 'https://user@jyavani.com/download/latest/?version=9.8.7'],
+        ['version' => '9.8.7', 'download_url' => 'https://updates.example.test/core.zip'],
+        ['version' => '9.8.7', 'package_sha256' => 'not-a-hash'],
+    ] as $invalidOfficialMetadata) {
+        try {
+            UpdateStatusController::validateOfficialCoreMetadata($invalidOfficialMetadata);
+            $invalidOfficialRejected = false;
+        } catch (Throwable $error) {
+            $invalidOfficialRejected = true;
+        }
+        $check($invalidOfficialRejected, 'official Core metadata rejects noncanonical transport fields');
+    }
 
     file_put_contents($temporary . '.lock', '');
     chmod($temporary . '.lock', 0444);
     $snapshot = UpdateStatusController::checkAll($pdo, 'https://updates.example.test/latest/', $providers);
     $check($calls === ['core' => 1, 'plugins' => 1, 'themes' => 1], 'one coordinated check invokes every provider exactly once');
-    $check($snapshot['state'] === 'ok' && $snapshot['stale'] === false && $snapshot['total'] === 3, 'successful snapshot aggregates Core, plugin, and theme updates');
+    $check($snapshot['state'] === 'ok' && $snapshot['stale'] === false && $snapshot['total'] === 2,
+        'successful custom-source snapshot aggregates extension updates without making Core metadata actionable');
     $check(is_file($temporary) && is_file($temporary . '.lock') && (fileperms($temporary . '.lock') & 0777) === 0660,
         'snapshot and a cross-worker group-writable coordination lock are persisted');
     $check(($snapshot['components']['core']['remote']['download_url'] ?? '') === 'https://updates.example.test/core.zip', 'Core package metadata is retained for one-click handoff');

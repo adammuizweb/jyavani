@@ -141,6 +141,23 @@ try {
         ['php_required' => '8.1', 'requires' => []],
         ['php_required' => '8.1']
     ) === [], 'empty requires objects preserve legacy top-level theme requirement compatibility');
+    $check(validate_theme_manifest(['name' => 'List Requirements', 'version' => '1.0.0', 'requires' => ['>=8.1']]) !== [],
+        'theme manifests reject list-shaped requirements declarations');
+    $check(validate_theme_manifest(['name' => 'Empty Requirements', 'version' => '1.0.0', 'requires' => []]) === [],
+        'empty decoded requirements remain compatible with legacy empty objects');
+
+    $listRequirementsPackage = $fixture . '/list-requirements.zip';
+    $zip = new ZipArchive();
+    $zip->open($listRequirementsPackage, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFromString('theme.json', json_encode([
+        'folder' => 'list-requirements', 'name' => 'List Requirements', 'version' => '1.0.0', 'requires' => ['>=8.1'],
+    ], JSON_THROW_ON_ERROR));
+    $zip->addFromString('header.php', '<?php echo "safe";');
+    $zip->close();
+    $listRequirements = install_theme_from_zip(null, $listRequirementsPackage, false, null, 'list-requirements');
+    $check(($listRequirements['success'] ?? false) === false
+        && str_contains((string)($listRequirements['message'] ?? ''), 'requirements declaration'),
+        'theme package installation rejects list-shaped requirements declarations');
 
     $unsupportedPackage = $fixture . '/unsupported.zip';
     $zip = new ZipArchive();

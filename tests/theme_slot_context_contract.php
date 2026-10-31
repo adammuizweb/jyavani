@@ -23,6 +23,7 @@ define('PUBLIC_PATH', $root . '/public');
 define('VIEWS_BASE', $fixture);
 require_once $root . '/cfg/helpers/hooks.php';
 require_once $root . '/cfg/helpers/theme_helper.php';
+require_once $root . '/cfg/helpers/theme_zones.php';
 
 $failures = [];
 $check = static function (bool $condition, string $message) use (&$failures): void {
@@ -98,6 +99,11 @@ try {
     $check($fallback === 'plugin:contract.fallback|contract.fallback|incomplete|default|pdo:null'
         && $calls[2] === ['contract.fallback', 'incomplete', null],
         'fallback files retain the selected folder argument and expose the actual source folder as protected metadata');
+    $GLOBALS['__jy_render_theme_folder'] = 'incomplete';
+    $GLOBALS['__jy_render_theme_source_folder'] = 'default';
+    $check(theme_zone_folder($contractPdo) === 'default',
+        'Theme Zones use the compatible file owner instead of an incompatible requested theme');
+    unset($GLOBALS['__jy_render_theme_folder'], $GLOBALS['__jy_render_theme_source_folder']);
     $check($custom === 'plugin:contract.custom|contract.custom|||'
         && $calls[3] === ['contract.custom', null, $contractPdo],
         'custom theme posts receive a null folder and cannot render spoofed reserved metadata');

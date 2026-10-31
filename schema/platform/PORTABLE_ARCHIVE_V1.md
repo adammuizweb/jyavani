@@ -128,6 +128,14 @@ closed allowlist and cannot encode arbitrary configuration. Relationships and
 navigation targets use archive-local references. Visibility and access scope
 are independently preserved for assets and content.
 
+Explicit navigation URI targets are limited to lowercase `http`, `https`,
+`mailto`, and `tel` schemes. HTTP(S) authorities MUST NOT contain credentials;
+scheme-relative targets, backslashes, whitespace, control characters, and
+opaque or executable schemes such as `javascript`, `data`, and `file` are
+invalid. Importers MUST enforce this policy independently before persistence
+and SHOULD prefer HTTPS for web targets. Internal archive destinations use
+record references rather than URI strings.
+
 The schema is a syntactic floor. Importers additionally enforce:
 
 - Unique IDs and paths, exact record index/envelope agreement, and all hashes.

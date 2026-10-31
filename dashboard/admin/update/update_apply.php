@@ -95,8 +95,7 @@ try {
     if ($hasUploadedPackage) {
         $result = _apply_cms_update_from_zip($packageZip, $remote, $currentVersion['version'] ?? '0.0.0', $token);
     } elseif ($baseUrl !== '') {
-        $downloadUrl = $remote['download_url'] ?? $baseUrl;
-        $result = _apply_cms_update($remote, $downloadUrl, $currentVersion['version'] ?? '0.0.0', $token);
+        $result = _apply_cms_update($remote, $baseUrl, $currentVersion['version'] ?? '0.0.0', $token);
     } else {
         throw new RuntimeException(__('No download URL or uploaded package found.'));
     }

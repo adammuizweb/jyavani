@@ -131,6 +131,26 @@ $check(($recordSchema['$defs']['assetPayload']['properties']['blob_sha256']['$re
     && isset($recordSchema['$defs']['assetPayload']['properties']['visibility'])
     && isset($recordSchema['$defs']['assetPayload']['properties']['access_scope']),
     'asset records separate blob identity, visibility, and access scope');
+$navigationUriSchema = $recordSchema['$defs']['navigationUri'] ?? [];
+$check(($recordSchema['$defs']['navigationTarget']['oneOf'][1]['properties']['uri']['$ref'] ?? null) === '#/$defs/navigationUri'
+    && ($navigationUriSchema['format'] ?? null) === 'uri'
+    && count($navigationUriSchema['oneOf'] ?? []) === 3,
+    'navigation URI targets use a closed safe-scheme contract');
+$navigationUri = static function (string $uri): bool {
+    if (strlen($uri) > 2048 || preg_match('/[\x00-\x20\x7F\\\\]/', $uri) === 1) return false;
+    if (preg_match('~\Ahttps?://([^/?#]+)(?:[/?#].*)?\z~D', $uri, $match) === 1) {
+        return !str_contains($match[1], '@');
+    }
+    if (preg_match('/\Amailto:[^\s\\\\\x00-\x1F\x7F]+\z/D', $uri) === 1) return true;
+    return preg_match('/\Atel:\+?[0-9][0-9().-]{0,63}\z/D', $uri) === 1;
+};
+foreach (['https://example.test/path?q=1', 'http://example.test/', 'mailto:editor@example.test', 'tel:+62215551234'] as $uri) {
+    $check($navigationUri($uri), 'portable navigation accepts safe URI: ' . $uri);
+}
+foreach (['javascript:alert(1)', 'data:text/html,x', 'file:///etc/passwd', '//example.test/path',
+    'https://user:pass@example.test/', "https://example.test/line\nbreak", 'https://example.test\\path'] as $uri) {
+    $check(!$navigationUri($uri), 'portable navigation rejects unsafe URI: ' . str_replace("\n", '\\n', $uri));
+}
 $settingKeys = $recordSchema['$defs']['settingPayload']['properties']['key']['enum'] ?? null;
 $check(is_array($settingKeys) && count($settingKeys) === 6
     && !in_array('authentication', $settingKeys, true)
@@ -275,6 +295,10 @@ $check(str_contains($archiveDoc, 'package kind, implementation ID, package ID, p
     && str_contains($archiveDoc, 'trusted package policy')
     && str_contains($archiveDoc, 'they do not carry or authorize code'),
     'archive document declares capabilities and exact extension/theme identity without code trust');
+$check(str_contains($archiveDoc, 'Explicit navigation URI targets are limited')
+    && str_contains($archiveDoc, 'MUST NOT contain credentials')
+    && str_contains($archiveDoc, 'Importers MUST enforce this policy independently before persistence'),
+    'archive document requires independent safe navigation URI enforcement');
 $check(str_contains($platformDoc, 'does not define runtime exporter/importer code')
     && str_contains($platformDoc, 'database migration'),
     'Phase 0 explicitly excludes runtime importer/exporter and migration work');

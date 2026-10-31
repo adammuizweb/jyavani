@@ -156,8 +156,8 @@ silently mixed. Distribution Stores may use different installation workflows,
 but they MUST preserve and revalidate the complete profile through discovery,
 download, staging, activation, assignment, update, and executable loading.
 
-Core release manifests before `2.3.195` may omit product and distribution
-metadata for upgrade and reinstall compatibility. Core release `2.3.195` and
+Core release manifests before `2.3.196` may omit product and distribution
+metadata for upgrade and reinstall compatibility. Core release `2.3.196` and
 later MUST publish the complete aware metadata tuple; omission is not a legacy
 escape hatch for future or foreign distribution packages.
 

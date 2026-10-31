@@ -80,6 +80,11 @@ $check(
         && str_contains($builder, 'getExternalAttributesIndex'),
     'package builder normalizes and verifies distribution file permissions'
 );
+$check(str_contains($builder, 'cms_manifest_read_bounded_regular_file($manifestFile')
+    && str_contains($builder, "\$addPackageBytes(\$zip, \$manifestBytes, 'cms-manifest.json')")
+    && str_contains($builder, 'hash_equals($manifestBytes, $embeddedManifestBytes)')
+    && !str_contains($builder, "\$addPackageFile(\$zip, \$manifestFile, 'cms-manifest.json')"),
+    'package builder embeds and verifies the exact manifest snapshot that passed validation');
 $check(str_contains($installer, "ini_set('display_errors', '0')")
     && str_contains($installer, "ini_set('log_errors', '1')")
     && str_contains($installer, 'function installer_mysql_identifier')

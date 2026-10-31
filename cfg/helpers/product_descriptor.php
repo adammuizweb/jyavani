@@ -9,7 +9,7 @@ const JYAVANI_THEME_IMPLEMENTATION_ID = 'org.jyavani.php.themes';
 const JYAVANI_PLATFORM_CONTRACT_VERSION = '1.0.0';
 const JYAVANI_EXTENSION_API_VERSION = '1.0.0';
 const JYAVANI_THEME_API_VERSION = '1.0.0';
-const JYAVANI_AWARE_CORE_VERSION_FLOOR = '2.3.195';
+const JYAVANI_AWARE_CORE_VERSION_FLOOR = '2.3.196';
 
 function jyavani_descriptor_fail(string $message): never
 {

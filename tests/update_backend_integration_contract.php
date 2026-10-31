@@ -38,7 +38,9 @@ $check(str_contains($sources['core endpoint'], 'hash_equals(UpdateStatusControll
 $actions = (string)file_get_contents($root . '/dashboard/admin/update/_update_actions.php');
 $check(str_contains($actions, 'function cms_update_reinstall')
     && str_contains($actions, '$updateLock = update_operation_acquire_lock()')
-    && str_contains($actions, '$lifecycleLocks = theme_operation_acquire(theme_lifecycle_lock_keys())')
+    && str_contains($actions, '$lifecycleLocks = theme_operation_acquire(theme_lifecycle_lock_keys($resetPluginNames))')
+    && str_contains($actions, '$lockedInstalledVersion = _cms_installed_version()')
+    && str_contains($actions, 'hash_equals($lockedInstalledVersion, (string)$reinstallManifest[\'version\'])')
     && str_contains($actions, 'update_operation_release_lock($updateLock)'), 'Core reinstall joins the shared updater and lifecycle locks');
 $check(strpos($theme, 'update_operation_enter_critical($progressToken', strpos($theme, '$newIdentity'))
     < strpos($theme, 'package_guarded_publish('), 'theme cancellation closes atomically immediately before publication');

@@ -504,6 +504,7 @@ function echo_theme_preloads($pdoOrNull, array $folders, ?string $context = null
 function get_relevant_theme_folders($pdoOrNull, ?array $slot_keys = null): array {
     $pdo = $pdoOrNull ?: get_pdo_from_global();
     $folders = [];
+    $activeFolder = null;
 
     // ensure default present — unless the active theme opts out via "standalone": true
     // (a standalone theme ships its own complete CSS and must not inherit default resets,
@@ -516,12 +517,16 @@ function get_relevant_theme_folders($pdoOrNull, ?array $slot_keys = null): array
             $stmtA->execute();
             $rA = $stmtA->fetch(PDO::FETCH_ASSOC);
             if ($rA && !empty($rA['folder_name'])) {
-                $mA = read_theme_manifest(path_candidate(VIEWS_BASE, $rA['folder_name'], ''));
-                $skipDefault = !empty($mA['standalone']);
+                $candidate = (string)$rA['folder_name'];
+                if (theme_folder_compatibility_errors($candidate) === []) {
+                    $activeFolder = $candidate;
+                    $mA = read_theme_manifest(path_candidate(VIEWS_BASE, $candidate, ''));
+                    $skipDefault = !empty($mA['standalone']);
+                }
             }
         } catch (Throwable $e) {}
     }
-    if ($default && !$skipDefault) $folders[] = $default;
+    if ($default && !$skipDefault && theme_folder_compatibility_errors($default) === []) $folders[] = $default;
 
     if ($pdo) {
         // pull assignments optionally filtering by slot_keys
@@ -540,21 +545,15 @@ function get_relevant_theme_folders($pdoOrNull, ?array $slot_keys = null): array
         }
         foreach ($themeIds as $tid) {
             $t = get_theme_by_id($pdo, $tid);
-            if ($t && !empty($t['folder_name']) && !in_array($t['folder_name'], $folders, true)) {
-                $folders[] = $t['folder_name'];
+            $folder = is_array($t) ? (string)($t['folder_name'] ?? '') : '';
+            if ($folder !== '' && theme_folder_compatibility_errors($folder) === [] && !in_array($folder, $folders, true)) {
+                $folders[] = $folder;
             }
         }
 
         // include active theme last (so its CSS can override earlier ones)
-        try {
-            $stmt2 = $pdo->prepare("SELECT folder_name FROM themes WHERE is_active = 1 LIMIT 1");
-            $stmt2->execute();
-            $r2 = $stmt2->fetch(PDO::FETCH_ASSOC);
-            if ($r2 && !empty($r2['folder_name']) && !in_array($r2['folder_name'], $folders, true)) {
-                $folders[] = $r2['folder_name'];
-            }
-        } catch (Throwable $e) {
-            if (defined('THEME_DEBUG') && THEME_DEBUG) error_log("[THEME] get_relevant_theme_folders error: " . $e->getMessage());
+        if ($activeFolder !== null && !in_array($activeFolder, $folders, true)) {
+            $folders[] = $activeFolder;
         }
     }
 
@@ -1233,7 +1232,11 @@ function validate_theme_manifest(array $m): array {
         }
     }
     $requires = is_array($m['requires'] ?? null) ? $m['requires'] : [];
-    if (array_key_exists('requires', $m) && !is_array($m['requires'])) $errors[] = 'Invalid theme requirements declaration';
+    if (array_key_exists('requires', $m)
+        && (!is_array($m['requires']) || ($m['requires'] !== [] && array_is_list($m['requires'])))) {
+        $errors[] = 'Invalid theme requirements declaration';
+        $requires = [];
+    }
     foreach ([['php', 'php_required', PHP_VERSION, 'PHP'], ['jyavani', 'jyavani_required', trim((string)@file_get_contents(dirname(__DIR__, 2) . '/VERSION')), 'Jyavani']] as [$key, $legacy, $current, $label]) {
         $requirement = $requires[$key] ?? ($m[$legacy] ?? '');
         if ($requirement === '') continue;

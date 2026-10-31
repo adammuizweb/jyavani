@@ -103,7 +103,8 @@ $check(
         && !str_contains($updatePageSource, 'name="reinstall_url"')
         && !str_contains($updateActionsSource, "\$_POST['update_url']")
         && !str_contains($updateActionsSource, "\$_POST['reinstall_url']")
-        && substr_count($updateActionsSource, 'UpdateStatusController::officialCoreUrl()') === 2
+        && str_contains($updateActionsSource, 'UpdateStatusController::officialCoreMetadataUrl($installedVersion)')
+        && str_contains($updateActionsSource, 'UpdateStatusController::validateOfficialCoreMetadata($releaseMetadata, $installedVersion)')
         && str_contains($updateStyleSource, '.up-input[readonly]:hover')
         && str_contains($updateStyleSource, 'cursor: not-allowed;'),
     'Core check and reinstall URLs are read-only in the UI and authoritative on the server'
@@ -202,6 +203,13 @@ try {
     $installedManifest = _cms_decode_json_array((string)file_get_contents($projectRoot . '/tools/cms-manifest.json'), 'installed manifest');
     $check($installedManifest === cms_manifest_validate($remoteManifest, 'contract remote manifest'), 'verified normalized remote logical manifest is installed verbatim');
 
+    $downgradeFiles = ['app/downgrade.php' => "<?php\n"];
+    $downgradeZip = $fixtureBase . '/downgrade.zip';
+    contract_zip($downgradeZip, contract_entries($downgradeFiles));
+    $downgrade = _apply_cms_update_from_zip($downgradeZip, contract_manifest('0.9.0', $downgradeFiles), '1.0.0');
+    $check($downgrade['success'] === false && !file_exists($projectRoot . '/app/downgrade.php'),
+        'Core update rejects a lower target version before filesystem mutation');
+
     $rollbackOld = [
         'public/rollback/changed.txt' => "rollback original\n",
         'public/rollback/obsolete.txt' => "rollback obsolete\n",
@@ -286,6 +294,13 @@ try {
     $archiveSymlinkManifest = contract_manifest('1.0.0', ['public/archive-link.txt' => 'outside-target']);
     $check(_apply_cms_update_from_zip($archiveSymlinkZip, $archiveSymlinkManifest, '1.0.0')['success'] === false, 'archive symlink entry is refused');
 
+    $ratioBombFiles = ['public/refusal/ratio.txt' => str_repeat('A', 2 * 1024 * 1024)];
+    $ratioBombZip = $fixtureBase . '/core-ratio-bomb.zip';
+    contract_zip($ratioBombZip, contract_entries($ratioBombFiles));
+    $check(_apply_cms_update_from_zip($ratioBombZip, contract_manifest('1.0.0', $ratioBombFiles), '1.0.0')['success'] === false
+        && !file_exists($publicRoot . '/refusal/ratio.txt'),
+        'Core updater applies shared compression-ratio limits before reading or mutating package entries');
+
     $awareVersion = json_decode((string)file_get_contents($sourceRoot . '/version.json'), true, 32, JSON_THROW_ON_ERROR);
     $awareVersion['version'] = '9.9.9';
     $awareVersion['distribution']['version'] = '9.9.9';
@@ -306,6 +321,15 @@ try {
     $zip->open($awareZip);
     $check((_cms_validate_core_package_metadata($zip, $awareManifest)['version'] ?? null) === '9.9.9',
         'aware package binds its manifest, version descriptor, distribution, and flat VERSION');
+    $remoteReleaseMetadata = array_merge($awareManifest, [
+        'author' => 'Jyavani',
+        'homepage' => 'https://jyavani.com',
+        'changelog_url' => 'https://jyavani.com/changelog',
+    ]);
+    $embeddedAwareManifest = null;
+    _cms_validate_core_package_metadata($zip, $remoteReleaseMetadata, $embeddedAwareManifest);
+    $check($embeddedAwareManifest === $awareManifest,
+        'descriptive release metadata may differ while exact files and distribution identity remain bound to the embedded manifest');
     $zip->close();
 
     $partialAware = $awareManifest;
@@ -337,6 +361,22 @@ try {
     }
     $zip->close();
     $check($foreignRefused, 'aware package for another distribution is refused');
+
+    $oversizedMetadataZip = $fixtureBase . '/oversized-metadata.zip';
+    $oversizedFiles = ['app/oversized.php' => "<?php\n"];
+    contract_zip($oversizedMetadataZip, array_merge(contract_entries($oversizedFiles), [[
+        'name' => 'cms-manifest.json',
+        'contents' => random_bytes((4 * 1024 * 1024) + 1),
+    ]]));
+    $check(_apply_cms_update_from_zip($oversizedMetadataZip, contract_manifest('1.0.0', $oversizedFiles), '1.0.0')['success'] === false
+        && !file_exists($projectRoot . '/app/oversized.php'),
+        'Core updater bounds embedded manifest reads before mutation');
+
+    $updateHelpersSource = (string)file_get_contents($sourceRoot . '/dashboard/admin/update/_update_helpers.php');
+    $check(!str_contains($updateHelpersSource, "getFromName('cms-manifest.json')")
+        && !str_contains($updateHelpersSource, "getFromName('version.json')")
+        && !str_contains($updateHelpersSource, "getFromName('VERSION')"),
+        'Core metadata reads use bounded streams instead of unbounded ZIP entry allocation');
 
     $generatorRoot = $fixtureBase . '/generator-app';
     contract_write($generatorRoot . '/tools/generate-manifest.php', (string)file_get_contents($sourceRoot . '/tools/generate-manifest.php'));

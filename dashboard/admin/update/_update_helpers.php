@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 require_once dirname(__DIR__, 3) . '/cfg/helpers/cms_manifest.php';
+require_once dirname(__DIR__, 3) . '/cfg/helpers/package_archive.php';
+require_once dirname(__DIR__, 3) . '/app/controllers/UpdateStatusController.php';
 
 // Shared helpers for CMS update page + AJAX handlers
 
@@ -235,6 +237,13 @@ function _get_local_manifest(): ?array {
     return cms_manifest_decode($json, 'tools/cms-manifest.json', true);
 }
 
+function _cms_installed_version(): string {
+    $raw = cms_manifest_read_bounded_regular_file(dirname(DASH_PATH) . '/version.json', 128 * 1024);
+    if (!is_string($raw)) throw new RuntimeException(__('Installed Core version metadata is unavailable.'));
+    $metadata = _cms_decode_json_array($raw, 'installed version.json');
+    return jyavani_descriptor_version($metadata['version'] ?? null, 'Installed Core version');
+}
+
 function _cms_decode_json_array(string $json, string $label): array {
     try {
         $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
@@ -243,6 +252,29 @@ function _cms_decode_json_array(string $json, string $label): array {
     }
     if (!is_array($decoded)) throw new RuntimeException('Invalid ' . $label . ': expected a JSON object.');
     return $decoded;
+}
+
+function _cms_zip_read_bounded(ZipArchive $zip, string $name, int $maxBytes): string|false {
+    $stat = $zip->statName($name);
+    $size = is_array($stat) ? (int)($stat['size'] ?? -1) : -1;
+    if ($size < 0) return false;
+    if ($size > $maxBytes) throw new RuntimeException($name . ' exceeds the allowed size.');
+    $stream = $zip->getStream($name);
+    if (!is_resource($stream)) return false;
+    try {
+        $contents = stream_get_contents($stream, $maxBytes + 1);
+    } finally {
+        fclose($stream);
+    }
+    if (!is_string($contents) || strlen($contents) !== $size || strlen($contents) > $maxBytes) {
+        throw new RuntimeException($name . ' could not be read safely.');
+    }
+    return $contents;
+}
+
+function _cms_core_package_manifest(array $remoteMetadata): array {
+    unset($remoteMetadata['download_url'], $remoteMetadata['package_sha256'], $remoteMetadata['critical_advisory']);
+    return $remoteMetadata;
 }
 
 function _cms_safe_relative_path(string $path): ?string {
@@ -261,22 +293,33 @@ function _cms_zip_entry_is_symlink(ZipArchive $zip, int $index): bool {
     return (($attributes >> 16) & 0170000) === 0120000;
 }
 
-function _cms_validate_core_package_metadata(ZipArchive $zip, array $remoteManifest): ?array {
+function _cms_validate_core_package_metadata(ZipArchive $zip, array $remoteManifest, ?array &$embeddedManifest = null): ?array {
     $aware = array_key_exists('product', $remoteManifest);
-    $embeddedJson = $zip->getFromName('cms-manifest.json');
+    $embeddedManifest = null;
+    $embeddedJson = _cms_zip_read_bounded($zip, 'cms-manifest.json', 4 * 1024 * 1024);
     if ($aware && $embeddedJson === false) {
         throw new RuntimeException('Aware Core packages require an embedded cms-manifest.json.');
     }
     if ($embeddedJson !== false) {
         $embedded = cms_manifest_decode($embeddedJson, 'embedded cms-manifest.json');
-        if ($embedded !== $remoteManifest) {
-            throw new RuntimeException('Embedded Core manifest does not match the update manifest.');
+        foreach (['version', 'total_files', 'files'] as $boundKey) {
+            if (($embedded[$boundKey] ?? null) !== ($remoteManifest[$boundKey] ?? null)) {
+                throw new RuntimeException('Embedded Core manifest does not match the update manifest.');
+            }
         }
+        $embeddedAware = array_key_exists('product', $embedded);
+        if ($embeddedAware !== $aware || ($aware
+            && ($embedded['product'] !== $remoteManifest['product']
+                || $embedded['distribution'] !== $remoteManifest['distribution']
+                || $embedded['contracts'] !== $remoteManifest['contracts']))) {
+            throw new RuntimeException('Embedded Core distribution metadata does not match the update manifest.');
+        }
+        $embeddedManifest = $embedded;
     }
 
     $files = $remoteManifest['files'] ?? [];
-    $versionJson = $zip->getFromName('version.json');
-    $versionFile = $zip->getFromName('VERSION');
+    $versionJson = _cms_zip_read_bounded($zip, 'version.json', 128 * 1024);
+    $versionFile = _cms_zip_read_bounded($zip, 'VERSION', 128);
     if ($aware && (!isset($files['version.json'], $files['VERSION']) || $versionJson === false || $versionFile === false)) {
         throw new RuntimeException('Aware Core packages require tracked version.json and VERSION files.');
     }
@@ -314,6 +357,11 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     if ($zip->open($zipPath) !== true) {
         return _cms_update_failure($progressToken, __('Failed to open ZIP package.'));
     }
+    $archiveValidation = package_archive_validate($zip);
+    if (!$archiveValidation['success']) {
+        $zip->close();
+        return _cms_update_failure($progressToken, __('Update package archive is unsafe or exceeds resource limits.'));
+    }
     if ($progressToken !== '') {
         _cms_write_progress($progressToken, 15, __('Validating update package…'), false, null, 'validate', true);
         _cms_update_checkpoint($progressToken, $zip);
@@ -326,10 +374,14 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     try {
-        $remoteManifest = cms_manifest_validate($remoteManifest, 'update package manifest');
+        $remoteManifest = cms_manifest_validate(_cms_core_package_manifest($remoteManifest), 'update package manifest');
     } catch (Throwable $error) {
         $zip->close();
         return _cms_update_failure($progressToken, __('Update package manifest is missing or invalid.'));
+    }
+    if (version_compare((string)$remoteManifest['version'], $currentVer, '<')) {
+        $zip->close();
+        return _cms_update_failure($progressToken, __('Update package cannot downgrade the installed Core version.'));
     }
     $remoteFiles = $remoteManifest['files'];
     $preservePatterns = _get_preserve_patterns();
@@ -392,7 +444,12 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
     }
 
     try {
-        $packageVersion = _cms_validate_core_package_metadata($zip, $remoteManifest);
+        $embeddedManifest = null;
+        $packageVersion = _cms_validate_core_package_metadata($zip, $remoteManifest, $embeddedManifest);
+        if ($embeddedManifest !== null) {
+            $remoteManifest = $embeddedManifest;
+            $remoteFiles = $remoteManifest['files'];
+        }
     } catch (Throwable $error) {
         $zip->close();
         return _cms_update_failure($progressToken, $error->getMessage());
@@ -654,12 +711,11 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
     $projectRoot = dirname(DASH_PATH);
 
     try {
-        // Determine download URL from manifest or from base URL
-        $downloadUrl = $remoteManifest['download_url'] ?? '';
-        if ($downloadUrl === '') {
-            // Remove trailing ?format=json or similar, use base URL directly
-            $downloadUrl = $baseUrl;
+        if (!hash_equals(UpdateStatusController::officialCoreUrl(), $baseUrl)) {
+            throw new RuntimeException(__('Core update source is not official.'));
         }
+        $remoteManifest = UpdateStatusController::validateOfficialCoreMetadata($remoteManifest);
+        $downloadUrl = $remoteManifest['download_url'];
 
         if ($progressToken !== '') _cms_write_progress($progressToken, 0, __('Downloading update package…'), false, null, 'download', true);
         $lastDownloadProgress = -1;
@@ -680,7 +736,7 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
                     $lastCancellationCheck = $now;
                 }
                 return !$downloadCancelled;
-            });
+            }, false);
         _cms_update_checkpoint($progressToken);
         if ($tmpZip === null) {
             $diagnostic = package_download_last_error_code();
@@ -700,7 +756,7 @@ function _apply_cms_update(array $remoteManifest, string $baseUrl, string $curre
             _cms_write_progress($progressToken, 15, __('Download complete. Validating…'), false, null, 'validate', true);
         }
 
-        $result = _apply_cms_update_from_zip($tmpZip, $remoteManifest, $currentVer, $progressToken);
+        $result = _apply_cms_update_from_zip($tmpZip, _cms_core_package_manifest($remoteManifest), $currentVer, $progressToken);
         @unlink($tmpZip);
         return $result;
 

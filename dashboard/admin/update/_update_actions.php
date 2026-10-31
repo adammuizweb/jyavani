@@ -104,8 +104,13 @@ function cms_update_store_upload(array $currentVersion, string $selfUrl): void
     if ($zip->open($temporaryZip) !== true) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to open ZIP file.'));
     }
+    $archiveValidation = package_archive_validate($zip);
+    if (!$archiveValidation['success']) {
+        $zip->close();
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Update package archive is unsafe or exceeds resource limits.'));
+    }
 
-    $manifestJson = $zip->getFromName('cms-manifest.json');
+    $manifestJson = _cms_zip_read_bounded($zip, 'cms-manifest.json', 4 * 1024 * 1024);
     if ($manifestJson === false) {
         $zip->close();
         adiwira_redirect_with_flash($selfUrl, 'error', __('cms-manifest.json not found in the update package.'));
@@ -177,15 +182,33 @@ function cms_update_clear_pending(string $selfUrl): void
 
 function cms_update_reinstall(PDO $pdo, array $currentVersion, string $selfUrl, string $base): void
 {
-    $url = UpdateStatusController::officialCoreUrl();
-
     $hardReset = !empty($_POST['hard_reset']);
     if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+
+    try {
+        $installedVersion = jyavani_descriptor_version($currentVersion['version'] ?? null, 'Installed Core version');
+        $releaseMetadata = update_metadata_fetch_json(
+            UpdateStatusController::officialCoreMetadataUrl($installedVersion),
+            'JyavaniCMS-Reinstall/' . $installedVersion,
+            microtime(true) + 8.0
+        );
+        if (!is_array($releaseMetadata)) throw new RuntimeException('Official reinstall metadata is unavailable.');
+        $releaseMetadata = UpdateStatusController::validateOfficialCoreMetadata($releaseMetadata, $installedVersion);
+        $expectedHash = (string)($releaseMetadata['package_sha256'] ?? '');
+        if (preg_match('/\A[a-f0-9]{64}\z/D', $expectedHash) !== 1) {
+            throw new RuntimeException('Official reinstall metadata does not provide a package checksum.');
+        }
+        $url = $releaseMetadata['download_url'];
+    } catch (Throwable $error) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to validate reinstall package metadata.'));
+    }
 
     $temporaryZip = package_download(
         $url,
         'cms-reinstall-',
-        'JyavaniCMS-Reinstall/' . ($currentVersion['version'] ?? '0.0.0')
+        'JyavaniCMS-Reinstall/' . $installedVersion,
+        null,
+        false
     );
     if ($temporaryZip === null) {
         $diagnostic = package_download_last_error_code();
@@ -194,23 +217,31 @@ function cms_update_reinstall(PDO $pdo, array $currentVersion, string $selfUrl, 
         adiwira_redirect_with_flash($selfUrl, 'error', $message);
     }
 
+    if (!hash_equals($expectedHash, (string)hash_file('sha256', $temporaryZip))) {
+        @unlink($temporaryZip);
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Package checksum verification failed.'));
+    }
+
     $zip = new ZipArchive();
     if ($zip->open($temporaryZip) !== true) {
         @unlink($temporaryZip);
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to open ZIP package.'));
     }
-    $manifestJson = $zip->getFromName('cms-manifest.json');
-    $zip->close();
     try {
-        $reinstallManifest = $manifestJson === false
-            ? null
-            : _cms_decode_json_array($manifestJson, 'cms-manifest.json');
+        $archiveValidation = package_archive_validate($zip);
+        if (!$archiveValidation['success']) throw new RuntimeException('Unsafe reinstall package archive.');
+        $manifestJson = _cms_zip_read_bounded($zip, 'cms-manifest.json', 4 * 1024 * 1024);
+        $reinstallManifest = $manifestJson === false ? null : cms_manifest_decode($manifestJson, 'cms-manifest.json');
+        if (is_array($reinstallManifest)) _cms_validate_core_package_metadata($zip, $reinstallManifest);
     } catch (Throwable $error) {
         $reinstallManifest = null;
+    } finally {
+        $zip->close();
     }
     if (!is_array($reinstallManifest)
         || !is_array($reinstallManifest['files'] ?? null)
-        || $reinstallManifest['files'] === []) {
+        || $reinstallManifest['files'] === []
+        || !hash_equals($installedVersion, (string)($reinstallManifest['version'] ?? ''))) {
         @unlink($temporaryZip);
         adiwira_redirect_with_flash($selfUrl, 'error', __('Invalid reinstall package manifest.'));
     }
@@ -222,11 +253,16 @@ function cms_update_reinstall(PDO $pdo, array $currentVersion, string $selfUrl, 
     }
     $lifecycleLocks = [];
     try {
-        $lifecycleLocks = theme_operation_acquire(theme_lifecycle_lock_keys());
+        $resetPluginNames = $hardReset ? cms_reinstall_hard_reset_plugin_names() : [];
+        $lifecycleLocks = theme_operation_acquire(theme_lifecycle_lock_keys($resetPluginNames));
+        $lockedInstalledVersion = _cms_installed_version();
+        if (!hash_equals($lockedInstalledVersion, (string)$reinstallManifest['version'])) {
+            throw new RuntimeException(__('Installed Core version changed while the reinstall package was downloading.'));
+        }
         $result = _apply_cms_update_from_zip(
             $temporaryZip,
             $reinstallManifest,
-            $currentVersion['version'] ?? '0.0.0'
+            $lockedInstalledVersion
         );
 
         $resetMessages = [];

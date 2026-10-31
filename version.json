@@ -1,14 +1,14 @@
 {
     "name": "Jyavani",
-    "version": "2.3.195",
+    "version": "2.3.196",
     "build": "2026-10-31",
-    "changelog": "Notify frontend view observers only after content representation filters approve the request.",
+    "changelog": "Harden Core update trust, archive processing, and incompatible theme isolation.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.195",
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.196",
     "product": {
         "schema_version": 1,
         "id": "org.jyavani",
@@ -20,7 +20,7 @@
         "distribution_id": "org.jyavani.php",
         "implementation_id": "org.jyavani.php.mysql",
         "name": "Jyavani PHP",
-        "version": "2.3.195",
+        "version": "2.3.196",
         "platform_contract": "1.0.0",
         "runtime": {
             "language": "PHP",
