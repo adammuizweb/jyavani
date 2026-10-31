@@ -21,7 +21,6 @@ class ThemeController
             $canonicalPath ??= function_exists('get_post_permalink')
                 ? get_post_permalink($themeData)
                 : '/' . rawurlencode((string)($themeData['slug'] ?? '')) . '/';
-            frontend_entity_viewed_notify($pdo, $themeData, 'post', 'theme', 'single.theme', $canonicalPath);
         }
 
         // (Opsional tapi aman) pastikan helper tersedia jika kamu pakai render_custom_post_template + shortcode
@@ -41,6 +40,9 @@ class ThemeController
         if (function_exists('apply_filters')) {
             $filtered = apply_filters('theme_post_data', $themeData, $GLOBALS['pdo'] ?? null);
             if (is_array($filtered)) $themeData = $filtered;
+        }
+        if ($pdo instanceof PDO) {
+            frontend_entity_viewed_notify($pdo, $themeData, 'post', 'theme', 'single.theme', $canonicalPath);
         }
 
         $vars = [

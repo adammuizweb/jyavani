@@ -568,10 +568,10 @@ class PostController
         $canonicalPath ??= function_exists('get_post_permalink')
             ? get_post_permalink($row)
             : '/' . rawurlencode((string)($row['slug'] ?? '')) . '/';
-        frontend_entity_viewed_notify($pdo, $row, 'post', 'article', 'single.post', $canonicalPath);
 
         // Allow plugins (e.g. content translation) to swap post data before rendering
         $row = apply_filters('post_data', $row, $pdo);
+        frontend_entity_viewed_notify($pdo, $row, 'post', 'article', 'single.post', $canonicalPath);
 
         $postData = $row;
 

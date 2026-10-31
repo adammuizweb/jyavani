@@ -298,10 +298,10 @@ $pdo = $layout_pdo;
         $canonicalPath ??= function_exists('get_page_permalink')
             ? get_page_permalink($pageData)
             : '/' . rawurlencode((string)($pageData['slug'] ?? '')) . '/';
-        frontend_entity_viewed_notify($pdo, $pageData, 'post', 'page', 'single.page', $canonicalPath);
 
         // Allow plugins (e.g. content translation) to swap page data before rendering
         $pageData = apply_filters('post_data', $pageData, $pdo);
+        frontend_entity_viewed_notify($pdo, $pageData, 'post', 'page', 'single.page', $canonicalPath);
         $single = [$pageData];
         media_normalize_featured_posts($pdo, $single, ['surface' => 'frontend.single', 'consumer' => 'page']);
         $pageData = $single[0];

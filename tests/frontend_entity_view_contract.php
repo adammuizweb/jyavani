@@ -82,20 +82,23 @@ $check(str_contains($sources['page'], "apply_filters('post_content', (string)(\$
     'Page content filters run on the content body before custom template rendering');
 
 $postNotify = strpos($sources['post'], 'frontend_entity_viewed_notify(');
+$postFilter = strpos($sources['post'], "apply_filters('post_data'");
 $postRender = strpos($sources['post'], "render_assigned_slot(\$pdo, 'content', 'posts_single:'");
 $pageResolved = strpos($sources['page'], 'if (!$pageData) {');
 $pageNotify = strpos($sources['page'], 'frontend_entity_viewed_notify(');
+$pageFilter = strpos($sources['page'], "apply_filters('post_data'");
 $pageRender = strpos($sources['page'], "render_assigned_slot(\$pdo, 'content', 'pages_single:'");
 $themeNotify = strpos($sources['theme'], 'frontend_entity_viewed_notify(');
+$themeFilter = strpos($sources['theme'], "apply_filters('theme_post_data'");
 $themeRender = strpos($sources['theme'], 'render_custom_post_template(');
 $categoryResolved = strpos($sources['category'], 'if (!$category) {');
 $categoryNotify = strpos($sources['category'], 'frontend_entity_viewed_notify(');
 $categoryRender = strpos($sources['category'], "self::trySlot(\$pdo, 'list.category'", $categoryNotify ?: 0);
-$check($postNotify !== false && $postRender !== false && $postNotify < $postRender
-    && $pageResolved !== false && $pageNotify !== false && $pageRender !== false && $pageResolved < $pageNotify && $pageNotify < $pageRender
-    && $themeNotify !== false && $themeRender !== false && $themeNotify < $themeRender
+$check($postFilter !== false && $postNotify !== false && $postRender !== false && $postFilter < $postNotify && $postNotify < $postRender
+    && $pageResolved !== false && $pageFilter !== false && $pageNotify !== false && $pageRender !== false && $pageResolved < $pageFilter && $pageFilter < $pageNotify && $pageNotify < $pageRender
+    && $themeFilter !== false && $themeNotify !== false && $themeRender !== false && $themeFilter < $themeNotify && $themeNotify < $themeRender
     && $categoryResolved !== false && $categoryNotify !== false && $categoryRender !== false && $categoryResolved < $categoryNotify && $categoryNotify < $categoryRender,
-    'notifications occur after successful resolution and before controller rendering');
+    'notifications occur after successful public-representation filters and before controller rendering');
 
 $router = $read('public/router.php');
 $check(strpos($router, "header('Location: ' . \$routeUrl, true, 301);") < strpos($router, 'PostController::renderArticle($resolved, $pdo, $renderCanonicalUrl);')
