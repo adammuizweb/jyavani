@@ -70,6 +70,49 @@ $refreshed = PluginStoreController::refreshCompatibility([
 $check(($refreshed['contract-plugin']['compatible'] ?? false) === true
     && ($refreshed['contract-plugin']['compatibility_errors'] ?? null) === [],
     'cached Store compatibility is recalculated against the currently installed Core');
+$technology = [
+    'schema' => 1,
+    'distribution_id' => JYAVANI_DISTRIBUTION_ID,
+    'implementation_id' => 'org.jyavani.php.extensions',
+    'api' => '>=1.0.0',
+];
+$incompatibleTechnology = $technology;
+$incompatibleTechnology['api'] = '>=999.0.0';
+$technologyParser = new ReflectionMethod(PluginStoreController::class, 'technologyMetadata');
+$check($technologyParser->invoke(null, []) === []
+    && $technologyParser->invoke(null, ['technology' => $technology]) === $technology,
+    'legacy Store metadata remains valid and aware metadata is canonically preserved');
+$check($technologyParser->invoke(null, ['technology' => null]) === false
+    && $technologyParser->invoke(null, ['technology' => ['schema' => 1]]) === false
+    && $technologyParser->invoke(null, ['technology' => str_repeat('x', 1025)]) === false,
+    'Store technology awareness rejects null, malformed, and oversized metadata');
+$check($technologyParser->invoke(null, ['technology' => $incompatibleTechnology]) === $incompatibleTechnology,
+    'structurally valid incompatible Store technology metadata survives parsing');
+$technologyRefresh = PluginStoreController::refreshCompatibility([
+    'contract-plugin' => [
+        'new_version' => '2.0.0',
+        'requires' => [],
+        'technology' => $incompatibleTechnology,
+        'compatible' => true,
+        'compatibility_errors' => [],
+        'actionable' => true,
+    ],
+]);
+$check(($technologyRefresh['contract-plugin']['compatible'] ?? true) === false
+    && ($technologyRefresh['contract-plugin']['actionable'] ?? false) === true
+    && in_array('Plugin API requirement is not satisfied', $technologyRefresh['contract-plugin']['compatibility_errors'] ?? [], true),
+    'cached Store refresh marks incompatible technology without conflating compatibility and actionability');
+$nullTechnologyRefresh = PluginStoreController::refreshCompatibility([
+    'contract-plugin' => ['new_version' => '2.0.0', 'requires' => [], 'technology' => null, 'actionable' => true],
+]);
+$check(($nullTechnologyRefresh['contract-plugin']['compatible'] ?? true) === false,
+    'cached null technology metadata fails compatibility closed');
+$mismatchedTechnology = $technology;
+$mismatchedTechnology['api'] = '^1.0.0';
+$check(plugin_package_requirement_errors(
+    ['requires' => [], 'technology' => $technology],
+    ['requires' => [], 'technology' => $mismatchedTechnology]
+) !== [], 'store and package technology mismatch remains enforced downstream');
 
 $pluginDir = $fixture . '/contract-plugin';
 mkdir($pluginDir, 0775, true);
@@ -143,6 +186,10 @@ $manifestCheck = strpos($updater, '$packageManifestRaw = $zip->getFromName');
 $guardedUpdate = strpos($updater, 'package_guarded_publish($stage, $pluginDir, $oldIdentity, $newIdentity)');
 $check($manifestCheck !== false && $guardedUpdate !== false && $manifestCheck < $guardedUpdate, 'plugin updater inspects plugin.json and completes private staging before guarded replacement');
 $check(str_contains($updater, "'jyavani_required'") && str_contains($updater, "'compatible' =>"), 'update discovery carries and enforces the Core requirement metadata');
+$check(substr_count($updater, 'self::technologyMetadata(') >= 4
+    && str_contains($updater, "\$candidate['technology'] = \$latest['technology']")
+    && substr_count($updater, 'self::compatibilityManifest(') >= 4,
+    'catalog, exact metadata, discovery, refresh, and apply reconstruction preserve technology metadata');
 $check(str_contains($updater, 'plugin_package_requirement_errors($advertisedManifest, $packageManifest)'), 'update package requirements must match advertised store metadata');
 $check(str_contains($updater, "'checksum' => is_string(\$checksum) ? \$checksum : ''"), 'store version metadata publishes the package checksum required by the updater');
 $check(str_contains($updater, 'plugin_static_copy($pluginDir, $staticCopy, $oldStaticCopy)') && str_contains($updater, "'rollback_incomplete'"), 'updates track old and new static destinations and report incomplete static rollback');

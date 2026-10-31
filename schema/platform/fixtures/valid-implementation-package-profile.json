@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "distribution_id": "org.example.publisher",
+  "implementation_id": "org.example.publisher.extensions",
+  "api": "^2.0.0"
+}

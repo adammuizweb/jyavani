@@ -4,6 +4,7 @@ if (defined('PLUGIN_SYSTEM_LOADED')) return;
 define('PLUGIN_SYSTEM_LOADED', true);
 require_once dirname(__DIR__) . '/cfg/helpers/package_archive.php';
 require_once dirname(__DIR__) . '/cfg/helpers/migration_helper.php';
+require_once dirname(__DIR__) . '/cfg/helpers/extension_compatibility.php';
 // Plugin Registry — Jyavani CMS Plugin System v2.0
 // Loaded after bootstrap in dashboard/index.php
 
@@ -47,67 +48,15 @@ function plugin_current_jyavani_version(): string {
 }
 
 function plugin_parse_version_constraint(string $requirement): ?array {
-    $requirement = trim($requirement);
-    if ($requirement === '') return [];
-    $groups = preg_split('/\s*\|\|\s*/', $requirement);
-    if (!is_array($groups) || in_array('', $groups, true)) return null;
-    $parsed = [];
-    foreach ($groups as $group) {
-        $clauses = preg_split('/\s*,\s*|\s+(?=(?:\^|~|>=|<=|>|<|==|=)?\s*\d)/', trim($group));
-        if (!is_array($clauses) || $clauses === [] || in_array('', $clauses, true)) return null;
-        $parsedGroup = [];
-        foreach ($clauses as $clause) {
-            if (preg_match('/\A(\^|~|>=|<=|>|<|==|=)?\s*(\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?)\z/', $clause, $match) !== 1) return null;
-            $parsedGroup[] = [$match[1] ?? '', $match[2]];
-        }
-        $parsed[] = $parsedGroup;
-    }
-    return $parsed;
+    return extension_parse_version_constraint($requirement);
 }
 
 function plugin_version_requirement_met(string $current, string $requirement): bool {
-    if (preg_match('/\A\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.-]+)?\z/', $current) !== 1) return false;
-    $groups = plugin_parse_version_constraint($requirement);
-    if ($groups === null) return false;
-    if ($groups === []) return true;
-    foreach ($groups as $clauses) {
-        $passed = true;
-        foreach ($clauses as [$operator, $version]) {
-            if ($operator === '^' || $operator === '~') {
-                $numbers = array_map('intval', explode('.', preg_split('/[-+]/', $version, 2)[0]));
-                $numbers = array_pad($numbers, 3, 0);
-                if ($operator === '^') {
-                    if ($numbers[0] > 0) $upper = ($numbers[0] + 1) . '.0.0';
-                    elseif ($numbers[1] > 0) $upper = '0.' . ($numbers[1] + 1) . '.0';
-                    else $upper = '0.0.' . ($numbers[2] + 1);
-                } else {
-                    $upper = $numbers[0] . '.' . ($numbers[1] + 1) . '.0';
-                }
-                if (!version_compare($current, $version, '>=') || !version_compare($current, $upper, '<')) $passed = false;
-            } else {
-                $comparison = $operator === '' || $operator === '=' ? '>=' : $operator;
-                if (!version_compare($current, $version, $comparison)) $passed = false;
-            }
-            if (!$passed) break;
-        }
-        if ($passed) return true;
-    }
-    return false;
+    return extension_version_requirement_met($current, $requirement);
 }
 
 function plugin_canonical_version_requirement(string $requirement): ?string {
-    $groups = plugin_parse_version_constraint($requirement);
-    if ($groups === null) return null;
-    if ($groups === []) return '';
-    $canonical = [];
-    foreach ($groups as $clauses) {
-        $values = [];
-        foreach ($clauses as [$operator, $version]) {
-            $values[] = ($operator === '' || $operator === '=' ? '>=' : $operator) . $version;
-        }
-        $canonical[] = implode(' ', $values);
-    }
-    return implode(' || ', $canonical);
+    return extension_canonical_version_requirement($requirement);
 }
 
 /** Normalize canonical and legacy top-level requirement metadata. */
@@ -230,7 +179,7 @@ function plugin_core_js_dependency_assets(): array {
 
 /** Validate and normalize plugin-owned permissions and protected admin routes. */
 function plugin_manifest_contract(array $manifest): array {
-    $errors = [];
+    $errors = extension_technology_errors($manifest, 'plugin');
     $permissions = [];
     $routeRoles = [];
     $normalizeRoles = static function (mixed $roles): ?array {
@@ -248,7 +197,7 @@ function plugin_manifest_contract(array $manifest): array {
     };
     if (!array_key_exists('permissions', $manifest) && !array_key_exists('admin', $manifest)
         && !array_key_exists('static', $manifest) && !array_key_exists('dependencies', $manifest)) {
-        return ['permissions' => [], 'route_roles' => [], 'errors' => []];
+        return ['permissions' => [], 'route_roles' => [], 'errors' => array_values(array_unique($errors))];
     }
     $name = is_string($manifest['name'] ?? null) ? trim($manifest['name']) : '';
     if ($name === '' || strlen($name) > 100 || preg_match('/\A[a-zA-Z0-9_-]+\z/', $name) !== 1) {
@@ -492,7 +441,7 @@ function plugin_route_collision_errors(array $manifest, array $installed = []): 
 function plugin_package_requirement_errors(array $catalog, array $package): array {
     $catalogMeta = plugin_normalize_requirements($catalog);
     $packageMeta = plugin_normalize_requirements($package);
-    $errors = array_merge($catalogMeta['errors'], $packageMeta['errors']);
+    $errors = array_merge($catalogMeta['errors'], $packageMeta['errors'], extension_technology_parity_errors($catalog, $package, 'plugin'));
     foreach (['jyavani', 'php'] as $key) {
         $advertised = $catalogMeta['requires'][$key] ?? null;
         $declared = $packageMeta['requires'][$key] ?? null;
@@ -541,6 +490,9 @@ function plugin_requirement_checks(array $manifest, bool $checkPluginState = tru
     $metadata = plugin_normalize_requirements($manifest);
     $requires = $metadata['requires'];
     $checks = [];
+    foreach (extension_technology_errors($manifest, 'plugin') as $error) {
+        $checks[] = ['label' => $error, 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
+    }
     foreach ($metadata['errors'] as $error) $checks[] = ['label' => $error, 'passed' => false, 'command' => '', 'doc' => '', 'raw_output' => ''];
     $jyavani = is_string($requires['jyavani'] ?? null) ? trim($requires['jyavani']) : '';
     if (array_key_exists('jyavani', $requires) && !is_string($requires['jyavani'])) {

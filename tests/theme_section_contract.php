@@ -77,6 +77,7 @@ try {
     if (!is_dir($defaultDirectory)) mkdir($defaultDirectory, 0775, true);
     if (!is_dir($globalDirectory)) mkdir($globalDirectory, 0775, true);
 
+    file_put_contents($fixtureRoot . '/theme.json', json_encode(['name' => 'Theme Section Contract', 'version' => '1.0.0'], JSON_THROW_ON_ERROR));
     file_put_contents($activeFile, '<article data-source="active" data-context="<?= $esc($context[\'page\'][\'slug\'] ?? \'\') ?>" data-attr-page="<?= isset($attrs[\'page\']) ? \'yes\' : \'no\' ?>"><?= $esc($attrs[\'title\'] ?? \'\') ?></article>');
     file_put_contents($defaultFile, '<article data-source="default"><?= $esc($section) ?></article>');
     file_put_contents($globalFile, '<article data-source="global"><?= $esc($section) ?></article>');

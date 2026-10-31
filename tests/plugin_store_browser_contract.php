@@ -41,6 +41,14 @@ $check(str_contains($client, '$nextCursor === $cursor')
     && str_contains($browser, 'hasMore && appended > 0')
     && str_contains($browser, 'window.clearTimeout(debounce); load(true);'),
     'catalog loading rejects repeated/no-progress auto-loads and submit cancels pending live-search debounce');
+$check(str_contains($client, '$authoritative = self::fetchVersionInfo($storeUrl')
+    && str_contains($client, 'plugin_package_requirement_errors($update, $authoritative)')
+    && str_contains($client, 'Plugin update metadata changed. Run "Check for Updates" again.'),
+    'plugin apply re-fetches authoritative version, checksum, requirements, and technology metadata');
+$check(str_contains($client, 'private static function packageMetadata(')
+    && str_contains($client, "if (array_key_exists('technology', \$packageMetadata)) \$plugin['technology']")
+    && str_contains($client, "if (array_key_exists('technology', \$packageMetadata)) \$response['technology']"),
+    'Store producer preserves package technology metadata in catalog and exact version responses');
 $check(str_contains($browser, 'id="pluginStoreMore"')
     && str_contains($browser, 'href="<?= h($nextUrl) ?>"')
     && str_contains($browser, 'aria-live="polite"'),

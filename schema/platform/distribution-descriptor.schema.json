@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jyavani.org/platform/distribution-descriptor-v1.schema.json",
+  "title": "Jyavani Distribution Descriptor v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "distribution_id",
+    "implementation_id",
+    "name",
+    "version",
+    "platform_contract",
+    "runtime",
+    "capabilities",
+    "extension_system",
+    "theme_system"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "distribution_id": { "$ref": "#/$defs/namespacedId" },
+    "implementation_id": { "$ref": "#/$defs/namespacedId" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "version": { "$ref": "#/$defs/version" },
+    "platform_contract": { "const": "1.0.0" },
+    "runtime": { "$ref": "#/$defs/runtime" },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "extension_system": { "$ref": "#/$defs/implementationContract" },
+    "theme_system": { "$ref": "#/$defs/implementationContract" }
+  },
+  "$defs": {
+    "namespacedId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z][a-z0-9_-]*)+$",
+      "maxLength": 160
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$",
+      "maxLength": 64
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "runtime", "data_stores"],
+      "properties": {
+        "language": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "runtime": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "data_stores": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "contract_version", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/namespacedId" },
+        "contract_version": { "$ref": "#/$defs/version" },
+        "status": { "enum": ["native", "adapted", "partial", "unsupported"] },
+        "limitations": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "partial" } }, "required": ["status"] },
+          "then": { "required": ["limitations"] }
+        }
+      ]
+    },
+    "implementationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation_id", "api_versions"],
+      "properties": {
+        "implementation_id": { "$ref": "#/$defs/namespacedId" },
+        "api_versions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/version" }
+        }
+      }
+    }
+  }
+}

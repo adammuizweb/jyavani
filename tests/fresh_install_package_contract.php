@@ -186,6 +186,16 @@ if ($packagePath !== '') {
     $opened = $zip->open($packagePath) === true;
     $check($opened, 'fresh-install package can be opened');
     if ($opened) {
+        $packageManifest = json_decode((string)$zip->getFromName('cms-manifest.json'), true);
+        $packageVersion = json_decode((string)$zip->getFromName('version.json'), true);
+        $plainVersion = trim((string)$zip->getFromName('VERSION'));
+        $check(is_array($packageManifest) && is_array($packageVersion)
+            && ($packageManifest['version'] ?? null) === ($packageVersion['version'] ?? null)
+            && $plainVersion === ($packageVersion['version'] ?? null)
+            && ($packageManifest['product'] ?? null) === ($packageVersion['product'] ?? null)
+            && ($packageManifest['distribution'] ?? null) === ($packageVersion['distribution'] ?? null)
+            && ($packageManifest['contracts'] ?? null) === ($packageVersion['contracts'] ?? null),
+            'package manifest, release descriptor, and flat version share one distribution identity');
         $check($zip->locateName('public/views/themes/default/theme.json') !== false, 'package contains the default system theme');
         $check($zip->locateName('public/views/themes/adam/theme.json') === false, 'package excludes the adam Store theme');
         for ($index = 0; $index < $zip->numFiles; $index++) {

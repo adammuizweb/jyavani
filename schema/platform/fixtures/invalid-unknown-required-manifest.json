@@ -1,0 +1,34 @@
+{
+  "format": "org.jyavani.portable-archive",
+  "format_version": 1,
+  "operation": "create_only",
+  "identity_scope": "archive_local",
+  "archive_id": "archive:unknown-required-1",
+  "created_at_utc": "2026-10-31T08:15:30Z",
+  "source_distribution": {
+    "distribution_id": "org.example.publisher",
+    "implementation_id": "org.example.publisher.runtime",
+    "version": "1.4.0"
+  },
+  "site_timezone": "UTC",
+  "timestamp_semantics": {
+    "utc_instants": "rfc3339_utc_z",
+    "local_civil": "local_civil_with_iana_zone_no_implicit_conversion"
+  },
+  "capabilities": [],
+  "extensions": [],
+  "records": [
+    {
+      "local_id": "opaque:required-1",
+      "record_type": "org.example.unknown.v1",
+      "path": "records/unknown-required-1.json",
+      "required": true,
+      "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    }
+  ],
+  "blobs": [],
+  "security": {
+    "contains_executable_code": false,
+    "contains_secrets": false
+  }
+}

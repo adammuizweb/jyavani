@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/cfg/helpers/package_archive.php';
 require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
+require_once dirname(__DIR__, 2) . '/cfg/helpers/extension_compatibility.php';
 
 class ThemeStoreClient
 {
@@ -14,6 +15,24 @@ class ThemeStoreClient
     private const MAX_COMPRESSION_RATIO = 200;
     private const MAX_DECISIONS = 64;
     private const MAX_ISSUES = 64;
+    private const MAX_TECHNOLOGY_BYTES = 1024;
+
+    private static function technologyMetadata(array $metadata): array|false
+    {
+        if (!array_key_exists('technology', $metadata)) return [];
+        if ($metadata['technology'] === null) return false;
+        $encoded = json_encode($metadata['technology'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($encoded) || strlen($encoded) > self::MAX_TECHNOLOGY_BYTES) return false;
+        $technology = extension_technology_profile($metadata, 'theme');
+        if (($technology['aware'] ?? false) !== true || !is_array($technology['profile'] ?? null)) return false;
+        $compatibilityErrors = [
+            'Extension targets another Jyavani distribution',
+            'Extension targets another implementation API',
+            'Theme API requirement is not satisfied',
+        ];
+        foreach ($technology['errors'] ?? [] as $error) if (!in_array($error, $compatibilityErrors, true)) return false;
+        return $technology['profile'];
+    }
 
     public static function fetchCatalogPage(string $query = '', string $cursor = '', int $limit = 24): ?array
     {
@@ -40,7 +59,9 @@ class ThemeStoreClient
             $seen[$name] = true;
             $screenshot = self::validatedThemeAssetUrl((string)($theme['screenshot'] ?? ''), $name);
             $homepage = self::validatedPublicUrl((string)($theme['homepage'] ?? ''));
-            $themes[] = [
+            $technology = self::technologyMetadata($theme);
+            if ($technology === false) return null;
+            $parsedTheme = [
                 'name' => $name,
                 'title' => $title,
                 'version' => $version,
@@ -52,6 +73,8 @@ class ThemeStoreClient
                 'avg_rating' => max(0, min(5, (float)($theme['avg_rating'] ?? 0))),
                 'total_ratings' => max(0, (int)($theme['total_ratings'] ?? 0)),
             ];
+            if ($technology !== []) $parsedTheme['technology'] = $technology;
+            $themes[] = $parsedTheme;
         }
         $pagination = $data['pagination'];
         $hasMore = ($pagination['has_more'] ?? false) === true;
@@ -72,10 +95,13 @@ class ThemeStoreClient
         if (!is_array($data) || !hash_equals($name, (string)($data['name'] ?? ''))
             || !is_string($data['version'] ?? null) || trim($data['version']) === ''
             || preg_match('/\A[a-f0-9]{64}\z/', strtolower((string)($data['checksum'] ?? ''))) !== 1) return null;
+        $technology = self::technologyMetadata($data);
+        if ($technology === false) return null;
         $download = self::validatedStoreUrl((string)($data['download_url'] ?? ''), '/theme-store/download/' . rawurlencode($name) . '/');
         if ($download === '') return null;
         $data['download_url'] = $download;
         $data['checksum'] = strtolower((string)$data['checksum']);
+        if ($technology !== []) $data['technology'] = $technology;
         return $data;
     }
 
@@ -169,17 +195,22 @@ class ThemeStoreClient
             $fetched++;
 
             if (version_compare($latest['version'] ?? '0.0.0', $currentVersion, '>')) {
-                $observed[$folder] = $updates[$folder] = [
+                $compatibilityErrors = self::compatibilityErrors($latest);
+                $candidate = [
                     'current_version' => $currentVersion,
                     'new_version' => $latest['version'],
                     'download_url' => $latest['download_url'] ?? ($storeUrl . '/download/' . $storeSlug . '/'),
                     'changelog' => $latest['changelog'] ?? '',
                     'zip_size' => $latest['zip_size'] ?? 0,
                     'php_required' => $latest['php_required'] ?? '',
+                    'compatible' => $compatibilityErrors === [],
+                    'compatibility_errors' => $compatibilityErrors,
                     'checksum' => $latest['checksum'] ?? '',
                     'checked_at' => $now,
                     'actionable' => true,
                 ];
+                if (array_key_exists('technology', $latest)) $candidate['technology'] = $latest['technology'];
+                $observed[$folder] = $updates[$folder] = $candidate;
             } else {
                 $observed[$folder] = null;
                 unset($updates[$folder]);
@@ -277,7 +308,7 @@ class ThemeStoreClient
             theme_operation_release($commitLocks);
         }
 
-        return ['state' => $state, 'updates' => $committed['updates'] ?? [], 'errors' => $failed];
+        return ['state' => $state, 'updates' => self::refreshCompatibility($committed['updates'] ?? []), 'errors' => $failed];
     }
 
     public static function getCachedUpdates(): array
@@ -285,9 +316,30 @@ class ThemeStoreClient
         $transient = self::readTransient();
         $updates = is_array($transient['updates'] ?? null) ? $transient['updates'] : [];
         $freshAfter = time() - self::UPDATE_TTL;
-        return array_filter($updates, static fn(mixed $update): bool => is_array($update)
+        $updates = array_filter($updates, static fn(mixed $update): bool => is_array($update)
             && ($update['actionable'] ?? false) === true
             && (int)($update['checked_at'] ?? 0) >= $freshAfter);
+        return self::refreshCompatibility($updates);
+    }
+
+    public static function compatibilityErrors(array $metadata): array
+    {
+        self::loadThemeHelpers();
+        return extension_technology_errors($metadata, 'theme');
+    }
+
+    public static function refreshCompatibility(array $updates): array
+    {
+        foreach ($updates as &$update) {
+            if (!is_array($update)) continue;
+            $metadata = [];
+            if (array_key_exists('technology', $update)) $metadata['technology'] = $update['technology'];
+            $errors = self::compatibilityErrors($metadata);
+            $update['compatible'] = $errors === [];
+            $update['compatibility_errors'] = $errors;
+        }
+        unset($update);
+        return $updates;
     }
 
     public static function forgetInstalledTheme(string $folder): void
@@ -310,6 +362,10 @@ class ThemeStoreClient
             $update = self::actionableUpdate($folder);
             if ($update === null) {
                 return self::safePreflightError('No update available for "' . $folder . '". Run "Check for Updates" first.');
+            }
+            $compatibilityErrors = self::compatibilityErrors($update);
+            if ($compatibilityErrors !== []) {
+                return self::safePreflightError('Theme update is incompatible with this Jyavani distribution: ' . implode('; ', $compatibilityErrors));
             }
             $installed = self::readPhysicalManifest($folder);
             return array_merge(['success' => true], self::runPreflight($pdo, $folder, $update, $installed['manifest'], $normalizedDecisions));
@@ -357,12 +413,36 @@ class ThemeStoreClient
             $locks = theme_operation_acquire(theme_lifecycle_lock_keys([$folderName]));
             $update = self::actionableUpdate($folderName);
             if ($update === null) return $fail('No update available for "' . $folderName . '". Run "Check for Updates" first.');
+            $compatibilityErrors = self::compatibilityErrors($update);
+            if ($compatibilityErrors !== []) {
+                return $fail('Theme update is incompatible with this Jyavani distribution: ' . implode('; ', $compatibilityErrors),
+                    'theme_update_incompatible', ['compatibility_errors' => $compatibilityErrors]);
+            }
             $installedBefore = self::readPhysicalManifest($folderName);
             $themeDir = $installedBefore['directory'];
             $oldManifest = $installedBefore['manifest'];
             $oldVersion = (string)($oldManifest['version'] ?? '');
             if ($oldVersion === '' || !hash_equals((string)($update['current_version'] ?? ''), $oldVersion)) {
                 return $fail(__('Installed theme version changed. Run "Check for Updates" again.'));
+            }
+            $store = is_array($oldManifest['store'] ?? null) ? $oldManifest['store'] : [];
+            $storeUrl = rtrim((string)($store['url'] ?? self::STORE_BASE), '/');
+            $storeSlug = (string)($store['slug'] ?? $folderName);
+            $authoritative = self::fetchVersionInfo($storeUrl . '/' . $storeSlug . '/version.json');
+            $authoritativeChecksum = strtolower((string)($authoritative['checksum'] ?? ''));
+            if (!is_array($authoritative) || !is_string($authoritative['version'] ?? null)
+                || version_compare($authoritative['version'], (string)($update['new_version'] ?? ''), '!=')
+                || preg_match('/\A[a-f0-9]{64}\z/', $authoritativeChecksum) !== 1
+                || !hash_equals($authoritativeChecksum, strtolower((string)($update['checksum'] ?? '')))) {
+                return $fail(__('Theme update metadata changed. Run "Check for Updates" again.'));
+            }
+            $authoritativeCompatibilityErrors = self::compatibilityErrors($authoritative);
+            if ($authoritativeCompatibilityErrors !== []) {
+                return $fail('Theme update is incompatible with this Jyavani distribution: ' . implode('; ', $authoritativeCompatibilityErrors),
+                    'theme_update_incompatible', ['compatibility_errors' => $authoritativeCompatibilityErrors]);
+            }
+            if (is_string($authoritative['download_url'] ?? null) && trim($authoritative['download_url']) !== '') {
+                $update['download_url'] = $authoritative['download_url'];
             }
             $preflight = self::runPreflight($pdo, $folderName, $update, $oldManifest, $normalizedDecisions);
             if (!$preflight['allowed']) {
@@ -439,6 +519,16 @@ class ThemeStoreClient
             $stagedManifest = is_string($stagedRaw) ? json_decode($stagedRaw, true) : null;
             if (!is_array($stagedManifest) || $stagedManifest !== $manifest || package_tree_identity($stage) === null) {
                 return $fail(__('Staged theme verification failed.'));
+            }
+            $technologyParityErrors = extension_technology_parity_errors($authoritative, $stagedManifest, 'theme');
+            if ($technologyParityErrors !== []) {
+                return $fail('Theme package technology metadata does not match the Store: ' . implode('; ', $technologyParityErrors),
+                    'theme_update_technology_mismatch', ['compatibility_errors' => $technologyParityErrors]);
+            }
+            $requirementParityErrors = theme_requirement_parity_errors($authoritative, $stagedManifest);
+            if ($requirementParityErrors !== []) {
+                return $fail(__('Theme package requirements do not match the store catalog.'),
+                    'theme_update_requirement_mismatch', ['compatibility_errors' => $requirementParityErrors]);
             }
             $p(75, __('Verifying staged theme tree...'), 'validate');
             $newIdentity = package_tree_identity($stage);

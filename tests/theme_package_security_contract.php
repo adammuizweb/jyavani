@@ -133,6 +133,14 @@ try {
     $requirementMismatch = install_theme_from_zip(null, $metadataPackage, false, null, 'metadata', ['version' => '1.0.0', 'php_required' => '8.2']);
     $check(($requirementMismatch['success'] ?? false) === false && str_contains((string)$requirementMismatch['message'], 'requirements do not match'),
         'Store theme installation rejects package requirements that differ from authoritative metadata');
+    $check(theme_requirement_parity_errors(
+        ['php_required' => '>=999.0.0', 'requires' => ['php' => '>=8.1.0']],
+        ['php_required' => '>=8.1.0']
+    ) !== [], 'Store theme requirement profiles reject conflicting nested and legacy declarations');
+    $check(theme_requirement_parity_errors(
+        ['php_required' => '8.1', 'requires' => []],
+        ['php_required' => '8.1']
+    ) === [], 'empty requires objects preserve legacy top-level theme requirement compatibility');
 
     $unsupportedPackage = $fixture . '/unsupported.zip';
     $zip = new ZipArchive();
@@ -141,8 +149,34 @@ try {
     $zip->addFromString('header.php', '<?php echo "safe";');
     $zip->close();
     $unsupported = install_theme_from_zip(null, $unsupportedPackage, false, null, 'unsupported', ['version' => '1.0.0', 'php_required' => '999.0']);
-    $check(($unsupported['success'] ?? false) === false && str_contains((string)$unsupported['message'], 'requires PHP'),
+    $check(($unsupported['success'] ?? false) === false
+        && (str_contains((string)$unsupported['message'], 'requires PHP')
+            || str_contains((string)$unsupported['message'], 'PHP requirement is not satisfied')),
         'Store theme installation enforces the authoritative PHP requirement before publication');
+
+    $technologyPackage = $fixture . '/technology-parity.zip';
+    $zip = new ZipArchive();
+    $zip->open($technologyPackage, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $packageTechnology = [
+        'schema' => 1,
+        'distribution_id' => JYAVANI_DISTRIBUTION_ID,
+        'implementation_id' => 'org.jyavani.php.themes',
+        'api' => '>=1.0.0',
+    ];
+    $zip->addFromString('theme.json', json_encode([
+        'folder' => 'technology-parity', 'name' => 'Technology Parity', 'version' => '1.0.0',
+        'technology' => $packageTechnology,
+    ], JSON_THROW_ON_ERROR));
+    $zip->addFromString('header.php', '<?php echo "safe";');
+    $zip->close();
+    $storeTechnology = $packageTechnology;
+    $storeTechnology['api'] = '^1.0.0';
+    $technologyMismatch = install_theme_from_zip(null, $technologyPackage, false, null, 'technology-parity', [
+        'version' => '1.0.0', 'technology' => $storeTechnology,
+    ]);
+    $check(($technologyMismatch['success'] ?? false) === false
+        && str_contains((string)$technologyMismatch['message'], 'technology metadata does not match'),
+        'Store theme installation requires authoritative aware metadata to match the package declaration');
 
     $caseConflict = $fixture . '/case-conflict.zip';
     $zip = new ZipArchive();

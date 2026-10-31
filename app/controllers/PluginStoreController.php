@@ -3,11 +3,40 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/cfg/helpers/package_archive.php';
 require_once dirname(__DIR__, 2) . '/cfg/helpers/migration_helper.php';
 require_once dirname(__DIR__, 2) . '/cfg/helpers/update_metadata_http.php';
+require_once dirname(__DIR__, 2) . '/cfg/helpers/extension_compatibility.php';
 
 class PluginStoreController
 {
     private const UPDATE_TTL = 3600;
     private const STORE_URL = 'https://jyavani.com/plugin-store';
+    private const MAX_TECHNOLOGY_BYTES = 1024;
+
+    private static function technologyMetadata(array $metadata): array|false
+    {
+        if (!array_key_exists('technology', $metadata)) return [];
+        if ($metadata['technology'] === null) return false;
+        $encoded = json_encode($metadata['technology'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (!is_string($encoded) || strlen($encoded) > self::MAX_TECHNOLOGY_BYTES) return false;
+
+        $technology = extension_technology_profile($metadata, 'plugin');
+        if (($technology['aware'] ?? false) !== true || !is_array($technology['profile'] ?? null)) return false;
+        $compatibilityErrors = [
+            'Extension targets another Jyavani distribution',
+            'Extension targets another implementation API',
+            'Plugin API requirement is not satisfied',
+        ];
+        foreach ($technology['errors'] ?? [] as $error) {
+            if (!in_array($error, $compatibilityErrors, true)) return false;
+        }
+        return $technology['profile'];
+    }
+
+    private static function compatibilityManifest(array $metadata): array
+    {
+        $manifest = ['requires' => is_array($metadata['requires'] ?? null) ? $metadata['requires'] : []];
+        if (array_key_exists('technology', $metadata)) $manifest['technology'] = $metadata['technology'];
+        return $manifest;
+    }
 
     public static function fetchCatalogPage(string $query = '', string $cursor = '', int $limit = 24): ?array
     {
@@ -34,7 +63,9 @@ class PluginStoreController
             $seen[$name] = true;
             $icon = self::validatedStoreUrl((string)($plugin['icon'] ?? ''), '/plugin-store/static/' . rawurlencode($name) . '/');
             $pluginUri = self::validatedPublicUrl((string)($plugin['plugin_uri'] ?? ''));
-            $plugins[] = [
+            $technology = self::technologyMetadata($plugin);
+            if ($technology === false) return null;
+            $parsed = [
                 'name' => $name,
                 'title' => $title,
                 'version' => $version,
@@ -44,6 +75,8 @@ class PluginStoreController
                 'icon' => $icon,
                 'plugin_uri' => $pluginUri,
             ];
+            if ($technology !== []) $parsed['technology'] = $technology;
+            $plugins[] = $parsed;
         }
         $pagination = $data['pagination'];
         $hasMore = ($pagination['has_more'] ?? false) === true;
@@ -65,10 +98,13 @@ class PluginStoreController
             || !is_string($data['version'] ?? null) || trim($data['version']) === ''
             || preg_match('/\A[a-f0-9]{64}\z/', (string)($data['checksum'] ?? '')) !== 1
             || !is_array($data['requires'] ?? null)) return null;
+        $technology = self::technologyMetadata($data);
+        if ($technology === false) return null;
         $download = self::validatedStoreUrl((string)($data['download_url'] ?? ''), '/plugin-store/download/' . rawurlencode($name) . '/');
         if ($download === '') return null;
         $data['download_url'] = $download;
         $data['description'] = '';
+        if ($technology !== []) $data['technology'] = $technology;
         return $data;
     }
 
@@ -171,7 +207,8 @@ class PluginStoreController
                 if (is_string($latest['php_required'] ?? null) && $latest['php_required'] !== '') {
                     $latestRequirements['php'] = $latest['php_required'];
                 }
-                $requirementManifest = ['requires' => $latestRequirements];
+                $requirementManifest = self::compatibilityManifest($latest);
+                $requirementManifest['requires'] = $latestRequirements;
                 $strictPluginDependencies = function_exists('plugin_is_active') ? plugin_is_active($name) : true;
                 if ($strictPluginDependencies && function_exists('plugin_requirement_errors')) {
                     $compatibilityErrors = plugin_requirement_errors($requirementManifest);
@@ -186,7 +223,7 @@ class PluginStoreController
                         plugin_replacement_dependency_errors($name, (string)($latest['version'] ?? ''))
                     );
                 }
-                $observed[$name] = $updates[$name] = [
+                $candidate = [
                     'current_version' => $currentVersion,
                     'current_identity' => (string)($baselinePhysical[$name]['identity'] ?? ''),
                     'current_reconciliation' => (string)($baselineReconciliations[$name] ?? ''),
@@ -200,9 +237,12 @@ class PluginStoreController
                     'compatible' => $compatibilityErrors === [],
                     'compatibility_errors' => $compatibilityErrors,
                     'checksum' => $latest['checksum'] ?? '',
+                    'store_url' => $storeUrl,
                     'checked_at' => $now,
                     'actionable' => true,
                 ];
+                if (array_key_exists('technology', $latest)) $candidate['technology'] = $latest['technology'];
+                $observed[$name] = $updates[$name] = $candidate;
             } else {
                 $observed[$name] = null;
                 unset($updates[$name]);
@@ -294,7 +334,10 @@ class PluginStoreController
     {
         foreach ($updates as $name => &$update) {
             if (!is_array($update)) continue;
-            $requirements = ['requires' => is_array($update['requires'] ?? null) ? $update['requires'] : []];
+            $technology = self::technologyMetadata($update);
+            if ($technology === false) $update['technology'] = null;
+            elseif ($technology !== []) $update['technology'] = $technology;
+            $requirements = self::compatibilityManifest($update);
             $strict = function_exists('plugin_is_active') ? plugin_is_active((string)$name) : true;
             if ($strict && function_exists('plugin_requirement_errors')) {
                 $errors = plugin_requirement_errors($requirements);
@@ -373,8 +416,27 @@ class PluginStoreController
             if ($progressToken !== '') self::writeProgress($progressToken, 0, $error, true, $error);
             return ['success' => false, 'error' => $error];
         }
+        $storeUrl = rtrim((string)($update['store_url'] ?? self::STORE_URL), '/');
+        $authoritative = self::fetchVersionInfo($storeUrl . '/' . rawurlencode($name) . '/version.json');
+        $authoritativeChecksum = strtolower((string)($authoritative['checksum'] ?? ''));
+        $metadataErrors = is_array($authoritative) && function_exists('plugin_package_requirement_errors')
+            ? plugin_package_requirement_errors($update, $authoritative)
+            : ['Authoritative plugin metadata is unavailable'];
+        if (!is_array($authoritative) || !is_string($authoritative['version'] ?? null)
+            || version_compare($authoritative['version'], (string)($update['new_version'] ?? ''), '!=')
+            || preg_match('/\A[a-f0-9]{64}\z/', $authoritativeChecksum) !== 1
+            || !hash_equals($authoritativeChecksum, strtolower((string)($update['checksum'] ?? '')))
+            || $metadataErrors !== []) {
+            $error = 'Plugin update metadata changed. Run "Check for Updates" again.';
+            if ($progressToken !== '') self::writeProgress($progressToken, 0, $error, true, $error);
+            return ['success' => false, 'error' => $error];
+        }
+        foreach (['download_url', 'php_required', 'jyavani_required', 'requires', 'technology'] as $key) {
+            if (array_key_exists($key, $authoritative)) $update[$key] = $authoritative[$key];
+            else unset($update[$key]);
+        }
         $strictPluginDependencies = function_exists('plugin_is_active') ? plugin_is_active($name) : true;
-        $requirementManifest = ['requires' => is_array($update['requires'] ?? null) ? $update['requires'] : []];
+        $requirementManifest = self::compatibilityManifest($update);
         $currentCompatibilityErrors = $strictPluginDependencies && function_exists('plugin_requirement_errors')
             ? plugin_requirement_errors($requirementManifest)
             : (function_exists('plugin_requirement_errors_without_plugin_state')
@@ -478,7 +540,7 @@ class PluginStoreController
             return ['success' => false, 'error' => $packageRequirementError];
         }
         if (function_exists('plugin_package_requirement_errors')) {
-            $advertisedManifest = ['requires' => is_array($update['requires'] ?? null) ? $update['requires'] : []];
+            $advertisedManifest = self::compatibilityManifest($update);
             $metadataErrors = plugin_package_requirement_errors($advertisedManifest, $packageManifest);
             if ($metadataErrors !== []) {
                 $zip->close(); @unlink($tmpZip);
@@ -936,7 +998,12 @@ class PluginStoreController
 
     private static function fetchVersionInfo(string $url, ?float $deadline = null): ?array
     {
-        return update_metadata_fetch_json($url, 'JyavaniCMS-PluginUpdate', $deadline);
+        $data = update_metadata_fetch_json($url, 'JyavaniCMS-PluginUpdate', $deadline);
+        if (!is_array($data)) return null;
+        $technology = self::technologyMetadata($data);
+        if ($technology === false) return null;
+        if ($technology !== []) $data['technology'] = $technology;
+        return $data;
     }
 
     private static function lockDeadline(?float $deadline): ?float
@@ -978,8 +1045,8 @@ class PluginStoreController
             $rows = $stmt ? $stmt->fetchAll() : [];
             foreach ($rows as $row) {
                 $name = $row['name'];
-                $packageRequirements = self::packageRequirements((string)($row['zip_file'] ?? ''), $name);
-                $plugins[] = [
+                $packageMetadata = self::packageMetadata((string)($row['zip_file'] ?? ''), $name);
+                $plugin = [
                     'name' => $name,
                     'title' => $row['title'] ?: $name,
                     'version' => $row['version'] ?: '1.0.0',
@@ -990,9 +1057,11 @@ class PluginStoreController
                     'banner' => self::storeStaticUrl($name, (string)$row['banner']),
                     'plugin_uri' => $row['homepage'] ?: '',
                     'download_url' => self::storeDownloadUrl($name),
-                    'jyavani_required' => $packageRequirements['jyavani'] ?? '',
-                    'requires' => $packageRequirements,
+                    'jyavani_required' => $packageMetadata['requires']['jyavani'] ?? '',
+                    'requires' => $packageMetadata['requires'],
                 ];
+                if (array_key_exists('technology', $packageMetadata)) $plugin['technology'] = $packageMetadata['technology'];
+                $plugins[] = $plugin;
             }
         } catch (Throwable $e) {
             error_log('PluginStore list error: ' . $e->getMessage());
@@ -1071,19 +1140,21 @@ class PluginStoreController
                 echo json_encode(['error' => 'Plugin not found.']);
                 exit;
             }
-            $packageRequirements = self::packageRequirements((string)($row['zip_file'] ?? ''), $name);
+            $packageMetadata = self::packageMetadata((string)($row['zip_file'] ?? ''), $name);
             $packagePath = __DIR__ . '/../../' . (string)($row['zip_file'] ?? '');
             $checksum = is_file($packagePath) ? hash_file('sha256', $packagePath) : false;
-            echo json_encode([
+            $response = [
                 'version' => $row['version'],
                 'download_url' => self::storeDownloadUrl($name),
                 'changelog' => $row['changelog'] ?: '',
                 'zip_size' => (int)($row['zip_size'] ?: 0),
                 'php_required' => $row['php_required'] ?: '8.1',
-                'jyavani_required' => $packageRequirements['jyavani'] ?? '',
-                'requires' => $packageRequirements,
+                'jyavani_required' => $packageMetadata['requires']['jyavani'] ?? '',
+                'requires' => $packageMetadata['requires'],
                 'checksum' => is_string($checksum) ? $checksum : '',
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            ];
+            if (array_key_exists('technology', $packageMetadata)) $response['technology'] = $packageMetadata['technology'];
+            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             exit;
         } catch (Throwable $e) {
             echo json_encode(['error' => 'Failed to read version info.']);
@@ -1133,26 +1204,33 @@ class PluginStoreController
         return $siteOrigin . '/plugin-store/download/' . rawurlencode($name) . '/';
     }
 
-    private static function packageRequirements(string $relativeZip, string $name): array
+    private static function packageMetadata(string $relativeZip, string $name): array
     {
-        if ($relativeZip === '' || !class_exists('ZipArchive')) return [];
+        $result = ['requires' => []];
+        if ($relativeZip === '' || !class_exists('ZipArchive')) return $result;
         $root = realpath(__DIR__ . '/../../');
         $path = $root ? realpath($root . '/' . ltrim($relativeZip, '/')) : false;
-        if (!$root || !$path || ($path !== $root && !str_starts_with($path, $root . DIRECTORY_SEPARATOR))) return [];
+        if (!$root || !$path || ($path !== $root && !str_starts_with($path, $root . DIRECTORY_SEPARATOR))) return $result;
         $zip = new ZipArchive();
-        if ($zip->open($path) !== true) return [];
+        if ($zip->open($path) !== true) return $result;
         $raw = $zip->getFromName('plugin.json');
         if ($raw === false) $raw = $zip->getFromName($name . '/plugin.json');
         $zip->close();
         $manifest = $raw !== false ? json_decode($raw, true) : null;
-        if (!is_array($manifest)) return [];
+        if (!is_array($manifest)) return $result;
         if (function_exists('plugin_normalize_requirements')) {
-            return plugin_normalize_requirements($manifest)['requires'];
+            $result['requires'] = plugin_normalize_requirements($manifest)['requires'];
+        } else {
+            $requires = is_array($manifest['requires'] ?? null) ? $manifest['requires'] : [];
+            if (!isset($requires['jyavani']) && is_string($manifest['jyavani_required'] ?? null)) $requires['jyavani'] = trim($manifest['jyavani_required']);
+            if (!isset($requires['php']) && is_string($manifest['php_required'] ?? null)) $requires['php'] = trim($manifest['php_required']);
+            $result['requires'] = $requires;
         }
-        $requires = is_array($manifest['requires'] ?? null) ? $manifest['requires'] : [];
-        if (!isset($requires['jyavani']) && is_string($manifest['jyavani_required'] ?? null)) $requires['jyavani'] = trim($manifest['jyavani_required']);
-        if (!isset($requires['php']) && is_string($manifest['php_required'] ?? null)) $requires['php'] = trim($manifest['php_required']);
-        return $requires;
+        if (array_key_exists('technology', $manifest)) {
+            $technology = self::technologyMetadata($manifest);
+            $result['technology'] = $technology === false ? null : $technology;
+        }
+        return $result;
     }
 
     private static function storeStaticUrl(string $name, string $file): string

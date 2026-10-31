@@ -45,6 +45,8 @@ try {
     mkdir($fixtureRoot, 0775, true);
     mkdir($failedRoot, 0775, true);
     mkdir($outsideRoot, 0775, true);
+    file_put_contents($fixtureRoot . '/theme.json', json_encode(['name' => 'Entrypoint Contract', 'version' => '1.0.0'], JSON_THROW_ON_ERROR));
+    file_put_contents($failedRoot . '/theme.json', json_encode(['name' => 'Failed Entrypoint Contract', 'version' => '1.0.0'], JSON_THROW_ON_ERROR));
     file_put_contents($fixtureRoot . '/theme.php', <<<'PHP'
 <?php
 $GLOBALS['theme_entrypoint_contract_count'] = ($GLOBALS['theme_entrypoint_contract_count'] ?? 0) + 1;

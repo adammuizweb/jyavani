@@ -106,15 +106,14 @@ function cms_update_store_upload(array $currentVersion, string $selfUrl): void
     }
 
     $manifestJson = $zip->getFromName('cms-manifest.json');
-    $versionJson = $zip->getFromName('version.json');
     if ($manifestJson === false) {
         $zip->close();
         adiwira_redirect_with_flash($selfUrl, 'error', __('cms-manifest.json not found in the update package.'));
     }
 
     try {
-        $remoteManifest = _cms_decode_json_array($manifestJson, 'cms-manifest.json');
-        if ($versionJson !== false) _cms_decode_json_array($versionJson, 'version.json');
+        $remoteManifest = cms_manifest_decode($manifestJson, 'cms-manifest.json');
+        _cms_validate_core_package_metadata($zip, $remoteManifest);
     } catch (Throwable $error) {
         $zip->close();
         adiwira_redirect_with_flash($selfUrl, 'error', $error->getMessage());

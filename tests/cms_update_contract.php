@@ -286,10 +286,64 @@ try {
     $archiveSymlinkManifest = contract_manifest('1.0.0', ['public/archive-link.txt' => 'outside-target']);
     $check(_apply_cms_update_from_zip($archiveSymlinkZip, $archiveSymlinkManifest, '1.0.0')['success'] === false, 'archive symlink entry is refused');
 
+    $awareVersion = json_decode((string)file_get_contents($sourceRoot . '/version.json'), true, 32, JSON_THROW_ON_ERROR);
+    $awareVersion['version'] = '9.9.9';
+    $awareVersion['distribution']['version'] = '9.9.9';
+    $awareVersionJson = json_encode($awareVersion, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    $awareFiles = ['version.json' => $awareVersionJson, 'VERSION' => "9.9.9\n", 'app/aware.php' => "<?php\n"];
+    $awareManifest = contract_manifest('9.9.9', $awareFiles, [
+        'product' => $awareVersion['product'],
+        'distribution' => $awareVersion['distribution'],
+        'contracts' => $awareVersion['contracts'],
+    ]);
+    $awareManifest = cms_manifest_validate($awareManifest, 'aware contract manifest');
+    $awareZip = $fixtureBase . '/aware.zip';
+    contract_zip($awareZip, array_merge(contract_entries($awareFiles), [[
+        'name' => 'cms-manifest.json',
+        'contents' => json_encode($awareManifest, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+    ]]));
+    $zip = new ZipArchive();
+    $zip->open($awareZip);
+    $check((_cms_validate_core_package_metadata($zip, $awareManifest)['version'] ?? null) === '9.9.9',
+        'aware package binds its manifest, version descriptor, distribution, and flat VERSION');
+    $zip->close();
+
+    $partialAware = $awareManifest;
+    unset($partialAware['contracts']);
+    try {
+        cms_manifest_validate($partialAware, 'partial aware manifest');
+        $partialAwareRefused = false;
+    } catch (Throwable $error) {
+        $partialAwareRefused = true;
+    }
+    $check($partialAwareRefused, 'partial aware Core manifest metadata is refused');
+
+    $foreignVersion = $awareVersion;
+    $foreignVersion['distribution']['distribution_id'] = 'org.jyavani.next';
+    $foreignFiles = $awareFiles;
+    $foreignFiles['version.json'] = json_encode($foreignVersion, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+    $foreignZip = $fixtureBase . '/foreign-aware.zip';
+    contract_zip($foreignZip, array_merge(contract_entries($foreignFiles), [[
+        'name' => 'cms-manifest.json',
+        'contents' => json_encode($awareManifest, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+    ]]));
+    $zip = new ZipArchive();
+    $zip->open($foreignZip);
+    try {
+        _cms_validate_core_package_metadata($zip, $awareManifest);
+        $foreignRefused = false;
+    } catch (Throwable $error) {
+        $foreignRefused = true;
+    }
+    $zip->close();
+    $check($foreignRefused, 'aware package for another distribution is refused');
+
     $generatorRoot = $fixtureBase . '/generator-app';
     contract_write($generatorRoot . '/tools/generate-manifest.php', (string)file_get_contents($sourceRoot . '/tools/generate-manifest.php'));
     contract_write($generatorRoot . '/cfg/helpers/cms_manifest.php', (string)file_get_contents($sourceRoot . '/cfg/helpers/cms_manifest.php'));
-    contract_write($generatorRoot . '/version.json', json_encode(['name' => 'Fixture', 'version' => '1.0.0'], JSON_THROW_ON_ERROR));
+    contract_write($generatorRoot . '/cfg/helpers/product_descriptor.php', (string)file_get_contents($sourceRoot . '/cfg/helpers/product_descriptor.php'));
+    contract_write($generatorRoot . '/version.json', (string)file_get_contents($sourceRoot . '/version.json'));
+    contract_write($generatorRoot . '/VERSION', (string)file_get_contents($sourceRoot . '/VERSION'));
     contract_write($generatorRoot . '/cfg/env.php', "<?php\nfunction fixture_env(): void {}\n");
     contract_write($generatorRoot . '/plugins/example/plugin.json', json_encode([
         'name' => 'example',

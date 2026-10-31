@@ -10,6 +10,23 @@ A theme that supports Customize needs three things:
 2. Template files that call `theme_zone_render_position()` with fallback HTML.
 3. Optionally, `layout.defaults` gadgets that pre-fill the layout when the user clicks **Load Default Layout**.
 
+## Distribution compatibility
+
+Themes built specifically for this PHP distribution may add this atomic profile to `theme.json`:
+
+```json
+{
+  "technology": {
+    "schema": 1,
+    "distribution_id": "org.jyavani.php",
+    "implementation_id": "org.jyavani.php.themes",
+    "api": "^1.0.0"
+  }
+}
+```
+
+Omitting `technology` preserves legacy PHP-theme compatibility. If the object is present, all four keys are required and Core validates them during Store discovery, installation, update, activation, assignment, entrypoint loading, and rendering. Do not copy this PHP profile into a package for another Jyavani distribution; implementation-specific packages are distributed separately even when they share design and product identity.
+
 ## Installed PHP source
 
 Site Owners with `core.themes.manage` can inspect registered-theme PHP from **Theme Manager > Inspect / Edit Source**. Core edits existing PHP files only; it does not create, rename, or delete files and does not edit assets or `theme.json`. Default/system themes are read-only.

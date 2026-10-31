@@ -203,6 +203,14 @@ Themes may declare:
 
 Use `theme_zone_has_position()` and `theme_zone_render_position()` with fallback markup so templates remain usable before a layout is configured. See the [Theme Authoring Guide](cms.md) and the production [`default/theme.json`](public/views/themes/default/theme.json).
 
+## Product And Distribution Contracts
+
+Jyavani is the stable product identity (`org.jyavani`); this repository is the PHP/MySQL distribution (`org.jyavani.php`, implementation `org.jyavani.php.mysql`). `version.json` is the authoritative release descriptor, and **Settings > System Information** exposes its bounded identity and runtime facts to Site Owners.
+
+The implementation-neutral platform vocabulary, capability model, semantic events, strict distribution descriptor, extension package profile, and create-only Portable Archive v1 specification live under [`schema/platform/`](schema/platform/). Portable Archive is a Phase 0 contract only: this release does not include an exporter, importer, persistent portable UUID migration, executable extension transfer, credentials, or sessions.
+
+Plugin and theme manifests may declare an atomic `technology` object containing schema `1`, the target distribution ID, implementation-specific extension or theme ID, and an API version constraint. Metadata-free packages remain legacy PHP packages. Once `technology` is present, Core validates it fail-closed through Store discovery, installation, update, activation or assignment, and executable loading.
+
 ## Dashboard Home Notices
 
 Core and plugins can add validated, dismissible banners below the dashboard home heading with the `dashboard_home_notices` filter:

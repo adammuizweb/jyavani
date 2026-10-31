@@ -16,6 +16,15 @@ $check = static function (bool $condition, string $message) use (&$failures): vo
 $check(str_contains($client, 'fetchCatalogPage(') && str_contains($client, '?api_version=2&limit=')
     && str_contains($client, "count(\$data['themes']) > \$limit") && str_contains($client, '$nextCursor === $cursor'),
     'Core fetches bounded validated theme catalog pages and rejects repeated cursors');
+$check(str_contains($client, 'private static function technologyMetadata(')
+    && str_contains($client, "\$technology = self::technologyMetadata(\$theme)")
+    && str_contains($client, "\$parsedTheme['technology'] = \$technology")
+    && str_contains($client, "\$data['technology'] = \$technology")
+    && str_contains($client, "array_key_exists('technology', \$latest)")
+    && str_contains($client, "\$candidate['technology'] = \$latest['technology']")
+    && str_contains($client, "\$data['download_url'] = \$download;")
+    && str_contains($client, 'return $data;'),
+    'optional technology metadata survives catalog, exact metadata, and update record parsing');
 $check(str_contains($catalog, 'core.themes.manage') && str_contains($catalog, 'adiwira_require_site_owner')
     && str_contains($catalog, 'session_write_close()') && str_contains($catalog, 'theme_store_card_html('),
     'same-origin theme catalog proxy is Site Owner-only and releases its session before remote I/O');
@@ -36,11 +45,18 @@ $check(str_contains($browser, '.theme-store-browser .btn{text-decoration:none}')
     && str_contains($card, 'theme-card-action--detail'),
     'Theme Store cards use a compact primary install action and a quiet trailing Detail action');
 $check(str_contains($browser, 'ThemeStoreClient::fetchOfficialTheme($themeName)')
+    && str_contains($browser, 'ThemeStoreClient::compatibilityErrors($themeData)')
+    && strpos($browser, 'ThemeStoreClient::compatibilityErrors($themeData)') < strpos($browser, 'package_download(')
     && str_contains($browser, "hash_file('sha256', \$tmpZip)")
     && str_contains($browser, "'JyavaniCMS-ThemeInstall', null, false")
     && str_contains($browser, 'install_theme_from_zip($pdo, $tmpZip, false, $uid, $themeName, $themeData)')
     && !str_contains($browser, 'foreach ($themes as $p)'),
     'Store install uses exact authoritative metadata, bounded streaming, and checksum verification');
+$check(str_contains($card, 'ThemeStoreClient::compatibilityErrors($theme)')
+    && str_contains($card, "_e('Incompatible')")
+    && str_contains($card, 'theme-card-compatibility')
+    && str_contains($card, 'if ($compatible): ?><form method="post" class="theme-install-form"'),
+    'Theme Store cards suppress incompatible install/update actions and explain the compatibility error');
 $check(str_contains($card, 'data-theme="<?= h($name) ?>"') && str_contains($card, 'theme_store_installed_map')
     && str_contains($card, 'scandir(VIEWS_BASE)') && str_contains($card, 'theme_store_physical_manifest($path)')
     && str_contains($card, 'is_link($manifestPath)') && str_contains($card, "!is_string(\$manifest['version'])")

@@ -1,0 +1,44 @@
+{
+  "format": "org.jyavani.portable-archive",
+  "format_version": 1,
+  "operation": "create_only",
+  "identity_scope": "archive_local",
+  "archive_id": "archive:example-001",
+  "created_at_utc": "2026-10-31T08:15:30Z",
+  "source_distribution": {
+    "distribution_id": "org.example.publisher",
+    "implementation_id": "org.example.publisher.runtime",
+    "version": "1.4.0"
+  },
+  "site_timezone": "Europe/Berlin",
+  "timestamp_semantics": {
+    "utc_instants": "rfc3339_utc_z",
+    "local_civil": "local_civil_with_iana_zone_no_implicit_conversion"
+  },
+  "capabilities": [
+    { "id": "content.lifecycle", "contract_version": "1.0.0", "required": true },
+    { "id": "time.explicit-civil-utc", "contract_version": "1.0.0", "required": true }
+  ],
+  "extensions": [],
+  "records": [
+    {
+      "local_id": "actor:editor-1",
+      "record_type": "core.actor_profile.v1",
+      "path": "records/actor-editor-1.json",
+      "required": true,
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    {
+      "local_id": "content:welcome-1",
+      "record_type": "core.content.v1",
+      "path": "records/content-welcome-1.json",
+      "required": true,
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "blobs": [],
+  "security": {
+    "contains_executable_code": false,
+    "contains_secrets": false
+  }
+}

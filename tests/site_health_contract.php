@@ -47,7 +47,7 @@ try {
         && site_health_presentation_status(['status' => 'clean', 'components' => ['runtime' => $runtimeAtFloor]]) === 'clean',
         'primary Site Health presentation surfaces runtime action without conflating it with stronger file-integrity findings');
 
-    file_put_contents($fixture . '/version.json', json_encode(['version' => '9.8.7'], JSON_THROW_ON_ERROR));
+    file_put_contents($fixture . '/version.json', json_encode(['version' => '2.3.194'], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/app/core.php', "<?php\nreturn true;\n");
     file_put_contents($fixture . '/public/index.php', "<?php\n");
     file_put_contents($fixture . '/public/views/themes/default/theme.json', '{}');
@@ -55,7 +55,7 @@ try {
     foreach (['version.json', 'app/core.php', 'public/index.php', 'public/views/themes/default/theme.json'] as $logical) {
         $coreFiles[$logical] = hash_file('sha256', $fixture . '/' . $logical);
     }
-    $manifest = ['version' => '9.8.7', 'total_files' => count($coreFiles), 'files' => $coreFiles];
+    $manifest = ['version' => '2.3.194', 'total_files' => count($coreFiles), 'files' => $coreFiles];
     file_put_contents($fixture . '/tools/cms-manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/plugins/local-plugin/plugin.json', json_encode([
         'name' => 'local-plugin', 'version' => '1.0.0',
@@ -423,7 +423,7 @@ try {
     $check(site_health_report_is_stale($storedRun, time(), '9.8.8'), 'a report for a different Core version is immediately stale');
     $foreignRuntime = $storedRun;
     $foreignRuntime['components']['runtime'] = site_health_runtime_assessment('8.5.12', 'contract-sapi', gmdate('Y-m-d', $storedRun['started_at']));
-    $check(site_health_report_valid($foreignRuntime) && site_health_report_is_stale($foreignRuntime, time(), '9.8.7'),
+    $check(site_health_report_valid($foreignRuntime) && site_health_report_is_stale($foreignRuntime, time(), '2.3.194'),
         'a valid report captured under a different PHP runtime is immediately stale');
     $expiredReport = $storedRun;
     $expiredReport['started_at'] -= SITE_HEALTH_AUTO_SCAN_TTL_SECONDS + 1;

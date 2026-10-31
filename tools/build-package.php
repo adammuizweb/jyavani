@@ -9,6 +9,8 @@ declare(strict_types=1);
  */
 
 $ROOT = dirname(__DIR__);
+require_once $ROOT . '/cfg/helpers/cms_manifest.php';
+require_once $ROOT . '/cfg/helpers/product_descriptor.php';
 $OUTPUT = $argv[1] ?? $ROOT . '/jyavani-cms-update.zip';
 $TEMP_OUTPUT = $OUTPUT . '.tmp-' . getmypid();
 $PACKAGE_FILE_MODE = 0100644;
@@ -33,12 +35,20 @@ if (!is_file($manifestFile)) {
     exit(1);
 }
 
-$manifest = json_decode((string)file_get_contents($manifestFile), true);
-$versionData = json_decode((string)file_get_contents($ROOT . '/version.json'), true);
-$plainVersion = trim((string)file_get_contents($ROOT . '/VERSION'));
-if (!is_array($manifest) || !is_array($manifest['files'] ?? null)
-    || !is_array($versionData) || ($manifest['version'] ?? '') !== ($versionData['version'] ?? null)
-    || $plainVersion !== ($versionData['version'] ?? null)) {
+try {
+    $manifest = cms_manifest_decode((string)file_get_contents($manifestFile), 'generated CMS manifest');
+    $versionData = jyavani_product_metadata_validate(
+        json_decode((string)file_get_contents($ROOT . '/version.json'), true, 32, JSON_THROW_ON_ERROR),
+        (string)file_get_contents($ROOT . '/VERSION')
+    );
+} catch (Throwable $error) {
+    echo "ERROR: Generated manifest is invalid or stale: {$error->getMessage()}\n";
+    exit(1);
+}
+if (($manifest['version'] ?? '') !== $versionData['version']
+    || $manifest['product'] !== $versionData['product']
+    || $manifest['distribution'] !== $versionData['distribution']
+    || $manifest['contracts'] !== $versionData['contracts']) {
     echo "ERROR: Generated manifest is invalid or stale.\n";
     exit(1);
 }

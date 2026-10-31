@@ -16,7 +16,7 @@ require_once __DIR__ . '/../../../app/controllers/UpdateStatusController.php';
 adiwira_require_site_owner($pdo, false);
 $user_role = strtolower(trim((string)$user_role));
 
-$themeUpdates = UpdateStatusController::getComponentUpdates('themes');
+$themeUpdates = ThemeStoreClient::refreshCompatibility(UpdateStatusController::getComponentUpdates('themes'));
 
 $page_toasts = function_exists('adiwira_collect_query_toasts')
     ? adiwira_collect_query_toasts()
@@ -738,6 +738,12 @@ foreach ($theme_posts as $themePost) {
         $isSystem = !empty($th['is_system']);
         $storeSlug = $th['store_slug'] ?? '';
         $updateInfo = isset($themeUpdates[$folder]) ? $themeUpdates[$folder] : null;
+        $updateActionable = !is_array($updateInfo) || (($updateInfo['actionable'] ?? false) === true);
+        $updateCompatible = !is_array($updateInfo) || (($updateInfo['compatible'] ?? true) === true);
+        $updateEligible = is_array($updateInfo) && $updateActionable && $updateCompatible;
+        $updateDisabledReason = !$updateCompatible
+          ? implode('; ', (array)($updateInfo['compatibility_errors'] ?? []))
+          : __('Run "Check for Updates" first.');
         $sourceDirty = theme_source_service($pdo)->dirtyState($folder);
         $sourceDirtyCount = (int)($sourceDirty['changed_count'] ?? 0);
         $sourceUrl = ADMIN_BASE_PATH . '/?' . http_build_query(['page' => 'admin/themes/source', 'folder' => $folder]);
@@ -794,7 +800,8 @@ foreach ($theme_posts as $themePost) {
           <?php if ($updateInfo): ?>
             <div class="tm-update-banner">
               <span><?=__('Update')?> v<?= h($updateInfo['new_version']) ?> <?=__('available')?></span>
-              <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>"<?= ($updateInfo['actionable'] ?? false) === true ? '' : ' disabled title="' . h(__('Run "Check for Updates" first.')) . '"' ?>><?=_e('Update')?></button>
+              <button type="button" class="btn-update-theme" data-folder="<?= h($folder) ?>" data-store-slug="<?= h($storeSlug) ?>" data-update-eligible="<?= $updateEligible ? '1' : '0' ?>"<?= $updateEligible ? '' : ' disabled title="' . h($updateDisabledReason) . '"' ?>><?=_e('Update')?></button>
+              <?php if (!$updateCompatible): ?><span style="font-size:.72rem;color:var(--adam-danger)"><?= h($updateDisabledReason) ?></span><?php endif; ?>
             </div>
           <?php endif; ?>
 
@@ -1471,7 +1478,9 @@ window.ADIWIRA.scriptBase = <?= json_encode($scriptBase, JSON_HEX_TAG|JSON_HEX_A
 
     function setUpdateInFlight(active){
       updateInFlight = active;
-      document.querySelectorAll('.btn-update-theme').forEach(function(button){ button.disabled = active; });
+      document.querySelectorAll('.btn-update-theme').forEach(function(button){
+        button.disabled = active || button.getAttribute('data-update-eligible') !== '1';
+      });
     }
 
     function makeProgressToken(){

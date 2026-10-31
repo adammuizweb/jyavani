@@ -261,6 +261,52 @@ function _cms_zip_entry_is_symlink(ZipArchive $zip, int $index): bool {
     return (($attributes >> 16) & 0170000) === 0120000;
 }
 
+function _cms_validate_core_package_metadata(ZipArchive $zip, array $remoteManifest): ?array {
+    $aware = array_key_exists('product', $remoteManifest);
+    $embeddedJson = $zip->getFromName('cms-manifest.json');
+    if ($aware && $embeddedJson === false) {
+        throw new RuntimeException('Aware Core packages require an embedded cms-manifest.json.');
+    }
+    if ($embeddedJson !== false) {
+        $embedded = cms_manifest_decode($embeddedJson, 'embedded cms-manifest.json');
+        if ($embedded !== $remoteManifest) {
+            throw new RuntimeException('Embedded Core manifest does not match the update manifest.');
+        }
+    }
+
+    $files = $remoteManifest['files'] ?? [];
+    $versionJson = $zip->getFromName('version.json');
+    $versionFile = $zip->getFromName('VERSION');
+    if ($aware && (!isset($files['version.json'], $files['VERSION']) || $versionJson === false || $versionFile === false)) {
+        throw new RuntimeException('Aware Core packages require tracked version.json and VERSION files.');
+    }
+
+    $packageVersion = null;
+    if ($versionJson !== false) {
+        $packageVersion = _cms_decode_json_array($versionJson, 'package version.json');
+        $distributionErrors = jyavani_core_package_distribution_errors($packageVersion);
+        if ($distributionErrors !== []) throw new RuntimeException(implode('; ', $distributionErrors));
+        if (!is_string($packageVersion['version'] ?? null)
+            || !hash_equals((string)$remoteManifest['version'], trim($packageVersion['version']))) {
+            throw new RuntimeException('Core package version.json does not match its manifest version.');
+        }
+        $packageAware = array_key_exists('product', $packageVersion);
+        if ($aware !== $packageAware || ($aware
+            && ($remoteManifest['product'] !== $packageVersion['product']
+                || $remoteManifest['distribution'] !== $packageVersion['distribution']
+                || $remoteManifest['contracts'] !== $packageVersion['contracts']))) {
+            throw new RuntimeException('Core package distribution metadata does not match its manifest.');
+        }
+    } elseif ($aware) {
+        throw new RuntimeException('Aware Core packages require version.json.');
+    }
+
+    if ($versionFile !== false && !hash_equals((string)$remoteManifest['version'], trim($versionFile))) {
+        throw new RuntimeException('Core package VERSION does not match its manifest version.');
+    }
+    return $packageVersion;
+}
+
 // --- Helper: apply update from zip ---
 function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, string $currentVer, string $progressToken = ''): array {
     $projectRoot = realpath(dirname(DASH_PATH)) ?: dirname(DASH_PATH);
@@ -345,15 +391,11 @@ function _apply_cms_update_from_zip(string $zipPath, array $remoteManifest, stri
         }
     }
 
-    $packageVersion = null;
-    $zipVersionJson = $zip->getFromName('version.json');
-    if ($zipVersionJson !== false) {
-        try {
-            $packageVersion = _cms_decode_json_array($zipVersionJson, 'package version.json');
-        } catch (Throwable $error) {
-            $zip->close();
-            return _cms_update_failure($progressToken, $error->getMessage());
-        }
+    try {
+        $packageVersion = _cms_validate_core_package_metadata($zip, $remoteManifest);
+    } catch (Throwable $error) {
+        $zip->close();
+        return _cms_update_failure($progressToken, $error->getMessage());
     }
 
     try {

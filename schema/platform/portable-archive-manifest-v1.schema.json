@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jyavani.org/platform/portable-archive-manifest-v1.schema.json",
+  "title": "Jyavani Portable Archive Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "format_version",
+    "operation",
+    "identity_scope",
+    "archive_id",
+    "created_at_utc",
+    "source_distribution",
+    "site_timezone",
+    "timestamp_semantics",
+    "capabilities",
+    "extensions",
+    "records",
+    "blobs",
+    "security"
+  ],
+  "properties": {
+    "format": { "const": "org.jyavani.portable-archive" },
+    "format_version": { "const": 1 },
+    "operation": { "const": "create_only" },
+    "identity_scope": { "const": "archive_local" },
+    "archive_id": { "$ref": "#/$defs/localId" },
+    "created_at_utc": { "$ref": "#/$defs/utcString" },
+    "source_distribution": { "$ref": "#/$defs/sourceDistribution" },
+    "site_timezone": { "$ref": "#/$defs/timezone" },
+    "timestamp_semantics": { "$ref": "#/$defs/timestampSemantics" },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "extensions": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/extension" }
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": { "$ref": "#/$defs/recordIndex" }
+    },
+    "blobs": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": { "$ref": "#/$defs/blobIndex" }
+    },
+    "security": { "$ref": "#/$defs/security" }
+  },
+  "$defs": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$",
+      "maxLength": 64
+    },
+    "namespacedId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z][a-z0-9_-]*)+$",
+      "maxLength": 160
+    },
+    "localId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "maxLength": 160
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "utcString": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^.+Z$",
+      "maxLength": 40
+    },
+    "timezone": {
+      "type": "string",
+      "pattern": "^(?:UTC|[A-Za-z]+(?:_[A-Za-z]+)*(?:/[A-Za-z0-9_+-]+)+)$",
+      "maxLength": 80
+    },
+    "sourceDistribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["distribution_id", "implementation_id", "version"],
+      "properties": {
+        "distribution_id": { "$ref": "#/$defs/namespacedId" },
+        "implementation_id": { "$ref": "#/$defs/namespacedId" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "timestampSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["utc_instants", "local_civil"],
+      "properties": {
+        "utc_instants": { "const": "rfc3339_utc_z" },
+        "local_civil": { "const": "local_civil_with_iana_zone_no_implicit_conversion" }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "contract_version", "required"],
+      "properties": {
+        "id": { "$ref": "#/$defs/namespacedId" },
+        "contract_version": { "$ref": "#/$defs/version" },
+        "required": { "type": "boolean" }
+      }
+    },
+    "extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "implementation_id",
+        "package_id",
+        "package_version",
+        "api_contract_version",
+        "required",
+        "record_types"
+      ],
+      "properties": {
+        "kind": { "enum": ["extension", "theme"] },
+        "implementation_id": { "$ref": "#/$defs/namespacedId" },
+        "package_id": { "$ref": "#/$defs/namespacedId" },
+        "package_version": { "$ref": "#/$defs/version" },
+        "api_contract_version": { "$ref": "#/$defs/version" },
+        "required": { "type": "boolean" },
+        "record_types": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/namespacedId" }
+        }
+      }
+    },
+    "recordIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local_id", "record_type", "path", "required", "sha256"],
+      "properties": {
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "$ref": "#/$defs/namespacedId" },
+        "path": {
+          "type": "string",
+          "pattern": "^records/[A-Za-z0-9][A-Za-z0-9._-]{0,159}\\.json$",
+          "maxLength": 180
+        },
+        "required": { "type": "boolean" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "blobIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "path", "bytes", "media_type"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "path": {
+          "type": "string",
+          "pattern": "^blobs/sha256/[a-f0-9]{64}$",
+          "maxLength": 80
+        },
+        "bytes": { "type": "integer", "minimum": 0, "maximum": 1099511627776 },
+        "media_type": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$",
+          "maxLength": 120
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contains_executable_code", "contains_secrets"],
+      "properties": {
+        "contains_executable_code": { "const": false },
+        "contains_secrets": { "const": false }
+      }
+    }
+  }
+}

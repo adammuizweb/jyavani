@@ -47,7 +47,7 @@ $removeTree = static function (string $directory) use (&$removeTree): void {
 };
 
 try {
-    file_put_contents($fixture . '/version.json', json_encode(['version' => '9.8.7'], JSON_THROW_ON_ERROR));
+    file_put_contents($fixture . '/version.json', json_encode(['version' => '2.3.194'], JSON_THROW_ON_ERROR));
     file_put_contents($fixture . '/app/core.php', "<?php\nreturn true;\n");
     file_put_contents($fixture . '/public/index.php', "<?php\n");
     $files = [
@@ -55,7 +55,7 @@ try {
         'public/index.php' => hash_file('sha256', $fixture . '/public/index.php'),
         'version.json' => hash_file('sha256', $fixture . '/version.json'),
     ];
-    $manifest = ['version' => '9.8.7', 'total_files' => count($files), 'files' => $files];
+    $manifest = ['version' => '2.3.194', 'total_files' => count($files), 'files' => $files];
     file_put_contents($fixture . '/tools/cms-manifest.json', json_encode($manifest, JSON_THROW_ON_ERROR));
 
     $clean = core_integrity_scan(['manifest' => $manifest, 'trusted' => true, 'source' => 'test', 'reason' => null], $fixture, $fixture . '/public');
@@ -116,8 +116,8 @@ try {
         return $manifest;
     });
     $check($resolved['trusted'] === true && $resolved['source'] === 'canonical_https'
-        && str_contains($requestedUrl, 'version=9.8.7'), 'an exact version-qualified canonical provider establishes the trusted baseline');
-    $fallback = core_integrity_resolve_baseline($fixture, static fn(string $url, string $version): array => array_replace($manifest, ['version' => '10.0.0']));
+        && str_contains($requestedUrl, 'version=2.3.194'), 'an exact version-qualified canonical provider establishes the trusted baseline');
+    $fallback = core_integrity_resolve_baseline($fixture, static fn(string $url, string $version): array => array_replace($manifest, ['version' => '2.3.193']));
     $check($fallback['trusted'] === false && $fallback['source'] === 'installed_local'
         && $fallback['reason'] === 'canonical_version_mismatch', 'a different canonical version falls back without trusting the local manifest');
 
@@ -158,7 +158,7 @@ try {
     unlink($fixture . '/app/large.php');
 
     mkdir($fixture . '/empty', 0755, true);
-    file_put_contents($fixture . '/empty/version.json', json_encode(['version' => '9.8.7'], JSON_THROW_ON_ERROR));
+    file_put_contents($fixture . '/empty/version.json', json_encode(['version' => '2.3.194'], JSON_THROW_ON_ERROR));
     $noBaseline = core_integrity_run($fixture . '/empty', $fixture . '/public', static fn(string $url, string $version): ?array => null);
     $check($noBaseline['status'] === 'unverified' && core_integrity_report_valid($noBaseline), 'a missing canonical and local baseline produces a valid unverified report');
 
@@ -166,7 +166,7 @@ try {
     $check($fresh['status'] === 'clean' && core_integrity_write_report($fresh), 'a completed report is written atomically');
     $check($GLOBALS['core_integrity_test_lock_acquired'] === 1 && $GLOBALS['core_integrity_test_lock_released'] === 1, 'standalone scans acquire and release the shared lifecycle lock');
     $stored = core_integrity_read_report();
-    $check(is_array($stored) && $stored['status'] === 'clean' && ($stored['baseline']['version'] ?? '') === '9.8.7', 'the persisted report is schema-validated when read');
+    $check(is_array($stored) && $stored['status'] === 'clean' && ($stored['baseline']['version'] ?? '') === '2.3.194', 'the persisted report is schema-validated when read');
     $reportStat = lstat(core_integrity_report_path());
     $check(is_array($reportStat) && (($reportStat['mode'] ?? 0) & 0777) === 0640, 'persisted reports use a private file mode');
     $fabricated = $fresh;

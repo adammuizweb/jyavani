@@ -57,6 +57,8 @@ require_once __DIR__ . '/helpers/resource_lifecycle.php';
 require_once __DIR__ . '/helpers/package_archive.php';
 require_once __DIR__ . '/helpers/update_operation.php';
 require_once __DIR__ . '/helpers/cms_manifest.php';
+require_once __DIR__ . '/helpers/product_descriptor.php';
+require_once __DIR__ . '/helpers/extension_compatibility.php';
 require_once __DIR__ . '/helpers/debug_helpers.php';
 require_once __DIR__ . '/helpers/time_helpers.php';
 app_configure_error_reporting();

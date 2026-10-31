@@ -1,0 +1,335 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jyavani.org/platform/portable-core-record-v1.schema.json",
+  "title": "Jyavani Portable Archive Core Record v1",
+  "oneOf": [
+    { "$ref": "#/$defs/actorProfileRecord" },
+    { "$ref": "#/$defs/contentRecord" },
+    { "$ref": "#/$defs/taxonomyTermRecord" },
+    { "$ref": "#/$defs/assetRecord" },
+    { "$ref": "#/$defs/relationshipRecord" },
+    { "$ref": "#/$defs/navigationItemRecord" },
+    { "$ref": "#/$defs/settingRecord" }
+  ],
+  "$defs": {
+    "localId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "maxLength": 160
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "maxLength": 200
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "timezone": {
+      "type": "string",
+      "pattern": "^(?:UTC|[A-Za-z]+(?:_[A-Za-z]+)*(?:/[A-Za-z0-9_+-]+)+)$",
+      "maxLength": 80
+    },
+    "utcTimestamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": { "const": "utc" },
+        "value": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^.+Z$",
+          "maxLength": 40
+        }
+      }
+    },
+    "localCivilTimestamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value", "timezone"],
+      "properties": {
+        "kind": { "const": "local_civil" },
+        "value": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?$",
+          "maxLength": 26
+        },
+        "timezone": { "$ref": "#/$defs/timezone" }
+      }
+    },
+    "timestamp": {
+      "oneOf": [
+        { "$ref": "#/$defs/utcTimestamp" },
+        { "$ref": "#/$defs/localCivilTimestamp" }
+      ]
+    },
+    "contentTimestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created", "updated"],
+      "properties": {
+        "created": { "$ref": "#/$defs/timestamp" },
+        "updated": { "$ref": "#/$defs/timestamp" },
+        "published": { "$ref": "#/$defs/timestamp" },
+        "publish_at": { "$ref": "#/$defs/utcTimestamp" }
+      }
+    },
+    "simpleTimestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created", "updated"],
+      "properties": {
+        "created": { "$ref": "#/$defs/timestamp" },
+        "updated": { "$ref": "#/$defs/timestamp" }
+      }
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "value"],
+      "properties": {
+        "format": { "enum": ["html", "markdown", "plain"] },
+        "value": { "type": "string", "maxLength": 16777216 }
+      }
+    },
+    "actorProfilePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name"],
+      "properties": {
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "slug": { "$ref": "#/$defs/slug" },
+        "biography": { "type": "string", "maxLength": 10000 },
+        "avatar_asset_ref": { "$ref": "#/$defs/localId" }
+      }
+    },
+    "actorProfileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "local_id", "record_type", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "const": "core.actor_profile.v1" },
+        "payload": { "$ref": "#/$defs/actorProfilePayload" }
+      }
+    },
+    "contentPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "status",
+        "visibility",
+        "access_scope",
+        "title",
+        "slug",
+        "body",
+        "author_ref",
+        "taxonomy_refs",
+        "timestamps"
+      ],
+      "properties": {
+        "kind": { "enum": ["article", "page", "theme_content"] },
+        "status": { "enum": ["draft", "published", "private"] },
+        "visibility": { "enum": ["public", "authenticated", "restricted", "private"] },
+        "access_scope": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "slug": { "$ref": "#/$defs/slug" },
+        "summary": { "type": "string", "maxLength": 5000 },
+        "body": { "$ref": "#/$defs/body" },
+        "author_ref": { "$ref": "#/$defs/localId" },
+        "taxonomy_refs": {
+          "type": "array",
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/localId" }
+        },
+        "featured_asset_ref": { "$ref": "#/$defs/localId" },
+        "timestamps": { "$ref": "#/$defs/contentTimestamps" }
+      }
+    },
+    "contentRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "local_id", "record_type", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "const": "core.content.v1" },
+        "payload": { "$ref": "#/$defs/contentPayload" }
+      }
+    },
+    "taxonomyTermPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vocabulary", "name", "slug", "timestamps"],
+      "properties": {
+        "vocabulary": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "slug": { "$ref": "#/$defs/slug" },
+        "description": { "type": "string", "maxLength": 5000 },
+        "parent_ref": { "$ref": "#/$defs/localId" },
+        "timestamps": { "$ref": "#/$defs/simpleTimestamps" }
+      }
+    },
+    "taxonomyTermRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "local_id", "record_type", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "const": "core.taxonomy_term.v1" },
+        "payload": { "$ref": "#/$defs/taxonomyTermPayload" }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 1000000 }
+      }
+    },
+    "assetPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "filename",
+        "media_type",
+        "bytes",
+        "blob_sha256",
+        "visibility",
+        "access_scope",
+        "timestamps"
+      ],
+      "properties": {
+        "filename": { "type": "string", "minLength": 1, "maxLength": 255, "pattern": "^[^/\\\\\\u0000-\\u001F]+$" },
+        "media_type": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$",
+          "maxLength": 120
+        },
+        "bytes": { "type": "integer", "minimum": 0, "maximum": 1099511627776 },
+        "blob_sha256": { "$ref": "#/$defs/sha256" },
+        "visibility": { "enum": ["public", "authenticated", "restricted", "private"] },
+        "access_scope": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "maxLength": 500 },
+        "alt_text": { "type": "string", "maxLength": 2000 },
+        "dimensions": { "$ref": "#/$defs/dimensions" },
+        "timestamps": { "$ref": "#/$defs/simpleTimestamps" }
+      }
+    },
+    "assetRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "local_id", "record_type", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "const": "core.asset.v1" },
+        "payload": { "$ref": "#/$defs/assetPayload" }
+      }
+    },
+    "relationshipPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_ref", "predicate", "object_ref"],
+      "properties": {
+        "subject_ref": { "$ref": "#/$defs/localId" },
+        "predicate": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$", "maxLength": 120 },
+        "object_ref": { "$ref": "#/$defs/localId" },
+        "position": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+      }
+    },
+    "relationshipRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "local_id", "record_type", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "const": "core.relationship.v1" },
+        "payload": { "$ref": "#/$defs/relationshipPayload" }
+      }
+    },
+    "navigationTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "record_ref"],
+          "properties": {
+            "kind": { "const": "record" },
+            "record_ref": { "$ref": "#/$defs/localId" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "uri"],
+          "properties": {
+            "kind": { "const": "uri" },
+            "uri": { "type": "string", "format": "uri", "maxLength": 2048 }
+          }
+        }
+      ]
+    },
+    "navigationItemPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["menu", "label", "target", "position"],
+      "properties": {
+        "menu": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "target": { "$ref": "#/$defs/navigationTarget" },
+        "parent_ref": { "$ref": "#/$defs/localId" },
+        "position": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+      }
+    },
+    "navigationItemRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "local_id", "record_type", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "const": "core.navigation_item.v1" },
+        "payload": { "$ref": "#/$defs/navigationItemPayload" }
+      }
+    },
+    "settingPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "value"],
+      "properties": {
+        "key": {
+          "enum": [
+            "site.title",
+            "site.description",
+            "content.default_locale",
+            "time.site_timezone",
+            "routing.article_pattern",
+            "routing.page_pattern"
+          ]
+        },
+        "value": { "type": ["string", "boolean", "integer"], "maxLength": 2048 }
+      }
+    },
+    "settingRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "local_id", "record_type", "payload"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "local_id": { "$ref": "#/$defs/localId" },
+        "record_type": { "const": "core.setting.v1" },
+        "payload": { "$ref": "#/$defs/settingPayload" }
+      }
+    }
+  }
+}

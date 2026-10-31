@@ -7,8 +7,11 @@ if (!function_exists('dash_widget_cms_info')):
 function dash_widget_cms_info(PDO $pdo): string
 {
     require_once dirname(DASH_PATH) . '/app/controllers/UpdateStatusController.php';
-    $versionFile = dirname(DASH_PATH) . '/version.json';
-    $ver = is_file($versionFile) ? (json_decode(file_get_contents($versionFile), true) ?: []) : [];
+    try {
+        $ver = jyavani_product_metadata(dirname(DASH_PATH));
+    } catch (Throwable $error) {
+        $ver = [];
+    }
     $name    = $ver['name'] ?? 'Jyavani CMS';
     $version = $ver['version'] ?? '0.0.0';
     $edition = $ver['edition'] ?? '—';
@@ -485,10 +488,26 @@ function dash_widget_recent_posts(PDO $pdo): string
 </div>';
 }
 
-function dash_widget_system_info(): string
+function dash_widget_system_info(PDO $pdo): string
 {
-    $server = $_SERVER['SERVER_SOFTWARE'] ?? '—';
-    $dbDriver = 'MySQL/MariaDB';
+    $actor = function_exists('authorization_actor') ? authorization_actor($pdo) : null;
+    if ($actor === null || $actor['is_site_owner'] !== true
+        || !function_exists('current_user_can') || !current_user_can($pdo, 'core.settings.manage')) return '';
+    $server = is_string($_SERVER['SERVER_SOFTWARE'] ?? null) ? substr((string)$_SERVER['SERVER_SOFTWARE'], 0, 200) : '—';
+    $dbDriver = '—';
+    $dbVersion = '—';
+    try {
+        $dbDriver = substr((string)$pdo->getAttribute(PDO::ATTR_DRIVER_NAME), 0, 40);
+        $dbVersion = substr((string)$pdo->getAttribute(PDO::ATTR_SERVER_VERSION), 0, 120);
+    } catch (Throwable $error) {
+    }
+    try {
+        $distribution = jyavani_installed_product_metadata()['distribution'];
+        $distributionName = (string)$distribution['name'];
+    } catch (Throwable $error) {
+        $distributionName = __('Unavailable');
+    }
+    $url = ADMIN_BASE_PATH . '/?page=admin/settings/system';
 
     return '
 <div class="dw-card">
@@ -500,9 +519,11 @@ function dash_widget_system_info(): string
     <table class="dw-table">
       <tr><td>' . __('Server') . '</td><td>' . h($server) . '</td></tr>
       <tr><td>' . __('PHP Version') . '</td><td>' . PHP_VERSION . '</td></tr>
-      <tr><td>' . __('Database') . '</td><td>' . $dbDriver . '</td></tr>
+      <tr><td>' . __('Distribution') . '</td><td>' . h($distributionName) . '</td></tr>
+      <tr><td>' . __('Database') . '</td><td>' . h($dbDriver . ' ' . $dbVersion) . '</td></tr>
       <tr><td>' . __('Admin Path') . '</td><td><code>' . h(ADMIN_BASE_PATH) . '</code></td></tr>
     </table>
+    <a class="dw-health-action" href="' . h($url) . '"><span>' . h(__('View System Information')) . '</span>' . svg_ico('chevron-right') . '</a>
   </div>
 </div>';
 }
@@ -521,7 +542,8 @@ function dashboard_widgets_registry(PDO $pdo, ?array $actor = null): array
         $widgets['quick_stats'] = ['title' => __('Quick Stats'), 'render' => 'dash_widget_quick_stats'];
         $widgets['recent_posts'] = ['title' => __('Recent Posts'), 'render' => 'dash_widget_recent_posts'];
     }
-    if ($statsScope === 'any') {
+    if ($actor !== null && $actor['is_site_owner'] === true
+        && function_exists('current_user_can') && current_user_can($pdo, 'core.settings.manage')) {
         $widgets['system_info'] = ['title' => __('System Info'), 'render' => 'dash_widget_system_info'];
     }
     if (function_exists('user_can')

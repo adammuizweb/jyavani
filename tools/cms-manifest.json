@@ -2,11 +2,92 @@
     "name": "Jyavani",
     "version": "2.3.195",
     "build": "2026-10-31",
-    "generated": "2026-10-31T02:16:42+00:00",
+    "generated": "2026-10-31T09:54:24+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
-    "total_files": 621,
+    "product": {
+        "schema_version": 1,
+        "id": "org.jyavani",
+        "name": "Jyavani",
+        "platform_contract": "1.0.0"
+    },
+    "distribution": {
+        "schema_version": 1,
+        "distribution_id": "org.jyavani.php",
+        "implementation_id": "org.jyavani.php.mysql",
+        "name": "Jyavani PHP",
+        "version": "2.3.195",
+        "platform_contract": "1.0.0",
+        "runtime": {
+            "language": "PHP",
+            "runtime": "PHP 8.1+",
+            "data_stores": [
+                "MySQL 5.7+",
+                "MariaDB 10.2+"
+            ]
+        },
+        "capabilities": [
+            {
+                "id": "content.lifecycle",
+                "contract_version": "1.0.0",
+                "status": "native"
+            },
+            {
+                "id": "taxonomy.hierarchy",
+                "contract_version": "1.0.0",
+                "status": "native"
+            },
+            {
+                "id": "relationship.typed",
+                "contract_version": "1.0.0",
+                "status": "native"
+            },
+            {
+                "id": "navigation.ordered",
+                "contract_version": "1.0.0",
+                "status": "native"
+            },
+            {
+                "id": "time.explicit-civil-utc",
+                "contract_version": "1.0.0",
+                "status": "native"
+            },
+            {
+                "id": "content.scheduling",
+                "contract_version": "1.0.0",
+                "status": "native"
+            },
+            {
+                "id": "asset.blob-sha256",
+                "contract_version": "1.0.0",
+                "status": "partial",
+                "limitations": "Existing asset records do not all persist a content digest."
+            },
+            {
+                "id": "archive.create-only",
+                "contract_version": "1.0.0",
+                "status": "unsupported"
+            }
+        ],
+        "extension_system": {
+            "implementation_id": "org.jyavani.php.extensions",
+            "api_versions": [
+                "1.0.0"
+            ]
+        },
+        "theme_system": {
+            "implementation_id": "org.jyavani.php.themes",
+            "api_versions": [
+                "1.0.0"
+            ]
+        }
+    },
+    "contracts": {
+        "distribution_descriptor": "1.0.0",
+        "portable_archive": "1.0.0"
+    },
+    "total_files": 635,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
         "VERSION": "9f8b1d7c704b937bc7da4d04e7b32d655689bb1cdf6ebcbd3466248af1bd3bd3",
@@ -16,19 +97,19 @@
         "app/controllers/AuthorController.php": "2b8f40e450adb182779d53c48f02daeeae35e3242125a3aabb7b874bd17999e6",
         "app/controllers/CategoryController.php": "e36edd0dd7feae8b091ff20d1783066956f1a83090be03ffcf91a230a5c49fd6",
         "app/controllers/PageController.php": "1b042c82c8e8c119fc874ecacfe245b6078d1c8afbae6a446dad2f5bb1e2884b",
-        "app/controllers/PluginStoreController.php": "baecf27b3473a7425dbebc3167a190a5752647a14ad5dc644f9fa0a2e1f6a321",
+        "app/controllers/PluginStoreController.php": "41fe603cffa3a2e00631cdd9cac87e359b16fe3eade57ffbec414708675333d3",
         "app/controllers/PostController.php": "cde8f38f00241acc7e5f68b8f6cc328e06117bceafe6c4e2a4c3bc8e035772af",
         "app/controllers/PrivateFileController.php": "994487f38cf4c9b90cc9e12b76c17987c593ee35a38f071b6dbaca4b8b8bdb54",
         "app/controllers/PrivateMediaController.php": "b50ffcc325618773733cc60c24688821033859d0162eaa5d49ac0ad9bb148f0b",
         "app/controllers/SearchController.php": "a4cfd8615fb1af9609a9c06778966e241d238c9bf25429a04ef2ece936469203",
         "app/controllers/SitemapController.php": "5dfad1a1fc6d7f7ae5f46f4215c41e5553d685e487861cb5b8b79c8e9fb5981f",
         "app/controllers/ThemeController.php": "b511ecc285e15ff140dfb7fc082f3098548779f53180a338521156ff57950905",
-        "app/controllers/ThemeStoreClient.php": "5851d09988a288390763744e00619c391a1760c4934166d61243eac3095a2bec",
+        "app/controllers/ThemeStoreClient.php": "9bc050f2d62253f79cba2d0fa0ed8bb91651b1754da27b604b61fab73f28f145",
         "app/controllers/UpdateStatusController.php": "d38655d0c717d3787fd71d44594ccbb17c21d4998e26371fa1642b54f0986469",
         "app/dev_lock.php": "f8f4bf25a571a7f127fc703025e6e4253efdf8174a2f46316fca13a9f006d0fb",
         "app/frontend_404.php": "789bff93b83a003eb4d990e86679cb5c18fc19d3fa99d79e55c7f41da56caad8",
         "app/layout.php": "81e5c2b24c47fc3a234e90df79ffb834ad0c1648b4d8ecd39cd7b3768ba2eeed",
-        "cfg/config.php": "7b9fee6e45a93aafc77d887a4051697533d894200bc1c0ecd7914a50ac2e40d7",
+        "cfg/config.php": "f1151ef9f38831f3dcf4a78ee6a67bbe1b1fab5c0c763290220f8636a62d30d3",
         "cfg/db.php": "d349c023875a2798ccc7989b5199bbe26e2ed92ebae0f5822679167a992a7489",
         "cfg/env-sample": "c01da16dea9d34117d30991b4530740ad70951fddee4db32d3c7813024da6ce5",
         "cfg/env.php": "068efbc57d33873a63277c5334092426cce0e0f9913092e2a1f05b880b56eab3",
@@ -42,7 +123,7 @@
         "cfg/helpers/author_helpers.php": "d686981e7d74f098b30f81699913dd3c1d0e39c03c4275a969e32b0273edf13e",
         "cfg/helpers/authorization.php": "92d183d790191d6f3707a29cbc1a8e7b61e2d8657261a686f5ed23f0ab8e1166",
         "cfg/helpers/cms_content.php": "b665b9ac64c1e7d5ebeb985779663b628b1b754ac8c6f465e7014b386dcd8f09",
-        "cfg/helpers/cms_manifest.php": "7f9cf1cd342da967b53680b4470eaa712e10fa75885235eb8dad6e04f60fb0f0",
+        "cfg/helpers/cms_manifest.php": "ad42b747a6c11dd9496189f881aed46bcb5312715a8e7dbe7fd9157ff5261b40",
         "cfg/helpers/collection_helpers.php": "abd978a398e4b0d0804e56261108e3ab653e3246ec29dbf77f9267c4b39ee43b",
         "cfg/helpers/content_publication.php": "1492b8610e5037a9d84394cea03212f65af284148a1476f0f9ee3c1b17dd7ba4",
         "cfg/helpers/content_route_helpers.php": "e1effcd232ba0e7879b5969a4cba8d67c6e69d2e366d4d749cb9e68bdcef1954",
@@ -55,6 +136,7 @@
         "cfg/helpers/deployment_extension_manifest.php": "78943462c6d29005990bc8430fd19060013d0201f97dc791a32d37e3f2e6c11d",
         "cfg/helpers/editor_helpers.php": "afdca1f1c0b710fbb48dd9458cae72d4a1e3502c30ed3c6a0c37dcd04f8df911",
         "cfg/helpers/editor_references.php": "8c02013ec4dd62861839f472c38c5a1869cbf3d2a5779a6f5eb14105c00bb833",
+        "cfg/helpers/extension_compatibility.php": "664ba318bd7499c8016bf114b690683148e5046f9af64ae8d225dc8f282ff223",
         "cfg/helpers/extension_release_manifest.php": "0390232c680a75b03a2ca7f5aa949b0bfc1f738851528f825032ceb67e091cf0",
         "cfg/helpers/hooks.php": "00167afb671f9693892380d7f7a8dd73e65a1a447280ed1af394ed85094ad8c1",
         "cfg/helpers/lang_helpers.php": "f80957e519090a60e8a0c1d4a0da3519117f0bb1673f62c5ceb89023169e852e",
@@ -67,6 +149,7 @@
         "cfg/helpers/permalink_helpers.php": "23269a88ce09aed58d567d2601e488bf6cf0cbbcf72fc403e7a9b35e699d28bc",
         "cfg/helpers/permission_helper.php": "1150cb0a1d672c5899ce3add0c6db71dfb75e332b895f5f55a5c40af10f7062d",
         "cfg/helpers/private_file_shortcodes.php": "3f9d51778c4a1492dca460286211a7e5220af4b37b187706915b11eac5438949",
+        "cfg/helpers/product_descriptor.php": "86bcb6799dbb8d3533f5c55da1b77a688f48e0814fb462c65d43d70bab589f07",
         "cfg/helpers/redirct_helpers.php": "3b38516ff6c89f1b57c071bdde9d8f4dc8593f5438403cedca667a34ed78f510",
         "cfg/helpers/resource_lifecycle.php": "62adca61b2444649faf774b254ef3232429556f62865a765da48685c0228fa53",
         "cfg/helpers/role_helpers.php": "5c634a9fc9bca8ef84510c3dacb9d3b3bdc4b11cc2ab2759e83ba60646f2d418",
@@ -76,7 +159,7 @@
         "cfg/helpers/site_health.php": "ef55f41400bcb8314af96a619ca382416e8851ba3880375732c9facda6de3734",
         "cfg/helpers/success_redirect.php": "68f9fd9be5e2aa8a6371d9add59467124fbd0dc96d4eeef6d647259c392864dc",
         "cfg/helpers/theme_customizer.php": "7abb863e5127bbe7270a80dea70bf8f0eab6e8b9f1983e4a8a5cddb1d5edea33",
-        "cfg/helpers/theme_helper.php": "f73e90ce8efe6f1b696a600a2a1f5a1e7538d05f54975a3bb31a5ea98b8f9950",
+        "cfg/helpers/theme_helper.php": "5751d1ae8fdf2b5d544bb44412d4ee4b347aaa93c856a427190f332323fce07a",
         "cfg/helpers/theme_sections.php": "59ba12682d80033355734a02849874cc814e1274cf6736894ae01e3c0202aacc",
         "cfg/helpers/theme_source.php": "d23784f69635481a9c5ac349201a64fe86afa3a235c540c6d9f8acec972ee558",
         "cfg/helpers/theme_zones.php": "f4bb34d2fea93b189c6b578ea42f2eb9e01cdd7825a6bae8b94093593e9c6c9c",
@@ -194,9 +277,10 @@
         "dashboard/admin/settings/email.php": "7d8d4d58451d60a8a24a90a47dffcc0f240fcfd5da58219e156c682c0272d804",
         "dashboard/admin/settings/email_test.php": "dd77743a4cde0a247ec7e504280c1a7a255ca1c46eb4b21ee8fe5418aac8361a",
         "dashboard/admin/settings/health.php": "16222322dab138cdff919e5e595e5c4f6b776e61bfaf8c2b2f4e3f42f6df4e3f",
-        "dashboard/admin/settings/index.php": "00e3a840334f4ad5850486e2d69d4ae4e62b98cd6c4403289c104dc1ad933629",
+        "dashboard/admin/settings/index.php": "2d5b1edc2cd9a0ed0de30538cc31e1b3f490a125aed081337fe42ebb15ae2a24",
         "dashboard/admin/settings/sidebar.php": "f368706a5045a10fc609349f12e7f4fd79aea43e9eb224c5262a598c234265e6",
         "dashboard/admin/settings/site.php": "e2f2c5df72dc8a4d2143255d789001e508582b40dfc209635be9d7ca40b88496",
+        "dashboard/admin/settings/system.php": "7b56885d94238eda03e50eb03976fa08182f68986b7fc789856ee4aa47bd5280",
         "dashboard/admin/shortcodes/_layout_manager.php": "3b0a269f8e579976b34d3121558baae54b0c39e2f30b289a3a739e4b089c1a3e",
         "dashboard/admin/shortcodes/bulk_action.php": "aa5ba3716caf532d1aafda6f8f47065202f01358a1437cc80f35b3fca839e74e",
         "dashboard/admin/shortcodes/bulk_layout_action.php": "8a0bbcd7c16380d35e1aacab2931d0df471363c0aa24f0362ba8653c5f1a8d35",
@@ -212,10 +296,10 @@
         "dashboard/admin/sidebar/index.php": "27cc5f64eb9f616339834e749e77dbbbce034e60a6dc15edb0f1985cf0c28f73",
         "dashboard/admin/sidebar/save.php": "70215fde162d5f70a82e63fb0f93f456e23a27f2e1925823a0a0a5ca9b4235bc",
         "dashboard/admin/site_health_scan_ajax.php": "21385f382f62c1c9cc50fe21e60f3c6c6c56ba0503d732c6d113285a729212ee",
-        "dashboard/admin/themes/_store_card.php": "96d1631fc3fa5bcd0869d5e8872d3c8a7e49be147d76ba10a5b6749d27aa5258",
+        "dashboard/admin/themes/_store_card.php": "2f3a5f07f3e05e620e37fcea4814a985145e86f89639e0efca2f5295f960e09a",
         "dashboard/admin/themes/add.php": "5d15696b8ba1ae780f93d352455a766cea6c7e16ea2116d354870675878307db",
-        "dashboard/admin/themes/assign.php": "a0ee4b1365dacb466599b2575af4a5e76efe2dd3b86c397e6d86c368c1023b3e",
-        "dashboard/admin/themes/browse.php": "d8f669f696de4335de6b413024c98ddfaefe22847b47231a1c3094f1ce7fc5cc",
+        "dashboard/admin/themes/assign.php": "3e9f10fe83d8203ec2142941030aaae5bb0291070bb09c81d87cd2c0edb4aa55",
+        "dashboard/admin/themes/browse.php": "789dbc3c68e2f1e5fc4004c68508bcc204c4a895e1646096344991ec88a2727a",
         "dashboard/admin/themes/bulk_action.php": "f87fd57374eed13e8b04ef4d0b59299c71c40b3f8557a23271959236ec5e0e92",
         "dashboard/admin/themes/catalog.php": "2baf01aa10bca8b18024fdff20b3634953853b2904f24c9aa03b89fc1ed44b23",
         "dashboard/admin/themes/customize.php": "4406150331098ffedbfa6ca8db9b5fab81e49d53f860f320e94e44fa9c2415a8",
@@ -233,8 +317,8 @@
         "dashboard/admin/themes/update_progress.php": "85fd05e4356d1d1778ea82b814cdc1b897951c9779b78f8ce06a219c9a9367cf",
         "dashboard/admin/themes/upload.php": "4af30418878dcc710655ee510bbe21d6e7683ec18b733b25d0014891426a8e7a",
         "dashboard/admin/update/_reset_service.php": "6e7ec5f1879a9753960f620a24eae62fb41b38e5d2e5658bdfd2eabb86a452a3",
-        "dashboard/admin/update/_update_actions.php": "1e35470abe9dfe228cbdfeab65f00a453a69ffe62c93bbbc282371387a442af1",
-        "dashboard/admin/update/_update_helpers.php": "1c7fa59f761d04fd68fc8fa1c5f32eb6eb318293b77ae71895032f399dd6224a",
+        "dashboard/admin/update/_update_actions.php": "cefa3efb92a2fbc2000ccb5ffd8c81cb4e5f71e008690d3b29a75e64e5395096",
+        "dashboard/admin/update/_update_helpers.php": "69c2b5e8c6029ed867974edde6f9484d3b23533ec5620ecbb51070e2072821e9",
         "dashboard/admin/update/index.php": "589b27dade3465626c5ffff0cccc7989ffa1df3f23d722cfa289cba2f9a52bde",
         "dashboard/admin/update/process.php": "24e30eab5307c52c9ee9a05273f6188a1df52f33b9764bdd198899c8a93fa8f9",
         "dashboard/admin/update/update_apply.php": "888d9bf18081d031b32969ac62d6d7990bf44fd757cc93457d1478c85e27f1dd",
@@ -256,15 +340,15 @@
         "dashboard/logout.php": "7cc432154797bd3bb856d4720801ac55ce5155dd64e27229d75e8dcaf3b9dfb8",
         "dashboard/theme/adiwira/index.php": "4244e304011fec84d65ea37946716642804b3ee20d895d3b4634afc568660183",
         "dashboard/theme/adiwira/layout.php": "2ec032f78b177c4eff5ddd84c93a73b795a6d290c1494b29fb95cc1e1efd1c54",
-        "dashboard/theme/adiwira/part/aside.php": "0156a2d1679b39a2fbb3de6caccac4c5f2a74fb6c1e187592298de4272837518",
+        "dashboard/theme/adiwira/part/aside.php": "5eac5cf7aa5aa8b31db9c1a4f11be68484df20616c40576a3d6ad35638dce0c8",
         "dashboard/theme/adiwira/part/details.php": "52359452e6d0d434230282d01c2afe32a6592d46eb8f1d863831590cf8bfd7b4",
         "dashboard/theme/adiwira/part/footer.php": "47384709ea04e2ba7e67df5d5bf050a7a8ab2cf7da516ed75621e5267a4d487f",
         "dashboard/theme/adiwira/part/header.php": "76e50e8915a235d164632b244ba3a8ec7d0709c4c35c854cca74cca593d58174",
         "dashboard/theme/adiwira/part/main.php": "7c1a1f3ba50953d9975b48a01c6e61cfbc7637fa625d283158eb988d02859357",
         "dashboard/theme/adiwira/part/views/home.php": "92796a71682e59d7b2aafd6230ac9f727a23d1aa34755fb06434e8b3dec7d4b2",
-        "dashboard/theme/adiwira/part/views/widgets.php": "85179cafa6855809eb53e46d217929f8d4ee22a82146cd7023c6092cca386a26",
+        "dashboard/theme/adiwira/part/views/widgets.php": "7a6cfcffaed2a6f04cd1932ef8ffc864c0f5682be2946c4d359d03fea419408c",
         "dashboard/theme/index.php": "63b729bd27edb61a3fb4d332e1c95904bcd1b33a16193266e6c790bd05f89260",
-        "plugins/index.php": "362d3984f9c9ead1e31d70decf5e6bba60c3c343bccb146c444715468a148b22",
+        "plugins/index.php": "3c5e1a687b91700cd9e6dae1727d1edbfab15869c4004c6136bf5a12a82285c0",
         "public/.htaccess": "f5833412373996046986fc788656abf74eb29dd8b8a6527901c2bedd83c53083",
         "public/dev_lock.php": "fe2c33a8648a32136f20befe08c0844ac945b9d8da37c9f0303acd9522ed232b",
         "public/index.php": "f046cc7ac5df9f0ea58e2df5091dbd721db6e76e22deddd9ff72921710edac39",
@@ -619,15 +703,26 @@
         "schema/migrations/035-access-event-user-agent.sql": "55ee4d8693f59e475816fdb451dec169f9fd0bc63bfeb1cdac15bccaa4d9c74f",
         "schema/migrations/036-audit-session-correlation.sql": "892d38be3b8b7765515981e073cdd9adbc0add985448a109fe045c9b27b66ba8",
         "schema/migrations/037-user-sessions.sql": "a4c60e9b3e423082de12e0f222bffbe00950bdb97ed849ba4def1385eece3d90",
-        "schema/translations.sql": "ac5f8dbe833b7ebf4b7c621ac5ecf90cdb51c011f4cd8b1834b500903b03cdc5",
+        "schema/platform/PLATFORM.md": "c2533bc532f65994ac98b269e36fbdb4436963f72ef158d691670674262d3d03",
+        "schema/platform/PORTABLE_ARCHIVE_V1.md": "dfc054f4d78f515e6c01188ad8d0c3f199beded2e9416b43eea52e9b3035a2b4",
+        "schema/platform/distribution-descriptor.schema.json": "584ef6be9d3a038a9adcb98f36cd8530e5c96f54b77e0983dfa0885ab049262d",
+        "schema/platform/fixtures/invalid-unknown-required-manifest.json": "fa151aa3f85d3aba8b5a3d6584a7b2d8574ce23776ad5ff7a30d46d97943b7bc",
+        "schema/platform/fixtures/valid-content-record.json": "e4cb9c72db4ceeca8f89f04fd5293a343ec612f323d81e8031f194d8a572daca",
+        "schema/platform/fixtures/valid-distribution.json": "14fb692d4301917184fc67e12ed676a0aba98f2fb95b3f5da9518eb20be4809a",
+        "schema/platform/fixtures/valid-implementation-package-profile.json": "e25d378b1d0bed18c7f51b65b1e7fe7315c2d262e2961599339735736318acad",
+        "schema/platform/fixtures/valid-manifest.json": "8859947239f67609b36e5d977ffc990e250569ede3e7450b1e634bc8a022876f",
+        "schema/platform/implementation-package-profile.schema.json": "ed49f6ba203cd6419c31d09f7d390a17a14115e2e35ab9bfb3f90877192b6923",
+        "schema/platform/portable-archive-manifest-v1.schema.json": "70574ecfba6e4a3c4e990fb9117e6c43e59ffc836c02d95fd713a195d3d20b23",
+        "schema/platform/portable-core-record-v1.schema.json": "eabac804235fc9cc6467eb923c737cf82fa313c008d90f5168fc5e866aec0218",
+        "schema/translations.sql": "14661672cd80c5c1f104ce3cfde22f70385211e55f400ef2698e0cc4bf2b7d69",
         "tools/build-demo-content.php": "e4fa652393c285c1144ad1a8cd2b8385dfcb2f050b4776055cfaadc2911af5ba",
-        "tools/build-package.php": "d83b26f9e16482fc712c47ab631f692c84e2426be506131f33f12e788434d4ff",
+        "tools/build-package.php": "a010fbd8892dbb8efb48014a9820a300a8b80798efccb00a0eb43e541dc6e80c",
         "tools/check-dashboard-i18n.php": "a1a0095f883fa4caf6fd0def06c2d459c44366ca3ad7003bde9ee0c39f961cae",
         "tools/fix-permissions.php": "90122cbbf5cdee9881baa49eac733661e8e36015882375e02866741e3177e9ef",
-        "tools/generate-manifest.php": "382a571d2b9f32e8916b92b779cce196022ef06befb02201d32710eb3b3d9be1",
+        "tools/generate-manifest.php": "69e702212f01cfca4e233c215345135ca75bd35a3b4144fc9aaee15737f99896",
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/prune-access-log.php": "d4504706837cad2c5001d887c49d3bc07e4b941c416a3beb0ba1caad789d2e1f",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "5d7ddd438eadfaf5a4b46956e890fbd4a80f06b3871d872d13dc1aea121dbed5"
+        "version.json": "218d45965751ba31b7785488e058487502c7a2f33c2a3b27b674ab95f90f6c7c"
     }
 }

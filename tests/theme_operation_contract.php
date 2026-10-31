@@ -211,6 +211,10 @@ try {
         && str_contains($dashboardStyle, 'html.theme-dark .tm-action--source')
         && str_contains($dashboardStyle, '@media (max-width: 420px)'),
         'Theme Manager groups responsive high-contrast Core actions separately from extensions');
+    $check(str_contains($assign, "ThemeStoreClient::refreshCompatibility(UpdateStatusController::getComponentUpdates('themes'))")
+        && str_contains($assign, 'data-update-eligible="<?= $updateEligible ? \'1\' : \'0\' ?>"')
+        && str_contains($assign, "button.getAttribute('data-update-eligible') !== '1'"),
+        'Theme Manager recalculates cached compatibility and never re-enables an incompatible update action');
     $check(str_contains($assign, 'class="tm-assignment-bar"')
         && str_contains($dashboardStyle, '.tm-assignment-bar{')
         && str_contains($dashboardStyle, 'position:sticky;')
@@ -240,6 +244,14 @@ try {
         && substr_count($controller, 'package_guarded_rollback($themeDir, $rollbackPath, $oldIdentity)') >= 2
         && str_contains($controller, "'metadata_restored'"),
         'all post-publication failures use guarded exact file rollback and verify metadata restoration');
+    $authoritativeFetchPosition = strpos($controller, '$authoritative = self::fetchVersionInfo(');
+    $technologyParityPosition = strpos($controller, 'extension_technology_parity_errors($authoritative, $stagedManifest', $authoritativeFetchPosition);
+    $requirementParityPosition = strpos($controller, 'theme_requirement_parity_errors($authoritative, $stagedManifest)', $technologyParityPosition);
+    $publicationPosition = strpos($controller, 'package_guarded_publish($stage, $themeDir', $requirementParityPosition);
+    $check($authoritativeFetchPosition !== false && $technologyParityPosition !== false && $requirementParityPosition !== false && $publicationPosition !== false
+        && $authoritativeFetchPosition < $technologyParityPosition && $technologyParityPosition < $requirementParityPosition
+        && $requirementParityPosition < $publicationPosition,
+        'theme apply re-fetches authoritative metadata and verifies staged technology and requirement parity before publication');
     $check(substr_count($controller, 'theme_operation_acquire(theme_lifecycle_lock_keys([') >= 2
         && str_contains($assign, 'theme_operation_acquire(theme_lifecycle_lock_keys($affectedFolders))')
         && str_contains($plugins, 'theme_operation_acquire(theme_lifecycle_lock_keys([$name]))'), 'theme Store, Theme Manager, and generic plugin lifecycle operations share the global-first lock set');
@@ -261,9 +273,28 @@ try {
 
     $writeTransient = new ReflectionMethod(ThemeStoreClient::class, 'writeTransient');
     $removeCachedUpdate = new ReflectionMethod(ThemeStoreClient::class, 'removeCachedUpdate');
-    $writeTransient->invoke(null, ['updates' => ['sample' => [
-        'current_version' => '1.0.0', 'new_version' => '3.0.0', 'actionable' => true, 'checked_at' => time(),
-    ]]]);
+    $incompatibleTechnology = [
+        'schema' => 1,
+        'distribution_id' => 'com.example.other',
+        'implementation_id' => 'org.jyavani.php.themes',
+        'api' => '>=1.0.0',
+    ];
+    $writeTransient->invoke(null, ['updates' => [
+        'sample' => [
+            'current_version' => '1.0.0', 'new_version' => '3.0.0', 'actionable' => true, 'checked_at' => time(),
+        ],
+        'aware' => [
+            'current_version' => '1.0.0', 'new_version' => '2.0.0', 'actionable' => true, 'checked_at' => time(),
+            'technology' => $incompatibleTechnology, 'compatible' => true, 'compatibility_errors' => [],
+        ],
+    ]]);
+    $refreshedUpdates = ThemeStoreClient::getCachedUpdates();
+    $check(($refreshedUpdates['aware']['actionable'] ?? false) === true
+        && ($refreshedUpdates['aware']['compatible'] ?? true) === false
+        && ($refreshedUpdates['aware']['compatibility_errors'] ?? []) !== []
+        && ($refreshedUpdates['sample']['compatible'] ?? false) === true
+        && ($refreshedUpdates['sample']['compatibility_errors'] ?? null) === [],
+        'cached theme updates recalculate compatibility separately from actionability while legacy metadata remains compatible');
     $removeCachedUpdate->invoke(null, 'sample', '2.0.0');
     $check((ThemeStoreClient::getCachedUpdates()['sample']['new_version'] ?? '') === '3.0.0', 'cached theme completion retains a newer discovered update');
     $removeCachedUpdate->invoke(null, 'sample', '3.0.0');

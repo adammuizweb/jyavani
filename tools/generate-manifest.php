@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 $ROOT = dirname(__DIR__);
 require_once $ROOT . '/cfg/helpers/cms_manifest.php';
+require_once $ROOT . '/cfg/helpers/product_descriptor.php';
 
 // Allow re-use from build-package.php (skip re-run if already defined)
 if (!defined('GENERATE_MANIFEST_RUNNING')) {
@@ -65,8 +66,10 @@ ksort($files);
 try {
     $versionJson = file_get_contents($ROOT . '/version.json');
     if ($versionJson === false) throw new RuntimeException('Cannot read version.json.');
-    $version = json_decode($versionJson, true, 512, JSON_THROW_ON_ERROR);
-    if (!is_array($version)) throw new RuntimeException('version.json must contain a JSON object.');
+    $version = json_decode($versionJson, true, 32, JSON_THROW_ON_ERROR);
+    $versionFile = file_get_contents($ROOT . '/VERSION');
+    if ($versionFile === false) throw new RuntimeException('Cannot read VERSION.');
+    $version = jyavani_product_metadata_validate($version, $versionFile);
 } catch (Throwable $error) {
     fwrite(STDERR, "ERROR: Invalid version.json: {$error->getMessage()}\n");
     exit(1);
@@ -79,6 +82,9 @@ $manifest = [
     'edition' => $version['edition'] ?? '',
     'php_required' => $version['php_required'] ?? '8.1',
     'mysql_required' => $version['mysql_required'] ?? '5.7',
+    'product' => $version['product'],
+    'distribution' => $version['distribution'],
+    'contracts' => $version['contracts'],
     'total_files' => count($files),
     'files' => $files,
 ];

@@ -25,6 +25,7 @@ if (defined('THEME_HELPER_INCLUDED')) {
 }
 define('THEME_HELPER_INCLUDED', true);
 require_once __DIR__ . '/package_archive.php';
+require_once __DIR__ . '/extension_compatibility.php';
 
 if (!defined('THEME_DEBUG')) define('THEME_DEBUG', function_exists('app_debug_enabled') ? app_debug_enabled() : false);
 
@@ -229,6 +230,14 @@ function theme_load_entrypoint(string $folder, ?PDO $pdo = null): bool {
     $state = $GLOBALS['__jy_theme_entrypoint_state'][$folder] ?? null;
     if ($state === 'loaded' || $state === 'missing') return true;
     if ($state === 'loading' || $state === 'failed') return false;
+
+    $compatibilityErrors = theme_folder_compatibility_errors($folder);
+    if ($compatibilityErrors !== []) {
+        $GLOBALS['__jy_theme_entrypoint_state'][$folder] = 'failed';
+        $GLOBALS['__jy_theme_entrypoint_errors'][$folder] = implode('; ', $compatibilityErrors);
+        error_log('[theme-loader] Theme "' . $folder . '" is incompatible with this distribution.');
+        return false;
+    }
 
     $entrypoint = theme_entrypoint_path($folder);
     if ($entrypoint === null) {
@@ -865,8 +874,9 @@ function resolve_theme_file_path(array $resolved): ?string {
     $folder = $resolved['theme_folder'] ?? DEFAULT_THEME_FOLDER;
     $file = $resolved['theme_file'] ?? '';
     $file_rel = normalize_relative_path((string)$file);
+    $compatible = theme_folder_compatibility_errors((string)$folder) === [];
     $candidate = path_candidate(VIEWS_BASE, (string)$folder, $file_rel);
-    $candidate_real = realpath($candidate);
+    $candidate_real = $compatible ? realpath($candidate) : false;
     $base_real = realpath(VIEWS_BASE);
 
     if ($candidate_real && $base_real
@@ -875,9 +885,11 @@ function resolve_theme_file_path(array $resolved): ?string {
         return $candidate_real;
     }
 
+    if (!$compatible) error_log('[theme-loader] Theme "' . (string)$folder . '" is incompatible; using the default theme fallback.');
+
     $fallback = path_candidate(VIEWS_BASE, DEFAULT_THEME_FOLDER, $file_rel);
     $fallback_real = realpath($fallback);
-    if ($fallback_real && $base_real
+    if (theme_folder_compatibility_errors(DEFAULT_THEME_FOLDER) === [] && $fallback_real && $base_real
         && str_starts_with($fallback_real, rtrim($base_real, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)
         && is_file($fallback_real)) {
         if (THEME_DEBUG) error_log("[THEME] using fallback for file={$file} (fallback={$fallback_real})");
@@ -1109,6 +1121,7 @@ function assign_theme_to_slot($pdoOrNull, string $slot_key, string $theme_folder
 
     $theme = get_theme_by_folder($pdo, $theme_folder);
     if (!$theme) throw new RuntimeException("Theme folder not found: $theme_folder");
+    theme_assert_folder_compatible($theme_folder);
 
     $theme_id = (int)$theme['id'];
     $file = (string)$definition['template'];
@@ -1194,6 +1207,9 @@ function read_theme_manifest(string $folderPath): array {
             if (!empty($j['store']) && is_array($j['store'])) $manifest['store'] = $j['store'];
             // standalone: skip default theme CSS/JS when this theme is active
             if (!empty($j['standalone'])) $manifest['standalone'] = true;
+            foreach (['php_required', 'jyavani_required', 'requires', 'technology'] as $compatibilityKey) {
+                if (array_key_exists($compatibilityKey, $j)) $manifest[$compatibilityKey] = $j[$compatibilityKey];
+            }
         }
     }
     return $manifest;
@@ -1203,7 +1219,7 @@ function read_theme_manifest(string $folderPath): array {
  * Very small manifest validator — requires at least 'name' (string) and 'version' (semver-ish).
  */
 function validate_theme_manifest(array $m): array {
-    $errors = [];
+    $errors = extension_technology_errors($m, 'theme');
     if (empty($m['name']) || !is_string($m['name'])) {
         $errors[] = 'Missing or invalid "name" in theme.json';
     }
@@ -1216,7 +1232,80 @@ function validate_theme_manifest(array $m): array {
             if (THEME_DEBUG) error_log('[THEME] manifest version does not look semver-like: ' . $m['version']);
         }
     }
-    return $errors;
+    $requires = is_array($m['requires'] ?? null) ? $m['requires'] : [];
+    if (array_key_exists('requires', $m) && !is_array($m['requires'])) $errors[] = 'Invalid theme requirements declaration';
+    foreach ([['php', 'php_required', PHP_VERSION, 'PHP'], ['jyavani', 'jyavani_required', trim((string)@file_get_contents(dirname(__DIR__, 2) . '/VERSION')), 'Jyavani']] as [$key, $legacy, $current, $label]) {
+        $requirement = $requires[$key] ?? ($m[$legacy] ?? '');
+        if ($requirement === '') continue;
+        if (!is_string($requirement) || extension_canonical_version_requirement($requirement) === null) {
+            $errors[] = "Invalid $label requirement";
+        } elseif (!extension_version_requirement_met($current, $requirement)) {
+            $errors[] = "$label requirement is not satisfied";
+        }
+        if (array_key_exists($key, $requires) && array_key_exists($legacy, $m)
+            && (!is_string($requires[$key]) || !is_string($m[$legacy])
+                || extension_canonical_version_requirement($requires[$key]) !== extension_canonical_version_requirement($m[$legacy]))) {
+            $errors[] = "Conflicting $label requirements";
+        }
+    }
+    return array_values(array_unique($errors));
+}
+
+function theme_requirement_parity_errors(array $store, array $package): array
+{
+    $profile = static function (array $metadata): ?array {
+        $requires = $metadata['requires'] ?? [];
+        if (!is_array($requires) || ($requires !== [] && array_is_list($requires))) return null;
+        $result = [];
+        foreach ([['php', 'php_required', '8.1'], ['jyavani', 'jyavani_required', '']] as [$key, $legacy, $default]) {
+            $hasNested = array_key_exists($key, $requires);
+            $hasLegacy = array_key_exists($legacy, $metadata);
+            $value = $hasNested ? $requires[$key] : ($hasLegacy ? $metadata[$legacy] : $default);
+            if (!is_string($value)) return null;
+            $value = trim($value);
+            $result[$key] = $value === '' ? '' : extension_canonical_version_requirement($value);
+            if ($value !== '' && $result[$key] === null) return null;
+            if ($hasNested && $hasLegacy) {
+                if (!is_string($metadata[$legacy])) return null;
+                $legacyValue = trim($metadata[$legacy]);
+                $legacyCanonical = $legacyValue === '' ? '' : extension_canonical_version_requirement($legacyValue);
+                if (($legacyValue !== '' && $legacyCanonical === null) || $legacyCanonical !== $result[$key]) return null;
+            }
+            unset($requires[$key]);
+        }
+        ksort($requires, SORT_STRING);
+        $result['other'] = $requires;
+        return $result;
+    };
+    $storeProfile = $profile($store);
+    $packageProfile = $profile($package);
+    if ($storeProfile === null || $packageProfile === null) return ['Invalid theme requirements metadata'];
+    return $storeProfile === $packageProfile ? [] : ['Theme package requirements do not match the Store metadata'];
+}
+
+function theme_folder_compatibility_errors(string $folder): array
+{
+    if (!defined('VIEWS_BASE') || preg_match('/\A[a-z0-9][a-z0-9._-]*\z/i', $folder) !== 1) return ['Invalid theme folder'];
+    $root = realpath(path_candidate(VIEWS_BASE, $folder, ''));
+    $themesRoot = realpath((string)VIEWS_BASE);
+    if ($root === false || $themesRoot === false || !is_dir($root)
+        || ($root !== $themesRoot && !str_starts_with($root, rtrim($themesRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR))) {
+        return ['Theme folder is unavailable'];
+    }
+    $raw = cms_manifest_read_bounded_regular_file($root . '/theme.json', 512 * 1024);
+    if (!is_string($raw)) return ['Theme manifest is unavailable'];
+    try {
+        $manifest = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+    } catch (JsonException $error) {
+        return ['Theme manifest is invalid'];
+    }
+    return is_array($manifest) && !array_is_list($manifest) ? validate_theme_manifest($manifest) : ['Theme manifest is invalid'];
+}
+
+function theme_assert_folder_compatible(string $folder): void
+{
+    $errors = theme_folder_compatibility_errors($folder);
+    if ($errors !== []) throw new RuntimeException('Theme is incompatible with this Jyavani distribution: ' . implode('; ', $errors));
 }
 
 function sanitize_folder_name(string $name): string {
@@ -1379,6 +1468,7 @@ function set_site_active_theme($pdoOrNull, string $folder): bool {
     if (!$theme) {
         throw new RuntimeException("Unknown theme folder: {$folder}");
     }
+    theme_assert_folder_compatible($folder);
 
     try {
         $pdo->beginTransaction();
@@ -1415,6 +1505,7 @@ function bulk_assign_theme($pdoOrNull, string $theme_folder, ?array $slots = nul
             throw new RuntimeException("Theme folder not found: $theme_folder");
         }
     }
+    theme_assert_folder_compatible($theme_folder);
 
     $definitions = theme_slot_definitions($pdo);
     $default_slots = [];
@@ -1470,7 +1561,8 @@ function get_active_theme_folder($pdoOrNull = null): string {
     $resolved = realpath($maybe);
     $themesPrefix = $themesRoot !== false ? rtrim($themesRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR : '';
     if ($themesPrefix !== '' && $resolved !== false && is_dir($resolved)
-        && str_starts_with($resolved, $themesPrefix)) {
+        && str_starts_with($resolved, $themesPrefix)
+        && theme_folder_compatibility_errors($folder) === []) {
         return $folder;
     }
     return DEFAULT_THEME_FOLDER;
@@ -2031,21 +2123,20 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
     if (is_array($storeMetadata)) {
         $storeVersion = trim((string)($storeMetadata['version'] ?? ''));
         $packageVersion = trim((string)($manifestArray['version'] ?? ''));
-        $storePhp = trim((string)($storeMetadata['php_required'] ?? '8.1'));
-        $packagePhp = trim((string)($manifestArray['php_required'] ?? '8.1'));
         if ($storeVersion === '' || $packageVersion === '' || !hash_equals($storeVersion, $packageVersion)) {
             $zip->close();
             $ret['message'] = function_exists('__') ? __('Theme package version does not match the store catalog.') : 'Theme package version does not match the store catalog.';
             return $ret;
         }
-        if ($storePhp === '' || $packagePhp === '' || !hash_equals($storePhp, $packagePhp)) {
+        $technologyErrors = extension_technology_parity_errors($storeMetadata, $manifestArray, 'theme');
+        if ($technologyErrors !== []) {
             $zip->close();
-            $ret['message'] = function_exists('__') ? __('Theme package requirements do not match the store catalog.') : 'Theme package requirements do not match the store catalog.';
+            $ret['message'] = 'Theme technology metadata does not match the Store: ' . implode('; ', $technologyErrors);
             return $ret;
         }
-        if (version_compare(PHP_VERSION, $packagePhp, '<')) {
+        if (theme_requirement_parity_errors($storeMetadata, $manifestArray) !== []) {
             $zip->close();
-            $ret['message'] = function_exists('__') ? __('This theme requires PHP %s or newer.', $packagePhp) : sprintf('This theme requires PHP %s or newer.', $packagePhp);
+            $ret['message'] = function_exists('__') ? __('Theme package requirements do not match the store catalog.') : 'Theme package requirements do not match the store catalog.';
             return $ret;
         }
     }
@@ -2110,6 +2201,11 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
             $ret['message'] = 'Staged theme tree or manifest does not exactly match the validated package.';
             return $ret;
         }
+        $stagedManifestErrors = validate_theme_manifest($stagedManifest);
+        if ($stagedManifestErrors !== []) {
+            $ret['message'] = 'Staged theme compatibility verification failed: ' . implode('; ', $stagedManifestErrors);
+            return $ret;
+        }
         if (!package_chmod_tree($stage, 0755, 0644)) {
             $ret['message'] = 'Unable to set safe permissions on the staged theme.';
             return $ret;
@@ -2158,6 +2254,9 @@ function install_theme_from_zip($pdoOrNull, string $zipPath, bool $activate = fa
             'is_active' => !empty($manifestArray['is_active']),
             'store' => $manifestArray['store'] ?? [],
         ];
+        foreach (['php_required', 'jyavani_required', 'requires', 'technology'] as $compatibilityKey) {
+            if (array_key_exists($compatibilityKey, $manifestArray)) $manifestForDb[$compatibilityKey] = $manifestArray[$compatibilityKey];
+        }
         try {
             if (register_theme_in_db($pdo, $finalFolder, $manifestForDb, !empty($manifestForDb['is_active'])) !== true) {
                 throw new RuntimeException('Theme registration returned an unsuccessful result.');

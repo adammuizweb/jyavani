@@ -770,6 +770,7 @@ root route.
 - Top-level `icon` is the package/Plugin Manager artwork and is separate from `admin.nav[].icon` and `icon_asset`.
 - `assets.css` / `assets.js`: URLs loaded on admin pages
 - `requires.plugins`: object mapping required plugin slugs to semver constraints, e.g. `{"content-api": "^1.2.0"}`. Required plugins must be installed, active, compatible, and loadable before the dependent can activate.
+- `technology`: optional atomic implementation profile with `schema: 1`, `distribution_id: org.jyavani.php`, `implementation_id: org.jyavani.php.extensions`, and an `api` constraint. Absence means a legacy PHP package; present malformed, partial, incompatible, or Store/package-divergent metadata fails closed.
 
 ### Plugin Uploader
 
@@ -824,6 +825,15 @@ The `install.sh` runner defaults to 120 seconds and 64 KiB captured output. Depl
 - `uninstall.sh` removes service + files
 
 ## Development
+
+### Product, Distribution, and Portability
+
+- The stable product ID is `org.jyavani`; this repository implements distribution `org.jyavani.php` as `org.jyavani.php.mysql`. Do not use labels, slugs, database IDs, or presentation URLs as cross-distribution identity.
+- `version.json` owns release, product, distribution, capability, extension/theme implementation, and platform contract metadata. `VERSION`, generated `cms-manifest.json`, embedded package metadata, and remote update metadata must agree exactly for aware packages.
+- `schema/platform/PLATFORM.md` defines the implementation-neutral domain vocabulary and semantic event envelope. The JSON Schemas in that directory are strict Draft 2020-12 contracts with synthetic conformance fixtures.
+- Portable Archive v1 is currently a create-only Phase 0 specification using archive-local identities. Do not add runtime export/import, persistent portable UUIDs, executable code transfer, credentials, sessions, or cross-distribution Store assumptions without a separately approved implementation phase.
+- Extension `technology` metadata is all-or-none. Metadata-free plugin/theme packages remain legacy PHP packages; aware packages must bind this distribution, their correct implementation API, and matching Store/package declarations at every executable lifecycle boundary.
+- Run `php tests/product_distribution_contract.php`, `php tests/platform_portability_contract.php`, and `php tests/extension_technology_contract.php` after changing platform identity or portability contracts.
 
 ### Site Health and Core Integrity
 

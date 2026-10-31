@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/product_descriptor.php';
 
 function cms_manifest_preserve_patterns(): array
 {
@@ -225,7 +226,11 @@ function cms_manifest_validate(array $manifest, string $label = 'CMS manifest', 
     $manifest['version'] = trim($version);
     $manifest['files'] = $normalized;
     $manifest['total_files'] = count($normalized);
-    return $manifest;
+    try {
+        return jyavani_core_manifest_metadata_validate($manifest);
+    } catch (Throwable $error) {
+        throw new RuntimeException('Invalid ' . $label . ': ' . $error->getMessage(), 0, $error);
+    }
 }
 
 function cms_manifest_decode(string $json, string $label = 'CMS manifest', bool $allowPreserved = false): array

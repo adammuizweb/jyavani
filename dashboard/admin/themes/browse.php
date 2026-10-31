@@ -35,6 +35,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if ($themeData === null) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Theme not found in store.') . ' "' . h($themeName) . '"');
     }
+    $compatibilityErrors = ThemeStoreClient::compatibilityErrors($themeData);
+    if ($compatibilityErrors !== []) {
+        adiwira_redirect_with_flash($selfUrl, 'error', __('Incompatible') . ': ' . implode('; ', $compatibilityErrors));
+    }
     $tmpZip = package_download((string)$themeData['download_url'], 'theme-install-', 'JyavaniCMS-ThemeInstall', null, false);
     if ($tmpZip === null) {
         adiwira_redirect_with_flash($selfUrl, 'error', __('Failed to download theme from jyavani.com.'));
@@ -110,6 +114,7 @@ $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 .theme-card-actions .theme-card-action--detail{margin-left:auto;padding-inline:.45rem;border-color:transparent;background:transparent;color:var(--adam-muted)}
 .theme-card-actions .theme-card-action--detail:hover{background:var(--adam-surface-3);color:var(--adam-text)}
 .theme-card-actions .theme-card-state{opacity:1;border-color:transparent;background:transparent;color:var(--adam-muted)}
+.theme-card-actions .theme-card-compatibility{flex:1 0 100%;font-size:.75rem;line-height:1.4;color:var(--adam-danger)}
 @media(max-width:380px){.theme-card-actions{align-items:stretch}.theme-card-actions .theme-card-action--detail{margin-left:0}.theme-card-actions .btn{flex:1 1 auto}}
 </style>
 

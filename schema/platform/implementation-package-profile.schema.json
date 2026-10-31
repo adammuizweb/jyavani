@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.jyavani.org/platform/implementation-package-profile-v1.schema.json",
+  "title": "Jyavani Implementation Package Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "distribution_id", "implementation_id", "api"],
+  "properties": {
+    "schema": { "const": 1 },
+    "distribution_id": { "$ref": "#/$defs/namespacedId" },
+    "implementation_id": { "$ref": "#/$defs/namespacedId" },
+    "api": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^(?:\\^|~|>=|<=|>|<|==|=)?\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+){0,2}(?:[-+][0-9A-Za-z.-]+)?(?:\\s*(?:,|\\s)\\s*(?:\\^|~|>=|<=|>|<|==|=)?\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+){0,2}(?:[-+][0-9A-Za-z.-]+)?)*(?:\\s*\\|\\|\\s*(?:\\^|~|>=|<=|>|<|==|=)?\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+){0,2}(?:[-+][0-9A-Za-z.-]+)?(?:\\s*(?:,|\\s)\\s*(?:\\^|~|>=|<=|>|<|==|=)?\\s*[0-9]+\\.[0-9]+(?:\\.[0-9]+){0,2}(?:[-+][0-9A-Za-z.-]+)?)*)*$"
+    }
+  },
+  "$defs": {
+    "namespacedId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z][a-z0-9_-]*)+$",
+      "maxLength": 160
+    }
+  }
+}

@@ -17,6 +17,7 @@ PHP;
 file_put_contents($themeRoot . DIRECTORY_SEPARATOR . 'header.php', $template);
 file_put_contents($themeRoot . DIRECTORY_SEPARATOR . 'main' . DIRECTORY_SEPARATOR . 'homepage.php', $template);
 file_put_contents($themeRoot . DIRECTORY_SEPARATOR . 'fallback.php', $template);
+file_put_contents($themeRoot . DIRECTORY_SEPARATOR . 'theme.json', json_encode(['name' => 'Slot Context Contract', 'version' => '1.0.0'], JSON_THROW_ON_ERROR));
 
 define('PUBLIC_PATH', $root . '/public');
 define('VIEWS_BASE', $fixture);

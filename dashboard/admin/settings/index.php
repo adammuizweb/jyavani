@@ -59,6 +59,13 @@ if ($canManageSettings && $isSiteOwner) {
         'desc'  => __('Verify Core release integrity and review security signals by ownership boundary.'),
         'badge' => __('Site Owner'),
     ];
+    $items[] = [
+        'label' => __('System Information'),
+        'href'  => $base . '/?page=admin/settings/system',
+        'icon'  => 'monitor',
+        'desc'  => __('Review the Jyavani distribution, implementation contracts, and observed runtime.'),
+        'badge' => __('Site Owner'),
+    ];
 }
 
 if ($isSiteOwner && user_can($pdo, $uid, 'core.audit.read')) {

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "distribution_id": "org.example.publisher",
+  "implementation_id": "org.example.publisher.runtime",
+  "name": "Example Portable Publisher",
+  "version": "1.4.0",
+  "platform_contract": "1.0.0",
+  "runtime": {
+    "language": "ExampleLang",
+    "runtime": "Example Runtime 3",
+    "data_stores": ["Example SQL"]
+  },
+  "capabilities": [
+    { "id": "content.lifecycle", "contract_version": "1.0.0", "status": "native" },
+    { "id": "asset.blob-sha256", "contract_version": "1.0.0", "status": "native" },
+    { "id": "time.explicit-civil-utc", "contract_version": "1.0.0", "status": "native" }
+  ],
+  "extension_system": {
+    "implementation_id": "org.example.publisher.extensions",
+    "api_versions": ["2.0.0"]
+  },
+  "theme_system": {
+    "implementation_id": "org.example.publisher.themes",
+    "api_versions": ["3.1.0"]
+  }
+}
