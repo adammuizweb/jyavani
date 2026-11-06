@@ -86,6 +86,16 @@ function split_sql_statements(string $sql): array {
     return $statements;
 }
 
+function installer_execute_sql_statement(PDO $pdo, string $sql): void {
+    $statement = $pdo->query($sql);
+    if (!$statement instanceof PDOStatement) return;
+    do {
+        while ($statement->fetch(PDO::FETCH_NUM) !== false) {
+        }
+    } while ($statement->nextRowset());
+    $statement->closeCursor();
+}
+
 function h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 }
@@ -202,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sql = str_replace("\\\\'", "''", $sql);
                 $stmts = split_sql_statements($sql);
                 foreach ($stmts as $stmt) {
-                    $pdo->exec($stmt);
+                    installer_execute_sql_statement($pdo, $stmt);
                 }
 
                 // Authorization seeds are maintained by the idempotent migration so fresh
@@ -215,8 +225,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($authorizationSql === false) {
                     throw new RuntimeException('Migrasi otorisasi tidak dapat dibaca.');
                 }
+                // The current fresh-install schema already carries the structural
+                // authorization columns and index. Keep the migration's seeds and
+                // compatibility ALTERs for older baselines, but do not replay an
+                // ALTER that the fresh schema has already materialized.
+                $authorizationColumnsQuery = $pdo->query(
+                    "SELECT COLUMN_NAME
+                     FROM information_schema.COLUMNS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'users'
+                       AND COLUMN_NAME IN ('is_site_owner', 'site_owner_previous_role')"
+                );
+                $authorizationColumns = $authorizationColumnsQuery->fetchAll(PDO::FETCH_COLUMN);
+                $authorizationColumnsQuery->closeCursor();
+                $authorizationColumns = array_fill_keys(array_map('strval', $authorizationColumns), true);
+                $authorizationIndexQuery = $pdo->query(
+                    "SELECT COUNT(*)
+                     FROM information_schema.STATISTICS
+                     WHERE TABLE_SCHEMA = DATABASE()
+                       AND TABLE_NAME = 'users'
+                       AND INDEX_NAME = 'idx_users_site_owner_active'"
+                );
+                $authorizationIndex = (int)$authorizationIndexQuery->fetchColumn() > 0;
+                $authorizationIndexQuery->closeCursor();
+
                 foreach (split_sql_statements($authorizationSql) as $authorizationStatement) {
-                    $pdo->exec($authorizationStatement);
+                    $normalizedAuthorizationStatement = trim($authorizationStatement);
+                    if (isset($authorizationColumns['is_site_owner'])
+                        && str_starts_with($normalizedAuthorizationStatement, 'ALTER TABLE `users`')
+                        && str_contains($normalizedAuthorizationStatement, 'ADD COLUMN `is_site_owner`')) {
+                        continue;
+                    }
+                    if (isset($authorizationColumns['site_owner_previous_role'])
+                        && str_starts_with($normalizedAuthorizationStatement, 'ALTER TABLE `users`')
+                        && str_contains($normalizedAuthorizationStatement, 'ADD COLUMN `site_owner_previous_role`')) {
+                        continue;
+                    }
+                    if ($authorizationIndex
+                        && str_starts_with($normalizedAuthorizationStatement, 'ALTER TABLE `users`')
+                        && str_contains($normalizedAuthorizationStatement, 'ADD INDEX `idx_users_site_owner_active`')) {
+                        continue;
+                    }
+                    installer_execute_sql_statement($pdo, $authorizationStatement);
                 }
                 $contentPolicyMigration = $schemaDir . '/migrations/019-content-readonly-attribution.sql';
                 if (!is_file($contentPolicyMigration)) {
@@ -227,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Migrasi kebijakan konten tidak dapat dibaca.');
                 }
                 foreach (split_sql_statements($contentPolicySql) as $contentPolicyStatement) {
-                    $pdo->exec($contentPolicyStatement);
+                    installer_execute_sql_statement($pdo, $contentPolicyStatement);
                 }
 
                 // Import translation seed data (id + de)
@@ -238,7 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $tsql = str_replace("\\\\'", "''", $tsql);
                         $tstmts = split_sql_statements($tsql);
                         foreach ($tstmts as $tstmt) {
-                            $pdo->exec($tstmt);
+                            installer_execute_sql_statement($pdo, $tstmt);
                         }
                     }
                 }
@@ -429,7 +479,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->exec('SET @jyavani_demo_owner_id = ' . (int)$siteOwnerId);
                     try {
                         foreach ($dstmts as $dstmt) {
-                            $pdo->exec($dstmt);
+                            installer_execute_sql_statement($pdo, $dstmt);
                         }
                     } finally {
                         try {

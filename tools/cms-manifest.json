@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.196",
-    "build": "2026-10-31",
-    "generated": "2026-10-31T11:38:15+00:00",
+    "version": "2.3.197",
+    "build": "2026-11-06",
+    "generated": "2026-11-06T03:52:08+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
@@ -17,7 +17,7 @@
         "distribution_id": "org.jyavani.php",
         "implementation_id": "org.jyavani.php.mysql",
         "name": "Jyavani PHP",
-        "version": "2.3.196",
+        "version": "2.3.197",
         "platform_contract": "1.0.0",
         "runtime": {
             "language": "PHP",
@@ -90,7 +90,7 @@
     "total_files": 635,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "6ee828a0238bfc50101090291dcc6faba6425aa0d2e5bd198839f80d01136e33",
+        "VERSION": "b2bc9f6123e6e4baca7c56bf7e3b2e2a5c8a116a797b15b1bc99bb7c12157c66",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "de929fe2b4b9e0f4e169503e769e27fae2a95d06a4be734e2abc24b14d3b0924",
@@ -163,7 +163,7 @@
         "cfg/helpers/theme_sections.php": "59ba12682d80033355734a02849874cc814e1274cf6736894ae01e3c0202aacc",
         "cfg/helpers/theme_source.php": "d23784f69635481a9c5ac349201a64fe86afa3a235c540c6d9f8acec972ee558",
         "cfg/helpers/theme_zones.php": "64769457bf929c8d4d5d16817902215a7b4a77e5835fb6bf5949f34df0c96b9c",
-        "cfg/helpers/time_helpers.php": "d8fad3587919e3764d4bfb0489a9bc37d0f4d38abbaefcce43342590500edd07",
+        "cfg/helpers/time_helpers.php": "dcabd1542480fab9541270bd2764c154f9c520eabd3ad0e8fba5e236c45d36e0",
         "cfg/helpers/update_metadata_http.php": "b2bc60dd2483f3efd93f452c547b4e5245aa87106fd8177c1c9bcd2b3fda2b60",
         "cfg/helpers/update_operation.php": "94a51f689b284ed38588cdcbe7f2b63c60016a2fc26fd5c2c5a34e5718ec50c7",
         "cfg/helpers/url_helpers.php": "6848bb38ac1a984f5ee269366b67ea35d733b4d7a6a2e523c675a485482276ce",
@@ -353,7 +353,7 @@
         "public/dev_lock.php": "fe2c33a8648a32136f20befe08c0844ac945b9d8da37c9f0303acd9522ed232b",
         "public/index.php": "f046cc7ac5df9f0ea58e2df5091dbd721db6e76e22deddd9ff72921710edac39",
         "public/php.ini": "c11712f31c104ad78e2047a8696efa629b3dd6546f7f75a265c079607139b638",
-        "public/pondasi/index.php": "17381a4fe543938902fd64478e38ee26002bd1e63a5d7a7eb8ab345e4f9e2bb3",
+        "public/pondasi/index.php": "9340936c6392d0397385d05bc2b859876183ca157c259851990b614665ae5fa6",
         "public/router.php": "69f0caf3ed46c99e3e8dae1cca4970909a7780c3073c5503fbc9a7ea09a4c6d6",
         "public/static/assets/css/anime.css": "b8a58a600af57be4ffbead6fd551dcd3098d942aa435cc4a390ffbc6f7c4a6b2",
         "public/static/assets/css/codemirror-blocks.css": "6cd45855775862fea3a1149f4dd1ce6b5c756700aad6bb8cf5002b21e23b995a",
@@ -723,6 +723,6 @@
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/prune-access-log.php": "d4504706837cad2c5001d887c49d3bc07e4b941c416a3beb0ba1caad789d2e1f",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "d6dfdc227a67881c91fabef22f575fd645f7f7ef80ad54931bd4339a13a6483f"
+        "version.json": "ea29439797c8a3608fc4f927c6841565dd2eddc69299daa9715d26652c0352ca"
     }
 }

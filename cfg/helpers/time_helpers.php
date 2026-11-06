@@ -163,7 +163,12 @@ if (!function_exists('app_db_set_session_timezone')) {
             $applied = (new DateTimeImmutable('now', new DateTimeZone($timezoneId)))->format('P');
             $apply($applied);
         }
-        $actual = (string)$pdo->query('SELECT @@SESSION.time_zone')->fetchColumn();
+        $timezoneQuery = $pdo->query('SELECT @@SESSION.time_zone');
+        try {
+            $actual = (string)$timezoneQuery->fetchColumn();
+        } finally {
+            $timezoneQuery->closeCursor();
+        }
         if ($actual !== $applied) throw new RuntimeException('Database session timezone verification failed.');
         return $applied;
     }

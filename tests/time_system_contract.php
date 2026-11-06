@@ -97,6 +97,7 @@ $db = (string)file_get_contents($root . '/cfg/db.php');
 $schema = (string)file_get_contents($root . '/schema/default.sql');
 $migration = (string)file_get_contents($root . '/schema/migrations/026-site-timezone.sql');
 $formatMigration = (string)file_get_contents($root . '/schema/migrations/027-date-time-formats.sql');
+$timeHelpers = (string)file_get_contents($root . '/cfg/helpers/time_helpers.php');
 $settings = (string)file_get_contents($root . '/dashboard/admin/settings/site.php');
 $installer = (string)file_get_contents($root . '/public/pondasi/index.php');
 $editors = '';
@@ -109,6 +110,9 @@ foreach (['dashboard/admin/posts/add.php', 'dashboard/admin/posts/save.php', 'da
 $check(strpos($config, "helpers/time_helpers.php") < strpos($config, "require_once __DIR__ . '/db.php'")
     && str_contains($db, 'app_time_bootstrap($pdo)'),
     'time helpers load before PDO and bootstrap configures every primary database session');
+$check(str_contains($timeHelpers, "SELECT @@SESSION.time_zone")
+    && str_contains($timeHelpers, '->closeCursor()'),
+    'database timezone verification releases its PDO cursor before the next query');
 $check(str_contains($schema, "('site_timezone',    'Asia/Jakarta', 1)")
     && str_contains($migration, "VALUES ('site_timezone', 'Asia/Jakarta', 1)")
     && !preg_match('/ALTER\s+TABLE\s+`?(?:posts|categories|users)`?/i', $migration),

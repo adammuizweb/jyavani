@@ -90,6 +90,15 @@ $check(str_contains($installer, "ini_set('display_errors', '0')")
     && str_contains($installer, 'function installer_mysql_identifier')
     && str_contains($installer, 'installer_mysql_identifier($dbName)'),
     'installer hides runtime diagnostics and validates database connection identifiers before SQL');
+$check(str_contains($installer, 'information_schema.COLUMNS')
+    && str_contains($installer, 'information_schema.STATISTICS')
+    && str_contains($installer, 'ADD COLUMN `is_site_owner`')
+    && str_contains($installer, 'ADD INDEX `idx_users_site_owner_active`'),
+    'fresh installer preserves authorization seeds without replaying structural ALTERs already present in the default schema');
+$check(str_contains($installer, 'function installer_execute_sql_statement')
+    && str_contains($installer, 'nextRowset()')
+    && !str_contains($installer, '$pdo->exec($contentPolicyStatement)'),
+    'fresh installer drains SQL result sets before executing prepared-statement migrations');
 
 $preservePatterns = _get_preserve_patterns();
 $check(!_cms_is_preserved('public/static/img/jyavani.svg', $preservePatterns), 'Core branding remains updateable');
