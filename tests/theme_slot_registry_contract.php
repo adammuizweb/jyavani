@@ -53,7 +53,8 @@ $check(theme_bulk_assignment_can_update(null, $definitions['catalog.single'])
     && theme_bulk_assignment_can_update(['slot_owner' => 'catalog-plugin'], $definitions['catalog.single']), 'bulk assignment can initialize or update an owner-matched extension slot');
 $check(!theme_bulk_assignment_can_update(['slot_owner' => null], $definitions['catalog.single'])
     && !theme_bulk_assignment_can_update(['slot_owner' => 'replacement-plugin'], $definitions['catalog.single'])
-    && theme_bulk_assignment_can_update(['slot_owner' => null], $definitions['header']), 'bulk assignment preserves incompatible extension assignments while retaining legacy Core compatibility');
+    && !theme_bulk_assignment_can_update(['slot_owner' => null, 'custom_post_id' => 17], $definitions['header'])
+    && theme_bulk_assignment_can_update(['slot_owner' => null], $definitions['header']), 'bulk assignment preserves explicit custom templates and incompatible extension assignments while retaining legacy Core compatibility');
 
 $themeHelper = (string)file_get_contents($root . '/cfg/helpers/theme_helper.php');
 $dashboard = (string)file_get_contents($root . '/dashboard/admin/themes/assign.php');

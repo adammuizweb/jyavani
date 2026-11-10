@@ -162,6 +162,7 @@ function theme_assignment_matches_definition(array $assignment, ?array $definiti
 }
 
 function theme_bulk_assignment_can_update(?array $assignment, array $definition): bool {
+    if ($assignment !== null && (int)($assignment['custom_post_id'] ?? 0) > 0) return false;
     return $assignment === null || theme_assignment_matches_definition($assignment, $definition);
 }
 
