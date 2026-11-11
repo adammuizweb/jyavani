@@ -1,14 +1,14 @@
 {
     "name": "Jyavani",
-    "version": "2.3.198",
-    "build": "2026-11-10",
-    "changelog": "Preserve explicit database-backed custom Theme Template assignments during bulk theme assignment.",
+    "version": "2.3.199",
+    "build": "2026-11-11",
+    "changelog": "Add a validated theme-owned homepage manifest contract.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.198",
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.199",
     "product": {
         "schema_version": 1,
         "id": "org.jyavani",
@@ -20,7 +20,7 @@
         "distribution_id": "org.jyavani.php",
         "implementation_id": "org.jyavani.php.mysql",
         "name": "Jyavani PHP",
-        "version": "2.3.198",
+        "version": "2.3.199",
         "platform_contract": "1.0.0",
         "runtime": {
             "language": "PHP",

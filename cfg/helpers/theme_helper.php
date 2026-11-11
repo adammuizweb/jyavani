@@ -870,6 +870,79 @@ function resolve_template($pdoOrNull, string $slot_key): array {
     return ['type' => 'theme_file', 'theme_folder' => (string)$theme_folder, 'theme_file' => (string)$theme_file];
 }
 
+/**
+ * Read a theme-owned file homepage composition without changing assignment state.
+ */
+function theme_homepage_manifest(?string $folder = null): ?array {
+    $folder = trim((string)($folder ?? DEFAULT_THEME_FOLDER));
+    if ($folder === '' || strlen($folder) > 100
+        || preg_match('/\A[a-z0-9][a-z0-9._-]*\z/i', $folder) !== 1) return null;
+
+    $themesRoot = realpath((string)VIEWS_BASE);
+    $root = $themesRoot !== false ? realpath($themesRoot . DIRECTORY_SEPARATOR . $folder) : false;
+    if ($themesRoot === false || $root === false || !is_dir($root) || is_link($root)
+        || !str_starts_with($root, rtrim($themesRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR)) return null;
+
+    $raw = cms_manifest_read_bounded_regular_file($root . '/theme.json', 512 * 1024);
+    if (!is_string($raw)) return null;
+    try {
+        $decoded = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+    } catch (JsonException $error) {
+        return null;
+    }
+    $homepage = is_array($decoded) && !array_is_list($decoded) ? ($decoded['homepage'] ?? null) : null;
+    if (!is_array($homepage) || array_is_list($homepage) || ($homepage['mode'] ?? null) !== 'file') return null;
+
+    $template = $homepage['template'] ?? 'main/homepage.php';
+    $sourceSlug = $homepage['source_slug'] ?? null;
+    $sections = $homepage['sections'] ?? null;
+    $liveSections = $homepage['live_sections'] ?? [];
+    if ($template !== 'main/homepage.php'
+        || !is_string($sourceSlug) || strlen($sourceSlug) > 200
+        || preg_match('/\A[a-z0-9][a-z0-9_-]*\z/', $sourceSlug) !== 1
+        || !is_array($sections) || !array_is_list($sections) || $sections === [] || count($sections) > 128
+        || !is_array($liveSections) || !array_is_list($liveSections) || count($liveSections) > count($sections)) return null;
+
+    $validSection = static function (mixed $section): ?string {
+        if (!is_string($section)) return null;
+        $section = strtolower(trim($section));
+        $valid = function_exists('theme_section_name_is_valid')
+            ? theme_section_name_is_valid($section)
+            : strlen($section) <= 120
+                && preg_match('/\A[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\z/', $section) === 1;
+        return $valid ? $section : null;
+    };
+
+    $normalizedSections = [];
+    $seen = [];
+    foreach ($sections as $section) {
+        $section = $validSection($section);
+        if ($section === null || isset($seen[$section])) return null;
+        $seen[$section] = true;
+        $normalizedSections[] = $section;
+    }
+
+    $normalizedLiveSections = [];
+    $liveSeen = [];
+    foreach ($liveSections as $section) {
+        $section = $validSection($section);
+        if ($section === null || !isset($seen[$section]) || isset($liveSeen[$section])) return null;
+        $liveSeen[$section] = true;
+        $normalizedLiveSections[] = $section;
+    }
+
+    $templatePath = cms_manifest_target_path($template, $root, $root);
+    if ($templatePath === null || cms_manifest_read_bounded_regular_file($templatePath, 8 * 1024 * 1024) === null) return null;
+
+    return [
+        'folder' => $folder,
+        'template' => $template,
+        'source_slug' => $sourceSlug,
+        'sections' => $normalizedSections,
+        'live_sections' => $normalizedLiveSections,
+    ];
+}
+
 function resolve_theme_file_path(array $resolved): ?string {
     $folder = $resolved['theme_folder'] ?? DEFAULT_THEME_FOLDER;
     $file = $resolved['theme_file'] ?? '';
