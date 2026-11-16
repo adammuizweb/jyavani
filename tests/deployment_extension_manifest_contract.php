@@ -49,6 +49,12 @@ try {
         && ($loaded['components']['plugin/example-extension']['version'] ?? null) === '1.2.3',
         'a canonical domain-separated Ed25519 envelope resolves its exact component map');
 
+    $largeBytes = str_repeat('x', 128 * 1024);
+    $check(site_health_deployment_manifest_base64(base64_encode($largeBytes)) === $largeBytes
+        && site_health_deployment_manifest_base64("eA==\n") === null
+        && site_health_deployment_manifest_base64('eA=') === null,
+        'strict canonical base64 decoding scales beyond the default PCRE backtrack limit');
+
     $_ENV['SITE_HEALTH_DEPLOYMENT_SOURCE_REVISION'] = str_repeat('c', 40);
     $check(site_health_deployment_manifest_load($path, base64_encode($publicKey))['reason'] === 'signed_deployment_manifest_invalid',
         'a valid signed envelope is rejected when its source revision differs from runtime configuration');

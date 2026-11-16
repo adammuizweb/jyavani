@@ -21,7 +21,7 @@ function site_health_deployment_manifest_absolute_path(string $path): bool
 
 function site_health_deployment_manifest_base64(string $value, ?int $bytes = null): ?string
 {
-    if ($value === '' || preg_match('/\A(?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?\z/D', $value) !== 1) return null;
+    if ($value === '') return null;
     $decoded = base64_decode($value, true);
     return is_string($decoded) && ($bytes === null || strlen($decoded) === $bytes)
         && base64_encode($decoded) === $value ? $decoded : null;
