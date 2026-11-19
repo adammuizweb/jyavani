@@ -35,7 +35,9 @@
     const editQuill = window.ADIWIRA && window.ADIWIRA.quill;
     if (editQuill && typeof editQuill.getInstance === 'function') {
       const instance = editQuill.getInstance();
-      if (instance && instance.root) return instance.root.innerHTML;
+      if (instance && instance.root) {
+        return typeof editQuill.getHTML === 'function' ? editQuill.getHTML(instance) : instance.root.innerHTML;
+      }
     }
     if (editQuill && editQuill.root) return editQuill.root.innerHTML;
     if (window.__adam_quill_instance && window.__adam_quill_instance.root) {

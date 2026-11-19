@@ -1,14 +1,14 @@
 {
     "name": "Jyavani",
-    "version": "2.3.200",
-    "build": "2026-11-16",
-    "changelog": "Allow large signed deployment manifests without PCRE backtracking limits.",
+    "version": "2.3.201",
+    "build": "2026-11-19",
+    "changelog": "Preserve safe classes and figure galleries in the Rich Editor.",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
     "author": "Adam Muiz",
     "homepage": "https://jyavani.com",
-    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.200",
+    "changelog_url": "https://github.com/adammuizweb/jyavani/releases/tag/v2.3.201",
     "product": {
         "schema_version": 1,
         "id": "org.jyavani",
@@ -20,7 +20,7 @@
         "distribution_id": "org.jyavani.php",
         "implementation_id": "org.jyavani.php.mysql",
         "name": "Jyavani PHP",
-        "version": "2.3.200",
+        "version": "2.3.201",
         "platform_contract": "1.0.0",
         "runtime": {
             "language": "PHP",

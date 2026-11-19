@@ -24,7 +24,9 @@
         const canonical = document.getElementById('content-textarea');
         const cmApi = window.ADIWIRA.codemirror;
         const cm = cmApi && cmApi.getInstance && cmApi.getInstance();
-        const quillHtml = (quill && quill.root && quill.root.innerHTML) ? (quill.root.innerHTML).trim() : '';
+        const quillHtml = quillApi && typeof quillApi.getHTML === 'function'
+          ? quillApi.getHTML(quill).trim()
+          : ((quill && quill.root && quill.root.innerHTML) ? (quill.root.innerHTML).trim() : '');
         const useQuill = !isComplexHtml((canonical && canonical.value || '').trim()) && quillHtml;
         const qhtml = useQuill ? quillHtml : (canonical && canonical.value || (cm ? cm.getValue() : '') || '');
 

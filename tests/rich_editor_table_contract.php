@@ -169,8 +169,11 @@ $check(str_contains($edit, "a: new Set(['href', 'target', 'rel'])")
     && str_contains($edit, 'function normalizeEditorLinks(root)')
     && substr_count($edit, 'normalizeEditorLinks(quill.root)') >= 4,
     'canonical safe link rel attributes remain eligible and are restored by Rich Editor');
-$check(str_contains($edit, 'return !isQuillClassAllowed(element, className);'),
-    'Rich Editor still rejects arbitrary classes that Quill cannot preserve safely');
+$check(str_contains($edit, "new Parchment.Attributor.Attribute('html-block-class'")
+    && str_contains($edit, "new Parchment.Attributor.Attribute('html-inline-class'")
+    && str_contains($edit, "op.attributes['html-image-class'] = classes")
+    && !str_contains($edit, 'isQuillClassAllowed'),
+    'Rich Editor preserves arbitrary classes on supported blocks, inline content, and images');
 $check(str_contains($dashboardCss, '.jy-table-dialog{')
     && str_contains($dashboardCss, '.jy-table-tools{')
     && str_contains($dashboardCss, '.jy-table-list-ordered::before')

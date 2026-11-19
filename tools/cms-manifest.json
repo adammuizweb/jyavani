@@ -1,8 +1,8 @@
 {
     "name": "Jyavani",
-    "version": "2.3.200",
-    "build": "2026-11-16",
-    "generated": "2026-11-16T08:10:53+00:00",
+    "version": "2.3.201",
+    "build": "2026-11-19",
+    "generated": "2026-11-19T10:02:19+00:00",
     "edition": "Phoenix",
     "php_required": "8.1",
     "mysql_required": "5.7",
@@ -17,7 +17,7 @@
         "distribution_id": "org.jyavani.php",
         "implementation_id": "org.jyavani.php.mysql",
         "name": "Jyavani PHP",
-        "version": "2.3.200",
+        "version": "2.3.201",
         "platform_contract": "1.0.0",
         "runtime": {
             "language": "PHP",
@@ -90,7 +90,7 @@
     "total_files": 635,
     "files": {
         "LICENSE": "4ba0e25eb85d7e6256fbcc3a86fa4909f8c20864884180bc7c8fbff658006ee2",
-        "VERSION": "33729c5dfb72ba55cef930646a263f91984ca8e4c9f88b4e206a42b8008de136",
+        "VERSION": "6376be016cc2caa5286391174bbfd3ae2e53a898639438c4f2502f1914fb4e7e",
         "app/bootstrap_core.php": "7783f6d83706fc30d8fc5c2dc7fa105a012580cdda0f93d49bab7e0683fe257c",
         "app/bootstrap_theme.php": "b4794818ef020f45e6044490dda5683aab3a087c198627eae7ce517c942b1760",
         "app/controllers/ArchiveController.php": "de929fe2b4b9e0f4e169503e769e27fae2a95d06a4be734e2abc24b14d3b0924",
@@ -392,7 +392,7 @@
         "public/static/dashboard/js/panel.js": "b30660124df02d74e4d98cf81ad625f613785f064446057340d57f29e8dc40e2",
         "public/static/dashboard/js/site-health-auto.js": "a4f5e783776f48c4d1649c696d374aceb96c6fbf32b72149ad7cecb30bb1b677",
         "public/static/dashboard/js/theme-toggle.js": "6809d18ace31f134d65d098496dfd9c4341eeffd2c8cf6de3f17beacbc1e8f59",
-        "public/static/dashboard/js/unsaved-guard.js": "daa11e61e1c2239a719503ed916840785d22eb78ff4f40dda31a808e4f39e447",
+        "public/static/dashboard/js/unsaved-guard.js": "929b724f35b1060ee311703a6c6a2997bc23451044ce8f1ac5851486a2fd4be1",
         "public/static/dashboard/js/update-notif.js": "814612db8071b0439512b4e21109019ee2e4f2bd646c7a28dadd09a3f211b31e",
         "public/static/dashboard/js/update.js": "45c7adc70b8da59ae512a857b9ed548930b299a3029f5f985b1c0acd4eb4ed63",
         "public/static/icons/lucide/LICENSE": "f8d8098717f8527d1911064c99076536e18404624ded74ffaa33a393deec4d69",
@@ -496,15 +496,15 @@
         "public/static/js/add/modal-helpers.js": "b47ce40ccf7d55309a8c41144730b526348499f320eef0a62197ffbc58c6e005",
         "public/static/js/add/thumbnail-handler.js": "4f5bf82f82e040451a6d86c5c1d8a9d3720dbbb1f7223055d761f014d617289e",
         "public/static/js/add/youtube_preview.js": "7f2b3d05aea47050052e52cd70071b7e2189cf8f4593b4770920b7b7246484c9",
-        "public/static/js/edit/ajax_save.js": "5fcfbe47c91a69b7430b93349c10499edc70637a087c37b3576e0c7352a1cc50",
+        "public/static/js/edit/ajax_save.js": "6d8cf67c4b938c518589c77539a9fcb6b6086a183433ef6cd87c7567f595738c",
         "public/static/js/edit/codemirror.js": "3e92fdd2938792831cd45f0041e89fab33b9f24f73f2d63733ff8cb8b302f892",
-        "public/static/js/edit/editor_mode.js": "534221dedd34d4d3530b88498ee1d25ce2619b54458dda7fed507c4b22185f0b",
+        "public/static/js/edit/editor_mode.js": "369b440bb0567ba638febdb7ca9c9fbd240e4601cf53f1c8a8d7ab6e79f8373c",
         "public/static/js/edit/main-init.js": "1cd155fdd75d415cf255c73dd26e10741dcb1797000cf74e6308faffe8b07b23",
-        "public/static/js/edit/quill.js": "b7de725a039fede5d51fa6c2af5ecaf8b06cce67aa85a1b87d1dcc5b7ec7dbff",
+        "public/static/js/edit/quill.js": "a625f57ceadf584db74d51e2321b35fa9a7ce0504c92b47a9e1519a0a6c88f78",
         "public/static/js/edit/thumbnail.js": "b12b0c5fea8e0f0441ee09f5ac9d142900b84f2ac8f6d008d73fc56b8d3185a5",
         "public/static/js/edit/utils.js": "d22c24fdde6ae27bd03d79ff99f2c9553c968c593b41a3ced9b5322bcc7f45cc",
         "public/static/js/edit/youtube_preview.js": "f85b27bf25be279bd55e7539acbf777244e3a35430e7b2276ac9b5080699632a",
-        "public/static/js/editor/core-api.js": "aad5cff68082906590bc1eb309bf1fd482e5fd136679bf32c679551192873f33",
+        "public/static/js/editor/core-api.js": "822478186f863fe5199a679366a4b06493a271456e98e8c91bda9df47a19b77c",
         "public/static/js/preset-pagination.js": "71c2554c9dd779130929825bfe86e7e62e7185ac3ebfc5f1a8a6fc2c07d2a96f",
         "public/static/vendor/codemirror/LICENSE": "68c2171526b93f59ab7ef45e3d44d101748659ed1ca87f6ae28a08ef50b4a084",
         "public/static/vendor/codemirror/addon/edit/closebrackets.min.js": "df4a87dd3b175b509468755b74d06f0e82ff56f213f341f776c26ff0f0d27b37",
@@ -723,6 +723,6 @@
         "tools/promote-site-owner.php": "a5703cd1ec9f92ebbaeeda0c9f83445a01b73d52245d32c9e564a52bb094aa66",
         "tools/prune-access-log.php": "d4504706837cad2c5001d887c49d3bc07e4b941c416a3beb0ba1caad789d2e1f",
         "tools/publish-scheduled.php": "bd0c59590cd79e96c87edeaa9e0def6e9864b5c13fde4049426a7bc357726349",
-        "version.json": "de54ac0aa551c4e1da3c321b72094909742e5a47b74064c79f9e1a8f3c7cf7c7"
+        "version.json": "464a44d479399105a3c643bd63447bc5de7fe8b7228fdc11535d3cd6d76a995a"
     }
 }

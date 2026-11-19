@@ -9,7 +9,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
   const quillTags = new Set([
     'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'sub', 'sup',
     'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'ul', 'ol', 'li', 'a', 'img', 'span', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td'
+    'ul', 'ol', 'li', 'a', 'img', 'span', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
+    'div', 'figure', 'figcaption'
   ]);
   const quillAttributes = {
     a: new Set(['href', 'target', 'rel']),
@@ -87,20 +88,93 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     }).filter(Boolean).join('\n');
   }
 
-  function isQuillClassAllowed(element, className) {
-    if (className.startsWith('ql-')) return true;
-    const tag = element.tagName.toLowerCase();
-    if (className === 'jy-editor-table') return tag === 'table';
-    const insideCell = !!element.closest('th,td');
-    if (!insideCell || !tableCellInlineTags.has(tag)) return false;
-    const parentTag = element.parentElement ? element.parentElement.tagName.toLowerCase() : '';
-    const exactMarker = tag === 'span' && element.classList.length === 1
-      && (parentTag === 'th' || parentTag === 'td') && element.childNodes.length === 1
-      && element.firstChild.nodeType === Node.TEXT_NODE && element.firstChild.nodeValue === '\u200b';
-    if (className === 'jy-table-break-1') return exactMarker;
-    if (/^jy-table-heading-[1-6]$/.test(className)) return tag !== 'br' && element.textContent !== '\u200b';
-    return exactMarker
-      && (className === 'jy-table-list-ordered' || className === 'jy-table-list-bullet');
+  const protectedHtmlTags = new Set([
+    'div', 'figure', 'figcaption', 'a', 'img', 'span', 'strong', 'b', 'em', 'i', 'u', 's',
+    'strike', 'small', 'sub', 'sup', 'code', 'br'
+  ]);
+  const blockClassTags = new Set(['p', 'blockquote', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'th', 'td']);
+  const protectedBreakRootTags = new Set(['p', 'blockquote', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+
+  function hasSafeProtectedUrl(element, attribute) {
+    const value = String(element.getAttribute(attribute) || '').trim();
+    if (!value || !/^[a-z][a-z0-9+.-]*:/i.test(value)) return true;
+    if (attribute === 'src' && /^data:image\//i.test(value)) return true;
+    return /^(?:https?:|mailto:|tel:)/i.test(value);
+  }
+
+  function needsProtectedContainer(element) {
+    const tag = element && element.tagName ? element.tagName.toLowerCase() : '';
+    if (protectedBreakRootTags.has(tag)) return !!element.querySelector('br[class]');
+    if (tag === 'ul' || tag === 'ol') {
+      return !!element.querySelector('ul[class],ol[class],br[class]') || element.hasAttribute('class');
+    }
+    if (tag !== 'table') return false;
+    if (element.querySelector('br[class]')) return true;
+    return [element].concat(Array.from(element.querySelectorAll('thead,tbody,tfoot,tr,th,td'))).some(function (child) {
+      if (!child.hasAttribute('class')) return false;
+      if (child !== element) return true;
+      return String(child.getAttribute('class') || '').split(/\s+/).filter(Boolean).some(function (className) {
+        return className !== 'jy-editor-table';
+      });
+    });
+  }
+
+  function isSafeClassedContainer(element) {
+    if (!needsProtectedContainer(element)) return false;
+    return [element].concat(Array.from(element.querySelectorAll('*'))).every(function (child) {
+      const tag = child.tagName.toLowerCase();
+      if (!quillTags.has(tag) || tag === 'div' || tag === 'figure' || tag === 'figcaption') return false;
+      if (tag === 'a' && child.hasAttribute('href') && !hasSafeProtectedUrl(child, 'href')) return false;
+      if (tag === 'img' && child.hasAttribute('src') && !hasSafeProtectedUrl(child, 'src')) return false;
+      return Array.from(child.attributes).every(function (attribute) {
+        const name = attribute.name.toLowerCase();
+        if (name === 'class') return true;
+        if (name.startsWith('on') || name === 'style' || name === 'srcdoc') return false;
+        const allowed = quillAttributes[tag];
+        return !!allowed && allowed.has(name);
+      });
+    });
+  }
+
+  function isSafeProtectedRoot(element) {
+    if (!element || element.nodeType !== 1) return false;
+    const rootTag = element.tagName.toLowerCase();
+    if (rootTag === 'ul' || rootTag === 'ol' || rootTag === 'table' || protectedBreakRootTags.has(rootTag)) {
+      return isSafeClassedContainer(element);
+    }
+    if (rootTag === 'div') {
+      const children = Array.from(element.children);
+      if (children.length < 1 || children.some(function (child) { return child.tagName.toLowerCase() !== 'figure'; })) return false;
+      if (Array.from(element.childNodes).some(function (node) {
+        return node.nodeType !== 1 && node.nodeType !== 3
+          || (node.nodeType === 3 && String(node.nodeValue || '').trim() !== '');
+      })) return false;
+    } else if (rootTag !== 'figure') {
+      return false;
+    }
+
+    const elements = [element].concat(Array.from(element.querySelectorAll('*')));
+    if (elements.some(function (child) {
+      const tag = child.tagName.toLowerCase();
+      if (!protectedHtmlTags.has(tag) || (tag === 'div' && child !== element)) return true;
+      if (tag === 'figure' && child !== element
+        && (rootTag !== 'div' || child.parentElement !== element)) return true;
+      if (tag === 'figcaption'
+        && (!child.parentElement || child.parentElement.tagName.toLowerCase() !== 'figure')) return true;
+      if (tag === 'a' && !hasSafeProtectedUrl(child, 'href')) return true;
+      if (tag === 'img' && !hasSafeProtectedUrl(child, 'src')) return true;
+      return Array.from(child.attributes).some(function (attribute) {
+        const name = attribute.name.toLowerCase();
+        return name === 'style' || name.startsWith('on') || name === 'srcdoc';
+      });
+    })) return false;
+
+    return Array.from(element.querySelectorAll('figure')).every(function (figure) {
+      return Array.from(figure.children).every(function (child) {
+        const tag = child.tagName.toLowerCase();
+        return tag === 'img' || tag === 'a' || tag === 'figcaption';
+      });
+    });
   }
 
   const canonical = document.getElementById('content-textarea');
@@ -118,6 +192,117 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       .replace(/<p><br><\/p>\s*(?=<(?:h[1-6]|blockquote|ul|ol|li|pre|table|div|section|figure|hr)[\s>])/gi, '')
       .replace(/(?:<p><br><\/p>\s*)+$/g, '')
       .replace(/(<br>\s*){3,}/g, '<br><br>');
+  }
+
+  function registerPreservedHtmlFormats() {
+    if (typeof window.Quill !== 'function' || window.__jyavaniPreservedHtmlRegistered) return;
+    const Parchment = window.Quill.import('parchment');
+    const BlockEmbed = window.Quill.import('blots/block/embed');
+    const BaseImage = window.Quill.import('formats/image');
+    const blockClass = new Parchment.Attributor.Attribute('html-block-class', 'class', {
+      scope: Parchment.Scope.BLOCK_ATTRIBUTE
+    });
+    const inlineClass = new Parchment.Attributor.Attribute('html-inline-class', 'class', {
+      scope: Parchment.Scope.INLINE_ATTRIBUTE
+    });
+
+    class PreservedImage extends BaseImage {
+      static formats(node) {
+        const formats = super.formats(node);
+        if (node.hasAttribute('class')) formats['html-image-class'] = node.getAttribute('class');
+        return formats;
+      }
+
+      format(name, value) {
+        if (name === 'html-image-class') {
+          if (value) this.domNode.setAttribute('class', value);
+          else this.domNode.removeAttribute('class');
+          return;
+        }
+        super.format(name, value);
+      }
+    }
+
+    class ProtectedHtml extends BlockEmbed {
+      static create(value) {
+        const node = super.create();
+        node.setAttribute('data-jyavani-protected-html', '1');
+        node.setAttribute('contenteditable', 'false');
+        node.innerHTML = String(value || '');
+        return node;
+      }
+
+      static value(node) {
+        return node.innerHTML;
+      }
+    }
+
+    PreservedImage.blotName = 'image';
+    PreservedImage.tagName = 'IMG';
+    ProtectedHtml.blotName = 'protected-html';
+    ProtectedHtml.tagName = 'DIV';
+    ProtectedHtml.className = 'jy-protected-html';
+    window.Quill.register(blockClass, true);
+    window.Quill.register(inlineClass, true);
+    window.Quill.register(PreservedImage, true);
+    window.Quill.register(ProtectedHtml, true);
+    window.__jyavaniPreservedHtmlRegistered = true;
+  }
+
+  function configureInstance(instance) {
+    if (!instance || !instance.clipboard || instance.__jyavaniPreservedHtmlConfigured) return;
+    const Delta = window.Quill.import('delta');
+    instance.clipboard.addMatcher(Node.ELEMENT_NODE, function (node, delta) {
+      if (!delta || !delta.ops) return delta;
+      delta.ops.forEach(function (op) {
+        if (!op.attributes || op.attributes['html-inline-class'] !== '') return;
+        delete op.attributes['html-inline-class'];
+        if (Object.keys(op.attributes).length < 1) delete op.attributes;
+      });
+      const classes = node.getAttribute && node.getAttribute('class');
+      if (!classes || !blockClassTags.has(node.tagName.toLowerCase()) || delta.ops.length < 1) return delta;
+      const length = delta.length();
+      return delta.compose(new Delta().retain(Math.max(0, length - 1)).retain(1, { 'html-block-class': classes }));
+    });
+    instance.clipboard.addMatcher('IMG', function (node, delta) {
+      const classes = node.getAttribute('class');
+      if (!classes || !delta || !delta.ops) return delta;
+      delta.ops.forEach(function (op) {
+        op.attributes = op.attributes || {};
+        delete op.attributes['html-inline-class'];
+        op.attributes['html-image-class'] = classes;
+      });
+      return delta;
+    });
+    instance.clipboard.addMatcher('FIGURE', function (node, delta) {
+      return isSafeProtectedRoot(node) ? new Delta().insert({ 'protected-html': node.outerHTML }) : delta;
+    });
+    instance.clipboard.addMatcher('DIV', function (node, delta) {
+      return isSafeProtectedRoot(node) ? new Delta().insert({ 'protected-html': node.outerHTML }) : delta;
+    });
+    ['UL', 'OL', 'TABLE'].forEach(function (tag) {
+      instance.clipboard.addMatcher(tag, function (node, delta) {
+        return isSafeProtectedRoot(node) ? new Delta().insert({ 'protected-html': node.outerHTML }) : delta;
+      });
+    });
+    Array.from(protectedBreakRootTags).forEach(function (tag) {
+      instance.clipboard.addMatcher(tag.toUpperCase(), function (node, delta) {
+        return isSafeProtectedRoot(node) ? new Delta().insert({ 'protected-html': node.outerHTML }) : delta;
+      });
+    });
+    instance.__jyavaniPreservedHtmlConfigured = true;
+  }
+
+  function getHTML(instance) {
+    if (!instance || !instance.root) return '';
+    normalizeEditorLinks(instance.root);
+    const clone = instance.root.cloneNode(true);
+    Array.from(clone.querySelectorAll('[data-jyavani-protected-html]')).forEach(function (wrapper) {
+      const parent = wrapper.parentNode;
+      while (wrapper.firstChild) parent.insertBefore(wrapper.firstChild, wrapper);
+      parent.removeChild(wrapper);
+    });
+    return cleanExtraBreaks(clone.innerHTML || '');
   }
 
   function collapseBlankLinesInDelta(delta) {
@@ -165,9 +350,29 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       if (html === '') return false;
       const template = document.createElement('template');
       template.innerHTML = html;
+      const protectedElements = new Set();
+      Array.from(template.content.querySelectorAll('div')).forEach(function (element) {
+        if (!isSafeProtectedRoot(element)) return;
+        protectedElements.add(element);
+        Array.from(element.querySelectorAll('*')).forEach(function (child) { protectedElements.add(child); });
+      });
+      Array.from(template.content.querySelectorAll('figure')).forEach(function (element) {
+        if (protectedElements.has(element) || !isSafeProtectedRoot(element)) return;
+        protectedElements.add(element);
+        Array.from(element.querySelectorAll('*')).forEach(function (child) { protectedElements.add(child); });
+      });
+      Array.from(template.content.querySelectorAll('p,blockquote,pre,h1,h2,h3,h4,h5,h6,ul,ol,table')).forEach(function (element) {
+        if (protectedElements.has(element) || !isSafeProtectedRoot(element)) return;
+        protectedElements.add(element);
+        Array.from(element.querySelectorAll('*')).forEach(function (child) { protectedElements.add(child); });
+      });
       return Array.from(template.content.querySelectorAll('*')).some(function (element) {
         const tag = element.tagName.toLowerCase();
         if (!quillTags.has(tag)) return true;
+        if (protectedElements.has(element)) return false;
+        if ((tag === 'ul' || tag === 'ol' || tag === 'table' || protectedBreakRootTags.has(tag))
+          && needsProtectedContainer(element)) return true;
+        if (tag === 'div' || tag === 'figure' || tag === 'figcaption') return true;
         if ((tag === 'th' || tag === 'td') && !isTableCellContentSupported(element)) return true;
         if (tag === 'table') {
           const rows = Array.from(element.querySelectorAll('tr'));
@@ -181,11 +386,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         return Array.from(element.attributes).some(function (attribute) {
           const name = attribute.name.toLowerCase();
           if (name.startsWith('on')) return true;
-          if (name === 'class') {
-            return String(attribute.value || '').split(/\s+/).filter(Boolean).some(function (className) {
-              return !isQuillClassAllowed(element, className);
-            });
-          }
+          if (name === 'class') return false;
           if (name === 'style') {
             if (!element.style || element.style.length < 1) return String(attribute.value || '').trim() !== '';
             return Array.from(element.style).some(function (property) { return !quillStyleProperties.has(property); });
@@ -463,7 +664,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       } catch (e) {}
 
       if (canonical) {
-        canonical.value = cleanExtraBreaks(quill.root.innerHTML);
+        canonical.value = getHTML(quill);
       }
 
       uiToast(
@@ -618,6 +819,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     });
 
     if (window.JyavaniQuillTable) window.JyavaniQuillTable.configure(quill);
+    configureInstance(quill);
 
     attachToolbarHandlers(quill);
 
@@ -687,7 +889,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       if (suppress) return;
       try {
         normalizeEditorLinks(quill.root);
-        if (canonical) canonical.value = cleanExtraBreaks(quill.root.innerHTML || '');
+        if (canonical) canonical.value = getHTML(quill);
       } catch (e) {}
     });
 
@@ -703,7 +905,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     html = html || '';
 
     try {
-      const cur = quill.root ? (quill.root.innerHTML || '') : '';
+      const cur = getHTML(quill);
       if (normalizeHtmlForCompare(cur) === normalizeHtmlForCompare(html)) return;
 
       suppress = true;
@@ -773,6 +975,12 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     const template = document.createElement('template');
     template.innerHTML = html;
     const destructiveTags = new Set(['script', 'style', 'iframe', 'embed', 'object', 'form', 'svg', 'canvas', 'link', 'meta']);
+    const protectedElements = new Set();
+    Array.from(template.content.querySelectorAll('div,figure,p,blockquote,pre,h1,h2,h3,h4,h5,h6,ul,ol,table')).forEach(function (element) {
+      if (protectedElements.has(element) || !isSafeProtectedRoot(element)) return;
+      protectedElements.add(element);
+      Array.from(element.querySelectorAll('*')).forEach(function (child) { protectedElements.add(child); });
+    });
 
     Array.from(template.content.querySelectorAll('*')).reverse().forEach(function (element) {
       const tag = element.tagName.toLowerCase();
@@ -780,7 +988,8 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
         element.remove();
         return;
       }
-      if (!quillTags.has(tag)) {
+      if (protectedElements.has(element)) return;
+      if (!quillTags.has(tag) || tag === 'div' || tag === 'figure' || tag === 'figcaption') {
         const parent = element.parentNode;
         if (!parent) return;
         while (element.firstChild) parent.insertBefore(element.firstChild, element);
@@ -792,14 +1001,7 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
       }
       Array.from(element.attributes).forEach(function (attribute) {
         const name = attribute.name.toLowerCase();
-        if (name === 'class') {
-          const classes = String(attribute.value || '').split(/\s+/).filter(function (className) {
-            return className && isQuillClassAllowed(element, className);
-          });
-          if (classes.length) element.setAttribute('class', classes.join(' '));
-          else element.removeAttribute(attribute.name);
-          return;
-        }
+        if (name === 'class') return;
         if (name === 'style') {
           element.removeAttribute(attribute.name);
           return;
@@ -886,11 +1088,15 @@ var ADMIN_PATH = window.ADMIN_PATH || '/adiwira';
     }
   }
 
+  registerPreservedHtmlFormats();
+
   window.ADIWIRA.quill = {
     initQuill,
     isContentComplex,
     isHtmlComplex,
     cleanExtraBreaks,
+    configureInstance,
+    getHTML,
     normalizeEditorLinks,
     stripComplexHtml: stripComplexBlocksAndReturn,
     toolbarConfig: function(){ return JSON.parse(JSON.stringify(FULL_TOOLBAR)); },

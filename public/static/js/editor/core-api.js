@@ -127,9 +127,11 @@
         : (cmSource ? cmSource.value : '');
     } else if (mode === 'quill') {
       var quill = quillInstance();
-      value = quill && quill.root ? String(quill.root.innerHTML || '') : '';
       var quillApi = window.ADIWIRA && window.ADIWIRA.quill;
-      if (quillApi && typeof quillApi.cleanExtraBreaks === 'function') {
+      value = quillApi && typeof quillApi.getHTML === 'function'
+        ? quillApi.getHTML(quill)
+        : (quill && quill.root ? String(quill.root.innerHTML || '') : '');
+      if (quillApi && typeof quillApi.getHTML !== 'function' && typeof quillApi.cleanExtraBreaks === 'function') {
         value = quillApi.cleanExtraBreaks(value);
       }
     } else {
@@ -484,6 +486,7 @@
     if (window.JyavaniQuillTable && typeof window.JyavaniQuillTable.configure === 'function') {
       window.JyavaniQuillTable.configure(quill);
     }
+    if (typeof policy.configureInstance === 'function') policy.configureInstance(quill);
     var codeMirror = window.CodeMirror.fromTextArea(codeElement, {
       mode: 'htmlmixed', lineNumbers: true, styleActiveLine: true, matchBrackets: true,
       autoCloseBrackets: true, autoCloseTags: true, indentUnit: 2, lineWrapping: true,
@@ -559,7 +562,9 @@
       }
       var value = currentMode === 'codemirror'
         ? codeMirror.getValue()
-        : (typeof policy.cleanExtraBreaks === 'function' ? policy.cleanExtraBreaks(quill.root.innerHTML || '') : String(quill.root.innerHTML || ''));
+        : (typeof policy.getHTML === 'function'
+          ? policy.getHTML(quill)
+          : (typeof policy.cleanExtraBreaks === 'function' ? policy.cleanExtraBreaks(quill.root.innerHTML || '') : String(quill.root.innerHTML || '')));
       canonical.value = value;
       return value;
     }

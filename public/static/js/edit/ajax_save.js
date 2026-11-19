@@ -79,6 +79,7 @@ function showNotif(title, msg, ms, forcedType){
       if (qApi && typeof qApi.getInstance === 'function') {
         const q = qApi.getInstance();
         if (q && q.root) {
+          if (typeof qApi.getHTML === 'function') return qApi.getHTML(q);
           const raw = q.root.innerHTML || '';
           if (typeof qApi.cleanExtraBreaks === 'function') return qApi.cleanExtraBreaks(raw);
           return raw;

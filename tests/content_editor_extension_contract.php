@@ -110,6 +110,13 @@ $check(str_contains($quill, "const alt = m.alt && String(m.alt).trim() !== '' ? 
     && str_contains($quill, "'<figure>' + imageHtml + '<figcaption>'")
     && str_contains($quill, 'data-caption'),
     'the shared Quill media handler preserves title fallback and visible captions');
+$check(str_contains($quill, 'function isSafeProtectedRoot(element)')
+    && str_contains($quill, "ProtectedHtml.blotName = 'protected-html'")
+    && str_contains($quill, "instance.clipboard.addMatcher('FIGURE'")
+    && str_contains($quill, 'function getHTML(instance)')
+    && str_contains($api, 'policy.configureInstance(quill)')
+    && substr_count($api, 'policy.getHTML(quill)') >= 1,
+    'safe figure galleries use an atomic Quill representation and canonical wrapper-free export');
 $check(str_contains($quill, "quill.update('api')")
     && str_contains($quill, "['alt', 'title', 'width', 'height', 'data-caption', 'data-media-id', 'data-media-removed']")
     && str_contains($quill, "div.querySelectorAll('img')")
